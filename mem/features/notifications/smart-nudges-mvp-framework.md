@@ -12,6 +12,17 @@
 - **Honest receipts.** `notification_log.delivery_state` (`accepted | delivered | expired_before_delivery | failed`) + `delivered_at`. iOS Notification Service Extension and tap handler POST to `notification-receipt` edge function.
 - **Intelligent badge.** `aps.badge` = pending priorities + due check-in. Computed in `buildNudgeContext` (`badgeCount`).
 - **Receipt feedback.** 3 consecutive `expired_before_delivery` for a family stamps `payload.qualification_warnings = ['repeated_expiry']`.
+
+## v1.1 — Headline + CTA + delivery-context (Jun 2026)
+
+- **Collapsed headline = `Mind Module` (always).** Moment headline moves to `aps.alert.subtitle`, capped 3 words / 28 chars (`clampSubtitle`, `requiresHeadlineStructure`).
+- **Weekend / post-PTO CTA bucket** (`let's prioritise the week ahead`, route `/plan`) is **gated**: only fires when a `brief_snapshots` row for today AND a non-empty `daily_ritual_completions.plan_ledger` for today both exist. Missing either → fall back to the weekday CTA + `/daily-check-in`. Gate reason stamped as `payload.metadata.weekend_cta_gate ∈ {ok|missing_brief|missing_plan}`.
+- **Back-to-back guard.** Largest gap between now and next 3 h of events < 30 min → suppress with `suppression_reason='back_to_back'`. Gap ∈ [30, 60] min → downgrade to reminder variant (`take 60 seconds`, no app open required, `headline_variant='reminder'`, static fallback only).
+- **Offline / airplane skip.** All active device tokens stale > 60 min → skip with `suppression_reason='offline'`, **never queued** (stale nudges past 1 h have no value). Low battery via `notification_preferences.low_power_mode` (TBD column).
+- **Post-landing window.** Uses `dayContext.landingPlusHighStakes`: when a meeting is 15–60 min after the most recent flight landing, anchor a Nudge 1 slot variant tagged `headline_variant='post_landing'`, CTA `take 60 seconds`, route `/executive-home`. Rides the existing slot — never a 4th send.
+- **`ALLOWED_CTA_VERBS_V8` additions:** `let's prioritise the week ahead`, `take 60 seconds`.
+- **New telemetry on `payload.metadata`:** `delivery_skip_reason`, `headline_variant`, `cta_bucket`, `requires_app_open`, `weekend_cta_gate`.
+- **A/B CTA rewrite is bypassed** for weekend, reminder, and post-landing buckets (verb already locked).
 ---
 name: Smart Nudges v8 Framework
 description: JIT-or-State anchoring, slot/anchor/signal comparator, V8 meaning-forward + qualified mind-prep CTA contract, unified pattern store reads. V8 evolves ONLY copy principles — cascade, suppression, frequency, slot priority, comparator, routing, deep-links, scheduling are unchanged.

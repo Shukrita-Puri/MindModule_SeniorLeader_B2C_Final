@@ -97,6 +97,7 @@ async function sendApnsPush(
     ttlSeconds?: number;
     collapseId?: string;
     badge?: number;
+    subtitle?: string;
   } = {},
 ): Promise<{ ok: boolean; status: number; reason: string; expirationTs: number; collapseId: string | null }> {
   // v5.3 — Punctuality + Clean Desk
@@ -108,9 +109,13 @@ async function sendApnsPush(
   const collapseId = options.collapseId ?? null;
   const badge = typeof options.badge === 'number' ? Math.max(0, options.badge) : 1;
 
+  // v1.1 — Collapsed/Expanded headline contract.
+  // title is forced to the brand string ('Mind Module') by the caller.
+  // The original moment headline rides aps.alert.subtitle.
+  const subtitle = (options.subtitle ?? '').trim();
   const apnsPayload = {
     aps: {
-      alert: { title, body },
+      alert: subtitle ? { title, subtitle, body } : { title, body },
       sound: 'default',
       badge,
       'mutable-content': 1,
@@ -515,6 +520,57 @@ const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
   { rx: /check in to land the weekend/gi,          kind: 'brief' },
   { rx: /open your insights/gi,                    kind: 'brief' },
 ];
+
+// v1.1 — Brand constants for the collapsed/expanded headline contract and
+// the new weekend / reminder CTA buckets.
+const MIND_MODULE_TITLE = 'Mind Module';
+const SUBTITLE_MAX_WORDS = 3;
+const SUBTITLE_MAX_CHARS = 28;
+const WEEKEND_CTA = "let's prioritise the week ahead";
+const WEEKEND_CTA_ROUTE = '/plan';
+const REMINDER_CTA = 'take 60 seconds';
+const BACK_TO_BACK_MIN_GAP_MIN = 30;
+const REMINDER_GAP_UPPER_MIN = 60;
+const DEVICE_OFFLINE_STALE_MIN = 60;
+
+// Legacy form recognisers so older fallbacks self-heal into the new CTAs.
+const WEEKEND_LEGACY_RX: RegExp[] = [
+  /plan the week/gi,
+  /prioritize the week/gi,
+  /prioritise the week/gi,
+];
+const REMINDER_LEGACY_RX: RegExp[] = [/60 seconds/gi, /sixty seconds/gi];
+
+function clampSubtitle(raw: string | null | undefined): string {
+  if (!raw) return '';
+  let s = String(raw).trim().replace(/\s+/g, ' ');
+  if (!s) return '';
+  const words = s.split(' ').slice(0, SUBTITLE_MAX_WORDS).join(' ');
+  s = words.slice(0, SUBTITLE_MAX_CHARS);
+  return s;
+}
+
+function requiresHeadlineStructure(title: string, subtitle: string): string | null {
+  if (title !== MIND_MODULE_TITLE) return `title must be "${MIND_MODULE_TITLE}"`;
+  if (!subtitle || !subtitle.trim()) return 'subtitle missing';
+  const w = subtitle.trim().split(/\s+/).length;
+  if (w > SUBTITLE_MAX_WORDS) return `subtitle > ${SUBTITLE_MAX_WORDS} words (${w})`;
+  if (subtitle.length > SUBTITLE_MAX_CHARS) {
+    return `subtitle > ${SUBTITLE_MAX_CHARS} chars (${subtitle.length})`;
+  }
+  return null;
+}
+
+/** Force the body's terminal CTA verb to a specific allowed verb. Used by
+ *  the weekend / reminder buckets where the variant comparator doesn't apply. */
+function forceCtaVerb(body: string, verb: string): string {
+  let stripped = body.trim().replace(/[.\s!?]+$/, '');
+  for (const p of CTA_REWRITE_PATTERNS) stripped = stripped.replace(p.rx, '').trim();
+  for (const rx of WEEKEND_LEGACY_RX) stripped = stripped.replace(rx, '').trim();
+  for (const rx of REMINDER_LEGACY_RX) stripped = stripped.replace(rx, '').trim();
+  stripped = stripped.replace(/[,;:\s]+$/, '');
+  return `${stripped}, ${verb}`.slice(0, 160);
+}
 
 function applyCtaVariant(
   copy: NudgeCopy,
@@ -1219,6 +1275,12 @@ const ALLOWED_CTA_VERBS_V8 = [
   'check in to close the week',
   'check in to land the weekend',
   'open your insights',
+  // v1.1 — Weekend / post-holiday CTA (routes to /plan).
+  // Only fires when Brief snapshot + Plan ledger BOTH exist for today.
+  "let's prioritise the week ahead",
+  // v1.1 — Reminder variant (no-app-open CTA, back-to-back gap downgrade,
+  // post-landing window). Body is self-sufficient; tap is optional.
+  'take 60 seconds',
 ];
 
 // V8 — body must reference at least one real, named context token.
@@ -2922,7 +2984,7 @@ serve(async (req) => {
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
       .from('notification_device_tokens')
-      .select('user_id, device_token, platform')
+      .select('user_id, device_token, platform, updated_at')
       .eq('is_active', true);
 
     if (tokenErr) throw tokenErr;
@@ -2935,9 +2997,14 @@ serve(async (req) => {
 
     // Group tokens by user
     const userTokens = new Map<string, Array<{ token: string; platform: string }>>();
+    // v1.1 — per-user freshest device timestamp for the offline / airplane skip.
+    const lastDeviceSeenAt = new Map<string, number>();
     for (const row of tokenRows) {
       if (!userTokens.has(row.user_id)) userTokens.set(row.user_id, []);
       userTokens.get(row.user_id)!.push({ token: row.device_token, platform: row.platform });
+      const ts = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+      const prev = lastDeviceSeenAt.get(row.user_id) ?? 0;
+      if (ts > prev) lastDeviceSeenAt.set(row.user_id, ts);
     }
 
     const userIds = Array.from(userTokens.keys());
@@ -2984,6 +3051,12 @@ serve(async (req) => {
       todayStr: string;
       qualificationWarnings: string[];
       v8Ctx: { eventTitles: string[]; checkinWord: string | null };
+      // v1.1 — collapsed/expanded headline + new telemetry buckets.
+      subtitle: string;
+      headlineVariant: 'full' | 'reminder' | 'post_landing';
+      ctaBucket: 'weekday' | 'weekend_post_holiday';
+      requiresAppOpen: boolean;
+      weekendCtaGate?: 'ok' | 'missing_brief' | 'missing_plan' | null;
     }> = [];
 
     // 3. Evaluate each user
@@ -3015,6 +3088,42 @@ serve(async (req) => {
       const dndEnd = prefs?.dnd_end ?? null;
       if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) continue;
       if (!isForcedUser && isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
+
+      // v1.1 — Delivery-context skips: airplane mode / offline / low battery.
+      // Stale device (last seen > DEVICE_OFFLINE_STALE_MIN min ago) is treated
+      // as airplane/offline. Stale nudges past 1 h have no value, so we never
+      // queue — we log a suppressed row and move on.
+      const deviceLastSeen = lastDeviceSeenAt.get(userId) ?? 0;
+      const offlineForMin = deviceLastSeen
+        ? Math.round((Date.now() - deviceLastSeen) / 60000)
+        : Number.POSITIVE_INFINITY;
+      const lowPowerMode = (prefs as any)?.low_power_mode === true;
+      const skipReason: 'offline' | 'airplane' | 'battery' | null =
+        lowPowerMode ? 'battery' : (offlineForMin > DEVICE_OFFLINE_STALE_MIN ? 'offline' : null);
+      if (!isForcedUser && skipReason) {
+        console.log(`[smart-nudges][v1.1] User ${userId} skip pre-evaluator reason=${skipReason} offlineMin=${offlineForMin}`);
+        try {
+          await supabase.from('notification_log').insert({
+            user_id: userId,
+            notification_type: 'nudge_skip',
+            variant_id: `skip-${skipReason}`,
+            event_reference: null,
+            delivery_state: 'suppressed',
+            payload: {
+              notification_type: 'nudge_skip',
+              architecture: 'cos-mind-v8-meaning-forward',
+              suppression_reason: skipReason,
+              suppression_stage: 'pre_evaluator',
+              metadata: {
+                architecture: 'cos-mind-v8-meaning-forward',
+                delivery_skip_reason: skipReason,
+                device_offline_min: Number.isFinite(offlineForMin) ? offlineForMin : null,
+              },
+            },
+          });
+        } catch (_) { /* best-effort */ }
+        continue;
+      }
 
       // Convert local midnight to UTC for log queries
       const localMidnightMs = new Date(`${todayStr}T00:00:00`).getTime();
@@ -3283,11 +3392,128 @@ serve(async (req) => {
             qualificationWarnings.push('repeated_expiry');
           }
           const isTravel = !!(ctx.dayContext.preFlight || ctx.dayContext.inFlight);
+
+          // ── v1.1 — Back-to-back gap guard ─────────────────────────────
+          // Find the largest gap between now and the next event(s) in the
+          // next 3 h. No gap ≥ 30 min → suppress; gap 30–60 min → downgrade
+          // to reminder variant (no-app-open CTA).
+          const nowMs = Date.now();
+          const horizonMs = nowMs + 3 * 60 * 60 * 1000;
+          const upcoming = (ctx.todayEvents || [])
+            .map((e: any) => ({ start: new Date(e.start_time).getTime(), end: new Date(e.end_time).getTime() }))
+            .filter((e) => e.end > nowMs && e.start < horizonMs)
+            .sort((a, b) => a.start - b.start);
+          let largestGapMin = Number.POSITIVE_INFINITY;
+          if (upcoming.length > 0) {
+            let cursor = nowMs;
+            for (const ev of upcoming) {
+              const gap = Math.max(0, Math.round((ev.start - cursor) / 60000));
+              if (gap < largestGapMin) largestGapMin = gap;
+              cursor = Math.max(cursor, ev.end);
+            }
+          }
+          const isBackToBack = upcoming.length > 0 && largestGapMin < BACK_TO_BACK_MIN_GAP_MIN;
+          const isReminderGap =
+            upcoming.length > 0 &&
+            largestGapMin >= BACK_TO_BACK_MIN_GAP_MIN &&
+            largestGapMin <= REMINDER_GAP_UPPER_MIN;
+
+          if (isBackToBack) {
+            console.log(`[smart-nudges][v1.1] User ${userId} back_to_back (largestGap=${largestGapMin}min). Suppressing ${bestNudge.type}.`);
+            try {
+              await supabase.from('notification_log').insert({
+                user_id: userId,
+                notification_type: bestNudge.type,
+                variant_id: bestNudge.copy.variantId,
+                event_reference: bestNudge.eventReference || null,
+                delivery_state: 'suppressed',
+                payload: {
+                  title: bestNudge.copy.title,
+                  body: bestNudge.copy.body,
+                  notification_type: bestNudge.type,
+                  architecture: 'cos-mind-v8-meaning-forward',
+                  suppression_reason: 'back_to_back',
+                  suppression_stage: 'pre_evaluator',
+                  metadata: { delivery_skip_reason: 'back_to_back', largest_gap_min: largestGapMin },
+                },
+              });
+            } catch (_) { /* best-effort */ }
+            // skip the push for this user
+            continue;
+          }
+
+          // ── v1.1 — Weekend / post-PTO CTA gate ───────────────────────
+          // Force CTA = "let's prioritise the week ahead" only when:
+          //   - today is Saturday/Sunday OR ctx.dayContext.ptoMode is true, AND
+          //   - a Brief snapshot exists for today, AND
+          //   - a Plan ledger exists for today (non-empty plan_ledger).
+          // Otherwise fall back to the standard weekday CTA + /daily-check-in.
+          const isWeekendOrPto = (dayOfWeek === 0 || dayOfWeek === 6) || ctx.dayContext.ptoMode === true;
+          let ctaBucket: 'weekday' | 'weekend_post_holiday' = 'weekday';
+          let weekendCtaGate: 'ok' | 'missing_brief' | 'missing_plan' | null = null;
+          let resolvedRoute = bestNudge.deepLinkRoute;
+          let resolvedBody = bestNudge.copy.body;
+          if (isWeekendOrPto) {
+            // Brief snapshot presence
+            const { data: briefRow } = await supabase
+              .from('brief_snapshots')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('local_date', todayStr)
+              .limit(1)
+              .maybeSingle();
+            // Plan ledger presence (non-empty)
+            const { data: planRow } = await supabase
+              .from('daily_ritual_completions')
+              .select('plan_ledger')
+              .eq('user_id', userId)
+              .eq('local_date', todayStr)
+              .limit(1)
+              .maybeSingle();
+            const hasPlan =
+              planRow && Array.isArray((planRow as any).plan_ledger) &&
+              (planRow as any).plan_ledger.length > 0;
+            if (!briefRow) weekendCtaGate = 'missing_brief';
+            else if (!hasPlan) weekendCtaGate = 'missing_plan';
+            else weekendCtaGate = 'ok';
+
+            if (weekendCtaGate === 'ok') {
+              ctaBucket = 'weekend_post_holiday';
+              resolvedRoute = WEEKEND_CTA_ROUTE;
+              resolvedBody = forceCtaVerb(bestNudge.copy.body, WEEKEND_CTA);
+            }
+          }
+
+          // ── v1.1 — Reminder downgrade for 30–60 min gap days ─────────
+          let headlineVariant: 'full' | 'reminder' | 'post_landing' = 'full';
+          let requiresAppOpen = true;
+          if (isReminderGap && ctaBucket === 'weekday') {
+            headlineVariant = 'reminder';
+            requiresAppOpen = false;
+            resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
+          }
+
+          // ── v1.1 — Post-landing window (Nudge 1 slot, no 4th send) ──
+          // When landingPlusHighStakes is present and the meeting lands in
+          // the 15–60 min window after landing, tag as post_landing and
+          // route to /executive-home with a reminder-style CTA.
+          const lph = ctx.dayContext.landingPlusHighStakes;
+          if (lph && lph.minutesUntil >= 15 && lph.minutesUntil <= 60) {
+            headlineVariant = 'post_landing';
+            requiresAppOpen = false;
+            resolvedRoute = '/executive-home';
+            resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
+          }
+
+          // Subtitle: original moment headline (3 words / 28 chars cap).
+          const subtitle = clampSubtitle(bestNudge.copy.title);
+          const adjustedCopy: NudgeCopy = { ...bestNudge.copy, body: resolvedBody };
+
           allNotifications.push({
             userId,
             type: bestNudge.type,
-            copy: bestNudge.copy,
-            deepLinkRoute: bestNudge.deepLinkRoute,
+            copy: adjustedCopy,
+            deepLinkRoute: resolvedRoute,
             eventReference: bestNudge.eventReference,
             commitmentText: bestNudge.commitmentText,
             meetingTitle: bestNudge.meetingTitle,
@@ -3300,6 +3526,11 @@ serve(async (req) => {
             // recheck can satisfy requiresNamedContextToken() for AI bodies
             // anchored on event titles or the morning check-in word.
             v8Ctx: buildV8CtxForCheck(ctx),
+            subtitle,
+            headlineVariant,
+            ctaBucket,
+            requiresAppOpen,
+            weekendCtaGate,
           });
         }
       }
@@ -3346,8 +3577,18 @@ serve(async (req) => {
       const effectiveRoute = notif.deepLinkRoute;
 
       // ── A/B CTA variant assignment (v5.1) ──
+      // v1.1 — Weekend / reminder / post-landing buckets bypass the A/B
+      // rewrite because the verb is already locked by the gate.
+      const skipAbRewrite =
+        notif.ctaBucket === 'weekend_post_holiday' ||
+        notif.headlineVariant === 'reminder' ||
+        notif.headlineVariant === 'post_landing';
       const ctaVariant = assignCtaVariant(notif.userId, nudgeFamily(notif.type));
-      notif.copy = applyCtaVariant(notif.copy, ctaVariant, effectiveRoute);
+      if (!skipAbRewrite) {
+        notif.copy = applyCtaVariant(notif.copy, ctaVariant, effectiveRoute);
+      } else {
+        notif.copy = { ...notif.copy, variantId: `${notif.copy.variantId}::${ctaVariant}` };
+      }
 
       // V8 — final post-rewrite check. The CTA variant rewriter mutates the
       // trailing verb; if anything in the chain produces a non-V8 body we
@@ -3392,7 +3633,8 @@ serve(async (req) => {
       shippedNotifications.push(notif);
 
       const payload: Record<string, unknown> = {
-        title: notif.copy.title,
+        title: MIND_MODULE_TITLE,
+        subtitle: notif.subtitle,
         body: notif.copy.body,
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
@@ -3420,6 +3662,12 @@ serve(async (req) => {
           // copy that shipped. Defensive default 'static' — every NudgeCopy
           // returned to the send loop should carry this stamp.
           ai_provider_used: notif.copy.aiProvider ?? 'static',
+          // v1.1 — new telemetry fields.
+          delivery_skip_reason: null,
+          headline_variant: notif.headlineVariant,
+          cta_bucket: notif.ctaBucket,
+          requires_app_open: notif.requiresAppOpen,
+          weekend_cta_gate: notif.weekendCtaGate ?? null,
         },
         decision_trace: {
           variant: notif.copy.variantId,
@@ -3476,7 +3724,7 @@ serve(async (req) => {
               normalizedToken,
               apnsJwt,
               apnsBundleId,
-              notif.copy.title,
+              MIND_MODULE_TITLE,
               notif.copy.body,
               {
                 notification_type: notif.type,
@@ -3484,12 +3732,15 @@ serve(async (req) => {
                 notification_log_id: notificationLogId || '',
                 deep_link_route: effectiveRoute,
                 expiration_ts: String((payload as any).apns_expiration ?? ''),
+                requires_app_open: String(notif.requiresAppOpen),
+                headline_variant: notif.headlineVariant,
               },
               apnsHost,
               {
                 ttlSeconds: nudgeTtlSeconds(notif.copy.variantId, notif.type),
                 collapseId: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
                 badge: notif.badge,
+                subtitle: notif.subtitle,
               },
             );
             if (result.ok) sendSuccess++;

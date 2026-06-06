@@ -1,6 +1,7 @@
 # Smart Nudges — Comprehensive Architecture Document
 
-> Last updated: 2026-05-30
+> Last updated: 2026-06-06
+> **Superseded by `docs/SMART_NUDGES_SSOT.md` v1.1** for the headline/CTA/delivery-context contract (see §20 of the SSOT). This document is retained for the v1.0 narrative and remains accurate where v1.1 does not override.
 > Edge Function: `supabase/functions/smart-nudges/index.ts`
 > Architecture: MVP 3-Nudge System — v8 meaning-forward copy, registry-driven CEO-behaviour wiring, 2-model AI cascade (Claude → Gemini), v5.3 Chief-of-Staff overlays (travel sub-arcs, pattern-promotion, PTO collapse, look-ahead).
 
