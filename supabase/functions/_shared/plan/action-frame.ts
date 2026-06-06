@@ -43,7 +43,7 @@ export function buildActionFrameForEvent(
 export interface PlanRecommendedActionInput {
   primaryType: "regulate" | "align" | "prepare" | "integrate" | string;
   eventTitle?: string | null;
-  timeOfDay?: "morning" | "afternoon" | "evening" | string;
+  timeOfDay?: "morning" | "afternoon" | "evening" | string | null;
   tier?: string | null;
   category?: EventCategoryId | null;
   phase?: Phase | null;
