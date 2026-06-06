@@ -6184,9 +6184,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let userId: string | undefined;
   try {
     // Authentication – verify JWT and extract userId
-    let userId: string;
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) {
       // DEV_MODE bypass: allow fallback when not in production
