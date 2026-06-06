@@ -18,6 +18,15 @@ import { classifyEvent } from "./executive-state-taxonomy.ts";
 import { isTravelTitle } from "./ceo-behaviour/travel.ts";
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
 
+// --- Travel & Holiday detection v2 tuning constants (file-local SSOT). -----
+// Plan-approved values; bumping these is a deliberate behaviour change.
+const POST_FLIGHT_WINDOW_SHORT_HOURS = 6;
+const POST_FLIGHT_WINDOW_LONG_HOURS = 24;
+const HOLIDAY_WEEKDAY_RUN_MIN = 4;
+const MID_TRIP_LOOKBACK_DAYS = 2;
+const RETURN_LEG_LOOKBACK_DAYS = 7;
+const HALF_DAY_PTO_RX = /\b(half[- ]day|afternoon off|morning off)\b/i;
+
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
   wearable: {
@@ -41,6 +50,10 @@ export interface SignalCoverageInput {
     offsetMinutes: number | null;
     shift48hHours: number | null;
     travelDay?: boolean;
+    /** Edge-owned: true when today's local TZ differs from user's home TZ. */
+    shiftedTimezoneToday?: boolean;
+    /** Edge-owned: details of a long-haul flight in today's calendar. */
+    longHaulFlight?: { durationHours: number } | null;
   };
   /** Calendar events in chronological order, all in user's local timezone. */
   events: Array<{
@@ -49,6 +62,8 @@ export interface SignalCoverageInput {
     endTime?: string | Date | null;
     isAllDay?: boolean;
     stakesLevel?: string | null;
+    status?: "confirmed" | "tentative" | "declined" | "cancelled";
+    isWeekend?: boolean;
   }>;
   /** Optional trailing 4 days of events (1..4 days ago) used by the
    *  conference cluster's trailing-fatigue computation. Omit and trailing
@@ -73,6 +88,21 @@ export interface SignalCoverageInput {
     title: string;
     startTime: string | Date;
     isAllDay?: boolean;
+  }>;
+  /** Optional wide context window for pattern-based holiday + multi-day trip
+   *  span detection. Up to 14 days back / 14 days forward, signed dayOffset
+   *  (excludes today). When omitted, ALL pattern-based detection (holiday-by-
+   *  pattern, mid-trip days, return-leg) silently no-ops — only title-based
+   *  PTO and same-day post-flight scan run. Consumer must pre-compute
+   *  `isWeekend` from the user's local TZ. */
+  surroundingEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
+    dayOffset: number;
+    status?: "confirmed" | "tentative" | "declined" | "cancelled";
+    isWeekend?: boolean;
   }>;
   /** Now reference, used for minutesUntil. Pass user's local now. */
   now: Date;
@@ -112,6 +142,159 @@ function normalizeConferenceTitle(t: string): string {
     .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// --- Travel & Holiday detection v2 helpers ---------------------------------
+// All pure. Operate over the augmented event shapes (today's `events[]` and
+// `surroundingEvents[]`). Missing `status` defaults to "confirmed".
+
+type EventStatus = "confirmed" | "tentative" | "declined" | "cancelled";
+interface EventLike {
+  title: string;
+  startTime: string | Date;
+  endTime?: string | Date | null;
+  isAllDay?: boolean;
+  status?: EventStatus;
+  isWeekend?: boolean;
+}
+
+function isConfirmedEvt(e: { status?: EventStatus }): boolean {
+  const s = e.status ?? "confirmed";
+  return s === "confirmed" || s === "tentative";
+}
+
+function isMeetingLikeEvt(e: EventLike): boolean {
+  if (!isConfirmedEvt(e)) return false;
+  if (e.isAllDay) return false;
+  // Exclude travel and PTO-marker titles from "meeting" counts.
+  if (isTravelTitle(e.title)) return false;
+  if (isPtoOrHolidayTitle(e.title)) return false;
+  const dur = eventDurationMin(e);
+  if (dur != null && dur <= 0) return false;
+  return true;
+}
+
+function isTravelLikeEvt(e: EventLike): boolean {
+  return isConfirmedEvt(e) && isTravelTitle(e.title);
+}
+
+function isConferenceLikeEvt(e: EventLike): boolean {
+  if (!isConfirmedEvt(e)) return false;
+  if (!CONFERENCE_RX.test(e.title) && !SPEAKING_RX.test(e.title)) return false;
+  if (e.isAllDay) return true;
+  const dur = eventDurationMin(e);
+  return typeof dur === "number" && dur >= 240;
+}
+
+interface DayShape {
+  hasMeeting: boolean;
+  hasTravel: boolean;
+  hasPtoMarker: boolean;
+  hasConference: boolean;
+  isWeekend: boolean;
+  isEmpty: boolean;
+}
+
+function buildDayShape(
+  todayEvents: ReadonlyArray<EventLike>,
+  surrounding: ReadonlyArray<EventLike & { dayOffset: number }> | undefined,
+): Map<number, DayShape> {
+  const map = new Map<number, DayShape>();
+  const ensure = (offset: number, isWeekend: boolean): DayShape => {
+    let s = map.get(offset);
+    if (!s) {
+      s = {
+        hasMeeting: false,
+        hasTravel: false,
+        hasPtoMarker: false,
+        hasConference: false,
+        isWeekend,
+        isEmpty: true,
+      };
+      map.set(offset, s);
+    }
+    // Once weekend is true on any event for the day, persist it.
+    if (isWeekend) s.isWeekend = true;
+    return s;
+  };
+  const merge = (s: DayShape, e: EventLike) => {
+    s.isEmpty = false;
+    if (isMeetingLikeEvt(e)) s.hasMeeting = true;
+    if (isTravelLikeEvt(e)) s.hasTravel = true;
+    if (e.isAllDay && isPtoOrHolidayTitle(e.title) && isConfirmedEvt(e)) s.hasPtoMarker = true;
+    if (isConferenceLikeEvt(e)) s.hasConference = true;
+  };
+  // Today (offset 0). isWeekend on today comes from any event's flag.
+  const todayWeekend = todayEvents.some((e) => e.isWeekend === true);
+  // Ensure today exists even when empty.
+  const todayShape = ensure(0, todayWeekend);
+  for (const e of todayEvents) merge(todayShape, e);
+  for (const e of surrounding ?? []) {
+    const s = ensure(e.dayOffset, e.isWeekend === true);
+    merge(s, e);
+  }
+  return map;
+}
+
+/** Walks weekdays outward from `centerOffset` in both directions. Weekends
+ *  are skipped (do not break the run and do not count). Stops when a weekday
+ *  fails `predicate` OR when no shape exists for that offset. The center day
+ *  itself must satisfy the predicate (returns 0 otherwise). */
+function countConsecutiveWeekdayRun(
+  shape: Map<number, DayShape>,
+  predicate: (d: DayShape) => boolean,
+  centerOffset = 0,
+  maxRadius = 14,
+): number {
+  const center = shape.get(centerOffset);
+  if (!center || center.isWeekend || !predicate(center)) return 0;
+  let count = 1;
+  for (const dir of [-1, 1] as const) {
+    for (let step = 1; step <= maxRadius; step += 1) {
+      const off = centerOffset + dir * step;
+      const s = shape.get(off);
+      if (!s) break;
+      if (s.isWeekend) continue; // skip but keep walking
+      if (!predicate(s)) break;
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function lastTravelWithinDays(
+  shape: Map<number, DayShape>,
+  n: number,
+): number | null {
+  for (let off = -1; off >= -n; off -= 1) {
+    const s = shape.get(off);
+    if (s?.hasTravel) return off;
+  }
+  return null;
+}
+
+function nextTravelWithinDays(
+  shape: Map<number, DayShape>,
+  n: number,
+): number | null {
+  for (let off = 1; off <= n; off += 1) {
+    const s = shape.get(off);
+    if (s?.hasTravel) return off;
+  }
+  return null;
+}
+
+/** Was there a confirmed work meeting on any day in [fromOffset..toOffset]? */
+function anyMeetingInRange(
+  shape: Map<number, DayShape>,
+  fromOffset: number,
+  toOffset: number,
+): boolean {
+  const [a, b] = fromOffset <= toOffset ? [fromOffset, toOffset] : [toOffset, fromOffset];
+  for (let off = a; off <= b; off += 1) {
+    if (shape.get(off)?.hasMeeting) return true;
+  }
+  return false;
 }
 
 function eventDurationMin(
@@ -193,41 +376,137 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       : null;
   const nextTravelEventTitle = firstTravelToday ? firstTravelToday.title : null;
 
-  // --- PTO / public-holiday auto-derivation (canonical regex). When any
-  //     today event is all-day AND its title matches the canonical PTO/holiday
-  //     regex, surface the signal. Edge consumers may also pre-populate it
-  //     when they have richer context — we only set it here when truthy.
-  const ptoTodayAllDayDerived =
-    input.events.some(
-      (e) => e.isAllDay === true && isPtoOrHolidayTitle(e.title),
-    ) || undefined;
+  // --- Travel & Holiday detection v2 ---------------------------------------
+  // See plan doc: gaps #1 mid-trip, #2 return leg, #3 long-haul window,
+  // #4 weekend-straddling holiday, #5 conference guard, #6 workcation,
+  // #7 half-day PTO, #9 declined/cancelled meetings.
+  //
+  // Pattern-based branches silently no-op when `surroundingEvents` is not
+  // supplied. Title-based PTO and same-day post-flight scan always run.
+  const todayEventsV2: EventLike[] = input.events;
+  const shape = buildDayShape(todayEventsV2, input.surroundingEvents);
 
-  // ptoMeetingPresent: PTO day + any timed (non-all-day) event today. Powers
-  // ptoWithMeetingFallback so a single rogue meeting on a vacation day
-  // restores standard pre-meeting framing for that meeting only.
+  // --- ptoTodayAllDay ------------------------------------------------------
+  // A. All-day PTO/holiday title, NOT a conference/offsite.
+  const ptoTitleAllDay = input.events.some(
+    (e) =>
+      e.isAllDay === true &&
+      isConfirmedEvt(e) &&
+      isPtoOrHolidayTitle(e.title) &&
+      !CONFERENCE_RX.test(e.title) &&
+      !SPEAKING_RX.test(e.title),
+  );
+  // B. Half-day PTO: timed PTO marker OR half-day-pattern title.
+  const halfDayPto = input.events.some(
+    (e) =>
+      isConfirmedEvt(e) &&
+      e.isAllDay !== true &&
+      (isPtoOrHolidayTitle(e.title) || HALF_DAY_PTO_RX.test(e.title)),
+  );
+  // C. Pattern: ≥N consecutive zero-meeting weekdays around today.
+  const todayShape = shape.get(0);
+  const noMeetingPredicate = (d: DayShape) => !d.hasMeeting && !d.hasConference;
+  const weekdayRunNoMeetings = input.surroundingEvents
+    ? countConsecutiveWeekdayRun(shape, noMeetingPredicate, 0)
+    : 0;
+  const ptoByPattern =
+    !!input.surroundingEvents &&
+    todayShape != null &&
+    !todayShape.isWeekend &&
+    !todayShape.hasConference &&
+    weekdayRunNoMeetings >= HOLIDAY_WEEKDAY_RUN_MIN;
+
+  const ptoTodayAllDayDerived =
+    ptoTitleAllDay || halfDayPto || ptoByPattern ? true : undefined;
+
+  // --- personalHolidayInferred --------------------------------------------
+  // A. Personal-leaning title on today's all-day event (with conference guard).
+  const personalHolidayTitle = input.events.some(
+    (e) =>
+      e.isAllDay === true &&
+      isConfirmedEvt(e) &&
+      isPersonalHolidayTitle(e.title) &&
+      !CONFERENCE_RX.test(e.title) &&
+      !SPEAKING_RX.test(e.title),
+  );
+  // B + C. Pattern run of zero-meeting weekdays, no conference anywhere in
+  // the run. Travel in the run is allowed (workcation / bleisure → personal).
+  const personalHolidayByPattern = ptoByPattern;
+
+  const personalHolidayInferredDerived =
+    personalHolidayTitle || personalHolidayByPattern ? true : undefined;
+
+  // --- ptoMeetingPresent ---------------------------------------------------
+  // PTO day (any branch) + a confirmed timed meeting today that is not itself
+  // the PTO marker. Half-day case: morning meeting + afternoon-off counts.
   const ptoMeetingPresentDerived =
     ptoTodayAllDayDerived === true &&
-    input.events.some((e) => e.isAllDay !== true)
+    input.events.some((e) => isMeetingLikeEvt(e))
       ? true
       : undefined;
 
-  // personalHolidayInferred: PTO day whose marker leans personal (vacation /
-  // annual leave / on leave / public|bank|national holiday). Excludes
-  // OOO/PTO/"out of office" which often still imply a work-arc. Regex SSOT
-  // lives in _shared/ceo-behaviour/pto-holiday.ts so the plan generator's
-  // post-holiday selector reads from the same definition.
-  const personalHolidayInferredDerived =
-    input.events.some(
-      (e) => e.isAllDay === true && isPersonalHolidayTitle(e.title),
-    ) || undefined;
+  // --- workTravelInferred --------------------------------------------------
+  // Multi-branch; true if any branch fires.
+  const longHaul = input.timezone.longHaulFlight?.durationHours
+    ? input.timezone.longHaulFlight.durationHours >= 3
+    : false;
+  const flightEndMin = firstTravelToday
+    ? (() => {
+        const evt = input.events.find((e) => e.title === firstTravelToday.title && isTravelTitle(e.title));
+        if (!evt?.endTime) return null;
+        return minutesUntil(evt.endTime, input.now);
+      })()
+    : null;
 
-  // workTravelInferred: travel event today AND a high-stakes meeting within
-  // 24h — pivots travel-arc framing toward business-trip prep rather than
-  // pure decompression.
-  const workTravelInferredDerived =
-    firstTravelToday != null && highStakesNext24h != null
-      ? true
-      : undefined;
+  let workTravelInferredDerived: true | undefined = undefined;
+
+  // Branch 1/2 — outbound: post-flight scan window depends on long-haul flag.
+  if (firstTravelToday && flightEndMin != null) {
+    const windowHours = longHaul ? POST_FLIGHT_WINDOW_LONG_HOURS : POST_FLIGHT_WINDOW_SHORT_HOURS;
+    const windowEnd = flightEndMin + windowHours * 60;
+    const meetingAfterLanding = futureEvents.find((fe) => {
+      if (fe.minutesUntil < flightEndMin) return false;
+      if (fe.minutesUntil > windowEnd) return false;
+      if (isTravelTitle(fe.title)) return false;
+      // Find the underlying event to check status / all-day.
+      const underlying = input.events.find((e) => e.title === fe.title);
+      if (underlying && !isMeetingLikeEvt(underlying)) return false;
+      return true;
+    });
+    if (meetingAfterLanding) workTravelInferredDerived = true;
+  }
+
+  // Branch 3 — mid-trip day (no flight today but flight in last 1–2 days,
+  // and TZ is shifted OR no return flight queued). Requires surroundingEvents.
+  if (
+    workTravelInferredDerived !== true &&
+    !firstTravelToday &&
+    input.surroundingEvents
+  ) {
+    const priorTravel = lastTravelWithinDays(shape, MID_TRIP_LOOKBACK_DAYS);
+    if (priorTravel != null) {
+      const tzShifted = input.timezone.shiftedTimezoneToday === true;
+      const returnQueued = nextTravelWithinDays(shape, RETURN_LEG_LOOKBACK_DAYS) != null;
+      const todayHasMeeting = input.events.some((e) => isMeetingLikeEvt(e));
+      if ((tzShifted || !returnQueued) && todayHasMeeting) {
+        workTravelInferredDerived = true;
+      }
+    }
+  }
+
+  // Branch 4 — return leg: flight today + prior work-travel span (travel +
+  // confirmed meeting between the prior travel and today). Requires
+  // surroundingEvents.
+  if (
+    workTravelInferredDerived !== true &&
+    firstTravelToday &&
+    input.surroundingEvents
+  ) {
+    const priorTravel = lastTravelWithinDays(shape, RETURN_LEG_LOOKBACK_DAYS);
+    if (priorTravel != null && anyMeetingInRange(shape, priorTravel, -1)) {
+      workTravelInferredDerived = true;
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Conference / Summit cluster (v2) — mechanical signals.
