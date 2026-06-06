@@ -97,6 +97,7 @@ async function sendApnsPush(
     ttlSeconds?: number;
     collapseId?: string;
     badge?: number;
+    subtitle?: string;
   } = {},
 ): Promise<{ ok: boolean; status: number; reason: string; expirationTs: number; collapseId: string | null }> {
   // v5.3 — Punctuality + Clean Desk
@@ -108,9 +109,13 @@ async function sendApnsPush(
   const collapseId = options.collapseId ?? null;
   const badge = typeof options.badge === 'number' ? Math.max(0, options.badge) : 1;
 
+  // v1.1 — Collapsed/Expanded headline contract.
+  // title is forced to the brand string ('Mind Module') by the caller.
+  // The original moment headline rides aps.alert.subtitle.
+  const subtitle = (options.subtitle ?? '').trim();
   const apnsPayload = {
     aps: {
-      alert: { title, body },
+      alert: subtitle ? { title, subtitle, body } : { title, body },
       sound: 'default',
       badge,
       'mutable-content': 1,
