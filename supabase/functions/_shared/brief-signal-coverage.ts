@@ -144,6 +144,159 @@ function normalizeConferenceTitle(t: string): string {
     .trim();
 }
 
+// --- Travel & Holiday detection v2 helpers ---------------------------------
+// All pure. Operate over the augmented event shapes (today's `events[]` and
+// `surroundingEvents[]`). Missing `status` defaults to "confirmed".
+
+type EventStatus = "confirmed" | "tentative" | "declined" | "cancelled";
+interface EventLike {
+  title: string;
+  startTime: string | Date;
+  endTime?: string | Date | null;
+  isAllDay?: boolean;
+  status?: EventStatus;
+  isWeekend?: boolean;
+}
+
+function isConfirmedEvt(e: { status?: EventStatus }): boolean {
+  const s = e.status ?? "confirmed";
+  return s === "confirmed" || s === "tentative";
+}
+
+function isMeetingLikeEvt(e: EventLike): boolean {
+  if (!isConfirmedEvt(e)) return false;
+  if (e.isAllDay) return false;
+  // Exclude travel and PTO-marker titles from "meeting" counts.
+  if (isTravelTitle(e.title)) return false;
+  if (isPtoOrHolidayTitle(e.title)) return false;
+  const dur = eventDurationMin(e);
+  if (dur != null && dur <= 0) return false;
+  return true;
+}
+
+function isTravelLikeEvt(e: EventLike): boolean {
+  return isConfirmedEvt(e) && isTravelTitle(e.title);
+}
+
+function isConferenceLikeEvt(e: EventLike): boolean {
+  if (!isConfirmedEvt(e)) return false;
+  if (!CONFERENCE_RX.test(e.title) && !SPEAKING_RX.test(e.title)) return false;
+  if (e.isAllDay) return true;
+  const dur = eventDurationMin(e);
+  return typeof dur === "number" && dur >= 240;
+}
+
+interface DayShape {
+  hasMeeting: boolean;
+  hasTravel: boolean;
+  hasPtoMarker: boolean;
+  hasConference: boolean;
+  isWeekend: boolean;
+  isEmpty: boolean;
+}
+
+function buildDayShape(
+  todayEvents: ReadonlyArray<EventLike>,
+  surrounding: ReadonlyArray<EventLike & { dayOffset: number }> | undefined,
+): Map<number, DayShape> {
+  const map = new Map<number, DayShape>();
+  const ensure = (offset: number, isWeekend: boolean): DayShape => {
+    let s = map.get(offset);
+    if (!s) {
+      s = {
+        hasMeeting: false,
+        hasTravel: false,
+        hasPtoMarker: false,
+        hasConference: false,
+        isWeekend,
+        isEmpty: true,
+      };
+      map.set(offset, s);
+    }
+    // Once weekend is true on any event for the day, persist it.
+    if (isWeekend) s.isWeekend = true;
+    return s;
+  };
+  const merge = (s: DayShape, e: EventLike) => {
+    s.isEmpty = false;
+    if (isMeetingLikeEvt(e)) s.hasMeeting = true;
+    if (isTravelLikeEvt(e)) s.hasTravel = true;
+    if (e.isAllDay && isPtoOrHolidayTitle(e.title) && isConfirmedEvt(e)) s.hasPtoMarker = true;
+    if (isConferenceLikeEvt(e)) s.hasConference = true;
+  };
+  // Today (offset 0). isWeekend on today comes from any event's flag.
+  const todayWeekend = todayEvents.some((e) => e.isWeekend === true);
+  // Ensure today exists even when empty.
+  const todayShape = ensure(0, todayWeekend);
+  for (const e of todayEvents) merge(todayShape, e);
+  for (const e of surrounding ?? []) {
+    const s = ensure(e.dayOffset, e.isWeekend === true);
+    merge(s, e);
+  }
+  return map;
+}
+
+/** Walks weekdays outward from `centerOffset` in both directions. Weekends
+ *  are skipped (do not break the run and do not count). Stops when a weekday
+ *  fails `predicate` OR when no shape exists for that offset. The center day
+ *  itself must satisfy the predicate (returns 0 otherwise). */
+function countConsecutiveWeekdayRun(
+  shape: Map<number, DayShape>,
+  predicate: (d: DayShape) => boolean,
+  centerOffset = 0,
+  maxRadius = 14,
+): number {
+  const center = shape.get(centerOffset);
+  if (!center || center.isWeekend || !predicate(center)) return 0;
+  let count = 1;
+  for (const dir of [-1, 1] as const) {
+    for (let step = 1; step <= maxRadius; step += 1) {
+      const off = centerOffset + dir * step;
+      const s = shape.get(off);
+      if (!s) break;
+      if (s.isWeekend) continue; // skip but keep walking
+      if (!predicate(s)) break;
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function lastTravelWithinDays(
+  shape: Map<number, DayShape>,
+  n: number,
+): number | null {
+  for (let off = -1; off >= -n; off -= 1) {
+    const s = shape.get(off);
+    if (s?.hasTravel) return off;
+  }
+  return null;
+}
+
+function nextTravelWithinDays(
+  shape: Map<number, DayShape>,
+  n: number,
+): number | null {
+  for (let off = 1; off <= n; off += 1) {
+    const s = shape.get(off);
+    if (s?.hasTravel) return off;
+  }
+  return null;
+}
+
+/** Was there a confirmed work meeting on any day in [fromOffset..toOffset]? */
+function anyMeetingInRange(
+  shape: Map<number, DayShape>,
+  fromOffset: number,
+  toOffset: number,
+): boolean {
+  const [a, b] = fromOffset <= toOffset ? [fromOffset, toOffset] : [toOffset, fromOffset];
+  for (let off = a; off <= b; off += 1) {
+    if (shape.get(off)?.hasMeeting) return true;
+  }
+  return false;
+}
+
 function eventDurationMin(
   e: { startTime: string | Date; endTime?: string | Date | null },
 ): number | null {
