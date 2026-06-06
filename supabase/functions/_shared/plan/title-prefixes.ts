@@ -10,6 +10,18 @@ import { EVENT_PHASE_MAP, type Phase } from "../events/event-phase-map.ts";
 
 export type TitleRole = "PREVENT" | "PREPARE";
 
+/**
+ * Slot-scoped anchor identity. The Plan constructs ONE of these per slot and
+ * passes the same object to both `buildPriorityTitle` and the Why-line LLM
+ * input. Two consumers reading the same object structurally eliminates the
+ * "title says Board Meeting, why-line says 1:1 with Sarah" drift class.
+ */
+export interface SlotAnchor {
+  eventTitle: string | null;
+  categoryId: EventCategoryId | null;
+  phase: Phase | null;
+}
+
 export const PREVENT_PREFIXES = {
   stress_accumulation: "Steady",
   emotion_hijack: "Ground",
@@ -206,9 +218,17 @@ function connectorFor(phase: Phase): string {
 }
 
 export interface BuildPriorityTitleInput {
-  eventTitle: string | null | undefined;
-  category: EventCategoryId | null;
-  phase: Phase | null;
+  /**
+   * Slot-scoped anchor identity. Preferred over the legacy
+   * `eventTitle`/`category` fields below; when provided, it wins.
+   */
+  slotAnchor?: SlotAnchor;
+  /** @deprecated use `slotAnchor.eventTitle`. */
+  eventTitle?: string | null | undefined;
+  /** @deprecated use `slotAnchor.categoryId`. */
+  category?: EventCategoryId | null;
+  /** Falls back to `slotAnchor.phase` when `slotAnchor` is provided. */
+  phase?: Phase | null;
   isTomorrow?: boolean;
   practicePriorityTag?: string | null;
   /** When no calendar event anchors the slot (state-management). */
@@ -221,13 +241,21 @@ export interface BuildPriorityTitleInput {
  * 10 words.
  */
 export function buildPriorityTitle(input: BuildPriorityTitleInput): string {
-  const phase: Phase = input.phase || 'pre';
-  const cat = input.category;
+  // Slot-scoped anchor wins when supplied — eliminates the cross-field
+  // mismatch class (e.g. `eventTitle='Board Meeting'` + `category='E'`).
+  const eventTitle = input.slotAnchor
+    ? input.slotAnchor.eventTitle
+    : (input.eventTitle ?? null);
+  const cat = input.slotAnchor
+    ? input.slotAnchor.categoryId
+    : (input.category ?? null);
+  const phaseSource = input.slotAnchor?.phase ?? input.phase ?? null;
+  const phase: Phase = phaseSource || 'pre';
   const verb = verbForCategoryPhase(cat, phase);
   const objective = executiveObjectiveFor(input.practicePriorityTag, cat, phase);
   const connector = connectorFor(phase);
 
-  if (!input.eventTitle || !input.eventTitle.trim()) {
+  if (!eventTitle || !eventTitle.trim()) {
     const ctx = input.fallbackContext?.trim();
     if (ctx) return `${verb} ${objective} ${connector} ${ctx}`.replace(/\s+/g, ' ').trim();
     // No anchor at all — state-management label.
@@ -235,7 +263,7 @@ export function buildPriorityTitle(input: BuildPriorityTitleInput): string {
   }
 
   // Trim event title to ≤4 identifying tokens, drop "Meeting"-style noise tail.
-  const evt = shrinkEventName(input.eventTitle, 4);
+  const evt = shrinkEventName(eventTitle, 4);
   const tomorrow = input.isTomorrow ? "tomorrow's" : '';
   // For post we say "after the Board Meeting" not "after tomorrow's Board Meeting".
   const article = phase === 'post' && !tomorrow ? 'the' : tomorrow;
