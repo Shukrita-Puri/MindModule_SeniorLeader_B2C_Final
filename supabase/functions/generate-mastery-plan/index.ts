@@ -2557,17 +2557,19 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
             endTime: e.endTime ?? null,
             stakesLevel: null as string | null,
           }));
-        // Split today / tomorrow so brief-signal-coverage can self-derive
-        // travelDay + pre-flight tomorrow detection (Brief↔Plan parity fix).
-        const _fbStartTomorrow = new Date(); _fbStartTomorrow.setHours(0, 0, 0, 0); _fbStartTomorrow.setDate(_fbStartTomorrow.getDate() + 1);
-        const _fbEndTomorrow = new Date(_fbStartTomorrow); _fbEndTomorrow.setDate(_fbEndTomorrow.getDate() + 1);
+        // Split today / tomorrow in the user's local calendar, not the
+        // server's timezone, so pre-flight travel parity matches the Brief.
+        const _fbOffsetMin = (req.timezoneOffset ?? 0) | 0;
+        const _fbTodayLocalMs = Date.parse(`${localDateForLookup}T00:00:00.000Z`);
+        const _fbStartTomorrowMs = _fbTodayLocalMs + 24 * 60 * 60 * 1000 + _fbOffsetMin * 60_000;
+        const _fbEndTomorrowMs = _fbStartTomorrowMs + 24 * 60 * 60 * 1000;
         const _planEventsToday = planEvents.filter((e) => {
           const t = new Date(e.startTime).getTime();
-          return t < _fbStartTomorrow.getTime();
+          return t < _fbStartTomorrowMs;
         });
         const _planEventsTomorrow = planEvents.filter((e) => {
           const t = new Date(e.startTime).getTime();
-          return t >= _fbStartTomorrow.getTime() && t < _fbEndTomorrow.getTime();
+          return t >= _fbStartTomorrowMs && t < _fbEndTomorrowMs;
         });
         const _fbCurrentTz = (req as any).effectiveCurrentTimezone ?? (req as any).currentTimezone ?? null;
         const _fbHomeTz = (req as any).effectiveHomeTimezone ?? (req as any).homeTimezone ?? null;
