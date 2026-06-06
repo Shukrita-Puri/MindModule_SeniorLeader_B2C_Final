@@ -3577,8 +3577,18 @@ serve(async (req) => {
       const effectiveRoute = notif.deepLinkRoute;
 
       // ── A/B CTA variant assignment (v5.1) ──
+      // v1.1 — Weekend / reminder / post-landing buckets bypass the A/B
+      // rewrite because the verb is already locked by the gate.
+      const skipAbRewrite =
+        notif.ctaBucket === 'weekend_post_holiday' ||
+        notif.headlineVariant === 'reminder' ||
+        notif.headlineVariant === 'post_landing';
       const ctaVariant = assignCtaVariant(notif.userId, nudgeFamily(notif.type));
-      notif.copy = applyCtaVariant(notif.copy, ctaVariant, effectiveRoute);
+      if (!skipAbRewrite) {
+        notif.copy = applyCtaVariant(notif.copy, ctaVariant, effectiveRoute);
+      } else {
+        notif.copy = { ...notif.copy, variantId: `${notif.copy.variantId}::${ctaVariant}` };
+      }
 
       // V8 — final post-rewrite check. The CTA variant rewriter mutates the
       // trailing verb; if anything in the chain produces a non-V8 body we
