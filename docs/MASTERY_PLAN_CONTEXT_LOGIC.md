@@ -124,6 +124,33 @@ Thresholds: poorSleep = sleepScore < 70; lowHRV = hrvDeviation < -10%; goodHRV =
 
 Per-card reasoning strings explain **why this practice, right now, for you**.
 
+> **Plan Why-line v2 (June 2026):** the per-priority "Why this matters" line
+> shown on Today's 3 Priorities is now produced by the LLM path in
+> `_shared/plan/why-llm.ts` and validated by `validateWhyLine`. The Plan owns
+> the "how do I improve my readiness?" answer the Brief refuses to give.
+>
+> - **Shared state band.** `WhyLLMInput.stateBand` is read off
+>   `shared.briefBehaviour` (the same band powering the MRS dial and the
+>   Brief). NEVER re-banded. Missing snapshot → `null`, prompt drops the
+>   band-discipline block, validator skips the valence gate.
+> - **`SlotAnchor` identity.** A single `{ eventTitle, categoryId, phase }`
+>   object is built per slot and handed to BOTH `buildPriorityTitle` AND the
+>   Why LLM input — title and why-line cannot drift to different events.
+> - **Asymmetric validator.** Accepts on EITHER an anchor token OR a
+>   band-keyed state token; valence gate is narrow (only obvious recovery
+>   verbs on firing/sharp, obvious push verbs on depleted/stretched);
+>   dedupe only triggers on same event + same arc. On reject → drop and fall
+>   through to the deterministic `buildModuleEventWhyLine` repair.
+> - **Arc-position dedupe partner.** `arcPosition` is mapped from `jitPhase`
+>   (`pre→prepare`, `during→during`, `post→recover`, otherwise `standalone`)
+>   — same field the dedupe key `${eventId}::${jitPhase}` uses. Two slots
+>   for one event with different arcs produce two valid justifications.
+> - **Telemetry.** Per-slot log fields: `band`, `bandSource`, `arc`,
+>   `fallback`, `reject`, `anchorTokens`. Watch `fallback=deterministic_repair`
+>   before tightening anything.
+>
+> Full contract: `mem://features/mastery-plan/why-line-prompt-contract`.
+
 ### 4.1 Input Signals
 
 | Signal | Role |

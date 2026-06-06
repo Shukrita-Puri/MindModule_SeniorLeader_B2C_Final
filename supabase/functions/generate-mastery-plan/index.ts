@@ -59,10 +59,19 @@ import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from '../_shared/ceo-beha
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
-import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase } from '../_shared/plan/title-prefixes.ts';
+import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase, type SlotAnchor } from '../_shared/plan/title-prefixes.ts';
 import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
 import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
-import { generateWhyStatement, jaccard, type WhyLLMInput } from '../_shared/plan/why-llm.ts';
+import {
+  arcPositionFromPhase,
+  generateWhyStatement,
+  jaccard,
+  tierToStateBand,
+  validateWhyLine,
+  type ArcPosition,
+  type StateBand,
+  type WhyLLMInput,
+} from '../_shared/plan/why-llm.ts';
 // JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
 // scorer when JIT_V2 env is "shadow"; writes shadow columns to
 // jit_event_context for week-1 parity testing. Does not affect what the
@@ -4547,10 +4556,15 @@ async function applyV51Enrichment(
       // Title — CEO-behaviour-first via buildPriorityTitle.
       // Output shape: "<verb> <executive objective> <connector> <event>"
       // (e.g. "Lead strategic clarity in tomorrow's Board Meeting").
-      const newTitle = buildPriorityTitle({
-        eventTitle: hm.jitEventTitle,
-        category,
+      // Build a single SlotAnchor object — same identity handed to the Why
+      // LLM below so title + why-line cannot drift to different events.
+      const slotAnchor: SlotAnchor = {
+        eventTitle: hm.jitEventTitle ?? null,
+        categoryId: category,
         phase,
+      };
+      const newTitle = buildPriorityTitle({
+        slotAnchor,
         isTomorrow,
         practicePriorityTag: req.practicePriorityTag ?? null,
       });
@@ -4570,6 +4584,19 @@ async function applyV51Enrichment(
         const patternSummary = corr && corr.eventType && typeof corr.avgHrvDelta === 'number' && corr.occurrences >= 3
           ? `HRV ${corr.avgHrvDelta > 0 ? 'rises' : 'drops'} ~${Math.abs(Math.round(corr.avgHrvDelta))}% around ${corr.eventType} (n=${corr.occurrences})`
           : null;
+        // Shared state band — read directly off the same brief snapshot that
+        // drives the MRS dial. NEVER re-banded; falls through to null when
+        // the snapshot is missing.
+        const stateBand: StateBand | null = tierToStateBand(req.innerReadinessTier);
+        const arcPosition: ArcPosition = arcPositionFromPhase(phase);
+        const evtStartIso = evtMatch?.startTime || evtMatch?.start_time || null;
+        const evtStartMs = evtStartIso ? new Date(evtStartIso).getTime() : null;
+        const practiceTitle = hm.practice?.title
+          ?? (Array.isArray(hm.practices) && hm.practices[0]?.title)
+          ?? null;
+        const protocolCombo = Array.isArray(hm.practices) && hm.practices.length > 1
+          ? hm.practices.map((p: any) => p?.type).filter(Boolean).join(' → ')
+          : (hm.practice?.type ?? null);
         const input: WhyLLMInput = {
           role,
           eventName: hm.jitEventTitle,
@@ -4595,6 +4622,14 @@ async function applyV51Enrichment(
             ?? shared.briefBehaviour?.promptBlockBrief
             ?? null,
           eventTaxonomyBlock: shared.briefBehaviour?.taxonomyBlock ?? null,
+          // Shared band + slot identity for the new Why-line contract.
+          stateBand,
+          arcPosition,
+          slotAnchor,
+          practiceTitle,
+          protocolCombo,
+          timezoneOffsetMinutes: typeof req.timezoneOffset === 'number' ? req.timezoneOffset : 0,
+          eventStartMs: evtStartMs,
         };
         jitJobs.push({ idx, input });
       }
@@ -4616,14 +4651,38 @@ async function applyV51Enrichment(
   // Phase 2 (parallel LLM): per-JIT-priority Why statements.
   if (jitJobs.length > 0) {
     const results = await Promise.all(jitJobs.map((j) => generateWhyStatement(j.input)));
-    const accepted: { idx: number; text: string }[] = [];
+    const accepted: { idx: number; text: string; slotAnchor: SlotAnchor | null; arcPosition: ArcPosition | null }[] = [];
     for (let i = 0; i < jitJobs.length; i++) {
+      const job = jitJobs[i];
       const text = results[i];
-      if (!text || text.split(/\s+/).length < 5) continue;
-      // Dedupe: reject if too-similar to an already-accepted Why.
-      const dup = accepted.find((a) => jaccard(a.text, text) > 0.85);
-      if (dup) continue;
-      accepted.push({ idx: jitJobs[i].idx, text });
+      const inp = job.input;
+      const slotAnchor = inp.slotAnchor ?? null;
+      const arcPosition = inp.arcPosition ?? null;
+      const bandUsed = inp.stateBand ?? null;
+      const bandSource = bandUsed ? 'shared_brief_behaviour' : 'missing';
+      if (!text || text.split(/\s+/).length < 5) {
+        console.log(
+          `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=deterministic_repair reject=empty`,
+        );
+        continue;
+      }
+      const verdict = validateWhyLine({
+        text,
+        stateBand: bandUsed,
+        slotAnchor,
+        priorAccepted: accepted.map((a) => ({ text: a.text, slotAnchor: a.slotAnchor, arcPosition: a.arcPosition })),
+        arcPosition,
+      });
+      if (!verdict.ok) {
+        console.log(
+          `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=deterministic_repair reject=${verdict.reason}`,
+        );
+        continue;
+      }
+      console.log(
+        `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=llm_accepted anchorTokens=${verdict.anchorTokensUsed}`,
+      );
+      accepted.push({ idx: job.idx, text, slotAnchor, arcPosition });
     }
     for (const a of accepted) modules[a.idx].whyLine = stripBriefMarkdown(a.text);
   }

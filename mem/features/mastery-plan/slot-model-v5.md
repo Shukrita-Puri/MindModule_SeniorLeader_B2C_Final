@@ -59,6 +59,13 @@ Template: `{strategicAnchor}. {tacticalPattern}. {immediateSignal}. → {actionV
 ## Sanitisation
 - `stripBriefMarkdown` (`_shared/text/sanitise.ts`) is applied to every `whyLine`, `recommendedAction`, and `timeLabel` before the response is returned. Mirror helper on the client (`src/components/home/timeLabel.ts`) defends against stale cached payloads.
 
+## Why-line ownership (the Plan answers "how do I improve my readiness?")
+- The Brief orients (state + how to carry it); the Plan justifies one move at a time. The Plan is the surface that owns the "delete a meeting / cut off by 5pm / 30-min calls" class of justification — the Brief hands the user here. Detailed contract: `mem://features/mastery-plan/why-line-prompt-contract`.
+- `WhyLLMInput.stateBand` is read off `shared.briefBehaviour` — the same band powering the MRS dial and the Brief. NEVER re-banded. Missing snapshot → `stateBand=null`, the prompt drops the band-discipline block, the validator skips the valence gate. Tier→band mapping in `tierToStateBand()` (peak→firing, strong→sharp, managing→steady, depleted→depleted).
+- `SlotAnchor = { eventTitle, categoryId, phase }` is built ONCE per slot and handed to both `buildPriorityTitle` AND the Why LLM input — the two consumers reading the same object structurally eliminates the "title says Board, why-line says 1:1" drift class.
+- `validateWhyLine` is **asymmetric and forgiving**: accepts on EITHER anchor token OR state token; valence gate is narrow (only obvious recovery verbs on firing/sharp and obvious push verbs on depleted/stretched); dedupe only triggers on same event + same arc. On reject the LLM output is dropped and `buildModuleEventWhyLine` deterministic repair runs — no retry.
+- Telemetry (`band`, `bandSource`, `arc`, `fallback`, `reject`, `anchorTokens`) is logged per slot. Watch `fallback=deterministic_repair` rate; >15% means the validator is over-constrained, loosen before retraining the prompt.
+
 ## Stateful evolution preserved
 - Plan does not rebuild on every brief; completed slots stay crossed out; incomplete slots keep their practice titles and refresh only the Why-text. Full rebuild only when all 3 are complete (Bonus Round) — handled by existing `mergeWithLedger`.
 
