@@ -5113,6 +5113,7 @@ function buildHorizonModules(
   ): {
     label: string;
     eventId: string | null;
+    eventTitle: string | null;
     categoryId: EventCategoryId | null;
     subtypeId: string | null;
     scenarioId: string | null;
