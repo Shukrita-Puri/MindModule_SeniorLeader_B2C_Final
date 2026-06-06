@@ -1224,6 +1224,12 @@ const ALLOWED_CTA_VERBS_V8 = [
   'check in to close the week',
   'check in to land the weekend',
   'open your insights',
+  // v1.1 — Weekend / post-holiday CTA (routes to /plan).
+  // Only fires when Brief snapshot + Plan ledger BOTH exist for today.
+  "let's prioritise the week ahead",
+  // v1.1 — Reminder variant (no-app-open CTA, back-to-back gap downgrade,
+  // post-landing window). Body is self-sufficient; tap is optional.
+  'take 60 seconds',
 ];
 
 // V8 — body must reference at least one real, named context token.
