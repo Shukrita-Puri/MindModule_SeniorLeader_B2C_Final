@@ -5199,9 +5199,9 @@ function buildHorizonModules(
         upcomingWeekLeadEvent && (isWeekend || isPersonalHolidayToday || wasPersonalHolidayYesterday);
       if (promoteWeekLead && upcomingWeekLeadEvent) {
         anchorEventId = upcomingWeekLeadEvent.id;
-        anchor = upcomingWeekLeadEvent.title
+        anchor = (upcomingWeekLeadEvent.title
           ? truncateTitle(upcomingWeekLeadEvent.title)
-          : "this week's lead event";
+          : null) || "this week's lead event";
       } else if (isWeekend && dow === 0) anchor = "Monday's load";
       else if (isWeekend) anchor = "next week\u2019s load";
       else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
