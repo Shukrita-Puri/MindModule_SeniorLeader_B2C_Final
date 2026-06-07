@@ -1,252 +1,108 @@
-## Scope (isolated — Plan only)
+## What I found (root causes)
 
-Touches **only** the Plan's "Why this matters" LLM path and the deterministic title that pairs with it:
+I traced the screenshot end-to-end against `generate-mastery-plan` and the shared modules. The doc you referenced (`recalibrate-tagging-audit.md`) does **not** exist in the repo — I'll create it as part of this work so the audit is a living artefact.
 
-- `supabase/functions/_shared/plan/why-llm.ts` — new system prompt, user block, validator, anchor-token helper, telemetry return shape.
-- `supabase/functions/_shared/plan/title-prefixes.ts` — rename `BuildPriorityTitleInput.eventTitle/category` to `slotAnchorEventTitle/slotAnchorCategoryId`; introduce a shared `SlotAnchor` value object.
-- `supabase/functions/generate-mastery-plan/index.ts` — pass the shared band off `shared.briefBehaviour`, derive `arcPosition` from `jitPhase`, build one `SlotAnchor` per slot and feed both the title builder and Why LLM input from it; tighten `composeWhyLine` to read the slot-scoped anchor.
-- Tests: extend `supabase/functions/_shared/plan/priority-title.test.ts` (cross-event leakage); add `supabase/functions/_shared/plan/why-llm-validator.test.ts`.
-- Docs/memory: append "Why-line ownership" block to `mem/features/mastery-plan/slot-model-v5.md`; new `mem/features/mastery-plan/why-line-prompt-contract.md`; update Why-line section in `docs/MASTERY_PLAN_CONTEXT_LOGIC.md`.
+### 1. "ahead of today's load" leaks with zero calendar events
+`composeStateLabel()` in `generate-mastery-plan/index.ts` (lines 5172–5211) builds the anchor phrase as a hard cascade:
+```
+anchorEvent → highLoad → hrv/sleepDeficit → slot-2 specials → else "today's load"
+```
+The final `else anchor = "today's load"` (line 5210) fires for **slot 0** whenever no event, no high load, and no wearable deficit exist — so the literal "today's load" leaks even on an empty calendar / weekend morning, which is exactly what the screenshot shows. The variable-slot guard at 5216 only drops slot ≥ 1, never slot 0.
 
-**Out of scope (no change):** Brief prompt/copy, Plan slot ordering, JIT horizon, dedupe key, MRS scoring, signal pills, UI components, DB schema, RLS, edge function config, `_shared/text/sanitise.ts` (reused as-is).
+### 2. "Re-consolidate focus" verb chosen with no focus signal
+`stateAction = 'Re-consolidate focus'` (line 5167) is the default `managing`-tier branch when the anchor category is **not** E and not cog-dominant. With no anchor at all, the branch still fires — so you get focus language without any focus context.
+
+### 3. Practice is Ikigai (meta-renewal / presence), title says "Sharpen focus"
+The filler selector (lines 5698–5772) is what picked Ikigai. Its scoring uses **only**:
+- `stateSignalTags` (signal-body-under-load, masked-high, clarity-low, confidence-low, poor-sleep)
+- `favorites`, `isFoundational`, recency penalty, content-type diversity
+
+It **never** scores against:
+- `mastery_category` (Flow Mastery vs Renewal vs Regulation vs Composure)
+- `meta_skill` (`meta-renewal`, `meta-focus`, etc.)
+- Recalibrate `category` (`pause` / `power-up` / `presence`)
+- The slot's CEO verb intent (`Sharpen` → focus → Flow Mastery)
+- The slot's protocol-combo (`mindset.flow` for Sharpen)
+
+Ikigai is tagged `meta-renewal` + `presence` + `state_signal: signal-confidence-low`. With `confidenceLevel ≤ 2` it scored +15 and won — the selector had no way to know the slot wanted a **focus / Flow Mastery** practice.
+
+### 4. `protocol-combos.ts` is imported but doesn't constrain content
+`generate-mastery-plan/index.ts` imports `PROTOCOL_COMBOS` and `COMBO_TO_PRACTICE_TYPE`, but they're only used to:
+- validate combo keys (line 3157)
+- detect multi-step protocol combos for `protocolCombo` metadata (line 4599)
+
+There is **no filter or score boost** that says "this slot needs `mindset.flow`, so prefer content whose `protocol_type` + metadata aligns with that combo." The combo intent never reaches the content scorer.
+
+### 5. "Same practices keep showing up"
+A 7-day recency penalty exists in the **filler** path only (lines 5753–5759: −25 / −12 / −5). I need to verify whether the **primary** selection paths (event-anchored slots, JIT slots) also penalise recently-shown content, or whether they re-pick the same module daily. From the import surface (`recentPracticeDays`) it's wired through, but not scored everywhere.
 
 ---
 
-## 1. Shared state band — single source, never re-banded
+## Fix plan
 
-Add to `WhyLLMInput`:
+Scope: `supabase/functions/generate-mastery-plan/index.ts` + a new `_shared/plan/practice-selector.ts` helper + `mem/` docs. No DB schema change. No UI change.
 
-```ts
-stateBand: 'firing' | 'sharp' | 'steady' | 'stretched' | 'depleted' | null;
-arcPosition: 'prepare' | 'during' | 'recover' | 'standalone';
-slotAnchor: SlotAnchor; // see §4
-```
+### Step 1 — Stop leaking "today's load" with no signal
+In `composeStateLabel` (slot 0), when no event, no high load, and no wearable deficit:
+- Drop the bare "today's load" fallback.
+- Replace with a calendar-aware fallback: `"the day ahead"` (weekday) / `"the weekend ahead"` (Sat/Sun) / `"this morning"` when in morning window.
+- Apply the same variable-slot drop logic to slot 0 only when the stateAction is also weak (i.e. tier ≠ depleted/managing/peak edge cases) — otherwise keep the slot but with a neutral anchor.
 
-`stateBand` is read directly off `shared.briefBehaviour.band` — the same server-computed band powering the MRS dial and the Brief. **No independent re-banding.** If absent → `null`, the prompt drops the band-discipline block, the validator's valence gate is skipped (event-anchor grounding still required), and telemetry records `bandSource='missing'`.
+### Step 2 — Make `stateAction` consistent with the anchor
+- If the resolved anchor is the neutral fallback (no event, no load, no deficit), prefer general verbs: `"Steady the system"` / `"Build capacity"` instead of `"Re-consolidate focus"`.
+- Only emit focus-bearing verbs (`Re-consolidate focus`, `Prime for focus`, `Sharpen`) when an actual focus-driving signal exists: anchor category ∈ {E}, cog-dominant demand profile, OR `practicePriorityTag ∈ {focus_clarity}`.
 
-`arcPosition` mapping from `jitPhase`:
+### Step 3 — Bind content scoring to slot intent (the core fix)
+Create `supabase/functions/_shared/plan/practice-selector.ts` that:
+1. Takes the slot's `(verb, objective, categoryId, phase, protocolCombo, practicePriorityTag)`.
+2. Derives a target `MasteryCategory` and `metaSkill` set from the verb/objective using a small explicit map, e.g.
+   - `Sharpen / sustained_focus / focus_clarity` → mastery_category=`flow-mastery`, meta_skill ⊇ `meta-focus`
+   - `Steady / regulation_composure` → `composure`, `meta-regulation`
+   - `Reset / recovery_for_next` → `renewal`, `meta-renewal`
+   - `Lead / executive_presence` → `composure`, `meta-presence`
+   - `Reframe / decisive_alignment` → `mastery`, `meta-reframe`
+3. Scores the content pool with explicit boosts for matching `mastery_category` (+25), matching `meta_skill` (+15), matching protocol-combo (+15 via `protocol_type` + `sub_type`), matching Recalibrate `category` (+10 when verb implies pause/power-up/presence).
+4. Keeps the existing state-signal/favorites/recency/diversity scoring as tiebreakers.
 
-```
-'pre'       → 'prepare'
-'during'    → 'during'
-'post'      → 'recover'
-undefined   → 'standalone'
-any other   → 'standalone'   (defensive — future jitPhase values never crash)
-```
+Wire this helper into BOTH the filler path (5698–5772) **and** the primary event-anchored selection path (I'll locate the call site and refactor — it currently uses `moduleType` from `practiceType` only).
 
-Same `jitPhase` field the dedupe key `${eventId}::${jitPhase}` uses, so justification and dedupe agree on what "different" means.
+### Step 4 — Stop the repeat-the-same-practice pattern
+- Extend the 7-day recency penalty to the primary selection paths (not just filler).
+- Add a 30-day soft-rotation bonus: content NOT shown in last 30d gets +6.
+- Per-day uniqueness across slots already exists via `seenContentIds`; keep.
+- Hard rule: no single `content_id` may appear more than 2× in any rolling 14-day window (penalty −40 on the 3rd attempt).
 
----
+### Step 5 — Make `protocol-combos.ts` actually drive selection
+- In the primary selection, resolve the slot's intended `ComboKey` from `(category, phase)` via `EVENT_PHASE_MAP` (already imported).
+- Pass the combo into the practice-selector helper so it can require `protocol_type` (`mindset` vs `somatic`) and prefer matching `sub_type` (`mindset` vs `tool`).
 
-## 2. Why-line system prompt rewrite (`why-llm.ts`)
+### Step 6 — Author the missing audit doc + memory
+- New file: `docs/RECALIBRATE_TAGGING_AUDIT.md` — lists every sanctuary_content row, its Recalibrate `category`, `protocol_type`, `mastery_category`, `meta_skill`, `state_signal`, and flags rows missing a `mastery_category.primary` (Ikigai is one — `{"primary": null}`).
+- New memory: `mem/features/mastery-plan/practice-selection-binding.md` — codifies the verb→mastery-category→meta-skill→protocol-combo map so future edits don't drift.
 
-Replace `buildPrompt`'s system text with:
+### Step 7 — Tests (Deno)
+- `supabase/functions/_shared/plan/practice-selector.test.ts` — verb=Sharpen rejects `meta-renewal` content, prefers `flow-mastery` + `meta-focus`; verb=Reset prefers `renewal`.
+- Extend `priority-title.test.ts` — empty calendar + tier=managing must NOT emit "today's load" or "Re-consolidate focus".
+- Repeat-suppression test: same `content_id` cannot be selected on consecutive days when alternatives exist.
 
-- **Role**: Chief of Staff handing over one move; "Brief orients; Plan justifies."
-- **Three-part connection** (STATE + EVENT + REASON) named as the target — guidance only, *not* a hard validator rule (avoid over-rejection; see §3).
-- **State-band discipline** (only when band ≠ null):
-  - firing / sharp → focus / edge / clarity framing; avoid recovery verbs.
-  - depleted / stretched → "this is how you get ready for X"; protection/recovery framing welcome.
-  - steady → either; let event + practice decide.
-- **Arc awareness** keyed off `arcPosition` — encouraged, not enforced via lexical check (see §3.4).
-- **Hard constraints**: one sentence; no wellness words (`recharge|self-care|mindful|breathe|nourish|restore|wellness|journey|calm|relax`); no clinical jargon (`parasympathetic|cortisol|sympathetic`); never name the score / band / state-band word; no system phrases ("optimise the window", "hold the base", "for your state").
-
-**User block** (assembled deterministically — band/event/anchor sections omitted entirely when their inputs are null):
-
-```
-=== STATE ===
-Band: <stateBand>  (match; do not name)
-Most relevant signal: <derived from existing wearable/check-in fields>
-
-=== THIS PRACTICE ===
-Practice: <hm.practice.title | practices[0].title>
-Protocol combo: <hm.timeLabel pre-override OR practice.type chain>
-Arc position: <arcPosition>
-
-=== THE EVENT ===            (only if slotAnchor.eventTitle)
-Event: <slotAnchor.eventTitle>
-Category: <slotAnchor.categoryId — EVENT_CATEGORIES[id].name>
-When: <relativeEventPhrase(minutesUntilStart) — "in 2h", "tomorrow morning", "just finished">
-Why it's a moment: <EVENT_PHASE_MAP[cat][phase].preventsBuilds joined>
-
-=== ELSE ===                 (no anchor)
-State-management — justify by day's state, not a calendar moment.
-```
-
-`relativeEventPhrase` lives in `_shared/text/sanitise.ts` — reused as-is.
+### Step 8 — Backfill nulls (data, not code)
+Ikigai-purpose and any other rows with `mastery_category.primary = null` get filled in a small migration — without a primary mastery category, the new scorer can't match them to a slot intent.
 
 ---
 
-## 3. Post-generation validator (`validateWhyLine` in `why-llm.ts`)
+## Validation checklist
 
-Returns `{ ok: true } | { ok: false, reason: ValidatorReject }`. **Asymmetric and forgiving** — engineered to fail closed only on clear contradictions, not on stylistic variance.
+- [ ] On an empty calendar morning, slot 0 title contains no "today's load" / "ahead of today's load".
+- [ ] `Sharpen` verb only appears when a focus signal (cat E, cog-dominant, or `focus_clarity` tag) is present.
+- [ ] Selected practice's `mastery_category` matches the slot's verb-derived target on ≥ 90% of synthetic fixtures.
+- [ ] Same `content_id` does not surface on 3 consecutive days in fixture replay.
+- [ ] `protocol-combos.ts` combo is observable in selection telemetry (`comboKey`, `comboMatch: true|false`).
+- [ ] All existing Deno tests still pass (`priority-title`, `why-llm-validator`, `protocol-combos`).
 
-### 3.1 Anchor-token derivation (forgiving)
+## Out of scope
 
-Per-anchor token set built once and reused by validator + telemetry:
+Brief copy/prompt, MRS scoring, JIT horizon, dedupe key, signal pills, UI components, RLS.
 
-```ts
-function anchorTokens(title: string): Set<string> {
-  const STOP = new Set(['the','a','an','and','or','with','for','of','to','in','on','at','your','my','this','that']);
-  return new Set(
-    title.toLowerCase()
-      .replace(/[^\p{L}\p{N}:\s]/gu, ' ')   // keep "1:1", drop other punct
-      .split(/\s+/)
-      .filter(t => t.length > 2 && !STOP.has(t))
-      .concat(EVENT_TYPE_ALIASES[catId] ?? []) // e.g. ['board','meeting','session','call','review'] for cat A
-  );
-}
-```
+## Rollback
 
-A second word-set is harvested from `EVENT_CATEGORIES[cat].selfRegulationFocus` so "conversation" satisfies a "1:1 with Sarah" anchor.
-
-### 3.2 Anchor / state grounding (asymmetric)
-
-```
-if (textHasAnchorToken) → grounded ✓
-else if (textHasStateToken) → grounded ✓        // state-mgmt slots, or anchor-less LLM phrasing
-else → reject('generic')
-```
-
-State allowlist is *narrow* and band-keyed (only checked when band ≠ null):
-
-- depleted/stretched: `/\b(low|running low|reserves|stretched|tired|drained|behind)\b/i`
-- firing/sharp:       `/\b(sharp|firing|clear|edge|locked in|on form)\b/i`
-- steady:             `/\b(steady|holding|on track|even)\b/i`
-
-If band is null, any anchor token alone is sufficient — no state token required.
-
-### 3.3 Valence gate (narrowed — only obvious contradictions)
-
-Only checked when band ≠ null. Narrower than the original draft to avoid rejecting legitimate "protects the attention you'll need" copy on a sharp day.
-
-```
-firing/sharp + /\b(recover|recovery|recharge|wind down|come down|refill|rest up)\b/i
-  → reject('valence_firing_recovery')
-depleted/stretched + /\b(push|sprint|spend the edge|go harder|lean in|grind)\b/i
-  → reject('valence_depleted_push')
-```
-
-`protect`, `preserve`, `maintain`, `hold`, `clear` are deliberately **not** rejected — they read as performance language across all bands.
-
-### 3.4 No lexical arc check
-
-Arc awareness is prompt-guided only. We do not validate "contains 'before'" / "contains 'after'" — that drives template fatigue and rejects good copy.
-
-### 3.5 Duplication
-
-Keep existing `jaccard > 0.85` check, but **gated** to: same `slotAnchor.eventTitle` AND same `arcPosition`. Two slots for different events can read similarly without rejection; two slots for the same event/arc still get caught.
-
-### 3.6 Fallback path
-
-On any reject → drop the LLM output and fall through to the existing deterministic `buildModuleEventWhyLine` repair already at `index.ts` lines 4631–4651. No retry, no second LLM call.
-
----
-
-## 4. Slot identity — single `SlotAnchor` value object
-
-New shared type (in `title-prefixes.ts`, re-exported):
-
-```ts
-export interface SlotAnchor {
-  eventTitle: string | null;
-  categoryId: EventCategoryId | null;
-  phase: Phase | null;
-}
-```
-
-`buildPriorityTitle` and `composeWhyLine` both accept a `SlotAnchor` (plus the existing surrounding inputs). Constructed once per slot in `index.ts`:
-
-```ts
-const slotAnchor: SlotAnchor = {
-  eventTitle: hm.jitEventTitle ?? hm.anchorEventTitle ?? null,
-  categoryId: hm.anchorCategoryId ?? hm.jitCategoryId ?? null,
-  phase:      hm.jitPhase ?? null,
-};
-```
-
-This kills the "Board Meeting" + "EXERCISE category" drift class structurally.
-
-`composeWhyLine` already takes `slotAnchorCategoryId` — extend to read `slotAnchor.eventTitle` from the same object, and gate every anchor clause on **both** `categoryId` and `eventTitle` being present. Never emit an anchor clause with only one of them.
-
----
-
-## 5. Telemetry (additive, function-log only)
-
-Added to per-slot debug payload (existing `console.warn` paths):
-
-```
-whyLine.bandUsed         : stateBand | null
-whyLine.bandSource       : 'shared_brief_behaviour' | 'missing'
-whyLine.arcPosition      : prepare|during|recover|standalone
-whyLine.fallbackPath     : 'llm_accepted' | 'deterministic_repair'
-whyLine.validatorReject  : null | 'generic' | 'valence_firing_recovery' | 'valence_depleted_push' | 'jaccard_dup' | 'empty'
-whyLine.anchorTokensUsed : true | false
-```
-
-No DB columns, no client payload changes. Lets us watch fallback rate and tune the validator from real traffic before tightening anything further.
-
----
-
-## 6. Tests
-
-**`priority-title.test.ts`** — add:
-- `slotAnchorEventTitle='Q2 Board Meeting'`, `slotAnchorCategoryId='E'` → title uses E's verb/objective ("Sharpen sustained focus in …"), never an A-only verb. Proves cross-event leakage is structural-impossible.
-- `SlotAnchor` with `eventTitle=null, categoryId='A'` → state-management fallback path, no "after the null".
-
-**`why-llm-validator.test.ts`** (new, Deno test) — covers:
-- band=null + anchor token present → accept (band gate skipped).
-- band=null + no anchor token, no state token → reject `generic`.
-- firing + "this clears your head and lets you recover" → reject `valence_firing_recovery`.
-- firing + "this protects the attention you'll need for the board" → **accept** (`protect` is not banned).
-- depleted + "push the afternoon block" → reject `valence_depleted_push`.
-- depleted + "you're running low and the board's at 2 — this clears your head" → accept.
-- title "1:1 with Sarah" + body "Before your conversation with Sarah…" → accept via alias token `conversation`.
-- two outputs, same event + same arc, jaccard 0.9 → second rejected `jaccard_dup`.
-- two outputs, different events, jaccard 0.9 → both accepted.
-
-Run via `supabase--test_edge_functions`.
-
----
-
-## 7. Docs + memory
-
-- `docs/MASTERY_PLAN_CONTEXT_LOGIC.md` — rewrite Why-line section with: three-part connection (target, not validator), narrowed valence gate, `SlotAnchor` contract, arc-position dedupe partner, telemetry fields.
-- `mem/features/mastery-plan/slot-model-v5.md` — append `## Why-line ownership`: Plan owns "how do I improve my readiness", Brief never does; band shared not re-derived; asymmetric validator; fallback path; telemetry must be monitored before tightening.
-- New `mem/features/mastery-plan/why-line-prompt-contract.md` — captures the prompt snapshot + validator contract for future refactors (mirror of `prompt-snapshot-brief.md`).
-
----
-
-## Technical notes
-
-```text
-generate-mastery-plan
-  └─ per module
-      ├─ slotAnchor = { eventTitle, categoryId, phase }   ← single source
-      ├─ buildPriorityTitle({ slotAnchor, isTomorrow, practicePriorityTag })  (deterministic)
-      └─ if (slotAnchor.categoryId) queue WhyLLMInput {
-             stateBand:    shared.briefBehaviour?.band ?? null,
-             arcPosition,                  ← from slotAnchor.phase
-             slotAnchor,                   ← same object as title
-             …existing wearable/checkin fields
-         }
-  └─ Promise.all(generateWhyStatement)
-  └─ validateWhyLine → accept | record reject reason → buildModuleEventWhyLine fallback
-  └─ stripBriefMarkdown → persist
-```
-
-### Risks addressed by this revision
-
-1. **Validator false positives** → asymmetric grounding rule (§3.2), narrowed valence regex (§3.3), no lexical arc check (§3.4).
-2. **Event-token brittleness** → alias set per category + content-word tokenizer that keeps `1:1` and drops short stopwords (§3.1).
-3. **Binary band discipline** → only `recover/recovery/recharge/wind down/come down/refill/rest up` blocked on firing/sharp; `protect/preserve/maintain/hold` allowed (§3.3).
-4. **Arc-position rigidity** → prompt-guided only, no validator string check (§3.4).
-5. **Fallback quality gap** → telemetry counts fallback rate (§5); validator deliberately permissive to keep LLM path dominant.
-6. **Anchor identity drift** → single `SlotAnchor` value object eliminates mismatched pair construction (§4).
-7. **Shared-band staleness** → `bandSource` telemetry surfaces missing-band rate (§5); prompt + validator degrade gracefully when band is null (§1, §3.2).
-8. **Jaccard over-firing** → dedupe only triggers on same event + same arc (§3.5).
-9. **Future jitPhase values** → mapping has explicit `default → 'standalone'` (§1).
-
-### Rollback
-
-Revert the three source files + the two test files. No DB migration, no schema change, no client contract change.
+Revert the three source files + new helper + new tests. Optional: revert the metadata backfill via the inverse migration.
