@@ -50,7 +50,7 @@ export default function Stage6Payment() {
     if (hasExplicitUpgradeSource) return;
     console.log('[Stage6Payment] Beta valid + no upgrade source → skipping payment');
     recordStep('payment', { skipped: true, reason: 'beta_user' });
-    navigate(hasCompletedOnboarding ? '/daily-check-in' : '/onboarding/app-intro', { replace: true });
+    navigate(hasCompletedOnboarding ? '/executive-home' : '/onboarding/app-intro', { replace: true });
   }, [accessPending, isBetaValid, hasExplicitUpgradeSource, hasCompletedOnboarding, navigate, recordStep]);
 
   useEffect(() => {
@@ -58,9 +58,9 @@ export default function Stage6Payment() {
     if (!user) return;
     // Only auto-redirect if user has no explicit reason to be on this page
     if (isAnnualSubscriber && !hasExplicitUpgradeSource) {
-      navigate('/daily-check-in', { replace: true });
+      navigate('/executive-home', { replace: true });
     } else if (hasValidUserAccess && !showUpgradeMode && !hasExplicitUpgradeSource) {
-      navigate('/daily-check-in', { replace: true });
+      navigate('/executive-home', { replace: true });
     }
   }, [accessPending, user, isAnnualSubscriber, hasValidUserAccess, showUpgradeMode, hasExplicitUpgradeSource, navigate]);
 

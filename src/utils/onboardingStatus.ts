@@ -141,7 +141,7 @@ async function getResumeRouteFromDB(): Promise<string | null> {
     const isBetaValid = hasValidBetaAccess(data);
     const hasPersistedResults = !!(data.mental_fitness_baseline || data.onboarding_insight || data.user_archetype);
 
-    if (isOnboardingCompleteSnapshot(data)) return '/daily-check-in';
+    if (isOnboardingCompleteSnapshot(data)) return '/executive-home';
     if (!data.context_connection_at && ((PAYMENT_PAGE_SUPPRESSED && data.results_at) || data.payment_at || isBetaValid)) return '/onboarding/app-intro';
     if (!data.payment_at && !isBetaValid && data.results_at) return '/onboarding/payment';
     if (!data.results_at && data.signup_step_at) return '/onboarding/results';
@@ -253,7 +253,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
           return null; // Allow upgrade flow – Stage6Payment renders upgrade UI
         }
         console.log('[validateStageAccess] Onboarding completed, redirecting to /daily-check-in');
-        return '/daily-check-in';
+        return '/executive-home';
       }
 
       // Progression gates – these are about questionnaire completion, NOT

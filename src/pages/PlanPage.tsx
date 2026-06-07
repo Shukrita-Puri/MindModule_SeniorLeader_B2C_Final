@@ -95,7 +95,7 @@ const PlanPage = () => {
             <FirstSessionGuide onComplete={() => {
               setShowGuide(false);
               recordStep('first_session_walkthrough', { completed: true });
-              navigate('/daily-check-in', { replace: true });
+              navigate('/executive-home', { replace: true });
             }} />
           )}
         </SidebarInset>

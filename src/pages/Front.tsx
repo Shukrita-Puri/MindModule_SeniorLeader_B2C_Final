@@ -20,7 +20,7 @@ import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscripti
 import { getResumeRoute } from "@/utils/onboardingStatus";
 import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
-const CANONICAL_HOME = '/daily-check-in';
+const CANONICAL_HOME = '/executive-home';
 const LEGAL_KEY = 'mm_legal_accepted_v1';
 
 const GOOGLE_CONNECTION = 'google-oauth2';
