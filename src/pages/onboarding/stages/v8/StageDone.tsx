@@ -46,7 +46,7 @@ export default function StageDone() {
     }
     // 3. Only mark legacy onboarding completion after server-side completion succeeded.
     try { await recordStep("context_connection", { completed: true }); } catch { /* non-blocking */ }
-    navigate("/daily-check-in");
+    navigate("/executive-home");
   };
 
   return (
