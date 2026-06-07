@@ -2188,6 +2188,42 @@ export type Database = {
           },
         ]
       }
+      event_priority_memory: {
+        Row: {
+          event_category: string
+          event_id: string | null
+          event_type_key: string
+          id: string
+          meta: Json
+          occurred_at: string
+          signal: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          event_category: string
+          event_id?: string | null
+          event_type_key: string
+          id?: string
+          meta?: Json
+          occurred_at?: string
+          signal: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          event_category?: string
+          event_id?: string | null
+          event_type_key?: string
+          id?: string
+          meta?: Json
+          occurred_at?: string
+          signal?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inferred_states: {
         Row: {
           accuracy_score: number | null
