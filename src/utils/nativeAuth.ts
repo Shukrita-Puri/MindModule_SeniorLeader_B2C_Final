@@ -411,7 +411,7 @@ export async function nativeLogin(options?: {
     return { status: 'failed', error: 'missing_env' };
   }
 
-  const returnTo = options?.returnTo || '/daily-check-in';
+  const returnTo = options?.returnTo || '/executive-home';
   sessionStorage.setItem('auth0_return_to', returnTo);
 
   // PKCE

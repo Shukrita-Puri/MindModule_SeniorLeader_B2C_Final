@@ -139,7 +139,7 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
     // Fast path: profile says completed → block all onboarding routes (except whitelist)
     if (user.onboarding_completed_at && !isWhitelisted) {
       console.log('[OnboardingBlockGuard] ❌ Completed user on', location.pathname, '→ redirecting to /daily-check-in');
-      navigate('/daily-check-in', { replace: true });
+      navigate('/executive-home', { replace: true });
       return;
     }
 
@@ -155,7 +155,7 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
         if (dbCompleted && !isWhitelisted) {
           console.log('[OnboardingBlockGuard] DB says completed → redirecting to /daily-check-in');
           await refreshProfile();
-          navigate('/daily-check-in', { replace: true });
+          navigate('/executive-home', { replace: true });
           return;
         }
 

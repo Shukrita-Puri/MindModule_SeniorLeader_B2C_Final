@@ -57,7 +57,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const intendedDestination = (location.state as { from?: string })?.from || '/daily-check-in';
+  const intendedDestination = (location.state as { from?: string })?.from || '/executive-home';
   const returnToParam = new URLSearchParams(window.location.search).get('returnTo');
   const finalDestination = returnToParam || intendedDestination;
 
