@@ -448,3 +448,122 @@ Slot 3 in the integrate / Tiny Win path renders `arcLabel='Steady'` because it h
 - No qualifying JIT in any window → all three slots are state-anchored. Titles fall back to time-of-day neutral phrasing (`"this morning"`, `"this afternoon"`, `"this evening"`, `"the day ahead"` on weekends) — never "today's load" (see `composeStateLabel` v5.2 gating, `mem://features/mastery-plan/slot-model-v5`).
 - `topEvent` exists but only in `selection_only` (>48 h) → no JIT slot is rendered; the event may still appear in `calendarPills` for awareness.
 - All three slots completed mid-day → ledger holds; no recomputation until a new Brief signature is produced.
+
+---
+
+## 17. Week-Ahead Mode (Weekend / Post-Break Planning)
+
+On Saturdays, Sundays, the last day of a PTO block, the last day of a public-holiday block, and the last day of a long weekend, the Plan surface flips from day-of self-regulation to **upcoming-week prioritisation**. The principle: not every day is a self-regulation day. On weekends and right after time off, the user is already regulated — the value is signal-vs-noise prioritisation of what's coming.
+
+### 17.1 Trigger predicate
+
+`supabase/functions/_shared/plan/week-ahead-mode.ts → evaluateWeekAheadMode(input)`
+
+First-match-wins ladder:
+
+1. `manualOverride` (deep link `?mode=week-ahead`, or nudge tap) → `reason: 'manual_override'`.
+2. `travelDay` → inactive (travel context owns these days).
+3. `fullWorkingWeekend` (existing `weekend.ts` rule: ≥3 meetings or ≥4 h back-to-back or weekend work block) → inactive (run weekday cadence).
+4. `ptoTodayAllDay && !ptoTomorrowAllDay` → `last_day_pto`.
+5. `holidayAllDayEventToday && tomorrowIsWorkday` → `last_day_holiday`.
+6. `consecutiveOffDaysBefore ≥ 2 && tomorrowIsWorkday` → `last_day_long_weekend`.
+7. `dayOfWeek == 6` → `saturday`.
+8. `dayOfWeek == 0` → `sunday`.
+
+Both Brief and Plan call the same helper so they cannot disagree.
+
+### 17.2 Brief: backward-looking variant (planned)
+
+When `weekAheadMode.active === true`, `compute-outer-readiness` swaps the prompt block from the day-anchor frame to a **week-recap** frame (last 7 days of load, recovery, sleep mean, HRV vs 30-day baseline, completed-priorities count). Stamped on `brief_snapshots.driver = 'week_recap'`. Why-line constraints: must reference the week just gone, never name a tomorrow event.
+
+No change to MRS scoring, signal-pills shape, or atomic-brief contract — only the prompt block and the `driver` value.
+
+### 17.3 Plan: `list-week-ahead-priorities`
+
+Edge function: `supabase/functions/list-week-ahead-priorities/index.ts`. Thin orchestrator over existing modules — no new taxonomy.
+
+Pipeline:
+
+1. Pull `calendar_events` in `[localStartOfToday, +8d local)`, dedupe via `collapseDuplicateEvents` (multi-provider safe).
+2. Drop noise (`isNoiseTitle`) and educational-not-organiser (`isEducationalTitle && !isOrganizer`).
+3. Classify with `classifyEvent` / `coarseEventType` from `_shared/events/event-classifier.ts`.
+4. **Score** = `stakesLevel × 12` + organiser boost (+5) + ≥5 attendees (+4) + **memory delta** (§17.5).
+5. Drop hard-demoted candidates (`never`-flagged categories).
+6. Sort by score desc; apply **per-day cap = 3** and **per-category cap = 3** for variety; truncate to **top 10**.
+7. Re-sort the selected slice chronologically for UI rendering.
+
+Floor: `score < 10` is dropped. Response: `{ weekAheadMode, priorities[], generatedAt }`.
+
+### 17.4 Memory schema
+
+Table `public.event_priority_memory` (migration `20260607*`):
+
+| column          | type        | notes                                                         |
+|-----------------|-------------|---------------------------------------------------------------|
+| user_id         | text        | Auth0 sub                                                     |
+| event_category  | text        | coarse token from `coarseEventType`                           |
+| event_type_key  | text        | bucket from `normalizeEventTypeKey` (1on1, board, deep_work…) |
+| signal          | text        | `priority` / `not_this_week` / `never` / `cancelled_as_noise` / `cancelled_keep_surfacing` |
+| source          | text        | `week_ahead_picker` / `priority_tag` / `cancel_feedback`      |
+| event_id        | text        | nullable — original calendar event when known                 |
+| occurred_at     | timestamptz | default `now()`                                               |
+| meta            | jsonb       | free-form telemetry                                           |
+
+Indexes: `(user_id, event_category, event_type_key, occurred_at DESC)` and `(user_id, signal, occurred_at DESC)`.
+
+RLS: deny-by-default. Authenticated users may **read** only their own rows (for surfacing prior signals in UI). All writes go through service-role edge functions — clients cannot poison the memory.
+
+Write path: `supabase/functions/record-event-priority-signal/index.ts`. Inputs: `{ eventId, eventTitle?, signal, source }`. The function re-derives `category` + `type_key` from the live `calendar_events.title` (or the title hint if the event is no longer in DB) so the client cannot inject arbitrary buckets.
+
+### 17.5 Read-side scoring integration
+
+`supabase/functions/_shared/plan/event-priority-memory.ts → applyEventPriorityMemory(index, { eventCategory, eventTypeKey })`:
+
+| signal                       | decay window | delta per row |
+|------------------------------|--------------|---------------|
+| `priority`                   | ≤60 d        | **+10**       |
+| `cancelled_keep_surfacing`   | ≤60 d        | **+5**        |
+| `not_this_week`              | ≤14 d        | **−15**       |
+| `cancelled_as_noise`         | ≤60 d        | **−25**       |
+| `never`                      | always       | **−40 + hardDemote = true** (caller drops candidate) |
+
+Net delta clamped to `[-50, +30]`. Reasons surface in `scoreReasons[]` (e.g. `"prior priority ×2"`, `"deprioritised this week"`) so the user sees why an event sits where it does.
+
+`generate-mastery-plan` is intended to call the same helper inside `rankJitCandidates` so weekday Plan also benefits from the learning loop — implementation tracked as a follow-up (gated behind feature flag `WEEK_AHEAD_MEMORY_BOOST`).
+
+### 17.6 UI contract
+
+- Component: `src/components/home/WeekAheadPriorities.tsx`.
+- Container: `src/pages/PlanPage.tsx` branches at the top via `useWeekAheadMode()`. No new route — the same `/plan` surface flips contents on weekends and `?mode=week-ahead`.
+- Per-card actions: **Priority** (star) / **Not this week** (×) / **Never this type** (ban). Optimistic + reversible on insert failure.
+- Grouped by local day with a chronological order; copy is reason-aware ("Set the shape of next week…", "Re-engaging — pick the events that matter…").
+- Empty state is celebratory: "No significant events on your calendar for the week ahead. Enjoy the open space."
+
+### 17.7 Nudge / pop-up trigger (planned)
+
+New nudge rule `weekAheadPickerInvite`:
+
+- Saturday 09:00–11:00 local, OR Sunday 16:00–19:00 local, OR the evening of any detected last-PTO / last-holiday day.
+- Suppressed if `fullWorkingWeekend` is true or the user already opened the picker today.
+- Deep link: `/plan?mode=week-ahead` → PlanPage detects the query param via `useWeekAheadMode`, forces `manualOverride`, and the edge function honours `x-week-ahead-override: 1` for borderline server-side decisions.
+
+### 17.8 Suppression matrix
+
+| State                                 | Behaviour                              |
+|---------------------------------------|----------------------------------------|
+| Travel day                            | Suppressed — travel context owns       |
+| Full working weekend                  | Suppressed — run weekday cadence       |
+| Weekday, no override                  | Suppressed — normal Plan               |
+| Sat / Sun, no working-weekend         | Active                                 |
+| PTO last day (today off, tomorrow on) | Active                                 |
+| Holiday last day, tomorrow workday    | Active                                 |
+| Manual `?mode=week-ahead`             | Active                                 |
+
+### 17.9 Auth & Dev-mode parity
+
+Both edge functions use `_shared/auth.ts → authenticateRequest` with the same dev bypass pattern as `list-replacement-calendar-events`: outside production, an `x-dev-user-id` header substitutes for a missing JWT. The web client supplies it from `DEV_USER.id` when `DEV_MODE` is true. Auth users hit the same code path with a real Auth0 JWT. There is no client-side fork.
+
+### 17.10 Rollback
+
+- Plan surface: revert `src/pages/PlanPage.tsx` and delete `WeekAheadPriorities.tsx` + `useWeekAheadMode.ts` → page returns to the previous behaviour on every day.
+- Edge functions: delete `list-week-ahead-priorities/` and `record-event-priority-signal/`. Migration is additive (new table only) and safe to leave in place on revert.
