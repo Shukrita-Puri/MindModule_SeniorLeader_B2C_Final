@@ -5164,7 +5164,13 @@ function buildHorizonModules(
       stateAction = 'Decompress';
     } else if (tier === 'managing') {
       const cogDominant = !!(anchorDemand && anchorDemand.cog >= 3 && anchorDemand.emo <= 1 && anchorDemand.ene <= 1);
-      stateAction = (anchorCategory === 'E' || cogDominant) ? 'Prime for focus' : 'Re-consolidate focus';
+      // Only emit focus-bearing verbs when a real focus signal exists.
+      // Without an anchor / focus signal, fall back to a neutral verb so
+      // the title can't claim "focus" the user hasn't asked for.
+      const focusSignal = anchorCategory === 'E' || cogDominant;
+      stateAction = focusSignal
+        ? (anchorCategory === 'E' ? 'Prime for focus' : 'Re-consolidate focus')
+        : 'Steady the system';
     } else {
       stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
     }
@@ -5207,7 +5213,14 @@ function buildHorizonModules(
       else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
       else anchor = "tomorrow's load";
     } else {
-      anchor = "today's load";
+      // No event, no high load, no wearable deficit, no slot-2 specials.
+      // Don't fabricate "today's load" — pick a neutral, calendar-aware
+      // phrase that doesn't imply a calendar burden that isn't there.
+      const localHour = localNow.getUTCHours();
+      if (isWeekend) anchor = 'the day ahead';
+      else if (localHour < 12) anchor = 'this morning';
+      else if (localHour < 18) anchor = 'this afternoon';
+      else anchor = 'this evening';
     }
 
     // Variable-slot rule: index ≥ 1 must have a *meaningful* secondary
