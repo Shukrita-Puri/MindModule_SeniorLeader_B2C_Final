@@ -5756,6 +5756,23 @@ function buildHorizonModules(
 
       if (pool.length === 0) break;
 
+      // Resolve the slot's intent FIRST so content scoring is bound to
+      // the verb the title will render. composeStateLabel is the source
+      // of truth for stateAction + anchor category — re-use it here so
+      // the selector and the title can't drift.
+      const intentLabel = composeStateLabel((Math.min(slotIndex, 2) as 0 | 1 | 2));
+      // Recover the verb the label uses (everything before " ahead of ").
+      const labelText = String(intentLabel?.label || '');
+      const stateActionFromLabel = labelText.includes(' ahead of ')
+        ? labelText.split(' ahead of ')[0]
+        : labelText;
+      const slotIntent: SlotIntent = deriveSlotIntent({
+        stateAction: stateActionFromLabel,
+        anchorCategory: (intentLabel?.categoryId ?? null) as any,
+        anchorPhase: (intentLabel?.phase ?? null) as any,
+        practicePriorityTag: (req as any).practicePriorityTag ?? null,
+      });
+
       const scored = pool.map((c: any) => {
         let score = 0;
         const ssTags: string[] = c.stateSignalTags || [];
@@ -5766,6 +5783,10 @@ function buildHorizonModules(
         if (poorSleep && ssTags.includes('signal-poor-sleep')) score += 10;
         if (req.favorites.includes(c.id)) score += 30;
         if (!isNewUser && c.isFoundational) score -= 5;
+        // Slot-intent binding (meta_skill + Recalibrate category + combo).
+        // This is the fix for "Sharpen focus slot selecting meta-renewal".
+        const intentScore = scoreContentAgainstIntent(c, slotIntent);
+        score += intentScore.total;
         // Phase L — 7-day recency penalty so the filler rotates across the
         // catalog instead of re-suggesting the same module daily.
         const recencyMap: Record<string, number> = (req as any).recentPracticeDays || {};
@@ -5782,12 +5803,24 @@ function buildHorizonModules(
           deduped.map((m: any) => m.practice?.contentType).filter(Boolean),
         );
         if (emittedTypes.has(c.content_type)) score -= 8;
-        return { content: c, score };
+        return { content: c, score, intentScore };
       });
       scored.sort((a: any, b: any) => b.score - a.score);
 
       const selected = scored[0]?.content;
       if (!selected) break;
+      // Telemetry — surfaces whether the intent binding is actually
+      // discriminating. Watch for `intentTotal <= 0` rates climbing.
+      console.log('[generate-mastery-plan][filler] intent-scored selection', {
+        slotIndex,
+        intent: slotIntent.intentLabel,
+        intentTargets: { meta: slotIntent.metaSkills, recal: slotIntent.recalibrateCategories },
+        selectedId: selected.id,
+        selectedMetaSkill: selected.metaSkillTags,
+        selectedCategory: selected.category,
+        intentTotal: scored[0]?.intentScore?.total ?? 0,
+        finalScore: scored[0]?.score ?? 0,
+      });
 
       seenContentIds.add(selected.id);
       const contentType = selected.content_type || 'micro-practice';
