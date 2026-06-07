@@ -51,7 +51,7 @@ const Signup = () => {
 
     if (isAuthenticated) {
       clearTimeoutSafe();
-      navigate(isOnboardingFlow ? '/onboarding/results' : '/daily-check-in');
+      navigate(isOnboardingFlow ? '/onboarding/results' : '/executive-home');
       return;
     }
 
@@ -67,7 +67,7 @@ const Signup = () => {
 
     clearLogoutGuard();
 
-    const returnTo = isOnboardingFlow ? '/onboarding/results' : '/daily-check-in';
+    const returnTo = isOnboardingFlow ? '/onboarding/results' : '/executive-home';
 
     clearTimeoutSafe();
     timeoutRef.current = window.setTimeout(() => {
