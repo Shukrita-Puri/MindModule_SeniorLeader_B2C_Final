@@ -331,3 +331,120 @@ Onboarding flow, MRS v3 scoring, ledger schema reshape, event taxonomy, protocol
 | Date | Version | Change |
 |---|---|---|
 | 2026-06-04 | v1.0 | Initial consolidation. Supersedes `PROACTIVE_MASTERY_PLAN_LOGIC.md`, `MASTERY_PLAN_CONTEXT_LOGIC.md`, `proactive-mastery-plan-documentation.md`. Documents the Bridge pipeline, JIT v2 shadow, deterministic title generator, LLM Why-line contract, arc dedupe, temporal gating, ledger evolution, and Brief↔Plan signature handshake. Notes that `scoreCalendarEventsLegacy` and attendee/organiser fallback code are intentionally retained as a defensive fallback pending 14-day 100 % `jit_event_context` coverage. |
+| 2026-06-07 | v1.1 | Added §15 (event prioritisation scoring) and §16 (Priority 1 / 2 / 3 slot roles — Anchor, Protect-Prepare, Close). Plan-feature only. |
+
+---
+
+## 15. Event prioritisation — full scoring contract
+
+This is the complete, current scoring contract the Plan uses to decide **which calendar event (if any) anchors a slot**, **what JIT phase it takes**, and **what survives dedupe**. Source of truth: `supabase/functions/generate-mastery-plan/index.ts` + `_shared/events/jit-candidates.ts`. Constants are quoted from code, not paraphrased.
+
+### 15.1 Hard gates (applied before any scoring)
+
+An event is dropped at the door — not scored, not surfaced — if any of these are true:
+
+1. **Educational + non-organiser.** `isEducationalTitle(title) && !isOrganizer` → blocked. No override path.
+2. **Outside the action window.** `getActionWindow(minutesUntil)` returns one of:
+   - `touch2` — `minutesUntil ≤ 360` (0–6 h: body-prep window)
+   - `touch1` — `minutesUntil ≤ 2880` (6–48 h: coach + think-prep window)
+   - `selection_only` — `> 48 h` → **excluded from the visible Plan** (still scored upstream for JIT context, never surfaced as a slot anchor).
+3. **Per-touch dismissal.** If the user dismissed this event at this horizon (`dismissed_horizons` includes the touch label), it is dropped for that touch only.
+4. **24 h MVP horizon ceiling.** `filteredEvents = filteredEvents.filter(e => minutesUntil ≤ MVP_JIT_HORIZON_MINUTES)` where `MVP_JIT_HORIZON_MINUTES = 24 * 60`. Anything ≥24 h ahead cannot anchor a Today slot, even if `touch1` accepts it.
+5. **JIT threshold floor.** `score < JIT_THRESHOLD_UNIFIED` (= **55**) → cannot become `topEvent` and cannot be promoted to a JIT slot. In the legacy fallback the same threshold applies, plus `dimA ≥ 10` and `dimB ≥ 8` floors.
+
+If everything is gated out, the Plan emits **no JIT anchor** and slots fall back to state-anchored framing (§16).
+
+### 15.2 Primary score (Bridge pipeline — `jit_event_context`)
+
+The pre-scored row from `jit_event_context` already carries `final_score`, `jit_bucket_primary/secondary`, `jit_dimension_scores`, and `jit_confidence_score → jitConfidenceBand`. The Plan **does not recompute** these; it reads them and applies three boosts on top before ranking:
+
+| Boost | Trigger | Points |
+|---|---|---|
+| Growth-area alignment | Event title or `event_type` contains a token from `coachInsights.growth_area` | **+15** |
+| Priority-tag alignment | Title or `event_type` contains the user's `practicePriorityTag` (e.g. `focus_clarity`) | **+10** |
+| HRV historical impact | `|avgHRVDeviation%| > 10` for this event type across recent history | **+10** |
+
+Boosts are additive on `final_score`. They can lift a marginal event over `JIT_THRESHOLD_UNIFIED = 55`, but they **cannot bypass** the §15.1 hard gates.
+
+### 15.3 Legacy fallback score (only when `jit_event_context` has no rows)
+
+`scoreCalendarEventsLegacy()` (≈ index.ts:1760–1880). Same gates as §15.1; score built additively:
+
+| Signal | Points |
+|---|---|
+| `minutesUntil ≤ 120` | +40 |
+| `minutesUntil ≤ 240` | +30 |
+| `minutesUntil ≤ 360` | +20 |
+| `minutesUntil ≤ 2880` | +10 |
+| `isOrganizer` | +15 |
+| `attendeesCount > 5` | +10 |
+| Relationship tag = `client` or `boss` | +6 (else any tag = +3) |
+| Duration > 60 min | +8 |
+| Not recurring (`!isRecurring`) | +10 |
+| Matched scenario via `scenarioIdFor()` → `EXECUTIVE_SCENARIOS` | **+25** |
+| Peak business hours (09–12 or 14–16 local) | +5 |
+| Back-to-back gap < 15 min after prior event | +5 |
+| Event type appears in `skippedTypes` (user has dismissed this class repeatedly) | **−15** |
+
+Same growth-area / priority-tag / HRV boosts from §15.2 are then applied on top.
+
+### 15.4 Ranking and top-event selection
+
+`rankJitCandidates(events, …)` (from `_shared/events/jit-candidates.ts`) emits an ordered list of `(event, phase, score)` tuples — one event may produce multiple phases (`pre`, `during`, `post`) per `EVENT_PHASE_MAP[category]`.
+
+Selection rules — applied in order:
+
+1. **Brief-anchor re-rank.** Titles in `briefAnchorEventTitles(snapshot)` are stable-sorted to the top of the ranked list — anything the Brief named as high-stakes is guaranteed first look.
+2. **Top JIT event.** First candidate with `phase === 'pre'`, `score ≥ JIT_THRESHOLD_UNIFIED`, and `actionWindow ∈ {touch1, touch2}` becomes `topEvent`. This event drives Slot 1 (or Slot 2 in `touch2`).
+3. **Secondary anchor (Slot 3 only).** A `post`-phase candidate for the same `topEvent` is eligible to anchor Slot 3 (Close). Different events may anchor different slots — see §15.5.
+4. **Per-event arc cap.** `CATEGORY_MAX_SLOTS` caps how many slots a single event can occupy: `A=2, D=2, F=3, G=3`, all others `=1`. A second arc additionally requires:
+   - a **distinct phase** from the first arc (e.g. `pre` + `post`, never `pre` + `pre`),
+   - **≥12 h** between the two arcs' start times,
+   - the phase pair must be valid in `EVENT_PHASE_MAP` for that category.
+5. **Anchor identity for dedupe.** `eventId` when present, else `normalize(jitEventTitle) + startTimeBucket`. Any extra occurrence is either replaced by a fresh-horizon module or stripped of JIT metadata so the practice survives but the duplicate anchor disappears.
+
+### 15.5 What the score does NOT do
+
+- It does not pick the **practice** inside the slot (that is `selectPracticesByCombo` + `practice-selector.ts` — see §6 / `mem://features/mastery-plan/practice-selection-binding`).
+- It does not write the **title** (`buildPriorityTitle`, §6.1).
+- It does not write the **why-line** (LLM, §6.2).
+- It does not override the **temporal gates** (§5) — a high-scoring event late in the evening cannot resurrect a morning-only practice type.
+
+---
+
+## 16. Priority 1 / 2 / 3 slot roles (Anchor → Protect/Prepare → Close)
+
+Today's 3 are positional. Their **role** is fixed by `slotIndex`; their **content** is selected by the rules above. The slot a JIT event lands in is a function of its action window (§15.1), not of operator choice.
+
+| Slot | `slotIndex` | Role | When JIT can take this slot | Default (no qualifying JIT) |
+|---|---|---|---|---|
+| **Priority 1 — Anchor** | 1 | Set the day's posture. Either pre-event JIT for an imminent high-stakes event, or a state-anchored regulation/activation move that sets baseline before the calendar opens. | `topEvent` is `touch2` (0–6 h) AND `jitMinutesUntil < 120` (≤2 h to start). Carries `isJit=true`, `jitPhase='pre'`, `arcLabel='Prepare'`. May include up to **3 practices** chosen via `selectPracticesByCombo` against the §4 combo for the event's phase. | Tier-driven. Depleted → `regulate` + `align` pair. Otherwise → top-ranked `todModules[0]` (one practice). State label from `composeStateLabel(0)` (`"{verb} for {anchor}"`). |
+| **Priority 2 — Protect / Prepare** | 2 | Protect the mid-day. Either pre-event JIT for an event coming up later today, or the Midday Regeneration slot that adapts to afternoon divergence (HRV / intraday HR / check-in vs morning baseline). | `topEvent` is `touch1` (6–48 h, but ≤24 h by MVP ceiling) AND has not already taken Slot 1. Carries `isJit=true`, `jitPhase='pre'`, `arcLabel='Prepare'`. Typically **1 practice** (`align` or `prepare`-typed) drawn from the JIT modules bound to the event's combo. | State-anchored adaptive practice. In the afternoon window this is the **Midday Regeneration Trigger** (§5) — Slot 2 may rebuild from afternoon-context wearable + check-in, overriding the morning-only selection. Outside divergence, falls through to the next-best `todModules` entry the §15.4 dedupe pass left intact. |
+| **Priority 3 — Close** | 3 | Close the loop. Either post-event recovery for `topEvent` (Recover/Land/Reset arc) or the integrate / Tiny Win practice that consolidates the day. | `topEvent` carries a valid `post` phase for its category AND the per-event arc rules in §15.4 allow a second slot (distinct phase + ≥12 h). Carries `isJit=true`, `jitPhase='post'`, `arcLabel ∈ {'Recover','During'}` per `verbForCategoryPhase`. | **Temporal gating applies** (§5). Integrate / Tiny Win renders **only** 18:00–22:59 local. 00:00–04:59 → server rewrites to **"Sleep Prep & Tomorrow Framing"** with a forward-looking framing prompt. Outside both windows → forward-looking framing module (no Reflection Corner capture). `arcLabel='Steady'`. |
+
+### 16.1 Cross-slot invariants
+
+- **One event per slot, max one slot per event** — unless §15.4 multi-arc rules permit (e.g. A/D = up to 2 phases; F/G = up to 3 phases).
+- **Slot order is positional, not score-ranked.** Slot 2 never carries a higher-scoring JIT than Slot 1; if a `touch2` event qualifies, it bumps to Slot 1 by construction.
+- **Sticky completion overrides reshuffling.** Per the ledger (§7), a completed slot stays verbatim with ✓ — fresh JIT scoring cannot displace it. Only incomplete slots are recomputed.
+- **JIT anchor adaptiveness.** A ledger slot already anchored to an event still on today's calendar keeps `slotIndex`, `jitEventTitle`, and `horizon`; only practice / why-line / time-label refresh. Same WHAT, different HOW.
+- **Bonus Round.** When all 3 slots are completed and a new brief is generated, the ledger hands off to a brand-new plan with header "Today's 3 · Bonus Round" — Slot 1/2/3 roles still apply.
+
+### 16.2 Slot → arc label mapping
+
+`arcLabel` is what the UI renders as a muted chip beside the priority number. Derived deterministically from `(category, phase)`:
+
+| Phase | arcLabel | Verb family (`verbForCategoryPhase`) |
+|---|---|---|
+| `pre` | **Prepare** | Lead / Present / Decide / Steady / Reframe |
+| `during` | **During** | Hold |
+| `post` | **Recover** | A,D → Reset · F,G → Recover · else → Land |
+| no event anchor | **Steady** | Steady (the system) |
+
+Slot 3 in the integrate / Tiny Win path renders `arcLabel='Steady'` because it has no event anchor by definition.
+
+### 16.3 Failure / empty-calendar behaviour
+
+- No qualifying JIT in any window → all three slots are state-anchored. Titles fall back to time-of-day neutral phrasing (`"this morning"`, `"this afternoon"`, `"this evening"`, `"the day ahead"` on weekends) — never "today's load" (see `composeStateLabel` v5.2 gating, `mem://features/mastery-plan/slot-model-v5`).
+- `topEvent` exists but only in `selection_only` (>48 h) → no JIT slot is rendered; the event may still appear in `calendarPills` for awareness.
+- All three slots completed mid-day → ledger holds; no recomputation until a new Brief signature is produced.
