@@ -7,6 +7,8 @@ import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import TourMockPlan from "@/components/onboarding/TourMockPlan";
 import { useTourMock } from "@/components/onboarding/useTourMock";
+import WeekAheadPriorities from "@/components/home/WeekAheadPriorities";
+import { useWeekAheadMode } from "@/hooks/useWeekAheadMode";
 
 import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
@@ -33,6 +35,7 @@ const PlanPage = () => {
   // useTourMock (active flag + first-time user). Real plan + completion
   // logic stay untouched.
   const { shouldRenderMock: showTourMockPlan } = useTourMock();
+  const weekAhead = useWeekAheadMode();
 
   useEffect(() => {
     setShowGuide(isTourActiveForUser(effectiveId) || isRetakeForUser(effectiveId));
@@ -62,7 +65,7 @@ const PlanPage = () => {
                   shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
                   <div className="mb-3 px-3 flex items-center justify-between">
                     <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
-                      Today's Performance Priorities
+                      {weekAhead.active ? "Week-Ahead Priorities" : "Today's Performance Priorities"}
                     </span>
                     <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
                       Mental Performance Plan
@@ -71,6 +74,11 @@ const PlanPage = () => {
                   <div>
                     {showTourMockPlan ? (
                       <TourMockPlan />
+                    ) : weekAhead.active ? (
+                      <WeekAheadPriorities
+                        reason={weekAhead.reason}
+                        manualOverride={weekAhead.manualOverride}
+                      />
                     ) : (
                       <>
                         <TodayThreePriorities
