@@ -1989,6 +1989,27 @@ serve(async (req) => {
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes, calendarResult.meetingCount, calendarResult.remainingMeetings);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
+    // §17.2 / §17.2a — Driver override based on Week-Ahead Mode and the
+    // Saturday recovery predicate. We only flip the `driver` stamp on the
+    // brief_snapshots row here; full LLM anchor-block rewrites are tracked
+    // as a follow-up. The Plan + Nudges read the same predicates directly.
+    try {
+      const manualWeekAheadOverride = req.headers.get('x-week-ahead-override') === '1';
+      const wam = evaluateWeekAheadMode({
+        dayOfWeek,
+        localHour: hour,
+        manualOverride: manualWeekAheadOverride,
+      });
+      if (wam.active) {
+        (theme as { driver: ThemeDriver }).driver = 'week_recap';
+      } else if (isSaturdayRecoveryDay({ dayOfWeek, localHour: hour })) {
+        (theme as { driver: ThemeDriver }).driver = 'week_recovery';
+      }
+    } catch (wamErr) {
+      console.warn('[compute-outer-readiness] week-ahead driver override skipped:',
+        wamErr instanceof Error ? wamErr.message : wamErr);
+    }
+
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
     console.log('[compute-outer-readiness] THEME:', JSON.stringify({
       phrase: theme.phrase,
