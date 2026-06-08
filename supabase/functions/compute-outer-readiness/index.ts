@@ -25,6 +25,10 @@ import {
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
+import {
+  evaluateWeekAheadMode,
+  isSaturdayRecoveryDay,
+} from "../_shared/plan/week-ahead-mode.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 import {
   computeDivergenceFlag,
