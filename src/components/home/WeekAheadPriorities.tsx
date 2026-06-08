@@ -100,29 +100,6 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
 
   useEffect(() => { void load(); }, [load]);
 
-  // §17.7 — log picker-opened so the smart-nudges runner can suppress the
-  // weekAheadPickerInvite push for the rest of the day. Best-effort, silent
-  // on failure (e.g. anonymous DEV_MODE without auth → RLS rejects insert).
-  useEffect(() => {
-    (async () => {
-      try {
-        const userId = DEV_MODE ? DEV_USER.id : null;
-        if (!userId) {
-          // Try via Auth0 sub indirectly: the RLS policy uses auth.jwt()->>'sub'.
-          // The supabase-js client will attach the active Auth0 token via the
-          // existing interceptor, so we can rely on the policy for real users.
-        }
-        await supabase.from("behavior_logs").insert({
-          user_id: userId ?? undefined,
-          behavior_type: "week_ahead_picker_opened",
-        } as any);
-      } catch (e) {
-        // Silent — picker still works; nudge suppression is best-effort.
-        if (import.meta.env?.DEV) console.warn("[WeekAheadPriorities] behavior_logs insert failed", e);
-      }
-    })();
-  }, []);
-
   const groups = useMemo(() => {
     const map = new Map<string, PriorityItem[]>();
     for (const it of items) {
