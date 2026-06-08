@@ -2,14 +2,19 @@
  * list-week-ahead-priorities
  *
  * Returns ~10 important upcoming-week events for the Week-Ahead Planning
- * surface (Sat / Sun / last-day-of-PTO / last-day-of-holiday).
+ * surface (Sun / last-day-of-PTO / last-day-of-holiday / last-day-of-long-
+ * weekend / manual `?mode=week-ahead`). Saturday is NOT a Week-Ahead day —
+ * it is a recovery day handled by the Brief.
  *
  * Pipeline (all reuse — no new taxonomy):
  *   1. Pull events in [now, now + lookaheadDays] (local).
- *   2. classifyEvent + coarseEventType for category / type bucket.
- *   3. Stakes-based score + priority-memory delta (from event_priority_memory).
+ *   2. Drop noise / educational-not-organiser; classify category + type bucket.
+ *   3. Score with the same `rankJitCandidates` ranker the weekday Plan uses
+ *      (stakes-base + category + severity + demand profile + proximity) plus
+ *      `applyEventPriorityMemory` learning delta from `event_priority_memory`.
  *   4. Drop hard-demoted ('never') events.
- *   5. Per-day cap (3) + per-category cap (3) for variety, take top 10.
+ *   5. Soft per-category cap (4) for variety — NO per-day cap (week planner).
+ *      Take top 10 by score, then re-sort chronologically for UI.
  *
  * Auth: Auth0 JWT via _shared/auth.ts. Dev mode bypassed via x-dev-user-id
  * header outside production, mirroring list-replacement-calendar-events.
@@ -38,6 +43,10 @@ import {
   applyEventPriorityMemory,
   loadPriorityMemoryForUser,
 } from "../_shared/plan/event-priority-memory.ts";
+import {
+  rankJitCandidates,
+  type RankableEventInput,
+} from "../_shared/events/jit-candidates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,9 +65,39 @@ interface CalendarEventRow {
   is_recurring?: boolean | null;
 }
 
-const CATEGORY_CAP = 3;
-const PER_DAY_CAP = 3;
+const PER_CATEGORY_SOFT_CAP = 4;
 const TOP_N = 10;
+
+/** Derive the stakes-level token the unified ranker (`rankJitCandidates`)
+ *  consumes. Mirrors `toBriefEvents` in _shared/signal-engine/db-queries.ts so
+ *  the picker shares the same coarse-stakes vocabulary as the Brief. */
+function deriveStakesLevel(title: string): string | null {
+  const coarse = coarseEventType(title);
+  if (coarse === "board") return "board";
+  if (coarse === "investor") return "investor";
+  if (
+    coarse === "ma" || coarse === "fundraising" || coarse === "client" ||
+    coarse === "media-interview" || coarse === "speaking" || coarse === "crisis"
+  ) return "external";
+  return null;
+}
+
+function componentReasons(c: {
+  base: number;
+  category: number;
+  severity: number;
+  demand: number;
+}, opts: { isOrganizer: boolean | null; attendees: number | null }): string[] {
+  const out: string[] = [];
+  if (c.base >= 30) out.push("high stakes");
+  else if (c.base >= 20) out.push("important");
+  if (c.category >= 20) out.push("decision-critical");
+  else if (c.category >= 15) out.push("strategic");
+  if (c.severity >= 15) out.push("high severity");
+  if (opts.isOrganizer) out.push("you're organising");
+  if ((opts.attendees ?? 0) >= 5) out.push(`${opts.attendees} attendees`);
+  return out;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -155,49 +194,50 @@ serve(async (req) => {
       period: string;
       category: string;            // coarse token (e.g. 'board')
       typeKey: string;             // normalized bucket
-      stakesLevel: number;         // 1–5
+      stakesLevel: string | null;  // 'board' | 'investor' | 'external' | null
       score: number;
       scoreReasons: string[];
       isOrganizer: boolean | null;
     };
 
-    const scored: Scored[] = [];
+    // ── Filter + classify + build ranker inputs in one pass ──
+    type Meta = {
+      eventId: string;
+      title: string;
+      startTime: string;
+      endTime: string;
+      localDay: string;
+      period: string;
+      category: string;
+      typeKey: string;
+      stakesLevel: string | null;
+      isOrganizer: boolean | null;
+      attendees: number | null;
+      memoryReasons: string[];
+    };
+
+    const metaById = new Map<string, Meta>();
+    const rankerInputs: RankableEventInput[] = [];
+
     for (const e of deduped) {
       if (isNoiseTitle(e.title)) continue;
-      // Educational + not-organizer is a hard gate, mirroring Plan rules.
       if (isEducationalTitle(e.title) && e.isOrganizer === false) continue;
 
-      const subtype = classifyEvent(e.title, e.attendeesCount ?? null, null, e.isRecurring ?? null);
-      const stakes = subtype?.stakesLevel ?? 0;
       const category = coarseEventType(e.title);
       const typeKey = normalizeEventTypeKey(e.title);
+      const stakesLevel = deriveStakesLevel(e.title);
 
-      // Base score: stakes-weighted + organizer + attendee boost. Deliberately
-      // conservative — full ranking lives in generate-mastery-plan; this surface
-      // only needs to rank ~10 events for human review.
-      let score = stakes * 12;
-      const reasons: string[] = [];
-      if (stakes >= 4) reasons.push("high stakes");
-      else if (stakes >= 3) reasons.push("important");
-      if (e.isOrganizer) { score += 5; reasons.push("you're organising"); }
-      if ((e.attendeesCount ?? 0) >= 5) { score += 4; reasons.push(`${e.attendeesCount} attendees`); }
-
-      // Memory boost — historical learning.
       const mem = applyEventPriorityMemory(memoryIndex, {
         eventCategory: category,
         eventTypeKey: typeKey,
       });
       if (mem.hardDemote) continue;
-      score += mem.delta;
-      reasons.push(...mem.reasons);
-
-      if (score < 10) continue; // very low signal floor
 
       const localStart = new Date(new Date(e.startTime).getTime() - offsetMinutes * 60_000);
       const localDay =
         `${localStart.getFullYear()}-${String(localStart.getMonth() + 1).padStart(2, "0")}-${String(localStart.getDate()).padStart(2, "0")}`;
 
-      scored.push({
+      metaById.set(e.id, {
         eventId: e.id,
         title: e.title,
         startTime: e.startTime,
@@ -206,28 +246,78 @@ serve(async (req) => {
         period: periodFor(localStart),
         category,
         typeKey,
-        stakesLevel: stakes,
-        score,
-        scoreReasons: reasons.slice(0, 3),
+        stakesLevel,
         isOrganizer: e.isOrganizer,
+        attendees: e.attendeesCount,
+        memoryReasons: mem.reasons,
+      });
+
+      rankerInputs.push({
+        event: { id: e.id, title: e.title, start_time: e.startTime, end_time: e.endTime },
+        stakesLevel,
+        memoryDelta: mem.delta,
+      });
+    }
+
+    // ── Score via the same ranker the weekday Plan uses ──
+    const ranked = rankJitCandidates(rankerInputs, Date.now());
+
+    // Collapse to one row per event (best-scoring phase wins).
+    const bestByEvent = new Map<string, typeof ranked[number]>();
+    for (const r of ranked) {
+      const cur = bestByEvent.get(r.eventId);
+      if (!cur || r.score > cur.score) bestByEvent.set(r.eventId, r);
+    }
+
+    const scored: Scored[] = [];
+    for (const [eventId, r] of bestByEvent) {
+      const meta = metaById.get(eventId);
+      if (!meta) continue;
+      const reasons = [
+        ...componentReasons(r.components, {
+          isOrganizer: meta.isOrganizer,
+          attendees: meta.attendees,
+        }),
+        ...meta.memoryReasons,
+      ];
+      scored.push({
+        eventId,
+        title: meta.title,
+        startTime: meta.startTime,
+        endTime: meta.endTime,
+        localDay: meta.localDay,
+        period: meta.period,
+        category: meta.category,
+        typeKey: meta.typeKey,
+        stakesLevel: meta.stakesLevel,
+        score: r.score,
+        scoreReasons: reasons.slice(0, 3),
+        isOrganizer: meta.isOrganizer,
       });
     }
 
     scored.sort((a, b) => b.score - a.score);
 
-    // Apply per-day + per-category caps for variety, then truncate.
-    const perDay = new Map<string, number>();
+    // Soft per-category cap only (no per-day cap — this is a week planner).
     const perCategory = new Map<string, number>();
     const picked: Scored[] = [];
     for (const s of scored) {
       if (picked.length >= TOP_N) break;
-      const d = perDay.get(s.localDay) ?? 0;
       const c = perCategory.get(s.category) ?? 0;
-      if (d >= PER_DAY_CAP) continue;
-      if (c >= CATEGORY_CAP) continue;
+      if (c >= PER_CATEGORY_SOFT_CAP) continue;
       picked.push(s);
-      perDay.set(s.localDay, d + 1);
       perCategory.set(s.category, c + 1);
+    }
+    // If the soft cap was too restrictive (small calendars dominated by one
+    // bucket), backfill with the next-best events to honour the top-10 goal.
+    if (picked.length < TOP_N) {
+      const pickedIds = new Set(picked.map((p) => p.eventId));
+      for (const s of scored) {
+        if (picked.length >= TOP_N) break;
+        if (pickedIds.has(s.eventId)) continue;
+        picked.push(s);
+        pickedIds.add(s.eventId);
+      }
     }
 
     // Re-sort the selected slice by chronological start time for UI rendering.
