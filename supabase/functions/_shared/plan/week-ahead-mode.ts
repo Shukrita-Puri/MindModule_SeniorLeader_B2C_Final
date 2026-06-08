@@ -11,7 +11,6 @@
  */
 
 export type WeekAheadReason =
-  | "saturday"
   | "sunday"
   | "last_day_pto"
   | "last_day_holiday"
@@ -82,10 +81,10 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
     return { active: true, reason: "last_day_long_weekend", lookbackDays: 7, lookaheadDays: 7 };
   }
 
-  // Plain Sat / Sun.
-  if (input.dayOfWeek === 6) {
-    return { active: true, reason: "saturday", lookbackDays: 7, lookaheadDays: 7 };
-  }
+  // Saturday is intentionally NOT a Week-Ahead day — it is a recovery day
+  // (see isSaturdayRecoveryDay below + §17.2a of the SSOT). Only Sunday is
+  // the plain weekend trigger; the special last-day-PTO/holiday/long-weekend
+  // branches above cover post-break planning regardless of day-of-week.
   if (input.dayOfWeek === 0) {
     return { active: true, reason: "sunday", lookbackDays: 7, lookaheadDays: 7 };
   }
@@ -95,6 +94,20 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
 
 function inactive(): WeekAheadDecision {
   return { active: false, reason: null, lookbackDays: 0, lookaheadDays: 0 };
+}
+
+/**
+ * Saturday recovery-day predicate. Used by the Brief (compute-outer-readiness)
+ * to select the `week_recovery` driver — Plan never reads this (Saturday
+ * Plan stays on the weekday cadence so the user still has a self-regulation
+ * surface). Returns false on travel days and full working weekends so those
+ * contexts keep their own behaviour.
+ */
+export function isSaturdayRecoveryDay(input: WeekAheadInput): boolean {
+  if (input.dayOfWeek !== 6) return false;
+  if (input.travelDay) return false;
+  if (input.fullWorkingWeekend) return false;
+  return true;
 }
 
 /** Convenience: normalises an event title into a stable bucket for memory. */
