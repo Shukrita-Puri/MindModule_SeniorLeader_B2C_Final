@@ -40,6 +40,7 @@ const VALID_SOURCES = new Set([
   "week_ahead_picker",
   "priority_tag",
   "cancel_feedback",
+  "post_plan_feedback",
 ]);
 
 serve(async (req) => {
