@@ -114,7 +114,7 @@ export function isSaturdayRecoveryDay(input: WeekAheadInput): boolean {
 export function normalizeEventTypeKey(title: string | null | undefined): string {
   if (!title) return "untitled";
   const t = title.toLowerCase().trim();
-  if (/\b1[:\-]?on[:\-]?1\b|\bone[\s-]?on[\s-]?one\b/.test(t)) return "1on1";
+  if (/\b1\s*[:\-]\s*1\b|\b1\s*on\s*1\b|\bone[\s-]?on[\s-]?one\b/.test(t)) return "1on1";
   if (/\bboard\b/.test(t)) return "board";
   if (/\bstandup|stand-up\b/.test(t)) return "standup";
   if (/\binterview\b/.test(t)) return "interview";
