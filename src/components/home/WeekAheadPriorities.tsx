@@ -1,5 +1,7 @@
 /**
- * WeekAheadPriorities — Sat / Sun / post-break planning surface.
+ * WeekAheadPriorities — Sun / last-day-PTO / last-day-holiday /
+ * last-day-long-weekend planning surface. Saturday is intentionally
+ * excluded (recovery day — see SSOT §17.2a).
  *
  * Reuses the existing Plan page container. Fetches ~10 important events
  * for the upcoming week from `list-week-ahead-priorities` and lets the
