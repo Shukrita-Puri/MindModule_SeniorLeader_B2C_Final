@@ -2867,16 +2867,30 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   let jitRankedCandidates: RankedJitCandidate[] = [];
   try {
     jitRankedCandidates = rankJitCandidates(
-      filteredEvents.map(e => ({
-        event: {
-          id: e.event.id,
-          title: e.event.title,
-          start_time: getCalendarEventStartIso(e.event) ?? '',
-          end_time: getCalendarEventEndIso(e.event),
-        },
-        stakesLevel: (e as any).stakesLevel ?? null,
-        score: e.score,
-      })),
+      filteredEvents.map(e => {
+        let memoryDelta = 0;
+        let memoryHardDemote = false;
+        if (priorityMemoryIndex) {
+          const mem = applyEventPriorityMemory(priorityMemoryIndex, {
+            eventCategory: coarseEventType(e.event.title || ''),
+            eventTypeKey: normalizeEventTypeKey(e.event.title || ''),
+          });
+          memoryDelta = mem.delta;
+          memoryHardDemote = mem.hardDemote;
+        }
+        return {
+          event: {
+            id: e.event.id,
+            title: e.event.title,
+            start_time: getCalendarEventStartIso(e.event) ?? '',
+            end_time: getCalendarEventEndIso(e.event),
+          },
+          stakesLevel: (e as any).stakesLevel ?? null,
+          score: e.score,
+          memoryDelta,
+          memoryHardDemote,
+        };
+      }),
       nowMsForJit,
     );
     // Brief↔Plan parity: re-rank so any candidate whose title matches an
