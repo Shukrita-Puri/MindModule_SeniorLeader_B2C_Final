@@ -204,7 +204,11 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {TIME_LABEL(it.startTime)} · {it.category}
-                        {it.stakesLevel >= 4 ? " · high stakes" : it.stakesLevel >= 3 ? " · important" : ""}
+                        {it.stakesLevel === "board" || it.stakesLevel === "investor"
+                          ? " · high stakes"
+                          : it.stakesLevel === "external"
+                            ? " · important"
+                            : ""}
                       </div>
                       {it.scoreReasons.length > 0 && (
                         <div className="text-[11px] text-muted-foreground/80 mt-1">
