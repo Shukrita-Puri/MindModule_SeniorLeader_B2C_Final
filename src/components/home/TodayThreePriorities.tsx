@@ -1729,6 +1729,56 @@ const TodayThreePriorities = ({
           priorityLabel={`Priority ${feedbackSlot.index + 1}`}
           onSubmit={(rating, feedback) => {
             submitPlanFeedback('tod', rating, feedback);
+            // §17.4 bridge — post-plan thumbs-up/down on a JIT-bound slot
+            // teaches the ranker which event types matter. Thumbs-up always
+            // boosts; thumbs-down only writes a demote when the free-text
+            // explicitly says the event itself was wrong (heuristic keeps
+            // practice-quality feedback out of the event-priority memory).
+            try {
+              const slotIdx = feedbackSlot.index;
+              const hm: any = plan?.horizonModules?.[slotIdx];
+              const slotEventTitle: string | null = hm?.isJit
+                ? (hm?.jitEventTitle ?? null)
+                : null;
+              if (slotEventTitle) {
+                let signal: 'priority' | 'cancelled_as_noise' | null = null;
+                if (rating === 5) signal = 'priority';
+                else if (
+                  rating === 1 &&
+                  typeof feedback === 'string' &&
+                  /wrong event|not relevant|doesn'?t apply|don'?t need/i.test(feedback)
+                ) {
+                  signal = 'cancelled_as_noise';
+                }
+                if (signal) {
+                  (async () => {
+                    try {
+                      const headers: Record<string, string> = {};
+                      const token = await getAuthToken();
+                      if (token) headers["Authorization"] = `Bearer ${token}`;
+                      if (DEV_MODE) headers["x-dev-user-id"] = DEV_USER.id;
+                      await supabase.functions.invoke("record-event-priority-signal", {
+                        headers,
+                        body: {
+                          eventTitle: slotEventTitle,
+                          signal,
+                          source: "post_plan_feedback",
+                          meta: {
+                            rating,
+                            feedbackText: feedback ?? null,
+                            slotIndex: slotIdx,
+                          },
+                        },
+                      });
+                    } catch (e) {
+                      console.warn("[TodayThreePriorities] post-plan priority-memory write failed", e);
+                    }
+                  })();
+                }
+              }
+            } catch (e) {
+              console.warn("[TodayThreePriorities] post-plan bridge threw", e);
+            }
             setFeedbackSlot(null);
           }}
           onSkip={() => setFeedbackSlot(null)}
