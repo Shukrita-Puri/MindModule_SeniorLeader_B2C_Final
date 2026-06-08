@@ -1513,7 +1513,12 @@ const TodayThreePriorities = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setPendingCancel({ index, key: slotKey, title: `${hm.timeLabel} · ${module.title}` });
+                      setPendingCancel({
+                        index,
+                        key: slotKey,
+                        title: `${hm.timeLabel} · ${module.title}`,
+                        eventTitle: hm.isJit ? hm.jitEventTitle ?? null : null,
+                      });
                     }}
                     className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
                     aria-label="Cancel priority"
