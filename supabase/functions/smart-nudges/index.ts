@@ -15,6 +15,8 @@ import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import { FORBIDDEN_NOTIFICATION_WORDS } from "../_shared/brief/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
+import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
+import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 
 // ── APNs Helper Functions ──
 
@@ -2734,6 +2736,114 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
 }
 
 // ══════════════════════════════════════════════════════════════
+// ── Week-Ahead Picker Invite (§17.7) ──
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Fires Sun 16:00–19:00 local AND 16:00–19:00 local on a detected last day
+ * of PTO / holiday / long-weekend. Saturday is hard-suppressed (recovery day).
+ *
+ * Suppression order:
+ *   - already shipped today (notification_log)
+ *   - user already opened the picker today (event_priority_memory row with
+ *     source='week_ahead_picker' written today is the proxy — set when the
+ *     user actually tags any priority in the picker)
+ *   - shouldFireWeekAheadPickerInvite predicate (Sat / out-of-window /
+ *     week-ahead inactive)
+ */
+async function evaluateWeekAheadPickerInvite(
+  ctx: NudgeContext,
+  alreadySentTypes: Set<string>,
+  supabase: ReturnType<typeof createClient>,
+): Promise<QualifiedNudge | null> {
+  const log = (reason: string, extra?: unknown) =>
+    console.log(`[smart-nudges] week_ahead_picker_invite user=${ctx.userId} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
+
+  if (alreadySentTypes.has('week_ahead_picker_invite')) {
+    log('already_sent');
+    return null;
+  }
+
+  // Proxy for pickerOpenedToday: any week_ahead_picker signal written today
+  // means the user landed in the picker and tagged something. Cheap query,
+  // bounded by user_id + occurred_at.
+  let pickerOpenedToday = false;
+  try {
+    const startOfDayIso = new Date(`${ctx.todayStr}T00:00:00Z`).toISOString();
+    const { data: openedRows } = await supabase
+      .from('event_priority_memory')
+      .select('id')
+      .eq('user_id', ctx.userId)
+      .eq('source', 'week_ahead_picker')
+      .gte('occurred_at', startOfDayIso)
+      .limit(1);
+    pickerOpenedToday = !!(openedRows && openedRows.length > 0);
+  } catch (_) { /* silent — proxy only */ }
+
+  // Project the inputs evaluateWeekAheadMode needs from the existing context.
+  const dc = ctx.dayContext;
+  const travelDay = dc.kind === 'travel-day';
+  const ptoTodayAllDay = !!dc.ptoMode;
+  // Best-effort: smart-nudges does not have tomorrow's PTO/holiday signal
+  // hydrated, so we leave those fields undefined. The Sunday branch still
+  // fires reliably; last-day-PTO/holiday detection is opportunistic.
+  const wam = evaluateWeekAheadMode({
+    dayOfWeek: ctx.dayOfWeek,
+    localHour: Math.floor(ctx.localTime),
+    travelDay,
+    ptoTodayAllDay,
+    // tomorrow IS workday for Sun-Thu in our schedule
+    tomorrowIsWorkday: ctx.dayOfWeek >= 0 && ctx.dayOfWeek <= 4,
+    manualOverride: false,
+  });
+
+  const decision = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: ctx.dayOfWeek,
+    localHour: Math.floor(ctx.localTime),
+    weekAheadDecision: wam,
+    alreadySentToday: false, // already covered above
+    pickerOpenedToday,
+  });
+
+  log(`fire=${decision.fire}`, { reason: decision.reason, wamReason: wam.reason, wamActive: wam.active, pickerOpenedToday });
+  if (!decision.fire) return null;
+
+  const variantByReason: Record<string, { title: string; body: string }> = {
+    sunday_evening: {
+      title: 'Sunday reset',
+      body: "Pick this week's 10 priorities — 90 seconds to set the shape.",
+    },
+    last_day_pto_evening: {
+      title: 'Last day off',
+      body: "Pick this week's 10 priorities before tomorrow lands.",
+    },
+    last_day_holiday_evening: {
+      title: 'Re-engaging',
+      body: "Pick the events that matter this week before you log back in.",
+    },
+    last_day_long_weekend_evening: {
+      title: 'Frame the week',
+      body: "Pick this week's 10 priorities before Monday lands.",
+    },
+  };
+  const v = variantByReason[decision.reason] ?? variantByReason.sunday_evening;
+
+  return {
+    type: 'week_ahead_picker_invite',
+    copy: {
+      title: v.title,
+      body: v.body,
+      variantId: `week_ahead_picker_invite::${decision.reason}`,
+    },
+    deepLinkRoute: '/plan?mode=week-ahead',
+    priority: 25,
+    anchorKind: 'state',
+    slot: 'evening',
+    signalStrength: 2,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
 // ── Post-MVP Evaluators (wrapped in MVP_POST_LAUNCH flag) ──
 // ── Kept for future activation ──
 // ══════════════════════════════════════════════════════════════
@@ -3270,6 +3380,14 @@ serve(async (req) => {
       if ((prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('nudge_three') && !suppressedEffective) {
         const nudge = await evaluateNudgeThree(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
+      }
+
+      // §17.7 — Week-Ahead Picker Invite (Sun + last-day-PTO/holiday evenings).
+      // Independent of Nudge 3 framing: shares the evening slot but is
+      // gated by the picker-invite predicate, not the check-in cadence.
+      if ((prefs?.evening_close_enabled ?? true) && !suppressedEffective) {
+        const inv = await evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, supabase);
+        if (inv) qualified.push(inv);
       }
 
       // Post-MVP evaluators (all gated by MVP_POST_LAUNCH = false)

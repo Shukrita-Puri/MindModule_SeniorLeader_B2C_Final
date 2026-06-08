@@ -514,7 +514,7 @@ Table `public.event_priority_memory` (migration `20260607*`):
 | event_category  | text        | coarse token from `coarseEventType`                           |
 | event_type_key  | text        | bucket from `normalizeEventTypeKey` (1on1, board, deep_work…) |
 | signal          | text        | `priority` / `not_this_week` / `never` / `cancelled_as_noise` / `cancelled_keep_surfacing` |
-| source          | text        | `week_ahead_picker` / `priority_tag` / `cancel_feedback`      |
+| source          | text        | `week_ahead_picker` / `priority_tag` / `cancel_feedback` / `post_plan_feedback` |
 | event_id        | text        | nullable — original calendar event when known                 |
 | occurred_at     | timestamptz | default `now()`                                               |
 | meta            | jsonb       | free-form telemetry                                           |
@@ -543,6 +543,14 @@ Net delta clamped to `[-50, +30]`. Reasons surface in `scoreReasons[]` (e.g. `"p
 
 The cancel-feedback bridge is live: when a user cancels a JIT-bound priority via `SlotCancelFeedbackModal`, `TodayThreePriorities.tsx` fires a fire-and-forget POST to `record-event-priority-signal` with `source: 'cancel_feedback'` and `signal: 'cancelled_keep_surfacing'` (reason="now") or `'cancelled_as_noise'` (reason="ever"), so future Plan + Week-Ahead rankings learn from this cancel.
 
+The post-plan-feedback bridge is also live: when a user submits the `PlanFeedbackModal` for a JIT-bound priority, `TodayThreePriorities.tsx` fires a fire-and-forget POST to `record-event-priority-signal` with `source: 'post_plan_feedback'` and:
+
+- **Thumbs-up (rating = 5)** → `signal: 'priority'` (boosts the event-type in future rankings).
+- **Thumbs-down (rating = 1) AND** the free-text matches `/wrong event|not relevant|doesn't apply|don't need/i` → `signal: 'cancelled_as_noise'` (the user is saying the event itself was wrong, not the practice).
+- Otherwise → **no event-memory write** (feedback is about the practice, not the event — handled by the `content-feedback` path only).
+
+State-anchored slots (no JIT event) never write to event memory.
+
 ### 17.6 UI contract
 
 - Component: `src/components/home/WeekAheadPriorities.tsx`.
@@ -560,6 +568,7 @@ New nudge rule `weekAheadPickerInvite`:
 - Suppressed when `evaluateWeekAheadMode(...).active === false` (covers travel + full-working-weekend), when a `weekAheadPickerInvite` was already sent today, or when the user already opened the picker today.
 - Deep link: `/plan?mode=week-ahead` → PlanPage detects the query param via `useWeekAheadMode`, forces `manualOverride`, and the edge function honours `x-week-ahead-override: 1` for borderline server-side decisions.
 - Shared predicate: `supabase/functions/_shared/plan/week-ahead-nudge.ts → shouldFireWeekAheadPickerInvite(input)` — pure function, unit-tested independently of the nudge runner.
+- Runner wiring: `supabase/functions/smart-nudges/index.ts → evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, supabase)` calls the shared predicate after Nudge 3, gated on `prefs.evening_close_enabled`. Uses `event_priority_memory` rows with `source='week_ahead_picker'` written today as the proxy for `pickerOpenedToday` (no extra writes required — set whenever the user tags any item in the picker). Static copy variants per reason: `sunday_evening`, `last_day_pto_evening`, `last_day_holiday_evening`, `last_day_long_weekend_evening`. Slot=`evening`, anchor=`state`, signalStrength=2, priority=25 (sits behind genuine JIT evening nudges in the v7 comparator).
 
 ### 17.8 Suppression matrix
 

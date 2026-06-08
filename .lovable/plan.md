@@ -1,117 +1,131 @@
 ## Goal
 
-Finish §17 of `docs/GENERATE_MASTERY_PLAN_SSOT.md`: the Week-Ahead picker uses the **same ranker the weekday Plan uses** plus the **learning loop** from `event_priority_memory`. Ship the four staged items (brief drivers, memory boost in `rankJitCandidates`, cancel-feedback bridge, `weekAheadPickerInvite` nudge).
+Close the two known gaps from the last validation pass:
 
-**Day-mode contract (this update):**
+1. **Broaden the learning loop** — `event_priority_memory` currently learns only from cancel-feedback + Week-Ahead picker tags. Extend it so post-plan-completion feedback (thumbs up/down on a JIT-bound priority) also writes a signal, and the per-event tags users set in prior Week-Ahead sessions visibly influence the next ranking.
+2. **Wire the Week-Ahead picker-invite nudge** — the `shouldFireWeekAheadPickerInvite` predicate is tested and shipped but `smart-nudges/index.ts` never calls it. Add a dedicated evaluator so it actually emits a push on Sun 16:00–19:00 local and last-day-PTO/holiday/long-weekend evenings.
 
-| Day                                                    | Brief driver                | Plan surface           | Nudge                   |
-|--------------------------------------------------------|-----------------------------|------------------------|-------------------------|
-| Mon–Fri                                                | Standard forward driver     | Weekday Plan           | Standard nudge ladder   |
-| **Saturday**                                           | **`week_recovery`** (new)   | **Weekday Plan**       | Standard nudge ladder   |
-| **Sunday**                                             | `week_recap` (week-ahead)   | Week-Ahead picker      | `weekAheadPickerInvite` (16–19 local) |
-| Last-day PTO / holiday / long-weekend (workday ahead)  | `week_recap`                | Week-Ahead picker      | `weekAheadPickerInvite` (16–19 local) |
-| Travel / full-working-weekend                          | Standard forward driver     | Weekday Plan           | Standard nudge ladder   |
+No SSOT taxonomy changes; no schema migrations beyond extending the existing `signal`/`source` CHECK constraints on `event_priority_memory`.
 
-Saturday is a **self-regulation / recovery day** — not week-ahead. The Saturday brief looks **backwards across the week gone by** to frame recovery, and flags any **weekend meetings** so recovery accounts for them.
+## Learning loop — what each producer contributes after this change
 
-## 1. Trigger predicate — Saturday flips to recovery
+| Producer | Trigger | Signal written | Decay | Score effect |
+|---|---|---|---|---|
+| Week-Ahead picker (existing) | User taps Priority / Not this week / Never | `priority` / `not_this_week` / `never` | 60d / 14d / hard | +10 / −15 / hard demote |
+| Cancel-feedback bridge (existing) | "Not relevant now / ever" on a JIT slot | `cancelled_keep_surfacing` / `cancelled_as_noise` | 60d / 60d | +5 / −25 |
+| **Post-plan thumbs-up bridge (new)** | Thumbs-up in `PlanFeedbackModal` for a JIT-bound priority | `priority` with `source='post_plan_feedback'` | 60d | +10 |
+| **Post-plan thumbs-down bridge (new)** | Thumbs-down on a JIT-bound priority **only when** free-text says the event itself was wrong (heuristic: contains "wrong event", "not relevant", "doesn't apply") | `cancelled_as_noise` with `source='post_plan_feedback'` | 60d | −25 |
+| Thumbs-down with no event-targeted text | — | **no write** (feedback is about the practice, not the event — routed to content feedback only) | — | — |
 
-File: `supabase/functions/_shared/plan/week-ahead-mode.ts → evaluateWeekAheadMode`
+Neutral and any non-JIT plan feedback never write to event memory.
 
-- Remove the `dayOfWeek === 6 → 'saturday'` branch from the active ladder. Saturday is no longer a `weekAheadMode.active` day on its own.
-- Keep ladder order:
-  1. `manualOverride` → `manual_override`
-  2. `travelDay` → inactive
-  3. `fullWorkingWeekend` → inactive
-  4. `ptoTodayAllDay && !ptoTomorrowAllDay` → `last_day_pto`
-  5. `holidayAllDayEventToday && tomorrowIsWorkday` → `last_day_holiday`
-  6. `consecutiveOffDaysBefore ≥ 2 && tomorrowIsWorkday` → `last_day_long_weekend`
-  7. `dayOfWeek === 0` → `sunday`
-- Add a separate predicate `isSaturdayRecoveryDay(input)` returning `true` when `dayOfWeek === 6 && !travelDay && !fullWorkingWeekend`. Brief uses this directly; Plan never reads it (Plan stays weekday cadence).
+## Implementation
 
-Update existing tests in `week-ahead-mode.test.ts`: Saturday no longer activates Week-Ahead; Sunday + last-day-PTO/holiday still do; `isSaturdayRecoveryDay` covers Saturday + suppression edges.
+### 1. Extend `event_priority_memory` allowed sources
 
-## 2. Brief drivers in `compute-outer-readiness`
+Single migration:
 
-File: `supabase/functions/compute-outer-readiness/index.ts`
+```sql
+ALTER TABLE public.event_priority_memory
+  DROP CONSTRAINT event_priority_memory_source_chk,
+  ADD CONSTRAINT event_priority_memory_source_chk
+    CHECK (source IN ('week_ahead_picker','priority_tag','cancel_feedback','post_plan_feedback'));
+```
 
-- Import `evaluateWeekAheadMode` and `isSaturdayRecoveryDay`. Evaluate both early from `localNow`.
-- Driver resolution (first-match-wins):
-  1. `weekAheadMode.active` → `driver = 'week_recap'`, swap LLM anchor to a **week-recap block**: last 7 local days mean meeting load, mean sleep, recovery mean vs 30-day baseline, HRV delta vs baseline, `completed_priorities` count from `mastery_plan_completions`. Why-line guardrails: must reference the prior week; reject any future event title.
-  2. `isSaturdayRecoveryDay` → `driver = 'week_recovery'`, swap LLM anchor to a **recovery block**: same week-gone-by metrics as above **plus** a `weekendEvents[]` snippet (events in the Sat–Sun window with stakes ≥ medium, titles + times). Why-line guardrails: must reference recovery / the week behind; **may** name a weekend meeting if `weekendEvents.length > 0`; must not name a Mon–Fri future event.
-  3. Otherwise → existing forward driver.
-- MRS scoring, signal-pill shape, and the atomic brief contract are unchanged. Only the prompt anchor block and `driver` value vary.
+No new signal values — `priority` / `cancelled_as_noise` already exist.
 
-Add tests: Sat → `week_recovery` with weekend-event snippet present; Sat + travel → forward driver; Sun → `week_recap`; Mon → forward driver; manual override forces `week_recap` on any day.
+### 2. `record-event-priority-signal` — allow the new source
 
-## 3. Week-Ahead picker = unified ranker + memory (no per-day cap)
+Add `'post_plan_feedback'` to `VALID_SOURCES`. Everything else (Auth, body shape, `coarseEventType` + `normalizeEventTypeKey` derivation, RLS/service-role insert) is unchanged.
 
-File: `supabase/functions/list-week-ahead-priorities/index.ts`
+### 3. Post-plan thumbs-up/down bridge in `TodayThreePriorities`
 
-- After dedupe + noise/educational filtering, build `RankableEventInput[]` and call `rankJitCandidates(inputs, nowMs)` — same scoring as weekday Plan (stakes-base + category weight + severity + demand profile + proximity).
-- Collapse to **one row per event** (best-scoring phase wins).
-- Apply `applyEventPriorityMemory(memoryIndex, { eventCategory, eventTypeKey })`:
-  - Add `mem.delta` to the score; drop on `mem.hardDemote === true`; surface `mem.reasons` into `scoreReasons[]`.
-- Build `scoreReasons[]` from `RankedJitCandidate.components` (`base ≥ 30` → "high stakes"; `categoryId === 'A'` → "decision-critical"; organiser → "you're organising"; ≥5 attendees → "broad audience"); append memory reasons; keep first 3.
-- **Selection:** sort by final score desc, take **top 10**.
-  - **Remove the per-day cap** (this is a weekly planner).
-  - Keep a **soft per-category cap = 4** so a dominant bucket still leaves room for board/investor events.
-  - Remove the hard `score < 10` floor.
-- Re-sort the chosen 10 chronologically for UI rendering.
+In the `PlanFeedbackModal.onSubmit` handler at line 1730:
 
-PlanPage continues to render the picker only when `useWeekAheadMode().active` is true (Sunday / last-PTO / last-holiday / `?mode=week-ahead`).
+- Look up the slot the modal fired for (`feedbackSlot.index`) and read its `eventTitle` (same field used by the cancel bridge at line 1810).
+- If `eventTitle` exists:
+  - **rating = 5 (thumbs-up)** → fire-and-forget POST to `record-event-priority-signal` with `signal='priority'`, `source='post_plan_feedback'`, `meta: { rating, feedbackText, slotTitle }`.
+  - **rating = 1 (thumbs-down)** AND `feedback` matches `/wrong event|not relevant|doesn't apply|don't need/i` → POST `signal='cancelled_as_noise'`, `source='post_plan_feedback'`.
+  - Otherwise → no event-memory write (already covered by `submitPlanFeedback` content-feedback path).
+- If `eventTitle` is null (state-anchored slot, no JIT event) → no write.
 
-## 4. §17.5 — `applyEventPriorityMemory` in weekday `rankJitCandidates`
+Pure side-effect, mirrors the cancel-feedback pattern at lines 1810–1830. No UI change.
 
-- File: `supabase/functions/_shared/events/jit-candidates.ts`
-  - Extend `RankableEventInput` with optional `memoryDelta?: number` and `memoryHardDemote?: boolean`.
-  - Per-phase score adds `memoryDelta ?? 0`, exposed as `components.memory`. Skip events when `memoryHardDemote === true`.
-- File: `supabase/functions/generate-mastery-plan/index.ts`
-  - Load `loadPriorityMemoryForUser(supabase, userId)` once at both `rankJitCandidates` call sites; populate `memoryDelta`/`memoryHardDemote` from `applyEventPriorityMemory(...)` per event.
-  - Gate on `Deno.env.get('WEEK_AHEAD_MEMORY_BOOST') === 'true'`. When off, behaviour is byte-identical to today.
+### 4. Surface "what the system learned" in the Week-Ahead picker
 
-Extend `event-priority-memory.test.ts`: a `priority` row lifts an event above an equal-stakes peer; a `never` row removes it.
+`list-week-ahead-priorities` already collapses `applyEventPriorityMemory.reasons[]` into `scoreReasons[]` (lines 271–296). Confirm `WeekAheadPriorities.tsx` renders those reasons under each card so the user can see e.g. *"prior priority ×2"* or *"previously paused but kept"*. If the chip already shows score reasons we just verify; otherwise add a single-line subtle text under the title. (Read-only verification first — only edit if missing.)
 
-## 5. Cancel-feedback → `record-event-priority-signal` bridge
+### 5. Wire the `weekAheadPickerInvite` evaluator into `smart-nudges/index.ts`
 
-In `SlotCancelFeedbackModal.onSubmit` (invoked from `TodayThreePriorities.tsx` ~L1728): when the slot is JIT-bound (`eventId` + `eventTitle`), fire-and-forget POST `record-event-priority-signal`:
+New evaluator alongside `evaluateNudgeOne/Two/Three`:
 
-- reason `"now"`  → `signal: 'cancelled_keep_surfacing'`
-- reason `"ever"` → `signal: 'cancelled_as_noise'`
-- `source: 'cancel_feedback'`; include free-text in `meta`.
+```ts
+async function evaluateWeekAheadPickerInvite(
+  ctx: NudgeContext,
+  alreadySentTypes: Set<string>,
+  todayLogs: { notification_type: string }[],
+  supabase,
+): Promise<QualifiedNudge | null>
+```
 
-Reuse the same invoke helper + auth/dev-mode parity as `WeekAheadPriorities`. Pure side-effect — never block the cancel UX on failure. Non-JIT cancels are untouched.
+Logic:
+- Skip if `alreadySentTypes.has('week_ahead_picker_invite')`.
+- Compute today's `weekAheadDecision = evaluateWeekAheadMode({ dayOfWeek, localHour, manualOverride: false })` using the user's local TZ already on `ctx`.
+- `pickerOpenedToday` — query `behavior_logs` (or a lightweight existing signal) for an event marking the user opened `/plan?mode=week-ahead` today. If no such log exists yet, add a single client-side `supabase.from('behavior_logs').insert({...})` write on `WeekAheadPriorities` mount keyed `event_type='week_ahead_picker_opened'`. (Tiny addition — already-existing table, RLS already allows the auth user to insert their own row.)
+- `alreadySentToday` — true if any row in `todayLogs` has `notification_type = 'week_ahead_picker_invite'`.
+- Call `shouldFireWeekAheadPickerInvite({ dayOfWeek, localHour, weekAheadDecision, alreadySentToday, pickerOpenedToday })`.
+- If `fire === true`, return a `QualifiedNudge` with:
+  - `type: 'week_ahead_picker_invite'`
+  - `slot: 'evening'` (16–19 falls inside the project-wide evening slot used by Nudge 3)
+  - `anchorKind: 'state'`, `signalStrength: 2`, `priority: 25` (sits just above generic state nudges but below Nudge 1 JIT)
+  - `deepLinkRoute: '/plan?mode=week-ahead'`
+  - `copy`: short static variants — e.g. *"Sunday reset. Pick this week's 10 priorities — 90 seconds."*; for last-day-PTO/holiday/long-weekend, the reason-aware variant *"Last day off. Pick this week's 10 priorities before tomorrow lands."*
 
-## 6. `weekAheadPickerInvite` nudge rule
+Wiring in the runner main loop (around line 3270, after Nudge 3 evaluation, gated on user notification prefs):
 
-File: `supabase/functions/smart-nudges/index.ts`
+```ts
+if ((prefs?.evening_close_enabled ?? true)) {
+  const inv = await evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, todayLogs, supabase);
+  if (inv) qualified.push(inv);
+}
+```
 
-- Register nudge type `weekAheadPickerInvite` (family + static-fallback copy + system prompt branch).
-- **Trigger windows (local time):**
-  - **Sunday 16:00–19:00**
-  - **16:00–19:00 on a detected last-PTO / last-holiday / last-long-weekend day**
-  - **No Saturday trigger.** Saturday remains a recovery day across Brief, Plan, and Nudges.
-- Suppress when `evaluateWeekAheadMode(...).active === false` (covers travel + full working weekend), already-sent-today, or the user already hit `list-week-ahead-priorities` today.
-- `deepLinkRoute: '/plan?mode=week-ahead'`.
-- Copy: short, reason-aware ("Plan the week ahead", "Pick what matters next week — 2 min").
+Tie-break: the existing comparator (slot rank → anchor → signalStrength → priority) keeps a real JIT evening Nudge 3 ahead of the picker invite, which is what we want.
 
-Unit tests: fires Sunday 17:00; fires 17:00 on `last_day_pto`; **suppressed on every Saturday**; suppressed Monday; suppressed on `fullWorkingWeekend === true`.
+Telemetry: log `[smart-nudges] week_ahead_picker_invite fire=… reason=…` to mirror Nudge 1/2/3 lines.
 
-## 7. SSOT updates
+### 6. Tests
+
+- `_shared/plan/week-ahead-nudge.test.ts` — already covers the predicate; no new tests needed there.
+- `_shared/plan/event-priority-memory.test.ts` — add a case: a single `priority` signal from `source='post_plan_feedback'` produces `+10` and reason `"prior priority ×1"` (no logic change, just confirms the new source is read identically).
+- New `record-event-priority-signal/index.test.ts` is out of scope (HTTP test infra); rely on the existing edge function tests + manual curl via `supabase--test_edge_functions` if needed.
+- Manual: trigger the smart-nudges runner against a dev user with Sun-local-17:00 simulation and assert `qualified` contains `week_ahead_picker_invite` with deep link `/plan?mode=week-ahead`.
+
+### 7. SSOT update
 
 `docs/GENERATE_MASTERY_PLAN_SSOT.md`:
+- §17.4 — add `post_plan_feedback` to the source enum + map to the same `priority` / `cancelled_as_noise` signals; document the thumbs-down free-text heuristic.
+- §17.7 — drop "(runner wiring pending)" once the evaluator is in. Add a one-line note on the static copy variants and the `behavior_logs` `week_ahead_picker_opened` event used for the `pickerOpenedToday` check.
 
-- §17.1: remove Saturday from the Week-Ahead ladder; add a one-line cross-reference: "Saturday remains a self-regulation / recovery day across Brief, Plan, and Nudges — handled by the recovery driver in §17.2a, not by Week-Ahead Mode."
-- §17.2: drop "(planned)" for `week_recap`. Add **§17.2a Saturday Recovery Driver** describing `week_recovery`: week-gone-by metrics + `weekendEvents[]` snippet; why-line may name a weekend meeting; forward weekday events forbidden.
-- §17.3: rewrite scoring → **"`rankJitCandidates` (same as weekday Plan) + `applyEventPriorityMemory` learning loop; top 10 by score; per-category soft cap = 4; no per-day cap."**
-- §17.5: drop "follow-up" wording; document `WEEK_AHEAD_MEMORY_BOOST`; note `cancel_feedback` is wired.
-- §17.7: rewrite trigger → **Sunday 16:00–19:00 local OR 16:00–19:00 local on last-PTO / last-holiday / last-long-weekend**. Explicitly: no Saturday trigger.
-- §17.8 suppression matrix: Saturday → "Suppressed — recovery day (Brief uses `week_recovery` driver, Plan runs weekday cadence)".
+## Files touched
 
-## Technical details
+```text
+supabase/migrations/<ts>_event_priority_memory_post_plan_source.sql   # add post_plan_feedback to source check
+supabase/functions/record-event-priority-signal/index.ts              # widen VALID_SOURCES
+supabase/functions/_shared/plan/event-priority-memory.test.ts         # add post_plan_feedback case
+supabase/functions/smart-nudges/index.ts                              # new evaluator + wiring + copy variants
+src/components/home/TodayThreePriorities.tsx                          # post-plan thumbs-up/down bridge in PlanFeedbackModal onSubmit
+src/components/home/WeekAheadPriorities.tsx                           # one-off behavior_logs write on mount + verify scoreReasons render
+docs/GENERATE_MASTERY_PLAN_SSOT.md                                    # §17.4 + §17.7 updates
+```
 
-- Env: `WEEK_AHEAD_MEMORY_BOOST` (default `false`) on `compute-outer-readiness`, `generate-mastery-plan`, `list-week-ahead-priorities`. Flip to `true` after validating weekday Plan output is unchanged for users with zero memory rows.
-- Auth/dev parity: every new fetch reuses `_shared/auth.ts` + the `x-dev-user-id` bypass — no client-side fork.
-- Tests via `supabase--test_edge_functions`: `_shared/plan/week-ahead-mode`, `_shared/events/jit-candidates`, `_shared/plan/event-priority-memory`, `compute-outer-readiness`, `smart-nudges`, `list-week-ahead-priorities`.
-- Risk: `rankJitCandidates` signature change could ripple. Mitigation: `memoryDelta`/`memoryHardDemote` stay optional and default to noop.
-- Out of scope: MRS scoring, atomic-brief contract, signal-pill shape, any UI beyond the cancel-modal hook and the existing PlanPage week-ahead branch.
+Estimated diff: ~250 lines, no behaviour change for users who never see the picker or post-plan feedback.
+
+## Question for you before I build
+
+You mentioned learning from *"importance and **relationship** done for previous plans"*. The current memory is keyed by `(event_category, event_type_key)` — it does **not** track per-attendee or per-relationship signals. Two options:
+
+- **A. Ship as planned above** — event-type + category learning only. Relationship-level memory deferred. This is what the plan above does.
+- **B. Add attendee-relationship memory now** — would mean a new `event_priority_memory.attendee_key` column (or sibling `attendee_priority_memory` table), wiring it through the ranker, and capturing the dominant attendee from `attendee_relationships` at signal-write time. Roughly doubles the diff.
+
+If you want B, say the word and I'll fold it into the plan before building.
