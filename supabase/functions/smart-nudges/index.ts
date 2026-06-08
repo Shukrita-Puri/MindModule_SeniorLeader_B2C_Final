@@ -15,6 +15,8 @@ import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import { FORBIDDEN_NOTIFICATION_WORDS } from "../_shared/brief/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
+import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
+import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 
 // ── APNs Helper Functions ──
 
