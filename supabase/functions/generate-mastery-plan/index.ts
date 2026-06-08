@@ -1558,6 +1558,7 @@ async function getPreScoredEvents(
   calendarEvents: CalendarEvent[],
   supabaseClient: any,
   hrvCorrelations: HRVCorrelationMap | null,
+  memoryIndex?: PriorityMemoryIndex | null,
 ): Promise<ScoredEvent[]> {
   const now = new Date();
 
@@ -1670,7 +1671,7 @@ async function getPreScoredEvents(
 
   // Fallback: shared ranked-candidate scoring (no jit_event_context rows yet)
   console.log('[generate-mastery-plan] Bridge: no pre-scored events, falling back to shared ranked-candidate scoring');
-  return scoreCalendarEventsShared(calendarEvents, hrvCorrelations);
+  return scoreCalendarEventsShared(calendarEvents, hrvCorrelations, memoryIndex);
 }
 
 /**
