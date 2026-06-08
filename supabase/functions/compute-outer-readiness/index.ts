@@ -216,7 +216,12 @@ async function computeInputSignature(ctx: BriefSignatureInput): Promise<string> 
 // ==================== TYPES ====================
 type EnergyTier = 'depleted' | 'managing' | 'strong' | 'peak';
 type CalendarLevel = 'low' | 'medium' | 'high';
-type ThemeDriver = 'pressure+load' | 'pressure' | 'load' | 'morning' | 'evening' | 'state';
+type ThemeDriver =
+  | 'pressure+load' | 'pressure' | 'load' | 'morning' | 'evening' | 'state'
+  // §17.2 — Sunday / last-PTO / last-holiday week-ahead recap.
+  | 'week_recap'
+  // §17.2a — Saturday self-regulation / recovery day, backward-looking.
+  | 'week_recovery';
 
 interface OuterReadinessResult {
   phrase: string;
