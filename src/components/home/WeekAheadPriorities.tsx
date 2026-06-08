@@ -29,7 +29,7 @@ interface PriorityItem {
   period: string;
   category: string;
   typeKey: string;
-  stakesLevel: number;
+  stakesLevel: string | null;
   score: number;
   scoreReasons: string[];
   isOrganizer: boolean | null;
