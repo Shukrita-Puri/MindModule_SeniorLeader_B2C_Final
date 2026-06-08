@@ -58,6 +58,14 @@ import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviou
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+import {
+  applyEventPriorityMemory,
+  loadPriorityMemoryForUser,
+  type PriorityMemoryIndex,
+} from '../_shared/plan/event-priority-memory.ts';
+import {
+  normalizeEventTypeKey,
+} from '../_shared/plan/week-ahead-mode.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase, type SlotAnchor } from '../_shared/plan/title-prefixes.ts';
 import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
