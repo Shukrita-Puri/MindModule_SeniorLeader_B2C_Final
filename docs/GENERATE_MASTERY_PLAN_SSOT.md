@@ -495,13 +495,14 @@ Pipeline:
 
 1. Pull `calendar_events` in `[localStartOfToday, +8d local)`, dedupe via `collapseDuplicateEvents` (multi-provider safe).
 2. Drop noise (`isNoiseTitle`) and educational-not-organiser (`isEducationalTitle && !isOrganizer`).
-3. Classify with `classifyEvent` / `coarseEventType` from `_shared/events/event-classifier.ts`.
-4. **Score** = `stakesLevel × 12` + organiser boost (+5) + ≥5 attendees (+4) + **memory delta** (§17.5).
-5. Drop hard-demoted candidates (`never`-flagged categories).
-6. Sort by score desc; apply **per-day cap = 3** and **per-category cap = 3** for variety; truncate to **top 10**.
-7. Re-sort the selected slice chronologically for UI rendering.
+3. Derive `coarseEventType` (category) and `normalizeEventTypeKey` (bucket).
+4. **Score with the unified ranker** — `rankJitCandidates` from `_shared/events/jit-candidates.ts` (same scoring path the weekday Plan uses: stakes-base + category weight + severity + demand profile + proximity). Collapse to one row per event by taking the best-scoring phase.
+5. Apply `applyEventPriorityMemory` (§17.5) on each event: add `mem.delta` to the score; drop events flagged `hardDemote === true`; surface `mem.reasons` into `scoreReasons[]`.
+6. Build `scoreReasons[]` from the ranker's `components` (`base ≥ 30` → "high stakes", `category ≥ 20` → "decision-critical", organiser → "you're organising", ≥5 attendees → attendee count) plus memory reasons; keep first 3.
+7. Sort by final score desc and take the **top 10**. **No per-day cap** — this is a week planner; selection is purely by importance. A **soft per-category cap of 4** prevents a single bucket from monopolising the picker; if the soft cap leaves fewer than 10 picks, the remainder backfills from the next-best events.
+8. Re-sort the selected slice chronologically for UI rendering.
 
-Floor: `score < 10` is dropped. Response: `{ weekAheadMode, priorities[], generatedAt }`.
+Response: `{ weekAheadMode, priorities[], generatedAt }`. `stakesLevel` is the coarse string token (`'board' | 'investor' | 'external' | null`) used by the unified ranker.
 
 ### 17.4 Memory schema
 
@@ -538,7 +539,9 @@ Write path: `supabase/functions/record-event-priority-signal/index.ts`. Inputs: 
 
 Net delta clamped to `[-50, +30]`. Reasons surface in `scoreReasons[]` (e.g. `"prior priority ×2"`, `"deprioritised this week"`) so the user sees why an event sits where it does.
 
-`generate-mastery-plan` is intended to call the same helper inside `rankJitCandidates` so weekday Plan also benefits from the learning loop — implementation tracked as a follow-up (gated behind feature flag `WEEK_AHEAD_MEMORY_BOOST`).
+`generate-mastery-plan` calls the same helper inside `rankJitCandidates` so weekday Plan benefits from the same learning loop. The integration is gated behind the env flag `WEEK_AHEAD_MEMORY_BOOST` (default `false`) so weekday Plan output is byte-identical until we flip the flag in a follow-up. When on, `RankableEventInput.memoryDelta` is added to the per-phase score (exposed as `components.memory`) and `RankableEventInput.memoryHardDemote === true` makes the ranker skip all candidates for that event.
+
+The cancel-feedback bridge is live: when a user cancels a JIT-bound priority via `SlotCancelFeedbackModal`, `TodayThreePriorities.tsx` fires a fire-and-forget POST to `record-event-priority-signal` with `source: 'cancel_feedback'` and `signal: 'cancelled_keep_surfacing'` (reason="now") or `'cancelled_as_noise'` (reason="ever"), so future Plan + Week-Ahead rankings learn from this cancel.
 
 ### 17.6 UI contract
 
@@ -548,13 +551,15 @@ Net delta clamped to `[-50, +30]`. Reasons surface in `scoreReasons[]` (e.g. `"p
 - Grouped by local day with a chronological order; copy is reason-aware ("Set the shape of next week…", "Re-engaging — pick the events that matter…").
 - Empty state is celebratory: "No significant events on your calendar for the week ahead. Enjoy the open space."
 
-### 17.7 Nudge / pop-up trigger (planned)
+### 17.7 Nudge / pop-up trigger
 
 New nudge rule `weekAheadPickerInvite`:
 
-- Saturday 09:00–11:00 local, OR Sunday 16:00–19:00 local, OR the evening of any detected last-PTO / last-holiday day.
-- Suppressed if `fullWorkingWeekend` is true or the user already opened the picker today.
+- **Sunday 16:00–19:00 local**, OR **16:00–19:00 local on any detected last-PTO / last-holiday / last-long-weekend day**.
+- **No Saturday trigger** — Saturday is a recovery day across Brief, Plan, and Nudges.
+- Suppressed when `evaluateWeekAheadMode(...).active === false` (covers travel + full-working-weekend), when a `weekAheadPickerInvite` was already sent today, or when the user already opened the picker today.
 - Deep link: `/plan?mode=week-ahead` → PlanPage detects the query param via `useWeekAheadMode`, forces `manualOverride`, and the edge function honours `x-week-ahead-override: 1` for borderline server-side decisions.
+- Shared predicate: `supabase/functions/_shared/plan/week-ahead-nudge.ts → shouldFireWeekAheadPickerInvite(input)` — pure function, unit-tested independently of the nudge runner.
 
 ### 17.8 Suppression matrix
 
@@ -563,7 +568,8 @@ New nudge rule `weekAheadPickerInvite`:
 | Travel day                            | Suppressed — travel context owns       |
 | Full working weekend                  | Suppressed — run weekday cadence       |
 | Weekday, no override                  | Suppressed — normal Plan               |
-| Sat / Sun, no working-weekend         | Active                                 |
+| **Saturday**                          | Suppressed — recovery day (Brief uses `week_recovery` driver, Plan runs weekday cadence, nudge never fires) |
+| Sunday, no working-weekend            | Active                                 |
 | PTO last day (today off, tomorrow on) | Active                                 |
 | Holiday last day, tomorrow workday    | Active                                 |
 | Manual `?mode=week-ahead`             | Active                                 |
