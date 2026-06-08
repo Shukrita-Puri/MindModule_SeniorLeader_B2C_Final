@@ -30,7 +30,6 @@ import {
   periodFor,
 } from "../_shared/rules/calendarEvents.ts";
 import {
-  classifyEvent,
   coarseEventType,
   isEducationalTitle,
   isNoiseTitle,
