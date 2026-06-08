@@ -1469,6 +1469,7 @@ function buildSharedContextDescription(
 function scoreCalendarEventsShared(
   events: CalendarEvent[],
   hrvCorrelations?: HRVCorrelationMap | null,
+  memoryIndex?: PriorityMemoryIndex | null,
 ): ScoredEvent[] {
   const nowMs = Date.now();
   const eligibleEvents = events
@@ -1477,15 +1478,29 @@ function scoreCalendarEventsShared(
     .filter((event) => !(isEducationalTitle(event.title || '') && !event.isOrganizer));
 
   const ranked = rankJitCandidates(
-    eligibleEvents.map((event) => ({
-      event: {
-        id: event.id,
-        title: event.title,
-        start_time: event.startTime,
-        end_time: event.endTime ?? null,
-      },
-      stakesLevel: null,
-    })),
+    eligibleEvents.map((event) => {
+      let memoryDelta = 0;
+      let memoryHardDemote = false;
+      if (memoryIndex) {
+        const mem = applyEventPriorityMemory(memoryIndex, {
+          eventCategory: coarseEventType(event.title || ''),
+          eventTypeKey: normalizeEventTypeKey(event.title || ''),
+        });
+        memoryDelta = mem.delta;
+        memoryHardDemote = mem.hardDemote;
+      }
+      return {
+        event: {
+          id: event.id,
+          title: event.title,
+          start_time: event.startTime,
+          end_time: event.endTime ?? null,
+        },
+        stakesLevel: null,
+        memoryDelta,
+        memoryHardDemote,
+      };
+    }),
     nowMs,
   );
 
