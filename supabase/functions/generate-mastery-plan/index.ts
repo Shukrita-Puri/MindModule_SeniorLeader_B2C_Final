@@ -2768,8 +2768,22 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.error('[generate-mastery-plan] HRV correlation failed, proceeding without:', hrvError?.message);
   }
 
+  // Optional learning-loop boost from event_priority_memory (Week-Ahead
+  // picker shares this helper). Gated by WEEK_AHEAD_MEMORY_BOOST so weekday
+  // Plan stays byte-identical until we flip the flag in a follow-up.
+  let priorityMemoryIndex: PriorityMemoryIndex | null = null;
+  const memoryBoostOn =
+    (Deno.env.get('WEEK_AHEAD_MEMORY_BOOST') ?? 'false').toLowerCase() === 'true';
+  if (memoryBoostOn) {
+    try {
+      priorityMemoryIndex = await loadPriorityMemoryForUser(supabaseClient, req.userId);
+    } catch (memErr: any) {
+      console.warn('[generate-mastery-plan] priority memory load skipped:', memErr?.message);
+    }
+  }
+
   // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
-  const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations);
+  const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations, priorityMemoryIndex);
 
   // Suppresses event types skipped 3+ times in last 30 days.
   // TODO: Replace with query to jit_cancellation_memory:
