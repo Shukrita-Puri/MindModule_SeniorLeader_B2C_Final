@@ -311,7 +311,14 @@ const TodayThreePriorities = ({
   // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
   const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
-  const [pendingCancel, setPendingCancel] = useState<{ index: number; key: string; title: string } | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<{
+    index: number;
+    key: string;
+    title: string;
+    /** Underlying calendar event title when the slot is JIT-bound — drives
+     *  the cancel-feedback → record-event-priority-signal bridge (§17.5). */
+    eventTitle?: string | null;
+  } | null>(null);
   // Phase 3: in-flight guard so a double-click on Apply cannot fire two
   // overlapping regenerations for the same selection.
   const regeneratingRef = useRef(false);
