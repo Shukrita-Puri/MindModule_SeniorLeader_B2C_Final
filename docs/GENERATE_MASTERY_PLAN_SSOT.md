@@ -453,7 +453,9 @@ Slot 3 in the integrate / Tiny Win path renders `arcLabel='Steady'` because it h
 
 ## 17. Week-Ahead Mode (Weekend / Post-Break Planning)
 
-On Saturdays, Sundays, the last day of a PTO block, the last day of a public-holiday block, and the last day of a long weekend, the Plan surface flips from day-of self-regulation to **upcoming-week prioritisation**. The principle: not every day is a self-regulation day. On weekends and right after time off, the user is already regulated — the value is signal-vs-noise prioritisation of what's coming.
+On **Sundays**, on the **last day of a PTO block**, on the **last day of a public-holiday block**, and on the **last day of a long weekend**, the Plan surface flips from day-of self-regulation to **upcoming-week prioritisation**. The principle: not every day is a self-regulation day. On these days the user is already regulated — the value is signal-vs-noise prioritisation of what's coming.
+
+**Saturday is intentionally NOT a Week-Ahead day.** Saturday remains a self-regulation / recovery day across Brief, Plan, and Nudges — the Brief swaps to a backward-looking `week_recovery` driver (§17.2a), the Plan stays on the weekday cadence, and the `weekAheadPickerInvite` nudge never fires.
 
 ### 17.1 Trigger predicate
 
@@ -467,16 +469,23 @@ First-match-wins ladder:
 4. `ptoTodayAllDay && !ptoTomorrowAllDay` → `last_day_pto`.
 5. `holidayAllDayEventToday && tomorrowIsWorkday` → `last_day_holiday`.
 6. `consecutiveOffDaysBefore ≥ 2 && tomorrowIsWorkday` → `last_day_long_weekend`.
-7. `dayOfWeek == 6` → `saturday`.
-8. `dayOfWeek == 0` → `sunday`.
+7. `dayOfWeek == 0` → `sunday`.
 
-Both Brief and Plan call the same helper so they cannot disagree.
+Both Brief and Plan call the same helper so they cannot disagree. Saturday is handled by a sibling predicate `isSaturdayRecoveryDay(input)` (true on `dayOfWeek === 6` when not a travel day or full working weekend) which the Brief reads directly to select the `week_recovery` driver — Plan never reads it.
 
-### 17.2 Brief: backward-looking variant (planned)
+### 17.2 Brief: `week_recap` driver (Sunday / last-PTO / last-holiday)
 
-When `weekAheadMode.active === true`, `compute-outer-readiness` swaps the prompt block from the day-anchor frame to a **week-recap** frame (last 7 days of load, recovery, sleep mean, HRV vs 30-day baseline, completed-priorities count). Stamped on `brief_snapshots.driver = 'week_recap'`. Why-line constraints: must reference the week just gone, never name a tomorrow event.
+When `weekAheadMode.active === true`, `compute-outer-readiness` stamps `brief_snapshots.driver = 'week_recap'` and (follow-up) swaps the prompt anchor block from the day-anchor frame to a **week-recap** frame (last 7 days of load, recovery, sleep mean, HRV vs 30-day baseline, completed-priorities count). Why-line constraints: must reference the week just gone, never name a tomorrow event.
+
+The override also honours the `x-week-ahead-override: 1` header (deep link `?mode=week-ahead`) so any forced manual entry produces a `week_recap`-stamped row.
 
 No change to MRS scoring, signal-pills shape, or atomic-brief contract — only the prompt block and the `driver` value.
+
+### 17.2a Brief: `week_recovery` driver (Saturday)
+
+When `isSaturdayRecoveryDay(input) === true`, `compute-outer-readiness` stamps `brief_snapshots.driver = 'week_recovery'`. The anchor block (follow-up) frames the week gone by **for recovery purposes** — same week-gone-by metrics as `week_recap` plus a `weekendEvents[]` snippet listing any Sat–Sun events of medium+ stakes so the why-line can account for them.
+
+Why-line guardrails: must reference recovery or the week behind; **may** name a weekend meeting when present; must not name a Mon–Fri future event.
 
 ### 17.3 Plan: `list-week-ahead-priorities`
 
