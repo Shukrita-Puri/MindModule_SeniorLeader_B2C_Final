@@ -58,6 +58,14 @@ import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviou
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+import {
+  applyEventPriorityMemory,
+  loadPriorityMemoryForUser,
+  type PriorityMemoryIndex,
+} from '../_shared/plan/event-priority-memory.ts';
+import {
+  normalizeEventTypeKey,
+} from '../_shared/plan/week-ahead-mode.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase, type SlotAnchor } from '../_shared/plan/title-prefixes.ts';
 import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
@@ -1461,6 +1469,7 @@ function buildSharedContextDescription(
 function scoreCalendarEventsShared(
   events: CalendarEvent[],
   hrvCorrelations?: HRVCorrelationMap | null,
+  memoryIndex?: PriorityMemoryIndex | null,
 ): ScoredEvent[] {
   const nowMs = Date.now();
   const eligibleEvents = events
@@ -1469,15 +1478,29 @@ function scoreCalendarEventsShared(
     .filter((event) => !(isEducationalTitle(event.title || '') && !event.isOrganizer));
 
   const ranked = rankJitCandidates(
-    eligibleEvents.map((event) => ({
-      event: {
-        id: event.id,
-        title: event.title,
-        start_time: event.startTime,
-        end_time: event.endTime ?? null,
-      },
-      stakesLevel: null,
-    })),
+    eligibleEvents.map((event) => {
+      let memoryDelta = 0;
+      let memoryHardDemote = false;
+      if (memoryIndex) {
+        const mem = applyEventPriorityMemory(memoryIndex, {
+          eventCategory: coarseEventType(event.title || ''),
+          eventTypeKey: normalizeEventTypeKey(event.title || ''),
+        });
+        memoryDelta = mem.delta;
+        memoryHardDemote = mem.hardDemote;
+      }
+      return {
+        event: {
+          id: event.id,
+          title: event.title,
+          start_time: event.startTime,
+          end_time: event.endTime ?? null,
+        },
+        stakesLevel: null,
+        memoryDelta,
+        memoryHardDemote,
+      };
+    }),
     nowMs,
   );
 
@@ -1535,6 +1558,7 @@ async function getPreScoredEvents(
   calendarEvents: CalendarEvent[],
   supabaseClient: any,
   hrvCorrelations: HRVCorrelationMap | null,
+  memoryIndex?: PriorityMemoryIndex | null,
 ): Promise<ScoredEvent[]> {
   const now = new Date();
 
@@ -1647,7 +1671,7 @@ async function getPreScoredEvents(
 
   // Fallback: shared ranked-candidate scoring (no jit_event_context rows yet)
   console.log('[generate-mastery-plan] Bridge: no pre-scored events, falling back to shared ranked-candidate scoring');
-  return scoreCalendarEventsShared(calendarEvents, hrvCorrelations);
+  return scoreCalendarEventsShared(calendarEvents, hrvCorrelations, memoryIndex);
 }
 
 /**
@@ -2744,8 +2768,22 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.error('[generate-mastery-plan] HRV correlation failed, proceeding without:', hrvError?.message);
   }
 
+  // Optional learning-loop boost from event_priority_memory (Week-Ahead
+  // picker shares this helper). Gated by WEEK_AHEAD_MEMORY_BOOST so weekday
+  // Plan stays byte-identical until we flip the flag in a follow-up.
+  let priorityMemoryIndex: PriorityMemoryIndex | null = null;
+  const memoryBoostOn =
+    (Deno.env.get('WEEK_AHEAD_MEMORY_BOOST') ?? 'false').toLowerCase() === 'true';
+  if (memoryBoostOn) {
+    try {
+      priorityMemoryIndex = await loadPriorityMemoryForUser(supabaseClient, req.userId);
+    } catch (memErr: any) {
+      console.warn('[generate-mastery-plan] priority memory load skipped:', memErr?.message);
+    }
+  }
+
   // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
-  const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations);
+  const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations, priorityMemoryIndex);
 
   // Suppresses event types skipped 3+ times in last 30 days.
   // TODO: Replace with query to jit_cancellation_memory:
@@ -2829,16 +2867,30 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   let jitRankedCandidates: RankedJitCandidate[] = [];
   try {
     jitRankedCandidates = rankJitCandidates(
-      filteredEvents.map(e => ({
-        event: {
-          id: e.event.id,
-          title: e.event.title,
-          start_time: getCalendarEventStartIso(e.event) ?? '',
-          end_time: getCalendarEventEndIso(e.event),
-        },
-        stakesLevel: (e as any).stakesLevel ?? null,
-        score: e.score,
-      })),
+      filteredEvents.map(e => {
+        let memoryDelta = 0;
+        let memoryHardDemote = false;
+        if (priorityMemoryIndex) {
+          const mem = applyEventPriorityMemory(priorityMemoryIndex, {
+            eventCategory: coarseEventType(e.event.title || ''),
+            eventTypeKey: normalizeEventTypeKey(e.event.title || ''),
+          });
+          memoryDelta = mem.delta;
+          memoryHardDemote = mem.hardDemote;
+        }
+        return {
+          event: {
+            id: e.event.id,
+            title: e.event.title,
+            start_time: getCalendarEventStartIso(e.event) ?? '',
+            end_time: getCalendarEventEndIso(e.event),
+          },
+          stakesLevel: (e as any).stakesLevel ?? null,
+          score: e.score,
+          memoryDelta,
+          memoryHardDemote,
+        };
+      }),
       nowMsForJit,
     );
     // Brief↔Plan parity: re-rank so any candidate whose title matches an

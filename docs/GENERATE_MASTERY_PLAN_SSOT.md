@@ -453,7 +453,9 @@ Slot 3 in the integrate / Tiny Win path renders `arcLabel='Steady'` because it h
 
 ## 17. Week-Ahead Mode (Weekend / Post-Break Planning)
 
-On Saturdays, Sundays, the last day of a PTO block, the last day of a public-holiday block, and the last day of a long weekend, the Plan surface flips from day-of self-regulation to **upcoming-week prioritisation**. The principle: not every day is a self-regulation day. On weekends and right after time off, the user is already regulated — the value is signal-vs-noise prioritisation of what's coming.
+On **Sundays**, on the **last day of a PTO block**, on the **last day of a public-holiday block**, and on the **last day of a long weekend**, the Plan surface flips from day-of self-regulation to **upcoming-week prioritisation**. The principle: not every day is a self-regulation day. On these days the user is already regulated — the value is signal-vs-noise prioritisation of what's coming.
+
+**Saturday is intentionally NOT a Week-Ahead day.** Saturday remains a self-regulation / recovery day across Brief, Plan, and Nudges — the Brief swaps to a backward-looking `week_recovery` driver (§17.2a), the Plan stays on the weekday cadence, and the `weekAheadPickerInvite` nudge never fires.
 
 ### 17.1 Trigger predicate
 
@@ -467,16 +469,23 @@ First-match-wins ladder:
 4. `ptoTodayAllDay && !ptoTomorrowAllDay` → `last_day_pto`.
 5. `holidayAllDayEventToday && tomorrowIsWorkday` → `last_day_holiday`.
 6. `consecutiveOffDaysBefore ≥ 2 && tomorrowIsWorkday` → `last_day_long_weekend`.
-7. `dayOfWeek == 6` → `saturday`.
-8. `dayOfWeek == 0` → `sunday`.
+7. `dayOfWeek == 0` → `sunday`.
 
-Both Brief and Plan call the same helper so they cannot disagree.
+Both Brief and Plan call the same helper so they cannot disagree. Saturday is handled by a sibling predicate `isSaturdayRecoveryDay(input)` (true on `dayOfWeek === 6` when not a travel day or full working weekend) which the Brief reads directly to select the `week_recovery` driver — Plan never reads it.
 
-### 17.2 Brief: backward-looking variant (planned)
+### 17.2 Brief: `week_recap` driver (Sunday / last-PTO / last-holiday)
 
-When `weekAheadMode.active === true`, `compute-outer-readiness` swaps the prompt block from the day-anchor frame to a **week-recap** frame (last 7 days of load, recovery, sleep mean, HRV vs 30-day baseline, completed-priorities count). Stamped on `brief_snapshots.driver = 'week_recap'`. Why-line constraints: must reference the week just gone, never name a tomorrow event.
+When `weekAheadMode.active === true`, `compute-outer-readiness` stamps `brief_snapshots.driver = 'week_recap'` and (follow-up) swaps the prompt anchor block from the day-anchor frame to a **week-recap** frame (last 7 days of load, recovery, sleep mean, HRV vs 30-day baseline, completed-priorities count). Why-line constraints: must reference the week just gone, never name a tomorrow event.
+
+The override also honours the `x-week-ahead-override: 1` header (deep link `?mode=week-ahead`) so any forced manual entry produces a `week_recap`-stamped row.
 
 No change to MRS scoring, signal-pills shape, or atomic-brief contract — only the prompt block and the `driver` value.
+
+### 17.2a Brief: `week_recovery` driver (Saturday)
+
+When `isSaturdayRecoveryDay(input) === true`, `compute-outer-readiness` stamps `brief_snapshots.driver = 'week_recovery'`. The anchor block (follow-up) frames the week gone by **for recovery purposes** — same week-gone-by metrics as `week_recap` plus a `weekendEvents[]` snippet listing any Sat–Sun events of medium+ stakes so the why-line can account for them.
+
+Why-line guardrails: must reference recovery or the week behind; **may** name a weekend meeting when present; must not name a Mon–Fri future event.
 
 ### 17.3 Plan: `list-week-ahead-priorities`
 
@@ -486,13 +495,14 @@ Pipeline:
 
 1. Pull `calendar_events` in `[localStartOfToday, +8d local)`, dedupe via `collapseDuplicateEvents` (multi-provider safe).
 2. Drop noise (`isNoiseTitle`) and educational-not-organiser (`isEducationalTitle && !isOrganizer`).
-3. Classify with `classifyEvent` / `coarseEventType` from `_shared/events/event-classifier.ts`.
-4. **Score** = `stakesLevel × 12` + organiser boost (+5) + ≥5 attendees (+4) + **memory delta** (§17.5).
-5. Drop hard-demoted candidates (`never`-flagged categories).
-6. Sort by score desc; apply **per-day cap = 3** and **per-category cap = 3** for variety; truncate to **top 10**.
-7. Re-sort the selected slice chronologically for UI rendering.
+3. Derive `coarseEventType` (category) and `normalizeEventTypeKey` (bucket).
+4. **Score with the unified ranker** — `rankJitCandidates` from `_shared/events/jit-candidates.ts` (same scoring path the weekday Plan uses: stakes-base + category weight + severity + demand profile + proximity). Collapse to one row per event by taking the best-scoring phase.
+5. Apply `applyEventPriorityMemory` (§17.5) on each event: add `mem.delta` to the score; drop events flagged `hardDemote === true`; surface `mem.reasons` into `scoreReasons[]`.
+6. Build `scoreReasons[]` from the ranker's `components` (`base ≥ 30` → "high stakes", `category ≥ 20` → "decision-critical", organiser → "you're organising", ≥5 attendees → attendee count) plus memory reasons; keep first 3.
+7. Sort by final score desc and take the **top 10**. **No per-day cap** — this is a week planner; selection is purely by importance. A **soft per-category cap of 4** prevents a single bucket from monopolising the picker; if the soft cap leaves fewer than 10 picks, the remainder backfills from the next-best events.
+8. Re-sort the selected slice chronologically for UI rendering.
 
-Floor: `score < 10` is dropped. Response: `{ weekAheadMode, priorities[], generatedAt }`.
+Response: `{ weekAheadMode, priorities[], generatedAt }`. `stakesLevel` is the coarse string token (`'board' | 'investor' | 'external' | null`) used by the unified ranker.
 
 ### 17.4 Memory schema
 
@@ -529,7 +539,9 @@ Write path: `supabase/functions/record-event-priority-signal/index.ts`. Inputs: 
 
 Net delta clamped to `[-50, +30]`. Reasons surface in `scoreReasons[]` (e.g. `"prior priority ×2"`, `"deprioritised this week"`) so the user sees why an event sits where it does.
 
-`generate-mastery-plan` is intended to call the same helper inside `rankJitCandidates` so weekday Plan also benefits from the learning loop — implementation tracked as a follow-up (gated behind feature flag `WEEK_AHEAD_MEMORY_BOOST`).
+`generate-mastery-plan` calls the same helper inside `rankJitCandidates` so weekday Plan benefits from the same learning loop. The integration is gated behind the env flag `WEEK_AHEAD_MEMORY_BOOST` (default `false`) so weekday Plan output is byte-identical until we flip the flag in a follow-up. When on, `RankableEventInput.memoryDelta` is added to the per-phase score (exposed as `components.memory`) and `RankableEventInput.memoryHardDemote === true` makes the ranker skip all candidates for that event.
+
+The cancel-feedback bridge is live: when a user cancels a JIT-bound priority via `SlotCancelFeedbackModal`, `TodayThreePriorities.tsx` fires a fire-and-forget POST to `record-event-priority-signal` with `source: 'cancel_feedback'` and `signal: 'cancelled_keep_surfacing'` (reason="now") or `'cancelled_as_noise'` (reason="ever"), so future Plan + Week-Ahead rankings learn from this cancel.
 
 ### 17.6 UI contract
 
@@ -539,13 +551,15 @@ Net delta clamped to `[-50, +30]`. Reasons surface in `scoreReasons[]` (e.g. `"p
 - Grouped by local day with a chronological order; copy is reason-aware ("Set the shape of next week…", "Re-engaging — pick the events that matter…").
 - Empty state is celebratory: "No significant events on your calendar for the week ahead. Enjoy the open space."
 
-### 17.7 Nudge / pop-up trigger (planned)
+### 17.7 Nudge / pop-up trigger
 
 New nudge rule `weekAheadPickerInvite`:
 
-- Saturday 09:00–11:00 local, OR Sunday 16:00–19:00 local, OR the evening of any detected last-PTO / last-holiday day.
-- Suppressed if `fullWorkingWeekend` is true or the user already opened the picker today.
+- **Sunday 16:00–19:00 local**, OR **16:00–19:00 local on any detected last-PTO / last-holiday / last-long-weekend day**.
+- **No Saturday trigger** — Saturday is a recovery day across Brief, Plan, and Nudges.
+- Suppressed when `evaluateWeekAheadMode(...).active === false` (covers travel + full-working-weekend), when a `weekAheadPickerInvite` was already sent today, or when the user already opened the picker today.
 - Deep link: `/plan?mode=week-ahead` → PlanPage detects the query param via `useWeekAheadMode`, forces `manualOverride`, and the edge function honours `x-week-ahead-override: 1` for borderline server-side decisions.
+- Shared predicate: `supabase/functions/_shared/plan/week-ahead-nudge.ts → shouldFireWeekAheadPickerInvite(input)` — pure function, unit-tested independently of the nudge runner.
 
 ### 17.8 Suppression matrix
 
@@ -554,7 +568,8 @@ New nudge rule `weekAheadPickerInvite`:
 | Travel day                            | Suppressed — travel context owns       |
 | Full working weekend                  | Suppressed — run weekday cadence       |
 | Weekday, no override                  | Suppressed — normal Plan               |
-| Sat / Sun, no working-weekend         | Active                                 |
+| **Saturday**                          | Suppressed — recovery day (Brief uses `week_recovery` driver, Plan runs weekday cadence, nudge never fires) |
+| Sunday, no working-weekend            | Active                                 |
 | PTO last day (today off, tomorrow on) | Active                                 |
 | Holiday last day, tomorrow workday    | Active                                 |
 | Manual `?mode=week-ahead`             | Active                                 |

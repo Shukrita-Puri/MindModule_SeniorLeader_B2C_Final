@@ -21,6 +21,17 @@ export interface RankableEventInput {
   score?: number | null;
   /** Optional pre-computed skip penalty from upstream `jit_cancellation_memory`. */
   skipPenalty?: number | null;
+  /**
+   * Optional learning-loop delta from `applyEventPriorityMemory` (Week-Ahead
+   * picker + weekday Plan once `WEEK_AHEAD_MEMORY_BOOST` is on). Already
+   * clamped to [-50, +30] by the helper.
+   */
+  memoryDelta?: number | null;
+  /**
+   * When true, the event has been hard-demoted by user memory ('never'
+   * signal) — `rankJitCandidates` will skip emitting any candidates for it.
+   */
+  memoryHardDemote?: boolean | null;
 }
 
 export interface RankedJitCandidate {
@@ -47,6 +58,7 @@ export interface RankedJitCandidate {
     demand: number;
     proximity: number;
     skipPenalty: number;
+    memory: number;
   };
 }
 
@@ -123,6 +135,7 @@ export function rankJitCandidates(
 ): RankedJitCandidate[] {
   const out: RankedJitCandidate[] = [];
   for (const ev of events) {
+    if (ev.memoryHardDemote) continue;
     const startMs = new Date(ev.event.start_time).getTime();
     if (!isFinite(startMs)) continue;
     const endMs = ev.event.end_time ? new Date(ev.event.end_time).getTime() : startMs + 60 * 60_000;
@@ -131,6 +144,7 @@ export function rankJitCandidates(
     const base = STAKES_BASE[(ev.stakesLevel || '').toLowerCase()] ?? 5;
     const catW = CATEGORY_WEIGHT[enriched.categoryId];
     const skipPenalty = ev.skipPenalty ?? 0;
+    const memory = ev.memoryDelta ?? 0;
 
     for (const phase of ['pre', 'during', 'post'] as const) {
       const ph = enriched.phases[phase];
@@ -146,7 +160,7 @@ export function rankJitCandidates(
       const sevW = SEVERITY_WEIGHT[severity];
       const demW = demandWeight(phase, enriched.demandProfile);
       const prox = proximityScore(nowMs, winStart, winEnd);
-      const score = base + catW + sevW + demW + prox - skipPenalty;
+      const score = base + catW + sevW + demW + prox - skipPenalty + memory;
       out.push({
         eventId: ev.event.id || '',
         title: ev.event.title || '',
@@ -168,6 +182,7 @@ export function rankJitCandidates(
           demand: demW,
           proximity: Math.round(prox * 10) / 10,
           skipPenalty,
+          memory,
         },
       });
     }

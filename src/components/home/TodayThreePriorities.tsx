@@ -311,7 +311,14 @@ const TodayThreePriorities = ({
   // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
   const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
-  const [pendingCancel, setPendingCancel] = useState<{ index: number; key: string; title: string } | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<{
+    index: number;
+    key: string;
+    title: string;
+    /** Underlying calendar event title when the slot is JIT-bound — drives
+     *  the cancel-feedback → record-event-priority-signal bridge (§17.5). */
+    eventTitle?: string | null;
+  } | null>(null);
   // Phase 3: in-flight guard so a double-click on Apply cannot fire two
   // overlapping regenerations for the same selection.
   const regeneratingRef = useRef(false);
@@ -1506,7 +1513,12 @@ const TodayThreePriorities = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setPendingCancel({ index, key: slotKey, title: `${hm.timeLabel} · ${module.title}` });
+                      setPendingCancel({
+                        index,
+                        key: slotKey,
+                        title: `${hm.timeLabel} · ${module.title}`,
+                        eventTitle: hm.isJit ? hm.jitEventTitle ?? null : null,
+                      });
                     }}
                     className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
                     aria-label="Cancel priority"
@@ -1737,6 +1749,7 @@ const TodayThreePriorities = ({
             // the plan — that's what was causing the 90s delay.
             const cancelIndex = pendingCancel.index;
             const cancelTitle = pendingCancel.title;
+            const cancelEventTitle = pendingCancel.eventTitle ?? null;
             setPendingCancel(null);
             setPlan((prev) => {
               if (!prev?.horizonModules) return prev;
@@ -1791,6 +1804,30 @@ const TodayThreePriorities = ({
                 feedbackText: feedback,
                 sessionPeriod: getCurrentTimeWindow(),
               }).catch(() => { /* silent */ });
+              // §17.5 bridge: when the cancelled slot is JIT-bound to a real
+              // calendar event, also record the priority-memory signal so
+              // future Plan + Week-Ahead rankings learn from this cancel.
+              if (cancelEventTitle) {
+                (async () => {
+                  try {
+                    const headers: Record<string, string> = {};
+                    const token = await getAuthToken();
+                    if (token) headers["Authorization"] = `Bearer ${token}`;
+                    if (DEV_MODE) headers["x-dev-user-id"] = DEV_USER.id;
+                    await supabase.functions.invoke("record-event-priority-signal", {
+                      headers,
+                      body: {
+                        eventTitle: cancelEventTitle,
+                        signal: reason === "ever" ? "cancelled_as_noise" : "cancelled_keep_surfacing",
+                        source: "cancel_feedback",
+                        meta: { slotTitle: cancelTitle, feedbackText: feedback ?? null },
+                      },
+                    });
+                  } catch (e) {
+                    console.warn("[TodayThreePriorities] record-event-priority-signal failed", e);
+                  }
+                })();
+              }
             })();
           }}
           onSkip={() => setPendingCancel(null)}
