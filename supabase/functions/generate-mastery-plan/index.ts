@@ -37,6 +37,7 @@ import {
   type EventCategoryId,
 } from '../_shared/events/event-categories.ts';
 import { classifyEvent } from '../_shared/events/event-classifier.ts';
+import { shadowClassifyAndLog } from '../_shared/events/shadow-classify.ts';
 import {
   EVENT_PHASE_MAP,
   phaseForEvent,
