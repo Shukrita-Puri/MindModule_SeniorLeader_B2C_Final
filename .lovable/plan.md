@@ -1,131 +1,111 @@
-## Goal
 
-Close the two known gaps from the last validation pass:
+# Event Classifier v2 — Isolated Fix
 
-1. **Broaden the learning loop** — `event_priority_memory` currently learns only from cancel-feedback + Week-Ahead picker tags. Extend it so post-plan-completion feedback (thumbs up/down on a JIT-bound priority) also writes a signal, and the per-event tags users set in prior Week-Ahead sessions visibly influence the next ranking.
-2. **Wire the Week-Ahead picker-invite nudge** — the `shouldFireWeekAheadPickerInvite` predicate is tested and shipped but `smart-nudges/index.ts` never calls it. Add a dedicated evaluator so it actually emits a push on Sun 16:00–19:00 local and last-day-PTO/holiday/long-weekend evenings.
+Scope guard: classifier only. No changes to scoring, slot allocation, why-line LLM, JIT scoring math, Brief copy, or memory writes. Every existing call site keeps working unchanged until the flag flips.
 
-No SSOT taxonomy changes; no schema migrations beyond extending the existing `signal`/`source` CHECK constraints on `event_priority_memory`.
+## Build order
 
-## Learning loop — what each producer contributes after this change
+1. Schema (parity log table)
+2. Pure modules (travel patterns, acronym dictionary, presentation verbs)
+3. `classifyEventV2` layered resolver + parity logger
+4. Snapshot test fixture
+5. Audit `EDUCATIONAL_PATTERN` organiser-bypass in `generate-mastery-plan`
+6. Flag-gated call-site swap (one consumer at a time, Plan + JIT first)
+7. Populate-rate query for `event_metadata->>'location'` (decision input for a future Layer 4 pass)
 
-| Producer | Trigger | Signal written | Decay | Score effect |
-|---|---|---|---|---|
-| Week-Ahead picker (existing) | User taps Priority / Not this week / Never | `priority` / `not_this_week` / `never` | 60d / 14d / hard | +10 / −15 / hard demote |
-| Cancel-feedback bridge (existing) | "Not relevant now / ever" on a JIT slot | `cancelled_keep_surfacing` / `cancelled_as_noise` | 60d / 60d | +5 / −25 |
-| **Post-plan thumbs-up bridge (new)** | Thumbs-up in `PlanFeedbackModal` for a JIT-bound priority | `priority` with `source='post_plan_feedback'` | 60d | +10 |
-| **Post-plan thumbs-down bridge (new)** | Thumbs-down on a JIT-bound priority **only when** free-text says the event itself was wrong (heuristic: contains "wrong event", "not relevant", "doesn't apply") | `cancelled_as_noise` with `source='post_plan_feedback'` | 60d | −25 |
-| Thumbs-down with no event-targeted text | — | **no write** (feedback is about the practice, not the event — routed to content feedback only) | — | — |
+## File list
 
-Neutral and any non-JIT plan feedback never write to event memory.
+New:
+- `supabase/migrations/<ts>_event_classifier_parity_log.sql`
+- `supabase/functions/_shared/events/travel-patterns.ts` — flight-number, route-code, "fly/travel/visit to X" regexes
+- `supabase/functions/_shared/events/acronym-dictionary.ts` — token → existing subtype ID map (plus `gov.nonexec_board`)
+- `supabase/functions/_shared/events/presentation-verbs.ts` — verb list for Layer 2
+- `supabase/functions/_shared/events/classify-event-v2.ts` — layered resolver + parity logger
+- `supabase/functions/_shared/events/__tests__/classify-event-v2.snapshot.ts` — fixture-driven snapshot test
 
-## Implementation
+Modified (additive only, no behaviour change until flag on):
+- `supabase/functions/_shared/events/event-subtypes.ts` — add one row `gov.nonexec_board`; add optional `excludeKeywords?: string[]` field to schema (unused by v1)
+- `supabase/functions/_shared/events/event-classifier.ts` — re-export `classifyEventV2`, keep `classifyEvent` untouched
 
-### 1. Extend `event_priority_memory` allowed sources
+Flag-gated swaps (one consumer per PR after parity green):
+- `generate-mastery-plan/index.ts` — passes `attendeeRoles`, `isOrganizer`, `userTags`, `travelState`
+- `generate-jit-events/index.ts` — same
+- Then the other 11 surfaces, title-only callers
 
-Single migration:
-
-```sql
-ALTER TABLE public.event_priority_memory
-  DROP CONSTRAINT event_priority_memory_source_chk,
-  ADD CONSTRAINT event_priority_memory_source_chk
-    CHECK (source IN ('week_ahead_picker','priority_tag','cancel_feedback','post_plan_feedback'));
-```
-
-No new signal values — `priority` / `cancelled_as_noise` already exist.
-
-### 2. `record-event-priority-signal` — allow the new source
-
-Add `'post_plan_feedback'` to `VALID_SOURCES`. Everything else (Auth, body shape, `coarseEventType` + `normalizeEventTypeKey` derivation, RLS/service-role insert) is unchanged.
-
-### 3. Post-plan thumbs-up/down bridge in `TodayThreePriorities`
-
-In the `PlanFeedbackModal.onSubmit` handler at line 1730:
-
-- Look up the slot the modal fired for (`feedbackSlot.index`) and read its `eventTitle` (same field used by the cancel bridge at line 1810).
-- If `eventTitle` exists:
-  - **rating = 5 (thumbs-up)** → fire-and-forget POST to `record-event-priority-signal` with `signal='priority'`, `source='post_plan_feedback'`, `meta: { rating, feedbackText, slotTitle }`.
-  - **rating = 1 (thumbs-down)** AND `feedback` matches `/wrong event|not relevant|doesn't apply|don't need/i` → POST `signal='cancelled_as_noise'`, `source='post_plan_feedback'`.
-  - Otherwise → no event-memory write (already covered by `submitPlanFeedback` content-feedback path).
-- If `eventTitle` is null (state-anchored slot, no JIT event) → no write.
-
-Pure side-effect, mirrors the cancel-feedback pattern at lines 1810–1830. No UI change.
-
-### 4. Surface "what the system learned" in the Week-Ahead picker
-
-`list-week-ahead-priorities` already collapses `applyEventPriorityMemory.reasons[]` into `scoreReasons[]` (lines 271–296). Confirm `WeekAheadPriorities.tsx` renders those reasons under each card so the user can see e.g. *"prior priority ×2"* or *"previously paused but kept"*. If the chip already shows score reasons we just verify; otherwise add a single-line subtle text under the title. (Read-only verification first — only edit if missing.)
-
-### 5. Wire the `weekAheadPickerInvite` evaluator into `smart-nudges/index.ts`
-
-New evaluator alongside `evaluateNudgeOne/Two/Three`:
+## Layered resolver contract
 
 ```ts
-async function evaluateWeekAheadPickerInvite(
-  ctx: NudgeContext,
-  alreadySentTypes: Set<string>,
-  todayLogs: { notification_type: string }[],
-  supabase,
-): Promise<QualifiedNudge | null>
-```
-
-Logic:
-- Skip if `alreadySentTypes.has('week_ahead_picker_invite')`.
-- Compute today's `weekAheadDecision = evaluateWeekAheadMode({ dayOfWeek, localHour, manualOverride: false })` using the user's local TZ already on `ctx`.
-- `pickerOpenedToday` — query `behavior_logs` (or a lightweight existing signal) for an event marking the user opened `/plan?mode=week-ahead` today. If no such log exists yet, add a single client-side `supabase.from('behavior_logs').insert({...})` write on `WeekAheadPriorities` mount keyed `event_type='week_ahead_picker_opened'`. (Tiny addition — already-existing table, RLS already allows the auth user to insert their own row.)
-- `alreadySentToday` — true if any row in `todayLogs` has `notification_type = 'week_ahead_picker_invite'`.
-- Call `shouldFireWeekAheadPickerInvite({ dayOfWeek, localHour, weekAheadDecision, alreadySentToday, pickerOpenedToday })`.
-- If `fire === true`, return a `QualifiedNudge` with:
-  - `type: 'week_ahead_picker_invite'`
-  - `slot: 'evening'` (16–19 falls inside the project-wide evening slot used by Nudge 3)
-  - `anchorKind: 'state'`, `signalStrength: 2`, `priority: 25` (sits just above generic state nudges but below Nudge 1 JIT)
-  - `deepLinkRoute: '/plan?mode=week-ahead'`
-  - `copy`: short static variants — e.g. *"Sunday reset. Pick this week's 10 priorities — 90 seconds."*; for last-day-PTO/holiday/long-weekend, the reason-aware variant *"Last day off. Pick this week's 10 priorities before tomorrow lands."*
-
-Wiring in the runner main loop (around line 3270, after Nudge 3 evaluation, gated on user notification prefs):
-
-```ts
-if ((prefs?.evening_close_enabled ?? true)) {
-  const inv = await evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, todayLogs, supabase);
-  if (inv) qualified.push(inv);
+classifyEventV2(input: {
+  title: string;
+  isOrganizer?: boolean;
+  attendeeRoles?: string[];   // optional, no-op if absent
+  userTags?: string[];        // prefetched by caller, no DB read inside
+  travelState?: 'home' | 'travelling' | 'arriving' | 'returning';
+  eventMetadata?: Record<string, unknown>;  // for defensive status read
+}): {
+  category: EventCategory | null;
+  subtypeId: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  resolvedBy: 'layer0_status' | 'layer1_tags' | 'layer2_verbs' | 'layer3_roles'
+            | 'layer4_travel_regex' | 'layer4_travel_state' | 'layer5_acronym'
+            | 'layer6_dictionary' | 'layer7_v1_fallback' | 'unknown';
 }
 ```
 
-Tie-break: the existing comparator (slot rank → anchor → signalStrength → priority) keeps a real JIT evening Nudge 3 ahead of the picker invite, which is what we want.
+Layer order (first non-null wins):
+- **L0 status** — `event_metadata->>'status'` cancelled/tentative → null (defensive; mostly no-op since cancelled events are deleted)
+- **L1 userTags** — explicit user tag overrides everything
+- **L2 verbs** — presentation verbs + `isOrganizer === true` → `vis.*`
+- **L3 roles** — attendee role mix (board/investor/direct-report/customer) when passed
+- **L4 travel** — `travel-patterns.ts` regexes on title, OR `travelState ∈ {travelling, arriving, returning}` with a travel-leaning title token
+- **L5 acronym** — token match against acronym dictionary, with airport-code corroboration gate (3-letter all-caps token only counts as travel when L4 also fires or another travel cue is present)
+- **L6 dictionary** — v2 keyword match with `excludeKeywords` honoured and word-boundary regex (fixes `onboarding`→`board`, `immediate`→`media`, `1:10`→`1:1`, `magma`→`agm`)
+- **L7 v1 fallback** — calls existing `classifyEvent(title)` so we never regress in shadow mode
 
-Telemetry: log `[smart-nudges] week_ahead_picker_invite fire=… reason=…` to mirror Nudge 1/2/3 lines.
+## Parity logging
 
-### 6. Tests
+Every v2 call (in shadow mode and after flip) writes one row:
 
-- `_shared/plan/week-ahead-nudge.test.ts` — already covers the predicate; no new tests needed there.
-- `_shared/plan/event-priority-memory.test.ts` — add a case: a single `priority` signal from `source='post_plan_feedback'` produces `+10` and reason `"prior priority ×1"` (no logic change, just confirms the new source is read identically).
-- New `record-event-priority-signal/index.test.ts` is out of scope (HTTP test infra); rely on the existing edge function tests + manual curl via `supabase--test_edge_functions` if needed.
-- Manual: trigger the smart-nudges runner against a dev user with Sun-local-17:00 simulation and assert `qualified` contains `week_ahead_picker_invite` with deep link `/plan?mode=week-ahead`.
-
-### 7. SSOT update
-
-`docs/GENERATE_MASTERY_PLAN_SSOT.md`:
-- §17.4 — add `post_plan_feedback` to the source enum + map to the same `priority` / `cancelled_as_noise` signals; document the thumbs-down free-text heuristic.
-- §17.7 — drop "(runner wiring pending)" once the evaluator is in. Add a one-line note on the static copy variants and the `behavior_logs` `week_ahead_picker_opened` event used for the `pickerOpenedToday` check.
-
-## Files touched
-
-```text
-supabase/migrations/<ts>_event_priority_memory_post_plan_source.sql   # add post_plan_feedback to source check
-supabase/functions/record-event-priority-signal/index.ts              # widen VALID_SOURCES
-supabase/functions/_shared/plan/event-priority-memory.test.ts         # add post_plan_feedback case
-supabase/functions/smart-nudges/index.ts                              # new evaluator + wiring + copy variants
-src/components/home/TodayThreePriorities.tsx                          # post-plan thumbs-up/down bridge in PlanFeedbackModal onSubmit
-src/components/home/WeekAheadPriorities.tsx                           # one-off behavior_logs write on mount + verify scoreReasons render
-docs/GENERATE_MASTERY_PLAN_SSOT.md                                    # §17.4 + §17.7 updates
+```sql
+event_classifier_parity_log (
+  id uuid pk,
+  user_id text not null,
+  event_id uuid null,            -- calendar_events.id when available
+  title_normalised text not null,
+  v1_category text null,
+  v2_category text null,
+  v2_subtype_id text null,
+  v2_confidence text not null,
+  v2_resolved_by text not null,
+  hard_demote_conflict boolean not null default false,  -- see below
+  created_at timestamptz not null default now()
+);
 ```
 
-Estimated diff: ~250 lines, no behaviour change for users who never see the picker or post-plan feedback.
+`hard_demote_conflict = true` when `v1_category ≠ v2_category` AND a row exists in `event_priority_memory` for `(user_id, v1_category)` with `hard_demote = true`. Surfaces the legacy-permanent-demote risk for manual review instead of letting it silently age out.
 
-## Question for you before I build
+RLS: deny-by-default on `public`. Grants: `service_role` only. No `authenticated` reads — this is a diagnostic table.
 
-You mentioned learning from *"importance and **relationship** done for previous plans"*. The current memory is keyed by `(event_category, event_type_key)` — it does **not** track per-attendee or per-relationship signals. Two options:
+## Acronym mapping policy
 
-- **A. Ship as planned above** — event-type + category learning only. Relationship-level memory deferred. This is what the plan above does.
-- **B. Add attendee-relationship memory now** — would mean a new `event_priority_memory.attendee_key` column (or sibling `attendee_priority_memory` table), wiring it through the ranker, and capturing the dominant attendee from `attendee_relationships` at signal-write time. Roughly doubles the diff.
+Map to existing subtype IDs only. Single additive row: `gov.nonexec_board`. Near-miss mappings get a `// REFINE: closest match for X, add dedicated subtype when taxonomy expands` comment inline. No taxonomy churn.
 
-If you want B, say the word and I'll fold it into the plan before building.
+## Snapshot test
+
+Fixture: ~80 real-world titles covering the known misses (`Onboarding`, `Flight showcase`, `Immediate`, `Run with team`, `1:10`, board/QBR variants, airport codes with and without travel context, presentation verbs, bland-titled exec meetings, the personal-noise overlaps). Test asserts `(category, subtypeId, resolvedBy)` per title and serves as the dictionary growth log — when you send me the post-rollout `other` list, new fixtures land here first.
+
+## What we are explicitly NOT doing
+
+- No Layer 4 location compare (deferred; we will run the `event_metadata ? 'location'` populate-rate query at the end of this pass and decide whether a follow-up `location text` migration is worth it; >40% populate = yes)
+- No `attendee_relationships` change-trigger (Plan re-reads cache each run, consistent with existing model)
+- No scoring/slot/Brief/why-line changes
+- No taxonomy changes beyond `gov.nonexec_board`
+- No migration of existing `event_priority_memory` rows (inert rows stay inert; conflicts surface via `hard_demote_conflict`)
+
+## Rollout
+
+1. Land schema + modules + resolver + snapshot test. Resolver shadow-runs from Plan + JIT entry points only, writing parity rows; existing behaviour untouched.
+2. Watch parity log 3–7 days. You review divergences + `hard_demote_conflict` rows.
+3. Flip flag per-consumer starting with Plan, then JIT, then the title-only surfaces in batches.
+4. Run populate-rate query, hand result back to you for the Layer 4 decision.
+5. Send you the list of titles still landing in `other` so we can grow the dictionary by data, not by guesswork.

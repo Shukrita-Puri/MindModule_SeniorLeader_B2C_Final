@@ -2188,6 +2188,48 @@ export type Database = {
           },
         ]
       }
+      event_classifier_parity_log: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          hard_demote_conflict: boolean
+          id: string
+          title_normalised: string
+          user_id: string
+          v1_category: string | null
+          v2_category: string | null
+          v2_confidence: string
+          v2_resolved_by: string
+          v2_subtype_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          hard_demote_conflict?: boolean
+          id?: string
+          title_normalised: string
+          user_id: string
+          v1_category?: string | null
+          v2_category?: string | null
+          v2_confidence: string
+          v2_resolved_by: string
+          v2_subtype_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          hard_demote_conflict?: boolean
+          id?: string
+          title_normalised?: string
+          user_id?: string
+          v1_category?: string | null
+          v2_category?: string | null
+          v2_confidence?: string
+          v2_resolved_by?: string
+          v2_subtype_id?: string | null
+        }
+        Relationships: []
+      }
       event_priority_memory: {
         Row: {
           event_category: string
