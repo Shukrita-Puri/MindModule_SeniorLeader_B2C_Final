@@ -37,6 +37,7 @@ import {
   type EventCategoryId,
 } from '../_shared/events/event-categories.ts';
 import { classifyEvent } from '../_shared/events/event-classifier.ts';
+import { shadowClassifyAndLog } from '../_shared/events/shadow-classify.ts';
 import {
   EVENT_PHASE_MAP,
   phaseForEvent,
@@ -4599,6 +4600,14 @@ async function applyV51Enrichment(
     if (hm.isJit && hm.jitEventTitle) {
       const evtMatch = eventByTitle.get(String(hm.jitEventTitle).toLowerCase().trim());
       const subtype = classifyEvent(hm.jitEventTitle);
+      // ── Shadow-run classifier v2 (diagnostic only; v1 still drives logic) ──
+      shadowClassifyAndLog({
+        userId: req.userId,
+        eventId: (evtMatch?.id ?? (hm as any).anchorEventId ?? null) as string | null,
+        title: hm.jitEventTitle,
+        isOrganizer: Boolean(evtMatch?.is_organizer ?? evtMatch?.isOrganizer ?? false),
+        eventMetadata: (evtMatch?.event_metadata ?? evtMatch?.eventMetadata ?? null) as Record<string, unknown> | null,
+      });
       const category = (subtype?.categoryId ?? null) as EventCategoryId | null;
       const phase: Phase = (hm.jitPhase as Phase) || 'pre';
 

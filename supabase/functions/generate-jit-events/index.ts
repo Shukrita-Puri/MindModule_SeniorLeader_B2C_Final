@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { isNoiseTitle, classifyEvent, isEducationalTitle, type EventGroup } from "../_shared/executive-state-taxonomy.ts";
+import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 
 const corsHeaders = {
@@ -596,6 +597,15 @@ serve(async (req) => {
         if (IS_DEV) console.log(`[JIT:Stage0b] BLOCKED title="${title}" reason=educational_non_organizer (hard gate)`);
         continue;
       }
+
+      // ── Shadow-run classifier v2 (diagnostic only; v1 still drives logic) ──
+      shadowClassifyAndLog({
+        userId,
+        eventId: event.id ?? null,
+        title,
+        isOrganizer,
+        eventMetadata: metadata,
+      });
 
       // ════════ STAGE 1: Cancellation Memory ════════
       const scenarioMatch = matchScenario(title);
