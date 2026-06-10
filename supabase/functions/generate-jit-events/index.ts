@@ -598,6 +598,15 @@ serve(async (req) => {
         continue;
       }
 
+      // ── Shadow-run classifier v2 (diagnostic only; v1 still drives logic) ──
+      shadowClassifyAndLog({
+        userId,
+        eventId: event.id ?? null,
+        title,
+        isOrganizer,
+        eventMetadata: metadata,
+      });
+
       // ════════ STAGE 1: Cancellation Memory ════════
       const scenarioMatch = matchScenario(title);
       const eventType = scenarioMatch
