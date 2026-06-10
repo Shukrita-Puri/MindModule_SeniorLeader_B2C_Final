@@ -11,7 +11,8 @@ export const FLIGHT_NUMBER_PATTERN = /\b[A-Z]{2}\s?\d{2,4}\b/;
 export const ROUTE_CODE_PATTERN = /\b[A-Z]{3}\s?[-–>]\s?[A-Z]{3}\b/;
 
 // "Fly to NYC", "Travel to Berlin", "Visit Tokyo office" — directional cues.
-export const TRAVEL_VERB_PATTERN = /\b(fly|flight|flying|travel|travelling|traveling|drive|driving|visit|visiting|trip)\s+(to|from)\s+[A-Z]/;
+// Case-insensitive so capitalised titles ("Fly to Berlin") still match.
+export const TRAVEL_VERB_PATTERN = /\b(fly|flight|flying|travel|travelling|traveling|drive|driving|visit|visiting|trip)\s+(to|from)\s+[a-z]/i;
 
 // Generic travel-leaning tokens used only when paired with an out-of-home
 // travel_state. Substring match, case-insensitive.
