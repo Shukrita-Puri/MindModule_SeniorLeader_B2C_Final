@@ -117,11 +117,17 @@ function classifyByRoles(roles: string[]): { subtypeId: string; confidence: Conf
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-function dictionaryV2Match(title: string): EventType | null {
+function dictionaryV2Match(
+  title: string,
+  excludedSubtypeIds: Set<string>,
+): EventType | null {
   const lower = title.toLowerCase();
   for (const et of EVENT_TYPES) {
     if (!et.keywords?.length) continue;
-    if (et.excludeKeywords?.some((ex) => lower.includes(ex.toLowerCase()))) continue;
+    if (et.excludeKeywords?.some((ex) => lower.includes(ex.toLowerCase()))) {
+      excludedSubtypeIds.add(et.id);
+      continue;
+    }
     const hit = et.keywords.some((kw) => {
       const k = kw.toLowerCase().trim();
       if (!k) return false;
@@ -187,32 +193,39 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
     return resultFromSubtype(subtype, resolvedBy, confidence);
   }
 
-  // L5: acronym dictionary. Airport-code corroboration: 3-letter all-caps
-  // tokens alone are NOT enough — they only contribute when L4 also fired
-  // (handled above) or another travel cue exists (none here, so skip).
+  // L5: acronym dictionary. The airport-code corroboration gate fires only
+  // for dictionary entries whose subtype is travel-related — bare 3-letter
+  // upper tokens routed to travel need another travel cue to count.
+  // Non-travel acronyms (QBR, AGM, NED, PIP, ...) pass through unchanged.
   const acronym = findAcronymMatch(title);
   if (acronym) {
-    // Guard: if the matched token is exactly an airport code (3-letter caps)
-    // and no travel cue exists, skip it. Our dictionary doesn't contain bare
-    // airport tokens today, but the bare-code extraction protects us if a
-    // caller adds one later.
-    const bareCodes = extractBareAirportCodes(title);
-    const tokenUpper = acronym.matchedToken.toUpperCase();
-    const isBareAirport = bareCodes.includes(tokenUpper) && tokenUpper.length === 3;
-    if (!isBareAirport) {
+    const subtypeIsTravel = acronym.entry.subtypeId.startsWith('trv.');
+    if (subtypeIsTravel) {
+      const bareCodes = extractBareAirportCodes(title);
+      const tokenUpper = acronym.matchedToken.toUpperCase();
+      const isBareAirport = bareCodes.includes(tokenUpper) && tokenUpper.length === 3;
+      if (!isBareAirport) {
+        return resultFromSubtype(acronym.entry.subtypeId, 'layer5_acronym', 'high');
+      }
+      // Bare airport token with no travel cue: fall through.
+    } else {
       return resultFromSubtype(acronym.entry.subtypeId, 'layer5_acronym', 'high');
     }
   }
 
   // L6: v2 dictionary match (word-boundary aware, honours excludeKeywords).
-  const dictHit = dictionaryV2Match(title);
+  const excludedByL6 = new Set<string>();
+  const dictHit = dictionaryV2Match(title, excludedByL6);
   if (dictHit) {
     return resultFromSubtype(dictHit.id, 'layer6_dictionary', 'high');
   }
 
   // L7: v1 fallback so shadow mode never regresses below current behaviour.
+  // BUT: skip v1 hits that landed on a subtype L6 explicitly excluded
+  // (e.g. "Onboarding" v1→gov.board_meeting is suppressed because
+  // gov.board_meeting.excludeKeywords contains 'onboarding').
   const v1 = classifyEvent(title);
-  if (v1) {
+  if (v1 && !excludedByL6.has(v1.id)) {
     return {
       category: v1.categoryId,
       subtypeId: v1.id,
