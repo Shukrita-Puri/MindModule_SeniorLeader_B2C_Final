@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { isNoiseTitle, classifyEvent, isEducationalTitle, type EventGroup } from "../_shared/executive-state-taxonomy.ts";
+import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 
 const corsHeaders = {
