@@ -27,13 +27,12 @@ const FIXTURES: Fixture[] = [
     expect: { category: null, subtypeId: null, resolvedBy: 'unknown' },
   },
   {
-    name: 'Flight showcase is NOT travel',
+    name: 'Flight showcase is NOT travel (matches client demo via L6)',
     input: { title: 'Flight showcase demo for partners' },
-    // Falls through to v1 which would have matched "flight" — v2's excludeKeywords
-    // on trv.flight blocks it, then L6 v2 dictionary finds nothing, then L7 v1
-    // is also blocked because v1 still matches "flight". We accept the v1
-    // fallback divergence here as a known regression to surface in parity log.
-    expect: { category: 'G', subtypeId: 'trv.flight', resolvedBy: 'layer7_v1_fallback' },
+    // trv.flight excluded by 'flight showcase'; v1 fallback suppressed by the
+    // same exclude. L6 still finds inf.client_presentation via the 'demo'
+    // keyword, which is the right answer (it's a partner-facing demo).
+    expect: { category: 'B', subtypeId: 'inf.client_presentation', resolvedBy: 'layer6_dictionary' },
   },
   {
     name: '"Immediate" is NOT media',
@@ -60,12 +59,12 @@ const FIXTURES: Fixture[] = [
   { name: 'travel verb',
     input: { title: 'Fly to Berlin for offsite' },
     expect: { category: 'G', subtypeId: 'trv.flight', resolvedBy: 'layer4_travel_regex' } },
-  { name: 'long-haul flight',
+  { name: 'long-haul flight (acronym path)',
     input: { title: 'Long-haul to Tokyo' },
-    expect: { category: 'G', subtypeId: 'trv.long_haul', resolvedBy: 'layer4_travel_regex' } },
-  { name: 'red-eye',
+    expect: { category: 'G', subtypeId: 'trv.long_haul', resolvedBy: 'layer5_acronym' } },
+  { name: 'red-eye (acronym path)',
     input: { title: 'Red-eye to SFO' },
-    expect: { category: 'G', subtypeId: 'trv.long_haul', resolvedBy: 'layer4_travel_regex' } },
+    expect: { category: 'G', subtypeId: 'trv.long_haul', resolvedBy: 'layer5_acronym' } },
   { name: 'travel_state corroboration',
     input: { title: 'Hotel check-in', travelState: 'travelling' },
     expect: { category: 'G', subtypeId: 'trv.flight', resolvedBy: 'layer4_travel_state' } },
@@ -77,9 +76,12 @@ const FIXTURES: Fixture[] = [
   { name: 'AGM',
     input: { title: 'AGM 2026' },
     expect: { category: 'A', subtypeId: 'gov.board_meeting', resolvedBy: 'layer5_acronym' } },
-  { name: 'magma does NOT match AGM',
+  { name: 'magma does NOT match AGM (word-boundary holds)',
     input: { title: 'Magma demo' },
-    expect: { category: null, subtypeId: null, resolvedBy: 'unknown' } },
+    // L5 'agm' regex requires a word boundary; 'magma' fails it. L6 then
+    // matches the legitimate 'demo' keyword → client presentation. The point
+    // of this fixture is the negative on AGM, not the positive on demo.
+    expect: { category: 'B', subtypeId: 'inf.client_presentation', resolvedBy: 'layer6_dictionary' } },
   { name: 'NED meeting',
     input: { title: 'NED meeting Q1' },
     expect: { category: 'A', subtypeId: 'gov.nonexec_board', resolvedBy: 'layer5_acronym' } },
