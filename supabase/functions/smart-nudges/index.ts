@@ -1146,6 +1146,61 @@ async function buildNudgeContext(
         landingPlusHighStakes,
       };
     })(),
+    weekAheadInputs: (() => {
+      const today = detectDayKindFromEvents(todayEvents);
+      const tomorrow = detectDayKindFromEvents(tomorrowEvents);
+      // Map kind → PTO vs holiday signals. The shared classifier doesn't
+      // distinguish PTO (ooo) from public holidays (away-day) precisely, but
+      // for week-ahead-mode both branches collapse to the same outcome
+      // (active=true, lookahead=7). The distinction only shapes telemetry.
+      const ptoTodayAllDay = today.kind === 'ooo';
+      const holidayTodayAllDay = today.kind === 'away-day';
+      const ptoTomorrowAllDay = tomorrow.kind === 'ooo';
+      const holidayTomorrowAllDay = tomorrow.kind === 'away-day';
+      const tomorrowDow = (dayOfWeek + 1) % 7;
+      const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
+      const tomorrowIsWorkday =
+        !ptoTomorrowAllDay && !holidayTomorrowAllDay && !tomorrowIsWeekend;
+      // Walk back from yesterday counting consecutive off-days (PTO / holiday
+      // / weekend / empty calendar). Stop at the first work-day. Bounded to
+      // 14 days so a quiet calendar can't run away.
+      const byDate = new Map<string, Array<{ title?: string | null }>>();
+      for (const e of (lookbackEventsRaw || []) as Array<{ title?: string | null; start_time: string }>) {
+        const d = (e.start_time || '').slice(0, 10);
+        if (!d) continue;
+        const arr = byDate.get(d) || [];
+        arr.push({ title: e.title });
+        byDate.set(d, arr);
+      }
+      let consecutiveOffDaysBefore = 0;
+      const cursor = new Date(`${todayStr}T00:00:00`);
+      for (let i = 0; i < 14; i++) {
+        cursor.setDate(cursor.getDate() - 1);
+        const dStr = cursor.toISOString().split('T')[0];
+        const dDow = cursor.getDay();
+        const events = byDate.get(dStr) || [];
+        const kind = detectDayKindFromEvents(events).kind;
+        const isWeekend = dDow === 0 || dDow === 6;
+        const offDay = kind === 'ooo' || kind === 'away-day' || isWeekend || events.length === 0;
+        if (offDay) consecutiveOffDaysBefore++;
+        else break;
+      }
+      const travelDay = today.kind === 'travel-day';
+      // Full working weekend: ≥3 non-noise events on a Sat/Sun. Reuse the
+      // existing nonNoiseEvents array.
+      const isTodayWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const fullWorkingWeekend = isTodayWeekend && nonNoiseEvents.length >= 3;
+      return {
+        ptoTodayAllDay,
+        ptoTomorrowAllDay,
+        holidayTodayAllDay,
+        holidayTomorrowAllDay,
+        tomorrowIsWorkday,
+        consecutiveOffDaysBefore,
+        travelDay,
+        fullWorkingWeekend,
+      };
+    })(),
     badgeCount: (() => {
       // v5.3 — Intelligent badge: outstanding cognitive debt the user can
       // clear today. Falls back to 1 when there is nothing to count.
