@@ -191,61 +191,68 @@ you change one, change the other.
 | _Build capacity / Activate / Lead / Present_                | activation/presence  | `meta-recalibration`, `meta-clarity` | `power-up`, `presence`           | `somatic.flow`      |
 | _Steady the system / Ground / Hold_ (default)               | regulation/composure | `meta-recalibration`              | `pause`                          | `somatic.pause`     |
 
-## Catalog snapshot (39 active practices)
+## Catalog snapshot (41 active practices)
 
 ### Pause (11) — primarily regulation/composure
 
-| ID | Title | `meta_skill` | `sub_type` |
-| --- | --- | --- | --- |
-| fudoshin-immovable-mind | Calm in Chaos Through Fudōshin | meta-recalibration | tool |
-| eye-of-storm | Clarity in Chaos Through The Eye | meta-clarity | mindset |
-| deep-calm-forest-bathing | Deep Calm Forest Bathing | meta-recalibration, meta-renewal | – |
-| detachment-observer-new | Detachment Through The Observer | meta-clarity, meta-recalibration | mindset |
-| grounding-touch | Instant Calm Through Somatic Touch | meta-recalibration | tool |
-| harmonic-calm | Nervous System Reset Through Tibetan Bowls | meta-recalibration, meta-renewal | – |
-| pranayama-clarity | Pranayama Clarity Breath | meta-clarity, meta-recalibration | – |
-| presence-grounding-new | Presence Through Grounding | meta-recalibration | tool |
-| softness-release-new | Softness Through Release | meta-recalibration, meta-renewal | mindset |
-| stillness-gap-new | Stillness Through The Gap | meta-clarity | mindset |
-| vagus-wind-down | The Vagus Wind-Down | meta-recalibration, meta-renewal | – |
+| ID | Title | `meta_skill` | `protocol_type` | `sub_type` |
+| --- | --- | --- | --- | --- |
+| fudoshin-immovable-mind | Calm in Chaos Through Fudōshin | meta-recalibration | mindset | tool |
+| eye-of-storm | Clarity in Chaos Through The Eye | meta-clarity | mindset | mindset |
+| deep-calm-forest-bathing | Deep Calm Forest Bathing | meta-recalibration, meta-renewal | somatic | tool |
+| detachment-observer-new | Detachment Through The Observer | meta-clarity, meta-recalibration | mindset | mindset |
+| grounding-touch | Instant Calm Through Somatic Touch | meta-recalibration | somatic | tool |
+| harmonic-calm | Nervous System Reset Through Tibetan Bowls | meta-recalibration, meta-renewal | somatic | tool |
+| pranayama-clarity | Pranayama Clarity Breath | meta-clarity, meta-recalibration | somatic | tool |
+| presence-grounding-new | Presence Through Grounding | meta-recalibration | mindset | tool |
+| softness-release-new | Softness Through Release | meta-recalibration, meta-renewal | mindset | mindset |
+| stillness-gap-new | Stillness Through The Gap | meta-clarity | mindset | mindset |
+| vagus-wind-down | The Vagus Wind-Down | meta-recalibration, meta-renewal | somatic | tool |
 
 ### Power-up (12) — activation, courage, energy
 
-| ID | Title | `meta_skill` | `sub_type` |
-| --- | --- | --- | --- |
-| basque-txalaparta | Basque Txalaparta | meta-recalibration | – |
-| energised-focus-didgeridoo-bowls | Didgeridoo & Bowls | meta-clarity | – |
-| confidence-through-evidence | Confidence Through Evidence | meta-recalibration | mindset |
-| courage-arena | Courage Through The Arena | meta-renewal | mindset |
-| courage-future-self | Courage Through The Future Self | meta-renewal | mindset |
-| kapalabhati-pranayama | Kapalabhati Pranayama | meta-recalibration, meta-clarity | – |
-| energy-reframe | Energy Through Reframe | meta-recalibration, meta-renewal | mindset |
-| energy-forge | Energy Through The Forge | meta-recalibration | – |
-| buddhist-phoenix | Resilience Through Buddhist Phoenix | meta-renewal, meta-recalibration | mindset |
-| energy-through-completion | Restore Energy Through Completion | meta-clarity, meta-recalibration | mindset |
-| box-breathing | Tactical Composure Through Box Breathing | meta-recalibration | – |
-| warrior-drums | Warrior Drums Activation | meta-recalibration | – |
+| ID | Title | `meta_skill` | `protocol_type` | `sub_type` |
+| --- | --- | --- | --- | --- |
+| basque-txalaparta | Basque Txalaparta | meta-recalibration | somatic | tool |
+| energised-focus-didgeridoo-bowls | Didgeridoo & Bowls | meta-clarity | somatic | tool |
+| confidence-through-evidence | Confidence Through Evidence | meta-recalibration | mindset | mindset |
+| courage-arena | Courage Through The Arena | meta-renewal | mindset | mindset |
+| courage-future-self | Courage Through The Future Self | meta-renewal | mindset | mindset |
+| kapalabhati-pranayama | Kapalabhati Pranayama | meta-recalibration, meta-clarity | somatic | tool |
+| energy-reframe | Energy Through Reframe | meta-recalibration, meta-renewal | mindset | mindset |
+| energy-forge | Energy Through The Forge | meta-recalibration | somatic | tool |
+| buddhist-phoenix | Resilience Through Buddhist Phoenix | meta-renewal, meta-recalibration | mindset | mindset |
+| energy-through-completion | Restore Energy Through Completion | meta-clarity, meta-recalibration | mindset | mindset |
+| box-breathing | Tactical Composure Through Box Breathing | meta-recalibration | somatic | tool |
+| warrior-drums | Warrior Drums Activation | meta-recalibration | somatic | tool |
 
 ### Presence (16) — primarily focus / clarity (Flow Mastery)
 
-| ID | Title | `meta_skill` | `sub_type` |
-| --- | --- | --- | --- |
-| jobs-simplicity | Clarity Through Elimination | meta-clarity | tool |
-| bhramari-pranayama | Deep Focus Through Bhramari Pranayama | meta-clarity, meta-recalibration | – |
-| deep-focus-monastic-resonance | Deep Focus with Monastic Resonance | meta-clarity | – |
-| depth-subtraction | Depth Through Subtraction | meta-clarity | mindset |
-| wu-wei-flow | Effortless Action Through Wu Wei | meta-clarity | tool |
-| single-thread-focus | Entry Through The Single Thread | meta-clarity | mindset |
-| mushin-no-mind | Fluid Performance Through Mushin | meta-clarity, meta-recalibration | mindset |
-| ina-night-fields | Ina Night Fields (Tsukiyomi) | meta-renewal | – |
-| mastery-constraint | Mastery Through Constraint | meta-clarity | mindset |
-| first-move-momentum | Momentum Through The First Move | meta-clarity, meta-recalibration | mindset |
-| trataka-flame-gaze | One-Pointed Focus Through Trataka | meta-clarity | – |
-| eternal-now-presence | Presence Through The Eternal Now | meta-recalibration | mindset |
-| **ikigai-purpose** | **Purpose-Driven Flow Through Ikigai** | **meta-renewal** | mindset |
-| rhythm-pulse | Rhythm Through The Pulse | meta-renewal, meta-recalibration | mindset |
-| stoic-reflection | Stoic Evening Reflection | meta-renewal, meta-clarity | mindset |
-| sustained-focus-choir-harmonic | Sustained Focus with Choir Harmonic | meta-clarity | – |
+| ID | Title | `meta_skill` | `protocol_type` | `sub_type` |
+| --- | --- | --- | --- | --- |
+| jobs-simplicity | Clarity Through Elimination | meta-clarity | mindset | tool |
+| bhramari-pranayama | Deep Focus Through Bhramari Pranayama | meta-clarity, meta-recalibration | somatic | tool |
+| deep-focus-monastic-resonance | Deep Focus with Monastic Resonance | meta-clarity | somatic | tool |
+| depth-subtraction | Depth Through Subtraction | meta-clarity | mindset | mindset |
+| wu-wei-flow | Effortless Action Through Wu Wei | meta-clarity | mindset | tool |
+| single-thread-focus | Entry Through The Single Thread | meta-clarity | mindset | mindset |
+| mushin-no-mind | Fluid Performance Through Mushin | meta-clarity, meta-recalibration | mindset | mindset |
+| ina-night-fields | Ina Night Fields (Tsukiyomi) | meta-renewal | somatic | tool |
+| mastery-constraint | Mastery Through Constraint | meta-clarity | mindset | mindset |
+| first-move-momentum | Momentum Through The First Move | meta-clarity, meta-recalibration | mindset | mindset |
+| trataka-flame-gaze | One-Pointed Focus Through Trataka | meta-clarity | somatic | tool |
+| eternal-now-presence | Presence Through The Eternal Now | meta-recalibration | mindset | mindset |
+| **ikigai-purpose** | **Purpose-Driven Flow Through Ikigai** | **meta-renewal** | **mindset** | **mindset** |
+| rhythm-pulse | Rhythm Through The Pulse | meta-renewal, meta-recalibration | mindset | mindset |
+| stoic-reflection | Stoic Evening Reflection | meta-renewal, meta-clarity | mindset | mindset |
+| sustained-focus-choir-harmonic | Sustained Focus with Choir Harmonic | meta-clarity | somatic | tool |
+
+### Two previously untagged practices (now fully tagged)
+
+| ID | Title | `meta_skill` | `protocol_type` | `sub_type` |
+| --- | --- | --- | --- | --- |
+| release-exhale-new | Release Through Exhale | meta-recalibration | somatic | tool |
+| wim-hof-cold-fire | Wim Hof Cold Fire | meta-recalibration, meta-renewal | somatic | tool |
 
 ## Known anomalies
 
