@@ -2864,14 +2864,17 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
  */
 async function evaluateWeekAheadPickerInvite(
   ctx: NudgeContext,
-  alreadySentTypes: Set<string>,
   supabase: ReturnType<typeof createClient>,
+  weeklyAlreadySent: boolean,
 ): Promise<QualifiedNudge | null> {
   const log = (reason: string, extra?: unknown) =>
     console.log(`[smart-nudges] week_ahead_picker_invite user=${ctx.userId} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
 
-  if (alreadySentTypes.has('week_ahead_picker_invite')) {
-    log('already_sent');
+  // §17.7 — ISO-week idempotency. At most ONE picker invite per user per
+  // ISO week, regardless of reason. The weekly window is computed by the
+  // main loop in user-local time and passed in.
+  if (weeklyAlreadySent) {
+    log('already_sent_this_week');
     return null;
   }
 
