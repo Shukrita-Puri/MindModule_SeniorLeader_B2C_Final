@@ -718,6 +718,34 @@ interface ComputeRequest {
    * preserves the distinction for downstream UI/QA (stale ≠ never connected).
    */
   wearableStatus?: 'fresh' | 'stale' | 'missing';
+
+  // ─── MRS v4 — optional window-aware path ─────────────────────────────
+  // When `mrsWindow` is supplied AND `mrsSubScores` is non-empty, the v4
+  // composer (§3 + §8.3 redistribution + §3.2a sleep cap) drives the
+  // baseline instead of the legacy `weightingMode` branches. Legacy fields
+  // (`hasWearable`, `wearableHRV`, etc.) are still honoured for back-compat
+  // — they're used only when `mrsWindow` is absent.
+  mrsWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  /** Per-sub-component score + availability for the current window. */
+  mrsSubScores?: Array<{
+    id: SubComponentId;
+    score: number;       // 0..100
+    available: boolean;
+  }>;
+  /** Anchor for INTRADAY_DECLINE (§6 flag 2). Null on the morning compute. */
+  morningBaselineScore?: number | null;
+  /** §3.2a measured-low sleep cap inputs (absence-vs-deficit guard inside composer). */
+  sleepDeficitMeasurement?: {
+    available: boolean;
+    sleepTotalMinutes?: number | null;
+    sleepQuality?: 'poor' | 'fair' | 'good' | 'peak' | null;
+  };
+  /** Afternoon decision-leakage flag (drives INTRADAY_DECLINE). */
+  decisionLeakageRisk?: boolean;
+  /** Evening body-load flag (drives INTRADAY_DECLINE). */
+  bodyLoadElevated?: boolean;
+  /** Afternoon intraday HR % above resting baseline (drives INTRADAY_DECLINE). */
+  intradayHrDeviationPct?: number | null;
 }
 
 serve(async (req) => {
