@@ -1786,6 +1786,27 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
+      // Part 1 — hydrate travel_state for the fallback path. Fail-open: any
+      // error leaves the field undefined and the rule defaults take over.
+      let _nudgeTravelState:
+        | { state?: string | null; distanceFromHomeKm?: number | null }
+        | null = null;
+      try {
+        const { data: tsRow } = await supabase
+          .from('travel_state')
+          .select('state, distance_from_home_km')
+          .eq('user_id', ctx.userId)
+          .maybeSingle();
+        if (tsRow) {
+          _nudgeTravelState = {
+            state: (tsRow as any).state ?? null,
+            distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
+          };
+        }
+      } catch (tsErr) {
+        console.warn('[smart-nudges] travel_state hydration skipped:',
+          tsErr instanceof Error ? tsErr.message : tsErr);
+      }
       const wiring = evaluateForScope(
         {
           wearable: ctx.hasWearableData
@@ -1810,6 +1831,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           scoreToday: null,
           scoreYesterday: null,
           timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
+          travelState: _nudgeTravelState,
           events: eventsForCtx,
           now: new Date(),
         },
