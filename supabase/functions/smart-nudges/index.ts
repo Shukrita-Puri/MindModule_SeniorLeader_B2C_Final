@@ -3603,13 +3603,9 @@ serve(async (req) => {
         if (nudge) qualified.push(nudge);
       }
 
-      // §17.7 — Week-Ahead Picker Invite (Sun + last-day-PTO/holiday evenings).
-      // Independent of Nudge 3 framing: shares the evening slot but is
-      // gated by the picker-invite predicate, not the check-in cadence.
-      if ((prefs?.evening_close_enabled ?? true) && !suppressedEffective) {
-        const inv = await evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, supabase);
-        if (inv) qualified.push(inv);
-      }
+      // §17.7 — Week-Ahead Picker Invite has its OWN bucket and is
+      // dispatched above the daily cap earlier in this loop. It is
+      // intentionally not part of the competitive `qualified` queue.
 
       // Post-MVP evaluators (all gated by MVP_POST_LAUNCH = false)
       if (MVP_POST_LAUNCH) {
