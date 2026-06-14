@@ -255,6 +255,35 @@ serve(async (req) => {
           throw error;
         }
 
+        // MRS v4 §2.1 — update daily_context_snapshot's per-day check-in
+        // tracking so the next cron cycle knows the felt-state input is
+        // fresh, and the Brief (eventual §10 consumer) can decide whether
+        // it's reading a morning or evening check-in. Fire-and-forget; a
+        // failure here must not block the check-in write.
+        try {
+          const { count } = await supabase
+            .from('daily_checkins')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('checkin_date', cd.checkin_date);
+
+          const snapshotPayload: Record<string, unknown> = {
+            user_id: userId,
+            local_date: cd.checkin_date,
+            check_in_count_today: count ?? 1,
+            last_check_in_window: timeWindow,
+          };
+          const { error: snapErr } = await supabase
+            .from('daily_context_snapshot')
+            .upsert(snapshotPayload, { onConflict: 'user_id,local_date' });
+          if (snapErr) {
+            console.warn('[daily-checkins] MRS v4 snapshot count update failed:', snapErr.message ?? snapErr);
+          }
+        } catch (snapEx) {
+          console.warn('[daily-checkins] MRS v4 snapshot count update threw:',
+            snapEx instanceof Error ? snapEx.message : snapEx);
+        }
+
         // Fire-and-forget: trigger pattern learning
         try {
           const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
