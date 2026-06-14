@@ -40,6 +40,39 @@ export function computeDivergenceFlag(input: DivergenceInput): DivergenceFlag {
   return 'ALIGNED';
 }
 
+// ─── MRS v4 §6 flag 2 — INTRADAY_DECLINE ─────────────────────────────────
+//
+// Detects "something changed today that this morning's read didn't anticipate."
+// Pure boolean — caller decides where to place it in the flag priority chain
+// (§6 puts it at priority 2, after REGULATION_RISK and before
+// SUPPLY_DEMAND_GAP).
+
+export interface IntradayDeclineInput {
+  /** Baseline computed for the current (afternoon/evening) window. */
+  currentWindowBaseline: number | null;
+  /** Anchor baseline written by the morning compute today. */
+  morningBaselineScore: number | null;
+  /** Afternoon decision-leakage flag (from afternoon-context). */
+  decisionLeakageRisk?: boolean;
+  /** Evening body-load flag (from evening-context). */
+  bodyLoadElevated?: boolean;
+  /** Afternoon intraday HR % above resting baseline. */
+  intradayHrDeviationPct?: number | null;
+}
+
+export function computeIntradayDecline(input: IntradayDeclineInput): boolean {
+  const { currentWindowBaseline, morningBaselineScore } = input;
+  if (currentWindowBaseline == null || morningBaselineScore == null) return false;
+  const dropped = currentWindowBaseline <= morningBaselineScore - 10;
+  if (!dropped) return false;
+  if (input.decisionLeakageRisk) return true;
+  if (input.bodyLoadElevated) return true;
+  if (typeof input.intradayHrDeviationPct === 'number' && input.intradayHrDeviationPct >= 15) {
+    return true;
+  }
+  return false;
+}
+
 // ─── Physiological composite (HRV + Sleep + RHR-trend) ──────────────────
 
 export interface PhysiologicalCompositeInput {

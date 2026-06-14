@@ -57,6 +57,13 @@ export interface UpsertContextSnapshotInput {
   readinessScoreRefined?: number | null;
   readinessState?: 'baseline' | 'refined' | null;
   refinedContribution?: number | null;
+  // MRS v4 §11 — additive columns. All optional for back-compat with
+  // callers still on the v3 path; the v4 cron path supplies them.
+  mrsWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  morningBaselineScore?: number | null;
+  checkInCountToday?: number | null;
+  lastCheckInWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  weightProvenance?: unknown | null;
 }
 
 /**
@@ -92,6 +99,15 @@ export async function upsertDailyContextSnapshot(
       readiness_state: input.readinessState ?? null,
       refined_contribution: input.refinedContribution ?? null,
     };
+
+    // MRS v4 §11 — only write the additive columns when the caller has
+    // supplied them. Avoids clobbering existing values on rows being updated
+    // by an older v3-path caller within the same cron cycle.
+    if (input.mrsWindow !== undefined) (row as any).mrs_window = input.mrsWindow;
+    if (input.morningBaselineScore !== undefined) (row as any).morning_baseline_score = input.morningBaselineScore;
+    if (input.checkInCountToday !== undefined) (row as any).check_in_count_today = input.checkInCountToday;
+    if (input.lastCheckInWindow !== undefined) (row as any).last_check_in_window = input.lastCheckInWindow;
+    if (input.weightProvenance !== undefined) (row as any).weight_provenance = input.weightProvenance;
 
     const { error } = await db
       .from('daily_context_snapshot')
