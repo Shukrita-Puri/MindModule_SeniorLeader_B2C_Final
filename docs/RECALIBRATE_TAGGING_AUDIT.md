@@ -265,8 +265,10 @@ you change one, change the other.
 2. **Three `presence` rows are tagged `meta-renewal` (`ina-night-fields`,
    `ikigai-purpose`, `rhythm-pulse`)** — they will only surface on
    recovery slots, not focus slots.
-3. **`protocol_type` is entirely NULL.** Until backfilled, the
-   protocol-combo signal contributes at most +4 (vs +18 from meta_skill).
+3. **`protocol_type` was backfilled via heuristic + 2 manual overrides.**
+   The `presence-grounding-new` and `jobs-simplicity` edge cases were
+   resolved editorially. Revisit if practice content drifts from current
+   characterization.
 
 ## How to refresh this table
 
