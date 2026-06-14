@@ -1198,6 +1198,63 @@ async function buildNudgeContext(
       // Walk back from yesterday counting consecutive off-days (PTO / holiday
       // / weekend / empty calendar). Stop at the first work-day. Bounded to
       // 14 days so a quiet calendar can't run away.
+      //
+      // ─── DATE GRANULARITY + DST CAVEAT ─────────────────────────────────
+      // Date boundaries are computed in **UTC calendar days**, not the
+      // user's local calendar. `cursor` is constructed from
+      // `${todayStr}T00:00:00` (no Z) — JS parses that as **local** to the
+      // runtime (Deno edge worker = UTC), so `cursor` is effectively
+      // midnight UTC on `todayStr`. We then decrement by `setDate(-1)`
+      // (24h hops, no DST awareness) and key into `byDate` using
+      // `cursor.toISOString().slice(0, 10)` — a UTC date string.
+      //
+      // The lookback event map (`byDate`) is also keyed by
+      // `start_time.slice(0, 10)`, i.e. the UTC date of the event start
+      // (not the user's local date). So whenever a user's local date and
+      // the event's UTC date diverge — late-evening events in
+      // Europe/London winter (UTC=local, no skew), or any event after
+      // ~20:00 local in EST, or every event during BST/EDT summer hours
+      // near midnight — an event can be filed under the "wrong" calendar
+      // bucket relative to the user's perception of the day.
+      //
+      // Concrete DST failure mode — Europe/London, late-March
+      // spring-forward (e.g. 2026-03-29):
+      //   * Sat 2026-03-28: PTO all day. Sun 2026-03-29: clocks jump
+      //     01:00 → 02:00 BST, user is on PTO. Mon 2026-03-30: PTO.
+      //   * The walk-back from Tue 2026-03-31 decrements via
+      //     `setDate(-1)`, which is 24h hops in the worker's UTC frame.
+      //     Mon (UTC) → Sun (UTC) → Sat (UTC) all line up with the
+      //     user's local PTO days here because all-day events are
+      //     date-only (their `start_time` is `YYYY-MM-DDT00:00:00Z` or
+      //     similar), so DST does not shift the date key.
+      //   * The bug surfaces with **timed** events near local midnight:
+      //     a timed meeting at Sun 2026-03-29 23:30 BST has
+      //     `start_time = '2026-03-29T22:30:00Z'` → bucketed under
+      //     2026-03-29 (correct). But a timed meeting at Sun 2026-10-25
+      //     00:30 BST (fall-back day, before 02:00 GMT switch) has
+      //     `start_time = '2026-10-24T23:30:00Z'` → bucketed under
+      //     2026-10-24, so Sunday looks empty (off-day) and Saturday
+      //     looks worked even though the user considers Sunday worked.
+      //     `consecutiveOffDaysBefore` would then be inflated by 1.
+      //
+      // REALISTIC IMPACT: only `last_day_long_weekend_evening` depends
+      // on `>= 2` consecutive off-days, so a ±1 miscount fires the
+      // picker one local day early/late for users who happen to have a
+      // timed event within ~1h of local midnight on the DST boundary.
+      // Empirically that is ≪ 1 user per DST event in our base; bounded
+      // upper estimate ≈ 1–2 users/year. All-day PTO/holiday events are
+      // unaffected because they are stored as date-only and never shift.
+      //
+      // FIX-SIZE ESTIMATE (if we ever decide to do it): ~20-30 LOC.
+      // Compute the user-local date for each lookback event using the
+      // already-available `tzOffset` (or a real IANA-aware helper) and
+      // key `byDate` by that local date string; then walk the cursor in
+      // **local-date** space (e.g. format-and-parse via
+      // `formatInTimeZone(..., timezone, 'yyyy-MM-dd')`). Add a
+      // regression test covering the Oct fall-back case above. Not
+      // implemented today — see WEEK_AHEAD_TRIGGER_VERIFICATION.sql
+      // header for cross-reference.
+      // ────────────────────────────────────────────────────────────────────
       const byDate = new Map<string, Array<{ title?: string | null }>>();
       for (const e of (lookbackEventsRaw || []) as Array<{ title?: string | null; start_time: string }>) {
         const d = (e.start_time || '').slice(0, 10);
