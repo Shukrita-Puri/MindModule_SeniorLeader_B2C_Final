@@ -27,8 +27,8 @@ Mirror of `docs/RECALIBRATE_TAGGING_AUDIT.md`. If you change one, change the oth
 ## Data dependencies
 
 - `sanctuary_content.category` and `sanctuary_content_metadata.meta_skill` — populated and driving selection.
-- `sanctuary_content.protocol_type` — **NULL across all 39 rows.** Combo contributes at most +4 (tiebreaker) until backfilled.
-- `sanctuary_content_metadata.mastery_category` — **NULL across all 39 rows.** NOT used by the selector today. When backfilled, add +25 for `masteryCategoryMatch`.
+- `sanctuary_content.protocol_type` — **41/41 populated** (June 2026 backfill). The existing +4 combo tiebreaker in `practice-selector.ts` is now firing for the first time.
+- `sanctuary_content_metadata.mastery_category` — **41/41 populated, but NOT yet read by the selector.** At the moment of the backfill, `mastery_category.primary === meta_skill[0]` for every row (mechanically derived from `meta_skill`), so there is currently no divergent signal to score — wiring it now would only stack score on conditions that already trigger via the existing meta_skill branch. Wiring lands with the post-MVP "More like this" workstream, once a richer editorial taxonomy lets the two fields genuinely differ. See `docs/RECALIBRATE_TAGGING_AUDIT.md` § "mastery_category — populated but not yet wired".
 
 ## Companion fixes shipped in the same change
 
