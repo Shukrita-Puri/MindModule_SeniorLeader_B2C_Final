@@ -1516,6 +1516,7 @@ export type Database = {
       daily_context_snapshot: {
         Row: {
           calendar_demand_score: number | null
+          check_in_count_today: number
           created_at: string
           demand_load: string | null
           demand_pressure: string | null
@@ -1523,7 +1524,10 @@ export type Database = {
           id: string
           inner_score: number | null
           inner_tier: string | null
+          last_check_in_window: string | null
           local_date: string
+          morning_baseline_score: number | null
+          mrs_window: string | null
           pattern_signals: Json | null
           pillar_mode: string | null
           readiness_score_baseline: number | null
@@ -1537,10 +1541,12 @@ export type Database = {
           tier_displayed: string | null
           updated_at: string
           user_id: string
+          weight_provenance: Json | null
           weighting_mode: string | null
         }
         Insert: {
           calendar_demand_score?: number | null
+          check_in_count_today?: number
           created_at?: string
           demand_load?: string | null
           demand_pressure?: string | null
@@ -1548,7 +1554,10 @@ export type Database = {
           id?: string
           inner_score?: number | null
           inner_tier?: string | null
+          last_check_in_window?: string | null
           local_date: string
+          morning_baseline_score?: number | null
+          mrs_window?: string | null
           pattern_signals?: Json | null
           pillar_mode?: string | null
           readiness_score_baseline?: number | null
@@ -1562,10 +1571,12 @@ export type Database = {
           tier_displayed?: string | null
           updated_at?: string
           user_id: string
+          weight_provenance?: Json | null
           weighting_mode?: string | null
         }
         Update: {
           calendar_demand_score?: number | null
+          check_in_count_today?: number
           created_at?: string
           demand_load?: string | null
           demand_pressure?: string | null
@@ -1573,7 +1584,10 @@ export type Database = {
           id?: string
           inner_score?: number | null
           inner_tier?: string | null
+          last_check_in_window?: string | null
           local_date?: string
+          morning_baseline_score?: number | null
+          mrs_window?: string | null
           pattern_signals?: Json | null
           pillar_mode?: string | null
           readiness_score_baseline?: number | null
@@ -1587,6 +1601,7 @@ export type Database = {
           tier_displayed?: string | null
           updated_at?: string
           user_id?: string
+          weight_provenance?: Json | null
           weighting_mode?: string | null
         }
         Relationships: []
