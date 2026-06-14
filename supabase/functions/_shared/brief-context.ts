@@ -36,6 +36,10 @@ export type BehaviourRule =
   | "travelLandingPlusHighStakes"
   | "longHaulRecovery"
   | "postTripReentry"
+  // --- Part 1: same-day round-trip arc (Oxford↔London, etc.)
+  | "travelDayArrivalFraming"
+  | "travelDayDuringPushOnly"
+  | "travelDayReturnRecovery"
   // --- Batch 2: high-stakes prep (24h cap, MVP)
   | "advancePrep24h"
   // --- Batch 2: back-to-back + meeting-prep cliff
@@ -129,6 +133,14 @@ export interface BehaviourFlag {
    * The LLM uses this to set tone — it must NOT quote it verbatim.
    */
   copyHint: string;
+  /**
+   * Part 1 (travel landing split): how smart-nudges should deliver this flag.
+   *   - 'push_only'       → no deep-link CTA; single in-body cue.
+   *   - 'in_app_practice' → deep-link to Plan / practice allowed.
+   *   - 'standard'        → default delivery behaviour.
+   * Consumers that don't recognise the field treat it as 'standard'.
+   */
+  landingDeliveryMode?: 'in_app_practice' | 'push_only' | 'standard';
 }
 
 /**
@@ -201,6 +213,18 @@ export interface SignalMatrix {
   longHaulFlight?: { durationHours: number } | null;
   /** Yesterday was a travel day AND next-day calendar density is medium/high. */
   postTripReentryRisk?: boolean;
+
+  // --- Part 1: travel load split -------------------------------------------
+  /** User is currently away from home (travel_state.state ∈ {en_route, arrived,
+   *  returning} OR distance_from_home_km > TRAVEL_AWAY_MIN_KM). Defaults to
+   *  undefined when no travel_state row is hydrated; rules MUST treat
+   *  undefined as "assume away" for back-compat. */
+  awayFromHome?: boolean;
+  /** Today contains both an outbound and a return travel event whose local
+   *  start dates match (same calendar day). */
+  sameDayReturn?: boolean;
+  /** Tier classification driven by classifyTravelTier(). */
+  travelTier?: 'long_haul' | 'short_haul' | 'short_haul_round_trip';
 
   /** PTO / public holiday — all-day event whose title matches OOO|PTO|Vacation|Holiday|Out of Office. */
   ptoTodayAllDay?: boolean;

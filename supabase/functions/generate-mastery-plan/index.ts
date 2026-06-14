@@ -2613,6 +2613,26 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
         });
         const _fbCurrentTz = (req as any).effectiveCurrentTimezone ?? (req as any).currentTimezone ?? null;
         const _fbHomeTz = (req as any).effectiveHomeTimezone ?? (req as any).homeTimezone ?? null;
+        // Part 1 — hydrate travel_state for the fail-open fallback rebuild.
+        let _fbTravelState:
+          | { state?: string | null; distanceFromHomeKm?: number | null }
+          | null = null;
+        try {
+          const { data: tsRow } = await (supabaseClient as any)
+            .from('travel_state')
+            .select('state, distance_from_home_km')
+            .eq('user_id', req.userId)
+            .maybeSingle();
+          if (tsRow) {
+            _fbTravelState = {
+              state: (tsRow as any).state ?? null,
+              distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
+            };
+          }
+        } catch (tsErr) {
+          console.warn('[generate-mastery-plan] travel_state hydration skipped:',
+            tsErr instanceof Error ? tsErr.message : tsErr);
+        }
         const fallback = buildBehaviourSnapshot({
           coverage: {
             wearable: wearableForCtx,
@@ -2630,6 +2650,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
               shift48hHours: null,
               travelDay: !!(_fbCurrentTz && _fbHomeTz && _fbCurrentTz !== _fbHomeTz),
             },
+            travelState: _fbTravelState,
             events: _planEventsToday,
             tomorrowEvents: _planEventsTomorrow,
             now,

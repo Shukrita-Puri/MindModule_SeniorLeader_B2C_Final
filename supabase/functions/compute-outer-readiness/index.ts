@@ -3973,6 +3973,29 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
             const tomorrowEventsForCtx = (tomorrowResult as any)?.briefEvents ?? [];
 
+            // Part 1 — hydrate travel_state so awayFromHome / travelTier are
+            // populated on the matrix. Fail-open: any error leaves the
+            // travelState field undefined and rules behave exactly as before.
+            let travelStateForCtx:
+              | { state?: string | null; distanceFromHomeKm?: number | null }
+              | null = null;
+            try {
+              const { data: tsRow } = await (db as any)
+                .from('travel_state')
+                .select('state, distance_from_home_km')
+                .eq('user_id', userId)
+                .maybeSingle();
+              if (tsRow) {
+                travelStateForCtx = {
+                  state: (tsRow as any).state ?? null,
+                  distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
+                };
+              }
+            } catch (tsErr) {
+              console.warn('[compute-outer-readiness] travel_state hydration skipped:',
+                tsErr instanceof Error ? tsErr.message : tsErr);
+            }
+
             briefBehaviourSnapshot = buildBehaviourSnapshot({
               coverage: {
                 wearable: wearableForCtx,
@@ -3992,6 +4015,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     !!(effectiveCurrentTz && effectiveHomeTz &&
                        effectiveCurrentTz !== effectiveHomeTz),
                 },
+                travelState: travelStateForCtx,
                 events: eventsForCtx,
                 tomorrowEvents: tomorrowEventsForCtx,
                 now: new Date(),

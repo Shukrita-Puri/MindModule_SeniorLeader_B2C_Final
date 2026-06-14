@@ -440,6 +440,13 @@ interface NudgeContext {
     promptBlockBrief: string;
     taxonomyBlock: string;
     source: 'brief_snapshot';
+    // Part 1 — flag array surfaced so dispatch can read landingDeliveryMode
+    // and suppress deep-link CTAs for travel push_only flags. Optional for
+    // back-compat with snapshots written before Part 1 shipped.
+    flagsBrief?: Array<{
+      rule: string;
+      landingDeliveryMode?: 'in_app_practice' | 'push_only' | 'standard';
+    }>;
   } | null;
 }
 
@@ -1055,6 +1062,12 @@ async function buildNudgeContext(
           '',
         taxonomyBlock: loadedSnap.taxonomyBlock,
         source: 'brief_snapshot' as const,
+        flagsBrief: Array.isArray(loadedSnap.flagsBrief)
+          ? loadedSnap.flagsBrief.map((f: any) => ({
+              rule: String(f?.rule ?? ''),
+              landingDeliveryMode: f?.landingDeliveryMode,
+            }))
+          : undefined,
       }
     : null;
   console.log(
@@ -1773,6 +1786,27 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
+      // Part 1 — hydrate travel_state for the fallback path. Fail-open: any
+      // error leaves the field undefined and the rule defaults take over.
+      let _nudgeTravelState:
+        | { state?: string | null; distanceFromHomeKm?: number | null }
+        | null = null;
+      try {
+        const { data: tsRow } = await supabase
+          .from('travel_state')
+          .select('state, distance_from_home_km')
+          .eq('user_id', ctx.userId)
+          .maybeSingle();
+        if (tsRow) {
+          _nudgeTravelState = {
+            state: (tsRow as any).state ?? null,
+            distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
+          };
+        }
+      } catch (tsErr) {
+        console.warn('[smart-nudges] travel_state hydration skipped:',
+          tsErr instanceof Error ? tsErr.message : tsErr);
+      }
       const wiring = evaluateForScope(
         {
           wearable: ctx.hasWearableData
@@ -1797,6 +1831,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           scoreToday: null,
           scoreYesterday: null,
           timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
+          travelState: _nudgeTravelState,
           events: eventsForCtx,
           now: new Date(),
         },
@@ -3838,6 +3873,27 @@ serve(async (req) => {
             requiresAppOpen = false;
             resolvedRoute = '/executive-home';
             resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
+          }
+
+          // ── Part 1 — Travel push_only delivery override ──────────────
+          // When any active brief flag carries landingDeliveryMode='push_only'
+          // (travelLandingPlusHighStakes ≤2h, travelDayArrivalFraming,
+          //  travelDayDuringPushOnly), suppress the deep-link CTA so the
+          // notification stands alone. iOS reads requiresAppOpen=false as
+          // "do not deep-link on tap".
+          try {
+            const pushOnly = (ctx.briefBehaviour?.flagsBrief ?? []).some(
+              (f) => f?.landingDeliveryMode === 'push_only',
+            );
+            if (pushOnly) {
+              requiresAppOpen = false;
+              resolvedRoute = '/executive-home';
+              console.log(
+                `[smart-nudges] travel push_only override → requiresAppOpen=false user=${userId}`,
+              );
+            }
+          } catch (_e) {
+            // Fail-open — never block a notification on the guard.
           }
 
           // Subtitle: original moment headline (3 words / 28 chars cap).

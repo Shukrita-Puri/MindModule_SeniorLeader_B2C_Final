@@ -1,111 +1,135 @@
+## Part 1 — Travel Load & Post-Landing Delivery Split
 
-# Event Classifier v2 — Isolated Fix
+Consolidated spec implemented across the shared CEO-behaviour layer, signal coverage, smart-nudges delivery routing, and tests. No DB migration, no new scheduling infrastructure — reuses existing arrival/landing detection and travel_state plumbing.
 
-Scope guard: classifier only. No changes to scoring, slot allocation, why-line LLM, JIT scoring math, Brief copy, or memory writes. Every existing call site keeps working unchanged until the flag flips.
+### 1a — Constants (single source of truth)
 
-## Build order
+File: `supabase/functions/_shared/ceo-behaviour/travel.ts`
 
-1. Schema (parity log table)
-2. Pure modules (travel patterns, acronym dictionary, presentation verbs)
-3. `classifyEventV2` layered resolver + parity logger
-4. Snapshot test fixture
-5. Audit `EDUCATIONAL_PATTERN` organiser-bypass in `generate-mastery-plan`
-6. Flag-gated call-site swap (one consumer at a time, Plan + JIT first)
-7. Populate-rate query for `event_metadata->>'location'` (decision input for a future Layer 4 pass)
-
-## File list
-
-New:
-- `supabase/migrations/<ts>_event_classifier_parity_log.sql`
-- `supabase/functions/_shared/events/travel-patterns.ts` — flight-number, route-code, "fly/travel/visit to X" regexes
-- `supabase/functions/_shared/events/acronym-dictionary.ts` — token → existing subtype ID map (plus `gov.nonexec_board`)
-- `supabase/functions/_shared/events/presentation-verbs.ts` — verb list for Layer 2
-- `supabase/functions/_shared/events/classify-event-v2.ts` — layered resolver + parity logger
-- `supabase/functions/_shared/events/__tests__/classify-event-v2.snapshot.ts` — fixture-driven snapshot test
-
-Modified (additive only, no behaviour change until flag on):
-- `supabase/functions/_shared/events/event-subtypes.ts` — add one row `gov.nonexec_board`; add optional `excludeKeywords?: string[]` field to schema (unused by v1)
-- `supabase/functions/_shared/events/event-classifier.ts` — re-export `classifyEventV2`, keep `classifyEvent` untouched
-
-Flag-gated swaps (one consumer per PR after parity green):
-- `generate-mastery-plan/index.ts` — passes `attendeeRoles`, `isOrganizer`, `userTags`, `travelState`
-- `generate-jit-events/index.ts` — same
-- Then the other 11 surfaces, title-only callers
-
-## Layered resolver contract
-
+Add:
 ```ts
-classifyEventV2(input: {
-  title: string;
-  isOrganizer?: boolean;
-  attendeeRoles?: string[];   // optional, no-op if absent
-  userTags?: string[];        // prefetched by caller, no DB read inside
-  travelState?: 'home' | 'travelling' | 'arriving' | 'returning';
-  eventMetadata?: Record<string, unknown>;  // for defensive status read
-}): {
-  category: EventCategory | null;
-  subtypeId: string | null;
-  confidence: 'high' | 'medium' | 'low';
-  resolvedBy: 'layer0_status' | 'layer1_tags' | 'layer2_verbs' | 'layer3_roles'
-            | 'layer4_travel_regex' | 'layer4_travel_state' | 'layer5_acronym'
-            | 'layer6_dictionary' | 'layer7_v1_fallback' | 'unknown';
+export const LONG_HAUL_MIN_HOURS = 3;
+export const LANDING_WINDOW_SHORT_MIN = 60;
+export const LANDING_WINDOW_LONG_MIN = 90;
+export const LANDING_PRACTICE_GATE_MIN = 120;
+export const LANDING_NUDGE_ONLY_MAX_MIN = 60;
+export const TRAVEL_AWAY_MIN_KM = 50;
+export const SHORT_HAUL_RETURN_WINDOW_MIN = 30;
+```
+
+Replace inline `>= 3`, `60`, `90` literals in `landingWindowMinutes`, `longHaulRecovery`, and `back-to-back.ts:travelLandingProtected` with the constants. Same for `brief-signal-coverage.ts:481`.
+
+### 1b — `landingDeliveryMode` on `BehaviourFlag`
+
+File: `supabase/functions/_shared/brief-context.ts`
+
+Extend `BehaviourFlag`:
+```ts
+landingDeliveryMode?: 'in_app_practice' | 'push_only' | 'standard';
+```
+
+`travelLandingOffload` → `'in_app_practice'` when inside the protected window, no high-stakes follow-up. Otherwise `'standard'`.
+
+`travelLandingPlusHighStakes`:
+- next ≤ `LANDING_NUDGE_ONLY_MAX_MIN` (60) → `'push_only'`
+- next 60–120 → `'push_only'` (prep-framed copy)
+- next ≥ `LANDING_PRACTICE_GATE_MIN` (120) → `'in_app_practice'`
+
+### 1c — `awayFromHome` gate
+
+Extend `SignalMatrix` with `awayFromHome?: boolean`.
+
+Helper in `travel.ts`:
+```ts
+export function isAwayFromHome(state?: string | null, distanceKm?: number | null): boolean {
+  if (state && ['en_route','arrived','returning'].includes(state)) return true;
+  if (typeof distanceKm === 'number' && distanceKm > TRAVEL_AWAY_MIN_KM) return true;
+  return false;
 }
 ```
 
-Layer order (first non-null wins):
-- **L0 status** — `event_metadata->>'status'` cancelled/tentative → null (defensive; mostly no-op since cancelled events are deleted)
-- **L1 userTags** — explicit user tag overrides everything
-- **L2 verbs** — presentation verbs + `isOrganizer === true` → `vis.*`
-- **L3 roles** — attendee role mix (board/investor/direct-report/customer) when passed
-- **L4 travel** — `travel-patterns.ts` regexes on title, OR `travelState ∈ {travelling, arriving, returning}` with a travel-leaning title token
-- **L5 acronym** — token match against acronym dictionary, with airport-code corroboration gate (3-letter all-caps token only counts as travel when L4 also fires or another travel cue is present)
-- **L6 dictionary** — v2 keyword match with `excludeKeywords` honoured and word-boundary regex (fixes `onboarding`→`board`, `immediate`→`media`, `1:10`→`1:1`, `magma`→`agm`)
-- **L7 v1 fallback** — calls existing `classifyEvent(title)` so we never regress in shadow mode
+`travelLandingOffload` and `travelLandingPlusHighStakes` short-circuit when `ctx.signals.awayFromHome === false`. Default `true` when undefined (back-compat — preserves current always-fire behaviour for callers that don't hydrate travel_state yet).
 
-## Parity logging
+`SignalCoverageInput` gets an optional `travelState?: { state?: string|null; distanceFromHomeKm?: number|null }` field; `buildSignalMatrix` computes `awayFromHome` via the helper and writes it onto the matrix.
 
-Every v2 call (in shadow mode and after flip) writes one row:
+### 1d — `sameDayReturn` + tier classification
 
-```sql
-event_classifier_parity_log (
-  id uuid pk,
-  user_id text not null,
-  event_id uuid null,            -- calendar_events.id when available
-  title_normalised text not null,
-  v1_category text null,
-  v2_category text null,
-  v2_subtype_id text null,
-  v2_confidence text not null,
-  v2_resolved_by text not null,
-  hard_demote_conflict boolean not null default false,  -- see below
-  created_at timestamptz not null default now()
-);
+Extend `SignalMatrix` with `sameDayReturn?: boolean` and `travelTier?: 'long_haul' | 'short_haul' | 'short_haul_round_trip'`.
+
+Helpers in `travel.ts`:
+```ts
+export function isSameDayRoundTrip(events: ReadonlyArray<TravelEventLike>, now: Date): boolean
+export function classifyTravelTier(durationHours: number, sameDayReturn: boolean, awayFromHome: boolean):
+  'long_haul' | 'short_haul' | 'short_haul_round_trip'
 ```
 
-`hard_demote_conflict = true` when `v1_category ≠ v2_category` AND a row exists in `event_priority_memory` for `(user_id, v1_category)` with `hard_demote = true`. Surfaces the legacy-permanent-demote risk for manual review instead of letting it silently age out.
+`isSameDayRoundTrip`: filter events by `isTravelTitle`, group by local calendar date of `start_time`, return true iff today has ≥2 travel events whose start dates match today.
 
-RLS: deny-by-default on `public`. Grants: `service_role` only. No `authenticated` reads — this is a diagnostic table.
+`buildSignalMatrix` hydrates `sameDayReturn`, then `travelTier` via `classifyTravelTier(durationHoursOrZero, sameDayReturn, awayFromHome)`.
 
-## Acronym mapping policy
+Existing rules gating:
+- `travelLandingOffload` / `travelLandingPlusHighStakes` add a guard: skip when `travelTier === 'short_haul_round_trip'` (the new arc owns this case).
+- `longHaulRecovery` unaffected.
 
-Map to existing subtype IDs only. Single additive row: `gov.nonexec_board`. Near-miss mappings get a `// REFINE: closest match for X, add dedicated subtype when taxonomy expands` comment inline. No taxonomy churn.
+### 1f — Same-Day Round-Trip Arc (three new flags)
 
-## Snapshot test
+New `BehaviourRule` values in `brief-context.ts`:
+- `travelDayArrivalFraming`
+- `travelDayDuringPushOnly`
+- `travelDayReturnRecovery`
 
-Fixture: ~80 real-world titles covering the known misses (`Onboarding`, `Flight showcase`, `Immediate`, `Run with team`, `1:10`, board/QBR variants, airport codes with and without travel context, presentation verbs, bland-titled exec meetings, the personal-noise overlaps). Test asserts `(category, subtypeId, resolvedBy)` per title and serves as the dictionary growth log — when you send me the post-rollout `other` list, new fixtures land here first.
+New rule fns in `travel.ts`. Triggers:
 
-## What we are explicitly NOT doing
+| Rule | Fires when | landingDeliveryMode | Notes |
+|---|---|---|---|
+| `travelDayArrivalFraming` | `travelTier='short_haul_round_trip'` AND `landingActive(ctx)` AND no return leg yet completed | `push_only` | No deep link; framing copy ("travel day ahead — here's what's on the other side") |
+| `travelDayDuringPushOnly` | `travelTier='short_haul_round_trip'` AND back-to-back hours today ≥4 (reuses `backToBackHoursToday`) | `push_only` | Silent if destination day not back-to-back |
+| `travelDayReturnRecovery` | `travelTier='short_haul_round_trip'` AND `lastTravelEventEndedMinutesAgo <= SHORT_HAUL_RETURN_WINDOW_MIN` AND user back home (`awayFromHome === false`) | `standard` | Deep link allowed |
 
-- No Layer 4 location compare (deferred; we will run the `event_metadata ? 'location'` populate-rate query at the end of this pass and decide whether a follow-up `location text` migration is worth it; >40% populate = yes)
-- No `attendee_relationships` change-trigger (Plan re-reads cache each run, consistent with existing model)
-- No scoring/slot/Brief/why-line changes
-- No taxonomy changes beyond `gov.nonexec_board`
-- No migration of existing `event_priority_memory` rows (inert rows stay inert; conflicts surface via `hard_demote_conflict`)
+`back-to-back.ts` exposes a thin `isDayBackToBack(ctx): boolean` helper (extracted from `backToBackLoadOverride` threshold) so the new rule reads the same check.
 
-## Rollout
+Register all three in `ceo-behaviour/index.ts:ALL_RULES` with scopes `["brief","plan","nudge"]`.
 
-1. Land schema + modules + resolver + snapshot test. Resolver shadow-runs from Plan + JIT entry points only, writing parity rows; existing behaviour untouched.
-2. Watch parity log 3–7 days. You review divergences + `hard_demote_conflict` rows.
-3. Flip flag per-consumer starting with Plan, then JIT, then the title-only surfaces in batches.
-4. Run populate-rate query, hand result back to you for the Layer 4 decision.
-5. Send you the list of titles still landing in `other` so we can grow the dictionary by data, not by guesswork.
+### 1e — smart-nudges wiring
+
+`supabase/functions/smart-nudges/index.ts` reads `flag.landingDeliveryMode` for ALL travel landing/arc flags (`travelLandingOffload`, `travelLandingPlusHighStakes`, `travelDayArrivalFraming`, `travelDayDuringPushOnly`, `travelDayReturnRecovery`):
+- `push_only` → omit deep-link CTA, collapse body to one-line breathing cue, retain priority.
+- `in_app_practice` → existing Plan deep-link behaviour.
+- `standard` → existing default copy + CTA.
+
+Hydrate `travelState` into the `SignalCoverageInput` from `travel_state` table (single query already used elsewhere; add column projection for `state` + `distance_from_home_km`).
+
+Same hydration added to `compute-outer-readiness` and `generate-mastery-plan` callers of `buildRuleContext` so Brief/Plan see `awayFromHome` and `travelTier`.
+
+### Tests
+
+`supabase/functions/_shared/ceo-behaviour/travel.test.ts` (new file) covering 9 cases from the spec:
+
+1. Short-haul, home, no same-day return → landing rules return null.
+2. Short-haul, awayFromHome=true, not same-day → `travelLandingOffload` `in_app_practice`.
+3. Long-haul, meeting in 30min → `travelLandingPlusHighStakes` `push_only`.
+4. Long-haul, meeting in 180min → `in_app_practice`.
+5. Oxford↔London same-day round trip → on arrival: `travelDayArrivalFraming` `push_only`; back-to-back day → `travelDayDuringPushOnly`; on return: `travelDayReturnRecovery` `standard`.
+6. Poland→Amsterdam early-departure same-day → identical arc (distance-agnostic).
+7. London↔Paris Eurostar 09:00 / evening return → same arc (departure-time-agnostic).
+8. Same-day round trip but destination day not back-to-back → arrival + return fire; during is silent.
+9. Long-haul (≥3h) → tier `long_haul`; 1a–1e logic unchanged.
+
+Plus assertion that `travelLandingOffload` and `travelLandingPlusHighStakes` do NOT fire when `travelTier === 'short_haul_round_trip'`.
+
+### Out of scope
+
+- Scoring weights, why-line LLM, rule severities unchanged.
+- No new schedulers, migrations, or DB columns. `travel_state.state` + `distance_from_home_km` already exist.
+- `travelPreFlightMandatory`, `longHaulRecovery`, `postTripReentry`, `travelInFlightConnection` behaviour unchanged.
+
+### File touch-list
+
+- `supabase/functions/_shared/brief-context.ts` — add `BehaviourRule` entries, `landingDeliveryMode`, matrix fields.
+- `supabase/functions/_shared/ceo-behaviour/travel.ts` — constants, helpers, new flag fns, mode on existing fns, round-trip gating.
+- `supabase/functions/_shared/ceo-behaviour/back-to-back.ts` — constant swap + exported `isDayBackToBack`.
+- `supabase/functions/_shared/ceo-behaviour/index.ts` — register three new rules.
+- `supabase/functions/_shared/brief-signal-coverage.ts` — `travelState` input, derive `awayFromHome` / `sameDayReturn` / `travelTier`.
+- `supabase/functions/smart-nudges/index.ts` — read `landingDeliveryMode`, hydrate `travelState` from DB.
+- `supabase/functions/compute-outer-readiness/index.ts` + `supabase/functions/generate-mastery-plan/index.ts` — hydrate `travelState` (read-only) into `SignalCoverageInput`.
+- `supabase/functions/_shared/ceo-behaviour/travel.test.ts` — new file, 9 cases.

@@ -15,7 +15,13 @@
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { classifyEvent } from "./executive-state-taxonomy.ts";
-import { isTravelTitle } from "./ceo-behaviour/travel.ts";
+import {
+  isTravelTitle,
+  isAwayFromHome,
+  isSameDayRoundTrip,
+  classifyTravelTier,
+  LONG_HAUL_MIN_HOURS,
+} from "./ceo-behaviour/travel.ts";
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
 
 // --- Travel & Holiday detection v2 tuning constants (file-local SSOT). -----
@@ -55,6 +61,12 @@ export interface SignalCoverageInput {
     /** Edge-owned: details of a long-haul flight in today's calendar. */
     longHaulFlight?: { durationHours: number } | null;
   };
+  /** Part 1 — travel_state snapshot. Optional. When omitted, `awayFromHome`
+   *  is left undefined and downstream rules fail open (assume away). */
+  travelState?: {
+    state?: string | null;
+    distanceFromHomeKm?: number | null;
+  } | null;
   /** Calendar events in chronological order, all in user's local timezone. */
   events: Array<{
     title: string;
@@ -478,7 +490,7 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
   // --- workTravelInferred --------------------------------------------------
   // Multi-branch; true if any branch fires.
   const longHaul = !!longHaulFlightDerived &&
-    longHaulFlightDerived.durationHours >= 3;
+    longHaulFlightDerived.durationHours >= LONG_HAUL_MIN_HOURS;
   const flightEndMin = firstTravelToday
     ? (() => {
         const evt = input.events.find((e) => e.title === firstTravelToday.title && isTravelTitle(e.title));
@@ -717,6 +729,59 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     ptoMeetingPresent: ptoMeetingPresentDerived,
     personalHolidayInferred: personalHolidayInferredDerived,
     workTravelInferred: workTravelInferredDerived,
+
+    // --- Part 1: travel load split -------------------------------------------
+    awayFromHome: (() => {
+      const ts = input.travelState;
+      if (!ts) return undefined;
+      return isAwayFromHome(ts.state ?? null, ts.distanceFromHomeKm ?? null);
+    })(),
+    sameDayReturn: (() => {
+      const travelEvts = input.events
+        .filter((e) => isTravelTitle(e.title))
+        .map((e) => ({
+          title: e.title,
+          start_time: typeof e.startTime === 'string'
+            ? e.startTime
+            : (e.startTime as Date).toISOString(),
+          end_time: typeof e.endTime === 'string'
+            ? e.endTime
+            : e.endTime instanceof Date
+              ? e.endTime.toISOString()
+              : (typeof e.startTime === 'string'
+                  ? e.startTime
+                  : (e.startTime as Date).toISOString()),
+        }));
+      return isSameDayRoundTrip(travelEvts, input.now);
+    })(),
+    travelTier: (() => {
+      const ts = input.travelState;
+      const away = ts
+        ? isAwayFromHome(ts.state ?? null, ts.distanceFromHomeKm ?? null)
+        : true; // fail-open for tier so the round-trip arc still classifies
+      const sameDay = (() => {
+        const travelEvts = input.events
+          .filter((e) => isTravelTitle(e.title))
+          .map((e) => ({
+            title: e.title,
+            start_time: typeof e.startTime === 'string'
+              ? e.startTime
+              : (e.startTime as Date).toISOString(),
+            end_time: typeof e.endTime === 'string'
+              ? e.endTime
+              : e.endTime instanceof Date
+                ? e.endTime.toISOString()
+                : (typeof e.startTime === 'string'
+                    ? e.startTime
+                    : (e.startTime as Date).toISOString()),
+          }));
+        return isSameDayRoundTrip(travelEvts, input.now);
+      })();
+      const durH = longHaulFlightDerived?.durationHours ?? 0;
+      // Only emit when there is at least one travel event today.
+      if (!travelDayDerived) return undefined;
+      return classifyTravelTier(durH, sameDay, away);
+    })(),
 
     yesterdayScore: input.scoreYesterday,
     todayScore: input.scoreToday,
