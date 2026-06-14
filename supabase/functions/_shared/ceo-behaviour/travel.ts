@@ -384,3 +384,82 @@ export function detectInFlightTravelEvent(
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Part 1 — Same-Day Round-Trip Arc
+//
+// Three flags, all gated on travelTier === 'short_haul_round_trip'. Reuse
+// existing trigger points (arrival/landing detection, back-to-back
+// detection, return arrival) — no new scheduling infrastructure.
+// ---------------------------------------------------------------------------
+
+/**
+ * Arc 1 — landed at the destination on a same-day round-trip.
+ * Reframed as informational ("travel day ahead"), not recovery.
+ * `push_only`: no deep-link CTA, single in-body cue.
+ */
+export function travelDayArrivalFraming(ctx: RuleContext): BehaviourFlag | null {
+  if (!roundTripArcActive(ctx)) return null;
+  if (!landingActive(ctx)) return null;
+  // Only fire while the user is at the destination (not yet returned home).
+  if (ctx.signals.awayFromHome === false) return null;
+
+  const since = ctx.lastTravelEventEndedMinutesAgo ?? 0;
+  return {
+    rule: "travelDayArrivalFraming",
+    severity: "medium",
+    evidence: ["same-day round-trip", "arrival", `T+${Math.max(0, since)}min`],
+    stake: "Operational Drive",
+    copyHint:
+      "travel day ahead — frame what's on the other side of the day; one orientation cue, no app-open CTA, do not invite a deep practice",
+    landingDeliveryMode: 'push_only',
+  };
+}
+
+/**
+ * Arc 2 — destination day is back-to-back. Silent otherwise (no fallback).
+ */
+export function travelDayDuringPushOnly(ctx: RuleContext): BehaviourFlag | null {
+  if (!roundTripArcActive(ctx)) return null;
+  // Inline back-to-back check — same threshold as backToBackLoadOverride.
+  // Imported via local helper to avoid a circular dep on back-to-back.ts.
+  const local = ctx.backToBackHoursToday ?? 0;
+  const agg = ctx.signals.backToBackHoursAggregated ?? 0;
+  if (Math.max(local, agg) < 4) return null;
+
+  return {
+    rule: "travelDayDuringPushOnly",
+    severity: "medium",
+    evidence: ["same-day round-trip", `back-to-back ${Math.max(local, agg)}h`],
+    stake: "Mental Bandwidth",
+    copyHint:
+      "compressed travel day — single breathing-cue notification only, no app-open CTA; lower frequency than a normal day",
+    landingDeliveryMode: 'push_only',
+  };
+}
+
+/**
+ * Arc 3 — return leg arrival back home. Standard delivery (deep link allowed).
+ * Window is SHORT_HAUL_RETURN_WINDOW_MIN (30 min). NOT gated by awayFromHome
+ * being true — arriving home IS the trigger, so awayFromHome should now be
+ * false. Defensive: also fires if awayFromHome is undefined (back-compat).
+ */
+export function travelDayReturnRecovery(ctx: RuleContext): BehaviourFlag | null {
+  if (!roundTripArcActive(ctx)) return null;
+  if (!landingActive(ctx)) return null;
+  const since = ctx.lastTravelEventEndedMinutesAgo ?? 0;
+  if (since > SHORT_HAUL_RETURN_WINDOW_MIN) return null;
+  // Must be back home (or unknown). If we explicitly know they are still
+  // away, this is not the return leg — Arc 1 owns it.
+  if (ctx.signals.awayFromHome === true) return null;
+
+  return {
+    rule: "travelDayReturnRecovery",
+    severity: "high",
+    evidence: ["same-day round-trip", "return arrival", `T+${Math.max(0, since)}min`],
+    stake: "Internal Buffer",
+    copyHint:
+      "back home — short decompression window; one body-down practice closes the day, deep-link to Plan is allowed",
+    landingDeliveryMode: 'standard',
+  };
+}
