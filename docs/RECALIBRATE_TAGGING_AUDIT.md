@@ -1,6 +1,6 @@
 # Recalibrate Tagging Audit
 
-_Last refreshed: 2026-06-07. Re-run the query at the end of this file to refresh._
+_Last refreshed: 2026-06-14. Re-run the query at the end of this file to refresh._
 
 ## Why this exists
 
@@ -22,18 +22,85 @@ the metadata so future scorer changes know what they can rely on.
 
 | Column                            | Populated? | Used by selector? |
 | --------------------------------- | ---------- | ----------------- |
-| `sanctuary_content.category`      | 39/39      | ✅ (`pause` / `power-up` / `presence`) |
-| `sanctuary_content.sub_type`      | 26/39      | ⚠️ tiebreaker (`mindset` / `tool`) |
-| `sanctuary_content.protocol_type` | **0/39**   | ❌ — column entirely NULL |
-| `sanctuary_content_metadata.meta_skill`        | 39/39 | ✅ primary intent signal |
-| `sanctuary_content_metadata.mastery_category`  | **0/39** | ❌ — every row `{"primary": null}` |
-| `sanctuary_content_metadata.state_signal`      | 39/39 | ✅ secondary intent signal |
+| `sanctuary_content.category`      | 41/41      | ✅ (`pause` / `power-up` / `presence`) |
+| `sanctuary_content.sub_type`      | **41/41**  | ⚠️ candidate-pool filter (`mindset` / `tool`) |
+| `sanctuary_content.protocol_type` | **41/41**  | ✅ +4 combo tiebreaker (now firing for the first time) |
+| `sanctuary_content_metadata.meta_skill`        | **41/41** | ✅ primary intent signal |
+| `sanctuary_content_metadata.mastery_category`  | **41/41 (populated, not yet wired)** | ⏸ deferred — see section below |
+| `sanctuary_content_metadata.state_signal`      | **41/41** | ✅ secondary intent signal |
 | `sanctuary_content_metadata.moment`            | 39/39 | ✅ moment-of-day filter |
 | `sanctuary_content_metadata.horizon`           | 39/39 | ✅ filler horizon partition |
 
-**Two columns are unused dead weight today.** `mastery_category` and
-`protocol_type` need a backfill before they can drive selection — until
-then, the selector relies on `meta_skill` + `category` + `sub_type`.
+As of the June 2026 backfill, every active practice is fully tagged.
+`protocol_type` now drives the existing +4 combo tiebreaker in the
+selector. `mastery_category` is populated but **not yet read** by the
+selector — see "mastery_category — populated but not yet wired" below.
+
+## Known gaps to backfill
+
+_All closed as of the June 2026 backfill. Preserved here as a record of
+what was fixed:_
+
+- **2 fully-untagged rows** had no row in `sanctuary_content_metadata`
+  at all (so the audit's "39/39" was actually 39/41):
+  - `release-exhale-new` — now `meta_skill = [meta-recalibration]`,
+    `state_signal = [signal-tense, signal-overloaded]`.
+  - `wim-hof-cold-fire` — now `meta_skill = [meta-recalibration,
+    meta-renewal]`, `state_signal = [signal-depleted, signal-low-energy]`.
+- **15 rows missing `sub_type`** (silently excluded from the `tool`
+  candidate pool for slot filters) — all set to `'tool'`:
+  `basque-txalaparta`, `bhramari-pranayama`, `box-breathing`,
+  `deep-calm-forest-bathing`, `deep-focus-monastic-resonance`,
+  `energised-focus-didgeridoo-bowls`, `energy-forge`, `harmonic-calm`,
+  `ina-night-fields`, `kapalabhati-pranayama`, `pranayama-clarity`,
+  `sustained-focus-choir-harmonic`, `trataka-flame-gaze`,
+  `vagus-wind-down`, `warrior-drums`.
+- **`protocol_type` was 0/41** — backfilled deterministically:
+  `mindset` when `sub_type='mindset'` OR title contains identity/reflection
+  language (Reflection, Observer, Ikigai, Stoic, Future Self, Phoenix,
+  Arena, Eye of, Simplicity, Subtraction, Single Thread, Constraint,
+  Presence Through, Eternal Now, Detachment, Confidence, Reframe,
+  Completion, First Move, Rhythm Through The Pulse). Otherwise `somatic`.
+  Two edge cases worth knowing:
+  - `presence-grounding-new` resolves to `mindset` because the title
+    matches "Presence Through", even though it's a somatic tool. Low
+    impact (combo bonus is only +4) — re-tag manually if a future
+    editorial pass disagrees.
+  - `jobs-simplicity` resolves to `somatic` because the title is
+    "Clarity Through Elimination" (not "Simplicity") despite the slug.
+
+## mastery_category — populated but not yet wired
+
+`sanctuary_content_metadata.mastery_category` is now populated for all
+41 active rows with the shape:
+
+```
+{
+  "primary":   <first meta_skill>,
+  "secondary": [<remaining meta_skills…>, <Recalibrate category>]
+}
+```
+
+**This column is intentionally not read by `practice-selector.ts` yet.**
+
+The reason: at the moment of this backfill,
+`mastery_category.primary === meta_skill[0]` for every row (by
+construction in the migration). Wiring it into the scorer right now
+would fire the proposed +25 primary-mastery-category branch on exactly
+the same condition as the existing +18 `meta_skill[0]` branch — pure
+score amplification with no new information, while still adding new
+weight tiers and regression-test surface for a divergence that doesn't
+yet exist.
+
+The wiring lands with the post-MVP "More like this" feature, which
+introduces a richer editorial taxonomy where `mastery_category` can
+genuinely diverge from `meta_skill[0]`. At that point we'll also
+evaluate whether the new branch should be mutually exclusive with (vs
+additive to) the `meta_skill[0]` branch to avoid double-counting.
+
+Populated now (rather than at that future point) so the migration is
+done while we're already in the data — "More like this" doesn't need
+a second data pass.
 
 ## Verb → intent → metadata mapping
 
