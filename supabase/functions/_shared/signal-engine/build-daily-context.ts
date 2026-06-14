@@ -415,3 +415,37 @@ function dayBoundsUtc(localDate: string): { start: string; end: string } {
   const end = new Date(localDate + 'T23:59:59.999Z').toISOString();
   return { start, end };
 }
+
+// MRS v4 §8.2 — trailing 3-day RHR baseline. No schema change: computed
+// each cycle from existing `wearable_data.resting_heart_rate` rows.
+// Returns `null` when fewer than 3 days of RHR data exist; downstream
+// sub-components mark themselves `available=false` and §8.3 handles the
+// redistribution. Errors degrade to `null` — never throws.
+async function fetchRhrBaseline3d(
+  db: AnySupabase,
+  userId: string,
+  localDate: string,
+): Promise<number | null> {
+  try {
+    const from3 = (() => {
+      const t = new Date(localDate + 'T00:00:00Z').getTime();
+      return new Date(t - 3 * 86400000).toISOString().slice(0, 10);
+    })();
+    const { data, error } = await db
+      .from('wearable_data')
+      .select('resting_heart_rate, summary_date')
+      .eq('user_id', userId)
+      .gte('summary_date', from3)
+      .lte('summary_date', localDate)
+      .order('summary_date', { ascending: false });
+    if (error || !Array.isArray(data)) return null;
+    const rhrs = (data as Array<{ resting_heart_rate: number | null }>)
+      .map((r) => (typeof r.resting_heart_rate === 'number' ? r.resting_heart_rate : null))
+      .filter((v): v is number => v != null && Number.isFinite(v));
+    if (rhrs.length < 3) return null;
+    const avg = rhrs.reduce((s, v) => s + v, 0) / rhrs.length;
+    return Math.round(avg * 10) / 10;
+  } catch {
+    return null;
+  }
+}
