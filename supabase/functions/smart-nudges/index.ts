@@ -3875,6 +3875,27 @@ serve(async (req) => {
             resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
           }
 
+          // ── Part 1 — Travel push_only delivery override ──────────────
+          // When any active brief flag carries landingDeliveryMode='push_only'
+          // (travelLandingPlusHighStakes ≤2h, travelDayArrivalFraming,
+          //  travelDayDuringPushOnly), suppress the deep-link CTA so the
+          // notification stands alone. iOS reads requiresAppOpen=false as
+          // "do not deep-link on tap".
+          try {
+            const pushOnly = (ctx.briefBehaviour?.flagsBrief ?? []).some(
+              (f) => f?.landingDeliveryMode === 'push_only',
+            );
+            if (pushOnly) {
+              requiresAppOpen = false;
+              resolvedRoute = '/executive-home';
+              console.log(
+                `[smart-nudges] travel push_only override → requiresAppOpen=false user=${userId}`,
+              );
+            }
+          } catch (_e) {
+            // Fail-open — never block a notification on the guard.
+          }
+
           // Subtitle: original moment headline (3 words / 28 chars cap).
           const subtitle = clampSubtitle(bestNudge.copy.title);
           const adjustedCopy: NudgeCopy = { ...bestNudge.copy, body: resolvedBody };
