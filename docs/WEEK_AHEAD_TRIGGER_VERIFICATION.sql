@@ -7,6 +7,17 @@
 --               sunday_evening | last_day_pto_evening |
 --               last_day_holiday_evening | last_day_long_weekend_evening
 -- Structured log: filter Edge function logs for `[week-ahead-trigger]`.
+-- Hydration log:  filter Edge function logs for `[week-ahead-hydration]`
+--                 — emitted whenever any upstream source returned empty
+--                 and the evaluator fell back to a safe default.
+-- Kill switch:    secret WEEK_AHEAD_PICKER_ENABLED (set to 'false' to
+--                 disable without a deploy; any other value = enabled).
+-- Idempotency:    one invite per ISO week per user (Mon 00:00 local →
+--                 next Mon 00:00 local). Enforced server-side by the
+--                 weekly notification_log lookup BEFORE dispatch.
+-- Cap bucket:     own bucket — exempt from DAILY_NOTIFICATION_CAP, the
+--                 2-hour intra-tick suppression, APP_OPEN_COOLDOWN_MS,
+--                 and the per-window slot cap.
 
 -- (1) How many week-ahead picker invites fired in the last 7 days, by reason
 SELECT
@@ -18,6 +29,21 @@ WHERE notification_type = 'week_ahead_picker_invite'
   AND sent_at >= now() - interval '7 days'
 GROUP BY 1
 ORDER BY sends DESC;
+
+-- (1b) ISO-week idempotency audit — any user with >1 picker invite in the
+-- same ISO week is a bug (server-side dedupe should make this impossible).
+SELECT
+  user_id,
+  date_trunc('week', sent_at) AS iso_week_start,
+  COUNT(*) AS invites,
+  array_agg(split_part(payload->>'variant_id', '::', 2) ORDER BY sent_at) AS reasons,
+  array_agg(sent_at ORDER BY sent_at) AS sent_ats
+FROM notification_log
+WHERE notification_type = 'week_ahead_picker_invite'
+  AND sent_at >= now() - interval '60 days'
+GROUP BY user_id, date_trunc('week', sent_at)
+HAVING COUNT(*) > 1
+ORDER BY iso_week_start DESC;
 
 -- (2) Users who had a PTO/holiday block end in the last 30 days but did NOT
 -- receive a last_day_pto_evening / last_day_holiday_evening invite on the

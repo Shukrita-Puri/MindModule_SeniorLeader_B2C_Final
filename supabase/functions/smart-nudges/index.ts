@@ -174,6 +174,18 @@ const DAILY_NOTIFICATION_CAP = 3;
 const LOW_TIERS = ['depleted', 'managing'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// §17.7 — Week-Ahead Picker Invite is treated as a weekly digest, NOT a
+// behavioural nudge. It has its own cap bucket (max one per ISO week per
+// user) and is exempt from:
+//   - DAILY_NOTIFICATION_CAP
+//   - 2-hour intra-tick suppression
+//   - APP_OPEN_COOLDOWN_MS
+//   - per-window slot cap
+// Kill-switch: set WEEK_AHEAD_PICKER_ENABLED='false' to disable without a
+// deploy. Any other value (or missing) → enabled.
+const WEEK_AHEAD_PICKER_ENABLED =
+  (Deno.env.get('WEEK_AHEAD_PICKER_ENABLED') ?? 'true').toLowerCase() !== 'false';
+
 // MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
@@ -1161,6 +1173,15 @@ async function buildNudgeContext(
       const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
       const tomorrowIsWorkday =
         !ptoTomorrowAllDay && !holidayTomorrowAllDay && !tomorrowIsWeekend;
+      // §17.7 — Fail-open per-signal hydration. Each upstream source
+      // (today/tomorrow calendar, 14-day lookback) defaults to a SAFE
+      // value when missing so the evaluator can still run; we emit a
+      // structured [week-ahead-hydration] log line for every defaulted
+      // field so a week of silence is diagnosable from logs alone.
+      const defaults: string[] = [];
+      if (!Array.isArray(todayEvents) || todayEvents.length === 0) defaults.push('todayEvents=empty');
+      if (!Array.isArray(tomorrowEvents) || tomorrowEvents.length === 0) defaults.push('tomorrowEvents=empty');
+      if (!Array.isArray(lookbackEventsRaw) || lookbackEventsRaw.length === 0) defaults.push('lookbackEventsRaw=empty');
       // Walk back from yesterday counting consecutive off-days (PTO / holiday
       // / weekend / empty calendar). Stop at the first work-day. Bounded to
       // 14 days so a quiet calendar can't run away.
@@ -1190,6 +1211,12 @@ async function buildNudgeContext(
       // existing nonNoiseEvents array.
       const isTodayWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const fullWorkingWeekend = isTodayWeekend && nonNoiseEvents.length >= 3;
+      if (defaults.length > 0) {
+        console.log(
+          `[week-ahead-hydration] user=${userId} defaulted=${defaults.join(',')} ` +
+          `result=${JSON.stringify({ ptoTodayAllDay, ptoTomorrowAllDay, holidayTodayAllDay, holidayTomorrowAllDay, tomorrowIsWorkday, consecutiveOffDaysBefore, travelDay, fullWorkingWeekend })}`,
+        );
+      }
       return {
         ptoTodayAllDay,
         ptoTomorrowAllDay,
@@ -2837,14 +2864,17 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
  */
 async function evaluateWeekAheadPickerInvite(
   ctx: NudgeContext,
-  alreadySentTypes: Set<string>,
   supabase: ReturnType<typeof createClient>,
+  weeklyAlreadySent: boolean,
 ): Promise<QualifiedNudge | null> {
   const log = (reason: string, extra?: unknown) =>
     console.log(`[smart-nudges] week_ahead_picker_invite user=${ctx.userId} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
 
-  if (alreadySentTypes.has('week_ahead_picker_invite')) {
-    log('already_sent');
+  // §17.7 — ISO-week idempotency. At most ONE picker invite per user per
+  // ISO week, regardless of reason. The weekly window is computed by the
+  // main loop in user-local time and passed in.
+  if (weeklyAlreadySent) {
+    log('already_sent_this_week');
     return null;
   }
 
@@ -3364,6 +3394,81 @@ serve(async (req) => {
         .lt('sent_at', todayEndUtc)
         .order('sent_at', { ascending: false });
 
+      // ══════════════════════════════════════════════════════════
+      // §17.7 — Week-Ahead Picker Invite dispatch (own bucket).
+      // Runs BEFORE the daily cap, 2h suppression, and app-open cool-
+      // down. Counts ONLY against its own ISO-weekly cap (max 1 / user).
+      // Kill switch: WEEK_AHEAD_PICKER_ENABLED=false to disable.
+      // ══════════════════════════════════════════════════════════
+      // ctx is shared with the standard-nudge pipeline below — build
+      // lazily so a quick-fail (Saturday / out-of-window / kill switch)
+      // adds zero DB cost.
+      let ctx: NudgeContext | null = null;
+      const weekAheadEligibleHour =
+        Math.floor(localHour + localMinute / 60) >= 16 &&
+        Math.floor(localHour + localMinute / 60) < 19;
+      const weekAheadPreflight =
+        WEEK_AHEAD_PICKER_ENABLED &&
+        (prefs?.evening_close_enabled ?? true) &&
+        dayOfWeek !== 6 &&            // Saturday is recovery day (§17.2a)
+        weekAheadEligibleHour;
+      if (weekAheadPreflight) {
+        // ISO-week start in user-local time, projected to UTC for the
+        // notification_log query. Week starts Monday 00:00 local.
+        const weekStartLocal = new Date(`${todayStr}T00:00:00`);
+        const dow = weekStartLocal.getDay();
+        const daysSinceMonday = (dow + 6) % 7; // Sun=6, Mon=0, ... Sat=5
+        weekStartLocal.setDate(weekStartLocal.getDate() - daysSinceMonday);
+        const weekStartUtcIso = new Date(
+          weekStartLocal.getTime() - tzOffset * 60000,
+        ).toISOString();
+
+        const { data: weeklySent } = await supabase
+          .from('notification_log')
+          .select('id, sent_at, variant_id')
+          .eq('user_id', userId)
+          .eq('notification_type', 'week_ahead_picker_invite')
+          .gte('sent_at', weekStartUtcIso)
+          .limit(1);
+
+        const weeklyAlreadySent = !!(weeklySent && weeklySent.length > 0);
+
+        // Build ctx now (will be reused by the standard pipeline below).
+        ctx = await buildNudgeContext(
+          supabase, userId, todayStr, tomorrowStr,
+          localHour, localMinute, dayOfWeek,
+          profile?.current_streak || 0,
+          lastAppOpenMap.get(userId) || null,
+        );
+        ctx.pattern = await loadPatternSummary(supabase, userId);
+
+        const inv = await evaluateWeekAheadPickerInvite(ctx, supabase, weeklyAlreadySent);
+        if (inv) {
+          // Direct dispatch — bypasses competitive ranking, daily cap,
+          // 2h suppression, slot cap, post-CTA gates. This is a weekly
+          // digest, not a behavioural nudge.
+          allNotifications.push({
+            userId,
+            type: inv.type,
+            copy: inv.copy,
+            deepLinkRoute: inv.deepLinkRoute,
+            eventReference: inv.eventReference,
+            tokens: userTokens.get(userId) || [],
+            badge: ctx.badgeCount ?? 1,
+            isTravel: false,
+            todayStr,
+            qualificationWarnings: [],
+            v8Ctx: buildV8CtxForCheck(ctx),
+            subtitle: clampSubtitle(inv.copy.title),
+            headlineVariant: 'full',
+            ctaBucket: 'weekend_post_holiday',
+            requiresAppOpen: true,
+            weekendCtaGate: null,
+          });
+          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${userId} variant=${inv.copy.variantId} (own bucket — bypassing daily cap)`);
+        }
+      }
+
       // ── DAILY CAP ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
         console.log(`[smart-nudges] User ${userId} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
@@ -3406,15 +3511,16 @@ serve(async (req) => {
       // ══════════════════════════════════════════════════
       // ── Build NudgeContext (single parallel query) ──
       // ══════════════════════════════════════════════════
-      const ctx = await buildNudgeContext(
-        supabase, userId, todayStr, tomorrowStr,
-        localHour, localMinute, dayOfWeek,
-        profile?.current_streak || 0,
-        lastAppOpen,
-      );
-
-      // v7 — hydrate unified pattern store (causality_findings.signal_summary)
-      ctx.pattern = await loadPatternSummary(supabase, userId);
+      if (!ctx) {
+        ctx = await buildNudgeContext(
+          supabase, userId, todayStr, tomorrowStr,
+          localHour, localMinute, dayOfWeek,
+          profile?.current_streak || 0,
+          lastAppOpen,
+        );
+        // v7 — hydrate unified pattern store (causality_findings.signal_summary)
+        ctx.pattern = await loadPatternSummary(supabase, userId);
+      }
 
       // MRS v2 Phase D — snapshot-first cadence gating.
       //   LIGHT_DAY_STRONG_STATE → suppress all nudges for this user today.
@@ -3497,13 +3603,9 @@ serve(async (req) => {
         if (nudge) qualified.push(nudge);
       }
 
-      // §17.7 — Week-Ahead Picker Invite (Sun + last-day-PTO/holiday evenings).
-      // Independent of Nudge 3 framing: shares the evening slot but is
-      // gated by the picker-invite predicate, not the check-in cadence.
-      if ((prefs?.evening_close_enabled ?? true) && !suppressedEffective) {
-        const inv = await evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, supabase);
-        if (inv) qualified.push(inv);
-      }
+      // §17.7 — Week-Ahead Picker Invite has its OWN bucket and is
+      // dispatched above the daily cap earlier in this loop. It is
+      // intentionally not part of the competitive `qualified` queue.
 
       // Post-MVP evaluators (all gated by MVP_POST_LAUNCH = false)
       if (MVP_POST_LAUNCH) {

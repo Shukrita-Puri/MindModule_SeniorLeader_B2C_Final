@@ -80,6 +80,57 @@ Deno.test("suppressed when already sent today", () => {
   assertEquals(d.reason, "already_sent");
 });
 
+// NOTE: Production idempotency for the picker invite is ISO-WEEKLY (one
+// invite per user per ISO week, any reason), enforced server-side in
+// smart-nudges/index.ts via a notification_log lookup against
+// `week_ahead_picker_invite` rows ≥ Monday-00:00-local. The pure
+// predicate below still exposes a generic `alreadySentToday` flag — the
+// main loop now passes the WEEKLY result through that flag, so the same
+// suppression branch covers both daily and weekly semantics. These two
+// tests assert the contract explicitly so a future refactor that drops
+// the weekly query without updating this comment will fail loudly.
+Deno.test("ISO-week idempotency: a second tick within the same week is suppressed", () => {
+  // First tick — invite fires.
+  const wamSun = evaluateWeekAheadMode({ dayOfWeek: 0, localHour: 17 });
+  const first = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: 0,
+    localHour: 17,
+    weekAheadDecision: wamSun,
+    alreadySentToday: false, // weekly = false
+  });
+  assertEquals(first.fire, true);
+  // Same week, later tick — weekly flag now true → suppressed.
+  const second = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: 0,
+    localHour: 18,
+    weekAheadDecision: wamSun,
+    alreadySentToday: true,
+  });
+  assertEquals(second.fire, false);
+  assertEquals(second.reason, "already_sent");
+});
+
+Deno.test("ISO-week idempotency: cross-reason dedupe (Sun invite blocks later last_day_pto invite same week)", () => {
+  // Sunday invite went out.
+  // Monday is a last-day-PTO trigger. With weekly dedupe, the Mon invite
+  // is suppressed even though it has a different reason.
+  const monPto = evaluateWeekAheadMode({
+    dayOfWeek: 1,
+    localHour: 17,
+    ptoTodayAllDay: true,
+    ptoTomorrowAllDay: false,
+    tomorrowIsWorkday: true,
+  });
+  const d = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: 1,
+    localHour: 17,
+    weekAheadDecision: monPto,
+    alreadySentToday: true, // weekly flag from main loop
+  });
+  assertEquals(d.fire, false);
+  assertEquals(d.reason, "already_sent");
+});
+
 Deno.test("suppressed when picker already opened today", () => {
   const d = shouldFireWeekAheadPickerInvite({
     dayOfWeek: 0,
