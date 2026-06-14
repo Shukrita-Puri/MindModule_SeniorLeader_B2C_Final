@@ -16,6 +16,7 @@
 // input must be supplied by the caller.
 
 import type { DivergenceFlag } from './types.ts';
+import { MRS_V4_WEIGHTS, type Window, type SubComponentId } from './mrs-v4-weights.ts';
 
 export type RhrTrend = 'declining' | 'stable' | 'rising' | 'unknown';
 
@@ -137,6 +138,76 @@ function rhrComponent(trend: RhrTrend | null): number | null {
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
+}
+
+// ─── MRS v4 §3.2/3.3/3.4 — window-aware physiological composite ─────────
+//
+// Same component scorers as the morning-only composite, but reweighted per
+// window using the canonical Physiological sub-component weights from
+// `mrs-v4-weights.ts`. Two new sub-components are honoured:
+//   • `intradayHrDeviationPct` → afternoon (§3.3)
+//   • `hrvEveningDeviationPct` → evening (§3.4 — overrides morning HRV
+//     when both are present)
+//
+// Missing sub-components are dropped from the weighted average (the same
+// "compute over what we have" rule the morning function uses). Returns
+// `null` only when nothing is computable so the divergence classifier can
+// degrade to ALIGNED without manufacturing a number.
+
+export interface PhysiologicalCompositeV4Input
+  extends PhysiologicalCompositeInput {
+  /** Afternoon: HR % above resting baseline. */
+  intradayHrDeviationPct?: number | null;
+  /** Evening: HRV deviation %. Replaces hrvDeviationPct on evening. */
+  hrvEveningDeviationPct?: number | null;
+}
+
+function intradayHrComponent(devPct: number | null | undefined): number | null {
+  if (devPct == null || !Number.isFinite(devPct)) return null;
+  // Linear: 0% → 70, +15% → 30, −5% → 90. Lower HR vs resting = better.
+  return clamp(Math.round(70 - devPct * 2.667), 0, 100);
+}
+
+export function computePhysiologicalCompositeWindow(
+  window: Window,
+  input: PhysiologicalCompositeV4Input,
+): number | null {
+  // Map each Physiological sub-component to its scored value (0..100 or null).
+  const scored: Partial<Record<SubComponentId, number>> = {};
+
+  const morningHrv = hrvComponent(input.hrvDeviationPct ?? null);
+  const eveningHrv = window === 'evening'
+    ? hrvComponent(input.hrvEveningDeviationPct ?? input.hrvDeviationPct ?? null)
+    : null;
+  if (morningHrv != null) scored.hrvMorningDeviation = morningHrv;
+
+  const sleep = sleepComponent(input.sleepScore ?? null, input.sleepHours ?? null);
+  if (sleep != null) scored.sleepDeviation = sleep;
+
+  const rhr = rhrComponent(input.rhrTrend ?? null);
+  if (rhr != null) scored.rhrTrend = rhr;
+
+  if (window === 'afternoon') {
+    const idHr = intradayHrComponent(input.intradayHrDeviationPct ?? null);
+    if (idHr != null) scored.intradayHrDeviation = idHr;
+  }
+  if (window === 'evening' && eveningHrv != null) {
+    scored.eveningPhysioRead = eveningHrv;
+  }
+
+  // Pull this window's Physiological sub-component weights from the SSOT
+  // table and average over whatever is actually available.
+  const physCells = MRS_V4_WEIGHTS[window].filter((c) => c.pillar === 'physiological');
+  let weightedSum = 0;
+  let weightTotal = 0;
+  for (const cell of physCells) {
+    const v = scored[cell.id];
+    if (typeof v !== 'number') continue;
+    weightedSum += v * cell.weight;
+    weightTotal += cell.weight;
+  }
+  if (weightTotal <= 0) return null;
+  return Math.round(weightedSum / weightTotal);
 }
 
 // ─── Source provenance ───────────────────────────────────────────────────

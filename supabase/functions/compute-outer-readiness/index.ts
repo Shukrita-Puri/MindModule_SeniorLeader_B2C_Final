@@ -255,6 +255,9 @@ interface ComputeRequest {
   innerReadinessScoreRefined?: number | null;
   innerReadinessState?: 'baseline' | 'refined' | null;
   innerReadinessRefinedContribution?: number | null;
+  // MRS v4 — optional pass-through from compute-inner-readiness so the
+  // outer-readiness mirror persists the v4 audit-trail without re-deriving.
+  weightProvenance?: unknown | null;
   calendarLoad?: CalendarLevel | null;   // legacy client field, ignored if server can query
   calendarPressure?: CalendarLevel | null; // legacy client field, ignored if server can query
   archetype?: string | null;
@@ -1780,6 +1783,7 @@ serve(async (req) => {
       innerReadinessScoreRefined: clientScoreRefined = null,
       innerReadinessState: clientReadinessState = null,
       innerReadinessRefinedContribution: clientRefinedContribution = null,
+      weightProvenance: clientWeightProvenance = null,
     } = body;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
@@ -5368,6 +5372,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             readinessScoreRefined: clientScoreRefined,
             readinessState: clientReadinessState ?? 'baseline',
             refinedContribution: clientRefinedContribution ?? 0,
+            // MRS v4 — window resolution + morning-anchor management.
+            // Morning writes the anchor; afternoon/evening leave it
+            // untouched (omitted ⇒ existing column value preserved).
+            mrsWindow: getTimeOfDay(hour),
+            ...(getTimeOfDay(hour) === 'morning'
+              ? { morningBaselineScore: clientScoreBaseline ?? innerReadinessScore ?? null }
+              : {}),
+            // Mirror v4 audit JSONB when inner-readiness forwarded it.
+            ...(clientWeightProvenance !== null
+              ? { weightProvenance: clientWeightProvenance }
+              : {}),
           });
         } catch (snapErr) {
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
