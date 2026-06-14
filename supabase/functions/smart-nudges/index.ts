@@ -3394,6 +3394,81 @@ serve(async (req) => {
         .lt('sent_at', todayEndUtc)
         .order('sent_at', { ascending: false });
 
+      // ══════════════════════════════════════════════════════════
+      // §17.7 — Week-Ahead Picker Invite dispatch (own bucket).
+      // Runs BEFORE the daily cap, 2h suppression, and app-open cool-
+      // down. Counts ONLY against its own ISO-weekly cap (max 1 / user).
+      // Kill switch: WEEK_AHEAD_PICKER_ENABLED=false to disable.
+      // ══════════════════════════════════════════════════════════
+      // ctx is shared with the standard-nudge pipeline below — build
+      // lazily so a quick-fail (Saturday / out-of-window / kill switch)
+      // adds zero DB cost.
+      let ctx: NudgeContext | null = null;
+      const weekAheadEligibleHour =
+        Math.floor(localHour + localMinute / 60) >= 16 &&
+        Math.floor(localHour + localMinute / 60) < 19;
+      const weekAheadPreflight =
+        WEEK_AHEAD_PICKER_ENABLED &&
+        (prefs?.evening_close_enabled ?? true) &&
+        dayOfWeek !== 6 &&            // Saturday is recovery day (§17.2a)
+        weekAheadEligibleHour;
+      if (weekAheadPreflight) {
+        // ISO-week start in user-local time, projected to UTC for the
+        // notification_log query. Week starts Monday 00:00 local.
+        const weekStartLocal = new Date(`${todayStr}T00:00:00`);
+        const dow = weekStartLocal.getDay();
+        const daysSinceMonday = (dow + 6) % 7; // Sun=6, Mon=0, ... Sat=5
+        weekStartLocal.setDate(weekStartLocal.getDate() - daysSinceMonday);
+        const weekStartUtcIso = new Date(
+          weekStartLocal.getTime() - tzOffset * 60000,
+        ).toISOString();
+
+        const { data: weeklySent } = await supabase
+          .from('notification_log')
+          .select('id, sent_at, variant_id')
+          .eq('user_id', userId)
+          .eq('notification_type', 'week_ahead_picker_invite')
+          .gte('sent_at', weekStartUtcIso)
+          .limit(1);
+
+        const weeklyAlreadySent = !!(weeklySent && weeklySent.length > 0);
+
+        // Build ctx now (will be reused by the standard pipeline below).
+        ctx = await buildNudgeContext(
+          supabase, userId, todayStr, tomorrowStr,
+          localHour, localMinute, dayOfWeek,
+          profile?.current_streak || 0,
+          lastAppOpenMap.get(userId) || null,
+        );
+        ctx.pattern = await loadPatternSummary(supabase, userId);
+
+        const inv = await evaluateWeekAheadPickerInvite(ctx, supabase, weeklyAlreadySent);
+        if (inv) {
+          // Direct dispatch — bypasses competitive ranking, daily cap,
+          // 2h suppression, slot cap, post-CTA gates. This is a weekly
+          // digest, not a behavioural nudge.
+          allNotifications.push({
+            userId,
+            type: inv.type,
+            copy: inv.copy,
+            deepLinkRoute: inv.deepLinkRoute,
+            eventReference: inv.eventReference,
+            tokens: userTokens.get(userId) || [],
+            badge: ctx.badgeCount ?? 1,
+            isTravel: false,
+            todayStr,
+            qualificationWarnings: [],
+            v8Ctx: buildV8CtxForCheck(ctx),
+            subtitle: clampSubtitle(inv.copy.title),
+            headlineVariant: 'full',
+            ctaBucket: 'weekend_post_holiday',
+            requiresAppOpen: true,
+            weekendCtaGate: null,
+          });
+          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${userId} variant=${inv.copy.variantId} (own bucket — bypassing daily cap)`);
+        }
+      }
+
       // ── DAILY CAP ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
         console.log(`[smart-nudges] User ${userId} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
@@ -3436,15 +3511,16 @@ serve(async (req) => {
       // ══════════════════════════════════════════════════
       // ── Build NudgeContext (single parallel query) ──
       // ══════════════════════════════════════════════════
-      const ctx = await buildNudgeContext(
-        supabase, userId, todayStr, tomorrowStr,
-        localHour, localMinute, dayOfWeek,
-        profile?.current_streak || 0,
-        lastAppOpen,
-      );
-
-      // v7 — hydrate unified pattern store (causality_findings.signal_summary)
-      ctx.pattern = await loadPatternSummary(supabase, userId);
+      if (!ctx) {
+        ctx = await buildNudgeContext(
+          supabase, userId, todayStr, tomorrowStr,
+          localHour, localMinute, dayOfWeek,
+          profile?.current_streak || 0,
+          lastAppOpen,
+        );
+        // v7 — hydrate unified pattern store (causality_findings.signal_summary)
+        ctx.pattern = await loadPatternSummary(supabase, userId);
+      }
 
       // MRS v2 Phase D — snapshot-first cadence gating.
       //   LIGHT_DAY_STRONG_STATE → suppress all nudges for this user today.
