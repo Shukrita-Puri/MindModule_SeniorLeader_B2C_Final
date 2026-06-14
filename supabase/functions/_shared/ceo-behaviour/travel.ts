@@ -31,6 +31,87 @@
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 
+// ---------------------------------------------------------------------------
+// Part 1 — Travel Load & Post-Landing Delivery Split. Single source of truth
+// for the tier/window/delivery constants. Inline literals elsewhere (brief-
+// signal-coverage, back-to-back) MUST import from here.
+// ---------------------------------------------------------------------------
+
+export const LONG_HAUL_MIN_HOURS = 3;
+export const LANDING_WINDOW_SHORT_MIN = 60;
+export const LANDING_WINDOW_LONG_MIN = 90;
+export const LANDING_PRACTICE_GATE_MIN = 120;
+export const LANDING_NUDGE_ONLY_MAX_MIN = 60;
+export const TRAVEL_AWAY_MIN_KM = 50;
+export const SHORT_HAUL_RETURN_WINDOW_MIN = 30;
+
+export type TravelStateValue =
+  | 'not_travelling'
+  | 'travel_planned'
+  | 'en_route'
+  | 'arrived'
+  | 'returning'
+  | 'location_unknown'
+  | string;
+
+/** Pure helper — true when the user is currently away from their home
+ *  location. Either signal alone is sufficient. */
+export function isAwayFromHome(
+  state?: TravelStateValue | null,
+  distanceKm?: number | null,
+): boolean {
+  if (state && (state === 'en_route' || state === 'arrived' || state === 'returning')) {
+    return true;
+  }
+  if (typeof distanceKm === 'number' && distanceKm > TRAVEL_AWAY_MIN_KM) {
+    return true;
+  }
+  return false;
+}
+
+/** Group today's travel-titled events by their local calendar date and return
+ *  true when two or more share today's date (outbound + return). Caller passes
+ *  `now` so we anchor the date in the user's local clock. */
+export function isSameDayRoundTrip(
+  events: ReadonlyArray<TravelEventLike>,
+  now: Date,
+): boolean {
+  const todayKey = toLocalDateKey(now);
+  let count = 0;
+  for (const e of events) {
+    if (!isTravelTitle(e.title)) continue;
+    const start = new Date(e.start_time);
+    if (!Number.isFinite(start.getTime())) continue;
+    if (toLocalDateKey(start) !== todayKey) continue;
+    count += 1;
+    if (count >= 2) return true;
+  }
+  return false;
+}
+
+function toLocalDateKey(d: Date): string {
+  // YYYY-MM-DD in the caller's runtime timezone. brief-signal-coverage already
+  // passes Date objects normalised to the user's local clock, so getFullYear /
+  // getMonth / getDate are the correct accessors.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+/** Tier classification — long-haul wins. Same-day round-trip requires both
+ *  the calendar shape AND that the user is actually away (eliminates the
+ *  "drove to the next town and back" edge case). */
+export function classifyTravelTier(
+  durationHours: number,
+  sameDayReturn: boolean,
+  awayFromHome: boolean,
+): 'long_haul' | 'short_haul' | 'short_haul_round_trip' {
+  if (durationHours >= LONG_HAUL_MIN_HOURS) return 'long_haul';
+  if (sameDayReturn && awayFromHome) return 'short_haul_round_trip';
+  return 'short_haul';
+}
+
 /**
  * Canonical travel-title regex. Single source of truth for detecting whether a
  * calendar event title represents a travel leg (flight / airport / boarding /
@@ -62,8 +143,21 @@ export function isTravelTitle(title: string | null | undefined): boolean {
  */
 function landingWindowMinutes(ctx: RuleContext): number {
   const longHaul =
-    !!ctx.signals.longHaulFlight && ctx.signals.longHaulFlight.durationHours >= 3;
-  return longHaul ? 90 : 60;
+    !!ctx.signals.longHaulFlight &&
+    ctx.signals.longHaulFlight.durationHours >= LONG_HAUL_MIN_HOURS;
+  return longHaul ? LANDING_WINDOW_LONG_MIN : LANDING_WINDOW_SHORT_MIN;
+}
+
+/** Part 1 — fail-open gate. Returns true when caller hasn't hydrated
+ *  travel_state (awayFromHome === undefined) OR when away is confirmed. */
+function awayOrUnknown(ctx: RuleContext): boolean {
+  return ctx.signals.awayFromHome !== false;
+}
+
+/** Part 1 — true when the new same-day round-trip arc owns this tick.
+ *  travelLandingOffload / travelLandingPlusHighStakes yield to it. */
+function roundTripArcActive(ctx: RuleContext): boolean {
+  return ctx.signals.travelTier === 'short_haul_round_trip';
 }
 
 function landingActive(ctx: RuleContext): boolean {
@@ -99,6 +193,8 @@ export function travelPreFlightMandatory(ctx: RuleContext): BehaviourFlag | null
 /** Landed, no high-stakes follow-up → decompress, hold cadence quiet for the window. */
 export function travelLandingOffload(ctx: RuleContext): BehaviourFlag | null {
   if (!landingActive(ctx)) return null;
+  if (!awayOrUnknown(ctx)) return null;            // Part 1 — at home, do not fire
+  if (roundTripArcActive(ctx)) return null;         // Part 1 — round-trip arc owns this
 
   const next = ctx.signals.highStakesEventInNext24h;
   if (next && next.minutesUntil <= 24 * 60) return null; // landingPlusHighStakes owns this
@@ -118,17 +214,27 @@ export function travelLandingOffload(ctx: RuleContext): BehaviourFlag | null {
     stake: "Internal Buffer",
     copyHint:
       "decompression frame — immigration/transit overhead is real; one body-down practice, no app-open CTA inside the protected window",
+    landingDeliveryMode: insideWindow ? 'in_app_practice' : 'standard',
   };
 }
 
 /** Landed AND a high-stakes meeting is in next 24h → offload then sharpen for the meeting. */
 export function travelLandingPlusHighStakes(ctx: RuleContext): BehaviourFlag | null {
   if (!landingActive(ctx)) return null;
+  if (!awayOrUnknown(ctx)) return null;
+  if (roundTripArcActive(ctx)) return null;
   const next = ctx.signals.highStakesEventInNext24h;
   if (!next) return null;
 
   // If meeting is within 30-60min of landing, the meeting itself drives prep timing.
-  const meetingDrivesPrep = next.minutesUntil <= 60;
+  const meetingDrivesPrep = next.minutesUntil <= LANDING_NUDGE_ONLY_MAX_MIN;
+
+  // Part 1 — delivery split:
+  //   ≤60min  → push_only (no deep link, single cue)
+  //   60-120  → push_only (prep-framed, still no deep link)
+  //   ≥120    → in_app_practice (current default behaviour)
+  const deliveryMode: BehaviourFlag['landingDeliveryMode'] =
+    next.minutesUntil < LANDING_PRACTICE_GATE_MIN ? 'push_only' : 'in_app_practice';
 
   return {
     rule: "travelLandingPlusHighStakes",
@@ -142,13 +248,14 @@ export function travelLandingPlusHighStakes(ctx: RuleContext): BehaviourFlag | n
     copyHint: meetingDrivesPrep
       ? "no protected window — the meeting drives prep timing; one focused regulation pass (can be done in transit), then enter the call"
       : "decompress first, then sharpen — sequence matters; do not skip the body-down step to over-prep the slides",
+    landingDeliveryMode: deliveryMode,
   };
 }
 
 /** Long-haul flight (≥3h), return day → full decompression in evening slot. */
 export function longHaulRecovery(ctx: RuleContext): BehaviourFlag | null {
   const lh = ctx.signals.longHaulFlight;
-  if (!lh || lh.durationHours < 3) return null;
+  if (!lh || lh.durationHours < LONG_HAUL_MIN_HOURS) return null;
   if (!ctx.signals.travelDay && !landingActive(ctx)) return null;
 
   return {
