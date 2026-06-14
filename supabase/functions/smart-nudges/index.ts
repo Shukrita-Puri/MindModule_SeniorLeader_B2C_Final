@@ -3477,13 +3477,28 @@ serve(async (req) => {
       const todayStartUtc = new Date(localMidnightMs - tzOffset * 60000).toISOString();
       const todayEndUtc = new Date(localMidnightMs - tzOffset * 60000 + 24 * 60 * 60 * 1000).toISOString();
 
-      // Fetch today's notification log
+      // Fetch today's notification log.
+      //
+      // CAP SEMANTICS (fix for inflated 48/3, 55/3 counts):
+      // Scope to rows the user actually saw or that were genuinely
+      // attempted via APNs. This excludes:
+      //   • 'suppressed'           — pre-evaluator / back-to-back / post-CTA audit rows
+      //   • 'dry_run'              — ?force_user=...&dry_run=1 diagnostic probes
+      //   • 'failed'               — APNs rejected, never delivered
+      //   • 'expired_before_delivery'
+      // The DAILY_NOTIFICATION_CAP and dedupe sets below derive from this
+      // query, so "cap" now means "things the user actually saw" — matching
+      // the product intent of 3 pushes/day. Suppression and dry-run rows
+      // remain in notification_log for SQL auditing but no longer inflate
+      // the cap or block legitimate sends.
+      const COUNTABLE_DELIVERY_STATES = ['pending', 'accepted', 'delivered', 'sent'] as const;
       const { data: todayLogs } = await supabase
         .from('notification_log')
         .select('notification_type, variant_id, sent_at, event_reference')
         .eq('user_id', userId)
         .gte('sent_at', todayStartUtc)
         .lt('sent_at', todayEndUtc)
+        .in('delivery_state', COUNTABLE_DELIVERY_STATES as unknown as string[])
         .order('sent_at', { ascending: false });
 
       // ══════════════════════════════════════════════════════════
@@ -4131,7 +4146,12 @@ serve(async (req) => {
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
         event_reference: notif.eventReference || null,
-        delivery_state: 'pending',
+        // Dry-run leak fix: stamp dry-run inserts so they remain in the
+        // audit trail but are excluded from cap counts (see
+        // COUNTABLE_DELIVERY_STATES above). Without this, every
+        // ?force_user=...&dry_run=1 probe permanently inflated the
+        // user's daily cap count.
+        delivery_state: isDryRun ? 'dry_run' : 'pending',
         payload,
       }).select('id').single();
 
