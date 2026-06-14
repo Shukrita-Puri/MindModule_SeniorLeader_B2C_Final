@@ -59,6 +59,9 @@ import {
   longHaulRecovery,
   postTripReentry,
   travelInFlightConnection,
+  travelDayArrivalFraming,
+  travelDayDuringPushOnly,
+  travelDayReturnRecovery,
 } from "./travel.ts";
 import { advancePrep24h, postGovernanceOffload } from "./high-stakes-prep.ts";
 import { influencePersuasionPrep } from "./influence-persuasion.ts";
@@ -125,6 +128,9 @@ export {
   longHaulRecovery,
   postTripReentry,
   travelInFlightConnection,
+  travelDayArrivalFraming,
+  travelDayDuringPushOnly,
+  travelDayReturnRecovery,
   advancePrep24h,
   backToBackLoadOverride,
   meetingPrepCliff,
@@ -196,6 +202,11 @@ export const ALL_RULES: ScopedRule[] = [
   { scopes: ["brief", "plan", "nudge"], fn: travelLandingPlusHighStakes },
   { scopes: ["brief", "plan", "nudge"], fn: longHaulRecovery },
   { scopes: ["brief", "plan"],          fn: postTripReentry },
+
+  // --- Part 1: same-day round-trip arc (Oxford↔London, Paris, Poland, etc.) ---
+  { scopes: ["brief", "plan", "nudge"], fn: travelDayArrivalFraming },
+  { scopes: ["nudge"],                  fn: travelDayDuringPushOnly },
+  { scopes: ["brief", "plan", "nudge"], fn: travelDayReturnRecovery },
 
   // --- Batch 2: High-stakes 24h prep ---
   { scopes: ["brief", "plan", "nudge"], fn: advancePrep24h },

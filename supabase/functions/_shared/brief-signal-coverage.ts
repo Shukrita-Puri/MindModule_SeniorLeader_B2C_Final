@@ -15,7 +15,13 @@
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { classifyEvent } from "./executive-state-taxonomy.ts";
-import { isTravelTitle } from "./ceo-behaviour/travel.ts";
+import {
+  isTravelTitle,
+  isAwayFromHome,
+  isSameDayRoundTrip,
+  classifyTravelTier,
+  LONG_HAUL_MIN_HOURS,
+} from "./ceo-behaviour/travel.ts";
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
 
 // --- Travel & Holiday detection v2 tuning constants (file-local SSOT). -----
@@ -55,6 +61,12 @@ export interface SignalCoverageInput {
     /** Edge-owned: details of a long-haul flight in today's calendar. */
     longHaulFlight?: { durationHours: number } | null;
   };
+  /** Part 1 — travel_state snapshot. Optional. When omitted, `awayFromHome`
+   *  is left undefined and downstream rules fail open (assume away). */
+  travelState?: {
+    state?: string | null;
+    distanceFromHomeKm?: number | null;
+  } | null;
   /** Calendar events in chronological order, all in user's local timezone. */
   events: Array<{
     title: string;
