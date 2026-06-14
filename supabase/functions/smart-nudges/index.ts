@@ -2864,20 +2864,29 @@ async function evaluateWeekAheadPickerInvite(
     pickerOpenedToday = !!(openedRows && openedRows.length > 0);
   } catch (_) { /* silent — proxy only */ }
 
-  // Project the inputs evaluateWeekAheadMode needs from the existing context.
-  const dc = ctx.dayContext;
-  const travelDay = dc.kind === 'travel-day';
-  const ptoTodayAllDay = !!dc.ptoMode;
-  // Best-effort: smart-nudges does not have tomorrow's PTO/holiday signal
-  // hydrated, so we leave those fields undefined. The Sunday branch still
-  // fires reliably; last-day-PTO/holiday detection is opportunistic.
+  // §17 Week-Ahead — use the hydrated weekAheadInputs bag (built once in
+  // buildNudgeContext from real calendar data). Fall back to the legacy
+  // best-effort projection only if the bag is somehow missing.
+  const wai = ctx.weekAheadInputs ?? {
+    ptoTodayAllDay: !!ctx.dayContext.ptoMode,
+    ptoTomorrowAllDay: false,
+    holidayTodayAllDay: false,
+    holidayTomorrowAllDay: false,
+    tomorrowIsWorkday: ctx.dayOfWeek >= 0 && ctx.dayOfWeek <= 4,
+    consecutiveOffDaysBefore: 0,
+    travelDay: ctx.dayContext.kind === 'travel-day',
+    fullWorkingWeekend: false,
+  };
   const wam = evaluateWeekAheadMode({
     dayOfWeek: ctx.dayOfWeek,
     localHour: Math.floor(ctx.localTime),
-    travelDay,
-    ptoTodayAllDay,
-    // tomorrow IS workday for Sun-Thu in our schedule
-    tomorrowIsWorkday: ctx.dayOfWeek >= 0 && ctx.dayOfWeek <= 4,
+    travelDay: wai.travelDay,
+    fullWorkingWeekend: wai.fullWorkingWeekend,
+    ptoTodayAllDay: wai.ptoTodayAllDay,
+    ptoTomorrowAllDay: wai.ptoTomorrowAllDay,
+    holidayAllDayEventToday: wai.holidayTodayAllDay,
+    tomorrowIsWorkday: wai.tomorrowIsWorkday,
+    consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
     manualOverride: false,
   });
 
@@ -2889,6 +2898,28 @@ async function evaluateWeekAheadPickerInvite(
     pickerOpenedToday,
   });
 
+  // Structured trigger log — always emitted when WAM is active so we can
+  // verify the post-PTO / post-holiday / long-weekend branches in edge logs.
+  // Filter in supabase__edge_function_logs with `[week-ahead-trigger]`.
+  if (wam.active || wai.ptoTodayAllDay || wai.holidayTodayAllDay || wai.consecutiveOffDaysBefore >= 2) {
+    console.log(
+      `[week-ahead-trigger] user=${ctx.userId} reason=${wam.reason ?? 'inactive'} fire=${decision.fire} ` +
+      `decision_reason=${decision.reason} ` +
+      `inputs=${JSON.stringify({
+        dayOfWeek: ctx.dayOfWeek,
+        localHour: Math.floor(ctx.localTime),
+        ptoTodayAllDay: wai.ptoTodayAllDay,
+        ptoTomorrowAllDay: wai.ptoTomorrowAllDay,
+        holidayTodayAllDay: wai.holidayTodayAllDay,
+        holidayTomorrowAllDay: wai.holidayTomorrowAllDay,
+        tomorrowIsWorkday: wai.tomorrowIsWorkday,
+        consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
+        travelDay: wai.travelDay,
+        fullWorkingWeekend: wai.fullWorkingWeekend,
+      })} ` +
+      `suppressors=${JSON.stringify({ pickerOpenedToday })}`,
+    );
+  }
   log(`fire=${decision.fire}`, { reason: decision.reason, wamReason: wam.reason, wamActive: wam.active, pickerOpenedToday });
   if (!decision.fire) return null;
 
