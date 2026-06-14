@@ -253,13 +253,14 @@ Deno.test("buildSignalMatrix — same-day round trip + travel_state away → tie
 });
 
 Deno.test("buildSignalMatrix — no travel_state hydration → awayFromHome undefined (fail-open)", () => {
-  const now = new Date("2026-06-06T15:00:00");
+  const now = new Date("2026-06-06T06:00:00");
   const matrix = buildSignalMatrix({
     wearable: null, checkIn: {}, scoreToday: null, scoreYesterday: null,
     trailingClarityAvg: null,
     timezone: { offsetMinutes: 0, shift48hHours: null, travelDay: false },
     events: [
-      { title: 'Flight LHR-CDG', startTime: '2026-06-06T08:00:00', endTime: '2026-06-06T09:30:00' },
+      // Future travel event so travelDayDerived flips true via firstTravelToday.
+      { title: 'Flight LHR-CDG', startTime: '2026-06-06T09:30:00', endTime: '2026-06-06T11:00:00' },
     ],
     now,
   });
