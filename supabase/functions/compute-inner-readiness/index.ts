@@ -2,8 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
+  computeIntradayDecline,
   type RhrTrend,
 } from "../_shared/signal-engine/divergence-flag.ts";
+import {
+  composeBaselineV4,
+  type SubScore,
+} from "../_shared/signal-engine/mrs-v4-compose.ts";
+import { MRS_V4_WEIGHTS, type SubComponentId, type Window as MrsWindow } from "../_shared/signal-engine/mrs-v4-weights.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -147,6 +153,7 @@ type DivergenceFlag =
   | 'SUPPLY_DEMAND_GAP'
   | 'RECOVERY_UNDERWAY'
   | 'LIGHT_DAY_STRONG_STATE'
+  | 'INTRADAY_DECLINE'
   | 'MASKED_HIGH';
 
 type WeightingMode =
