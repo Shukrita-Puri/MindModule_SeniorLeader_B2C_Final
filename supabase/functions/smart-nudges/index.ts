@@ -440,6 +440,13 @@ interface NudgeContext {
     promptBlockBrief: string;
     taxonomyBlock: string;
     source: 'brief_snapshot';
+    // Part 1 — flag array surfaced so dispatch can read landingDeliveryMode
+    // and suppress deep-link CTAs for travel push_only flags. Optional for
+    // back-compat with snapshots written before Part 1 shipped.
+    flagsBrief?: Array<{
+      rule: string;
+      landingDeliveryMode?: 'in_app_practice' | 'push_only' | 'standard';
+    }>;
   } | null;
 }
 
@@ -1055,6 +1062,12 @@ async function buildNudgeContext(
           '',
         taxonomyBlock: loadedSnap.taxonomyBlock,
         source: 'brief_snapshot' as const,
+        flagsBrief: Array.isArray(loadedSnap.flagsBrief)
+          ? loadedSnap.flagsBrief.map((f: any) => ({
+              rule: String(f?.rule ?? ''),
+              landingDeliveryMode: f?.landingDeliveryMode,
+            }))
+          : undefined,
       }
     : null;
   console.log(
