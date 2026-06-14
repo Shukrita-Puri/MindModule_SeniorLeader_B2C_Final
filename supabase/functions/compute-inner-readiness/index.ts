@@ -852,7 +852,24 @@ serve(async (req) => {
     // the personal baseline is shallow; the freed weight flows to demand so
     // the formula always sums to 1.
     let score: number;
-    if (weightingMode === 'no_wearable') {
+    let mrsV4Provenance: unknown | null = null;
+    let mrsV4Window: MrsWindow | null = null;
+    let mrsV4AwaitingSignals = false;
+
+    // MRS v4 path — fires when the caller supplied a window + sub-scores.
+    // The legacy weightingMode branches below stay for back-compat with
+    // callers that haven't migrated; they're never reached when v4 fires.
+    if (body.mrsWindow && Array.isArray(body.mrsSubScores) && body.mrsSubScores.length > 0) {
+      const v4 = composeBaselineV4(
+        body.mrsWindow,
+        body.mrsSubScores as SubScore[],
+        body.sleepDeficitMeasurement ?? { available: false },
+      );
+      score = v4.baseline;
+      mrsV4Provenance = v4.weightProvenance;
+      mrsV4Window = body.mrsWindow;
+      mrsV4AwaitingSignals = v4.awaitingSignals;
+    } else if (weightingMode === 'no_wearable') {
       // Demand-only when wearable isn't connected.
       score = Math.round(demandStateScore);
     } else if (weightingMode === 'wearable_early') {
@@ -872,6 +889,26 @@ serve(async (req) => {
 
     // Clamp score
     score = Math.max(0, Math.min(100, score));
+
+    // MRS v4 §6 flag 2 — INTRADAY_DECLINE. Evaluated only on afternoon /
+    // evening windows where a morning anchor exists. Overrides
+    // `divergenceFlag` per §6 priority order (REGULATION_RISK is owned by
+    // the Brief layer; this is the highest-priority MRS-side flag).
+    let v4DivergenceFlag: DivergenceFlag = divergenceFlag;
+    if (
+      mrsV4Window &&
+      mrsV4Window !== 'morning' &&
+      typeof body.morningBaselineScore === 'number'
+    ) {
+      const intraday = computeIntradayDecline({
+        currentWindowBaseline: score,
+        morningBaselineScore: body.morningBaselineScore,
+        decisionLeakageRisk: body.decisionLeakageRisk === true,
+        bodyLoadElevated: body.bodyLoadElevated === true,
+        intradayHrDeviationPct: body.intradayHrDeviationPct ?? null,
+      });
+      if (intraday) v4DivergenceFlag = 'INTRADAY_DECLINE';
+    }
 
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
