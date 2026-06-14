@@ -173,12 +173,19 @@ export async function composeDailyContext(
       })),
     ]);
 
+  // MRS v4 — short RHR baseline (no schema change). Computed from existing
+  // wearable_data rows; null when <3 days of RHR present, which §8.2 treats
+  // as "intradayHrDeviation / eveningPhysioRead unavailable" (so their
+  // weight redistributes — never collapses to a neutral default).
+  const rhrBaseline3d = await fetchRhrBaseline3d(db, userId, localDate);
+
   const raw: RawSignals = {
     hrvToday: hrvBundle.hrvToday,
     hrvBaseline30d: hrvBundle.hrvBaseline30d,
     hrvRecent: hrvBundle.hrvRecent,
     loadLast3Days,
     dowHistory,
+    rhrBaseline3d,
   };
 
   const demand = computeCalendarDemand(todayEvents);

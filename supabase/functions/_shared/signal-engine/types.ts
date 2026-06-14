@@ -44,6 +44,13 @@ export interface RawSignals {
     hrv: number | null;
     load: DemandLevel | null;
   }>;
+  /**
+   * MRS v4 — trailing 3-day RHR baseline computed from existing
+   * `wearable_data.resting_heart_rate` rows. Drives §3.2 v4 sub-components
+   * `intradayHrDeviation` and `eveningPhysioRead`. Null when fewer than
+   * 3 days of RHR data exist (§8.2 unavailability for those sub-components).
+   */
+  rhrBaseline3d?: number | null;
 }
 
 /** Pattern engine output — written into daily_context_snapshot.pattern_signals. */
