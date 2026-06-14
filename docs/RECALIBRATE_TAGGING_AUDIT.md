@@ -2,6 +2,84 @@
 
 _Last refreshed: 2026-06-14. Re-run the query at the end of this file to refresh._
 
+## TL;DR — what is tagged, where it's read, what's next
+
+**Tagging model (today, MVP).** Every active Recalibrate practice (41/41) is
+tagged on six axes consumed by the Plan engine:
+
+| Axis | Column | Vocabulary | Purpose |
+| --- | --- | --- | --- |
+| Shelf | `sanctuary_content.category` | `pause` / `power-up` / `presence` | Editorial grouping + intent target |
+| Form | `sanctuary_content.sub_type` | `mindset` / `tool` | Candidate-pool filter per slot |
+| Protocol | `sanctuary_content.protocol_type` | `mindset` / `somatic` | Combo tiebreaker (+4) vs the §4 prescribed combo |
+| Meta-skill | `sanctuary_content_metadata.meta_skill[]` | `meta-clarity` / `meta-recalibration` / `meta-renewal` | Primary intent match (+18, −12 hard penalty if only off-target) |
+| State signal | `sanctuary_content_metadata.state_signal[]` | `signal-tense`, `signal-depleted`, … | Secondary intent + check-in match (+15) |
+| Moment / horizon | `…metadata.moment[]`, `…metadata.horizon` | morning/afternoon/evening; short/medium/long | Slot-time eligibility |
+
+**Tagging model (post-MVP, planned).** A seventh axis is already populated
+but intentionally not yet read by the selector:
+
+| Axis | Column | Shape | Status |
+| --- | --- | --- | --- |
+| Mastery category | `sanctuary_content_metadata.mastery_category` | `{ primary: <meta-skill>, secondary: [<other meta-skills…>, <shelf>] }` | 41/41 populated. Wires into selector when "More like this" ships and editorial taxonomy lets `primary` diverge from `meta_skill[0]`. |
+
+**Where these tags are consumed.**
+
+- `supabase/functions/_shared/plan/practice-selector.ts` — `deriveSlotIntent()`
+  maps the slot's verb/anchor/phase to a target `{metaSkills, recalibrateCategories, combo}`;
+  `scoreContentAgainstIntent()` reads `meta_skill`, `category`, and `protocol_type`
+  to compute the intent boost on top of base state-signal scoring.
+- `supabase/functions/generate-mastery-plan/index.ts` — hydrates the candidate
+  set from `sanctuary_content` + `sanctuary_content_metadata`, applies the
+  `sub_type` candidate-pool filter, runs the filler scorer, and logs
+  `[generate-mastery-plan][filler] intent-scored selection` per slot.
+- `supabase/functions/_shared/protocols/protocol-combos.ts` — canonical
+  `(protocol, mode)` combo vocabulary that `protocol_type` is tiebroken against.
+- Post-MVP: the same metadata feeds the "More like this" recommender, which
+  is when `mastery_category.{primary, secondary}` is scheduled to be wired
+  into `ScorableContent`.
+
+## Implemented updates (June 2026)
+
+Backfill + selector wiring shipped in the June 2026 pass:
+
+1. **Closed 2 fully-untagged rows** (`release-exhale-new`, `wim-hof-cold-fire`) —
+   added `meta_skill` and `state_signal` so they're scorable at all.
+2. **Backfilled `sub_type` for 15 rows** to `'tool'` — they were previously
+   silently excluded from the `tool` candidate pool.
+3. **Backfilled `protocol_type` for all 41 rows** (was 0/41) using a
+   title + `sub_type` heuristic. Activates the existing +4 combo tiebreaker
+   in `practice-selector.ts` for the first time.
+4. **Populated `mastery_category` for all 41 rows** as
+   `{primary: meta_skill[0], secondary: [meta_skill[1..], category]}`. Not yet
+   wired into the selector (see below).
+5. **Editorial protocol_type overrides** (manual, post-heuristic):
+   - `presence-grounding-new` → `mindset` (kept from heuristic; editorial
+     confirmed it reads as a mindset/presence practice).
+   - `jobs-simplicity` → `mindset` (overridden from heuristic `somatic`; the
+     title literal "Clarity Through Elimination" missed the regex but the
+     practice is reflective, not body-based).
+6. **Selector wiring**: `deriveSlotIntent()` + `scoreContentAgainstIntent()`
+   landed in `_shared/plan/practice-selector.ts` with 8 unit tests covering
+   all five intent branches.
+
+Final `protocol_type` distribution on active practices: **21 mindset / 20 somatic**.
+
+## Planned for future
+
+- **Wire `mastery_category` into the selector** when the post-MVP "More like
+  this" feature lands. At that point evaluate whether the new branch should
+  be mutually exclusive with the existing `meta_skill[0]` branch to avoid
+  double-counting once `primary` and `meta_skill[0]` can diverge.
+- **Editorial taxonomy expansion** for `mastery_category.primary` so it
+  carries information beyond `meta_skill[0]` (currently mechanically equal).
+- **Re-shelve or re-tag the three `meta-renewal` rows on the `presence`
+  shelf** (`ina-night-fields`, `ikigai-purpose`, `rhythm-pulse`) — see
+  "Known anomalies" below.
+- **Promote `mastery_category` to a first-class column** with its own
+  vocabulary registry once "More like this" ships, replacing the current
+  derived JSONB.
+
 ## Why this exists
 
 The Plan's "Today's Performance Priorities" picks one (or more) practice per
@@ -61,13 +139,11 @@ what was fixed:_
   Arena, Eye of, Simplicity, Subtraction, Single Thread, Constraint,
   Presence Through, Eternal Now, Detachment, Confidence, Reframe,
   Completion, First Move, Rhythm Through The Pulse). Otherwise `somatic`.
-  Two edge cases worth knowing:
-  - `presence-grounding-new` resolves to `mindset` because the title
-    matches "Presence Through", even though it's a somatic tool. Low
-    impact (combo bonus is only +4) — re-tag manually if a future
-    editorial pass disagrees.
-  - `jobs-simplicity` resolves to `somatic` because the title is
-    "Clarity Through Elimination" (not "Simplicity") despite the slug.
+  Two edge cases were resolved by manual editorial override after the
+  heuristic pass:
+  - `presence-grounding-new` → `mindset` (kept from heuristic).
+  - `jobs-simplicity` → `mindset` (overridden from heuristic `somatic`;
+    title literal "Clarity Through Elimination" missed the regex).
 
 ## mastery_category — populated but not yet wired
 
