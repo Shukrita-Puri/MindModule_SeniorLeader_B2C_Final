@@ -14,6 +14,28 @@
 
 import type { WeekAheadDecision } from "./week-ahead-mode.ts";
 
+/**
+ * Canonical list of valid `reason` strings emitted by
+ * `shouldFireWeekAheadPickerInvite` when `fire === true`. These are the
+ * suffixes used in the dispatched `variant_id` (`<base>::<reason>`) and
+ * in analytics SQL (`docs/WEEK_AHEAD_TRIGGER_VERIFICATION.sql`) via
+ * `variant_id LIKE '%::<reason>'`.
+ *
+ * IMPORTANT — collision rule: no reason in this list may be a suffix of
+ * another (e.g. `pto_evening` + `last_day_pto_evening` would both match
+ * `'%::pto_evening'` and silently double-count). The unit test
+ * `week-ahead-reasons.test.ts` enforces this; add new reasons to this
+ * const and the test will fail loudly if a collision is introduced.
+ */
+export const WEEK_AHEAD_REASONS = [
+  "sunday_evening",
+  "last_day_pto_evening",
+  "last_day_holiday_evening",
+  "last_day_long_weekend_evening",
+] as const;
+
+export type WeekAheadFireReason = typeof WEEK_AHEAD_REASONS[number];
+
 export interface WeekAheadNudgeInput {
   /** 0=Sun, 6=Sat — user local day of week. */
   dayOfWeek: number;

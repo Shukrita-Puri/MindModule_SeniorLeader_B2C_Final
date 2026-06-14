@@ -18,6 +18,25 @@
 -- Cap bucket:     own bucket — exempt from DAILY_NOTIFICATION_CAP, the
 --                 2-hour intra-tick suppression, APP_OPEN_COOLDOWN_MS,
 --                 and the per-window slot cap.
+--
+-- Reason-collision guard: the `LIKE '%::<reason>'` and
+-- `split_part(payload->>'variant_id', '::', 2)` patterns below assume no
+-- valid week-ahead reason is a suffix of another. Enforced by the unit
+-- test `WEEK_AHEAD_REASONS: no reason is a suffix of another` in
+-- supabase/functions/_shared/plan/week-ahead-reasons.test.ts. Reasons
+-- are exported from supabase/functions/_shared/plan/week-ahead-nudge.ts
+-- as `WEEK_AHEAD_REASONS`. When adding a new reason there, the test
+-- will fail loudly on collision — fix the reason name, not the test.
+--
+-- Walk-back date granularity (consecutiveOffDaysBefore): the 14-day
+-- look-back used to detect long weekends / holiday blocks operates at
+-- UTC calendar-day granularity (cursor.toISOString().slice(0,10)).
+-- Around DST transitions in the user's local timezone this can mis-
+-- attribute a single day's off-status by ±1 calendar day. The realistic
+-- blast radius is ~1–2 fires per year per affected user (spring-forward
+-- + fall-back). Accepted tradeoff; see the doc-comment block above the
+-- walk-back loop in supabase/functions/smart-nudges/index.ts for the
+-- full DST writeup and a fix-size estimate.
 
 -- (1) How many week-ahead picker invites fired in the last 7 days, by reason
 SELECT
