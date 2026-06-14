@@ -57,6 +57,13 @@ export interface UpsertContextSnapshotInput {
   readinessScoreRefined?: number | null;
   readinessState?: 'baseline' | 'refined' | null;
   refinedContribution?: number | null;
+  // MRS v4 §11 — additive columns. All optional for back-compat with
+  // callers still on the v3 path; the v4 cron path supplies them.
+  mrsWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  morningBaselineScore?: number | null;
+  checkInCountToday?: number | null;
+  lastCheckInWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  weightProvenance?: unknown | null;
 }
 
 /**
@@ -92,6 +99,15 @@ export async function upsertDailyContextSnapshot(
       readiness_state: input.readinessState ?? null,
       refined_contribution: input.refinedContribution ?? null,
     };
+
+    // MRS v4 §11 — only write the additive columns when the caller has
+    // supplied them. Avoids clobbering existing values on rows being updated
+    // by an older v3-path caller within the same cron cycle.
+    if (input.mrsWindow !== undefined) (row as any).mrs_window = input.mrsWindow;
+    if (input.morningBaselineScore !== undefined) (row as any).morning_baseline_score = input.morningBaselineScore;
+    if (input.checkInCountToday !== undefined) (row as any).check_in_count_today = input.checkInCountToday;
+    if (input.lastCheckInWindow !== undefined) (row as any).last_check_in_window = input.lastCheckInWindow;
+    if (input.weightProvenance !== undefined) (row as any).weight_provenance = input.weightProvenance;
 
     const { error } = await db
       .from('daily_context_snapshot')
@@ -157,12 +173,19 @@ export async function composeDailyContext(
       })),
     ]);
 
+  // MRS v4 — short RHR baseline (no schema change). Computed from existing
+  // wearable_data rows; null when <3 days of RHR present, which §8.2 treats
+  // as "intradayHrDeviation / eveningPhysioRead unavailable" (so their
+  // weight redistributes — never collapses to a neutral default).
+  const rhrBaseline3d = await fetchRhrBaseline3d(db, userId, localDate);
+
   const raw: RawSignals = {
     hrvToday: hrvBundle.hrvToday,
     hrvBaseline30d: hrvBundle.hrvBaseline30d,
     hrvRecent: hrvBundle.hrvRecent,
     loadLast3Days,
     dowHistory,
+    rhrBaseline3d,
   };
 
   const demand = computeCalendarDemand(todayEvents);
@@ -391,4 +414,38 @@ function dayBoundsUtc(localDate: string): { start: string; end: string } {
   const start = new Date(localDate + 'T00:00:00Z').toISOString();
   const end = new Date(localDate + 'T23:59:59.999Z').toISOString();
   return { start, end };
+}
+
+// MRS v4 §8.2 — trailing 3-day RHR baseline. No schema change: computed
+// each cycle from existing `wearable_data.resting_heart_rate` rows.
+// Returns `null` when fewer than 3 days of RHR data exist; downstream
+// sub-components mark themselves `available=false` and §8.3 handles the
+// redistribution. Errors degrade to `null` — never throws.
+async function fetchRhrBaseline3d(
+  db: AnySupabase,
+  userId: string,
+  localDate: string,
+): Promise<number | null> {
+  try {
+    const from3 = (() => {
+      const t = new Date(localDate + 'T00:00:00Z').getTime();
+      return new Date(t - 3 * 86400000).toISOString().slice(0, 10);
+    })();
+    const { data, error } = await db
+      .from('wearable_data')
+      .select('resting_heart_rate, summary_date')
+      .eq('user_id', userId)
+      .gte('summary_date', from3)
+      .lte('summary_date', localDate)
+      .order('summary_date', { ascending: false });
+    if (error || !Array.isArray(data)) return null;
+    const rhrs = (data as Array<{ resting_heart_rate: number | null }>)
+      .map((r) => (typeof r.resting_heart_rate === 'number' ? r.resting_heart_rate : null))
+      .filter((v): v is number => v != null && Number.isFinite(v));
+    if (rhrs.length < 3) return null;
+    const avg = rhrs.reduce((s, v) => s + v, 0) / rhrs.length;
+    return Math.round(avg * 10) / 10;
+  } catch {
+    return null;
+  }
 }

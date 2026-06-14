@@ -11,6 +11,8 @@ export type DivergenceFlag =
   | 'SUPPLY_DEMAND_GAP'      // replaces MASKED_HIGH (calendar > body)
   | 'RECOVERY_UNDERWAY'      // body coming back, calendar still heavy
   | 'LIGHT_DAY_STRONG_STATE' // body strong, calendar light
+  // MRS v4 §6 flag 2 — proactive intraday drop vs morning anchor.
+  | 'INTRADAY_DECLINE'
   // Retained for backwards-compat reads of older brief_snapshots rows.
   | 'MASKED_HIGH';
 
@@ -42,6 +44,13 @@ export interface RawSignals {
     hrv: number | null;
     load: DemandLevel | null;
   }>;
+  /**
+   * MRS v4 — trailing 3-day RHR baseline computed from existing
+   * `wearable_data.resting_heart_rate` rows. Drives §3.2 v4 sub-components
+   * `intradayHrDeviation` and `eveningPhysioRead`. Null when fewer than
+   * 3 days of RHR data exist (§8.2 unavailability for those sub-components).
+   */
+  rhrBaseline3d?: number | null;
 }
 
 /** Pattern engine output — written into daily_context_snapshot.pattern_signals. */
@@ -129,4 +138,11 @@ export interface DailyContextSnapshot {
   readiness_score_refined: number | null;
   readiness_state: 'baseline' | 'refined' | null;
   refined_contribution: number | null;
+  // MRS v4 §11 — additive columns. `tier_displayed` doubles as the v4
+  // `readiness_tier` (already declared above), so no new tier column.
+  mrs_window: 'morning' | 'afternoon' | 'evening' | null;
+  morning_baseline_score: number | null;
+  check_in_count_today: number | null;
+  last_check_in_window: 'morning' | 'afternoon' | 'evening' | null;
+  weight_provenance: unknown | null;
 }

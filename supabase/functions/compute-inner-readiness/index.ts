@@ -2,8 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
+  computeIntradayDecline,
   type RhrTrend,
 } from "../_shared/signal-engine/divergence-flag.ts";
+import {
+  composeBaselineV4,
+  type SubScore,
+} from "../_shared/signal-engine/mrs-v4-compose.ts";
+import { MRS_V4_WEIGHTS, type SubComponentId, type Window as MrsWindow } from "../_shared/signal-engine/mrs-v4-weights.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -147,6 +153,7 @@ type DivergenceFlag =
   | 'SUPPLY_DEMAND_GAP'
   | 'RECOVERY_UNDERWAY'
   | 'LIGHT_DAY_STRONG_STATE'
+  | 'INTRADAY_DECLINE'
   | 'MASKED_HIGH';
 
 type WeightingMode =
@@ -711,6 +718,34 @@ interface ComputeRequest {
    * preserves the distinction for downstream UI/QA (stale ≠ never connected).
    */
   wearableStatus?: 'fresh' | 'stale' | 'missing';
+
+  // ─── MRS v4 — optional window-aware path ─────────────────────────────
+  // When `mrsWindow` is supplied AND `mrsSubScores` is non-empty, the v4
+  // composer (§3 + §8.3 redistribution + §3.2a sleep cap) drives the
+  // baseline instead of the legacy `weightingMode` branches. Legacy fields
+  // (`hasWearable`, `wearableHRV`, etc.) are still honoured for back-compat
+  // — they're used only when `mrsWindow` is absent.
+  mrsWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  /** Per-sub-component score + availability for the current window. */
+  mrsSubScores?: Array<{
+    id: SubComponentId;
+    score: number;       // 0..100
+    available: boolean;
+  }>;
+  /** Anchor for INTRADAY_DECLINE (§6 flag 2). Null on the morning compute. */
+  morningBaselineScore?: number | null;
+  /** §3.2a measured-low sleep cap inputs (absence-vs-deficit guard inside composer). */
+  sleepDeficitMeasurement?: {
+    available: boolean;
+    sleepTotalMinutes?: number | null;
+    sleepQuality?: 'poor' | 'fair' | 'good' | 'peak' | null;
+  };
+  /** Afternoon decision-leakage flag (drives INTRADAY_DECLINE). */
+  decisionLeakageRisk?: boolean;
+  /** Evening body-load flag (drives INTRADAY_DECLINE). */
+  bodyLoadElevated?: boolean;
+  /** Afternoon intraday HR % above resting baseline (drives INTRADAY_DECLINE). */
+  intradayHrDeviationPct?: number | null;
 }
 
 serve(async (req) => {
@@ -817,7 +852,24 @@ serve(async (req) => {
     // the personal baseline is shallow; the freed weight flows to demand so
     // the formula always sums to 1.
     let score: number;
-    if (weightingMode === 'no_wearable') {
+    let mrsV4Provenance: unknown | null = null;
+    let mrsV4Window: MrsWindow | null = null;
+    let mrsV4AwaitingSignals = false;
+
+    // MRS v4 path — fires when the caller supplied a window + sub-scores.
+    // The legacy weightingMode branches below stay for back-compat with
+    // callers that haven't migrated; they're never reached when v4 fires.
+    if (body.mrsWindow && Array.isArray(body.mrsSubScores) && body.mrsSubScores.length > 0) {
+      const v4 = composeBaselineV4(
+        body.mrsWindow,
+        body.mrsSubScores as SubScore[],
+        body.sleepDeficitMeasurement ?? { available: false },
+      );
+      score = v4.baseline;
+      mrsV4Provenance = v4.weightProvenance;
+      mrsV4Window = body.mrsWindow;
+      mrsV4AwaitingSignals = v4.awaitingSignals;
+    } else if (weightingMode === 'no_wearable') {
       // Demand-only when wearable isn't connected.
       score = Math.round(demandStateScore);
     } else if (weightingMode === 'wearable_early') {
@@ -837,6 +889,26 @@ serve(async (req) => {
 
     // Clamp score
     score = Math.max(0, Math.min(100, score));
+
+    // MRS v4 §6 flag 2 — INTRADAY_DECLINE. Evaluated only on afternoon /
+    // evening windows where a morning anchor exists. Overrides
+    // `divergenceFlag` per §6 priority order (REGULATION_RISK is owned by
+    // the Brief layer; this is the highest-priority MRS-side flag).
+    let v4DivergenceFlag: DivergenceFlag = divergenceFlag;
+    if (
+      mrsV4Window &&
+      mrsV4Window !== 'morning' &&
+      typeof body.morningBaselineScore === 'number'
+    ) {
+      const intraday = computeIntradayDecline({
+        currentWindowBaseline: score,
+        morningBaselineScore: body.morningBaselineScore,
+        decisionLeakageRisk: body.decisionLeakageRisk === true,
+        bodyLoadElevated: body.bodyLoadElevated === true,
+        intradayHrDeviationPct: body.intradayHrDeviationPct ?? null,
+      });
+      if (intraday) v4DivergenceFlag = 'INTRADAY_DECLINE';
+    }
 
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
@@ -933,7 +1005,7 @@ serve(async (req) => {
       contextStatement,
       layer3Statement,
       layersActive,
-      divergenceFlag,
+      divergenceFlag: v4DivergenceFlag,
       hrvDeviation,
       dataSources,
       // Alias for callers that prefer the explicit name; same contents.
@@ -965,6 +1037,10 @@ serve(async (req) => {
       readinessState: refined.readinessState,
       refinedContribution: refined.refinedContribution,
       mindWeights: refined.mindWeights,
+      // MRS v4 surface — null when caller did not opt into the v4 path.
+      mrsWindow: mrsV4Window,
+      weightProvenance: mrsV4Provenance,
+      mrsAwaitingSignals: mrsV4AwaitingSignals,
     };
 
     return new Response(JSON.stringify(result), {
