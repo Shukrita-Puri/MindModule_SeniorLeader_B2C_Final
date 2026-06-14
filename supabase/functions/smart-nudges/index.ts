@@ -4146,7 +4146,12 @@ serve(async (req) => {
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
         event_reference: notif.eventReference || null,
-        delivery_state: 'pending',
+        // Dry-run leak fix: stamp dry-run inserts so they remain in the
+        // audit trail but are excluded from cap counts (see
+        // COUNTABLE_DELIVERY_STATES above). Without this, every
+        // ?force_user=...&dry_run=1 probe permanently inflated the
+        // user's daily cap count.
+        delivery_state: isDryRun ? 'dry_run' : 'pending',
         payload,
       }).select('id').single();
 
