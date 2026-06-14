@@ -90,3 +90,67 @@ Deno.test("suppressed when picker already opened today", () => {
   assertEquals(d.fire, false);
   assertEquals(d.reason, "picker_already_opened");
 });
+
+Deno.test("Monday 17:00 last-day-PTO fires (regression: previously stubbed)", () => {
+  const wam = evaluateWeekAheadMode({
+    dayOfWeek: 1,
+    localHour: 17,
+    ptoTodayAllDay: true,
+    ptoTomorrowAllDay: false,
+    tomorrowIsWorkday: true,
+  });
+  const d = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: 1,
+    localHour: 17,
+    weekAheadDecision: wam,
+  });
+  assertEquals(d.fire, true);
+  assertEquals(d.reason, "last_day_pto_evening");
+});
+
+Deno.test("Tuesday 17:00 still on PTO (tomorrow=PTO) does NOT fire", () => {
+  const wam = evaluateWeekAheadMode({
+    dayOfWeek: 2,
+    localHour: 17,
+    ptoTodayAllDay: true,
+    ptoTomorrowAllDay: true,
+  });
+  const d = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: 2,
+    localHour: 17,
+    weekAheadDecision: wam,
+  });
+  assertEquals(d.fire, false);
+});
+
+Deno.test("Monday 17:00 end of 3-day long weekend fires", () => {
+  const wam = evaluateWeekAheadMode({
+    dayOfWeek: 1,
+    localHour: 17,
+    consecutiveOffDaysBefore: 3,
+    tomorrowIsWorkday: true,
+  });
+  const d = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: 1,
+    localHour: 17,
+    weekAheadDecision: wam,
+  });
+  assertEquals(d.fire, true);
+  assertEquals(d.reason, "last_day_long_weekend_evening");
+});
+
+Deno.test("Last day of public holiday block fires", () => {
+  const wam = evaluateWeekAheadMode({
+    dayOfWeek: 1,
+    localHour: 18,
+    holidayAllDayEventToday: true,
+    tomorrowIsWorkday: true,
+  });
+  const d = shouldFireWeekAheadPickerInvite({
+    dayOfWeek: 1,
+    localHour: 18,
+    weekAheadDecision: wam,
+  });
+  assertEquals(d.fire, true);
+  assertEquals(d.reason, "last_day_holiday_evening");
+});

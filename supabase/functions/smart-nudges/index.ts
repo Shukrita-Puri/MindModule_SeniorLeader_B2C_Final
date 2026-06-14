@@ -401,6 +401,20 @@ interface NudgeContext {
     // the copy can pivot from pure decompression to "decompress then sharpen".
     landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
   };
+  // §17 Week-Ahead — hydrated inputs for evaluateWeekAheadMode. Computed once
+  // in buildNudgeContext from today/tomorrow/14-day-lookback calendar data so
+  // the last_day_pto / last_day_holiday / last_day_long_weekend branches can
+  // actually fire (previously these were stubbed undefined → never triggered).
+  weekAheadInputs?: {
+    ptoTodayAllDay: boolean;
+    ptoTomorrowAllDay: boolean;
+    holidayTodayAllDay: boolean;
+    holidayTomorrowAllDay: boolean;
+    tomorrowIsWorkday: boolean;
+    consecutiveOffDaysBefore: number;
+    travelDay: boolean;
+    fullWorkingWeekend: boolean;
+  };
   // v5.3 — Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
   badgeCount?: number;
@@ -808,6 +822,21 @@ async function buildNudgeContext(
       .order('checkin_date', { ascending: true }),
   ]);
 
+  // §17 Week-Ahead lookback: pull the last 14 days of events (titles + start
+  // dates only) so we can derive consecutiveOffDaysBefore + post-PTO return-
+  // day detection without inflating the main parallel batch.
+  const lookbackStartStr = (() => {
+    const d = new Date(`${todayStr}T00:00:00`);
+    d.setDate(d.getDate() - 14);
+    return d.toISOString().split('T')[0];
+  })();
+  const { data: lookbackEventsRaw } = await supabase
+    .from('primary_calendar_events')
+    .select('title, start_time')
+    .eq('user_id', userId)
+    .gte('start_time', `${lookbackStartStr}T00:00:00`)
+    .lte('start_time', `${todayStr}T00:00:00`);
+
   // Fetch session summaries separately (depends on recentSessions)
   const sessionIds = (recentSessions || []).map(s => s.id).filter(Boolean);
   const { data: sessionSummaries } = sessionIds.length > 0
@@ -1115,6 +1144,61 @@ async function buildNudgeContext(
         // v5.3 — PTO / public-holiday "light touch": away-day or ooo today.
         ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
         landingPlusHighStakes,
+      };
+    })(),
+    weekAheadInputs: (() => {
+      const today = detectDayKindFromEvents(todayEvents);
+      const tomorrow = detectDayKindFromEvents(tomorrowEvents);
+      // Map kind → PTO vs holiday signals. The shared classifier doesn't
+      // distinguish PTO (ooo) from public holidays (away-day) precisely, but
+      // for week-ahead-mode both branches collapse to the same outcome
+      // (active=true, lookahead=7). The distinction only shapes telemetry.
+      const ptoTodayAllDay = today.kind === 'ooo';
+      const holidayTodayAllDay = today.kind === 'away-day';
+      const ptoTomorrowAllDay = tomorrow.kind === 'ooo';
+      const holidayTomorrowAllDay = tomorrow.kind === 'away-day';
+      const tomorrowDow = (dayOfWeek + 1) % 7;
+      const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
+      const tomorrowIsWorkday =
+        !ptoTomorrowAllDay && !holidayTomorrowAllDay && !tomorrowIsWeekend;
+      // Walk back from yesterday counting consecutive off-days (PTO / holiday
+      // / weekend / empty calendar). Stop at the first work-day. Bounded to
+      // 14 days so a quiet calendar can't run away.
+      const byDate = new Map<string, Array<{ title?: string | null }>>();
+      for (const e of (lookbackEventsRaw || []) as Array<{ title?: string | null; start_time: string }>) {
+        const d = (e.start_time || '').slice(0, 10);
+        if (!d) continue;
+        const arr = byDate.get(d) || [];
+        arr.push({ title: e.title });
+        byDate.set(d, arr);
+      }
+      let consecutiveOffDaysBefore = 0;
+      const cursor = new Date(`${todayStr}T00:00:00`);
+      for (let i = 0; i < 14; i++) {
+        cursor.setDate(cursor.getDate() - 1);
+        const dStr = cursor.toISOString().split('T')[0];
+        const dDow = cursor.getDay();
+        const events = byDate.get(dStr) || [];
+        const kind = detectDayKindFromEvents(events).kind;
+        const isWeekend = dDow === 0 || dDow === 6;
+        const offDay = kind === 'ooo' || kind === 'away-day' || isWeekend || events.length === 0;
+        if (offDay) consecutiveOffDaysBefore++;
+        else break;
+      }
+      const travelDay = today.kind === 'travel-day';
+      // Full working weekend: ≥3 non-noise events on a Sat/Sun. Reuse the
+      // existing nonNoiseEvents array.
+      const isTodayWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const fullWorkingWeekend = isTodayWeekend && nonNoiseEvents.length >= 3;
+      return {
+        ptoTodayAllDay,
+        ptoTomorrowAllDay,
+        holidayTodayAllDay,
+        holidayTomorrowAllDay,
+        tomorrowIsWorkday,
+        consecutiveOffDaysBefore,
+        travelDay,
+        fullWorkingWeekend,
       };
     })(),
     badgeCount: (() => {
@@ -2780,20 +2864,29 @@ async function evaluateWeekAheadPickerInvite(
     pickerOpenedToday = !!(openedRows && openedRows.length > 0);
   } catch (_) { /* silent — proxy only */ }
 
-  // Project the inputs evaluateWeekAheadMode needs from the existing context.
-  const dc = ctx.dayContext;
-  const travelDay = dc.kind === 'travel-day';
-  const ptoTodayAllDay = !!dc.ptoMode;
-  // Best-effort: smart-nudges does not have tomorrow's PTO/holiday signal
-  // hydrated, so we leave those fields undefined. The Sunday branch still
-  // fires reliably; last-day-PTO/holiday detection is opportunistic.
+  // §17 Week-Ahead — use the hydrated weekAheadInputs bag (built once in
+  // buildNudgeContext from real calendar data). Fall back to the legacy
+  // best-effort projection only if the bag is somehow missing.
+  const wai = ctx.weekAheadInputs ?? {
+    ptoTodayAllDay: !!ctx.dayContext.ptoMode,
+    ptoTomorrowAllDay: false,
+    holidayTodayAllDay: false,
+    holidayTomorrowAllDay: false,
+    tomorrowIsWorkday: ctx.dayOfWeek >= 0 && ctx.dayOfWeek <= 4,
+    consecutiveOffDaysBefore: 0,
+    travelDay: ctx.dayContext.kind === 'travel-day',
+    fullWorkingWeekend: false,
+  };
   const wam = evaluateWeekAheadMode({
     dayOfWeek: ctx.dayOfWeek,
     localHour: Math.floor(ctx.localTime),
-    travelDay,
-    ptoTodayAllDay,
-    // tomorrow IS workday for Sun-Thu in our schedule
-    tomorrowIsWorkday: ctx.dayOfWeek >= 0 && ctx.dayOfWeek <= 4,
+    travelDay: wai.travelDay,
+    fullWorkingWeekend: wai.fullWorkingWeekend,
+    ptoTodayAllDay: wai.ptoTodayAllDay,
+    ptoTomorrowAllDay: wai.ptoTomorrowAllDay,
+    holidayAllDayEventToday: wai.holidayTodayAllDay,
+    tomorrowIsWorkday: wai.tomorrowIsWorkday,
+    consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
     manualOverride: false,
   });
 
@@ -2805,6 +2898,28 @@ async function evaluateWeekAheadPickerInvite(
     pickerOpenedToday,
   });
 
+  // Structured trigger log — always emitted when WAM is active so we can
+  // verify the post-PTO / post-holiday / long-weekend branches in edge logs.
+  // Filter in supabase__edge_function_logs with `[week-ahead-trigger]`.
+  if (wam.active || wai.ptoTodayAllDay || wai.holidayTodayAllDay || wai.consecutiveOffDaysBefore >= 2) {
+    console.log(
+      `[week-ahead-trigger] user=${ctx.userId} reason=${wam.reason ?? 'inactive'} fire=${decision.fire} ` +
+      `decision_reason=${decision.reason} ` +
+      `inputs=${JSON.stringify({
+        dayOfWeek: ctx.dayOfWeek,
+        localHour: Math.floor(ctx.localTime),
+        ptoTodayAllDay: wai.ptoTodayAllDay,
+        ptoTomorrowAllDay: wai.ptoTomorrowAllDay,
+        holidayTodayAllDay: wai.holidayTodayAllDay,
+        holidayTomorrowAllDay: wai.holidayTomorrowAllDay,
+        tomorrowIsWorkday: wai.tomorrowIsWorkday,
+        consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
+        travelDay: wai.travelDay,
+        fullWorkingWeekend: wai.fullWorkingWeekend,
+      })} ` +
+      `suppressors=${JSON.stringify({ pickerOpenedToday })}`,
+    );
+  }
   log(`fire=${decision.fire}`, { reason: decision.reason, wamReason: wam.reason, wamActive: wam.active, pickerOpenedToday });
   if (!decision.fire) return null;
 
