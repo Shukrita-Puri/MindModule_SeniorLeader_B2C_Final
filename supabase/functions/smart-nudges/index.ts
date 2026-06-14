@@ -1173,6 +1173,15 @@ async function buildNudgeContext(
       const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
       const tomorrowIsWorkday =
         !ptoTomorrowAllDay && !holidayTomorrowAllDay && !tomorrowIsWeekend;
+      // §17.7 — Fail-open per-signal hydration. Each upstream source
+      // (today/tomorrow calendar, 14-day lookback) defaults to a SAFE
+      // value when missing so the evaluator can still run; we emit a
+      // structured [week-ahead-hydration] log line for every defaulted
+      // field so a week of silence is diagnosable from logs alone.
+      const defaults: string[] = [];
+      if (!Array.isArray(todayEvents) || todayEvents.length === 0) defaults.push('todayEvents=empty');
+      if (!Array.isArray(tomorrowEvents) || tomorrowEvents.length === 0) defaults.push('tomorrowEvents=empty');
+      if (!Array.isArray(lookbackEventsRaw) || lookbackEventsRaw.length === 0) defaults.push('lookbackEventsRaw=empty');
       // Walk back from yesterday counting consecutive off-days (PTO / holiday
       // / weekend / empty calendar). Stop at the first work-day. Bounded to
       // 14 days so a quiet calendar can't run away.
@@ -1202,6 +1211,12 @@ async function buildNudgeContext(
       // existing nonNoiseEvents array.
       const isTodayWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const fullWorkingWeekend = isTodayWeekend && nonNoiseEvents.length >= 3;
+      if (defaults.length > 0) {
+        console.log(
+          `[week-ahead-hydration] user=${userId} defaulted=${defaults.join(',')} ` +
+          `result=${JSON.stringify({ ptoTodayAllDay, ptoTomorrowAllDay, holidayTodayAllDay, holidayTomorrowAllDay, tomorrowIsWorkday, consecutiveOffDaysBefore, travelDay, fullWorkingWeekend })}`,
+        );
+      }
       return {
         ptoTodayAllDay,
         ptoTomorrowAllDay,
