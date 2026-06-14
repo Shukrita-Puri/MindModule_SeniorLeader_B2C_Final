@@ -401,6 +401,20 @@ interface NudgeContext {
     // the copy can pivot from pure decompression to "decompress then sharpen".
     landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
   };
+  // §17 Week-Ahead — hydrated inputs for evaluateWeekAheadMode. Computed once
+  // in buildNudgeContext from today/tomorrow/14-day-lookback calendar data so
+  // the last_day_pto / last_day_holiday / last_day_long_weekend branches can
+  // actually fire (previously these were stubbed undefined → never triggered).
+  weekAheadInputs?: {
+    ptoTodayAllDay: boolean;
+    ptoTomorrowAllDay: boolean;
+    holidayTodayAllDay: boolean;
+    holidayTomorrowAllDay: boolean;
+    tomorrowIsWorkday: boolean;
+    consecutiveOffDaysBefore: number;
+    travelDay: boolean;
+    fullWorkingWeekend: boolean;
+  };
   // v5.3 — Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
   badgeCount?: number;
