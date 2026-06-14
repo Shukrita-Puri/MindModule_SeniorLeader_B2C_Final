@@ -1,31 +1,59 @@
-# Mental Readiness Score (MRS) v3 — Consolidated Specification
+# Mental Readiness Score (MRS) v4 — Consolidated Specification
 
-Single source of truth. Supersedes MRS v2 §3 only where noted; everything else in MRS v2 is retained. MRS v3 **replaces the legacy `inner_score`** wherever surfaced — the field name `inner_score` may persist for back-compat, but its value is now the MRS v3 baseline.
+Single source of truth. Supersedes MRS v3 §3 and §7 (replaced by §3 and §8 below). Everything else in MRS v3 is retained unless explicitly marked superseded in §14. MRS v4 continues to write `readiness_score_baseline` / `readiness_score_refined` under the v3 two-state model — that model is unchanged. What changes is what feeds the baseline, how missing data is handled, and how MRS and the Brief stay coherent.
+
+> **Implementation status (this pass):** §0–§9, §11–§14 are implemented. **§10 (Brief–MRS coherence contract) is spec-only** — MRS writes the new ground-truth fields (`readiness_tier` via existing `tier_displayed`, `mrs_window`, `morning_baseline_score`, `INTRADAY_DECLINE` flag, `weight_provenance`) but the Brief's prompt-side consumption of those fields and the `recoveryNote` signature change are tracked separately and not shipped here.
 
 ---
 
-## 1. Core architecture — two-state score
+## 0. Design principle — MRS is a proactive, moment-specific signal
+
+MRS is not a daily summary and not the Brief. Its job is to answer one question, continuously, whether or not the user opens the app: "how ready is this person right now, given everything currently known about them?"
+
+### 0.1 Mental readiness, not physical readiness — why this isn't "an Oura score"
+
+The name is literal: MRS measures **Mental Readiness** — the person's current capacity for clear thinking, emotional regulation, and sound decision-making — not their physical recovery state. This distinction has to stay visible in every part of the spec, because the single biggest risk to MRS's identity is that it quietly collapses into a wearable-recovery score with a different label.
+
+A wearable's own readiness/recovery score (Oura, Whoop, Garmin, etc.) answers "is my body recovered enough to train today?" — built from sleep, HRV, RHR, and prior strain, with no awareness of what today actually demands of the person, and no input from how the person says they actually feel. MRS uses some of the same raw physiological signals, but for a different purpose and combined with different things:
+
+- The **Physiological pillar** (§3.2) is read as a proxy for nervous-system and cognitive capacity, not for athletic recovery. HRV, sleep, and RHR-trend are included because of their established links to emotional regulation and cognitive bandwidth — they answer "how much regulatory capacity does this person have available right now," not "how recovered is their body for exercise." This is why the pillar is capped at 50% rather than being the whole score: physiology is one input to mental readiness, not a synonym for it.
+- The **Demand pillar** (§3.3) has no equivalent in a wearable score at all. A wearable can't know that the person has a board call at 9am or a difficult 1:1 at 3pm. MRS exists specifically to ask "given this body state and this cognitive/emotional load, how ready is the mind for what's coming" — a question physiology alone cannot answer.
+- The **Mind Check-in dimensions** (§2) — clarity, emotion, pressure, regulation — are the most direct mental-readiness signal MRS has, and uniquely so. No wearable can capture "I feel emotionally reactive today" or "I feel mentally clear despite poor sleep." When present, these self-reported dimensions refine the score by up to ±15 (§4) precisely because lived mental state can diverge from what physiology alone would predict — and when it does, the felt state is the more trustworthy signal for mental readiness specifically.
+
+A practical test for every future change to this spec: if a change would make MRS computable from wearable data alone, with the same result regardless of today's calendar or how the person says they feel, that change is moving MRS toward a physical-readiness score and away from its name. Demand and Mind Check-in inputs are not optional enrichments on top of a "real" score — they are part of what makes this *mental* readiness rather than physical readiness.
+
+### 0.2 Proactive and moment-specific
+
+Three further properties follow from MRS's role as a continuous, proactive signal and are non-negotiable for v4:
+
+- **Proactive** — `readiness_score_baseline` is computed by the 15-minute cron regardless of app usage (retained from v3 §10). This is the protect-and-prevent layer: nudges, JIT scoring, and divergence flags must be live before the user ever looks at the app.
+- **Time-of-day and day-of-week sensitive** — the score for a given person must be capable of differing between Monday and Sunday, and between 7am and 7pm on the same day, **from day one of using the app**, without waiting for weeks of personalisation data. §3 below is built specifically to guarantee this.
+- **Never duplicates the Brief** — MRS emits a number, a tier, and a small set of structured flags. It never emits prose. The Brief consumes MRS's output as ground truth and must reconcile its own narrative with it (§10).
+
+---
+
+## 1. Core architecture — two-state score (retained from v3 §1)
 
 | State | Name | Inputs | When computed | Where shown |
 |---|---|---|---|---|
-| **State 1** | `readiness_score_baseline` | Wearable + Calendar demand + Patterns + CEO behaviour rules | Always — written by signal-assembly cron (every 15 min) and on any wearable / calendar refresh | Brief pre-population, all nudges, JIT scoring, plan generation |
-| **State 2** | `readiness_score_refined` | State 1 blended with the 4 Mind Check-in dimensions, hard-capped ±15 | Only when user submits the Mind Check-in | The number the user sees on Executive Home after check-in |
+| **State 1** | `readiness_score_baseline` | Window-aware Physiological + Demand + Pattern composite (§3) | Always — written by signal-assembly cron (every 15 min) and on any wearable / calendar refresh | Brief pre-population, all nudges, JIT scoring, plan generation |
+| **State 2** | `readiness_score_refined` | State 1 blended with the 4 Mind Check-in dimensions, hard-capped ±15 | Recomputed every cron cycle once any check-in exists for today (§2.1) | The number the user sees on Executive Home |
 
 `readiness_state ∈ {'baseline','refined'}`. Nudges always read baseline. Brief reads refined when present, else baseline.
 
 ```text
-Wearable ┐
-Calendar ┼─► State 1 (baseline 0–100) ─► always-on proactive layer
-Patterns ┘                                │
-                                          ▼
-                          + 4 Mind dims ─► State 2 (refined, baseline ± 15)
+Wearable (window-aware) ┐
+Calendar (window-aware) ┼─► State 1 (baseline 0–100) ─► always-on proactive layer
+Patterns                ┘                                │
+                                                         ▼
+                                + 4 Mind dims ─► State 2 (refined, baseline ± 15)
 ```
 
 ---
 
-## 2. The 4 Mind Check-in dimensions
+## 2. The 4 Mind Check-in dimensions (retained from v3 §2)
 
-UI is unchanged. Slider position → integer 1–5.
+UI unchanged. Slider position → integer 1–5.
 
 | Dimension | Scale (1 → 5) | Captures | Note |
 |---|---|---|---|
@@ -34,30 +62,328 @@ UI is unchanged. Slider position → integer 1–5.
 | **Pressure** | Overloaded → Spacious | Self-declared perceived demand vs capacity | **Inverted** — 5 = best |
 | **Regulation** | Reactive → In Control | Nervous-system regulation | Higher = better |
 
-Stored as nullable integers on `daily_checkins (clarity, emotion, pressure, regulation, check_in_source)`. Upsert on `(user_id, checkin_date)`; latest wins.
+Stored as nullable integers on `daily_checkins (clarity, emotion, pressure, regulation, check_in_source)`. Upsert on `(user_id, checkin_date)`.
 
-### Slider → sub-score mapping
+`sliderToScore`: `1 → 10`, `2 → 30`, `3 → 55`, `4 → 80`, `5 → 100`. `null → sub-score = baselineScore` (neutral, contributes zero).
 
-`sliderToScore`: `1 → 10`, `2 → 30`, `3 → 55`, `4 → 80`, `5 → 100`.
-Pressure uses the same numeric mapping because the inversion is already baked into the slider semantics (Overloaded=1 → 10, Spacious=5 → 100).
-`null → sub-score = baselineScore` (i.e. neutral, contributes zero).
+### 2.1 Multiple check-ins per day (NEW in v4)
+
+A user may submit the Mind Check-in more than once per day (e.g. morning / midday / evening). Each submission is keyed on `(user_id, checkin_date, time_window)` on `daily_checkins` (column already present from MRS v3 infrastructure — no schema change).
+
+The change in v4 is on the read side: every cron cycle, if a check-in row exists for today, `readiness_score_refined` is recomputed using §3's current-window baseline blended with the most recent check-in's dimensions — not just at submission time. This means:
+
+- A morning check-in refines the morning baseline.
+- As the window changes (morning → afternoon), the baseline itself moves per §3, and the same morning check-in continues to refine the new, window-appropriate baseline — until a fresher check-in is submitted.
+- A second check-in later in the day simply becomes the new "most recent" input to the same recurring blend.
+
+`daily_context_snapshot.check_in_count_today` (int) and `last_check_in_window` ('morning'|'afternoon'|'evening') track how fresh the felt-state input is and are written by the SAVE_CHECKIN handler.
 
 ---
 
-## 3. Weighting
+## 3. State 1 — window-aware baseline composition (REPLACES v3 §3.1)
 
-### 3.1 State 1 — baseline (retained from MRS v2 §3.1–3.4)
+### 3.1 Headline pillar weights (retained at the top level)
 
-Unchanged from MRS v2. Summary:
-
-| Pillar | Weight | Source |
+| Pillar | Target weight | Source |
 |---|---|---|
-| Physiological composite (HRV 50% / Sleep 35% / RHR-trend 15%) | 50% | `wearable_data` via `computePhysiologicalComposite()` |
-| Calendar demand score (0–100, from `demand-scorer`) | 30% | `calendar_events` classified |
-| Pattern signals (HRV 7-day trend + sustained_deficit + consecutive-load) | 20% | `_shared/signal-engine/pattern-engine.ts` |
+| Physiological composite (nervous-system/cognitive-capacity proxy — §0.1) | 50% | `wearable_data` |
+| Calendar demand score | 30% | `demand-scorer`, classified `calendar_events` |
+| Pattern signals | 20% | `_shared/signal-engine/pattern-engine.ts` |
 
-Cold-start adjustments retained (see §7).
+What's new in v4 is that each pillar's internal composition — and in two cases the underlying data it reads — changes by time-of-day window (Morning 05–12 / Afternoon 12–18 / Evening 18–05, user-local, retained from v3 §5.1). This reuses the derivation utilities already built for the Brief's window contexts (`morning-context.ts`, `afternoon-context.ts`, `evening-context.ts`) — MRS becomes a second, numeric-only consumer of the same underlying facts.
 
+### 3.2 Physiological pillar — internal decomposition
+
+| Sub-component | Source field | Morning weight (of 50%) | Afternoon | Evening |
+|---|---|---|---|---|
+| `hrvMorningDeviation` (today vs 30d baseline) | `hrvDeviationPct` (morning-context) | 25 pts (50%) | 15 pts (30%) | 8.75 pts (17.5%) |
+| `sleepDeviation` (last night vs 30d baseline) | `sleepQuality` / sleep-score deviation | 17.5 pts (35%) | 10.5 pts (21%) | 6.125 pts (12.25%) |
+| `rhrTrend` (3-day) | `rhrDeviationPct` | 7.5 pts (15%) | 4.5 pts (9%) | 2.625 pts (5.25%) |
+| `intradayHrDeviation` (current HR vs short RHR baseline) — NEW | `currentHrVsRestingPct` (afternoon-context) | n/a | 20 pts (40%) | n/a |
+| `eveningPhysioRead` (latest HRV/RHR + body-load) — NEW | `hrvEveningDeviationPct` + `bodyLoadElevated` (evening-context) | n/a | n/a | 32.5 pts (65%) |
+
+Notes:
+- Morning's three sub-components are the v3 §3.1 formula verbatim (HRV 50 / Sleep 35 / RHR 15, each independently nullable in v4 — see §8).
+- Afternoon carries the morning sub-components forward at a reduced combined share (60%) and adds `intradayHrDeviation` (40%) — the first genuinely intraday physiological signal, and the main fix for "the score doesn't move during the day."
+- Evening reduces the morning sub-components further (35% combined) and gives the freshest available reading — `eveningPhysioRead` — the largest single share (65%).
+- `intradayHrDeviation` and `eveningPhysioRead` should be computed from a trailing average (recommend 30–60 min) of HR, not an instantaneous reading.
+
+### 3.2a Severe sleep-deficit override
+
+A measured, severely-deficient night caps the Physiological pillar at the Mixed-tier ceiling (max 64 contribution-equivalent) for that day's computes, regardless of how strong HRV reads — because a high HRV reading on a genuinely sleep-deprived night is not a green light, and the linear composite would otherwise let HRV mask the deficit. This bites hardest in the morning window and carries through the day until the next night's sleep data supersedes it.
+
+**Trigger — measured deficit only:** the override fires only when sleep was actually measured and the measurement is in the bottom band, i.e. `sleepDeviation` is available per §8.2 AND (`sleep_total_minutes < 300` OR `sleepQuality === 'poor'`). It is a measured-low signal, never an inferred-from-absence one.
+
+**Critical guard — absence is not deficit.** If `sleepDeviation` is unavailable per §8.2 — older wearable that does not track sleep (e.g. older Apple Watch), ring/watch removed overnight, device died, sync gap — the override does not fire under any circumstances. Missing sleep data is handled solely by §8.3 redistribution (its weight flows to Demand); it must never be coerced to 0, to a low `sleepQuality`, or to any value that could satisfy the deficit trigger. "Not measured" and "measured and severely low" are distinct states, and only the latter caps the pillar. Implementations must confirm that a null/absent sleep input reaches §8.3 and cannot reach the §3.2a trigger.
+
+**Consequence for the no-sleep user:** an account whose wearable never reports sleep simply never experiences this override. Their physiological pillar is composed from HRV / RHR-trend / intraday-HR with sleep's weight redistributed (§8.3), and their score moves normally on those signals.
+
+**`weight_provenance` (§11):** when §3.2a fires, record `sleep_deficit_override: true` alongside the measured `sleep_total_minutes` / `sleepQuality` that triggered it, so a capped score is always traceable to a real reading rather than an absence.
+
+### 3.3 Demand pillar — internal decomposition
+
+| Sub-component | Source field | Morning (of 30%) | Afternoon | Evening |
+|---|---|---|---|---|
+| `todayFullDayDemand` | `today_classified_events` (whole day) | 30 pts (100%) | n/a | n/a |
+| `remainingDayDemand` — NEW | `meetingsRemaining`, `backToBackRemainingHours`, `highestRemainingStakes` (afternoon-context, "now forward") | n/a | 21 pts (70%) | n/a |
+| `realizedSoFarCost` — NEW | `meetingsCompleted`, `highestCompletedCategory` (afternoon-context) | n/a | 9 pts (30%) | n/a |
+| `todayRealizedDemand` — NEW | `todayCompletedCount`, `todayHadHighStakes`, `todayHadConflict` (evening-context) | n/a | n/a | 18 pts (60%) |
+| `tomorrowOpeningDemand` — NEW | `tomorrowMeetingCount`, `tomorrowFirstHighStakes`, `tomorrowIsHeavy` (evening-context) | n/a | n/a | 12 pts (40%) |
+
+### 3.4 Pattern pillar — internal decomposition
+
+| Sub-component | Source | Morning (of 20%) | Afternoon/Evening |
+|---|---|---|---|
+| `patternEngineComposite` | `pattern-engine.ts` (retained from v3 §3.4/§3.5, unchanged internally) | 14 pts (70%) | 20 pts (100%) |
+| `yesterdayCarryover` — NEW | `yesterdayLoadScore` / `yesterdayHadHighStakes` / `yesterdayHadConflict` (morning-context) | 6 pts (30%) | n/a (decayed) |
+
+`yesterdayCarryover` is only active during the morning window (05:00–11:59) and decays to zero — its 6pt weight folds back into `patternEngineComposite` — once the afternoon window begins.
+
+### 3.5 Worked example — fully calibrated user, afternoon window
+
+```text
+Physiological (50): hrvMorningDeviation 15 + sleepDeviation 10.5 + rhrTrend 4.5 + intradayHrDeviation 20 = 50
+Demand (30):        remainingDayDemand 21 + realizedSoFarCost 9 = 30
+Pattern (20):       patternEngineComposite 20
+
+baseline = Σ(sub_score_i × weight_i) / 100   →  0–100
+```
+
+This matches v3's 50/30/20 at the headline level — v4 changes what feeds each pillar by window, not the top-line split, when everything is available. §8 covers what happens when it isn't.
+
+---
+
+## 4. State 2 — refined contribution (retained from v3 §3.2–3.3)
+
+Unchanged. Total check-in weight in the refined blend = 30%, distributed:
+
+| Dimension | Base weight | Conditional bump |
+|---|---|---|
+| Clarity | 11% | −3% → 8% when `has_imminent_high_stakes=true` (donated to Regulation) |
+| Emotion | 9% | — |
+| Pressure | 5% | — |
+| Regulation | 5% | +3% → 8% when `has_imminent_high_stakes=true` |
+
+```text
+weightedCheckIn = Σ ( sub_score_i × weight_i ) / 0.30
+blended        = baseline × 0.70 + weightedCheckIn × 0.30
+refined        = clamp( round(blended), baseline − 15, baseline + 15 )
+contribution   = refined − baseline
+```
+
+`baseline` here is the current-window §3 baseline — see §2.1 for how this interacts with multiple check-ins.
+
+---
+
+## 5. Input signals — canonical inventory (extends v3 §4)
+
+### 5.1 Baseline inputs (State 1)
+
+- **Wearable** (`wearable_data`): `hrv_today`, `hrv_baseline_30d`, `sleep_total_minutes`, `sleep_score`, `resting_heart_rate`, `rhr_baseline_3d` (NEW — computed in code from existing rows, not stored), `rhr_trend_3d`, `hr_current` / `hr_avg_afternoon` (NEW — intraday).
+- **Calendar** (`calendar_events` classified A–H): `today_classified_events`, `today_first_high_stakes`, `back_to_back_hours`, `event_metadata`, plus window-dependent: remaining-day equivalents (afternoon), realized/tomorrow equivalents (evening).
+- **Patterns** (`pattern-engine.ts → pattern_signals jsonb`): unchanged from v3, plus `yesterday_load_score` / `yesterday_had_high_stakes` / `yesterday_had_conflict` (NEW — morning-only carryover, §3.4).
+- **CEO behaviour `fired_rules`**: unchanged from v3.
+
+### 5.2 Refinement inputs (State 2)
+
+Unchanged from v3: `daily_checkins.{clarity, emotion, pressure, regulation}`, `has_imminent_high_stakes`.
+
+---
+
+## 6. Divergence flags (extends v3 §5)
+
+Single value written to `daily_context_snapshot.supply_demand_gap_flag`. Priority order (first match wins). v4 inserts one new flag.
+
+| # | Flag | Trigger | Effect |
+|---|---|---|---|
+| 1 | `REGULATION_RISK` | `regulation_score ≤ 2` AND any cat A/B/C/D event today | Resilience pill: force min AMBER. Brief Watch For appends regulation-first suffix (A). Plan: regulation-first sequencing. |
+| 2 | `INTRADAY_DECLINE` — NEW | Current-window baseline ≤ `morning_baseline_score − 10` AND at least one of (`decisionLeakageRisk`, `bodyLoadElevated`, `intradayHrDeviation ≥ 15`) | Nudges: elevated priority for a regulation practice. Brief: must acknowledge the shift (deferred to §10 implementation). |
+| 3 | `SUPPLY_DEMAND_GAP` | (`calendar_demand ≥ 65` AND `phys_composite ≤ 50`) OR (`pressure_score ≤ 2` combined with calendar high OR physio low) | Highest brief-lead priority among the remaining flags. Cognitive pill caps at AMBER if composed GREEN. Brief body gains suffix (C). |
+| 4 | `EMOTION_RESIDUE` | `emotion_score ≤ 2` and not already flagged above | Resilience pill: strong-RED contribution. Brief Watch For suffix (B). `decisionLeakageGuard` fires more readily. |
+| 5 | `RECOVERY_UNDERWAY` | `phys_composite ≥ 55` AND `hrv_recovering` AND `demand ≥ 60` | Brief framing: recovery in progress under load. |
+| 6 | `LIGHT_DAY_STRONG_STATE` | `phys_composite ≥ 65` AND `demand ≤ 35` | Brief: deploy on highest-leverage work. |
+| 7 | `ALIGNED` | All four dims ≥ 3 AND `|phys − demand| ≤ 25` | Brief: aligned-state framing. |
+| — | `MASKED_HIGH` | Legacy — read-only back-compat. Never written by v4. | — |
+
+`INTRADAY_DECLINE` is the concrete realisation of the "protect and prevent" mandate from §0: it is the flag that says "something changed today that this morning's read didn't anticipate, and it's worth surfacing now, proactively, before the user asks."
+
+---
+
+## 7. Score tiers (retained from v3 §6, unchanged)
+
+| Score | Tier | Label | Pill colour family |
+|---|---|---|---|
+| 80–100 | Peak | Peak Readiness | Green |
+| 65–79 | Strong | Strong Readiness | Green-amber |
+| 50–64 | Mixed | Mixed Readiness | Amber |
+| 35–49 | Compromised | Compromised Readiness | Amber-red |
+| 0–34 | Depleted | Depleted | Red |
+
+Tier mapping applies to both baseline and refined. Tier label updates if the refined score crosses a boundary. Brief copy phrasing is gated on tier, never on raw score.
+
+---
+
+## 8. Cold-start & missing data (REPLACES v3 §7 entirely)
+
+### 8.1 The principle: weight follows data availability, per sub-component, every cycle
+
+v3's cold-start model classified the whole account into stages (`<7 days`, `7–13 days`, `≥14 days`) and redistributed whole pillars. This produced the flat-50 failure mode: when several pillars independently fell back to a neutral midpoint, their weighted average was that same midpoint — constant across every day and every hour, defeating §0's core requirement.
+
+v4 instead evaluates **each sub-component from §3.2–3.4 independently, every cron cycle**, against a simple data-availability test (§8.2). Every sub-component either contributes its target weight (data available) or its weight is reassigned (data unavailable). **There are no neutral-50 substitutions anywhere in this pipeline.**
+
+### 8.2 Data-availability requirements per sub-component
+
+| Sub-component | Pillar | Requirement |
+|---|---|---|
+| `todayFullDayDemand` / `remainingDayDemand` / `realizedSoFarCost` / `todayRealizedDemand` / `tomorrowOpeningDemand` | Demand | Calendar connected (any amount of history) |
+| `hrvMorningDeviation` | Physiological | ≥14 days HRV history (usable from 14d, refines toward 30d) |
+| `sleepDeviation` | Physiological | ≥14 days sleep-score history |
+| `rhrTrend` | Physiological | ≥3 days RHR history |
+| `intradayHrDeviation` | Physiological (PM) | Continuous HR stream today + `rhr_baseline_3d` (≥3 days RHR) |
+| `eveningPhysioRead` | Physiological (Eve) | Latest HRV/RHR reading today + same baseline reqs as `intradayHrDeviation` |
+| `patternEngineComposite` | Pattern | Per pattern-engine's own internal requirements (≥7d HRV for most signals, longer for `dow_historical_pattern`) — retained from v3 §3.4/§7.3 |
+| `yesterdayCarryover` | Pattern (AM) | Yesterday's calendar data (available from day 2 of calendar connection) |
+
+### 8.3 Redistribution rule
+
+1. Sum the target weight (out of 100) of every sub-component in the current window's formula whose requirement (§8.2) is currently met → `earnedWeight`.
+2. `unearnedWeight = 100 − earnedWeight`.
+3. Reassign `unearnedWeight` to the **Demand pillar's sub-components** for the current window, distributed proportionally to their own target shares (§3.3). Demand's sub-components have no data requirements beyond "calendar connected" and are therefore the always-available reservoir.
+4. If Demand itself has zero available sub-components (no calendar connected at all), `unearnedWeight` redistributes pro-rata to whichever other sub-components ARE available.
+5. If nothing is available anywhere (no wearable, no calendar, no check-in today) → `awaitingSignals = true`, v3 §8.3 row 1 applies verbatim (`-- NOT YET ASSESSED`).
+6. Compute `baseline = Σ(sub_score_i × final_weight_i) / 100`.
+
+This rule is re-evaluated from scratch every cron cycle — it is not a one-time account-age classification.
+
+### 8.4 Worked examples
+
+**Day 1, new account.** Calendar connected, wearable connected but zero history. Morning window. Available: `todayFullDayDemand` (30). Everything else unavailable. `earnedWeight = 30`, `unearnedWeight = 70` flows entirely to `todayFullDayDemand` → final weight 100. **Day-1 score is 100% driven by today's calendar load — which varies by day of week and time of day from the very first day.** Directly satisfies §0.2.
+
+**Day 4.** `rhrTrend` now available (≥3d RHR), `yesterdayCarryover` now available. `hrvMorningDeviation`, `sleepDeviation`, `patternEngineComposite` still unavailable. `earnedWeight = 30 + 7.5 + 6 = 43.5`. `unearnedWeight = 56.5` flows to `todayFullDayDemand` → final weight 86.5.
+
+**Day 30, afternoon, fully calibrated.** All sub-components available — no redistribution, matches §3.5 exactly (50/30/20).
+
+**Wearable dies at 2pm.** Morning sub-components (computed this morning from last night's data) remain valid → available. `intradayHrDeviation` unavailable → its 20pts flow to Demand's `remainingDayDemand` / `realizedSoFarCost` pro-rata (70:30) → +14 and +6. Score keeps moving, leans more on calendar — does not freeze, does not drop to neutral.
+
+**Wearable never reports sleep.** `sleepDeviation` permanently unavailable. Each cycle its target weight flows to Demand. Steady, predictable redistribution — not a one-time classification.
+
+---
+
+## 9. Signal Pills v4 (extends v3 §8)
+
+The pill inputs and thresholds in v3 §8 are retained. v4 adds:
+
+- **Physical Reserves (Physiology) pill** may additionally reflect `intradayHrDeviation` (afternoon) or `eveningPhysioRead` (evening) when those sub-components are available (§8.2) — giving the pill the same "fresher read as the day goes on" property as the score itself.
+- **Resilience Capacity pill**: `INTRADAY_DECLINE` (§6) forces minimum AMBER, in addition to the existing `REGULATION_RISK` rule.
+
+§8.2 (coherence guard) and §8.3 (awaiting-signal copy matrix) are retained from v3 unchanged.
+
+---
+
+## 10. Brief–MRS coherence contract — SPEC-ONLY (deferred)
+
+> **Status:** documented as the target end-state for the Brief layer. **Not implemented in this MRS v4 pass.** MRS writes all the ground-truth fields below (§11), but the Brief's prompt-side reading of them, the `recoveryNote` signature change, and the `prompt_version` bump are tracked as a separate follow-up plan so this pass stays scoped to the MRS pipeline.
+
+### 10.1 The boundary
+
+MRS and the Brief read overlapping raw facts (the window-context builders) but produce different things: MRS produces a number, a tier, and structured flags; the Brief produces prose. Neither should re-derive the other's output from scratch.
+
+### 10.2 What MRS writes for the Brief to read
+
+At the end of each cron cycle, `daily_context_snapshot` carries (extending v3 §9):
+
+- `readiness_score_baseline`, `readiness_score_refined`, `readiness_state` (retained from v3)
+- `tier_displayed` (serves as `readiness_tier` per §7 — already present from v3, reused)
+- `mrs_window` ('morning'|'afternoon'|'evening') — which formula produced this score
+- `morning_baseline_score` (written once per day at the first morning compute) — reference for `INTRADAY_DECLINE`
+- `supply_demand_gap_flag` (extended per §6, including `INTRADAY_DECLINE`)
+- `check_in_count_today`, `last_check_in_window` (§2.1)
+- `weight_provenance` jsonb — per-cycle audit of which sub-components were earned vs redistributed
+
+### 10.3 What the Brief must do with it (deferred)
+
+The Brief's prompt-assembly step should read the above before generating prose. The prompt should include an explicit "treat as ground truth; if facts suggest a different overall feel than the tier or active flags indicate, acknowledge that divergence directly in one sentence rather than presenting two inconsistent pictures; never restate the score" instruction. Prompt bump → `v6.4-mrs-v4-coherence` invalidates cached briefs. **Not shipped in this pass.**
+
+### 10.4 Concrete fix: `recoveryNote` (deferred)
+
+`evening-context.ts` `deriveRecoveryNote` should change from `(todayLevel, tomorrowPressureHeavy)` to `(readinessTier, tomorrowIsHeavy)`. **Not shipped in this pass.**
+
+### 10.5 INTRADAY_DECLINE specifically (deferred)
+
+When active, the Brief must acknowledge the shift. **Not shipped in this pass** — but the flag itself is emitted by MRS and persisted.
+
+---
+
+## 11. Persistence schema (extends v3 §9)
+
+| Column | Type | Purpose |
+|---|---|---|
+| `readiness_score_baseline` | int | State 1, always written (retained) |
+| `readiness_score_refined` | int null | State 2, recomputed every cycle once any check-in exists today (§2.1) |
+| `readiness_state` | text default 'baseline' | retained |
+| `refined_contribution` | int null | retained |
+| `tier_displayed` | text | retained — serves as `readiness_tier` per §10.2 |
+| `supply_demand_gap_flag` | text null | extended per §6 |
+| `mrs_window` | text (morning\|afternoon\|evening) | NEW — which §3 formula produced this score |
+| `morning_baseline_score` | int null | NEW — written once per day, reference for `INTRADAY_DECLINE` |
+| `check_in_count_today` | int default 0 | NEW (§2.1) |
+| `last_check_in_window` | text null | NEW (§2.1) |
+| `weight_provenance` | jsonb null | NEW — per-cycle record of which §8 sub-components were earned vs redistributed, for debugging/audit (not surfaced to users) |
+
+`rhr_baseline_3d`: NOT a stored column — computed on the fly in `build-daily-context.ts` from the trailing 3 days of `wearable_data.resting_heart_rate`. Avoids schema churn and backfill.
+
+`weight_provenance` is the direct mitigation for the "audit why the score is flat" problem encountered with v3 — every cycle records which sub-components contributed their target weight vs. which were redistributed, making the flat-50 failure mode trivially diagnosable if it ever recurs. When §3.2a fires, it also records `sleep_deficit_override: true` plus the triggering measurements.
+
+---
+
+## 12. Compute lifecycle (extends v3 §10)
+
+```text
+cron 15-min ─► compute-inner-readiness (v4 path when mrsWindow supplied)
+                ├─ resolve current window from user-local time
+                ├─ build window-context inputs (reuse morning/afternoon/evening-context.ts)
+                ├─ for each §3 sub-component: evaluate §8.2 availability
+                ├─ apply §8.3 redistribution → final weights
+                ├─ apply §3.2a sleep-deficit cap (guarded by available=true)
+                ├─ compute readiness_score_baseline (§3) + tier (§7, written as tier_displayed)
+                ├─ evaluate §6 divergence flags (incl. INTRADAY_DECLINE vs morning_baseline_score)
+                ├─ if morning window and morning_baseline_score not yet set today: set it
+                ├─ if any daily_checkins row exists for today:
+                │     recompute readiness_score_refined (§4) against current baseline
+                │     update readiness_state='refined', refined_contribution
+                ├─ write weight_provenance
+                └─ upsert daily_context_snapshot with all §11 columns
+
+mind check-in submit ─► daily-checkins/SAVE_CHECKIN
+                ├─ insert daily_checkins row keyed on (user_id, date, time_window)
+                ├─ update daily_context_snapshot: check_in_count_today++, last_check_in_window=window
+                └─ subsequent cron cycle picks up the refinement automatically
+```
+
+---
+
+## 13. What is retained verbatim from v3
+
+- §1 two-state architecture (baseline/refined), the formula in §4 of this doc.
+- §2 the 4 Mind Check-in dimensions, slider mapping, storage.
+- §3.1/§3.2 demand-scorer 0–100 banding and A–H classifier (now also read window-appropriately per §3.3, but the classifier itself is unchanged).
+- §3.4/§3.5 pattern-engine internals as `patternEngineComposite` — pattern-engine's own cold-start rules now determine that sub-component's §8.2 availability, rather than separately redistributing a whole pillar.
+- §5 divergence flags 1, 3–7 and `MASKED_HIGH` (read-only).
+- §6 score tiers.
+- §8 Signal Pills v3 base inputs/thresholds, coherence guard, awaiting-signal copy matrix.
+- §9 persistence columns not listed as new in §11 above.
+- §11 CEO behaviour rules (SignalMatrix extension).
+- §5.1 day-kind detector, time windows, `isAppleSleepSource` correction.
+
+---
+
+## 14. What is superseded by v4
+
+- v3 §3.1's single fixed Physiological/Demand/Pattern composition → replaced by §3's window-dependent decomposition (same headline 50/30/20, different internals by window).
+- v3 §7 (whole-account, whole-pillar cold-start stages) → replaced entirely by §8's per-sub-component, per-cycle availability and redistribution model. No neutral-50 substitution remains anywhere in State 1.
+- v3 §7.2 check-in cold start → superseded by §2.1's continuous-recompute model.
+- (Deferred) `evening-context.ts` `deriveRecoveryNote` signature change per §10.4.
+- (Deferred) `prompt_version` → v6.4 per §10.3.
 ### 3.2 State 2 — refined contribution (NEW in v3)
 
 Total check-in weight in the refined blend = **30%**. Distribution:
