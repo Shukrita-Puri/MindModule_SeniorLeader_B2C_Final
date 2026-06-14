@@ -24,14 +24,29 @@
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
+import {
+  LONG_HAUL_MIN_HOURS,
+  LANDING_WINDOW_LONG_MIN,
+  LANDING_WINDOW_SHORT_MIN,
+} from "./travel.ts";
+
+/** Single source of truth for "today is a back-to-back day" (≥4h). Exposed
+ *  so the same-day round-trip arc can reuse this without duplicating the
+ *  local/aggregated max check. */
+export function isDayBackToBack(ctx: RuleContext): boolean {
+  const local = ctx.backToBackHoursToday ?? 0;
+  const agg = ctx.signals.backToBackHoursAggregated ?? 0;
+  return Math.max(local, agg) >= 4;
+}
 
 function travelLandingProtected(ctx: RuleContext): boolean {
   if (!ctx.signals.travelLandingDetected) return false;
   const since = ctx.lastTravelEventEndedMinutesAgo ?? 0;
   const window =
-    ctx.signals.longHaulFlight && ctx.signals.longHaulFlight.durationHours >= 3
-      ? 90
-      : 60;
+    ctx.signals.longHaulFlight &&
+    ctx.signals.longHaulFlight.durationHours >= LONG_HAUL_MIN_HOURS
+      ? LANDING_WINDOW_LONG_MIN
+      : LANDING_WINDOW_SHORT_MIN;
   return since <= window;
 }
 
