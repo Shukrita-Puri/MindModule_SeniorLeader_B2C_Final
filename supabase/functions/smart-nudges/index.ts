@@ -174,6 +174,18 @@ const DAILY_NOTIFICATION_CAP = 3;
 const LOW_TIERS = ['depleted', 'managing'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// §17.7 — Week-Ahead Picker Invite is treated as a weekly digest, NOT a
+// behavioural nudge. It has its own cap bucket (max one per ISO week per
+// user) and is exempt from:
+//   - DAILY_NOTIFICATION_CAP
+//   - 2-hour intra-tick suppression
+//   - APP_OPEN_COOLDOWN_MS
+//   - per-window slot cap
+// Kill-switch: set WEEK_AHEAD_PICKER_ENABLED='false' to disable without a
+// deploy. Any other value (or missing) → enabled.
+const WEEK_AHEAD_PICKER_ENABLED =
+  (Deno.env.get('WEEK_AHEAD_PICKER_ENABLED') ?? 'true').toLowerCase() !== 'false';
+
 // MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
