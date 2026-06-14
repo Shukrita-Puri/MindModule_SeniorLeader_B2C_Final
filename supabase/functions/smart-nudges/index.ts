@@ -822,6 +822,21 @@ async function buildNudgeContext(
       .order('checkin_date', { ascending: true }),
   ]);
 
+  // §17 Week-Ahead lookback: pull the last 14 days of events (titles + start
+  // dates only) so we can derive consecutiveOffDaysBefore + post-PTO return-
+  // day detection without inflating the main parallel batch.
+  const lookbackStartStr = (() => {
+    const d = new Date(`${todayStr}T00:00:00`);
+    d.setDate(d.getDate() - 14);
+    return d.toISOString().split('T')[0];
+  })();
+  const { data: lookbackEventsRaw } = await supabase
+    .from('primary_calendar_events')
+    .select('title, start_time')
+    .eq('user_id', userId)
+    .gte('start_time', `${lookbackStartStr}T00:00:00`)
+    .lte('start_time', `${todayStr}T00:00:00`);
+
   // Fetch session summaries separately (depends on recentSessions)
   const sessionIds = (recentSessions || []).map(s => s.id).filter(Boolean);
   const { data: sessionSummaries } = sessionIds.length > 0
