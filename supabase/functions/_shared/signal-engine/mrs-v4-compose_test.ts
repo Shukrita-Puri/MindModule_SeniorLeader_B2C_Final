@@ -118,10 +118,12 @@ Deno.test('§3.2a: measured low triggers (minutes<300 OR quality=poor)', () => {
 
 // §3.2a end-to-end: high-HRV + measured low sleep ⇒ pillar contribution capped.
 Deno.test('§3.2a end-to-end: HRV cannot mask measured severe sleep deficit', () => {
+  // All phys sub-components reading as high as possible — the worst-case
+  // "HRV looks great after a wrecked night" scenario the cap exists to catch.
   const high = allMorningSubs({
     hrvMorningDeviation: { id: 'hrvMorningDeviation', score: 100, available: true },
-    sleepDeviation:      { id: 'sleepDeviation',      score: 10,  available: true },
-    rhrTrend:            { id: 'rhrTrend',            score: 80,  available: true },
+    sleepDeviation:      { id: 'sleepDeviation',      score: 100, available: true },
+    rhrTrend:            { id: 'rhrTrend',            score: 100, available: true },
   });
   const withCap = composeBaselineV4('morning', high, {
     available: true, sleepTotalMinutes: 240, sleepQuality: 'poor',
@@ -130,4 +132,6 @@ Deno.test('§3.2a end-to-end: HRV cannot mask measured severe sleep deficit', ()
   assert(withCap.baseline < withoutCap.baseline,
     `expected cap to lower baseline; got ${withCap.baseline} vs ${withoutCap.baseline}`);
   assertEquals(withCap.weightProvenance.sleep_deficit_override, true);
+  // Without measurement, the override must NOT be recorded.
+  assertEquals((withoutCap.weightProvenance as any).sleep_deficit_override, undefined);
 });
