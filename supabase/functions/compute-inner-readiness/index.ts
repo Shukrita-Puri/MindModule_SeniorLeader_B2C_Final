@@ -1005,7 +1005,7 @@ serve(async (req) => {
       contextStatement,
       layer3Statement,
       layersActive,
-      divergenceFlag,
+      divergenceFlag: v4DivergenceFlag,
       hrvDeviation,
       dataSources,
       // Alias for callers that prefer the explicit name; same contents.
@@ -1037,6 +1037,10 @@ serve(async (req) => {
       readinessState: refined.readinessState,
       refinedContribution: refined.refinedContribution,
       mindWeights: refined.mindWeights,
+      // MRS v4 surface — null when caller did not opt into the v4 path.
+      mrsWindow: mrsV4Window,
+      weightProvenance: mrsV4Provenance,
+      mrsAwaitingSignals: mrsV4AwaitingSignals,
     };
 
     return new Response(JSON.stringify(result), {
