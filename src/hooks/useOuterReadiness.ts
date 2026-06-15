@@ -311,6 +311,7 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
       innerReadinessScoreRefined: energyState.scoreRefined ?? null,
       innerReadinessState: energyState.readinessState ?? 'baseline',
       innerReadinessRefinedContribution: energyState.refinedContribution ?? 0,
+      weightProvenance: energyState.weightProvenance ?? null,
       // IANA timezone strings let the edge function format event times via Intl
       // in the user's CURRENT clock (correct for travelers) while keeping their
       // home zone available for circadian/jetlag commentary.

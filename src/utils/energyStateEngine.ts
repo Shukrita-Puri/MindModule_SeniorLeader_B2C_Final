@@ -132,7 +132,7 @@ export interface CurrentEnergyState {
   emotionLevel?: number | null;
   pressureLevel?: number | null;
   regulationLevel?: number | null;
-  divergenceFlag?: 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY';
+  divergenceFlag?: 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY' | 'SUPPLY_DEMAND_GAP' | 'LIGHT_DAY_STRONG_STATE' | 'INTRADAY_DECLINE';
   hrvDeviation?: number | null;
   tierLabel?: string;
   layersActive?: string[];
@@ -158,6 +158,8 @@ export interface CurrentEnergyState {
   // Tri-state wearable status: 'fresh' (used by score), 'stale' (had a row
   // but >48h old — excluded from score), 'missing' (never connected / no rows).
   wearableStatus?: 'fresh' | 'stale' | 'missing';
+  // MRS v4 audit payload persisted by compute-outer-readiness.
+  weightProvenance?: unknown | null;
 }
 
 const ENERGY_STATE_CACHE_MS = 30_000;
@@ -175,6 +177,136 @@ export function clearEnergyStateCache(): void {
   energyStateCacheVersion++;
   energyStateCache.clear();
   energyStateInFlight.clear();
+}
+
+type MrsV4Window = 'morning' | 'afternoon' | 'evening';
+type MrsV4SubComponentId =
+  | 'hrvMorningDeviation'
+  | 'sleepDeviation'
+  | 'rhrTrend'
+  | 'intradayHrDeviation'
+  | 'eveningPhysioRead'
+  | 'todayFullDayDemand'
+  | 'remainingDayDemand'
+  | 'realizedSoFarCost'
+  | 'todayRealizedDemand'
+  | 'tomorrowOpeningDemand'
+  | 'patternEngineComposite'
+  | 'yesterdayCarryover';
+
+interface MrsV4SubScore {
+  id: MrsV4SubComponentId;
+  score: number;
+  available: boolean;
+}
+
+interface ClientPatternSignalsLite {
+  hrv_3day_trend?: 'improving' | 'stable' | 'declining' | 'unknown' | null;
+  consecutive_high_load_days?: number | null;
+}
+
+function clampScore(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function scoreFromDeviation(deviationPct: number | null, inverse = false): number | null {
+  if (typeof deviationPct !== 'number' || !Number.isFinite(deviationPct)) return null;
+  return clampScore((inverse ? 55 - deviationPct * 2 : 55 + deviationPct * 2));
+}
+
+function scoreFromDemand(demandScore: number | null): number | null {
+  if (typeof demandScore !== 'number' || !Number.isFinite(demandScore)) return null;
+  return clampScore(100 - demandScore);
+}
+
+function scoreFromPattern(patternSignals: ClientPatternSignalsLite | null): number | null {
+  if (!patternSignals) return null;
+  if ((patternSignals.consecutive_high_load_days ?? 0) >= 3) return 20;
+  if ((patternSignals.consecutive_high_load_days ?? 0) === 0 && patternSignals.hrv_3day_trend === 'improving') return 80;
+  switch (patternSignals.hrv_3day_trend) {
+    case 'declining': return 30;
+    case 'improving': return 70;
+    case 'stable': return 50;
+    default: return 50;
+  }
+}
+
+function scoreFromRhrTrend(trend: 'falling' | 'stable' | 'rising' | null): number | null {
+  if (trend === 'falling') return 80;
+  if (trend === 'stable') return 55;
+  if (trend === 'rising') return 30;
+  return null;
+}
+
+function sleepQualityFromInputs(score: number | null, hours: number | null): 'poor' | 'fair' | 'good' | 'peak' | null {
+  if (typeof score === 'number' && Number.isFinite(score)) {
+    if (score < 50) return 'poor';
+    if (score < 70) return 'fair';
+    if (score < 85) return 'good';
+    return 'peak';
+  }
+  if (typeof hours === 'number' && Number.isFinite(hours)) {
+    if (hours < 5) return 'poor';
+    if (hours < 6.5) return 'fair';
+    if (hours < 8) return 'good';
+    return 'peak';
+  }
+  return null;
+}
+
+function sub(id: MrsV4SubComponentId, score: number | null): MrsV4SubScore {
+  return { id, score: score == null ? 0 : clampScore(score), available: score != null };
+}
+
+function buildClientMrsV4SubScores(args: {
+  window: MrsV4Window;
+  hrvDeviationPct: number | null;
+  sleepScore: number | null;
+  sleepHours: number | null;
+  rhrTrend: 'falling' | 'stable' | 'rising' | null;
+  demandScore: number | null;
+  patternSignals: ClientPatternSignalsLite | null;
+}): MrsV4SubScore[] {
+  const hrv = sub('hrvMorningDeviation', scoreFromDeviation(args.hrvDeviationPct));
+  const sleepScore =
+    args.sleepScore != null ? clampScore(args.sleepScore)
+    : args.sleepHours != null ? clampScore((args.sleepHours / 8) * 100)
+    : null;
+  const sleep = sub('sleepDeviation', sleepScore);
+  const rhr = sub('rhrTrend', scoreFromRhrTrend(args.rhrTrend));
+  const pattern = sub('patternEngineComposite', scoreFromPattern(args.patternSignals));
+
+  if (args.window === 'morning') {
+    return [
+      hrv,
+      sleep,
+      rhr,
+      sub('todayFullDayDemand', scoreFromDemand(args.demandScore)),
+      pattern,
+      sub('yesterdayCarryover', null),
+    ];
+  }
+  if (args.window === 'afternoon') {
+    return [
+      hrv,
+      sleep,
+      rhr,
+      sub('intradayHrDeviation', null),
+      sub('remainingDayDemand', scoreFromDemand(args.demandScore)),
+      sub('realizedSoFarCost', scoreFromDemand(args.demandScore)),
+      pattern,
+    ];
+  }
+  return [
+    hrv,
+    sleep,
+    rhr,
+    sub('eveningPhysioRead', scoreFromDeviation(args.hrvDeviationPct)),
+    sub('todayRealizedDemand', scoreFromDemand(args.demandScore)),
+    sub('tomorrowOpeningDemand', scoreFromDemand(args.demandScore)),
+    pattern,
+  ];
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
@@ -344,6 +476,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
   // Fetch calendar events from DB only if connection is active
   let calendarData: any[] = [];
+  let calendarConnected = false;
   if (effectiveUserId) {
     try {
       // Gate on active connection – stale events must not power active behavior
@@ -356,6 +489,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         .maybeSingle();
 
       if (conn) {
+        calendarConnected = true;
         const now = new Date();
         const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
         const { data: events } = await supabase
@@ -379,19 +513,26 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   // the new calendar/wearable logic end-to-end. Missing row → backend falls
   // back to neutral defaults; no client-side scoring.
   let snapshotDemandScore: number | null = null;
-  let snapshotPatternSignals: any = null;
+  let snapshotPatternSignals: ClientPatternSignalsLite | null = null;
+  let snapshotMorningBaselineScore: number | null = null;
   if (effectiveUserId) {
     try {
       const todayLocal = localISODate();
       const { data: snap } = await supabase
         .from('daily_context_snapshot')
-        .select('calendar_demand_score, pattern_signals')
+        .select('calendar_demand_score, pattern_signals, morning_baseline_score')
         .eq('user_id', effectiveUserId)
         .eq('local_date', todayLocal)
         .maybeSingle();
       if (snap) {
-        snapshotDemandScore = (snap as any).calendar_demand_score ?? null;
-        snapshotPatternSignals = (snap as any).pattern_signals ?? null;
+        const snapRow = snap as {
+          calendar_demand_score?: number | null;
+          pattern_signals?: ClientPatternSignalsLite | null;
+          morning_baseline_score?: number | null;
+        };
+        snapshotDemandScore = snapRow.calendar_demand_score ?? null;
+        snapshotPatternSignals = snapRow.pattern_signals ?? null;
+        snapshotMorningBaselineScore = snapRow.morning_baseline_score ?? null;
       }
     } catch (err) {
       console.warn('[energyStateEngine] daily_context_snapshot fetch failed:', err);
@@ -443,6 +584,14 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // Derive baseline confidence from pattern context
     const baselineConfidence = hrvPatternContext?.baselineConfidence ?? 'low';
     const sampleDays = hrvPatternContext?.sampleDays ?? 0;
+    const mrsWindow = getCurrentTimeWindow();
+    const hrvDeviationPct =
+      hasWearable &&
+      typeof wearableHRV === 'number' &&
+      typeof wearableBaseline === 'number' &&
+      wearableBaseline > 0
+        ? Math.round(((wearableHRV - wearableBaseline) / wearableBaseline) * 100)
+        : null;
 
     // MRS v3 §3.2 — imminent high-stakes hint. Proper derivation lives in
     // JIT context (cat A/B in next 6h); as a client-side proxy we treat
@@ -451,6 +600,28 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // when no check-in exists.
     const imminentMetricsHint = hasCalendar ? getCalendarMetrics(calendarData) : null;
     const hasImminentHighStakes = imminentMetricsHint?.pressure === 'high';
+    const demandScoreForV4 =
+      snapshotDemandScore ??
+      (calendarConnected
+        ? (() => {
+            const loadComponent = imminentMetricsHint?.load === 'high' ? 70 : imminentMetricsHint?.load === 'medium' ? 40 : 0;
+            const pressureComponent = imminentMetricsHint?.pressure === 'high' ? 25 : imminentMetricsHint?.pressure === 'medium' ? 15 : 0;
+            return clampScore(loadComponent + pressureComponent);
+          })()
+        : null);
+    const mrsSubScores = buildClientMrsV4SubScores({
+      window: mrsWindow,
+      hrvDeviationPct,
+      sleepScore: hasWearable ? wearableSleepScore : null,
+      sleepHours: hasWearable ? wearableSleepHours : null,
+      rhrTrend: hasWearable ? wearableRhrTrend : null,
+      demandScore: demandScoreForV4,
+      patternSignals: snapshotPatternSignals,
+    });
+    const sleepQuality = sleepQualityFromInputs(
+      hasWearable ? wearableSleepScore : null,
+      hasWearable ? wearableSleepHours : null,
+    );
 
     const response = await supabase.functions.invoke('compute-inner-readiness', {
       headers: authHeaders,
@@ -486,6 +657,16 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         // populated yet today; the backend handles defaults.
         demandScore: snapshotDemandScore,
         patternSignals: snapshotPatternSignals,
+        // MRS v4 — required baseline inputs. `weightingMode` is now label-only;
+        // all score math flows through these sub-components and redistribution.
+        mrsWindow,
+        mrsSubScores,
+        morningBaselineScore: snapshotMorningBaselineScore,
+        sleepDeficitMeasurement: {
+          available: hasWearable && (wearableSleepScore != null || wearableSleepHours != null),
+          sleepTotalMinutes: wearableSleepHours != null ? Math.round(wearableSleepHours * 60) : null,
+          sleepQuality,
+        },
       },
     });
 
@@ -570,6 +751,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       bandLabel: result.bandLabel,
       bandValence: result.bandValence,
       wearableStatus: result.wearableStatus ?? wearableFreshness,
+      weightProvenance: result.weightProvenance ?? null,
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);

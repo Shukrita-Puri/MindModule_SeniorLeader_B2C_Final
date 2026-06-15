@@ -6,10 +6,33 @@
 import { assertEquals, assert } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
 import { composeBaselineV4, redistribute, isSevereSleepDeficit, type SubScore } from './mrs-v4-compose.ts';
 import { MRS_V4_WEIGHTS, assertWeightSumInvariant, type SubComponentId } from './mrs-v4-weights.ts';
+import { buildMrsV4SubScores } from './mrs-v4-subscores.ts';
 
 // All windows' weights must sum to 100.
 Deno.test('mrs-v4-weights: every window sums to 100', () => {
   assertWeightSumInvariant();
+});
+
+Deno.test('mrs-v4-subscores: demand cells are readiness-oriented', () => {
+  const subs = buildMrsV4SubScores('afternoon', {
+    remainingDayDemand: 80,
+    realizedSoFarCost: 20,
+  });
+  const remaining = subs.find((s) => s.id === 'remainingDayDemand');
+  const realized = subs.find((s) => s.id === 'realizedSoFarCost');
+  assertEquals(remaining, { id: 'remainingDayDemand', score: 20, available: true });
+  assertEquals(realized, { id: 'realizedSoFarCost', score: 80, available: true });
+});
+
+Deno.test('mrs-v4-subscores: missing components stay unavailable for redistribution audit', () => {
+  const subs = buildMrsV4SubScores('evening', {
+    todayRealizedDemand: 60,
+    patternScore: 50,
+  });
+  const sleep = subs.find((s) => s.id === 'sleepDeviation');
+  const eveningPhysio = subs.find((s) => s.id === 'eveningPhysioRead');
+  assertEquals(sleep, { id: 'sleepDeviation', score: 0, available: false });
+  assertEquals(eveningPhysio, { id: 'eveningPhysioRead', score: 0, available: false });
 });
 
 function allMorningSubs(opts: Partial<Record<SubComponentId, SubScore>> = {}): SubScore[] {

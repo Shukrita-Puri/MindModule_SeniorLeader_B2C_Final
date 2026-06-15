@@ -9,7 +9,7 @@ import {
   composeBaselineV4,
   type SubScore,
 } from "../_shared/signal-engine/mrs-v4-compose.ts";
-import { MRS_V4_WEIGHTS, type SubComponentId, type Window as MrsWindow } from "../_shared/signal-engine/mrs-v4-weights.ts";
+import type { SubComponentId, Window as MrsWindow } from "../_shared/signal-engine/mrs-v4-weights.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -719,12 +719,10 @@ interface ComputeRequest {
    */
   wearableStatus?: 'fresh' | 'stale' | 'missing';
 
-  // ─── MRS v4 — optional window-aware path ─────────────────────────────
-  // When `mrsWindow` is supplied AND `mrsSubScores` is non-empty, the v4
-  // composer (§3 + §8.3 redistribution + §3.2a sleep cap) drives the
-  // baseline instead of the legacy `weightingMode` branches. Legacy fields
-  // (`hasWearable`, `wearableHRV`, etc.) are still honoured for back-compat
-  // — they're used only when `mrsWindow` is absent.
+  // ─── MRS v4 — required window-aware baseline path ────────────────────
+  // `weightingMode` is retained only as a label for audit/back-compat. It no
+  // longer changes baseline math. State 1 must always come from the v4
+  // composer (§3 + §8.3 redistribution + §3.2a sleep cap).
   mrsWindow?: 'morning' | 'afternoon' | 'evening' | null;
   /** Per-sub-component score + availability for the current window. */
   mrsSubScores?: Array<{
@@ -838,52 +836,39 @@ serve(async (req) => {
     else if (divergenceFlag === 'RECOVERY_UNDERWAY') weightingMode = 'recovery_window';
     else weightingMode = 'aligned';
 
-    // ─── MRS v3 §3 — Baseline scoring (patterns removed from score) ─────
-    // Two pillars only: Physiological composite + Calendar demand.
-    // Patterns no longer contribute to the number — they live in
-    // divergence flags + the tier-cap soft guard (see §4 of spec).
-    //
-    // Cold-start splits (physio / demand):
-    //   • no_wearable   →   0 / 100 (demand only)
-    //   • wearable_early → 30 /  70
-    //   • everything else → 65 / 35
-    //
-    // `wearableConfidenceScale` still attenuates physio weight slightly when
-    // the personal baseline is shallow; the freed weight flows to demand so
-    // the formula always sums to 1.
+    // ─── MRS v4 §3 / §8 — Baseline scoring ─────────────────────────────
+    // The legacy weightingMode branches have been removed. Missing data is
+    // handled only by per-sub-component v4 redistribution.
     let score: number;
     let mrsV4Provenance: unknown | null = null;
     let mrsV4Window: MrsWindow | null = null;
     let mrsV4AwaitingSignals = false;
 
-    // MRS v4 path — fires when the caller supplied a window + sub-scores.
-    // The legacy weightingMode branches below stay for back-compat with
-    // callers that haven't migrated; they're never reached when v4 fires.
-    if (body.mrsWindow && Array.isArray(body.mrsSubScores) && body.mrsSubScores.length > 0) {
-      const v4 = composeBaselineV4(
-        body.mrsWindow,
-        body.mrsSubScores as SubScore[],
-        body.sleepDeficitMeasurement ?? { available: false },
-      );
-      score = v4.baseline;
-      mrsV4Provenance = v4.weightProvenance;
-      mrsV4Window = body.mrsWindow;
-      mrsV4AwaitingSignals = v4.awaitingSignals;
-    } else if (weightingMode === 'no_wearable') {
-      // Demand-only when wearable isn't connected.
-      score = Math.round(demandStateScore);
-    } else if (weightingMode === 'wearable_early') {
-      const wW = 0.30 * wearableConfidenceScale;
-      const dW = 1 - wW;
-      score = Math.round(physComposite * wW + demandStateScore * dW);
-    } else {
-      // aligned / supply_demand_gap / recovery_window all share the same
-      // 65/35 baseline split — divergence is expressed via flags + cap,
-      // not by re-weighting the score.
-      const wW = 0.65 * wearableConfidenceScale;
-      const dW = 1 - wW;
-      score = Math.round(physComposite * wW + demandStateScore * dW);
+    if (!body.mrsWindow) {
+      console.error('[compute-inner-readiness] FATAL: missing mrsWindow; refusing legacy baseline fallback');
+      return new Response(JSON.stringify({ error: 'mrs_v4_inputs_required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    if (!Array.isArray(body.mrsSubScores) || body.mrsSubScores.length === 0) {
+      console.error('[compute-inner-readiness] FATAL: empty mrsSubScores; refusing legacy baseline fallback');
+      return new Response(JSON.stringify({ error: 'mrs_v4_inputs_required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const v4 = composeBaselineV4(
+      body.mrsWindow,
+      body.mrsSubScores as SubScore[],
+      body.sleepDeficitMeasurement ?? { available: false },
+    );
+    score = v4.baseline;
+    mrsV4Provenance = v4.weightProvenance;
+    mrsV4Window = body.mrsWindow;
+    mrsV4AwaitingSignals = v4.awaitingSignals;
     // Circadian + patternScore are intentionally NOT folded into the score.
     // They remain available downstream for framing only (see §4 spec).
 
@@ -1037,7 +1022,7 @@ serve(async (req) => {
       readinessState: refined.readinessState,
       refinedContribution: refined.refinedContribution,
       mindWeights: refined.mindWeights,
-      // MRS v4 surface — null when caller did not opt into the v4 path.
+      // MRS v4 surface — always populated for successful baseline computes.
       mrsWindow: mrsV4Window,
       weightProvenance: mrsV4Provenance,
       mrsAwaitingSignals: mrsV4AwaitingSignals,
