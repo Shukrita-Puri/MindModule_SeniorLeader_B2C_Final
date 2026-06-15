@@ -27,6 +27,31 @@ interface AppleCalendarPlugin {
 }
 
 const AppleCalendar = registerPlugin<AppleCalendarPlugin>('AppleCalendar');
+const APPLE_CALENDAR_MANUAL_DISCONNECT_KEY = 'apple_calendar_manual_disconnect';
+
+export function markAppleCalendarManuallyDisconnected(): void {
+  try {
+    localStorage.setItem(APPLE_CALENDAR_MANUAL_DISCONNECT_KEY, '1');
+  } catch {
+    // localStorage may be unavailable in rare WebView states; fail open.
+  }
+}
+
+export function clearAppleCalendarManualDisconnect(): void {
+  try {
+    localStorage.removeItem(APPLE_CALENDAR_MANUAL_DISCONNECT_KEY);
+  } catch {
+    // localStorage may be unavailable in rare WebView states; fail open.
+  }
+}
+
+export function wasAppleCalendarManuallyDisconnected(): boolean {
+  try {
+    return localStorage.getItem(APPLE_CALENDAR_MANUAL_DISCONNECT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 export function isAppleCalendarSupported(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';

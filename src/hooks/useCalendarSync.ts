@@ -4,7 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { type CalendarEvent } from '@/utils/historicalPatternEngine';
 import { clearLocalCalendarData, saveCalendarEventsLocally } from '@/services/localDataStore';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
-import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
+import {
+  isAppleCalendarSupported,
+  onAppleCalendarStoreChanged,
+  verifyAppleCalendarPermission,
+  wasAppleCalendarManuallyDisconnected,
+} from '@/utils/appleCalendar';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { queuePendingDisconnect } from '@/utils/integrationQaHelpers';
@@ -144,7 +149,26 @@ export function useCalendarSync(): UseCalendarSyncResult {
         console.error('[useCalendarSync] Error fetching connection:', connError);
       }
 
-      const usableConnection = await verifyConnectionUsable(data);
+      let usableConnection = await verifyConnectionUsable(data);
+
+      if (!usableConnection && isAppleCalendarSupported() && !wasAppleCalendarManuallyDisconnected()) {
+        const permissionGranted = await verifyAppleCalendarPermission();
+        if (permissionGranted) {
+          usableConnection = {
+            id: 'local-apple-permission',
+            provider: 'apple',
+            is_active: true,
+            last_sync: null,
+          };
+          emitIntegrationEvent({
+            provider: 'apple-calendar',
+            event: 'native_verify_success',
+            userId: user?.id,
+            connectionState: 'permission_connected',
+            syncState: 'backend_pending',
+          });
+        }
+      }
 
       if (usableConnection) {
         setConnection(usableConnection);

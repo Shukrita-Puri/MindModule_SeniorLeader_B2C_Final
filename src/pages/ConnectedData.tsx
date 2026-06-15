@@ -22,7 +22,15 @@ import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 import { CALENDAR_PROVIDER_META, WEARABLE_PROVIDER_META } from '@/utils/providerMetadata';
-import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
+import {
+  clearAppleCalendarManualDisconnect,
+  getAppleCalendarPermissionStatus,
+  isAppleCalendarAuthorizedStatus,
+  isAppleCalendarSupported,
+  markAppleCalendarManuallyDisconnected,
+  requestAppleCalendarPermission,
+  wasAppleCalendarManuallyDisconnected,
+} from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 import { forceNativeCalendarSync } from '@/utils/nativeBackgroundSync';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
@@ -76,6 +84,30 @@ interface ConnectionStatus {
     lastError?: string | null;
     lastErrorAt?: string | null;
     statusUpdatedAt?: string | null;
+  };
+}
+
+function withAppleCalendarProvider(
+  status: ConnectionStatus,
+  apple: { connected: boolean; lastSync: string | null },
+): ConnectionStatus {
+  const providers = { ...(status.calendar.providers ?? {}) };
+  providers.apple = apple;
+
+  const googleConnected = providers.google?.connected ?? false;
+  const microsoftConnected = providers.microsoft?.connected ?? false;
+  const appleConnected = providers.apple?.connected ?? false;
+  const provider = googleConnected ? 'google' : microsoftConnected ? 'microsoft' : appleConnected ? 'apple' : null;
+
+  return {
+    ...status,
+    calendar: {
+      ...status.calendar,
+      connected: googleConnected || microsoftConnected || appleConnected,
+      provider,
+      lastSync: provider ? providers[provider]?.lastSync ?? null : null,
+      providers,
+    },
   };
 }
 
@@ -234,21 +266,16 @@ const ConnectedData = () => {
       });
 
       if (appleDbConnected && !applePermissionGranted) {
-        const providers = { ...(next.calendar.providers ?? {}) };
-        providers.apple = { connected: false, lastSync: null };
-        const googleConnected = providers.google?.connected ?? false;
-        const microsoftConnected = providers.microsoft?.connected ?? false;
-        const remainingProvider = googleConnected ? 'google' : microsoftConnected ? 'microsoft' : null;
-        next = {
-          ...next,
-          calendar: {
-            ...next.calendar,
-            connected: googleConnected || microsoftConnected,
-            provider: remainingProvider,
-            lastSync: remainingProvider ? providers[remainingProvider]?.lastSync ?? null : null,
-            providers,
-          },
-        };
+        next = withAppleCalendarProvider(next, { connected: false, lastSync: null });
+      } else if (
+        applePermissionGranted &&
+        !appleDbConnected &&
+        !wasAppleCalendarManuallyDisconnected()
+      ) {
+        // iOS permission is the real local connection. Backend status can lag
+        // behind foreground/native sync, so keep the Profile UI truthful and
+        // let sync fill in lastSync/events asynchronously.
+        next = withAppleCalendarProvider(next, { connected: true, lastSync: null });
       }
     }
 
@@ -612,6 +639,40 @@ const ConnectedData = () => {
         toast.error('Apple Calendar permission could not be verified. Enable full calendar access in iOS Settings.');
         return;
       }
+      clearAppleCalendarManualDisconnect();
+      const optimisticConnectedAt = new Date().toISOString();
+      setStatus(prev => prev
+        ? withAppleCalendarProvider(prev, { connected: true, lastSync: prev.calendar.providers?.apple?.lastSync ?? null })
+        : {
+            calendar: {
+              connected: true,
+              provider: 'apple',
+              lastSync: null,
+              providers: {
+                apple: { connected: true, lastSync: null },
+              },
+            },
+            appleWatch: {
+              connected: false,
+              connectionStatus: 'disconnected',
+              syncStatus: 'unknown',
+              lastSync: null,
+            },
+            oura: {
+              connected: false,
+              connectionStatus: 'disconnected',
+              syncStatus: 'unknown',
+              lastSync: null,
+            },
+          });
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'native_verify_success',
+        userId: user?.id,
+        connectionState: 'permission_connected',
+        nativePermissionState: permissionStatus,
+        meta: { optimisticConnectedAt },
+      });
       const result = await syncAppleCalendarToBackend();
       console.log('[ConnectedData] Apple Calendar initial sync result:', JSON.stringify(result));
       if (result.success) {
@@ -624,19 +685,9 @@ const ConnectedData = () => {
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         await fetchStatus();
       } else {
-        try {
-          const token = await getAuthToken();
-          await fetch(getSupabaseFunctionUrl('calendar-auth'), {
-            method: 'POST',
-            headers: getSupabaseFunctionHeaders(token),
-            body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
-          });
-          clearIntegrationCaches('calendar');
-          await fetchStatus();
-        } catch (cleanupErr) {
-          console.warn('[ConnectedData] Apple Calendar cleanup after failed sync failed:', cleanupErr);
-        }
-        toast.error(result.error || 'Apple Calendar connected but initial sync failed.');
+        toast.warning(result.error || 'Apple Calendar is connected. Sync will retry when the app is active.');
+        void forceNativeCalendarSync();
+        await fetchStatus();
       }
     } catch (err) {
       console.error('[ConnectedData] Apple Calendar connect error:', err);
@@ -697,23 +748,11 @@ const ConnectedData = () => {
         emitIntegrationEvent({ provider: 'apple-calendar', event: 'disconnect_success' });
         clearPendingDisconnect('apple-calendar');
       }
+      markAppleCalendarManuallyDisconnected();
       clearIntegrationCaches('calendar');
       setStatus(prev => {
         if (!prev) return prev;
-        const providers = { ...(prev.calendar.providers ?? {}) };
-        providers.apple = { connected: false, lastSync: null };
-        const googleConnected = providers.google?.connected ?? false;
-        const microsoftConnected = providers.microsoft?.connected ?? false;
-        const remainingProvider = googleConnected ? 'google' : microsoftConnected ? 'microsoft' : null;
-        return {
-          ...prev,
-          calendar: {
-            connected: googleConnected || microsoftConnected,
-            provider: remainingProvider,
-            lastSync: remainingProvider ? providers[remainingProvider]?.lastSync ?? null : null,
-            providers,
-          },
-        };
+        return withAppleCalendarProvider(prev, { connected: false, lastSync: null });
       });
       invalidatePlanCache();
       clearOuterReadinessCache(user?.id);
