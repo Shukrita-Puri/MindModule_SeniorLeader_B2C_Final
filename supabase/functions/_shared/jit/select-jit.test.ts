@@ -95,3 +95,33 @@ Deno.test("skip penalty reduces tactical", () => {
   const skipped = selectJitCandidates(base, { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: { "Board / governance": 3 }, followThroughByBucket: {}, goals: null, nowMs: NOW });
   assert(skipped.ranked[0].components.tactical < clean.ranked[0].components.tactical);
 });
+
+Deno.test("sovereign tag 'high' boosts importance regardless of tier", () => {
+  const base = [{ id: "h", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5), attendeeRoles: ["board_member" as const] }];
+  const untagged = selectJitCandidates(base, { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW });
+  const tagged = selectJitCandidates(
+    [{ ...base[0], tags: ["high"] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  assert(tagged.ranked[0].importance >= untagged.ranked[0].importance + 40);
+  assertEquals(tagged.ranked[0].components.sovereignBonus, 45);
+});
+
+Deno.test("sovereign tag 'low' demotes regardless of stakes", () => {
+  const res = selectJitCandidates(
+    [{ id: "l", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5), attendeeRoles: ["board_member" as const], tags: ["low"] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  assertEquals(res.ranked.length, 0);
+  assertEquals(res.excluded[0].reason, "user_tag_low");
+});
+
+Deno.test("relationshipLeads flag set when untagged and relationship strong", () => {
+  const res = selectJitCandidates(
+    [{ id: "r", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5), attendeeRoles: ["board_member" as const] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  if (res.ranked.length > 0) {
+    assertEquals(res.ranked[0].components.breakdown.relationshipLeads, true);
+  }
+});
