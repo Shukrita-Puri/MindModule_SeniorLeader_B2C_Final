@@ -334,8 +334,26 @@ const TodayThreePriorities = ({
   const updateSlotTags = useCallback((slotIndex: number, next: PriorityTagState) => {
     const today = localISODate();
     const period = getCurrentTimeWindow();
+    // Capture the current slot BEFORE setPlan so the background tag
+    // bridge can fire even when the local mirror is the only source
+    // of truth (refresh-during-race protection).
+    let snapshotForBridge: { eventId: string | null; eventTitle: string | null; prev: { priorityTag: any; relationshipTag: any; customTags: string[] } } | null = null;
     setPlan((prev) => {
       if (!prev?.horizonModules) return prev;
+      const cur = prev.horizonModules[slotIndex];
+      if (cur) {
+        snapshotForBridge = {
+          eventId: ((cur as any).anchorEventId as string | undefined)
+            ?? (cur.replacementEventIds && cur.replacementEventIds[0])
+            ?? null,
+          eventTitle: cur.jitEventTitle ?? null,
+          prev: {
+            priorityTag: cur.priorityTag ?? null,
+            relationshipTag: cur.relationshipTag ?? null,
+            customTags: Array.isArray(cur.customTags) ? cur.customTags : [],
+          },
+        };
+      }
       const updated = { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
         i === slotIndex
           ? { ...m, priorityTag: next.priorityTag, relationshipTag: next.relationshipTag as any, customTags: next.customTags }
@@ -366,6 +384,45 @@ const TodayThreePriorities = ({
         );
       } catch { /* silent — local mirror keeps UI consistent */ }
       pendingPersistRef.current = Math.max(0, pendingPersistRef.current - 1);
+    })();
+    // Sovereign-tag persistence bridge — fire-and-forget. Writes one
+    // event_priority_memory row per change (tag_importance_*, tag_relationship,
+    // tag_custom, tag_cleared) so the next plan regen can read the
+    // sovereign override and the scorer can honour it.
+    (async () => {
+      try {
+        if (!snapshotForBridge) return;
+        const { eventId, eventTitle, prev } = snapshotForBridge;
+        if (!eventId && !eventTitle) return; // nothing the server can anchor to
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        const token = await getAuthToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
+        const fire = (signal: string, meta: Record<string, any> = {}) =>
+          supabase.functions.invoke('record-event-priority-signal', {
+            headers,
+            body: { eventId, eventTitle, signal, source: 'priority_tag', meta },
+          }).catch((e) => console.warn('[TodayThreePriorities] tag bridge failed', e));
+        // Importance: write the new value, or a clear when the user removed it.
+        if (next.priorityTag !== prev.priorityTag) {
+          if (next.priorityTag === 'high' || next.priorityTag === 'medium' || next.priorityTag === 'low') {
+            await fire(`tag_importance_${next.priorityTag}`);
+          } else if (next.priorityTag === null) {
+            await fire('tag_cleared', { kind: 'importance' });
+          }
+        }
+        if (next.relationshipTag !== prev.relationshipTag && next.relationshipTag) {
+          await fire('tag_relationship', { relationshipTag: next.relationshipTag });
+        }
+        const prevCustom = prev.customTags || [];
+        const nextCustom = next.customTags || [];
+        const added = nextCustom.filter((t) => !prevCustom.includes(t));
+        if (added.length > 0) {
+          await fire('tag_custom', { customTags: nextCustom });
+        }
+      } catch (e) {
+        console.warn('[TodayThreePriorities] sovereign-tag bridge threw', e);
+      }
     })();
   }, []);
 

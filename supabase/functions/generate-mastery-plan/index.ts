@@ -91,7 +91,7 @@ import {
 // jit_event_context for week-1 parity testing. Does not affect what the
 // user sees until PR 2.
 import { selectJitCandidates, type SelectInputEvent } from '../_shared/jit/select-jit.ts';
-import type { ResolvedRole } from '../_shared/jit/relationship-weights.ts';
+import { isGenericDomain, type ResolvedRole } from '../_shared/jit/relationship-weights.ts';
 
 /**
  * JIT v2 shadow runner (PR 1). Pure side-effect; safe to fire-and-forget.
@@ -182,6 +182,96 @@ async function runJitV2Shadow(
     } catch (_e) { /* fall through */ }
   }
 
+  // Issue 9 — late-resolving relationship re-read. For unresolved
+  // attendees on real domains, fire `resolve-attendee-relationship`
+  // ONCE per email (parallel, bounded by 1500 ms total), then re-query
+  // and merge. Resolver already enforces the daily-50 cap.
+  const unresolvedEmails: string[] = [];
+  for (const em of emails) {
+    if (!roleByEmail.has(em) && !isGenericDomain(em)) unresolvedEmails.push(em);
+  }
+  if (unresolvedEmails.length > 0 && unresolvedEmails.length <= 10) {
+    try {
+      const resolverBase = (Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
+      const resolverKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      const fireOne = (attendee_email: string) => fetch(`${resolverBase}/functions/v1/resolve-attendee-relationship`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resolverKey}` },
+        body: JSON.stringify({ user_id: userId, attendee_email }),
+      }).catch(() => null);
+      const timeout = new Promise<void>((resolve) => setTimeout(resolve, 1500));
+      await Promise.race([
+        Promise.all(unresolvedEmails.slice(0, 10).map(fireOne)).then(() => undefined),
+        timeout,
+      ]);
+      const { data: data2 } = await supabase
+        .from('attendee_relationships')
+        .select('attendee_email, role, expires_at')
+        .eq('user_id', userId)
+        .in('attendee_email', unresolvedEmails);
+      for (const r of (data2 ?? [])) {
+        if (r?.expires_at && new Date(r.expires_at).getTime() < Date.now()) continue;
+        if (!roleByEmail.has(r.attendee_email)) {
+          roleByEmail.set(r.attendee_email, (r.role as ResolvedRole) || 'unknown');
+        }
+      }
+      console.log(`[generate-mastery-plan][jit-v2] late-resolve fired=${unresolvedEmails.length} resolved=${(data2 ?? []).length}`);
+    } catch (e) {
+      console.warn('[generate-mastery-plan][jit-v2] late-resolve failed', (e as Error)?.message);
+    }
+  }
+
+  // Sovereign user-tag layer — fetch latest tag_importance_* / tag_custom
+  // / tag_cleared rows from event_priority_memory for every event in
+  // scope. Most-recent-per-(event_id, kind) wins; `tag_cleared` wipes
+  // any earlier importance for the same event.
+  const sovereignTagsByEventId = new Map<string, string[]>();
+  try {
+    const ids: string[] = [];
+    for (const fe of sourceEvents) {
+      const id = (fe?.event ?? fe)?.id;
+      if (typeof id === 'string' && id) ids.push(id);
+    }
+    if (ids.length > 0) {
+      const { data: tagRows } = await supabase
+        .from('event_priority_memory')
+        .select('event_id, signal, meta, occurred_at')
+        .eq('user_id', userId)
+        .in('event_id', ids)
+        .in('signal', ['tag_importance_high', 'tag_importance_medium', 'tag_importance_low', 'tag_custom', 'tag_cleared'])
+        .order('occurred_at', { ascending: false });
+      const seenImportance = new Set<string>();   // event_id where importance already set (latest wins)
+      const clearedFor = new Set<string>();
+      const customByEvent = new Map<string, Set<string>>();
+      for (const r of (tagRows ?? []) as any[]) {
+        const eid = r?.event_id; if (!eid) continue;
+        if (r.signal === 'tag_cleared') { clearedFor.add(eid); continue; }
+        if (r.signal === 'tag_custom') {
+          const arr = Array.isArray(r?.meta?.customTags) ? r.meta.customTags : [];
+          if (!customByEvent.has(eid)) customByEvent.set(eid, new Set<string>());
+          for (const t of arr) if (t) customByEvent.get(eid)!.add(String(t));
+          continue;
+        }
+        if (r.signal.startsWith('tag_importance_')) {
+          if (seenImportance.has(eid)) continue;            // older
+          if (clearedFor.has(eid)) { seenImportance.add(eid); continue; } // wiped
+          const level = r.signal.slice('tag_importance_'.length); // high|medium|low
+          const list = sovereignTagsByEventId.get(eid) ?? [];
+          list.push(level);
+          sovereignTagsByEventId.set(eid, list);
+          seenImportance.add(eid);
+        }
+      }
+      for (const [eid, tags] of customByEvent.entries()) {
+        const list = sovereignTagsByEventId.get(eid) ?? [];
+        for (const t of tags) list.push(t);
+        sovereignTagsByEventId.set(eid, list);
+      }
+    }
+  } catch (e) {
+    console.warn('[generate-mastery-plan][jit-v2] sovereign-tag fetch failed', (e as Error)?.message);
+  }
+
   const input: SelectInputEvent[] = sourceEvents.map((fe: any) => {
     const ev = fe?.event ?? fe;
     const roles: ResolvedRole[] = [];
@@ -197,13 +287,16 @@ async function runJitV2Shadow(
     const rawEnd = ev?.end_time ?? ev?.endTime ?? ev?.end ?? null;
     const startIso = rawStart instanceof Date ? rawStart.toISOString() : (rawStart ?? '');
     const endIso = rawEnd instanceof Date ? rawEnd.toISOString() : (rawEnd ?? '');
+    const baseTags = Array.isArray(ev?.tags) ? ev.tags.map((t: any) => String(t)) : [];
+    const sovTags = (ev?.id && sovereignTagsByEventId.get(ev.id)) || [];
+    const mergedTags = [...sovTags, ...baseTags];
     return {
       id: ev?.id,
       title: ev?.title || '',
       start_time: startIso,
       end_time: endIso,
       attendeeRoles: roles,
-      tags: Array.isArray(ev?.tags) ? ev.tags : [],
+      tags: mergedTags,
     };
   });
 
@@ -214,6 +307,9 @@ async function runJitV2Shadow(
       .filter((i: any) => i?.type === 'growth_area')
       .map((i: any) => String(i.content || ''))
       .filter(Boolean),
+    protectGoals: Array.isArray(req?.protectGoals) ? req.protectGoals.map((g: any) => String(g))
+      : Array.isArray(req?.onboarding?.protectGoals) ? req.onboarding.protectGoals.map((g: any) => String(g))
+      : [],
   };
 
   const result = selectJitCandidates(input, {

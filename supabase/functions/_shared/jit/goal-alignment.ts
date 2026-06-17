@@ -10,6 +10,47 @@ export interface UserGoals {
   practicePriorityTags?: string[];
   /** Coach-derived growth area labels. */
   coachGrowthAreas?: string[];
+  /**
+   * Onboarding "protect_goals" — categories the user has explicitly
+   * said they want to protect (e.g. 'A' = Board / governance). Used by
+   * the Onboarding multiplier inside Immediate (categoryBase *= 1.3).
+   */
+  protectGoals?: string[];
+}
+
+/**
+ * Map onboarding protect-goal keywords → EventCategoryId. Categories
+ * mirror `_shared/events/event-categories.ts` (A..H).
+ */
+const PROTECT_GOAL_TO_CATEGORY: Record<string, string[]> = {
+  board:        ['A'],
+  governance:   ['A'],
+  investor:     ['A', 'C'],
+  fundraise:    ['A', 'C'],
+  client:       ['C'],
+  customer:     ['C'],
+  deep_work:    ['F'],
+  focus:        ['F'],
+  one_on_ones:  ['D'],
+  reviews:      ['D'],
+  team:         ['D'],
+  all_hands:    ['G'],
+  leadership:   ['G'],
+};
+
+/**
+ * Returns the Immediate-axis multiplier for `categoryBase` based on
+ * the user's onboarding protect_goals. 1.0 = no boost, 1.3 = matched.
+ */
+export function applyProtectGoalMultiplier(categoryId: string | null | undefined, protectGoals: string[] | null | undefined): number {
+  if (!categoryId || !Array.isArray(protectGoals) || protectGoals.length === 0) return 1.0;
+  for (const raw of protectGoals) {
+    if (!raw) continue;
+    const key = String(raw).toLowerCase().trim().replace(/[\s-]+/g, '_');
+    const cats = PROTECT_GOAL_TO_CATEGORY[key];
+    if (cats && cats.includes(categoryId)) return 1.3;
+  }
+  return 1.0;
 }
 
 // Map onboarding/coach keywords → event-type families they amplify.

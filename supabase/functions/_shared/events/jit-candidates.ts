@@ -111,6 +111,15 @@ function parseTiming(timing: string): { fromMin: number; toMin: number } {
 }
 
 function proximityScore(nowMs: number, windowStartMs: number, windowEndMs: number): number {
+  // JIT v2 rework: proximity is a tiebreaker only — clamped to ±5 so
+  // it cannot overpower core (stakes/category/severity/demand/memory).
+  const raw = computeRawProximity(nowMs, windowStartMs, windowEndMs);
+  if (raw > 5) return 5;
+  if (raw < -5) return -5;
+  return raw;
+}
+
+function computeRawProximity(nowMs: number, windowStartMs: number, windowEndMs: number): number {
   if (nowMs >= windowStartMs && nowMs <= windowEndMs) {
     const span = Math.max(1, windowEndMs - windowStartMs);
     const mid = (windowStartMs + windowEndMs) / 2;

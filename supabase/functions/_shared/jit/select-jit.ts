@@ -13,9 +13,10 @@ import {
   userPriorityTagBoost,
   skipPenaltyFor,
   followThroughBoost,
+  sovereignTagAdjustment,
   type PatternSignal,
 } from './tactical-signals.ts';
-import { goalAlignment, type UserGoals } from './goal-alignment.ts';
+import { goalAlignment, applyProtectGoalMultiplier, type UserGoals } from './goal-alignment.ts';
 import { resolveTierWeights, type TierWeights } from './maturity-tier.ts';
 
 /** §3 framework category base (0..40). */
@@ -83,6 +84,7 @@ export interface SelectedCandidate {
     tactical: number;
     strategic: number;
     strategicGate: 0 | 1;
+    sovereignBonus: number;
     breakdown: {
       categoryBase: number;
       relationship: number;
@@ -92,6 +94,9 @@ export interface SelectedCandidate {
       skipPenalty: number;
       followThrough: number;
       goalAlignment: number;
+      protectGoalMultiplier: number;
+      /** True when the user hasn't tagged AND relationship ≥ 15. */
+      relationshipLeads: boolean;
     };
     patternSignal: PatternSignal | null;
   };
@@ -131,7 +136,9 @@ export function selectJitCandidates(
 
     // Immediate
     const role = dominantRole(ev.attendeeRoles ?? []);
-    const categoryBase = CATEGORY_BASE[enriched.categoryId];
+    const rawCategoryBase = CATEGORY_BASE[enriched.categoryId];
+    const protectMul = applyProtectGoalMultiplier(enriched.categoryId, ctx.goals?.protectGoals);
+    const categoryBase = Math.round(rawCategoryBase * protectMul);
     const rel = relationshipWeight(role);
     const stakes = stakesHint(title);
     const immediate = categoryBase + rel + stakes;
@@ -149,10 +156,21 @@ export function selectJitCandidates(
     const goal = strategicGate ? goalAlignment(bucket, ctx.goals) : 0;
     const strategic = goal;
 
-    const importance =
+    // Sovereign user-tag layer — sits OUTSIDE the weighted sum so a
+    // user-declared `low` tag demotes regardless of tier totals, and a
+    // `high` tag dominates even at T3 weights.
+    const sovereign = sovereignTagAdjustment(ev.tags);
+
+    const tierWeighted =
       tier.immediate * immediate +
       tier.tactical  * tactical +
       tier.strategic * strategic * strategicGate;
+    const importance = tierWeighted + sovereign.bonus;
+
+    if (sovereign.demote) {
+      excluded.push({ eventId: ev.id, title, reason: 'user_tag_low' });
+      continue;
+    }
 
     if (immediate < MIN_IMMEDIATE) {
       excluded.push({ eventId: ev.id, title, reason: 'below_min_immediate' });
@@ -180,6 +198,7 @@ export function selectJitCandidates(
         tactical,
         strategic,
         strategicGate,
+        sovereignBonus: sovereign.bonus,
         breakdown: {
           categoryBase,
           relationship: rel,
@@ -189,6 +208,8 @@ export function selectJitCandidates(
           skipPenalty: skip,
           followThrough: follow,
           goalAlignment: goal,
+          protectGoalMultiplier: protectMul,
+          relationshipLeads: (!ev.tags || ev.tags.length === 0) && rel >= 15,
         },
         patternSignal,
       },
