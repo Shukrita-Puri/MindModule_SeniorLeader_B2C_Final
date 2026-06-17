@@ -71,7 +71,7 @@ Deno.test('§0.2 day-1 DoW variance: different demand → different baseline', (
   }));
   const monday = composeBaselineV4('morning', mondaySubs);
   const sunday = composeBaselineV4('morning', sundaySubs);
-  assert(monday.baseline < sunday.baseline,
+  assert(monday.baseline != null && sunday.baseline != null && monday.baseline < sunday.baseline,
     `Expected Monday<Sunday but got ${monday.baseline} vs ${sunday.baseline}`);
 });
 
@@ -153,7 +153,7 @@ Deno.test('§3.2a end-to-end: HRV cannot mask measured severe sleep deficit', ()
     available: true, sleepTotalMinutes: 240, sleepQuality: 'poor',
   });
   const withoutCap = composeBaselineV4('morning', high, { available: false });
-  assert(withCap.baseline < withoutCap.baseline,
+  assert(withCap.baseline != null && withoutCap.baseline != null && withCap.baseline < withoutCap.baseline,
     `expected cap to lower baseline; got ${withCap.baseline} vs ${withoutCap.baseline}`);
   assertEquals(withCap.weightProvenance.sleep_deficit_override, true);
   // Without measurement, the override must NOT be recorded.
