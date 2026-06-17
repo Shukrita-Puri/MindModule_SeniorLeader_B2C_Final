@@ -71,7 +71,7 @@ Deno.test('§0.2 day-1 DoW variance: different demand → different baseline', (
   }));
   const monday = composeBaselineV4('morning', mondaySubs);
   const sunday = composeBaselineV4('morning', sundaySubs);
-  assert(monday.baseline < sunday.baseline,
+  assert(monday.baseline != null && sunday.baseline != null && monday.baseline < sunday.baseline,
     `Expected Monday<Sunday but got ${monday.baseline} vs ${sunday.baseline}`);
 });
 
