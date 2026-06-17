@@ -22,8 +22,11 @@ export interface TierWeights {
 const WEIGHTS: Record<MaturityTier, { immediate: number; tactical: number; strategic: number }> = {
   T0: { immediate: 0.60, tactical: 0.25, strategic: 0.15 },
   T1: { immediate: 0.50, tactical: 0.35, strategic: 0.15 },
-  T2: { immediate: 0.40, tactical: 0.45, strategic: 0.15 },
-  T3: { immediate: 0.35, tactical: 0.50, strategic: 0.15 },
+  // JIT v2 rework: Tactical cleanly leads Immediate at maturity so
+  // learned patterns + sustained-HR signals actually outrank raw
+  // category/relationship base for seasoned accounts.
+  T2: { immediate: 0.35, tactical: 0.50, strategic: 0.15 },
+  T3: { immediate: 0.30, tactical: 0.55, strategic: 0.15 },
 };
 
 /** Map (accountAgeDays, patternCount) → tier. */

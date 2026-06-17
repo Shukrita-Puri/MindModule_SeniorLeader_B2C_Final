@@ -34,6 +34,15 @@ const VALID_SIGNALS = new Set([
   "never",
   "cancelled_as_noise",
   "cancelled_keep_surfacing",
+  // Sovereign user-tag layer (JIT v2 rework). Persists the graduated
+  // importance + relationship + custom tags the user declared on a
+  // priority card so the next plan regeneration can read them.
+  "tag_importance_high",
+  "tag_importance_medium",
+  "tag_importance_low",
+  "tag_relationship",
+  "tag_custom",
+  "tag_cleared",
 ]);
 
 const VALID_SOURCES = new Set([
@@ -42,6 +51,19 @@ const VALID_SOURCES = new Set([
   "cancel_feedback",
   "post_plan_feedback",
 ]);
+
+// Map UI relationshipTag → ResolvedRole used by attendee_relationships.
+const RELATIONSHIP_TO_ROLE: Record<string, string> = {
+  boss: "boss",
+  board: "board_member",
+  client: "client",
+  customer: "client",
+  vendor: "vendor",
+  leadership: "boss",
+  team: "report",
+  junior: "report",
+  colleague: "peer",
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -127,6 +149,46 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "insert_failed" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Sovereign-relationship bridge: when the user explicitly tags an
+    // event with a canonical relationship, upsert the corresponding
+    // attendee_relationships rows with source='user_tag' so the role
+    // never decays and dominates LLM-inferred guesses. Best-effort —
+    // a failure here does NOT fail the primary write.
+    if (signal === "tag_relationship" && eventId) {
+      try {
+        const rel = String((meta as any)?.relationshipTag || "").toLowerCase().trim();
+        const role = RELATIONSHIP_TO_ROLE[rel];
+        if (role) {
+          const { data: evRow } = await supabase
+            .from("calendar_events")
+            .select("event_metadata")
+            .eq("id", eventId)
+            .eq("user_id", userId)
+            .maybeSingle();
+          const attendees = Array.isArray((evRow as any)?.event_metadata?.attendees)
+            ? (evRow as any).event_metadata.attendees
+            : [];
+          const emails: string[] = [];
+          for (const a of attendees) {
+            const em = typeof a === "string" ? a : a?.email;
+            if (typeof em === "string" && em.includes("@")) emails.push(em.toLowerCase().trim());
+          }
+          for (const email of emails.slice(0, 25)) {
+            await supabase.from("attendee_relationships").upsert({
+              user_id: userId,
+              attendee_email: email,
+              role,
+              source: "user_tag",
+              confidence: 1.0,
+              resolved_at: new Date().toISOString(),
+            }, { onConflict: "user_id,attendee_email" });
+          }
+        }
+      } catch (e) {
+        console.warn("[record-event-priority-signal] user_tag relationship upsert failed", (e as Error)?.message);
+      }
     }
 
     return new Response(JSON.stringify({
