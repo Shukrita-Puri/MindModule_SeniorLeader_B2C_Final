@@ -1763,8 +1763,12 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const hasCheckIn =
     ((outerBrief as any)?.hasCurrentPeriodCheckIn ?? false) ||
     (hasCurrentPeriodSignal && !!outerBrief?.checkInOutcome);
-  const readinessState: 'baseline' | 'refined' =
-    (outerBrief as any)?.innerReadinessState === 'refined' ? 'refined' : 'baseline';
+  const readinessState: 'baseline' | 'refined' | 'awaiting' =
+    (outerBrief as any)?.innerReadinessState === 'refined'
+      ? 'refined'
+      : (outerBrief as any)?.innerReadinessState === 'awaiting' || score == null
+        ? 'awaiting'
+        : 'baseline';
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
 
   // Build chips
@@ -1780,7 +1784,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // case (no wearable AND no calendar). Check-in is the State 2 refiner, not
   // a precondition. Fallback copy no longer prompts a check-in.
   const awaitingSignals = awaitingSignalsRaw;
-  const phrase = awaitingSignals
+  const showNeutralAwaitingCopy = awaitingSignals || readinessState === 'awaiting' || score == null;
+  const phrase = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.phrase || "Today's read.");
   // Strip stray *single-asterisk emphasis* the LLM occasionally emits
@@ -1795,7 +1800,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     out = out.replace(/[ \t]{2,}/g, ' ');
     return out;
   };
-  const bodyText = awaitingSignals
+  const bodyText = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.bodyText ? stripStrayAsterisks(String(outerBrief.bodyText)) : null);
 
@@ -1919,7 +1924,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         ) : (
           <>
             <span className="text-[40px] font-medium leading-none text-muted-foreground/30">--</span>
-            <span className="text-xs uppercase tracking-wider text-muted-foreground/40 ml-2">Not yet assessed</span>
+            <span className="text-xs uppercase tracking-wider text-muted-foreground/40 ml-2">EARLY READ · check in to sharpen it</span>
           </>
         )}
       </div>
@@ -1948,13 +1953,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           Brief renders off State 1 (wearable + calendar); this block only
           appears when neither is present. Check-in is positioned as the
           State 2 refiner, never as the gate. */}
-      {awaitingSignals && (
+      {showNeutralAwaitingCopy && (
         <>
           <p className="mt-4 text-quote text-foreground">
-            Awaiting today's signal
+            We do not have enough fresh signals yet for today&apos;s readiness read.
           </p>
           <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
-            Connect your calendar or a wearable to start your readiness brief. A 2-min check-in then refines it to your felt state.
+            Sync your wearable or complete a quick check-in to sharpen the picture.
           </p>
         </>
       )}

@@ -103,7 +103,7 @@ async function persistCompositeScore(checkinDate: string, score: number, timeWin
 
 
 export interface CurrentEnergyState {
-  overallBalance: number;
+  overallBalance: number | null;
   state: string;
   contextTags: string[];
   energyTags: string[];
@@ -147,7 +147,7 @@ export interface CurrentEnergyState {
   // `overallBalance` already tracks the DISPLAYED score (refined when present).
   scoreBaseline?: number | null;
   scoreRefined?: number | null;
-  readinessState?: 'baseline' | 'refined';
+  readinessState?: 'baseline' | 'refined' | 'awaiting';
   refinedContribution?: number | null;
   // Canonical band SSOT — derived once server-side in compute-inner-readiness.
   // Consumers (Brief, validator, Plan bias, one-liner display) should read
@@ -706,7 +706,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const primaryMastery: MasteryType = tierToMastery[result.tier] || 'pause';
 
     return {
-      overallBalance: result.score,
+      overallBalance: result.score ?? null,
       state: result.tier,
       contextTags: [],
       energyTags: [],
@@ -766,7 +766,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const calendarDensity = fallbackCalendar?.density ?? 0;
 
     return {
-      overallBalance: 50,
+      overallBalance: null,
       state: 'managing',
       contextTags: [],
       energyTags: [],
@@ -788,5 +788,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 }
 
 export function getEnergyStateInsight(energyState: CurrentEnergyState): string {
-  return energyState.recommendation?.contextStatement || `Energy is at ${energyState.overallBalance}%.`;
+  if (energyState.recommendation?.contextStatement) return energyState.recommendation.contextStatement;
+  return energyState.overallBalance == null ? 'No recent signals yet.' : `Energy is at ${energyState.overallBalance}%.`;
 }

@@ -4,6 +4,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE } from '@/config/devMode';
 
+export type ReadinessComposition =
+  | 'baseline-only'
+  | 'refined-with-baseline'
+  | 'check-in-only'
+  | 'awaiting'
+  | 'unknown';
+
+export type WeeklyMrsDeltaReason =
+  | 'composition_mismatch'
+  | 'not_enough_history'
+  | 'awaiting_signals'
+  | null;
+
 export interface WeeklyMrsDelta {
   /** Signed integer delta: this Mon→today AVG minus last Mon→Sun AVG. */
   delta: number | null;
@@ -11,6 +24,12 @@ export interface WeeklyMrsDelta {
   mode: 'baseline' | 'refined';
   /** Pretty pts label e.g. "+4 pts", "−3 pts", or null when delta unknown. */
   label: string | null;
+  /** Why the delta was suppressed, if it was. */
+  reason: WeeklyMrsDeltaReason;
+  /** Composition of the current week window. */
+  thisWeekComposition: ReadinessComposition;
+  /** Composition of the prior week window. */
+  lastWeekComposition: ReadinessComposition;
 }
 
 function isoLocal(d: Date): string {
@@ -68,17 +87,29 @@ export function useWeeklyMrsDelta() {
         const todayState = (payload.todayState as string) === 'refined' ? 'refined' : 'baseline';
         const refinedDelta = typeof payload.refinedDelta === 'number' ? payload.refinedDelta : null;
         const baselineDelta = typeof payload.baselineDelta === 'number' ? payload.baselineDelta : null;
-        // Prefer the input matching today's state; fall back to baseline.
+        const reason = (payload.reason as WeeklyMrsDeltaReason) ?? null;
+        const thisWeekComposition = (payload.thisWeekComposition as ReadinessComposition) ?? 'unknown';
+        const lastWeekComposition = (payload.lastWeekComposition as ReadinessComposition) ?? 'unknown';
+        const comparisonMetric = (payload.comparisonMetric as 'baseline' | 'refined' | undefined)
+          ?? (todayState === 'refined' ? 'refined' : 'baseline');
+        // Prefer the input matching the comparison metric; fall back to baseline.
         const mode: 'baseline' | 'refined' =
-          todayState === 'refined' && refinedDelta !== null ? 'refined' : 'baseline';
+          comparisonMetric === 'refined' && refinedDelta !== null ? 'refined' : 'baseline';
         const delta = mode === 'refined' ? refinedDelta : baselineDelta;
         const label =
-          delta === null
+          delta === null || reason !== null
             ? null
             : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} pts`;
-        return { delta, mode, label };
+        return { delta, mode, label, reason, thisWeekComposition, lastWeekComposition };
       } catch {
-        return { delta: null, mode: 'baseline', label: null };
+        return {
+          delta: null,
+          mode: 'baseline',
+          label: null,
+          reason: 'not_enough_history',
+          thisWeekComposition: 'unknown',
+          lastWeekComposition: 'unknown',
+        };
       }
     },
   });

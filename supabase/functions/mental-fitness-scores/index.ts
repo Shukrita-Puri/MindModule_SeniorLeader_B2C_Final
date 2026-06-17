@@ -31,7 +31,142 @@ interface RequestBody {
   };
 }
 
-serve(async (req) => {
+type ReadinessComposition =
+  | 'baseline-only'
+  | 'refined-with-baseline'
+  | 'check-in-only'
+  | 'awaiting'
+  | 'unknown';
+
+type WeeklyDeltaReason =
+  | 'composition_mismatch'
+  | 'not_enough_history'
+  | 'awaiting_signals'
+  | null;
+
+interface SnapshotRow {
+  local_date: string;
+  readiness_score_baseline: number | null;
+  readiness_score_refined: number | null;
+  readiness_state: string | null;
+}
+
+function inRange(d: string, lo: string, hi: string): boolean {
+  return d >= lo && d <= hi;
+}
+
+function avg(xs: number[]): number | null {
+  return xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length;
+}
+
+export function classifyComposition(row: SnapshotRow): ReadinessComposition {
+  if (row.readiness_state === 'awaiting' || (row.readiness_score_baseline == null && row.readiness_score_refined == null)) {
+    return 'awaiting';
+  }
+  const hasBaseline = typeof row.readiness_score_baseline === 'number';
+  const hasRefined = typeof row.readiness_score_refined === 'number';
+  if (hasBaseline && hasRefined) return 'refined-with-baseline';
+  if (hasRefined && !hasBaseline) return 'check-in-only';
+  if (hasBaseline) return 'baseline-only';
+  return 'unknown';
+}
+
+export function summarizeWeek(rows: SnapshotRow[], startISO: string, endISO: string): {
+  composition: ReadinessComposition;
+  metric: 'baseline' | 'refined' | null;
+  average: number | null;
+  rowCount: number;
+} {
+  const weekRows = rows.filter((row) => inRange(row.local_date, startISO, endISO));
+  if (weekRows.length === 0) {
+    return { composition: 'unknown', metric: null, average: null, rowCount: 0 };
+  }
+
+  const nonAwaiting = weekRows.filter((row) => classifyComposition(row) !== 'awaiting');
+  if (nonAwaiting.length === 0) {
+    return { composition: 'awaiting', metric: null, average: null, rowCount: weekRows.length };
+  }
+
+  const firstComposition = classifyComposition(nonAwaiting[0]);
+  const mixed = nonAwaiting.some((row) => classifyComposition(row) !== firstComposition);
+  if (mixed || firstComposition === 'unknown') {
+    return { composition: 'unknown', metric: null, average: null, rowCount: weekRows.length };
+  }
+
+  const metric: 'baseline' | 'refined' =
+    firstComposition === 'baseline-only' ? 'baseline' : 'refined';
+  const values = nonAwaiting
+    .map((row) => metric === 'baseline' ? row.readiness_score_baseline : row.readiness_score_refined)
+    .filter((value): value is number => typeof value === 'number');
+
+  return {
+    composition: firstComposition,
+    metric,
+    average: avg(values),
+    rowCount: weekRows.length,
+  };
+}
+
+export function computeWeeklyDeltaComparison(
+  rows: SnapshotRow[],
+  thisMonday: string,
+  lastMonday: string,
+  lastSunday: string,
+  today: string,
+): {
+  baselineDelta: number | null;
+  refinedDelta: number | null;
+  reason: WeeklyDeltaReason;
+  thisWeekComposition: ReadinessComposition;
+  lastWeekComposition: ReadinessComposition;
+  comparisonMetric: 'baseline' | 'refined' | null;
+  todayState: string;
+} {
+  const thisWeek = summarizeWeek(rows, thisMonday, today);
+  const lastWeek = summarizeWeek(rows, lastMonday, lastSunday);
+  const todayRow = rows.find((r) => r.local_date === today) || null;
+  const todayState = todayRow?.readiness_state || 'baseline';
+
+  let reason: WeeklyDeltaReason = null;
+  let baselineDelta: number | null = null;
+  let refinedDelta: number | null = null;
+
+  if (thisWeek.rowCount === 0 || lastWeek.rowCount === 0) {
+    reason = 'not_enough_history';
+  } else if (thisWeek.composition === 'awaiting' || lastWeek.composition === 'awaiting') {
+    reason = 'awaiting_signals';
+  } else if (thisWeek.composition === 'unknown' || lastWeek.composition === 'unknown') {
+    reason = 'composition_mismatch';
+  } else if (thisWeek.composition !== lastWeek.composition) {
+    reason = 'composition_mismatch';
+  } else if (
+    thisWeek.metric != null &&
+    lastWeek.metric != null &&
+    thisWeek.average != null &&
+    lastWeek.average != null
+  ) {
+    const delta = Math.round(thisWeek.average - lastWeek.average);
+    if (thisWeek.metric === 'baseline') {
+      baselineDelta = delta;
+    } else {
+      refinedDelta = delta;
+    }
+  } else {
+    reason = 'not_enough_history';
+  }
+
+  return {
+    baselineDelta,
+    refinedDelta,
+    reason,
+    thisWeekComposition: thisWeek.composition,
+    lastWeekComposition: lastWeek.composition,
+    comparisonMetric: thisWeek.metric,
+    todayState,
+  };
+}
+
+if (import.meta.main) serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -118,54 +253,17 @@ serve(async (req) => {
           readiness_score_refined: number | null;
           readiness_state: string | null;
         }>;
-
-        const inRange = (d: string, lo: string, hi: string) => d >= lo && d <= hi;
-        const avg = (xs: number[]) =>
-          xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length;
-
-        const baselineThis = rows
-          .filter(r => inRange(r.local_date, thisMonday, today))
-          .map(r => r.readiness_score_baseline)
-          .filter((v): v is number => typeof v === 'number');
-        const baselineLast = rows
-          .filter(r => inRange(r.local_date, lastMonday, lastSunday))
-          .map(r => r.readiness_score_baseline)
-          .filter((v): v is number => typeof v === 'number');
-        const refinedThis = rows
-          .filter(r => inRange(r.local_date, thisMonday, today))
-          .map(r => r.readiness_score_refined)
-          .filter((v): v is number => typeof v === 'number');
-        const refinedLast = rows
-          .filter(r => inRange(r.local_date, lastMonday, lastSunday))
-          .map(r => r.readiness_score_refined)
-          .filter((v): v is number => typeof v === 'number');
-
-        const baselineThisAvg = avg(baselineThis);
-        const baselineLastAvg = avg(baselineLast);
-        const refinedThisAvg = avg(refinedThis);
-        const refinedLastAvg = avg(refinedLast);
-
-        const baselineDelta =
-          baselineThisAvg !== null && baselineLastAvg !== null
-            ? Math.round(baselineThisAvg - baselineLastAvg)
-            : null;
-        const refinedDelta =
-          refinedThisAvg !== null && refinedLastAvg !== null
-            ? Math.round(refinedThisAvg - refinedLastAvg)
-            : null;
-
-        const todayRow = rows.find(r => r.local_date === today) || null;
-        const todayState = todayRow?.readiness_state || 'baseline';
+        const comparison = computeWeeklyDeltaComparison(rows, thisMonday, lastMonday, lastSunday, today);
 
         return new Response(JSON.stringify({
           data: {
-            baselineDelta,
-            refinedDelta,
-            baselineThisAvg,
-            baselineLastAvg,
-            refinedThisAvg,
-            refinedLastAvg,
-            todayState,
+            baselineDelta: comparison.baselineDelta,
+            refinedDelta: comparison.refinedDelta,
+            todayState: comparison.todayState,
+            reason: comparison.reason,
+            thisWeekComposition: comparison.thisWeekComposition,
+            lastWeekComposition: comparison.lastWeekComposition,
+            comparisonMetric: comparison.comparisonMetric,
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

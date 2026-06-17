@@ -59,12 +59,15 @@ export function getReadinessValence(score: number | null | undefined): Readiness
   return null;
 }
 
-export type ReadinessState = "baseline" | "refined";
+export type ReadinessState = "baseline" | "refined" | "awaiting";
 
 export function getReadinessStateLabel(state: ReadinessState): {
   label: string;
   subtitle: string;
 } {
+  if (state === "awaiting") {
+    return { label: "Early read", subtitle: "check in to sharpen it" };
+  }
   return state === "refined"
     ? { label: "Full read", subtitle: "with your check-in" }
     : { label: "Early read", subtitle: "check in to sharpen it" };

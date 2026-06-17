@@ -187,7 +187,7 @@ export interface OuterReadinessData {
   // hero and existing readers don't shift; these expose the underlying split.
   innerReadinessScoreBaseline?: number | null;
   innerReadinessScoreRefined?: number | null;
-  innerReadinessState?: 'baseline' | 'refined' | null;
+  innerReadinessState?: 'baseline' | 'refined' | 'awaiting' | null;
   innerReadinessRefinedContribution?: number | null;
   checkInOutcome?: string | null;
   briefSource?: 'llm' | 'deterministic';
@@ -289,7 +289,7 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
   const res = await supabase.functions.invoke('compute-outer-readiness', {
     body: {
       innerReadinessTier: energyState.energyTier,
-      innerReadinessScore: energyState.overallBalance ?? 50,
+      innerReadinessScore: energyState.overallBalance ?? null,
       clarityLevel: energyState.clarityLevel ?? null,
       confidenceLevel: energyState.confidenceLevel ?? null,
       mentalSharpnessLevel: energyState.mentalSharpnessLevel ?? null,
@@ -310,7 +310,7 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
       innerReadinessScoreBaseline: energyState.scoreBaseline ?? null,
       innerReadinessScoreRefined: energyState.scoreRefined ?? null,
       innerReadinessState: energyState.readinessState ?? 'baseline',
-      innerReadinessRefinedContribution: energyState.refinedContribution ?? 0,
+      innerReadinessRefinedContribution: energyState.refinedContribution ?? null,
       weightProvenance: energyState.weightProvenance ?? null,
       // IANA timezone strings let the edge function format event times via Intl
       // in the user's CURRENT clock (correct for travelers) while keeping their

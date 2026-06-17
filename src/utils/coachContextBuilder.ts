@@ -28,7 +28,7 @@ export interface PredictivePatterns {
 export interface CoachContext {
   // Today's State
   todayState: {
-    score: number;
+    score: number | null;
     tier: string;
     outcome?: string;
     contextStatement?: string;

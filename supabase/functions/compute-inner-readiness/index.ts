@@ -59,10 +59,10 @@ function getMindWeights(hasImminentHighStakes: boolean): {
 }
 
 export interface RefinedScoreResult {
-  scoreBaseline: number;       // unchanged input baseline (0–100)
-  scoreRefined: number;        // post-blend, post ±15 clamp
-  readinessState: 'baseline' | 'refined';
-  refinedContribution: number; // signed −15..+15
+  scoreBaseline: number | null;       // unchanged input baseline (0–100)
+  scoreRefined: number | null;        // post-blend, post ±15 clamp
+  readinessState: 'baseline' | 'refined' | 'awaiting';
+  refinedContribution: number | null; // signed −15..+15
   mindWeights: ReturnType<typeof getMindWeights>;
 }
 
@@ -87,11 +87,11 @@ export function computeRefinedScore(args: {
 
   const allNull = clarity == null && emotion == null && pressure == null && regulation == null;
   if (allNull) {
-    return {
-      scoreBaseline: baseline,
-      scoreRefined: baseline,
-      readinessState: 'baseline',
-      refinedContribution: 0,
+      return {
+        scoreBaseline: baseline,
+        scoreRefined: baseline,
+        readinessState: 'baseline',
+        refinedContribution: 0,
       mindWeights: weights,
     };
   }
@@ -110,11 +110,11 @@ export function computeRefinedScore(args: {
   const ceil  = baseline + 15;
   const refined = Math.max(0, Math.min(100, Math.max(floor, Math.min(ceil, Math.round(blended)))));
 
-  return {
-    scoreBaseline: baseline,
-    scoreRefined: refined,
-    readinessState: 'refined',
-    refinedContribution: refined - baseline,
+    return {
+      scoreBaseline: baseline,
+      scoreRefined: refined,
+      readinessState: 'refined',
+      refinedContribution: refined - baseline,
     mindWeights: weights,
   };
 }
@@ -281,7 +281,10 @@ const MRS_BANDS: ReadonlyArray<{
   { id: 'reserves', valence: 'low',  min: 35, max: 49,  text: "running on reserves — pick your battles" },
   { id: 'empty',    valence: 'low',  min: 0,  max: 34,  text: "running on empty — today's about protecting yourself" },
 ];
-function resolveBand(score: number): { id: ReadinessBandId; valence: ReadinessValence; label: string } {
+function resolveBand(score: number | null): { id: ReadinessBandId; valence: ReadinessValence; label: string } {
+  if (typeof score !== 'number' || !Number.isFinite(score)) {
+    return { id: 'holding', valence: 'mid', label: MRS_BANDS[2].text };
+  }
   const s = Math.max(0, Math.min(100, Math.round(score)));
   for (const b of MRS_BANDS) {
     if (s >= b.min && s <= b.max) return { id: b.id, valence: b.valence, label: b.text };
@@ -839,7 +842,7 @@ serve(async (req) => {
     // ─── MRS v4 §3 / §8 — Baseline scoring ─────────────────────────────
     // The legacy weightingMode branches have been removed. Missing data is
     // handled only by per-sub-component v4 redistribution.
-    let score: number;
+    let score: number | null;
     let mrsV4Provenance: unknown | null = null;
     let mrsV4Window: MrsWindow | null = null;
     let mrsV4AwaitingSignals = false;
@@ -872,8 +875,8 @@ serve(async (req) => {
     // Circadian + patternScore are intentionally NOT folded into the score.
     // They remain available downstream for framing only (see §4 spec).
 
-    // Clamp score
-    score = Math.max(0, Math.min(100, score));
+    const awaitingReadiness = mrsV4AwaitingSignals && score == null;
+    const scoreForMath = Math.max(0, Math.min(100, score ?? 50));
 
     // MRS v4 §6 flag 2 — INTRADAY_DECLINE. Evaluated only on afternoon /
     // evening windows where a morning anchor exists. Overrides
@@ -886,7 +889,7 @@ serve(async (req) => {
       typeof body.morningBaselineScore === 'number'
     ) {
       const intraday = computeIntradayDecline({
-        currentWindowBaseline: score,
+        currentWindowBaseline: scoreForMath,
         morningBaselineScore: body.morningBaselineScore,
         decisionLeakageRisk: body.decisionLeakageRisk === true,
         bodyLoadElevated: body.bodyLoadElevated === true,
@@ -895,14 +898,14 @@ serve(async (req) => {
       if (intraday) v4DivergenceFlag = 'INTRADAY_DECLINE';
     }
 
-    const tier = getEnergyTier(score);
-    const subTier = getEnergySubTier(score);
+    const tier = getEnergyTier(scoreForMath);
+    const subTier = getEnergySubTier(scoreForMath);
 
     // ─── MRS v3 §3.3 — Refined-score path ──────────────────────────────
     // Blend baseline with the 4 Mind Check-in dimensions, hard-capped at
     // baseline ±15. When all four dims are null, refined === baseline.
     const refined = computeRefinedScore({
-      baseline: score,
+      baseline: scoreForMath,
       clarity: body.clarityLevel ?? null,
       emotion: body.emotionLevel ?? null,
       pressure: body.pressureLevel ?? null,
@@ -912,9 +915,15 @@ serve(async (req) => {
 
     // The "displayed" score & tier are refined when a check-in exists, else
     // baseline. The number the UI shows tracks this, not the raw baseline.
-    const displayedScore = refined.scoreRefined;
-    const displayedTier = getEnergyTier(displayedScore);
-    const displayedSubTier = getEnergySubTier(displayedScore);
+    const displayedScore = awaitingReadiness
+      ? null
+      : (refined.readinessState === 'refined' ? refined.scoreRefined : refined.scoreBaseline);
+    const displayedTier = awaitingReadiness
+      ? 'managing'
+      : getEnergyTier(displayedScore ?? scoreForMath);
+    const displayedSubTier = awaitingReadiness
+      ? 'mid'
+      : getEnergySubTier(displayedScore ?? scoreForMath);
 
     // MRS v3 — soft-guard tier cap. Runs on the displayed tier so a refined
     // score that crossed a boundary still gets capped consistently.
@@ -970,7 +979,7 @@ serve(async (req) => {
 
     // Canonical band SSOT — derived once here from the DISPLAYED score and
     // forwarded to Brief / validator / Plan so nobody re-derives.
-    const bandInfo = resolveBand(displayedScore);
+    const bandInfo = awaitingReadiness ? null : resolveBand(displayedScore ?? scoreForMath);
 
     const result = {
       // `score` keeps its back-compat contract — it is now the DISPLAYED
@@ -984,9 +993,9 @@ serve(async (req) => {
       // 3-bucket valence ('low'|'mid'|'high') used to gate Brief tone and
       // Plan practice bias. Always read these instead of mapping `score`
       // a second time downstream.
-      band: bandInfo.id,
-      bandLabel: bandInfo.label,
-      bandValence: bandInfo.valence,
+      band: awaitingReadiness ? null : bandInfo?.id ?? null,
+      bandLabel: awaitingReadiness ? 'awaiting signals' : (bandInfo?.label ?? null),
+      bandValence: awaitingReadiness ? null : bandInfo?.valence ?? null,
       contextStatement,
       layer3Statement,
       layersActive,
@@ -999,7 +1008,7 @@ serve(async (req) => {
       confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
       timeOfDay,
       checkInOutcome: hasCheckIn ? checkInOutcome : null,
-      tierLabel: getTierLabel(displayedTier),
+      tierLabel: awaitingReadiness ? 'Awaiting signals' : getTierLabel(displayedTier),
       // New: alreadyUsed[] relay for Compass
       alreadyUsed: selectedSignals.alreadyUsed,
       // MRS v2 — surface the resolved mode + scoring inputs so callers can
@@ -1011,16 +1020,16 @@ serve(async (req) => {
       // MRS v3 — soft-guard tier cap. Callers should mirror these into
       // daily_context_snapshot and the UI should render `tierDisplayed`
       // (label `tierDisplayedLabel`) rather than re-deriving from `score`.
-      tierDisplayed,
-      tierDisplayedLabel: getTierLabel(tierDisplayed),
-      tierCapReason,
+      tierDisplayed: awaitingReadiness ? 'managing' : tierDisplayed,
+      tierDisplayedLabel: awaitingReadiness ? 'Awaiting signals' : getTierLabel(tierDisplayed),
+      tierCapReason: awaitingReadiness ? null : tierCapReason,
       // MRS v3 §3.3 — refined-score surface. `scoreRefined` is null until a
       // Mind Check-in exists for the window; `scoreBaseline` is always the
       // raw State 1 value so the client can render baseline-vs-refined deltas.
-      scoreBaseline: refined.scoreBaseline,
-      scoreRefined: refined.readinessState === 'refined' ? refined.scoreRefined : null,
-      readinessState: refined.readinessState,
-      refinedContribution: refined.refinedContribution,
+      scoreBaseline: awaitingReadiness ? null : refined.scoreBaseline,
+      scoreRefined: awaitingReadiness ? null : (refined.readinessState === 'refined' ? refined.scoreRefined : null),
+      readinessState: awaitingReadiness ? 'awaiting' : refined.readinessState,
+      refinedContribution: awaitingReadiness ? null : refined.refinedContribution,
       mindWeights: refined.mindWeights,
       // MRS v4 surface — always populated for successful baseline computes.
       mrsWindow: mrsV4Window,

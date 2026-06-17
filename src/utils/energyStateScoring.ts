@@ -62,7 +62,8 @@ export function getTimeOfDay(hour: number = new Date().getHours()): TimeOfDay {
 
 // ==================== ENERGY TIER (utility – thresholds match edge function) ====================
 
-export function getEnergyTier(balance: number): EnergyTier {
+export function getEnergyTier(balance: number | null | undefined): EnergyTier {
+  if (balance == null || Number.isNaN(balance)) return 'managing';
   if (balance < 40) return 'depleted';
   if (balance < 60) return 'managing';
   if (balance < 75) return 'strong';

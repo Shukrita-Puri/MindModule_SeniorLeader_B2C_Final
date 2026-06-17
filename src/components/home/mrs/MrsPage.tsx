@@ -25,6 +25,8 @@ const MrsPage = () => {
     (outerBrief as any)?.innerReadinessState === 'refined' ||
     weekly.data?.mode === 'refined'
       ? 'refined'
+      : (outerBrief as any)?.innerReadinessState === 'awaiting'
+        ? 'awaiting'
       : 'baseline';
 
   const tierColor = tierColorVar(tier);
@@ -69,6 +71,16 @@ const MrsPage = () => {
             </span>
           </div>
         )}
+        {!hasScore && (
+          <div className="mt-4 flex flex-col items-center text-center">
+            <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
+              {stateLabel.label}
+            </span>
+            <span className="mt-0.5 text-[11px] text-muted-foreground/60">
+              {stateLabel.subtitle}
+            </span>
+          </div>
+        )}
 
         {/* Take Assessment — left-edge Goodwood-yellow half tab */}
         <div className="mt-6 -mx-4">
@@ -92,7 +104,7 @@ const MrsPage = () => {
               className="absolute inset-y-0 left-0 w-1/3 pointer-events-none motion-safe:animate-[tab-shimmer-sweep_3.5s_ease-in-out_infinite] bg-[linear-gradient(90deg,transparent_0%,hsl(0_0%_100%/0.45)_50%,transparent_100%)]"
             />
             <span className="relative">
-              {hasScore ? 'Take assessment' : 'Check in to generate your score'}
+              Take assessment
             </span>
           </button>
         </div>
@@ -102,6 +114,7 @@ const MrsPage = () => {
           <WeeklyDeltaDial
             delta={weekly.data?.delta ?? null}
             mode={weekly.data?.mode ?? 'baseline'}
+            reason={weekly.data?.reason ?? null}
           />
         </div>
       </div>

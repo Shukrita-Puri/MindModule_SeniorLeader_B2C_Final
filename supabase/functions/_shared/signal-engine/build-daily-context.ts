@@ -52,10 +52,11 @@ export interface UpsertContextSnapshotInput {
   tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
   // MRS v3 §3.3 — refined-score split. `readinessScoreBaseline` is the raw
   // State 1 value; `readinessScoreRefined` is null until a Mind Check-in
-  // exists for the window. `readinessState` is 'baseline' | 'refined'.
+  // exists for the window. `readinessState` is 'baseline' | 'refined' |
+  // 'awaiting'.
   readinessScoreBaseline?: number | null;
   readinessScoreRefined?: number | null;
-  readinessState?: 'baseline' | 'refined' | null;
+  readinessState?: 'baseline' | 'refined' | 'awaiting' | null;
   refinedContribution?: number | null;
   // MRS v4 §11 — additive columns. All optional for back-compat with
   // callers still on the v3 path; the v4 cron path supplies them.

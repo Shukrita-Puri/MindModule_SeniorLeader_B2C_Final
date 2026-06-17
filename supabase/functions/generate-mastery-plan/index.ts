@@ -369,7 +369,7 @@ interface PlanRequest {
   slotReplacements?: Record<string, { eventId: string }>;
   // ALL below are server-fetched – populated inside generateMasteryPlan
   innerReadinessTier: string;
-  innerReadinessScore: number;
+  innerReadinessScore: number | null;
   outerReadinessPhrase: string;
   outerReadinessDriver: string;
   outerReadinessContext: string;
@@ -1076,11 +1076,11 @@ function buildUrgencyFrame(
   return 'The open space is the asset. Use it deliberately.';
 }
 
-function generatePlanBrief(
+export function generatePlanBrief(
   ctx: CalendarContext,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
   innerReadinessTier: string,
-  innerReadinessScore: number,
+  innerReadinessScore: number | null,
   checkInOutcome: string,
   calendarLoad: string,
   wearable: WearableContext,
@@ -1095,6 +1095,12 @@ function generatePlanBrief(
   pendingCommitments?: any[],
   calendarGaps?: number[],
 ): string {
+  if (innerReadinessScore == null) {
+    const nextGap = calendarGaps && calendarGaps.length > 0 ? calendarGaps.find(g => g > 0 && g <= 60) ?? null : null;
+    const urgency = buildUrgencyFrame(timeOfDay, nextEventTitle || null, nextEventMinutes || null, nextGap, calendarLoad);
+    return `Readiness signals are still coming in, so today's plan stays neutral and practical. ${urgency}`;
+  }
+
   // Derive rationale from resolved modules (new approach)
   if (resolvedModules && resolvedModules.length > 0) {
     const rationale = deriveRationaleFromModules(resolvedModules);
@@ -2097,7 +2103,7 @@ function getCoachPromptForContext(
   timeOfDay: string,
   tier: string,
   patternInsight: any,
-  innerReadinessScore?: number,
+  innerReadinessScore?: number | null,
   calendarPressure?: string,
   hasCoachFavorite?: boolean,
   hasPreEventWithin4h?: boolean
@@ -6312,7 +6318,7 @@ function mergeWithLedger(
 
 // ==================== HANDLER ====================
 
-Deno.serve(async (req) => {
+if (import.meta.main) Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

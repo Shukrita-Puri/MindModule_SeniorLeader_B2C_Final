@@ -3,7 +3,7 @@ import type { CurrentEnergyState } from "./energyStateEngine";
 
 export interface UserContext {
   // Immediate State
-  currentBalance: number;
+  currentBalance: number | null;
   currentState: string;
   checkInOutcome?: string;
   calendarDensity: number;

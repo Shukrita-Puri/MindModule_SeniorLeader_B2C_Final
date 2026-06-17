@@ -60,8 +60,11 @@ const TodayStateCard = () => {
   const displayedTier = (energyState as any).tierDisplayed ?? energyState.energyTier;
   const tierLabel =
     getReadinessOneLiner(energyState.overallBalance) ?? '';
+  const isAwaiting = energyState.overallBalance == null || energyState.readinessState === 'awaiting';
   const contextStatement = energyState.recommendation?.contextStatement || '';
-  const insight = cleanText(contextStatement);
+  const insight = isAwaiting
+    ? 'No recent wearable data — sync in Connected Data, or check in to take a self-assessment.'
+    : cleanText(contextStatement);
   const layersActive = energyState.layersActive || ['base'];
   const layer3Statement = energyState.layer3Statement ? cleanText(energyState.layer3Statement) : null;
 
@@ -82,7 +85,7 @@ const TodayStateCard = () => {
       {/* Score and Tier */}
       <div className="flex items-baseline gap-3 mb-2">
         <span className="text-[48px] font-medium tabular-nums font-body text-foreground">
-          {energyState.overallBalance}
+          {energyState.overallBalance ?? '—'}
         </span>
         <span className="text-sm text-muted-foreground/60 font-body">
           / 100
@@ -93,7 +96,7 @@ const TodayStateCard = () => {
         "text-[15px] font-medium mb-3 font-body",
         getTierColor(displayedTier)
       )}>
-        {tierLabel}
+        {isAwaiting ? 'EARLY READ — check in to sharpen it' : tierLabel}
       </p>
 
       {/* Contextual Insight - Enriched */}

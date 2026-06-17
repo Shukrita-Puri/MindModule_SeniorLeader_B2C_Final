@@ -1,6 +1,7 @@
 interface WeeklyDeltaDialProps {
   delta: number | null;
   mode: 'baseline' | 'refined';
+  reason?: 'composition_mismatch' | 'not_enough_history' | 'awaiting_signals' | null;
 }
 
 /**
@@ -9,7 +10,7 @@ interface WeeklyDeltaDialProps {
  * - Center label: signed pts.
  * - Color encodes direction (green up / red down / neutral flat).
  */
-const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
+const WeeklyDeltaDial = ({ delta, mode, reason = null }: WeeklyDeltaDialProps) => {
   // SVG geometry
   const W = 320;
   const H = 200;
@@ -63,6 +64,12 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
 
   const sign = delta === null ? '' : delta > 0 ? '+' : delta < 0 ? '−' : '';
   const magnitude = delta === null ? '—' : Math.abs(delta).toString();
+  const suppressedLabel =
+    reason === 'composition_mismatch'
+      ? 'not enough to compare yet'
+      : reason === 'awaiting_signals'
+        ? 'awaiting fresh signals'
+        : 'not enough to compare yet';
 
   // Curved label path (slightly below the arc, same center)
   const LR = R + 22;
@@ -223,7 +230,7 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
         </svg>
 
         <p className="mt-2 text-[11px] text-muted-foreground/85">
-          {delta === null ? 'Building your weekly trend' : `vs last week · ${mode}`}
+          {delta === null ? suppressedLabel : `vs last week · ${mode}`}
         </p>
       </div>
     </div>

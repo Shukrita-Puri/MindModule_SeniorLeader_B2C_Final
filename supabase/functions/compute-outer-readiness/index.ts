@@ -242,7 +242,7 @@ interface OuterReadinessResult {
 
 interface ComputeRequest {
   innerReadinessTier: EnergyTier;
-  innerReadinessScore: number;
+  innerReadinessScore: number | null;
   // MRS v3 — soft-guard tier cap (forwarded from compute-inner-readiness).
   // The server mirrors these into daily_context_snapshot so the UI reads
   // the canonical displayed tier without re-deriving from the raw score.
@@ -253,7 +253,7 @@ interface ComputeRequest {
   // for persistence + echoing so the UI gets a single round trip.
   innerReadinessScoreBaseline?: number | null;
   innerReadinessScoreRefined?: number | null;
-  innerReadinessState?: 'baseline' | 'refined' | null;
+  innerReadinessState?: 'baseline' | 'refined' | 'awaiting' | null;
   innerReadinessRefinedContribution?: number | null;
   // MRS v4 — optional pass-through from compute-inner-readiness so the
   // outer-readiness mirror persists the v4 audit-trail without re-deriving.
@@ -923,7 +923,7 @@ function getTheme(
   tier: EnergyTier,
   pressure: CalendarLevel | null,
   load: CalendarLevel | null,
-  score: number,
+  score: number | null,
   hour: number,
   dayOfWeek: number,
   tomorrowLoad?: CalendarLevel | null,
@@ -1144,11 +1144,19 @@ function getTheme(
 }
 
 // ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number, remainingEvents?: number, remainingHighStakes?: string[], meetingCount?: number, remainingMeetings?: number): { phrase: string; context: string; driver: ThemeDriver } {
+function getNoCalendarTheme(tier: EnergyTier, score: number | null, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number, remainingEvents?: number, remainingHighStakes?: string[], meetingCount?: number, remainingMeetings?: number): { phrase: string; context: string; driver: ThemeDriver } {
   const dayCtx = getDayContext(dayOfWeek);
   const lateEvening = isLateEvening(hour);
   const timeOfDay = getTimeOfDay(hour);
   const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
+
+  if (score == null) {
+    return {
+      phrase: 'Readiness signals are still coming in.',
+      context: 'The day can stay neutral until a fresh signal lands. Keep the next move small and practical.',
+      driver: 'state',
+    };
+  }
 
   // Build wearable-only suffix for no-calendar contexts
   const wearableSuffix = wearable
@@ -1793,6 +1801,9 @@ serve(async (req) => {
     const safeTierDisplayed: EnergyTier = (clientTierDisplayed as EnergyTier | null) ?? safeTier;
     const safeTierCapReason: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null =
       clientTierCapReason ?? null;
+    const innerStateIsAwaiting =
+      clientReadinessState === 'awaiting' || clientScoreBaseline == null || innerReadinessScore == null;
+    const currentReadingIsReal = !innerStateIsAwaiting && typeof innerReadinessScore === 'number';
 
     // Compute user's local time
     const userTime = getUserTime(timezoneOffset);
@@ -2799,9 +2810,11 @@ serve(async (req) => {
         // 1. Yesterday score + trend
         if (yesterdayRes.data) {
           yesterdayScore = (yesterdayRes.data as any).energy_balance ?? null;
-          if (yesterdayScore != null) {
-            const delta = innerReadinessScore - yesterdayScore;
-            scoreTrend = delta > 5 ? 'improving' : delta < -5 ? 'declining' : 'stable';
+        if (yesterdayScore != null) {
+            if (typeof innerReadinessScore === 'number') {
+              const delta = innerReadinessScore - yesterdayScore;
+              scoreTrend = delta > 5 ? 'improving' : delta < -5 ? 'declining' : 'stable';
+            }
           }
         }
 
@@ -3279,8 +3292,10 @@ serve(async (req) => {
           // DOW score comparison
           let scoreVsTypicalDOW: string | null = null;
           if (typicalDOWScore != null) {
-            const diff = innerReadinessScore - typicalDOWScore;
-            scoreVsTypicalDOW = diff > 8 ? 'better' : diff < -8 ? 'worse' : 'consistent';
+            if (typeof innerReadinessScore === 'number') {
+              const diff = innerReadinessScore - typicalDOWScore;
+              scoreVsTypicalDOW = diff > 8 ? 'better' : diff < -8 ? 'worse' : 'consistent';
+            }
           }
 
           // ── Signal Triage: select max 5 most relevant signals ──
@@ -3335,7 +3350,7 @@ serve(async (req) => {
           }
 
           // RULE 7: Score trajectory vs yesterday (if meaningful)
-          if (scoreTrend && yesterdayScore != null && Math.abs(innerReadinessScore - yesterdayScore) > 5) {
+          if (scoreTrend && yesterdayScore != null && typeof innerReadinessScore === 'number' && Math.abs(innerReadinessScore - yesterdayScore) > 5) {
             triageSignals.push(`Score ${scoreTrend} vs yesterday: ${innerReadinessScore} vs ${yesterdayScore}`);
           }
 
@@ -3662,7 +3677,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           let userPrompt = `${PRE_COMPUTED_USER_NOTICE}\n\n${_contextHeader}\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
 
           // === READINESS ===
-          userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
+          userPrompt += `\n\n=== READINESS ===\nScore: ${typeof innerReadinessScore === 'number' ? `${innerReadinessScore}/100` : 'awaiting'} · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
           {
             const _mrsLine = mrsConsistencyLine(bandValence);
             if (_mrsLine) userPrompt += `\n${_mrsLine}`;
@@ -5347,6 +5362,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   ? 'recovery_window'
                   : 'aligned';
 
+          const timeWindow = getTimeOfDay(hour);
+          let existingMorningBaselineScore: number | null = null;
+          try {
+            const { data: existingSnapshot } = await db
+              .from('daily_context_snapshot')
+              .select('morning_baseline_score')
+              .eq('user_id', userId)
+              .eq('local_date', userLocalDate)
+              .maybeSingle();
+            existingMorningBaselineScore = (existingSnapshot as any)?.morning_baseline_score ?? null;
+          } catch (_snapReadErr) {
+            existingMorningBaselineScore = null;
+          }
+          const currentBaselineForAnchor =
+            typeof clientScoreBaseline === 'number'
+              ? clientScoreBaseline
+              : (typeof innerReadinessScore === 'number' ? innerReadinessScore : null);
+          const shouldWriteMorningAnchor = timeWindow === 'morning' && currentReadingIsReal;
+          const shouldBackfillMorningAnchor =
+            timeWindow === 'afternoon' &&
+            currentReadingIsReal &&
+            existingMorningBaselineScore == null &&
+            (clientWeightProvenance as any)?.awaiting_signals !== true;
+
           await upsertDailyContextSnapshot(db, {
             userId,
             localDate: userLocalDate,
@@ -5356,29 +5395,28 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             demandLoad: (calendarLoad as any) ?? null,
             demandPressure: (calendarPressure as any) ?? null,
             hasHighStakes: _hasStakes,
-            innerScore: innerReadinessScore ?? null,
-            innerTier: safeTier ?? null,
+            innerScore: innerStateIsAwaiting ? null : (innerReadinessScore ?? null),
+            innerTier: innerStateIsAwaiting ? null : (safeTier ?? null),
             pillarMode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             weightingMode,
             supplyDemandGapFlag,
             signalPills: signalPillsPayload,
             // MRS v3 — soft-guard tier cap mirror.
-            tierDisplayed: safeTierDisplayed,
-            tierCapReason: safeTierCapReason,
+            tierDisplayed: innerStateIsAwaiting ? null : safeTierDisplayed,
+            tierCapReason: innerStateIsAwaiting ? null : safeTierCapReason,
             // MRS v3 §3.3 — refined-score split mirror. Falls back to the
             // displayed `innerReadinessScore` when the client didn't forward
             // a baseline (back-compat with older client builds).
-            readinessScoreBaseline: clientScoreBaseline ?? innerReadinessScore ?? null,
-            readinessScoreRefined: clientScoreRefined,
-            readinessState: clientReadinessState ?? 'baseline',
-            refinedContribution: clientRefinedContribution ?? 0,
+            readinessScoreBaseline: innerStateIsAwaiting ? null : currentBaselineForAnchor,
+            readinessScoreRefined: innerStateIsAwaiting ? null : clientScoreRefined,
+            readinessState: innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline'),
+            refinedContribution: innerStateIsAwaiting ? null : (clientRefinedContribution ?? 0),
             // MRS v4 — window resolution + morning-anchor management.
             // Morning writes the anchor; afternoon/evening leave it
             // untouched (omitted ⇒ existing column value preserved).
-            mrsWindow: getTimeOfDay(hour),
-            ...(getTimeOfDay(hour) === 'morning'
-              ? { morningBaselineScore: clientScoreBaseline ?? innerReadinessScore ?? null }
-              : {}),
+            mrsWindow: timeWindow,
+            ...(shouldWriteMorningAnchor ? { morningBaselineScore: currentBaselineForAnchor } : {}),
+            ...(shouldBackfillMorningAnchor ? { morningBaselineScore: currentBaselineForAnchor } : {}),
             // Mirror v4 audit JSONB when inner-readiness forwarded it.
             ...(clientWeightProvenance !== null
               ? { weightProvenance: clientWeightProvenance }
@@ -5655,19 +5693,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // period-sensitive surfaced fields. Otherwise the UI re-uses an older
       // check-in's score/outcome from earlier in the day and the Brief looks
       // "live" when it should read awaiting.
-      innerReadinessScore: awaitingSignals ? null : innerReadinessScore,
-      innerReadinessTier: awaitingSignals ? null : safeTier,
+      innerReadinessScore: (awaitingSignals || innerStateIsAwaiting) ? null : innerReadinessScore,
+      innerReadinessTier: (awaitingSignals || innerStateIsAwaiting) ? null : safeTier,
       // MRS v3 — echo the soft-guard displayed tier + reason so the UI
       // renders the cap without a second round trip. Suppressed in the
       // awaiting-signals window for the same reason as innerReadinessTier.
-      innerReadinessTierDisplayed: awaitingSignals ? null : safeTierDisplayed,
-      innerReadinessTierCapReason: awaitingSignals ? null : safeTierCapReason,
+      innerReadinessTierDisplayed: (awaitingSignals || innerStateIsAwaiting) ? null : safeTierDisplayed,
+      innerReadinessTierCapReason: (awaitingSignals || innerStateIsAwaiting) ? null : safeTierCapReason,
       // MRS v3 §3.3 — refined-score split echo. Suppressed when awaiting
       // signals for the same reason as the tier/score fields above.
-      innerReadinessScoreBaseline: awaitingSignals ? null : clientScoreBaseline,
-      innerReadinessScoreRefined: awaitingSignals ? null : clientScoreRefined,
-      innerReadinessState: awaitingSignals ? null : (clientReadinessState ?? 'baseline'),
-      innerReadinessRefinedContribution: awaitingSignals ? null : (clientRefinedContribution ?? 0),
+      innerReadinessScoreBaseline: (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreBaseline,
+      innerReadinessScoreRefined: (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreRefined,
+      innerReadinessState: awaitingSignals
+        ? null
+        : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
+      innerReadinessRefinedContribution: (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? 0),
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this

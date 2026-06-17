@@ -110,7 +110,7 @@ export function isSevereSleepDeficit(input: SleepDeficitInput): boolean {
 }
 
 export interface ComposeBaselineResult {
-  baseline: number;            // 0..100, integer
+  baseline: number | null;     // 0..100, integer or null while awaiting
   awaitingSignals: boolean;
   weightProvenance: RedistributeResult['weightProvenance'] & {
     sleep_deficit_override?: true;
@@ -137,7 +137,7 @@ export function composeBaselineV4(
   const { finalWeights, awaitingSignals, weightProvenance } = redistribute(window, subs);
 
   if (awaitingSignals) {
-    return { baseline: 0, awaitingSignals: true, weightProvenance };
+    return { baseline: null, awaitingSignals: true, weightProvenance };
   }
 
   const byId = new Map(subs.map((s) => [s.id, s]));

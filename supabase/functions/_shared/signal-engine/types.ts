@@ -132,11 +132,11 @@ export interface DailyContextSnapshot {
   // MRS v3 §3.3 — refined-score split. `readiness_score_baseline` is the
   // raw State 1 value (always present once populated); `readiness_score_refined`
   // is null until a Mind Check-in exists for the window. `readiness_state`
-  // = 'baseline' | 'refined'. `refined_contribution` = signed integer in
+  // = 'baseline' | 'refined' | 'awaiting'. `refined_contribution` = signed integer in
   // [-15, +15] (0 when state='baseline').
   readiness_score_baseline: number | null;
   readiness_score_refined: number | null;
-  readiness_state: 'baseline' | 'refined' | null;
+  readiness_state: 'baseline' | 'refined' | 'awaiting' | null;
   refined_contribution: number | null;
   // MRS v4 §11 — additive columns. `tier_displayed` doubles as the v4
   // `readiness_tier` (already declared above), so no new tier column.

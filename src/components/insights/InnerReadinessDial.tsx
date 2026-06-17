@@ -72,6 +72,7 @@ const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
   const [snapshots, setSnapshots] = useState<Array<{ local_date: string; score: number | null; tier: string | null }>>([]);
+  const [showFirstReadingNotice, setShowFirstReadingNotice] = useState(false);
   const [expanded, setExpanded] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return window.sessionStorage.getItem('insights.trajectory.expanded') === '1';
@@ -80,6 +81,9 @@ const InnerReadinessDial = () => {
   const todayScoreForTrend =
     typeof outer?.innerReadinessScore === 'number' ? Math.round(outer.innerReadinessScore) : null;
   const trend = useMrsTrend(todayScoreForTrend, range);
+  const readinessState = outer?.innerReadinessState ?? null;
+  const isAwaiting = todayScoreForTrend == null || readinessState === 'awaiting';
+  const localDayKey = format(new Date(), 'yyyy-MM-dd');
 
   const toggleExpanded = () => {
     setExpanded((prev) => {
@@ -129,6 +133,25 @@ const InnerReadinessDial = () => {
       }
     })();
   }, [uid]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const noticeKey = `mrs-inner-awaiting:${localDayKey}`;
+    try {
+      if (isAwaiting) {
+        window.localStorage.setItem(noticeKey, '1');
+        setShowFirstReadingNotice(false);
+        return;
+      }
+      const hadAwaiting = window.localStorage.getItem(noticeKey) === '1';
+      setShowFirstReadingNotice(hadAwaiting);
+      if (hadAwaiting) {
+        window.localStorage.removeItem(noticeKey);
+      }
+    } catch {
+      setShowFirstReadingNotice(false);
+    }
+  }, [isAwaiting, localDayKey]);
 
   const todayScore = typeof outer?.innerReadinessScore === 'number' ? Math.round(outer.innerReadinessScore) : null;
   const todayTier = tierFor(todayScore, outer?.innerReadinessTier);
@@ -214,7 +237,7 @@ const InnerReadinessDial = () => {
             </text>
           </svg>
           <div className="text-center -mt-2 text-[11px] tracking-[0.18em] uppercase" style={{ color: todayTier ? tierColor[todayTier] : 'hsl(var(--muted-foreground))' }}>
-            {todayTier ? tierLabel[todayTier] : 'Awaiting check-in'}
+            {isAwaiting ? 'EARLY READ' : (todayTier ? tierLabel[todayTier] : 'Awaiting check-in')}
           </div>
         </div>
         <div className="flex-1">
@@ -234,10 +257,17 @@ const InnerReadinessDial = () => {
             ))}
           </div>
           <p className="text-[11px] text-muted-foreground/80 mt-3 leading-snug">
-            Resets every Monday. Past days hold their daily colour.
+            {isAwaiting
+              ? 'No recent wearable data — sync in Connected Data, or check in to take a self-assessment.'
+              : 'Resets every Monday. Past days hold their daily colour.'}
           </p>
         </div>
       </div>
+      {showFirstReadingNotice && !isAwaiting && (
+        <p className="mt-3 text-[11px] text-muted-foreground/75">
+          First reading of the day is in.
+        </p>
+      )}
       {expanded && (
         <div
           id="trajectory-trend-panel"

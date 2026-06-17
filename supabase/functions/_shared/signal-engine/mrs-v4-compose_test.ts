@@ -120,7 +120,8 @@ Deno.test('awaiting signals: zero available → awaiting=true', () => {
   }));
   const r = composeBaselineV4('morning', subs);
   assertEquals(r.awaitingSignals, true);
-  assertEquals(r.baseline, 0);
+  assertEquals(r.baseline, null);
+  assertEquals(r.weightProvenance.awaiting_signals, true);
 });
 
 // §3.2a — absence-is-not-deficit guard.
