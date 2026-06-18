@@ -146,9 +146,9 @@ import Security
 
         let now = Date()
         let calendar = Calendar.current
-        let start = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: now)) ?? now
+        let start = calendar.startOfDay(for: now)
         var endComponents = DateComponents()
-        endComponents.day = 8
+        endComponents.day = 7
         endComponents.hour = 23
         endComponents.minute = 59
         endComponents.second = 59
@@ -317,8 +317,21 @@ import Security
             ]
         }
 
-        NSLog("[AppleCalendarBackgroundSync] Read \(normalized.count) events")
-        return normalized
+        var seen = Set<String>()
+        let deduped = normalized.filter { event in
+            let externalId = event["external_id"] as? String ?? ""
+            let startTime = event["start_time"] as? String ?? ""
+            let isRecurring = (event["is_recurring"] as? Bool) == true
+            let key = "\(externalId)::\(startTime)::\(isRecurring)"
+            if seen.contains(key) {
+                return false
+            }
+            seen.insert(key)
+            return true
+        }
+
+        NSLog("[AppleCalendarBackgroundSync] Read \(normalized.count) events, deduped to \(deduped.count)")
+        return deduped
     }
 
     private func postToEdgeFunction(events: [[String: Any]], windowStart: Date, windowEnd: Date, token: String, done: @escaping () -> Void) {

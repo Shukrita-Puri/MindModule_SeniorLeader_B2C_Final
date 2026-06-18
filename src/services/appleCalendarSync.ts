@@ -26,6 +26,22 @@ export interface AppleCalendarSyncPayload {
 
 let activeAppleCalendarSync: Promise<AppleCalendarSyncResult> | null = null;
 
+function dedupeAppleEvents(events: AppleCalendarEvent[]): AppleCalendarEvent[] {
+  const seen = new Set<string>();
+  const deduped: AppleCalendarEvent[] = [];
+
+  for (const event of events) {
+    const key = event.is_recurring
+      ? `${event.external_id}::${event.start_time}`
+      : event.external_id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(event);
+  }
+
+  return deduped;
+}
+
 /**
  * Direct POST to sync-apple-calendar. Used by both foreground sync and the
  * retry orchestrator. Does NOT enqueue on its own.
@@ -56,14 +72,15 @@ export async function postAppleCalendarDirect(payload: AppleCalendarSyncPayload,
   }
 }
 
-// Sync window: [today-2d, today+8d] — same as Google routine sync.
+// Sync window: keep a small lookback, but prioritize today + the next week
+// so Apple Calendar feels cached/proactive even if the app is not opened again.
 function defaultSyncWindow(): { start: Date; end: Date } {
   const now = new Date();
   const start = new Date(now);
   start.setDate(start.getDate() - 2);
   start.setHours(0, 0, 0, 0);
   const end = new Date(now);
-  end.setDate(end.getDate() + 8);
+  end.setDate(end.getDate() + 7);
   end.setHours(23, 59, 59, 999);
   return { start, end };
 }
@@ -90,8 +107,9 @@ export async function syncAppleCalendarToBackend(options?: { reason?: string }):
 
     let events;
     try {
-      events = await fetchAppleCalendarEvents(start, end);
-      console.log('[appleCalendarSync] fetched events:', events.length, 'reason:', reason);
+      const fetchedEvents = await fetchAppleCalendarEvents(start, end);
+      events = dedupeAppleEvents(fetchedEvents);
+      console.log('[appleCalendarSync] fetched events:', fetchedEvents.length, 'deduped:', events.length, 'reason:', reason);
     } catch (err) {
       console.error('[appleCalendarSync] fetchEvents failed:', err);
       emitIntegrationEvent({
