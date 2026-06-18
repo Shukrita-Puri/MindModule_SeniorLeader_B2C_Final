@@ -164,37 +164,77 @@ async function runJitV2Shadow(
     }
   } catch (_e) { /* observability only — never block plan */ }
 
-  // Resolved attendee roles for events in scope.
+  // ───────────────────────────────────────────────────────────────────
+  // Relationship resolution chain (§C of the SSOT):
+  //   1. user_tag       — sovereign, full weight, no decay
+  //   2. memory_user_tag — replayed from prior tag_relationship
+  //   3. llm            — cached attendee_relationships (Firecrawl + Gemini)
+  //   4. domain_heuristic — same-domain → peer; external → external_partner
+  //   5. unknown        — zero contribution, never demote
+  // Confidence gating happens inside relationshipWeight.
+  // ───────────────────────────────────────────────────────────────────
+
+  // Collect attendee emails per event for memory replay + signal building.
   const emails = new Set<string>();
+  const attendeesByEventId = new Map<string, string[]>();
   for (const fe of sourceEvents) {
-    const att = fe?.event?.attendees;
+    const ev = fe?.event ?? fe;
+    const att = ev?.attendees;
+    const evId = ev?.id;
+    const list: string[] = [];
     if (Array.isArray(att)) for (const a of att) {
       const em = typeof a === 'string' ? a : a?.email;
-      if (typeof em === 'string') emails.add(em.toLowerCase().trim());
+      if (typeof em === 'string' && em.includes('@')) {
+        const norm = em.toLowerCase().trim();
+        emails.add(norm);
+        list.push(norm);
+      }
     }
+    if (typeof evId === 'string' && evId) attendeesByEventId.set(evId, list);
   }
-  const roleByEmail = new Map<string, ResolvedRole>();
+
+  // User's own email-domain — drives the domain heuristic. Best-effort.
+  let userOwnDomain: string | null = null;
+  try {
+    const { data: profEmail } = await supabase
+      .from('profiles').select('email').eq('id', userId).maybeSingle();
+    const em = (profEmail as any)?.email;
+    if (typeof em === 'string') {
+      const at = em.lastIndexOf('@');
+      if (at >= 0) userOwnDomain = em.slice(at + 1).toLowerCase().trim();
+    }
+  } catch (_e) { /* heuristic is optional */ }
+
+  const signalByEmail = new Map<string, AttendeeRoleSignal>();
+
+  // 3. Cached attendee_relationships (LLM resolver output, or user_tag rows
+  //    upserted by record-event-priority-signal). Pull source + confidence.
   if (emails.size > 0) {
     try {
       const { data } = await supabase
         .from('attendee_relationships')
-        .select('attendee_email, role, expires_at')
+        .select('attendee_email, role, source, confidence, expires_at')
         .eq('user_id', userId)
         .in('attendee_email', Array.from(emails));
       for (const r of (data ?? [])) {
         if (r?.expires_at && new Date(r.expires_at).getTime() < Date.now()) continue;
-        roleByEmail.set(r.attendee_email, (r.role as ResolvedRole) || 'unknown');
+        const src = (r as any).source as string | null;
+        const source: RoleSource = src === 'user_tag' ? 'user_tag' : 'llm';
+        signalByEmail.set(r.attendee_email, {
+          role: ((r as any).role as ResolvedRole) || 'unknown',
+          source,
+          confidence: source === 'user_tag' ? 1 : (typeof (r as any).confidence === 'number' ? (r as any).confidence : null),
+        });
       }
-    } catch (_e) { /* fall through */ }
+    } catch (_e) { /* fall through to heuristic */ }
   }
 
-  // Issue 9 — late-resolving relationship re-read. For unresolved
-  // attendees on real domains, fire `resolve-attendee-relationship`
-  // ONCE per email (parallel, bounded by 1500 ms total), then re-query
-  // and merge. Resolver already enforces the daily-50 cap.
+  // Issue 9 — late-resolving relationship re-read. For unresolved attendees
+  // on real domains, fire `resolve-attendee-relationship` ONCE per email
+  // (bounded by 1500 ms total), then re-query and merge.
   const unresolvedEmails: string[] = [];
   for (const em of emails) {
-    if (!roleByEmail.has(em) && !isGenericDomain(em)) unresolvedEmails.push(em);
+    if (!signalByEmail.has(em) && !isGenericDomain(em)) unresolvedEmails.push(em);
   }
   if (unresolvedEmails.length > 0 && unresolvedEmails.length <= 10) {
     try {
@@ -212,19 +252,83 @@ async function runJitV2Shadow(
       ]);
       const { data: data2 } = await supabase
         .from('attendee_relationships')
-        .select('attendee_email, role, expires_at')
+        .select('attendee_email, role, source, confidence, expires_at')
         .eq('user_id', userId)
         .in('attendee_email', unresolvedEmails);
       for (const r of (data2 ?? [])) {
         if (r?.expires_at && new Date(r.expires_at).getTime() < Date.now()) continue;
-        if (!roleByEmail.has(r.attendee_email)) {
-          roleByEmail.set(r.attendee_email, (r.role as ResolvedRole) || 'unknown');
-        }
+        if (signalByEmail.has(r.attendee_email)) continue;
+        const src = (r as any).source as string | null;
+        const source: RoleSource = src === 'user_tag' ? 'user_tag' : 'llm';
+        signalByEmail.set(r.attendee_email, {
+          role: ((r as any).role as ResolvedRole) || 'unknown',
+          source,
+          confidence: source === 'user_tag' ? 1 : (typeof (r as any).confidence === 'number' ? (r as any).confidence : null),
+        });
       }
       console.log(`[generate-mastery-plan][jit-v2] late-resolve fired=${unresolvedEmails.length} resolved=${(data2 ?? []).length}`);
     } catch (e) {
       console.warn('[generate-mastery-plan][jit-v2] late-resolve failed', (e as Error)?.message);
     }
+  }
+
+  // 2. Memory replay — prior `tag_relationship` rows for any event in scope
+  //    map their relationshipTag to a ResolvedRole and stamp every attendee
+  //    on the same event as `memory_user_tag` (full weight, no decay), but
+  //    only when no cached row already covers that email. This means a
+  //    recurring 1:1 tagged "Boss" once keeps its role indefinitely without
+  //    re-hitting Firecrawl.
+  try {
+    const RELATIONSHIP_TAG_TO_ROLE: Record<string, ResolvedRole> = {
+      boss: 'boss', leadership: 'boss',
+      board: 'board_member',
+      client: 'client', customer: 'client',
+      vendor: 'vendor',
+      team: 'report', junior: 'report',
+      colleague: 'peer',
+      investor: 'investor',
+    };
+    const eventIds: string[] = [];
+    for (const fe of sourceEvents) {
+      const id = (fe?.event ?? fe)?.id;
+      if (typeof id === 'string' && id) eventIds.push(id);
+    }
+    if (eventIds.length > 0) {
+      const { data: memRows } = await supabase
+        .from('event_priority_memory')
+        .select('event_id, signal, meta, occurred_at')
+        .eq('user_id', userId)
+        .in('event_id', eventIds)
+        .eq('signal', 'tag_relationship')
+        .order('occurred_at', { ascending: false });
+      const stampedFor = new Set<string>(); // event_id → latest tag wins
+      for (const r of (memRows ?? []) as any[]) {
+        const eid = r?.event_id; if (!eid || stampedFor.has(eid)) continue;
+        stampedFor.add(eid);
+        const tag = String(r?.meta?.relationshipTag || '').toLowerCase().trim();
+        const role = RELATIONSHIP_TAG_TO_ROLE[tag];
+        if (!role) continue;
+        const ems = attendeesByEventId.get(eid) ?? [];
+        for (const em of ems) {
+          const existing = signalByEmail.get(em);
+          // memory_user_tag fills unresolved or upgrades llm/heuristic;
+          // never overrides a fresh user_tag row.
+          if (existing && existing.source === 'user_tag') continue;
+          signalByEmail.set(em, { role, source: 'memory_user_tag', confidence: 1 });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[generate-mastery-plan][jit-v2] memory-replay failed', (e as Error)?.message);
+  }
+
+  // 4. Domain-based heuristic — fills anything still unresolved with a
+  //    low-confidence directional signal so important external meetings
+  //    don't score flat-zero while the async resolver catches up.
+  for (const em of emails) {
+    if (signalByEmail.has(em)) continue;
+    const sig = inferRoleFromDomain(em, userOwnDomain);
+    if (sig.role !== 'unknown') signalByEmail.set(em, sig);
   }
 
   // Sovereign user-tag layer — fetch latest tag_importance_* / tag_custom
