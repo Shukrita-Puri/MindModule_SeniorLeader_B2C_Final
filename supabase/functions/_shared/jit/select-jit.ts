@@ -7,8 +7,6 @@ import { enrichEvent } from '../events/enrich-event.ts';
 import type { EventCategoryId } from '../events/event-categories.ts';
 import { isPersonalNoise } from './noise-filters.ts';
 import {
-  dominantRole,
-  relationshipWeight,
   weightedDominantRole,
   type AttendeeRoleSignal,
   type ResolvedRole,
