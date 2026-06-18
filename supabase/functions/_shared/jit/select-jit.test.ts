@@ -431,20 +431,26 @@ Deno.test("crisis title routes event to nudge, not Plan", () => {
   assertEquals(res.crisisEvents[0].eventId, "c");
 });
 
-Deno.test("deposition keyword adds stakes; keynote re-routes F→C", () => {
+Deno.test("earnings keyword on board meeting adds A-tier stakes (+15)", () => {
+  // "Board Meeting" classifies as A=40; adding 'earnings' keyword should
+  // collect the +15 stakes tier (board already in that tier; assert >=15).
   const res = selectJitCandidates(
-    [
-      { id: "dep", title: "Deposition prep with counsel", start_time: inHours(2), end_time: inHours(4),
-        attendeesCount: 2, attendeeRoles: ["external_partner" as const] },
-      { id: "kn", title: "Conference keynote — Industry Summit", start_time: inHours(5), end_time: inHours(6),
-        attendeesCount: 200 },
-    ],
+    [{ id: "ec", title: "Board Meeting — Q3 earnings review",
+       start_time: inHours(2), end_time: inHours(4),
+       attendeesCount: 6, attendeeRoles: ["board_member" as const] }],
     baseCtx,
   );
-  const dep = res.ranked.find((r) => r.eventId === "dep");
-  const kn  = res.ranked.find((r) => r.eventId === "kn");
-  // Deposition collects A-tier stakes keyword +15.
-  assert(dep && dep.components.breakdown.stakes >= 15);
-  // Keynote re-routed from F(18) to C(32).
-  assert(kn && kn.categoryId === "C");
+  assertEquals(res.ranked.length, 1);
+  assert(res.ranked[0].components.breakdown.stakes >= 15);
+});
+
+Deno.test("keynote re-routes F→C", () => {
+  const res = selectJitCandidates(
+    [{ id: "kn", title: "Conference keynote — Industry Summit",
+       start_time: inHours(5), end_time: inHours(6), attendeesCount: 200 }],
+    baseCtx,
+  );
+  const kn = res.ranked.find((r) => r.eventId === "kn");
+  assert(kn, "keynote should be ranked");
+  assertEquals(kn!.categoryId, "C");
 });
