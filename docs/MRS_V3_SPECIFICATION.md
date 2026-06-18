@@ -380,7 +380,7 @@ mind check-in submit ─► daily-checkins/SAVE_CHECKIN
 ## 14. What is superseded by v4
 
 - v3 §3.1's single fixed Physiological/Demand/Pattern composition → replaced by §3's window-dependent decomposition (same headline 50/30/20, different internals by window).
-- v3 §3 weighting-mode formula branches (`aligned`, `no_wearable`, `supply_demand_gap`, `recovery_window`, `wearable_early`) → **removed from State 1 math**. `weightingMode` may still be written as a diagnostic label, but `readiness_score_baseline` is produced only by the v4 sub-component composer and §8.3 redistribution.
+- v3 §3 weighting-mode formula branches (`aligned`, `no_wearable`, `supply_demand_gap`, `recovery_window`, `wearable_early`) → **removed from State 1 math**. `weightingMode` may still be written as a diagnostic label, but `readiness_score_baseline` is produced only by the v4 sub-component composer and §8.3 redistribution. There is no v3 fallback path left in the implementation; any missing v4 inputs should fail closed rather than silently switching formulas.
 - v3 §7 (whole-account, whole-pillar cold-start stages) → replaced entirely by §8's per-sub-component, per-cycle availability and redistribution model. No neutral-50 substitution remains anywhere in State 1.
 - v3 §7.2 check-in cold start → superseded by §2.1's continuous-recompute model.
 - (Deferred) `evening-context.ts` `deriveRecoveryNote` signature change per §10.4.

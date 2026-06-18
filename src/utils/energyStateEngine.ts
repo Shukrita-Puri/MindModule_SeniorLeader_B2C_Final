@@ -745,7 +745,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       scoreBaseline: result.scoreBaseline ?? null,
       scoreRefined: result.scoreRefined ?? null,
       readinessState: result.readinessState ?? 'baseline',
-      refinedContribution: result.refinedContribution ?? 0,
+      refinedContribution: result.refinedContribution ?? null,
       // Canonical band SSOT passthrough.
       band: result.band,
       bandLabel: result.bandLabel,
