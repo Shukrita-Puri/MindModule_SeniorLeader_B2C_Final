@@ -384,13 +384,13 @@ async function runJitV2Shadow(
 
   const input: SelectInputEvent[] = sourceEvents.map((fe: any) => {
     const ev = fe?.event ?? fe;
-    const roles: ResolvedRole[] = [];
+    const roles: AttendeeRoleSignal[] = [];
     const att = ev?.attendees;
     if (Array.isArray(att)) for (const a of att) {
       const em = typeof a === 'string' ? a : a?.email;
       if (typeof em === 'string') {
-        const r = roleByEmail.get(em.toLowerCase().trim());
-        if (r) roles.push(r);
+        const s = signalByEmail.get(em.toLowerCase().trim());
+        if (s) roles.push(s);
       }
     }
     const rawStart = ev?.start_time ?? ev?.startTime ?? ev?.start ?? null;
