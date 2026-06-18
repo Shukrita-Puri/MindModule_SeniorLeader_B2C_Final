@@ -180,7 +180,7 @@ import Security
             done()
             return
         }
-        drainOutbox(token: token, done: done)
+        drainOutbox(token: token, trigger: "manual_flush", done: done)
     }
 
     private func drainOutbox(token: String, trigger: String, done: @escaping () -> Void) {
