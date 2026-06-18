@@ -91,7 +91,13 @@ import {
 // jit_event_context for week-1 parity testing. Does not affect what the
 // user sees until PR 2.
 import { selectJitCandidates, type SelectInputEvent } from '../_shared/jit/select-jit.ts';
-import { isGenericDomain, type ResolvedRole } from '../_shared/jit/relationship-weights.ts';
+import {
+  isGenericDomain,
+  inferRoleFromDomain,
+  type AttendeeRoleSignal,
+  type ResolvedRole,
+  type RoleSource,
+} from '../_shared/jit/relationship-weights.ts';
 
 /**
  * JIT v2 shadow runner (PR 1). Pure side-effect; safe to fire-and-forget.
