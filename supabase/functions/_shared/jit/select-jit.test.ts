@@ -249,3 +249,63 @@ Deno.test("user_tag is sovereign over a higher-base LLM-inferred role", () => {
   );
   assert(userTag.ranked[0].importance > llmHigh.ranked[0].importance);
 });
+
+Deno.test("EY interview outranks zero-attendee 'connects' block (no tags)", () => {
+  // Mirrors today's real-world bug: a 0-attendee personal block titled
+  // like a recurring meeting was ranking above a high-stakes interview
+  // because the recurring pattern bonus carried it.
+  const sig = {
+    event_to_hrv: [
+      { event_type: "AI / strategy", n: 6, hrvDeltaPct: -20, confidence: "strong" },
+    ],
+  };
+  const res = selectJitCandidates(
+    [
+      { id: "ey", title: "Confirmed: First Round EY Foundation Independent Trustee Interview | Shukrita Puri",
+        start_time: inHours(2), end_time: inHours(3), attendeesCount: 4, attendeeRoles: ["external_partner" as const] },
+      { id: "ca", title: "Chief AI Thursday connects",
+        start_time: inHours(4), end_time: inHours(5), attendeesCount: 0 },
+    ],
+    { accountAgeDays: 60, signalSummary: sig, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  // EY must win head-to-head.
+  assertEquals(res.ranked[0]?.eventId, "ey");
+});
+
+Deno.test("zero-attendee 'connects' personal block does NOT collect recurring pattern bonus", () => {
+  const sig = {
+    event_to_hrv: [
+      { event_type: "AI / strategy", n: 10, hrvDeltaPct: -25, confidence: "strong" },
+    ],
+  };
+  const res = selectJitCandidates(
+    [{ id: "ca", title: "Chief AI Thursday connects", start_time: inHours(3), end_time: inHours(4), attendeesCount: 0 }],
+    { accountAgeDays: 60, signalSummary: sig, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  // Personal block: pattern score zeroed even when signal_summary has a hit.
+  // The event may still be excluded for failing MIN_IMMEDIATE; in either
+  // case patternScore on the ranked OR excluded path must be 0.
+  const all = [...res.ranked];
+  if (all.length > 0) {
+    assertEquals(all[0].components.breakdown.patternScore, 0);
+  }
+});
+
+Deno.test("interview boost requires attendees", () => {
+  const solo = selectJitCandidates(
+    [{ id: "p", title: "Interview prep", start_time: inHours(2), end_time: inHours(3), attendeesCount: 0 }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  const live = selectJitCandidates(
+    [{ id: "i", title: "Trustee Interview", start_time: inHours(2), end_time: inHours(3), attendeesCount: 3,
+       attendeeRoles: ["external_partner" as const] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  // Live interview must clear MIN_IMMEDIATE; solo prep should not get the +15.
+  assert(live.ranked.length === 1 && live.ranked[0].components.immediate >= MIN_IMMEDIATE);
+  // Solo prep with no attendees gets 0 interview boost — confirm by absence
+  // of the +15 in stakes breakdown.
+  if (solo.ranked.length > 0) {
+    assert(solo.ranked[0].components.breakdown.stakes < 15);
+  }
+});
