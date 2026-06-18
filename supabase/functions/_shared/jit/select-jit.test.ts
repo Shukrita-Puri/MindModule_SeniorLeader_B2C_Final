@@ -133,7 +133,7 @@ Deno.test("sovereign HIGH on EY interview lifts it above an untagged Chief AI bl
   const events = [
     {
       id: "chief-ai",
-      title: "Chief AI Thursday connects",
+      title: "Chief AI 1:1 sync",
       start_time: inHours(2),
       end_time: inHours(3),
       attendeeRoles: [] as any,
@@ -141,7 +141,7 @@ Deno.test("sovereign HIGH on EY interview lifts it above an untagged Chief AI bl
     },
     {
       id: "ey",
-      title: "Confirmed: First Round EY Foundation Independent Trustee Interview",
+      title: "EY Foundation Trustee 1:1",
       start_time: inHours(5),
       end_time: inHours(6),
       attendeeRoles: [] as any,
