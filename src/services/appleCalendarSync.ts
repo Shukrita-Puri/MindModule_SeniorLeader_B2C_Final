@@ -5,7 +5,11 @@
  * `sync-apple-calendar` edge function (authenticated with Auth0 Bearer token).
  */
 
-import { fetchAppleCalendarEvents, isAppleCalendarSupported } from '@/utils/appleCalendar';
+import {
+  fetchAppleCalendarEvents,
+  isAppleCalendarSupported,
+  type AppleCalendarEvent,
+} from '@/utils/appleCalendar';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';

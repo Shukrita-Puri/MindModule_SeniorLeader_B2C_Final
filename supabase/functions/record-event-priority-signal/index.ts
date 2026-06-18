@@ -145,8 +145,21 @@ serve(async (req) => {
         meta,
       });
     if (insErr) {
-      console.error("[record-event-priority-signal] insert error", insErr.message);
-      return new Response(JSON.stringify({ error: "insert_failed" }), {
+      console.error("[record-event-priority-signal] insert error", {
+        code: (insErr as any)?.code,
+        message: insErr.message,
+        details: (insErr as any)?.details,
+        hint: (insErr as any)?.hint,
+        signal,
+        source,
+      });
+      return new Response(JSON.stringify({
+        error: "insert_failed",
+        pg_code: (insErr as any)?.code ?? null,
+        pg_message: insErr.message,
+        pg_details: (insErr as any)?.details ?? null,
+        pg_hint: (insErr as any)?.hint ?? null,
+      }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

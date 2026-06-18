@@ -125,3 +125,38 @@ Deno.test("relationshipLeads flag set when untagged and relationship strong", ()
     assertEquals(res.ranked[0].components.breakdown.relationshipLeads, true);
   }
 });
+
+Deno.test("sovereign HIGH on EY interview lifts it above an untagged Chief AI block (screenshot scenario)", () => {
+  // Mirrors the user-reported ranking bug: a Chief AI sync was ranking #1
+  // over a Confirmed First Round EY Foundation interview tagged HIGH.
+  // With sovereign tag persistence working, HIGH must dominate.
+  const events = [
+    {
+      id: "chief-ai",
+      title: "Chief AI Thursday connects",
+      start_time: inHours(2),
+      end_time: inHours(3),
+      attendeeRoles: [] as any,
+      tags: [] as string[],
+    },
+    {
+      id: "ey",
+      title: "Confirmed: First Round EY Foundation Independent Trustee Interview",
+      start_time: inHours(5),
+      end_time: inHours(6),
+      attendeeRoles: [] as any,
+      tags: ["high"],
+    },
+  ];
+  // Mature account, no patterns favouring either — pure sovereign-tag check.
+  const res = selectJitCandidates(events, {
+    accountAgeDays: 60,
+    signalSummary: null,
+    skipCountsByBucket: {},
+    followThroughByBucket: {},
+    goals: null,
+    nowMs: NOW,
+  });
+  assert(res.ranked.length >= 1, "EY should be ranked");
+  assertEquals(res.ranked[0].eventId, "ey", "HIGH-tagged EY interview must lead");
+});
