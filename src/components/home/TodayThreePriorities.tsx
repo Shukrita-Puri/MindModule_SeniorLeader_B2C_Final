@@ -1306,8 +1306,17 @@ const TodayThreePriorities = ({
       <div className="flex flex-col gap-3 px-1 sm:px-2 max-w-2xl mx-auto">
         {horizonModules
           .map((hm, index) => ({ hm, index }))
-          // Cancelled slots remain in their original position (no reorder).
-          // The compressed/greyed card visually marks them in place.
+          // Sovereign tag layer: HIGH floats up, LOW sinks down. Cancelled
+          // slots keep their original position and only the tag drives
+          // re-ordering — the compressed/greyed card visually marks
+          // cancelled-in-place. The underlying `index` is preserved so
+          // every downstream reference (completion tracking, plan ledger
+          // edits, expansion state) keeps pointing at the same slot.
+          .sort((a, b) => {
+            const rank = (tag: any) => (tag === 'high' ? 0 : tag === 'low' ? 2 : 1);
+            const r = rank((a.hm as any).priorityTag) - rank((b.hm as any).priorityTag);
+            return r !== 0 ? r : a.index - b.index;
+          })
           .map(({ hm, index }) => {
           const slotPractices = hm.practices || [hm.practice];
           const slotCompleted = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
