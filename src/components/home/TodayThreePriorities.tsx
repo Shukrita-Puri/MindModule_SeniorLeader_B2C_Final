@@ -398,11 +398,24 @@ const TodayThreePriorities = ({
         const token = await getAuthToken();
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
-        const fire = (signal: string, meta: Record<string, any> = {}) =>
-          supabase.functions.invoke('record-event-priority-signal', {
-            headers,
-            body: { eventId, eventTitle, signal, source: 'priority_tag', meta },
-          }).catch((e) => console.warn('[TodayThreePriorities] tag bridge failed', e));
+        const fire = async (signal: string, meta: Record<string, any> = {}) => {
+          try {
+            const res = await supabase.functions.invoke('record-event-priority-signal', {
+              headers,
+              body: { eventId, eventTitle, signal, source: 'priority_tag', meta },
+            });
+            // invoke() does NOT reject on non-2xx; surface server-side errors
+            // explicitly so DB constraint drift (e.g. signal whitelist) is
+            // visible in the console instead of failing silently.
+            if ((res as any)?.error) {
+              console.warn('[TodayThreePriorities] tag bridge server-error', signal, (res as any).error);
+            } else if ((res as any)?.data && (res as any).data.error) {
+              console.warn('[TodayThreePriorities] tag bridge rejected', signal, (res as any).data);
+            }
+          } catch (e) {
+            console.warn('[TodayThreePriorities] tag bridge failed', signal, e);
+          }
+        };
         // Importance: write the new value, or a clear when the user removed it.
         if (next.priorityTag !== prev.priorityTag) {
           if (next.priorityTag === 'high' || next.priorityTag === 'medium' || next.priorityTag === 'low') {
