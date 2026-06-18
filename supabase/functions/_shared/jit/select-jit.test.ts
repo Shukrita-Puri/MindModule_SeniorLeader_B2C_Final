@@ -7,7 +7,7 @@
 //   • Pattern hit boosts tactical
 
 import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { selectJitCandidates, MIN_IMMEDIATE } from "./select-jit.ts";
+import { selectJitCandidates, MIN_IMMEDIATE, classifyInterview } from "./select-jit.ts";
 
 const NOW = Date.parse("2026-05-25T08:00:00.000Z");
 const inHours = (h: number) => new Date(NOW + h * 3600_000).toISOString();
@@ -304,8 +304,153 @@ Deno.test("interview boost requires attendees", () => {
   // Live interview must clear MIN_IMMEDIATE; solo prep should not get the +15.
   assert(live.ranked.length === 1 && live.ranked[0].components.immediate >= MIN_IMMEDIATE);
   // Solo prep with no attendees gets 0 interview boost — confirm by absence
-  // of the +15 in stakes breakdown.
+  // of any interview boost in stakes breakdown.
   if (solo.ranked.length > 0) {
-    assert(solo.ranked[0].components.breakdown.stakes < 15);
+    assert(solo.ranked[0].components.breakdown.stakes < 6);
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Immediate axis re-rank tests (B→30, C→32, D-interpersonal, interview split,
+// 1:1 seniority, crisis routing, keyword extensions, speaking re-route).
+// ─────────────────────────────────────────────────────────────────────
+
+const baseCtx = {
+  accountAgeDays: 60,
+  signalSummary: null,
+  skipCountsByBucket: {},
+  followThroughByBucket: {},
+  goals: null,
+  nowMs: NOW,
+};
+
+Deno.test("pitch (B) outranks deep work (E)", () => {
+  const res = selectJitCandidates(
+    [
+      { id: "pitch", title: "Investor Pitch with Acme", start_time: inHours(2), end_time: inHours(3),
+        attendeesCount: 2, attendeeRoles: ["investor" as const] },
+      { id: "dw", title: "Deep Work Block", start_time: inHours(3), end_time: inHours(5), attendeesCount: 0 },
+    ],
+    baseCtx,
+  );
+  assertEquals(res.ranked[0]?.eventId, "pitch");
+});
+
+Deno.test("all-hands (C) outranks conference (F)", () => {
+  const res = selectJitCandidates(
+    [
+      { id: "ah", title: "Q3 All-Hands Town Hall", start_time: inHours(2), end_time: inHours(3),
+        attendeesCount: 50 },
+      { id: "conf", title: "Industry Summit attending", start_time: inHours(3), end_time: inHours(8),
+        attendeesCount: 100 },
+    ],
+    baseCtx,
+  );
+  assertEquals(res.ranked[0]?.eventId, "ah");
+});
+
+Deno.test("layoff conversation gets D interpersonal boost", () => {
+  const res = selectJitCandidates(
+    [{ id: "lo", title: "Layoff conversation with Sam", start_time: inHours(2), end_time: inHours(3),
+       attendeesCount: 1, attendeeRoles: ["report" as const] }],
+    baseCtx,
+  );
+  // D(22) + interpersonal(+13) capped at 38; seniority -6 for report → 32; clears MIN.
+  assertEquals(res.ranked.length, 1);
+  assert(res.ranked[0].components.breakdown.categoryBase >= 28);
+});
+
+Deno.test("media interview classifies as media", () => {
+  const kind = classifyInterview({
+    title: "CNBC interview with David",
+    attendeesCount: 2,
+    categoryId: "C",
+  });
+  assertEquals(kind, "media");
+});
+
+Deno.test("candidate-side interview detected via external organizer", () => {
+  const kind = classifyInterview({
+    title: "Interview with CEO at Stripe",
+    attendeesCount: 1,
+    categoryId: "D",
+    organizerEmail: "recruiting@stripe.com",
+    userDomain: "mindmodule.me",
+  });
+  assertEquals(kind, "candidate");
+});
+
+Deno.test("hiring-side interview detected via internal panel", () => {
+  const kind = classifyInterview({
+    title: "Interview: Jane Doe for SWE II",
+    attendeesCount: 3,
+    categoryId: "D",
+    organizerEmail: "lead@mindmodule.me",
+    attendeeDomains: ["mindmodule.me", "mindmodule.me", "mindmodule.me"],
+    userDomain: "mindmodule.me",
+  });
+  assertEquals(kind, "hiring");
+});
+
+Deno.test("bare ambiguous interview falls through to ambiguous", () => {
+  const kind = classifyInterview({
+    title: "Interview",
+    attendeesCount: 1,
+  });
+  assertEquals(kind, "ambiguous");
+});
+
+Deno.test("1:1 boss outranks 1:1 with report (report falls below MIN)", () => {
+  const res = selectJitCandidates(
+    [
+      { id: "boss", title: "1:1 with Pat", start_time: inHours(2), end_time: inHours(3),
+        attendeesCount: 1, attendeeRoles: ["boss" as const] },
+      { id: "rep", title: "1:1 with Junior", start_time: inHours(3), end_time: inHours(4),
+        attendeesCount: 1, attendeeRoles: ["report" as const] },
+    ],
+    baseCtx,
+  );
+  const ids = res.ranked.map((r) => r.eventId);
+  assert(ids.includes("boss"));
+  // report-side 1:1 should not rank #1; either ranked below or excluded.
+  if (ids.includes("rep")) {
+    assert(ids.indexOf("boss") < ids.indexOf("rep"));
+  }
+});
+
+Deno.test("crisis title routes event to nudge, not Plan", () => {
+  const res = selectJitCandidates(
+    [{ id: "c", title: "URGENT: customer outage war room",
+       start_time: inHours(1), end_time: inHours(2),
+       attendeesCount: 4, attendeeRoles: ["client" as const] }],
+    baseCtx,
+  );
+  assertEquals(res.ranked.length, 0);
+  assertEquals(res.excluded[0]?.reason, "crisis_route_to_nudge");
+  assertEquals(res.crisisEvents.length, 1);
+  assertEquals(res.crisisEvents[0].eventId, "c");
+});
+
+Deno.test("earnings keyword on board meeting adds A-tier stakes (+15)", () => {
+  // "Board Meeting" classifies as A=40; adding 'earnings' keyword should
+  // collect the +15 stakes tier (board already in that tier; assert >=15).
+  const res = selectJitCandidates(
+    [{ id: "ec", title: "Board Meeting — Q3 earnings review",
+       start_time: inHours(2), end_time: inHours(4),
+       attendeesCount: 6, attendeeRoles: ["board_member" as const] }],
+    baseCtx,
+  );
+  assertEquals(res.ranked.length, 1);
+  assert(res.ranked[0].components.breakdown.stakes >= 15);
+});
+
+Deno.test("keynote re-routes F→C", () => {
+  const res = selectJitCandidates(
+    [{ id: "kn", title: "Conference keynote — Industry Summit",
+       start_time: inHours(5), end_time: inHours(6), attendeesCount: 200 }],
+    baseCtx,
+  );
+  const kn = res.ranked.find((r) => r.eventId === "kn");
+  assert(kn, "keynote should be ranked");
+  assertEquals(kn!.categoryId, "C");
 });

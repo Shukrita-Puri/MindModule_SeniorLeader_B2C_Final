@@ -386,11 +386,15 @@ async function runJitV2Shadow(
     const ev = fe?.event ?? fe;
     const roles: AttendeeRoleSignal[] = [];
     const att = ev?.attendees;
+    const attendeeDomains: string[] = [];
     if (Array.isArray(att)) for (const a of att) {
       const em = typeof a === 'string' ? a : a?.email;
       if (typeof em === 'string') {
-        const s = signalByEmail.get(em.toLowerCase().trim());
+        const norm = em.toLowerCase().trim();
+        const s = signalByEmail.get(norm);
         if (s) roles.push(s);
+        const at = norm.lastIndexOf('@');
+        if (at >= 0) attendeeDomains.push(norm.slice(at + 1));
       }
     }
     const rawStart = ev?.start_time ?? ev?.startTime ?? ev?.start ?? null;
@@ -400,11 +404,20 @@ async function runJitV2Shadow(
     const baseTags = Array.isArray(ev?.tags) ? ev.tags.map((t: any) => String(t)) : [];
     const sovTags = (ev?.id && sovereignTagsByEventId.get(ev.id)) || [];
     const mergedTags = [...sovTags, ...baseTags];
+    const rawCreated = ev?.created_at ?? ev?.createdAt ?? null;
+    const createdIso = rawCreated instanceof Date ? rawCreated.toISOString() : (rawCreated ?? null);
+    const organizerEmail = (typeof ev?.organizer === 'string'
+      ? ev.organizer
+      : (ev?.organizer?.email ?? ev?.organizer_email ?? null)) || null;
     return {
       id: ev?.id,
       title: ev?.title || '',
       start_time: startIso,
       end_time: endIso,
+      createdAt: createdIso,
+      organizerEmail,
+      attendeeDomains,
+      userDomain: userOwnDomain ?? null,
       attendeesCount: typeof ev?.attendees_count === 'number'
         ? ev.attendees_count
         : (typeof ev?.attendeesCount === 'number' ? ev.attendeesCount : 0),
