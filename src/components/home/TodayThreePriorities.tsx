@@ -1066,10 +1066,26 @@ const TodayThreePriorities = ({
         return;
       }
     }
-    for (let i = 0; i < modules.length; i++) {
+    // Auto-expand respects the sovereign tag layer: HIGH lifts to top,
+    // LOW sinks to bottom and is skipped on the first pass. The user's
+    // tag thus has an instant, visible effect on which slot the home
+    // page invites them to start, without waiting for a plan regen.
+    const order = sovereignDisplayOrder(modules);
+    // First pass: skip LOW slots — they are de-prioritised by the user.
+    for (const i of order) {
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
-      const key = buildPriorityKey(i, modules[i]);
+      const slotCancelled = modules[i].isCancelled === true;
+      const isLow = (modules[i] as any).priorityTag === 'low';
+      if (!slotComplete && !slotCancelled && !isLow) {
+        setExpandedSlot(i);
+        return;
+      }
+    }
+    // Fallback: if every incomplete slot is LOW, expand the first one anyway.
+    for (const i of order) {
+      const slotPractices = modules[i].practices || [modules[i].practice];
+      const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
       const slotCancelled = modules[i].isCancelled === true;
       if (!slotComplete && !slotCancelled) {
         setExpandedSlot(i);
