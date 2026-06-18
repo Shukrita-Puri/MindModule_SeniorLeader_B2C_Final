@@ -416,13 +416,18 @@ const TodayThreePriorities = ({
             console.warn('[TodayThreePriorities] tag bridge failed', signal, e);
           }
         };
-        // Importance: write the new value, or a clear when the user removed it.
-        if (next.priorityTag !== prev.priorityTag) {
-          if (next.priorityTag === 'high' || next.priorityTag === 'medium' || next.priorityTag === 'low') {
-            await fire(`tag_importance_${next.priorityTag}`);
-          } else if (next.priorityTag === null) {
-            await fire('tag_cleared', { kind: 'importance' });
-          }
+        // Importance — always fire on a user-initiated tag handler call.
+        // We deliberately do NOT skip when next === prev: the local plan
+        // ledger can hydrate `prev` from a stale write, which previously
+        // silently dropped the DB row on re-taps from a different surface.
+        // The server row is the audit trail; an extra duplicate row is
+        // harmless and gives the scorer a fresh occurred_at.
+        if (next.priorityTag === 'high' || next.priorityTag === 'medium' || next.priorityTag === 'low') {
+          console.info('[tag-bridge] fire', { signal: `tag_importance_${next.priorityTag}`, eventId, eventTitle });
+          await fire(`tag_importance_${next.priorityTag}`);
+        } else if (next.priorityTag === null && prev.priorityTag !== null) {
+          console.info('[tag-bridge] fire', { signal: 'tag_cleared', eventId, eventTitle });
+          await fire('tag_cleared', { kind: 'importance' });
         }
         if (next.relationshipTag !== prev.relationshipTag && next.relationshipTag) {
           await fire('tag_relationship', { relationshipTag: next.relationshipTag });
