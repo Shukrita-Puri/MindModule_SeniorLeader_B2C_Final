@@ -81,6 +81,23 @@ const performanceSlotLabel = (raw: string, _isJit: boolean): string => {
   return raw.replace(/^\s*Before\s+/i, 'Prepare ahead of ');
 };
 
+/**
+ * Sovereign-tag display order — HIGH floats to top, LOW sinks to bottom,
+ * original index breaks ties so underlying slot identity (completion
+ * tracking, plan ledger edits) stays stable.
+ */
+function sovereignDisplayOrder<T extends { priorityTag?: string | null }>(modules: T[]): number[] {
+  const rank = (tag: string | null | undefined): number => {
+    if (tag === 'high') return 0;
+    if (tag === 'low') return 2;
+    return 1;
+  };
+  return modules
+    .map((m, i) => ({ i, r: rank((m && (m as any).priorityTag) ?? null) }))
+    .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+    .map((x) => x.i);
+}
+
 // ── Types ──
 interface PlanModule {
   type: 'regulate' | 'align' | 'prepare' | 'integrate';
