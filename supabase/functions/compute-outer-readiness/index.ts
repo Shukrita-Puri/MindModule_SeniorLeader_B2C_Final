@@ -5410,7 +5410,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             readinessScoreBaseline: innerStateIsAwaiting ? null : currentBaselineForAnchor,
             readinessScoreRefined: innerStateIsAwaiting ? null : clientScoreRefined,
             readinessState: innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline'),
-            refinedContribution: innerStateIsAwaiting ? null : (clientRefinedContribution ?? 0),
+            refinedContribution: innerStateIsAwaiting ? null : (clientRefinedContribution ?? null),
             // MRS v4 — window resolution + morning-anchor management.
             // Morning writes the anchor; afternoon/evening leave it
             // untouched (omitted ⇒ existing column value preserved).
@@ -5707,7 +5707,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       innerReadinessState: awaitingSignals
         ? null
         : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
-      innerReadinessRefinedContribution: (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? 0),
+      innerReadinessRefinedContribution: (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? null),
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this
