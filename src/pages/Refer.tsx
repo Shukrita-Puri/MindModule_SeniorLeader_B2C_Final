@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Share2, Copy, Check, Loader2 } from 'lucide-react';
-import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
+import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -97,10 +97,7 @@ const Refer = () => {
   };
 
   return (
-    <div className="min-h-screen bg-transparent">
-      <UnifiedTopBar hideCoach />
-
-      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
+    <ProfilePageLayout>
         <div>
           <h1 className="text-[28px] font-headline font-semibold text-foreground">Refer Friends</h1>
           <p className="text-sm text-muted-foreground font-body">Share the mental edge</p>
@@ -209,7 +206,7 @@ const Refer = () => {
         </Card>
 
         {/* Terms Link */}
-        <div className="text-center pb-4">
+        <div className="text-center">
           <button
             onClick={() => setShowTerms(true)}
             className="text-sm text-gold font-body underline underline-offset-4 hover:text-saffron transition-colors"
@@ -217,7 +214,6 @@ const Refer = () => {
             View Terms and Conditions
           </button>
         </div>
-      </div>
 
       {/* Terms Modal */}
       <Dialog open={showTerms} onOpenChange={setShowTerms}>
@@ -248,7 +244,7 @@ const Refer = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </ProfilePageLayout>
   );
 };
 

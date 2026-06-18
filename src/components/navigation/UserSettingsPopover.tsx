@@ -58,9 +58,10 @@ const UserSettingsPopover = () => {
   };
 
   const handleNavigate = (path: string, source?: string) => {
-    navigate(path, source ? { state: { source } } : undefined);
-    // Close after navigation to prevent unmount race on iOS WebView
-    requestAnimationFrame(() => setOpen(false));
+    setOpen(false);
+    requestAnimationFrame(() => {
+      navigate(path, source ? { state: { source } } : undefined);
+    });
   };
 
   // Show loading skeleton while user data is being fetched

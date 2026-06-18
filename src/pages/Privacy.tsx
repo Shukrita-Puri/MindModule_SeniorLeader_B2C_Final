@@ -1,12 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
+import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 
 const Privacy = () => {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-transparent">
-      <UnifiedTopBar hideCoach />
-      <div className="container max-w-4xl mx-auto px-4 pt-20 pb-12">
+    <ProfilePageLayout contentClassName="container max-w-4xl">
         <h1 className="text-[28px] font-headline font-semibold text-foreground mb-2">Privacy Policy</h1>
         <p className="text-muted-foreground mb-8">Effective Date: March 11, 2026</p>
         
@@ -350,8 +348,7 @@ const Privacy = () => {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </ProfilePageLayout>
   );
 };
 

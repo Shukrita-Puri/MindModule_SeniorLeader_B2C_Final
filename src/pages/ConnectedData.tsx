@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarDays, ArrowLeft } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import ProviderRowCard from '@/components/connections/ProviderRowCard';
-import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
+import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
@@ -197,6 +197,7 @@ const ConnectedData = () => {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [appleCalendarPermissionStatus, setAppleCalendarPermissionStatus] = useState<string | null>(null);
+  const [appleCalendarSyncFailed, setAppleCalendarSyncFailed] = useState(false);
 
   const clearIntegrationCaches = useCallback((scope: 'calendar' | 'wearable' | 'all') => {
     console.log('[ConnectedData] Clearing integration caches:', scope);
@@ -572,8 +573,9 @@ const ConnectedData = () => {
         providers[provider] = { connected: false, lastSync: null };
         const googleStillConnected = providers.google?.connected ?? false;
         const microsoftStillConnected = providers.microsoft?.connected ?? false;
-        const stillConnected = googleStillConnected || microsoftStillConnected;
-        const remainingProvider = googleStillConnected ? 'google' : microsoftStillConnected ? 'microsoft' : null;
+        const appleStillConnected = providers.apple?.connected ?? false;
+        const stillConnected = googleStillConnected || microsoftStillConnected || appleStillConnected;
+        const remainingProvider = googleStillConnected ? 'google' : microsoftStillConnected ? 'microsoft' : appleStillConnected ? 'apple' : null;
         return {
           ...prev,
           calendar: {
@@ -621,12 +623,27 @@ const ConnectedData = () => {
   /* ─── Apple Calendar Handlers (native iOS only) ─── */
 
   const handleConnectAppleCalendar = async () => {
+    console.log('[ConnectedData] Apple Calendar connect tapped', {
+      platform: isNativeApp() ? 'native' : 'web',
+      supported: isAppleCalendarSupported(),
+      permissionStatus: appleCalendarPermissionStatus,
+    });
+    emitIntegrationEvent({
+      provider: 'apple-calendar',
+      event: 'connect_started',
+      userId: user?.id,
+      nativePermissionState: appleCalendarPermissionStatus ?? 'unknown',
+      meta: { platform: isNativeApp() ? 'native' : 'web' },
+    });
     if (!isAppleCalendarSupported()) {
       toast.info('Apple Calendar is available in the iOS app.');
       return;
     }
     setConnecting('apple-calendar');
     try {
+      setAppleCalendarSyncFailed(false);
+      const beforeStatus = await getAppleCalendarPermissionStatus();
+      console.log('[ConnectedData] Apple Calendar permission before request:', beforeStatus);
       const granted = await requestAppleCalendarPermission();
       const permissionStatus = await getAppleCalendarPermissionStatus();
       setAppleCalendarPermissionStatus(permissionStatus);
@@ -674,18 +691,23 @@ const ConnectedData = () => {
         nativePermissionState: permissionStatus,
         meta: { optimisticConnectedAt },
       });
-      const result = await syncAppleCalendarToBackend();
+      console.log('[ConnectedData] Apple Calendar sync started after connect');
+      const result = await syncAppleCalendarToBackend({ reason: 'connect' });
       console.log('[ConnectedData] Apple Calendar initial sync result:', JSON.stringify(result));
       if (result.success) {
         // Belt-and-braces: also trigger a native fetch so the iOS background
         // observer is primed and the next event change is picked up instantly.
         void forceNativeCalendarSync();
         toast.success(`Apple Calendar connected — synced ${result.eventCount ?? 0} events`);
+        setStatus(prev => prev
+          ? withAppleCalendarProvider(prev, { connected: true, lastSync: new Date().toISOString() })
+          : prev);
         invalidatePlanCache();
         clearOuterReadinessCache(user?.id);
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         await fetchStatus();
       } else {
+        setAppleCalendarSyncFailed(true);
         toast.warning(result.error || 'Apple Calendar is connected. Sync will retry when the app is active.');
         void forceNativeCalendarSync();
         await fetchStatus();
@@ -702,14 +724,21 @@ const ConnectedData = () => {
     if (!isAppleCalendarSupported()) return;
     setSyncing(true);
     try {
-      const result = await syncAppleCalendarToBackend();
+      setAppleCalendarSyncFailed(false);
+      console.log('[ConnectedData] Apple Calendar manual sync started');
+      const result = await syncAppleCalendarToBackend({ reason: 'manual_sync_now' });
+      console.log('[ConnectedData] Apple Calendar manual sync result:', JSON.stringify(result));
       if (result.success) {
         toast.success(`Synced ${result.eventCount ?? 0} events`);
+        setStatus(prev => prev
+          ? withAppleCalendarProvider(prev, { connected: true, lastSync: new Date().toISOString() })
+          : prev);
         invalidatePlanCache();
         clearOuterReadinessCache(user?.id);
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         await fetchStatus();
       } else {
+        setAppleCalendarSyncFailed(true);
         toast.error(result.error || 'Sync failed');
       }
     } finally {
@@ -1139,7 +1168,10 @@ const ConnectedData = () => {
   const appleCalendarPermissionGranted = isAppleCalendarSupported()
     ? isAppleCalendarAuthorizedStatus(appleCalendarPermissionStatus)
     : false;
-  const appleCalendarConnected = appleCalendarDbConnected && appleCalendarPermissionGranted;
+  const appleCalendarNativeLinked = isAppleCalendarSupported()
+    && appleCalendarPermissionGranted
+    && !wasAppleCalendarManuallyDisconnected();
+  const appleCalendarConnected = appleCalendarDbConnected || appleCalendarNativeLinked;
   const appleCalendarPermissionDenied = isAppleCalendarSupported()
     && appleCalendarPermissionStatus !== null
     && (appleCalendarPermissionStatus === 'denied' || appleCalendarPermissionStatus === 'restricted');
@@ -1149,24 +1181,67 @@ const ConnectedData = () => {
     ?? (microsoftConnected ? (status?.calendar.lastSync ?? null) : null);
   const appleCalendarLastSync = status?.calendar.providers?.apple?.lastSync ?? null;
   const appleCalendarSyncState = deriveSyncState({
-    backendConnectionState: appleCalendarDbConnected ? 'connected' : 'disconnected',
-    backendSyncStatus: appleCalendarPermissionGranted ? 'synced' : 'permission_revoked',
+    backendConnectionState: appleCalendarConnected ? 'connected' : 'disconnected',
+    backendSyncStatus: appleCalendarPermissionDenied ? 'permission_revoked' : 'synced',
     lastSyncAt: appleCalendarLastSync,
     staleThresholdHours: 24,
   });
-  // Apple-as-primary precedence:
-  // - On iOS: only Apple Calendar shows (native source).
-  // - On web: Google + Microsoft always show as options. If the user has an
-  //   active Apple connection (synced from their iOS device), also show the
-  //   Apple card as read-only — Apple is the primary source for the brief and
-  //   nudges, so layering Google/Microsoft won't double-count.
   const isOnIOS = isAppleCalendarSupported();
-  const showAppleCalendar = isOnIOS || appleCalendarDbConnected;
-  const showWebCalendars = !isOnIOS;
-  const appleCalendarReadOnly = !isOnIOS && appleCalendarDbConnected;
+  const showAppleCalendar = isOnIOS;
+  const appleCalendarStatusLabel = appleCalendarPermissionDenied
+    ? 'Permission denied'
+    : appleCalendarSyncFailed
+      ? 'Sync failed'
+    : appleCalendarConnected && appleCalendarSyncState === 'stale'
+      ? 'Needs sync'
+      : appleCalendarConnected && appleCalendarSyncState === 'never_synced'
+        ? 'Connected via iOS app'
+        : appleCalendarConnected && appleCalendarLastSync
+          ? 'Connected · synced'
+          : appleCalendarConnected
+            ? 'Connected via iOS app'
+            : 'Disconnected';
+  const appleCalendarStatusNote = appleCalendarPermissionDenied
+    ? 'Enable full calendar access in iOS Settings, then reconnect.'
+    : appleCalendarSyncFailed
+      ? 'Tap Sync now to retry.'
+    : appleCalendarConnected && appleCalendarSyncState === 'never_synced'
+      ? 'No successful sync yet. Tap Sync now.'
+      : appleCalendarConnected && appleCalendarSyncState === 'stale'
+        ? 'Last successful sync is older than 24 hours. Tap Sync now.'
+        : undefined;
+
+  useEffect(() => {
+    console.log('[ConnectedData] Platform detected for calendar rows:', {
+      platform: isOnIOS ? 'ios-native' : 'web',
+      showGoogle: true,
+      showMicrosoft: true,
+      showAppleCalendar,
+    });
+  }, [isOnIOS, showAppleCalendar]);
+
+  useEffect(() => {
+    console.log('[ConnectedData] Final Apple Calendar UI status:', {
+      dbConnected: appleCalendarDbConnected,
+      permissionStatus: appleCalendarPermissionStatus,
+      permissionGranted: appleCalendarPermissionGranted,
+      connected: appleCalendarConnected,
+      lastSync: appleCalendarLastSync,
+      syncState: appleCalendarSyncState,
+      statusLabel: appleCalendarStatusLabel,
+    });
+  }, [
+    appleCalendarDbConnected,
+    appleCalendarPermissionStatus,
+    appleCalendarPermissionGranted,
+    appleCalendarConnected,
+    appleCalendarLastSync,
+    appleCalendarSyncState,
+    appleCalendarStatusLabel,
+  ]);
 
   const connections = [
-    ...(showWebCalendars ? [{
+    {
       id: 'google-calendar',
       name: CALENDAR_PROVIDER_META.google.name,
       description: CALENDAR_PROVIDER_META.google.note,
@@ -1197,7 +1272,7 @@ const ConnectedData = () => {
       onDisconnect: handleDisconnectMicrosoft,
       onSync: handleSyncMicrosoft,
       canSync: true,
-    }] : []),
+    },
     ...(showAppleCalendar ? [{
       id: 'apple-calendar',
       name: CALENDAR_PROVIDER_META.apple.name,
@@ -1207,32 +1282,16 @@ const ConnectedData = () => {
           <CalendarDays className="h-4 w-4 text-foreground/70" />
         </div>
       ),
-      connected: appleCalendarReadOnly ? true : appleCalendarConnected,
-      linked: appleCalendarReadOnly ? true : appleCalendarConnected,
-      lastSync: appleCalendarReadOnly
-        ? formatLastSync(appleCalendarLastSync)
-        : (appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null),
-      statusLabel: appleCalendarPermissionDenied
-        ? 'Permission denied'
-        : (appleCalendarSyncState === 'stale' || appleCalendarSyncState === 'never_synced')
-          ? 'Needs sync'
-          : appleCalendarReadOnly
-            ? 'Connected via iOS app'
-            : (appleCalendarConnected ? 'Connected' : 'Disconnected'),
-      statusNote: appleCalendarPermissionDenied
-        ? 'Enable full calendar access in iOS Settings, then reconnect'
-        : appleCalendarSyncState === 'never_synced'
-          ? 'No successful sync yet. Tap Sync now.'
-          : appleCalendarSyncState === 'stale'
-          ? 'Last successful sync is older than 24 hours. Tap Sync now.'
-          : appleCalendarReadOnly
-            ? 'Primary calendar source. Manage in the iOS app.'
-            : (appleCalendarDbConnected && !appleCalendarConnected ? 'Stored connection is inactive until permission is verified' : undefined),
-      showReconnect: !appleCalendarReadOnly && appleCalendarPermissionDenied,
-      onConnect: appleCalendarReadOnly ? undefined : handleConnectAppleCalendar,
-      onDisconnect: appleCalendarReadOnly ? undefined : handleDisconnectAppleCalendar,
-      onSync: appleCalendarReadOnly ? undefined : handleSyncAppleCalendar,
-      canSync: !appleCalendarReadOnly,
+      connected: appleCalendarConnected,
+      linked: appleCalendarConnected,
+      lastSync: appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null,
+      statusLabel: appleCalendarStatusLabel,
+      statusNote: appleCalendarStatusNote,
+      showReconnect: appleCalendarPermissionDenied,
+      onConnect: handleConnectAppleCalendar,
+      onDisconnect: appleCalendarConnected ? handleDisconnectAppleCalendar : undefined,
+      onSync: appleCalendarConnected ? handleSyncAppleCalendar : undefined,
+      canSync: appleCalendarConnected,
     }] : []),
     {
       id: 'apple-health',
@@ -1254,9 +1313,7 @@ const ConnectedData = () => {
       id: 'oura',
       name: WEARABLE_PROVIDER_META.oura.name,
       description: isNativeApp()
-        ? (status?.appleWatch?.ouraDetectedViaAppleHealth
-            ? 'Oura data is flowing in through Apple Health. No separate connection needed.'
-            : 'On iPhone, Mind Module reads Oura data from Apple Health. Open the Oura app → Settings → Apple Health, and enable sharing for Heart Rate, HRV, Resting HR and Sleep. Then make sure Apple Health is connected above.')
+        ? 'Reads recovery signals through Apple Health.'
         : WEARABLE_PROVIDER_META.oura.note,
       logo: (
         <div className="h-8 w-8 rounded-full bg-foreground/5 border border-border flex items-center justify-center text-[10px] font-semibold text-foreground/70 tracking-wider">
@@ -1276,13 +1333,13 @@ const ConnectedData = () => {
         : formatLastSync(status?.oura?.lastSync ?? null),
       statusLabel: isNativeApp()
         ? (status?.appleWatch?.ouraDetectedViaAppleHealth
-            ? 'Detected via Apple Health'
+            ? (status?.appleWatch?.lastSampleAt
+                ? `Last sample ${formatDistanceToNowStrict(new Date(status.appleWatch.lastSampleAt))} ago`
+                : 'Connected through Apple Health')
             : (appleHealthState.isHealthyConnected ? 'No Oura samples yet' : 'Connect Apple Health first'))
         : ouraState.statusLabel,
       statusNote: isNativeApp()
-        ? (status?.appleWatch?.ouraDetectedViaAppleHealth
-            ? 'Mind Module is reading Oura data written to Apple Health.'
-            : 'Open Oura → Settings → Apple Health → enable all categories.')
+        ? undefined
         : ouraState.statusNote,
       showReconnect: isNativeApp() ? false : ouraState.showReconnect,
       onConnect: isNativeApp() ? undefined : handleConnectOura,
@@ -1319,10 +1376,7 @@ const ConnectedData = () => {
   );
 
   return (
-    <div className="min-h-screen bg-transparent pb-[env(safe-area-inset-bottom,0px)]">
-      <UnifiedTopBar backPath="/profile" />
-
-      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
+    <ProfilePageLayout backPath="/profile">
         <h1 className="text-[28px] font-headline font-semibold">Manage your connected data</h1>
 
         {loading ? (
@@ -1431,8 +1485,7 @@ const ConnectedData = () => {
             )}
           </>
         )}
-      </div>
-    </div>
+    </ProfilePageLayout>
   );
 };
 

@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2 } from 'lucide-react';
-import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -18,6 +17,7 @@ import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
+import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -156,10 +156,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-transparent">
-      <UnifiedTopBar hideCoach backPath="/executive-home" />
-
-      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
+    <ProfilePageLayout backPath="/executive-home">
         <h1 className="text-[28px] font-headline font-semibold">Profile</h1>
         {/* Profile Card */}
         <Card>
@@ -372,7 +369,7 @@ const Profile = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+      
 
       {/* Edit Name Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -426,7 +423,7 @@ const Profile = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ProfilePageLayout>
   );
 };
 

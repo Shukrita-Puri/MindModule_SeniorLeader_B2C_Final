@@ -139,7 +139,7 @@ serve(async (req) => {
         is_organizer: e.is_organizer,
         attendees_count: e.attendees_count,
         is_recurring: e.is_recurring,
-        event_metadata: { ...e.event_metadata, eventType, isHighStakes },
+        event_metadata: { ...e.event_metadata, source: 'apple_calendar', eventType, isHighStakes },
       };
     });
 

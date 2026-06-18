@@ -102,11 +102,27 @@ const LoadingFallback = () => <DelayedFallback />;
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-    // Also reset any overflow-scrolled containers (e.g. SidebarInset on iOS native)
-    document.querySelectorAll('[data-scroll-container], [data-sidebar-inset]').forEach((el) => {
-      el.scrollTop = 0;
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.querySelectorAll<HTMLElement>('[data-scroll-container], [data-sidebar-inset]').forEach((el) => {
+        el.scrollTop = 0;
+        el.scrollLeft = 0;
+      });
+    };
+
+    resetScroll();
+    const frame = requestAnimationFrame(() => {
+      resetScroll();
+      requestAnimationFrame(resetScroll);
     });
+    const timeout = window.setTimeout(resetScroll, 250);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
   }, [pathname]);
   return null;
 };

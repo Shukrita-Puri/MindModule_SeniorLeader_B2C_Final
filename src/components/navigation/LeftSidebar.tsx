@@ -92,7 +92,7 @@ const LeftSidebar = () => {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="[-webkit-overflow-scrolling:touch] pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
         {/* Features Section */}
         <SidebarGroup data-tour="sidebar-suite-group">
           {!hideLabels && (
@@ -168,14 +168,14 @@ const LeftSidebar = () => {
               </Tooltip>
             </SidebarGroupLabel>
           )}
-          <SidebarGroupContent className="overflow-auto">
+          <SidebarGroupContent className="overflow-auto [-webkit-overflow-scrolling:touch]">
             <RecentActivity />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
       {/* Footer - User Settings */}
-      <SidebarFooter className="border-t border-border pb-2" data-tour="sidebar-footer">
+      <SidebarFooter className="border-t border-border pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]" data-tour="sidebar-footer">
         <UserSettingsPopover />
       </SidebarFooter>
     </Sidebar>
