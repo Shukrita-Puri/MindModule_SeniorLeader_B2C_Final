@@ -405,6 +405,9 @@ async function runJitV2Shadow(
       title: ev?.title || '',
       start_time: startIso,
       end_time: endIso,
+      attendeesCount: typeof ev?.attendees_count === 'number'
+        ? ev.attendees_count
+        : (typeof ev?.attendeesCount === 'number' ? ev.attendeesCount : 0),
       attendeeRoles: roles,
       tags: mergedTags,
     };
