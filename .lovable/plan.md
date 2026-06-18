@@ -1,85 +1,61 @@
-## What's already in place
+## What I found (evidence)
 
-I read `relationship-weights.ts`, the `generate-mastery-plan` resolver loader (lines ~161–222), and `resolve-attendee-relationship`. The chain you describe is partially built:
+**A. The LOW tag did NOT reach the DB.**
+- `event_priority_memory` for Shuk (`google-oauth2|111878424918915566691`) currently has **0 rows**. The only row in the entire table is a 2-week-old e2e test seed (`auth0|e2e-week-ahead-test`).
+- The schema and edge function (`record-event-priority-signal`) are wired correctly — `tag_importance_low` is whitelisted in both the CHECK constraint and `VALID_SIGNALS`. Function logs show JWT verifies fine and there are **no insert errors** logged.
+- The write is being skipped client-side. In `TodayThreePriorities.tsx` (lines 340–426) the bridge only fires when `next.priorityTag !== prev.priorityTag`. `prev` is read from `plan.horizonModules[slotIndex].priorityTag`, which is hydrated from the local `planUserEdits` ledger on every render. So if the local ledger already has `low` cached (from a previous tap or cross-window persistence), tapping LOW again is a no-op and the DB never gets the row. Same trap if the slot is re-tagged from a different surface.
 
-| Step | Status today |
-| --- | --- |
-| 1. User-declared tag (`source=user_tag`) | ✅ shipped (last turn — bridge from `record-event-priority-signal`) |
-| 2. Memory replay (prior tags / prior resolutions) | ❌ not implemented — `event_priority_memory` rows tagged with `tag_relationship` are written, but nothing reads them back as relationship signal |
-| 3. Firecrawl/LinkedIn cached role | ✅ shipped — read in loader, late-resolve fire fixed Issue 9 |
-| 4. Domain-based heuristic | ❌ not implemented — `isGenericDomain` exists but no internal/external classification |
-| 5. `unknown` no-penalty | ✅ shipped — weight=0 floor |
-| Confidence gating | ❌ not implemented — `attendee_relationships.confidence` is stored but never multiplied into weight |
-| Multi-attendee `dominantRole` | ✅ shipped |
+**B. The ordering bug is real and independent of tags.**
+- Today's calendar: EY interview = 13:00 (4 attendees), Chief AI Thursday = 15:00 (0 attendees).
+- The plan still puts Chief AI as priority 1 and EY as priority 2 — even before any tag was applied. With the sovereign tag (LOW on Chief AI, HIGH on EY) applied, this is doubly wrong.
+- Two compounding causes:
+  1. **The plan does not regenerate after a tag change.** Sovereign tags are persisted (when the bridge fires) but only read on the *next* scheduled regen, so the user sees no instant impact even when the write lands.
+  2. **The base ranking itself put Chief AI first.** Chief AI has 0 attendees and an unmemorable title; EY is an interview with 4 attendees and "Interview" in the title. In `select-jit.ts` the immediate-score is dominated by category + attendee/relationship signals. The 0-attendee "Chief AI Thursday connects" is matching some recurring/standup pattern bonus that's outranking EY's interview signal. Needs targeted scoring trace.
 
-So three concrete additions: memory replay (step 2), domain heuristic (step 4), and confidence gating across both LLM-inferred and heuristic sources.
+## Your three sub-questions, answered
 
----
+1. **Does the event stay in the priority page when tagged LOW?** Recommend: **stays visible but visibly de-prioritised** — drops to the bottom slot and renders with a muted/de-emphasised treatment (lighter card, smaller title, no Start CTA expanded by default). This gives the user an instant, reversible signal that their tag had impact, without forcing a cancel. Cancel remains the way to remove it entirely.
+2. **Should LOW reshuffle the order immediately?** Yes — see step 2 below. The plan should re-rank in-place client-side the moment the tag flips, mirroring what the next regen would produce.
+3. **Why is Chief AI ranking above EY?** A scoring bug in `select-jit.ts`; fix in step 3.
 
 ## Plan
 
-### Step 1 — Confidence gating in `relationshipWeight`
+### 1. Fix the silent DB write skip
+- In `TodayThreePriorities.tsx`, change the bridge fire condition from "tag value changed" to "user-initiated change with a defined importance". Fire whenever the click handler runs with `next.priorityTag` set, regardless of `prev`. The server already de-duplicates by `(user_id, event_type_key, signal)` if needed; an extra row is harmless and gives us a clean audit trail.
+- Add a single `console.info('[tag-bridge] fired', { signal, eventId })` so future drops are visible without enabling Supabase logs.
+- Backfill: no migration needed — the constraint already accepts the signal.
 
-Extend `relationshipWeight(role, confidence?, source?)` in `relationship-weights.ts`:
+### 2. Instant re-rank on tag change (no plan regen call)
+- Add a pure client-side re-sort in `TodayThreePriorities.tsx` triggered by the tag handler: after `setPlan` applies the new tag, re-order `horizonModules` using a small `applySovereignTagOrder()` helper:
+  - HIGH-tagged slots float to the top (preserving their internal time order).
+  - LOW-tagged slots sink to the bottom.
+  - Untagged + MEDIUM keep their current relative order.
+- LOW slots render with the existing muted style already used for `Cancelled`-state cards (collapsed body, no Start). Add a small "De-prioritised — your tag" caption so the cause is obvious.
+- This is purely presentational re-ordering of an existing array; no server round-trip, no plan ID changes, no completion-tracking impact.
 
-- `source === 'user_tag'` or `source === 'memory_user_tag'` → full weight, no discount.
-- Otherwise apply a confidence multiplier:
-  - `confidence >= 0.75` → ×1.0
-  - `0.5 ≤ confidence < 0.75` → ×0.6
-  - `confidence < 0.5` (or null) → ×0.3
-- Domain-heuristic source is treated as `confidence ≈ 0.4` so it nudges (≈×0.3) rather than dominates. Boss/board still nets ~7–8 pts, peer ~2, which is the "directional but weak" behaviour you described.
+### 3. Fix the base ranking so EY > Chief AI even untagged
+- Add a scoring trace dump (already supported via `JIT_V2` shadow log table `jit_shadow_v2_runs`) for today's two events to confirm the exact bonus tipping Chief AI ahead.
+- Expected fix in `supabase/functions/_shared/jit/select-jit.ts`:
+  - Cap the recurring-meeting bonus at 0 when `attendees_count === 0` AND title matches the `*connects|sync|standup|check-in*` lexicon (these are personal blocks, not stakeholder events).
+  - Add an explicit interview boost (title regex `\\binterview\\b`) of +20 to Immediate, gated to events with ≥2 attendees.
+- Re-run JIT unit tests in `select-jit.test.ts`; add one new case "EY interview outranks zero-attendee 'connects' block" and one "0-attendee 'connects' does not get recurring bonus".
 
-### Step 2 — Domain-based heuristic (step 4 of your chain)
+### 4. Verification
+- Manually tap LOW on a fresh slot and confirm a `tag_importance_low` row appears for `google-oauth2|111878424918915566691` in `event_priority_memory`.
+- Confirm the UI immediately moves Chief AI to slot 2 and EY to slot 1 after tagging, with the Chief AI card muted.
+- Confirm next scheduled `generate-mastery-plan` run honours the persisted tag (existing logic — already covered by tests).
 
-Add `inferRoleFromDomain(attendeeEmail, userEmail | userCompanyDomain)` to `relationship-weights.ts`. Logic:
-
-- Generic domain (gmail/outlook/etc.) → `unknown`, confidence null. Never promote.
-- Domain matches user's own domain → `peer`, confidence `0.5` (internal — could be report/boss/peer, we conservatively pick peer).
-- Domain differs and isn't generic → `external_partner`, confidence `0.4`.
-
-The user's domain comes from `profiles.email`. Loader passes `userOwnDomain` into the role map build. Heuristic only fills entries the cached `attendee_relationships` lookup didn't already cover — never overrides a real resolver result.
-
-This closes the race: an external meeting whose attendees haven't been resolved yet scores `external_partner ≈ 15 × 0.3 ≈ 4–5` immediately instead of `0`, enough to stay in candidacy while the async resolver catches up. Next run, the cached high-confidence role replaces the heuristic.
-
-### Step 3 — Memory replay (step 2 of your chain)
-
-In the `generate-mastery-plan` loader, after the cached-role + late-resolve pass and before the heuristic fallback, query `event_priority_memory` for the same user where `signal = 'tag_relationship'` and `meta->>'relationshipTag'` is present.
-
-For each row, look up the linked event's attendees once and stamp the mapped `ResolvedRole` (using the existing `RELATIONSHIP_TO_ROLE` table in `record-event-priority-signal`) onto those emails as `source='memory_user_tag'`, full weight, no decay — but only if the email currently resolves to `unknown` or has no cached row. This means: once you tag "Boss" on a recurring 1:1, future occurrences with the same attendee skip Firecrawl entirely.
-
-Bounded by the same email-set already being iterated; no extra round trip beyond one indexed query.
-
-### Step 4 — Wire `source` + `confidence` through `SelectInputEvent`
-
-`SelectInputEvent.attendeeRoles` is currently `ResolvedRole[]`. Replace with:
-
-```
-attendeeRoles: { role: ResolvedRole; source: 'user_tag' | 'memory_user_tag' | 'llm' | 'domain_heuristic'; confidence: number | null }[]
-```
-
-`dominantRole` becomes "highest *weighted* role" using the new confidence-aware `relationshipWeight`. So a high-confidence Boss beats a domain-heuristic peer even though both have weight > 0.
-
-### Step 5 — Tests (Deno, `select-jit.test.ts`)
-
-- Memory replay: prior `tag_relationship=Boss` on an email lifts a bland-title meeting above MIN_IMMEDIATE without any cached `attendee_relationships` row.
-- Domain heuristic: external_partner@acme.com on a meeting with the CEO (whose domain is sov.co) lifts the score above 0 but stays below a high-confidence Boss.
-- Confidence gating: same role with `confidence=0.4` produces ~30% of the importance contribution of `confidence=0.9`.
-- Sovereignty: `user_tag` Boss always beats `llm` Investor regardless of LLM confidence.
-
-### Files touched
-
-- `supabase/functions/_shared/jit/relationship-weights.ts` — add `inferRoleFromDomain`, extend `relationshipWeight` signature, add `weightedDominantRole`.
-- `supabase/functions/_shared/jit/select-jit.ts` — new `AttendeeRoleSignal` shape; use weighted dominant + confidence-aware weight in `immediate`.
-- `supabase/functions/generate-mastery-plan/index.ts` — load user email/domain, add memory-replay pass and domain-heuristic fill, build the richer `attendeeRoles` array.
-- `supabase/functions/_shared/jit/select-jit.test.ts` — four new tests above.
+### Files to touch
+- `src/components/home/TodayThreePriorities.tsx` (bridge fire condition + tag-driven re-sort + muted LOW card state)
+- `supabase/functions/_shared/jit/select-jit.ts` (recurring-bonus gate + interview boost)
+- `supabase/functions/_shared/jit/select-jit.test.ts` (two new cases)
 
 ### Explicitly NOT in scope
+- No DB migration (signal already whitelisted).
+- No change to `generate-mastery-plan` itself.
+- No change to cancel flow.
 
-- No change to `RELATIONSHIP_WEIGHT` numbers themselves (board/boss 25, investor 20, …). Only how they're scaled.
-- No new edge function or cron — heuristic runs inline in plan generation, free.
-- No schema change. `attendee_relationships.confidence` already exists; `event_priority_memory` has what we need.
+## Open questions before I build
 
-### Open questions before I implement
-
-1. **User's own domain source**: I'd read `profiles.email` (whatever's already there) and strip the domain. Confirm that's the right source, or do you want a dedicated `profiles.company_domain` field? (Stripping `email` is zero-effort; a dedicated column is cleaner if a user's login email ≠ their work domain.)
-2. **Domain-heuristic for `peer` (internal)** — confidence `0.5` gives weight ≈ 5. Is that the right floor, or do you want internal attendees treated as effectively zero until the resolver lands? My read of your §C is "directional only," so 5 feels right, but call it.
+1. For the LOW-card muted state — keep the Start CTA hidden (recommended) or just dim the whole card and keep Start tappable?
+2. For HIGH float-to-top — should HIGH override the user's explicit completion order (e.g., if slot 1 is already completed, do we still float HIGH above it)? My default: completed slots stay where they are; HIGH only re-orders the *incomplete* tail.

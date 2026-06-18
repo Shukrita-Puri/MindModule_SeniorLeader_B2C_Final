@@ -81,6 +81,23 @@ const performanceSlotLabel = (raw: string, _isJit: boolean): string => {
   return raw.replace(/^\s*Before\s+/i, 'Prepare ahead of ');
 };
 
+/**
+ * Sovereign-tag display order — HIGH floats to top, LOW sinks to bottom,
+ * original index breaks ties so underlying slot identity (completion
+ * tracking, plan ledger edits) stays stable.
+ */
+function sovereignDisplayOrder<T extends { priorityTag?: string | null }>(modules: T[]): number[] {
+  const rank = (tag: string | null | undefined): number => {
+    if (tag === 'high') return 0;
+    if (tag === 'low') return 2;
+    return 1;
+  };
+  return modules
+    .map((m, i) => ({ i, r: rank((m && (m as any).priorityTag) ?? null) }))
+    .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+    .map((x) => x.i);
+}
+
 // ── Types ──
 interface PlanModule {
   type: 'regulate' | 'align' | 'prepare' | 'integrate';
@@ -416,13 +433,18 @@ const TodayThreePriorities = ({
             console.warn('[TodayThreePriorities] tag bridge failed', signal, e);
           }
         };
-        // Importance: write the new value, or a clear when the user removed it.
-        if (next.priorityTag !== prev.priorityTag) {
-          if (next.priorityTag === 'high' || next.priorityTag === 'medium' || next.priorityTag === 'low') {
-            await fire(`tag_importance_${next.priorityTag}`);
-          } else if (next.priorityTag === null) {
-            await fire('tag_cleared', { kind: 'importance' });
-          }
+        // Importance — always fire on a user-initiated tag handler call.
+        // We deliberately do NOT skip when next === prev: the local plan
+        // ledger can hydrate `prev` from a stale write, which previously
+        // silently dropped the DB row on re-taps from a different surface.
+        // The server row is the audit trail; an extra duplicate row is
+        // harmless and gives the scorer a fresh occurred_at.
+        if (next.priorityTag === 'high' || next.priorityTag === 'medium' || next.priorityTag === 'low') {
+          console.info('[tag-bridge] fire', { signal: `tag_importance_${next.priorityTag}`, eventId, eventTitle });
+          await fire(`tag_importance_${next.priorityTag}`);
+        } else if (next.priorityTag === null && prev.priorityTag !== null) {
+          console.info('[tag-bridge] fire', { signal: 'tag_cleared', eventId, eventTitle });
+          await fire('tag_cleared', { kind: 'importance' });
         }
         if (next.relationshipTag !== prev.relationshipTag && next.relationshipTag) {
           await fire('tag_relationship', { relationshipTag: next.relationshipTag });
@@ -1061,10 +1083,26 @@ const TodayThreePriorities = ({
         return;
       }
     }
-    for (let i = 0; i < modules.length; i++) {
+    // Auto-expand respects the sovereign tag layer: HIGH lifts to top,
+    // LOW sinks to bottom and is skipped on the first pass. The user's
+    // tag thus has an instant, visible effect on which slot the home
+    // page invites them to start, without waiting for a plan regen.
+    const order = sovereignDisplayOrder(modules);
+    // First pass: skip LOW slots — they are de-prioritised by the user.
+    for (const i of order) {
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
-      const key = buildPriorityKey(i, modules[i]);
+      const slotCancelled = modules[i].isCancelled === true;
+      const isLow = (modules[i] as any).priorityTag === 'low';
+      if (!slotComplete && !slotCancelled && !isLow) {
+        setExpandedSlot(i);
+        return;
+      }
+    }
+    // Fallback: if every incomplete slot is LOW, expand the first one anyway.
+    for (const i of order) {
+      const slotPractices = modules[i].practices || [modules[i].practice];
+      const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
       const slotCancelled = modules[i].isCancelled === true;
       if (!slotComplete && !slotCancelled) {
         setExpandedSlot(i);
@@ -1268,8 +1306,17 @@ const TodayThreePriorities = ({
       <div className="flex flex-col gap-3 px-1 sm:px-2 max-w-2xl mx-auto">
         {horizonModules
           .map((hm, index) => ({ hm, index }))
-          // Cancelled slots remain in their original position (no reorder).
-          // The compressed/greyed card visually marks them in place.
+          // Sovereign tag layer: HIGH floats up, LOW sinks down. Cancelled
+          // slots keep their original position and only the tag drives
+          // re-ordering — the compressed/greyed card visually marks
+          // cancelled-in-place. The underlying `index` is preserved so
+          // every downstream reference (completion tracking, plan ledger
+          // edits, expansion state) keeps pointing at the same slot.
+          .sort((a, b) => {
+            const rank = (tag: any) => (tag === 'high' ? 0 : tag === 'low' ? 2 : 1);
+            const r = rank((a.hm as any).priorityTag) - rank((b.hm as any).priorityTag);
+            return r !== 0 ? r : a.index - b.index;
+          })
           .map(({ hm, index }) => {
           const slotPractices = hm.practices || [hm.practice];
           const slotCompleted = slotPractices.every(p => completedPracticeIds.includes(p.contentId));

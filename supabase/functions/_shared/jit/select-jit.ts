@@ -42,6 +42,29 @@ function stakesHint(title: string): number {
   return 0;
 }
 
+/**
+ * Interview events are inherently high-stakes for the user: external,
+ * evaluative, low-frequency. Add a flat +15 to Immediate when the title
+ * advertises an interview AND there is at least one attendee (so a
+ * solo "interview prep" block doesn't get the boost).
+ */
+function interviewBoost(title: string, attendeesCount: number | undefined): number {
+  if ((attendeesCount ?? 0) < 1) return 0;
+  return /\binterviews?\b/i.test(title) ? 15 : 0;
+}
+
+/**
+ * Personal-block detector. Titles like "Chief AI Thursday connects",
+ * "Daily sync", "1:1", "Standup", "Catchup" with **zero attendees** are
+ * almost always solo focus blocks the user named like a meeting — they
+ * should not collect recurring-pattern tactical bonus that would lift
+ * them above real stakeholder events.
+ */
+const PERSONAL_BLOCK_RE = /\b(connects?|sync|standups?|catch[- ]?ups?|check[- ]?ins?|1:1|one[- ]on[- ]one|focus|deep[- ]?work)\b/i;
+function isPersonalBlock(title: string, attendeesCount: number | undefined): boolean {
+  return (attendeesCount ?? 0) === 0 && PERSONAL_BLOCK_RE.test(title);
+}
+
 /** Provisional — revisit after shadow week with real distribution. */
 export const MIN_IMMEDIATE = 25;
 
@@ -50,6 +73,12 @@ export interface SelectInputEvent {
   title: string;
   start_time: string;
   end_time?: string | null;
+  /**
+   * Number of attendees on the calendar event. Used to gate the
+   * interview boost and to detect zero-attendee "personal blocks"
+   * that should not collect stakeholder-pattern bonuses.
+   */
+  attendeesCount?: number;
   /**
    * Resolved roles for known attendees. Accepts either the legacy
    * `ResolvedRole[]` form (treated as `llm` source, full confidence) or
@@ -160,11 +189,16 @@ export function selectJitCandidates(
     const protectMul = applyProtectGoalMultiplier(enriched.categoryId, ctx.goals?.protectGoals);
     const categoryBase = Math.round(rawCategoryBase * protectMul);
     const stakes = stakesHint(title);
-    const immediate = categoryBase + rel + stakes;
+    const interview = interviewBoost(title, ev.attendeesCount);
+    const immediate = categoryBase + rel + stakes + interview;
 
     // Tactical
     const bucket = classifyEventBucket(title);
-    const { score: patternScore, signal: patternSignal } = patternHit(title, ctx.signalSummary);
+    const { score: rawPatternScore, signal: patternSignal } = patternHit(title, ctx.signalSummary);
+    // Personal blocks (zero-attendee titles like "Chief AI Thursday connects",
+    // "Daily sync") must not borrow recurring-pattern bonus from real
+    // stakeholder events of the same surface category.
+    const patternScore = isPersonalBlock(title, ev.attendeesCount) ? 0 : rawPatternScore;
     const priorityTag = userPriorityTagBoost(ev.tags);
     const skip = skipPenaltyFor(bucket, ctx.skipCountsByBucket);
     const follow = followThroughBoost(bucket, ctx.followThroughByBucket);
@@ -221,7 +255,7 @@ export function selectJitCandidates(
         breakdown: {
           categoryBase,
           relationship: rel,
-          stakes,
+          stakes: stakes + interview,
           patternScore,
           priorityTag,
           skipPenalty: skip,
