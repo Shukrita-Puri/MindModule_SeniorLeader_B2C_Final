@@ -6,7 +6,11 @@
 import { enrichEvent } from '../events/enrich-event.ts';
 import type { EventCategoryId } from '../events/event-categories.ts';
 import { isPersonalNoise } from './noise-filters.ts';
-import { dominantRole, relationshipWeight, type ResolvedRole } from './relationship-weights.ts';
+import {
+  weightedDominantRole,
+  type AttendeeRoleSignal,
+  type ResolvedRole,
+} from './relationship-weights.ts';
 import {
   classifyEventBucket,
   patternHit,
@@ -46,8 +50,13 @@ export interface SelectInputEvent {
   title: string;
   start_time: string;
   end_time?: string | null;
-  /** Resolved roles for known attendees (from attendee_relationships). */
-  attendeeRoles?: ResolvedRole[];
+  /**
+   * Resolved roles for known attendees. Accepts either the legacy
+   * `ResolvedRole[]` form (treated as `llm` source, full confidence) or
+   * the richer `AttendeeRoleSignal[]` with source + confidence so
+   * domain-heuristic fallbacks and memory replays can be discounted.
+   */
+  attendeeRoles?: ResolvedRole[] | AttendeeRoleSignal[];
   /** User-declared priority tags on the event. */
   tags?: string[];
 }
@@ -134,12 +143,22 @@ export function selectJitCandidates(
       continue;
     }
 
-    // Immediate
-    const role = dominantRole(ev.attendeeRoles ?? []);
+    // Immediate — normalize attendee role inputs into AttendeeRoleSignal[]
+    // so confidence/source flow through. Legacy `ResolvedRole[]` callers
+    // (and the existing test suite) get full base weight.
+    const rawRoles = ev.attendeeRoles ?? [];
+    const signals: AttendeeRoleSignal[] = (rawRoles as Array<ResolvedRole | AttendeeRoleSignal>).map((r) =>
+      typeof r === 'string'
+        ? { role: r, source: 'llm' as const, confidence: 1 }
+        : r,
+    );
+    const { signal: dom, weight: rel } = signals.length
+      ? weightedDominantRole(signals)
+      : { signal: { role: 'unknown' as ResolvedRole, source: 'llm' as const, confidence: null }, weight: 0 };
+    const role = dom.role;
     const rawCategoryBase = CATEGORY_BASE[enriched.categoryId];
     const protectMul = applyProtectGoalMultiplier(enriched.categoryId, ctx.goals?.protectGoals);
     const categoryBase = Math.round(rawCategoryBase * protectMul);
-    const rel = relationshipWeight(role);
     const stakes = stakesHint(title);
     const immediate = categoryBase + rel + stakes;
 

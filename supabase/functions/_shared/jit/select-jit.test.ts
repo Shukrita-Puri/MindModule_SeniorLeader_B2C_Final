@@ -133,18 +133,18 @@ Deno.test("sovereign HIGH on EY interview lifts it above an untagged Chief AI bl
   const events = [
     {
       id: "chief-ai",
-      title: "Chief AI Thursday connects",
+      title: "Chief AI 1:1 sync",
       start_time: inHours(2),
       end_time: inHours(3),
-      attendeeRoles: [] as any,
+      attendeeRoles: ["peer"] as any,
       tags: [] as string[],
     },
     {
       id: "ey",
-      title: "Confirmed: First Round EY Foundation Independent Trustee Interview",
+      title: "EY Foundation Trustee 1:1",
       start_time: inHours(5),
       end_time: inHours(6),
-      attendeeRoles: [] as any,
+      attendeeRoles: ["peer"] as any,
       tags: ["high"],
     },
   ];
@@ -159,4 +159,93 @@ Deno.test("sovereign HIGH on EY interview lifts it above an untagged Chief AI bl
   });
   assert(res.ranked.length >= 1, "EY should be ranked");
   assertEquals(res.ranked[0].eventId, "ey", "HIGH-tagged EY interview must lead");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// §C — relationship fallback chain: memory replay, domain heuristic,
+// confidence gating, sovereign vs llm precedence.
+// ─────────────────────────────────────────────────────────────────────
+
+Deno.test("memory_user_tag replay lifts a bland-title 1:1 above MIN_IMMEDIATE", () => {
+  // Bland title "Tuesday sync" has category B (15) + 0 stakes. Without a
+  // relationship signal it'd score 15 < MIN_IMMEDIATE(25) and be excluded.
+  // A replayed Boss tag (full weight, no decay) contributes +25 → 40, in.
+  const res = selectJitCandidates(
+    [{
+      id: "rep",
+      title: "Tuesday sync",
+      start_time: inHours(4),
+      end_time: inHours(5),
+      attendeeRoles: [{ role: "boss" as const, source: "memory_user_tag" as const, confidence: 1 }],
+    }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  assertEquals(res.ranked.length, 1);
+  assert(res.ranked[0].components.immediate >= MIN_IMMEDIATE);
+  assertEquals(res.ranked[0].components.breakdown.relationship, 25);
+});
+
+Deno.test("domain_heuristic external_partner nudges importance without dominating", () => {
+  // external_partner base 15, low-conf heuristic ×0.3 ≈ 5. Pairs with a
+  // category-C base (30) → immediate 35 ≥ MIN. A high-confidence Boss on
+  // the same title must still outrank the heuristic-only event.
+  const heur = selectJitCandidates(
+    [{
+      id: "ext",
+      title: "Client check-in",
+      start_time: inHours(4),
+      end_time: inHours(5),
+      attendeeRoles: [{ role: "external_partner" as const, source: "domain_heuristic" as const, confidence: 0.4 }],
+    }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  const strong = selectJitCandidates(
+    [{
+      id: "boss",
+      title: "Client check-in",
+      start_time: inHours(4),
+      end_time: inHours(5),
+      attendeeRoles: [{ role: "boss" as const, source: "llm" as const, confidence: 0.9 }],
+    }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  assertEquals(heur.ranked.length, 1);
+  assertEquals(strong.ranked.length, 1);
+  assert(heur.ranked[0].components.breakdown.relationship < 10);
+  assert(strong.ranked[0].components.breakdown.relationship >= 20);
+  assert(strong.ranked[0].importance > heur.ranked[0].importance);
+});
+
+Deno.test("confidence gating: low-confidence LLM role contributes ~30% of high-confidence", () => {
+  const high = selectJitCandidates(
+    [{ id: "hi", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5),
+       attendeeRoles: [{ role: "board_member" as const, source: "llm" as const, confidence: 0.9 }] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  const low = selectJitCandidates(
+    [{ id: "lo", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5),
+       attendeeRoles: [{ role: "board_member" as const, source: "llm" as const, confidence: 0.4 }] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  const hiRel = high.ranked[0].components.breakdown.relationship;
+  const loRel = low.ranked[0].components.breakdown.relationship;
+  // 25 × 1.0 = 25 ;  25 × 0.3 ≈ 8 — within rounding.
+  assertEquals(hiRel, 25);
+  assertEquals(loRel, 8);
+});
+
+Deno.test("user_tag is sovereign over a higher-base LLM-inferred role", () => {
+  // user_tag boss (25) must beat llm investor (20) even though investor
+  // would otherwise be a fully-confident high signal too.
+  const userTag = selectJitCandidates(
+    [{ id: "ut", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5),
+       attendeeRoles: [{ role: "boss" as const, source: "user_tag" as const, confidence: 1 }] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  const llmHigh = selectJitCandidates(
+    [{ id: "ll", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5),
+       attendeeRoles: [{ role: "investor" as const, source: "llm" as const, confidence: 0.9 }] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  assert(userTag.ranked[0].importance > llmHigh.ranked[0].importance);
 });

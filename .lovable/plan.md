@@ -1,91 +1,85 @@
-## What's actually broken (evidence)
+## What's already in place
 
-I read the schema and the live data. Two independent things are wrong; the visible bug (Chief AI ranked above EY despite a HIGH tag on EY) is a downstream symptom of the first.
+I read `relationship-weights.ts`, the `generate-mastery-plan` resolver loader (lines ~161–222), and `resolve-attendee-relationship`. The chain you describe is partially built:
 
-### 1. Sovereign tag writes are silently rejected by the database
+| Step | Status today |
+| --- | --- |
+| 1. User-declared tag (`source=user_tag`) | ✅ shipped (last turn — bridge from `record-event-priority-signal`) |
+| 2. Memory replay (prior tags / prior resolutions) | ❌ not implemented — `event_priority_memory` rows tagged with `tag_relationship` are written, but nothing reads them back as relationship signal |
+| 3. Firecrawl/LinkedIn cached role | ✅ shipped — read in loader, late-resolve fire fixed Issue 9 |
+| 4. Domain-based heuristic | ❌ not implemented — `isGenericDomain` exists but no internal/external classification |
+| 5. `unknown` no-penalty | ✅ shipped — weight=0 floor |
+| Confidence gating | ❌ not implemented — `attendee_relationships.confidence` is stored but never multiplied into weight |
+| Multi-attendee `dominantRole` | ✅ shipped |
 
-`event_priority_memory.signal` has a CHECK constraint that only allows the legacy 5 signals:
-
-```
-priority | not_this_week | never | cancelled_as_noise | cancelled_keep_surfacing
-```
-
-But the JIT-v2 rework added 6 new ones in code (`tag_importance_high/medium/low`, `tag_relationship`, `tag_custom`, `tag_cleared`) — listed in the edge function whitelist and read by `generate-mastery-plan`, but the DB still rejects the INSERT. Confirmed by query: zero rows with `signal LIKE 'tag_%'`, zero rows in `attendee_relationships` with `source='user_tag'`. **Nothing the user tags has ever been persisted.** That's why pressing HIGH on the EY card has no effect on ranking.
-
-### 2. UI tag-naming already matches the spec — no rename needed
-
-`PriorityTagAffordance.tsx` already uses Importance (high/medium/low) + Relationship (boss/board/client/...) + custom tags, and writes them through `record-event-priority-signal` with the correct `tag_*` signals. The only thing missing is that the DB won't accept them.
-
-### 3. Relationship re-read (Issue 9 race)
-
-`generate-mastery-plan/index.ts` re-queries `attendee_relationships` on every run (lines 174 & 208) and feeds `attendeeRoles` into `selectJitCandidates`. So "next run picks it up from cache" already works in principle — but because the resolver has produced no `user_tag` rows yet (constraint bug above) and the LLM resolver may not have run for these attendees, the EY interview attendees currently score with `role='unknown' → relationship=0`. Once writes start landing, re-read works. I'll add a small read-side assertion + log to make the race visible if it ever regresses.
-
-### 4. Why Chief AI > EY today
-
-With sovereign tags discarded and EY attendees still `unknown`:
-- EY interview (cat C/G, no relationship roles cached, no tag honoured) → `immediate ≈ categoryBase + 0 + small stakesHint`.
-- "Chief AI Thursday connects" — title contains "ai"/"chief" which often classifies as a higher-base category and may match a pattern bucket, so its `tactical` outscores EY's `immediate`-only profile.
-That ordering is mechanically correct given the inputs; fixing it requires the tag write to land AND/OR the EY attendees to resolve a role.
+So three concrete additions: memory replay (step 2), domain heuristic (step 4), and confidence gating across both LLM-inferred and heuristic sources.
 
 ---
 
 ## Plan
 
-### Step 1 — Migration: allow the sovereign-tag signals (and align source list)
+### Step 1 — Confidence gating in `relationshipWeight`
 
-Single migration that drops and re-adds the CHECK constraint:
+Extend `relationshipWeight(role, confidence?, source?)` in `relationship-weights.ts`:
 
-```sql
-ALTER TABLE public.event_priority_memory
-  DROP CONSTRAINT event_priority_memory_signal_chk;
+- `source === 'user_tag'` or `source === 'memory_user_tag'` → full weight, no discount.
+- Otherwise apply a confidence multiplier:
+  - `confidence >= 0.75` → ×1.0
+  - `0.5 ≤ confidence < 0.75` → ×0.6
+  - `confidence < 0.5` (or null) → ×0.3
+- Domain-heuristic source is treated as `confidence ≈ 0.4` so it nudges (≈×0.3) rather than dominates. Boss/board still nets ~7–8 pts, peer ~2, which is the "directional but weak" behaviour you described.
 
-ALTER TABLE public.event_priority_memory
-  ADD CONSTRAINT event_priority_memory_signal_chk
-  CHECK (signal = ANY (ARRAY[
-    'priority','not_this_week','never',
-    'cancelled_as_noise','cancelled_keep_surfacing',
-    'tag_importance_high','tag_importance_medium','tag_importance_low',
-    'tag_relationship','tag_custom','tag_cleared'
-  ]));
+### Step 2 — Domain-based heuristic (step 4 of your chain)
+
+Add `inferRoleFromDomain(attendeeEmail, userEmail | userCompanyDomain)` to `relationship-weights.ts`. Logic:
+
+- Generic domain (gmail/outlook/etc.) → `unknown`, confidence null. Never promote.
+- Domain matches user's own domain → `peer`, confidence `0.5` (internal — could be report/boss/peer, we conservatively pick peer).
+- Domain differs and isn't generic → `external_partner`, confidence `0.4`.
+
+The user's domain comes from `profiles.email`. Loader passes `userOwnDomain` into the role map build. Heuristic only fills entries the cached `attendee_relationships` lookup didn't already cover — never overrides a real resolver result.
+
+This closes the race: an external meeting whose attendees haven't been resolved yet scores `external_partner ≈ 15 × 0.3 ≈ 4–5` immediately instead of `0`, enough to stay in candidacy while the async resolver catches up. Next run, the cached high-confidence role replaces the heuristic.
+
+### Step 3 — Memory replay (step 2 of your chain)
+
+In the `generate-mastery-plan` loader, after the cached-role + late-resolve pass and before the heuristic fallback, query `event_priority_memory` for the same user where `signal = 'tag_relationship'` and `meta->>'relationshipTag'` is present.
+
+For each row, look up the linked event's attendees once and stamp the mapped `ResolvedRole` (using the existing `RELATIONSHIP_TO_ROLE` table in `record-event-priority-signal`) onto those emails as `source='memory_user_tag'`, full weight, no decay — but only if the email currently resolves to `unknown` or has no cached row. This means: once you tag "Boss" on a recurring 1:1, future occurrences with the same attendee skip Firecrawl entirely.
+
+Bounded by the same email-set already being iterated; no extra round trip beyond one indexed query.
+
+### Step 4 — Wire `source` + `confidence` through `SelectInputEvent`
+
+`SelectInputEvent.attendeeRoles` is currently `ResolvedRole[]`. Replace with:
+
+```
+attendeeRoles: { role: ResolvedRole; source: 'user_tag' | 'memory_user_tag' | 'llm' | 'domain_heuristic'; confidence: number | null }[]
 ```
 
-(`source_chk` already includes `priority_tag` — no change needed there.)
+`dominantRole` becomes "highest *weighted* role" using the new confidence-aware `relationshipWeight`. So a high-confidence Boss beats a domain-heuristic peer even though both have weight > 0.
 
-### Step 2 — Make the silent failure loud
+### Step 5 — Tests (Deno, `select-jit.test.ts`)
 
-In `record-event-priority-signal/index.ts`: on insert error, log the Postgres error code/message and return it in the JSON body (currently it returns a generic `insert_failed` with the real reason only in the function log). Add one console.warn in `TodayThreePriorities.tsx` when the fire() promise rejects so future constraint drift is visible in the browser console.
+- Memory replay: prior `tag_relationship=Boss` on an email lifts a bland-title meeting above MIN_IMMEDIATE without any cached `attendee_relationships` row.
+- Domain heuristic: external_partner@acme.com on a meeting with the CEO (whose domain is sov.co) lifts the score above 0 but stays below a high-confidence Boss.
+- Confidence gating: same role with `confidence=0.4` produces ~30% of the importance contribution of `confidence=0.9`.
+- Sovereignty: `user_tag` Boss always beats `llm` Investor regardless of LLM confidence.
 
-### Step 3 — Verify the read path end-to-end
+### Files touched
 
-`generate-mastery-plan/index.ts` (lines ~224–290) already merges `tag_importance_*`, `tag_custom`, and `tag_cleared` into `ev.tags` per event, and `selectJitCandidates` already calls `sovereignTagAdjustment(ev.tags)` and `userPriorityTagBoost(ev.tags)`. Once Step 1 lands, this path activates with no code change. I'll add one Deno unit test in `select-jit.test.ts` that asserts:
+- `supabase/functions/_shared/jit/relationship-weights.ts` — add `inferRoleFromDomain`, extend `relationshipWeight` signature, add `weightedDominantRole`.
+- `supabase/functions/_shared/jit/select-jit.ts` — new `AttendeeRoleSignal` shape; use weighted dominant + confidence-aware weight in `immediate`.
+- `supabase/functions/generate-mastery-plan/index.ts` — load user email/domain, add memory-replay pass and domain-heuristic fill, build the richer `attendeeRoles` array.
+- `supabase/functions/_shared/jit/select-jit.test.ts` — four new tests above.
 
-- `tags=['high']` on EY pushes its `importance` above a higher-tactical Chief-AI event.
-- `tags=['low']` excludes the event (already covered, but add an explicit Chief-AI-vs-EY scenario mirroring the screenshot).
+### Explicitly NOT in scope
 
-### Step 4 — Confirm relationship re-read (Issue 9)
+- No change to `RELATIONSHIP_WEIGHT` numbers themselves (board/boss 25, investor 20, …). Only how they're scaled.
+- No new edge function or cron — heuristic runs inline in plan generation, free.
+- No schema change. `attendee_relationships.confidence` already exists; `event_priority_memory` has what we need.
 
-Add an assertion test against the loader in `generate-mastery-plan` that, given an event whose attendee has a freshly-inserted `attendee_relationships` row with `source='user_tag'`, the role surfaces in `attendeeRoles` for that event in the next call. No new trigger — just lock the existing re-read behaviour in a test so the race can't silently come back.
+### Open questions before I implement
 
-### Step 5 — Backfill the user's current state (one-shot)
-
-Because the constraint was rejecting writes, the EY card's HIGH tag the user is staring at right now is NOT in the DB. After Step 1 ships, the user re-tapping HIGH will persist correctly. No data backfill is possible (we never received the rows). Call this out in the closing message.
-
----
-
-## Files touched
-
-- `supabase/migrations/<new>_event_priority_memory_allow_sovereign_tag_signals.sql` (new)
-- `supabase/functions/record-event-priority-signal/index.ts` (better error surfacing only)
-- `src/components/home/TodayThreePriorities.tsx` (warn on fire() rejection)
-- `supabase/functions/_shared/jit/select-jit.test.ts` (Chief-AI-vs-EY HIGH/LOW assertions)
-- `supabase/functions/generate-mastery-plan/__tests__/...` (attendee-relationship re-read assertion — add file if folder is empty)
-
-## Explicitly NOT in scope
-
-- No change to `CATEGORY_BASE`, `STAKES_KEYWORDS`, `MIN_IMMEDIATE`, `resolveTierWeights`, or proximity weights — the SSOT change you cited (Tactical ceiling, proximity demotion) is already implemented in the JIT-v2 files and is a separate workstream.
-- No change to the UI of the tag popover — naming already matches the spec.
-- No new edge function and no new trigger for relationship resolution; the re-read model already exists.
-
-## Open question for you
-
-One thing to confirm before I implement: when a user picks a **Relationship** tag in the popover (e.g. "Boss"), do you want the `attendee_relationships` upsert (source=`user_tag`, role=`boss`) to apply to **all attendees** on that event (current behaviour, capped at 25), or only when the event has a single non-self attendee? The current "all attendees" approach can over-tag a big meeting if a user just means "my boss is in this one".
+1. **User's own domain source**: I'd read `profiles.email` (whatever's already there) and strip the domain. Confirm that's the right source, or do you want a dedicated `profiles.company_domain` field? (Stripping `email` is zero-effort; a dedicated column is cleaner if a user's login email ≠ their work domain.)
+2. **Domain-heuristic for `peer` (internal)** — confidence `0.5` gives weight ≈ 5. Is that the right floor, or do you want internal attendees treated as effectively zero until the resolver lands? My read of your §C is "directional only," so 5 feels right, but call it.
