@@ -22,6 +22,8 @@ import Security
 
     private let tokenKey = "mindmodule.auth0_token"
     private let tokenExpiryKey = "mindmodule.auth0_token_expires_at"
+    private let syncGateQueue = DispatchQueue(label: "mindmodule.appleCalendarBackgroundSync.gate")
+    private var syncInFlight = false
 
     // EventKit change observer — fires whenever the user adds/edits/deletes an
     // event in any app on the device. Debounced so a batch of changes (e.g.
@@ -101,15 +103,34 @@ import Security
     @objc public var lastEventStoreChangeAt: TimeInterval { return lastObserverFireAt }
 
     public func fetchAndPersist(done: @escaping () -> Void) {
+        requestSync(trigger: "background_fetch", done: done)
+    }
+
+    public func requestSync(trigger: String, done: @escaping () -> Void) {
+        let shouldStart = syncGateQueue.sync { () -> Bool in
+            if syncInFlight { return false }
+            syncInFlight = true
+            return true
+        }
+
+        guard shouldStart else {
+            NSLog("[AppleCalendarBackgroundSync] Sync already in flight; skipping trigger=\(trigger)")
+            done()
+            return
+        }
+
         NativeSyncDiagnostics.shared.recordCalendarBackground()
+        NSLog("[AppleCalendarBackgroundSync] Sync started trigger=\(trigger) permission=\(isCalendarAuthorized())")
         guard isCalendarAuthorized() else {
             NSLog("[AppleCalendarBackgroundSync] Calendar permission not granted — skipping")
+            endSync(trigger: trigger)
             done()
             return
         }
 
         guard let token = readKeychain(key: tokenKey), !token.isEmpty else {
             NSLog("[AppleCalendarBackgroundSync] No auth token in Keychain — skipping")
+            endSync(trigger: trigger)
             done()
             return
         }
@@ -118,6 +139,7 @@ import Security
            let expiry = Double(expiryRaw),
            expiry < Date().timeIntervalSince1970 + 60 {
             NSLog("[AppleCalendarBackgroundSync] Auth token expired — skipping")
+            endSync(trigger: trigger)
             done()
             return
         }
@@ -133,6 +155,7 @@ import Security
         let end = calendar.date(byAdding: endComponents, to: calendar.startOfDay(for: now)) ?? now
 
         let events = fetchEvents(start: start, end: end)
+        NSLog("[AppleCalendarBackgroundSync] trigger=\(trigger) calendars=\(store.calendars(for: .event).count) events=\(events.count)")
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
         // Persist payload to native outbox FIRST so a process kill mid-upload never loses data.
@@ -145,7 +168,10 @@ import Security
         if !events.isEmpty {
             NativeOutbox.shared.enqueue(provider: .appleCalendar, payload: payload)
         }
-        drainOutbox(token: token, done: done)
+        drainOutbox(token: token, trigger: trigger) {
+            self.endSync(trigger: trigger)
+            done()
+        }
     }
 
     @objc public func flushOutbox(done: @escaping () -> Void) {
@@ -157,15 +183,26 @@ import Security
         drainOutbox(token: token, done: done)
     }
 
-    private func drainOutbox(token: String, done: @escaping () -> Void) {
+    private func drainOutbox(token: String, trigger: String, done: @escaping () -> Void) {
         let items = NativeOutbox.shared.peek(provider: .appleCalendar)
-        if items.isEmpty { done(); return }
+        if items.isEmpty {
+            NSLog("[AppleCalendarBackgroundSync] trigger=\(trigger) no outbox items to upload")
+            done()
+            return
+        }
         let group = DispatchGroup()
         for item in items {
             group.enter()
             postOutboxItem(item, token: token) { group.leave() }
         }
         group.notify(queue: .global(qos: .background)) { done() }
+    }
+
+    private func endSync(trigger: String) {
+        syncGateQueue.sync {
+            syncInFlight = false
+        }
+        NSLog("[AppleCalendarBackgroundSync] Sync finished trigger=\(trigger)")
     }
 
     private func postOutboxItem(_ item: NativeOutbox.Item, token: String, done: @escaping () -> Void) {

@@ -265,7 +265,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
           return;
         }
 
-        const result = await syncAppleCalendarToBackend();
+        const result = await syncAppleCalendarToBackend({ reason: 'manual' });
         if (!result.success) {
           emitIntegrationEvent({
             provider: 'apple-calendar',
@@ -434,6 +434,22 @@ export function useCalendarSync(): UseCalendarSyncResult {
             console.log('[useCalendarSync] Fetched', transformedEvents.length, 'events');
           }
           
+          if (usableConnection.provider === 'apple' && isAppleCalendarSupported()) {
+            console.log('[useCalendarSync] Apple Calendar bootstrap sync on init...');
+            syncAppleCalendarToBackend({ reason: 'init_bootstrap' })
+              .then((res) => {
+                if (!cancelled && res.success === true) {
+                  setLastSync(new Date());
+                  fetchEvents();
+                  void triggerCalendarRelationshipLearning();
+                }
+                if (!cancelled && res.success === false) {
+                  console.warn('[useCalendarSync] Apple bootstrap sync returned failure');
+                }
+              })
+              .catch(err => console.error('[useCalendarSync] Apple bootstrap sync failed:', err));
+          }
+
           // If data is stale, trigger a background sync
           const syncTime = usableConnection.last_sync ? new Date(usableConnection.last_sync) : null;
           const threshold = usableConnection.provider === 'apple' ? APPLE_STALE_THRESHOLD_MS : STALE_THRESHOLD_MS;
@@ -442,9 +458,10 @@ export function useCalendarSync(): UseCalendarSyncResult {
             // Background sync - don't await
             if (usableConnection.provider === 'apple') {
               if (isAppleCalendarSupported()) {
-              syncAppleCalendarToBackend()
-                .then((res) => {
+                syncAppleCalendarToBackend({ reason: 'init_stale_refresh' })
+                  .then((res) => {
                     if (!cancelled && res.success === true) {
+                      setLastSync(new Date());
                       fetchEvents();
                       void triggerCalendarRelationshipLearning();
                     }
@@ -506,7 +523,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
         userId: user.id,
         meta: { source: 'useCalendarSync', reason },
       });
-        syncAppleCalendarToBackend()
+        syncAppleCalendarToBackend({ reason })
         .then((res) => {
           if (cancelled) return;
           if (res.success) {

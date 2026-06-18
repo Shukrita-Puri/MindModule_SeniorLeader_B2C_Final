@@ -121,18 +121,6 @@ serve(async (req) => {
       .eq('provider', 'apple')
       .maybeSingle();
 
-    const nowIso = new Date().toISOString();
-    if (existingConn) {
-      await serviceClient
-        .from('calendar_connections')
-        .update({ is_active: true, last_sync: nowIso, updated_at: nowIso })
-        .eq('id', existingConn.id);
-    } else {
-      await serviceClient
-        .from('calendar_connections')
-        .insert({ user_id: userId, provider: 'apple', is_active: true, last_sync: nowIso });
-    }
-
     const classifiedRaw = events.map(e => {
       const { eventType, isHighStakes } = classify(e.title, e.attendees_count);
       // Apple EventKit returns recurring instances sharing the same eventIdentifier;
@@ -195,6 +183,24 @@ serve(async (req) => {
         .lte('start_time', windowEnd);
     }
 
+    const nowIso = new Date().toISOString();
+    if (existingConn) {
+      const { error: connUpdateError } = await serviceClient
+        .from('calendar_connections')
+        .update({ is_active: true, last_sync: nowIso, updated_at: nowIso })
+        .eq('id', existingConn.id);
+      if (connUpdateError) {
+        console.warn('[sync-apple-calendar] Connection update warning:', connUpdateError.message);
+      }
+    } else {
+      const { error: connInsertError } = await serviceClient
+        .from('calendar_connections')
+        .insert({ user_id: userId, provider: 'apple', is_active: true, last_sync: nowIso });
+      if (connInsertError) {
+        console.warn('[sync-apple-calendar] Connection insert warning:', connInsertError.message);
+      }
+    }
+
     if (outboxItemId) {
       try {
         await serviceClient.from('processed_outbox_items').insert({
@@ -213,6 +219,7 @@ serve(async (req) => {
       }
     }
 
+    console.log('[sync-apple-calendar] success user=', userId, 'eventCount=', classified.length, 'lastSync=', nowIso);
     return jsonOk({ success: true, eventCount: classified.length, lastSync: nowIso });
   } catch (err) {
     console.error('[sync-apple-calendar] Unhandled error:', err);

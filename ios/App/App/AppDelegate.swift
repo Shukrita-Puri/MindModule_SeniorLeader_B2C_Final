@@ -82,6 +82,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         NativeSyncDiagnostics.shared.recordBackgroundFetch()
         let group = DispatchGroup()
+        var completed = false
+        let completeOnce: (Bool) -> Void = { success in
+            guard !completed else { return }
+            completed = true
+            task.setTaskCompleted(success: success)
+        }
 
         group.enter()
         WearableSyncBridge.shared.fetchAndPersist { group.leave() }
@@ -90,11 +96,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         task.expirationHandler = {
             // iOS will kill us shortly — flag failure so it retries sooner.
-            task.setTaskCompleted(success: false)
+            completeOnce(false)
         }
 
         group.notify(queue: .main) {
-            task.setTaskCompleted(success: true)
+            completeOnce(true)
         }
     }
 
@@ -170,7 +176,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func applicationWillResignActive(_ application: UIApplication) {}
 
-    func applicationDidEnterBackground(_ application: UIApplication) {}
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        scheduleBackgroundRefresh()
+    }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         // Drain any payloads that were queued while the app was backgrounded
@@ -178,14 +186,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // we don't depend on the WebView being alive.
         WearableSyncBridge.shared.flushOutbox {}
         AppleCalendarBackgroundSyncBridge.shared.flushOutbox {}
-
-        // Force a fresh Apple Calendar fetch on resume so the UI reflects any
-        // events the user added in the iOS Calendar app while the app was in
-        // the background. Cheap when nothing changed (idempotent on the server).
-        AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist {}
     }
 
-    func applicationDidBecomeActive(_ application: UIApplication) {}
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Trigger a native Apple Calendar sync whenever the app becomes active.
+        // EventKit and the backend are both idempotent, and the bridge itself
+        // guards against duplicate in-flight syncs.
+        AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist {}
+    }
 
     func applicationWillTerminate(_ application: UIApplication) {}
 

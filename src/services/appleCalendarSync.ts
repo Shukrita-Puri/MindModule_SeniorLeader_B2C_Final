@@ -24,6 +24,8 @@ export interface AppleCalendarSyncPayload {
   events: unknown[];
 }
 
+let activeAppleCalendarSync: Promise<AppleCalendarSyncResult> | null = null;
+
 /**
  * Direct POST to sync-apple-calendar. Used by both foreground sync and the
  * retry orchestrator. Does NOT enqueue on its own.
@@ -66,123 +68,152 @@ function defaultSyncWindow(): { start: Date; end: Date } {
   return { start, end };
 }
 
-export async function syncAppleCalendarToBackend(): Promise<AppleCalendarSyncResult> {
-  if (!isAppleCalendarSupported()) {
-    return { success: false, error: 'Apple Calendar is only available on iOS' };
-  }
-  emitIntegrationEvent({ provider: 'apple-calendar', event: 'sync_started' });
-
-  const { start, end } = defaultSyncWindow();
-
-  let events;
-  try {
-    events = await fetchAppleCalendarEvents(start, end);
-  } catch (err) {
-    console.error('[appleCalendarSync] fetchEvents failed:', err);
+export async function syncAppleCalendarToBackend(options?: { reason?: string }): Promise<AppleCalendarSyncResult> {
+  if (activeAppleCalendarSync) {
     emitIntegrationEvent({
       provider: 'apple-calendar',
-      event: 'sync_failed',
-      errorCode: 'fetch_events_failed',
-      errorMessage: err instanceof Error ? err.message : String(err),
+      event: 'sync_temporary_unavailable',
+      meta: { reason: options?.reason ?? null, inFlight: true },
     });
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to read Apple Calendar' };
+    return activeAppleCalendarSync;
   }
 
-  const token = await getAuthToken();
-  if (!token) {
-    emitIntegrationEvent({ provider: 'apple-calendar', event: 'sync_failed', errorCode: 'missing_auth_token' });
-    return { success: false, error: 'Authentication required' };
-  }
-
-  const url = getSupabaseFunctionUrl('sync-apple-calendar');
-  try {
-    emitIntegrationEvent({
-      provider: 'apple-calendar',
-      event: 'sync_started',
-      meta: {
-        phase: 'backend_post',
-        url,
-        eventCount: events.length,
-        online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
-      },
-    });
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: getSupabaseFunctionHeaders(token),
-      body: JSON.stringify({
-        windowStart: start.toISOString(),
-        windowEnd: end.toISOString(),
-        events,
-      }),
-    });
-    const bodyText = await readResponseBody(res);
-    let data: { success?: boolean; error?: string; eventCount?: number } = {};
-    try {
-      data = bodyText ? JSON.parse(bodyText) : {};
-    } catch {
-      data = { success: false, error: bodyText || `HTTP ${res.status}` };
+  activeAppleCalendarSync = (async () => {
+    const reason = options?.reason ?? 'manual';
+    if (!isAppleCalendarSupported()) {
+      return { success: false, error: 'Apple Calendar is only available on iOS' };
     }
-    if (!res.ok) {
+
+    emitIntegrationEvent({ provider: 'apple-calendar', event: 'sync_started', meta: { reason } });
+
+    const { start, end } = defaultSyncWindow();
+
+    let events;
+    try {
+      events = await fetchAppleCalendarEvents(start, end);
+      console.log('[appleCalendarSync] fetched events:', events.length, 'reason:', reason);
+    } catch (err) {
+      console.error('[appleCalendarSync] fetchEvents failed:', err);
       emitIntegrationEvent({
         provider: 'apple-calendar',
         event: 'sync_failed',
-        errorCode: `http_${res.status}`,
-        errorMessage: data.error || bodyText || res.statusText,
-        meta: { url, eventCount: events.length },
+        errorCode: 'fetch_events_failed',
+        errorMessage: err instanceof Error ? err.message : String(err),
+        meta: { reason },
       });
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to read Apple Calendar' };
+    }
+
+    const token = await getAuthToken();
+    if (!token) {
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'sync_failed',
+        errorCode: 'missing_auth_token',
+        meta: { reason },
+      });
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const url = getSupabaseFunctionUrl('sync-apple-calendar');
+    try {
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'sync_started',
+        meta: {
+          phase: 'backend_post',
+          reason,
+          url,
+          eventCount: events.length,
+          online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+        },
+      });
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: getSupabaseFunctionHeaders(token),
+        body: JSON.stringify({
+          windowStart: start.toISOString(),
+          windowEnd: end.toISOString(),
+          events,
+        }),
+      });
+      const bodyText = await readResponseBody(res);
+      let data: { success?: boolean; error?: string; eventCount?: number } = {};
+      try {
+        data = bodyText ? JSON.parse(bodyText) : {};
+      } catch {
+        data = { success: false, error: bodyText || `HTTP ${res.status}` };
+      }
+      if (!res.ok) {
+        emitIntegrationEvent({
+          provider: 'apple-calendar',
+          event: 'sync_failed',
+          errorCode: `http_${res.status}`,
+          errorMessage: data.error || bodyText || res.statusText,
+          meta: { reason, url, eventCount: events.length },
+        });
+        try {
+          queueEnqueue('apple-calendar', {
+            windowStart: start.toISOString(),
+            windowEnd: end.toISOString(),
+            events,
+          }, `http_${res.status}`);
+        } catch { /* */ }
+        return { success: false, error: data.error || bodyText || `Sync failed (${res.status})` };
+      }
+      if (data?.success === false) {
+        emitIntegrationEvent({
+          provider: 'apple-calendar',
+          event: 'sync_failed',
+          errorCode: 'backend_returned_error',
+          errorMessage: data.error,
+          meta: { reason },
+        });
+        try {
+          queueEnqueue('apple-calendar', {
+            windowStart: start.toISOString(),
+            windowEnd: end.toISOString(),
+            events,
+          }, 'backend_returned_error');
+        } catch { /* */ }
+        return { success: false, error: data.error || 'Sync failed' };
+      }
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'sync_success',
+        meta: { eventCount: data.eventCount ?? events.length, reason },
+      });
+      return { success: true, eventCount: data.eventCount ?? events.length };
+    } catch (err) {
+      const errorMessage = describeFetchError(err);
+      console.error('[appleCalendarSync] sync-apple-calendar failed:', errorMessage, err);
       try {
         queueEnqueue('apple-calendar', {
           windowStart: start.toISOString(),
           windowEnd: end.toISOString(),
           events,
-        }, `http_${res.status}`);
+        }, errorMessage);
       } catch { /* */ }
-      return { success: false, error: data.error || bodyText || `Sync failed (${res.status})` };
-    }
-    if (data?.success === false) {
       emitIntegrationEvent({
         provider: 'apple-calendar',
         event: 'sync_failed',
-        errorCode: 'backend_returned_error',
-        errorMessage: data.error,
+        errorCode: 'network_error',
+        errorMessage,
+        meta: {
+          reason,
+          url,
+          online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+          supabaseUrlConfigured: !!import.meta.env.VITE_SUPABASE_URL,
+          projectIdConfigured: !!import.meta.env.VITE_SUPABASE_PROJECT_ID,
+        },
       });
-      try {
-        queueEnqueue('apple-calendar', {
-          windowStart: start.toISOString(),
-          windowEnd: end.toISOString(),
-          events,
-        }, 'backend_returned_error');
-      } catch { /* */ }
-      return { success: false, error: data.error || 'Sync failed' };
+      return { success: false, error: errorMessage || 'Sync failed' };
     }
-    emitIntegrationEvent({
-      provider: 'apple-calendar',
-      event: 'sync_success',
-      meta: { eventCount: data.eventCount ?? events.length },
-    });
-    return { success: true, eventCount: data.eventCount ?? events.length };
-  } catch (err) {
-    const errorMessage = describeFetchError(err);
-    console.error('[appleCalendarSync] sync-apple-calendar failed:', errorMessage, err);
-    try {
-      queueEnqueue('apple-calendar', {
-        windowStart: start.toISOString(),
-        windowEnd: end.toISOString(),
-        events,
-      }, errorMessage);
-    } catch { /* */ }
-    emitIntegrationEvent({
-      provider: 'apple-calendar',
-      event: 'sync_failed',
-      errorCode: 'network_error',
-      errorMessage,
-      meta: {
-        url,
-        online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
-        supabaseUrlConfigured: !!import.meta.env.VITE_SUPABASE_URL,
-        projectIdConfigured: !!import.meta.env.VITE_SUPABASE_PROJECT_ID,
-      },
-    });
-    return { success: false, error: errorMessage || 'Sync failed' };
+  })();
+
+  try {
+    return await activeAppleCalendarSync;
+  } finally {
+    activeAppleCalendarSync = null;
   }
 }

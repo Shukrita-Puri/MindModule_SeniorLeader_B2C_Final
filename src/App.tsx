@@ -7,7 +7,7 @@ import {
   useLocation,
   useParams,
 } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "./components/ErrorBoundary";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
@@ -23,6 +23,9 @@ import {
   startTimezoneWatcher,
   persistPermissionStatus,
 } from "./services/travelStateService";
+import { useAuth } from "./hooks/useAuth";
+import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from "./utils/appleCalendar";
+import { syncAppleCalendarToBackend } from "./services/appleCalendarSync";
 import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
 import { PAYMENT_PAGE_SUPPRESSED } from "./config/payments";
@@ -136,6 +139,77 @@ const TravelWatcher = () => {
   return null;
 };
 
+const AppleCalendarWatcher = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id || !isAppleCalendarSupported()) return;
+
+    let cancelled = false;
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    let removeStoreListener: (() => void) | null = null;
+    let removeResumeListener: (() => void) | null = null;
+
+    const invalidateAppleQueries = () => {
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+      queryClient.invalidateQueries({ queryKey: ['mrs-weekly-delta'] });
+    };
+
+    const syncNow = async (reason: string) => {
+      if (cancelled) return;
+      const permissionGranted = await verifyAppleCalendarPermission();
+      console.log('[AppleCalendarWatcher] sync requested', { reason, permissionGranted });
+      if (!permissionGranted || cancelled) return;
+      const result = await syncAppleCalendarToBackend({ reason });
+      console.log('[AppleCalendarWatcher] sync result', { reason, result });
+      if (!cancelled && result.success) {
+        invalidateAppleQueries();
+      }
+    };
+
+    void syncNow('app_launch');
+
+    void onAppleCalendarStoreChanged(() => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => { void syncNow('eventkit_change'); }, 1200);
+    }).then((unsub) => {
+      if (cancelled) {
+        unsub();
+      } else {
+        removeStoreListener = unsub;
+      }
+    }).catch((err) => {
+      console.warn('[AppleCalendarWatcher] store listener registration failed:', err);
+    });
+
+    void (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) void syncNow('app_resume');
+        });
+        if (cancelled) {
+          void handle.remove();
+        } else {
+          removeResumeListener = () => { void handle.remove(); };
+        }
+      } catch {
+        // web/no-op
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (debounce) clearTimeout(debounce);
+      removeStoreListener?.();
+      removeResumeListener?.();
+    };
+  }, [queryClient, user?.id]);
+
+  return null;
+};
+
 import FloatingPillNav from "./components/navigation/FloatingPillNav";
 
 // Bottom pill nav is only shown on core app destinations after the executive home entry point.
@@ -177,6 +251,7 @@ const Layout = () => {
     <AuthProvider>
       <ScrollToTop />
       <TravelWatcher />
+      <AppleCalendarWatcher />
       <PushNotificationProvider />
       <PushNotificationActionHandler />
       {showPillNav && !tourActive && <FloatingPillNav />}

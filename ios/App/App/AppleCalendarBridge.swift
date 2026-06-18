@@ -103,16 +103,19 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func getPermissionStatus(_ call: CAPPluginCall) {
         let status = EKEventStore.authorizationStatus(for: .event)
+        NSLog("[AppleCalendarPlugin] permission status requested: \(self.label(for: status))")
         call.resolve(["status": label(for: status)])
     }
 
     @objc func requestPermission(_ call: CAPPluginCall) {
+        NSLog("[AppleCalendarPlugin] requestPermission started")
         if #available(iOS 17.0, *) {
             store.requestFullAccessToEvents { granted, error in
                 if let error = error {
                     call.reject("EventKit permission error: \(error.localizedDescription)")
                     return
                 }
+                NSLog("[AppleCalendarPlugin] requestPermission completed granted=\(granted)")
                 call.resolve(["granted": granted, "status": granted ? "fullAccess" : "denied"])
             }
         } else {
@@ -121,6 +124,7 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject("EventKit permission error: \(error.localizedDescription)")
                     return
                 }
+                NSLog("[AppleCalendarPlugin] requestPermission completed granted=\(granted)")
                 call.resolve(["granted": granted, "status": granted ? "authorized" : "denied"])
             }
         }
@@ -151,6 +155,7 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         let calendars = store.calendars(for: .event)
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
         let events = store.events(matching: predicate)
+        NSLog("[AppleCalendarPlugin] fetchEvents calendars=\(calendars.count) events=\(events.count)")
 
         let outIso = ISO8601DateFormatter()
         outIso.formatOptions = [.withInternetDateTime]

@@ -17,6 +17,7 @@ import { clearLocalCalendarData, clearLocalWearableData } from '@/services/local
 import { openUrl } from '@/utils/openUrl';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { toast } from 'sonner';
+import { deriveSyncState } from '@/services/syncStateModel';
 
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
@@ -1147,6 +1148,12 @@ const ConnectedData = () => {
   const microsoftLastSync = status?.calendar.providers?.microsoft?.lastSync
     ?? (microsoftConnected ? (status?.calendar.lastSync ?? null) : null);
   const appleCalendarLastSync = status?.calendar.providers?.apple?.lastSync ?? null;
+  const appleCalendarSyncState = deriveSyncState({
+    backendConnectionState: appleCalendarDbConnected ? 'connected' : 'disconnected',
+    backendSyncStatus: appleCalendarPermissionGranted ? 'synced' : 'permission_revoked',
+    lastSyncAt: appleCalendarLastSync,
+    staleThresholdHours: 24,
+  });
   // Apple-as-primary precedence:
   // - On iOS: only Apple Calendar shows (native source).
   // - On web: Google + Microsoft always show as options. If the user has an
@@ -1205,14 +1212,22 @@ const ConnectedData = () => {
       lastSync: appleCalendarReadOnly
         ? formatLastSync(appleCalendarLastSync)
         : (appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null),
-      statusLabel: appleCalendarReadOnly
-        ? 'Connected via iOS app'
-        : (appleCalendarPermissionDenied ? 'Permission denied' : appleCalendarConnected ? 'Connected' : 'Disconnected'),
-      statusNote: appleCalendarReadOnly
-        ? 'Primary calendar source. Manage in the iOS app.'
-        : (appleCalendarPermissionDenied
-          ? 'Enable full calendar access in iOS Settings, then reconnect'
-          : (appleCalendarDbConnected && !appleCalendarConnected ? 'Stored connection is inactive until permission is verified' : undefined)),
+      statusLabel: appleCalendarPermissionDenied
+        ? 'Permission denied'
+        : (appleCalendarSyncState === 'stale' || appleCalendarSyncState === 'never_synced')
+          ? 'Needs sync'
+          : appleCalendarReadOnly
+            ? 'Connected via iOS app'
+            : (appleCalendarConnected ? 'Connected' : 'Disconnected'),
+      statusNote: appleCalendarPermissionDenied
+        ? 'Enable full calendar access in iOS Settings, then reconnect'
+        : appleCalendarSyncState === 'never_synced'
+          ? 'No successful sync yet. Tap Sync now.'
+          : appleCalendarSyncState === 'stale'
+          ? 'Last successful sync is older than 24 hours. Tap Sync now.'
+          : appleCalendarReadOnly
+            ? 'Primary calendar source. Manage in the iOS app.'
+            : (appleCalendarDbConnected && !appleCalendarConnected ? 'Stored connection is inactive until permission is verified' : undefined),
       showReconnect: !appleCalendarReadOnly && appleCalendarPermissionDenied,
       onConnect: appleCalendarReadOnly ? undefined : handleConnectAppleCalendar,
       onDisconnect: appleCalendarReadOnly ? undefined : handleDisconnectAppleCalendar,
