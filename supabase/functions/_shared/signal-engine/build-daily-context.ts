@@ -27,6 +27,7 @@ import type {
 import { buildPatternSignals } from './pattern-engine.ts';
 import { computeCalendarDemand } from './demand-scorer.ts';
 import { resolveStrategicContext } from './strategic-context.ts';
+import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
 
 type AnySupabase = {
   from: (table: string) => any;
@@ -291,7 +292,8 @@ async function fetchTodayEvents(
       .gte('start_time', start)
       .lte('start_time', end);
     if (error || !Array.isArray(data)) return [];
-    return (data as ClassifiedEventLite[]).map(normalizeEvent);
+    return mergeCalendarEvents((data as ClassifiedEventLite[]).map(normalizeEvent) as any[], 'unknown')
+      .map((e) => normalizeEvent(e));
   } catch {
     return [];
   }
@@ -318,7 +320,9 @@ async function fetchLoadLast3Days(
         .eq('user_id', userId)
         .gte('start_time', start)
         .lte('start_time', end);
-      const events = Array.isArray(data) ? (data as ClassifiedEventLite[]).map(normalizeEvent) : [];
+      const events = Array.isArray(data)
+        ? mergeCalendarEvents((data as ClassifiedEventLite[]).map(normalizeEvent) as any[], 'unknown').map((e) => normalizeEvent(e))
+        : [];
       out.push(computeCalendarDemand(events).load);
     } catch {
       out.push('low');
@@ -365,7 +369,7 @@ async function fetchDowHistory(
     // Group events by local day (UTC date of start_time — close enough for
     // DOW aggregation; absolute precision isn't needed at the day-of-week level).
     const eventsByDay = new Map<string, ClassifiedEventLite[]>();
-    for (const ev of (events ?? []) as ClassifiedEventLite[]) {
+    for (const ev of mergeCalendarEvents((events ?? []) as ClassifiedEventLite[] as any[], 'unknown').map((e) => normalizeEvent(e))) {
       const day = (ev.start_time || '').slice(0, 10);
       if (!day) continue;
       const arr = eventsByDay.get(day) ?? [];

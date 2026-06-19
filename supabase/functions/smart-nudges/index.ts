@@ -17,6 +17,7 @@ import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
+import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 
 // ── APNs Helper Functions ──
 
@@ -298,6 +299,18 @@ interface CalendarEvent {
   external_id: string;
   is_organizer?: boolean;
   attendees_count?: number;
+}
+
+function mergeCalendarRows(rows: unknown[]): CalendarEvent[] {
+  return mergeCalendarEvents((rows || []) as any[], 'unknown').map((event) => ({
+    id: event.id,
+    title: event.title ?? null,
+    start_time: event.startTime,
+    end_time: event.endTime,
+    external_id: event.canonicalEventId,
+    is_organizer: event.isOrganizer ?? false,
+    attendees_count: event.attendeesCount ?? 0,
+  }));
 }
 
 interface CalendarGap {
@@ -855,6 +868,7 @@ async function buildNudgeContext(
     .eq('user_id', userId)
     .gte('start_time', `${lookbackStartStr}T00:00:00`)
     .lte('start_time', `${todayStr}T00:00:00`);
+  const lookbackEvents = mergeCalendarRows(lookbackEventsRaw || []);
 
   // Fetch session summaries separately (depends on recentSessions)
   const sessionIds = (recentSessions || []).map(s => s.id).filter(Boolean);
@@ -884,8 +898,8 @@ async function buildNudgeContext(
   const hrvDeltaPctFromSnapshot = snapshotComputed?.hrv_delta_pct as number | null ?? hrvDeltaPct;
 
   // Process calendar
-  const todayEvents = (todayEventsRaw || []) as CalendarEvent[];
-  const tomorrowEvents = (tomorrowEventsRaw || []) as CalendarEvent[];
+  const todayEvents = mergeCalendarRows(todayEventsRaw || []);
+  const tomorrowEvents = mergeCalendarRows(tomorrowEventsRaw || []);
   const nonNoiseEvents = todayEvents.filter(e => !isNoiseEvent(e.title || ''));
   const highStakesEvents = nonNoiseEvents.filter(e => isHighStakes(e.title));
 
@@ -1130,7 +1144,7 @@ async function buildNudgeContext(
     pattern: null, // Hydrated by main handler before evaluators run
     dayContext: (() => {
       const today = detectDayKindFromEvents(todayEvents);
-      const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
+      const yesterday = detectDayKindFromEvents(mergeCalendarRows(yesterdayEventsRaw || []));
       // v5.3 — Travel arc sub-flags. Travel-event detection AND the pre-flight
       // / in-flight windowing are delegated to the canonical ceo-behaviour
       // module so Brief / Plan / Nudges share one travel sub-arc taxonomy.
@@ -1194,7 +1208,7 @@ async function buildNudgeContext(
       const defaults: string[] = [];
       if (!Array.isArray(todayEvents) || todayEvents.length === 0) defaults.push('todayEvents=empty');
       if (!Array.isArray(tomorrowEvents) || tomorrowEvents.length === 0) defaults.push('tomorrowEvents=empty');
-      if (!Array.isArray(lookbackEventsRaw) || lookbackEventsRaw.length === 0) defaults.push('lookbackEventsRaw=empty');
+      if (!Array.isArray(lookbackEvents) || lookbackEvents.length === 0) defaults.push('lookbackEvents=empty');
       // Walk back from yesterday counting consecutive off-days (PTO / holiday
       // / weekend / empty calendar). Stop at the first work-day. Bounded to
       // 14 days so a quiet calendar can't run away.
@@ -1256,7 +1270,7 @@ async function buildNudgeContext(
       // header for cross-reference.
       // ────────────────────────────────────────────────────────────────────
       const byDate = new Map<string, Array<{ title?: string | null }>>();
-      for (const e of (lookbackEventsRaw || []) as Array<{ title?: string | null; start_time: string }>) {
+      for (const e of lookbackEvents) {
         const d = (e.start_time || '').slice(0, 10);
         if (!d) continue;
         const arr = byDate.get(d) || [];

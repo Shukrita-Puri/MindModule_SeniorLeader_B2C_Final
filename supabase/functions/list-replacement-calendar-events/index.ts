@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
-import { collapseDuplicateEvents, periodFor } from "../_shared/rules/calendarEvents.ts";
+import { mergeCalendarEvents, periodFor } from "../_shared/rules/calendarEvents.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -99,7 +99,7 @@ serve(async (req) => {
     // Same event across multiple calendars => keep only one row.
     const platform = (req.headers.get('x-client-platform') || 'web').toLowerCase().includes('ios')
       ? 'ios' : 'web';
-    const deduped = collapseDuplicateEvents(rawEvents, platform as 'ios' | 'web');
+    const deduped = mergeCalendarEvents(rawEvents, platform as 'ios' | 'web');
 
     // Tag each event with its local-day bucket (today/tomorrow) and period.
     const todayKey = `${localStartOfToday.getFullYear()}-${localStartOfToday.getMonth()}-${localStartOfToday.getDate()}`;

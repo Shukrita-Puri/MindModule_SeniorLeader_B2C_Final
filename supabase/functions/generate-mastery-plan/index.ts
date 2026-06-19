@@ -64,6 +64,7 @@ import {
   loadPriorityMemoryForUser,
   type PriorityMemoryIndex,
 } from '../_shared/plan/event-priority-memory.ts';
+import { mergeCalendarEvents } from '../_shared/rules/calendarEvents.ts';
 import {
   normalizeEventTypeKey,
 } from '../_shared/plan/week-ahead-mode.ts';
@@ -206,6 +207,17 @@ async function runJitV2Shadow(
   } catch (_e) { /* heuristic is optional */ }
 
   const signalByEmail = new Map<string, AttendeeRoleSignal>();
+  const legacyMemoryKeysByEventId = new Map<string, { eventCategory: string; eventTypeKey: string }>();
+  for (const fe of sourceEvents) {
+    const ev = fe?.event ?? fe;
+    const id = ev?.id;
+    const title = typeof ev?.title === 'string' ? ev.title : '';
+    if (typeof id !== 'string' || !id || !title) continue;
+    legacyMemoryKeysByEventId.set(id, {
+      eventCategory: coarseEventType(title),
+      eventTypeKey: normalizeEventTypeKey(title),
+    });
+  }
 
   // 3. Cached attendee_relationships (LLM resolver output, or user_tag rows
   //    upserted by record-event-priority-signal). Pull source + confidence.
@@ -301,14 +313,32 @@ async function runJitV2Shadow(
         .in('event_id', eventIds)
         .eq('signal', 'tag_relationship')
         .order('occurred_at', { ascending: false });
-      const stampedFor = new Set<string>(); // event_id → latest tag wins
-      for (const r of (memRows ?? []) as any[]) {
-        const eid = r?.event_id; if (!eid || stampedFor.has(eid)) continue;
-        stampedFor.add(eid);
+      const legacyPairs = Array.from(new Set(Array.from(legacyMemoryKeysByEventId.values()).map((v) => `${v.eventCategory}::${v.eventTypeKey}`)));
+      const legacyRows = legacyPairs.length > 0
+        ? await (async () => {
+            const categories = Array.from(new Set(Array.from(legacyMemoryKeysByEventId.values()).map((v) => v.eventCategory)));
+            const typeKeys = Array.from(new Set(Array.from(legacyMemoryKeysByEventId.values()).map((v) => v.eventTypeKey)));
+            const { data } = await supabase
+              .from('event_priority_memory')
+              .select('event_category, event_type_key, signal, meta, occurred_at')
+              .eq('user_id', userId)
+              .in('event_category', categories)
+              .in('event_type_key', typeKeys)
+              .eq('signal', 'tag_relationship')
+              .order('occurred_at', { ascending: false });
+            return (data ?? []).filter((r: any) => legacyPairs.includes(`${r?.event_category}::${r?.event_type_key}`));
+          })()
+        : [];
+      const stampedFor = new Set<string>(); // event_id or legacy key → latest tag wins
+      for (const r of [...(memRows ?? []), ...legacyRows] as any[]) {
         const tag = String(r?.meta?.relationshipTag || '').toLowerCase().trim();
         const role = RELATIONSHIP_TAG_TO_ROLE[tag];
         if (!role) continue;
-        const ems = attendeesByEventId.get(eid) ?? [];
+        const legacyKey = r?.event_category && r?.event_type_key ? `${r.event_category}::${r.event_type_key}` : null;
+        const lookupId = r?.event_id || (legacyKey ? Array.from(legacyMemoryKeysByEventId.entries()).find(([, v]) => `${v.eventCategory}::${v.eventTypeKey}` === legacyKey)?.[0] : null);
+        if (!lookupId || stampedFor.has(lookupId)) continue;
+        stampedFor.add(lookupId);
+        const ems = lookupId ? (attendeesByEventId.get(lookupId) ?? []) : [];
         for (const em of ems) {
           const existing = signalByEmail.get(em);
           // memory_user_tag fills unresolved or upgrades llm/heuristic;
@@ -350,11 +380,30 @@ async function runJitV2Shadow(
         .in('event_id', ids)
         .in('signal', ['tag_importance_high', 'tag_importance_medium', 'tag_importance_low', 'tag_custom', 'tag_cleared'])
         .order('occurred_at', { ascending: false });
+      const legacyPairs = Array.from(new Set(Array.from(legacyMemoryKeysByEventId.values()).map((v) => `${v.eventCategory}::${v.eventTypeKey}`)));
+      const legacyTagRows = legacyPairs.length > 0
+        ? await (async () => {
+            const categories = Array.from(new Set(Array.from(legacyMemoryKeysByEventId.values()).map((v) => v.eventCategory)));
+            const typeKeys = Array.from(new Set(Array.from(legacyMemoryKeysByEventId.values()).map((v) => v.eventTypeKey)));
+            const { data } = await supabase
+              .from('event_priority_memory')
+              .select('event_category, event_type_key, signal, meta, occurred_at')
+              .eq('user_id', userId)
+              .in('event_category', categories)
+              .in('event_type_key', typeKeys)
+              .in('signal', ['tag_importance_high', 'tag_importance_medium', 'tag_importance_low', 'tag_custom', 'tag_cleared'])
+              .order('occurred_at', { ascending: false });
+            return (data ?? []).filter((r: any) => legacyPairs.includes(`${r?.event_category}::${r?.event_type_key}`));
+          })()
+        : [];
       const seenImportance = new Set<string>();   // event_id where importance already set (latest wins)
       const clearedFor = new Set<string>();
       const customByEvent = new Map<string, Set<string>>();
-      for (const r of (tagRows ?? []) as any[]) {
-        const eid = r?.event_id; if (!eid) continue;
+      for (const r of [...(tagRows ?? []), ...legacyTagRows] as any[]) {
+        const eid = r?.event_id || (r?.event_category && r?.event_type_key
+          ? Array.from(legacyMemoryKeysByEventId.entries()).find(([, v]) => `${v.eventCategory}::${v.eventTypeKey}` === `${r.event_category}::${r.event_type_key}`)?.[0]
+          : null);
+        if (!eid) continue;
         if (r.signal === 'tag_cleared') { clearedFor.add(eid); continue; }
         if (r.signal === 'tag_custom') {
           const arr = Array.isArray(r?.meta?.customTags) ? r.meta.customTags : [];
@@ -1442,7 +1491,7 @@ async function getHRVEventCorrelations(
     const [eventsRes, hrvRes] = await Promise.all([
       supabaseClient
         .from('primary_calendar_events')
-        .select('start_time, title')
+        .select('start_time, title, id, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
         .eq('user_id', userId)
         .gte('start_time', thirtyDaysAgo.toISOString())
         .order('start_time', { ascending: true }),
@@ -1454,7 +1503,7 @@ async function getHRVEventCorrelations(
         .order('summary_date', { ascending: true }),
     ]);
 
-    const pastEvents = eventsRes.data;
+    const pastEvents = mergeCalendarEvents((eventsRes.data || []) as any[], 'unknown');
     const hrvData = hrvRes.data;
 
     if (!pastEvents || !hrvData || hrvData.length < 7) return null;
@@ -2526,8 +2575,9 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
       .gte('start_time', now.toISOString())
       .lte('start_time', in48h.toISOString())
       .order('start_time', { ascending: true });
+    const mergedEvents = mergeCalendarEvents((events || []) as any[], 'unknown');
     const selectedIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
-    const prioritizedEvents = [...(events || [])].sort((a: any, b: any) => {
+    const prioritizedEvents = [...mergedEvents].sort((a: any, b: any) => {
       const aSelected = selectedIds.has(a.id) ? 1 : 0;
       const bSelected = selectedIds.has(b.id) ? 1 : 0;
       if (aSelected !== bSelected) return bSelected - aSelected;

@@ -4,6 +4,7 @@ import { authenticateRequest } from "../_shared/auth.ts";
 import { isNoiseTitle, classifyEvent, isEducationalTitle, type EventGroup } from "../_shared/executive-state-taxonomy.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
+import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -526,7 +527,7 @@ serve(async (req) => {
       computeReadinessAmplifier(supabase, userId),
     ]);
 
-    const events = eventsRes.data || [];
+    const events = mergeCalendarEvents((eventsRes.data || []) as any[], 'unknown');
     const cancellationHistory = cancellationRes.data || [];
     const activeScenarios = scenariosRes.data || [];
     const pendingTools = pendingToolsRes.data || [];

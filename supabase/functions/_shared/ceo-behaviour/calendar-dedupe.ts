@@ -10,6 +10,8 @@
  * Returns a canonical event set + the aggregated back-to-back hour count for the
  * day. Used by multiCalendarLoad and (transitively) backToBackLoadOverride.
  */
+import { normalizeForClassify } from "../rules/calendar-merge.ts";
+
 export type LoadEvent = {
   id?: string;
   title?: string | null;
@@ -32,11 +34,7 @@ export interface DedupeResult {
 const TWO_MIN_MS = 2 * 60 * 1000;
 
 function normalizeTitle(t: string | null | undefined): string {
-  return (t || "")
-    .toLowerCase()
-    .replace(/\p{Extended_Pictographic}/gu, "")
-    .replace(/[\s\-_/\\.,:;!?'"()\[\]]+/g, " ")
-    .trim();
+  return normalizeForClassify(t);
 }
 
 export function dedupeForLoad(events: LoadEvent[]): DedupeResult {

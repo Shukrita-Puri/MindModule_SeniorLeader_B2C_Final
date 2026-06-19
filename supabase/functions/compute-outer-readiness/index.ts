@@ -9,6 +9,7 @@ import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { phaseForEvent, type Phase } from "../_shared/events/event-phase-map.ts";
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
+import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import {
   buildBehaviourSnapshot,
   type BehaviourSnapshotResult,
@@ -2505,12 +2506,13 @@ serve(async (req) => {
           .lte('start_time', twentyFourHoursLater.toISOString())
           .order('start_time', { ascending: true })
           .limit(20);
-        if (upcoming && upcoming.length > 0) {
+        const mergedUpcoming = mergeCalendarEvents((upcoming || []) as any[], 'unknown');
+        if (mergedUpcoming.length > 0) {
           // Restrict to the day's high-stakes set, then let selectLeadEvent rank
           // by canonical stakesScore (Board > Leadership 1:1) — chronological
           // tie-break only when stakes are equal. Shared event subtype lead-time
           // governs whether a given event is "live" for the brief yet.
-          const candidates = upcoming.filter((ev: any) => {
+          const candidates = mergedUpcoming.filter((ev: any) => {
             if (!todayHighStakes.includes(ev.title)) return false;
             const minsUntil = Math.round((new Date(ev.start_time).getTime() - now.getTime()) / 60000);
             const leadTimeMin = enrichEvent({
@@ -2752,8 +2754,9 @@ serve(async (req) => {
             .eq('user_id', userId)
             .gte('start_time', tStartUTC.toISOString())
             .lte('start_time', tEndUTC.toISOString());
-          if (tomorrowEvents) {
-            for (const ev of tomorrowEvents) {
+          const mergedTomorrowEvents = mergeCalendarEvents((tomorrowEvents || []) as any[], 'unknown');
+          if (mergedTomorrowEvents.length > 0) {
+            for (const ev of mergedTomorrowEvents) {
               const dur = (new Date(ev.end_time).getTime() - new Date(ev.start_time).getTime()) / 3600000;
               if (dur >= 4 && ev.title && oooPatterns.test(ev.title)) {
                 isDayBeforeRestDay = true;
@@ -2788,7 +2791,7 @@ serve(async (req) => {
           // 1. Yesterday's score
           Promise.resolve(db.from('daily_checkins').select('energy_balance').eq('user_id', userId).eq('checkin_date', yesterdayDate).order('created_at', { ascending: false }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // 3. Next event (any)
-          Promise.resolve(db.from('primary_calendar_events').select('title, start_time').eq('user_id', userId).gt('start_time', nowISO).order('start_time', { ascending: true }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
+          Promise.resolve(db.from('primary_calendar_events').select('title, start_time').eq('user_id', userId).gt('start_time', nowISO).order('start_time', { ascending: true }).limit(10)).then(r => r, () => ({ data: null })),
           // 4. Practice completion this week
           Promise.resolve(db.from('sanctuary_events').select('id, content_id').eq('user_id', userId).eq('event_type', 'completed').gte('created_at', sevenAgo)).then(r => r, () => ({ data: null })),
           // 5. Coach session recency
@@ -2833,16 +2836,17 @@ serve(async (req) => {
               .gte('start_time', startUTC2.toISOString())
               .lte('start_time', endUTC2.toISOString())
               .order('start_time', { ascending: true });
-            if (sortedEvts && sortedEvts.length > 1) {
+            const mergedSortedEvts = mergeCalendarEvents((sortedEvts || []) as any[], 'unknown');
+            if (mergedSortedEvts.length > 1) {
               let maxBlock = 0;
               let currentBlock = 0;
-              for (let i = 0; i < sortedEvts.length - 1; i++) {
-                const gap = (new Date(sortedEvts[i + 1].start_time).getTime() - new Date(sortedEvts[i].end_time).getTime()) / 60000;
+              for (let i = 0; i < mergedSortedEvts.length - 1; i++) {
+                const gap = (new Date(mergedSortedEvts[i + 1].start_time).getTime() - new Date(mergedSortedEvts[i].end_time).getTime()) / 60000;
                 if (gap < 10) {
                   if (currentBlock === 0) {
-                    currentBlock = (new Date(sortedEvts[i].end_time).getTime() - new Date(sortedEvts[i].start_time).getTime()) / 3600000;
+                    currentBlock = (new Date(mergedSortedEvts[i].end_time).getTime() - new Date(mergedSortedEvts[i].start_time).getTime()) / 3600000;
                   }
-                  currentBlock += (new Date(sortedEvts[i + 1].end_time).getTime() - new Date(sortedEvts[i + 1].start_time).getTime()) / 3600000;
+                  currentBlock += (new Date(mergedSortedEvts[i + 1].end_time).getTime() - new Date(mergedSortedEvts[i + 1].start_time).getTime()) / 3600000;
                   hasBackToBack = true;
                 } else {
                   if (currentBlock > maxBlock) maxBlock = currentBlock;
@@ -2857,9 +2861,11 @@ serve(async (req) => {
 
         // 3. Next event (any)
         if (nextEventRes.data) {
-          const ev = nextEventRes.data as any;
-          const mins = Math.round((new Date(ev.start_time).getTime() - Date.now()) / 60000);
-          if (mins > 0 && mins < 720) nextEventAny = { title: ev.title || 'Untitled', minutesUntil: mins, startTimeUTC: new Date(ev.start_time).toISOString() };
+          const ev = mergeCalendarEvents((nextEventRes.data || []) as any[], 'unknown')[0];
+          if (ev) {
+            const mins = Math.round((new Date(ev.start_time).getTime() - Date.now()) / 60000);
+            if (mins > 0 && mins < 720) nextEventAny = { title: ev.title || 'Untitled', minutesUntil: mins, startTimeUTC: new Date(ev.start_time).toISOString() };
+          }
         }
 
         // 4. Practices this week
@@ -2993,7 +2999,7 @@ serve(async (req) => {
               const evTime = new Date(utcDate.getTime() - timezoneOffset * 60000);
               return `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
             };
-            const meetingEventsToday = (todayEvts || []).filter((e: any) => {
+            const meetingEventsToday = mergeCalendarEvents((todayEvts || []) as any[], 'unknown').filter((e: any) => {
               const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000;
               return dur < 8;
             });
@@ -3062,7 +3068,7 @@ serve(async (req) => {
               return dur < 8;
             };
 
-            const meetingEvents = (tEvts || []).filter(isMeetingLike);
+            const meetingEvents = mergeCalendarEvents((tEvts || []) as any[], 'unknown').filter(isMeetingLike);
             if (meetingEvents.length > 0) {
               const first = meetingEvents[0];
               const firstTime = fmtLocalHHmm(new Date(first.start_time));
@@ -3108,9 +3114,10 @@ serve(async (req) => {
               const mEnd = new Date(Date.UTC(monDate.getUTCFullYear(), monDate.getUTCMonth(), monDate.getUTCDate(), 23, 59, 59));
               const mStartUTC = new Date(mStart.getTime() + timezoneOffset * 60000);
               const mEndUTC = new Date(mEnd.getTime() + timezoneOffset * 60000);
-              const { data: monFirst } = await db.from('primary_calendar_events').select('title, start_time')
+              const { data: monFirstRaw } = await db.from('primary_calendar_events').select('title, start_time')
                 .eq('user_id', userId).gte('start_time', mStartUTC.toISOString()).lte('start_time', mEndUTC.toISOString())
                 .order('start_time', { ascending: true }).limit(1).maybeSingle();
+              const monFirst = mergeCalendarEvents(monFirstRaw ? [monFirstRaw as any] : [], 'unknown')[0] ?? null;
               if (monFirst) {
                 const evTime = new Date(new Date(monFirst.start_time).getTime() - timezoneOffset * 60000);
                 const timeStr = `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
@@ -3142,8 +3149,9 @@ serve(async (req) => {
                 .ilike('title', `%${keyword}%`)
                 .gte('start_time', thirtyAgo)
                 .lt('start_time', new Date().toISOString());
-              if (similarEvents && similarEvents.length >= 3) {
-                const eventDates = similarEvents.map(e => new Date(e.start_time).toISOString().split('T')[0]);
+              const mergedSimilarEvents = mergeCalendarEvents((similarEvents || []) as any[], 'unknown');
+              if (mergedSimilarEvents.length >= 3) {
+                const eventDates = mergedSimilarEvents.map(e => new Date(e.start_time).toISOString().split('T')[0]);
                 const uniqueDates = [...new Set(eventDates)];
                 if (uniqueDates.length >= 3) {
                   const { data: eventDayHRV } = await db.from('wearable_data')

@@ -17,6 +17,13 @@
  * Add new cross-cutting rules as sibling files in src/utils/rules/, not here.
  */
 
+import {
+  mergeCalendarEvents,
+  normalizeForClassify,
+  type CalendarMergeInput,
+  type MergedCalendarEvent,
+} from './calendar-merge.ts';
+
 export type Period = 'morning' | 'afternoon' | 'evening';
 
 export interface RuleEvent {
@@ -44,26 +51,12 @@ export interface EventImportance {
   reason: string;      // human-auditable, e.g. "high tag + board keyword"
 }
 
-const PROVIDER_PRECEDENCE_IOS = ['apple', 'google', 'microsoft'];
-const PROVIDER_PRECEDENCE_WEB = ['google', 'microsoft', 'apple'];
 const HIGH_STAKES_KEYWORDS = [
   'board', 'quarterly', 'investor', 'pitch', 'client',
   'review', 'presentation', 'interview', 'budget', 'strategy',
   'executive', 'stakeholder', 'all-hands', 'all hands',
 ];
-
-function normalizeTitle(t: string | null | undefined): string {
-  return (t || '')
-    .toLowerCase()
-    .replace(/[\s\-_/\\.,:;!?'"()\[\]]+/g, ' ')
-    .trim();
-}
-
-function providerRank(provider: string | null | undefined, platform: 'ios' | 'web'): number {
-  const list = platform === 'web' ? PROVIDER_PRECEDENCE_WEB : PROVIDER_PRECEDENCE_IOS;
-  const idx = list.indexOf((provider || '').toLowerCase());
-  return idx === -1 ? 99 : idx;
-}
+const normalizeTitle = normalizeForClassify;
 
 /** Period bucket for a local hour (matches Standardized Time Windows memory). */
 export function periodFor(date: Date): Period {
@@ -82,24 +75,8 @@ export function collapseDuplicateEvents<T extends RuleEvent>(
   events: T[],
   platform: 'ios' | 'web' = 'web',
 ): T[] {
-  const groups = new Map<string, T[]>();
-  for (const e of events) {
-    if (!e?.startTime || !e?.endTime) continue;
-    const startMin = Math.round(new Date(e.startTime).getTime() / 60000);
-    const endMin = Math.round(new Date(e.endTime).getTime() / 60000);
-    const key = `${normalizeTitle(e.title)}|${startMin}|${endMin}`;
-    const bucket = groups.get(key) || [];
-    bucket.push(e);
-    groups.set(key, bucket);
-  }
-  const winners: T[] = [];
-  for (const bucket of groups.values()) {
-    bucket.sort((a, b) => providerRank(a.provider, platform) - providerRank(b.provider, platform));
-    winners.push(bucket[0]);
-  }
-  return winners.sort(
-    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-  );
+  return mergeCalendarEvents(events as unknown as CalendarMergeInput[], platform)
+    .map((event) => event as T & MergedCalendarEvent) as T[];
 }
 
 /**

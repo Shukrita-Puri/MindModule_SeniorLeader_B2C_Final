@@ -18,6 +18,7 @@ import { computeCalendarDemand } from './demand-scorer.ts';
 import { computeCognitiveFragmentation } from './cognitive-fragmentation.ts';
 import type { CalendarLevel } from './context-builder.ts';
 import { coarseEventType } from '../events/event-classifier.ts';
+import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
 
 export interface CalendarMetricsResult {
   load: CalendarLevel;
@@ -174,7 +175,7 @@ export async function getServerCalendarMetrics(
     console.error('[db-queries] Calendar events query error:', error);
   }
 
-  const eventList = (events || []);
+  const eventList = mergeCalendarEvents((events || []) as any[], 'unknown');
 
   if (eventList.length === 0) {
     return { ...EMPTY_NO_EVENTS };

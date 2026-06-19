@@ -10,6 +10,7 @@ import {
   type EventType,
   type Pillar,
 } from "./event-subtypes.ts";
+import { normalizeForClassify } from "../rules/calendar-merge.ts";
 
 // ── Noise filter ─────────────────────────────────────────────────────
 
@@ -373,10 +374,6 @@ const PROVIDER_RANK_BY_PLATFORM: Record<string, Record<string, number>> = {
   unknown: { google: 3, microsoft: 2, outlook: 2, apple: 1 },
 };
 
-function normalizeTitle(t: string | null | undefined): string {
-  return (t || '').toLowerCase().replace(/[\s\-_/\\.,:;!?'"()\[\]]+/g, ' ').trim();
-}
-
 function toMs(v: unknown): number {
   if (!v) return 0;
   if (v instanceof Date) return v.getTime();
@@ -406,7 +403,7 @@ export function dedupeCalendarEvents<T extends DedupableEvent>(
   const rank = PROVIDER_RANK_BY_PLATFORM[opts?.platform ?? 'unknown'] ?? PROVIDER_RANK;
 
   for (const e of events) {
-    const title = normalizeTitle(e.title);
+    const title = normalizeForClassify(e.title);
     const startMs = toMs(e.start_time);
     if (!title || !startMs) { untitled.push(e); continue; }
     const key = `${title}|${startMs}`;
