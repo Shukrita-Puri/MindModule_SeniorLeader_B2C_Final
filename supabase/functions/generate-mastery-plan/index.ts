@@ -29,6 +29,7 @@ import {
 // yet for the current (user, local_date, time_window). Pure, no DB.
 import { buildBehaviourSnapshot } from '../_shared/behaviour-snapshot.ts';
 import { BRIEF_PROMPT_VERSION } from '../_shared/brief-prompt-version.ts';
+import { READINESS_AWAITING_MESSAGE } from '../_shared/copy/awaiting.ts';
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
 // (Pre / During / Post) contract. Slot labelling and JIT framing now consult
 // these modules instead of redefining the taxonomy locally.
