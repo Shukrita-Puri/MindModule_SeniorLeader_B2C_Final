@@ -5536,12 +5536,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             brief_source: briefSource,
             driver: theme.driver,
             llm_fallback_reason: llmFallbackReason ?? null,
-            // llm_attempts is fixed by build (gemini-2.5-flash → claude-sonnet); store
-            // null here — `llmAttempts` is locally scoped to the LLM block above and
-            // is not visible at this point, and the per-attempt detail is already
-            // captured in the structured logs.
-            llm_attempts: null,
-            validator_rejections: null,
+            // Per-attempt diagnostics — see hoisted `llmAttemptRecords` above.
+            // Each row carries the full Flash → Claude attempt chain, so we can
+            // measure the timeout/parse/validator/http_error split without
+            // relying on the (overwritten) llm_fallback_reason field.
+            llm_attempts: llmAttemptRecords.length > 0 ? llmAttemptRecords : null,
+            validator_rejections: llmValidatorRejections.length > 0 ? llmValidatorRejections : null,
             pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             payload_json: {
               signals: {
