@@ -169,7 +169,9 @@ Deno.test("sovereign HIGH on EY interview lifts it above an untagged Chief AI bl
 Deno.test("memory_user_tag replay lifts a bland-title 1:1 above MIN_IMMEDIATE", () => {
   // Bland title "Tuesday sync" has category B (15) + 0 stakes. Without a
   // relationship signal it'd score 15 < MIN_IMMEDIATE(25) and be excluded.
-  // A replayed Boss tag (full weight, no decay) contributes +25 → 40, in.
+  // A replayed Boss tag (full weight, no decay) hoists out of Immediate
+  // into the sovereign bonus (§11A.2) — Immediate stays low but sovereign
+  // bypass lets the event clear the JIT floor.
   const res = selectJitCandidates(
     [{
       id: "rep",
@@ -181,8 +183,10 @@ Deno.test("memory_user_tag replay lifts a bland-title 1:1 above MIN_IMMEDIATE", 
     { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
   );
   assertEquals(res.ranked.length, 1);
-  assert(res.ranked[0].components.immediate >= MIN_IMMEDIATE);
+  // Effective rel still reports 25 (back-compat); split surfaces the hoist.
   assertEquals(res.ranked[0].components.breakdown.relationship, 25);
+  assertEquals(res.ranked[0].components.breakdown.relationship_sovereign, 25);
+  assertEquals(res.ranked[0].components.sovereignBonus >= 25, true);
 });
 
 Deno.test("domain_heuristic external_partner nudges importance without dominating", () => {
@@ -512,7 +516,7 @@ Deno.test("JIT floor passes on tier-weighted total even when immediate < MIN", (
   // Sovereign-bypass path: a bland event tagged HIGH (sovereign bonus 45)
   // must pass even with tiny immediate.
   const tagged = selectJitCandidates(
-    [{ id: "t", title: "Sunday Evening Reset", start_time: inHours(4), end_time: inHours(5),
+    [{ id: "t", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5),
        attendeesCount: 0, tags: ["high"] }],
     baseCtx,
   );
