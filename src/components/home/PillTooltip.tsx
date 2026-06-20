@@ -17,6 +17,8 @@
 
 type PillTier = 'green' | 'amber' | 'red' | 'neutral';
 
+import { formatDisplayValue, isUnsafeObjectText } from '@/utils/safeDisplayValue';
+
 export interface PillTooltipPill {
   key: 'decision_readiness' | 'physical_reserves' | 'resilience_capacity';
   label: string;
@@ -42,8 +44,8 @@ const CONTRIBUTORS: Record<string, ContribSpec> = {
   hrValue:                     { label: 'HR',               fmt: (v) => num(v, 'bpm') },
   sustainedDeficit:            { label: 'Sustained Deficit', fmt: (v) => boolYesNo(v) },
   sustained_deficit_flag:      { label: 'Sustained Deficit', fmt: (v) => boolYesNo(v) },
-  hrvHighDemandCooccurrence7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => num(v) },
-  hrv_low_high_demand_cooccurrence_7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => num(v) },
+  hrvHighDemandCooccurrence7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => cooccurrence(v) },
+  hrv_low_high_demand_cooccurrence_7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => cooccurrence(v) },
   protectionGoalsCount:        { label: 'Protected Goals',  fmt: (v) => num(v) },
   clarityLevel:                { label: 'Clarity',          fmt: (v) => num(v, '/5') },
   emotionLevel:                { label: 'Emotion',          fmt: (v) => num(v, '/5') },
@@ -72,6 +74,28 @@ function num(v: unknown, suffix = ''): string | null {
   if (typeof v !== 'number' || Number.isNaN(v)) return null;
   const rounded = Number.isInteger(v) ? v : Math.round(v * 10) / 10;
   return `${rounded}${suffix}`;
+}
+/**
+ * HRV × High-Demand co-occurrence is delivered as either a bare count or
+ * an object: { cooccurrence_count, cooccurrence_ratio, days_observed }.
+ * Render a human label or return null (suppress) when nothing meaningful.
+ */
+function cooccurrence(v: unknown): string | null {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v) || v <= 0) return null;
+    return `${v} day${v === 1 ? '' : 's'}`;
+  }
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const count = typeof o.cooccurrence_count === 'number' ? o.cooccurrence_count : null;
+    const days = typeof o.days_observed === 'number' ? o.days_observed : null;
+    if (count != null && count > 0) {
+      return days != null && days > 0 ? `${count} of ${days} days` : `${count} day${count === 1 ? '' : 's'}`;
+    }
+    if (days != null && days > 0 && count === 0) return 'None observed';
+    return null;
+  }
+  return null;
 }
 function sleepMinutes(v: unknown): string | null {
   if (typeof v !== 'number' || Number.isNaN(v)) return null;
@@ -225,10 +249,21 @@ export default function PillDetailContent({
     if (SUPPRESS.has(k)) continue;
     const spec = CONTRIBUTORS[k];
     const label = spec?.label ?? titleCase(k);
-    const value = spec ? spec.fmt(raw) ?? undefined : undefined;
-    // Drop unknown non-numeric/string values entirely so we never leak [object Object].
-    if (!spec && typeof raw !== 'number' && typeof raw !== 'string' && typeof raw !== 'boolean') continue;
-    rows.push({ key: k, label, value: value ?? String(raw), qualifier: qualifierMap.get(k) });
+    let value: string | undefined;
+    if (spec) {
+      value = spec.fmt(raw) ?? undefined;
+    } else if (typeof raw === 'number' || typeof raw === 'string' || typeof raw === 'boolean') {
+      value = String(raw);
+    } else {
+      // Unknown object/array — try the shared safe formatter; never leak [object Object].
+      const safe = formatDisplayValue(raw);
+      value = safe || undefined;
+    }
+    if (value != null && isUnsafeObjectText(value)) value = undefined;
+    // Drop the entire row if we have no readable value AND no qualifier to show.
+    const qualifier = qualifierMap.get(k);
+    if (value == null && !qualifier) continue;
+    rows.push({ key: k, label, value, qualifier });
   }
 
   // 2) Synthesised mind rows (Clarity for DR; Emotion/Regulation/Pressure for RC).
