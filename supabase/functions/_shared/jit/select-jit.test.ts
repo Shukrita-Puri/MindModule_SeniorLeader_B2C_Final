@@ -169,7 +169,9 @@ Deno.test("sovereign HIGH on EY interview lifts it above an untagged Chief AI bl
 Deno.test("memory_user_tag replay lifts a bland-title 1:1 above MIN_IMMEDIATE", () => {
   // Bland title "Tuesday sync" has category B (15) + 0 stakes. Without a
   // relationship signal it'd score 15 < MIN_IMMEDIATE(25) and be excluded.
-  // A replayed Boss tag (full weight, no decay) contributes +25 → 40, in.
+  // A replayed Boss tag (full weight, no decay) hoists out of Immediate
+  // into the sovereign bonus (§11A.2) — Immediate stays low but sovereign
+  // bypass lets the event clear the JIT floor.
   const res = selectJitCandidates(
     [{
       id: "rep",
@@ -181,8 +183,10 @@ Deno.test("memory_user_tag replay lifts a bland-title 1:1 above MIN_IMMEDIATE", 
     { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
   );
   assertEquals(res.ranked.length, 1);
-  assert(res.ranked[0].components.immediate >= MIN_IMMEDIATE);
+  // Effective rel still reports 25 (back-compat); split surfaces the hoist.
   assertEquals(res.ranked[0].components.breakdown.relationship, 25);
+  assertEquals(res.ranked[0].components.breakdown.relationship_sovereign, 25);
+  assertEquals(res.ranked[0].components.sovereignBonus >= 25, true);
 });
 
 Deno.test("domain_heuristic external_partner nudges importance without dominating", () => {
@@ -453,4 +457,111 @@ Deno.test("keynote re-routes F→C", () => {
   const kn = res.ranked.find((r) => r.eventId === "kn");
   assert(kn, "keynote should be ranked");
   assertEquals(kn!.categoryId, "C");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// §11A — Sovereign hoist, JIT-floor fix, MemoryDelta.
+// ─────────────────────────────────────────────────────────────────────
+
+Deno.test("user-tagged board_member hoists rel out of Immediate into sovereign", () => {
+  const userTagged = selectJitCandidates(
+    [{ id: "u", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 1,
+       attendeeRoles: [{ role: "board_member" as const, source: "user_tag" as const, confidence: 1 }] }],
+    baseCtx,
+  );
+  const llmEquiv = selectJitCandidates(
+    [{ id: "l", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 1,
+       attendeeRoles: [{ role: "board_member" as const, source: "llm" as const, confidence: 1 }] }],
+    baseCtx,
+  );
+  assertEquals(userTagged.ranked.length, 1);
+  assertEquals(llmEquiv.ranked.length, 1);
+  const u = userTagged.ranked[0];
+  const l = llmEquiv.ranked[0];
+  // Sovereign-hoisted rel is removed from Immediate and re-added on top.
+  assertEquals(u.components.breakdown.relationship_sovereign, 25);
+  assertEquals(u.components.breakdown.relationship_inferred, 0);
+  assertEquals(l.components.breakdown.relationship_sovereign, 0);
+  assertEquals(l.components.breakdown.relationship_inferred, 25);
+  // Immediate is 25 lower in the sovereign case; sovereignBonus is 25 higher.
+  assertEquals(u.components.immediate, l.components.immediate - 25);
+  assertEquals(u.components.sovereignBonus, l.components.sovereignBonus + 25);
+});
+
+Deno.test("inferred relationship confidence discount applies (Layer 3 0.6 → ×0.6)", () => {
+  const mid = selectJitCandidates(
+    [{ id: "m", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 4,
+       attendeeRoles: [{ role: "board_member" as const, source: "llm" as const, confidence: 0.6 }] }],
+    baseCtx,
+  );
+  // 25 × 0.6 = 15
+  assertEquals(mid.ranked[0].components.breakdown.relationship_inferred, 15);
+  assertEquals(mid.ranked[0].components.breakdown.relationship_sovereign, 0);
+});
+
+Deno.test("JIT floor passes on tier-weighted total even when immediate < MIN", () => {
+  // Cold-account category-H baseline ('Sunday Evening Reset') = immediate 5,
+  // no tactical, no sovereign — should still excluded. Then prove the
+  // converse: a Board Meeting at T0 has weighted < MIN_IMMEDIATE but
+  // immediate ≥ MIN, so it ranks (floor passes via the immediate clause).
+  const board = selectJitCandidates(
+    [{ id: "b", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 6, attendeeRoles: ["board_member" as const] }],
+    baseCtx,
+  );
+  assertEquals(board.ranked.length, 1);
+  // Sovereign-bypass path: a bland event tagged HIGH (sovereign bonus 45)
+  // must pass even with tiny immediate.
+  const tagged = selectJitCandidates(
+    [{ id: "t", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 0, tags: ["high"] }],
+    baseCtx,
+  );
+  assertEquals(tagged.ranked.length, 1);
+});
+
+Deno.test("relationshipLeads reads hoisted (sovereign) rel, not zeroed Immediate residual", () => {
+  // No user importance tag, but the relationship has been hoisted out via
+  // memory_user_tag — the flag must still report relationshipLeads = true.
+  const res = selectJitCandidates(
+    [{ id: "r", title: "Tuesday sync", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 1,
+       attendeeRoles: [{ role: "board_member" as const, source: "memory_user_tag" as const, confidence: 1 }] }],
+    baseCtx,
+  );
+  assertEquals(res.ranked.length, 1);
+  assertEquals(res.ranked[0].components.breakdown.relationship_inferred, 0);
+  assertEquals(res.ranked[0].components.breakdown.relationship_sovereign, 25);
+  assertEquals(res.ranked[0].components.breakdown.relationshipLeads, true);
+});
+
+Deno.test("MemoryDelta hardDemote evicts the event", () => {
+  const res = selectJitCandidates(
+    [{ id: "x", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 6, attendeeRoles: ["board_member" as const] }],
+    { ...baseCtx, memoryDeltaByEventId: { x: { hardDemote: true } } },
+  );
+  assertEquals(res.ranked.length, 0);
+  assertEquals(res.excluded[0]?.reason, "memory_hard_demote");
+});
+
+Deno.test("MemoryDelta delta is added post-tier-weighting to importance", () => {
+  const plain = selectJitCandidates(
+    [{ id: "p", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 6, attendeeRoles: ["board_member" as const] }],
+    baseCtx,
+  );
+  const boosted = selectJitCandidates(
+    [{ id: "p", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5),
+       attendeesCount: 6, attendeeRoles: ["board_member" as const] }],
+    { ...baseCtx, memoryDeltaByEventId: { p: { delta: 7 } } },
+  );
+  assertEquals(boosted.ranked[0].components.memoryDelta, 7);
+  assertEquals(
+    Math.round((boosted.ranked[0].importance - plain.ranked[0].importance) * 100) / 100,
+    7,
+  );
 });
