@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { runAnthropicSmokeOnce } from "../_shared/anthropic-smoke.ts";
 import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { classifyEvent } from "../_shared/events/event-classifier.ts";
@@ -1749,6 +1750,11 @@ function buildDataSources(
 }
 
 // ==================== MAIN ====================
+// Boot-time smoke test for the Anthropic fallback model id. Non-blocking,
+// log-only. Catches a stale/incorrect CLAUDE_MODELS.SONNET at cold start
+// rather than silently 404'ing on every brief fallback for weeks.
+runAnthropicSmokeOnce();
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
@@ -2538,6 +2544,12 @@ serve(async (req) => {
     // ═══ LLM SYNTHESIS ═══
     let llmBrief: LlmBriefPackage | null = null;
     let llmFallbackReason: string | null = null;
+    // Per-attempt diagnostic records persisted on every brief_snapshots write.
+    // Replaces the prior hard-coded `llm_attempts: null`. Each record:
+    //   { model, attempt, durationMs, outcome, rawReason, httpStatus, errorMessageHead }
+    // outcome ∈ { success | timeout | parse_error | validator_reject | http_error | error }
+    const llmAttemptRecords: Array<Record<string, unknown>> = [];
+    const llmValidatorRejections: Array<Record<string, unknown>> = [];
     let materialTravelContextActive = false;
     let materialWorkEventTitles: string[] = [];
     const MATERIAL_TRAVEL_BODY_RX = /\b(travel|flight|long[- ]haul|circadian|airport|departure|arrival|landing|jet lag|body\/timing|timing load)\b/i;
@@ -4616,20 +4628,55 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     const _bp = parsed?.body ? String(parsed.body).replace(/<[^>]+>/g, '').slice(0, 100) : '(empty)';
                     const _lo = parsed?.leanOn?.[0]?.signal ?? '(none)';
                     console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | body="${_bp}" | signal0="${_lo}"`);
+                    llmAttemptRecords.push({
+                      model, attempt, durationMs,
+                      outcome: 'validator_reject',
+                      rawReason: `attempt${attempt}_${normalized.reason}`,
+                      validatorRule: normalized.reason,
+                      httpStatus: null,
+                      errorMessageHead: null,
+                    });
+                    llmValidatorRejections.push({
+                      attempt, model, rule: normalized.reason,
+                      phrasePreview: typeof parsed?.phrase === 'string' ? parsed.phrase.slice(0, 80) : null,
+                      bodyPreview: _bp,
+                    });
                     continue; // Try next model
                   }
 
                   llmBrief = normalized.brief;
                   llmFallbackReason = null;
+                  llmAttemptRecords.push({
+                    model, attempt, durationMs,
+                    outcome: 'success',
+                    rawReason: null,
+                    httpStatus: 200,
+                    errorMessageHead: null,
+                  });
                   console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED in ${durationMs}ms | model=${model} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
                   break;
                 } catch (parseErr) {
                   llmFallbackReason = `attempt${attempt}_parse_failed`;
                   console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} parse failed | model=${model} | duration=${durationMs}ms | rawLen=${content.length} | first200=${JSON.stringify(content.substring(0, 200))}`);
+                  llmAttemptRecords.push({
+                    model, attempt, durationMs,
+                    outcome: 'parse_error',
+                    rawReason: `attempt${attempt}_parse_failed`,
+                    httpStatus: 200,
+                    errorMessageHead: (parseErr instanceof Error ? parseErr.message : String(parseErr)).slice(0, 200),
+                    rawContentHead: typeof content === 'string' ? content.slice(0, 200) : null,
+                  });
                   continue; // Try next model
                 }
               } else {
                 llmFallbackReason = `attempt${attempt}_returned_null`;
+                llmAttemptRecords.push({
+                  model, attempt, durationMs,
+                  outcome: 'error',
+                  rawReason: `attempt${attempt}_returned_null`,
+                  httpStatus: null,
+                  errorMessageHead: 'empty content from provider',
+                });
                 continue;
               }
 
@@ -4638,6 +4685,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
               llmFallbackReason = isAbort ? `attempt${attempt}_timeout_${timeoutMs}ms` : `attempt${attempt}_error`;
+              const httpStatus = typeof err?.status === 'number' ? err.status : null;
+              const errBodyHead = typeof err?.body === 'string' ? err.body.slice(0, 200) : null;
+              const errMsgHead = (err instanceof Error ? err.message : String(err ?? '')).slice(0, 200);
+              llmAttemptRecords.push({
+                model, attempt, durationMs,
+                outcome: isAbort ? 'timeout' : (httpStatus ? 'http_error' : 'error'),
+                rawReason: llmFallbackReason,
+                httpStatus,
+                errorMessageHead: errMsgHead,
+                errorBodyHead: errBodyHead,
+                timeoutMs: isAbort ? timeoutMs : null,
+              });
               console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'TIMEOUT' : 'ERROR'} | model=${model} | timeout=${timeoutMs}ms | elapsed=${durationMs}ms | promptChars=${sysPromptLen + userPromptLen}`, isAbort ? '' : err);
               continue; // Try next model
             }
@@ -5483,12 +5542,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             brief_source: briefSource,
             driver: theme.driver,
             llm_fallback_reason: llmFallbackReason ?? null,
-            // llm_attempts is fixed by build (gemini-2.5-flash → claude-sonnet); store
-            // null here — `llmAttempts` is locally scoped to the LLM block above and
-            // is not visible at this point, and the per-attempt detail is already
-            // captured in the structured logs.
-            llm_attempts: null,
-            validator_rejections: null,
+            // Per-attempt diagnostics — see hoisted `llmAttemptRecords` above.
+            // Each row carries the full Flash → Claude attempt chain, so we can
+            // measure the timeout/parse/validator/http_error split without
+            // relying on the (overwritten) llm_fallback_reason field.
+            llm_attempts: llmAttemptRecords.length > 0 ? llmAttemptRecords : null,
+            validator_rejections: llmValidatorRejections.length > 0 ? llmValidatorRejections : null,
             pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             payload_json: {
               signals: {

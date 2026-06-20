@@ -1,140 +1,74 @@
-## Release-Blocking Fix — Plan Gating + Empty State + Signal Rendering Safety
 
-Two visible bugs, both release-blocking. Existing intelligence (Change 1–6, B4 resolver, MRS v3 check-in-only scoring, why-line, brief snapshot) stays untouched. This plan only adds gates, hardens fallback paths, and tightens rendering safety.
+# Brief LLM Reliability Fix — Staged Plan
 
----
+Scope: `compute-outer-readiness` + shared Anthropic helper only. No Plan, scoring, or prompt-contract changes in Phase 1.
 
-### What I confirmed by reading the code
+## Phase 1 — P0 Infra Fixes (ship together, in isolation)
 
-- An `awaitingSignals` contract already exists across `compute-outer-readiness`, `useOuterReadiness`, `DecisionReadinessBrief`, and `TodayThreePriorities`. The Plan already early-returns an empty state when it sees `awaitingSignals`.
-- `src/utils/safeDisplayValue.ts` already exports `formatDisplayValue` + `isUnsafeObjectText`.
-- `PillTooltip.tsx` already maps both `hrvHighDemandCooccurrence7d` (camelCase) and `hrv_low_high_demand_cooccurrence_7d` (snake) to `cooccurrence()`, and routes unknown objects through `formatDisplayValue` with an `isUnsafeObjectText` guard.
-- The existing awaiting copy is **"Sync your wearable or complete a quick check-in to sharpen the picture."** — the spec wants **"and then"** instead of **"or"**, plus the constant must be reused everywhere.
-- `generate-mastery-plan` does not currently echo the awaiting state as a top-level `planState` discriminator — the frontend infers it. Adding an explicit `planState: "awaiting_signals"` envelope makes leakage impossible.
+### A. Persist `llm_attempts` (stop discarding observability)
 
----
+**File:** `supabase/functions/compute-outer-readiness/index.ts` (~line 5490)
 
-### Root causes (working hypotheses; confirmed during implementation)
-
-1. **Plan leak.** When `outerReadinessData?.awaitingSignals` is briefly `false` (or undefined during the first render race) AND the backend returns a non-empty `horizonModules`, the Plan renders default/state-based cards built by `buildHorizonModules` even though MRS/Brief are still empty. Today the gate lives on the frontend only; the backend can still emit horizon modules.
-2. **`[object Object]` in tooltip.** A contributor key arrives that is **not** in `CONTRIBUTORS` (so it falls into the `else` branch) AND is an object. Although `formatDisplayValue` is invoked, an earlier code path or a stale build may render `String(raw)` for typeof 'object' before reaching the safe formatter. We'll close every escape hatch and add a final safety net on the rendered value.
-
----
-
-### Implementation
-
-#### 1. Shared empty-state constant
-- Add `src/constants/awaitingSignals.ts`:
-  ```ts
-  export const READINESS_AWAITING_MESSAGE =
-    "Sync your wearable and then complete a quick check-in to sharpen the picture.";
+- Remove the hard-coded `llm_attempts: null` on the `brief_snapshots` upsert.
+- Build and persist a structured array across both attempts:
   ```
-- Import and use it in **every** awaiting render path:
-  - `src/components/home/DecisionReadinessBrief.tsx` (replace the existing literal at line 2028)
-  - `src/components/home/TodayThreePriorities.tsx` (the `if (awaitingSignals)` block around line 1206)
-  - `src/components/home/mrs/MrsPage.tsx` awaiting branch
-  - any other surface (`HistoricalBriefOverlay` if it renders an awaiting fallback)
-
-#### 2. Backend gating — generate-mastery-plan envelope
-Add a single early gate at the top of `supabase/functions/generate-mastery-plan/index.ts` that runs **before** `buildHorizonModules`:
-
-- Pull `daily_context_snapshot.readiness_state` and the latest brief snapshot for `(user, local_date, time_window)`.
-- If readiness is missing/awaiting AND there is no valid check-in-only MRS, short-circuit and return:
-  ```ts
-  {
-    planState: "awaiting_signals",
-    awaitingSignals: true,
-    reason: "missing_readiness_context",
-    message: READINESS_AWAITING_MESSAGE,
-    horizonModules: []
-  }
+  llm_attempts: [
+    { model, attempt, durationMs, outcome,
+      rawReason, httpStatus, errorMessageHead }
+  ]
   ```
-- **Exception preserved (Section E):** if a complete Mind check-in exists AND MRS is numeric AND brief is valid, the gate falls through and normal scoring runs. No change to scoring weights, slot allocator, practice selector, why-line, or B4 resolver.
-- Mirror the message string from a shared `_shared/copy/awaiting.ts` so it cannot drift from the frontend constant.
+  where `outcome ∈ {success, timeout, parse_error, validator_reject, http_error, error}`.
+- On validator rejects, record the specific rule that fired (not just "rejected"):
+  `word_ban:{token}` / `band_gate_violation` / `score_echoed` /
+  `word_count_exceeded:{n}` / `phrase_duplicate_of_body` / `duplicate_of_yesterday`.
+- Capture first ~200 chars of any thrown error as `errorMessageHead`.
+- Stop overwriting `llm_fallback_reason` between attempts — preserve attempt-1's reason alongside attempt-2's.
+- Confirm `brief_snapshots.llm_attempts` is `jsonb` (expected); no migration anticipated.
 
-#### 3. Frontend gating — Plan card never renders fake content
-In `src/components/home/TodayThreePriorities.tsx`:
-- Treat `planData?.planState === "awaiting_signals"` as authoritative (in addition to `planData?.awaitingSignals === true`).
-- When awaiting: clear cached `horizonModules` for the period so a stale cache cannot leak fake cards on the next mount.
-- Tighten the awaiting trigger so it fires when **any** of these is true: `outerReadinessData?.awaitingSignals`, `outerReadinessData?.score == null` AND not check-in-only, brief `awaitingSignals`, `daily_context_snapshot.readiness_state === "awaiting"`, or `planData?.planState === "awaiting_signals"`.
-- Hide Start button, practice cards, and the legacy “Steady the system…” strings entirely while awaiting.
+### B. Fix Claude fallback model id + add deploy smoke test
 
-In `DecisionReadinessBrief.tsx` and `MrsPage.tsx`:
-- Show `READINESS_AWAITING_MESSAGE` for the same conditions, using identical wording.
+**File:** `supabase/functions/_shared/anthropic.ts` (line 13)
 
-#### 4. Guard old fallback content
-Grep audit — no changes to scoring, but guard rendering of these strings to the awaiting state:
-- "Steady the system ahead of the day ahead"
-- "Presence Through Grounding"
-- Any `horizonModules` derived from `buildHorizonModules` when `planState === "awaiting_signals"` is impossible because the backend gate (#2) returns `[]`. The grep is still done to confirm no client-side default constructs these.
+- Replace `CLAUDE_MODELS.SONNET = 'claude-sonnet-4-20250514'` with a current Anthropic model id verified against the live catalog at deploy time (do not guess from memory — verify the exact string that this workspace's `ANTHROPIC_API_KEY` can call).
+- Add a one-time smoke test executed at function boot or in a small `_shared/anthropic-smoke.ts`:
+  minimal `POST /v1/messages` with `max_tokens: 8`, log `[anthropic-smoke] model=<id> status=<n> ok=<bool>`. Non-fatal — log only, so a future stale id surfaces immediately in logs.
 
-#### 5. Tooltip / signal rendering — close every `[object Object]` escape
-- Strengthen `formatDisplayValue` to **always** stringify-test the result via `isUnsafeObjectText` before returning (defence in depth).
-- In `PillTooltip.tsx`:
-  - Remove the `typeof raw === 'string'` direct passthrough — route every value through `formatDisplayValue` so an upstream string `"[object Object]"` is filtered.
-  - In the JSX render, wrap `row.value` in a final `isUnsafeObjectText` guard.
-- Add a tiny `safeText(value)` helper used by any generic key/value renderer touching backend payloads:
-  - `DecisionReadinessBrief.tsx` Lean On / Watch Out renderers
-  - `HistoricalBriefOverlay.tsx` signal rows
-- Add a top-level dev-only assertion (`if (import.meta.env.DEV) console.warn(...)`) when `isUnsafeObjectText(value)` triggers, to catch regressions in CI/local.
+### Phase 1 Acceptance (verify within 24h of deploy)
 
-#### 6. Tests
-Add `src/utils/safeDisplayValue.test.ts`:
-- `formatDisplayValue({ status: "stable", delta: { value: 2 } })` → returns `"stable"`, never contains `[object Object]`.
-- Object with no display-safe fields → returns `""` (caller hides row).
-- Array of objects → readable text, no `[object Object]`.
-- `isUnsafeObjectText("[object Object]")`, `"[object Promise]"`, `"undefined"`, `"null"` all → true.
-
-Add `src/components/home/__tests__/TodayThreePriorities.gating.test.tsx`:
-- Renders awaiting message when `planState === "awaiting_signals"`.
-- Does not render any `horizonModules` content while awaiting.
-
-Run `npm exec tsc -- --noEmit` (the harness handles the build).
+- `brief_snapshots.llm_attempts` is a populated array on every new row.
+- Deploy logs show `[anthropic-smoke] ok=true`.
+- `select count(*) filter (where brief_source = 'llm') from brief_snapshots where created_at > now() - interval '24h'` > 0 (currently 0%).
 
 ---
 
-### Files changed (target list)
+## Phase 2 — Data Review (gate, no code)
 
-**Backend**
-- `supabase/functions/generate-mastery-plan/index.ts` — add awaiting-signals envelope at top, no scoring changes
-- `supabase/functions/_shared/copy/awaiting.ts` — new, shared message constant
+After Phase 1 has been live 24h, pull `llm_attempts` and produce a written split:
+- % timeout / parse_error / validator_reject (by rule) / http_error / success
+- Broken down by Flash (attempt 1) vs Claude (attempt 2)
 
-**Frontend**
-- `src/constants/awaitingSignals.ts` — new shared constant
-- `src/utils/safeDisplayValue.ts` — defence-in-depth hardening
-- `src/components/home/PillTooltip.tsx` — route every value through safe formatter
-- `src/components/home/TodayThreePriorities.tsx` — recognise `planState`, broaden awaiting trigger, clear cache while awaiting
-- `src/components/home/DecisionReadinessBrief.tsx` — use shared constant, safe-text on signal rows
-- `src/components/home/mrs/MrsPage.tsx` — use shared constant
-- `src/components/home/HistoricalBriefOverlay.tsx` — safe-text on signal rows (audit pass)
-
-**Tests**
-- `src/utils/safeDisplayValue.test.ts` — new
-- `src/components/home/__tests__/TodayThreePriorities.gating.test.tsx` — new
+This output decides which of D1–D4 ship. Do not ship any D item the data doesn't support.
 
 ---
 
-### Explicit non-changes
+## Phase 3 — Prompt + Timeout Refinements (gated on Phase 2)
 
-- Change 1 scoring / ranking / hard gates / JIT floor — untouched
-- Change 2 tags / memory / cancellation / relationship taxonomy — untouched
-- Change 3 slot allocator (mode, slotRole, arcLabel, jitPhase, dayShape, allocationReason) — untouched
-- Change 4 practice selector (protocol combo, dedupe, recency, findAlternate) — untouched
-- Change 5 why-line generator and prompt — untouched
-- Change 6 old-logic guards — kept; the new backend gate is additive
-- B4 resolver — untouched
-- MRS v3 check-in-only fallback — untouched
-- Brief snapshot column writes — untouched
-- Frontend design tokens, layouts, typography — untouched
+Bump `BRIEF_PROMPT_VERSION` in `_shared/brief-prompt-version.ts` only if any D item below ships, to invalidate cached snapshots.
+
+- **D1 — Body ceiling 40 → 55–60 words** with explicit beat weighting (keep all four beats; shrink self-regulation to a 3–6 word closing clause). Edit the BODY contract in `_shared/brief/copy-vocabulary.ts`. *Ship if Phase 2 shows word-count/beat-compression rejects are frequent.*
+- **D2 — Pair every word-ban with replacement vocabulary** ("settle / steady / hold your line / keep your edge / stay sharp / pace yourself / protect the next hour") in `copy-vocabulary.ts`. *Ship if Phase 2 shows wellness/clinical/tier word-bans are frequent reject causes.*
+- **D3 — Corrective retry** (low-risk, likely ship regardless): feed the specific failed-rule from attempt 1 into the attempt-2 system prompt instead of a generic "be stricter" nudge. Requires A's per-rule logging.
+- **D4 — Timeouts**: Flash 4s → 6–8s, Claude → ≥ Flash. *Ship if Phase 2 confirms timeout is a real Flash-side contributor post-B.*
 
 ---
 
-### Acceptance (verified manually after implementation)
+## Explicit non-changes
 
-- No-data user: MRS, Brief, Plan all show the exact shared message; no Start button; no practice cards; no “Steady the system…”.
-- Check-in-only user (no wearable): MRS shows numeric score; Brief renders; Plan renders normally — wearable-missing alone never blocks Plan.
-- Full-data user: normal flow unchanged.
-- `grep -r "[object Object]"` against the rendered DOM returns nothing across Home, signal pills, tooltips, Brief, Plan, historical brief, Lean On / Watch Out.
-- `npm exec tsc -- --noEmit` passes.
+- Plan engine, 24h horizon, scoring, tags/memory, slot allocator, practice selector, why-line generator — untouched.
+- Deterministic-template removal + `READINESS_AWAITING_MESSAGE` frontend fallback — already shipped separately, remain as the silent safety net.
+- No prompt-contract edits before Phase 2 data exists.
 
-I'll deliver a final report covering all 21 items in section N once the implementation lands.
+## Files touched
+
+- Phase 1: `supabase/functions/compute-outer-readiness/index.ts`, `supabase/functions/_shared/anthropic.ts` (+ optional `_shared/anthropic-smoke.ts`).
+- Phase 3 (gated): `supabase/functions/_shared/brief/copy-vocabulary.ts`, `supabase/functions/_shared/brief-prompt-version.ts`, retry/timeout blocks in `compute-outer-readiness/index.ts`.

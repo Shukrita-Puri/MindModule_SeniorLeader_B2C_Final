@@ -10,8 +10,11 @@ const ANTHROPIC_VERSION = '2023-06-01';
 
 // Model mapping for easy reference
 export const CLAUDE_MODELS = {
-  SONNET: 'claude-sonnet-4-20250514',
-  HAIKU: 'claude-haiku-4-5',
+  // Verified against this workspace's `/v1/models` catalog on 2026-06-20.
+  // The prior id `claude-sonnet-4-20250514` is NOT in this key's catalog and
+  // returned HTTP 404 on every fallback attempt for ≥14 days.
+  SONNET: 'claude-sonnet-4-5-20250929',
+  HAIKU: 'claude-haiku-4-5-20251001',
 } as const;
 
 interface ClaudeMessage {
@@ -379,7 +382,10 @@ export async function callLovableAIText(params: {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[lovable-ai] HTTP ${response.status}:`, errorText);
-    throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
+    const err = new Error(`Lovable AI error: ${response.status} - ${errorText}`) as any;
+    err.status = response.status;
+    err.body = errorText;
+    throw err;
   }
 
   const data = await response.json();
