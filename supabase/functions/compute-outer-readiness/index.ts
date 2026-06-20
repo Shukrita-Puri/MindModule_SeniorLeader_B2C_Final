@@ -3234,6 +3234,10 @@ serve(async (req) => {
 
       if (inputSignature !== 'no-sig') {
         try {
+          // brief_snapshots was split into baseline_* + refined_* column
+          // sets. `phrase`, `body_text`, `lean_on`, `watch_for` are now
+          // STORED generated columns that COALESCE refined → baseline, so
+          // reading the unprefixed names returns the displayed value.
           const { data: snapshot } = await db
             .from('brief_snapshots')
             .select('phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver')
