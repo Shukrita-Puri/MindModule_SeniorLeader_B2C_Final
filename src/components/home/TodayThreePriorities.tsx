@@ -1975,7 +1975,7 @@ const TodayThreePriorities = ({
               submitPlanSlotCancelFeedback({
                 slotIndex: cancelIndex,
                 slotTitle: cancelTitle,
-                cancelReason: reason,
+                cancelReason: reason === 'never' ? 'ever' : 'now',
                 feedbackText: feedback,
                 sessionPeriod: getCurrentTimeWindow(),
               }).catch(() => { /* silent */ });
