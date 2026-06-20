@@ -382,7 +382,10 @@ export async function callLovableAIText(params: {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[lovable-ai] HTTP ${response.status}:`, errorText);
-    throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
+    const err = new Error(`Lovable AI error: ${response.status} - ${errorText}`) as any;
+    err.status = response.status;
+    err.body = errorText;
+    throw err;
   }
 
   const data = await response.json();
