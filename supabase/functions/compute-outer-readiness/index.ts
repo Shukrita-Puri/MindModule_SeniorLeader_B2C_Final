@@ -2538,6 +2538,12 @@ serve(async (req) => {
     // ═══ LLM SYNTHESIS ═══
     let llmBrief: LlmBriefPackage | null = null;
     let llmFallbackReason: string | null = null;
+    // Per-attempt diagnostic records persisted on every brief_snapshots write.
+    // Replaces the prior hard-coded `llm_attempts: null`. Each record:
+    //   { model, attempt, durationMs, outcome, rawReason, httpStatus, errorMessageHead }
+    // outcome ∈ { success | timeout | parse_error | validator_reject | http_error | error }
+    const llmAttemptRecords: Array<Record<string, unknown>> = [];
+    const llmValidatorRejections: Array<Record<string, unknown>> = [];
     let materialTravelContextActive = false;
     let materialWorkEventTitles: string[] = [];
     const MATERIAL_TRAVEL_BODY_RX = /\b(travel|flight|long[- ]haul|circadian|airport|departure|arrival|landing|jet lag|body\/timing|timing load)\b/i;
