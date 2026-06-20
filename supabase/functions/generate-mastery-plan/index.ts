@@ -82,7 +82,6 @@ import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase, type SlotAnch
 import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
 import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
 import {
-  deriveSlotIntent,
   scoreContentAgainstIntent,
   type SlotIntent,
 } from '../_shared/plan/practice-selector.ts';
