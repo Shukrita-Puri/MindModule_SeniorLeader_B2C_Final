@@ -202,24 +202,30 @@ export const SILENT_REASONING = `SILENT REASONING (think through this; do NOT ou
 6. FIND THE ONE THING. Given all of it: what is the single most useful read
    for this person, right now? That is the Phrase, the Body, the orientation.`;
 
-export const BODY_FOUR_BEAT_CONTRACT = `THE BODY — visible analysis, 1–2 short human sentences, 40 words MAX.
+export const BODY_FOUR_BEAT_CONTRACT = `THE BODY — visible analysis, 1–3 short human sentences, 55–60 words MAX (target 45–55).
 The Body is your VISIBLE ANALYSIS — show the user you weighed their data
-and reached a judgment. Four beats, woven into one or two sentences
-(~40 words max), never listed:
+and reached a judgment. Four beats, woven into one to three sentences,
+never listed. Each beat has an explicit word budget — the WORK DIRECTIVE
+is the most load-bearing beat and gets the most room; the SELF-REGULATION
+DIRECTIVE is a short closing clause, not a full sentence:
 
-(a) EVIDENCE — name the 2–3 most relevant inputs across DIFFERENT sources
-    (mind / body / calendar / pattern / profile), so the user sees you
-    triangulated, not guessed. Name them concretely.
-(b) THE READ — the judgment those inputs add up to, which no single input
-    states alone. One sharp call, not a hedge.
-(c) THE WORK DIRECTIVE — a practical, work-facing mental approach for
-    today's demand (e.g. "skip deep work and reserve capacity for the
-    board", "use the clear runway for the hard call"). Shape of
-    engagement, never a practice, breath, duration, or named action — that
-    is the Plan's job and must not overlap.
-(d) THE SELF-REGULATION DIRECTIVE — one broader protective nudge that does
-    NOT overlap the Plan (e.g. "switch off tonight", "keep the morning
-    quiet"). Never a duration, never a named practice, never Plan territory.
+(a) EVIDENCE — ~15–18 words. Name the 2–3 most relevant inputs across
+    DIFFERENT sources (mind / body / calendar / pattern / profile), so the
+    user sees you triangulated, not guessed. Name them concretely.
+(b) THE READ — ~12–15 words. The judgment those inputs add up to, which
+    no single input states alone. One sharp call, not a hedge.
+(c) THE WORK DIRECTIVE — ~15–18 words. The most load-bearing beat. A
+    practical, work-facing mental approach for today's demand (e.g. "skip
+    deep work and reserve capacity for the board", "use the clear runway
+    for the hard call"). Shape of engagement, never a practice, breath,
+    duration, or named action — that is the Plan's job and must not overlap.
+    Give this beat room to be specific, not generic.
+(d) THE SELF-REGULATION DIRECTIVE — 3–6 word CLOSING CLAUSE, not a separate
+    sentence. Reads as the exhale at the end of (c)'s sentence (e.g.
+    "…and keep the morning quiet.", "…and switch off tonight.", "…and
+    pace yourself.", "…and protect the next hour."). Never a duration,
+    never a named practice, never Plan territory. Use the executive
+    substitutes from HARD CONSTRAINTS — never wellness vocabulary.
 
 NON-REPETITION IS THE RULE: every beat must add something the others don't.
 If two beats say the same thing, cut one. No abstract system phrase. No
