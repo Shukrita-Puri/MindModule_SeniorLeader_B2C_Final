@@ -4622,20 +4622,55 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     const _bp = parsed?.body ? String(parsed.body).replace(/<[^>]+>/g, '').slice(0, 100) : '(empty)';
                     const _lo = parsed?.leanOn?.[0]?.signal ?? '(none)';
                     console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | body="${_bp}" | signal0="${_lo}"`);
+                    llmAttemptRecords.push({
+                      model, attempt, durationMs,
+                      outcome: 'validator_reject',
+                      rawReason: `attempt${attempt}_${normalized.reason}`,
+                      validatorRule: normalized.reason,
+                      httpStatus: null,
+                      errorMessageHead: null,
+                    });
+                    llmValidatorRejections.push({
+                      attempt, model, rule: normalized.reason,
+                      phrasePreview: typeof parsed?.phrase === 'string' ? parsed.phrase.slice(0, 80) : null,
+                      bodyPreview: _bp,
+                    });
                     continue; // Try next model
                   }
 
                   llmBrief = normalized.brief;
                   llmFallbackReason = null;
+                  llmAttemptRecords.push({
+                    model, attempt, durationMs,
+                    outcome: 'success',
+                    rawReason: null,
+                    httpStatus: 200,
+                    errorMessageHead: null,
+                  });
                   console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED in ${durationMs}ms | model=${model} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
                   break;
                 } catch (parseErr) {
                   llmFallbackReason = `attempt${attempt}_parse_failed`;
                   console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} parse failed | model=${model} | duration=${durationMs}ms | rawLen=${content.length} | first200=${JSON.stringify(content.substring(0, 200))}`);
+                  llmAttemptRecords.push({
+                    model, attempt, durationMs,
+                    outcome: 'parse_error',
+                    rawReason: `attempt${attempt}_parse_failed`,
+                    httpStatus: 200,
+                    errorMessageHead: (parseErr instanceof Error ? parseErr.message : String(parseErr)).slice(0, 200),
+                    rawContentHead: typeof content === 'string' ? content.slice(0, 200) : null,
+                  });
                   continue; // Try next model
                 }
               } else {
                 llmFallbackReason = `attempt${attempt}_returned_null`;
+                llmAttemptRecords.push({
+                  model, attempt, durationMs,
+                  outcome: 'error',
+                  rawReason: `attempt${attempt}_returned_null`,
+                  httpStatus: null,
+                  errorMessageHead: 'empty content from provider',
+                });
                 continue;
               }
 
@@ -4644,6 +4679,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
               llmFallbackReason = isAbort ? `attempt${attempt}_timeout_${timeoutMs}ms` : `attempt${attempt}_error`;
+              const httpStatus = typeof err?.status === 'number' ? err.status : null;
+              const errBodyHead = typeof err?.body === 'string' ? err.body.slice(0, 200) : null;
+              const errMsgHead = (err instanceof Error ? err.message : String(err ?? '')).slice(0, 200);
+              llmAttemptRecords.push({
+                model, attempt, durationMs,
+                outcome: isAbort ? 'timeout' : (httpStatus ? 'http_error' : 'error'),
+                rawReason: llmFallbackReason,
+                httpStatus,
+                errorMessageHead: errMsgHead,
+                errorBodyHead: errBodyHead,
+                timeoutMs: isAbort ? timeoutMs : null,
+              });
               console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'TIMEOUT' : 'ERROR'} | model=${model} | timeout=${timeoutMs}ms | elapsed=${durationMs}ms | promptChars=${sysPromptLen + userPromptLen}`, isAbort ? '' : err);
               continue; // Try next model
             }
