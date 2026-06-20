@@ -249,9 +249,12 @@ async function runJitV2Shadow(
     } catch (_e) { /* fall through to heuristic */ }
   }
 
-  // Issue 9 — late-resolving relationship re-read. For unresolved attendees
-  // on real domains, fire `resolve-attendee-relationship` ONCE per email
-  // (bounded by 1500 ms total), then re-query and merge.
+  // Backstop late-resolve. The proactive post-sync hook in `sync-calendar`
+  // / `sync-apple-calendar` queues `resolve-attendee-relationship` for new
+  // attendees, so most rows are already cached here. This lazy fire stays
+  // in place to catch (a) race between sync and plan, (b) attendees added
+  // to events between syncs, (c) users who tag relationships out-of-band.
+  // Bounded by 1500 ms total; resolver self-caps at 50 lookups/user/day.
   const unresolvedEmails: string[] = [];
   for (const em of emails) {
     if (!signalByEmail.has(em) && !isGenericDomain(em)) unresolvedEmails.push(em);
@@ -296,8 +299,9 @@ async function runJitV2Shadow(
   //    map their relationshipTag to a ResolvedRole and stamp every attendee
   //    on the same event as `memory_user_tag` (full weight, no decay), but
   //    only when no cached row already covers that email. This means a
-  //    recurring 1:1 tagged "Boss" once keeps its role indefinitely without
-  //    re-hitting Firecrawl.
+  //    recurring 1:1 tagged "Boss" once keeps its role indefinitely
+  //    without re-hitting the resolver (Gemini + optional Firecrawl
+  //    enrichment). User tags are sovereign and never overwritten.
   try {
     const RELATIONSHIP_TAG_TO_ROLE: Record<string, RelationshipRole> = {
       boss: 'direct_boss',

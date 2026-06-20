@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -559,6 +560,20 @@ serve(async (req) => {
     await serviceClient.from('calendar_connections').update({ last_sync: new Date().toISOString() }).eq('user_id', userId).eq('provider', provider);
 
     console.log('[sync-calendar] Sync complete! Events upserted:', classifiedEvents.length, 'firstSync:', isFirstSync);
+
+    // Post-sync attendee resolver (fire-and-forget). Queues
+    // `resolve-attendee-relationship` for new external attendees so the
+    // first Plan generation after a sync no longer has to lazy-resolve
+    // them. Self/generic/already-fresh-cached emails are filtered out.
+    // Resolver self-enforces a 50/user/day cap; this batch is capped at 25.
+    try {
+      const { emails, skipped_generic, skipped_cached } =
+        await collectUnresolvedAttendeeEmails(serviceClient, userId, classifiedEvents);
+      console.log(`[sync-calendar] resolver_candidates count=${emails.length} skipped_generic=${skipped_generic} skipped_cached=${skipped_cached}`);
+      detachResolverBatch(userId, emails, 'sync-calendar');
+    } catch (e) {
+      console.warn('[sync-calendar] resolver hook error category=hook msg=', (e as Error)?.message);
+    }
 
     return jsonOk({ success: true, eventCount: classifiedEvents.length, lastSync: new Date().toISOString(), firstSync: isFirstSync });
   } catch (error) {

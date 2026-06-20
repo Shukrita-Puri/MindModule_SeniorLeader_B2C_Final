@@ -1,0 +1,1 @@
+ALTER TABLE public.attendee_relationships ADD COLUMN IF NOT EXISTS evidence_summary text;

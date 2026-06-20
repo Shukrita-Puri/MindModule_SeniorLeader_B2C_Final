@@ -1,111 +1,90 @@
-## Scope
+# B4 — Untagged Attendee Resolver Chain Fix
 
-Isolated change to `supabase/functions/_shared/jit/select-jit.ts` (with one small addition in `tactical-signals.ts`) to bring scoring in line with §11A of the spec. No changes to category ladder, interview classifier, crisis detector, MIN_IMMEDIATE threshold, tier weights, or the existing test fixtures' intent — only the *composition* of how Immediate, Sovereign, the JIT floor, and MemoryDelta combine.
+## Current State (audit)
 
-Eight sub-changes, each small and surgical.
+- `resolve-attendee-relationship` exists and:
+  - Reads cache (`attendee_relationships`, 90d TTL).
+  - Blocks generic domains, logs lookups in `attendee_resolver_log`, enforces a daily cap of 50 resolved/user/24h.
+  - Calls Gemini Flash via Lovable AI Gateway with grounding prompt; persists `source='llm'`.
+  - **Header comment claims "called by calendar sync" — false.** Only `generate-mastery-plan` calls it lazily (lines ~253–289, capped at 10 emails per plan).
+- `sync-calendar` (Google/Microsoft) and `sync-apple-calendar` extract `attendeeSignals` per event and persist into `calendar_events` — they never queue resolver work.
+- `FIRECRAWL_API_KEY` is set in env, but **no JIT/relationship code path imports or calls Firecrawl**. Only `linkedin-profile-scrape` and `synthesize-cos-profile` (onboarding) use it.
+- `attendee_relationships.source` CHECK constraint is open text — accepts new values like `enrichment_llm`, `domain_heuristic`, `memory_user_tag`.
 
----
+## Changes
 
-### 1. Hoist user-tagged relationships out of Immediate into Sovereign
+### 1. New shared module: `supabase/functions/_shared/attendeeResolverQueue.ts`
+Pure helper used by both sync paths and (optionally) generate-mastery-plan:
+- `collectUnresolvedAttendeeEmails(supabase, userId, syncedEvents)` — flatten attendee emails from synced events, exclude self/generic/already-fresh-cached, dedupe.
+- `fireResolverBatch(userId, emails, opts)` — fan-out fetch to `resolve-attendee-relationship` with concurrency=3, per-email try/catch, returns `{queued, skipped, failed}` counts (no PII). Hard cap at 25 emails per sync call (resolver still self-enforces 50/day).
 
-Today: `weightedDominantRole(signals).weight` (`rel`) flows straight into `immediate = categoryBase + rel + stakes + interview`, with the same weight regardless of source (user_tag, memory_user_tag, llm, domain_heuristic). That double-counts user_tag rels (they get full Immediate weight AND are intended to live above tier weighting).
+### 2. Calendar sync hook
+At the end of `sync-calendar/index.ts` and `sync-apple-calendar/index.ts`, after events are persisted:
+- Call `collectUnresolvedAttendeeEmails` + `fireResolverBatch` (fire-and-forget via `EdgeRuntime.waitUntil` where available, else detached promise).
+- Wrap in try/catch so resolver failure cannot fail the sync response.
+- Log only category: `resolver_queued count=N`, `resolver_skipped_generic count=N`, `resolver_failed reason=net`.
 
-Change:
-- Split the resolved attendee role into two terms:
-  - `relationship_sovereign` = sum of `RELATIONSHIP_WEIGHT[role]` for signals whose `source ∈ {user_tag, memory_user_tag}`, capped at 25, no confidence discount.
-  - `relationship_inferred` = `weightedDominantRole` restricted to `source ∈ {llm, domain_heuristic}`, using the existing confidence multipliers in `relationship-weights.ts` (Layer 3: ≥0.75→1.0, ≥0.5→0.6, <0.5→0.3; Layer 4: flat 0.3). Capped at 25 before multiplier.
-- `immediate = categoryBase + relationship_inferred + stakes + situationalBoost`.
-- `relationship_sovereign` is added to `sovereign.bonus` (so it escapes tier weighting), but it stacks with the existing importance bonus (no replacement).
+### 3. Upgrade `resolve-attendee-relationship/index.ts` to full resolver chain
 
-### 2. `relationshipLeads` reads the effective value
+Sequence inside the function (single attendee per call, as today):
 
-Today the flag reads `rel` (the in-Immediate value). After (1) that residual is zero for sovereign-hoisted relationships, which would silently turn the flag off.
+1. **user_tag cache hit** (any TTL) → return immediately, `source='user_tag'`.
+2. **memory_user_tag** — if cache has a fresh row from a *different* event for same `(user, attendee_email)` with `source='user_tag'`, treat as authoritative (already covered by #1; no extra work).
+3. **Fresh non-user cache** → return, `source='cache'`.
+4. **Generic domain** → log `skipped_generic`, return `unknown`.
+5. **Daily cap** → log `rate_limited`, return `unknown`.
+6. **Gemini pass 1** (unchanged prompt, existing call).
+7. **Low-confidence branch** — only if `external domain && confidence < 0.5 && enrichmentCapAvailable && FIRECRAWL_API_KEY present`:
+   - Call new helper `firecrawlEnrich(email, name, domain)` → scrapes top LinkedIn/company-page candidate via Firecrawl `search` (`limit:1`, `scrapeOptions.formats:['summary']`).
+   - **Distill** result into structured evidence object `{name,title,company,seniority,profile_url,evidence_source,confidence,evidence_summary}` (truncate summary to 400 chars). Raw markdown never returned.
+   - **Gemini pass 2** with the structured evidence in the prompt → new `role/seniority/confidence/evidence_url`.
+   - If pass 2 confidence ≥ pass 1, persist with `source='enrichment_llm'`, store `evidence_url` + `evidence_summary`. Increment enrichment counter.
+   - On Firecrawl/Gemini error → keep pass-1 result.
+8. **Domain heuristic fallback** — if final confidence still null/very low and domain matches user's company (existing `user_company` field) → `peer`, `source='domain_heuristic'`, `confidence=0.4`. Otherwise leave `unknown`.
+9. Upsert (skipping if existing row is `user_tag`), log `resolved`.
 
-Change: compute `effectiveRel = relationship_inferred + relationship_sovereign` and set `relationshipLeads = (no user importance tag) AND effectiveRel ≥ 15`. (The clause "no user-declared relationship tag" in spec resolves to: no `tags.includes('high'|'medium'|'low')` AND no user_tag-sourced rel signal — keep the current "no tags" proxy as the simpler test-friendly form, but use `effectiveRel`.)
+### 4. Enrichment daily cap
+- Reuse `attendee_resolver_log` — add new status values `enrichment_attempt` and `enrichment_skipped_cap`.
+- `dailyEnrichmentCount` query: count `status='enrichment_attempt'` for user in last 24h. Cap = **15/user/day** (per spec: "Firecrawl fires only for maybe 10–15 meaningful attendees/day").
+- No new table needed.
 
-### 3. JIT floor fix (Decision 10)
+### 5. Comment cleanup
+- Fix stale header in `resolve-attendee-relationship` ("called by calendar sync" → now actually true).
+- Fix stale comment in `generate-mastery-plan` memory-replay block.
+- Add comment to sync paths describing the fire-and-forget hook.
 
-Today (line 442): `if (immediate < MIN_IMMEDIATE) excluded.push('below_min_immediate')` — gates on immediate alone, evicting mature-tier events whose value sits in Tactical.
+### 6. No frontend, no scoring, no slot/practice/why-line changes
+- No file under `src/` changes.
+- `generate-mastery-plan` keeps its existing lazy resolver as backstop; only the comment is touched.
 
-Change: gate on `(immediate ≥ MIN_IMMEDIATE) OR (tactical ≥ MIN_IMMEDIATE) OR (tierWeighted ≥ MIN_IMMEDIATE)`. Sovereign-High (`sovereign.bonus ≥ 45`) bypasses the gate entirely (already implicit through tierWeighted but make explicit). Exclusion reason renamed `below_jit_floor`.
+## Files Changed
 
-Order: compute `tactical` and `tierWeighted` before the floor check (today tierWeighted is computed after — move it up).
+- **New:** `supabase/functions/_shared/attendeeResolverQueue.ts`
+- **Edit:** `supabase/functions/resolve-attendee-relationship/index.ts` (chain + Firecrawl branch + heuristic fallback + new log statuses)
+- **Edit:** `supabase/functions/sync-calendar/index.ts` (post-sync fire)
+- **Edit:** `supabase/functions/sync-apple-calendar/index.ts` (post-sync fire)
+- **Edit:** `supabase/functions/generate-mastery-plan/index.ts` (comment only)
 
-### 4. Rename `interviewBoost` contribution to `situationalBoost`
+## Migrations
+None. `attendee_relationships.source` CHECK is permissive; `attendee_resolver_log.status` is free text.
 
-The §7 framing wraps media/hiring/crisis under one term. Crisis already exits before scoring, so situationalBoost in scoring is just the interview boost — but the spec wants this exposed under the right name and gated to `attendeesCount ≥ 2` (today gated to `≥ 1`).
+## Security
+- `FIRECRAWL_API_KEY` read only via `Deno.env.get` inside edge function. No `VITE_` exposure.
+- Logs emit category + counts only — no email values printed beyond existing per-row inserts, no scraped markdown, no API keys.
+- Distilled evidence stored in `attendee_relationships.evidence_url` (already exists) + a short `evidence_summary` (text). Note: schema currently has no `evidence_summary` column — will store inside existing JSON-friendly field by **appending to `attendee_name` is wrong**; instead I'll **add a column `evidence_summary text` via migration**. (Single new column, no policy changes.)
 
-Change:
-- Add an `attendeesCount >= 2` minimum inside `classifyInterview` (currently `< 1`); a 1-attendee "interview" returns `'none'`. Solo prep blocks already excluded by personal-noise / no-attendee gate.
-- Surface in `components.breakdown` as `situationalBoost` (currently merged into `stakes + interview` on line 488). Split into separate `stakes` and `situationalBoost` fields.
+→ **One small migration** after all: `ALTER TABLE public.attendee_relationships ADD COLUMN evidence_summary text;`
 
-### 5. MemoryDelta term (reads derived state)
+## Checks
+- `tsc --noEmit` + `npm run build` (auto via harness).
+- Manual: trace through resolver chain for (a) cached, (b) generic domain, (c) external low-conf with Firecrawl, (d) cap-exceeded.
 
-Today there is no MemoryDelta in `select-jit.ts` — the legacy `event_priority_memory` is applied upstream in `rankJitCandidates`. Per §11A.6 it must apply post-tier-weighting inside the importance score.
+## Not Doing
+- No change to Plan scoring weights, slot allocator, practice selector, why-line prompt, or any `src/` frontend file.
+- No new resolver table — reuse `attendee_resolver_log`.
+- No per-call user-facing surface.
 
-Change:
-- Add `memoryDeltaByEventId?: Record<string, { delta: number; hardDemote?: boolean; sovereignEscalation?: 'low' }>` to `SelectContext`. Pure data — caller (generate-mastery-plan/index.ts) loads from the existing derived store and passes in; this file stays pure.
-- After computing `tierWeighted`: `importance = tierWeighted + sovereign.bonus + memoryDelta.delta`.
-- `memoryDelta.hardDemote === true` → push to excluded with reason `memory_hard_demote` (mirrors `rankJitCandidates` behaviour).
-- `memoryDelta.sovereignEscalation === 'low'` → treat as sovereign-low (sink behaviour piggybacks on existing `sovereign.demote` path; add new exclusion reason `memory_escalated_low`).
-- Surface in `components` as `memoryDelta: number`.
-
-No DB call here — only the contract; the loader in `generate-mastery-plan/index.ts` is a follow-up (out of scope for this file change).
-
-### 6. Sovereign relationship bonus contract
-
-Extend `sovereignTagAdjustment` consumers, not the function itself. In `select-jit.ts`:
-
-```ts
-const sovereign = sovereignTagAdjustment(ev.tags);
-const sovereignBonus = sovereign.bonus + relationship_sovereign;
-const sovereignDemote = sovereign.demote;
-```
-
-`importance = tierWeighted + sovereignBonus + memoryDelta.delta`.
-
-### 7. Final sort — confirm only
-
-Current sort (line 502): importance → tactical → strategic → minutesUntilStart. Matches §11A.7. No change. Add a one-line comment citing Decision 9 so future edits don't reintroduce urgency into points.
-
-### 8. `SelectedCandidate.components` shape additions
-
-Add to `breakdown`:
-- `relationship_inferred: number`
-- `relationship_sovereign: number`
-- `situationalBoost: number` (split from `stakes + interview`)
-- `memoryDelta: number`
-
-Rename top-level `sovereignBonus` to keep including both importance-tag and hoisted-relationship contributions (single field, sum of both). Add adjacent `sovereignRelationship: number` for observability.
-
-These are additive shape changes only — no consumer of `components.breakdown` outside tests should break, but grep call sites:
-
-```
-rg -n "components\.breakdown|sovereignBonus|relationshipLeads" supabase/functions src
-```
-
-Update any UI/log consumer that reads `stakes` to read `stakes + situationalBoost` if it wants the combined number.
-
----
-
-## Files touched
-
-- `supabase/functions/_shared/jit/select-jit.ts` — sub-changes 1–8.
-- `supabase/functions/_shared/jit/select-jit.test.ts` — update existing baselines for the split shape; add 5 new tests:
-  1. `user_tagged_board_member_hoists_out_of_immediate` — same event with role tagged user_tag vs llm: identical importance total, but Immediate is 25 lower in the user_tag case, sovereign 25 higher.
-  2. `inferred_relationship_confidence_discount` — Gemini conf 0.6 produces `rel × 0.6`, not full weight.
-  3. `jit_floor_passes_on_strong_tactical_alone` — Immediate < MIN, Tactical ≥ MIN, event ranked (not excluded).
-  4. `relationshipLeads_reads_hoisted_value` — user_tag board (rel zeroed inside Immediate) still sets `relationshipLeads = true`.
-  5. `memory_hard_demote_excluded` — `memoryDeltaByEventId[id].hardDemote` evicts with reason `memory_hard_demote`.
-- `supabase/functions/_shared/jit/tactical-signals.ts` — no logic change; if a `sovereignEscalation` helper is preferred over passing in the conclusion pre-derived, add it here. Default plan: keep derivation upstream, pass in.
-
-## Out of scope
-
-- Loader changes in `generate-mastery-plan/index.ts` to populate `memoryDeltaByEventId` from the derived-state table (follow-up plan).
-- Any changes to `rankJitCandidates`, `enrichEvent`, tier weights, MIN_IMMEDIATE value, crisis detector, category ladder, interview detection heuristics.
-- The §10 sink-now/hide-future UX behaviour for sovereign-low (today's single-line `excluded` path stays; UX is a separate layer).
-- Schema for the derived-state table itself.
-
-## Risk
-
-Low. All changes are inside one pure function. Existing 17 tests need baseline updates for the breakdown shape only; ranking order on legacy fixtures is unchanged because (a) the only tests that use `attendeeRoles` pass them as `ResolvedRole[]` which normalises to `source: 'llm', confidence: 1` — identical numeric output to today, and (b) the JIT floor only loosens, never tightens, so previously-ranked events stay ranked.
+## Risks
+- Firecrawl `search` cost: bounded by 15/user/day cap + only fires when Gemini pass-1 < 0.5 confidence + external domain.
+- Sync latency: post-sync fire is fully detached; sync response returns immediately.
+- TTL: enriched rows still use 90d cache TTL — acceptable per spec.

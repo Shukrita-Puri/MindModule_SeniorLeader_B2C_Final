@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -220,6 +221,19 @@ serve(async (req) => {
     }
 
     console.log('[sync-apple-calendar] success user=', userId, 'eventCount=', classified.length, 'lastSync=', nowIso);
+
+    // Post-sync attendee resolver (fire-and-forget). See sync-calendar
+    // for rationale. Apple EventKit rarely exposes attendee emails, so
+    // this is usually a no-op but kept for parity.
+    try {
+      const { emails, skipped_generic, skipped_cached } =
+        await collectUnresolvedAttendeeEmails(serviceClient, userId, classified);
+      console.log(`[sync-apple-calendar] resolver_candidates count=${emails.length} skipped_generic=${skipped_generic} skipped_cached=${skipped_cached}`);
+      detachResolverBatch(userId, emails, 'sync-apple-calendar');
+    } catch (e) {
+      console.warn('[sync-apple-calendar] resolver hook error category=hook msg=', (e as Error)?.message);
+    }
+
     return jsonOk({ success: true, eventCount: classified.length, lastSync: nowIso });
   } catch (err) {
     console.error('[sync-apple-calendar] Unhandled error:', err);
