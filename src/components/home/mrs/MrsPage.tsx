@@ -9,6 +9,7 @@ import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
+import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
 
 const MrsPage = () => {
   const navigate = useNavigate();
@@ -79,6 +80,9 @@ const MrsPage = () => {
             <span className="mt-0.5 text-[11px] text-muted-foreground/60">
               {stateLabel.subtitle}
             </span>
+            <p className="mt-3 text-body text-[hsl(var(--muted-foreground-v2))] max-w-sm">
+              {READINESS_AWAITING_MESSAGE}
+            </p>
           </div>
         )}
 

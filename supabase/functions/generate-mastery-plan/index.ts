@@ -3041,8 +3041,34 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     hasFreshWearable,
     finalDecision,
   });
-  // NOTE: no awaitingSignals suppression here. The Brief contract owns the
-  // user-visible "awaiting" prompt; the Plan always generates.
+  // ─── Awaiting-signals gate (release-blocking, see mem://features) ───
+  // If the user has NEITHER a fresh check-in today NOR fresh wearable data,
+  // we MUST NOT emit a generated plan. Returning the awaiting envelope
+  // guarantees the frontend can never render fake / default Plan cards
+  // (e.g. "Steady the system…", "Presence Through Grounding") when
+  // readiness context is missing. The check-in-only and wearable-only
+  // paths still generate normally — wearable absence alone never blocks.
+  if (!hasTodayCheckIn && !hasFreshWearable) {
+    console.log('[generate-mastery-plan] awaiting-signals envelope returned (no check-in, no wearable)');
+    return {
+      planState: 'awaiting_signals',
+      awaitingSignals: true,
+      reason: 'missing_readiness_context',
+      message: READINESS_AWAITING_MESSAGE,
+      horizonModules: [],
+      calendarPills: [],
+      preEventPlan: null,
+      jitPriority: null,
+      timeOfDayPlan: {
+        label: '',
+        period: timeOfDay,
+        modules: [],
+        totalDuration: 0,
+        progressTracked: false,
+      },
+      meta: { generatedAt: new Date().toISOString(), promptVersion: BRIEF_PROMPT_VERSION },
+    } as any;
+  }
 
   // 2. Fetch content library from DB
   const { data: contentLibrary } = await supabaseClient
