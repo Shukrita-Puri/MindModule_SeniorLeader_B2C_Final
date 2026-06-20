@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateRequest } from '../_shared/auth.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import {
   isNoiseTitle,
   scenarioIdFor,
@@ -81,7 +82,6 @@ import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase, type SlotAnch
 import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
 import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
 import {
-  deriveSlotIntent,
   scoreContentAgainstIntent,
   type SlotIntent,
 } from '../_shared/plan/practice-selector.ts';
@@ -567,10 +567,7 @@ async function runJitV2Shadow(
 // import touch. Silence unused-import noise in tools that check.
 void FRAMEWORK_PILLARS; void EVENT_TYPES; void EVENT_TYPE_TO_SCENARIO_ID; void protocolsForEvent;
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// CORS headers are now per-request via getCorsHeaders(req). See _shared/cors.ts.
 
 // ==================== RATE LIMITING ====================
 const rateLimitMap = new Map<string, { lastCall: number; cachedResponse: any }>();
@@ -6731,6 +6728,7 @@ function mergeWithLedger(
 // ==================== HANDLER ====================
 
 if (import.meta.main) Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

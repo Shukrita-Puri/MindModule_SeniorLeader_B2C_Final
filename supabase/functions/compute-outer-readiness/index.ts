@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
@@ -63,10 +64,8 @@ import {
   type CoherenceAdjustment,
 } from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// CORS headers are now per-request via getCorsHeaders(req) so the origin
+// allowlist can be enforced. See _shared/cors.ts.
 
 // Local helpers for source-provenance + baseline-score derivation.
 function clamp01to100(n: number): number {
@@ -1751,6 +1750,7 @@ function buildDataSources(
 
 // ==================== MAIN ====================
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

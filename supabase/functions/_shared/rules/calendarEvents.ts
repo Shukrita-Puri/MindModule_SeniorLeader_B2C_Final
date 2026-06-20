@@ -24,6 +24,12 @@ import {
   type MergedCalendarEvent,
 } from './calendar-merge.ts';
 
+// Re-export so downstream modules (signal-engine/build-daily-context.ts,
+// signal-engine/db-queries.ts, sync-* edge functions) can import from this
+// single rules surface without depending on calendar-merge.ts directly.
+export { mergeCalendarEvents };
+export type { CalendarMergeInput, MergedCalendarEvent };
+
 export type Period = 'morning' | 'afternoon' | 'evening';
 
 export interface RuleEvent {
