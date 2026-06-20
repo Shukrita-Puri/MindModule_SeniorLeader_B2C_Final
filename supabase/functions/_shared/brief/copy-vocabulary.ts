@@ -72,6 +72,11 @@ export const FORBIDDEN_NOTIFICATION_WORDS = [
 
 export const HARD_CONSTRAINTS = `HARD CONSTRAINTS (no exceptions)
 - Never use wellness words: ${FORBIDDEN_WELLNESS_WORDS.join(', ')}.
+  INSTEAD SAY (executive register, never therapeutic):
+    "settle", "steady", "hold your line", "keep your edge",
+    "stay sharp", "pace yourself", "protect the next hour".
+  Self-regulation lives in the beat (d) closing clause — that is where
+  wellness language tends to leak in. Use the executive substitutes there.
 - Never use clinical jargon: ${FORBIDDEN_CLINICAL_WORDS.join(', ')}
   (spell findings in plain terms, e.g. "your recovery's down").
 - Never use score-tier words: ${FORBIDDEN_SCORE_TIER_WORDS.join(', ')}.
