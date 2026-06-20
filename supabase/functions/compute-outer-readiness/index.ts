@@ -4316,8 +4316,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (DASH_BREAK.test(bodyTextStr)) return { valid: false, reason: 'body_em_dash' };
             const strippedBody = bodyTextStr.replace(/<[^>]+>/g, '');
             const wordCount = strippedBody.split(/\s+/).length;
-            // v2.1 — body is visible analysis, hard cap 40 words.
-            if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
+            // v6.4 — body is visible analysis, four beat-weighted beats,
+            // hard cap 60 words (target 45–55). The work directive (beat c)
+            // is the most load-bearing beat and needs room to be specific;
+            // self-regulation (beat d) is a 3–6 word closing clause.
+            if (wordCount > 60) return { valid: false, reason: `body_too_long_${wordCount}w` };
 
             // v2.1 — body must not echo any of the 5 one-line score reads verbatim.
             const ONE_LINE_READS: string[] = [
