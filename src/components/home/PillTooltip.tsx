@@ -251,15 +251,14 @@ export default function PillDetailContent({
     const label = spec?.label ?? titleCase(k);
     let value: string | undefined;
     if (spec) {
-      value = spec.fmt(raw) ?? undefined;
-    } else if (typeof raw === 'number' || typeof raw === 'string' || typeof raw === 'boolean') {
-      value = String(raw);
+      const formatted = spec.fmt(raw);
+      value = formatted == null || isUnsafeObjectText(formatted) ? undefined : formatted;
     } else {
-      // Unknown object/array — try the shared safe formatter; never leak [object Object].
+      // Route EVERY non-spec value (including strings) through the shared
+      // safe formatter so an upstream `"[object Object]"` cannot leak.
       const safe = formatDisplayValue(raw);
-      value = safe || undefined;
+      value = safe && !isUnsafeObjectText(safe) ? safe : undefined;
     }
-    if (value != null && isUnsafeObjectText(value)) value = undefined;
     // Drop the entire row if we have no readable value AND no qualifier to show.
     const qualifier = qualifierMap.get(k);
     if (value == null && !qualifier) continue;
@@ -291,7 +290,7 @@ export default function PillDetailContent({
               className="text-[14px] leading-snug text-foreground/85 font-body"
             >
               <span className="text-muted-foreground">{row.label}</span>
-              {row.value != null && row.value !== '' && (
+              {row.value != null && row.value !== '' && !isUnsafeObjectText(row.value) && (
                 <>: <span className="text-foreground/90">{row.value}</span></>
               )}
               {row.qualifier && (

@@ -2025,7 +2025,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             We do not have enough fresh signals yet for today&apos;s readiness read.
           </p>
           <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
-            Sync your wearable or complete a quick check-in to sharpen the picture.
+            {READINESS_AWAITING_MESSAGE}
           </p>
         </>
       )}
