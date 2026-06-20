@@ -1,116 +1,140 @@
-# 24x7 Continuous Tracking Audit (v2 — Expanded)
+## Release-Blocking Fix — Plan Gating + Empty State + Signal Rendering Safety
 
-Read-only audit. No code changes. Proves the platform is **actually** tracking calendars + wearables continuously, with correct data, healthy recovery, and accurate connection-state semantics.
+Two visible bugs, both release-blocking. Existing intelligence (Change 1–6, B4 resolver, MRS v3 check-in-only scoring, why-line, brief snapshot) stays untouched. This plan only adds gates, hardens fallback paths, and tightens rendering safety.
 
-## Scope (5 sources, none excluded)
+---
 
-**Calendars:** Google Calendar · Microsoft Outlook · Apple iOS Calendar
-**Wearables:** Apple Watch (HealthKit) · Oura Ring
+### What I confirmed by reading the code
 
-Each source is audited even if it currently has 0 active connections (code path + cron + webhook lifecycle still inspected).
+- An `awaitingSignals` contract already exists across `compute-outer-readiness`, `useOuterReadiness`, `DecisionReadinessBrief`, and `TodayThreePriorities`. The Plan already early-returns an empty state when it sees `awaitingSignals`.
+- `src/utils/safeDisplayValue.ts` already exports `formatDisplayValue` + `isUnsafeObjectText`.
+- `PillTooltip.tsx` already maps both `hrvHighDemandCooccurrence7d` (camelCase) and `hrv_low_high_demand_cooccurrence_7d` (snake) to `cooccurrence()`, and routes unknown objects through `formatDisplayValue` with an `isUnsafeObjectText` guard.
+- The existing awaiting copy is **"Sync your wearable or complete a quick check-in to sharpen the picture."** — the spec wants **"and then"** instead of **"or"**, plus the constant must be reused everywhere.
+- `generate-mastery-plan` does not currently echo the awaiting state as a top-level `planState` discriminator — the frontend infers it. Adding an explicit `planState: "awaiting_signals"` envelope makes leakage impossible.
 
-## 9-Layer Verdict Matrix (per source)
+---
 
-Each source gets ✅ / ⚠️ / ❌ + evidence on:
+### Root causes (working hypotheses; confirmed during implementation)
 
-1. **Connect** — OAuth / HealthKit / Oura connect path persists a row.
-2. **Foreground sync** — frontend hooks trigger on app open / route change.
-3. **Background sync** — runs without the app open:
-   - Google / MS: cron + push webhook (channel renewal)
-   - Apple Calendar: iOS BGTask + EventKit observer (native bridge)
-   - HealthKit: HKObserverQuery + BGTask + native outbox flush
-   - Oura: cron pulling via stored refresh token
-4. **Token refresh / re-auth resilience** — auto-refresh works; only true failures prompt reconnect.
-5. **Freshness telemetry** — `last_successful_sync_at`, `last_data_received_at`, `last_provider_contact_at` all advance as expected; staleness is detectable.
-6. **Data integrity** — payload→DB write is correct (see below).
-7. **End-to-end trace** — one live connection per source traced from Provider → Trigger → Function → DB write → Freshness → UI hook.
-8. **Recovery / backfill** — sync resumes correctly after 1h / 1d / 7d gaps; sync-token / delta-token / anchor / cursor recovery verified.
-9. **Monitoring / silent-failure detection** — does an alert exist for webhook expiry, cron disabled, refresh failure cluster, write failures, queue backlog?
+1. **Plan leak.** When `outerReadinessData?.awaitingSignals` is briefly `false` (or undefined during the first render race) AND the backend returns a non-empty `horizonModules`, the Plan renders default/state-based cards built by `buildHorizonModules` even though MRS/Brief are still empty. Today the gate lives on the frontend only; the backend can still emit horizon modules.
+2. **`[object Object]` in tooltip.** A contributor key arrives that is **not** in `CONTRIBUTORS` (so it falls into the `else` branch) AND is an object. Although `formatDisplayValue` is invoked, an earlier code path or a stale build may render `String(raw)` for typeof 'object' before reaching the safe formatter. We'll close every escape hatch and add a final safety net on the rendered value.
 
-## Layer 6 — Data Integrity (deep checks)
+---
 
-**Calendars:** `provider_event_id` uniqueness · `updated_at` progression · deleted-event handling (cancelled status / tombstones) · recurring-event expansion · timezone preservation · cross-provider dedupe by title+startMs (already in `dedupeCalendarEvents`).
+### Implementation
 
-**Wearables:** sample/day uniqueness on `(user_id, summary_date)` · duplicate ingestion prevention · late-arriving sample handling · historical backfill correctness · canonical column writes (per `mem://integrations/wearable/database-schema-standard`).
+#### 1. Shared empty-state constant
+- Add `src/constants/awaitingSignals.ts`:
+  ```ts
+  export const READINESS_AWAITING_MESSAGE =
+    "Sync your wearable and then complete a quick check-in to sharpen the picture.";
+  ```
+- Import and use it in **every** awaiting render path:
+  - `src/components/home/DecisionReadinessBrief.tsx` (replace the existing literal at line 2028)
+  - `src/components/home/TodayThreePriorities.tsx` (the `if (awaitingSignals)` block around line 1206)
+  - `src/components/home/mrs/MrsPage.tsx` awaiting branch
+  - any other surface (`HistoricalBriefOverlay` if it renders an awaiting fallback)
 
-## Layer 7 — End-to-End Trace (1 active connection per source)
+#### 2. Backend gating — generate-mastery-plan envelope
+Add a single early gate at the top of `supabase/functions/generate-mastery-plan/index.ts` that runs **before** `buildHorizonModules`:
 
-For each source produce a pass/fail table:
+- Pull `daily_context_snapshot.readiness_state` and the latest brief snapshot for `(user, local_date, time_window)`.
+- If readiness is missing/awaiting AND there is no valid check-in-only MRS, short-circuit and return:
+  ```ts
+  {
+    planState: "awaiting_signals",
+    awaitingSignals: true,
+    reason: "missing_readiness_context",
+    message: READINESS_AWAITING_MESSAGE,
+    horizonModules: []
+  }
+  ```
+- **Exception preserved (Section E):** if a complete Mind check-in exists AND MRS is numeric AND brief is valid, the gate falls through and normal scoring runs. No change to scoring weights, slot allocator, practice selector, why-line, or B4 resolver.
+- Mirror the message string from a shared `_shared/copy/awaiting.ts` so it cannot drift from the frontend constant.
 
-```text
-Stage                  Pass  Evidence
-Provider reachable     ?     API status / 200 from gateway
-Trigger fired          ?     cron.job_run_details / webhook log / BGTask
-Function executed      ?     edge function log line
-DB write succeeded     ?     row count delta in target table
-Freshness updated      ?     last_*_at advanced
-UI reflects state      ?     hook return value / syncStateModel output
-```
+#### 3. Frontend gating — Plan card never renders fake content
+In `src/components/home/TodayThreePriorities.tsx`:
+- Treat `planData?.planState === "awaiting_signals"` as authoritative (in addition to `planData?.awaitingSignals === true`).
+- When awaiting: clear cached `horizonModules` for the period so a stale cache cannot leak fake cards on the next mount.
+- Tighten the awaiting trigger so it fires when **any** of these is true: `outerReadinessData?.awaitingSignals`, `outerReadinessData?.score == null` AND not check-in-only, brief `awaitingSignals`, `daily_context_snapshot.readiness_state === "awaiting"`, or `planData?.planState === "awaiting_signals"`.
+- Hide Start button, practice cards, and the legacy “Steady the system…” strings entirely while awaiting.
 
-If 0 active connections exist for a source, trace the **dry-run code path** instead (function compiles, cron registered, webhook handler reachable, token store callable).
+In `DecisionReadinessBrief.tsx` and `MrsPage.tsx`:
+- Show `READINESS_AWAITING_MESSAGE` for the same conditions, using identical wording.
 
-## Layer 8 — Recovery Audit
+#### 4. Guard old fallback content
+Grep audit — no changes to scoring, but guard rendering of these strings to the awaiting state:
+- "Steady the system ahead of the day ahead"
+- "Presence Through Grounding"
+- Any `horizonModules` derived from `buildHorizonModules` when `planState === "awaiting_signals"` is impossible because the backend gate (#2) returns `[]`. The grep is still done to confirm no client-side default constructs these.
 
-- Google: incremental `syncToken` invalidation → full re-sync path.
-- Microsoft: `deltaToken` invalidation → full re-sync path.
-- Apple Calendar: EventKit change-token recovery after app reinstall.
-- HealthKit: `HKAnchoredObjectQuery` anchor reset path (`anchor_state_reset` telemetry).
-- Oura: historical pull window after gap; refresh-token rotation handling.
+#### 5. Tooltip / signal rendering — close every `[object Object]` escape
+- Strengthen `formatDisplayValue` to **always** stringify-test the result via `isUnsafeObjectText` before returning (defence in depth).
+- In `PillTooltip.tsx`:
+  - Remove the `typeof raw === 'string'` direct passthrough — route every value through `formatDisplayValue` so an upstream string `"[object Object]"` is filtered.
+  - In the JSX render, wrap `row.value` in a final `isUnsafeObjectText` guard.
+- Add a tiny `safeText(value)` helper used by any generic key/value renderer touching backend payloads:
+  - `DecisionReadinessBrief.tsx` Lean On / Watch Out renderers
+  - `HistoricalBriefOverlay.tsx` signal rows
+- Add a top-level dev-only assertion (`if (import.meta.env.DEV) console.warn(...)`) when `isUnsafeObjectText(value)` triggers, to catch regressions in CI/local.
 
-## Layer 9 — Connection State Accuracy (the false-disconnect problem)
+#### 6. Tests
+Add `src/utils/safeDisplayValue.test.ts`:
+- `formatDisplayValue({ status: "stable", delta: { value: 2 } })` → returns `"stable"`, never contains `[object Object]`.
+- Object with no display-safe fields → returns `""` (caller hides row).
+- Array of objects → readable text, no `[object Object]`.
+- `isUnsafeObjectText("[object Object]")`, `"[object Promise]"`, `"undefined"`, `"null"` all → true.
 
-Verify the system distinguishes **all 8 states**, and that "user not wearing device / battery dead / app not opened" does NOT silently flip the connection to disconnected or trigger reconnect prompts:
+Add `src/components/home/__tests__/TodayThreePriorities.gating.test.tsx`:
+- Renders awaiting message when `planState === "awaiting_signals"`.
+- Does not render any `horizonModules` content while awaiting.
 
-```text
-State                                  Correctly identified?
-Connected + receiving data             ?
-Connected + no new data available      ?  ← Oura ring off, watch on charger
-Connected + device offline             ?
-Connected + user not wearing device    ?
-Permission revoked (HealthKit/Oura)    ?
-Token expired but refreshable          ?
-Re-auth required                       ?
-Fully disconnected                     ?
-```
+Run `npm exec tsc -- --noEmit` (the harness handles the build).
 
-Confirm the schema/telemetry expresses these via **three distinct timestamps**, not a single `last_synced_at`:
+---
 
-- `last_successful_sync_at` — we reached the provider.
-- `last_data_received_at` — we got new rows.
-- `last_provider_contact_at` — last HTTP/observer event.
+### Files changed (target list)
 
-If only `last_synced_at` exists, flag it as a structural gap in `syncStateModel` and `check-connections-status` (no fix this pass — reported only).
+**Backend**
+- `supabase/functions/generate-mastery-plan/index.ts` — add awaiting-signals envelope at top, no scoring changes
+- `supabase/functions/_shared/copy/awaiting.ts` — new, shared message constant
 
-## SQL probe scope (Question 1 — expanded as requested)
+**Frontend**
+- `src/constants/awaitingSignals.ts` — new shared constant
+- `src/utils/safeDisplayValue.ts` — defence-in-depth hardening
+- `src/components/home/PillTooltip.tsx` — route every value through safe formatter
+- `src/components/home/TodayThreePriorities.tsx` — recognise `planState`, broaden awaiting trigger, clear cache while awaiting
+- `src/components/home/DecisionReadinessBrief.tsx` — use shared constant, safe-text on signal rows
+- `src/components/home/mrs/MrsPage.tsx` — use shared constant
+- `src/components/home/HistoricalBriefOverlay.tsx` — safe-text on signal rows (audit pass)
 
-Read-only on any table/view/cron/queue/audit/log that participates in calendar or wearable sync, including (but not limited to):
+**Tests**
+- `src/utils/safeDisplayValue.test.ts` — new
+- `src/components/home/__tests__/TodayThreePriorities.gating.test.tsx` — new
 
-`calendar_connections` · `calendar_events` · `calendar_event_classifications` · `oura_connections` · `wearable_data` · `wearable_signal_diagnostics` · `user_integrations` · `notification_log` · `audit_logs` · `processed_outbox_items` · `cron.job` · `cron.job_run_details` · `net.http_request_queue` · `net._http_response` · vault token rows (count only, never values) · `event_classifier_parity_log` · any `sync_state` / `sync_cursors` / `sync_runs` / `background_jobs` / `webhook_subscriptions` / `outbox` / `failed_jobs` / `retry_queue` tables if they exist.
+---
 
-Plus edge function logs for: `sync-calendar`, `sync-calendar-scheduled`, `refresh-calendar-tokens`, `calendar-webhook`, `sync-oura`, `persist-wearable-data`, `check-connections-status`, `process-orphaned-sessions`.
+### Explicit non-changes
 
-Plus client telemetry buffer (`mm_integration_telemetry_buffer_v1`) shape inspection via `src/utils/integrationTelemetry.ts`.
+- Change 1 scoring / ranking / hard gates / JIT floor — untouched
+- Change 2 tags / memory / cancellation / relationship taxonomy — untouched
+- Change 3 slot allocator (mode, slotRole, arcLabel, jitPhase, dayShape, allocationReason) — untouched
+- Change 4 practice selector (protocol combo, dedupe, recency, findAlternate) — untouched
+- Change 5 why-line generator and prompt — untouched
+- Change 6 old-logic guards — kept; the new backend gate is additive
+- B4 resolver — untouched
+- MRS v3 check-in-only fallback — untouched
+- Brief snapshot column writes — untouched
+- Frontend design tokens, layouts, typography — untouched
 
-## User-sampling strategy (Question 2 — both)
+---
 
-- **Aggregate, anonymized:** counts/percentiles across all active users per source — catches systemic failures.
-- **Deep-dive traces:** 1–3 representative users per source (IDs redacted as `linkedin|***4O` style in the report) — catches implementation failures.
+### Acceptance (verified manually after implementation)
 
-## Deliverable
+- No-data user: MRS, Brief, Plan all show the exact shared message; no Start button; no practice cards; no “Steady the system…”.
+- Check-in-only user (no wearable): MRS shows numeric score; Brief renders; Plan renders normally — wearable-missing alone never blocks Plan.
+- Full-data user: normal flow unchanged.
+- `grep -r "[object Object]"` against the rendered DOM returns nothing across Home, signal pills, tooltips, Brief, Plan, historical brief, Lean On / Watch Out.
+- `npm exec tsc -- --noEmit` passes.
 
-Single report with one section per source × 9 layers, plus:
-
-- Cross-cutting findings (e.g. `last_synced_at` is the only timestamp → false-disconnect risk).
-- Ranked blocker list (severity × blast radius).
-- For each gap: smallest fix proposal — **deferred, no code changes this pass**.
-- Explicit notes on anything that requires provider-side action (Google Cloud Console webhook channel renewal, Apple Developer HealthKit entitlement, Oura developer dashboard).
-
-## Out of scope
-
-- No changes to scoring / slot allocator / practice selector / why-line / B4 resolver / CORS / brief snapshot / MRS / frontend design.
-- No new features. No UI work. No provider-console changes performed.
-- Sources outside the 5 named above.
-
-## Ready to run
-
-All three questions answered (broad SQL ✅, calendars+wearables only ✅, exclude nothing ✅). On approval I will execute the audit and return the report in a single message.
+I'll deliver a final report covering all 21 items in section N once the implementation lands.

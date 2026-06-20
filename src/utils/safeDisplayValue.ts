@@ -62,18 +62,29 @@ export function formatDisplayValue(value: unknown): string {
   }
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (Array.isArray(value)) {
-    return value
+    const joined = value
       .map((v) => formatDisplayValue(v))
       .filter(Boolean)
       .join(' · ');
+    return isUnsafeObjectText(joined) ? '' : joined;
   }
   if (typeof value === 'object') {
     const obj = value as Record<string, unknown>;
     for (const key of DISPLAY_KEYS) {
       const candidate = formatDisplayValue(obj[key]);
-      if (candidate) return candidate;
+      if (candidate && !isUnsafeObjectText(candidate)) return candidate;
     }
     return '';
   }
   return '';
+}
+
+/**
+ * Final-mile guard for JSX. Always pass user-facing dynamic backend values
+ * through this helper to guarantee no `[object Object]` (or similar) ever
+ * reaches the DOM. Returns '' (caller hides) when the value isn't safe.
+ */
+export function safeText(value: unknown): string {
+  const out = formatDisplayValue(value);
+  return isUnsafeObjectText(out) ? '' : out;
 }
