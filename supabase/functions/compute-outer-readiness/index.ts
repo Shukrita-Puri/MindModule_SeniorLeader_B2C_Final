@@ -4602,13 +4602,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), timeoutMs);
             const startMs = Date.now();
+            // v6.4 — when attempt N validator-rejected, prepend a targeted
+            // corrective instruction to attempt N+1's user prompt so Claude
+            // is told the specific rule that failed, not just "be stricter".
+            const priorReject = llmAttemptRecords.length > 0
+              ? llmAttemptRecords[llmAttemptRecords.length - 1]
+              : null;
+            const attemptUserPrompt = (priorReject && priorReject.outcome === 'validator_reject' && typeof priorReject.validatorRule === 'string')
+              ? userPrompt + correctiveRetryInstruction(priorReject.validatorRule as string)
+              : userPrompt;
 
             try {
               let content: string;
               if (useGateway) {
                 content = await callLovableAIText({
                   system: systemPrompt,
-                  messages: [{ role: 'user', content: userPrompt }],
+                  messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
                   response_format: { type: 'json_object' },
@@ -4617,7 +4626,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               } else {
                 content = await callClaudeText({
                   system: systemPrompt,
-                  messages: [{ role: 'user', content: userPrompt }],
+                  messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
                   signal: controller.signal,
