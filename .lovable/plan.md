@@ -1,74 +1,80 @@
 
-# Brief LLM Reliability Fix — Staged Plan
+# Phase 3 — Ship All D1–D4 Now
 
-Scope: `compute-outer-readiness` + shared Anthropic helper only. No Plan, scoring, or prompt-contract changes in Phase 1.
+User override: ship all four prompt + timeout refinements immediately, ahead of Phase 2 data. Bump `BRIEF_PROMPT_VERSION` once to invalidate all cached briefs.
 
-## Phase 1 — P0 Infra Fixes (ship together, in isolation)
+## D1 — Body word ceiling 40 → 55–60, beat-weighted
 
-### A. Persist `llm_attempts` (stop discarding observability)
+**File:** `supabase/functions/_shared/brief/copy-vocabulary.ts` (BODY contract section of `buildBriefSystemPrompt`)
 
-**File:** `supabase/functions/compute-outer-readiness/index.ts` (~line 5490)
+- Replace the 40-word ceiling with a 55–60 word ceiling (target 45–55).
+- Keep all four beats; add explicit per-beat word budgets:
+  - (a) EVIDENCE — 2–3 inputs across sources, ~15–18 words
+  - (b) THE READ — one judgement, no hedge, ~12–15 words
+  - (c) WORK DIRECTIVE — shape of engagement, ~15–18 words (most load-bearing)
+  - (d) SELF-REGULATION DIRECTIVE — 3–6 word closing clause, reads as exhale to (c)
+- Update `validateBody` in `supabase/functions/_shared/brief-validators.ts`: bump hard word ceiling to 60; soft-warn 55–60.
 
-- Remove the hard-coded `llm_attempts: null` on the `brief_snapshots` upsert.
-- Build and persist a structured array across both attempts:
+## D2 — Word-ban replacement vocabulary
+
+**File:** `supabase/functions/_shared/brief/copy-vocabulary.ts` (and `_shared/copy-vocabulary.ts` where forbidden list lives)
+
+- In the system prompt, append a paired block:
   ```
-  llm_attempts: [
-    { model, attempt, durationMs, outcome,
-      rawReason, httpStatus, errorMessageHead }
-  ]
+  NEVER: recharge, self-care, mindful, breathe, nourish, restore,
+         wellness, calm, relax
+  INSTEAD SAY: "settle", "steady", "hold your line", "keep your edge",
+               "stay sharp", "pace yourself", "protect the next hour"
   ```
-  where `outcome ∈ {success, timeout, parse_error, validator_reject, http_error, error}`.
-- On validator rejects, record the specific rule that fired (not just "rejected"):
-  `word_ban:{token}` / `band_gate_violation` / `score_echoed` /
-  `word_count_exceeded:{n}` / `phrase_duplicate_of_body` / `duplicate_of_yesterday`.
-- Capture first ~200 chars of any thrown error as `errorMessageHead`.
-- Stop overwriting `llm_fallback_reason` between attempts — preserve attempt-1's reason alongside attempt-2's.
-- Confirm `brief_snapshots.llm_attempts` is `jsonb` (expected); no migration anticipated.
+- Place inside the BODY → self-regulation beat guidance, where wellness leaks happen most.
+- No change to `forbiddenWords` enforcement (those still hard-reject).
 
-### B. Fix Claude fallback model id + add deploy smoke test
+## D3 — Corrective retry (replace generic STRICT_PHRASE_RETRY)
 
-**File:** `supabase/functions/_shared/anthropic.ts` (line 13)
+**File:** `supabase/functions/compute-outer-readiness/index.ts` (LLM attempt loop ~lines 4527–4644)
 
-- Replace `CLAUDE_MODELS.SONNET = 'claude-sonnet-4-20250514'` with a current Anthropic model id verified against the live catalog at deploy time (do not guess from memory — verify the exact string that this workspace's `ANTHROPIC_API_KEY` can call).
-- Add a one-time smoke test executed at function boot or in a small `_shared/anthropic-smoke.ts`:
-  minimal `POST /v1/messages` with `max_tokens: 8`, log `[anthropic-smoke] model=<id> status=<n> ok=<bool>`. Non-fatal — log only, so a future stale id surfaces immediately in logs.
+- Today: on soft-reject, append generic `STRICT_PHRASE_RETRY` text.
+- Change: build a targeted retry instruction from the attempt-1 `validatorRule` already captured by Phase 1A. Pattern:
+  ```
+  Your previous attempt failed validation for: <specific reason>.
+  Fix only that issue. Do not start over or add more analysis —
+  just correct the specific problem named above.
+  ```
+- Map `validatorRule` → human-readable cause:
+  - `word_ban:<token>` → "you used the banned word \"<token>\""
+  - `band_gate_violation` → "tone violated the band-gate (protective on low day / permissive on high day)"
+  - `score_echoed` → "you echoed the numeric score"
+  - `word_count_exceeded:<n>` → "body exceeded 60 words (<n> words)"
+  - `phrase_duplicate_of_body` → "phrase duplicated content from the body"
+  - `duplicate_of_yesterday` → "brief duplicated yesterday's content"
+  - else: fall back to the raw reason string.
+- Apply on attempt-2 (Claude) and on the soft-reject same-model retry.
 
-### Phase 1 Acceptance (verify within 24h of deploy)
+## D4 — Timeouts
 
-- `brief_snapshots.llm_attempts` is a populated array on every new row.
-- Deploy logs show `[anthropic-smoke] ok=true`.
-- `select count(*) filter (where brief_source = 'llm') from brief_snapshots where created_at > now() - interval '24h'` > 0 (currently 0%).
+**File:** `supabase/functions/compute-outer-readiness/index.ts` (line ~4528 `llmAttempts` config)
 
----
+- Flash attempt 1: `timeoutMs: 4000` → `7000`
+- Claude attempt 2: `timeoutMs: 6000` → `9000`
+- Same `timeoutMs` reused by soft-reject same-model retry path (no separate change needed).
 
-## Phase 2 — Data Review (gate, no code)
+## BRIEF_PROMPT_VERSION bump
 
-After Phase 1 has been live 24h, pull `llm_attempts` and produce a written split:
-- % timeout / parse_error / validator_reject (by rule) / http_error / success
-- Broken down by Flash (attempt 1) vs Claude (attempt 2)
+**File:** `supabase/functions/_shared/brief-prompt-version.ts`
 
-This output decides which of D1–D4 ship. Do not ship any D item the data doesn't support.
+- Bump `'v6.3-baseline-source-of-truth'` → `'v6.4-beat-weighted-vocab-paired'`.
+- Single bump covers D1+D2+D3 contract surface; invalidates all stale cached briefs so the next request regenerates against the new contract.
 
----
+## Deploy + verify
 
-## Phase 3 — Prompt + Timeout Refinements (gated on Phase 2)
-
-Bump `BRIEF_PROMPT_VERSION` in `_shared/brief-prompt-version.ts` only if any D item below ships, to invalidate cached snapshots.
-
-- **D1 — Body ceiling 40 → 55–60 words** with explicit beat weighting (keep all four beats; shrink self-regulation to a 3–6 word closing clause). Edit the BODY contract in `_shared/brief/copy-vocabulary.ts`. *Ship if Phase 2 shows word-count/beat-compression rejects are frequent.*
-- **D2 — Pair every word-ban with replacement vocabulary** ("settle / steady / hold your line / keep your edge / stay sharp / pace yourself / protect the next hour") in `copy-vocabulary.ts`. *Ship if Phase 2 shows wellness/clinical/tier word-bans are frequent reject causes.*
-- **D3 — Corrective retry** (low-risk, likely ship regardless): feed the specific failed-rule from attempt 1 into the attempt-2 system prompt instead of a generic "be stricter" nudge. Requires A's per-rule logging.
-- **D4 — Timeouts**: Flash 4s → 6–8s, Claude → ≥ Flash. *Ship if Phase 2 confirms timeout is a real Flash-side contributor post-B.*
-
----
+- Deploy `compute-outer-readiness`.
+- 24h check:
+  - `brief_source = 'llm'` rate is the majority (target >80%).
+  - `rg "Close strong\.|Steady the system|protecting the edge"` against rendered output returns nothing on a normal weekday.
+  - Spot-check 10 rendered briefs: four beats present, body ≤ 60 words, no wellness/clinical/tier words, no score-echo.
+- `llm_attempts` (from Phase 1A) confirms whether timeout/word-count/word-ban reject rates dropped — i.e. D4/D1/D2 actually paid off, or were wasted prompt budget.
 
 ## Explicit non-changes
-
-- Plan engine, 24h horizon, scoring, tags/memory, slot allocator, practice selector, why-line generator — untouched.
-- Deterministic-template removal + `READINESS_AWAITING_MESSAGE` frontend fallback — already shipped separately, remain as the silent safety net.
-- No prompt-contract edits before Phase 2 data exists.
-
-## Files touched
-
-- Phase 1: `supabase/functions/compute-outer-readiness/index.ts`, `supabase/functions/_shared/anthropic.ts` (+ optional `_shared/anthropic-smoke.ts`).
-- Phase 3 (gated): `supabase/functions/_shared/brief/copy-vocabulary.ts`, `supabase/functions/_shared/brief-prompt-version.ts`, retry/timeout blocks in `compute-outer-readiness/index.ts`.
+- Plan engine, 24h horizon, scoring, slot allocator, practice selector, why-line — untouched.
+- `READINESS_AWAITING_MESSAGE` frontend silent-fallback remains the safety net.
+- No changes to `validatePhrase`, band-gating logic, or the JSON output schema.

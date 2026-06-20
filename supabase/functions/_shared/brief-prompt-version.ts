@@ -6,4 +6,4 @@
 //
 // Bump this constant whenever the brief prompt contract or canonical-output
 // behaviour changes — a bump intentionally invalidates all prior cached briefs.
-export const BRIEF_PROMPT_VERSION = 'v6.3-baseline-source-of-truth';
+export const BRIEF_PROMPT_VERSION = 'v6.4-beat-weighted-vocab-paired';

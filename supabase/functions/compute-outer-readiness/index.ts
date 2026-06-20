@@ -4316,8 +4316,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (DASH_BREAK.test(bodyTextStr)) return { valid: false, reason: 'body_em_dash' };
             const strippedBody = bodyTextStr.replace(/<[^>]+>/g, '');
             const wordCount = strippedBody.split(/\s+/).length;
-            // v2.1 — body is visible analysis, hard cap 40 words.
-            if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
+            // v6.4 — body is visible analysis, four beat-weighted beats,
+            // hard cap 60 words (target 45–55). The work directive (beat c)
+            // is the most load-bearing beat and needs room to be specific;
+            // self-regulation (beat d) is a 3–6 word closing clause.
+            if (wordCount > 60) return { valid: false, reason: `body_too_long_${wordCount}w` };
 
             // v2.1 — body must not echo any of the 5 one-line score reads verbatim.
             const ONE_LINE_READS: string[] = [
@@ -4537,26 +4540,84 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           };
 
           // ── Two-tier LLM strategy: fast Gemini first, Claude backup ──
+          // v6.4 — timeouts raised. The brief synthesises 6–8 input blocks
+          // through a 6-step reasoning chain and emits constrained JSON;
+          // 4s is a budget for a light task, this is moderate-to-heavy.
+          // Perceived latency cost of a few extra seconds is far lower than
+          // a deterministic-fallback rate.
           const llmAttempts: Array<{ model: string; timeoutMs: number; useGateway: boolean }> = [
-            { model: 'google/gemini-2.5-flash', timeoutMs: 4000, useGateway: true },
-            { model: CLAUDE_MODELS.SONNET, timeoutMs: 6000, useGateway: false },
+            { model: 'google/gemini-2.5-flash', timeoutMs: 7000, useGateway: true },
+            { model: CLAUDE_MODELS.SONNET, timeoutMs: 9000, useGateway: false },
           ];
 
-          // §2.18 stricter retry instruction appended on soft-reject
+          // §2.18 stricter retry instruction appended on soft-reject (legacy
+          // generic fallback). Used only if the targeted retry below is
+          // unavailable for the given rule.
           const STRICT_PHRASE_RETRY = `\n\nSTRICT RETRY: Phrase MUST be 2–3 words. 4 words only if the 4th word is load-bearing. Reject any 5+ word phrase. Do not start with "you", "your", or "the".`;
+
+          // v6.4 — corrective retry: feed the SPECIFIC validator rule that
+          // failed on attempt 1 into the retry prompt instead of a generic
+          // "be stricter" nudge. Mapped from `normalized.reason`.
+          const correctiveRetryInstruction = (rule: string): string => {
+            const r = String(rule || '');
+            const wordBan = r.match(/^(?:validation_)?(?:body|phrase)_(?:wellness_or_hardware_word|wellness_word|tier_word|readiness_word|forbidden_word).*$/i);
+            const wordCountMatch = r.match(/(?:body_too_long_|word_count_exceeded:?)(\d+)w?/i);
+            let cause: string;
+            if (wordCountMatch) {
+              cause = `your body exceeded 60 words (was ${wordCountMatch[1]} words). Tighten beats (a)–(c) and keep (d) to a 3–6 word closing clause.`;
+            } else if (/forbidden_opener/i.test(r)) {
+              cause = `your phrase started with a forbidden word ("you", "your", or "the"). Open with a verb or noun.`;
+            } else if (/coaching_imperative/i.test(r)) {
+              cause = `your phrase used a coaching imperative ("try", "consider", "should", "you need"). Make it a direct call, not advice.`;
+            } else if (/phrase_hard_reject|phrase_soft_reject/i.test(r)) {
+              cause = `your phrase length was wrong. MUST be 2–3 words; 4 only if the 4th is load-bearing; never 5+.`;
+            } else if (/phrase_generic_motivational/i.test(r)) {
+              cause = `your phrase used a generic motivational word (e.g. "potential", "strength", "transform"). Anchor to today's evidence.`;
+            } else if (/wellness/i.test(r) || wordBan) {
+              cause = `you used a banned wellness/clinical/tier/hardware word. Use the executive substitutes: "settle", "steady", "hold your line", "keep your edge", "stay sharp", "pace yourself", "protect the next hour".`;
+            } else if (/readiness_word/i.test(r)) {
+              cause = `you used the word "readiness". Name the state in plain executive English instead.`;
+            } else if (/em_dash/i.test(r)) {
+              cause = `you used an em dash (—) inside the phrase or body. Use a comma or period instead.`;
+            } else if (/restates_one_line_read/i.test(r)) {
+              cause = `your body echoed one of the canned one-line state reads. Reach a fresh judgement, do not restate the band line.`;
+            } else if (/omits_material_travel_context/i.test(r)) {
+              cause = `your body omitted the material travel / circadian context. Name it.`;
+            } else if (/omits_material_work_context/i.test(r)) {
+              cause = `your body omitted the material named work event. Name it.`;
+            } else if (/missing_signal_evidence/i.test(r) || /lexicon/i.test(r)) {
+              cause = `your body was missing a triangulated signal anchor — a number with a unit or a named calendar event.`;
+            } else if (/phrase_missing|body_missing/i.test(r)) {
+              cause = `you returned null or empty for a required field. Both phrase and body must be present.`;
+            } else if (/band_gate/i.test(r)) {
+              cause = `your tone violated the band-gate (protective on a low day / permissive on a high day). Match the band.`;
+            } else {
+              cause = `validator rule "${r}".`;
+            }
+            return `\n\nCORRECTIVE RETRY: Your previous attempt failed validation: ${cause}\nFix ONLY that issue. Do not start over or add more analysis — just correct the specific problem named above.`;
+          };
 
           for (let attempt = 1; attempt <= llmAttempts.length; attempt++) {
             const { model, timeoutMs, useGateway } = llmAttempts[attempt - 1];
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), timeoutMs);
             const startMs = Date.now();
+            // v6.4 — when attempt N validator-rejected, prepend a targeted
+            // corrective instruction to attempt N+1's user prompt so Claude
+            // is told the specific rule that failed, not just "be stricter".
+            const priorReject = llmAttemptRecords.length > 0
+              ? llmAttemptRecords[llmAttemptRecords.length - 1]
+              : null;
+            const attemptUserPrompt = (priorReject && priorReject.outcome === 'validator_reject' && typeof priorReject.validatorRule === 'string')
+              ? userPrompt + correctiveRetryInstruction(priorReject.validatorRule as string)
+              : userPrompt;
 
             try {
               let content: string;
               if (useGateway) {
                 content = await callLovableAIText({
                   system: systemPrompt,
-                  messages: [{ role: 'user', content: userPrompt }],
+                  messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
                   response_format: { type: 'json_object' },
@@ -4565,7 +4626,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               } else {
                 content = await callClaudeText({
                   system: systemPrompt,
-                  messages: [{ role: 'user', content: userPrompt }],
+                  messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
                   signal: controller.signal,
@@ -4591,7 +4652,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     const retryController = new AbortController();
                     const retryTimeout = setTimeout(() => retryController.abort(), timeoutMs);
                     try {
-                      const retryUserPrompt = userPrompt + STRICT_PHRASE_RETRY;
+                      // v6.4 — targeted corrective retry; falls back to the
+                      // generic STRICT_PHRASE_RETRY only for the 4-word
+                      // phrase soft-reject path that historically used it.
+                      const targeted = correctiveRetryInstruction(normalized.reason);
+                      const retryUserPrompt = userPrompt + (targeted || STRICT_PHRASE_RETRY);
                       let retryContent: string;
                       if (useGateway) {
                         retryContent = await callLovableAIText({
