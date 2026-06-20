@@ -242,6 +242,7 @@ export type Database = {
           baseline_tier: string | null
           baseline_watch_for: string | null
           baseline_watch_for_source: string | null
+          body_text: string | null
           brief_source: string
           checkin_snapshot: Json | null
           created_at: string
@@ -250,10 +251,13 @@ export type Database = {
           feedback_text: string | null
           id: string
           input_signature: string
+          lean_on: string | null
+          lean_on_source: string | null
           llm_attempts: Json | null
           llm_fallback_reason: string | null
           local_date: string
           payload_json: Json | null
+          phrase: string | null
           pillar_mode: string | null
           prompt_version: string
           refined_body_text: string | null
@@ -266,11 +270,16 @@ export type Database = {
           refined_tier: string | null
           refined_watch_for: string | null
           refined_watch_for_source: string | null
+          score: number | null
+          signal_pills: Json | null
+          tier: string | null
           time_window: string
           updated_at: string
           user_id: string
           user_rating: string | null
           validator_rejections: Json | null
+          watch_for: string | null
+          watch_for_source: string | null
           wearable_snapshot: Json | null
         }
         Insert: {
@@ -284,6 +293,7 @@ export type Database = {
           baseline_tier?: string | null
           baseline_watch_for?: string | null
           baseline_watch_for_source?: string | null
+          body_text?: string | null
           brief_source: string
           checkin_snapshot?: Json | null
           created_at?: string
@@ -292,10 +302,13 @@ export type Database = {
           feedback_text?: string | null
           id?: string
           input_signature: string
+          lean_on?: string | null
+          lean_on_source?: string | null
           llm_attempts?: Json | null
           llm_fallback_reason?: string | null
           local_date: string
           payload_json?: Json | null
+          phrase?: string | null
           pillar_mode?: string | null
           prompt_version: string
           refined_body_text?: string | null
@@ -308,11 +321,16 @@ export type Database = {
           refined_tier?: string | null
           refined_watch_for?: string | null
           refined_watch_for_source?: string | null
+          score?: number | null
+          signal_pills?: Json | null
+          tier?: string | null
           time_window: string
           updated_at?: string
           user_id: string
           user_rating?: string | null
           validator_rejections?: Json | null
+          watch_for?: string | null
+          watch_for_source?: string | null
           wearable_snapshot?: Json | null
         }
         Update: {
@@ -326,6 +344,7 @@ export type Database = {
           baseline_tier?: string | null
           baseline_watch_for?: string | null
           baseline_watch_for_source?: string | null
+          body_text?: string | null
           brief_source?: string
           checkin_snapshot?: Json | null
           created_at?: string
@@ -334,10 +353,13 @@ export type Database = {
           feedback_text?: string | null
           id?: string
           input_signature?: string
+          lean_on?: string | null
+          lean_on_source?: string | null
           llm_attempts?: Json | null
           llm_fallback_reason?: string | null
           local_date?: string
           payload_json?: Json | null
+          phrase?: string | null
           pillar_mode?: string | null
           prompt_version?: string
           refined_body_text?: string | null
@@ -350,11 +372,16 @@ export type Database = {
           refined_tier?: string | null
           refined_watch_for?: string | null
           refined_watch_for_source?: string | null
+          score?: number | null
+          signal_pills?: Json | null
+          tier?: string | null
           time_window?: string
           updated_at?: string
           user_id?: string
           user_rating?: string | null
           validator_rejections?: Json | null
+          watch_for?: string | null
+          watch_for_source?: string | null
           wearable_snapshot?: Json | null
         }
         Relationships: [

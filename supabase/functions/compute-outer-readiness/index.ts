@@ -3234,6 +3234,10 @@ serve(async (req) => {
 
       if (inputSignature !== 'no-sig') {
         try {
+          // brief_snapshots was split into baseline_* + refined_* column
+          // sets. `phrase`, `body_text`, `lean_on`, `watch_for` are now
+          // STORED generated columns that COALESCE refined → baseline, so
+          // reading the unprefixed names returns the displayed value.
           const { data: snapshot } = await db
             .from('brief_snapshots')
             .select('phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver')
@@ -5434,6 +5438,38 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
         }
 
+        // brief_snapshots was split into baseline_* + refined_* column sets.
+        // `phrase`, `body_text`, `lean_on`, `watch_for`, `score`, `tier`,
+        // `signal_pills` now exist only as GENERATED columns that COALESCE
+        // refined → baseline. We must write to the canonical baseline_* or
+        // refined_* set based on the current readiness state, otherwise the
+        // upsert fails with "cannot insert into generated column".
+        const isRefinedWrite = (clientReadinessState ?? 'baseline') === 'refined';
+        const stateColumns = isRefinedWrite
+          ? {
+              refined_state: 'refined',
+              refined_phrase: responsePhrase,
+              refined_body_text: responseBody,
+              refined_lean_on: formattedLeanOn,
+              refined_lean_on_source: finalLeanOnSource,
+              refined_watch_for: formattedWatchFor,
+              refined_watch_for_source: finalWatchForSource,
+              refined_score: innerReadinessScore ?? null,
+              refined_tier: safeTier,
+              refined_signal_pills: signalPillsPayload,
+            }
+          : {
+              baseline_state: (clientReadinessState ?? 'baseline'),
+              baseline_phrase: responsePhrase,
+              baseline_body_text: responseBody,
+              baseline_lean_on: formattedLeanOn,
+              baseline_lean_on_source: finalLeanOnSource,
+              baseline_watch_for: formattedWatchFor,
+              baseline_watch_for_source: finalWatchForSource,
+              baseline_score: innerReadinessScore ?? null,
+              baseline_tier: safeTier,
+              baseline_signal_pills: signalPillsPayload,
+            };
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
           .upsert({
@@ -5443,16 +5479,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             input_signature: inputSignature,
             prompt_version: BRIEF_PROMPT_VERSION,
             daily_checkin_id: linkedDailyCheckinId,
-            phrase: responsePhrase,
-            body_text: responseBody,
-            lean_on: formattedLeanOn,
-            lean_on_source: finalLeanOnSource,
-            watch_for: formattedWatchFor,
-            watch_for_source: finalWatchForSource,
+            ...stateColumns,
             brief_source: briefSource,
             driver: theme.driver,
-            score: innerReadinessScore ?? null,
-            tier: safeTier,
             llm_fallback_reason: llmFallbackReason ?? null,
             // llm_attempts is fixed by build (gemini-2.5-flash → claude-sonnet); store
             // null here — `llmAttempts` is locally scoped to the LLM block above and
@@ -5461,7 +5490,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             llm_attempts: null,
             validator_rejections: null,
             pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
-            signal_pills: signalPillsPayload,
             payload_json: {
               signals: {
                 checkInOutcome: checkInOutcome || null,
