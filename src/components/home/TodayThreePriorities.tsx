@@ -45,6 +45,7 @@ import {
   localISODate,
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
+import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -844,7 +845,7 @@ const TodayThreePriorities = ({
         return false;
       }
 
-      if (planData?.awaitingSignals === true) {
+      if (planData?.awaitingSignals === true || planData?.planState === 'awaiting_signals') {
         setAwaitingSignals(true);
         setPlan(null);
         clearPersistent(loadedKey);
@@ -1225,7 +1226,7 @@ const TodayThreePriorities = ({
               Awaiting today's signal
             </span>
             <span className="flex items-start gap-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
-              <span>Update your performance readiness assessment/check in or connect your wearable to generate your performance plan.</span>
+              <span>{READINESS_AWAITING_MESSAGE}</span>
               <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
             </span>
           </button>
