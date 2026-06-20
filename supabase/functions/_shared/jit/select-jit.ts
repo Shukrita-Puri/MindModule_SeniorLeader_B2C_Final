@@ -438,7 +438,10 @@ export function selectJitCandidates(
       tags: ev.tags,
     });
     // §7 situationalBoost replaces the flat interview boost in the formula.
-    const situationalBoost = interviewBoost(interviewKind);
+    // Gated to attendeesCount ≥ 2 per spec — a 1-attendee "interview" is
+    // ambiguous enough that the boost is withheld at the scoring layer
+    // (the classifier itself still labels it for observability).
+    const situationalBoost = (ev.attendeesCount ?? 0) >= 2 ? interviewBoost(interviewKind) : 0;
     const immediate = categoryBase + relationship_inferred + stakes + situationalBoost;
 
     // Tactical
