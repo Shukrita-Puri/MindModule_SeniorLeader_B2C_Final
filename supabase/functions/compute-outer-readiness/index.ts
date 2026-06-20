@@ -1750,6 +1750,11 @@ function buildDataSources(
 }
 
 // ==================== MAIN ====================
+// Boot-time smoke test for the Anthropic fallback model id. Non-blocking,
+// log-only. Catches a stale/incorrect CLAUDE_MODELS.SONNET at cold start
+// rather than silently 404'ing on every brief fallback for weeks.
+runAnthropicSmokeOnce();
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
