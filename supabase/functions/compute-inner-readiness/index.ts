@@ -875,6 +875,34 @@ serve(async (req) => {
     // Circadian + patternScore are intentionally NOT folded into the score.
     // They remain available downstream for framing only (see §4 spec).
 
+    // ─── Check-in-only fallback ────────────────────────────────────────
+    // When the v4 baseline composer has nothing to score (no wearable, no
+    // calendar demand, no pattern signal) the user would otherwise see
+    // "awaiting signals" forever — even when they just completed a full
+    // Mind check-in. MRS v3 §3.3 allows the four Mind dimensions to refine
+    // a baseline by ±15, so we synthesize a neutral baseline of 50 and let
+    // computeRefinedScore produce a check-in-only score in [35..65]. The
+    // synthesized baseline is recorded in weightProvenance so the audit
+    // trail makes the no-wearable origin explicit and downstream consumers
+    // can distinguish it from a real wearable/calendar baseline.
+    const hasAnyMindDim =
+      body.clarityLevel != null ||
+      body.emotionLevel != null ||
+      body.pressureLevel != null ||
+      body.regulationLevel != null;
+    let checkinOnlyBaselineApplied = false;
+    if (mrsV4AwaitingSignals && score == null && hasCheckIn && hasAnyMindDim) {
+      score = 50;
+      mrsV4AwaitingSignals = false;
+      checkinOnlyBaselineApplied = true;
+      mrsV4Provenance = {
+        ...(mrsV4Provenance as Record<string, unknown>),
+        checkin_only_baseline: true,
+        checkin_only_baseline_value: 50,
+        awaiting_signals: false,
+      };
+    }
+
     const awaitingReadiness = mrsV4AwaitingSignals && score == null;
     const scoreForMath = Math.max(0, Math.min(100, score ?? 50));
 
