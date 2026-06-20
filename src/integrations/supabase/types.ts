@@ -2245,6 +2245,51 @@ export type Database = {
         }
         Relationships: []
       }
+      event_priority_derived: {
+        Row: {
+          confidence: number | null
+          event_category: string
+          event_type_key: string
+          id: string
+          last_reinforced_at: string | null
+          last_signal: string | null
+          net_importance: number
+          permanent_flag: boolean
+          relationship_role: string | null
+          signal_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          event_category: string
+          event_type_key: string
+          id?: string
+          last_reinforced_at?: string | null
+          last_signal?: string | null
+          net_importance?: number
+          permanent_flag?: boolean
+          relationship_role?: string | null
+          signal_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence?: number | null
+          event_category?: string
+          event_type_key?: string
+          id?: string
+          last_reinforced_at?: string | null
+          last_signal?: string | null
+          net_importance?: number
+          permanent_flag?: boolean
+          relationship_role?: string | null
+          signal_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_priority_memory: {
         Row: {
           event_category: string
