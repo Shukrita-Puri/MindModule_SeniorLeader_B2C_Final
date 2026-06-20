@@ -90,6 +90,18 @@ Deno.test("validator — same event + same arc, jaccard > 0.85 → reject 'jacca
   assertEquals(r, { ok: false, reason: "jaccard_dup" });
 });
 
+Deno.test("validator — same-day duplicate line → reject 'jaccard_dup'", () => {
+  const r = validateWhyLine({
+    text: "Before the board meeting, this sharpens the decision you need to make.",
+    stateBand: "sharp" as StateBand,
+    slotAnchor: anchorA,
+    sameDayAccepted: [
+      { text: "Before the board meeting, this sharpens the decision you need to make today." },
+    ],
+  });
+  assertEquals(r, { ok: false, reason: "jaccard_dup" });
+});
+
 Deno.test("validator — same wording but different events → both accepted (dedupe NOT triggered)", () => {
   const anchorB: SlotAnchor = { eventTitle: "Client Pitch", categoryId: "B", phase: "pre" };
   const first = "Before the board meeting, this sharpens the decision you need to make.";

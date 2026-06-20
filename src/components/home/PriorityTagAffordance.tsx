@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { RELATIONSHIP_TAXONOMY } from '@/constants/relationshipTaxonomy';
 
 export type ImportanceTag = 'high' | 'medium' | 'low' | null;
 export type RelationshipTag =
@@ -23,6 +24,7 @@ export type RelationshipTag =
   | 'vendor'
   | 'client'
   | 'customer'
+  | 'investor'
   | 'board'
   | 'leadership'
   | 'team'
@@ -41,15 +43,16 @@ const IMPORTANCE_OPTIONS: { value: NonNullable<ImportanceTag>; label: string }[]
 ];
 
 const RELATIONSHIP_OPTIONS: { value: NonNullable<RelationshipTag>; label: string }[] = [
-  { value: 'boss', label: 'Boss' },
-  { value: 'colleague', label: 'Colleague' },
-  { value: 'junior', label: 'Junior' },
-  { value: 'client', label: 'Client' },
-  { value: 'customer', label: 'Customer' },
-  { value: 'board', label: 'Board' },
-  { value: 'leadership', label: 'Leadership' },
-  { value: 'team', label: 'Team' },
-  { value: 'vendor', label: 'Vendor' },
+  { value: 'boss', label: RELATIONSHIP_TAXONOMY.direct_boss.label ?? 'Boss' },
+  { value: 'colleague', label: RELATIONSHIP_TAXONOMY.peer.label ?? 'Colleague' },
+  { value: 'junior', label: RELATIONSHIP_TAXONOMY.report_junior.label ?? 'Junior' },
+  { value: 'client', label: RELATIONSHIP_TAXONOMY.client.label ?? 'Client' },
+  { value: 'customer', label: RELATIONSHIP_TAXONOMY.customer.label ?? 'Customer' },
+  { value: 'investor', label: RELATIONSHIP_TAXONOMY.investor.label ?? 'Investor' },
+  { value: 'board', label: RELATIONSHIP_TAXONOMY.board_member.label ?? 'Board' },
+  { value: 'leadership', label: RELATIONSHIP_TAXONOMY.skip_level.label ?? 'Leadership' },
+  { value: 'team', label: RELATIONSHIP_TAXONOMY.report_direct.label ?? 'Team' },
+  { value: 'vendor', label: RELATIONSHIP_TAXONOMY.vendor.label ?? 'Vendor' },
 ];
 
 interface Props {

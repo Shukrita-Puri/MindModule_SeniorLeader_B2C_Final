@@ -18,7 +18,12 @@
 
 import type { EventCategoryId } from "../events/event-categories.ts";
 import type { Phase } from "../events/event-phase-map.ts";
-import type { ComboKey } from "../protocols/protocol-combos.ts";
+import {
+  COMBO_TO_PRACTICE_TYPE,
+  PRACTICE_TYPE_TO_COMBO,
+  type ComboKey,
+  type LegacyPracticeType,
+} from "../protocols/protocol-combos.ts";
 
 export type MetaSkill = "meta-clarity" | "meta-recalibration" | "meta-renewal";
 export type RecalibrateCategory = "pause" | "power-up" | "presence";
@@ -137,6 +142,23 @@ export interface ScorableContent {
   metaSkillTags?: string[] | null;
   stateSignalTags?: string[] | null;
   isFoundational?: boolean | null;
+  masteryCategory?: { primary?: string | null; secondary?: string[] | null } | null;
+}
+
+export interface SelectionSlotContract {
+  mode?: "jit" | "state" | "jit+state" | "full_arc" | null;
+  slotRole?: "start_of_day" | "dominant_demand" | "recovery" | "pre" | "during" | "post" | "state_anchor" | null;
+  arcLabel?: "Prepare" | "During" | "Recover" | "Steady" | null;
+  jitPhase?: "pre" | "during" | "post" | null;
+  jitEventTitle?: string | null;
+  dayShape?: "light_routine" | "dominant_structural_event" | "mixed_day" | "rest_day" | null;
+  allocationReason?: string | null;
+}
+
+export interface PracticeSelectionContext {
+  recentPracticeDays?: Record<string, number>;
+  stateSignalTags?: string[];
+  mrsScore?: number | null;
 }
 
 export interface IntentScoreBreakdown {
@@ -205,4 +227,100 @@ export function rankByIntent<T extends ScorableContent>(
   return pool
     .map((c) => ({ ...c, intentScore: scoreContentAgainstIntent(c, intent).total }))
     .sort((a, b) => b.intentScore - a.intentScore);
+}
+
+export function buildComboTarget(slot: SelectionSlotContract, intent: SlotIntent): ComboKey | null {
+  if (slot.mode === "state") return intent.combo ?? null;
+  if (slot.mode === "full_arc") {
+    if (slot.jitPhase === "during") return "somatic.flow";
+    if (slot.jitPhase === "post") return "mindset.reenergise";
+    return intent.combo ?? null;
+  }
+  if (slot.mode === "jit+state") return intent.combo ?? null;
+  return intent.combo ?? null;
+}
+
+function recencyPenalty(daysAgo: number | undefined): number {
+  if (daysAgo === undefined) return 0;
+  if (daysAgo <= 1) return 30;
+  if (daysAgo <= 3) return 16;
+  if (daysAgo <= 7) return 8;
+  return 0;
+}
+
+function masterySecondaryBoost(c: ScorableContent, targetType: LegacyPracticeType | null): number {
+  const secondary = c.masteryCategory?.secondary ?? [];
+  if (!targetType || secondary.length === 0) return 0;
+  return secondary.some((s) => String(s).toLowerCase().includes(targetType)) ? 6 : 0;
+}
+
+export function findAlternate<T extends ScorableContent>(
+  pool: T[],
+  current: T,
+  intent: SlotIntent,
+  excludeIds: Set<string>,
+): T | null {
+  const targetType = intent.combo ? COMBO_TO_PRACTICE_TYPE[intent.combo] : null;
+  const ranked = pool
+    .filter((c) => c.id !== current.id && !excludeIds.has(c.id))
+    .map((c) => {
+      let score = scoreContentAgainstIntent(c, intent).total;
+      if (targetType && c.protocol_type === PRACTICE_TYPE_TO_COMBO[targetType].protocol) score += 4;
+      if (targetType && c.sub_type && c.sub_type === current.sub_type) score += 6;
+      if (targetType && c.content_type && c.content_type === current.content_type) score += 2;
+      score += masterySecondaryBoost(c, targetType);
+      const commonState = (c.stateSignalTags || []).filter((t) => (current.stateSignalTags || []).includes(t)).length;
+      score += commonState * 2;
+      const commonMeta = (c.metaSkillTags || []).filter((t) => (current.metaSkillTags || []).includes(t)).length;
+      score += commonMeta * 3;
+      return { c, score };
+    })
+    .sort((a, b) => b.score - a.score);
+  return ranked[0]?.c ?? null;
+}
+
+export function selectPracticeForSlot<T extends ScorableContent>(
+  pool: T[],
+  slot: SelectionSlotContract,
+  intent: SlotIntent,
+  excludeIds: Set<string>,
+  ctx: PracticeSelectionContext = {},
+): { selected: T[]; usedProtocolFallback: boolean } {
+  const combo = buildComboTarget(slot, intent);
+  let candidates = (pool || []).filter((c) => !excludeIds.has(c.id));
+  const protocolFiltered = combo
+    ? candidates.filter((c) => {
+        const targetType = COMBO_TO_PRACTICE_TYPE[combo];
+        const expectedProtocol = PRACTICE_TYPE_TO_COMBO[targetType].protocol;
+        return c.protocol_type === expectedProtocol;
+      })
+    : [];
+  const protocolCandidates = protocolFiltered.length > 0 ? protocolFiltered : candidates;
+  const usedProtocolFallback = protocolFiltered.length === 0 && !!combo;
+  if (usedProtocolFallback) {
+    console.log("[practice-selector] protocol fallback", {
+      combo,
+      slotRole: slot.slotRole ?? null,
+      mode: slot.mode ?? null,
+      jitPhase: slot.jitPhase ?? null,
+      jitEventTitle: slot.jitEventTitle ?? null,
+    });
+  }
+
+  const scored = protocolCandidates
+    .map((c) => {
+      let score = scoreContentAgainstIntent(c, intent).total;
+      if (ctx.recentPracticeDays?.[c.id] !== undefined) score -= recencyPenalty(ctx.recentPracticeDays[c.id]);
+      if (slot.mode === "state" && ctx.mrsScore != null) score += Math.max(0, 10 - Math.abs(ctx.mrsScore - 50) / 5);
+      if (slot.mode === "jit+state") score += 3;
+      if (slot.mode === "full_arc" && slot.jitPhase === "during") score += 4;
+      if (slot.mode === "full_arc" && slot.jitPhase === "post") score += 4;
+      return { c, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const head = scored[0]?.c ?? null;
+  if (!head) return { selected: [], usedProtocolFallback };
+  const selected = [head];
+  return { selected, usedProtocolFallback };
 }

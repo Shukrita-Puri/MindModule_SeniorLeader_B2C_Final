@@ -197,6 +197,48 @@ const renderBody = (text: string) => {
   );
 };
 
+const safeText = (value: unknown): string => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map((v) => safeText(v)).filter(Boolean).join(' · ');
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    for (const key of ['title', 'label', 'status', 'summary', 'displayText', 'valueText', 'description', 'text', 'name']) {
+      const candidate = safeText(obj[key]);
+      if (candidate) return candidate;
+    }
+  }
+  return '';
+};
+
+const collectBriefBeats = (brief: any): Array<{ label: string; text: string }> => {
+  const beats: Array<{ label: string; text: string }> = [];
+  const push = (label: string, value: unknown) => {
+    const text = safeText(value);
+    if (text) beats.push({ label, text });
+  };
+  const raw = brief?.briefBeats ?? brief?.beats ?? brief?.sections ?? null;
+  if (Array.isArray(raw)) {
+    for (const beat of raw) {
+      if (!beat) continue;
+      if (typeof beat === 'string') {
+        push('Brief beat', beat);
+      } else if (typeof beat === 'object') {
+        const b = beat as Record<string, unknown>;
+        push(safeText(b.label || b.title || b.name || b.type) || `Beat ${beats.length + 1}`, b.text ?? b.value ?? b.content ?? b.summary ?? b.description ?? b.body ?? b.detail);
+      }
+    }
+  } else if (raw && typeof raw === 'object') {
+    const b = raw as Record<string, unknown>;
+    push('Signal read', b.signalRead ?? b.signal ?? b.read ?? b.signal_read);
+    push('Judgment', b.judgment ?? b.judgement ?? b.reading ?? b.signalJudgment ?? b.signal_judgment);
+    push('Work directive', b.workDirective ?? b.work_directive ?? b.directive ?? b.work);
+    push('Self-regulation directive', b.selfRegulationDirective ?? b.regulationDirective ?? b.self_regulation_directive ?? b.regulation_directive);
+  }
+  return beats.slice(0, 4);
+};
+
 const HistoricalBriefOverlay = ({ briefId, onClose }: Props) => {
   const { data: brief, isLoading, isError } = useBriefSnapshot(briefId);
 
@@ -296,6 +338,21 @@ const HistoricalBriefOverlay = ({ briefId, onClose }: Props) => {
                   <p className="mt-2 text-sm text-muted-foreground/70 font-body leading-relaxed">
                     {renderBody(brief.body_text)}
                   </p>
+                )}
+
+                {collectBriefBeats(brief).length > 0 && (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {collectBriefBeats(brief).map((beat, index) => (
+                      <div key={`${beat.label}-${index}`} className="rounded-lg border border-border/40 bg-white/60 px-3 py-2">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60 font-body">
+                          {beat.label}
+                        </p>
+                        <p className="mt-1 text-sm text-foreground/85 font-body leading-relaxed">
+                          {beat.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
 
                 {/* 4b. SIGNAL PILLS — recomputed from the stored wearable + check-in

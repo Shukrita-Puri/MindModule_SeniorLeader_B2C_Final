@@ -1,29 +1,17 @@
 // JIT v2 — relationship resolver weights. Lives inside Immediate (§1 of
 // the v2 plan): identity in the room structurally changes how important
-// an event is to a CEO. User tag is sovereign; LLM+LinkedIn fills gaps;
+// an event is to a CEO. User tag is sovereign; Gemini/domain fills gaps;
 // `unknown` is no-penalty.
 
+import { RELATIONSHIP_TAXONOMY, type RelationshipRole } from "./relationship-taxonomy.ts";
+
 export type ResolvedRole =
-  | 'boss'
-  | 'board_member'
-  | 'investor'
-  | 'client'
-  | 'vendor'
-  | 'peer'
-  | 'report'
-  | 'external_partner'
-  | 'unknown';
+  RelationshipRole | "boss" | "report";
 
 export const RELATIONSHIP_WEIGHT: Record<ResolvedRole, number> = {
+  ...Object.fromEntries(Object.entries(RELATIONSHIP_TAXONOMY).map(([k, v]) => [k, v.weight])),
   boss: 25,
-  board_member: 25,
-  investor: 20,
-  client: 18,
-  external_partner: 15,
-  peer: 8,
-  vendor: 5,
   report: 5,
-  unknown: 0,
 };
 
 /**
@@ -31,7 +19,7 @@ export const RELATIONSHIP_WEIGHT: Record<ResolvedRole, number> = {
  * applied to RELATIONSHIP_WEIGHT inside `relationshipWeight`.
  *  - `user_tag`        — sovereign, full weight, no decay
  *  - `memory_user_tag` — replayed from a prior `tag_relationship` row
- *  - `llm`             — Firecrawl+LinkedIn resolver
+ *  - `llm`             — Gemini resolver
  *  - `domain_heuristic`— directional fallback while LLM is async
  */
 export type RoleSource = 'user_tag' | 'memory_user_tag' | 'llm' | 'domain_heuristic';

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
  * completion feedback. Pure UI: the parent owns persistence.
  */
 
-export type CancelReason = "now" | "ever";
+export type CancelReason = "cancelled_now" | "never";
 
 interface SlotCancelFeedbackModalProps {
   priorityNumber: number;
@@ -20,8 +20,8 @@ interface SlotCancelFeedbackModalProps {
 }
 
 const REASONS: Array<{ value: CancelReason; label: string; hint: string }> = [
-  { value: "now", label: "Not relevant now", hint: "Skip for today" },
-  { value: "ever", label: "Not relevant ever", hint: "Stop suggesting this" },
+  { value: "cancelled_now", label: "Not relevant now", hint: "Skip for today" },
+  { value: "never", label: "Not relevant ever", hint: "Stop suggesting this" },
 ];
 
 const SlotCancelFeedbackModal = ({
@@ -109,7 +109,7 @@ const SlotCancelFeedbackModal = ({
               disabled={!reason}
               className="flex-1 text-sm bg-taupe hover:bg-taupe-rich text-taupe-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {reason ? "Cancel priority" : "Choose a reason"}
+              {reason ? "Save cancel" : "Choose a reason"}
             </Button>
           </div>
         </div>

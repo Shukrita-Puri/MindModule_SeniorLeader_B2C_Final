@@ -440,10 +440,10 @@ const TodayThreePriorities = ({
         // The server row is the audit trail; an extra duplicate row is
         // harmless and gives the scorer a fresh occurred_at.
         if (next.priorityTag === 'high' || next.priorityTag === 'medium' || next.priorityTag === 'low') {
-          console.info('[tag-bridge] fire', { signal: `tag_importance_${next.priorityTag}`, eventId, eventTitle });
+          console.info('[tag-bridge] fired', { signal: `tag_importance_${next.priorityTag}`, eventId, eventTitle });
           await fire(`tag_importance_${next.priorityTag}`);
         } else if (next.priorityTag === null && prev.priorityTag !== null) {
-          console.info('[tag-bridge] fire', { signal: 'tag_cleared', eventId, eventTitle });
+          console.info('[tag-bridge] fired', { signal: 'tag_cleared', eventId, eventTitle });
           await fire('tag_cleared', { kind: 'importance' });
         }
         if (next.relationshipTag !== prev.relationshipTag && next.relationshipTag) {
@@ -1143,6 +1143,27 @@ const TodayThreePriorities = ({
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
   const dataReady = !loading && horizonModules && horizonModules.length > 0;
+  const sortedHorizonModules = (horizonModules || [])
+    .map((hm, index) => ({ hm, index }))
+    .sort((a, b) => {
+      const rank = (tag: any) => (tag === 'high' ? 0 : tag === 'low' ? 2 : 1);
+      const r = rank((a.hm as any).priorityTag) - rank((b.hm as any).priorityTag);
+      return r !== 0 ? r : a.index - b.index;
+    });
+  const hasNonLowIncomplete = sortedHorizonModules.some(({ hm }) => {
+    const slotPractices = hm.practices || [hm.practice];
+    const slotCompleted = slotPractices.every((p) => completedPracticeIds.includes(p.contentId));
+    const slotCancelled = hm.isCancelled === true;
+    return !slotCompleted && !slotCancelled && hm.priorityTag !== 'low';
+  });
+  const visibleHorizonModules = sortedHorizonModules.filter(({ hm }) => {
+    const slotPractices = hm.practices || [hm.practice];
+    const slotCompleted = slotPractices.every((p) => completedPracticeIds.includes(p.contentId));
+    const slotCancelled = hm.isCancelled === true;
+    if (slotCompleted || slotCancelled) return true;
+    if (hm.priorityTag === 'low' && hasNonLowIncomplete) return false;
+    return true;
+  });
   // Cached-render-and-silent-verification: if a valid cached plan was
   // present at mount, we never re-show the scripted loader during a
   // background refresh — even if `loading` flips true transiently.
@@ -1304,20 +1325,7 @@ const TodayThreePriorities = ({
           three distinct things to do at different times rather than one
           bulky block. Pure UI grouping; no logic/tracking changes. */}
       <div className="flex flex-col gap-3 px-1 sm:px-2 max-w-2xl mx-auto">
-        {horizonModules
-          .map((hm, index) => ({ hm, index }))
-          // Sovereign tag layer: HIGH floats up, LOW sinks down. Cancelled
-          // slots keep their original position and only the tag drives
-          // re-ordering — the compressed/greyed card visually marks
-          // cancelled-in-place. The underlying `index` is preserved so
-          // every downstream reference (completion tracking, plan ledger
-          // edits, expansion state) keeps pointing at the same slot.
-          .sort((a, b) => {
-            const rank = (tag: any) => (tag === 'high' ? 0 : tag === 'low' ? 2 : 1);
-            const r = rank((a.hm as any).priorityTag) - rank((b.hm as any).priorityTag);
-            return r !== 0 ? r : a.index - b.index;
-          })
-          .map(({ hm, index }) => {
+        {visibleHorizonModules.map(({ hm, index }) => {
           const slotPractices = hm.practices || [hm.practice];
           const slotCompleted = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
           const slotCompletedCount = slotPractices.filter(p => completedPracticeIds.includes(p.contentId)).length;
@@ -1985,7 +1993,7 @@ const TodayThreePriorities = ({
                       headers,
                       body: {
                         eventTitle: cancelEventTitle,
-                        signal: reason === "ever" ? "cancelled_as_noise" : "cancelled_keep_surfacing",
+                        signal: reason === "never" ? "never" : "cancelled_now",
                         source: "cancel_feedback",
                         meta: { slotTitle: cancelTitle, feedbackText: feedback ?? null },
                       },

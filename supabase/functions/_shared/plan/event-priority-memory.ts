@@ -13,6 +13,7 @@ export type PriorityMemorySignal =
   | "priority"
   | "not_this_week"
   | "never"
+  | "cancelled_now"
   | "cancelled_as_noise"
   | "cancelled_keep_surfacing";
 
@@ -78,6 +79,10 @@ export function applyEventPriorityMemory(
     if (r.signal === "never") {
       hardDemote = true;
       delta -= 40;
+      continue;
+    }
+    if (r.signal === "cancelled_now" && ageDays <= 7) {
+      delta -= 8;
       continue;
     }
     if (r.signal === "priority" && ageDays <= 60) {

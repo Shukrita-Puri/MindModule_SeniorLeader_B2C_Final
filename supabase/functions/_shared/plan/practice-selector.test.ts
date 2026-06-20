@@ -3,6 +3,8 @@ import {
   deriveSlotIntent,
   scoreContentAgainstIntent,
   rankByIntent,
+  selectPracticeForSlot,
+  findAlternate,
   type ScorableContent,
 } from "./practice-selector.ts";
 
@@ -31,6 +33,15 @@ const vagusWindDown: ScorableContent = {
   category: "pause",
   metaSkillTags: ["meta-recalibration", "meta-renewal"],
   stateSignalTags: [],
+};
+
+const boxBreathing2: ScorableContent = {
+  id: "box-breathing-2",
+  category: "pause",
+  protocol_type: "somatic",
+  metaSkillTags: ["meta-recalibration"],
+  stateSignalTags: ["signal-body-under-load"],
+  masteryCategory: { secondary: ["pause"] },
 };
 
 Deno.test("Sharpen-focus intent → meta-clarity wins, Ikigai is demoted", () => {
@@ -124,4 +135,27 @@ Deno.test("Anchor category E forces focus intent", () => {
     anchorPhase: "pre",
   });
   assertEquals(intent.intentLabel, "focus/flow-mastery");
+});
+
+Deno.test("protocol gate prefers matching protocol when present", () => {
+  const intent = deriveSlotIntent({ stateAction: "Build capacity", anchorCategory: null, anchorPhase: null });
+  const res = selectPracticeForSlot(
+    [boxBreathing2, {...boxBreathing2, id: "wrong", protocol_type: "mindset"}],
+    { mode: "jit+state", slotRole: "dominant_demand", jitPhase: "pre", arcLabel: "Prepare" },
+    intent,
+    new Set(),
+  );
+  assertEquals(res.selected[0].id, "box-breathing-2");
+});
+
+Deno.test("findAlternate prefers same intent outcome with secondary mastery category", () => {
+  const intent = deriveSlotIntent({ stateAction: "Steady the system", anchorCategory: null, anchorPhase: null });
+  const alt = findAlternate(
+    [boxBreathing2, vagusWindDown],
+    boxBreathing2,
+    intent,
+    new Set(["box-breathing-2"]),
+  );
+  assert(alt);
+  assertEquals(alt?.id, "vagus-wind-down");
 });

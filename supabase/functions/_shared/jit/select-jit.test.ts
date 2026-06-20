@@ -96,6 +96,62 @@ Deno.test("skip penalty reduces tactical", () => {
   assert(skipped.ranked[0].components.tactical < clean.ranked[0].components.tactical);
 });
 
+Deno.test("EY interview with 4 attendees outranks a zero-attendee Chief AI connect block", () => {
+  const res = selectJitCandidates(
+    [
+      {
+        id: "chief-ai",
+        title: "Chief AI Thursday connects",
+        start_time: inHours(3),
+        end_time: inHours(4),
+        attendeesCount: 0,
+        attendeeRoles: [{ role: "peer" as const, source: "llm" as const, confidence: 1 }],
+      },
+      {
+        id: "ey",
+        title: "EY Foundation interview",
+        start_time: inHours(4),
+        end_time: inHours(5),
+        attendeesCount: 4,
+        attendeeRoles: [{ role: "peer" as const, source: "llm" as const, confidence: 1 }],
+      },
+    ],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  assertEquals(res.ranked[0].eventId, "ey");
+});
+
+Deno.test("zero-attendee connects block gets no recurring-pattern bonus", () => {
+  const res = selectJitCandidates(
+    [{
+      id: "block",
+      title: "Chief AI Thursday connects",
+      start_time: inHours(3),
+      end_time: inHours(4),
+      attendeesCount: 0,
+      attendeeRoles: [{ role: "peer" as const, source: "llm" as const, confidence: 1 }],
+    }],
+    {
+      accountAgeDays: 60,
+      signalSummary: { event_to_hrv: [{ event_type: "Board / governance", n: 4, hrvDeltaPct: -25, confidence: "strong" }], event_to_rhr: [] },
+      skipCountsByBucket: {},
+      followThroughByBucket: {},
+      goals: null,
+      nowMs: NOW,
+    },
+  );
+  assertEquals(res.ranked[0].components.breakdown.patternScore, 0);
+});
+
+Deno.test("events beyond 24h are excluded before scoring", () => {
+  const res = selectJitCandidates(
+    [{ id: "far", title: "Board Meeting", start_time: inHours(30), end_time: inHours(31), attendeeRoles: ["board_member"] }],
+    { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW },
+  );
+  assertEquals(res.ranked.length, 0);
+  assertEquals(res.excluded[0].reason, "outside_24h_ceiling");
+});
+
 Deno.test("sovereign tag 'high' boosts importance regardless of tier", () => {
   const base = [{ id: "h", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5), attendeeRoles: ["board_member" as const] }];
   const untagged = selectJitCandidates(base, { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW });

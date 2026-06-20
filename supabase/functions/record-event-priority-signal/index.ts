@@ -21,6 +21,7 @@ import {
   coarseEventType,
 } from "../_shared/events/event-classifier.ts";
 import { normalizeEventTypeKey } from "../_shared/plan/week-ahead-mode.ts";
+import { routeCustomTag } from "../_shared/jit/custom-tag-router.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +33,7 @@ const VALID_SIGNALS = new Set([
   "priority",
   "not_this_week",
   "never",
+  "cancelled_now",
   "cancelled_as_noise",
   "cancelled_keep_surfacing",
   // Sovereign user-tag layer (JIT v2 rework). Persists the graduated
@@ -52,16 +54,18 @@ const VALID_SOURCES = new Set([
   "post_plan_feedback",
 ]);
 
-// Map UI relationshipTag → ResolvedRole used by attendee_relationships.
+// Map UI relationshipTag → role used by the sovereign relationship layer.
+// Event-level tags only. Do not fan out to all attendees.
 const RELATIONSHIP_TO_ROLE: Record<string, string> = {
-  boss: "boss",
+  boss: "direct_boss",
   board: "board_member",
+  investor: "investor",
   client: "client",
-  customer: "client",
+  customer: "customer",
   vendor: "vendor",
-  leadership: "boss",
-  team: "report",
-  junior: "report",
+  leadership: "skip_level",
+  team: "report_direct",
+  junior: "report_junior",
   colleague: "peer",
 };
 
@@ -164,16 +168,86 @@ serve(async (req) => {
       });
     }
 
-    // Sovereign-relationship bridge: when the user explicitly tags an
-    // event with a canonical relationship, upsert the corresponding
-    // attendee_relationships rows with source='user_tag' so the role
-    // never decays and dominates LLM-inferred guesses. Best-effort —
-    // a failure here does NOT fail the primary write.
-    if (signal === "tag_relationship" && eventId) {
-      try {
-        const rel = String((meta as any)?.relationshipTag || "").toLowerCase().trim();
-        const role = RELATIONSHIP_TO_ROLE[rel];
-        if (role) {
+    const upsertDerived = async (patch: Record<string, unknown>) => {
+      await supabase.from("event_priority_derived").upsert({
+        user_id: userId,
+        event_category: category,
+        event_type_key: typeKey,
+        updated_at: new Date().toISOString(),
+        ...patch,
+      }, { onConflict: "user_id,event_category,event_type_key" });
+    };
+
+    if (signal === "never") {
+      await upsertDerived({
+        net_importance: -999,
+        permanent_flag: true,
+        last_signal: signal,
+        signal_count: 1,
+      });
+    } else if (signal === "cancelled_now") {
+      await upsertDerived({
+        net_importance: -10,
+        permanent_flag: false,
+        last_signal: signal,
+        signal_count: 1,
+      });
+    } else if (signal === "cancelled_as_noise") {
+      await upsertDerived({
+        net_importance: -25,
+        permanent_flag: false,
+        last_signal: signal,
+        signal_count: 1,
+      });
+    } else if (signal === "cancelled_keep_surfacing") {
+      await upsertDerived({
+        net_importance: 5,
+        permanent_flag: false,
+        last_signal: signal,
+        signal_count: 1,
+      });
+    } else if (signal.startsWith("tag_importance_")) {
+      const level = signal.slice("tag_importance_".length);
+      const importanceMap: Record<string, number> = { high: 45, medium: 20, low: 0 };
+      await upsertDerived({
+        net_importance: importanceMap[level] ?? 0,
+        permanent_flag: true,
+        last_signal: signal,
+        signal_count: 1,
+      });
+    } else if (signal === "tag_relationship") {
+      await upsertDerived({
+        relationship_role: String((meta as any)?.relationshipRole || ""),
+        permanent_flag: true,
+        last_signal: signal,
+        signal_count: 1,
+      });
+    } else if (signal === "tag_custom") {
+      const routed = Array.isArray((meta as any)?.customTags)
+        ? (meta as any).customTags.map((t: string) => routeCustomTag(t)).filter(Boolean)
+        : [];
+      const routedImportance = routed.find((r: any) => r?.kind === "importance") as { kind: "importance"; value: "high" | "medium" | "low" } | undefined;
+      const routedRelationship = routed.find((r: any) => r?.kind === "relationship") as { kind: "relationship"; value: string } | undefined;
+      await upsertDerived({
+        net_importance:
+          routedImportance?.value === "high" ? 45 :
+          routedImportance?.value === "medium" ? 20 :
+          routedImportance?.value === "low" ? 0 :
+          undefined,
+        relationship_role: routedRelationship?.value ?? undefined,
+        last_signal: signal,
+        signal_count: routed.length || 1,
+      });
+    } else if (signal === "tag_cleared") {
+      await upsertDerived({
+        net_importance: 0,
+        relationship_role: null,
+        permanent_flag: false,
+        last_signal: signal,
+        signal_count: 1,
+      });
+      if (eventId) {
+        try {
           const { data: evRow } = await supabase
             .from("calendar_events")
             .select("event_metadata")
@@ -188,19 +262,33 @@ serve(async (req) => {
             const em = typeof a === "string" ? a : a?.email;
             if (typeof em === "string" && em.includes("@")) emails.push(em.toLowerCase().trim());
           }
-          for (const email of emails.slice(0, 25)) {
-            await supabase.from("attendee_relationships").upsert({
-              user_id: userId,
-              attendee_email: email,
-              role,
-              source: "user_tag",
-              confidence: 1.0,
-              resolved_at: new Date().toISOString(),
-            }, { onConflict: "user_id,attendee_email" });
+          if (emails.length > 0) {
+            await supabase
+              .from("attendee_relationships")
+              .delete()
+              .eq("user_id", userId)
+              .eq("source", "user_tag")
+              .in("attendee_email", emails);
           }
+        } catch (e) {
+          console.warn("[record-event-priority-signal] tag_cleared relationship cleanup failed", (e as Error)?.message);
         }
-      } catch (e) {
-        console.warn("[record-event-priority-signal] user_tag relationship upsert failed", (e as Error)?.message);
+      }
+    }
+
+    if (signal === "tag_relationship" && eventId) {
+      const rel = String((meta as any)?.relationshipTag || "").toLowerCase().trim();
+      const role = RELATIONSHIP_TO_ROLE[rel];
+      if (role) {
+        await supabase.from("event_priority_memory").insert({
+          user_id: userId,
+          event_category: category,
+          event_type_key: typeKey,
+          signal: "tag_relationship",
+          source: "priority_tag",
+          event_id: eventId,
+          meta: { ...meta, relationshipRole: role },
+        });
       }
     }
 
@@ -209,6 +297,10 @@ serve(async (req) => {
       category,
       typeKey,
       signal,
+      resolvedBy: signal === "tag_relationship" ? "sovereign_tag" : signal === "tag_custom" ? "custom_tag_router" : "direct_signal",
+      sovereignFired: signal.startsWith("tag_"),
+      relationshipLeads: signal === "tag_relationship",
+      gateBypassed: signal === "never" || signal === "cancelled_now",
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

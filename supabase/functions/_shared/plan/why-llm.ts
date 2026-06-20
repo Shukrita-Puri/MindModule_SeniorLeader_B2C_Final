@@ -46,6 +46,8 @@ export interface WhyLLMInput {
   // Shared-module advisories (Brief↔Plan parity).
   ceoBehaviourBlock?: string | null;
   eventTaxonomyBlock?: string | null;
+  briefEcho?: string | null;
+  todaysOtherWhyLines?: string[];
 
   // Shared state band + slot identity (Plan-only Why-line contract).
   /**
@@ -180,6 +182,8 @@ export interface ValidateWhyLineInput {
   slotAnchor: SlotAnchor | null;
   /** Previously accepted lines in this generation pass, used for dedupe gating. */
   priorAccepted?: { text: string; slotAnchor: SlotAnchor | null; arcPosition: ArcPosition | null }[];
+  /** Earlier why-lines already emitted today, used for same-day repetition checks. */
+  sameDayAccepted?: { text: string }[];
   /** Arc position of the candidate (used for dedupe gating). */
   arcPosition?: ArcPosition | null;
 }
@@ -240,6 +244,14 @@ export function validateWhyLine(inp: ValidateWhyLineInput): ValidateWhyLineResul
     }
   }
 
+  if (inp.sameDayAccepted && inp.sameDayAccepted.length > 0) {
+    for (const prior of inp.sameDayAccepted) {
+      if (jaccard(prior.text, raw) > 0.8) {
+        return { ok: false, reason: "jaccard_dup" };
+      }
+    }
+  }
+
   return { ok: true, anchorTokensUsed: hasAnchor };
 }
 
@@ -266,19 +278,21 @@ function arcDirectiveFor(arc: ArcPosition): string {
   }
 }
 
-function pickMostRelevantSignalPhrase(inp: WhyLLMInput): string {
-  if (inp.sleepScore !== null && inp.sleepScore < 65) return `sleep ran short (${inp.sleepScore}/100)`;
+function pickRelevantSignalPhrases(inp: WhyLLMInput): string[] {
+  const out: string[] = [];
+  if (inp.sleepScore !== null && inp.sleepScore < 65) out.push(`sleep ran short (${inp.sleepScore}/100)`);
   if (inp.hrvDeltaPct !== null && Math.abs(inp.hrvDeltaPct) >= 10) {
-    return inp.hrvDeltaPct < 0
+    out.push(inp.hrvDeltaPct < 0
       ? `recovery is down ~${Math.abs(inp.hrvDeltaPct)}%`
-      : `recovery is running ~${inp.hrvDeltaPct}% above baseline`;
+      : `recovery is running ~${inp.hrvDeltaPct}% above baseline`);
   }
-  if (inp.rhrTrend === "elevated") return `resting HR is elevated`;
-  if (inp.mindState !== null && inp.mindState <= 2) return `clarity is reading low`;
-  if (inp.bodyState !== null && inp.bodyState <= 2) return `body energy is reading low`;
-  if (inp.travelDebtActive) return `travel debt is active`;
-  if (inp.patternSummary) return inp.patternSummary;
-  return `no single dominant signal — lean on the event and the practice`;
+  if (inp.rhrTrend === "elevated") out.push(`resting HR is elevated`);
+  if (inp.mindState !== null && inp.mindState <= 2) out.push(`clarity is reading low`);
+  if (inp.bodyState !== null && inp.bodyState <= 2) out.push(`body energy is reading low`);
+  if (inp.travelDebtActive) out.push(`travel debt is active`);
+  if (inp.patternSummary) out.push(inp.patternSummary);
+  if (!out.length) out.push(`no single dominant signal`);
+  return out.slice(0, 3);
 }
 
 function formatMinutesUntil(min: number): string {
@@ -323,7 +337,7 @@ function buildPrompt(inp: WhyLLMInput): string {
   const arc = inp.arcPosition ?? "standalone";
   const arcDirective = arcDirectiveFor(arc);
 
-  const signalPhrase = pickMostRelevantSignalPhrase(inp);
+  const signalPhrases = pickRelevantSignalPhrases(inp);
   const practice = (inp.practiceTitle || "").trim() || "this practice";
   const protocol = (inp.protocolCombo || "").trim() || "(single-step)";
 
@@ -367,6 +381,15 @@ function buildPrompt(inp: WhyLLMInput): string {
   const signalsAvailable = signals.length
     ? `Available signals (reference whichever are most relevant — do not mention null fields):\n${signals.join("\n")}`
     : `Available signals: none — reference the event itself and the day's state.`;
+  const relevantSignalsBlock = signalPhrases.length
+    ? `Most relevant signals:\n${signalPhrases.map((s) => `- ${s}`).join("\n")}`
+    : `Most relevant signals: none`;
+  const briefEchoBlock = (inp.briefEcho || "").trim()
+    ? `\nBrief echo (use only if it directly sharpens the why-line; never copy verbatim):\n${inp.briefEcho!.trim()}`
+    : "";
+  const repetitionGuardBlock = inp.todaysOtherWhyLines && inp.todaysOtherWhyLines.length
+    ? `\nToday's other why-lines (do not repeat their core message):\n${inp.todaysOtherWhyLines.map((line) => `- ${line}`).join("\n")}`
+    : "";
 
   return [
     `You are the leader's Chief of Staff for the Mind, writing the one-line reason a specific practice has been placed in their plan today.`,
@@ -377,6 +400,7 @@ function buildPrompt(inp: WhyLLMInput): string {
     `- Like a sharp, warm, senior chief of staff who just handed the leader something and is saying "here's why" — plain, confident, specific.`,
     `- You connect the dots out loud: their state + what's ahead + what this move does about it. That connection IS the value.`,
     `- Plain executive English. The way a person explains a decision, not the way a system labels a task.`,
+    `- Read the Brief as background, but do not restate it unless it directly explains this exact practice.`,
     ``,
     `THREE-PART CONNECTION (aim for all three — state + event + reason)`,
     `1. STATE — where the leader is right now.`,
@@ -393,6 +417,7 @@ function buildPrompt(inp: WhyLLMInput): string {
     `- One sentence. The practice title carries the "what"; you carry the "why".`,
     `- Never use wellness words (recharge, self-care, mindful, breathe, nourish, restore, wellness, journey, calm, relax) or clinical jargon (parasympathetic, cortisol, sympathetic).`,
     `- Never name the score, the band, or the state-band word — imply the state in plain words.`,
+    `- Never mention band mechanics, scores, or the internal plan system.`,
     `- Never use abstract system phrases ("optimise the window", "hold the base", "for your state"). If a real chief of staff wouldn't say it out loud handing over a task, rewrite it.`,
     `- Never tell the user how to raise their score directly — you justify ONE move; naming the score-raising action set is the plan-as-a-whole's job.`,
     ``,
@@ -402,6 +427,9 @@ function buildPrompt(inp: WhyLLMInput): string {
     ``,
     eventBlock,
     ``,
+    relevantSignalsBlock,
+    briefEchoBlock,
+    repetitionGuardBlock,
     signalsAvailable,
     strategic,
     sharedAdvisory ? `\n${sharedAdvisory}\nWhen the active behaviours above name this exact event, prefer aligning the statement to that anchor — do not echo any copyHint verbatim.` : ``,

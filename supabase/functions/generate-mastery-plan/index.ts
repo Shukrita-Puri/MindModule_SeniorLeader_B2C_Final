@@ -55,10 +55,18 @@ import {
   COMBO_TO_PRACTICE_TYPE,
   type ComboKey,
 } from '../_shared/protocols/protocol-combos.ts';
+import { type RelationshipRole } from '../_shared/jit/relationship-taxonomy.ts';
 import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+import { allocatePlanSlots } from '../_shared/jit/slot-allocator.ts';
+import {
+  deriveSlotIntent,
+  findAlternate,
+  selectPracticeForSlot,
+  type SelectionSlotContract,
+} from '../_shared/plan/practice-selector.ts';
 import {
   applyEventPriorityMemory,
   loadPriorityMemoryForUser,
@@ -169,7 +177,7 @@ async function runJitV2Shadow(
   // Relationship resolution chain (§C of the SSOT):
   //   1. user_tag       — sovereign, full weight, no decay
   //   2. memory_user_tag — replayed from prior tag_relationship
-  //   3. llm            — cached attendee_relationships (Firecrawl + Gemini)
+  //   3. llm            — cached attendee_relationships (Gemini-only resolver)
   //   4. domain_heuristic — same-domain → peer; external → external_partner
   //   5. unknown        — zero contribution, never demote
   // Confidence gating happens inside relationshipWeight.
@@ -291,14 +299,17 @@ async function runJitV2Shadow(
   //    recurring 1:1 tagged "Boss" once keeps its role indefinitely without
   //    re-hitting Firecrawl.
   try {
-    const RELATIONSHIP_TAG_TO_ROLE: Record<string, ResolvedRole> = {
-      boss: 'boss', leadership: 'boss',
+    const RELATIONSHIP_TAG_TO_ROLE: Record<string, RelationshipRole> = {
+      boss: 'direct_boss',
       board: 'board_member',
-      client: 'client', customer: 'client',
+      client: 'client',
+      customer: 'customer',
       vendor: 'vendor',
-      team: 'report', junior: 'report',
+      team: 'report_direct',
+      junior: 'report_junior',
       colleague: 'peer',
       investor: 'investor',
+      leadership: 'skip_level',
     };
     const eventIds: string[] = [];
     for (const fe of sourceEvents) {
@@ -3072,15 +3083,35 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // picker shares this helper). Gated by WEEK_AHEAD_MEMORY_BOOST so weekday
   // Plan stays byte-identical until we flip the flag in a follow-up.
   let priorityMemoryIndex: PriorityMemoryIndex | null = null;
+  let derivedMemoryByKey = new Map<string, { net_importance: number; permanent_flag: boolean }>();
   const memoryBoostOn =
     (Deno.env.get('WEEK_AHEAD_MEMORY_BOOST') ?? 'false').toLowerCase() === 'true';
   if (memoryBoostOn) {
     try {
       priorityMemoryIndex = await loadPriorityMemoryForUser(supabaseClient, req.userId);
+      const { data: derivedRows } = await supabaseClient
+        .from('event_priority_derived')
+        .select('event_category, event_type_key, net_importance, permanent_flag')
+        .eq('user_id', req.userId);
+      derivedMemoryByKey = new Map(
+        (derivedRows ?? []).map((r: any) => [
+          `${String(r?.event_category || '').toLowerCase()}::${String(r?.event_type_key || '').toLowerCase()}`,
+          {
+            net_importance: Number(r?.net_importance ?? 0),
+            permanent_flag: Boolean(r?.permanent_flag),
+          },
+        ]),
+      );
     } catch (memErr: any) {
       console.warn('[generate-mastery-plan] priority memory load skipped:', memErr?.message);
     }
   }
+  const planDebugSignals = {
+    resolvedBy: memoryBoostOn ? 'derived_memory' : 'raw_memory',
+    sovereignFired: !!priorityMemoryIndex,
+    relationshipLeads: !!priorityMemoryIndex,
+    gateBypassed: false,
+  };
 
   // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
   const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations, priorityMemoryIndex);
@@ -3175,8 +3206,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
             eventCategory: coarseEventType(e.event.title || ''),
             eventTypeKey: normalizeEventTypeKey(e.event.title || ''),
           });
-          memoryDelta = mem.delta;
+          const derivedKey = `${String(coarseEventType(e.event.title || '') || '').toLowerCase()}::${String(normalizeEventTypeKey(e.event.title || '') || '').toLowerCase()}`;
+          const derived = derivedMemoryByKey.get(derivedKey);
+          memoryDelta = mem.delta + (derived?.net_importance ?? 0);
           memoryHardDemote = mem.hardDemote;
+          if (derived?.permanent_flag && derived.net_importance <= -999) memoryHardDemote = true;
         }
         return {
           event: {
@@ -4153,6 +4187,16 @@ interface HorizonModule {
   // CATEGORY_MAX_SLOTS allows (G long-haul = 3, F multi-day = 3, A/D = 2).
   // Null for non-JIT or state-anchored slots.
   jitPhase?: 'pre' | 'during' | 'post' | null;
+  mode?: 'jit' | 'state' | 'jit+state' | 'full_arc';
+  slotRole?: 'start_of_day' | 'dominant_demand' | 'recovery' | 'pre' | 'during' | 'post' | 'state_anchor';
+  allocationReason?: string;
+  dayShape?: 'light_routine' | 'dominant_structural_event' | 'mixed_day' | 'rest_day';
+  slotAllocationDebug?: {
+    dayShape: 'light_routine' | 'dominant_structural_event' | 'mixed_day' | 'rest_day';
+    mode: 'jit' | 'state' | 'jit+state' | 'full_arc';
+    candidateCount: number;
+    multiPhaseEligible: boolean;
+  };
 }
 
 function determineAllocationPattern(
@@ -4868,6 +4912,7 @@ async function applyV51Enrichment(
   // Phase 1 (sync): slot tagging, deterministic title + sub-line, fallback Why.
   type JitJob = { idx: number; input: WhyLLMInput };
   const jitJobs: JitJob[] = [];
+  const fallbackWhyLineByIndex = new Map<number, string>();
 
   modules.forEach((hm, idx) => {
     // Slot purpose tagging
@@ -4880,8 +4925,10 @@ async function applyV51Enrichment(
 
     // Compose Why — deterministic baseline (always set, LLM will overwrite on success)
     const fusion = idx === 0 && fusionEvent && hm.slotKind === 'start_of_day' ? fusionEvent : null;
-    const newWhy = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion);
-    if (newWhy && newWhy.length >= 12) hm.whyLine = newWhy;
+    const fallbackWhyLine = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion);
+    if (fallbackWhyLine && fallbackWhyLine.length >= 12) {
+      fallbackWhyLineByIndex.set(idx, fallbackWhyLine);
+    }
 
     // Shared sub-line contract for any anchored slot, not just explicit JIT.
     // If we persisted anchor metadata on the slot, use the shared event-phase
@@ -4989,6 +5036,9 @@ async function applyV51Enrichment(
             ?? shared.briefBehaviour?.promptBlockBrief
             ?? null,
           eventTaxonomyBlock: shared.briefBehaviour?.taxonomyBlock ?? null,
+          briefEcho: shared.briefBehaviour?.promptBlockBrief
+            ?? shared.briefBehaviour?.promptBlockPlan
+            ?? null,
           // Shared band + slot identity for the new Why-line contract.
           stateBand,
           arcPosition,
@@ -5017,12 +5067,13 @@ async function applyV51Enrichment(
 
   // Phase 2 (parallel LLM): per-JIT-priority Why statements.
   if (jitJobs.length > 0) {
-    const results = await Promise.all(jitJobs.map((j) => generateWhyStatement(j.input)));
     const accepted: { idx: number; text: string; slotAnchor: SlotAnchor | null; arcPosition: ArcPosition | null }[] = [];
+    const todaysOtherWhyLines: string[] = [];
     for (let i = 0; i < jitJobs.length; i++) {
       const job = jitJobs[i];
-      const text = results[i];
       const inp = job.input;
+      inp.todaysOtherWhyLines = [...todaysOtherWhyLines];
+      const text = await generateWhyStatement(inp);
       const slotAnchor = inp.slotAnchor ?? null;
       const arcPosition = inp.arcPosition ?? null;
       const bandUsed = inp.stateBand ?? null;
@@ -5033,11 +5084,19 @@ async function applyV51Enrichment(
         );
         continue;
       }
+      const sameDayDuplicate = todaysOtherWhyLines.some((prior) => jaccard(prior, text) > 0.8);
+      if (sameDayDuplicate) {
+        console.log(
+          `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=deterministic_repair reject=same_day_duplicate`,
+        );
+        continue;
+      }
       const verdict = validateWhyLine({
         text,
         stateBand: bandUsed,
         slotAnchor,
         priorAccepted: accepted.map((a) => ({ text: a.text, slotAnchor: a.slotAnchor, arcPosition: a.arcPosition })),
+        sameDayAccepted: todaysOtherWhyLines.map((line) => ({ text: line })),
         arcPosition,
       });
       if (!verdict.ok) {
@@ -5050,6 +5109,7 @@ async function applyV51Enrichment(
         `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=llm_accepted anchorTokens=${verdict.anchorTokensUsed}`,
       );
       accepted.push({ idx: job.idx, text, slotAnchor, arcPosition });
+      todaysOtherWhyLines.push(text);
     }
     for (const a of accepted) modules[a.idx].whyLine = stripBriefMarkdown(a.text);
   }
@@ -5072,6 +5132,8 @@ async function applyV51Enrichment(
     const isGeneric = /\b(following your brief|for your state|demands today|carry your edge|set your state|what the day is asking)\b/i.test(why);
     if (eventWhy && (isRepeated || isGeneric)) {
       hm.whyLine = eventWhy;
+    } else if (!hm.whyLine && fallbackWhyLineByIndex.has(modules.indexOf(hm))) {
+      hm.whyLine = fallbackWhyLineByIndex.get(modules.indexOf(hm)) || hm.whyLine;
     }
     if (hm.whyLine) acceptedWhyLines.push(String(hm.whyLine));
   }
@@ -5429,38 +5491,39 @@ function buildHorizonModules(
     combo: ComboKey | null,
     excludeIds: Set<string>,
     max = 2,
+    slotContract: SelectionSlotContract = {},
+    intentOverride: ReturnType<typeof deriveSlotIntent> | null = null,
   ): any[] => {
+    const intent = intentOverride ?? deriveSlotIntent({
+      stateAction: slotContract.arcLabel === 'During' ? 'Build capacity' : slotContract.arcLabel === 'Recover' ? 'Recover' : 'Steady the system',
+      anchorCategory: null,
+      anchorPhase: slotContract.jitPhase ?? null,
+      combo,
+    });
+    const selected: any[] = [];
+    const consumed = new Set(excludeIds);
     const recencyMap: Record<string, number> = (req as any).recentPracticeDays || {};
-    const recencyPenalty = (id: string): number => {
-      const d = recencyMap[id];
-      if (d === undefined) return 0;
-      if (d <= 1) return 3;   // done today / yesterday → strongest demotion
-      if (d <= 3) return 2;
-      if (d <= 7) return 1;
-      return 0;
-    };
-    const sortByRecency = (arr: any[]) => [...arr].sort(
-      (a: any, b: any) => recencyPenalty(a.contentId) - recencyPenalty(b.contentId),
-    );
-    const candidates = sortByRecency(
-      (pool || []).filter((m: any) => m && !excludeIds.has(m.contentId)),
-    );
-    if (candidates.length === 0) return [];
-    const targetType = combo ? COMBO_TO_PRACTICE_TYPE[combo] : null;
-    const primary = targetType
-      ? candidates.find((m: any) => m.type === targetType && !m.isCoachCard)
-      : null;
-    const head = primary || candidates.find((m: any) => !m.isCoachCard) || candidates[0];
-    const out = [head];
+    const poolWithMeta = (pool || []).map((m: any) => ({
+      ...m,
+      masteryCategory: m.masteryCategory ?? m.mastery_category ?? null,
+    }));
+    const firstPick = selectPracticeForSlot(poolWithMeta, { ...slotContract, mode: slotContract.mode ?? 'jit+state' }, intent, consumed, {
+      recentPracticeDays: recencyMap,
+      mrsScore: (req as any).mrsScore ?? null,
+    });
+    const head = firstPick.selected[0] ?? null;
+    if (!head) return [];
+    selected.push(head);
+    consumed.add(head.contentId);
     if (max > 1) {
-      const secondary = candidates.find((m: any) =>
-        m.contentId !== head.contentId &&
-        m.type !== head.type &&
-        !m.isCoachCard
-      );
-      if (secondary) out.push(secondary);
+      const alt = findAlternate(poolWithMeta, head, intent, consumed);
+      if (alt) {
+        console.log(`[generate-mastery-plan] intra-day dedup: substituted ${alt.contentId} for ${head.contentId} in slot ${selected.length}`);
+        selected.push(alt);
+        consumed.add(alt.contentId);
+      }
     }
-    return out;
+    return selected;
   };
   const pickAnchorEvent = (candidates: any[]): any | null => {
     for (const e of candidates) {
@@ -5643,7 +5706,15 @@ function buildHorizonModules(
     // §4 prescribed combo for the resolved phase (e.g. C-pre → somatic.pause
     // → regulate). Falls through to legacy ordering if no match.
     const jitModules: any[] = preEventPlan.modules || [];
-    const matched = selectPracticesByCombo(jitModules, jitPhase.combo, new Set(), 3);
+    const matched = selectPracticesByCombo(jitModules, jitPhase.combo, new Set(), 3, {
+      mode: 'jit+state',
+      slotRole: 'pre',
+      arcLabel: 'Prepare',
+      jitPhase: jitPhase.phase,
+      jitEventTitle,
+      dayShape: 'mixed_day',
+      allocationReason: 'jit_phase_allocation',
+    });
     slot1Practices = matched.length > 0 ? matched.slice(0, 3) : jitModules.slice(0, 3);
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
@@ -5787,7 +5858,15 @@ function buildHorizonModules(
       ? preEventPlan.modules
       : todModules;
     const slot1Ids = new Set<string>(slot1Practices.map((p: any) => p.contentId).filter(Boolean));
-    const matched = selectPracticesByCombo(pool, slot2Candidate.comboKey, slot1Ids, 2);
+    const matched = selectPracticesByCombo(pool, slot2Candidate.comboKey, slot1Ids, 2, {
+      mode: slot2Candidate.phase === 'during' || slot2Candidate.phase === 'post' ? 'full_arc' : 'jit+state',
+      slotRole: slot2Candidate.phase === 'during' ? 'during' : slot2Candidate.phase === 'post' ? 'post' : 'dominant_demand',
+      arcLabel: slot2Candidate.phase === 'during' ? 'During' : slot2Candidate.phase === 'post' ? 'Recover' : 'Prepare',
+      jitPhase: slot2Candidate.phase,
+      jitEventTitle: slot2JitEventTitle,
+      dayShape: 'mixed_day',
+      allocationReason: 'ranked_jit_candidate',
+    });
     slot2Practices = matched.length > 0
       ? matched
       : (todModules[1] ? [todModules[1]] : (todModules[0] ? [todModules[0]] : []));
@@ -5917,7 +5996,15 @@ function buildHorizonModules(
     const pool = (slot3Candidate.eventId === topEventId && preEventPlan?.modules?.length)
       ? preEventPlan.modules
       : todModules;
-    const matched = selectPracticesByCombo(pool, slot3Candidate.comboKey, usedIds, 2);
+    const matched = selectPracticesByCombo(pool, slot3Candidate.comboKey, usedIds, 2, {
+      mode: slot3Candidate.phase === 'during' || slot3Candidate.phase === 'post' ? 'full_arc' : 'jit+state',
+      slotRole: slot3Candidate.phase === 'during' ? 'during' : slot3Candidate.phase === 'post' ? 'post' : 'recovery',
+      arcLabel: slot3Candidate.phase === 'during' ? 'During' : slot3Candidate.phase === 'post' ? 'Recover' : 'Recover',
+      jitPhase: slot3JitPhase,
+      jitEventTitle: slot3JitEventTitle,
+      dayShape: 'mixed_day',
+      allocationReason: 'ranked_jit_candidate',
+    });
     slot3Practices = matched.length > 0 ? matched : (todModules.find((m: any) => !usedIds.has(m.contentId)) ? [todModules.find((m: any) => !usedIds.has(m.contentId))] : []);
     slotAnchors.push({ eventId: slot3Candidate.eventId, phase: slot3Candidate.phase });
     slot3AnchorForCtx = { title: truncateTitle(slot3Candidate.title) ?? null, categoryId: (slot3Candidate.categoryId as any) ?? null, phase: slot3Candidate.phase };
@@ -6257,7 +6344,25 @@ function buildHorizonModules(
       out[i] = { ...out[i], timeLabel: replacement };
     }
   }
-  return out;
+  const allocation = allocatePlanSlots({
+    nowMs,
+    rankedCandidates: jitRankedCandidates,
+    hasTravelDay: (req.calendarEvents || []).some((e: any) => /travel|flight|train|airport|hotel/i.test(String(e.title || ''))),
+    hasConferenceDay: (req.calendarEvents || []).some((e: any) => /conference|offsite|retreat|summit/i.test(String(e.title || ''))),
+    hasOffsiteDay: (req.calendarEvents || []).some((e: any) => /offsite|off-site/i.test(String(e.title || ''))),
+    hasRestSignals: (req as any).calendarLoad === 'low' && !(req.calendarEvents || []).length,
+  });
+  return out.map((m, idx) => ({
+    ...m,
+    mode: allocation.mode,
+    slotRole: allocation.slots[idx]?.slotRole,
+    allocationReason: allocation.slots[idx]?.allocationReason,
+    dayShape: allocation.dayShape,
+    slotAllocationDebug: allocation.debug,
+    jitPhase: m.jitPhase ?? allocation.slots[idx]?.jitPhase ?? null,
+    jitEventTitle: m.jitEventTitle ?? allocation.slots[idx]?.jitEventTitle ?? null,
+    arcLabel: m.arcLabel ?? allocation.slots[idx]?.arcLabel ?? undefined,
+  }));
 }
 
 // ==================== STATEFUL PLAN LEDGER ====================
@@ -6579,12 +6684,43 @@ function mergeWithLedger(
     out.push(freshModules[nextIdx]);
   }
 
+  const allocation = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: freshModules.map((m, idx) => ({
+      eventId: String(m.anchorEventId || m.jitEventTitle || idx),
+      title: m.jitEventTitle || m.timeLabel || '',
+      categoryId: (m.anchorCategoryId as any) ?? null,
+      phase: (m.jitPhase as any) ?? null,
+      comboKey: null as any,
+      score: 0,
+      importance: 0,
+      components: null as any,
+      event: { id: String(m.anchorEventId || idx), title: m.jitEventTitle || m.timeLabel || '', start_time: '', end_time: '' },
+    })),
+    hasTravelDay: false,
+    hasConferenceDay: false,
+    hasOffsiteDay: false,
+    hasRestSignals: false,
+  });
+  const annotated = out.slice(0, 3).map((m, idx) => ({
+    ...m,
+    mode: allocation.mode,
+    slotRole: allocation.slots[idx]?.slotRole,
+    allocationReason: allocation.slots[idx]?.allocationReason,
+    dayShape: allocation.dayShape,
+    slotAllocationDebug: allocation.debug,
+    jitPhase: m.jitPhase ?? allocation.slots[idx]?.jitPhase ?? null,
+    jitEventTitle: m.jitEventTitle ?? allocation.slots[idx]?.jitEventTitle ?? null,
+    arcLabel: m.arcLabel ?? allocation.slots[idx]?.arcLabel ?? undefined,
+  }));
+
   return {
-    modules: out.slice(0, 3),
+    modules: annotated,
     source: 'ledger-evolution',
     carriedSlots,
     anchoredSlots,
     completedSlots: ledgerCompleted,
+    debug: planDebugSignals,
   };
 }
 

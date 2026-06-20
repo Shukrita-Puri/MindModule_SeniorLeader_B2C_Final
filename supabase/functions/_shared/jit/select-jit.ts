@@ -108,7 +108,7 @@ export function classifyInterview(args: {
 }): InterviewKind {
   const { title } = args;
   if (!INTERVIEW_RE.test(title)) return 'none';
-  if ((args.attendeesCount ?? 0) < 1) return 'none';
+  if ((args.attendeesCount ?? 0) < 2) return 'none';
 
   // Media — broadcast/reputational. Highest-confidence first.
   if (
@@ -389,6 +389,15 @@ export function selectJitCandidates(
     // is more accurately C (visibility).
     const categoryId = maybeReRouteSpeakingToC(enriched.categoryId, title);
     const subtypeId = enriched.subtype?.id ?? null;
+    const startMs = new Date(ev.start_time).getTime();
+    if (!isFinite(startMs)) {
+      excluded.push({ eventId: ev.id, title, reason: 'bad_start_time' });
+      continue;
+    }
+    if (startMs - nowMs > 24 * 60 * 60_000) {
+      excluded.push({ eventId: ev.id, title, reason: 'outside_24h_ceiling' });
+      continue;
+    }
 
     // Immediate — normalize attendee role inputs into AttendeeRoleSignal[]
     // so confidence/source flow through. Legacy `ResolvedRole[]` callers
@@ -503,12 +512,6 @@ export function selectJitCandidates(
       tierWeighted >= MIN_IMMEDIATE;
     if (!floorPass) {
       excluded.push({ eventId: ev.id, title, reason: 'below_min_immediate' });
-      continue;
-    }
-
-    const startMs = new Date(ev.start_time).getTime();
-    if (!isFinite(startMs)) {
-      excluded.push({ eventId: ev.id, title, reason: 'bad_start_time' });
       continue;
     }
 

@@ -74,6 +74,28 @@ const getDateLabel = (): string => {
   return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
 };
 
+const safeText = (value: unknown): string => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => safeText(item))
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const preferredKeys = ['title', 'label', 'status', 'summary', 'displayText', 'valueText', 'description', 'text', 'name'];
+    for (const key of preferredKeys) {
+      const candidate = safeText(obj[key]);
+      if (candidate) return candidate;
+    }
+    return '';
+  }
+  return '';
+};
+
 const chipBgColor = (color: SignalChip['color']) => {
   switch (color) {
     case 'red': return 'bg-gradient-to-r from-red-200 to-red-100 text-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.10)] border-0';
@@ -123,8 +145,10 @@ interface SignalSourcePair {
   source: string;
 }
 
-function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
-  const lines = text.split('\n').filter(l => l.trim());
+function parseSignalSourcePairs(text: unknown): SignalSourcePair[] | null {
+  const safe = safeText(text);
+  if (!safe) return null;
+  const lines = safe.split('\n').filter(l => l.trim());
   const pairs: SignalSourcePair[] = [];
   for (const line of lines) {
     const sepIdx = line.lastIndexOf(' · ');
@@ -144,6 +168,47 @@ function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
     }
   }
   return pairs.length > 0 ? pairs : null;
+}
+
+type BriefBeat = { label: string; text: string };
+
+function collectBriefBeats(outerBrief: any): BriefBeat[] {
+  const beats: BriefBeat[] = [];
+  const pushBeat = (label: string, value: unknown) => {
+    const text = safeText(value);
+    if (text) beats.push({ label, text });
+  };
+
+  const rawBeats = outerBrief?.briefBeats ?? outerBrief?.beats ?? outerBrief?.sections ?? null;
+  if (Array.isArray(rawBeats)) {
+    for (const beat of rawBeats) {
+      if (!beat) continue;
+      if (typeof beat === 'string') {
+        pushBeat('Brief beat', beat);
+        continue;
+      }
+      if (typeof beat === 'object') {
+        const b = beat as Record<string, unknown>;
+        pushBeat(
+          safeText(b.label || b.title || b.name || b.type) || `Beat ${beats.length + 1}`,
+          b.text ?? b.value ?? b.content ?? b.summary ?? b.description ?? b.body ?? b.detail,
+        );
+      }
+    }
+  } else if (rawBeats && typeof rawBeats === 'object') {
+    const b = rawBeats as Record<string, unknown>;
+    pushBeat('Signal read', b.signalRead ?? b.signal ?? b.read ?? b.signal_read);
+    pushBeat('Judgment', b.judgment ?? b.judgement ?? b.reading ?? b.signalJudgment ?? b.signal_judgment);
+    pushBeat('Work directive', b.workDirective ?? b.work_directive ?? b.directive ?? b.work);
+    pushBeat('Self-regulation directive', b.selfRegulationDirective ?? b.regulationDirective ?? b.self_regulation_directive ?? b.regulation_directive);
+  } else {
+    pushBeat('Signal read', outerBrief?.signalRead ?? outerBrief?.signal_read);
+    pushBeat('Judgment', outerBrief?.judgment ?? outerBrief?.judgement);
+    pushBeat('Work directive', outerBrief?.workDirective ?? outerBrief?.work_directive);
+    pushBeat('Self-regulation directive', outerBrief?.selfRegulationDirective ?? outerBrief?.regulationDirective ?? outerBrief?.self_regulation_directive);
+  }
+
+  return beats.slice(0, 4);
 }
 
 // ─── WEARABLE TIER ───
@@ -1803,6 +1868,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const bodyText = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.bodyText ? stripStrayAsterisks(String(outerBrief.bodyText)) : null);
+  const briefBeats = collectBriefBeats(outerBrief);
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {
@@ -1971,6 +2037,21 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         </p>
       )}
 
+      {briefBeats.length > 0 && (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {briefBeats.map((beat, index) => (
+            <div key={`${beat.label}-${index}`} className="rounded-lg border border-border/40 bg-background/60 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60 font-body">
+                {beat.label}
+              </p>
+              <p className="mt-1 text-sm text-foreground/85 font-body leading-relaxed">
+                {beat.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 6. SIGNAL SECTION — collapsible, open by default */}
       <Collapsible open={signalsOpen} onOpenChange={setSignalsOpen} className="mt-4">
         <CollapsibleTrigger className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium hover:text-muted-foreground/70 transition-colors cursor-pointer">
@@ -2036,7 +2117,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
         <CollapsibleContent>
           {/* 11. LEAN ON — plain text, no pill */}
-          {outerBrief?.leanOn && (() => {
+          {safeText(outerBrief?.leanOn) && (() => {
             const pairs = parseSignalSourcePairs(outerBrief.leanOn);
             return (
               <div className="flex items-baseline gap-2 mt-3">
@@ -2056,7 +2137,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
                     ))
                   ) : (
                     <>
-                      {outerBrief.leanOn}
+                      {safeText(outerBrief.leanOn)}
                       {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {leanOnSource}</span>}
                     </>
                   )}
@@ -2066,7 +2147,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           })()}
 
           {/* 12. WATCH FOR — plain text, no pill */}
-          {outerBrief?.watchFor && (() => {
+          {safeText(outerBrief?.watchFor) && (() => {
             const pairs = parseSignalSourcePairs(outerBrief.watchFor);
             return (
               <div className="flex items-baseline gap-2 mt-2">
@@ -2086,7 +2167,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
                     ))
                   ) : (
                     <>
-                      {outerBrief.watchFor}
+                      {safeText(outerBrief.watchFor)}
                       {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {watchForSource}</span>}
                     </>
                   )}
