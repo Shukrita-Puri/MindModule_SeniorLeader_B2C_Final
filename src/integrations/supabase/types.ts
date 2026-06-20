@@ -69,6 +69,7 @@ export type Database = {
           attendee_name: string | null
           confidence: number | null
           created_at: string
+          evidence_summary: string | null
           evidence_url: string | null
           expires_at: string
           id: string
@@ -85,6 +86,7 @@ export type Database = {
           attendee_name?: string | null
           confidence?: number | null
           created_at?: string
+          evidence_summary?: string | null
           evidence_url?: string | null
           expires_at?: string
           id?: string
@@ -101,6 +103,7 @@ export type Database = {
           attendee_name?: string | null
           confidence?: number | null
           created_at?: string
+          evidence_summary?: string | null
           evidence_url?: string | null
           expires_at?: string
           id?: string
