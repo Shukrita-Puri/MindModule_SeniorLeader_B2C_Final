@@ -11,6 +11,7 @@ import {
   type AttendeeRoleSignal,
   type ResolvedRole,
 } from './relationship-weights.ts';
+import { RELATIONSHIP_WEIGHT } from './relationship-weights.ts';
 import {
   classifyEventBucket,
   patternHit,
@@ -294,6 +295,15 @@ export interface SelectContext {
   goals: UserGoals | null;
   /** Now in ms — defaults to Date.now(). */
   nowMs?: number;
+  /**
+   * §11A.6 MemoryDelta — derived-state read keyed by event id. Pure data:
+   * the caller in `generate-mastery-plan/index.ts` is responsible for loading
+   * from the derived-memory store and passing in. This file performs no I/O.
+   *  - `delta`              additive contribution applied AFTER tier weighting
+   *  - `hardDemote`         evict outright (mirrors `rankJitCandidates` hard demote)
+   *  - `sovereignEscalation` `'low'` → 3× cancelled-as-noise escalation per §9 M3
+   */
+  memoryDeltaByEventId?: Record<string, { delta?: number; hardDemote?: boolean; sovereignEscalation?: 'low' }>;
 }
 
 export interface SelectedCandidate {
@@ -314,10 +324,20 @@ export interface SelectedCandidate {
     strategic: number;
     strategicGate: 0 | 1;
     sovereignBonus: number;
+    /** Hoisted relationship weight from user_tag / memory_user_tag (subset of sovereignBonus). */
+    sovereignRelationship: number;
+    /** §11A.6 MemoryDelta applied post-tier-weighting. */
+    memoryDelta: number;
     breakdown: {
       categoryBase: number;
       relationship: number;
+      /** Sub-split of `relationship` — confidence-discounted llm/domain term. */
+      relationship_inferred: number;
+      /** Sub-split of `relationship` — hoisted user_tag / memory_user_tag term. */
+      relationship_sovereign: number;
       stakes: number;
+      /** §7 situational (media/hiring) boost split out of combined `stakes`. */
+      situationalBoost: number;
       patternScore: number;
       priorityTag: number;
       skipPenalty: number;
@@ -379,10 +399,24 @@ export function selectJitCandidates(
         ? { role: r, source: 'llm' as const, confidence: 1 }
         : r,
     );
-    const { signal: dom, weight: rel } = signals.length
-      ? weightedDominantRole(signals)
-      : { signal: { role: 'unknown' as ResolvedRole, source: 'llm' as const, confidence: null }, weight: 0 };
-    const role = dom.role;
+    // §11A.2 / §11A.3 — split attendee signals by source.
+    //   sovereign rels (user_tag, memory_user_tag) HOIST out of Immediate
+    //   inferred rels (llm, domain_heuristic) stay in Immediate, confidence-discounted
+    const sovereignSignals = signals.filter((s) => s.source === 'user_tag' || s.source === 'memory_user_tag');
+    const inferredSignals  = signals.filter((s) => s.source === 'llm' || s.source === 'domain_heuristic');
+    const sovereignDom = sovereignSignals.length ? weightedDominantRole(sovereignSignals) : null;
+    const inferredDom  = inferredSignals.length  ? weightedDominantRole(inferredSignals)  : null;
+    // Hoisted weight — RELATIONSHIP_WEIGHT base, no confidence discount, capped at 25.
+    const relationship_sovereign = sovereignDom
+      ? Math.min(25, RELATIONSHIP_WEIGHT[sovereignDom.signal.role] ?? 0)
+      : 0;
+    // In-Immediate inferred weight — already confidence-discounted by relationshipWeight().
+    const relationship_inferred = inferredDom ? Math.min(25, inferredDom.weight) : 0;
+    // Dominant role for downstream consumers — prefer sovereign (user voice wins).
+    const role: ResolvedRole = sovereignDom?.signal.role
+      ?? inferredDom?.signal.role
+      ?? 'unknown';
+    const effectiveRel = relationship_inferred + relationship_sovereign;
     let rawCategoryBase = CATEGORY_BASE[categoryId];
     const interpersonalBoost = interpersonalStakesBoost(title, categoryId);
     if (interpersonalBoost > 0) {
@@ -403,8 +437,9 @@ export function selectJitCandidates(
       userDomain: ev.userDomain,
       tags: ev.tags,
     });
-    const interview = interviewBoost(interviewKind);
-    const immediate = categoryBase + rel + stakes + interview;
+    // §7 situationalBoost replaces the flat interview boost in the formula.
+    const situationalBoost = interviewBoost(interviewKind);
+    const immediate = categoryBase + relationship_inferred + stakes + situationalBoost;
 
     // Tactical
     const bucket = classifyEventBucket(title);
@@ -427,19 +462,43 @@ export function selectJitCandidates(
     // user-declared `low` tag demotes regardless of tier totals, and a
     // `high` tag dominates even at T3 weights.
     const sovereign = sovereignTagAdjustment(ev.tags);
+    const sovereignBonus = sovereign.bonus + relationship_sovereign;
+
+    // §11A.6 MemoryDelta — pure read of derived state passed in via ctx.
+    const memEntry = ctx.memoryDeltaByEventId?.[ev.id];
+    const memoryDelta = memEntry?.delta ?? 0;
 
     const tierWeighted =
       tier.immediate * immediate +
       tier.tactical  * tactical +
       tier.strategic * strategic * strategicGate;
-    const importance = tierWeighted + sovereign.bonus;
+    // Decision 9 — urgency is NOT added here; it is a final-sort tiebreaker only.
+    const importance = tierWeighted + sovereignBonus + memoryDelta;
 
+    if (memEntry?.hardDemote) {
+      excluded.push({ eventId: ev.id, title, reason: 'memory_hard_demote' });
+      continue;
+    }
+    if (memEntry?.sovereignEscalation === 'low') {
+      excluded.push({ eventId: ev.id, title, reason: 'memory_escalated_low' });
+      continue;
+    }
     if (sovereign.demote) {
       excluded.push({ eventId: ev.id, title, reason: 'user_tag_low' });
       continue;
     }
 
-    if (immediate < MIN_IMMEDIATE) {
+    // §11A.1 / Decision 10 — JIT floor: gate on TIER-WEIGHTED total OR
+    // (immediate OR tactical) clearing the threshold, never on immediate
+    // alone. Sovereign High (≥45) and hoisted top-tier relationship (≥25)
+    // bypass the gate. Reason string preserved for back-compat.
+    const sovereignBypass = sovereignBonus >= 25;
+    const floorPass =
+      sovereignBypass ||
+      immediate    >= MIN_IMMEDIATE ||
+      tactical     >= MIN_IMMEDIATE ||
+      tierWeighted >= MIN_IMMEDIATE;
+    if (!floorPass) {
       excluded.push({ eventId: ev.id, title, reason: 'below_min_immediate' });
       continue;
     }
@@ -481,18 +540,30 @@ export function selectJitCandidates(
         tactical,
         strategic,
         strategicGate,
-        sovereignBonus: sovereign.bonus,
+        sovereignBonus,
+        sovereignRelationship: relationship_sovereign,
+        memoryDelta,
         breakdown: {
           categoryBase,
-          relationship: rel,
-          stakes: stakes + interview,
+          // `relationship` reports the EFFECTIVE rel (inferred + sovereign)
+          // for back-compat with existing consumers / tests that read this
+          // field as "what relationship contributed to the event's worth".
+          relationship: effectiveRel,
+          relationship_inferred,
+          relationship_sovereign,
+          // `stakes` reports the combined stakes+situational total for
+          // back-compat; split values are also surfaced individually.
+          stakes: stakes + situationalBoost,
+          situationalBoost,
           patternScore,
           priorityTag,
           skipPenalty: skip,
           followThrough: follow,
           goalAlignment: goal,
           protectGoalMultiplier: protectMul,
-          relationshipLeads: (!ev.tags || ev.tags.length === 0) && rel >= 15,
+          // §11A.3 — flag reads EFFECTIVE rel so hoisted sovereign rels
+          // don't silently turn the flag off.
+          relationshipLeads: (!ev.tags || ev.tags.length === 0) && effectiveRel >= 15,
         },
         patternSignal,
       },
