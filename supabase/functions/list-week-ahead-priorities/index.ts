@@ -7,14 +7,15 @@
  * it is a recovery day handled by the Brief.
  *
  * Pipeline (all reuse — no new taxonomy):
- *   1. Pull events in [now, now + lookaheadDays] (local).
- *   2. Drop noise / educational-not-organiser; classify category + type bucket.
- *   3. Score with the same `rankJitCandidates` ranker the weekday Plan uses
- *      (stakes-base + category + severity + demand profile + proximity) plus
- *      `applyEventPriorityMemory` learning delta from `event_priority_memory`.
- *   4. Drop hard-demoted ('never') events.
- *   5. Soft per-category cap (4) for variety — NO per-day cap (week planner).
- *      Take top 10 by score, then re-sort chronologically for UI.
+ *   1. Pull events in [now, now + 7d] (local) and dedupe across providers.
+ *   2. Drop noise / educational-not-organiser.
+ *   3. Run the SAME `selectJitCandidates` triangulated selector used by the
+ *      weekday Plan — Immediate + Tactical + Strategic + Sovereign + Memory,
+ *      with a 7-day horizon override. Loads attendee relationships, sovereign
+ *      tags from event_priority_memory, derived memoryDelta, signal_summary
+ *      and account-age tier weights via the shared `loadJitContextForEvents`.
+ *   4. Soft per-category cap (4) for variety — NO per-day cap (week planner).
+ *      Take top 10 by `importance`, then re-sort chronologically for UI.
  *
  * Auth: Auth0 JWT via _shared/auth.ts. Dev mode bypassed via x-dev-user-id
  * header outside production, mirroring list-replacement-calendar-events.
@@ -30,22 +31,20 @@ import {
   periodFor,
 } from "../_shared/rules/calendarEvents.ts";
 import {
-  coarseEventType,
   isEducationalTitle,
   isNoiseTitle,
+  classifyEvent,
 } from "../_shared/events/event-classifier.ts";
+import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import {
   evaluateWeekAheadMode,
   normalizeEventTypeKey,
 } from "../_shared/plan/week-ahead-mode.ts";
+import { loadJitContextForEvents } from "../_shared/jit/load-jit-context.ts";
 import {
-  applyEventPriorityMemory,
-  loadPriorityMemoryForUser,
-} from "../_shared/plan/event-priority-memory.ts";
-import {
-  rankJitCandidates,
-  type RankableEventInput,
-} from "../_shared/events/jit-candidates.ts";
+  selectJitCandidates,
+  type SelectedCandidate,
+} from "../_shared/jit/select-jit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,40 +61,38 @@ interface CalendarEventRow {
   is_organizer?: boolean | null;
   attendees_count?: number | null;
   is_recurring?: boolean | null;
+  // deno-lint-ignore no-explicit-any
+  event_metadata?: Record<string, any> | null;
+  created_at?: string | null;
 }
 
 const PER_CATEGORY_SOFT_CAP = 4;
 const TOP_N = 10;
+const WEEK_AHEAD_HORIZON_MS = 7 * 24 * 60 * 60_000;
 
-/** Derive the stakes-level token the unified ranker (`rankJitCandidates`)
- *  consumes. Mirrors `toBriefEvents` in _shared/signal-engine/db-queries.ts so
- *  the picker shares the same coarse-stakes vocabulary as the Brief. */
-function deriveStakesLevel(title: string): string | null {
-  const coarse = coarseEventType(title);
-  if (coarse === "board") return "board";
-  if (coarse === "investor") return "investor";
-  if (
-    coarse === "ma" || coarse === "fundraising" || coarse === "client" ||
-    coarse === "media-interview" || coarse === "speaking" || coarse === "crisis"
-  ) return "external";
-  return null;
+/** Plan-aligned reason strings derived from the SelectedCandidate breakdown. */
+function reasonsFor(c: SelectedCandidate): string[] {
+  const b = c.components.breakdown;
+  const out: string[] = [];
+  if (c.components.sovereignBonus >= 45) out.push("you tagged this high");
+  else if (c.components.sovereignBonus >= 20) out.push("you tagged this");
+  if (b.relationship_sovereign >= 15) out.push("known relationship");
+  else if (b.relationshipLeads) out.push("relationship-led");
+  if (b.situationalBoost >= 15) out.push("interview");
+  else if (b.situationalBoost >= 6) out.push("hiring");
+  if (b.categoryBase >= 35) out.push("high stakes");
+  else if (b.categoryBase >= 25) out.push("important");
+  if (b.patternScore >= 10) out.push("recurring pressure pattern");
+  if (c.components.memoryDelta >= 8) out.push("prior priority");
+  else if (c.components.memoryDelta <= -10) out.push("historically low-signal");
+  return Array.from(new Set(out)).slice(0, 3);
 }
 
-function componentReasons(c: {
-  base: number;
-  category: number;
-  severity: number;
-  demand: number;
-}, opts: { isOrganizer: boolean | null; attendees: number | null }): string[] {
-  const out: string[] = [];
-  if (c.base >= 30) out.push("high stakes");
-  else if (c.base >= 20) out.push("important");
-  if (c.category >= 20) out.push("decision-critical");
-  else if (c.category >= 15) out.push("strategic");
-  if (c.severity >= 15) out.push("high severity");
-  if (opts.isOrganizer) out.push("you're organising");
-  if ((opts.attendees ?? 0) >= 5) out.push(`${opts.attendees} attendees`);
-  return out;
+/** User-friendly bucket label aligned with the Plan card vocabulary. */
+function categoryLabelFor(title: string, c: SelectedCandidate): string {
+  const subtype = classifyEvent(title);
+  if (subtype) return subtype.bucket;
+  return EVENT_CATEGORIES[c.categoryId]?.name ?? "Meeting";
 }
 
 serve(async (req) => {
@@ -155,7 +152,7 @@ serve(async (req) => {
     // Pull events (multi-provider) with dedupe — mirrors list-replacement-calendar-events.
     const { data, error } = await supabase
       .from("calendar_events")
-      .select("id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring")
+      .select("id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring, event_metadata, created_at")
       .eq("user_id", userId)
       .gte("start_time", windowStartUtc.toISOString())
       .lt("start_time", windowEndUtc.toISOString())
@@ -176,13 +173,13 @@ serve(async (req) => {
         attendeesCount: r.attendees_count ?? null,
         isOrganizer: r.is_organizer ?? null,
         isRecurring: r.is_recurring ?? null,
+        eventMetadata: r.event_metadata ?? null,
+        createdAt: r.created_at ?? null,
       }));
 
     const platform = (req.headers.get("x-client-platform") || "web").toLowerCase().includes("ios")
       ? "ios" : "web";
     const deduped = mergeCalendarEvents(rawEvents, platform as "ios" | "web");
-
-    const memoryIndex = await loadPriorityMemoryForUser(supabase, userId);
 
     type Scored = {
       eventId: string;
@@ -191,7 +188,7 @@ serve(async (req) => {
       endTime: string;
       localDay: string;            // YYYY-MM-DD (local)
       period: string;
-      category: string;            // coarse token (e.g. 'board')
+      category: string;            // user-friendly bucket label
       typeKey: string;             // normalized bucket
       stakesLevel: string | null;  // 'board' | 'investor' | 'external' | null
       score: number;
@@ -199,98 +196,89 @@ serve(async (req) => {
       isOrganizer: boolean | null;
     };
 
-    // ── Filter + classify + build ranker inputs in one pass ──
+    // ── Filter noise / passive educational and prep selector inputs ──
     type Meta = {
-      eventId: string;
-      title: string;
       startTime: string;
       endTime: string;
       localDay: string;
       period: string;
-      category: string;
       typeKey: string;
-      stakesLevel: string | null;
       isOrganizer: boolean | null;
-      attendees: number | null;
-      memoryReasons: string[];
     };
-
     const metaById = new Map<string, Meta>();
-    const rankerInputs: RankableEventInput[] = [];
+    const selectorRows: Array<{
+      id: string;
+      title: string;
+      start_time: string;
+      end_time: string;
+      created_at: string | null;
+      provider: string | null;
+      attendees_count: number | null;
+      is_organizer: boolean | null;
+      // deno-lint-ignore no-explicit-any
+      event_metadata: Record<string, any> | null;
+    }> = [];
 
     for (const e of deduped) {
       if (isNoiseTitle(e.title)) continue;
       if (isEducationalTitle(e.title) && e.isOrganizer === false) continue;
 
-      const category = coarseEventType(e.title);
-      const typeKey = normalizeEventTypeKey(e.title);
-      const stakesLevel = deriveStakesLevel(e.title);
-
-      const mem = applyEventPriorityMemory(memoryIndex, {
-        eventCategory: category,
-        eventTypeKey: typeKey,
-      });
-      if (mem.hardDemote) continue;
-
       const localStart = new Date(new Date(e.startTime).getTime() - offsetMinutes * 60_000);
       const localDay =
         `${localStart.getFullYear()}-${String(localStart.getMonth() + 1).padStart(2, "0")}-${String(localStart.getDate()).padStart(2, "0")}`;
-
       metaById.set(e.id, {
-        eventId: e.id,
-        title: e.title,
         startTime: e.startTime,
         endTime: e.endTime,
         localDay,
         period: periodFor(localStart),
-        category,
-        typeKey,
-        stakesLevel,
+        typeKey: normalizeEventTypeKey(e.title),
         isOrganizer: e.isOrganizer,
-        attendees: e.attendeesCount,
-        memoryReasons: mem.reasons,
       });
-
-      rankerInputs.push({
-        event: { id: e.id, title: e.title, start_time: e.startTime, end_time: e.endTime },
-        stakesLevel,
-        memoryDelta: mem.delta,
+      selectorRows.push({
+        id: e.id,
+        title: e.title,
+        start_time: e.startTime,
+        end_time: e.endTime,
+        created_at: (e as any).createdAt ?? null,
+        provider: e.provider ?? null,
+        attendees_count: e.attendeesCount ?? null,
+        is_organizer: e.isOrganizer ?? null,
+        event_metadata: (e as any).eventMetadata ?? null,
       });
     }
 
-    // ── Score via the same ranker the weekday Plan uses ──
-    const ranked = rankJitCandidates(rankerInputs, Date.now());
-
-    // Collapse to one row per event (best-scoring phase wins).
-    const bestByEvent = new Map<string, typeof ranked[number]>();
-    for (const r of ranked) {
-      const cur = bestByEvent.get(r.eventId);
-      if (!cur || r.score > cur.score) bestByEvent.set(r.eventId, r);
-    }
+    // ── Run the unified Plan/JIT selector with a 7-day horizon ──
+    const { input, ctx } = await loadJitContextForEvents(
+      supabase,
+      userId,
+      selectorRows,
+      { nowMs: Date.now() },
+    );
+    const result = selectJitCandidates(input, {
+      ...ctx,
+      horizonMs: WEEK_AHEAD_HORIZON_MS,
+    });
 
     const scored: Scored[] = [];
-    for (const [eventId, r] of bestByEvent) {
-      const meta = metaById.get(eventId);
+    for (const c of result.ranked) {
+      const meta = metaById.get(c.eventId);
       if (!meta) continue;
-      const reasons = [
-        ...componentReasons(r.components, {
-          isOrganizer: meta.isOrganizer,
-          attendees: meta.attendees,
-        }),
-        ...meta.memoryReasons,
-      ];
+      const bucketLower = (c.bucket ?? "").toLowerCase();
+      const stakesLevel = c.categoryId === "A"
+        ? (bucketLower.includes("investor") ? "investor" : "board")
+        : ((c.categoryId === "B" || c.categoryId === "C") ? "external" : null);
       scored.push({
-        eventId,
-        title: meta.title,
+        eventId: c.eventId,
+        title: c.title,
         startTime: meta.startTime,
         endTime: meta.endTime,
         localDay: meta.localDay,
         period: meta.period,
-        category: meta.category,
+        category: categoryLabelFor(c.title, c),
         typeKey: meta.typeKey,
-        stakesLevel: meta.stakesLevel,
-        score: r.score,
-        scoreReasons: reasons.slice(0, 3),
+        stakesLevel,
+        score: c.importance,
+        scoreReasons: reasonsFor(c),
         isOrganizer: meta.isOrganizer,
       });
     }
