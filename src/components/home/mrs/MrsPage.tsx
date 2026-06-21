@@ -22,18 +22,29 @@ const MrsPage = () => {
   const weekly = useWeeklyMrsDelta();
 
   const hasScore = typeof score === 'number';
-  const readinessState =
+  // Prefer the backend's explicit readinessEligibility contract (MRS V4).
+  // Falls back to deriving from wearableStatus + innerReadinessState for
+  // payloads emitted before the contract shipped — but NEVER lets a
+  // forwarded 'refined' produce "Full read" without a fresh wearable.
+  const ws = (outerBrief as any)?.wearableStatus;
+  const eligibility = (outerBrief as any)?.readinessEligibility ?? null;
+  const wearableFresh =
+    typeof eligibility?.wearableFresh === 'boolean'
+      ? eligibility.wearableFresh
+      : !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
+  const rawState =
     (outerBrief as any)?.innerReadinessState === 'refined' ||
     weekly.data?.mode === 'refined'
       ? 'refined'
       : (outerBrief as any)?.innerReadinessState === 'awaiting'
         ? 'awaiting'
-      : 'baseline';
+        : 'baseline';
+  // Hard gate — refined requires fresh wearable.
+  const readinessState: 'baseline' | 'refined' | 'awaiting' =
+    rawState === 'refined' && !wearableFresh ? 'baseline' : rawState;
 
   const tierColor = tierColorVar(tier);
   const oneLiner = getReadinessOneLiner(score);
-  const ws = (outerBrief as any)?.wearableStatus;
-  const wearableFresh = !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
   const stateLabel = getReadinessStateLabel(readinessState, wearableFresh);
 
   return (
