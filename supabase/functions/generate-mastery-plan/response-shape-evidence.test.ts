@@ -69,10 +69,11 @@ Deno.test("tomorrowEvents are filtered to ≤now+24h when not in week-ahead mode
   // the helper itself is covered by _shared/plan/day-of-horizon.test.ts.
   assertStringIncludes(SRC, "_dayOfHorizonCutoffMs = nowMs + DAY_OF_HORIZON_MS");
   assertStringIncludes(SRC, "_planWeekAheadActive");
-  assert(
-    /tomorrowEventsRaw\.filter\([^)]*_dayOfHorizonCutoffMs/.test(SRC),
-    "expected tomorrowEventsRaw to be filtered by _dayOfHorizonCutoffMs",
-  );
+  // Filter spans multiple lines; assert both anchors appear in close proximity.
+  const idx = SRC.indexOf("tomorrowEventsRaw.filter(");
+  assert(idx >= 0, "expected tomorrowEventsRaw.filter(...) call site");
+  const window = SRC.slice(idx, idx + 300);
+  assertStringIncludes(window, "_dayOfHorizonCutoffMs");
 });
 
 // ───────────────────── Coach / Tiny Win suppression ──────────────────
