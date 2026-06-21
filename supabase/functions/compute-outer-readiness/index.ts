@@ -5676,28 +5676,39 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // refined → baseline. We must write to the canonical baseline_* or
         // refined_* set based on the current readiness state, otherwise the
         // upsert fails with "cannot insert into generated column".
+        // P0 2026-06-21 — when LLM generation failed (briefIsAwaiting),
+        // persist nulls for phrase/body/leanOn/watchFor so the cache cannot
+        // resurrect deterministic fallback strings on a later read. Score,
+        // tier, and signal pills still persist because they come from
+        // wearable/calendar/check-in pipelines, not the LLM.
+        const persistPhrase = briefIsAwaiting ? null : responsePhrase;
+        const persistBody = briefIsAwaiting ? null : responseBody;
+        const persistLeanOn = briefIsAwaiting ? null : formattedLeanOn;
+        const persistWatchFor = briefIsAwaiting ? null : formattedWatchFor;
+        const persistLeanOnSource = briefIsAwaiting ? null : finalLeanOnSource;
+        const persistWatchForSource = briefIsAwaiting ? null : finalWatchForSource;
         const isRefinedWrite = (clientReadinessState ?? 'baseline') === 'refined';
         const stateColumns = isRefinedWrite
           ? {
               refined_state: 'refined',
-              refined_phrase: responsePhrase,
-              refined_body_text: responseBody,
-              refined_lean_on: formattedLeanOn,
-              refined_lean_on_source: finalLeanOnSource,
-              refined_watch_for: formattedWatchFor,
-              refined_watch_for_source: finalWatchForSource,
+              refined_phrase: persistPhrase,
+              refined_body_text: persistBody,
+              refined_lean_on: persistLeanOn,
+              refined_lean_on_source: persistLeanOnSource,
+              refined_watch_for: persistWatchFor,
+              refined_watch_for_source: persistWatchForSource,
               refined_score: innerReadinessScore ?? null,
               refined_tier: safeTier,
               refined_signal_pills: signalPillsPayload,
             }
           : {
               baseline_state: (clientReadinessState ?? 'baseline'),
-              baseline_phrase: responsePhrase,
-              baseline_body_text: responseBody,
-              baseline_lean_on: formattedLeanOn,
-              baseline_lean_on_source: finalLeanOnSource,
-              baseline_watch_for: formattedWatchFor,
-              baseline_watch_for_source: finalWatchForSource,
+              baseline_phrase: persistPhrase,
+              baseline_body_text: persistBody,
+              baseline_lean_on: persistLeanOn,
+              baseline_lean_on_source: persistLeanOnSource,
+              baseline_watch_for: persistWatchFor,
+              baseline_watch_for_source: persistWatchForSource,
               baseline_score: innerReadinessScore ?? null,
               baseline_tier: safeTier,
               baseline_signal_pills: signalPillsPayload,
