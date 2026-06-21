@@ -9,6 +9,7 @@ import TourMockPlan from "@/components/onboarding/TourMockPlan";
 import { useTourMock } from "@/components/onboarding/useTourMock";
 import WeekAheadPriorities from "@/components/home/WeekAheadPriorities";
 import { useWeekAheadMode } from "@/hooks/useWeekAheadMode";
+import { useWeekAheadServerDecision } from "@/hooks/useWeekAheadServerDecision";
 
 import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
@@ -35,7 +36,8 @@ const PlanPage = () => {
   // useTourMock (active flag + first-time user). Real plan + completion
   // logic stay untouched.
   const { shouldRenderMock: showTourMockPlan } = useTourMock();
-  const weekAhead = useWeekAheadMode();
+  const serverWeekAheadDecision = useWeekAheadServerDecision();
+  const weekAhead = useWeekAheadMode(serverWeekAheadDecision);
 
   useEffect(() => {
     setShowGuide(isTourActiveForUser(effectiveId) || isRetakeForUser(effectiveId));

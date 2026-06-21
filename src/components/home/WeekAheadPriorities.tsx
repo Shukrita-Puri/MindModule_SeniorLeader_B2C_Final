@@ -86,8 +86,28 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
         { headers, body: {} },
       );
       if (invokeErr) throw invokeErr;
-      const resp = (data || {}) as ApiResponse;
-      setItems(Array.isArray(resp.priorities) ? resp.priorities : []);
+      const resp = (data || {}) as Partial<ApiResponse>;
+      const rawItems = Array.isArray(resp.priorities) ? resp.priorities : [];
+      // Defensive normalization — never trust optional fields. The picker
+      // must render even if the server omits scoreReasons / category /
+      // times (e.g. partial response, schema drift).
+      const safe: PriorityItem[] = rawItems
+        .filter((it) => it && typeof it === "object" && it.eventId && it.title)
+        .map((it) => ({
+          eventId: String(it.eventId),
+          title: String(it.title),
+          startTime: String(it.startTime ?? ""),
+          endTime: String(it.endTime ?? ""),
+          localDay: String(it.localDay ?? (it.startTime ? String(it.startTime).slice(0, 10) : "")),
+          period: String(it.period ?? ""),
+          category: String(it.category ?? "Meeting"),
+          typeKey: String(it.typeKey ?? "generic"),
+          stakesLevel: it.stakesLevel ?? null,
+          score: typeof it.score === "number" ? it.score : 0,
+          scoreReasons: Array.isArray(it.scoreReasons) ? it.scoreReasons : [],
+          isOrganizer: it.isOrganizer ?? null,
+        }));
+      setItems(safe);
     } catch (e) {
       console.error("[WeekAheadPriorities] load failed", e);
       setError("Couldn't load your upcoming week.");
