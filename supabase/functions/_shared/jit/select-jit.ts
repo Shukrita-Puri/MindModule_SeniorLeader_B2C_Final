@@ -108,6 +108,17 @@ export function classifyInterview(args: {
 }): InterviewKind {
   const { title } = args;
   if (!INTERVIEW_RE.test(title)) return 'none';
+
+  const tagsNormPre = (args.tags ?? []).map((t) => String(t).toLowerCase().trim());
+  // Title/tag-driven candidate detection runs BEFORE the attendee-count gate
+  // because many calendars sync interviews with 0 attendees populated.
+  if (
+    tagsNormPre.includes('my-interview') ||
+    tagsNormPre.includes('candidate') ||
+    MY_INTERVIEW_TITLE_RE.test(title)
+  ) {
+    return 'candidate';
+  }
   if ((args.attendeesCount ?? 0) < 2) return 'none';
 
   // Media — broadcast/reputational. Highest-confidence first.
@@ -118,13 +129,6 @@ export function classifyInterview(args: {
   ) {
     return 'media';
   }
-
-  const tagsNorm = (args.tags ?? []).map((t) => String(t).toLowerCase().trim());
-  // Sovereign tag — definitive.
-  if (tagsNorm.includes('my-interview') || tagsNorm.includes('candidate')) return 'candidate';
-
-  // Title preposition signal — "my interview at X" / "interview with <senior>"
-  if (MY_INTERVIEW_TITLE_RE.test(title)) return 'candidate';
 
   // Direction-of-evaluation: organizer + attendee-domain majority.
   const own = (args.userDomain ?? '').toLowerCase().trim();
