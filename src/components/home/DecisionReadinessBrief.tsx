@@ -1977,7 +1977,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
             {(() => {
-              const stateLabel = getReadinessStateLabel(readinessState);
+              const wearableFresh = !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
+              const stateLabel = getReadinessStateLabel(readinessState, wearableFresh);
               return (
                 <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
                   {stateLabel.label}
@@ -1991,7 +1992,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         ) : (
           <>
             <span className="text-[40px] font-medium leading-none text-muted-foreground/30">--</span>
-            <span className="text-xs uppercase tracking-wider text-muted-foreground/40 ml-2">EARLY READ · check in to sharpen it</span>
+            <span className="text-xs uppercase tracking-wider text-muted-foreground/40 ml-2">AWAITING SIGNALS · sync your wearable and check in</span>
           </>
         )}
       </div>
