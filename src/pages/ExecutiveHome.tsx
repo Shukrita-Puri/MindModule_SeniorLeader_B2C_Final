@@ -22,6 +22,8 @@ import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
+import WeekAheadPriorities from "@/components/home/WeekAheadPriorities";
+import { useWeekAheadMode } from "@/hooks/useWeekAheadMode";
 import HomeSwipeShell from "@/components/home/swipe/HomeSwipeShell";
 import MrsPage from "@/components/home/mrs/MrsPage";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback

@@ -43,7 +43,6 @@ interface ApiResponse {
 }
 
 const SUBTITLE_BY_REASON: Record<string, string> = {
-  saturday: "Set the shape of next week before it arrives.",
   sunday: "Mark what truly matters this week — nuke the rest.",
   manual_override: "Re-prioritise the week ahead.",
   last_day_pto: "Coming back to work — what's worth your attention?",
