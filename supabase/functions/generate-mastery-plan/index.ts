@@ -75,6 +75,7 @@ import {
   type PriorityMemoryIndex,
 } from '../_shared/plan/event-priority-memory.ts';
 import { mergeCalendarEvents } from '../_shared/rules/calendarEvents.ts';
+import { logMergeStats } from '../_shared/rules/calendar-merge.ts';
 import {
   normalizeEventTypeKey,
 } from '../_shared/plan/week-ahead-mode.ts';
