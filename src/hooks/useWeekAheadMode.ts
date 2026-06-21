@@ -26,8 +26,11 @@ export function useWeekAheadMode(): WeekAheadHint {
     if (manualOverride) {
       return { active: true, reason: "manual_override", manualOverride: true };
     }
+    // Mirror the server predicate (_shared/plan/week-ahead-mode.ts §17.2a):
+    // Saturday is a recovery day, NOT a Week-Ahead day. Only Sunday triggers
+    // the surface client-side. Special last-day-PTO/holiday/long-weekend
+    // branches are server-driven and only land via manual override here.
     const dow = new Date().getDay();
-    if (dow === 6) return { active: true, reason: "saturday", manualOverride: false };
     if (dow === 0) return { active: true, reason: "sunday", manualOverride: false };
     return { active: false, reason: null, manualOverride: false };
   }, [manualOverride]);

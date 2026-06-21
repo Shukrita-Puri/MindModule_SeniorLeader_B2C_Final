@@ -196,18 +196,17 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
-// Coach feature is suppressed: drop coach-cards from horizonModules client-side,
-// but keep the inline "Tiny Win and Reflection" (integrate) slot which is rendered
-// by ReflectionCorner, not by the coach surface. Pure client-side filter — no
-// edge-function, scoring, or LLM impact.
+// Coach feature is suppressed (mem://features/coach/suppression-standard).
+// The server no longer hard-codes a coach card into the evening integrate
+// slot, so the client filter is now a uniform "drop everything coach". The
+// inline Reflection Corner UI is keyed off `type === 'integrate'` (not
+// `isCoachCard`) and remains rendered.
 const stripCoachFromPlan = (plan: MasteryPlanResponse | null): MasteryPlanResponse | null => {
   if (!plan?.horizonModules) return plan;
-  const isReflection = (p: PlanModule) =>
-    p.title === 'Tiny Win and Reflection' || p.type === 'integrate';
   const filtered = plan.horizonModules
     .map((hm) => {
       const slot = hm.practices || [hm.practice];
-      const kept = slot.filter((p) => !p.isCoachCard || isReflection(p));
+      const kept = slot.filter((p) => !p.isCoachCard);
       if (kept.length === 0) return null;
       return { ...hm, practice: kept[0], practices: kept };
     })

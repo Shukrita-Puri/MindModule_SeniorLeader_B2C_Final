@@ -2366,18 +2366,12 @@ function generateCoachCard(
 
   // Integrate (evening coach)
   if (type === 'integrate') {
-    // Evening: ALWAYS included with Tiny Wins
-    return {
-      id: `coach-integrate${stateSegment}`,
-      type: 'integrate',
-      label: 'Integrate',
-      protocolType: 'Self Mastery Coach',
-      title: 'Tiny Win and Reflection',
-      duration: 2,
-      sortOrder: 4,
-      isCoachCard: true,
-      prompt: "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win."
-    };
+    // Coach feature is suppressed (see mem://features/coach/suppression-standard).
+    // The evening Reflection Corner is rendered inline by the client based on
+    // `type === 'integrate'`; it does not require a coach card to exist.
+    // Returning null here prevents the SM Coach thumbnail from being hard-coded
+    // into the evening slot.
+    return null;
   }
 
   return null;
@@ -2392,12 +2386,10 @@ function getCoachPromptForContext(
   hasCoachFavorite?: boolean,
   hasPreEventWithin4h?: boolean
 ): { prompt: string; title: string } | null {
-  // Evening: ALWAYS include
+  // Evening coach prompt suppressed — coach feature is off. Reflection Corner
+  // is rendered inline on the integrate slot without a coach prompt.
   if (timeOfDay === 'evening') {
-    return {
-      prompt: "A managed close. What's one thing you did right today? Share your small win – and what's one thing worth carrying into tomorrow, and one thing worth leaving here?",
-      title: 'Tiny Win and Reflection'
-    };
+    return null;
   }
 
   // Morning coach decision tree
@@ -5656,9 +5648,14 @@ function buildHorizonModules(
     } else if (slotIndex === 2) {
       // Pass 7: prefer the named upcoming-week priority over generic
       // "Monday's / next week's load" when present. Applies on Sunday,
-      // personal-holiday today, and post-holiday weekday.
-      const promoteWeekLead =
-        upcomingWeekLeadEvent && (isWeekend || isPersonalHolidayToday || wasPersonalHolidayYesterday);
+      // personal-holiday today, and post-holiday weekday. Saturday is
+      // intentionally excluded — it is a recovery day (Week-Ahead server
+      // predicate, _shared/plan/week-ahead-mode.ts §17.2a). Promoting a
+      // Monday lead event on Saturday would violate the 24h JIT rule
+      // and inflate Saturday past the "1 morning slot mandatory" cadence.
+      const isSundayOrPostHoliday =
+        (dow === 0) || isPersonalHolidayToday || wasPersonalHolidayYesterday;
+      const promoteWeekLead = upcomingWeekLeadEvent && isSundayOrPostHoliday;
       if (promoteWeekLead && upcomingWeekLeadEvent) {
         anchorEventId = upcomingWeekLeadEvent.id;
         anchor = (upcomingWeekLeadEvent.title
@@ -5684,7 +5681,7 @@ function buildHorizonModules(
     // (slot 3 only) tomorrow's calendar. Otherwise drop the slot.
     if (slotIndex >= 1 && !anchorEvent && !highLoad && !hrvDeficit && !sleepDeficit
         && !(slotIndex === 2 && tomorrowEvents.length > 0)
-        && !(slotIndex === 2 && isWeekend)
+        && !(slotIndex === 2 && dow === 0)
         && !(slotIndex === 2 && (isPersonalHolidayToday || wasPersonalHolidayYesterday) && !!upcomingWeekLeadEvent)) {
       return null;
     }
@@ -6059,7 +6056,10 @@ function buildHorizonModules(
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   } else {
-    const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && (m.isCoachCard || m.type === 'integrate'));
+    // Coach suppression: never lift coach cards into the strategic slot.
+    // Integrate-type practices are still eligible — they host the inline
+    // Reflection Corner UI.
+    const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && m.type === 'integrate' && !m.isCoachCard);
     const fallbackModule = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     const primaryMod = strategicModule || fallbackModule;
     slot3Practices = primaryMod ? [primaryMod] : [];
