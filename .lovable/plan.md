@@ -1,80 +1,142 @@
-## Problem
+# 20th June — Calendar & Wearable Health + Cross-Calendar Dedupe
 
-Week-Ahead Priorities (the card that opened in your screenshot) runs a separate, weaker pipeline than the weekday Plan:
+## Findings from investigation (before any edits)
 
-- It uses `rankJitCandidates` (legacy ranker) instead of `selectJitCandidates` (the triangulated Immediate / Tactical / Strategic + Sovereign + Memory selector that powers the daily Plan).
-- It never loads attendee relationships, `event_priority_memory`, sovereign tags from `plan_ledger`, `causality_findings.signal_summary`, skip / follow-through counts, or user goals — so a CEO interview can't earn the `direct_boss`/`board_member`/`investor` hoisted relationship bonus, and a presentation can't pick up tactical pattern weight.
-- The classifier mis-tags some events (a recurring "Chief UK In Transition" trips the `trv.flight` keyword `transit`; an "Interview with EY CEO" surfaces as "leadership / strategic / you're organising" instead of the candidate-interview bucket because no relationship roles are loaded; "Presenting Mind Module to St James" never makes it in because the influence subtype keyword list omits `present`/`presenting`).
-- `selectJitCandidates` hard-caps events at a 24h horizon, so even if you wired it in directly today you'd get zero results for a 7-day window.
+- **Part 1 (smart-nudges boot):** Already self-healed. `_shared/rules/calendarEvents.ts` was updated yesterday to use a direct `export { … } from './calendar-merge.ts'` re-export (lines 31–36), and current edge logs show `smart-nudges` booting and running ("Evaluating 11 users… Starting evaluation run v7"). Boot failure no longer reproduces. The brief still asks for the import to be hardened to a direct `calendar-merge.ts` import on the hot path — I'll do that as belt-and-suspenders so a future re-export regression cannot kill nudges.
+- **Part 2 (sync-profile placeholder):** Confirmed root cause. `supabase/functions/sync-profile/index.ts` line 32 reads `Deno.env.get("VITE_AUTH0_DOMAIN")`, and that secret currently holds `placeholder_value_to_be_replaced`. The project also has a non-prefixed `AUTH0_DOMAIN` secret (already in the secret list). Per the existing "Edge Function Auth Secrets Priority" memory, edge functions should prefer the non-prefixed secret with the VITE_ one as fallback.
+- **Part 3 (working systems):** Verify-only — no refactor planned.
+- **Parts 4–5 (dedupe):** Already partially in place via `_shared/rules/calendar-merge.ts → mergeCalendarEvents` and `_shared/ceo-behaviour/calendar-dedupe.ts → dedupeForLoad`. Gaps to close: (a) ensure every consumer (Plan, Brief signal pills, JIT context, smart-nudges, load/density rules) reads through the shared merge layer, (b) make the canonical merge build a true canonical event (sourceCalendars[], union attendees, organiser-preferred metadata, status suppression), (c) ensure memory/HRV keys attach to canonical id, (d) add observability counters.
 
-The fix is to unify the selection path and patch the classifier gaps the audit surfaced.
+---
 
-## Plan
+## Part 1 — smart-nudges hot-path import hardening
 
-### 1. Extract the JIT context loader as a shared module
+- Change `supabase/functions/smart-nudges/index.ts` line 20 from `../_shared/rules/calendarEvents.ts` to `../_shared/rules/calendar-merge.ts` (direct import, bypass re-export). No logic change.
+- Redeploy `smart-nudges`. Confirm boot + one evaluation cycle in `supabase--edge_function_logs`.
 
-New file: `supabase/functions/_shared/jit/load-jit-context.ts`.
+## Part 2 — sync-profile Auth0 domain resolution
 
-Move the loader logic that today lives inline in `generate-mastery-plan/index.ts` (≈lines 180–510) into a single `loadJitContextForEvents(supabase, userId, events, opts)` helper that returns the full `{ input: SelectInputEvent[], ctx: SelectContext }` pair. It pulls and composes:
+- Edit `supabase/functions/sync-profile/index.ts` to read domain as `Deno.env.get("AUTH0_DOMAIN") || Deno.env.get("VITE_AUTH0_DOMAIN")`, with placeholder guard (`domain && !domain.includes("placeholder")`) before fetching. No other behaviour change.
+- Redeploy `sync-profile`. Verify next login no longer logs the placeholder DNS error.
+- If `AUTH0_DOMAIN` secret value is itself placeholder, surface that and ask the user for the correct domain via `add_secret`. (Will inspect with `secrets--fetch_secrets` after the code change is in.)
 
-- attendee emails per event, `attendee_relationships` rows (source + confidence), `memory_user_tag` replay, domain-heuristic backstop, optional async resolver fan-out (gated by `opts.fireLateResolve`).
-- `event_priority_memory` sovereign tag history (`tag_importance_*`, `tag_custom`, `tag_cleared`) into `tags`.
-- `event_priority_memory` derived state via existing `applyEventPriorityMemory` into `memoryDeltaByEventId` (delta / hardDemote / sovereignEscalation).
-- `causality_findings.signal_summary`, `accountAgeDays`, skip/follow-through counts (empty for now to match Plan PR1), and `goals` from the profile snapshot.
+## Part 3 — Working-systems verification (read-only)
 
-`generate-mastery-plan/index.ts` is refactored to call this helper — no behaviour change for the Plan, identical inputs to `selectJitCandidates`.
+For each system below, query logs / DB and report status only. No code changes unless verification surfaces a live failure:
 
-### 2. Add a configurable horizon to the selector
+1. **Google Calendar** — `register-calendar-watch` channel expiry, `sync-calendar-scheduled` last run, `refresh-calendar-tokens` outcomes, duplicate-row check on `(user_id, provider, external_id)` in `calendar_events`.
+2. **Microsoft Outlook** — confirm webhook support inside `register-calendar-watch`. If absent, document as v1 limitation; do **not** implement Graph subscriptions in this pass.
+3. **Apple iOS Calendar** — verify `AppleCalendarBackgroundSyncBridge.swift` + `NativeBackgroundSyncPlugin.swift` still register BGTask, EventKit observer, foreground/resume drain. Preserve false-disconnect protection.
+4. **Apple Watch / HealthKit** — verify `WearableSyncBridge`/`processed_outbox_items` idempotency, `X-Outbox-Item-Id` header, distinct states preserved.
+5. **Oura** — query `pg_cron` for any `oura-sync-*` schedule + recent invocation logs. If exactly one cron exists, do nothing. If missing, add a single hourly cron with documented job name. If duplicate cron, leave a note (no removal unless user approves).
 
-In `supabase/functions/_shared/jit/select-jit.ts`:
+Output a short status report per system at end of Part 3.
 
-- Add `ctx.horizonMs?: number` (default `24 * 60 * 60_000` for back-compat). Replace the hardcoded ceiling check with `if (startMs - nowMs > horizonMs) { excluded.push(... 'outside_horizon_ceiling'); continue; }`.
-- Existing Plan callers and tests keep the 24h behaviour automatically.
+## Part 4 — Cross-calendar canonical dedupe (shared upstream layer)
 
-### 3. Rewrite `list-week-ahead-priorities` on top of the unified selector
+Single canonical merge runs once; every consumer reads merged output.
 
-In `supabase/functions/list-week-ahead-priorities/index.ts`:
+### 4a. Strengthen `_shared/rules/calendar-merge.ts → mergeCalendarEvents`
 
-- Drop `rankJitCandidates`, `applyEventPriorityMemory`, and the local component-reason builder.
-- After dedupe + noise/educational filtering, call `loadJitContextForEvents(supabase, userId, dedupedEvents, { fireLateResolve: false })` then `selectJitCandidates(input, { ...ctx, horizonMs: 7 * 86_400_000 })`.
-- Map each `SelectedCandidate` to the API shape the UI already consumes:
-  - `category` = a coarse token derived from `categoryId` + `bucket` so the chip under each title reads from the same source as the Plan ("interview", "influence", "investor"…) rather than the legacy coarse map.
-  - `scoreReasons` derived from `components.breakdown` (`relationshipLeads` → relationship label; high `sovereignBonus` → "high stakes" / "you tagged this"; `situationalBoost > 0` → "interview" / "media"; high `tactical` → "recurring high-pressure pattern").
-- Keep the existing per-category soft cap (4) and `TOP_N=10`, plus chronological re-sort for the UI.
+Audit current implementation, then add (only what's missing):
+- **Identity key:** `normalize(title) + startTimeBucketUTC(5-min) + durationBucket(±10-min)`. Use existing `normalizeForClassify` for title.
+- **Title normalization:** ensure stripping of provider noise prefixes (`Accepted:|Tentative:|Declined:|Fwd:|[External]`), trailing `(GMT±N)` timezone text, collapse punctuation/whitespace.
+- **Attendee corroboration:** if titles+time+duration match but attendees clearly disjoint, **do not merge** (bias to split).
+- **Canonical event output:**
+  - `canonicalId` (stable hash of identity key) + `providerIds: string[]`
+  - `sourceCalendars: string[]`
+  - unioned `attendees`
+  - best-available `location`, `description`, `meetingUrl` (organiser copy first, then richest metadata, then provider precedence)
+  - merged `status` (declined/cancelled on any copy → suppress unless newer accepted evidence)
+  - `rawSources: []` for debugging
+- **Busy-block rule:** suppress untitled/attendeeless Busy block when overlapping with titled real event; keep standalone Busy as soft-hold (returns flag, not removed).
+- **Recurring:** match per-instance, never collapse the whole series.
 
-### 4. Classifier / taxonomy patches
+### 4b. Conflict/overlap resolver (new, after dedupe)
 
-In `supabase/functions/_shared/events/event-subtypes.ts`:
+Add `resolveOverlaps(canonicalEvents, ctx)` in `_shared/rules/calendar-merge.ts` (or sibling `calendar-overlaps.ts`):
+- Group mutually overlapping events using `startA < endB && startB < endA`.
+- Tie-break ladder: user tag → relationship weight → category priority → proximity.
+- Anchor highest score, mark others `slotSuppressed: true` with `suppressionReason`.
+- Emit a `chain` flag (not winner-takes-slot) when overlap looks like same-stakeholder sequence.
+- Return load-signal payload for `decisionDensity` / `stackedStakes` consumption.
 
-- Add `transition`, `in transition`, `chief`, `cto in transition`, `interim` to `trv.flight.excludeKeywords` so recurring leadership "in transition" calls stop being labelled Travel.
-- Extend `inf.client_presentation.keywords` with `present`, `presenting`, `presentation`, `pitch` (and add `excludeKeywords` for `presentation deck review` if needed) so titles like "Presenting Mind Module to St James" classify as B-Influence.
-- Add a dedicated `inf.exec_presentation` entry only if the audit shows pitches need a separate label; otherwise reuse the client-presentation subtype.
+### 4c. Consumer wiring audit + fix
 
-In `supabase/functions/_shared/jit/select-jit.ts`:
+For each downstream consumer, confirm it reads the merged canonical set. Fix only those that re-fetch raw events:
+- `generate-mastery-plan` + `_shared/jit/select-jit.ts` + `_shared/jit/load-jit-context.ts`
+- `compute-outer-readiness` (Brief signal pills) + `_shared/brief-signal-coverage.ts`
+- `list-week-ahead-priorities`
+- `smart-nudges`
+- `_shared/ceo-behaviour/multi-calendar.ts` + `calendar-dedupe.ts` (rebase on canonical output instead of re-deduping raw)
+- `record-event-priority-signal` + `event_priority_memory` (key on canonical id; on lookup, also match legacy provider id for back-compat)
+- HRV correlation path (search `causality_findings`/`physiological_events` consumers)
 
-- `MY_INTERVIEW_TITLE_RE` already covers `interview with .*ceo|founder|chair`, so once the unified selector receives attendee roles "Interview with EY CEO" will resolve to `candidate` and pick up the +18 situational boost on top of any hoisted relationship weight. No code change required in this file beyond the horizon param.
+Specifically check whether Brief independently fetches raw calendar events; if so, route it through the same upstream merge call used by Plan.
 
-### 5. Display-label alignment
+### 4d. Memory / HRV key stability
 
-In `src/components/home/WeekAheadPriorities.tsx` (or wherever the chip reads `category`): use the canonical bucket the selector now returns (Influence, Visibility, Governance, People, etc.) instead of the legacy coarse-token vocabulary. Same vocabulary the Plan card uses.
+- `event_priority_memory.event_id` and HRV correlation keys move to `canonicalId`.
+- On read, fall back to provider-id match so historical tags survive.
+- A meeting tagged on Apple stays tagged after merge with Google/MS copy.
 
-### 6. Validation
+### 4e. Load/density accounting
 
-- Unit: extend `select-jit.test.ts` with a `horizonMs: 7*86400_000` case and a regression test that `Interview with EY CEO` + attendee role `direct_boss` ranks above a same-day `Weekly AI Forum`.
-- Unit: classifier test asserting `Chief UK In Transition` does NOT classify as travel and `Presenting Mind Module to St James` classifies as `inf.client_presentation`.
-- Smoke: curl `list-week-ahead-priorities` for the dev user, confirm the picker emits the three example events (`Interview with EY CEO`, the presentation, the fundraising open mic) ranked above generic standups.
+- All density rules count merged distinct events: `decisionDensity`, `backToBackLoad`, `multiCalendarLoad`, `stackedStakes`, Brief pills, Plan slots, smart nudges.
+- `multiCalendarLoad` continues to read `sourceCalendars.length` from canonical events (already its contract).
 
-## Files touched
+### 4f. Observability
 
-- new: `supabase/functions/_shared/jit/load-jit-context.ts`
-- edit: `supabase/functions/_shared/jit/select-jit.ts` (horizonMs param)
-- edit: `supabase/functions/_shared/events/event-subtypes.ts` (keyword fixes)
-- edit: `supabase/functions/generate-mastery-plan/index.ts` (use new helper)
-- edit: `supabase/functions/list-week-ahead-priorities/index.ts` (unified selector)
-- edit: `src/components/home/WeekAheadPriorities.tsx` (chip vocabulary)
-- tests: `supabase/functions/_shared/jit/__tests__/select-jit.test.ts`, classifier test
+Add structured log line at the canonical merge call site:
+```
+[calendar-merge] user=… rawEventCount=… mergedEventCount=… dedupeCollapseCount=… conflictGroups=… suppressedBusyBlocks=… sourceCalendars=[…]
+```
+No new table — purely log output, low-cardinality.
 
-## Out of scope
+## Part 5 — CEO-behaviour shared module ownership audit
 
-- No changes to the Brief, scoring weights, sovereign tag hierarchy, or memory schema. Plan behaviour is byte-for-byte identical (same inputs → same selector).
-- Skip / follow-through count wiring stays empty (matches current Plan PR1 state); enabling those is its own PR.
+Short markdown report appended to `mem/architecture/ceo-behaviour-shared-module-ownership.md` listing:
+1. Where multi-calendar fetch is assembled (single entry point).
+2. Where canonical dedupe + overlap resolver now run.
+3. Each consumer + whether it reads merged set.
+4. Whether Brief had an independent raw fetch + how it was corrected.
+5. Memory/HRV key canonicalisation status.
+6. Load/density before-vs-after raw/merged counting.
+
+## Part 6 — Light monitoring (optional, scope-permitting)
+
+Only if a monitoring pattern already exists. Otherwise document as follow-up in the report. No new tables.
+
+---
+
+## Files to touch (minimal set)
+
+- **edit** `supabase/functions/smart-nudges/index.ts` (hot-path import only)
+- **edit** `supabase/functions/sync-profile/index.ts` (AUTH0_DOMAIN priority + placeholder guard)
+- **edit** `supabase/functions/_shared/rules/calendar-merge.ts` (canonical fields, busy-block rule, status suppression, identity-key hardening, observability log)
+- **add or edit** `supabase/functions/_shared/rules/calendar-overlaps.ts` (`resolveOverlaps`)
+- **edit** consumers that re-fetch raw events (only those proven to bypass the shared merge — list confirmed during 4c audit)
+- **edit** `_shared/ceo-behaviour/calendar-dedupe.ts` to consume canonical output (no duplicate dedupe pass)
+- **edit** `mem/architecture/ceo-behaviour-shared-module-ownership.md` (Part 5 report)
+
+## Out of scope (explicitly preserved)
+
+- MRS scoring, slot allocator, practice selector, why-line prompt, B4 resolver, Firecrawl, brief snapshot writes, frontend design, Plan composition logic, classifier rules, taxonomy, prompt contracts.
+- No Microsoft Graph webhook implementation.
+- No new monitoring tables.
+- No Anthropic / LLM changes (yesterday's Phase 1 reliability fix stands).
+
+## Acceptance verification (post-edit)
+
+- `smart-nudges` boots; `[smart-nudges] Starting evaluation run` appears in next two cron ticks.
+- `sync-profile` logs no longer reference `placeholder_value_to_be_replaced`.
+- Manual sanity: pick one user with multiple providers, run the merge log line, confirm `mergedEventCount < rawEventCount`.
+- Plan + Brief both show one row for a synthesised "Board Meeting" present on multiple providers.
+- Declining on any provider suppresses the canonical event.
+- Tagged-on-Apple event remains tagged after Google copy is merged in.
+
+## Open questions for you (will not block if you say "proceed")
+
+1. **Oura cron:** if I find a duplicate cron, should I remove the extra schedule or leave both and flag it?
+2. **canonicalId scheme:** OK to use a stable SHA-1 of `(normalizedTitle | startBucketUTC | durationBucket)`? This keeps it deterministic across re-syncs without a DB column.
+3. **Status field:** if `calendar_events` does not currently persist per-provider status, OK to derive at merge time from raw metadata (no migration), or do you want a new `status` column?
