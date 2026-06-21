@@ -1,142 +1,90 @@
-# 20th June — Calendar & Wearable Health + Cross-Calendar Dedupe
+## P0 Fix — Readiness Source Contract, Brief LLM Reliability, Signal Pill Gating
 
-## Findings from investigation (before any edits)
+This is a multi-area backend + frontend change. Doing it as one atomic pass so the contract holds end-to-end. Plan first because the scope is large and several changes touch hot paths (Brief generation, MRS, Plan gating).
 
-- **Part 1 (smart-nudges boot):** Already self-healed. `_shared/rules/calendarEvents.ts` was updated yesterday to use a direct `export { … } from './calendar-merge.ts'` re-export (lines 31–36), and current edge logs show `smart-nudges` booting and running ("Evaluating 11 users… Starting evaluation run v7"). Boot failure no longer reproduces. The brief still asks for the import to be hardened to a direct `calendar-merge.ts` import on the hot path — I'll do that as belt-and-suspenders so a future re-export regression cannot kill nudges.
-- **Part 2 (sync-profile placeholder):** Confirmed root cause. `supabase/functions/sync-profile/index.ts` line 32 reads `Deno.env.get("VITE_AUTH0_DOMAIN")`, and that secret currently holds `placeholder_value_to_be_replaced`. The project also has a non-prefixed `AUTH0_DOMAIN` secret (already in the secret list). Per the existing "Edge Function Auth Secrets Priority" memory, edge functions should prefer the non-prefixed secret with the VITE_ one as fallback.
-- **Part 3 (working systems):** Verify-only — no refactor planned.
-- **Parts 4–5 (dedupe):** Already partially in place via `_shared/rules/calendar-merge.ts → mergeCalendarEvents` and `_shared/ceo-behaviour/calendar-dedupe.ts → dedupeForLoad`. Gaps to close: (a) ensure every consumer (Plan, Brief signal pills, JIT context, smart-nudges, load/density rules) reads through the shared merge layer, (b) make the canonical merge build a true canonical event (sourceCalendars[], union attendees, organiser-preferred metadata, status suppression), (c) ensure memory/HRV keys attach to canonical id, (d) add observability counters.
+### Root-cause hypotheses (to verify in step 1)
+1. **False "Full Read" at 53/100**: `compute-outer-readiness` (and/or `useOuterReadiness`/MrsPage) is downgrading `readinessState` from `refined` → `baseline` only on the **score-bearing** path, but the **label/state** sent to the UI still resolves to `refined` because some consumer reads `brief_snapshots.refined_*` columns without re-checking `wearableStatus`. Frontend `getReadinessStateLabel('refined', false)` correctly says "Full read" — i.e. the bug is upstream: state is `refined` when wearable is not fresh.
+2. **Mixed pill states** (one "REFINED", one "BASELINE", one "REFINED"): pills are built per-signal without a unified `isScoreBearing` gate; some derive freshness from check-in alone.
+3. **"No signal detail yet" detached**: collapsible detail panel is keyed to a stale/empty pill index when pills are filtered.
+4. **Deterministic Brief copy** ("Close strong.", "Steady the system…", "protecting the edge"): hardcoded fallback strings in `compute-outer-readiness` / `_shared/brief/copy-vocabulary.ts` are rendered when LLM fails, instead of returning awaiting state.
+5. **Claude fallback 404**: `CLAUDE_MODELS.SONNET` was already corrected to `claude-sonnet-4-5-20250929` (verified in `_shared/anthropic.ts`); smoke test exists. Need to confirm no other call site hardcodes the old id.
+6. **`llm_attempts` discarded**: `brief_snapshots.llm_attempts` column may not exist or is never written; need migration + write path.
 
----
+### Phase 1 — Investigate (no code changes)
+- Grep all references: `getReadinessStateLabel`, `wearableFresh`, `readinessState`, `refined`, `baseline`, signal pill builders, `compute-outer-readiness` payload shape, `useOuterReadiness`, `MrsPage`, `DecisionReadinessBrief`, Signal Pill components.
+- Inspect `brief_snapshots` schema for `llm_attempts` column.
+- Confirm where pill `sourceType` / `isScoreBearing` is (or isn't) computed.
+- Confirm deterministic fallback strings and where they're emitted.
+- Confirm `compute-inner-readiness` already gates `refined → baseline` on `wearableStatus !== 'fresh'` (done in earlier pass) — verify `compute-outer-readiness` honours that and that the Brief LLM path is gated the same way.
 
-## Part 1 — smart-nudges hot-path import hardening
+### Phase 2 — Backend source-of-truth contract
+**File: `supabase/functions/compute-outer-readiness/index.ts`** (and shared helpers)
+- Add a single helper that returns:
+  ```ts
+  readinessEligibility: {
+    wearableFresh: boolean;
+    checkInFresh: boolean;
+    mode: 'awaiting_signals' | 'early_read' | 'full_read';
+    scoreCanUpdate: boolean;       // = wearableFresh
+    checkInCanRefine: boolean;     // = wearableFresh && checkInFresh
+    reason: string;
+  }
+  ```
+- Use it as the only branch point for: emitting score, building Brief, emitting pills, persisting `brief_snapshots`.
+- **No wearable**: short-circuit. Persist check-in if present, but do **not** write a new score-bearing `brief_snapshots` row; emit `mode: awaiting_signals` with awaiting copy from `src/constants/awaitingSignals.ts` mirror in shared.
+- **Wearable only**: build wearable-derived score + Brief; pills tagged `sourceTypes: ['wearable'], isScoreBearing: true`.
+- **Wearable + check-in**: full refined path; pills that consumed check-in tag `sourceTypes: ['wearable','checkin']` and populate `detail` with the check-in context line.
+- Add `sourceTypes`, `isScoreBearing`, `freshness`, `hiddenReason`, `detail` to every emitted pill.
+- Stale wearable (>X hrs in user TZ) treated as `wearableFresh=false`. Never as fresh.
 
-- Change `supabase/functions/smart-nudges/index.ts` line 20 from `../_shared/rules/calendarEvents.ts` to `../_shared/rules/calendar-merge.ts` (direct import, bypass re-export). No logic change.
-- Redeploy `smart-nudges`. Confirm boot + one evaluation cycle in `supabase--edge_function_logs`.
+**File: `supabase/functions/compute-inner-readiness/index.ts`**
+- Verify the previous gate is intact. If anything still emits `state: 'refined'` when `wearableStatus !== 'fresh'`, harden.
 
-## Part 2 — sync-profile Auth0 domain resolution
+### Phase 3 — Brief LLM reliability
+**Files:** `compute-outer-readiness/index.ts`, `_shared/anthropic.ts`, `_shared/brief/copy-vocabulary.ts`, `_shared/brief-prompt-version.ts`
+- **Remove deterministic personality fallback.** When all LLM attempts fail, return awaiting copy (or null) and set `brief_source: 'awaiting'` or `'llm_failed'`. Never render "Close strong.", "Steady the system…", "protecting the edge".
+- **Persist `llm_attempts`** — every attempt pushed to an array with `{ model, attempt, durationMs, outcome, rawReason, httpStatus, errorHead, validatorReject }`. Written to `brief_snapshots.llm_attempts jsonb`.
+- **Migration**: `ALTER TABLE brief_snapshots ADD COLUMN IF NOT EXISTS llm_attempts jsonb;` with GRANT preserved.
+- **Prompt tightening**: max 60-word body, target 45-55, four beats (evidence, read, work directive, self-regulation), banned/preferred vocab pairs, retry includes the literal validator-failure reason.
+- **Timeouts**: Gemini Flash attempt 1 → 7s; Claude fallback → 8s.
+- **Bump `BRIEF_PROMPT_VERSION`** to invalidate cached bad snapshots.
+- Confirm `CLAUDE_MODELS.SONNET = 'claude-sonnet-4-5-20250929'` is the only Claude id used; smoke test stays.
 
-- Edit `supabase/functions/sync-profile/index.ts` to read domain as `Deno.env.get("AUTH0_DOMAIN") || Deno.env.get("VITE_AUTH0_DOMAIN")`, with placeholder guard (`domain && !domain.includes("placeholder")`) before fetching. No other behaviour change.
-- Redeploy `sync-profile`. Verify next login no longer logs the placeholder DNS error.
-- If `AUTH0_DOMAIN` secret value is itself placeholder, surface that and ask the user for the correct domain via `add_secret`. (Will inspect with `secrets--fetch_secrets` after the code change is in.)
+### Phase 4 — Frontend
+**Files (to confirm):** `src/components/home/mrs/MrsPage.tsx`, `src/components/home/DecisionReadinessBrief.tsx`, signal-pill component (`src/components/.../SignalPills.tsx`), `src/hooks/useOuterReadiness.ts`, `src/utils/readinessLabels.ts`.
+- Prefer `payload.readinessEligibility.mode` for label.
+- Derived fallback: never produce `full_read` from check-in alone; never produce `early_read` without `wearableFresh`.
+- Label table:
+  - `awaiting_signals` + no check-in → "Awaiting signals · sync your wearable and check in"
+  - `awaiting_signals` + check-in present → "Check-in received · awaiting wearable signals"
+  - `early_read` → "Early Read · check in to sharpen it"
+  - `full_read` → "Full Read · with your check-in"
+- Signal pills: render only pills with `isScoreBearing: true` when scoring is active. Suppress refined pills when `!wearableFresh`. Collapsible detail keyed to the selected pill id (not list index) — fixes the misaligned "No signal detail yet".
+- Show check-in detail string inside pill collapsible only when `sourceTypes` includes `'checkin'` and `detail` is non-empty.
+- Plan/MRS/Brief surfaces respect `scoreCanUpdate`; cached horizon modules from previous days are clearly labelled or hidden under awaiting state.
 
-## Part 3 — Working-systems verification (read-only)
+### Phase 5 — Tests
+Add to `supabase/functions/compute-outer-readiness/*.test.ts` and `src/utils/readinessLabels.test.ts` covering the full matrix:
+- no wearable + no check-in
+- no wearable + check-in
+- stale wearable + check-in
+- fresh wearable + no check-in
+- fresh wearable + check-in
+- LLM failure (`llm_attempts` populated, no deterministic copy)
+- Claude model smoke
 
-For each system below, query logs / DB and report status only. No code changes unless verification surfaces a live failure:
+### Out of scope
+- Plan algorithm internals (only display gating).
+- B4 resolver, scoring math, slot allocator, practice selector, why-line.
+- Wearable ingestion / Oura cron.
 
-1. **Google Calendar** — `register-calendar-watch` channel expiry, `sync-calendar-scheduled` last run, `refresh-calendar-tokens` outcomes, duplicate-row check on `(user_id, provider, external_id)` in `calendar_events`.
-2. **Microsoft Outlook** — confirm webhook support inside `register-calendar-watch`. If absent, document as v1 limitation; do **not** implement Graph subscriptions in this pass.
-3. **Apple iOS Calendar** — verify `AppleCalendarBackgroundSyncBridge.swift` + `NativeBackgroundSyncPlugin.swift` still register BGTask, EventKit observer, foreground/resume drain. Preserve false-disconnect protection.
-4. **Apple Watch / HealthKit** — verify `WearableSyncBridge`/`processed_outbox_items` idempotency, `X-Outbox-Item-Id` header, distinct states preserved.
-5. **Oura** — query `pg_cron` for any `oura-sync-*` schedule + recent invocation logs. If exactly one cron exists, do nothing. If missing, add a single hourly cron with documented job name. If duplicate cron, leave a note (no removal unless user approves).
+### Risks
+- `brief_snapshots` schema change requires migration + GRANT.
+- Removing deterministic fallback may briefly increase visible "awaiting" surfaces if LLM is flaky — acceptable per spec.
+- Prompt version bump invalidates today's cached briefs (intended).
 
-Output a short status report per system at end of Part 3.
-
-## Part 4 — Cross-calendar canonical dedupe (shared upstream layer)
-
-Single canonical merge runs once; every consumer reads merged output.
-
-### 4a. Strengthen `_shared/rules/calendar-merge.ts → mergeCalendarEvents`
-
-Audit current implementation, then add (only what's missing):
-- **Identity key:** `normalize(title) + startTimeBucketUTC(5-min) + durationBucket(±10-min)`. Use existing `normalizeForClassify` for title.
-- **Title normalization:** ensure stripping of provider noise prefixes (`Accepted:|Tentative:|Declined:|Fwd:|[External]`), trailing `(GMT±N)` timezone text, collapse punctuation/whitespace.
-- **Attendee corroboration:** if titles+time+duration match but attendees clearly disjoint, **do not merge** (bias to split).
-- **Canonical event output:**
-  - `canonicalId` (stable hash of identity key) + `providerIds: string[]`
-  - `sourceCalendars: string[]`
-  - unioned `attendees`
-  - best-available `location`, `description`, `meetingUrl` (organiser copy first, then richest metadata, then provider precedence)
-  - merged `status` (declined/cancelled on any copy → suppress unless newer accepted evidence)
-  - `rawSources: []` for debugging
-- **Busy-block rule:** suppress untitled/attendeeless Busy block when overlapping with titled real event; keep standalone Busy as soft-hold (returns flag, not removed).
-- **Recurring:** match per-instance, never collapse the whole series.
-
-### 4b. Conflict/overlap resolver (new, after dedupe)
-
-Add `resolveOverlaps(canonicalEvents, ctx)` in `_shared/rules/calendar-merge.ts` (or sibling `calendar-overlaps.ts`):
-- Group mutually overlapping events using `startA < endB && startB < endA`.
-- Tie-break ladder: user tag → relationship weight → category priority → proximity.
-- Anchor highest score, mark others `slotSuppressed: true` with `suppressionReason`.
-- Emit a `chain` flag (not winner-takes-slot) when overlap looks like same-stakeholder sequence.
-- Return load-signal payload for `decisionDensity` / `stackedStakes` consumption.
-
-### 4c. Consumer wiring audit + fix
-
-For each downstream consumer, confirm it reads the merged canonical set. Fix only those that re-fetch raw events:
-- `generate-mastery-plan` + `_shared/jit/select-jit.ts` + `_shared/jit/load-jit-context.ts`
-- `compute-outer-readiness` (Brief signal pills) + `_shared/brief-signal-coverage.ts`
-- `list-week-ahead-priorities`
-- `smart-nudges`
-- `_shared/ceo-behaviour/multi-calendar.ts` + `calendar-dedupe.ts` (rebase on canonical output instead of re-deduping raw)
-- `record-event-priority-signal` + `event_priority_memory` (key on canonical id; on lookup, also match legacy provider id for back-compat)
-- HRV correlation path (search `causality_findings`/`physiological_events` consumers)
-
-Specifically check whether Brief independently fetches raw calendar events; if so, route it through the same upstream merge call used by Plan.
-
-### 4d. Memory / HRV key stability
-
-- `event_priority_memory.event_id` and HRV correlation keys move to `canonicalId`.
-- On read, fall back to provider-id match so historical tags survive.
-- A meeting tagged on Apple stays tagged after merge with Google/MS copy.
-
-### 4e. Load/density accounting
-
-- All density rules count merged distinct events: `decisionDensity`, `backToBackLoad`, `multiCalendarLoad`, `stackedStakes`, Brief pills, Plan slots, smart nudges.
-- `multiCalendarLoad` continues to read `sourceCalendars.length` from canonical events (already its contract).
-
-### 4f. Observability
-
-Add structured log line at the canonical merge call site:
-```
-[calendar-merge] user=… rawEventCount=… mergedEventCount=… dedupeCollapseCount=… conflictGroups=… suppressedBusyBlocks=… sourceCalendars=[…]
-```
-No new table — purely log output, low-cardinality.
-
-## Part 5 — CEO-behaviour shared module ownership audit
-
-Short markdown report appended to `mem/architecture/ceo-behaviour-shared-module-ownership.md` listing:
-1. Where multi-calendar fetch is assembled (single entry point).
-2. Where canonical dedupe + overlap resolver now run.
-3. Each consumer + whether it reads merged set.
-4. Whether Brief had an independent raw fetch + how it was corrected.
-5. Memory/HRV key canonicalisation status.
-6. Load/density before-vs-after raw/merged counting.
-
-## Part 6 — Light monitoring (optional, scope-permitting)
-
-Only if a monitoring pattern already exists. Otherwise document as follow-up in the report. No new tables.
+### Deliverable
+Final report with: files changed, root-cause confirmation, test/log proof for each matrix row, migration applied, residual risks.
 
 ---
-
-## Files to touch (minimal set)
-
-- **edit** `supabase/functions/smart-nudges/index.ts` (hot-path import only)
-- **edit** `supabase/functions/sync-profile/index.ts` (AUTH0_DOMAIN priority + placeholder guard)
-- **edit** `supabase/functions/_shared/rules/calendar-merge.ts` (canonical fields, busy-block rule, status suppression, identity-key hardening, observability log)
-- **add or edit** `supabase/functions/_shared/rules/calendar-overlaps.ts` (`resolveOverlaps`)
-- **edit** consumers that re-fetch raw events (only those proven to bypass the shared merge — list confirmed during 4c audit)
-- **edit** `_shared/ceo-behaviour/calendar-dedupe.ts` to consume canonical output (no duplicate dedupe pass)
-- **edit** `mem/architecture/ceo-behaviour-shared-module-ownership.md` (Part 5 report)
-
-## Out of scope (explicitly preserved)
-
-- MRS scoring, slot allocator, practice selector, why-line prompt, B4 resolver, Firecrawl, brief snapshot writes, frontend design, Plan composition logic, classifier rules, taxonomy, prompt contracts.
-- No Microsoft Graph webhook implementation.
-- No new monitoring tables.
-- No Anthropic / LLM changes (yesterday's Phase 1 reliability fix stands).
-
-## Acceptance verification (post-edit)
-
-- `smart-nudges` boots; `[smart-nudges] Starting evaluation run` appears in next two cron ticks.
-- `sync-profile` logs no longer reference `placeholder_value_to_be_replaced`.
-- Manual sanity: pick one user with multiple providers, run the merge log line, confirm `mergedEventCount < rawEventCount`.
-- Plan + Brief both show one row for a synthesised "Board Meeting" present on multiple providers.
-- Declining on any provider suppresses the canonical event.
-- Tagged-on-Apple event remains tagged after Google copy is merged in.
-
-## Open questions for you (will not block if you say "proceed")
-
-1. **Oura cron:** if I find a duplicate cron, should I remove the extra schedule or leave both and flag it?
-2. **canonicalId scheme:** OK to use a stable SHA-1 of `(normalizedTitle | startBucketUTC | durationBucket)`? This keeps it deterministic across re-syncs without a DB column.
-3. **Status field:** if `calendar_events` does not currently persist per-provider status, OK to derive at merge time from raw metadata (no migration), or do you want a new `status` column?
+**Approve to proceed?** Once approved, I'll execute Phases 1→5 in one pass and return the acceptance report.
