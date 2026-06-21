@@ -18,13 +18,29 @@ export interface WeekAheadHint {
   manualOverride: boolean;
 }
 
-export function useWeekAheadMode(): WeekAheadHint {
+/**
+ * @param serverDecision Optional server-authoritative Week-Ahead decision
+ *   surfaced by `generate-mastery-plan` or `list-week-ahead-priorities`.
+ *   When provided, it WINS over the local DoW heuristic so frontend and
+ *   backend can never disagree.
+ */
+export function useWeekAheadMode(
+  serverDecision?: { active: boolean; reason: string | null } | null,
+): WeekAheadHint {
   const [searchParams] = useSearchParams();
   const manualOverride = searchParams.get("mode") === "week-ahead";
 
   return useMemo<WeekAheadHint>(() => {
     if (manualOverride) {
       return { active: true, reason: "manual_override", manualOverride: true };
+    }
+    // Server-authoritative decision wins over the local heuristic.
+    if (serverDecision && typeof serverDecision.active === "boolean") {
+      return {
+        active: serverDecision.active,
+        reason: serverDecision.reason ?? null,
+        manualOverride: false,
+      };
     }
     // Mirror the server predicate (_shared/plan/week-ahead-mode.ts §17.2a):
     // Saturday is a recovery day, NOT a Week-Ahead day. Only Sunday triggers
@@ -33,5 +49,5 @@ export function useWeekAheadMode(): WeekAheadHint {
     const dow = new Date().getDay();
     if (dow === 0) return { active: true, reason: "sunday", manualOverride: false };
     return { active: false, reason: null, manualOverride: false };
-  }, [manualOverride]);
+  }, [manualOverride, serverDecision?.active, serverDecision?.reason]);
 }
