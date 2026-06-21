@@ -30,6 +30,7 @@ import {
   mergeCalendarEvents,
   periodFor,
 } from "../_shared/rules/calendarEvents.ts";
+import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
   isEducationalTitle,
   isNoiseTitle,
