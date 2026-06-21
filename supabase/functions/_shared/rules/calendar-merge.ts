@@ -634,3 +634,42 @@ export function mergeCalendarEvents<T extends CalendarMergeInput>(
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     .map((event) => event as T & MergedCalendarEvent);
 }
+
+/**
+ * Structured observability for the canonical merge pipeline. Callers pass the
+ * raw input count, the merged output, and a label identifying the surface
+ * (e.g. "plan", "brief.upcoming", "week-ahead"). Only emits when there is
+ * something interesting to report (>=1 collapse or >=1 source-calendar mix or
+ * >=1 status suppression / busy mirror).
+ *
+ * Schema is intentionally low-cardinality so it can be grepped from edge logs:
+ *   [calendar-merge] surface=… user=… raw=… merged=… collapsed=… sources=[…]
+ *     suppressedMirrors=… softHolds=…
+ */
+export function logMergeStats(
+  surface: string,
+  rawCount: number,
+  merged: Array<MergedCalendarEvent>,
+  opts?: { userId?: string | null },
+): void {
+  try {
+    const mergedCount = merged.length;
+    const collapsed = Math.max(0, rawCount - mergedCount);
+    const sources = Array.from(
+      new Set(merged.flatMap((e) => e.sourceCalendars ?? [])),
+    );
+    const softHolds = merged.filter((e) => e.isSoftHold).length;
+    // mergeCalendarEvents already filtered isSuppressedMirror, so reconstruct
+    // a proxy: anything where mergedFromCount > 1 implies at least one mirror
+    // was collapsed in.
+    const multiSourceMerges = merged.filter((e) => (e.mergedFromCount ?? 1) > 1).length;
+    if (collapsed === 0 && sources.length < 2 && softHolds === 0 && multiSourceMerges === 0) {
+      return;
+    }
+    console.log(
+      `[calendar-merge] surface=${surface} user=${opts?.userId ?? "?"} raw=${rawCount} merged=${mergedCount} collapsed=${collapsed} sources=${JSON.stringify(sources)} multiSourceMerges=${multiSourceMerges} softHolds=${softHolds}`,
+    );
+  } catch (_) {
+    // Never let observability break a hot path.
+  }
+}

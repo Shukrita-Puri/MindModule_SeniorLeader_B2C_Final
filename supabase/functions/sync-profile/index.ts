@@ -28,10 +28,20 @@ Deno.serve(async (req) => {
     const userId = await verifyAuth0JWT(authHeader, req);
 
     // 2. Get user details from Auth0 /userinfo (has email, name, picture)
+    // Prefer the non-prefixed AUTH0_DOMAIN edge secret; fall back to VITE_AUTH0_DOMAIN
+    // for backward compatibility. Guard against the legacy placeholder value that
+    // was causing DNS errors on every login.
     const token = authHeader!.replace("Bearer ", "");
-    const domain = Deno.env.get("VITE_AUTH0_DOMAIN");
+    const rawDomain =
+      Deno.env.get("AUTH0_DOMAIN") || Deno.env.get("VITE_AUTH0_DOMAIN") || "";
+    const domain =
+      rawDomain && !rawDomain.toLowerCase().includes("placeholder")
+        ? rawDomain.replace(/^https?:\/\//, "").replace(/\/+$/, "")
+        : "";
     if (!domain) {
-      throw new Error("VITE_AUTH0_DOMAIN not configured");
+      console.warn(
+        "[sync-profile] AUTH0_DOMAIN not configured (or still placeholder) — skipping /userinfo enrichment, using token claims only",
+      );
     }
 
     let email: string | null = null;
@@ -39,6 +49,10 @@ Deno.serve(async (req) => {
     let picture: string | null = null;
 
     try {
+      if (!domain) {
+        // No valid Auth0 domain configured — skip userinfo enrichment entirely.
+        throw new Error("auth0_domain_unavailable");
+      }
       const userinfoRes = await fetch(`https://${domain}/userinfo`, {
         headers: { Authorization: `Bearer ${token}` },
       });

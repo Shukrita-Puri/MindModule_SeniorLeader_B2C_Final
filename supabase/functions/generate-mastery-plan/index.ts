@@ -75,6 +75,7 @@ import {
   type PriorityMemoryIndex,
 } from '../_shared/plan/event-priority-memory.ts';
 import { mergeCalendarEvents } from '../_shared/rules/calendarEvents.ts';
+import { logMergeStats } from '../_shared/rules/calendar-merge.ts';
 import {
   normalizeEventTypeKey,
 } from '../_shared/plan/week-ahead-mode.ts';
@@ -2581,6 +2582,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
       .lte('start_time', in48h.toISOString())
       .order('start_time', { ascending: true });
     const mergedEvents = mergeCalendarEvents((events || []) as any[], 'unknown');
+    logMergeStats('plan.upcoming-48h', (events || []).length, mergedEvents as any, { userId: req.userId });
     const selectedIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
     const prioritizedEvents = [...mergedEvents].sort((a: any, b: any) => {
       const aSelected = selectedIds.has(a.id) ? 1 : 0;

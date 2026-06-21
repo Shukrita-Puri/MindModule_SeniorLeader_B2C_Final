@@ -17,7 +17,9 @@ import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
-import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
+// Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
+// to harden against re-export regressions that previously caused BootFailure.
+import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
 
 // ── APNs Helper Functions ──
 
