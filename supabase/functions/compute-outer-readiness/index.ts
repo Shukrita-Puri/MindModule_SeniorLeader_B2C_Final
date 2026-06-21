@@ -4749,10 +4749,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
-              llmFallbackReason = isAbort ? `attempt${attempt}_timeout_${timeoutMs}ms` : `attempt${attempt}_error`;
               const httpStatus = typeof err?.status === 'number' ? err.status : null;
               const errBodyHead = typeof err?.body === 'string' ? err.body.slice(0, 200) : null;
               const errMsgHead = (err instanceof Error ? err.message : String(err ?? '')).slice(0, 200);
+              // F2a — Surface known provider failure modes by name so logs +
+              // llm_attempts.raw_reason name the real cause (credit
+              // exhaustion, invalid key, rate limit) instead of a generic
+              // attemptN_error.
+              const bodyLower = (errBodyHead ?? '').toLowerCase();
+              let providerReason: string | null = null;
+              if (httpStatus === 401) providerReason = 'invalid_key';
+              else if (httpStatus === 429) providerReason = 'rate_limited';
+              else if (httpStatus === 402 || (httpStatus === 400 && bodyLower.includes('credit balance'))) {
+                providerReason = 'anthropic_402_credits';
+              }
+              llmFallbackReason = isAbort
+                ? `attempt${attempt}_timeout_${timeoutMs}ms`
+                : (providerReason
+                    ? `attempt${attempt}_${providerReason}`
+                    : `attempt${attempt}_error`);
               llmAttemptRecords.push({
                 model, attempt, durationMs,
                 outcome: isAbort ? 'timeout' : (httpStatus ? 'http_error' : 'error'),
