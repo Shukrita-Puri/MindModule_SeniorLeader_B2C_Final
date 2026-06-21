@@ -6059,18 +6059,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     } catch (assemblyErr) {
       const aMsg = assemblyErr instanceof Error ? assemblyErr.message : String(assemblyErr);
       console.error('[compute-outer-readiness] Response assembly failed, soft-fallback served:', aMsg);
-      const fallbackPhrase = (typeof finalPhrase === 'string' && finalPhrase) ? finalPhrase : 'Steady ground.';
-      const fallbackBody = (typeof finalContext === 'string' && finalContext) ? finalContext : 'Continue with what you know works.';
+      // P0 2026-06-21 — assembly-error soft-fallback no longer serves
+      // deterministic copy ("Steady ground." / "Continue with what you
+      // know works."). Returns awaiting contract so the UI shows the
+      // proper sync-and-check-in prompt instead of fake-personalised text.
       return new Response(JSON.stringify({
         fallback: true,
-        phrase: fallbackPhrase,
-        context: fallbackBody,
-        bodyText: fallbackBody,
-        leanOn: '',
-        watchFor: '',
-        briefSource: 'deterministic',
-        leanOnSource: 'fallback',
-        watchForSource: 'fallback',
+        phrase: null,
+        context: null,
+        bodyText: null,
+        leanOn: null,
+        watchFor: null,
+        awaitingSignals: true,
+        awaitingReason: 'assembly_error',
+        briefSource: 'awaiting',
+        leanOnSource: null,
+        watchForSource: null,
         dataSources: [],
         calendarState: 'unknown',
         hasWearable: false,
