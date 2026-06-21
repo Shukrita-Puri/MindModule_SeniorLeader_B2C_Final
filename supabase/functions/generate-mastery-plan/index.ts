@@ -2582,6 +2582,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
       .lte('start_time', in48h.toISOString())
       .order('start_time', { ascending: true });
     const mergedEvents = mergeCalendarEvents((events || []) as any[], 'unknown');
+    logMergeStats('plan.upcoming-48h', (events || []).length, mergedEvents as any, { userId: req.userId });
     const selectedIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
     const prioritizedEvents = [...mergedEvents].sort((a: any, b: any) => {
       const aSelected = selectedIds.has(a.id) ? 1 : 0;
