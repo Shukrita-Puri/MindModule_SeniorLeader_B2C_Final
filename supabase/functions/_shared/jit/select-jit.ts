@@ -108,6 +108,17 @@ export function classifyInterview(args: {
 }): InterviewKind {
   const { title } = args;
   if (!INTERVIEW_RE.test(title)) return 'none';
+
+  const tagsNormPre = (args.tags ?? []).map((t) => String(t).toLowerCase().trim());
+  // Title/tag-driven candidate detection runs BEFORE the attendee-count gate
+  // because many calendars sync interviews with 0 attendees populated.
+  if (
+    tagsNormPre.includes('my-interview') ||
+    tagsNormPre.includes('candidate') ||
+    MY_INTERVIEW_TITLE_RE.test(title)
+  ) {
+    return 'candidate';
+  }
   if ((args.attendeesCount ?? 0) < 2) return 'none';
 
   // Media — broadcast/reputational. Highest-confidence first.
@@ -118,13 +129,6 @@ export function classifyInterview(args: {
   ) {
     return 'media';
   }
-
-  const tagsNorm = (args.tags ?? []).map((t) => String(t).toLowerCase().trim());
-  // Sovereign tag — definitive.
-  if (tagsNorm.includes('my-interview') || tagsNorm.includes('candidate')) return 'candidate';
-
-  // Title preposition signal — "my interview at X" / "interview with <senior>"
-  if (MY_INTERVIEW_TITLE_RE.test(title)) return 'candidate';
 
   // Direction-of-evaluation: organizer + attendee-domain majority.
   const own = (args.userDomain ?? '').toLowerCase().trim();
@@ -454,10 +458,21 @@ export function selectJitCandidates(
       tags: ev.tags,
     });
     // §7 situationalBoost replaces the flat interview boost in the formula.
-    // Gated to attendeesCount ≥ 2 per spec — a 1-attendee "interview" is
-    // ambiguous enough that the boost is withheld at the scoring layer
-    // (the classifier itself still labels it for observability).
-    const situationalBoost = (ev.attendeesCount ?? 0) >= 2 ? interviewBoost(interviewKind) : 0;
+    // Gated to attendeesCount ≥ 2 per spec, with an explicit exemption for
+    // title-driven `candidate` interviews ("Interview with <CEO/founder>")
+    // and sovereign-tagged interviews — both establish enough signal on
+    // their own that the attendee gate would suppress legitimate priorities.
+    const titleDrivenCandidate =
+      interviewKind === 'candidate' &&
+      (MY_INTERVIEW_TITLE_RE.test(title) ||
+        (ev.tags ?? []).some((t) => {
+          const n = String(t).toLowerCase().trim();
+          return n === 'my-interview' || n === 'candidate';
+        }));
+    const situationalBoost =
+      (ev.attendeesCount ?? 0) >= 2 || titleDrivenCandidate
+        ? interviewBoost(interviewKind)
+        : 0;
     const immediate = categoryBase + relationship_inferred + stakes + situationalBoost;
 
     // Tactical

@@ -59,7 +59,10 @@ export function classifyEvent(
   const lower = title.toLowerCase();
   for (const et of EVENT_TYPES) {
     if (et.keywords.length === 0) continue;
-    if (et.keywords.some((kw) => lower.includes(kw))) return et;
+    if (!et.keywords.some((kw) => lower.includes(kw))) continue;
+    const excludes = (et as { excludeKeywords?: string[] }).excludeKeywords;
+    if (excludes && excludes.some((kw) => lower.includes(kw))) continue;
+    return et;
   }
   return null;
 }
