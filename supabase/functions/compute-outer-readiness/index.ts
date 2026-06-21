@@ -2663,7 +2663,7 @@ serve(async (req) => {
       lean_on_source: string | null;
       watch_for: string | null;
       watch_for_source: string | null;
-      brief_source: 'llm' | 'deterministic';
+      brief_source: 'llm' | 'deterministic' | 'awaiting';
       driver: string | null;
     } | null = null;
     let inputSignature = 'no-sig';
