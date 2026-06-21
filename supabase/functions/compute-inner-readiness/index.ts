@@ -875,33 +875,14 @@ serve(async (req) => {
     // Circadian + patternScore are intentionally NOT folded into the score.
     // They remain available downstream for framing only (see §4 spec).
 
-    // ─── Check-in-only fallback ────────────────────────────────────────
-    // When the v4 baseline composer has nothing to score (no wearable, no
-    // calendar demand, no pattern signal) the user would otherwise see
-    // "awaiting signals" forever — even when they just completed a full
-    // Mind check-in. MRS v3 §3.3 allows the four Mind dimensions to refine
-    // a baseline by ±15, so we synthesize a neutral baseline of 50 and let
-    // computeRefinedScore produce a check-in-only score in [35..65]. The
-    // synthesized baseline is recorded in weightProvenance so the audit
-    // trail makes the no-wearable origin explicit and downstream consumers
-    // can distinguish it from a real wearable/calendar baseline.
-    const hasAnyMindDim =
-      body.clarityLevel != null ||
-      body.emotionLevel != null ||
-      body.pressureLevel != null ||
-      body.regulationLevel != null;
-    let checkinOnlyBaselineApplied = false;
-    if (mrsV4AwaitingSignals && score == null && hasCheckIn && hasAnyMindDim) {
-      score = 50;
-      mrsV4AwaitingSignals = false;
-      checkinOnlyBaselineApplied = true;
-      mrsV4Provenance = {
-        ...(mrsV4Provenance as Record<string, unknown>),
-        checkin_only_baseline: true,
-        checkin_only_baseline_value: 50,
-        awaiting_signals: false,
-      };
-    }
+    // ─── Check-in-only fallback REMOVED (MRS V4 product rule, 2026-06-21) ─
+    // Per client direction, "Full Read" requires BOTH fresh wearable AND a
+    // completed check-in. A check-in alone — even with all four Mind dims —
+    // must NEVER synthesize a baseline or unlock 'refined' readiness. When
+    // the v4 baseline composer is awaiting signals, we keep score=null and
+    // the state stays 'awaiting' so the UI prompts the user to sync their
+    // wearable and check in. Historical block intentionally left as a
+    // comment so future readers don't reintroduce it.
 
     const awaitingReadiness = mrsV4AwaitingSignals && score == null;
     const scoreForMath = Math.max(0, Math.min(100, score ?? 50));
@@ -940,6 +921,20 @@ serve(async (req) => {
       regulation: body.regulationLevel ?? null,
       hasImminentHighStakes: body.hasImminentHighStakes === true,
     });
+
+    // MRS V4 §gating — refined ("Full Read") requires fresh wearable AND
+    // a check-in. If wearable is missing or stale, force the readiness
+    // state back to 'baseline' (Early Read) regardless of how many Mind
+    // dims the check-in supplied. The numeric `displayedScore` may still
+    // show the baseline reading (wearable + calendar only), but it must
+    // not be presented as the full refined value.
+    const wearableStatusForGate: 'fresh' | 'stale' | 'missing' =
+      body.wearableStatus ?? (hasWearable ? 'fresh' : 'missing');
+    if (refined.readinessState === 'refined' && wearableStatusForGate !== 'fresh') {
+      refined.readinessState = 'baseline';
+      refined.scoreRefined = null;
+      refined.refinedContribution = 0;
+    }
 
     // The "displayed" score & tier are refined when a check-in exists, else
     // baseline. The number the UI shows tracks this, not the raw baseline.

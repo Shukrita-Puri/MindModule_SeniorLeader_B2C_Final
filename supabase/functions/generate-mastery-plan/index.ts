@@ -3017,7 +3017,10 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   }
   const hasTodayCheckIn = !!todayCheckinRow && todayCheckinRow.skipped !== true;
   const hasFreshWearable = !!(req.wearableContext?.hasData);
-  const finalDecision = (hasTodayCheckIn || hasFreshWearable) ? 'generate' : 'generate-no-signal';
+  // MRS V4 product rule (2026-06-21): Full actionable Plan requires BOTH
+  // a fresh wearable AND today's check-in. Either alone -> awaiting envelope.
+  const fullReadyForPlan = hasTodayCheckIn && hasFreshWearable;
+  const finalDecision = fullReadyForPlan ? 'generate' : 'generate-no-signal';
   console.log('[generate-mastery-plan] signal-gate', {
     authenticatedUserId: req.userId,
     clientLocalDate: req.localDate || null,
@@ -3034,21 +3037,26 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     } : null,
     hasTodayCheckIn,
     hasFreshWearable,
+    fullReadyForPlan,
     finalDecision,
   });
-  // ─── Awaiting-signals gate (release-blocking, see mem://features) ───
-  // If the user has NEITHER a fresh check-in today NOR fresh wearable data,
-  // we MUST NOT emit a generated plan. Returning the awaiting envelope
-  // guarantees the frontend can never render fake / default Plan cards
-  // (e.g. "Steady the system…", "Presence Through Grounding") when
-  // readiness context is missing. The check-in-only and wearable-only
-  // paths still generate normally — wearable absence alone never blocks.
-  if (!hasTodayCheckIn && !hasFreshWearable) {
-    console.log('[generate-mastery-plan] awaiting-signals envelope returned (no check-in, no wearable)');
+  // ─── Awaiting-signals gate (MRS V4 product rule, 2026-06-21) ─────────
+  // Full Read requires BOTH fresh wearable AND today's check-in. Any other
+  // combination (no wearable + no checkin, wearable-only, checkin-only,
+  // stale wearable + checkin) returns the awaiting envelope so the frontend
+  // renders the shared "Sync your wearable and then complete a quick
+  // check-in to sharpen the picture." message and no Plan cards.
+  if (!fullReadyForPlan) {
+    const gatingReason = !hasTodayCheckIn && !hasFreshWearable
+      ? 'missing_readiness_context'
+      : !hasFreshWearable
+        ? 'missing_fresh_wearable'
+        : 'missing_todays_checkin';
+    console.log('[generate-mastery-plan] awaiting-signals envelope returned', { gatingReason });
     return {
       planState: 'awaiting_signals',
       awaitingSignals: true,
-      reason: 'missing_readiness_context',
+      reason: gatingReason,
       message: READINESS_AWAITING_MESSAGE,
       horizonModules: [],
       calendarPills: [],
