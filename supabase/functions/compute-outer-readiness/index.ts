@@ -5099,7 +5099,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     let echoedBaselineScore: number | null = null;
     let echoedProvenance: {
       mrs: { sources: MrsSource[]; primary: MrsSource | null; refinedBy: 'checkin' | null };
-      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' };
+      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' | 'awaiting' };
       pills: {
         decision_readiness: MrsSource[];
         physical_reserves: MrsSource[];
