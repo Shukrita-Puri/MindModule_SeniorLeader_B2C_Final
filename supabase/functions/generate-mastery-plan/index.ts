@@ -78,7 +78,13 @@ import { mergeCalendarEvents } from '../_shared/rules/calendarEvents.ts';
 import { logMergeStats } from '../_shared/rules/calendar-merge.ts';
 import {
   normalizeEventTypeKey,
+  evaluateWeekAheadMode,
 } from '../_shared/plan/week-ahead-mode.ts';
+import {
+  DAY_OF_HORIZON_MS,
+  isWithinDayOfHorizon,
+  gateDayOfAnchor,
+} from '../_shared/plan/day-of-horizon.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase, type SlotAnchor } from '../_shared/plan/title-prefixes.ts';
 import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
