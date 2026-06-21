@@ -1797,10 +1797,15 @@ serve(async (req) => {
       tierCapReason: clientTierCapReason = null,
       innerReadinessScoreBaseline: clientScoreBaseline = null,
       innerReadinessScoreRefined: clientScoreRefined = null,
-      innerReadinessState: clientReadinessState = null,
+      innerReadinessState: clientReadinessStateRaw = null,
       innerReadinessRefinedContribution: clientRefinedContribution = null,
       weightProvenance: clientWeightProvenance = null,
     } = body;
+    // Mutable alias — the V4 wearable-freshness gate (defined further
+    // below, once `hasTodayWearableData` is known) may downgrade a
+    // forwarded 'refined' to 'baseline'.
+    let clientReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
+      clientReadinessStateRaw as any;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
     const safeTier: EnergyTier = innerReadinessTier || 'managing';
@@ -2337,6 +2342,51 @@ serve(async (req) => {
     // Canonical flag: true only when actual metric data exists
     const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
+
+    // === MRS V4 — Readiness Eligibility Contract (P0 2026-06-21) ===
+    // Single source of truth for which readiness states the response may
+    // emit. Defined BEFORE the brief is persisted / returned so every
+    // downstream consumer (brief_snapshots write, daily_context_snapshot,
+    // outer-readiness response) honours the same gate.
+    //
+    //  wearableFresh = wearable connected AND has TODAY's data AND not stale
+    //  checkInFresh  = user submitted today's check-in for this request
+    //  mode:
+    //    'awaiting_signals' when !wearableFresh
+    //    'early_read'       when wearableFresh && !checkInFresh
+    //    'full_read'        when wearableFresh && checkInFresh
+    //
+    // RULE: a 'refined' / Full Read state requires BOTH fresh wearable AND
+    // a current check-in. If the inner pipeline forwarded `refined` without
+    // fresh wearable, we downgrade it to `baseline` (or `awaiting` if no
+    // score). This prevents the false "Full read" surface seen on 20 Jun.
+    const wearableFreshForGate = hasTodayWearableData === true;
+    const checkInFreshForGate = !!checkInOutcome;
+    const readinessEligibilityMode: 'awaiting_signals' | 'early_read' | 'full_read' =
+      !wearableFreshForGate
+        ? 'awaiting_signals'
+        : (checkInFreshForGate ? 'full_read' : 'early_read');
+    const readinessEligibilityReason = !wearableFreshForGate
+      ? (hasWearableData ? 'wearable_stale_or_not_today' : 'missing_wearable')
+      : (checkInFreshForGate ? 'wearable_and_checkin_fresh' : 'wearable_only');
+    // Downgrade the client-forwarded readiness state if it claims 'refined'
+    // without a fresh wearable. Safe to mutate the let binding; all later
+    // reads of `clientReadinessState` will see the gated value.
+    if (clientReadinessState === 'refined' && !wearableFreshForGate) {
+      console.log(
+        `[outer-readiness][V4-gate] downgrading clientReadinessState 'refined' -> 'baseline' (wearableFresh=false, hasWearable=${hasWearable}, ageDays=${wearableSourceAgeDays})`,
+      );
+      clientReadinessState = 'baseline';
+    }
+    // Capture the eligibility block once for response + persistence reuse.
+    const readinessEligibility = {
+      wearableFresh: wearableFreshForGate,
+      checkInFresh: checkInFreshForGate,
+      mode: readinessEligibilityMode,
+      scoreCanUpdate: wearableFreshForGate,
+      checkInCanRefine: wearableFreshForGate && checkInFreshForGate,
+      reason: readinessEligibilityReason,
+    };
     
     // Wearable days connected count
     let wearableDaysConnected = 0;
@@ -5909,6 +5959,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         ? null
         : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
       innerReadinessRefinedContribution: (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? null),
+      // MRS V4 — explicit eligibility contract. Frontend MUST prefer this
+      // over deriving state from individual fields. See helper definition
+      // near `wearableFreshForGate` for the rule table.
+      readinessEligibility,
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this

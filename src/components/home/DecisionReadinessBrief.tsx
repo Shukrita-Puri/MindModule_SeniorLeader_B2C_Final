@@ -1829,12 +1829,25 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const hasCheckIn =
     ((outerBrief as any)?.hasCurrentPeriodCheckIn ?? false) ||
     (hasCurrentPeriodSignal && !!outerBrief?.checkInOutcome);
-  const readinessState: 'baseline' | 'refined' | 'awaiting' =
+  // MRS V4 (P0 2026-06-21) — prefer backend readinessEligibility.mode; if
+  // absent, derive safely and NEVER allow `refined` without a fresh
+  // wearable. Mirrors compute-outer-readiness's server-side gate.
+  const eligibility = (outerBrief as any)?.readinessEligibility ?? null;
+  const wsForGate = (outerBrief as any)?.wearableStatus;
+  const wearableFreshForGate =
+    typeof eligibility?.wearableFresh === 'boolean'
+      ? eligibility.wearableFresh
+      : !!(wsForGate?.isConnected && wsForGate?.hasTodayData && !wsForGate?.isStale);
+  const rawReadinessState: 'baseline' | 'refined' | 'awaiting' =
     (outerBrief as any)?.innerReadinessState === 'refined'
       ? 'refined'
       : (outerBrief as any)?.innerReadinessState === 'awaiting' || score == null
         ? 'awaiting'
         : 'baseline';
+  const readinessState: 'baseline' | 'refined' | 'awaiting' =
+    rawReadinessState === 'refined' && !wearableFreshForGate
+      ? 'baseline'
+      : rawReadinessState;
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
 
   // Build chips

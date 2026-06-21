@@ -27,6 +27,13 @@ describe('readinessLabels', () => {
     expect(getReadinessStateLabel('refined', true).label).toBe('Full read');
   });
 
+  it('downgrades refined without fresh wearable to awaiting (V4 gate)', () => {
+    expect(getReadinessStateLabel('refined', false)).toEqual({
+      label: 'Awaiting signals',
+      subtitle: 'sync your wearable and check in',
+    });
+  });
+
   it('returns null for missing one-liner score', () => {
     expect(getReadinessOneLiner(null)).toBeNull();
   });
