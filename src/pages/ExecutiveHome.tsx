@@ -60,6 +60,7 @@ const ExecutiveHome = () => {
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
   const [briefCtaReady, setBriefCtaReady] = useState(false);
+  const weekAhead = useWeekAheadMode();
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
@@ -292,14 +293,21 @@ const ExecutiveHome = () => {
                       <div className="rounded-xl card-hero p-4">
                         <div className="flex items-center justify-between">
                           <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
-                            Today's Performance Priorities
+                            {weekAhead.active ? "Week-Ahead Priorities" : "Today's Performance Priorities"}
                           </span>
                           <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
                             {getTimeLabel()} · {getDateLabel()}
                           </span>
                         </div>
                         <div className="mt-3">
-                          <TodayThreePriorities />
+                          {weekAhead.active ? (
+                            <WeekAheadPriorities
+                              reason={weekAhead.reason}
+                              manualOverride={weekAhead.manualOverride}
+                            />
+                          ) : (
+                            <TodayThreePriorities />
+                          )}
                         </div>
                       </div>
                     </div>
