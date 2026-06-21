@@ -4749,10 +4749,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
-              llmFallbackReason = isAbort ? `attempt${attempt}_timeout_${timeoutMs}ms` : `attempt${attempt}_error`;
               const httpStatus = typeof err?.status === 'number' ? err.status : null;
               const errBodyHead = typeof err?.body === 'string' ? err.body.slice(0, 200) : null;
               const errMsgHead = (err instanceof Error ? err.message : String(err ?? '')).slice(0, 200);
+              // F2a — Surface known provider failure modes by name so logs +
+              // llm_attempts.raw_reason name the real cause (credit
+              // exhaustion, invalid key, rate limit) instead of a generic
+              // attemptN_error.
+              const bodyLower = (errBodyHead ?? '').toLowerCase();
+              let providerReason: string | null = null;
+              if (httpStatus === 401) providerReason = 'invalid_key';
+              else if (httpStatus === 429) providerReason = 'rate_limited';
+              else if (httpStatus === 402 || (httpStatus === 400 && bodyLower.includes('credit balance'))) {
+                providerReason = 'anthropic_402_credits';
+              }
+              llmFallbackReason = isAbort
+                ? `attempt${attempt}_timeout_${timeoutMs}ms`
+                : (providerReason
+                    ? `attempt${attempt}_${providerReason}`
+                    : `attempt${attempt}_error`);
               llmAttemptRecords.push({
                 model, attempt, durationMs,
                 outcome: isAbort ? 'timeout' : (httpStatus ? 'http_error' : 'error'),
@@ -5293,6 +5308,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           },
         ];
 
+        // F3.1 — Hoist the base pill payload immediately so a downstream throw
+        // in qualifier/coherence enrichment can no longer null the entire
+        // signalPills response (which surfaces in the UI as "No signal detail
+        // yet" even after a valid check-in).
+        echoedSignalPills = signalPillsPayload;
+
         // ── Signal Pills v3: bracketed qualifiers + coherence guard ──
         // Qualifiers are display-only enrichment (delta3d / vsDow / peakStreak
         // for Mind dims; delta3d / vsBaselinePct for wearable). Tiers above
@@ -5387,11 +5408,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
 
           // Hoist for response echo (additive, optional fields).
-          echoedSignalPills = signalPillsPayload;
+          // Note: echoedSignalPills is already set above (F3.1); the in-place
+          // mutations above (tier auto-correction, qualifier attachment) are
+          // visible because `signalPillsPayload` is the same reference.
           echoedPillQualifiers = pillQualifiersPayload;
           echoedCoherenceWarning = coherenceWarning;
         } catch (qErr) {
-          console.warn('[signal-pills-v3] qualifier/coherence step failed:', qErr instanceof Error ? qErr.message : qErr);
+          // F3.2 — Promote to error so the failure surfaces in edge logs and
+          // we can correlate "no qualifiers" with "no enrichment ran". The
+          // base pill payload (tier + label + contributors) is still echoed
+          // because we hoisted the assignment above.
+          console.error(
+            '[signal-pills-v3] qualifier/coherence step failed:',
+            qErr instanceof Error ? qErr.message : qErr,
+          );
         }
 
         // MRS v2 — mirror canonical pill payload + demand into daily_context_snapshot.

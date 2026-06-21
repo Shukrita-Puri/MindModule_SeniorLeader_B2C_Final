@@ -27,8 +27,14 @@ import {
 // Re-export so downstream modules (signal-engine/build-daily-context.ts,
 // signal-engine/db-queries.ts, sync-* edge functions) can import from this
 // single rules surface without depending on calendar-merge.ts directly.
-export { mergeCalendarEvents };
-export type { CalendarMergeInput, MergedCalendarEvent };
+//
+// IMPORTANT: use a direct `export { … } from './calendar-merge.ts'` re-export.
+// The previous indirect form (`import { x }; export { x };`) was interpreted
+// by Deno's edge runtime as a local binding rather than a re-export, causing
+// downstream functions (list-week-ahead-priorities, smart-nudges) to fail at
+// boot with "does not provide an export named 'mergeCalendarEvents'".
+export { mergeCalendarEvents, normalizeForClassify } from './calendar-merge.ts';
+export type { CalendarMergeInput, MergedCalendarEvent } from './calendar-merge.ts';
 
 export type Period = 'morning' | 'afternoon' | 'evening';
 

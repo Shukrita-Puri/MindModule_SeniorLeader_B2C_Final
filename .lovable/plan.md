@@ -1,169 +1,89 @@
-# Release-Blocking Plan: 24h Rule + Week-Ahead Leakage + Coach Hard-Coding
+## Root-cause summary (from edge logs + code audit)
 
-Four stacked bugs are visible across the two screenshots. All four are root-cause-confirmed in the code.
-
-## What the two screenshots prove
-
-**Screenshot A — `/executive-home`, Sat 20 Jun, evening**
-- Header reads "Today's Performance Priorities" (day-of surface).
-- Slot 2 anchor is a Monday event (`AI for Climate: Who Benefits,`) → 24h rule appears violated.
-- Slot 2 step card is an SM Coach card (`Tiny Win and Reflection`, `SM COACH` thumbnail) → coach is hard-coded into the slot even though coach has been suppressed as a feature.
-- Only 1 should exist on Saturday per the light-day rule; instead there are 2.
-
-**Screenshot B — `/plan?expand=reflection`, Sat 20 Jun, evening**
-- Header reads "Week-Ahead Priorities" → Week-Ahead surface is rendered on Saturday, contradicting the SSOT (Sunday + last-day-PTO/holiday/long-weekend only).
-- The surface then fails to load (`list-week-ahead-priorities` errors) — separate, dependent bug.
-
----
-
-## Root-cause map
-
-### Bug 1 — 24h rule bypassed via the Pass 7 "upcoming week lead event" anchor
-
-The JIT pipeline correctly enforces 24h:
-
-- `generate-mastery-plan/index.ts:3183` — `filteredEvents = filteredEvents.filter(e => (e.minutesUntil ?? 0) <= MVP_JIT_HORIZON_MINUTES /* 1440 */)`.
-- `preEventPlan` is built only from `filteredEvents`, so Monday's event is correctly excluded from JIT modules.
-
-But a **second anchor selector** has no 24h cap and is what produced the Saturday-evening slot:
-
-- `upcomingWeekLeadEvent` (lines 5441–5448) selects the highest-stakes event in `[startOfTomorrow, +7d)`.
-- `composeStateLabel` (lines 5660–5697):
-  ```ts
-  const promoteWeekLead =
-    upcomingWeekLeadEvent && (isWeekend || isPersonalHolidayToday || wasPersonalHolidayYesterday);
-  if (promoteWeekLead && upcomingWeekLeadEvent) {
-    anchorEventId = upcomingWeekLeadEvent.id;
-    anchor = truncateTitle(upcomingWeekLeadEvent.title) || "this week's lead event";
-  }
-  ```
-  with `isWeekend = dow === 0 || dow === 6` (line 5589). On Saturday this fires and Monday's event becomes the slot's *named* anchor → title and why-line both reference it.
-
-**5-change preservation check — all preserved by the fix below**:
-1. Scoring/ranking — untouched.
-2. Tags/memory/cancellation/relationship — untouched.
-3. Slot allocation — count math intact; only the *anchor input* to slot 2 narrows.
-4. Practice selection — untouched (Saturday practice is generic "Steady the system").
-5. Why-line logic — composition unchanged; the leak is in the *input* it receives.
-
-### Bug 2 — Week-Ahead surface leaks onto Saturday
-
-`evaluateWeekAheadMode` (server, `_shared/plan/week-ahead-mode.ts:84–90`) is explicit: **Saturday is NOT a Week-Ahead day** — only Sunday + manual override + last-day-PTO/holiday/long-weekend.
-
-But the client hook `src/hooks/useWeekAheadMode.ts` is out of sync:
-```ts
-if (dow === 6) return { active: true, reason: "saturday", ... };
-if (dow === 0) return { active: true, reason: "sunday", ... };
+**Issue 1 — Week-Ahead "Couldn't load your upcoming week"**
+`list-week-ahead-priorities` is crashing at boot:
 ```
-→ Saturday activates the surface on the client even though the server treats it as a normal day. That is exactly Screenshot B. The reason key `saturday` is even hard-coded in `WeekAheadPriorities.tsx:46` (`SUBTITLE_BY_REASON.saturday`), confirming the drift.
+worker boot error: Uncaught SyntaxError: The requested module
+'../_shared/rules/calendarEvents.ts' does not provide an export named
+'mergeCalendarEvents'
+```
+`calendarEvents.ts` re-exports via an indirect binding:
+```ts
+import { mergeCalendarEvents, ... } from './calendar-merge.ts';
+export { mergeCalendarEvents };
+```
+Deno's edge runtime resolves this as a *local* binding, not a re-export, so consumers that import the symbol from `calendarEvents.ts` see it as missing. Other consumers (`generate-mastery-plan`, sync edge fns) happen to import from `calendar-merge.ts` directly, which is why only this function boots-broken.
 
-Then on `/executive-home` the opposite happens — there is **no** Week-Ahead routing at all (`src/pages/ExecutiveHome.tsx:300` renders `<TodayThreePriorities />` unconditionally). So Sunday week-ahead never reaches the home surface either. Two halves of the same drift class.
+**Issue 2 — Brief copy still deterministic ("holding the line… / Steady and selective.")**
+`compute-outer-readiness` log:
+```
+[anthropic-smoke] model=claude-sonnet-4-5-20250929 status=400 ok=false
+body="Your credit balance is too low to access the Anthropic API…"
+[compute-outer-readiness] RESULT: briefSource=deterministic, llmFallbackReason=null
+```
+The Anthropic account behind `ANTHROPIC_API_KEY` is out of credits. Every brief request silently falls back to the deterministic phrase/body from `compute-inner-readiness:280` and `compute-outer-readiness:1235`. Not a code defect — but `llmFallbackReason` is `null` instead of `"anthropic_402_credits"`, hiding the real cause.
 
-### Bug 3 — Coach card hard-coded into the evening slot
+**Issue 3 — Expanded pill shows "No signal detail yet" even after check-in**
+`PillDetailContent` renders that string only when `serverPill == null`. Two paths produce a null:
+- a. The `try { … echoedSignalPills = signalPillsPayload }` block at `compute-outer-readiness.ts:5302–5395` is the *only* assignment site. Any throw in `getPillQualifiers` / `assertPillCoherence` leaves `echoedSignalPills = null`, the catch only `console.warn`s.
+- b. On a cache hit, `signalPillsPayload` is still built and the try still runs — but the wearable for this user is stale (`sourceAgeDays:5`) so `hrvValue / sleepScore / rhrValue / hrValue` are all `undefined`. If the qualifier fetch returns rows that don't satisfy `assertPillCoherence`'s shape (e.g. all-null wearable history), the helper can throw and zero out the whole payload.
 
-Coach is supposed to be suppressed; in the code it is still mandatory:
-
-- `getCoachCardForType('integrate')` (`generate-mastery-plan/index.ts:2367–2381`) returns:
-  ```ts
-  { protocolType: 'Self Mastery Coach', title: 'Tiny Win and Reflection',
-    isCoachCard: true, prompt: "Let's close out today. …" }
-  ```
-  Comment on line 2369 even says **"Evening: ALWAYS included with Tiny Wins"**.
-- The card is then re-asserted by the `getCoachPromptForContext` evening branch (line 2396–2400) and lifted into a slot by `strategicModule` filler (line 6062: `m.isCoachCard || m.type === 'integrate'`).
-- The client's coach-suppression filter (`TodayThreePriorities.tsx:206–210`) explicitly *allow-lists* the integrate / Tiny Win practice back in (`!p.isCoachCard || isReflection(p)`), so the SM Coach thumbnail and label survive even though every other coach card is stripped.
-
-Net effect: every evening plan ships an SM Coach card, regardless of the global coach-suppression posture.
-
-### Bug 4 — Saturday "light day" rule not honoured
-
-Per memory and code comments (`generate-mastery-plan/index.ts:6149` — "Saturday → 1 morning slot mandatory"), Saturday should produce one slot. Today two appear because the Pass 7 `upcomingWeekLeadEvent` provides the secondary "meaningful signal" that lets `composeStateLabel` keep slot 2 instead of returning `null` (line 5685–5689 — slot 2 is retained when `isWeekend` is true and a week-lead anchor exists). The Bug 1 fix removes the `isWeekend` arm of `promoteWeekLead`; the matching `slotIndex === 2 && isWeekend` retention exception must be removed too so slot 2 actually drops on Saturday.
-
-### Bug 5 — `list-week-ahead-priorities` returns an error on Sat (dependent)
-
-Visible in Screenshot B as "Couldn't load your upcoming week." This is downstream of Bug 2 (the surface should not be loading on Saturday in the first place). Still worth a quick verification once Bug 2 is shipped — the same failure will hit Sunday users if the function is broken.
-
----
-
-## Fixes (small, surgical, preservation-safe)
-
-### F1. Gate Pass 7 weekend promotion on the server-side Week-Ahead predicate
-
-In `generate-mastery-plan/index.ts`:
-
-1. Compute `weekAhead = evaluateWeekAheadMode({ dayOfWeek: dow, localHour, ... })` once near the top of the slot-label section.
-2. Replace
-   ```ts
-   const promoteWeekLead = upcomingWeekLeadEvent && (isWeekend || isPersonalHolidayToday || wasPersonalHolidayYesterday);
-   ```
-   with
-   ```ts
-   const promoteWeekLead = upcomingWeekLeadEvent && (weekAhead.active || isPersonalHolidayToday || wasPersonalHolidayYesterday);
-   ```
-3. In the slot-2 retention guard (lines 5685–5689), drop the `slotIndex === 2 && isWeekend` exception. Slot 2 should be retained only when an actual anchor / load / wearable deficit / next-day calendar / week-ahead-promotion exists.
-4. In the return at lines 5694–5697, ensure `anchorEventId` and `eventTitle` are `null` whenever `promoteWeekLead` is false, so the why-line composer cannot rediscover the Monday title.
-5. Keep `weekend` weekend-fallback strings (`'the day ahead'`, `"next week\u2019s load"`) as plain text labels only — never coupled to an `anchorEventId`.
-
-Result: Saturday evening day-of plan returns 1 slot (Steady the system). Sunday/last-day-PTO/etc. keep the named lead-event anchor.
-
-### F2. Realign the client Week-Ahead predicate to the server
-
-In `src/hooks/useWeekAheadMode.ts`:
-
-- Remove the Saturday branch entirely. Saturday returns `{ active: false, reason: null }` unless `?mode=week-ahead` is set.
-- Keep Sunday + manual override as the only local heuristics.
-- (Stretch, but recommended) Accept an optional server-supplied `weekAheadDecision` (returned by `generate-mastery-plan`) and prefer it over `getDay()` — kills the drift class outright.
-
-In `src/components/home/WeekAheadPriorities.tsx`:
-- Delete the `saturday` entry from `SUBTITLE_BY_REASON` — it is unreachable after the hook fix and only invites regression.
-
-### F3. Mirror the Plan-page routing on `/executive-home`
-
-In `src/pages/ExecutiveHome.tsx`:
-
-- Import `useWeekAheadMode` + `WeekAheadPriorities` and apply the same conditional swap used in `src/pages/PlanPage.tsx:71–93`:
-  - Header eyebrow flips between "Today's Performance Priorities" and "Week-Ahead Priorities".
-  - Body renders `<WeekAheadPriorities reason=… manualOverride=… />` when active, else `<TodayThreePriorities … />`.
-- No other ExecutiveHome behaviour changes.
-
-After F2 + F3, Saturday on either route stays on the day-of surface, and Sunday on either route reaches Week-Ahead.
-
-### F4. Strip the hard-coded coach card from the evening integrate slot
-
-In `generate-mastery-plan/index.ts`:
-
-- In `getCoachCardForType('integrate')` (lines 2367–2381) remove `isCoachCard: true` and `protocolType: 'Self Mastery Coach'`. Keep `type: 'integrate'`, the title, and the prompt so the inline Reflection Corner UX still mounts — but the card no longer renders as an SM Coach card.
-- In the `strategicModule` filler at line 6062, drop `m.isCoachCard` from the predicate (`(m: any) => !usedIds.has(m.contentId) && m.type === 'integrate'`). The slot still fills via the integrate practice, just not via the coach card.
-- In `getCoachPromptForContext` (line 2396) the evening "ALWAYS include" branch should return `null` unless a feature flag explicitly re-enables coach. Easiest: gate behind the same coach-suppression feature flag used elsewhere; if no such flag is wired yet, simply return `null` to enforce suppression.
-
-In `src/components/home/TodayThreePriorities.tsx`:
-
-- Remove the `isReflection`-based allow-list re-entry at lines 200–210. The filter becomes `slot.filter((p) => !p.isCoachCard)` with no exceptions. The Reflection Corner is then driven purely by the practice's `type === 'integrate'` (still mounted via the existing temporal-gate path inside the component) — no coach card needed to host it.
-
-Result: no SM Coach card on the evening slot. Reflection Corner still appears at 18–23 local via the practice card, per the temporal-gating memory.
-
-### F5. Verify `list-week-ahead-priorities` (post-F2 sanity)
-
-After F2 lands, exercise `/plan` on Sunday (or with `?mode=week-ahead`) and confirm the endpoint returns 200 with priorities. If it still fails, separate ticket — likely auth or zero-events handling.
+Either way the client receives `signalPills: null`, falls through `serverPills?.find(...) ?? null`, and shows the fallback string. The Mind qualifiers (clarity, emotion, regulation, pressure) the user *did* submit are never reached because the parent payload is null.
 
 ---
 
-## Order of execution (release-blocking minimum)
+## Fix plan
 
-1. **F1** — gate the Pass 7 promotion (kills the Monday-on-Saturday anchor + naturally drops Saturday to 1 slot).
-2. **F4** — strip the hard-coded coach card from evening (kills the SM Coach leak).
-3. **F2 + F3** — align client predicate with the server and mirror the routing on `/executive-home` (kills the Saturday→Week-Ahead leak; makes Sunday Week-Ahead reachable from home).
-4. **F5** — verify the upcoming-week endpoint after the surface stops loading on Saturday.
+### F1 — Unbreak `list-week-ahead-priorities` (release blocker)
 
-## Preservation invariants — explicit confirmation
+In `supabase/functions/_shared/rules/calendarEvents.ts`, replace the indirect import-then-export pattern with a direct re-export so Deno emits a true re-export binding:
 
-- Change 1 (scoring/ranking) — preserved. Only the anchor *selection* gate changes; scoring is untouched.
-- Change 2 (tags/memory/cancellation/relationship) — preserved. No edits to skipped-types, slot-replacements, or relationship paths.
-- Change 3 (slot allocation) — preserved at the count level. `_minSlots` math unchanged; Saturday correctly converges to 1 because the secondary signal disappears.
-- Change 4 (practice selection) — preserved. The integrate practice spec is the same; only the `isCoachCard`/`protocolType` framing on it is removed.
-- Change 5 (why-line logic) — preserved. The composer is untouched; the leak is purely upstream (anchor input).
+```ts
+// Replace lines 20-31:
+export {
+  mergeCalendarEvents,
+  normalizeForClassify,
+} from './calendar-merge.ts';
+export type {
+  CalendarMergeInput,
+  MergedCalendarEvent,
+} from './calendar-merge.ts';
+```
 
-## Out of scope
+Then redeploy `list-week-ahead-priorities` (and any other function that imports from `calendarEvents.ts` — verified: only this one currently imports `mergeCalendarEvents` from there, but redeploying the shared dependents is safe).
 
-- Any change to the 24h JIT ceiling itself (already correct in `filteredEvents`).
-- Any change to Week-Ahead Sunday/last-day-PTO behaviour (only Saturday is being removed from the predicate).
-- Any restoration of the coach card to slots (it is being suppressed, per the user's product decision).
+### F2 — Surface the Anthropic credit failure + add a cheap fallback
+
+a. In `compute-outer-readiness/index.ts` around the Anthropic call, on a `status === 400` with `"credit balance"` in the body, set:
+```ts
+llmFallbackReason = 'anthropic_402_credits';
+```
+so the brief result log and the `llm_attempts` row both name the real cause. Same treatment for `401` (`invalid_key`) and `429` (`rate_limited`).
+
+b. **User action required:** top up the Anthropic account (or rotate to a funded key) — secret is `ANTHROPIC_API_KEY`. Until that happens every brief will remain deterministic. If you'd prefer to migrate the brief LLM call to Lovable AI Gateway (Gemini Flash) as the primary with Claude as fallback (mirrors the `LLM Resilience Strategy` memory), I can wire that as F2c in a follow-up — confirm before I do.
+
+### F3 — Make the signal-pill payload self-healing
+
+In `compute-outer-readiness/index.ts`:
+
+1. **Hoist the assignment out of the try.** Set `echoedSignalPills = signalPillsPayload` immediately after the payload is built (line ~5294), *before* the qualifier/coherence enrichment. Qualifier attachment becomes additive — a thrown coherence check no longer wipes the whole payload.
+2. **Promote the catch to error + reason field.** Replace `console.warn(...)` with `console.error('[signal-pills-v3] ...')` and add `pillEnrichmentError: err.message` to the response so the client (and us) can see when qualifiers were skipped vs missing.
+3. **Tighten the client fallback string.** In `src/components/home/PillTooltip.tsx:233-239`, when `pill` is null but the parent `signalPills` array exists with other entries, render `"Signal not available for this dimension yet"` instead of the blanket `"No signal detail yet"`, so the user can distinguish "server dropped the payload" from "this specific pill has no contributors".
+
+### F4 — Verification
+
+After F1 + F3 ship:
+- `supabase--edge_function_logs list-week-ahead-priorities` → no boot errors.
+- Re-open `/executive-home` on Sunday → Week-Ahead Priorities loads.
+- Expand any pill on the Brief → contributor rows for Mind dims (Clarity / Emotion / Regulation / Pressure) appear from the check-in even when wearable is stale.
+- `[compute-outer-readiness] RESULT` log shows `llmFallbackReason: "anthropic_402_credits"` until the key is topped up.
+
+### Files touched
+- `supabase/functions/_shared/rules/calendarEvents.ts` (F1)
+- `supabase/functions/compute-outer-readiness/index.ts` (F2a + F3.1/3.2)
+- `src/components/home/PillTooltip.tsx` (F3.3)
+- Redeploy: `list-week-ahead-priorities`, `compute-outer-readiness`.
+
+### Out of scope
+- Anthropic billing top-up (user action).
+- Migrating brief LLM primary to Lovable AI Gateway (offered as optional F2c, awaits confirmation).

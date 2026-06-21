@@ -233,7 +233,7 @@ export default function PillDetailContent({
   if (!pill) {
     return (
       <span className="text-xs text-muted-foreground/55 font-body italic">
-        No signal detail yet
+        Signal detail unavailable for this pillar
       </span>
     );
   }
