@@ -4919,11 +4919,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // If anything below throws (scope regression, undefined access, etc.), fail soft with a
     // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
     try {
-    const briefSource: 'llm' | 'deterministic' = cachedSnapshot
-      ? cachedSnapshot.brief_source
-      : (llmBrief ? 'llm' : 'deterministic');
-    const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
-    const rawResponseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
+    // P0 2026-06-21 — deterministic theme strings (e.g. "Close strong.",
+    // "Steady the system ahead of the day ahead", "protecting the edge")
+    // are no longer rendered. When neither a validated LLM brief nor a
+    // cached LLM snapshot exists, we treat the brief as awaiting and the
+    // response nulls phrase / bodyText / leanOn / watchFor below.
+    // `finalPhrase` / `finalContext` (the legacy deterministic fallbacks)
+    // remain assigned for upstream code paths but are NOT served to the
+    // client when `briefIsAwaiting` is true.
+    const briefIsAwaiting = !cachedSnapshot && !llmBrief;
+    const briefSource: 'llm' | 'deterministic' | 'awaiting' = cachedSnapshot
+      ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
+      : (llmBrief ? 'llm' : 'awaiting');
+    const responsePhrase = briefIsAwaiting
+      ? null
+      : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);
+    const rawResponseBody = briefIsAwaiting
+      ? null
+      : (cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext);
     // Strip stray markdown emphasis the LLM occasionally emits (e.g.
     // "*Board Meeting *"). The client renderer still parses **bold** spans
     // so we intentionally do NOT touch them — only lone-asterisk noise.
