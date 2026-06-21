@@ -24,6 +24,7 @@ import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import WeekAheadPriorities from "@/components/home/WeekAheadPriorities";
 import { useWeekAheadMode } from "@/hooks/useWeekAheadMode";
+import { useWeekAheadServerDecision } from "@/hooks/useWeekAheadServerDecision";
 import HomeSwipeShell from "@/components/home/swipe/HomeSwipeShell";
 import MrsPage from "@/components/home/mrs/MrsPage";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
@@ -60,7 +61,8 @@ const ExecutiveHome = () => {
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
   const [briefCtaReady, setBriefCtaReady] = useState(false);
-  const weekAhead = useWeekAheadMode();
+  const serverWeekAheadDecision = useWeekAheadServerDecision();
+  const weekAhead = useWeekAheadMode(serverWeekAheadDecision);
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
