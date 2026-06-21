@@ -6911,6 +6911,29 @@ if (import.meta.main) Deno.serve(async (req) => {
 
     const plan = await generateMasteryPlan(planReq, supabaseClient, outerReadinessCache);
 
+    // Server-authoritative Week-Ahead decision attached to the response
+    // so the frontend never has to guess from day-of-week alone. Saturday
+    // returns active:false, Sunday returns active:true (see
+    // _shared/plan/week-ahead-mode.ts §17).
+    try {
+      const _tzOffset = (planReq as any).timezoneOffset ?? clientTimezoneOffset ?? 0;
+      const _localNow = new Date(Date.now() - _tzOffset * 60000);
+      const _wam = evaluateWeekAheadMode({
+        dayOfWeek: _localNow.getUTCDay(),
+        localHour: _localNow.getUTCHours(),
+        manualOverride: (body as any)?.weekAheadOverride === true
+          || req.headers.get('x-week-ahead-override') === '1',
+      });
+      (plan as any).weekAheadDecision = {
+        active: _wam.active,
+        reason: _wam.reason,
+        lookaheadDays: _wam.lookaheadDays,
+        mode: _wam.active ? 'week_ahead' : 'day_of',
+      };
+    } catch (_e) {
+      // Non-fatal — frontend falls back to local DoW heuristic.
+    }
+
     // Cache response for rate limiting
     rateLimitMap.set(stateFingerprint, { lastCall: now, cachedResponse: plan });
     // Evict stale entries (prevent memory leak)
