@@ -81,7 +81,9 @@ Deno.test("x-dev-user-id is IGNORED in production even with garbage Bearer (no s
       const req = new Request("https://example.test/", {
         headers: {
           "x-dev-user-id": "auth0|attacker-target-user",
-          Authorization: "Bearer not-a-real-jwt",
+          // JWT-shaped (3 dotted segments) so it goes through jwtVerify
+          // and is rejected, instead of taking the /userinfo opaque-token path.
+          Authorization: "Bearer aaa.bbb.ccc",
         },
       });
       // Must NOT return the dev id. Must throw because JWT verification fails.
