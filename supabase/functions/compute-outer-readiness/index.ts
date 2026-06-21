@@ -5636,7 +5636,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             ...stateColumns,
             brief_source: briefSource,
             driver: theme.driver,
-            llm_fallback_reason: llmFallbackReason ?? null,
+            // Phase 1A — preserve EVERY attempt's reason instead of only the
+            // last one. `llmFallbackReason` is overwritten between attempts,
+            // so derive the persisted summary from `llmAttemptRecords` which
+            // retains the full Flash → Claude chain. Null only on success.
+            llm_fallback_reason: llmBrief
+              ? null
+              : (llmAttemptRecords
+                  .map(r => (typeof r.rawReason === 'string' ? r.rawReason : null))
+                  .filter(Boolean)
+                  .join(' | ') || llmFallbackReason || null),
             // Per-attempt diagnostics — see hoisted `llmAttemptRecords` above.
             // Each row carries the full Flash → Claude attempt chain, so we can
             // measure the timeout/parse/validator/http_error split without
