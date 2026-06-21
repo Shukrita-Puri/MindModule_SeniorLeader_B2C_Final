@@ -5959,6 +5959,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         ? null
         : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
       innerReadinessRefinedContribution: (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? null),
+      // MRS V4 — explicit eligibility contract. Frontend MUST prefer this
+      // over deriving state from individual fields. See helper definition
+      // near `wearableFreshForGate` for the rule table.
+      readinessEligibility,
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this
