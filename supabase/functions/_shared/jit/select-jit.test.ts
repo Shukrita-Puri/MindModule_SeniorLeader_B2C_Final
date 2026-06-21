@@ -152,6 +152,23 @@ Deno.test("events beyond 24h are excluded before scoring", () => {
   assertEquals(res.excluded[0].reason, "outside_horizon_ceiling");
 });
 
+Deno.test("horizonMs override admits events up to a week out (Week-Ahead picker)", () => {
+  const res = selectJitCandidates(
+    [{ id: "wk", title: "Board Meeting", start_time: inHours(96), end_time: inHours(97), attendeeRoles: ["board_member"] }],
+    {
+      accountAgeDays: 60,
+      signalSummary: null,
+      skipCountsByBucket: {},
+      followThroughByBucket: {},
+      goals: null,
+      nowMs: NOW,
+      horizonMs: 7 * 24 * 60 * 60_000,
+    },
+  );
+  assertEquals(res.ranked.length, 1);
+  assertEquals(res.ranked[0].eventId, "wk");
+});
+
 Deno.test("sovereign tag 'high' boosts importance regardless of tier", () => {
   const base = [{ id: "h", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5), attendeeRoles: ["board_member" as const] }];
   const untagged = selectJitCandidates(base, { accountAgeDays: 60, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW });
