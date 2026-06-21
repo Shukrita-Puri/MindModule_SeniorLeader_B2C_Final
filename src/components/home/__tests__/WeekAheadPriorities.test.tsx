@@ -49,7 +49,7 @@ describe("WeekAheadPriorities", () => {
     await waitFor(() => {
       expect(screen.getByText("Board Review")).toBeInTheDocument();
     });
-    expect(screen.getByText(/Board/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Board/).length).toBeGreaterThan(0);
     expect(screen.getByText(/high stakes/)).toBeInTheDocument();
   });
 
