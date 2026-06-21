@@ -21,6 +21,18 @@ function sanitizeDomain(raw: string): string {
   return raw.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 }
 
+// ─── Environment gate ───────────────────────────────────────────────
+/**
+ * Returns true when the function is running in production.
+ * Checks both ENVIRONMENT and APP_ENV so either signal locks down
+ * the dev bypass below.
+ */
+export function isProductionEnv(): boolean {
+  const env = (Deno.env.get('ENVIRONMENT') || '').toLowerCase();
+  const appEnv = (Deno.env.get('APP_ENV') || '').toLowerCase();
+  return env === 'production' || appEnv === 'production';
+}
+
 // ─── JWKS cache ─────────────────────────────────────────────────────
 let cachedJWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
 let cachedDomain: string | null = null;
@@ -91,10 +103,19 @@ export async function verifyAuth0JWT(authHeaderOrReq: string | Request | null, r
   }
 
   // ── Dev bypass: accept x-dev-user-id header (skips Auth0 entirely) ──
+  // SECURITY: Only honored OUTSIDE production. In production this header is
+  // ignored entirely so it cannot be used to impersonate any user. Identity
+  // in production must come from a verified Auth0 JWT in the Authorization
+  // header (validated below via JWKS + issuer + audience).
   const devUserId = request?.headers.get('x-dev-user-id');
   if (devUserId) {
-    console.log(`[shared/auth] DEV BYPASS – using x-dev-user-id: ${devUserId}`);
-    return devUserId;
+    if (isProductionEnv()) {
+      console.warn('[shared/auth] x-dev-user-id header received in production – IGNORED');
+      // Fall through to real JWT verification; do NOT trust the header.
+    } else {
+      console.log(`[shared/auth] DEV BYPASS – using x-dev-user-id: ${devUserId}`);
+      return devUserId;
+    }
   }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
