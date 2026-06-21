@@ -1,90 +1,127 @@
-## P0 Fix — Readiness Source Contract, Brief LLM Reliability, Signal Pill Gating
+## Audit summary (what the workspace actually shows today)
 
-This is a multi-area backend + frontend change. Doing it as one atomic pass so the contract holds end-to-end. Plan first because the scope is large and several changes touch hot paths (Brief generation, MRS, Plan gating).
+I inspected every file referenced in the brief plus the upstream/downstream callers. Several premises in the bug report are **already correct in code** and should not be "fixed" — touching them risks regression:
 
-### Root-cause hypotheses (to verify in step 1)
-1. **False "Full Read" at 53/100**: `compute-outer-readiness` (and/or `useOuterReadiness`/MrsPage) is downgrading `readinessState` from `refined` → `baseline` only on the **score-bearing** path, but the **label/state** sent to the UI still resolves to `refined` because some consumer reads `brief_snapshots.refined_*` columns without re-checking `wearableStatus`. Frontend `getReadinessStateLabel('refined', false)` correctly says "Full read" — i.e. the bug is upstream: state is `refined` when wearable is not fresh.
-2. **Mixed pill states** (one "REFINED", one "BASELINE", one "REFINED"): pills are built per-signal without a unified `isScoreBearing` gate; some derive freshness from check-in alone.
-3. **"No signal detail yet" detached**: collapsible detail panel is keyed to a stale/empty pill index when pills are filtered.
-4. **Deterministic Brief copy** ("Close strong.", "Steady the system…", "protecting the edge"): hardcoded fallback strings in `compute-outer-readiness` / `_shared/brief/copy-vocabulary.ts` are rendered when LLM fails, instead of returning awaiting state.
-5. **Claude fallback 404**: `CLAUDE_MODELS.SONNET` was already corrected to `claude-sonnet-4-5-20250929` (verified in `_shared/anthropic.ts`); smoke test exists. Need to confirm no other call site hardcodes the old id.
-6. **`llm_attempts` discarded**: `brief_snapshots.llm_attempts` column may not exist or is never written; need migration + write path.
+| Premise in brief | Real state today |
+|---|---|
+| `list-week-ahead-priorities` uses legacy `rankJitCandidates` | False. Already uses `loadJitContextForEvents` + `selectJitCandidates({ horizonMs: 7*86_400_000 })` (`list-week-ahead-priorities/index.ts:44–261`). |
+| `useWeekAheadMode` treats Saturday as Week-Ahead | False. Hook returns `active:false` for Saturday; only Sunday or `?mode=week-ahead` activates (`src/hooks/useWeekAheadMode.ts`). |
+| `selectJitCandidates` has hard-coded 24h ceiling | False. Already `ctx.horizonMs ?? 24 * 60 * 60_000` (`select-jit.ts:316,407`). |
+| `evaluateWeekAheadMode` returns Saturday active | False. Server predicate explicitly excludes Saturday (`_shared/plan/week-ahead-mode.ts`). |
+| `loadJitContextForEvents` doesn't exist | Exists at `_shared/jit/load-jit-context.ts`. |
 
-### Phase 1 — Investigate (no code changes)
-- Grep all references: `getReadinessStateLabel`, `wearableFresh`, `readinessState`, `refined`, `baseline`, signal pill builders, `compute-outer-readiness` payload shape, `useOuterReadiness`, `MrsPage`, `DecisionReadinessBrief`, Signal Pill components.
-- Inspect `brief_snapshots` schema for `llm_attempts` column.
-- Confirm where pill `sourceType` / `isScoreBearing` is (or isn't) computed.
-- Confirm deterministic fallback strings and where they're emitted.
-- Confirm `compute-inner-readiness` already gates `refined → baseline` on `wearableStatus !== 'fresh'` (done in earlier pass) — verify `compute-outer-readiness` honours that and that the Brief LLM path is gated the same way.
+Bugs that **are** real and need fixing:
 
-### Phase 2 — Backend source-of-truth contract
-**File: `supabase/functions/compute-outer-readiness/index.ts`** (and shared helpers)
-- Add a single helper that returns:
-  ```ts
-  readinessEligibility: {
-    wearableFresh: boolean;
-    checkInFresh: boolean;
-    mode: 'awaiting_signals' | 'early_read' | 'full_read';
-    scoreCanUpdate: boolean;       // = wearableFresh
-    checkInCanRefine: boolean;     // = wearableFresh && checkInFresh
-    reason: string;
-  }
-  ```
-- Use it as the only branch point for: emitting score, building Brief, emitting pills, persisting `brief_snapshots`.
-- **No wearable**: short-circuit. Persist check-in if present, but do **not** write a new score-bearing `brief_snapshots` row; emit `mode: awaiting_signals` with awaiting copy from `src/constants/awaitingSignals.ts` mirror in shared.
-- **Wearable only**: build wearable-derived score + Brief; pills tagged `sourceTypes: ['wearable'], isScoreBearing: true`.
-- **Wearable + check-in**: full refined path; pills that consumed check-in tag `sourceTypes: ['wearable','checkin']` and populate `detail` with the check-in context line.
-- Add `sourceTypes`, `isScoreBearing`, `freshness`, `hiddenReason`, `detail` to every emitted pill.
-- Stale wearable (>X hrs in user TZ) treated as `wearableFresh=false`. Never as fresh.
+1. `generate-mastery-plan` still imports and calls the legacy `rankJitCandidates` at lines 1772 and 3230 (in addition to the modern `selectJitCandidates` at 507). The two paths can produce different anchor choices and may not share the 24h ceiling consistently.
+2. `upcomingWeekLeadEvent` (line 5449) is computed from a future-window scan; the `promoteWeekLead` gate at 5668 uses `isSundayOrPostHoliday` which is correct in spirit, but the resolved event title can still leak into the slot anchor through other code paths (lines 5701–5712, 6055–6087) when an `anchorEventId` is set elsewhere. There is no single `isWithinDayOfHorizon(event, now)` invariant check applied uniformly before any of `anchorEventId / anchorEventTitle / eventId / eventTitle` is written into the response.
+3. Coach is *not* fully suppressed — `isCoachCard: true` is still injected at multiple module-construction sites: `2350, 2363, 3390, 3405, 3636, 3699, 3711`. The slot 3 "Brief coaching check-in / Evening reflection and tiny wins capture" at 3711–3712 is the exact "Coach + Tiny Win hard-coded into evening" leak the user is reporting.
+4. `generate-mastery-plan` response shape does not include a `weekAheadDecision` block, so frontend cannot honour the server decision authoritatively (it currently falls back to the local DoW predicate, which is conservative but not server-authoritative).
+5. Sunday Week-Ahead error needs reproduction — `list-week-ahead-priorities` looks correct on the selector path, so the error is likely (a) a frontend assumption on response field shape, or (b) the `loadJitContextForEvents` path throwing on a missing input. Needs runtime/log evidence before patching.
+6. `event-subtypes.ts` taxonomy: "in transition / interim / chief" can hit travel keywords; "presenting / present / pitch" coverage is partial. Tests will confirm before any edits.
 
-**File: `supabase/functions/compute-inner-readiness/index.ts`**
-- Verify the previous gate is intact. If anything still emits `state: 'refined'` when `wearableStatus !== 'fresh'`, harden.
+## Goals (in priority order)
 
-### Phase 3 — Brief LLM reliability
-**Files:** `compute-outer-readiness/index.ts`, `_shared/anthropic.ts`, `_shared/brief/copy-vocabulary.ts`, `_shared/brief-prompt-version.ts`
-- **Remove deterministic personality fallback.** When all LLM attempts fail, return awaiting copy (or null) and set `brief_source: 'awaiting'` or `'llm_failed'`. Never render "Close strong.", "Steady the system…", "protecting the edge".
-- **Persist `llm_attempts`** — every attempt pushed to an array with `{ model, attempt, durationMs, outcome, rawReason, httpStatus, errorHead, validatorReject }`. Written to `brief_snapshots.llm_attempts jsonb`.
-- **Migration**: `ALTER TABLE brief_snapshots ADD COLUMN IF NOT EXISTS llm_attempts jsonb;` with GRANT preserved.
-- **Prompt tightening**: max 60-word body, target 45-55, four beats (evidence, read, work directive, self-regulation), banned/preferred vocab pairs, retry includes the literal validator-failure reason.
-- **Timeouts**: Gemini Flash attempt 1 → 7s; Claude fallback → 8s.
-- **Bump `BRIEF_PROMPT_VERSION`** to invalidate cached bad snapshots.
-- Confirm `CLAUDE_MODELS.SONNET = 'claude-sonnet-4-5-20250929'` is the only Claude id used; smoke test stays.
+1. Strict 24-hour day-of anchor invariant — no named-event leak through any of the seven write-sites.
+2. Add server `weekAheadDecision` to the Plan response; frontend ExecutiveHome routes on it.
+3. Stop injecting `isCoachCard: true` and the "Brief coaching check-in / Tiny wins capture" evening module.
+4. Reproduce + fix the Sunday Week-Ahead error.
+5. Targeted classifier improvements + tests.
+6. Regression tests covering Saturday/Sunday, Coach suppression, classifier fixes.
 
-### Phase 4 — Frontend
-**Files (to confirm):** `src/components/home/mrs/MrsPage.tsx`, `src/components/home/DecisionReadinessBrief.tsx`, signal-pill component (`src/components/.../SignalPills.tsx`), `src/hooks/useOuterReadiness.ts`, `src/utils/readinessLabels.ts`.
-- Prefer `payload.readinessEligibility.mode` for label.
-- Derived fallback: never produce `full_read` from check-in alone; never produce `early_read` without `wearableFresh`.
-- Label table:
-  - `awaiting_signals` + no check-in → "Awaiting signals · sync your wearable and check in"
-  - `awaiting_signals` + check-in present → "Check-in received · awaiting wearable signals"
-  - `early_read` → "Early Read · check in to sharpen it"
-  - `full_read` → "Full Read · with your check-in"
-- Signal pills: render only pills with `isScoreBearing: true` when scoring is active. Suppress refined pills when `!wearableFresh`. Collapsible detail keyed to the selected pill id (not list index) — fixes the misaligned "No signal detail yet".
-- Show check-in detail string inside pill collapsible only when `sourceTypes` includes `'checkin'` and `detail` is non-empty.
-- Plan/MRS/Brief surfaces respect `scoreCanUpdate`; cached horizon modules from previous days are clearly labelled or hidden under awaiting state.
+Explicitly **not in scope**: scoring weights, slot count, relationship taxonomy, sovereign tags, memory, why-line mechanics (only its inputs are gated), or any rewrite of `selectJitCandidates`/`practice-selector`.
 
-### Phase 5 — Tests
-Add to `supabase/functions/compute-outer-readiness/*.test.ts` and `src/utils/readinessLabels.test.ts` covering the full matrix:
-- no wearable + no check-in
-- no wearable + check-in
-- stale wearable + check-in
-- fresh wearable + no check-in
-- fresh wearable + check-in
-- LLM failure (`llm_attempts` populated, no deterministic copy)
-- Claude model smoke
+## Implementation plan
 
-### Out of scope
-- Plan algorithm internals (only display gating).
-- B4 resolver, scoring math, slot allocator, practice selector, why-line.
-- Wearable ingestion / Oura cron.
+### Backend
 
-### Risks
-- `brief_snapshots` schema change requires migration + GRANT.
-- Removing deterministic fallback may briefly increase visible "awaiting" surfaces if LLM is flaky — acceptable per spec.
-- Prompt version bump invalidates today's cached briefs (intended).
+**B1. `_shared/plan/day-of-horizon.ts` (new, ~30 lines).**
+Pure helper:
+```ts
+export const DAY_OF_HORIZON_MS = 24 * 60 * 60_000;
+export function isWithinDayOfHorizon(
+  event: { start_time?: string | null } | null | undefined,
+  nowMs: number,
+  horizonMs: number = DAY_OF_HORIZON_MS,
+): boolean;
+export function gateDayOfAnchor<T extends { eventId?: string|null; eventTitle?: string|null }>(
+  slot: T, event: { start_time?: string|null } | null, nowMs: number,
+  weekAheadActive: boolean,
+): T; // nulls eventId+eventTitle if weekAheadActive=false AND event is outside 24h
+```
+Tested in isolation in `day-of-horizon.test.ts` (5 cases).
 
-### Deliverable
-Final report with: files changed, root-cause confirmation, test/log proof for each matrix row, migration applied, residual risks.
+**B2. `generate-mastery-plan/index.ts` — apply the invariant.**
+- Compute the resolved `weekAheadDecision` once near the top of the handler using `evaluateWeekAheadMode(...)` (already imported via `compute-outer-readiness` pattern — same call signature).
+- Pass `weekAheadActive` into every code path that writes `anchorEventId / anchorEventTitle / eventId / eventTitle`. The known write-sites from the audit: 1702, 3482, 3878, 4982, 5006, 5226, 5701–5712, 5772–5773, 5800–5801, 5922–5923, 6055–6056, 6086–6087, 6194, 6354.
+- Before any of those write a non-null value, run `gateDayOfAnchor(...)` against the matching calendar event. If `!weekAheadActive && !isWithinDayOfHorizon(event, nowMs)`, force both `eventId=null` and `eventTitle=null` and let the existing generic-anchor fallback ("the day ahead", "your current load", "today's rhythm") take over.
+- `upcomingWeekLeadEvent` (5449) selection is unchanged, but its consumer block at 5668–5712 already gates on `isSundayOrPostHoliday`; tighten that to use `weekAheadDecision.active` directly so server decision wins, and apply `gateDayOfAnchor` on the resulting slot. This removes the `isWeekend && dow === 6` ambiguity.
+- Migrate the two remaining `rankJitCandidates` call-sites (1772, 3230) — they keep their existing role (ranking already-filtered candidates for fallback contexts), but ensure the input set is filtered through `MVP_JIT_HORIZON_MINUTES` first (line 3185 already does this for the main filteredEvents path; replicate that filter immediately before each `rankJitCandidates` call so the fallback path cannot rehydrate >24h events).
 
----
-**Approve to proceed?** Once approved, I'll execute Phases 1→5 in one pass and return the acceptance report.
+**B3. Response contract.**
+Add to the `generate-mastery-plan` response payload:
+```ts
+weekAheadDecision: {
+  active: boolean;
+  reason: WeekAheadReason | null;
+  lookaheadDays: number;
+  mode: "day_of" | "week_ahead";
+}
+```
+Derived from the already-computed `evaluateWeekAheadMode` result.
+
+**B4. Coach / Tiny-Win suppression.**
+- Remove the three module-construction blocks that inject `isCoachCard: true` as a default/fallback slot, specifically the slot-3 evening blocks at 3636, 3699, 3711 (the "Brief coaching check-in" / "Evening reflection and tiny wins capture" entries).
+- Leave `isCoachCard` as a *property* on the module type — coach-typed practices selected legitimately by `practice-selector` keep their flag — but no code path injects a synthetic coach module any more.
+- The existing `mem://features/coach/suppression-standard` strip at the plan-finalisation layer remains as the second line of defence.
+- Tiny Wins: confirm no `type === 'tiny_win'` synthetic module is injected as a slot-3 fallback (audit showed only `reasoning: 'Evening reflection and tiny wins capture'` text — removed as part of the coach block deletion above).
+
+**B5. Sunday Week-Ahead error.**
+Reproduce via `supabase--curl_edge_functions /list-week-ahead-priorities` (logged-in session) on Sunday-like fixture date, or via Deno test that wires the same inputs the frontend sends. Patch the actual error after I see the stack — most likely candidates from the audit are:
+- response shape vs. `WeekAheadPriorities.tsx` field-name mismatch;
+- a missing-attendees throw inside `loadJitContextForEvents` when the event has zero attendees;
+- date math near `WEEK_AHEAD_HORIZON_MS` filtering everything out, producing an empty list the UI doesn't render.
+No speculative fix until the actual failure mode is confirmed.
+
+**B6. Classifier (`event-subtypes.ts`).**
+- Add travel exclusion keywords: `in transition`, `transition`, `interim`, `chief`, `cto in transition`.
+- Add presentation/influence verbs: `present`, `presenting`, `presentation`, `pitch` mapped to existing `inf.client_presentation` (no new subtype unless a test forces it).
+- Only ship after the new classifier tests in T6 reproduce the misclassification first.
+
+### Frontend
+
+**F1. `src/pages/ExecutiveHome.tsx`.**
+Route between `<TodayThreePriorities />` and `<WeekAheadPriorities />` using `useWeekAheadMode().active`, preferring the server's `weekAheadDecision.active` once it lands on the priorities payload. Header/eyebrow text mirrors: "Today's Performance Priorities" vs. "Week-Ahead Priorities".
+
+**F2. `useWeekAheadMode.ts`.**
+Extend the hook to accept an optional `serverDecision?: { active: boolean; reason: string|null }` argument and prefer it over the local DoW heuristic when provided. Keep the local fallback exactly as today (Sunday only, manual override). No Saturday change needed — already correct.
+
+**F3. `WeekAheadPriorities.tsx`.**
+Defensive renders only: loading state, meaningful empty state, no crash on missing optional fields. No layout change.
+
+### Tests
+
+**T1.** `_shared/plan/day-of-horizon.test.ts` — 5 cases for the helper.
+**T2.** `generate-mastery-plan/index.test.ts` — Saturday 20 Jun 2026 evening fixture, calendar contains a Monday event titled "AI for Climate: Who Benefits" (>24h away). Assert response contains no occurrence of that title or its event id in any slot's `eventId / eventTitle / anchorEventId / anchorEventTitle`.
+**T3.** Same suite — `weekAheadDecision.active === false` on Saturday, `=== true` on Sunday.
+**T4.** Coach suppression — assert no module in the response has `isCoachCard === true` and no slot 3 module has the legacy "tiny wins capture" reasoning.
+**T5.** `list-week-ahead-priorities/index.test.ts` — Sunday fixture builds a non-empty ranked list without throwing.
+**T6.** `_shared/events/classify-event-v2.test.ts` (add cases) — "Chief UK In Transition" not classified as travel; "Presenting Mind Module to St James" classified as `inf.client_presentation`.
+**T7.** `_shared/jit/select-jit.test.ts` — already has horizon test; add a relationship-prioritisation case ("Interview with EY CEO" ranks above "weekly standup" given direct-boss attendee).
+**T8.** Frontend: `useWeekAheadMode` test (Saturday=false, Sunday=true, server override wins) and `ExecutiveHome` smoke test (renders correct component per decision).
+
+### Validation
+
+- Run `deno test` for `_shared/plan/`, `_shared/jit/`, `_shared/events/`, `generate-mastery-plan/`, `list-week-ahead-priorities/`.
+- Run `bunx vitest run` for the frontend additions.
+- Smoke `supabase--curl_edge_functions` on `/generate-mastery-plan` and `/list-week-ahead-priorities` if a logged-in preview session is available; otherwise rely on the Deno fixture tests as the contract proof.
+
+### Out of scope (will not change)
+
+Slot count, slot allocator math, MRS scoring, why-line LLM mechanics (only inputs gated), `selectJitCandidates` ranking math, relationship taxonomy, sovereign tags, memory model, calendar ingestion, practice selector internals.
+
+### Risk
+
+- The biggest risk is the `gateDayOfAnchor` invariant changing slot anchors for users on a normal weekday near midnight (event ~25h away). Mitigated by gating only when `!weekAheadActive` and only nulling the named anchor (not the slot itself), which falls back to the existing generic-anchor copy already in code.
+- Removing the synthetic coach evening block changes the slot 3 shape on quiet days. Mitigated because the existing `practice-selector` fallback path at 6048 already supplies `nextMod` when no JIT candidate fires.
+
+After plan approval I will execute B1→B6, F1→F3, then T1→T8, returning a final report with the artifacts and test results.
