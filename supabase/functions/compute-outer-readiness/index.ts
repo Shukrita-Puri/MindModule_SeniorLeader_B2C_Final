@@ -12,6 +12,7 @@ import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { phaseForEvent, type Phase } from "../_shared/events/event-phase-map.ts";
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
+import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
   buildBehaviourSnapshot,
   type BehaviourSnapshotResult,
