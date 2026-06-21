@@ -42,6 +42,11 @@ import {
 } from "../_shared/signal-engine/divergence-flag.ts";
 import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
 import {
+  annotatePill as annotatePillV4,
+  enforcePillInvariants as enforcePillInvariantsV4,
+  type SourceType as PillSourceTypeV4,
+} from "../_shared/signal-pills-v4.ts";
+import {
   getServerCalendarMetrics,
   type CalendarMetricsResult,
 } from "../_shared/signal-engine/db-queries.ts";
