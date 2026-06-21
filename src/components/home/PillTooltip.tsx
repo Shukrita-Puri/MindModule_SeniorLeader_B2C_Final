@@ -31,8 +31,10 @@ export interface PillTooltipPill {
   // `hiddenReason` explains why (no fresh wearable / no check-in).
   sourceTypes?: Array<'wearable' | 'checkin' | 'pattern'>;
   isScoreBearing?: boolean;
-  freshness?: { wearableFresh?: boolean; checkInFresh?: boolean };
+  freshness?: 'fresh' | 'stale' | 'missing' | 'non_score_bearing';
   hiddenReason?: 'no_fresh_wearable' | 'no_checkin' | null;
+  detail?: string | null;
+  contributedByCheckIn?: boolean;
 }
 
 /* ── Humanisation ────────────────────────────────────────────────────── */

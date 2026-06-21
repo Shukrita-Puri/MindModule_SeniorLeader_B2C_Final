@@ -5413,27 +5413,85 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           physical_reserves: 'Body Unread',
           resilience_capacity: 'Reserve Unread',
         };
+        // Per-pill annotation + V4 invariant. Frontend MUST treat these
+        // fields as the source of truth — see the assertion block below
+        // for the rules this normalisation guarantees.
+        const DETAIL_AWAITING =
+          'Sync your wearable and then complete a quick check-in to sharpen the picture.';
+        const DETAIL_EARLY_READ =
+          'Wearable read only. Complete a check-in to refine this pill.';
         for (const p of signalPillsPayload) {
           const sources = pillSourceMap[p.key] ?? [];
           const hasWearableSrc = sources.includes('wearable') || sources.includes('pattern');
           const hasCheckinSrc = sources.includes('checkin');
+          const contributedByCheckIn =
+            wearableFreshForGate && checkInFreshForGate && hasCheckinSrc;
+          let isScoreBearing =
+            wearableFreshForGate && (hasWearableSrc || (hasCheckinSrc && checkInFreshForGate));
           let hiddenReason: 'no_fresh_wearable' | 'no_checkin' | null = null;
+          let detail: string | null = null;
           // V4 gate: pills are only score-bearing when wearable is fresh.
           // A check-in alone must NEVER produce a coloured / refined pill.
           if (!wearableFreshForGate) {
             hiddenReason = 'no_fresh_wearable';
+            isScoreBearing = false;
             (p as any).tier = 'neutral';
             (p as any).tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
-          } else if (sources.length === 0) {
-            hiddenReason = hasCheckinSrc ? null : 'no_fresh_wearable';
+            detail = DETAIL_AWAITING;
+          } else if (!hasWearableSrc && !hasCheckinSrc) {
+            hiddenReason = 'no_fresh_wearable';
+            isScoreBearing = false;
+            (p as any).tier = 'neutral';
+            (p as any).tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
+            detail = DETAIL_AWAITING;
+          } else if (!checkInFreshForGate && !hasWearableSrc && hasCheckinSrc) {
+            // Pill only has check-in inputs but no check-in today.
+            hiddenReason = 'no_checkin';
+            isScoreBearing = false;
+            (p as any).tier = 'neutral';
+            (p as any).tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
+            detail = DETAIL_EARLY_READ;
+          } else if (!checkInFreshForGate) {
+            detail = DETAIL_EARLY_READ;
+          }
+          // Freshness enum (spec): fresh | stale | missing | non_score_bearing
+          let freshnessStr: 'fresh' | 'stale' | 'missing' | 'non_score_bearing';
+          if (isScoreBearing) {
+            freshnessStr = 'fresh';
+          } else if (!hasWearable) {
+            freshnessStr = 'missing';
+          } else if (!wearableFreshForGate) {
+            freshnessStr = 'stale';
+          } else {
+            freshnessStr = 'non_score_bearing';
           }
           (p as any).sourceTypes = sources;
-          (p as any).isScoreBearing = wearableFreshForGate && (hasWearableSrc || (hasCheckinSrc && checkInFreshForGate));
-          (p as any).freshness = {
-            wearableFresh: wearableFreshForGate,
-            checkInFresh: checkInFreshForGate,
-          };
+          (p as any).isScoreBearing = isScoreBearing;
+          (p as any).freshness = freshnessStr;
           (p as any).hiddenReason = hiddenReason;
+          (p as any).detail = detail;
+          (p as any).contributedByCheckIn = contributedByCheckIn;
+        }
+
+        // ── V4 invariant assertion (defensive normalisation) ──────────
+        // Guarantees the rules described in the QA spec hold regardless
+        // of future contributor additions. Any violation is force-corrected
+        // and warned (dev-only); production never emits broken pills.
+        for (const p of signalPillsPayload as Array<any>) {
+          if (!wearableFreshForGate) {
+            if (p.isScoreBearing || p.tier !== 'neutral' || p.contributedByCheckIn) {
+              console.warn('[signal-pills-v4] invariant: forcing neutral/non-score-bearing for', p.key);
+              p.isScoreBearing = false;
+              p.contributedByCheckIn = false;
+              p.tier = 'neutral';
+              p.tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
+              p.hiddenReason = p.hiddenReason ?? 'no_fresh_wearable';
+              p.freshness = hasWearable ? 'stale' : 'missing';
+            }
+          } else if (!checkInFreshForGate && p.contributedByCheckIn) {
+            console.warn('[signal-pills-v4] invariant: clearing contributedByCheckIn for', p.key);
+            p.contributedByCheckIn = false;
+          }
         }
 
         // F3.1 — Hoist the base pill payload immediately so a downstream throw
