@@ -26,6 +26,13 @@ export interface PillTooltipPill {
   tierLabel?: string;
   contributors?: Record<string, unknown>;
   qualifiers?: Record<string, unknown>;
+  // MRS V4 — per-pill source-of-truth metadata. When `isScoreBearing` is
+  // false the pill must not display a "(Refined)" badge or coloured tier;
+  // `hiddenReason` explains why (no fresh wearable / no check-in).
+  sourceTypes?: Array<'wearable' | 'checkin' | 'pattern'>;
+  isScoreBearing?: boolean;
+  freshness?: { wearableFresh?: boolean; checkInFresh?: boolean };
+  hiddenReason?: 'no_fresh_wearable' | 'no_checkin' | null;
 }
 
 /* ── Humanisation ────────────────────────────────────────────────────── */

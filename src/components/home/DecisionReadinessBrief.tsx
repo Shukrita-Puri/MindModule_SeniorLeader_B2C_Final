@@ -1376,6 +1376,12 @@ function ExecutivePillCapsule({
     : pill.signalWord;
   const c = PILL_COLORS[effectiveState];
   const Icon = pill.Icon;
+  // MRS V4 — never render the "(Refined)" / "(Baseline)" badge when the
+  // server-side contract tells us the pill is not score-bearing (i.e.
+  // wearable is stale/missing or no check-in has tightened it). This
+  // prevents a check-in-only state from appearing as a refined coloured pill.
+  const showReadinessBadge =
+    serverPill?.isScoreBearing !== false && !!pill.readinessState;
   // Plain-language glossary per pillar — what each pillar tracks, no calculations
   // or proprietary thresholds. Users see a single short definition.
   const glossary: Record<ExecutivePill['id'], { short: string; clinical?: string }> = {
@@ -1419,7 +1425,7 @@ function ExecutivePillCapsule({
           </span>
           <span className={cn('text-sm font-semibold tracking-wide uppercase', PILL_SIGNAL)}>
             {effectiveSignalWord}
-            {pill.readinessState && (
+            {showReadinessBadge && (
               <span className="ml-1.5 text-[9px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-normal">
                 ({pill.readinessState === 'refined' ? 'Refined' : 'Baseline'})
               </span>
