@@ -181,6 +181,7 @@ serve(async (req) => {
     const platform = (req.headers.get("x-client-platform") || "web").toLowerCase().includes("ios")
       ? "ios" : "web";
     const deduped = mergeCalendarEvents(rawEvents, platform as "ios" | "web");
+    logMergeStats("week-ahead", rawEvents.length, deduped as any, { userId });
 
     type Scored = {
       eventId: string;
