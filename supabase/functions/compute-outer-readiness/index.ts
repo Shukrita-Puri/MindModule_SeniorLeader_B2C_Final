@@ -4597,8 +4597,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // 4s is a budget for a light task, this is moderate-to-heavy.
           // Perceived latency cost of a few extra seconds is far lower than
           // a deterministic-fallback rate.
+          // P0 2026-06-21 — bumped Gemini Flash timeout from 7000ms to 8000ms
+          // (top of the spec'd 6-8s range) so transient gateway latency does
+          // not push us into the deterministic-fallback path (now removed
+          // from rendered output — see briefIsAwaiting gate below).
           const llmAttempts: Array<{ model: string; timeoutMs: number; useGateway: boolean }> = [
-            { model: 'google/gemini-2.5-flash', timeoutMs: 7000, useGateway: true },
+            { model: 'google/gemini-2.5-flash', timeoutMs: 8000, useGateway: true },
             { model: CLAUDE_MODELS.SONNET, timeoutMs: 9000, useGateway: false },
           ];
 
