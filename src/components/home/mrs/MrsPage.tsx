@@ -32,7 +32,9 @@ const MrsPage = () => {
 
   const tierColor = tierColorVar(tier);
   const oneLiner = getReadinessOneLiner(score);
-  const stateLabel = getReadinessStateLabel(readinessState);
+  const ws = (outerBrief as any)?.wearableStatus;
+  const wearableFresh = !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
+  const stateLabel = getReadinessStateLabel(readinessState, wearableFresh);
 
   return (
     <section

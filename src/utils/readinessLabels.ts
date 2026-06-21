@@ -61,14 +61,31 @@ export function getReadinessValence(score: number | null | undefined): Readiness
 
 export type ReadinessState = "baseline" | "refined" | "awaiting";
 
-export function getReadinessStateLabel(state: ReadinessState): {
-  label: string;
-  subtitle: string;
-} {
-  if (state === "awaiting") {
+/**
+ * MRS V4 (2026-06-21) — strict label mapping.
+ *
+ *   refined                              → "Full read"  (fresh wearable + check-in)
+ *   baseline + fresh wearable            → "Early read" (wearable only)
+ *   baseline + missing / stale wearable  → "Awaiting signals"
+ *   awaiting                             → "Awaiting signals"
+ *
+ * The label MUST NOT say "Early read" for awaiting, stale-wearable, or
+ * check-in-only states. Pass `wearableFresh` so this helper can apply the
+ * correct downgrade without each consumer re-implementing the rule.
+ */
+export function getReadinessStateLabel(
+  state: ReadinessState,
+  wearableFresh: boolean = false,
+): { label: string; subtitle: string } {
+  if (state === "refined") {
+    return { label: "Full read", subtitle: "with your check-in" };
+  }
+  if (state === "baseline" && wearableFresh) {
     return { label: "Early read", subtitle: "check in to sharpen it" };
   }
-  return state === "refined"
-    ? { label: "Full read", subtitle: "with your check-in" }
-    : { label: "Early read", subtitle: "check in to sharpen it" };
+  // awaiting, or baseline without fresh wearable (no/stale wearable paths).
+  return {
+    label: "Awaiting signals",
+    subtitle: "sync your wearable and check in",
+  };
 }
