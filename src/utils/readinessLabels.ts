@@ -77,8 +77,18 @@ export function getReadinessStateLabel(
   state: ReadinessState,
   wearableFresh: boolean = false,
 ): { label: string; subtitle: string } {
-  if (state === "refined") {
+  // MRS V4 (P0 2026-06-21) — defence in depth: even if an upstream
+  // consumer forwards `refined` without fresh wearable, the visible label
+  // must NEVER claim "Full read". This mirrors the server-side gate in
+  // compute-outer-readiness so the UI cannot disagree with the contract.
+  if (state === "refined" && wearableFresh) {
     return { label: "Full read", subtitle: "with your check-in" };
+  }
+  if (state === "refined" && !wearableFresh) {
+    return {
+      label: "Awaiting signals",
+      subtitle: "sync your wearable and check in",
+    };
   }
   if (state === "baseline" && wearableFresh) {
     return { label: "Early read", subtitle: "check in to sharpen it" };
