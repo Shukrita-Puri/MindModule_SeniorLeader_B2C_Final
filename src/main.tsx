@@ -6,10 +6,14 @@ import './index.css'
 import { DEV_MODE } from './config/devMode'
 import { getRedirectUri, initNativeAuthListener, getSanitisedAuth0Audience } from './utils/nativeAuth'
 import { installDevInterceptor } from './lib/devInterceptor'
+import { installAuthRetryInterceptor } from './lib/authRetryInterceptor'
 import { startSyncOrchestrator } from './services/syncRetryOrchestrator'
 
 // Install dev mode interceptor for edge function calls (no-op in production)
 installDevInterceptor();
+
+// Install 401 auto-retry interceptor for edge function calls (no-op in DEV_MODE)
+installAuthRetryInterceptor();
 
 // Boot the offline-first sync retry orchestrator (drains queued Apple Health /
 // Apple Calendar payloads when network/auth/app-state allows).
