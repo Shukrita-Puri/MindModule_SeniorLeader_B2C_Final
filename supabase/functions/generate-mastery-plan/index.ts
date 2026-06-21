@@ -5415,10 +5415,30 @@ function buildHorizonModules(
   const nowMs = Date.now();
   const startOfTomorrow = new Date(); startOfTomorrow.setHours(0, 0, 0, 0); startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
   const endOfTomorrow = new Date(startOfTomorrow); endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
-  const tomorrowEvents = (req.calendarEvents || []).filter((e: any) => {
+  // Day-of horizon invariant: when the user is NOT in Week-Ahead mode
+  // (Sun / last-day-PTO / last-day-holiday / manual override), no event
+  // whose start is more than 24h from "now" may be used as a named anchor
+  // anywhere downstream. Compute the resolved decision once.
+  const _planTzOffset = (req as any).timezoneOffset ?? 0;
+  const _planLocalNow = new Date(nowMs - _planTzOffset * 60000);
+  const _planWeekAheadDecision = evaluateWeekAheadMode({
+    dayOfWeek: _planLocalNow.getUTCDay(),
+    localHour: _planLocalNow.getUTCHours(),
+    manualOverride: (req as any).weekAheadOverride === true,
+  });
+  const _planWeekAheadActive = _planWeekAheadDecision.active;
+  const _dayOfHorizonCutoffMs = nowMs + DAY_OF_HORIZON_MS;
+  const tomorrowEventsRaw = (req.calendarEvents || []).filter((e: any) => {
     const t = new Date(e.startTime).getTime();
     return t >= startOfTomorrow.getTime() && t < endOfTomorrow.getTime();
   });
+  // Strict 24h gate on day-of: a "tomorrow" event that starts after now+24h
+  // (e.g. Saturday-evening user looking at Sunday-afternoon events) must
+  // NOT seed any named anchor. Week-Ahead mode keeps the full set.
+  const tomorrowEvents = _planWeekAheadActive
+    ? tomorrowEventsRaw
+    : tomorrowEventsRaw.filter((e: any) =>
+        new Date(e.startTime).getTime() <= _dayOfHorizonCutoffMs);
   const todayRemainingEvents = (req.calendarEvents || []).filter((e: any) => {
     const t = new Date(e.startTime).getTime();
     return t >= nowMs && t < startOfTomorrow.getTime();
