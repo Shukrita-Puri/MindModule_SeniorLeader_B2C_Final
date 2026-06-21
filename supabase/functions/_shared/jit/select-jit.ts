@@ -400,8 +400,9 @@ export function selectJitCandidates(
       excluded.push({ eventId: ev.id, title, reason: 'bad_start_time' });
       continue;
     }
-    if (startMs - nowMs > 24 * 60 * 60_000) {
-      excluded.push({ eventId: ev.id, title, reason: 'outside_24h_ceiling' });
+    const horizonMs = ctx.horizonMs ?? 24 * 60 * 60_000;
+    if (startMs - nowMs > horizonMs) {
+      excluded.push({ eventId: ev.id, title, reason: 'outside_horizon_ceiling' });
       continue;
     }
 
