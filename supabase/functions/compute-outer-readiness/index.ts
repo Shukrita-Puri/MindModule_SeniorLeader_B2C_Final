@@ -3312,14 +3312,23 @@ serve(async (req) => {
             .eq('prompt_version', BRIEF_PROMPT_VERSION)
             .maybeSingle();
           if (snapshot) {
-            cachedSnapshot = snapshot as typeof cachedSnapshot;
+            // P0 2026-06-21 — only LLM-validated snapshots are treated as
+            // cache hits. Rows with brief_source = 'deterministic' /
+            // 'awaiting' / null are ignored so the request re-attempts the
+            // LLM and never serves recycled fallback/awaiting copy as a
+            // "live" brief. The (user, local_date, time_window, sig, version)
+            // upsert key still prevents duplicate rows.
+            if (snapshot.brief_source === 'llm') {
+              cachedSnapshot = snapshot as typeof cachedSnapshot;
+            }
             console.log('[brief-cache] Result:', JSON.stringify({
-              snapshotHit: true,
+              snapshotHit: snapshot.brief_source === 'llm',
+              snapshotIgnoredReason: snapshot.brief_source === 'llm' ? null : `non_llm_source:${snapshot.brief_source ?? 'null'}`,
               briefSource: snapshot.brief_source,
               promptVersion: BRIEF_PROMPT_VERSION,
               inputSignature: inputSignature.slice(0, 8) + '...',
               generationPath: 'snapshot',
-              snapshotReason: 'exact_match',
+              snapshotReason: snapshot.brief_source === 'llm' ? 'exact_match' : 'non_llm_ignored',
             }));
           }
         } catch (readError) {
