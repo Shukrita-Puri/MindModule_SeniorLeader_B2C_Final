@@ -78,7 +78,13 @@ import { mergeCalendarEvents } from '../_shared/rules/calendarEvents.ts';
 import { logMergeStats } from '../_shared/rules/calendar-merge.ts';
 import {
   normalizeEventTypeKey,
+  evaluateWeekAheadMode,
 } from '../_shared/plan/week-ahead-mode.ts';
+import {
+  DAY_OF_HORIZON_MS,
+  isWithinDayOfHorizon,
+  gateDayOfAnchor,
+} from '../_shared/plan/day-of-horizon.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase, type SlotAnchor } from '../_shared/plan/title-prefixes.ts';
 import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
@@ -3678,42 +3684,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     }
   }
 
-  // 7. Coach card for time-of-day plan (separate from module coach cards)
-  let todCoachCard: any = null;
-  const hasCoachFavorite = req.favorites.some(fav => fav.startsWith('coach-') || fav === 'coach');
-  const hasPreEventWithin4h = filteredEvents.some(e => e.minutesUntil <= 240);
-  const coachContext = getCoachPromptForContext(timeOfDay, req.innerReadinessTier, req.patternInsight, req.innerReadinessScore, req.calendarPressure, hasCoachFavorite, hasPreEventWithin4h);
-  if (coachContext) {
-    // Only add coach card to modules if not already there as prepare/integrate
-    const hasCoachModule = todModules.some(m => m.isCoachCard);
-    if (!hasCoachModule && todModules.length < maxModules) {
-      const coachType = timeOfDay === 'evening' ? 'integrate' : 'prepare';
-      todCoachCard = {
-        id: `coach-${coachType}:${coachStateHash.substring(0, 8)}`,
-        type: coachType,
-        label: coachType === 'integrate' ? 'Integrate' : 'Prepare',
-        protocolType: 'Self Mastery Coach',
-        title: coachContext.title,
-        duration: 2,
-        sortOrder: coachType === 'integrate' ? 4 : 3,
-        isCoachCard: true,
-        prompt: coachContext.prompt
-      };
-      todModules.push({
-        type: coachType,
-        contentId: todCoachCard.id,
-        title: todCoachCard.title,
-        contentType: 'coach',
-        duration: 2,
-        focus: 'release',
-        intensity: 'gentle',
-        isFavorite: false,
-        isCoachCard: true,
-        reasoning: timeOfDay === 'evening' ? 'Evening reflection and tiny wins capture' : 'Brief coaching check-in',
-        required: timeOfDay === 'evening'
-      });
-    }
-  }
+  // 7. Coach card synthetic injection — REMOVED per
+  // mem://features/coach/suppression-standard. The previous block
+  // hard-coded "Brief coaching check-in" into slot 3/evening and seeded
+  // "Evening reflection and tiny wins capture" as a default fallback,
+  // which leaked Coach + Tiny Wins into Practice even when the Coach
+  // feature is suppressed for the user. Coach/Tiny Wins modules can
+  // still appear only when the practice/recalibration selector chooses
+  // them on their own merits (existing prepare/integrate slot above).
+  const todCoachCard: any = null;
 
   // Calculate total duration
   const totalDuration = todModules.reduce((sum, m) => sum + (m.duration || 0), 0);
@@ -5409,10 +5388,30 @@ function buildHorizonModules(
   const nowMs = Date.now();
   const startOfTomorrow = new Date(); startOfTomorrow.setHours(0, 0, 0, 0); startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
   const endOfTomorrow = new Date(startOfTomorrow); endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
-  const tomorrowEvents = (req.calendarEvents || []).filter((e: any) => {
+  // Day-of horizon invariant: when the user is NOT in Week-Ahead mode
+  // (Sun / last-day-PTO / last-day-holiday / manual override), no event
+  // whose start is more than 24h from "now" may be used as a named anchor
+  // anywhere downstream. Compute the resolved decision once.
+  const _planTzOffset = (req as any).timezoneOffset ?? 0;
+  const _planLocalNow = new Date(nowMs - _planTzOffset * 60000);
+  const _planWeekAheadDecision = evaluateWeekAheadMode({
+    dayOfWeek: _planLocalNow.getUTCDay(),
+    localHour: _planLocalNow.getUTCHours(),
+    manualOverride: (req as any).weekAheadOverride === true,
+  });
+  const _planWeekAheadActive = _planWeekAheadDecision.active;
+  const _dayOfHorizonCutoffMs = nowMs + DAY_OF_HORIZON_MS;
+  const tomorrowEventsRaw = (req.calendarEvents || []).filter((e: any) => {
     const t = new Date(e.startTime).getTime();
     return t >= startOfTomorrow.getTime() && t < endOfTomorrow.getTime();
   });
+  // Strict 24h gate on day-of: a "tomorrow" event that starts after now+24h
+  // (e.g. Saturday-evening user looking at Sunday-afternoon events) must
+  // NOT seed any named anchor. Week-Ahead mode keeps the full set.
+  const tomorrowEvents = _planWeekAheadActive
+    ? tomorrowEventsRaw
+    : tomorrowEventsRaw.filter((e: any) =>
+        new Date(e.startTime).getTime() <= _dayOfHorizonCutoffMs);
   const todayRemainingEvents = (req.calendarEvents || []).filter((e: any) => {
     const t = new Date(e.startTime).getTime();
     return t >= nowMs && t < startOfTomorrow.getTime();
@@ -6911,6 +6910,29 @@ if (import.meta.main) Deno.serve(async (req) => {
     // supabaseClient already created above for fingerprint
 
     const plan = await generateMasteryPlan(planReq, supabaseClient, outerReadinessCache);
+
+    // Server-authoritative Week-Ahead decision attached to the response
+    // so the frontend never has to guess from day-of-week alone. Saturday
+    // returns active:false, Sunday returns active:true (see
+    // _shared/plan/week-ahead-mode.ts §17).
+    try {
+      const _tzOffset = (planReq as any).timezoneOffset ?? clientTimezoneOffset ?? 0;
+      const _localNow = new Date(Date.now() - _tzOffset * 60000);
+      const _wam = evaluateWeekAheadMode({
+        dayOfWeek: _localNow.getUTCDay(),
+        localHour: _localNow.getUTCHours(),
+        manualOverride: (body as any)?.weekAheadOverride === true
+          || req.headers.get('x-week-ahead-override') === '1',
+      });
+      (plan as any).weekAheadDecision = {
+        active: _wam.active,
+        reason: _wam.reason,
+        lookaheadDays: _wam.lookaheadDays,
+        mode: _wam.active ? 'week_ahead' : 'day_of',
+      };
+    } catch (_e) {
+      // Non-fatal — frontend falls back to local DoW heuristic.
+    }
 
     // Cache response for rate limiting
     rateLimitMap.set(stateFingerprint, { lastCall: now, cachedResponse: plan });
