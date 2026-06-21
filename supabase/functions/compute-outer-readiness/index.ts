@@ -5386,6 +5386,56 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           },
         ];
 
+        // ── MRS V4 — per-pill source-of-truth metadata ─────────────────
+        // Annotate every pill with the contract the frontend uses to decide
+        // whether the pill is score-bearing, what data sources informed it,
+        // and why (when applicable) it has been suppressed. When the global
+        // wearable-freshness gate is OFF, no pill can be score-bearing and
+        // every tier is force-collapsed to 'neutral' so a check-in alone can
+        // never produce a refined-coloured pill.
+        const decisionSources: Array<'wearable' | 'checkin' | 'pattern'> = [];
+        if (hrvValue != null || sleepDuration != null || sleepScoreVal != null) decisionSources.push('wearable');
+        if (clarityLevel != null) decisionSources.push('checkin');
+        const physicalSources: Array<'wearable' | 'checkin' | 'pattern'> = [];
+        if (rhrValue != null || hrValue != null) physicalSources.push('wearable');
+        if (rhr3dTrend === 'rising' || rhr3dTrend === 'declining' || sustainedDeficitFlag) physicalSources.push('pattern');
+        const resilienceSources: Array<'wearable' | 'checkin' | 'pattern'> = [];
+        if (sleepEffPill != null) resilienceSources.push('wearable');
+        if (emotionLevel != null || regulationLevel != null || pressureLevel != null) resilienceSources.push('checkin');
+        if (sustainedDeficitFlag || (cooccurrence7d?.cooccurrence_count ?? 0) > 0) resilienceSources.push('pattern');
+        const pillSourceMap: Record<string, Array<'wearable' | 'checkin' | 'pattern'>> = {
+          decision_readiness: decisionSources,
+          physical_reserves: physicalSources,
+          resilience_capacity: resilienceSources,
+        };
+        const PILL_NEUTRAL_LABELS: Record<string, string> = {
+          decision_readiness: 'Mind Unread',
+          physical_reserves: 'Body Unread',
+          resilience_capacity: 'Reserve Unread',
+        };
+        for (const p of signalPillsPayload) {
+          const sources = pillSourceMap[p.key] ?? [];
+          const hasWearableSrc = sources.includes('wearable') || sources.includes('pattern');
+          const hasCheckinSrc = sources.includes('checkin');
+          let hiddenReason: 'no_fresh_wearable' | 'no_checkin' | null = null;
+          // V4 gate: pills are only score-bearing when wearable is fresh.
+          // A check-in alone must NEVER produce a coloured / refined pill.
+          if (!wearableFreshForGate) {
+            hiddenReason = 'no_fresh_wearable';
+            (p as any).tier = 'neutral';
+            (p as any).tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
+          } else if (sources.length === 0) {
+            hiddenReason = hasCheckinSrc ? null : 'no_fresh_wearable';
+          }
+          (p as any).sourceTypes = sources;
+          (p as any).isScoreBearing = wearableFreshForGate && (hasWearableSrc || (hasCheckinSrc && checkInFreshForGate));
+          (p as any).freshness = {
+            wearableFresh: wearableFreshForGate,
+            checkInFresh: checkInFreshForGate,
+          };
+          (p as any).hiddenReason = hiddenReason;
+        }
+
         // F3.1 — Hoist the base pill payload immediately so a downstream throw
         // in qualifier/coherence enrichment can no longer null the entire
         // signalPills response (which surfaces in the UI as "No signal detail
