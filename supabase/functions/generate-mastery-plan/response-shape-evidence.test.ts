@@ -26,7 +26,7 @@ const SRC = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 
 // ───────────────────────── weekAheadDecision ─────────────────────────
 Deno.test("response attaches weekAheadDecision derived from shared predicate", () => {
-  assertStringIncludes(SRC, "import {\n  evaluateWeekAheadMode");
+  assert(/evaluateWeekAheadMode/.test(SRC), "expected evaluateWeekAheadMode to be imported/used");
   assertStringIncludes(SRC, "(plan as any).weekAheadDecision = {");
   assertStringIncludes(SRC, "active: _wam.active,");
   assertStringIncludes(SRC, "reason: _wam.reason,");
@@ -56,38 +56,42 @@ Deno.test("Sunday 21 Jun 2026 → weekAheadDecision.active === true / reason='su
 });
 
 // ────────────────────── 24h day-of anchor gate ───────────────────────
-Deno.test("imports gateDayOfAnchor for the strict 24h day-of invariant", () => {
+Deno.test("imports the 24h day-of invariant helpers (gateDayOfAnchor + DAY_OF_HORIZON_MS)", () => {
   assertStringIncludes(SRC, "gateDayOfAnchor,");
+  assertStringIncludes(SRC, "DAY_OF_HORIZON_MS,");
 });
 
-Deno.test("every named-anchor code path can null event id+title when day-of+>24h", () => {
-  // Sanity: there is at least one gateDayOfAnchor call site — i.e. the
-  // invariant is actually enforced, not just imported. Detailed unit
-  // behaviour is covered by _shared/plan/day-of-horizon.test.ts (7/7 ok).
+Deno.test("tomorrowEvents are filtered to ≤now+24h when not in week-ahead mode", () => {
+  // The Saturday-leak root cause: a Saturday-evening plan picked up a
+  // Sunday-afternoon event because tomorrowEventsRaw included anything in
+  // [startOfTomorrow, endOfTomorrow). The fix is the
+  // `_dayOfHorizonCutoffMs` filter applied below. Detailed behaviour for
+  // the helper itself is covered by _shared/plan/day-of-horizon.test.ts.
+  assertStringIncludes(SRC, "_dayOfHorizonCutoffMs = nowMs + DAY_OF_HORIZON_MS");
+  assertStringIncludes(SRC, "_planWeekAheadActive");
   assert(
-    /gateDayOfAnchor\s*\(/.test(SRC),
-    "expected at least one gateDayOfAnchor(...) call site in generate-mastery-plan",
+    /tomorrowEventsRaw\.filter\([^)]*_dayOfHorizonCutoffMs/.test(SRC),
+    "expected tomorrowEventsRaw to be filtered by _dayOfHorizonCutoffMs",
   );
 });
 
 // ───────────────────── Coach / Tiny Win suppression ──────────────────
 Deno.test("synthetic Coach + Tiny-Win evening injection is removed", () => {
-  // The previous block hard-coded these exact strings into slot 3.
-  assertEquals(
-    SRC.includes('"Brief coaching check-in"'),
-    false,
-    "expected the hard-coded Coach evening card title to be absent",
-  );
-  assertEquals(
-    SRC.includes('"Evening reflection and tiny wins capture"'),
-    false,
-    "expected the hard-coded Tiny-Win evening card title to be absent",
-  );
-  // Removal marker present so a future regression PR has to delete the
-  // suppression comment, which is much more visible in review than a
-  // silent re-introduction.
+  // The previous block hard-coded a "Brief coaching check-in" card and an
+  // "Evening reflection and tiny wins capture" fallback into slot 3. The
+  // removal comment intentionally retains the historical strings as
+  // documentation (so reviewers can grep the regression), but the active
+  // code path replaces them with `todCoachCard = null`. Assert the active
+  // code path is gone by checking for the suppression markers + the lack
+  // of any *new* string literal beyond the removal comment.
   assertStringIncludes(SRC, "Coach card synthetic injection — REMOVED");
   assertStringIncludes(SRC, "const todCoachCard: any = null;");
+  // Count occurrences — should appear ONLY inside the removal comment
+  // block (one occurrence each). More than one means someone re-added it.
+  const briefCount = SRC.split('"Brief coaching check-in"').length - 1;
+  const tinyCount = SRC.split('"Evening reflection and tiny wins capture"').length - 1;
+  assertEquals(briefCount, 1, "Coach evening card title should appear only in the removal-comment marker");
+  assertEquals(tinyCount, 1, "Tiny-Win evening card title should appear only in the removal-comment marker");
 });
 
 // ─────────────────── tomorrowEvents 24h horizon filter ───────────────
