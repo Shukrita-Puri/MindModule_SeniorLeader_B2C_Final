@@ -31,11 +31,10 @@ vi.mock("@/utils/firstSessionTour", () => ({
 vi.mock("@/config/devMode", () => ({ DEV_MODE: false, DEV_USER: { id: "dev" } }));
 
 // Controllable hook mock for server decision.
-const serverDecisionMock = vi.fn<[], { active: boolean; reason: string | null } | null>(
-  () => null,
-);
+type SD = { active: boolean; reason: string | null } | null;
+const serverDecisionMock: { current: SD } = { current: null };
 vi.mock("@/hooks/useWeekAheadServerDecision", () => ({
-  useWeekAheadServerDecision: () => serverDecisionMock(),
+  useWeekAheadServerDecision: () => serverDecisionMock.current,
 }));
 
 import PlanPage from "../PlanPage";
@@ -52,7 +51,7 @@ describe("PlanPage routing", () => {
   it("Saturday / server inactive → renders TodayThreePriorities", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-20T18:00:00Z")); // Sat
-    serverDecisionMock.mockReturnValue({ active: false, reason: null });
+    serverDecisionMock.current = { active: false, reason: null };
     renderAt("/plan");
     expect(screen.getByTestId("today-three")).toBeInTheDocument();
     expect(screen.queryByTestId("week-ahead")).toBeNull();
@@ -63,7 +62,7 @@ describe("PlanPage routing", () => {
   it("Sunday / server active → renders WeekAheadPriorities + correct eyebrow", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-21T12:00:00Z")); // Sun
-    serverDecisionMock.mockReturnValue({ active: true, reason: "sunday" });
+    serverDecisionMock.current = { active: true, reason: "sunday" };
     renderAt("/plan");
     expect(screen.getByTestId("week-ahead")).toBeInTheDocument();
     expect(screen.queryByTestId("today-three")).toBeNull();
@@ -74,7 +73,7 @@ describe("PlanPage routing", () => {
   it("Server inactive on Sunday overrides local Sunday heuristic", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-21T12:00:00Z")); // Sun
-    serverDecisionMock.mockReturnValue({ active: false, reason: null });
+    serverDecisionMock.current = { active: false, reason: null };
     renderAt("/plan");
     expect(screen.getByTestId("today-three")).toBeInTheDocument();
     expect(screen.queryByTestId("week-ahead")).toBeNull();
