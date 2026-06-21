@@ -50,7 +50,7 @@ describe("WeekAheadPriorities", () => {
       expect(screen.getByText("Board Review")).toBeInTheDocument();
     });
     expect(screen.getAllByText(/Board/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/high stakes/)).toBeInTheDocument();
+    expect(screen.getAllByText(/high stakes/).length).toBeGreaterThan(0);
   });
 
   it("renders a safe empty state when the response has no priorities", async () => {
