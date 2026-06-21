@@ -1797,10 +1797,15 @@ serve(async (req) => {
       tierCapReason: clientTierCapReason = null,
       innerReadinessScoreBaseline: clientScoreBaseline = null,
       innerReadinessScoreRefined: clientScoreRefined = null,
-      innerReadinessState: clientReadinessState = null,
+      innerReadinessState: clientReadinessStateRaw = null,
       innerReadinessRefinedContribution: clientRefinedContribution = null,
       weightProvenance: clientWeightProvenance = null,
     } = body;
+    // Mutable alias — the V4 wearable-freshness gate (defined further
+    // below, once `hasTodayWearableData` is known) may downgrade a
+    // forwarded 'refined' to 'baseline'.
+    let clientReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
+      clientReadinessStateRaw as any;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
     const safeTier: EnergyTier = innerReadinessTier || 'managing';
