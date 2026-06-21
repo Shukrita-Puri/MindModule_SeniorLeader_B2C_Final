@@ -29,6 +29,77 @@ supabase/functions/_shared/
                                          taxonomy. Never duplicate classifier.
 ```
 
+## Calendar canonical merge ownership (added 21 Jun)
+
+Single upstream merge — `_shared/rules/calendar-merge.ts → mergeCalendarEvents`
+— builds the canonical event set. Every CEO-behaviour consumer reads merged
+output; none refetch raw provider rows.
+
+| Consumer | Reads merged set? | Call site |
+|---|---|---|
+| `generate-mastery-plan` (Plan composition + lookback) | yes | index.ts:1519, 2583 |
+| `compute-outer-readiness` (Brief signal pills, Next Up, tomorrow events, similar events) | yes | index.ts:2515, 2769, 2851, 2876, 3014, 3083, 3132, 3164 |
+| `list-week-ahead-priorities` | yes | index.ts:182 |
+| `smart-nudges` (direct import from calendar-merge.ts, bypassing re-export for boot stability) | yes | index.ts:307 |
+| `generate-jit-events` | yes | grep-confirmed import |
+| `_shared/signal-engine/build-daily-context.ts` | yes | lines 295, 324, 372 |
+| `_shared/signal-engine/db-queries.ts` | yes | line 178 |
+| `_shared/ceo-behaviour/calendar-dedupe.ts → dedupeForLoad` | operates on a simpler `LoadEvent` shape for back-to-back hour aggregation; not a duplicate identity-key dedupe | self-contained |
+
+Brief does **not** independently fetch raw calendar rows for pill generation;
+every read in `compute-outer-readiness/index.ts` goes through
+`mergeCalendarEvents` before classification or stake assessment.
+
+### Canonical merge contract (current)
+
+`MergedCalendarEvent` exposes `canonicalEventId`, `mergedEventId`,
+`identityKey`, `mergedFromCount`, `sourceCalendars[]`, `providerEventIds`,
+`rawEventIds[]`, unioned `attendees`, organizer-preferred `location` /
+`description` / `conferenceUrl`, resolved `status` + `statusUpdatedAt`,
+`isBusyBlock`, `isSoftHold`, `isSuppressedMirror`. Cancelled/declined
+statuses suppress at the public boundary. Title-less Busy blocks overlapping
+a titled event are suppressed; standalone Busy is kept as a soft-hold.
+
+### Observability
+
+`logMergeStats(surface, rawCount, merged, { userId })` is exported from
+`calendar-merge.ts`. Wired at the primary entry points:
+- `plan.upcoming-48h` (`generate-mastery-plan`)
+- `brief.upcoming-24h` (`compute-outer-readiness`)
+- `week-ahead` (`list-week-ahead-priorities`)
+
+Log line is emitted only when something interesting happened (collapse,
+multi-source mix, soft-hold, or multi-source merge):
+```
+[calendar-merge] surface=… user=… raw=… merged=… collapsed=… sources=[…] multiSourceMerges=… softHolds=…
+```
+
+### Known follow-ups (intentionally deferred)
+
+1. `event_priority_memory.event_id` and HRV correlation keys still attach
+   to provider `event_id` rather than `canonicalEventId`. Migration would
+   need a back-compat lookup join; left as a scoped follow-up so this pass
+   does not destabilise Plan/Brief.
+2. Conflict/overlap resolver (`resolveOverlaps`) — current Plan ranker
+   already performs overlap-aware ranking via the JIT selector; a dedicated
+   shared resolver remains a candidate refactor but is not required for
+   the load/density acceptance criteria, which read `multiCalendarLoad` and
+   `backToBackHoursAggregated` from already-merged inputs.
+
+### Part 3 verification snapshot (21 Jun 2026)
+
+- `cron.job`: `smart-nudges` (*/10), `sync-calendar-scheduled` (*/30),
+  `refresh-calendar-tokens` (*/10), `register-calendar-watch-daily` (3am),
+  `oura-sync-hourly` (:07), `calendar-events-cleanup-nightly` (4am),
+  `cleanup-device-tokens-daily` (3:17am), `process-orphaned-sessions` (*/10).
+  No duplicate Oura cron.
+- `calendar_events`: 426 rows, 0 duplicates on (user_id, provider, external_id).
+- `calendar_connections`: 9 Google, 1 Microsoft. `oura_connections`: 1.
+- `smart-nudges`: booting and evaluating (`Starting evaluation run v7`).
+- Microsoft webhook subscription not yet supported in `register-calendar-watch`
+  — documented v1 limitation; Outlook remains cron-driven via
+  `sync-calendar-scheduled`.
+
 `executive-state-taxonomy.ts` is a transitional re-export shim. New code MUST
 import from `events/*` directly. Scheduled for deletion next release.
 
