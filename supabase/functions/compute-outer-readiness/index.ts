@@ -2663,7 +2663,7 @@ serve(async (req) => {
       lean_on_source: string | null;
       watch_for: string | null;
       watch_for_source: string | null;
-      brief_source: 'llm' | 'deterministic';
+      brief_source: 'llm' | 'deterministic' | 'awaiting';
       driver: string | null;
     } | null = null;
     let inputSignature = 'no-sig';
@@ -3312,14 +3312,23 @@ serve(async (req) => {
             .eq('prompt_version', BRIEF_PROMPT_VERSION)
             .maybeSingle();
           if (snapshot) {
-            cachedSnapshot = snapshot as typeof cachedSnapshot;
+            // P0 2026-06-21 — only LLM-validated snapshots are treated as
+            // cache hits. Rows with brief_source = 'deterministic' /
+            // 'awaiting' / null are ignored so the request re-attempts the
+            // LLM and never serves recycled fallback/awaiting copy as a
+            // "live" brief. The (user, local_date, time_window, sig, version)
+            // upsert key still prevents duplicate rows.
+            if (snapshot.brief_source === 'llm') {
+              cachedSnapshot = snapshot as typeof cachedSnapshot;
+            }
             console.log('[brief-cache] Result:', JSON.stringify({
-              snapshotHit: true,
+              snapshotHit: snapshot.brief_source === 'llm',
+              snapshotIgnoredReason: snapshot.brief_source === 'llm' ? null : `non_llm_source:${snapshot.brief_source ?? 'null'}`,
               briefSource: snapshot.brief_source,
               promptVersion: BRIEF_PROMPT_VERSION,
               inputSignature: inputSignature.slice(0, 8) + '...',
               generationPath: 'snapshot',
-              snapshotReason: 'exact_match',
+              snapshotReason: snapshot.brief_source === 'llm' ? 'exact_match' : 'non_llm_ignored',
             }));
           }
         } catch (readError) {
@@ -4597,8 +4606,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // 4s is a budget for a light task, this is moderate-to-heavy.
           // Perceived latency cost of a few extra seconds is far lower than
           // a deterministic-fallback rate.
+          // P0 2026-06-21 — bumped Gemini Flash timeout from 7000ms to 8000ms
+          // (top of the spec'd 6-8s range) so transient gateway latency does
+          // not push us into the deterministic-fallback path (now removed
+          // from rendered output — see briefIsAwaiting gate below).
           const llmAttempts: Array<{ model: string; timeoutMs: number; useGateway: boolean }> = [
-            { model: 'google/gemini-2.5-flash', timeoutMs: 7000, useGateway: true },
+            { model: 'google/gemini-2.5-flash', timeoutMs: 8000, useGateway: true },
             { model: CLAUDE_MODELS.SONNET, timeoutMs: 9000, useGateway: false },
           ];
 
@@ -4906,11 +4919,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // If anything below throws (scope regression, undefined access, etc.), fail soft with a
     // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
     try {
-    const briefSource: 'llm' | 'deterministic' = cachedSnapshot
-      ? cachedSnapshot.brief_source
-      : (llmBrief ? 'llm' : 'deterministic');
-    const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
-    const rawResponseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
+    // P0 2026-06-21 — deterministic theme strings (e.g. "Close strong.",
+    // "Steady the system ahead of the day ahead", "protecting the edge")
+    // are no longer rendered. When neither a validated LLM brief nor a
+    // cached LLM snapshot exists, we treat the brief as awaiting and the
+    // response nulls phrase / bodyText / leanOn / watchFor below.
+    // `finalPhrase` / `finalContext` (the legacy deterministic fallbacks)
+    // remain assigned for upstream code paths but are NOT served to the
+    // client when `briefIsAwaiting` is true.
+    const briefIsAwaiting = !cachedSnapshot && !llmBrief;
+    const briefSource: 'llm' | 'deterministic' | 'awaiting' = cachedSnapshot
+      ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
+      : (llmBrief ? 'llm' : 'awaiting');
+    const responsePhrase = briefIsAwaiting
+      ? null
+      : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);
+    const rawResponseBody = briefIsAwaiting
+      ? null
+      : (cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext);
     // Strip stray markdown emphasis the LLM occasionally emits (e.g.
     // "*Board Meeting *"). The client renderer still parses **bold** spans
     // so we intentionally do NOT touch them — only lone-asterisk noise.
@@ -5073,7 +5099,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     let echoedBaselineScore: number | null = null;
     let echoedProvenance: {
       mrs: { sources: MrsSource[]; primary: MrsSource | null; refinedBy: 'checkin' | null };
-      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' };
+      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' | 'awaiting' };
       pills: {
         decision_readiness: MrsSource[];
         physical_reserves: MrsSource[];
@@ -5650,28 +5676,39 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // refined → baseline. We must write to the canonical baseline_* or
         // refined_* set based on the current readiness state, otherwise the
         // upsert fails with "cannot insert into generated column".
+        // P0 2026-06-21 — when LLM generation failed (briefIsAwaiting),
+        // persist nulls for phrase/body/leanOn/watchFor so the cache cannot
+        // resurrect deterministic fallback strings on a later read. Score,
+        // tier, and signal pills still persist because they come from
+        // wearable/calendar/check-in pipelines, not the LLM.
+        const persistPhrase = briefIsAwaiting ? null : responsePhrase;
+        const persistBody = briefIsAwaiting ? null : responseBody;
+        const persistLeanOn = briefIsAwaiting ? null : formattedLeanOn;
+        const persistWatchFor = briefIsAwaiting ? null : formattedWatchFor;
+        const persistLeanOnSource = briefIsAwaiting ? null : finalLeanOnSource;
+        const persistWatchForSource = briefIsAwaiting ? null : finalWatchForSource;
         const isRefinedWrite = (clientReadinessState ?? 'baseline') === 'refined';
         const stateColumns = isRefinedWrite
           ? {
               refined_state: 'refined',
-              refined_phrase: responsePhrase,
-              refined_body_text: responseBody,
-              refined_lean_on: formattedLeanOn,
-              refined_lean_on_source: finalLeanOnSource,
-              refined_watch_for: formattedWatchFor,
-              refined_watch_for_source: finalWatchForSource,
+              refined_phrase: persistPhrase,
+              refined_body_text: persistBody,
+              refined_lean_on: persistLeanOn,
+              refined_lean_on_source: persistLeanOnSource,
+              refined_watch_for: persistWatchFor,
+              refined_watch_for_source: persistWatchForSource,
               refined_score: innerReadinessScore ?? null,
               refined_tier: safeTier,
               refined_signal_pills: signalPillsPayload,
             }
           : {
               baseline_state: (clientReadinessState ?? 'baseline'),
-              baseline_phrase: responsePhrase,
-              baseline_body_text: responseBody,
-              baseline_lean_on: formattedLeanOn,
-              baseline_lean_on_source: finalLeanOnSource,
-              baseline_watch_for: formattedWatchFor,
-              baseline_watch_for_source: finalWatchForSource,
+              baseline_phrase: persistPhrase,
+              baseline_body_text: persistBody,
+              baseline_lean_on: persistLeanOn,
+              baseline_lean_on_source: persistLeanOnSource,
+              baseline_watch_for: persistWatchFor,
+              baseline_watch_for_source: persistWatchForSource,
               baseline_score: innerReadinessScore ?? null,
               baseline_tier: safeTier,
               baseline_signal_pills: signalPillsPayload,
@@ -5802,11 +5839,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     }
 
     const result: OuterReadinessResult & Record<string, unknown> = {
-      phrase: awaitingSignals ? null : responsePhrase,
-      context: awaitingSignals ? null : responseBody,
-      leanOn: awaitingSignals ? null : formattedLeanOn,
-      watchFor: awaitingSignals ? null : formattedWatchFor,
-      relationshipPattern: awaitingSignals ? null : relationshipPattern,
+      // P0 2026-06-21 — brief-copy fields null out for BOTH
+      // `awaitingSignals` (no fresh check-in/wearable) AND `briefIsAwaiting`
+      // (LLM generation failed after all retries). The frontend never
+      // receives deterministic "Close strong." / "Steady the system…" /
+      // "protecting the edge" strings anymore.
+      phrase: (awaitingSignals || briefIsAwaiting) ? null : responsePhrase,
+      context: (awaitingSignals || briefIsAwaiting) ? null : responseBody,
+      leanOn: (awaitingSignals || briefIsAwaiting) ? null : formattedLeanOn,
+      watchFor: (awaitingSignals || briefIsAwaiting) ? null : formattedWatchFor,
+      relationshipPattern: (awaitingSignals || briefIsAwaiting) ? null : relationshipPattern,
       awaitingSignals,
       awaitingReason,
       // briefMode is the canonical client-facing signal source contract.
@@ -5843,10 +5885,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       stateAlreadyUsed,
       compassAlreadyUsed,
       // DecisionReadinessBrief fields — coherent source
-      bodyText: awaitingSignals ? null : responseBody,
+      bodyText: (awaitingSignals || briefIsAwaiting) ? null : responseBody,
       briefSource,
-      leanOnSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
-      watchForSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
+      leanOnSource: (awaitingSignals || briefIsAwaiting) ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
+      watchForSource: (awaitingSignals || briefIsAwaiting) ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
       hasWearable,
       wearableDaysConnected,
       wearableStatus: {
@@ -6017,18 +6059,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     } catch (assemblyErr) {
       const aMsg = assemblyErr instanceof Error ? assemblyErr.message : String(assemblyErr);
       console.error('[compute-outer-readiness] Response assembly failed, soft-fallback served:', aMsg);
-      const fallbackPhrase = (typeof finalPhrase === 'string' && finalPhrase) ? finalPhrase : 'Steady ground.';
-      const fallbackBody = (typeof finalContext === 'string' && finalContext) ? finalContext : 'Continue with what you know works.';
+      // P0 2026-06-21 — assembly-error soft-fallback no longer serves
+      // deterministic copy ("Steady ground." / "Continue with what you
+      // know works."). Returns awaiting contract so the UI shows the
+      // proper sync-and-check-in prompt instead of fake-personalised text.
       return new Response(JSON.stringify({
         fallback: true,
-        phrase: fallbackPhrase,
-        context: fallbackBody,
-        bodyText: fallbackBody,
-        leanOn: '',
-        watchFor: '',
-        briefSource: 'deterministic',
-        leanOnSource: 'fallback',
-        watchForSource: 'fallback',
+        phrase: null,
+        context: null,
+        bodyText: null,
+        leanOn: null,
+        watchFor: null,
+        awaitingSignals: true,
+        awaitingReason: 'assembly_error',
+        briefSource: 'awaiting',
+        leanOnSource: null,
+        watchForSource: null,
         dataSources: [],
         calendarState: 'unknown',
         hasWearable: false,
