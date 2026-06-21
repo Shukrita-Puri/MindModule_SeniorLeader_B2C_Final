@@ -3684,42 +3684,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     }
   }
 
-  // 7. Coach card for time-of-day plan (separate from module coach cards)
-  let todCoachCard: any = null;
-  const hasCoachFavorite = req.favorites.some(fav => fav.startsWith('coach-') || fav === 'coach');
-  const hasPreEventWithin4h = filteredEvents.some(e => e.minutesUntil <= 240);
-  const coachContext = getCoachPromptForContext(timeOfDay, req.innerReadinessTier, req.patternInsight, req.innerReadinessScore, req.calendarPressure, hasCoachFavorite, hasPreEventWithin4h);
-  if (coachContext) {
-    // Only add coach card to modules if not already there as prepare/integrate
-    const hasCoachModule = todModules.some(m => m.isCoachCard);
-    if (!hasCoachModule && todModules.length < maxModules) {
-      const coachType = timeOfDay === 'evening' ? 'integrate' : 'prepare';
-      todCoachCard = {
-        id: `coach-${coachType}:${coachStateHash.substring(0, 8)}`,
-        type: coachType,
-        label: coachType === 'integrate' ? 'Integrate' : 'Prepare',
-        protocolType: 'Self Mastery Coach',
-        title: coachContext.title,
-        duration: 2,
-        sortOrder: coachType === 'integrate' ? 4 : 3,
-        isCoachCard: true,
-        prompt: coachContext.prompt
-      };
-      todModules.push({
-        type: coachType,
-        contentId: todCoachCard.id,
-        title: todCoachCard.title,
-        contentType: 'coach',
-        duration: 2,
-        focus: 'release',
-        intensity: 'gentle',
-        isFavorite: false,
-        isCoachCard: true,
-        reasoning: timeOfDay === 'evening' ? 'Evening reflection and tiny wins capture' : 'Brief coaching check-in',
-        required: timeOfDay === 'evening'
-      });
-    }
-  }
+  // 7. Coach card synthetic injection — REMOVED per
+  // mem://features/coach/suppression-standard. The previous block
+  // hard-coded "Brief coaching check-in" into slot 3/evening and seeded
+  // "Evening reflection and tiny wins capture" as a default fallback,
+  // which leaked Coach + Tiny Wins into Practice even when the Coach
+  // feature is suppressed for the user. Coach/Tiny Wins modules can
+  // still appear only when the practice/recalibration selector chooses
+  // them on their own merits (existing prepare/integrate slot above).
+  const todCoachCard: any = null;
 
   // Calculate total duration
   const totalDuration = todModules.reduce((sum, m) => sum + (m.duration || 0), 0);
