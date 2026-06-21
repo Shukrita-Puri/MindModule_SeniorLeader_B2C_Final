@@ -5828,11 +5828,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     }
 
     const result: OuterReadinessResult & Record<string, unknown> = {
-      phrase: awaitingSignals ? null : responsePhrase,
-      context: awaitingSignals ? null : responseBody,
-      leanOn: awaitingSignals ? null : formattedLeanOn,
-      watchFor: awaitingSignals ? null : formattedWatchFor,
-      relationshipPattern: awaitingSignals ? null : relationshipPattern,
+      // P0 2026-06-21 — brief-copy fields null out for BOTH
+      // `awaitingSignals` (no fresh check-in/wearable) AND `briefIsAwaiting`
+      // (LLM generation failed after all retries). The frontend never
+      // receives deterministic "Close strong." / "Steady the system…" /
+      // "protecting the edge" strings anymore.
+      phrase: (awaitingSignals || briefIsAwaiting) ? null : responsePhrase,
+      context: (awaitingSignals || briefIsAwaiting) ? null : responseBody,
+      leanOn: (awaitingSignals || briefIsAwaiting) ? null : formattedLeanOn,
+      watchFor: (awaitingSignals || briefIsAwaiting) ? null : formattedWatchFor,
+      relationshipPattern: (awaitingSignals || briefIsAwaiting) ? null : relationshipPattern,
       awaitingSignals,
       awaitingReason,
       // briefMode is the canonical client-facing signal source contract.
@@ -5869,10 +5874,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       stateAlreadyUsed,
       compassAlreadyUsed,
       // DecisionReadinessBrief fields — coherent source
-      bodyText: awaitingSignals ? null : responseBody,
+      bodyText: (awaitingSignals || briefIsAwaiting) ? null : responseBody,
       briefSource,
-      leanOnSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
-      watchForSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
+      leanOnSource: (awaitingSignals || briefIsAwaiting) ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
+      watchForSource: (awaitingSignals || briefIsAwaiting) ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
       hasWearable,
       wearableDaysConnected,
       wearableStatus: {
