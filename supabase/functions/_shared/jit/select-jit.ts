@@ -304,6 +304,12 @@ export interface SelectContext {
    *  - `sovereignEscalation` `'low'` → 3× cancelled-as-noise escalation per §9 M3
    */
   memoryDeltaByEventId?: Record<string, { delta?: number; hardDemote?: boolean; sovereignEscalation?: 'low' }>;
+  /**
+   * Maximum lead time (ms) for an event to remain in the candidate set.
+   * Default 24h — preserves Plan / JIT behaviour. The Week-Ahead picker
+   * passes 7d so the same selector can score a weekly window.
+   */
+  horizonMs?: number;
 }
 
 export interface SelectedCandidate {
@@ -394,8 +400,9 @@ export function selectJitCandidates(
       excluded.push({ eventId: ev.id, title, reason: 'bad_start_time' });
       continue;
     }
-    if (startMs - nowMs > 24 * 60 * 60_000) {
-      excluded.push({ eventId: ev.id, title, reason: 'outside_24h_ceiling' });
+    const horizonMs = ctx.horizonMs ?? 24 * 60 * 60_000;
+    if (startMs - nowMs > horizonMs) {
+      excluded.push({ eventId: ev.id, title, reason: 'outside_horizon_ceiling' });
       continue;
     }
 

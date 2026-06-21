@@ -1,89 +1,80 @@
-## Root-cause summary (from edge logs + code audit)
+## Problem
 
-**Issue 1 — Week-Ahead "Couldn't load your upcoming week"**
-`list-week-ahead-priorities` is crashing at boot:
-```
-worker boot error: Uncaught SyntaxError: The requested module
-'../_shared/rules/calendarEvents.ts' does not provide an export named
-'mergeCalendarEvents'
-```
-`calendarEvents.ts` re-exports via an indirect binding:
-```ts
-import { mergeCalendarEvents, ... } from './calendar-merge.ts';
-export { mergeCalendarEvents };
-```
-Deno's edge runtime resolves this as a *local* binding, not a re-export, so consumers that import the symbol from `calendarEvents.ts` see it as missing. Other consumers (`generate-mastery-plan`, sync edge fns) happen to import from `calendar-merge.ts` directly, which is why only this function boots-broken.
+Week-Ahead Priorities (the card that opened in your screenshot) runs a separate, weaker pipeline than the weekday Plan:
 
-**Issue 2 — Brief copy still deterministic ("holding the line… / Steady and selective.")**
-`compute-outer-readiness` log:
-```
-[anthropic-smoke] model=claude-sonnet-4-5-20250929 status=400 ok=false
-body="Your credit balance is too low to access the Anthropic API…"
-[compute-outer-readiness] RESULT: briefSource=deterministic, llmFallbackReason=null
-```
-The Anthropic account behind `ANTHROPIC_API_KEY` is out of credits. Every brief request silently falls back to the deterministic phrase/body from `compute-inner-readiness:280` and `compute-outer-readiness:1235`. Not a code defect — but `llmFallbackReason` is `null` instead of `"anthropic_402_credits"`, hiding the real cause.
+- It uses `rankJitCandidates` (legacy ranker) instead of `selectJitCandidates` (the triangulated Immediate / Tactical / Strategic + Sovereign + Memory selector that powers the daily Plan).
+- It never loads attendee relationships, `event_priority_memory`, sovereign tags from `plan_ledger`, `causality_findings.signal_summary`, skip / follow-through counts, or user goals — so a CEO interview can't earn the `direct_boss`/`board_member`/`investor` hoisted relationship bonus, and a presentation can't pick up tactical pattern weight.
+- The classifier mis-tags some events (a recurring "Chief UK In Transition" trips the `trv.flight` keyword `transit`; an "Interview with EY CEO" surfaces as "leadership / strategic / you're organising" instead of the candidate-interview bucket because no relationship roles are loaded; "Presenting Mind Module to St James" never makes it in because the influence subtype keyword list omits `present`/`presenting`).
+- `selectJitCandidates` hard-caps events at a 24h horizon, so even if you wired it in directly today you'd get zero results for a 7-day window.
 
-**Issue 3 — Expanded pill shows "No signal detail yet" even after check-in**
-`PillDetailContent` renders that string only when `serverPill == null`. Two paths produce a null:
-- a. The `try { … echoedSignalPills = signalPillsPayload }` block at `compute-outer-readiness.ts:5302–5395` is the *only* assignment site. Any throw in `getPillQualifiers` / `assertPillCoherence` leaves `echoedSignalPills = null`, the catch only `console.warn`s.
-- b. On a cache hit, `signalPillsPayload` is still built and the try still runs — but the wearable for this user is stale (`sourceAgeDays:5`) so `hrvValue / sleepScore / rhrValue / hrValue` are all `undefined`. If the qualifier fetch returns rows that don't satisfy `assertPillCoherence`'s shape (e.g. all-null wearable history), the helper can throw and zero out the whole payload.
+The fix is to unify the selection path and patch the classifier gaps the audit surfaced.
 
-Either way the client receives `signalPills: null`, falls through `serverPills?.find(...) ?? null`, and shows the fallback string. The Mind qualifiers (clarity, emotion, regulation, pressure) the user *did* submit are never reached because the parent payload is null.
+## Plan
 
----
+### 1. Extract the JIT context loader as a shared module
 
-## Fix plan
+New file: `supabase/functions/_shared/jit/load-jit-context.ts`.
 
-### F1 — Unbreak `list-week-ahead-priorities` (release blocker)
+Move the loader logic that today lives inline in `generate-mastery-plan/index.ts` (≈lines 180–510) into a single `loadJitContextForEvents(supabase, userId, events, opts)` helper that returns the full `{ input: SelectInputEvent[], ctx: SelectContext }` pair. It pulls and composes:
 
-In `supabase/functions/_shared/rules/calendarEvents.ts`, replace the indirect import-then-export pattern with a direct re-export so Deno emits a true re-export binding:
+- attendee emails per event, `attendee_relationships` rows (source + confidence), `memory_user_tag` replay, domain-heuristic backstop, optional async resolver fan-out (gated by `opts.fireLateResolve`).
+- `event_priority_memory` sovereign tag history (`tag_importance_*`, `tag_custom`, `tag_cleared`) into `tags`.
+- `event_priority_memory` derived state via existing `applyEventPriorityMemory` into `memoryDeltaByEventId` (delta / hardDemote / sovereignEscalation).
+- `causality_findings.signal_summary`, `accountAgeDays`, skip/follow-through counts (empty for now to match Plan PR1), and `goals` from the profile snapshot.
 
-```ts
-// Replace lines 20-31:
-export {
-  mergeCalendarEvents,
-  normalizeForClassify,
-} from './calendar-merge.ts';
-export type {
-  CalendarMergeInput,
-  MergedCalendarEvent,
-} from './calendar-merge.ts';
-```
+`generate-mastery-plan/index.ts` is refactored to call this helper — no behaviour change for the Plan, identical inputs to `selectJitCandidates`.
 
-Then redeploy `list-week-ahead-priorities` (and any other function that imports from `calendarEvents.ts` — verified: only this one currently imports `mergeCalendarEvents` from there, but redeploying the shared dependents is safe).
+### 2. Add a configurable horizon to the selector
 
-### F2 — Surface the Anthropic credit failure + add a cheap fallback
+In `supabase/functions/_shared/jit/select-jit.ts`:
 
-a. In `compute-outer-readiness/index.ts` around the Anthropic call, on a `status === 400` with `"credit balance"` in the body, set:
-```ts
-llmFallbackReason = 'anthropic_402_credits';
-```
-so the brief result log and the `llm_attempts` row both name the real cause. Same treatment for `401` (`invalid_key`) and `429` (`rate_limited`).
+- Add `ctx.horizonMs?: number` (default `24 * 60 * 60_000` for back-compat). Replace the hardcoded ceiling check with `if (startMs - nowMs > horizonMs) { excluded.push(... 'outside_horizon_ceiling'); continue; }`.
+- Existing Plan callers and tests keep the 24h behaviour automatically.
 
-b. **User action required:** top up the Anthropic account (or rotate to a funded key) — secret is `ANTHROPIC_API_KEY`. Until that happens every brief will remain deterministic. If you'd prefer to migrate the brief LLM call to Lovable AI Gateway (Gemini Flash) as the primary with Claude as fallback (mirrors the `LLM Resilience Strategy` memory), I can wire that as F2c in a follow-up — confirm before I do.
+### 3. Rewrite `list-week-ahead-priorities` on top of the unified selector
 
-### F3 — Make the signal-pill payload self-healing
+In `supabase/functions/list-week-ahead-priorities/index.ts`:
 
-In `compute-outer-readiness/index.ts`:
+- Drop `rankJitCandidates`, `applyEventPriorityMemory`, and the local component-reason builder.
+- After dedupe + noise/educational filtering, call `loadJitContextForEvents(supabase, userId, dedupedEvents, { fireLateResolve: false })` then `selectJitCandidates(input, { ...ctx, horizonMs: 7 * 86_400_000 })`.
+- Map each `SelectedCandidate` to the API shape the UI already consumes:
+  - `category` = a coarse token derived from `categoryId` + `bucket` so the chip under each title reads from the same source as the Plan ("interview", "influence", "investor"…) rather than the legacy coarse map.
+  - `scoreReasons` derived from `components.breakdown` (`relationshipLeads` → relationship label; high `sovereignBonus` → "high stakes" / "you tagged this"; `situationalBoost > 0` → "interview" / "media"; high `tactical` → "recurring high-pressure pattern").
+- Keep the existing per-category soft cap (4) and `TOP_N=10`, plus chronological re-sort for the UI.
 
-1. **Hoist the assignment out of the try.** Set `echoedSignalPills = signalPillsPayload` immediately after the payload is built (line ~5294), *before* the qualifier/coherence enrichment. Qualifier attachment becomes additive — a thrown coherence check no longer wipes the whole payload.
-2. **Promote the catch to error + reason field.** Replace `console.warn(...)` with `console.error('[signal-pills-v3] ...')` and add `pillEnrichmentError: err.message` to the response so the client (and us) can see when qualifiers were skipped vs missing.
-3. **Tighten the client fallback string.** In `src/components/home/PillTooltip.tsx:233-239`, when `pill` is null but the parent `signalPills` array exists with other entries, render `"Signal not available for this dimension yet"` instead of the blanket `"No signal detail yet"`, so the user can distinguish "server dropped the payload" from "this specific pill has no contributors".
+### 4. Classifier / taxonomy patches
 
-### F4 — Verification
+In `supabase/functions/_shared/events/event-subtypes.ts`:
 
-After F1 + F3 ship:
-- `supabase--edge_function_logs list-week-ahead-priorities` → no boot errors.
-- Re-open `/executive-home` on Sunday → Week-Ahead Priorities loads.
-- Expand any pill on the Brief → contributor rows for Mind dims (Clarity / Emotion / Regulation / Pressure) appear from the check-in even when wearable is stale.
-- `[compute-outer-readiness] RESULT` log shows `llmFallbackReason: "anthropic_402_credits"` until the key is topped up.
+- Add `transition`, `in transition`, `chief`, `cto in transition`, `interim` to `trv.flight.excludeKeywords` so recurring leadership "in transition" calls stop being labelled Travel.
+- Extend `inf.client_presentation.keywords` with `present`, `presenting`, `presentation`, `pitch` (and add `excludeKeywords` for `presentation deck review` if needed) so titles like "Presenting Mind Module to St James" classify as B-Influence.
+- Add a dedicated `inf.exec_presentation` entry only if the audit shows pitches need a separate label; otherwise reuse the client-presentation subtype.
 
-### Files touched
-- `supabase/functions/_shared/rules/calendarEvents.ts` (F1)
-- `supabase/functions/compute-outer-readiness/index.ts` (F2a + F3.1/3.2)
-- `src/components/home/PillTooltip.tsx` (F3.3)
-- Redeploy: `list-week-ahead-priorities`, `compute-outer-readiness`.
+In `supabase/functions/_shared/jit/select-jit.ts`:
 
-### Out of scope
-- Anthropic billing top-up (user action).
-- Migrating brief LLM primary to Lovable AI Gateway (offered as optional F2c, awaits confirmation).
+- `MY_INTERVIEW_TITLE_RE` already covers `interview with .*ceo|founder|chair`, so once the unified selector receives attendee roles "Interview with EY CEO" will resolve to `candidate` and pick up the +18 situational boost on top of any hoisted relationship weight. No code change required in this file beyond the horizon param.
+
+### 5. Display-label alignment
+
+In `src/components/home/WeekAheadPriorities.tsx` (or wherever the chip reads `category`): use the canonical bucket the selector now returns (Influence, Visibility, Governance, People, etc.) instead of the legacy coarse-token vocabulary. Same vocabulary the Plan card uses.
+
+### 6. Validation
+
+- Unit: extend `select-jit.test.ts` with a `horizonMs: 7*86400_000` case and a regression test that `Interview with EY CEO` + attendee role `direct_boss` ranks above a same-day `Weekly AI Forum`.
+- Unit: classifier test asserting `Chief UK In Transition` does NOT classify as travel and `Presenting Mind Module to St James` classifies as `inf.client_presentation`.
+- Smoke: curl `list-week-ahead-priorities` for the dev user, confirm the picker emits the three example events (`Interview with EY CEO`, the presentation, the fundraising open mic) ranked above generic standups.
+
+## Files touched
+
+- new: `supabase/functions/_shared/jit/load-jit-context.ts`
+- edit: `supabase/functions/_shared/jit/select-jit.ts` (horizonMs param)
+- edit: `supabase/functions/_shared/events/event-subtypes.ts` (keyword fixes)
+- edit: `supabase/functions/generate-mastery-plan/index.ts` (use new helper)
+- edit: `supabase/functions/list-week-ahead-priorities/index.ts` (unified selector)
+- edit: `src/components/home/WeekAheadPriorities.tsx` (chip vocabulary)
+- tests: `supabase/functions/_shared/jit/__tests__/select-jit.test.ts`, classifier test
+
+## Out of scope
+
+- No changes to the Brief, scoring weights, sovereign tag hierarchy, or memory schema. Plan behaviour is byte-for-byte identical (same inputs → same selector).
+- Skip / follow-through count wiring stays empty (matches current Plan PR1 state); enabling those is its own PR.
