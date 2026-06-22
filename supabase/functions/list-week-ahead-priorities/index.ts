@@ -381,21 +381,9 @@ serve(async (req) => {
     picked.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     // ── Persist Week Ahead snapshot (Sun → Plan memory for the week) ──
-    // Week is Mon→Sun based on the user's local "today". Upsert by
-    // (user_id, week_start_date, source) so repeated Sunday refreshes do
-    // not duplicate rows. Best-effort; failures must not break the API.
+    // Upsert by (user_id, week_start_date, source) so repeated Sunday
+    // refreshes do not duplicate rows. Best-effort; never break the API.
     try {
-      const dow = localNow.getDay(); // 0 Sun..6 Sat
-      const daysFromMonday = (dow + 6) % 7; // Mon=0
-      const localMonday = new Date(localStartOfToday);
-      localMonday.setDate(localMonday.getDate() - daysFromMonday);
-      const localSunday = new Date(localMonday);
-      localSunday.setDate(localSunday.getDate() + 6);
-      const fmt = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const weekStart = fmt(localMonday);
-      const weekEnd = fmt(localSunday);
-
       const { error: upsertErr } = await supabase
         .from("weekly_plan_snapshots")
         .upsert(
