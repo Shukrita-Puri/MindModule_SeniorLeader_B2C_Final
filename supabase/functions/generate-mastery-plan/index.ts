@@ -2570,6 +2570,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     combinedAlreadyUsed: [],
     briefBehaviour: null,
     briefBehaviourSource: 'absent',
+    weeklyPlanSnapshot: null,
   };
 
   // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
