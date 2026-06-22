@@ -62,10 +62,12 @@ export const useRecentActivity = ({ enabled = true }: { enabled?: boolean } = {}
             const parts = dims
               .map(([lvl, word]) => {
                 const icon = levelIcon(lvl);
-                return icon ? `${icon} ${word}` : '';
+                // Tight glyph (no space between arrow and word) + middle-dot
+                // separator keeps all 4 dims inside the sidebar width.
+                return icon ? `${icon}${word}` : '';
               })
               .filter(Boolean);
-            const title = parts.length ? parts.join(', ') : 'Assessment';
+            const title = parts.length ? parts.join(' · ') : 'Assessment';
 
             allActivities.push({
               id: checkin.id,
@@ -105,11 +107,21 @@ export const useRecentActivity = ({ enabled = true }: { enabled?: boolean } = {}
       // MRS gate in compute-inner/outer-readiness. If no snapshot exists
       // (e.g. wearable missing), no Past Brief row appears.
       try {
-        const { data, error } = await supabase.functions.invoke('brief-history', {
+        // delivered=1 → exclude awaiting-signals placeholder rows so the
+        // sidebar shows only briefs the user actually saw. supabase-js
+        // invoke() can't pass query params, so we fetch the function URL
+        // directly.
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const url = `https://${projectId}.supabase.co/functions/v1/brief-history?delivered=1&limit=20`;
+        const resp = await fetch(url, {
           method: 'GET',
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
         });
-        if (!error && Array.isArray(data?.briefs)) {
+        const data = resp.ok ? await resp.json() : null;
+        if (data && Array.isArray(data.briefs)) {
           data.briefs.slice(0, 5).forEach((snap: any) => {
             const phrase: string =
               snap.refined_phrase || snap.phrase || snap.baseline_phrase || 'Brief';

@@ -110,7 +110,7 @@ const RecentActivity = () => {
                 <SidebarMenuItem key={activity.id}>
                   <div className="flex items-center gap-2 px-2 py-1.5 h-auto text-sidebar-foreground/80">
                     {IconNode}
-                    <span className="text-xs truncate flex-1">{activity.title}</span>
+                    <span className="text-xs line-clamp-2 leading-tight break-words flex-1">{activity.title}</span>
                   </div>
                 </SidebarMenuItem>
               );

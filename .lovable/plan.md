@@ -1,58 +1,64 @@
-## Where past briefs are stored (your question)
+## What's wrong
 
-**Table:** `public.brief_snapshots` — the only durable record of a delivered brief.
-**Writer:** `supabase/functions/compute-outer-readiness/index.ts`. It only writes when the upstream MRS gate in `compute-inner-readiness` / `compute-outer-readiness` passes (wearable + calendar must be present per `docs/MRS_V3_SPECIFICATION.md` and `PERFORMANCE_READINESS_BRIEF_LOGIC.md`). A self check-in alone never produces a `brief_snapshots` row.
+**1. Past Briefs still includes undelivered rows.**
+`brief_snapshots` is written in two modes per evaluation:
+- `refined_state='refined'` or `baseline_state='baseline'` → a real brief was generated and shown.
+- `baseline_state='awaiting'` → wearable/check-in missing; this is the "Sync your wearable…" placeholder the user actually sees on the home card. It still gets persisted with a phrase like *"Maintain your line"* or *"Readiness signals are still coming in."*
 
-**Today's bug:** the sidebar reads `user_engagements.brief_view` events instead, which fire whenever any brief-shaped card renders — including the calendar-only fallback that should not count as a "real" brief.
+`brief-history` returns both kinds, so the sidebar shows phrases for briefs the user was never actually given. Shukrita's row today (`Maintain your line`, 2026-06-22 afternoon) is exactly one of these awaiting rows — confirmed in DB: `baseline_state='awaiting'`, `pillar_mode='wearable'`, `refined_state=null`.
 
----
+**2. "Poised" is truncated.**
+`RecentActivity.tsx` renders the assessment row inside `<span className="text-xs truncate flex-1">`. `truncate` = single line + ellipsis. With four `▲ Word` segments joined by `, ` the line is ~35 chars and the sidebar clips at "▲ P…". The truncation is real, not a perception issue.
 
-## Scope — RECENT section only, no UI changes
+## Fix A — Past Briefs: delivered-only filter (server-side, in `brief-history`)
 
-### Fix A — Past Brief: swap data source, keep UI identical
+Add a query-string flag `delivered=1` and use it from the sidebar. Server-side filter:
 
-- The card row, icon, title style, click target, navigation (`/executive-home?briefId=…`), grouping (Today / Yesterday / …), and dedupe all stay exactly as they are now. Only the source query changes.
-- Add a new action `GET_RECENT_BRIEFS` to the existing `supabase/functions/brief-snapshots/index.ts` returning the latest 10 rows for the auth user:
-  - `id, local_date, time_window, created_at, refined_phrase, baseline_phrase` (RLS already scopes to owner).
-- In `src/hooks/useRecentActivity.ts`:
-  - Delete the `GET_ENGAGEMENTS / brief_view` block.
-  - Call `brief-snapshots / GET_RECENT_BRIEFS` instead.
-  - Map each row → existing `Activity` shape: `type: 'brief'`, `title: refined_phrase ?? baseline_phrase ?? 'Brief'` (same 30-char truncation rule already in place), `date: created_at`, `briefId: id`.
-- Net effect: if no brief was ever generated (wearable missing, etc.), no Past Brief row shows — by construction, with zero UI change.
+```
+WHERE user_id = :uid
+  AND (refined_state = 'refined' OR baseline_state = 'baseline')
+```
 
-### Fix B — Assessment row: 4 MRS v3 dimensions in readable language, same row height
+This keeps the existing `brief-history` callers (Insights / Past Brief overlay) untouched — they continue to receive every row. Only the sidebar hook opts into the strict filter.
 
-User feedback: `Clar / Emo / Pres / Reg` is unreadable. Keep the existing single-word style that already works for clarity (`Clear`), extend it across MRS v3 in a fixed order so the eye learns the position. Each dim renders as `<arrow> <word>` (arrow is `▲`/`●`/`▼` per current `levelIcon` rule):
+Frontend change in `src/hooks/useRecentActivity.ts`:
+- Invoke `brief-history` with `?delivered=1`.
+- Title fallback chain stays `refined_phrase || phrase || baseline_phrase`.
 
-| Dim         | Word used in row |
-| ----------- | ---------------- |
-| Clarity     | **Clear**        |
-| Emotion     | **Steady**       |
-| Pressure    | **Ease**         |
-| Regulation  | **Poised**       |
+Net effect for Shukrita: today's *"Maintain your line"*, yesterday's *"Readiness signals are still coming in."*, and Jun 20's *"Close with care."* / *"Stay present for what's left."* drop out of RECENT, because they all have `baseline_state='awaiting'`. *"Steady and selective."*, *"Close strong."*, *"Sustain the pace."*, *"Begin with intention."*, etc. remain.
 
-Why these four:
-- All ≤ 6 chars → with arrow + comma separators the row fits inside the current sidebar width (tested against the longest grouping: `▲ Clear, ▲ Steady, ▲ Ease, ▲ Poised` ≈ 36 chars, comfortably below the current row's truncation point — same character budget the legacy 3-word format used).
-- Single fixed positive-direction word per dim (same convention as today's "Clear"). The arrow carries the direction, so users read it as "high clarity, low pressure-relief", etc. — matches how Insights labels read.
-- Drops the leading "Outcome" word (`Focused,` / `Overwhelmed,` …) which was forcing truncation and also duplicates information already in the brief. Outcome can be revisited later; out of scope here.
+## Fix B — Make all 4 dims visible without widening the sidebar
 
-Implementation:
-- `supabase/functions/daily-checkins/index.ts → GET_RECENT_CHECKINS` select list: replace `confidence_level, mental_sharpness_level` with `emotion_level, pressure_level, regulation_level`. Keep `clarity_level, id, checkin_date, time_window, created_at`. Drop the now-unused `outcome, energy_balance`.
-- `src/hooks/useRecentActivity.ts`: rebuild the title from the 4 fields in fixed order, skip dims that are `null` (partial check-ins), no outcome prefix, no truncation hack.
-- No CSS / no `RecentActivity.tsx` markup change → row height, icon, font, spacing identical.
+Two minimal-cost levers; recommend doing both:
 
-### Out of scope
-- Brief generation gating in `compute-inner-readiness` / `compute-outer-readiness` (already correct, not touched).
-- Past Brief overlay, Plan, MRS scoring, any other surface that reads `daily_checkins` or `user_engagements`.
+**B1. Tighter glyphs in the composer (`useRecentActivity.ts`)**
+- Drop the space between arrow and word.
+- Replace `, ` separator with a middle dot `·` surrounded by single spaces.
 
----
+Before: `▲ Clear, ▲ Steady, ▲ Ease, ▲ Poised` (35 chars)
+After: `▲Clear · ▲Steady · ▲Ease · ▲Poised` (31 chars)
 
-## Verification
-1. SQL sanity: `SELECT count(*) FROM brief_snapshots WHERE user_id = '<shukrita>' AND created_at > now() - interval '14 days'` should equal the number of "brief" rows visible in RECENT (capped at 5).
-2. A test user with no wearable connected sees zero Past Brief rows in RECENT, even after self check-ins.
-3. Most recent assessment row for `shukrita@mindmodule.me` renders as e.g. `▲ Clear, ● Steady, ▼ Ease, ▲ Poised`, with the row not wrapping or expanding the sidebar.
+Saves ~12% width. Same visual grammar, same arrow vocabulary.
+
+**B2. Allow assessment rows to wrap to 2 lines (`RecentActivity.tsx`)**
+On the assessment branch only (line 113), swap `truncate` → `line-clamp-2 leading-tight break-words`. Row height grows from 1 line to at most 2 lines *only when needed* (mixed-direction rows like `▼Clear · ●Steady · ▲Ease` still fit on one line). Sidebar width unchanged. Brief/Recalibrate rows keep `truncate` so their UX is unchanged.
+
+If you'd rather keep every assessment row strictly 1 line, we ship B1 only and accept that very long full-▲ rows still clip the last word. B1+B2 together is the only way to guarantee every dim is visible at every width.
+
+## Out of scope
+- Brief overlay rendering, Insights history, MRS scoring, awaiting-state copy in the main brief card (already correct).
+- The `brief_snapshots` writer in `compute-outer-readiness` — we are not changing what gets persisted, only what the sidebar reads.
 
 ## Files touched
-- `supabase/functions/brief-snapshots/index.ts` — add `GET_RECENT_BRIEFS` action.
-- `supabase/functions/daily-checkins/index.ts` — adjust `GET_RECENT_CHECKINS` select list.
-- `src/hooks/useRecentActivity.ts` — title composer + brief source swap.
+- `supabase/functions/brief-history/index.ts` — add optional `delivered` query filter.
+- `src/hooks/useRecentActivity.ts` — pass `delivered=1`; tighten title separators.
+- `src/components/navigation/RecentActivity.tsx` — `truncate` → `line-clamp-2` on assessment rows only.
+
+## Verification
+1. `SELECT count(*) FROM brief_snapshots WHERE user_id=<shukrita> AND (refined_state='refined' OR baseline_state='baseline')` — sidebar row count should match (capped at 5 per group).
+2. Reload sidebar: today's *"Maintain your line"* and yesterday's *"Readiness signals are still coming in."* are gone; *"Steady and selective."* remains.
+3. Latest assessment row reads `▲Clear · ▲Steady · ▲Ease · ▲Poised` with "Poised" fully visible.
+4. Past Brief overlay (`/executive-home?briefId=…`) still opens for the remaining brief rows.
+
+## Decision needed
+Confirm: ship **B1 + B2** (recommended, guarantees all 4 dims visible), or **B1 only** (keeps strict 1-line rows, accepts occasional clip on max-length rows)?

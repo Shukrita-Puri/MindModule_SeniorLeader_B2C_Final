@@ -28,12 +28,21 @@ serve(async (req) => {
     const limit = Math.min(Math.max(isNaN(limitParam) ? 30 : limitParam, 1), 100);
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
+    const deliveredOnly = url.searchParams.get('delivered') === '1';
     const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
     let query = supabase
       .from('brief_snapshots')
       .select('id, local_date, time_window, daily_checkin_id, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver, score, tier, signal_pills, wearable_snapshot, checkin_snapshot, created_at')
       .eq('user_id', userId);
+
+    if (deliveredOnly) {
+      // Sidebar RECENT only — exclude awaiting-signals placeholder rows
+      // (the "Sync your wearable…" fallback that gets persisted but is not
+      // a brief the user actually received). Older snapshots predating the
+      // state columns have NULL state and are kept (they were delivered).
+      query = query.or('baseline_state.is.null,baseline_state.neq.awaiting');
+    }
 
     if (startDate && DATE_RE.test(startDate)) {
       query = query.gte('local_date', startDate);
