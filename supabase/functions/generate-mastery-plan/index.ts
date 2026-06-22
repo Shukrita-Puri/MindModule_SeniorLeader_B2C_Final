@@ -2541,6 +2541,18 @@ interface SharedContext {
   // rule output — this fallback is logged so drift is visible.
   briefBehaviour: PersistedBriefBehaviourSnapshot | null;
   briefBehaviourSource: 'brief_snapshot' | 'outer_readiness_cache' | 'local_fallback' | 'absent';
+  // Soft memory for the active local week, written by list-week-ahead-priorities
+  // on Sunday (and on manual Week-Ahead opens). Read-only here — used as
+  // context only, never to hard-override selectors. Null when the user has
+  // not opened the Week-Ahead surface this week.
+  weeklyPlanSnapshot: {
+    weekStartDate: string;
+    weekEndDate: string;
+    source: string;
+    priorities: any[];
+    selectedPlan: any | null;
+    userEdits: any | null;
+  } | null;
 }
 
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
@@ -2558,6 +2570,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     combinedAlreadyUsed: [],
     briefBehaviour: null,
     briefBehaviourSource: 'absent',
+    weeklyPlanSnapshot: null,
   };
 
   // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
@@ -2826,6 +2839,47 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   }
 
   console.log(`[buildSharedContext] Complete: tier=${req.innerReadinessTier} score=${req.innerReadinessScore} trend=${ctx.innerReadinessPattern.trend} calLoad=${req.calendarLoad} gaps=${ctx.calendarGaps.length} practiceImpact=${ctx.causeEffect.practiceImpact.length} stateCarryover=${ctx.causeEffect.stateCarryover.length}`);
+
+  // ── Week Ahead snapshot (soft memory, current local week only) ──
+  // Read the user's current Mon→Sun snapshot if present. Used as advisory
+  // context only — never to hard-override event selection, slot allocation,
+  // practice selection, signal pills, or awaiting-signals envelope.
+  try {
+    const tzOff = req.timezoneOffset ?? 0;
+    const localNow = new Date(Date.now() - tzOff * 60000);
+    const dow = localNow.getDay();
+    const daysFromMonday = (dow + 6) % 7;
+    const localMonday = new Date(localNow);
+    localMonday.setHours(0, 0, 0, 0);
+    localMonday.setDate(localMonday.getDate() - daysFromMonday);
+    const weekStart = `${localMonday.getFullYear()}-${String(localMonday.getMonth() + 1).padStart(2, '0')}-${String(localMonday.getDate()).padStart(2, '0')}`;
+
+    const { data: snapRow } = await supabaseClient
+      .from('weekly_plan_snapshots')
+      .select('week_start_date, week_end_date, source, priorities, selected_plan, user_edits')
+      .eq('user_id', req.userId)
+      .eq('week_start_date', weekStart)
+      .eq('source', 'sunday_week_ahead')
+      .maybeSingle();
+
+    if (snapRow && snapRow.week_start_date === weekStart) {
+      ctx.weeklyPlanSnapshot = {
+        weekStartDate: snapRow.week_start_date,
+        weekEndDate: snapRow.week_end_date,
+        source: snapRow.source,
+        priorities: Array.isArray(snapRow.priorities) ? snapRow.priorities : [],
+        selectedPlan: snapRow.selected_plan ?? null,
+        userEdits: snapRow.user_edits ?? null,
+      };
+      console.log('[week_ahead.read.hit]', { userId: req.userId, weekStart, priorities: ctx.weeklyPlanSnapshot.priorities.length });
+    } else {
+      ctx.weeklyPlanSnapshot = null;
+      console.log('[week_ahead.read.miss]', { userId: req.userId, weekStart });
+    }
+  } catch (e) {
+    console.warn('[week_ahead.read.error]', (e as Error).message);
+    ctx.weeklyPlanSnapshot = null;
+  }
 
   // ── Brief behaviour snapshot (Brief↔Plan parity, canonical) ──
   // Priority order:

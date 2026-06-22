@@ -139,6 +139,74 @@ serve(async (req) => {
     localStartOfToday.setHours(0, 0, 0, 0);
     const localEnd = new Date(localStartOfToday);
     localEnd.setDate(localEnd.getDate() + 8); // 7 lookahead days, exclusive
+
+    // Compute current local Mon→Sun (used by both the GET write path and the
+    // POST save path).
+    const dow = localNow.getDay();
+    const daysFromMonday = (dow + 6) % 7;
+    const localMonday = new Date(localStartOfToday);
+    localMonday.setDate(localMonday.getDate() - daysFromMonday);
+    const localSunday = new Date(localMonday);
+    localSunday.setDate(localSunday.getDate() + 6);
+    const fmtLocalDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const weekStart = fmtLocalDate(localMonday);
+    const weekEnd = fmtLocalDate(localSunday);
+
+    // ── Save path: POST with { action: 'save', selected_plan?, user_edits? }
+    // Upserts into the current week's row WITHOUT overwriting generated
+    // priorities. Returns immediately; never falls through to listing.
+    if (req.method === "POST") {
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+      if (body && body.action === "save") {
+        const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (body.selected_plan !== undefined) update.selected_plan = body.selected_plan;
+        if (body.user_edits !== undefined) update.user_edits = body.user_edits;
+
+        const { data: existing } = await supabase
+          .from("weekly_plan_snapshots")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("week_start_date", weekStart)
+          .eq("source", "sunday_week_ahead")
+          .maybeSingle();
+
+        if (existing?.id) {
+          const { error: updErr } = await supabase
+            .from("weekly_plan_snapshots")
+            .update(update)
+            .eq("id", existing.id);
+          if (updErr) {
+            return new Response(JSON.stringify({ error: updErr.message }), {
+              status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          const { error: insErr } = await supabase
+            .from("weekly_plan_snapshots")
+            .insert({
+              user_id: userId,
+              week_start_date: weekStart,
+              week_end_date: weekEnd,
+              source: "sunday_week_ahead",
+              priorities: [],
+              selected_plan: update.selected_plan ?? null,
+              user_edits: update.user_edits ?? null,
+            });
+          if (insErr) {
+            return new Response(JSON.stringify({ error: insErr.message }), {
+              status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        console.log("[week_ahead.save.success]", { userId, weekStart });
+        return new Response(JSON.stringify({ ok: true, weekStartDate: weekStart }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const windowStartUtc = new Date(localStartOfToday.getTime() + offsetMinutes * 60_000);
     const windowEndUtc = new Date(localEnd.getTime() + offsetMinutes * 60_000);
 
@@ -311,6 +379,32 @@ serve(async (req) => {
 
     // Re-sort the selected slice by chronological start time for UI rendering.
     picked.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    // ── Persist Week Ahead snapshot (Sun → Plan memory for the week) ──
+    // Upsert by (user_id, week_start_date, source) so repeated Sunday
+    // refreshes do not duplicate rows. Best-effort; never break the API.
+    try {
+      const { error: upsertErr } = await supabase
+        .from("weekly_plan_snapshots")
+        .upsert(
+          {
+            user_id: userId,
+            week_start_date: weekStart,
+            week_end_date: weekEnd,
+            source: "sunday_week_ahead",
+            priorities: picked,
+            generated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,week_start_date,source" },
+        );
+      if (upsertErr) {
+        console.warn("[week_ahead.write.error]", upsertErr.message, { userId, weekStart });
+      } else {
+        console.log("[week_ahead.write.success]", { userId, weekStart, weekEnd, count: picked.length });
+      }
+    } catch (e) {
+      console.warn("[week_ahead.write.error] threw:", (e as Error).message);
+    }
 
     return new Response(JSON.stringify({
       weekAheadMode: decision,

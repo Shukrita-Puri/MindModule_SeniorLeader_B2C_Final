@@ -3452,35 +3452,34 @@ serve(async (req) => {
       if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) continue;
       if (!isForcedUser && isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
 
-      // v1.1 — Delivery-context skips: airplane mode / offline / low battery.
-      // Stale device (last seen > DEVICE_OFFLINE_STALE_MIN min ago) is treated
-      // as airplane/offline. Stale nudges past 1 h have no value, so we never
-      // queue — we log a suppressed row and move on.
+      // Delivery-context: device-token `updated_at` is NOT a heartbeat — it
+      // only changes on token rotation / app launch — so we must not gate
+      // push delivery on it. Push exists to reach users who are NOT currently
+      // active in the app. We still compute `activityAgeMin` for diagnostics
+      // and continue to honour OS-level low-power preference.
       const deviceLastSeen = lastDeviceSeenAt.get(userId) ?? 0;
-      const offlineForMin = deviceLastSeen
+      const activityAgeMin = deviceLastSeen
         ? Math.round((Date.now() - deviceLastSeen) / 60000)
-        : Number.POSITIVE_INFINITY;
+        : null;
       const lowPowerMode = (prefs as any)?.low_power_mode === true;
-      const skipReason: 'offline' | 'airplane' | 'battery' | null =
-        lowPowerMode ? 'battery' : (offlineForMin > DEVICE_OFFLINE_STALE_MIN ? 'offline' : null);
-      if (!isForcedUser && skipReason) {
-        console.log(`[smart-nudges][v1.1] User ${userId} skip pre-evaluator reason=${skipReason} offlineMin=${offlineForMin}`);
+      if (!isForcedUser && lowPowerMode) {
+        console.log(`[smart-nudges] User ${userId} skip pre-evaluator reason=battery activityAgeMin=${activityAgeMin}`);
         try {
           await supabase.from('notification_log').insert({
             user_id: userId,
             notification_type: 'nudge_skip',
-            variant_id: `skip-${skipReason}`,
+            variant_id: 'skip-battery',
             event_reference: null,
             delivery_state: 'suppressed',
             payload: {
               notification_type: 'nudge_skip',
               architecture: 'cos-mind-v8-meaning-forward',
-              suppression_reason: skipReason,
+              suppression_reason: 'battery',
               suppression_stage: 'pre_evaluator',
               metadata: {
                 architecture: 'cos-mind-v8-meaning-forward',
-                delivery_skip_reason: skipReason,
-                device_offline_min: Number.isFinite(offlineForMin) ? offlineForMin : null,
+                delivery_skip_reason: 'battery',
+                last_activity_age_min: activityAgeMin,
               },
             },
           });

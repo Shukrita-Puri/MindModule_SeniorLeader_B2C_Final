@@ -5226,6 +5226,48 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_plan_snapshots: {
+        Row: {
+          generated_at: string
+          id: string
+          priorities: Json
+          selected_plan: Json | null
+          source: string
+          updated_at: string
+          user_edits: Json | null
+          user_id: string
+          version: number
+          week_end_date: string
+          week_start_date: string
+        }
+        Insert: {
+          generated_at?: string
+          id?: string
+          priorities?: Json
+          selected_plan?: Json | null
+          source?: string
+          updated_at?: string
+          user_edits?: Json | null
+          user_id: string
+          version?: number
+          week_end_date: string
+          week_start_date: string
+        }
+        Update: {
+          generated_at?: string
+          id?: string
+          priorities?: Json
+          selected_plan?: Json | null
+          source?: string
+          updated_at?: string
+          user_edits?: Json | null
+          user_id?: string
+          version?: number
+          week_end_date?: string
+          week_start_date?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       event_physiology_join: {
