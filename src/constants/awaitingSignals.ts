@@ -4,4 +4,4 @@
  * context is not ready. Do not paraphrase.
  */
 export const READINESS_AWAITING_MESSAGE =
-  "Sync your wearable and then complete a quick check-in to sharpen the picture.";
+  "Sync your wearable, calendar to get an early read and check in to sharpen it.";

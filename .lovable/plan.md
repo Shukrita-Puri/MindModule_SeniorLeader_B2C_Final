@@ -1,64 +1,42 @@
-## What's wrong
+## Goal
 
-**1. Past Briefs still includes undelivered rows.**
-`brief_snapshots` is written in two modes per evaluation:
-- `refined_state='refined'` or `baseline_state='baseline'` → a real brief was generated and shown.
-- `baseline_state='awaiting'` → wearable/check-in missing; this is the "Sync your wearable…" placeholder the user actually sees on the home card. It still gets persisted with a phrase like *"Maintain your line"* or *"Readiness signals are still coming in."*
+Replace the multiple awaiting-state strings on MRS, Brief, and Plan cards with one canonical sentence, rendered exactly once per card, in each card's existing eyebrow/quote text style. No logic changes, no other UI changes.
 
-`brief-history` returns both kinds, so the sidebar shows phrases for briefs the user was never actually given. Shukrita's row today (`Maintain your line`, 2026-06-22 afternoon) is exactly one of these awaiting rows — confirmed in DB: `baseline_state='awaiting'`, `pillar_mode='wearable'`, `refined_state=null`.
-
-**2. "Poised" is truncated.**
-`RecentActivity.tsx` renders the assessment row inside `<span className="text-xs truncate flex-1">`. `truncate` = single line + ellipsis. With four `▲ Word` segments joined by `, ` the line is ~35 chars and the sidebar clips at "▲ P…". The truncation is real, not a perception issue.
-
-## Fix A — Past Briefs: delivered-only filter (server-side, in `brief-history`)
-
-Add a query-string flag `delivered=1` and use it from the sidebar. Server-side filter:
+## Canonical copy
 
 ```
-WHERE user_id = :uid
-  AND (refined_state = 'refined' OR baseline_state = 'baseline')
+Awaiting signals — sync your wearable, calendar to get an early read and check in to sharpen it.
 ```
 
-This keeps the existing `brief-history` callers (Insights / Past Brief overlay) untouched — they continue to receive every row. Only the sidebar hook opts into the strict filter.
+The leading "Awaiting signals" stays as the eyebrow/label style each card already uses; the rest is the descriptive line. Update the shared constant so all three cards stay in lock-step.
 
-Frontend change in `src/hooks/useRecentActivity.ts`:
-- Invoke `brief-history` with `?delivered=1`.
-- Title fallback chain stays `refined_phrase || phrase || baseline_phrase`.
+## Files & exact edits
 
-Net effect for Shukrita: today's *"Maintain your line"*, yesterday's *"Readiness signals are still coming in."*, and Jun 20's *"Close with care."* / *"Stay present for what's left."* drop out of RECENT, because they all have `baseline_state='awaiting'`. *"Steady and selective."*, *"Close strong."*, *"Sustain the pace."*, *"Begin with intention."*, etc. remain.
+### 1. `src/constants/awaitingSignals.ts`
+Replace `READINESS_AWAITING_MESSAGE` value with:
+`"Sync your wearable, calendar to get an early read and check in to sharpen it."`
+(The "Awaiting signals" prefix is rendered separately by each card as its eyebrow/title.)
 
-## Fix B — Make all 4 dims visible without widening the sidebar
+### 2. `src/utils/readinessLabels.ts` (drives the eyebrow line beneath the MRS gauge and beside the Brief score)
+For both `awaiting` and `refined-without-wearable` branches, change `subtitle` from `"sync your wearable and check in"` to `"sync your wearable, calendar to get an early read and check in to sharpen it"`. Label stays `"Awaiting signals"`.
 
-Two minimal-cost levers; recommend doing both:
+### 3. `src/components/home/mrs/MrsPage.tsx` (MRS page)
+Delete the `<p>{READINESS_AWAITING_MESSAGE}</p>` paragraph (lines ~94-99) in the `!hasScore` block. The eyebrow line (`stateLabel.label` + `stateLabel.subtitle`) now carries the full message via change #2.
 
-**B1. Tighter glyphs in the composer (`useRecentActivity.ts`)**
-- Drop the space between arrow and word.
-- Replace `, ` separator with a middle dot `·` surrounded by single spaces.
+### 4. `src/components/home/DecisionReadinessBrief.tsx` (Brief card)
+- Line 2013: change `--` to a single `—` (or single `-`) — remove the doubled dashes so only one dash shows next to the score.
+- Line 2014: delete the inline `AWAITING SIGNALS · sync your wearable and check in` span (the eyebrow next to the score is already rendered by the `stateLabel` block above for the normal path; for the awaiting fallback the message is shown once via the block below).
+- Lines 2043-2052: in the `showNeutralAwaitingCopy` block, remove the "We do not have enough fresh signals yet for today's readiness read." `<p>` and keep one paragraph rendering `Awaiting signals — {READINESS_AWAITING_MESSAGE}` in the existing quote style.
 
-Before: `▲ Clear, ▲ Steady, ▲ Ease, ▲ Poised` (35 chars)
-After: `▲Clear · ▲Steady · ▲Ease · ▲Poised` (31 chars)
-
-Saves ~12% width. Same visual grammar, same arrow vocabulary.
-
-**B2. Allow assessment rows to wrap to 2 lines (`RecentActivity.tsx`)**
-On the assessment branch only (line 113), swap `truncate` → `line-clamp-2 leading-tight break-words`. Row height grows from 1 line to at most 2 lines *only when needed* (mixed-direction rows like `▼Clear · ●Steady · ▲Ease` still fit on one line). Sidebar width unchanged. Brief/Recalibrate rows keep `truncate` so their UX is unchanged.
-
-If you'd rather keep every assessment row strictly 1 line, we ship B1 only and accept that very long full-▲ rows still clip the last word. B1+B2 together is the only way to guarantee every dim is visible at every width.
+### 5. `src/components/home/TodayThreePriorities.tsx` (Plan card)
+Lines 1224-1230: keep the button + chevron structure, keep "Awaiting today's signal" replaced with `"Awaiting signals"` as the quote title, and the body span renders `READINESS_AWAITING_MESSAGE` (updated via change #1). Net effect on screen: "Awaiting signals" + one descriptive line.
 
 ## Out of scope
-- Brief overlay rendering, Insights history, MRS scoring, awaiting-state copy in the main brief card (already correct).
-- The `brief_snapshots` writer in `compute-outer-readiness` — we are not changing what gets persisted, only what the sidebar reads.
-
-## Files touched
-- `supabase/functions/brief-history/index.ts` — add optional `delivered` query filter.
-- `src/hooks/useRecentActivity.ts` — pass `delivered=1`; tighten title separators.
-- `src/components/navigation/RecentActivity.tsx` — `truncate` → `line-clamp-2` on assessment rows only.
+- No changes to gating logic, hooks, edge functions, MRS scoring, brief generation, pill rendering, calendar pills, weekly delta dial, sidebar, or any other component.
+- `DailyRitual.tsx` line 602 ("Awaiting today's signal") is a separate code path not shown in the screenshots; leave untouched unless the user flags it.
 
 ## Verification
-1. `SELECT count(*) FROM brief_snapshots WHERE user_id=<shukrita> AND (refined_state='refined' OR baseline_state='baseline')` — sidebar row count should match (capped at 5 per group).
-2. Reload sidebar: today's *"Maintain your line"* and yesterday's *"Readiness signals are still coming in."* are gone; *"Steady and selective."* remains.
-3. Latest assessment row reads `▲Clear · ▲Steady · ▲Ease · ▲Poised` with "Poised" fully visible.
-4. Past Brief overlay (`/executive-home?briefId=…`) still opens for the remaining brief rows.
-
-## Decision needed
-Confirm: ship **B1 + B2** (recommended, guarantees all 4 dims visible), or **B1 only** (keeps strict 1-line rows, accepts occasional clip on max-length rows)?
+Reload `/executive-home` in the awaiting state and confirm:
+- MRS card: gauge → single eyebrow line "AWAITING SIGNALS · sync your wearable, calendar to get an early read and check in to sharpen it"; no second paragraph below.
+- Brief card: single dash next to score, no inline AWAITING SIGNALS subtitle next to it; body shows one paragraph "Awaiting signals — sync your wearable, calendar…".
+- Plan card: "Awaiting signals" + one descriptive line, chevron preserved.

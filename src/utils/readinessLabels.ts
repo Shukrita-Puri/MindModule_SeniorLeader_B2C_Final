@@ -87,7 +87,7 @@ export function getReadinessStateLabel(
   if (state === "refined" && !wearableFresh) {
     return {
       label: "Awaiting signals",
-      subtitle: "sync your wearable and check in",
+      subtitle: "sync your wearable, calendar to get an early read and check in to sharpen it",
     };
   }
   if (state === "baseline" && wearableFresh) {
@@ -96,6 +96,6 @@ export function getReadinessStateLabel(
   // awaiting, or baseline without fresh wearable (no/stale wearable paths).
   return {
     label: "Awaiting signals",
-    subtitle: "sync your wearable and check in",
+    subtitle: "sync your wearable, calendar to get an early read and check in to sharpen it",
   };
 }
