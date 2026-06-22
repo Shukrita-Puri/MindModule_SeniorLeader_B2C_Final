@@ -312,6 +312,44 @@ serve(async (req) => {
     // Re-sort the selected slice by chronological start time for UI rendering.
     picked.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
+    // ── Persist Week Ahead snapshot (Sun → Plan memory for the week) ──
+    // Week is Mon→Sun based on the user's local "today". Upsert by
+    // (user_id, week_start_date, source) so repeated Sunday refreshes do
+    // not duplicate rows. Best-effort; failures must not break the API.
+    try {
+      const dow = localNow.getDay(); // 0 Sun..6 Sat
+      const daysFromMonday = (dow + 6) % 7; // Mon=0
+      const localMonday = new Date(localStartOfToday);
+      localMonday.setDate(localMonday.getDate() - daysFromMonday);
+      const localSunday = new Date(localMonday);
+      localSunday.setDate(localSunday.getDate() + 6);
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const weekStart = fmt(localMonday);
+      const weekEnd = fmt(localSunday);
+
+      const { error: upsertErr } = await supabase
+        .from("weekly_plan_snapshots")
+        .upsert(
+          {
+            user_id: userId,
+            week_start_date: weekStart,
+            week_end_date: weekEnd,
+            source: "sunday_week_ahead",
+            priorities: picked,
+            generated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,week_start_date,source" },
+        );
+      if (upsertErr) {
+        console.warn("[week_ahead.write.error]", upsertErr.message, { userId, weekStart });
+      } else {
+        console.log("[week_ahead.write.success]", { userId, weekStart, weekEnd, count: picked.length });
+      }
+    } catch (e) {
+      console.warn("[week_ahead.write.error] threw:", (e as Error).message);
+    }
+
     return new Response(JSON.stringify({
       weekAheadMode: decision,
       priorities: picked,
