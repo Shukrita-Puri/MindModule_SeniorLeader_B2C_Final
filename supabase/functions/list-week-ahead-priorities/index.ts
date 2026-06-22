@@ -132,24 +132,34 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
+    // Local "now" + local day boundaries.
+    const nowUtc = new Date();
+    const localNow = new Date(nowUtc.getTime() - offsetMinutes * 60_000);
+    const localStartOfToday = new Date(localNow);
+    localStartOfToday.setHours(0, 0, 0, 0);
+    const localEnd = new Date(localStartOfToday);
+    localEnd.setDate(localEnd.getDate() + 8); // 7 lookahead days, exclusive
+
+    // Compute current local Mon→Sun (used by both the GET write path and the
+    // POST save path).
+    const dow = localNow.getDay();
+    const daysFromMonday = (dow + 6) % 7;
+    const localMonday = new Date(localStartOfToday);
+    localMonday.setDate(localMonday.getDate() - daysFromMonday);
+    const localSunday = new Date(localMonday);
+    localSunday.setDate(localSunday.getDate() + 6);
+    const fmtLocalDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const weekStart = fmtLocalDate(localMonday);
+    const weekEnd = fmtLocalDate(localSunday);
+
     // ── Save path: POST with { action: 'save', selected_plan?, user_edits? }
-    // Upserts into the current local week's row WITHOUT overwriting
-    // existing generated priorities.
+    // Upserts into the current week's row WITHOUT overwriting generated
+    // priorities. Returns immediately; never falls through to listing.
     if (req.method === "POST") {
       let body: any = {};
       try { body = await req.json(); } catch { body = {}; }
       if (body && body.action === "save") {
-        const dow0 = localNow.getDay();
-        const daysFromMonday0 = (dow0 + 6) % 7;
-        const localMonday0 = new Date(localStartOfToday);
-        localMonday0.setDate(localMonday0.getDate() - daysFromMonday0);
-        const localSunday0 = new Date(localMonday0);
-        localSunday0.setDate(localSunday0.getDate() + 6);
-        const fmt0 = (d: Date) =>
-          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        const weekStart0 = fmt0(localMonday0);
-        const weekEnd0 = fmt0(localSunday0);
-
         const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
         if (body.selected_plan !== undefined) update.selected_plan = body.selected_plan;
         if (body.user_edits !== undefined) update.user_edits = body.user_edits;
@@ -158,7 +168,7 @@ serve(async (req) => {
           .from("weekly_plan_snapshots")
           .select("id")
           .eq("user_id", userId)
-          .eq("week_start_date", weekStart0)
+          .eq("week_start_date", weekStart)
           .eq("source", "sunday_week_ahead")
           .maybeSingle();
 
@@ -177,8 +187,8 @@ serve(async (req) => {
             .from("weekly_plan_snapshots")
             .insert({
               user_id: userId,
-              week_start_date: weekStart0,
-              week_end_date: weekEnd0,
+              week_start_date: weekStart,
+              week_end_date: weekEnd,
               source: "sunday_week_ahead",
               priorities: [],
               selected_plan: update.selected_plan ?? null,
@@ -190,20 +200,13 @@ serve(async (req) => {
             });
           }
         }
-        console.log("[week_ahead.save.success]", { userId, weekStart: weekStart0 });
-        return new Response(JSON.stringify({ ok: true, weekStartDate: weekStart0 }), {
+        console.log("[week_ahead.save.success]", { userId, weekStart });
+        return new Response(JSON.stringify({ ok: true, weekStartDate: weekStart }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
-    // Local "now" + local day boundaries.
-    const nowUtc = new Date();
-    const localNow = new Date(nowUtc.getTime() - offsetMinutes * 60_000);
-    const localStartOfToday = new Date(localNow);
-    localStartOfToday.setHours(0, 0, 0, 0);
-    const localEnd = new Date(localStartOfToday);
-    localEnd.setDate(localEnd.getDate() + 8); // 7 lookahead days, exclusive
     const windowStartUtc = new Date(localStartOfToday.getTime() + offsetMinutes * 60_000);
     const windowEndUtc = new Date(localEnd.getTime() + offsetMinutes * 60_000);
 
