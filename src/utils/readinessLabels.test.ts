@@ -5,7 +5,7 @@ describe('readinessLabels', () => {
   it('treats awaiting as awaiting-signals copy', () => {
     expect(getReadinessStateLabel('awaiting')).toEqual({
       label: 'Awaiting signals',
-      subtitle: 'sync your wearable and check in',
+      subtitle: 'sync your wearable, calendar to get an early read and check in to sharpen it',
     });
   });
 
@@ -19,7 +19,7 @@ describe('readinessLabels', () => {
   it('downgrades baseline without fresh wearable to awaiting copy', () => {
     expect(getReadinessStateLabel('baseline', false)).toEqual({
       label: 'Awaiting signals',
-      subtitle: 'sync your wearable and check in',
+      subtitle: 'sync your wearable, calendar to get an early read and check in to sharpen it',
     });
   });
 
@@ -30,7 +30,7 @@ describe('readinessLabels', () => {
   it('downgrades refined without fresh wearable to awaiting (V4 gate)', () => {
     expect(getReadinessStateLabel('refined', false)).toEqual({
       label: 'Awaiting signals',
-      subtitle: 'sync your wearable and check in',
+      subtitle: 'sync your wearable, calendar to get an early read and check in to sharpen it',
     });
   });
 
