@@ -573,9 +573,13 @@ serve(async (req) => {
       case 'GET_RECENT_CHECKINS': {
         const limit = (body as any).limit || 5;
 
+        // MRS v3 four-dimension select. Legacy columns
+        // (outcome, confidence_level, mental_sharpness_level, energy_balance)
+        // are intentionally dropped — the sidebar Assessment row now reads the
+        // four MRS v3 dims (clarity, emotion, pressure, regulation) only.
         const { data, error } = await supabase
           .from('daily_checkins')
-          .select('id, checkin_date, time_window, outcome, energy_balance, clarity_level, confidence_level, mental_sharpness_level, created_at')
+          .select('id, checkin_date, time_window, clarity_level, emotion_level, pressure_level, regulation_level, created_at')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(limit);
