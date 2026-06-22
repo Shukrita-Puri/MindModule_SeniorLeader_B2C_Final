@@ -132,6 +132,71 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
+    // ── Save path: POST with { action: 'save', selected_plan?, user_edits? }
+    // Upserts into the current local week's row WITHOUT overwriting
+    // existing generated priorities.
+    if (req.method === "POST") {
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+      if (body && body.action === "save") {
+        const dow0 = localNow.getDay();
+        const daysFromMonday0 = (dow0 + 6) % 7;
+        const localMonday0 = new Date(localStartOfToday);
+        localMonday0.setDate(localMonday0.getDate() - daysFromMonday0);
+        const localSunday0 = new Date(localMonday0);
+        localSunday0.setDate(localSunday0.getDate() + 6);
+        const fmt0 = (d: Date) =>
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const weekStart0 = fmt0(localMonday0);
+        const weekEnd0 = fmt0(localSunday0);
+
+        const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (body.selected_plan !== undefined) update.selected_plan = body.selected_plan;
+        if (body.user_edits !== undefined) update.user_edits = body.user_edits;
+
+        const { data: existing } = await supabase
+          .from("weekly_plan_snapshots")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("week_start_date", weekStart0)
+          .eq("source", "sunday_week_ahead")
+          .maybeSingle();
+
+        if (existing?.id) {
+          const { error: updErr } = await supabase
+            .from("weekly_plan_snapshots")
+            .update(update)
+            .eq("id", existing.id);
+          if (updErr) {
+            return new Response(JSON.stringify({ error: updErr.message }), {
+              status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          const { error: insErr } = await supabase
+            .from("weekly_plan_snapshots")
+            .insert({
+              user_id: userId,
+              week_start_date: weekStart0,
+              week_end_date: weekEnd0,
+              source: "sunday_week_ahead",
+              priorities: [],
+              selected_plan: update.selected_plan ?? null,
+              user_edits: update.user_edits ?? null,
+            });
+          if (insErr) {
+            return new Response(JSON.stringify({ error: insErr.message }), {
+              status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        console.log("[week_ahead.save.success]", { userId, weekStart: weekStart0 });
+        return new Response(JSON.stringify({ ok: true, weekStartDate: weekStart0 }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Local "now" + local day boundaries.
     const nowUtc = new Date();
     const localNow = new Date(nowUtc.getTime() - offsetMinutes * 60_000);
