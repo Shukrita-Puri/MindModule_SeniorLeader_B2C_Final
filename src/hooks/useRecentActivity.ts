@@ -62,10 +62,12 @@ export const useRecentActivity = ({ enabled = true }: { enabled?: boolean } = {}
             const parts = dims
               .map(([lvl, word]) => {
                 const icon = levelIcon(lvl);
-                return icon ? `${icon} ${word}` : '';
+                // Tight glyph (no space between arrow and word) + middle-dot
+                // separator keeps all 4 dims inside the sidebar width.
+                return icon ? `${icon}${word}` : '';
               })
               .filter(Boolean);
-            const title = parts.length ? parts.join(', ') : 'Assessment';
+            const title = parts.length ? parts.join(' · ') : 'Assessment';
 
             allActivities.push({
               id: checkin.id,
@@ -107,6 +109,9 @@ export const useRecentActivity = ({ enabled = true }: { enabled?: boolean } = {}
       try {
         const { data, error } = await supabase.functions.invoke('brief-history', {
           method: 'GET',
+          // delivered=1 → exclude awaiting-signals placeholder rows so the
+          // sidebar shows only briefs the user actually saw.
+          body: undefined,
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (!error && Array.isArray(data?.briefs)) {
