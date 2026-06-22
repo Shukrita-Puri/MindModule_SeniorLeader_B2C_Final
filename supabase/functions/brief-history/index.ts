@@ -37,10 +37,11 @@ serve(async (req) => {
       .eq('user_id', userId);
 
     if (deliveredOnly) {
-      // Sidebar RECENT only — exclude awaiting placeholders. A row counts as
-      // "delivered" when either the refined or baseline pass actually produced
-      // a brief (not the awaiting-signals fallback).
-      query = query.or('refined_state.eq.refined,baseline_state.eq.baseline');
+      // Sidebar RECENT only — exclude awaiting-signals placeholder rows
+      // (the "Sync your wearable…" fallback that gets persisted but is not
+      // a brief the user actually received). Older snapshots predating the
+      // state columns have NULL state and are kept (they were delivered).
+      query = query.or('baseline_state.is.null,baseline_state.neq.awaiting');
     }
 
     if (startDate && DATE_RE.test(startDate)) {
