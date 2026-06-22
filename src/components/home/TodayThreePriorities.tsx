@@ -1222,7 +1222,7 @@ const TodayThreePriorities = ({
             className="mt-1 flex flex-col items-start gap-1.5 pl-10 pr-3 py-2 rounded-xl text-left hover:bg-muted/10 transition-colors"
           >
             <span className="text-quote text-foreground">
-              Awaiting today's signal
+              Awaiting signals
             </span>
             <span className="flex items-start gap-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
               <span>{READINESS_AWAITING_MESSAGE}</span>

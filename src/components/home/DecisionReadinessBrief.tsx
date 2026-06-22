@@ -2010,8 +2010,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           </>
         ) : (
           <>
-            <span className="text-[40px] font-medium leading-none text-muted-foreground/30">--</span>
-            <span className="text-xs uppercase tracking-wider text-muted-foreground/40 ml-2">AWAITING SIGNALS · sync your wearable and check in</span>
+            <span className="text-[40px] font-medium leading-none text-muted-foreground/30">—</span>
           </>
         )}
       </div>
@@ -2043,10 +2042,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {showNeutralAwaitingCopy && (
         <>
           <p className="mt-4 text-quote text-foreground">
-            We do not have enough fresh signals yet for today&apos;s readiness read.
-          </p>
-          <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
-            {READINESS_AWAITING_MESSAGE}
+            Awaiting signals — {READINESS_AWAITING_MESSAGE}
           </p>
         </>
       )}
