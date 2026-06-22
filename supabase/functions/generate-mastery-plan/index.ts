@@ -2541,6 +2541,18 @@ interface SharedContext {
   // rule output — this fallback is logged so drift is visible.
   briefBehaviour: PersistedBriefBehaviourSnapshot | null;
   briefBehaviourSource: 'brief_snapshot' | 'outer_readiness_cache' | 'local_fallback' | 'absent';
+  // Soft memory for the active local week, written by list-week-ahead-priorities
+  // on Sunday (and on manual Week-Ahead opens). Read-only here — used as
+  // context only, never to hard-override selectors. Null when the user has
+  // not opened the Week-Ahead surface this week.
+  weeklyPlanSnapshot: {
+    weekStartDate: string;
+    weekEndDate: string;
+    source: string;
+    priorities: any[];
+    selectedPlan: any | null;
+    userEdits: any | null;
+  } | null;
 }
 
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
