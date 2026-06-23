@@ -55,9 +55,9 @@ export const useRecentActivity = ({ enabled = true }: { enabled?: boolean } = {}
           data.data.forEach((checkin: any) => {
             const dims: Array<[number | null | undefined, string]> = [
               [checkin.clarity_level, 'Clear'],
-              [checkin.emotion_level, 'Steady'],
-              [checkin.pressure_level, 'Ease'],
-              [checkin.regulation_level, 'Poised'],
+              [checkin.emotion_level, 'Composed'],
+              [checkin.pressure_level, 'Calm'],
+              [checkin.regulation_level, 'Grounded'],
             ];
             const parts = dims
               .map(([lvl, word]) => {
