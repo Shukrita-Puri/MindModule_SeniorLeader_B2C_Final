@@ -3547,7 +3547,7 @@ serve(async (req) => {
           metadata: { forced: true, token_rows: 0 },
         });
       }
-      await finishRun(null);
+      await finishRun('zero_users_evaluated_no_active_tokens');
       return new Response(JSON.stringify({ processed: 0, notifications: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
