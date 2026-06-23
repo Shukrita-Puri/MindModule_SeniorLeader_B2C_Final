@@ -17,6 +17,7 @@ import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 // Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
@@ -176,6 +177,7 @@ const corsHeaders = {
 const DAILY_NOTIFICATION_CAP = 3;
 const LOW_TIERS = ['depleted', 'managing'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const EVALUATOR_VERSION = 'smart-nudges-v8-trace-2026-06-23';
 
 // §17.7 — Week-Ahead Picker Invite is treated as a weekly digest, NOT a
 // behavioural nudge. It has its own cap bucket (max one per ISO week per
@@ -3064,19 +3066,19 @@ async function evaluateWeekAheadPickerInvite(
   const variantByReason: Record<string, { title: string; body: string }> = {
     sunday_evening: {
       title: 'Sunday reset',
-      body: "Pick this week's 10 priorities — 90 seconds to set the shape.",
+      body: "10 priority choices can shape the week before Monday starts — log in to prep your mind tonight.",
     },
     last_day_pto_evening: {
       title: 'Last day off',
-      body: "Pick this week's 10 priorities before tomorrow lands.",
+      body: "10 priority choices can shape tomorrow before work restarts — log in to prep your mind.",
     },
     last_day_holiday_evening: {
       title: 'Re-engaging',
-      body: "Pick the events that matter this week before you log back in.",
+      body: "10 priority choices can shape re-entry before work restarts — log in to prep your mind.",
     },
     last_day_long_weekend_evening: {
       title: 'Frame the week',
-      body: "Pick this week's 10 priorities before Monday lands.",
+      body: "10 priority choices can shape the week before Monday lands — log in to prep your mind.",
     },
   };
   const v = variantByReason[decision.reason] ?? variantByReason.sunday_evening;
@@ -3308,6 +3310,38 @@ function isQuietDay(dayOfWeek: number, quietDays: number[] | null): boolean {
   return quietDays.includes(dayOfWeek);
 }
 
+type NotificationTraceOutcome =
+  | 'no_active_device_token'
+  | 'outside_global_window'
+  | 'dnd_window'
+  | 'quiet_day'
+  | 'low_power_mode'
+  | 'app_open_cooldown'
+  | 'daily_cap'
+  | 'two_hour_suppression'
+  | 'light_day_strong_state'
+  | 'no_qualified_nudge'
+  | 'week_ahead_not_in_window'
+  | 'week_ahead_already_sent_this_week'
+  | 'week_ahead_not_selected'
+  | 'week_ahead_selected'
+  | 'apns_attempted'
+  | 'apns_accepted'
+  | 'apns_rejected';
+
+interface TraceDetails {
+  localDate?: string | null;
+  localHour?: number | null;
+  timezoneOffset?: number | null;
+  notificationType?: string | null;
+  variantId?: string | null;
+  notificationLogId?: string | null;
+  apnsStatus?: number | null;
+  apnsReason?: string | null;
+  tokenPrefix?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── Main Handler ──
 // ══════════════════════════════════════════════════════════════
@@ -3317,15 +3351,158 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let supabase: ReturnType<typeof createClient> | null = null;
+  let runId: string | null = null;
+  let processedUserCount = 0;
+  let qualifiedCount = 0;
+  let shippedCount = 0;
+  let apnsAttemptedCount = 0;
+  let apnsSucceededCount = 0;
+  let apnsFailedCount = 0;
+  const traceRows: Array<Record<string, unknown>> = [];
+
+  const trace = (userId: string, outcome: NotificationTraceOutcome, details: TraceDetails = {}) => {
+    traceRows.push({
+      run_id: runId,
+      evaluator: 'smart-nudges',
+      evaluator_version: EVALUATOR_VERSION,
+      user_id: userId,
+      local_date: details.localDate ?? null,
+      local_hour: details.localHour ?? null,
+      timezone_offset: details.timezoneOffset ?? null,
+      outcome,
+      notification_type: details.notificationType ?? null,
+      variant_id: details.variantId ?? null,
+      notification_log_id: details.notificationLogId ?? null,
+      apns_status: details.apnsStatus ?? null,
+      apns_reason: details.apnsReason ?? null,
+      token_prefix: details.tokenPrefix ?? null,
+      metadata: details.metadata ?? {},
+    });
+  };
+
+  const flushTraces = async () => {
+    if (!supabase || !runId || traceRows.length === 0) return;
+    const rows = traceRows.splice(0, traceRows.length).map((row) => ({ ...row, run_id: runId }));
+    const { error } = await supabase.from('notification_evaluator_traces').insert(rows);
+    if (error) console.warn('[smart-nudges] trace insert failed:', error.message ?? error);
+  };
+
+  const finishRun = async (topLevelError: string | null = null) => {
+    if (!supabase || !runId) return;
+    await flushTraces();
+    const { error } = await supabase
+      .from('notification_evaluator_runs')
+      .update({
+        finished_at: new Date().toISOString(),
+        processed_user_count: processedUserCount,
+        qualified_count: qualifiedCount,
+        shipped_count: shippedCount,
+        apns_attempted_count: apnsAttemptedCount,
+        apns_succeeded_count: apnsSucceededCount,
+        apns_failed_count: apnsFailedCount,
+        top_level_error: topLevelError,
+      })
+      .eq('id', runId);
+    if (error) console.warn('[smart-nudges] run update failed:', error.message ?? error);
+  };
+
   try {
     const platform = detectClientPlatform(req);
-    const supabase = wrapDbWithCalendarPrimacy(
+    supabase = wrapDbWithCalendarPrimacy(
       createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       ),
       platform,
     );
+
+    const url = new URL(req.url);
+
+    if (url.searchParams.get('diagnostic') === '1') {
+      let userId: string;
+      try {
+        userId = await verifyAuth0JWT(req);
+      } catch (authErr) {
+        return new Response(JSON.stringify({ error: authErr instanceof Error ? authErr.message : 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const [{ data: tokens }, { data: lastLog }, { data: lastWeekAheadTrace }] = await Promise.all([
+        supabase
+          .from('notification_device_tokens')
+          .select('platform, is_active, created_at, updated_at, device_token')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false }),
+        supabase
+          .from('notification_log')
+          .select('id, notification_type, variant_id, sent_at, delivery_state, payload')
+          .eq('user_id', userId)
+          .order('sent_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('notification_evaluator_traces')
+          .select('created_at, local_date, outcome, notification_type, variant_id, apns_status, apns_reason, token_prefix, metadata')
+          .eq('user_id', userId)
+          .like('outcome', 'week_ahead%')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      const safeTokens = (tokens || []).map((token: any) => ({
+        active: token.is_active === true,
+        platform: token.platform,
+        registered_at: token.created_at,
+        updated_at: token.updated_at,
+        token_prefix: String(token.device_token || '').substring(0, 12),
+        token_length: String(token.device_token || '').length,
+        apns_environment: Deno.env.get('APNS_ENVIRONMENT') || 'development',
+      }));
+      const payload = (lastLog as any)?.payload || {};
+
+      return new Response(JSON.stringify({
+        user_id: userId,
+        active_token_exists: safeTokens.some((token) => token.active),
+        tokens: safeTokens,
+        apns_environment: Deno.env.get('APNS_ENVIRONMENT') || 'development',
+        apns_host: (Deno.env.get('APNS_ENVIRONMENT') || 'development') === 'production'
+          ? 'api.push.apple.com'
+          : 'api.sandbox.push.apple.com',
+        last_notification_log: lastLog ? {
+          id: (lastLog as any).id,
+          notification_type: (lastLog as any).notification_type,
+          variant_id: (lastLog as any).variant_id,
+          sent_at: (lastLog as any).sent_at,
+          delivery_state: (lastLog as any).delivery_state,
+          apns_status: payload.apns_status ?? null,
+          apns_reason: payload.apns_reason ?? null,
+          apns_token_prefix: payload.apns_token_prefix ?? null,
+        } : null,
+        last_week_ahead_trace: lastWeekAheadTrace ?? null,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: runRow, error: runErr } = await supabase
+      .from('notification_evaluator_runs')
+      .insert({
+        evaluator: 'smart-nudges',
+        evaluator_version: EVALUATOR_VERSION,
+        environment: Deno.env.get('APP_ENV') || Deno.env.get('APNS_ENVIRONMENT') || 'unknown',
+        metadata: {
+          client_platform: platform,
+          apns_environment: Deno.env.get('APNS_ENVIRONMENT') || 'development',
+        },
+      })
+      .select('id')
+      .single();
+    if (runErr) console.warn('[smart-nudges] run insert failed:', runErr.message ?? runErr);
+    runId = runRow?.id ?? null;
 
     console.log('[smart-nudges] Starting evaluation run (v7 JIT-or-State, prep CTA, unified pattern store)...');
 
@@ -3334,7 +3511,6 @@ serve(async (req) => {
     // the AI copy path on demand and verify Claude→Gemini are reachable in
     // production. All other guards (cooldowns, suppression, anchor presence,
     // V8 validators) still run. Optional `?force_dry=1` skips APNs delivery.
-    const url = new URL(req.url);
     const forceUserId =
       url.searchParams.get('force_user') ||
       url.searchParams.get('force_user_id') ||
@@ -3353,6 +3529,25 @@ serve(async (req) => {
     if (tokenErr) throw tokenErr;
     if (!tokenRows || tokenRows.length === 0) {
       console.log('[smart-nudges] No active device tokens. Exiting.');
+      const { data: inactiveTokenUsers } = await supabase
+        .from('notification_device_tokens')
+        .select('user_id, updated_at')
+        .neq('is_active', true);
+      const tracedInactive = new Set<string>();
+      for (const row of (inactiveTokenUsers || [])) {
+        if (tracedInactive.has(row.user_id)) continue;
+        tracedInactive.add(row.user_id);
+        trace(row.user_id, 'no_active_device_token', {
+          metadata: { latest_inactive_token_updated_at: row.updated_at ?? null },
+        });
+      }
+      if (forceUserId) {
+        processedUserCount = 1;
+        trace(forceUserId, 'no_active_device_token', {
+          metadata: { forced: true, token_rows: 0 },
+        });
+      }
+      await finishRun(null);
       return new Response(JSON.stringify({ processed: 0, notifications: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -3371,6 +3566,25 @@ serve(async (req) => {
     }
 
     const userIds = Array.from(userTokens.keys());
+    const activeUserSet = new Set(userIds);
+    const { data: inactiveOnlyTokenUsers } = await supabase
+      .from('notification_device_tokens')
+      .select('user_id, updated_at')
+      .neq('is_active', true);
+    const tracedInactive = new Set<string>();
+    for (const row of (inactiveOnlyTokenUsers || [])) {
+      if (activeUserSet.has(row.user_id) || tracedInactive.has(row.user_id)) continue;
+      tracedInactive.add(row.user_id);
+      trace(row.user_id, 'no_active_device_token', {
+        metadata: { latest_inactive_token_updated_at: row.updated_at ?? null },
+      });
+    }
+    if (forceUserId && !userTokens.has(forceUserId)) {
+      trace(forceUserId, 'no_active_device_token', {
+        metadata: { forced: true, active_token_users: userIds.length },
+      });
+    }
+    processedUserCount = userIds.length;
     console.log(`[smart-nudges] Evaluating ${userIds.length} users (MVP 3-nudge v4)`);
 
     // 2. Batch-fetch profiles, preferences, recent engagements
@@ -3432,6 +3646,11 @@ serve(async (req) => {
       const localMinute = localDate.getMinutes();
       const dayOfWeek = localDate.getDay();
       const todayStr = toDateString(localDate);
+      const traceBase = {
+        localDate: todayStr,
+        localHour,
+        timezoneOffset: tzOffset,
+      };
 
       const tomorrowDate = new Date(localDate);
       tomorrowDate.setDate(tomorrowDate.getDate() + 1);
@@ -3443,14 +3662,30 @@ serve(async (req) => {
       // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) — kills 6/7am sends
       if (!isForcedUser && (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL)) {
         console.log(`[smart-nudges][v5] User ${userId} outside global window (${localTime.toFixed(1)}). Skipping.`);
+        trace(userId, 'outside_global_window', {
+          ...traceBase,
+          metadata: { local_time: localTime, earliest: GLOBAL_EARLIEST_LOCAL, latest: GLOBAL_LATEST_LOCAL },
+        });
         continue;
       }
 
       // DND / quiet day check
       const dndStart = prefs?.dnd_start ?? null;
       const dndEnd = prefs?.dnd_end ?? null;
-      if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) continue;
-      if (!isForcedUser && isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
+      if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) {
+        trace(userId, 'dnd_window', {
+          ...traceBase,
+          metadata: { dnd_start: dndStart, dnd_end: dndEnd },
+        });
+        continue;
+      }
+      if (!isForcedUser && isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) {
+        trace(userId, 'quiet_day', {
+          ...traceBase,
+          metadata: { day_of_week: dayOfWeek, quiet_days: prefs?.quiet_days ?? null },
+        });
+        continue;
+      }
 
       // Delivery-context: device-token `updated_at` is NOT a heartbeat — it
       // only changes on token rotation / app launch — so we must not gate
@@ -3464,6 +3699,10 @@ serve(async (req) => {
       const lowPowerMode = (prefs as any)?.low_power_mode === true;
       if (!isForcedUser && lowPowerMode) {
         console.log(`[smart-nudges] User ${userId} skip pre-evaluator reason=battery activityAgeMin=${activityAgeMin}`);
+        trace(userId, 'low_power_mode', {
+          ...traceBase,
+          metadata: { last_activity_age_min: activityAgeMin },
+        });
         try {
           await supabase.from('notification_log').insert({
             user_id: userId,
@@ -3534,7 +3773,18 @@ serve(async (req) => {
         (prefs?.evening_close_enabled ?? true) &&
         dayOfWeek !== 6 &&            // Saturday is recovery day (§17.2a)
         weekAheadEligibleHour;
-      if (weekAheadPreflight) {
+      if (!weekAheadPreflight) {
+        trace(userId, 'week_ahead_not_in_window', {
+          ...traceBase,
+          metadata: {
+            enabled: WEEK_AHEAD_PICKER_ENABLED,
+            evening_close_enabled: prefs?.evening_close_enabled ?? true,
+            day_of_week: dayOfWeek,
+            local_time: localTime,
+            eligible_hour: weekAheadEligibleHour,
+          },
+        });
+      } else {
         // ISO-week start in user-local time, projected to UTC for the
         // notification_log query. Week starts Monday 00:00 local.
         const weekStartLocal = new Date(`${todayStr}T00:00:00`);
@@ -3554,6 +3804,17 @@ serve(async (req) => {
           .limit(1);
 
         const weeklyAlreadySent = !!(weeklySent && weeklySent.length > 0);
+        if (weeklyAlreadySent) {
+          trace(userId, 'week_ahead_already_sent_this_week', {
+            ...traceBase,
+            notificationType: 'week_ahead_picker_invite',
+            metadata: {
+              week_start_utc: weekStartUtcIso,
+              existing_sent_at: weeklySent?.[0]?.sent_at ?? null,
+              existing_variant_id: weeklySent?.[0]?.variant_id ?? null,
+            },
+          });
+        }
 
         // Build ctx now (will be reused by the standard pipeline below).
         ctx = await buildNudgeContext(
@@ -3566,6 +3827,12 @@ serve(async (req) => {
 
         const inv = await evaluateWeekAheadPickerInvite(ctx, supabase, weeklyAlreadySent);
         if (inv) {
+          trace(userId, 'week_ahead_selected', {
+            ...traceBase,
+            notificationType: inv.type,
+            variantId: inv.copy.variantId,
+            metadata: { weekly_already_sent: weeklyAlreadySent },
+          });
           // Direct dispatch — bypasses competitive ranking, daily cap,
           // 2h suppression, slot cap, post-CTA gates. This is a weekly
           // digest, not a behavioural nudge.
@@ -3588,12 +3855,22 @@ serve(async (req) => {
             weekendCtaGate: null,
           });
           console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${userId} variant=${inv.copy.variantId} (own bucket — bypassing daily cap)`);
+        } else if (!weeklyAlreadySent) {
+          trace(userId, 'week_ahead_not_selected', {
+            ...traceBase,
+            notificationType: 'week_ahead_picker_invite',
+            metadata: { weekly_already_sent: weeklyAlreadySent },
+          });
         }
       }
 
       // ── DAILY CAP ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
         console.log(`[smart-nudges] User ${userId} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
+        trace(userId, 'daily_cap', {
+          ...traceBase,
+          metadata: { count: todayLogs.length, cap: DAILY_NOTIFICATION_CAP },
+        });
         continue;
       }
 
@@ -3618,6 +3895,10 @@ serve(async (req) => {
 
       if (appOpenedRecently) {
         console.log(`[smart-nudges][v5] User ${userId} opened app within 60 min. Skipping.`);
+        trace(userId, 'app_open_cooldown', {
+          ...traceBase,
+          metadata: { last_app_open: lastAppOpen?.toISOString() ?? null, cooldown_ms: APP_OPEN_COOLDOWN_MS },
+        });
         continue;
       }
 
@@ -3661,6 +3942,10 @@ serve(async (req) => {
         const ps = (snapRow as any)?.pattern_signals ?? null;
         if (gapFlag === 'LIGHT_DAY_STRONG_STATE' && !isForcedUser) {
           console.log(`[smart-nudges][mrs-v2] User ${userId} LIGHT_DAY_STRONG_STATE → suppressing all nudges.`);
+          trace(userId, 'light_day_strong_state', {
+            ...traceBase,
+            metadata: { supply_demand_gap_flag: gapFlag },
+          });
           continue;
         }
         if (gapFlag === 'SUPPLY_DEMAND_GAP' && ps?.sustained_deficit_flag === true) {
@@ -3672,6 +3957,12 @@ serve(async (req) => {
           snapErr instanceof Error ? snapErr.message : snapErr);
       }
       const suppressedEffective = suppressed && !mrsEscalate;
+      if (suppressedEffective) {
+        trace(userId, 'two_hour_suppression', {
+          ...traceBase,
+          metadata: { last_sent_at: lastSentAt?.toISOString() ?? null, escalated: mrsEscalate },
+        });
+      }
 
       // Already-sent types today
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
@@ -3832,6 +4123,12 @@ serve(async (req) => {
 
         if (suppressedEffective && !isJitNudge) {
           console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
+          trace(userId, 'two_hour_suppression', {
+            ...traceBase,
+            notificationType: bestNudge.type,
+            variantId: bestNudge.copy.variantId,
+            metadata: { last_sent_at: lastSentAt?.toISOString() ?? null, jit_override: false },
+          });
         } else {
           // ── v5.3 — Receipt-feedback: stamp warning if last 3 sends for
           // this family expired before delivery (per-user timing signal).
@@ -4011,10 +4308,20 @@ serve(async (req) => {
             weekendCtaGate,
           });
         }
+      } else {
+        trace(userId, 'no_qualified_nudge', {
+          ...traceBase,
+          metadata: {
+            qualified_before_filters: qualified.length,
+            after_slot_cap: slotCapped.length,
+            suppressed_effective: suppressedEffective,
+          },
+        });
       }
     }
 
     console.log(`[smart-nudges] ${allNotifications.length} notifications qualified`);
+    qualifiedCount = allNotifications.length;
 
     // 4. Send notifications via APNs
     const apnsKey = Deno.env.get('APNS_P8_KEY');
@@ -4180,6 +4487,15 @@ serve(async (req) => {
           if (!isCanonicalIosApnsToken(normalizedToken)) {
             console.error(`[smart-nudges] Deactivating malformed APNs token user=${notif.userId} len=${tokenInfo.token.length} prefix=${tokenInfo.token.substring(0, 12)}...`);
             sendFailed++;
+            trace(notif.userId, 'apns_rejected', {
+              notificationType: notif.type,
+              variantId: notif.copy.variantId,
+              notificationLogId,
+              apnsStatus: 0,
+              apnsReason: 'MalformedDeviceToken',
+              tokenPrefix: tokenInfo.token.substring(0, 12),
+              metadata: { platform: tokenInfo.platform, token_length: tokenInfo.token.length },
+            });
             if (notificationLogId) {
               await supabase
                 .from('notification_log')
@@ -4203,6 +4519,13 @@ serve(async (req) => {
             continue;
           }
           try {
+            trace(notif.userId, 'apns_attempted', {
+              notificationType: notif.type,
+              variantId: notif.copy.variantId,
+              notificationLogId,
+              tokenPrefix: tokenInfo.token.substring(0, 12),
+              metadata: { platform: tokenInfo.platform, apns_host: apnsHost, apns_environment: apnsEnv },
+            });
             const result = await sendApnsPush(
               normalizedToken,
               apnsJwt,
@@ -4228,6 +4551,15 @@ serve(async (req) => {
             );
             if (result.ok) sendSuccess++;
             else sendFailed++;
+            trace(notif.userId, result.ok ? 'apns_accepted' : 'apns_rejected', {
+              notificationType: notif.type,
+              variantId: notif.copy.variantId,
+              notificationLogId,
+              apnsStatus: result.status,
+              apnsReason: result.reason,
+              tokenPrefix: tokenInfo.token.substring(0, 12),
+              metadata: { platform: tokenInfo.platform, apns_host: apnsHost, apns_environment: apnsEnv },
+            });
 
             // Persist APNs result on the notification_log row for SQL-level debugging.
             if (notificationLogId) {
@@ -4267,6 +4599,15 @@ serve(async (req) => {
           } catch (e) {
             console.error(`[smart-nudges] APNs send error for ${notif.userId}:`, e);
             sendFailed++;
+            trace(notif.userId, 'apns_rejected', {
+              notificationType: notif.type,
+              variantId: notif.copy.variantId,
+              notificationLogId,
+              apnsStatus: 0,
+              apnsReason: 'send_threw',
+              tokenPrefix: tokenInfo.token.substring(0, 12),
+              metadata: { platform: tokenInfo.platform, error: String(e) },
+            });
             // Persist the throw so the row doesn't stay 'pending' forever and
             // network/JWT failures are queryable from SQL.
             if (notificationLogId) {
@@ -4295,6 +4636,13 @@ serve(async (req) => {
       `[smart-nudges] summary qualified=${allNotifications.length} shipped=${shippedNotifications.length} suppressed_post_cta=${suppressedPostCta} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} dry_run=${isDryRun}`,
     );
 
+    qualifiedCount = allNotifications.length;
+    shippedCount = shippedNotifications.length;
+    apnsAttemptedCount = sendAttempted;
+    apnsSucceededCount = sendSuccess;
+    apnsFailedCount = sendFailed;
+    await finishRun(null);
+
     return new Response(JSON.stringify({
       processed: userIds.length,
       notifications: shippedNotifications.length,
@@ -4322,6 +4670,7 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error('[smart-nudges] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    await finishRun(message);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
