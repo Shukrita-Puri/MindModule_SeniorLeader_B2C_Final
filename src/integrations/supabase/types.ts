@@ -3161,6 +3161,128 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_evaluator_runs: {
+        Row: {
+          apns_attempted_count: number
+          apns_failed_count: number
+          apns_succeeded_count: number
+          created_at: string
+          environment: string | null
+          evaluator: string
+          evaluator_version: string
+          finished_at: string | null
+          id: string
+          metadata: Json
+          processed_user_count: number
+          qualified_count: number
+          shipped_count: number
+          started_at: string
+          top_level_error: string | null
+        }
+        Insert: {
+          apns_attempted_count?: number
+          apns_failed_count?: number
+          apns_succeeded_count?: number
+          created_at?: string
+          environment?: string | null
+          evaluator?: string
+          evaluator_version: string
+          finished_at?: string | null
+          id?: string
+          metadata?: Json
+          processed_user_count?: number
+          qualified_count?: number
+          shipped_count?: number
+          started_at?: string
+          top_level_error?: string | null
+        }
+        Update: {
+          apns_attempted_count?: number
+          apns_failed_count?: number
+          apns_succeeded_count?: number
+          created_at?: string
+          environment?: string | null
+          evaluator?: string
+          evaluator_version?: string
+          finished_at?: string | null
+          id?: string
+          metadata?: Json
+          processed_user_count?: number
+          qualified_count?: number
+          shipped_count?: number
+          started_at?: string
+          top_level_error?: string | null
+        }
+        Relationships: []
+      }
+      notification_evaluator_traces: {
+        Row: {
+          apns_reason: string | null
+          apns_status: number | null
+          created_at: string
+          evaluator: string
+          evaluator_version: string
+          id: string
+          local_date: string | null
+          local_hour: number | null
+          metadata: Json
+          notification_log_id: string | null
+          notification_type: string | null
+          outcome: string
+          run_id: string | null
+          timezone_offset: number | null
+          token_prefix: string | null
+          user_id: string
+          variant_id: string | null
+        }
+        Insert: {
+          apns_reason?: string | null
+          apns_status?: number | null
+          created_at?: string
+          evaluator?: string
+          evaluator_version: string
+          id?: string
+          local_date?: string | null
+          local_hour?: number | null
+          metadata?: Json
+          notification_log_id?: string | null
+          notification_type?: string | null
+          outcome: string
+          run_id?: string | null
+          timezone_offset?: number | null
+          token_prefix?: string | null
+          user_id: string
+          variant_id?: string | null
+        }
+        Update: {
+          apns_reason?: string | null
+          apns_status?: number | null
+          created_at?: string
+          evaluator?: string
+          evaluator_version?: string
+          id?: string
+          local_date?: string | null
+          local_hour?: number | null
+          metadata?: Json
+          notification_log_id?: string | null
+          notification_type?: string | null
+          outcome?: string
+          run_id?: string | null
+          timezone_offset?: number | null
+          token_prefix?: string | null
+          user_id?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_evaluator_traces_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "notification_evaluator_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_log: {
         Row: {
           app_opened: boolean

@@ -1,0 +1,55 @@
+import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+
+const SRC = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
+const MIGRATION = await Deno.readTextFile(
+  new URL("../../migrations/20260623151830_59c22e1f-a221-4064-a00a-bfaccc27c433.sql", import.meta.url),
+);
+
+Deno.test("smart-nudges creates durable run and per-user trace records", () => {
+  assert(SRC.includes("notification_evaluator_runs"), "missing run table writes");
+  assert(SRC.includes("notification_evaluator_traces"), "missing per-user trace writes");
+  assert(SRC.includes("finishRun(null)"), "successful runs must be finalized");
+  assert(SRC.includes("zero_users_evaluated_no_active_tokens"), "zero evaluated users must not look like silent success");
+});
+
+Deno.test("smart-nudges traces required skip and APNs outcomes", () => {
+  for (const outcome of [
+    "no_active_device_token",
+    "outside_global_window",
+    "dnd_window",
+    "quiet_day",
+    "low_power_mode",
+    "app_open_cooldown",
+    "daily_cap",
+    "two_hour_suppression",
+    "light_day_strong_state",
+    "no_qualified_nudge",
+    "week_ahead_not_in_window",
+    "week_ahead_already_sent_this_week",
+    "week_ahead_selected",
+    "apns_attempted",
+    "apns_accepted",
+    "apns_rejected",
+  ]) {
+    assert(SRC.includes(outcome), `missing trace outcome: ${outcome}`);
+  }
+});
+
+Deno.test("week-ahead copy satisfies the v8 CTA contract instead of post-CTA suppression", () => {
+  assert(!SRC.includes("Pick this week's 10 priorities before Monday lands."));
+  assert(SRC.includes("10 priority choices can shape the week before Monday lands — log in to prep your mind."));
+});
+
+Deno.test("trace tables grant backend access and user-scoped reads", () => {
+  assert(MIGRATION.includes("GRANT ALL ON public.notification_evaluator_runs TO service_role"));
+  assert(MIGRATION.includes("GRANT ALL ON public.notification_evaluator_traces TO service_role"));
+  assert(MIGRATION.includes("Users can view own evaluator traces"));
+  assert(MIGRATION.includes("auth.uid()::text = user_id"));
+});
+
+Deno.test("APNs environment remains production/sandbox selectable", () => {
+  assert(SRC.includes("api.push.apple.com"));
+  assert(SRC.includes("api.sandbox.push.apple.com"));
+  assert(SRC.includes("APNS_ENVIRONMENT"));
+  assertEquals(/apnsEnv\s*===\s*'production'/.test(SRC), true);
+});
