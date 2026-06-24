@@ -75,6 +75,7 @@ export function useDeviceTokenRegistration() {
   // on unmount / user swap and avoid accumulating duplicate resume hooks.
   const appStateHandleRef = useRef<{ remove: () => Promise<void> } | null>(null);
   const authTokenRefreshCleanupRef = useRef<(() => void) | null>(null);
+  const pushListenerHandlesRef = useRef<Array<{ remove: () => Promise<void> }>>([]);
 
   useEffect(() => {
     // If user identity changes (logout + login as different user, or first
@@ -101,15 +102,14 @@ export function useDeviceTokenRegistration() {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications');
 
-        // Clear any listeners from a previous user session before adding new
-        // ones. Capacitor's PushNotifications plugin holds listeners at the
-        // native bridge level, so without this they accumulate across
-        // logout/login cycles and cause duplicate token-persist requests,
-        // duplicate telemetry, and duplicate registration callbacks.
-        try {
-          await PushNotifications.removeAllListeners();
-        } catch (e) {
-          console.warn('[PushReg] removeAllListeners failed (continuing):', e);
+        // Remove only the registration listeners owned by this hook. Do not
+        // call PushNotifications.removeAllListeners(): that also deletes the
+        // tap/navigation listener registered by usePushNotificationHandler,
+        // which makes accepted pushes appear to "do nothing" on device.
+        if (pushListenerHandlesRef.current.length) {
+          const handles = pushListenerHandlesRef.current;
+          pushListenerHandlesRef.current = [];
+          await Promise.all(handles.map((handle) => handle.remove().catch(() => undefined)));
         }
         // Also remove any prior app-state listener handle from a previous run.
         if (appStateHandleRef.current) {
@@ -132,7 +132,7 @@ export function useDeviceTokenRegistration() {
         }
 
         // Listen for registration success
-        await PushNotifications.addListener('registration', async (token) => {
+        const registrationHandle = await PushNotifications.addListener('registration', async (token) => {
           const raw = token.value ?? '';
           const normalized = normalizeApnsToken(raw);
           const cleaned = normalized.token;
@@ -193,15 +193,16 @@ export function useDeviceTokenRegistration() {
         });
 
         // Listen for registration errors
-        await PushNotifications.addListener('registrationError', (err) => {
+        const registrationErrorHandle = await PushNotifications.addListener('registrationError', (err) => {
           registered.current = false;
           console.error('[PushReg] Registration error:', err);
         });
 
         // Listen for foreground notifications
-        await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        const foregroundHandle = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log('[PushReg] Foreground notification:', notification.title);
         });
+        pushListenerHandlesRef.current = [registrationHandle, registrationErrorHandle, foregroundHandle];
 
         const registerIfAllowed = async (reason: 'launch' | 'resume' | 'auth_token_refreshed') => {
           const perm = await PushNotifications.checkPermissions();
@@ -279,11 +280,9 @@ export function useDeviceTokenRegistration() {
       }
       authTokenRefreshCleanupRef.current?.();
       authTokenRefreshCleanupRef.current = null;
-      if (Capacitor.isNativePlatform()) {
-        import('@capacitor/push-notifications')
-          .then(({ PushNotifications }) => PushNotifications.removeAllListeners())
-          .catch(() => { /* ignore */ });
-      }
+      const handles = pushListenerHandlesRef.current;
+      pushListenerHandlesRef.current = [];
+      handles.forEach((handle) => { handle.remove().catch(() => { /* ignore */ }); });
     };
   }, [isAuthenticated, user?.id]);
 }
