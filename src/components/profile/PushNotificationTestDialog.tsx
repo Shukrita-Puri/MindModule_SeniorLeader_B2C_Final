@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getAuthToken } from '@/services/authTokenService';
-import { useAuth } from '@/hooks/useAuth';
 import {
   forcePushReRegistration,
   getNotificationDiagnostics,
@@ -54,7 +53,6 @@ export default function PushNotificationTestDialog({
   open,
   onOpenChange,
 }: PushNotificationTestDialogProps) {
-  const { user } = useAuth();
   const [busy, setBusy] = useState<BusyAction>(null);
   const [diagnostics, setDiagnostics] = useState<NotificationDiagnostics | null>(null);
   const [remoteResult, setRemoteResult] = useState<string | null>(null);
@@ -87,15 +85,11 @@ export default function PushNotificationTestDialog({
   });
 
   const remoteTest = () => run('remote', async () => {
-    if (!user?.email) {
-      toast.error('No profile email available for targeted push test');
-      return;
-    }
     const token = await getAuthToken();
     const response = await fetch(getSupabaseFunctionUrl('test-push'), {
       method: 'POST',
       headers: getSupabaseFunctionHeaders(token),
-      body: JSON.stringify({ email: user.email }),
+      body: JSON.stringify({}),
     });
     const body = await readResponseBody(response);
     let parsed: unknown = null;
@@ -170,7 +164,7 @@ export default function PushNotificationTestDialog({
               <Bell className="h-4 w-4" />
               Send Local Test
             </Button>
-            <Button className="justify-start gap-2" onClick={remoteTest} disabled={busy !== null || !user?.email}>
+            <Button className="justify-start gap-2" onClick={remoteTest} disabled={busy !== null}>
               <Send className="h-4 w-4" />
               Send Remote Push Test
             </Button>

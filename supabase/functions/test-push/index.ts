@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,6 +63,10 @@ serve(async (req) => {
   }
 
   try {
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (auth.errorResponse) return auth.errorResponse;
+    const callerUserId = auth.userId;
+
     // 1. Read APNs credentials
     const apnsKey = Deno.env.get("APNS_P8_KEY");
     const apnsKeyId = Deno.env.get("APNS_KEY_ID");
@@ -79,55 +84,31 @@ serve(async (req) => {
 
     console.log(`[test-push] APNs config: host=${apnsHost} topic=${apnsBundleId} env=${apnsEnv}`);
 
-    // 2. Get all active iOS device tokens
+    // 2. Get the authenticated caller's active iOS device tokens only.
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Optional targeting by email (sends to all tokens for that user, even inactive,
-    // so we can diagnose stale/invalid token states).
-    let targetUserIds: string[] = [];
-    let targetEmail: string | null = null;
-    try {
-      if (req.method === "POST") {
-        const body = await req.json().catch(() => ({}));
-        if (body && typeof body.email === "string" && body.email.trim()) {
-          targetEmail = body.email.trim().toLowerCase();
-          const { data: profs } = await supabase
-            .from("profiles")
-            .select("id")
-            .ilike("email", targetEmail);
-          if (profs && profs.length > 0) targetUserIds = profs.map((p: any) => p.id);
-        }
-      }
-    } catch (_) { /* ignore */ }
-
-    let tokenQuery = supabase
+    const { data: tokens, error: tokErr } = await supabase
       .from("notification_device_tokens")
       .select("user_id, device_token, platform, is_active, updated_at")
-      .eq("platform", "ios");
-
-    if (targetUserIds.length > 0) {
-      tokenQuery = tokenQuery.in("user_id", targetUserIds).order("updated_at", { ascending: false });
-    } else {
-      tokenQuery = tokenQuery.eq("is_active", true);
-    }
-
-    const { data: tokens, error: tokErr } = await tokenQuery;
+      .eq("user_id", callerUserId)
+      .eq("platform", "ios")
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false });
 
     if (tokErr) throw tokErr;
     if (!tokens || tokens.length === 0) {
       return new Response(JSON.stringify({
         error: "No iOS device tokens found",
-        target_email: targetEmail,
-        target_user_ids: targetUserIds,
+        target_user_id: callerUserId,
       }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[test-push] Found ${tokens.length} active iOS token(s)`);
+    console.log(`[test-push] Found ${tokens.length} active iOS token(s) for authenticated caller`);
 
     // 3. Create APNs JWT
     const jwt = await createApnsJwt(apnsKey, apnsKeyId, apnsTeamId);
