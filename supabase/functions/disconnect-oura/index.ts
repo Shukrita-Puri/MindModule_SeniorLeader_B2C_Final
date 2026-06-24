@@ -71,12 +71,9 @@ Deno.serve(async (req) => {
           oauth_state_expires_at: null,
           encrypted_access_token_id: null,
           encrypted_refresh_token_id: null,
-          access_token: null,
-          refresh_token: null,
           access_token_expires_at: null,
           last_error: null,
           last_error_at: null,
-          disconnected_at: now,
           updated_at: now,
         })
         .eq("id", row.id);
