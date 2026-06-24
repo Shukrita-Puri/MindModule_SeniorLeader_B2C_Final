@@ -124,7 +124,6 @@ async function sendApnsPush(
       alert: subtitle ? { title, subtitle, body } : { title, body },
       sound: 'default',
       badge,
-      'mutable-content': 1,
     },
     ...customData,
   };
