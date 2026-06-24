@@ -1101,6 +1101,46 @@ const ConnectedData = () => {
     }
   }, [fetchStatus]);
 
+  const handleDisconnectOura = useCallback(async () => {
+    emitIntegrationEvent({ provider: 'oura', event: 'disconnect_started' });
+    try {
+      const token = await getAuthToken();
+      const url = getSupabaseFunctionUrl('disconnect-oura');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...getSupabaseFunctionHeaders(token),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const body = await readResponseBody(res).catch(() => '');
+        emitIntegrationEvent({
+          provider: 'oura',
+          event: 'disconnect_failed',
+          errorCode: `http_${res.status}`,
+          errorMessage: typeof body === 'string' ? body.slice(0, 200) : undefined,
+        });
+        toast.error('Could not disconnect Oura — please try again');
+        return;
+      }
+      // Invalidate readiness caches that may have been keyed off Oura data.
+      try { clearOuterReadinessCache(); } catch { /* noop */ }
+      emitIntegrationEvent({ provider: 'oura', event: 'disconnect_success' });
+      toast.success('Oura disconnected');
+      await fetchStatus();
+    } catch (err) {
+      emitIntegrationEvent({
+        provider: 'oura',
+        event: 'disconnect_failed',
+        errorCode: 'network_error',
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
+      toast.error('Failed to disconnect Oura');
+    }
+  }, [fetchStatus]);
+
   const getOuraState = () => {
     const o = status?.oura;
     if (!o) return { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected' as string, statusNote: undefined as string | undefined, showReconnect: false };
@@ -1312,40 +1352,25 @@ const ConnectedData = () => {
     {
       id: 'oura',
       name: WEARABLE_PROVIDER_META.oura.name,
-      description: isNativeApp()
-        ? 'Reads recovery signals through Apple Health.'
-        : WEARABLE_PROVIDER_META.oura.note,
+      description: WEARABLE_PROVIDER_META.oura.note,
       logo: (
         <div className="h-8 w-8 rounded-full bg-foreground/5 border border-border flex items-center justify-center text-[10px] font-semibold text-foreground/70 tracking-wider">
           OURA
         </div>
       ),
-      // On iOS, treat Oura as a derived source of Apple Health (no separate OAuth).
-      // On web/Android, retain the existing direct Oura OAuth path.
-      connected: isNativeApp()
-        ? !!status?.appleWatch?.ouraDetectedViaAppleHealth
-        : ouraState.isHealthyConnected,
-      linked: isNativeApp()
-        ? !!status?.appleWatch?.ouraDetectedViaAppleHealth
-        : ouraState.isLinked,
-      lastSync: isNativeApp()
-        ? formatLastSync(status?.appleWatch?.lastSampleAt ?? status?.appleWatch?.lastSync ?? null)
-        : formatLastSync(status?.oura?.lastSync ?? null),
-      statusLabel: isNativeApp()
-        ? (status?.appleWatch?.ouraDetectedViaAppleHealth
-            ? (status?.appleWatch?.lastSampleAt
-                ? `Last sample ${formatDistanceToNowStrict(new Date(status.appleWatch.lastSampleAt))} ago`
-                : 'Connected through Apple Health')
-            : (appleHealthState.isHealthyConnected ? 'No Oura samples yet' : 'Connect Apple Health first'))
-        : ouraState.statusLabel,
-      statusNote: isNativeApp()
-        ? undefined
-        : ouraState.statusNote,
-      showReconnect: isNativeApp() ? false : ouraState.showReconnect,
-      onConnect: isNativeApp() ? undefined : handleConnectOura,
-      onDisconnect: undefined,
-      onSync: isNativeApp() ? handleSyncAppleHealth : handleSyncOura,
-      canSync: isNativeApp() ? isNativeApp() : true,
+      // Oura is a direct OAuth integration on both web and iOS. Apple Health
+      // may also surface Oura samples, but the Oura Ring row always offers a
+      // first-class OAuth/sync/disconnect path so users aren't stranded.
+      connected: ouraState.isHealthyConnected,
+      linked: ouraState.isLinked,
+      lastSync: formatLastSync(status?.oura?.lastSync ?? null),
+      statusLabel: ouraState.statusLabel,
+      statusNote: ouraState.statusNote,
+      showReconnect: ouraState.showReconnect,
+      onConnect: handleConnectOura,
+      onDisconnect: ouraState.isLinked ? handleDisconnectOura : undefined,
+      onSync: handleSyncOura,
+      canSync: true,
     },
   ];
 
