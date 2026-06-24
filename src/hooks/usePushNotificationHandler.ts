@@ -37,20 +37,20 @@ export function usePushNotificationHandler() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { trackTap } = useNotificationEngagement();
-  const listenerAdded = useRef(false);
+  const listenerHandleRef = useRef<{ remove: () => Promise<void> } | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || listenerAdded.current) return;
+    if (!isAuthenticated) return;
     if (!Capacitor.isNativePlatform()) return;
 
-    listenerAdded.current = true;
+    let cancelled = false;
     registerLocalNotificationTelemetryListeners();
 
     (async () => {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications');
 
-        await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        const handle = await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
           const data = action.notification.data || {};
           const notificationType = data.notification_type as string;
           const notificationLogId = data.notification_log_id as string;
@@ -73,10 +73,23 @@ export function usePushNotificationHandler() {
           navigate(route);
         });
 
+        if (cancelled) {
+          await handle.remove();
+        } else {
+          listenerHandleRef.current = handle;
+        }
+
         console.log('[PushHandler] Action listener registered');
       } catch (err) {
         console.error('[PushHandler] Setup error:', err);
       }
     })();
+
+    return () => {
+      cancelled = true;
+      const handle = listenerHandleRef.current;
+      listenerHandleRef.current = null;
+      handle?.remove().catch(() => { /* ignore */ });
+    };
   }, [isAuthenticated, navigate, trackTap]);
 }

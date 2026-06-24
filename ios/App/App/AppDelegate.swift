@@ -169,7 +169,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .badge, .sound])
+        if #available(iOS 14.0, *) {
+            completionHandler([.banner, .list, .badge, .sound])
+        } else {
+            completionHandler([.alert, .badge, .sound])
+        }
     }
 
     // MARK: - App Lifecycle

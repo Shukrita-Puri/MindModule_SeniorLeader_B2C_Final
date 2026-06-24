@@ -5,6 +5,12 @@ const config: CapacitorConfig = {
   appName: 'Mind Module',
   webDir: 'dist',
   plugins: {
+    PushNotifications: {
+      // iOS does not show foreground remote pushes by default when Capacitor
+      // owns the notification delegate. Keep remote test pushes and smart
+      // nudges visible while the app is open.
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     StatusBar: {
       // overlaysWebView: true means the status bar is transparent and content
       // renders behind it. We compensate via env(safe-area-inset-top) padding

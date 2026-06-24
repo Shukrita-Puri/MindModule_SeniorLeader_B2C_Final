@@ -114,7 +114,19 @@ serve(async (req) => {
     const jwt = await createApnsJwt(apnsKey, apnsKeyId, apnsTeamId);
 
     // 4. Send test push to each token
-    const results: Array<{ user_id: string; token_prefix: string; token_length: number; status: number; response: string }> = [];
+    const results: Array<{
+      user_id: string;
+      token_prefix: string;
+      token_length: number;
+      status: number;
+      result: string;
+      notification_log_id: string | null;
+      apns_id: string | null;
+      apns_reason: string | null;
+      response: string;
+      apns_expiration: number;
+      apns_collapse_id: string;
+    }> = [];
 
     for (const t of tokens) {
       const ttlSeconds = 3600;
@@ -123,6 +135,37 @@ serve(async (req) => {
       // for the whole day, so repeated taps of "Send Remote Push Test"
       // collapsed silently into one notification on device.
       const collapseId = `test_push-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const basePayload = {
+        apns_status: null as number | null,
+        apns_reason: null as string | null,
+        apns_id: null as string | null,
+        apns_host: apnsHost,
+        apns_topic: apnsBundleId,
+        apns_env: apnsEnv,
+        apns_collapse_id: collapseId,
+        apns_token_prefix: t.device_token.substring(0, 12),
+        source: 'test-push',
+      };
+
+      let notificationLogId: string | null = null;
+      try {
+        const { data: logRow, error: logInsertErr } = await supabase
+          .from('notification_log')
+          .insert({
+            user_id: t.user_id,
+            notification_type: 'test_push',
+            sent_at: new Date().toISOString(),
+            delivery_state: 'pending',
+            payload: basePayload,
+          })
+          .select('id')
+          .single();
+        if (logInsertErr) throw logInsertErr;
+        notificationLogId = logRow?.id ?? null;
+      } catch (logErr) {
+        console.warn('[test-push] notification_log pre-insert failed', logErr);
+      }
+
       const payload = {
         aps: {
           alert: {
@@ -134,9 +177,9 @@ serve(async (req) => {
           // 'mutable-content' intentionally omitted — requires a Notification
           // Service Extension which this app does not ship. Without one some
           // iOS versions silently suppress the alert.
-          'interruption-level': 'time-sensitive',
         },
         notification_type: "test_push",
+        notification_log_id: notificationLogId ?? '',
         expiration_ts: String(expirationTs),
       };
 
@@ -165,25 +208,31 @@ serve(async (req) => {
 
       // Best-effort diagnostic row — APNs 200 only means accepted, not delivered.
       try {
-        await supabase.from('notification_log').insert({
-          user_id: t.user_id,
-          notification_type: 'test_push',
-          sent_at: new Date().toISOString(),
-          delivery_state: res.status === 200 ? 'apns_accepted' : 'apns_rejected',
-          payload: {
-            apns_status: res.status,
-            apns_reason: apnsReason,
-            apns_id: apnsId,
-            apns_host: apnsHost,
-            apns_topic: apnsBundleId,
-            apns_env: apnsEnv,
-            apns_collapse_id: collapseId,
-            apns_token_prefix: t.device_token.substring(0, 12),
-            source: 'test-push',
-          },
-        });
+        const finalPayload = {
+          ...basePayload,
+          apns_status: res.status,
+          apns_reason: apnsReason,
+          apns_id: apnsId,
+          notification_log_id: notificationLogId,
+        };
+        if (notificationLogId) {
+          await supabase.from('notification_log')
+            .update({
+              delivery_state: res.status === 200 ? 'accepted' : 'failed',
+              payload: finalPayload,
+            })
+            .eq('id', notificationLogId);
+        } else {
+          await supabase.from('notification_log').insert({
+            user_id: t.user_id,
+            notification_type: 'test_push',
+            sent_at: new Date().toISOString(),
+            delivery_state: res.status === 200 ? 'accepted' : 'failed',
+            payload: finalPayload,
+          });
+        }
       } catch (logErr) {
-        console.warn('[test-push] notification_log insert failed', logErr);
+        console.warn('[test-push] notification_log update failed', logErr);
       }
 
       results.push({
@@ -193,6 +242,7 @@ serve(async (req) => {
         status: res.status,
         // Important: 200 means "APNs accepted" — not "delivered/displayed".
         result: res.status === 200 ? 'apns_accepted' : 'apns_rejected',
+        notification_log_id: notificationLogId,
         apns_id: apnsId,
         apns_reason: apnsReason,
         response: resBody || "(empty)",
