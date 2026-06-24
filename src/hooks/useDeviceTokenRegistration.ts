@@ -103,7 +103,7 @@ export function useDeviceTokenRegistration() {
         const { PushNotifications } = await import('@capacitor/push-notifications');
 
         // Remove only the registration listeners owned by this hook. Do not
-        // call PushNotifications.removeAllListeners(): that also deletes the
+        // clear the plugin globally: that also deletes the
         // tap/navigation listener registered by usePushNotificationHandler,
         // which makes accepted pushes appear to "do nothing" on device.
         if (pushListenerHandlesRef.current.length) {
