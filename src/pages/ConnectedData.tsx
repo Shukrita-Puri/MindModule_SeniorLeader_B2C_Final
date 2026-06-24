@@ -1126,7 +1126,7 @@ const ConnectedData = () => {
         return;
       }
       // Invalidate readiness caches that may have been keyed off Oura data.
-      try { clearOuterReadinessCache(); } catch { /* noop */ }
+      try { clearOuterReadinessCache(user?.id); } catch { /* noop */ }
       emitIntegrationEvent({ provider: 'oura', event: 'disconnect_success' });
       toast.success('Oura disconnected');
       await fetchStatus();
@@ -1139,7 +1139,7 @@ const ConnectedData = () => {
       });
       toast.error('Failed to disconnect Oura');
     }
-  }, [fetchStatus]);
+  }, [fetchStatus, user?.id]);
 
   const getOuraState = () => {
     const o = status?.oura;
