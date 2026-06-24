@@ -203,6 +203,12 @@ export function useDeviceTokenRegistration() {
           console.log('[PushReg] Foreground notification:', notification.title);
         });
         pushListenerHandlesRef.current = [registrationHandle, registrationErrorHandle, foregroundHandle];
+        if (cancelled) {
+          const handles = pushListenerHandlesRef.current;
+          pushListenerHandlesRef.current = [];
+          await Promise.all(handles.map((handle) => handle.remove().catch(() => undefined)));
+          return;
+        }
 
         const registerIfAllowed = async (reason: 'launch' | 'resume' | 'auth_token_refreshed') => {
           const perm = await PushNotifications.checkPermissions();
