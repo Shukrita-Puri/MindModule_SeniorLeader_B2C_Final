@@ -119,17 +119,22 @@ serve(async (req) => {
     for (const t of tokens) {
       const ttlSeconds = 3600;
       const expirationTs = Math.floor(Date.now() / 1000) + ttlSeconds;
-      const localDate = new Date().toISOString().split('T')[0];
-      const collapseId = `test_push-${localDate}`;
+      // Unique per request — previous implementation reused the same collapse-id
+      // for the whole day, so repeated taps of "Send Remote Push Test"
+      // collapsed silently into one notification on device.
+      const collapseId = `test_push-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const payload = {
         aps: {
           alert: {
             title: "🔔 Mind Module Test",
-            body: "Push notifications are working! This is a test from your notification pipeline.",
+            body: `Test push @ ${new Date().toISOString().slice(11, 19)} UTC — if you see this, delivery is working.`,
           },
           sound: "default",
           badge: 1,
-          'mutable-content': 1,
+          // 'mutable-content' intentionally omitted — requires a Notification
+          // Service Extension which this app does not ship. Without one some
+          // iOS versions silently suppress the alert.
+          'interruption-level': 'time-sensitive',
         },
         notification_type: "test_push",
         expiration_ts: String(expirationTs),
@@ -153,14 +158,44 @@ serve(async (req) => {
       });
 
       const resBody = await res.text();
-      console.log(`[test-push] APNs response: status=${res.status} body=${resBody || "(empty)"} token=${t.device_token.substring(0, 12)}...`);
+      const apnsId = res.headers.get('apns-id');
+      let apnsReason: string | null = null;
+      try { apnsReason = resBody ? (JSON.parse(resBody).reason ?? null) : null; } catch { /* ignore */ }
+      console.log(`[test-push] APNs response: status=${res.status} apns-id=${apnsId} reason=${apnsReason ?? '-'} body=${resBody || "(empty)"} token=${t.device_token.substring(0, 12)}...`);
+
+      // Best-effort diagnostic row — APNs 200 only means accepted, not delivered.
+      try {
+        await supabase.from('notification_log').insert({
+          user_id: t.user_id,
+          notification_type: 'test_push',
+          sent_at: new Date().toISOString(),
+          delivery_state: res.status === 200 ? 'apns_accepted' : 'apns_rejected',
+          payload: {
+            apns_status: res.status,
+            apns_reason: apnsReason,
+            apns_id: apnsId,
+            apns_host: apnsHost,
+            apns_topic: apnsBundleId,
+            apns_env: apnsEnv,
+            apns_collapse_id: collapseId,
+            apns_token_prefix: t.device_token.substring(0, 12),
+            source: 'test-push',
+          },
+        });
+      } catch (logErr) {
+        console.warn('[test-push] notification_log insert failed', logErr);
+      }
 
       results.push({
         user_id: t.user_id,
         token_prefix: t.device_token.substring(0, 12) + "...",
         token_length: t.device_token.length,
         status: res.status,
-        response: resBody || "success",
+        // Important: 200 means "APNs accepted" — not "delivered/displayed".
+        result: res.status === 200 ? 'apns_accepted' : 'apns_rejected',
+        apns_id: apnsId,
+        apns_reason: apnsReason,
+        response: resBody || "(empty)",
         apns_expiration: expirationTs,
         apns_collapse_id: collapseId,
       });
@@ -171,6 +206,7 @@ serve(async (req) => {
       apns_topic: apnsBundleId,
       apns_env: apnsEnv,
       tokens_sent: results.length,
+      note: "status 200 = APNs accepted the request. It does not confirm the device displayed the alert. Check device Notification Center + notification_log row.",
       results,
     }, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
