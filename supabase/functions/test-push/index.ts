@@ -114,7 +114,19 @@ serve(async (req) => {
     const jwt = await createApnsJwt(apnsKey, apnsKeyId, apnsTeamId);
 
     // 4. Send test push to each token
-    const results: Array<{ user_id: string; token_prefix: string; token_length: number; status: number; response: string }> = [];
+    const results: Array<{
+      user_id: string;
+      token_prefix: string;
+      token_length: number;
+      status: number;
+      result: string;
+      notification_log_id: string | null;
+      apns_id: string | null;
+      apns_reason: string | null;
+      response: string;
+      apns_expiration: number;
+      apns_collapse_id: string;
+    }> = [];
 
     for (const t of tokens) {
       const ttlSeconds = 3600;
