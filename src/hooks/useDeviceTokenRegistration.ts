@@ -6,6 +6,7 @@ import { DEV_MODE } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { rememberPushTokenMeta } from '@/utils/notificationDiagnostics';
+import { getSupabaseFunctionHeaders, getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
 
 interface NormalizedApnsToken {
   token: string | null;
@@ -68,10 +69,12 @@ async function getRegistrationAuthToken(): Promise<string | null> {
 export function useDeviceTokenRegistration() {
   const { user, isAuthenticated } = useAuth();
   const registered = useRef(false);
+  const setupStarted = useRef(false);
   const lastUserId = useRef<string | null>(null);
   // Handle for the Capacitor App.appStateChange listener so we can remove it
   // on unmount / user swap and avoid accumulating duplicate resume hooks.
   const appStateHandleRef = useRef<{ remove: () => Promise<void> } | null>(null);
+  const authTokenRefreshCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     // If user identity changes (logout + login as different user, or first
@@ -79,17 +82,19 @@ export function useDeviceTokenRegistration() {
     if (user?.id && lastUserId.current && lastUserId.current !== user.id) {
       console.log('[PushReg] User changed; resetting registration latch');
       registered.current = false;
+      setupStarted.current = false;
     }
     if (user?.id) lastUserId.current = user.id;
     if (!isAuthenticated || !user?.id) {
       // Logged out: allow re-register on next login.
       registered.current = false;
+      setupStarted.current = false;
       return;
     }
-    if (registered.current) return;
+    if (setupStarted.current) return;
     if (!Capacitor.isNativePlatform()) return;
 
-    registered.current = true;
+    setupStarted.current = true;
     let cancelled = false;
 
     (async () => {
@@ -111,6 +116,8 @@ export function useDeviceTokenRegistration() {
           try { await appStateHandleRef.current.remove(); } catch { /* ignore */ }
           appStateHandleRef.current = null;
         }
+        authTokenRefreshCleanupRef.current?.();
+        authTokenRefreshCleanupRef.current = null;
 
         // Check / request permission
         let permStatus = await PushNotifications.checkPermissions();
@@ -122,7 +129,6 @@ export function useDeviceTokenRegistration() {
         if (permStatus.receive !== 'granted') {
           console.log('[PushReg] Permission not granted:', permStatus.receive);
           emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_denied', userId: user.id, meta: { receive: permStatus.receive } });
-          return;
         }
 
         // Listen for registration success
@@ -150,13 +156,6 @@ export function useDeviceTokenRegistration() {
           }
           rememberPushTokenMeta({ userId: user.id, tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length, source: normalized.source });
           try {
-            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-            if (!projectId) {
-              registered.current = false;
-              console.error('[PushReg] Missing VITE_SUPABASE_PROJECT_ID; cannot persist device token');
-              return;
-            }
-
             const accessToken = await getRegistrationAuthToken();
             if (!accessToken && !DEV_MODE) {
               registered.current = false;
@@ -166,13 +165,10 @@ export function useDeviceTokenRegistration() {
 
             emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_started', userId: user.id, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
             const response = await fetch(
-              `https://${projectId}.supabase.co/functions/v1/register-device-token`,
+              getSupabaseFunctionUrl('register-device-token'),
               {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-                },
+                headers: getSupabaseFunctionHeaders(accessToken),
                 body: JSON.stringify({
                   device_token: cleaned,
                   platform: 'ios',
@@ -187,6 +183,7 @@ export function useDeviceTokenRegistration() {
               return;
             }
             console.log('[PushReg] Token persisted to backend');
+            registered.current = true;
             emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_success', userId: user.id, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
           } catch (err) {
             registered.current = false;
@@ -206,10 +203,28 @@ export function useDeviceTokenRegistration() {
           console.log('[PushReg] Foreground notification:', notification.title);
         });
 
-        // Register with APNs
-        await PushNotifications.register();
-        console.log('[PushReg] APNs registration initiated');
-        emitIntegrationEvent({ provider: 'notification', event: 'notification_apns_registration_started', userId: user.id });
+        const registerIfAllowed = async (reason: 'launch' | 'resume' | 'auth_token_refreshed') => {
+          const perm = await PushNotifications.checkPermissions();
+          emitIntegrationEvent({
+            provider: 'notification',
+            event: 'notification_permission_state',
+            userId: user.id,
+            meta: { receive: perm.receive, reason },
+          });
+          if (perm.receive !== 'granted') return;
+          await PushNotifications.register();
+          console.log(`[PushReg] ${reason}: APNs registration initiated`);
+          emitIntegrationEvent({
+            provider: 'notification',
+            event: 'notification_apns_registration_started',
+            userId: user.id,
+            meta: { reason },
+          });
+        };
+
+        // Register with APNs when permission is available. The registration
+        // callback is the only place that marks this device as persisted.
+        await registerIfAllowed('launch');
 
         // Re-register on every resume so a rotated APNs token (common after
         // reinstall, OS upgrade, or long background) gets persisted to the
@@ -218,11 +233,7 @@ export function useDeviceTokenRegistration() {
           const handle = await CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
             if (!isActive) return;
             try {
-              const perm = await PushNotifications.checkPermissions();
-              emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_state', userId: user.id, meta: { receive: perm.receive, reason: 'resume' } });
-              if (perm.receive !== 'granted') return;
-              await PushNotifications.register();
-              console.log('[PushReg] Resume: APNs re-registration initiated');
+              await registerIfAllowed('resume');
             } catch (e) {
               console.warn('[PushReg] Resume re-register failed:', e);
             }
@@ -235,7 +246,23 @@ export function useDeviceTokenRegistration() {
         } catch (e) {
           console.warn('[PushReg] appStateChange listener failed:', e);
         }
+
+        const onAuthTokenRefreshed = () => {
+          if (registered.current) return;
+          registerIfAllowed('auth_token_refreshed').catch((e) => {
+            console.warn('[PushReg] Auth-token-refresh re-register failed:', e);
+          });
+        };
+        window.addEventListener('mm:auth-token-refreshed', onAuthTokenRefreshed);
+        authTokenRefreshCleanupRef.current = () => {
+          window.removeEventListener('mm:auth-token-refreshed', onAuthTokenRefreshed);
+        };
+        if (cancelled) {
+          authTokenRefreshCleanupRef.current?.();
+          authTokenRefreshCleanupRef.current = null;
+        }
       } catch (err) {
+        setupStarted.current = false;
         console.error('[PushReg] Setup error:', err);
       }
     })();
@@ -250,6 +277,8 @@ export function useDeviceTokenRegistration() {
         appStateHandleRef.current = null;
         handle.remove().catch(() => { /* ignore */ });
       }
+      authTokenRefreshCleanupRef.current?.();
+      authTokenRefreshCleanupRef.current = null;
       if (Capacitor.isNativePlatform()) {
         import('@capacitor/push-notifications')
           .then(({ PushNotifications }) => PushNotifications.removeAllListeners())

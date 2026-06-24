@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2 } from 'lucide-react';
+import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2, Bell } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
+import PushNotificationTestDialog from '@/components/profile/PushNotificationTestDialog';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -35,6 +36,7 @@ const Profile = () => {
   const [showCancelFlow, setShowCancelFlow] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
   const [showDeleteLocal, setShowDeleteLocal] = useState(false);
+  const [showPushTest, setShowPushTest] = useState(false);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -346,6 +348,15 @@ const Profile = () => {
               Retake Tour
             </Button>
 
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => setShowPushTest(true)}
+            >
+              <Bell className="h-4 w-4" />
+              Push Notification Test
+            </Button>
+
             {/* Delete Local Data */}
             <Button
               variant="outline"
@@ -405,6 +416,11 @@ const Profile = () => {
           }}
         />
       )}
+
+      <PushNotificationTestDialog
+        open={showPushTest}
+        onOpenChange={setShowPushTest}
+      />
 
       {/* Delete Local Data Confirmation */}
       <Dialog open={showDeleteLocal} onOpenChange={setShowDeleteLocal}>
