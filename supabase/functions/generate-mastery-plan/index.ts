@@ -3079,18 +3079,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.error('[generate-mastery-plan] Today check-in lookup failed:', todayCheckinError);
   }
   const hasTodayCheckIn = !!todayCheckinRow && todayCheckinRow.skipped !== true;
-  const hasFreshWearable = !!(req.wearableContext?.hasData);
+  const hasWearableData = !!(req.wearableContext?.hasData);
   const hasCalendarSignal = (req.calendarEvents?.length ?? 0) > 0;
   const hasCalendarConnected = req.hasCalendarConnection === true;
-  const hasState1Input = hasFreshWearable || hasCalendarSignal || hasCalendarConnected;
-  const readinessStage = hasState1Input && hasTodayCheckIn
+  const hasStage1Signal = hasWearableData || hasCalendarSignal || hasCalendarConnected;
+  const readinessStage = hasStage1Signal && hasTodayCheckIn
     ? 'full'
-    : hasState1Input
+    : hasStage1Signal
       ? 'early'
-      : hasTodayCheckIn
-        ? 'checkin_only'
-        : 'cold_start';
-  const canGeneratePlan = readinessStage !== 'cold_start';
+      : 'cold_start';
+  const canGeneratePlan = hasStage1Signal;
   const finalDecision = canGeneratePlan ? 'generate' : 'awaiting-signals';
   console.log('[generate-mastery-plan] signal-gate', {
     authenticatedUserId: req.userId,
@@ -3107,9 +3105,10 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       skipped: (todayCheckinRow as any).skipped,
     } : null,
     hasTodayCheckIn,
-    hasFreshWearable,
+    hasWearableData,
     hasCalendarSignal,
     hasCalendarConnected,
+    hasStage1Signal,
     readinessStage,
     finalDecision,
   });
