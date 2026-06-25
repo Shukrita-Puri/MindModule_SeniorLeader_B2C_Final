@@ -62,38 +62,34 @@ export function getReadinessValence(score: number | null | undefined): Readiness
 export type ReadinessState = "baseline" | "refined" | "awaiting";
 
 /**
- * MRS V4 (2026-06-21) — strict label mapping.
+ * Stage contract:
  *
- *   refined                              → "Full read"  (fresh wearable + check-in)
- *   baseline + fresh wearable            → "Early read" (wearable only)
- *   baseline + missing / stale wearable  → "Awaiting signals"
- *   awaiting                             → "Awaiting signals"
+ *   refined                         → "Full read"  (Stage 1 + check-in)
+ *   baseline + stage-1 signal        → "Early read" (wearable/calendar baseline)
+ *   baseline + no stage-1 signal     → "Awaiting signals"
+ *   awaiting                         → "Awaiting signals"
  *
- * The label MUST NOT say "Early read" for awaiting, stale-wearable, or
- * check-in-only states. Pass `wearableFresh` so this helper can apply the
- * correct downgrade without each consumer re-implementing the rule.
+ * The label MUST NOT say "Early read" for true cold-start/awaiting states.
+ * Pass `stageOneSignalAvailable` from the backend's explicit
+ * `hasCurrentPeriodSignal` / eligibility contract when available.
  */
 export function getReadinessStateLabel(
   state: ReadinessState,
-  wearableFresh: boolean = false,
+  stageOneSignalAvailable: boolean = false,
 ): { label: string; subtitle: string } {
-  // MRS V4 (P0 2026-06-21) — defence in depth: even if an upstream
-  // consumer forwards `refined` without fresh wearable, the visible label
-  // must NEVER claim "Full read". This mirrors the server-side gate in
-  // compute-outer-readiness so the UI cannot disagree with the contract.
-  if (state === "refined" && wearableFresh) {
+  if (state === "refined" && stageOneSignalAvailable) {
     return { label: "Full read", subtitle: "with your check-in" };
   }
-  if (state === "refined" && !wearableFresh) {
+  if (state === "refined" && !stageOneSignalAvailable) {
     return {
       label: "Awaiting signals",
       subtitle: "sync your wearable, calendar to get an early read and check in to sharpen it",
     };
   }
-  if (state === "baseline" && wearableFresh) {
+  if (state === "baseline" && stageOneSignalAvailable) {
     return { label: "Early read", subtitle: "check in to sharpen it" };
   }
-  // awaiting, or baseline without fresh wearable (no/stale wearable paths).
+  // awaiting, or baseline without a Stage 1 signal.
   return {
     label: "Awaiting signals",
     subtitle: "sync your wearable, calendar to get an early read and check in to sharpen it",

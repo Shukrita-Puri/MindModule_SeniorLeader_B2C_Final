@@ -2343,48 +2343,52 @@ serve(async (req) => {
     const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
 
-    // === MRS V4 — Readiness Eligibility Contract (P0 2026-06-21) ===
+    // === Readiness Eligibility Contract ===
     // Single source of truth for which readiness states the response may
     // emit. Defined BEFORE the brief is persisted / returned so every
     // downstream consumer (brief_snapshots write, daily_context_snapshot,
     // outer-readiness response) honours the same gate.
     //
-    //  wearableFresh = wearable connected AND has TODAY's data AND not stale
-    //  checkInFresh  = user submitted today's check-in for this request
+    //  stageOneSignal = fresh wearable and/or usable calendar baseline context
+    //  checkInFresh   = user submitted today's check-in for this request
     //  mode:
-    //    'awaiting_signals' when !wearableFresh
-    //    'early_read'       when wearableFresh && !checkInFresh
-    //    'full_read'        when wearableFresh && checkInFresh
+    //    'awaiting_signals' when no Stage 1 signal exists
+    //    'early_read'       when Stage 1 exists and no check-in exists
+    //    'full_read'        when Stage 1 exists and today's check-in exists
     //
-    // RULE: a 'refined' / Full Read state requires BOTH fresh wearable AND
-    // a current check-in. If the inner pipeline forwarded `refined` without
-    // fresh wearable, we downgrade it to `baseline` (or `awaiting` if no
-    // score). This prevents the false "Full read" surface seen on 20 Jun.
+    // RULE: a 'refined' / Full Read state requires Stage 1 plus a current
+    // check-in. If the inner pipeline forwarded `refined` without Stage 1,
+    // downgrade it to `baseline`.
     const wearableFreshForGate = hasTodayWearableData === true;
+    const calendarUsableForGate =
+      calendarResult.state === 'active' || calendarResult.state === 'connected_no_events';
+    const stageOneSignalForGate = wearableFreshForGate || calendarUsableForGate;
     const checkInFreshForGate = !!checkInOutcome;
     const readinessEligibilityMode: 'awaiting_signals' | 'early_read' | 'full_read' =
-      !wearableFreshForGate
+      !stageOneSignalForGate
         ? 'awaiting_signals'
         : (checkInFreshForGate ? 'full_read' : 'early_read');
-    const readinessEligibilityReason = !wearableFreshForGate
-      ? (hasWearableData ? 'wearable_stale_or_not_today' : 'missing_wearable')
-      : (checkInFreshForGate ? 'wearable_and_checkin_fresh' : 'wearable_only');
+    const readinessEligibilityReason = !stageOneSignalForGate
+      ? (hasWearableData ? 'stage1_missing_calendar_or_wearable_stale' : 'missing_stage1_signal')
+      : (checkInFreshForGate ? 'stage1_and_checkin_fresh' : 'stage1_only');
     // Downgrade the client-forwarded readiness state if it claims 'refined'
-    // without a fresh wearable. Safe to mutate the let binding; all later
-    // reads of `clientReadinessState` will see the gated value.
-    if (clientReadinessState === 'refined' && !wearableFreshForGate) {
+    // without Stage 1. Safe to mutate the let binding; all later reads of
+    // `clientReadinessState` will see the gated value.
+    if (clientReadinessState === 'refined' && !stageOneSignalForGate) {
       console.log(
-        `[outer-readiness][V4-gate] downgrading clientReadinessState 'refined' -> 'baseline' (wearableFresh=false, hasWearable=${hasWearable}, ageDays=${wearableSourceAgeDays})`,
+        `[outer-readiness][readiness-gate] downgrading clientReadinessState 'refined' -> 'baseline' (stageOne=false, wearableFresh=${wearableFreshForGate}, calendarState=${calendarResult.state}, ageDays=${wearableSourceAgeDays})`,
       );
       clientReadinessState = 'baseline';
     }
     // Capture the eligibility block once for response + persistence reuse.
     const readinessEligibility = {
       wearableFresh: wearableFreshForGate,
+      calendarUsable: calendarUsableForGate,
+      stageOneSignal: stageOneSignalForGate,
       checkInFresh: checkInFreshForGate,
       mode: readinessEligibilityMode,
-      scoreCanUpdate: wearableFreshForGate,
-      checkInCanRefine: wearableFreshForGate && checkInFreshForGate,
+      scoreCanUpdate: stageOneSignalForGate,
+      checkInCanRefine: stageOneSignalForGate && checkInFreshForGate,
       reason: readinessEligibilityReason,
     };
     
@@ -3312,23 +3316,24 @@ serve(async (req) => {
             .eq('prompt_version', BRIEF_PROMPT_VERSION)
             .maybeSingle();
           if (snapshot) {
-            // P0 2026-06-21 — only LLM-validated snapshots are treated as
-            // cache hits. Rows with brief_source = 'deterministic' /
-            // 'awaiting' / null are ignored so the request re-attempts the
-            // LLM and never serves recycled fallback/awaiting copy as a
-            // "live" brief. The (user, local_date, time_window, sig, version)
-            // upsert key still prevents duplicate rows.
-            if (snapshot.brief_source === 'llm') {
+            // LLM snapshots are preferred, but deterministic snapshots are
+            // valid fallback briefs when the Stage 1/2 signal contract is met.
+            // Awaiting/null snapshots are ignored so true cold-start rows never
+            // replay as live content.
+            const cacheableSource =
+              snapshot.brief_source === 'llm' ||
+              snapshot.brief_source === 'deterministic';
+            if (cacheableSource && snapshot.phrase && snapshot.body_text) {
               cachedSnapshot = snapshot as typeof cachedSnapshot;
             }
             console.log('[brief-cache] Result:', JSON.stringify({
-              snapshotHit: snapshot.brief_source === 'llm',
-              snapshotIgnoredReason: snapshot.brief_source === 'llm' ? null : `non_llm_source:${snapshot.brief_source ?? 'null'}`,
+              snapshotHit: !!cachedSnapshot,
+              snapshotIgnoredReason: cachedSnapshot ? null : `non_live_source:${snapshot.brief_source ?? 'null'}`,
               briefSource: snapshot.brief_source,
               promptVersion: BRIEF_PROMPT_VERSION,
               inputSignature: inputSignature.slice(0, 8) + '...',
               generationPath: 'snapshot',
-              snapshotReason: snapshot.brief_source === 'llm' ? 'exact_match' : 'non_llm_ignored',
+              snapshotReason: cachedSnapshot ? 'exact_match' : 'non_live_ignored',
             }));
           }
         } catch (readError) {
@@ -4919,18 +4924,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // If anything below throws (scope regression, undefined access, etc.), fail soft with a
     // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
     try {
-    // P0 2026-06-21 — deterministic theme strings (e.g. "Close strong.",
-    // "Steady the system ahead of the day ahead", "protecting the edge")
-    // are no longer rendered. When neither a validated LLM brief nor a
-    // cached LLM snapshot exists, we treat the brief as awaiting and the
-    // response nulls phrase / bodyText / leanOn / watchFor below.
-    // `finalPhrase` / `finalContext` (the legacy deterministic fallbacks)
-    // remain assigned for upstream code paths but are NOT served to the
-    // client when `briefIsAwaiting` is true.
-    const briefIsAwaiting = !cachedSnapshot && !llmBrief;
+    // If the LLM/cache path misses but the signal contract is met, serve the
+    // deterministic fallback as a real fallback Brief. True awaiting is still
+    // controlled exclusively by the signal gate below.
+    const briefIsAwaiting = false;
     const briefSource: 'llm' | 'deterministic' | 'awaiting' = cachedSnapshot
       ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
-      : (llmBrief ? 'llm' : 'awaiting');
+      : (llmBrief ? 'llm' : 'deterministic');
     const responsePhrase = briefIsAwaiting
       ? null
       : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);

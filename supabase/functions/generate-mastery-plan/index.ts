@@ -668,6 +668,7 @@ interface PlanRequest {
   outerReadinessWatchFor: string;
   calendarLoad: string;
   calendarPressure: string;
+  hasCalendarConnection?: boolean;
   favorites: string[];
   completedToday: string[];
   clarityLevel: number;
@@ -2593,6 +2594,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
 
   // ── Calendar events ──
   if (calConnRes.data) {
+    req.hasCalendarConnection = true;
     const { data: events } = await supabaseClient
       .from('primary_calendar_events')
       .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
@@ -2617,6 +2619,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     }));
     console.log(`[buildSharedContext] calendar_events: ${ctx.rawCalendarEvents.length} events in next 48h`);
   } else {
+    req.hasCalendarConnection = false;
     req.calendarEvents = [];
   }
 
@@ -3077,10 +3080,18 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   }
   const hasTodayCheckIn = !!todayCheckinRow && todayCheckinRow.skipped !== true;
   const hasFreshWearable = !!(req.wearableContext?.hasData);
-  // MRS V4 product rule (2026-06-21): Full actionable Plan requires BOTH
-  // a fresh wearable AND today's check-in. Either alone -> awaiting envelope.
-  const fullReadyForPlan = hasTodayCheckIn && hasFreshWearable;
-  const finalDecision = fullReadyForPlan ? 'generate' : 'generate-no-signal';
+  const hasCalendarSignal = (req.calendarEvents?.length ?? 0) > 0;
+  const hasCalendarConnected = req.hasCalendarConnection === true;
+  const hasState1Input = hasFreshWearable || hasCalendarSignal || hasCalendarConnected;
+  const readinessStage = hasState1Input && hasTodayCheckIn
+    ? 'full'
+    : hasState1Input
+      ? 'early'
+      : hasTodayCheckIn
+        ? 'checkin_only'
+        : 'cold_start';
+  const canGeneratePlan = readinessStage !== 'cold_start';
+  const finalDecision = canGeneratePlan ? 'generate' : 'awaiting-signals';
   console.log('[generate-mastery-plan] signal-gate', {
     authenticatedUserId: req.userId,
     clientLocalDate: req.localDate || null,
@@ -3097,21 +3108,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     } : null,
     hasTodayCheckIn,
     hasFreshWearable,
-    fullReadyForPlan,
+    hasCalendarSignal,
+    hasCalendarConnected,
+    readinessStage,
     finalDecision,
   });
-  // ─── Awaiting-signals gate (MRS V4 product rule, 2026-06-21) ─────────
-  // Full Read requires BOTH fresh wearable AND today's check-in. Any other
-  // combination (no wearable + no checkin, wearable-only, checkin-only,
-  // stale wearable + checkin) returns the awaiting envelope so the frontend
-  // renders the shared "Sync your wearable and then complete a quick
-  // check-in to sharpen the picture." message and no Plan cards.
-  if (!fullReadyForPlan) {
-    const gatingReason = !hasTodayCheckIn && !hasFreshWearable
-      ? 'missing_readiness_context'
-      : !hasFreshWearable
-        ? 'missing_fresh_wearable'
-        : 'missing_todays_checkin';
+  // Awaiting-signals gate mirrors compute-outer-readiness: only a true
+  // cold-start suppresses the Plan. Stage 1 (wearable/calendar) can build an
+  // early plan; today's check-in refines it to Full Read.
+  if (!canGeneratePlan) {
+    const gatingReason = 'missing_readiness_context';
     console.log('[generate-mastery-plan] awaiting-signals envelope returned', { gatingReason });
     return {
       planState: 'awaiting_signals',
@@ -6177,27 +6183,66 @@ function buildHorizonModules(
     });
   }
 
-  // Deduplicate: ensure no two slots share the same primary contentId
+  // Deduplicate: ensure no two slots share the same primary contentId or
+  // practice type. Content IDs alone still allowed e.g. two different
+  // "regulate" practices in the same Plan stack.
+  const practiceTypeOf = (p: any): string | null =>
+    typeof p?.type === 'string' && p.type.trim().length > 0 ? p.type.trim() : null;
+  const practiceTypeForContent = (c: any): string | null => {
+    if (typeof c?.type === 'string' && c.type.trim().length > 0) return c.type.trim();
+    const contentType = typeof c?.content_type === 'string' ? c.content_type : null;
+    if (contentType === 'soundbath' || contentType === 'guided-practice') return 'regulate';
+    if (contentType === 'micro-practice') return 'align';
+    return null;
+  };
   const seenContentIds = new Set<string>();
+  const seenPracticeTypes = new Set<string>();
   const deduped: HorizonModule[] = [];
   for (const m of modules) {
     // Variable-slot rule: drop slots whose state-anchor resolved to null
     // (composeStateLabel returned null → empty timeLabel + zero practices).
     if (!m.timeLabel || (m.practices?.length ?? 0) === 0) continue;
-    if (!seenContentIds.has(m.practice.contentId)) {
+    const primaryType = practiceTypeOf(m.practice);
+    if (!seenContentIds.has(m.practice.contentId) && (!primaryType || !seenPracticeTypes.has(primaryType))) {
       // Also deduplicate within practices array
       const uniquePractices: any[] = [];
       const practiceIds = new Set<string>();
+      const practiceTypes = new Set<string>();
       for (const p of m.practices) {
-        if (!seenContentIds.has(p.contentId) && !practiceIds.has(p.contentId)) {
+        const pType = practiceTypeOf(p);
+        if (
+          !seenContentIds.has(p.contentId) &&
+          !practiceIds.has(p.contentId) &&
+          (!pType || (!seenPracticeTypes.has(pType) && !practiceTypes.has(pType)))
+        ) {
           practiceIds.add(p.contentId);
+          if (pType) practiceTypes.add(pType);
           uniquePractices.push(p);
+        } else {
+          console.log('[generate-mastery-plan] practice dedupe: dropped duplicate', {
+            contentId: p.contentId ?? null,
+            type: pType,
+            reason: seenContentIds.has(p.contentId) || practiceIds.has(p.contentId)
+              ? 'content-duplicate'
+              : 'type-duplicate',
+          });
         }
       }
       m.practices = uniquePractices.length > 0 ? uniquePractices : [m.practice];
+      m.practice = m.practices[0];
       seenContentIds.add(m.practice.contentId);
-      for (const p of m.practices) seenContentIds.add(p.contentId);
+      for (const p of m.practices) {
+        seenContentIds.add(p.contentId);
+        const pType = practiceTypeOf(p);
+        if (pType) seenPracticeTypes.add(pType);
+      }
       deduped.push(m);
+    } else {
+      console.log('[generate-mastery-plan] practice dedupe: dropped duplicate slot primary', {
+        contentId: m.practice?.contentId ?? null,
+        type: primaryType,
+        reason: seenContentIds.has(m.practice?.contentId) ? 'content-duplicate' : 'type-duplicate',
+      });
     }
   }
 
@@ -6252,7 +6297,11 @@ function buildHorizonModules(
   }
 
   if (deduped.length < _minSlots && enrichedContent.length > 0) {
-    const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.id) && !req.completedToday.includes(c.id));
+    const remaining = enrichedContent.filter((c: any) => {
+      if (seenContentIds.has(c.id) || req.completedToday.includes(c.id)) return false;
+      const cType = practiceTypeForContent(c);
+      return !cType || !seenPracticeTypes.has(cType);
+    });
     const hasBodyUnderLoad = req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null && req.wearableContext.hrvDeviation < -15;
     const hasMaskedHigh = divergenceMode === 'MASKED_HIGH';
     const clarityLow = req.clarityLevel <= 2;
@@ -6289,7 +6338,11 @@ function buildHorizonModules(
       }
 
       if (pool.length === 0) {
-        pool = remaining.filter((c: any) => !seenContentIds.has(c.id));
+        pool = remaining.filter((c: any) => {
+          if (seenContentIds.has(c.id)) return false;
+          const cType = practiceTypeForContent(c);
+          return !cType || !seenPracticeTypes.has(cType);
+        });
       }
 
       if (pool.length === 0) break;
@@ -6363,6 +6416,7 @@ function buildHorizonModules(
       seenContentIds.add(selected.id);
       const contentType = selected.content_type || 'micro-practice';
       const moduleType = contentType === 'soundbath' ? 'regulate' : contentType === 'guided-practice' ? 'regulate' : 'align';
+      seenPracticeTypes.add(moduleType);
       // Pass 4 — compose state-label first so the filler's why-line can be
       // anchored to the resolved event (matches the timeLabel verb).
       const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
@@ -6958,6 +7012,7 @@ if (import.meta.main) Deno.serve(async (req) => {
       archetype: '',
       practicePriorityTag: '',
       pressureContextTag: '',
+      hasCalendarConnection: false,
       wearableContext: { sleepScore: null, hrvMs: null, restingHR: null, hrvDeviation: null, sleepQuality: null, hasData: false },
     };
 

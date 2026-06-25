@@ -22,16 +22,18 @@ const MrsPage = () => {
   const weekly = useWeeklyMrsDelta();
 
   const hasScore = typeof score === 'number';
-  // Prefer the backend's explicit readinessEligibility contract (MRS V4).
-  // Falls back to deriving from wearableStatus + innerReadinessState for
-  // payloads emitted before the contract shipped — but NEVER lets a
-  // forwarded 'refined' produce "Full read" without a fresh wearable.
+  // Prefer the backend's explicit readiness contract. Stage 1 can be wearable
+  // or calendar driven; check-in only upgrades baseline to refined.
   const ws = (outerBrief as any)?.wearableStatus;
   const eligibility = (outerBrief as any)?.readinessEligibility ?? null;
-  const wearableFresh =
-    typeof eligibility?.wearableFresh === 'boolean'
-      ? eligibility.wearableFresh
-      : !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
+  const stageOneSignalAvailable =
+    typeof (outerBrief as any)?.hasCurrentPeriodSignal === 'boolean'
+      ? (outerBrief as any).hasCurrentPeriodSignal
+      : typeof eligibility?.stageOneSignal === 'boolean'
+        ? eligibility.stageOneSignal
+      : typeof eligibility?.eligible === 'boolean'
+        ? eligibility.eligible
+        : !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
   const rawState =
     (outerBrief as any)?.innerReadinessState === 'refined' ||
     weekly.data?.mode === 'refined'
@@ -39,13 +41,12 @@ const MrsPage = () => {
       : (outerBrief as any)?.innerReadinessState === 'awaiting'
         ? 'awaiting'
         : 'baseline';
-  // Hard gate — refined requires fresh wearable.
   const readinessState: 'baseline' | 'refined' | 'awaiting' =
-    rawState === 'refined' && !wearableFresh ? 'baseline' : rawState;
+    rawState === 'refined' && !stageOneSignalAvailable ? 'baseline' : rawState;
 
   const tierColor = tierColorVar(tier);
   const oneLiner = getReadinessOneLiner(score);
-  const stateLabel = getReadinessStateLabel(readinessState, wearableFresh);
+  const stateLabel = getReadinessStateLabel(readinessState, stageOneSignalAvailable);
 
   return (
     <section

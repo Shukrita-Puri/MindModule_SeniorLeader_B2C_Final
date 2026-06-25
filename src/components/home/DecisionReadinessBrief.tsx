@@ -1835,15 +1835,18 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const hasCheckIn =
     ((outerBrief as any)?.hasCurrentPeriodCheckIn ?? false) ||
     (hasCurrentPeriodSignal && !!outerBrief?.checkInOutcome);
-  // MRS V4 (P0 2026-06-21) — prefer backend readinessEligibility.mode; if
-  // absent, derive safely and NEVER allow `refined` without a fresh
-  // wearable. Mirrors compute-outer-readiness's server-side gate.
+  // Prefer backend readiness eligibility. Stage 1 can be wearable or
+  // calendar driven; check-in only upgrades baseline to refined.
   const eligibility = (outerBrief as any)?.readinessEligibility ?? null;
   const wsForGate = (outerBrief as any)?.wearableStatus;
-  const wearableFreshForGate =
-    typeof eligibility?.wearableFresh === 'boolean'
-      ? eligibility.wearableFresh
-      : !!(wsForGate?.isConnected && wsForGate?.hasTodayData && !wsForGate?.isStale);
+  const stageOneSignalAvailable =
+    typeof (outerBrief as any)?.hasCurrentPeriodSignal === 'boolean'
+      ? (outerBrief as any).hasCurrentPeriodSignal
+      : typeof eligibility?.stageOneSignal === 'boolean'
+        ? eligibility.stageOneSignal
+      : typeof eligibility?.eligible === 'boolean'
+        ? eligibility.eligible
+        : !!(wsForGate?.isConnected && wsForGate?.hasTodayData && !wsForGate?.isStale);
   const rawReadinessState: 'baseline' | 'refined' | 'awaiting' =
     (outerBrief as any)?.innerReadinessState === 'refined'
       ? 'refined'
@@ -1851,7 +1854,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         ? 'awaiting'
         : 'baseline';
   const readinessState: 'baseline' | 'refined' | 'awaiting' =
-    rawReadinessState === 'refined' && !wearableFreshForGate
+    rawReadinessState === 'refined' && !stageOneSignalAvailable
       ? 'baseline'
       : rawReadinessState;
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
@@ -1996,8 +1999,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
             {(() => {
-              const wearableFresh = !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
-              const stateLabel = getReadinessStateLabel(readinessState, wearableFresh);
+              const stateLabel = getReadinessStateLabel(readinessState, hasCurrentPeriodSignal);
               return (
                 <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
                   {stateLabel.label}

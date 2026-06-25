@@ -9,14 +9,14 @@ describe('readinessLabels', () => {
     });
   });
 
-  it('shows Early read only for baseline + fresh wearable', () => {
+  it('shows Early read for baseline + Stage 1 signal', () => {
     expect(getReadinessStateLabel('baseline', true)).toEqual({
       label: 'Early read',
       subtitle: 'check in to sharpen it',
     });
   });
 
-  it('downgrades baseline without fresh wearable to awaiting copy', () => {
+  it('downgrades baseline without a Stage 1 signal to awaiting copy', () => {
     expect(getReadinessStateLabel('baseline', false)).toEqual({
       label: 'Awaiting signals',
       subtitle: 'sync your wearable, calendar to get an early read and check in to sharpen it',
@@ -27,7 +27,7 @@ describe('readinessLabels', () => {
     expect(getReadinessStateLabel('refined', true).label).toBe('Full read');
   });
 
-  it('downgrades refined without fresh wearable to awaiting (V4 gate)', () => {
+  it('downgrades refined without a Stage 1 signal to awaiting', () => {
     expect(getReadinessStateLabel('refined', false)).toEqual({
       label: 'Awaiting signals',
       subtitle: 'sync your wearable, calendar to get an early read and check in to sharpen it',
