@@ -1,0 +1,1 @@
+ALTER VIEW public.web_primary_calendar_events SET (security_invoker = true);
