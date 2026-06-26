@@ -863,9 +863,58 @@ serve(async (req) => {
       });
     }
 
+    // MRS v4 — Stage 1 calendar backfill (2026-06-26).
+    // The composer treats a sub-component as `available=false` whenever the
+    // client didn't have the underlying signal at request time. Apple Calendar
+    // users (and any case where `calendar_connections` is missing but the
+    // outer-readiness contract still rates calendar as `usable`) used to send
+    // all demand cells unavailable, which collapsed the whole window into
+    // `awaitingSignals=true` even when `body.demandScore` was a valid number.
+    //
+    // The controlled fix: when the caller forwards a numeric `demandScore`
+    // (the Stage 1 calendar baseline context), backfill any demand-pillar
+    // sub-component that is still unavailable. We deliberately do NOT
+    // synthesize HRV/sleep/RHR — those remain wearable-gated, so cold-start
+    // (no wearable + no calendar) still resolves to awaiting.
+    const DEMAND_SUBCOMPONENTS: SubComponentId[] = [
+      'todayFullDayDemand',
+      'yesterdayCarryover',
+      'remainingDayDemand',
+      'realizedSoFarCost',
+      'todayRealizedDemand',
+      'tomorrowOpeningDemand',
+    ];
+    const calendarDemandScore =
+      typeof body.demandScore === 'number' && Number.isFinite(body.demandScore)
+        ? Math.max(0, Math.min(100, Math.round(100 - body.demandScore)))
+        : null;
+    const subsForCompose: SubScore[] = (body.mrsSubScores as SubScore[]).map((s) => {
+      if (
+        !s.available &&
+        calendarDemandScore != null &&
+        DEMAND_SUBCOMPONENTS.includes(s.id)
+      ) {
+        return { id: s.id, score: calendarDemandScore, available: true };
+      }
+      return s;
+    });
+    if (calendarDemandScore != null) {
+      console.log(
+        '[compute-inner-readiness][stage1-calendar-backfill]',
+        JSON.stringify({
+          window: body.mrsWindow,
+          demandScore: body.demandScore,
+          calendarDemandScore,
+          backfilled: subsForCompose
+            .filter((s, i) => s.available && !(body.mrsSubScores as SubScore[])[i].available)
+            .map((s) => s.id),
+        }),
+      );
+    }
+
     const v4 = composeBaselineV4(
       body.mrsWindow,
-      body.mrsSubScores as SubScore[],
+      subsForCompose,
       body.sleepDeficitMeasurement ?? { available: false },
     );
     score = v4.baseline;
