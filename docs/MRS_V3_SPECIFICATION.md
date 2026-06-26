@@ -626,3 +626,52 @@ mind check-in submit ─► daily-checkins/SAVE_CHECKIN
 - Legacy C×C copy strings — **removed**. Brief tone modifiers are now driven by (clarity, regulation, emotion) directly via the v6.3 prompt; the v2 fixed eight-string lookup is gone.
 - Resilience pill legacy inputs (`confidence`, `outcome`, `coach_pattern_observations`, `active_pattern_count`, `recovery_debt`) — removed. Replaced by `sleep_efficiency` anchor + Mind overlay + retained pattern signals (`sustained_deficit_flag`, `hrv_low_high_demand_cooccurrence_7d`, `protection_goals × calendarPressure`).
 - Physiology pill sleep contribution — removed. Sleep moved to Cognitive; Physiology is now RHR + HR-elevated proxy + RHR trend + sustained-deficit only.
+
+---
+
+## 13. MRS v4 — Human-sounding tier copy (one-liners)
+
+The numeric score (0–100) is never displayed on its own. Every surface that
+renders the MRS (Brief header, Home hero, MRS detail page) shows a
+score-keyed one-liner instead of the legacy tier word ("Strong", "Peak",
+"Low"). Internal tier ids remain lowercase strings for logic, logging, and
+prompt seeding — only the **display** copy changes.
+
+**Source of truth:** `src/utils/readinessLabels.ts` → `READINESS_ONE_LINERS`.
+The brief validator also imports `READINESS_ONE_LINER_STRINGS` to reject any
+LLM restatement of these exact phrases in the brief body.
+
+### 13.1 Band table
+
+| Band id    | Score range | Valence | One-liner (verbatim)                                          |
+| ---------- | ----------- | ------- | ------------------------------------------------------------- |
+| `full`     | 80–100      | high    | full strength — go after it                                   |
+| `ready`    | 65–79       | high    | ready and clear                                               |
+| `holding`  | 50–64       | mid     | holding the line — solid, not your peak                       |
+| `reserves` | 35–49       | low     | running on reserves — pick your battles                       |
+| `empty`    | 0–34        | low     | running on empty — today's about protecting yourself          |
+
+Rules:
+- Score is clamped to `[0,100]` and rounded before lookup.
+- Ranges are inclusive on both ends; no gaps, no overlaps.
+- Copy strings are immutable. Any edit requires a `BRIEF_PROMPT_VERSION` bump
+  so cached briefs invalidate.
+- Three-bucket valence (`low` / `mid` / `high`) is the only thing Brief/Plan
+  may branch on for tone — they must not switch on the band id directly.
+
+### 13.2 Stage label (Full read / Early read / Awaiting signals)
+
+Rendered as the small caption next to the score. Driven by
+`getReadinessStateLabel(state, stageOneSignalAvailable)`:
+
+| `state`    | Stage-1 signal? | Label              | Subtitle                                                                                  |
+| ---------- | --------------- | ------------------ | ----------------------------------------------------------------------------------------- |
+| `refined`  | yes             | Full read          | with your check-in                                                                        |
+| `refined`  | no              | Awaiting signals   | sync your wearable, calendar to get an early read and check in to sharpen it              |
+| `baseline` | yes             | Early read         | check in to sharpen it                                                                    |
+| `baseline` | no              | Awaiting signals   | sync your wearable, calendar to get an early read and check in to sharpen it              |
+| `awaiting` | —               | Awaiting signals   | sync your wearable, calendar to get an early read and check in to sharpen it              |
+
+`stageOneSignalAvailable` must come from the backend's explicit
+`hasCurrentPeriodSignal` field — never inferred client-side. The label MUST
+NOT say "Early read" for true cold-start states.
