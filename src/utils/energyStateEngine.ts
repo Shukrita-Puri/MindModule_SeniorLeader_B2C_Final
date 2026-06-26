@@ -733,7 +733,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         // MRS v2 — calendar demand + pattern signals from the canonical
         // daily_context_snapshot. Null means the snapshot hasn't been
         // populated yet today; the backend handles defaults.
-        demandScore: snapshotDemandScore,
+        // Forward the resolved demand score (snapshot → calendar-events fallback)
+        // so compute-inner-readiness can backfill the demand subcomponents when
+        // Stage 1 calendar signal is usable but `calendar_connections` is missing
+        // (e.g. Apple Calendar users). Stage 1 backfill is gated on this value.
+        demandScore: demandScoreForV4 ?? snapshotDemandScore,
         patternSignals: snapshotPatternSignals,
         // MRS v4 — required baseline inputs. `weightingMode` is now label-only;
         // all score math flows through these sub-components and redistribution.
