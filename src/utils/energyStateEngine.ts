@@ -323,6 +323,154 @@ function buildClientMrsV4SubScores(args: {
   ];
 }
 
+function getLocalDayBounds(now: Date = new Date()): { startISO: string; endISO: string } {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  return { startISO: start.toISOString(), endISO: end.toISOString() };
+}
+
+async function restSelect<T>(
+  table: string,
+  params: Array<[string, string]>,
+  token: string,
+): Promise<T[]> {
+  const urlBase = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  if (!urlBase || !anonKey) return [];
+
+  const url = new URL(`/rest/v1/${table}`, urlBase);
+  params.forEach(([key, value]) => url.searchParams.append(key, value));
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`REST ${table} ${response.status}: ${text.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  return Array.isArray(json) ? (json as T[]) : [];
+}
+
+async function fetchAuthedCalendarEvents(args: {
+  userId: string;
+  token: string;
+  startISO: string;
+  endISO: string;
+}): Promise<any[]> {
+  return restSelect<any>('calendar_events', [
+    ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
+    ['user_id', `eq.${args.userId}`],
+    ['start_time', `gte.${args.startISO}`],
+    ['start_time', `lte.${args.endISO}`],
+    ['order', 'start_time.asc'],
+  ], args.token);
+}
+
+async function fetchAuthedSnapshot(args: {
+  userId: string;
+  localDate: string;
+  token: string;
+  mrsWindow?: string;
+  latest?: boolean;
+}): Promise<any | null> {
+  const params: Array<[string, string]> = [
+    ['select', 'calendar_demand_score,pattern_signals,morning_baseline_score,mrs_window,updated_at'],
+    ['user_id', `eq.${args.userId}`],
+    ['local_date', `eq.${args.localDate}`],
+    ['limit', '1'],
+  ];
+  if (args.mrsWindow) params.push(['mrs_window', `eq.${args.mrsWindow}`]);
+  if (args.latest) params.push(['order', 'updated_at.desc']);
+  const rows = await restSelect<any>('daily_context_snapshot', params, args.token);
+  return rows[0] ?? null;
+}
+
+function coerceFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function inferRelationshipPressureClient(metadata: any, title: string, attendeeCount: number): number {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|vendor|supplier|partner|account|proposal|demo)/.test(lower)) return 2;
+  if (/(boss|manager|director|vp|1:1|one-on-one|one on one|feedback|review|performance|skip level)/.test(lower)) return 2;
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 1;
+  if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 1;
+  const attendees = metadata?.attendeeSignals?.attendees;
+  if (Array.isArray(attendees) && attendees.some((a: any) => a?.responseStatus === 'declined')) return 1;
+  if (attendeeCount >= 6) return 1;
+  return 0;
+}
+
+function deriveFullDayDemandScore(events: any[]): number | null {
+  if (!Array.isArray(events)) return null;
+  if (events.length === 0) return 0;
+
+  const sorted = [...events].sort(
+    (a, b) => new Date(a.start_time || a.startTime).getTime() - new Date(b.start_time || b.startTime).getTime(),
+  );
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    gaps.push(
+      (new Date(sorted[i].start_time || sorted[i].startTime).getTime() -
+        new Date(sorted[i - 1].end_time || sorted[i - 1].endTime).getTime()) / 60000,
+    );
+  }
+
+  const count = sorted.length;
+  const avgGap = gaps.length ? gaps.reduce((s, g) => s + g, 0) / gaps.length : Infinity;
+  const totalGapTime = gaps.length ? gaps.reduce((s, g) => s + Math.max(0, g), 0) : Infinity;
+  const loadComponent = count >= 4 || (count >= 3 && avgGap < 20) ? 70 : count >= 3 ? 40 : 0;
+
+  let totalPressure = 0;
+  const nowMs = Date.now();
+  for (const event of sorted) {
+    let pressure = 0;
+    if (event.is_organizer) pressure += 2;
+    const attendees = event.attendees_count || 0;
+    if (attendees > 5) pressure += 3;
+    else if (attendees > 2) pressure += 1;
+    const start = new Date(event.start_time || event.startTime);
+    const end = new Date(event.end_time || event.endTime);
+    const durationMin = (end.getTime() - start.getTime()) / 60000;
+    if (durationMin > 60) pressure += 2;
+    else if (durationMin >= 30) pressure += 1;
+    if (!event.is_recurring) pressure += 1;
+    const hour = start.getHours();
+    if ((hour >= 9 && hour < 12) || (hour >= 14 && hour < 16)) pressure += 1;
+    pressure += inferRelationshipPressureClient(event.event_metadata, event.title || event.eventTitle || '', attendees);
+    totalPressure += start.getTime() >= nowMs ? pressure : Math.ceil(pressure * 0.5);
+  }
+
+  for (const gap of gaps) {
+    if (gap < 5) totalPressure += 3;
+    else if (gap < 15) totalPressure += 2;
+  }
+  if (count >= 3 && totalGapTime < 30) totalPressure += 3;
+  const intenseMeetings = sorted.filter((e) => !e.is_recurring && e.is_organizer).length;
+  if (count > 0 && intenseMeetings / count > 0.5) totalPressure = Math.ceil(totalPressure * 1.5);
+
+  const pressureComponent = totalPressure >= 6 ? 25 : totalPressure >= 3 ? 15 : 0;
+  const hasHighStakes = sorted.some((event) =>
+    !event.is_recurring &&
+    ((event.attendees_count ?? 0) > 5 || (event.is_organizer && (event.attendees_count ?? 0) > 2)),
+  );
+  return clampScore(loadComponent + pressureComponent + (hasHighStakes ? 10 : 0));
+}
+
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
   const cacheKey = getEnergyStateCacheKey(userId);
   const cached = energyStateCache.get(cacheKey);
