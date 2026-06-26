@@ -236,7 +236,13 @@ const TodayThreePriorities = ({
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
   // Does NOT drive rendering or generation. Dev-mode console only.
+  // Phase 3.7 — snapshot-read-first. When a ready current-window snapshot
+  // exists in `mastery_plan_snapshots`, hydrate the Plan card directly
+  // from it and skip live `generate-mastery-plan` on mount. Manual
+  // force-refresh and missing/error snapshots still fall through to the
+  // existing live generation path.
   const { data: masteryPlanSnapshot } = useMasteryPlanSnapshot();
+  const hydratedFromSnapshotRef = useRef<boolean>(false);
   useEffect(() => {
     if (!(typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV === true)) return;
     if (masteryPlanSnapshot === undefined) return;
@@ -952,16 +958,75 @@ const TodayThreePriorities = ({
     // this the first call races ahead of the awaiting-signals contract and
     // generates a plan from defaults before the brief tells us to suppress.
     if (outerReadinessData === undefined) return;
-    // If we hydrated from sessionStorage at mount, run the load silently —
-    // the user already sees their plan; any refresh happens in-place.
-    loadPlan({ silent: initialCachedRef.current });
+    // Wait for the snapshot read to resolve too. Snapshot-read-first beats
+    // both localStorage cache and live generation when it's ready for the
+    // current window.
+    if (masteryPlanSnapshot === undefined) return;
+
+    // ── Snapshot-read-first hydration ──
+    // Skip if user explicitly requested a manual refresh — the live
+    // generator owns that path and will rewrite the snapshot via its
+    // existing persist hook.
+    const snap = masteryPlanSnapshot;
+    if (
+      !hydratedFromSnapshotRef.current &&
+      !hasPlanForceRefresh &&
+      snap &&
+      snap.status === 'ready' &&
+      snap.planJson &&
+      Array.isArray((snap.planJson as any).horizonModules) &&
+      (snap.planJson as any).horizonModules.length > 0
+    ) {
+      hydratedFromSnapshotRef.current = true;
+      (async () => {
+        try {
+          const stripped = stripCoachFromPlan(snap.planJson as unknown as MasteryPlanResponse)!;
+          const todayDate = localISODate();
+          const currentPeriod = getCurrentTimeWindow();
+          if (stripped.horizonModules) {
+            stripped.horizonModules = applyPlanEditsToModules(
+              stripped.horizonModules, todayDate, currentPeriod,
+            );
+          }
+          setPlan(stripped);
+          setAwaitingSignals(false);
+          setFetchFailed(false);
+          // Completions still come from daily_ritual_completions — the
+          // snapshot is never the completion source.
+          const ritual = await getTodayRitual(currentPeriod);
+          const unionCompleted = await getTodayCompletedUnion();
+          const allCompleted = unionCompleted.length > 0
+            ? unionCompleted
+            : (ritual?.completed_practice_ids || []);
+          const horizonIds = (stripped.horizonModules || [])
+            .flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
+          setCompletedPracticeIds(
+            horizonIds.length > 0
+              ? allCompleted.filter((id: string) => horizonIds.includes(id))
+              : allCompleted,
+          );
+          setLoading(false);
+        } catch (e) {
+          // If hydration unexpectedly fails, fall back to live generation.
+          hydratedFromSnapshotRef.current = false;
+          loadPlan({ silent: initialCachedRef.current });
+        }
+      })();
+    } else if (!hydratedFromSnapshotRef.current) {
+      // No usable snapshot (missing, error, or pending without payload).
+      // Use the existing live generation path unchanged. Awaiting-signals
+      // is gated inside loadPlan and only fires on true awaiting — engine
+      // failure or error snapshots never trigger awaiting copy here.
+      loadPlan({ silent: initialCachedRef.current });
+    }
+
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') checkCompletion();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(() => { if (plan) checkCompletion(); }, 60000);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility); };
-  }, [user?.id, outerReadinessData]);
+  }, [user?.id, outerReadinessData, masteryPlanSnapshot, hasPlanForceRefresh]);
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
 
