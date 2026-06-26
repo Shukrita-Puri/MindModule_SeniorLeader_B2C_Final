@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
+import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useWeeklyMrsDelta } from '@/hooks/useWeeklyMrsDelta';
 import MrsGauge, { tierColorVar } from './MrsGauge';
 import WeeklyDeltaDial from './WeeklyDeltaDial';
@@ -13,12 +15,21 @@ import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
 
 const MrsPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: outerBrief, refetch, isFetching } = useOuterReadiness();
-  const score = outerBrief?.innerReadinessScore ?? null;
-  const tier =
-    outerBrief?.innerReadinessTierDisplayed ||
-    outerBrief?.innerReadinessTier ||
-    null;
+  // Phase 3.9 — snapshot-read-first. Render from current-window
+  // `daily_context_snapshot` when present; otherwise fall through to
+  // the live `useOuterReadiness` payload (unchanged).
+  const { data: mrsSnapshot } = useMrsSnapshot();
+  const snapshotRenderable = !!mrsSnapshot?.isRenderable;
+  const score = snapshotRenderable
+    ? mrsSnapshot!.score
+    : (outerBrief?.innerReadinessScore ?? null);
+  const tier = snapshotRenderable
+    ? mrsSnapshot!.tier
+    : (outerBrief?.innerReadinessTierDisplayed ||
+       outerBrief?.innerReadinessTier ||
+       null);
   const weekly = useWeeklyMrsDelta();
 
   const hasScore = typeof score === 'number';
@@ -30,6 +41,9 @@ const MrsPage = () => {
     engineStatus === 'inner-failure' ||
     engineStatus === 'outer-failure' ||
     engineStatus === 'unknown-error';
+  // If we have a renderable snapshot, suppress the live failure block —
+  // we already have a valid score for the current window on screen.
+  const showFailureBlock = isFailureState && !snapshotRenderable;
   // Prefer the backend's explicit readiness contract. Stage 1 can be wearable
   // or calendar driven; check-in only upgrades baseline to refined.
   const ws = (outerBrief as any)?.wearableStatus;
@@ -43,10 +57,12 @@ const MrsPage = () => {
         ? eligibility.eligible
         : !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
   const rawState =
+    (snapshotRenderable && mrsSnapshot!.readinessState === 'refined') ||
     (outerBrief as any)?.innerReadinessState === 'refined' ||
     weekly.data?.mode === 'refined'
       ? 'refined'
-      : (outerBrief as any)?.innerReadinessState === 'awaiting'
+      : (snapshotRenderable && mrsSnapshot!.readinessState === 'awaiting') ||
+        (outerBrief as any)?.innerReadinessState === 'awaiting'
         ? 'awaiting'
         : 'baseline';
   const readinessState: 'baseline' | 'refined' | 'awaiting' =
@@ -77,8 +93,9 @@ const MrsPage = () => {
           <MrsGauge score={score} tier={tier} size={232} />
         </div>
 
-        {/* Phase 1 — engine failure retry block (auth/inner/outer/unknown). */}
-        {isFailureState && !hasScore && (
+        {/* Phase 1 — engine failure retry block (auth/inner/outer/unknown).
+            Suppressed when a current-window snapshot is renderable. */}
+        {showFailureBlock && !hasScore && (
           <div className="mt-4 flex flex-col items-center text-center gap-2">
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
               {engineStatus === 'auth-failure' ? 'Session expired' : 'Reading unavailable'}
@@ -90,7 +107,14 @@ const MrsPage = () => {
             </span>
             <button
               type="button"
-              onClick={() => refetch()}
+              onClick={() => {
+                // Live retry refreshes useOuterReadiness; also invalidate
+                // the snapshot query because a successful live compute
+                // upserts `daily_context_snapshot` for the current
+                // window and we want snapshot-read-first to pick it up.
+                refetch();
+                queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] });
+              }}
               disabled={isFetching}
               className="mt-1 text-[11px] uppercase tracking-[0.16em] underline-offset-4 hover:underline disabled:opacity-50 text-foreground/80"
             >
@@ -100,7 +124,7 @@ const MrsPage = () => {
         )}
 
         {/* One-line read derived from score; state label replaces (Refined)/(Baseline). */}
-        {hasScore && oneLiner && !isFailureState && (
+        {hasScore && oneLiner && !showFailureBlock && (
           <div className="mt-4 flex flex-col items-center text-center">
             <span
               className="text-base font-medium tracking-wide"
@@ -116,7 +140,7 @@ const MrsPage = () => {
             </span>
           </div>
         )}
-        {!hasScore && !isFailureState && (
+        {!hasScore && !showFailureBlock && (
           <div className="mt-4 flex flex-col items-center text-center">
             <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
               {stateLabel.label}
