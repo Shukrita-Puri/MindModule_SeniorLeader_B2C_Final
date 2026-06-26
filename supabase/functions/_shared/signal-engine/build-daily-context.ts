@@ -36,6 +36,17 @@ type AnySupabase = {
 export interface UpsertContextSnapshotInput {
   userId: string;
   localDate: string;
+  /**
+   * MRS v4 §11 — window scope for the snapshot row. REQUIRED.
+   *
+   * `daily_context_snapshot` is uniquely keyed by
+   * `(user_id, local_date, mrs_window)`. The DB column has a
+   * `DEFAULT 'morning'` for migration/back-compat only; app code MUST NOT
+   * rely on that default. Every writer must pass the active window
+   * explicitly so an afternoon/evening write can never silently clobber
+   * the morning row.
+   */
+  mrsWindow: 'morning' | 'afternoon' | 'evening';
   patternSignals: PatternSignals | null;
   strategicContext: StrategicContext | null;
   calendarDemandScore: number | null;
@@ -59,9 +70,8 @@ export interface UpsertContextSnapshotInput {
   readinessScoreRefined?: number | null;
   readinessState?: 'baseline' | 'refined' | 'awaiting' | null;
   refinedContribution?: number | null;
-  // MRS v4 §11 — additive columns. All optional for back-compat with
-  // callers still on the v3 path; the v4 cron path supplies them.
-  mrsWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  // MRS v4 §11 — additive columns. Remaining optional fields for callers
+  // that don't own these signals (the v3 path leaves them untouched).
   morningBaselineScore?: number | null;
   checkInCountToday?: number | null;
   lastCheckInWindow?: 'morning' | 'afternoon' | 'evening' | null;
@@ -78,9 +88,22 @@ export async function upsertDailyContextSnapshot(
   input: UpsertContextSnapshotInput,
 ): Promise<void> {
   try {
+    // Phase 2.5 hardening — runtime guard. The TS contract already makes
+    // `mrsWindow` non-optional, but a JS-shaped caller (or a future
+    // refactor that loosens the type) must not be allowed to fall through
+    // to the DB default of 'morning' and silently clobber the morning row
+    // during an afternoon/evening write.
+    const VALID_WINDOWS = ['morning', 'afternoon', 'evening'] as const;
+    if (!input.mrsWindow || !(VALID_WINDOWS as readonly string[]).includes(input.mrsWindow)) {
+      console.error(
+        `[daily_context_snapshot] REFUSED upsert: missing/invalid mrsWindow=${String(input.mrsWindow)} user=${input.userId} date=${input.localDate}`,
+      );
+      return;
+    }
     const row: Partial<DailyContextSnapshot> & { user_id: string; local_date: string } = {
       user_id: input.userId,
       local_date: input.localDate,
+      mrs_window: input.mrsWindow,
       pattern_signals: input.patternSignals,
       strategic_context: input.strategicContext,
       calendar_demand_score: input.calendarDemandScore,
@@ -105,7 +128,6 @@ export async function upsertDailyContextSnapshot(
     // MRS v4 §11 — only write the additive columns when the caller has
     // supplied them. Avoids clobbering existing values on rows being updated
     // by an older v3-path caller within the same cron cycle.
-    if (input.mrsWindow !== undefined) (row as any).mrs_window = input.mrsWindow;
     if (input.morningBaselineScore !== undefined) (row as any).morning_baseline_score = input.morningBaselineScore;
     if (input.checkInCountToday !== undefined) (row as any).check_in_count_today = input.checkInCountToday;
     if (input.lastCheckInWindow !== undefined) (row as any).last_check_in_window = input.lastCheckInWindow;
@@ -135,6 +157,13 @@ export interface ComposeDailyContextOptions {
   timezone?: string;
   /** When true, skip the upsert and just return the composed snapshot. */
   dryRun?: boolean;
+  /**
+   * Required when `dryRun !== true`. The active window for the write.
+   * When omitted on a non-dry-run call, the orchestrator refuses to
+   * upsert (logs an error and returns the composed result anyway) — it
+   * will NOT silently fall through to the DB's 'morning' default.
+   */
+  mrsWindow?: 'morning' | 'afternoon' | 'evening';
 }
 
 export interface ComposeDailyContextResult {
@@ -194,24 +223,34 @@ export async function composeDailyContext(
   const patternSignals = buildPatternSignals(raw, todayEvents);
 
   if (!opts.dryRun) {
-    await upsertDailyContextSnapshot(db, {
-      userId,
-      localDate,
-      patternSignals,
-      strategicContext,
-      calendarDemandScore: demand.demandScore,
-      demandLoad: demand.load,
-      demandPressure: demand.pressure,
-      hasHighStakes: demand.hasHighStakes,
-      // Score-side fields are owned by compute-outer-readiness — leave null
-      // so we don't accidentally overwrite a fresher value from that path.
-      innerScore: null,
-      innerTier: null,
-      pillarMode: null,
-      weightingMode: null,
-      supplyDemandGapFlag: null,
-      signalPills: null,
-    });
+    if (!opts.mrsWindow) {
+      // Phase 2.5 — never write without an explicit window. The compute
+      // pipeline owns the real (non-dry) writes today; future callers
+      // must opt in to a window explicitly.
+      console.error(
+        `[composeDailyContext] REFUSED upsert: dryRun=false but no mrsWindow supplied user=${userId} date=${localDate}`,
+      );
+    } else {
+      await upsertDailyContextSnapshot(db, {
+        userId,
+        localDate,
+        mrsWindow: opts.mrsWindow,
+        patternSignals,
+        strategicContext,
+        calendarDemandScore: demand.demandScore,
+        demandLoad: demand.load,
+        demandPressure: demand.pressure,
+        hasHighStakes: demand.hasHighStakes,
+        // Score-side fields are owned by compute-outer-readiness — leave null
+        // so we don't accidentally overwrite a fresher value from that path.
+        innerScore: null,
+        innerTier: null,
+        pillarMode: null,
+        weightingMode: null,
+        supplyDemandGapFlag: null,
+        signalPills: null,
+      });
+    }
   }
 
   return {
