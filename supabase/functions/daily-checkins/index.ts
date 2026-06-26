@@ -270,12 +270,13 @@ serve(async (req) => {
           const snapshotPayload: Record<string, unknown> = {
             user_id: userId,
             local_date: cd.checkin_date,
+            mrs_window: timeWindow,
             check_in_count_today: count ?? 1,
             last_check_in_window: timeWindow,
           };
           const { error: snapErr } = await supabase
             .from('daily_context_snapshot')
-            .upsert(snapshotPayload, { onConflict: 'user_id,local_date' });
+            .upsert(snapshotPayload, { onConflict: 'user_id,local_date,mrs_window' });
           if (snapErr) {
             console.warn('[daily-checkins] MRS v4 snapshot count update failed:', snapErr.message ?? snapErr);
           }
