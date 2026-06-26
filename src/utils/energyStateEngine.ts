@@ -331,69 +331,6 @@ function getLocalDayBounds(now: Date = new Date()): { startISO: string; endISO: 
   return { startISO: start.toISOString(), endISO: end.toISOString() };
 }
 
-async function restSelect<T>(
-  table: string,
-  params: Array<[string, string]>,
-  token: string,
-): Promise<T[]> {
-  const urlBase = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-  if (!urlBase || !anonKey) return [];
-
-  const url = new URL(`/rest/v1/${table}`, urlBase);
-  params.forEach(([key, value]) => url.searchParams.append(key, value));
-
-  const response = await fetch(url.toString(), {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`REST ${table} ${response.status}: ${text.slice(0, 200)}`);
-  }
-
-  const json = await response.json();
-  return Array.isArray(json) ? (json as T[]) : [];
-}
-
-async function fetchAuthedCalendarEvents(args: {
-  userId: string;
-  token: string;
-  startISO: string;
-  endISO: string;
-}): Promise<any[]> {
-  return restSelect<any>('calendar_events', [
-    ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
-    ['user_id', `eq.${args.userId}`],
-    ['start_time', `gte.${args.startISO}`],
-    ['start_time', `lte.${args.endISO}`],
-    ['order', 'start_time.asc'],
-  ], args.token);
-}
-
-async function fetchAuthedSnapshot(args: {
-  userId: string;
-  localDate: string;
-  token: string;
-  mrsWindow?: string;
-  latest?: boolean;
-}): Promise<any | null> {
-  const params: Array<[string, string]> = [
-    ['select', 'calendar_demand_score,pattern_signals,morning_baseline_score,mrs_window,updated_at'],
-    ['user_id', `eq.${args.userId}`],
-    ['local_date', `eq.${args.localDate}`],
-    ['limit', '1'],
-  ];
-  if (args.mrsWindow) params.push(['mrs_window', `eq.${args.mrsWindow}`]);
-  if (args.latest) params.push(['order', 'updated_at.desc']);
-  const rows = await restSelect<any>('daily_context_snapshot', params, args.token);
-  return rows[0] ?? null;
-}
-
 function coerceFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value === 'string' && value.trim() !== '') {
@@ -663,18 +600,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
       if (conn) {
         calendarConnected = true;
-      } else if (authTokenForRequests) {
-        try {
-          const authedConnections = await restSelect<any>('calendar_connections', [
-            ['select', 'is_active'],
-            ['user_id', `eq.${effectiveUserId}`],
-            ['is_active', 'eq.true'],
-            ['limit', '1'],
-          ], authTokenForRequests);
-          if (authedConnections.length > 0) calendarConnected = true;
-        } catch (connRestErr) {
-          console.warn('[energyStateEngine] Authenticated calendar_connections REST fallback failed:', connRestErr);
-        }
       }
       // Always probe calendar_events directly — Apple Calendar (native) users
       // do not always have a `calendar_connections` row, but the server still
@@ -690,31 +615,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         .lte('start_time', endISO)
         .order('start_time', { ascending: true });
       calendarData = events || [];
-      if (calendarData.length === 0 && authTokenForRequests) {
-        try {
-          calendarData = await fetchAuthedCalendarEvents({
-            userId: effectiveUserId,
-            token: authTokenForRequests,
-            startISO,
-            endISO,
-          });
-        } catch (restErr) {
-          console.warn('[energyStateEngine] Authenticated calendar_events REST fallback failed:', restErr);
-        }
-      }
-      if (calendarData.length === 0 && authTokenForRequests) {
-        try {
-          calendarData = await restSelect<any>('primary_calendar_events', [
-            ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
-            ['user_id', `eq.${effectiveUserId}`],
-            ['start_time', `gte.${startISO}`],
-            ['start_time', `lte.${endISO}`],
-            ['order', 'start_time.asc'],
-          ], authTokenForRequests);
-        } catch (primaryErr) {
-          console.warn('[energyStateEngine] Authenticated primary_calendar_events REST fallback failed:', primaryErr);
-        }
-      }
       if (!conn && calendarData.length > 0) {
         // Treat presence of events as a Stage 1 calendar signal so the
         // demand-score fallback below activates.
@@ -769,26 +669,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
               currentWindow + ', using window=' + ((legacy as any)?.mrs_window ?? 'null'),
           );
           snap = legacy;
-        }
-      }
-      if (!snap && authTokenForRequests) {
-        try {
-          snap = await fetchAuthedSnapshot({
-            userId: effectiveUserId,
-            localDate: todayLocal,
-            mrsWindow: currentWindow,
-            token: authTokenForRequests,
-          });
-          if (!snap) {
-            snap = await fetchAuthedSnapshot({
-              userId: effectiveUserId,
-              localDate: todayLocal,
-              token: authTokenForRequests,
-              latest: true,
-            });
-          }
-        } catch (restSnapErr) {
-          console.warn('[energyStateEngine] Authenticated daily_context_snapshot REST fallback failed:', restSnapErr);
         }
       }
       // If current-window row is missing morning_baseline_score, hydrate it
