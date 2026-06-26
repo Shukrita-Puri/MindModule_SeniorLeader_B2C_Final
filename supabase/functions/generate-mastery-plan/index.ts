@@ -7123,16 +7123,16 @@ if (import.meta.main) Deno.serve(async (req) => {
       name: error?.name,
       userId: userId ?? 'unknown',
     });
-    // Phase 3 — best-effort error snapshot. Only fires when we have enough
-    // context (userId + a service client). Never throws.
+    // Phase 3 — best-effort error snapshot. Date/window derived in UTC
+    // since client-provided values aren't in scope here; the snapshot is
+    // just a marker so monitoring sees the failure. Never throws.
     try {
       const _url = Deno.env.get('SUPABASE_URL');
       const _key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
       if (userId && _url && _key) {
         const _sb = createClient(_url, _key);
-        const _tzOff = clientTimezoneOffset ?? 0;
-        const _planDate = clientLocalDate || getLocalDateISO(_tzOff);
-        const _period = getTimeOfDay(_tzOff);
+        const _planDate = new Date().toISOString().slice(0, 10);
+        const _period = getTimeOfDay(0);
         await _sb.from('mastery_plan_snapshots').upsert({
           user_id: userId,
           plan_date: _planDate,
