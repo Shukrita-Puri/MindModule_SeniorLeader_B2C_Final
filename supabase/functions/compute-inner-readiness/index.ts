@@ -903,8 +903,9 @@ serve(async (req) => {
     ];
     const rawDemandScore = body.demandScore;
     const numericDemandScore = coerceFiniteNumber(rawDemandScore);
-    const effectiveDemandScore =
-      numericDemandScore ?? (body.hasCalendarSignal === true ? 50 : null);
+    // MRS score-bearing signals only: a connected calendar without a
+    // numeric demand score must NOT manufacture a neutral 50 baseline.
+    const effectiveDemandScore = numericDemandScore;
     const calendarDemandScore =
       typeof effectiveDemandScore === 'number' && Number.isFinite(effectiveDemandScore)
         ? Math.max(0, Math.min(100, Math.round(100 - effectiveDemandScore)))
