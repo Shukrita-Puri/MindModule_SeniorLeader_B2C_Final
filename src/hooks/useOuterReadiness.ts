@@ -201,6 +201,13 @@ export interface OuterReadinessData {
   awaitingSignals?: boolean;
   awaitingReason?: 'no-checkin-no-wearable' | null;
   /**
+   * Phase 1 — structured engine status propagated from `computeEnergyState`.
+   * Distinguishes a true cold-start awaiting state from a transient
+   * compute/auth failure so the UI can render a retry block rather than
+   * the "Awaiting signals" copy.
+   */
+  engineStatus?: 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error';
+  /**
    * MRS v3 baseline-of-truth — canonical client-facing signal source contract.
    *   • 'cold-start' — no baseline AND no check-in → render skeleton
    *   • 'baseline'   — wearable/calendar/patterns present, no check-in
@@ -269,6 +276,35 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
   // the executive home brief does not make a second daily-checkins request.
   const energyState = await computeEnergyState(userId);
 
+  // Phase 1 — if the inner engine returned a hard failure (auth/inner/unknown),
+  // do NOT call compute-outer-readiness. That EF would return `awaitingSignals`
+  // for what is actually an infrastructure blip, blanking all three home cards.
+  // Return a structured error stub so the UI can render a retry block.
+  const innerStatus = energyState.engineStatus;
+  if (
+    innerStatus === 'auth-failure' ||
+    innerStatus === 'inner-failure' ||
+    innerStatus === 'unknown-error'
+  ) {
+    console.warn(
+      '[useOuterReadiness] Inner engine failed — short-circuiting with engineStatus =',
+      innerStatus,
+    );
+    return {
+      phrase: '',
+      context: '',
+      leanOn: '',
+      watchFor: '',
+      driver: '',
+      dataSources: [],
+      engineStatus: innerStatus,
+      awaitingSignals: false,
+      briefMode: undefined,
+      innerReadinessScore: null,
+      innerReadinessTier: null,
+    } as OuterReadinessData;
+  }
+
   // Build auth headers – in DEV_MODE, skip Auth0 token and pass userId in body
   const headers: Record<string, string> = {};
   if (!DEV_MODE) {
@@ -326,15 +362,34 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
 
   if (res.error) {
     console.error('[useOuterReadiness] Edge function error:', res.error);
-    return null;
+    // Phase 1 — surface as 'outer-failure' so MRS/Brief/Plan render the
+    // retry block instead of treating the blip as true awaiting signals.
+    return {
+      phrase: '',
+      context: '',
+      leanOn: '',
+      watchFor: '',
+      driver: '',
+      dataSources: [],
+      engineStatus: 'outer-failure',
+      awaitingSignals: false,
+      briefMode: undefined,
+      innerReadinessScore: null,
+      innerReadinessTier: null,
+    } as OuterReadinessData;
   }
 
   const data = res.data as OuterReadinessData;
+  // Phase 1 — stamp the engine status onto the server response so consumers
+  // have one canonical field to read. Server has no opinion on this; the
+  // client owns the inner/auth/outer infrastructure-failure taxonomy.
+  data.engineStatus = innerStatus ?? 'ready';
   console.log('[useOuterReadiness] Brief received:', {
     phrase: data.phrase,
     driver: data.driver,
     calendarState: data.calendarState,
     dataSources: data.dataSources,
+    engineStatus: data.engineStatus,
   });
 
   return data;

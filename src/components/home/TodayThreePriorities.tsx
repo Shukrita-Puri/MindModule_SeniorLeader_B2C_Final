@@ -656,7 +656,18 @@ const TodayThreePriorities = ({
         ? briefMode === 'cold-start'
         : outerReadinessData?.awaitingSignals === true;
       const wearableFresh = !!outerReadinessData?.wearableStatus?.hasTodayData;
-      if (briefAwaiting && !todayCheckin && !wearableFresh) {
+      // Phase 1 — engine failure must not look like awaiting. Only suppress
+      // Plan when there is truly no usable context AND the brief is a real
+      // cold-start. If the inner/outer engine errored, we still attempt
+      // generation off whatever calendar/checkin/wearable context exists.
+      const engineStatus = (outerReadinessData as any)?.engineStatus as
+        | 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
+      const isEngineFailure =
+        engineStatus === 'auth-failure' ||
+        engineStatus === 'inner-failure' ||
+        engineStatus === 'outer-failure' ||
+        engineStatus === 'unknown-error';
+      if (briefAwaiting && !todayCheckin && !wearableFresh && !isEngineFailure) {
         setAwaitingSignals(true);
         setPlan(null);
         setLoading(false);
