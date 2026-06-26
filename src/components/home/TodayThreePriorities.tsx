@@ -236,7 +236,13 @@ const TodayThreePriorities = ({
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
   // Does NOT drive rendering or generation. Dev-mode console only.
+  // Phase 3.7 — snapshot-read-first. When a ready current-window snapshot
+  // exists in `mastery_plan_snapshots`, hydrate the Plan card directly
+  // from it and skip live `generate-mastery-plan` on mount. Manual
+  // force-refresh and missing/error snapshots still fall through to the
+  // existing live generation path.
   const { data: masteryPlanSnapshot } = useMasteryPlanSnapshot();
+  const hydratedFromSnapshotRef = useRef<boolean>(false);
   useEffect(() => {
     if (!(typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV === true)) return;
     if (masteryPlanSnapshot === undefined) return;
