@@ -5726,11 +5726,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const timeWindow = getTimeOfDay(hour);
           let existingMorningBaselineScore: number | null = null;
           try {
+            // Phase 2 — anchor lives on the morning-window row.
             const { data: existingSnapshot } = await db
               .from('daily_context_snapshot')
               .select('morning_baseline_score')
               .eq('user_id', userId)
               .eq('local_date', userLocalDate)
+              .eq('mrs_window', 'morning')
               .maybeSingle();
             existingMorningBaselineScore = (existingSnapshot as any)?.morning_baseline_score ?? null;
           } catch (_snapReadErr) {
