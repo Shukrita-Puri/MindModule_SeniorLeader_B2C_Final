@@ -1872,7 +1872,19 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // case (no wearable AND no calendar). Check-in is the State 2 refiner, not
   // a precondition. Fallback copy no longer prompts a check-in.
   const awaitingSignals = awaitingSignalsRaw;
-  const showNeutralAwaitingCopy = awaitingSignals || readinessState === 'awaiting' || score == null;
+  // Phase 1 — distinguish transient compute/auth failures from true awaiting.
+  // engineStatus is stamped by useOuterReadiness from computeEnergyState.
+  const engineStatus = (outerBrief as any)?.engineStatus as
+    | 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
+  const isEngineFailure =
+    engineStatus === 'auth-failure' ||
+    engineStatus === 'inner-failure' ||
+    engineStatus === 'outer-failure' ||
+    engineStatus === 'unknown-error';
+  // Show the awaiting copy ONLY for a real cold-start. Engine failures get
+  // their own retry block below.
+  const showNeutralAwaitingCopy =
+    !isEngineFailure && (awaitingSignals || readinessState === 'awaiting' || score == null);
   const phrase = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.phrase || "Today's read.");
