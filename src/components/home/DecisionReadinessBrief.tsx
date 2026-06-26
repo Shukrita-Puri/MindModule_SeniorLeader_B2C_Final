@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
+import { useCurrentBriefSnapshot } from '@/hooks/useCurrentBriefSnapshot';
 import { useAuth } from '@/hooks/useAuth';
 import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_BRIEF } from '@/components/onboarding/tourMockData';
@@ -1755,6 +1756,17 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     isFetching: outerBriefFetching,
   } = useOuterReadiness();
 
+  // ── Brief snapshot-read-first (Phase 3.8) ──
+  // Prefer the persisted current-window `brief_snapshots` row over the
+  // live compute-outer-readiness payload for brief-specific fields. The
+  // live `useOuterReadiness` call still runs (MRS depends on it), but the
+  // Brief card renders from the snapshot the moment it arrives, with no
+  // wait on the live round-trip. If no current-window snapshot exists, or
+  // it is an awaiting row with no copy, we fall through to the live
+  // payload unchanged.
+  const { data: currentBriefSnapshot } = useCurrentBriefSnapshot();
+  const snapshotIsRenderable = !!currentBriefSnapshot?.isRenderable;
+
   // App-Tour mock injection — strict triple-AND gate (mock active + genuine
   // first-time user + no real brief yet). Substitutes a best-in-class demo
   // payload so the tour spotlights a realistic, fully populated card
@@ -1766,8 +1778,62 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     (outerBriefReal as any)?.briefMode === 'cold-start' ||
     (outerBriefReal as any)?.awaitingSignals === true ||
     !outerBriefReal.phrase;
+  // Snapshot overlay: when a renderable current-window snapshot exists,
+  // override the brief-visible fields on the live payload with snapshot
+  // values. We spread the live payload first so wearable / calendar /
+  // engineStatus fields keep flowing from `useOuterReadiness` (MRS still
+  // depends on them); the snapshot only owns the brief copy + per-brief
+  // identity + pills surface.
+  const briefFromSnapshot: any | null = snapshotIsRenderable
+    ? (() => {
+        const snap = currentBriefSnapshot!;
+        const base = (outerBriefReal as any) ?? {};
+        return {
+          ...base,
+          phrase: snap.phrase,
+          bodyText: snap.bodyText,
+          leanOn: snap.leanOn ?? base.leanOn,
+          leanOnSource: snap.leanOnSource ?? base.leanOnSource,
+          watchFor: snap.watchFor ?? base.watchFor,
+          watchForSource: snap.watchForSource ?? base.watchForSource,
+          briefId: snap.briefId,
+          briefSource: snap.briefSource ?? base.briefSource,
+          driver: snap.driver ?? base.driver,
+          innerReadinessScore:
+            snap.innerReadinessScore ?? base.innerReadinessScore ?? null,
+          innerReadinessTier:
+            snap.innerReadinessTier ?? base.innerReadinessTier ?? null,
+          innerReadinessTierDisplayed:
+            snap.innerReadinessTierDisplayed ??
+            base.innerReadinessTierDisplayed ??
+            null,
+          innerReadinessScoreBaseline:
+            snap.innerReadinessScoreBaseline ??
+            base.innerReadinessScoreBaseline ??
+            null,
+          innerReadinessScoreRefined:
+            snap.innerReadinessScoreRefined ??
+            base.innerReadinessScoreRefined ??
+            null,
+          innerReadinessState:
+            snap.innerReadinessState ?? base.innerReadinessState ?? null,
+          signalPills: snap.signalPills ?? base.signalPills ?? null,
+          checkInOutcome: snap.checkInOutcome ?? base.checkInOutcome ?? null,
+          sourceProvenance: snap.sourceProvenance ?? base.sourceProvenance ?? null,
+          behaviourSnapshot: snap.behaviourSnapshot ?? base.behaviourSnapshot ?? null,
+          // The snapshot exists for the current window with copy — by
+          // contract this is never an awaiting state.
+          awaitingSignals: false,
+          briefMode:
+            snap.innerReadinessState === 'refined' ? 'refined' : 'baseline',
+          hasCurrentPeriodSignal: true,
+        };
+      })()
+    : null;
   const outerBrief =
-    tourMockBriefActive && realBriefEmpty ? MOCK_BRIEF : outerBriefReal;
+    tourMockBriefActive && realBriefEmpty
+      ? MOCK_BRIEF
+      : (briefFromSnapshot ?? outerBriefReal);
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
@@ -1936,6 +2002,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const showLoader =
     !tourMockBriefActive &&
     !noLocalSignalAtMount &&
+    !snapshotIsRenderable &&
     (outerBriefLoading || outerBriefFetching);
 
   const briefId = (outerBrief as any)?.briefId ?? null;
