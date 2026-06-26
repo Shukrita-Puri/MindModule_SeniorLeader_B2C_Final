@@ -721,6 +721,13 @@ interface ComputeRequest {
    * preserves the distinction for downstream UI/QA (stale ≠ never connected).
    */
   wearableStatus?: 'fresh' | 'stale' | 'missing';
+  /**
+   * Explicit Stage 1 calendar signal from the caller. This may be true even
+   * when the client could not derive concrete events/demand locally, e.g.
+   * native calendar users whose usable calendar context is resolved in the
+   * outer-readiness service.
+   */
+  hasCalendarSignal?: boolean;
 
   // ─── MRS v4 — required window-aware baseline path ────────────────────
   // `weightingMode` is retained only as a label for audit/back-compat. It no
@@ -881,10 +888,12 @@ serve(async (req) => {
     // `awaitingSignals=true` even when `body.demandScore` was a valid number.
     //
     // The controlled fix: when the caller forwards a numeric `demandScore`
-    // (the Stage 1 calendar baseline context), backfill any demand-pillar
-    // sub-component that is still unavailable. We deliberately do NOT
-    // synthesize HRV/sleep/RHR — those remain wearable-gated, so cold-start
-    // (no wearable + no calendar) still resolves to awaiting.
+    // OR explicitly says a Stage 1 calendar signal exists, backfill any
+    // demand-pillar sub-component that is still unavailable. In the explicit
+    // calendar-signal/no-demand case, use a neutral demand baseline (50).
+    // We deliberately do NOT synthesize HRV/sleep/RHR — those remain
+    // wearable-gated, so true cold-start (no wearable + no calendar) still
+    // resolves to awaiting.
     const DEMAND_SUBCOMPONENTS: SubComponentId[] = [
       'todayFullDayDemand',
       'remainingDayDemand',
@@ -894,9 +903,11 @@ serve(async (req) => {
     ];
     const rawDemandScore = body.demandScore;
     const numericDemandScore = coerceFiniteNumber(rawDemandScore);
+    const effectiveDemandScore =
+      numericDemandScore ?? (body.hasCalendarSignal === true ? 50 : null);
     const calendarDemandScore =
-      typeof numericDemandScore === 'number' && Number.isFinite(numericDemandScore)
-        ? Math.max(0, Math.min(100, Math.round(100 - numericDemandScore)))
+      typeof effectiveDemandScore === 'number' && Number.isFinite(effectiveDemandScore)
+        ? Math.max(0, Math.min(100, Math.round(100 - effectiveDemandScore)))
         : null;
     const subsForCompose: SubScore[] = (body.mrsSubScores as SubScore[]).map((s) => {
       if (
@@ -911,6 +922,8 @@ serve(async (req) => {
     console.log('[compute-inner-readiness][mrs-v4-input]', JSON.stringify({
       mrsWindow: body.mrsWindow,
       demandScore: body.demandScore,
+      hasCalendarSignal: body.hasCalendarSignal === true,
+      effectiveDemandScore,
       calendarDemandScore,
       incomingSubScores: body.mrsSubScores,
       subsForCompose,
@@ -975,15 +988,15 @@ serve(async (req) => {
       hasImminentHighStakes: body.hasImminentHighStakes === true,
     });
 
-    // MRS V4 §gating — refined ("Full Read") requires fresh wearable AND
-    // a check-in. If wearable is missing or stale, force the readiness
-    // state back to 'baseline' (Early Read) regardless of how many Mind
-    // dims the check-in supplied. The numeric `displayedScore` may still
-    // show the baseline reading (wearable + calendar only), but it must
-    // not be presented as the full refined value.
+    // MRS V4 §gating — refined ("Full Read") requires a Stage 1 signal
+    // (fresh wearable OR usable calendar) plus a check-in. If neither
+    // wearable nor calendar is available, force back to baseline so a
+    // check-in alone never manufactures a full read.
     const wearableStatusForGate: 'fresh' | 'stale' | 'missing' =
       body.wearableStatus ?? (hasWearable ? 'fresh' : 'missing');
-    if (refined.readinessState === 'refined' && wearableStatusForGate !== 'fresh') {
+    const stageOneForRefined =
+      wearableStatusForGate === 'fresh' || body.hasCalendarSignal === true;
+    if (refined.readinessState === 'refined' && !stageOneForRefined) {
       refined.readinessState = 'baseline';
       refined.scoreRefined = null;
       refined.refinedContribution = 0;
@@ -1043,6 +1056,7 @@ serve(async (req) => {
     const dataSources: string[] = [];
     if (hasCheckIn) dataSources.push('check-in');
     if (hasWearable) dataSources.push('wearable');
+    if (body.hasCalendarSignal === true) dataSources.push('calendar');
     dataSources.push('circadian');
     // Tri-state wearable echo. Default to derived value when caller omits it
     // so older callers keep behaving identically.

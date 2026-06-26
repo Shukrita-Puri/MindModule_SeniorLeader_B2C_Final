@@ -778,6 +778,8 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const demandScoreForV4 =
       snapshotDemandScore ??
       (fullDayDemandScore != null ? fullDayDemandScore : (calendarConnected ? 0 : null));
+    const hasCalendarSignal =
+      hasCalendar || calendarConnected || snapshotDemandScore != null;
     const mrsSubScores = buildClientMrsV4SubScores({
       window: mrsWindow,
       hrvDeviationPct,
@@ -790,6 +792,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const demandScoreForInner = demandScoreForV4 ?? snapshotDemandScore;
     console.log('[energyStateEngine][compute-inner-readiness-request]', JSON.stringify({
       demandScore: demandScoreForInner,
+      hasCalendarSignal,
       mrsWindow,
       mrsSubScores,
     }));
@@ -835,6 +838,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         // Stage 1 calendar signal is usable but `calendar_connections` is missing
         // (e.g. Apple Calendar users). Stage 1 backfill is gated on this value.
         demandScore: demandScoreForInner,
+        hasCalendarSignal,
         patternSignals: snapshotPatternSignals,
         // MRS v4 — required baseline inputs. `weightingMode` is now label-only;
         // all score math flows through these sub-components and redistribution.
