@@ -5785,6 +5785,27 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               ? { weightProvenance: clientWeightProvenance }
               : {}),
           });
+          // Phase 2 — morning anchor lives on the MORNING-window row. When
+          // we're backfilling from an afternoon run, write the anchor into
+          // the morning row in a separate idempotent upsert so downstream
+          // readers (which now key by mrs_window='morning') find it.
+          if (shouldBackfillMorningAnchor && timeWindow !== 'morning') {
+            try {
+              await db
+                .from('daily_context_snapshot')
+                .upsert(
+                  {
+                    user_id: userId,
+                    local_date: userLocalDate,
+                    mrs_window: 'morning',
+                    morning_baseline_score: currentBaselineForAnchor,
+                  },
+                  { onConflict: 'user_id,local_date,mrs_window' },
+                );
+            } catch (anchorErr) {
+              console.warn('[daily_context_snapshot] morning-anchor backfill failed:', anchorErr instanceof Error ? anchorErr.message : anchorErr);
+            }
+          }
         } catch (snapErr) {
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
         }
