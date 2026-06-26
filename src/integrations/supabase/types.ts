@@ -1557,7 +1557,7 @@ export type Database = {
           last_check_in_window: string | null
           local_date: string
           morning_baseline_score: number | null
-          mrs_window: string | null
+          mrs_window: string
           pattern_signals: Json | null
           pillar_mode: string | null
           readiness_score_baseline: number | null
@@ -1587,7 +1587,7 @@ export type Database = {
           last_check_in_window?: string | null
           local_date: string
           morning_baseline_score?: number | null
-          mrs_window?: string | null
+          mrs_window?: string
           pattern_signals?: Json | null
           pillar_mode?: string | null
           readiness_score_baseline?: number | null
@@ -1617,7 +1617,7 @@ export type Database = {
           last_check_in_window?: string | null
           local_date?: string
           morning_baseline_score?: number | null
-          mrs_window?: string | null
+          mrs_window?: string
           pattern_signals?: Json | null
           pillar_mode?: string | null
           readiness_score_baseline?: number | null
