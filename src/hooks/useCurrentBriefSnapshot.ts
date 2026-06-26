@@ -170,6 +170,16 @@ export function useCurrentBriefSnapshot() {
       // a real cold-start.
       const isRenderable = !isAwaitingRow && !!phrase;
 
+      // TODO(brief-snapshot-read-first): `wearableStatus` (freshness +
+      // source tier) and the full unified source provenance are NOT yet
+      // reconstructable from `brief_snapshots` alone. As a result the
+      // Brief card still depends on the live `useOuterReadiness` payload
+      // for `wearableStatus`, and snapshot-read-first for the Brief is
+      // INCOMPLETE until `wearable_snapshot` (and/or
+      // `daily_context_snapshot.window=*`) is rich enough to derive the
+      // unified wearable contract here. When that lands, drop the
+      // overlay-on-live merge in `DecisionReadinessBrief.tsx` and let
+      // this hook be the sole source for the Brief card.
       const snapshot: CurrentBriefSnapshot = {
         briefId: row.id as string,
         localDate: row.local_date as string,
