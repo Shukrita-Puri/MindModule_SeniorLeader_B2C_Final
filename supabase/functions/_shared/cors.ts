@@ -10,6 +10,7 @@ export const allowedOrigins = [
   // Capacitor iOS webview origins
   "capacitor://localhost",
   "ionic://localhost",
+  "https://preview--mindmoduleme.lovable.app",
 ];
 
 const ALLOWED_HEADERS = [
@@ -34,6 +35,6 @@ export function getCorsHeaders(req: Request): Record<string, string> {
     "Access-Control-Allow-Headers": ALLOWED_HEADERS,
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Access-Control-Max-Age": "86400",
-    "Vary": "Origin",
+    Vary: "Origin",
   };
 }
