@@ -104,6 +104,20 @@ async function persistCompositeScore(checkinDate: string, score: number, timeWin
 
 export interface CurrentEnergyState {
   overallBalance: number | null;
+  /**
+   * Phase 1 status contract — lets downstream surfaces distinguish a true
+   * "no signal" cold start from a transient infrastructure failure.
+   *   • 'ready'         — backend returned a usable score (or a valid
+   *                       awaiting-of-its-own-volition response with signals)
+   *   • 'awaiting'      — true cold start: no wearable, no calendar, no check-in
+   *   • 'auth-failure'  — Auth0 token unavailable (non-DEV)
+   *   • 'inner-failure' — compute-inner-readiness edge function errored
+   *   • 'stale'         — DB reads degraded; serving cached/snapshot data
+   *   • 'unknown-error' — any other failure path
+   *
+   * Optional so older readers continue to work without a recompile gate.
+   */
+  engineStatus?: 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'stale' | 'unknown-error';
   state: string;
   contextTags: string[];
   energyTags: string[];
@@ -343,6 +357,9 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergyState> {
   // 1. Read wearable data – try DB first, fall back to local storage
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
+  // Phase 1 — track DB-read degradation so we can mark the final status as
+  // 'stale' instead of 'ready' when the snapshot/wearable/checkin reads fail.
+  let dbReadDegraded = false;
   let wearableHRV: number | null = null;
   let wearableBaseline: number | null = null;
   let wearableReadiness: number = 0;
@@ -448,6 +465,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       hrvPatternContext = patterns;
     } catch (err) {
       console.warn('[energyStateEngine] DB wearable fetch failed:', err);
+      dbReadDegraded = true;
     }
   }
 
@@ -502,6 +520,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       }
     } catch (err) {
       console.warn('[energyStateEngine] Calendar fetch failed, using empty:', err);
+      dbReadDegraded = true;
     }
   }
 
@@ -536,6 +555,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       }
     } catch (err) {
       console.warn('[energyStateEngine] daily_context_snapshot fetch failed:', err);
+      dbReadDegraded = true;
     }
   }
 
@@ -578,6 +598,17 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       const token = await getAuth0Token();
       if (token) {
         authHeaders = { Authorization: `Bearer ${token}` };
+      } else {
+        // Phase 1 — Auth0 token unavailable. Do NOT call the edge function
+        // (it would 401 and look identical to a real awaiting state).
+        // Return a structured 'auth-failure' so the UI can show retry copy
+        // instead of the cold-start prompt.
+        console.warn('[energyStateEngine] Auth0 token unavailable — returning auth-failure status');
+        return buildErrorFallback({
+          status: 'auth-failure',
+          hasCalendar,
+          calendarData,
+        });
       }
     }
 
@@ -707,6 +738,13 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
     return {
       overallBalance: result.score ?? null,
+      engineStatus: deriveReadyOrAwaiting({
+        score: result.score ?? null,
+        hasWearable,
+        hasCalendar,
+        hasCheckIn,
+        dbReadDegraded,
+      }),
       state: result.tier,
       contextTags: [],
       energyTags: [],
@@ -755,36 +793,78 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);
-    // Fallback: return a minimal state so UI doesn't break
-    const timeOfDay = new Date().getHours() >= 6 && new Date().getHours() < 12 ? 'morning' as const
-      : new Date().getHours() >= 12 && new Date().getHours() < 18 ? 'afternoon' as const
-      : 'evening' as const;
-
-    const fallbackCalendar = hasCalendar ? getCalendarMetrics(calendarData) : null;
-    const calendarLoad = fallbackCalendar?.load ?? null;
-    const calendarPressure = fallbackCalendar?.pressure ?? null;
-    const calendarDensity = fallbackCalendar?.density ?? 0;
-
-    return {
-      overallBalance: null,
-      state: 'managing',
-      contextTags: [],
-      energyTags: [],
-      stateTags: [],
-      recommendationPriority: 'managing',
-      dataSources: ['circadian'],
-      confidence: 'low',
-      calendarDensity,
-      calendarLoad,
-      calendarPressure,
-      energyTier: 'managing',
-      timeOfDay,
-      recommendation: { primary: 'pause' as MasteryType, contextStatement: 'Unable to compute readiness score. Check-in to get your personalized reading.' },
-      checkInOutcome: undefined,
-      divergenceFlag: 'ALIGNED',
-      wearableStatus: 'missing',
-    };
+    // Phase 1 — surface the failure as 'inner-failure' so the UI shows a
+    // retry/error block instead of the awaiting cold-start copy.
+    return buildErrorFallback({
+      status: 'inner-failure',
+      hasCalendar,
+      calendarData,
+    });
   }
+}
+
+/**
+ * Phase 1 — shared fallback builder. Returns a minimal `CurrentEnergyState`
+ * tagged with the supplied engine status so MRS / Brief / Plan can render
+ * an error state distinct from true awaiting signals.
+ */
+function buildErrorFallback(args: {
+  status: 'auth-failure' | 'inner-failure' | 'unknown-error';
+  hasCalendar: boolean;
+  calendarData: any[];
+}): CurrentEnergyState {
+  const hour = new Date().getHours();
+  const timeOfDay =
+    hour >= 6 && hour < 12 ? 'morning' as const
+    : hour >= 12 && hour < 18 ? 'afternoon' as const
+    : 'evening' as const;
+
+  const fallbackCalendar = args.hasCalendar ? getCalendarMetrics(args.calendarData) : null;
+  return {
+    overallBalance: null,
+    engineStatus: args.status,
+    state: 'managing',
+    contextTags: [],
+    energyTags: [],
+    stateTags: [],
+    recommendationPriority: 'managing',
+    dataSources: ['circadian'],
+    confidence: 'low',
+    calendarDensity: fallbackCalendar?.density ?? 0,
+    calendarLoad: fallbackCalendar?.load ?? null,
+    calendarPressure: fallbackCalendar?.pressure ?? null,
+    energyTier: 'managing',
+    timeOfDay,
+    recommendation: {
+      primary: 'pause' as MasteryType,
+      contextStatement:
+        args.status === 'auth-failure'
+          ? 'Reconnecting your session — retry in a moment.'
+          : 'Unable to compute readiness right now — retry to refresh.',
+    },
+    checkInOutcome: undefined,
+    divergenceFlag: 'ALIGNED',
+    wearableStatus: 'missing',
+  };
+}
+
+/**
+ * Phase 1 — distinguish a real cold start (no wearable / calendar / check-in)
+ * from a healthy compute that simply produced a null score. Only the former
+ * is 'awaiting'; everything else is 'ready' (with possible 'stale' tag when
+ * the supporting DB reads degraded).
+ */
+function deriveReadyOrAwaiting(args: {
+  score: number | null;
+  hasWearable: boolean;
+  hasCalendar: boolean;
+  hasCheckIn: boolean;
+  dbReadDegraded: boolean;
+}): CurrentEnergyState['engineStatus'] {
+  const noSignals = !args.hasWearable && !args.hasCalendar && !args.hasCheckIn;
+  if (args.score == null && noSignals) return 'awaiting';
+  if (args.dbReadDegraded) return 'stale';
+  return 'ready';
 }
 
 export function getEnergyStateInsight(energyState: CurrentEnergyState): string {
