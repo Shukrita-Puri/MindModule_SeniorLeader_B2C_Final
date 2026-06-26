@@ -23,6 +23,7 @@ import {
   localISODate,
   currentPeriod as currentPeriodLocal,
 } from '@/utils/persistentBriefCache';
+import { BRIEF_PROMPT_VERSION } from '@/constants/briefPromptVersion';
 
 export type BriefWindow = 'morning' | 'afternoon' | 'evening';
 
@@ -111,7 +112,13 @@ export function useCurrentBriefSnapshot() {
   const timeWindow = currentPeriodLocal() as BriefWindow;
 
   return useQuery<CurrentBriefSnapshot | null>({
-    queryKey: ['current-brief-snapshot', effectiveUserId, localDate, timeWindow],
+    queryKey: [
+      'current-brief-snapshot',
+      effectiveUserId,
+      localDate,
+      timeWindow,
+      BRIEF_PROMPT_VERSION,
+    ],
     enabled: !!effectiveUserId,
     staleTime: 60 * 1000,
     queryFn: async () => {
@@ -123,6 +130,15 @@ export function useCurrentBriefSnapshot() {
         .eq('user_id', effectiveUserId)
         .eq('local_date', localDate)
         .eq('time_window', timeWindow)
+        // Prompt-version filter: after a backend rollback an older-prompt
+        // row could be the most-recently-updated row for this window
+        // (compute-outer-readiness upserts on
+        //   user_id, local_date, time_window, input_signature, prompt_version
+        // so different prompt versions live as distinct rows). Without
+        // this filter the UI could serve a brief produced by an inactive
+        // prompt contract. Keep `BRIEF_PROMPT_VERSION` in sync with
+        // `supabase/functions/_shared/brief-prompt-version.ts`.
+        .eq('prompt_version', BRIEF_PROMPT_VERSION)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -154,6 +170,16 @@ export function useCurrentBriefSnapshot() {
       // a real cold-start.
       const isRenderable = !isAwaitingRow && !!phrase;
 
+      // TODO(brief-snapshot-read-first): `wearableStatus` (freshness +
+      // source tier) and the full unified source provenance are NOT yet
+      // reconstructable from `brief_snapshots` alone. As a result the
+      // Brief card still depends on the live `useOuterReadiness` payload
+      // for `wearableStatus`, and snapshot-read-first for the Brief is
+      // INCOMPLETE until `wearable_snapshot` (and/or
+      // `daily_context_snapshot.window=*`) is rich enough to derive the
+      // unified wearable contract here. When that lands, drop the
+      // overlay-on-live merge in `DecisionReadinessBrief.tsx` and let
+      // this hook be the sole source for the Brief card.
       const snapshot: CurrentBriefSnapshot = {
         briefId: row.id as string,
         localDate: row.local_date as string,

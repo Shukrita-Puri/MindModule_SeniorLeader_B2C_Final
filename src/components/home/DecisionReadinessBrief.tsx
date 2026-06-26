@@ -2149,6 +2149,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
               // Drop in-memory + persistent caches so retry forces a fresh read.
               import('@/hooks/useOuterReadiness').then(m => m.clearOuterReadinessCache());
               queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+              // The live retry will upsert a new `brief_snapshots` row
+              // for the current window. Invalidate the snapshot query
+              // too so snapshot-read-first picks up the fresh row on
+              // the next render instead of serving the previous one.
+              queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] });
             }}
             className="mt-2 text-[11px] uppercase tracking-[0.16em] underline-offset-4 hover:underline text-foreground/80"
           >
