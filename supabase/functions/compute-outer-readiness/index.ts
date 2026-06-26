@@ -3967,13 +3967,31 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             try {
               let snap: any = null;
               try {
+                // Phase 2 — window-scoped snapshot. Prefer current-window
+                // row; fall back to latest row for today (legacy single-row
+                // schema or earlier window in same day).
                 const { data: snapRow } = await (db as any)
                   .from('daily_context_snapshot')
                   .select('pattern_signals, strategic_context, calendar_demand_score, supply_demand_gap_flag')
                   .eq('user_id', userId)
                   .eq('local_date', userLocalDate)
+                  .eq('mrs_window', timeOfDayStr)
                   .maybeSingle();
                 snap = snapRow ?? null;
+                if (!snap) {
+                  const { data: legacy } = await (db as any)
+                    .from('daily_context_snapshot')
+                    .select('pattern_signals, strategic_context, calendar_demand_score, supply_demand_gap_flag, mrs_window')
+                    .eq('user_id', userId)
+                    .eq('local_date', userLocalDate)
+                    .order('updated_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (legacy) {
+                    console.warn(`[compute-outer-readiness] daily_context_snapshot legacy fallback (brief): no row for window=${timeOfDayStr}, using window=${(legacy as any)?.mrs_window ?? 'null'}`);
+                    snap = legacy;
+                  }
+                }
               } catch (_snapErr) { /* fall through to compose */ }
 
               let ps: any = snap?.pattern_signals ?? null;
