@@ -2133,8 +2133,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* Phase 1 — engine failure retry block (auth / inner / outer / unknown).
           This replaces the awaiting copy when the read failed due to
-          infrastructure rather than a real cold start. */}
-      {isEngineFailure && (
+          infrastructure rather than a real cold start. Suppressed when a
+          renderable current-window Brief snapshot is already displayed. */}
+      {showFailureBlock && (
         <div className="mt-4 rounded-lg border border-border/40 bg-background/60 px-3 py-3">
           <p className="text-quote text-foreground">
             {engineStatus === 'auth-failure'
