@@ -6882,6 +6882,11 @@ if (import.meta.main) Deno.serve(async (req) => {
   }
 
   let userId: string | undefined;
+  // Phase 3.5 — hoist client locals so the error path can stamp the
+  // user's local date/window instead of falling back to UTC.
+  let clientTimezoneOffset: number = new Date().getTimezoneOffset();
+  let clientLocalDate: string | null = null;
+  let currentPeriod: 'morning' | 'afternoon' | 'evening' = getTimeOfDay(clientTimezoneOffset) as any;
   try {
     // Authentication – verify JWT and extract userId
     const auth = await authenticateRequest(req, corsHeaders);
@@ -6906,8 +6911,8 @@ if (import.meta.main) Deno.serve(async (req) => {
     // Rate limiting – 30s cooldown per user+state fingerprint (not just period)
     const now = Date.now();
     const body = await req.json();
-    const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
-    const clientLocalDate = typeof body.localDate === 'string' ? body.localDate : null;
+    clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
+    clientLocalDate = typeof body.localDate === 'string' ? body.localDate : null;
     const todayCheckinId = typeof body.todayCheckinId === 'string' ? body.todayCheckinId : null;
     const selectedCalendarEventIds = Array.isArray(body.selectedCalendarEventIds)
       ? body.selectedCalendarEventIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
@@ -6927,7 +6932,7 @@ if (import.meta.main) Deno.serve(async (req) => {
     }
     const forceRefresh = body.forceRefresh === true;
     const outerReadinessCache = body.outerReadinessCache ?? null;
-    const currentPeriod = getTimeOfDay(clientTimezoneOffset);
+    currentPeriod = getTimeOfDay(clientTimezoneOffset) as any;
 
     // Build state fingerprint from latest check-in + completions for cache key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -6937,6 +6942,95 @@ if (import.meta.main) Deno.serve(async (req) => {
       createClient(supabaseUrl, supabaseKey),
       platform,
     );
+
+    // Phase 3.5 — shared snapshot persister. Used by both the success path
+    // and the rate-limit cache-hit path so a missing snapshot row gets
+    // backfilled even when we return a cached response.
+    const persistMasteryPlanSnapshot = async (
+      planObj: any,
+      opts: { onlyIfMissing?: boolean } = {},
+    ) => {
+      try {
+        const planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
+        if (opts.onlyIfMissing) {
+          const { data: existing } = await supabaseClient
+            .from('mastery_plan_snapshots')
+            .select('id')
+            .eq('user_id', userId!)
+            .eq('plan_date', planDate)
+            .eq('mrs_window', currentPeriod)
+            .maybeSingle();
+          if (existing?.id) return;
+        }
+        const visiblePriorities = Array.isArray(planObj?.timeOfDayPlan?.modules)
+          ? planObj.timeOfDayPlan.modules
+          : [];
+        const horizonMods = Array.isArray(planObj?.horizonModules)
+          ? planObj.horizonModules
+          : [];
+        const practiceIds: string[] = Array.from(new Set([
+          ...visiblePriorities.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
+          ...horizonMods.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
+        ]));
+
+        // Compute an actual ISO horizon timestamp. Day-of plans cover the
+        // next 24h; week-ahead plans cover `lookaheadDays`. If nothing is
+        // available, store NULL — never the mode string.
+        let horizonIsoValue: string | null = null;
+        try {
+          const wad = planObj?.weekAheadDecision;
+          const lookaheadDays = typeof wad?.lookaheadDays === 'number' && wad.lookaheadDays > 0
+            ? wad.lookaheadDays
+            : null;
+          if (wad?.active && lookaheadDays) {
+            horizonIsoValue = new Date(Date.now() + lookaheadDays * 86_400_000).toISOString();
+          } else {
+            horizonIsoValue = new Date(Date.now() + DAY_OF_HORIZON_MS).toISOString();
+          }
+        } catch (_) { horizonIsoValue = null; }
+
+        let planLedger: any = null;
+        try {
+          const { data: ledgerRow } = await supabaseClient
+            .from('daily_ritual_completions')
+            .select('plan_ledger')
+            .eq('user_id', userId!)
+            .eq('ritual_date', planDate)
+            .eq('session_period', currentPeriod)
+            .maybeSingle();
+          planLedger = (ledgerRow as any)?.plan_ledger ?? null;
+        } catch (_) { /* non-fatal */ }
+
+        const { error: snapErr } = await supabaseClient
+          .from('mastery_plan_snapshots')
+          .upsert({
+            user_id: userId!,
+            plan_date: planDate,
+            mrs_window: currentPeriod,
+            day_kind: planObj?.meta?.dayKind ?? planObj?.dayKind ?? null,
+            horizon_iso: horizonIsoValue,
+            plan_json: planObj,
+            horizon_modules: horizonMods,
+            priorities: visiblePriorities,
+            recommended_practice_ids: practiceIds,
+            plan_ledger: planLedger,
+            // brief_snapshot_id intentionally null — generate-mastery-plan
+            // does not receive a briefId today; populate when the contract
+            // surfaces one rather than inventing a value.
+            brief_snapshot_id: null,
+            input_signature: stateFingerprint,
+            status: 'ready',
+            error_json: null,
+            generated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,plan_date,mrs_window' });
+        if (snapErr) {
+          console.warn('[mastery_plan_snapshots] upsert failed:', snapErr.message ?? snapErr);
+        }
+      } catch (snapPersistErr) {
+        console.warn('[mastery_plan_snapshots] upsert threw:',
+          snapPersistErr instanceof Error ? snapPersistErr.message : snapPersistErr);
+      }
+    };
 
     let stateFingerprint = `${userId}:${currentPeriod}`;
     try {
@@ -6980,6 +7074,9 @@ if (import.meta.main) Deno.serve(async (req) => {
     const cached = rateLimitMap.get(stateFingerprint);
     if (!forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
       console.log(`[generate-mastery-plan] Rate limited: ${userId} fingerprint=${stateFingerprint.substring(0, 60)}... (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
+      // Phase 3.5 — backfill snapshot if absent, so a hot cache key never
+      // leaves the DB without the most recent assembled payload.
+      await persistMasteryPlanSnapshot(cached.cachedResponse, { onlyIfMissing: true });
       return new Response(JSON.stringify(cached.cachedResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
@@ -7056,61 +7153,9 @@ if (import.meta.main) Deno.serve(async (req) => {
       }
     }
 
-    // Phase 3 — persist the full day-of Plan payload to
-    // `mastery_plan_snapshots`. This is write-only here; reads land in a
-    // later phase. Failures are non-fatal: the live response still ships.
-    try {
-      const planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
-      const visiblePriorities = Array.isArray((plan as any)?.timeOfDayPlan?.modules)
-        ? (plan as any).timeOfDayPlan.modules
-        : [];
-      const horizonMods = Array.isArray((plan as any)?.horizonModules)
-        ? (plan as any).horizonModules
-        : [];
-      const practiceIds: string[] = Array.from(new Set([
-        ...visiblePriorities.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
-        ...horizonMods.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
-      ]));
-
-      // Pull the just-persisted ledger so the snapshot row carries the
-      // canonical plan_ledger jsonb (single source: daily_ritual_completions).
-      let planLedger: any = null;
-      try {
-        const { data: ledgerRow } = await supabaseClient
-          .from('daily_ritual_completions')
-          .select('plan_ledger')
-          .eq('user_id', userId)
-          .eq('ritual_date', planDate)
-          .eq('session_period', currentPeriod)
-          .maybeSingle();
-        planLedger = (ledgerRow as any)?.plan_ledger ?? null;
-      } catch (_) { /* non-fatal */ }
-
-      const { error: snapErr } = await supabaseClient
-        .from('mastery_plan_snapshots')
-        .upsert({
-          user_id: userId,
-          plan_date: planDate,
-          mrs_window: currentPeriod,
-          day_kind: (plan as any)?.meta?.dayKind ?? (plan as any)?.dayKind ?? null,
-          horizon_iso: (plan as any)?.weekAheadDecision?.mode ?? null,
-          plan_json: plan,
-          horizon_modules: horizonMods,
-          priorities: visiblePriorities,
-          recommended_practice_ids: practiceIds,
-          plan_ledger: planLedger,
-          input_signature: stateFingerprint,
-          status: 'ready',
-          error_json: null,
-          generated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,plan_date,mrs_window' });
-      if (snapErr) {
-        console.warn('[mastery_plan_snapshots] upsert failed:', snapErr.message ?? snapErr);
-      }
-    } catch (snapPersistErr) {
-      console.warn('[mastery_plan_snapshots] upsert threw:',
-        snapPersistErr instanceof Error ? snapPersistErr.message : snapPersistErr);
-    }
+    // Phase 3 — persist the full day-of Plan payload. Uses the shared
+    // helper so success and cache-hit paths agree on shape.
+    await persistMasteryPlanSnapshot(plan);
 
     return new Response(JSON.stringify(plan), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -7123,16 +7168,16 @@ if (import.meta.main) Deno.serve(async (req) => {
       name: error?.name,
       userId: userId ?? 'unknown',
     });
-    // Phase 3 — best-effort error snapshot. Date/window derived in UTC
-    // since client-provided values aren't in scope here; the snapshot is
-    // just a marker so monitoring sees the failure. Never throws.
+    // Phase 3.5 — best-effort error snapshot using the user's local
+    // date/window (hoisted above the try). Falls back to UTC only if the
+    // client never reached the body-parse step.
     try {
       const _url = Deno.env.get('SUPABASE_URL');
       const _key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
       if (userId && _url && _key) {
         const _sb = createClient(_url, _key);
-        const _planDate = new Date().toISOString().slice(0, 10);
-        const _period = getTimeOfDay(0);
+        const _planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
+        const _period = currentPeriod;
         await _sb.from('mastery_plan_snapshots').upsert({
           user_id: userId,
           plan_date: _planDate,
