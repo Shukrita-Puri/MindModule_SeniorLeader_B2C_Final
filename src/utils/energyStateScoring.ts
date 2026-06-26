@@ -55,7 +55,7 @@ function inferRelationshipPressure(metadata: any, title: string, attendeeCount: 
 // ==================== TIME OF DAY ====================
 
 export function getTimeOfDay(hour: number = new Date().getHours()): TimeOfDay {
-  if (hour >= 6 && hour < 12) return 'morning';
+  if (hour >= 5 && hour < 12) return 'morning';
   if (hour >= 12 && hour < 18) return 'afternoon';
   return 'evening';
 }

@@ -543,7 +543,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       // (legacy single-row schema or earlier window in same day).
       const nowHour = new Date().getHours();
       const currentWindow =
-        nowHour >= 6 && nowHour < 12 ? 'morning'
+        nowHour >= 5 && nowHour < 12 ? 'morning'
         : nowHour >= 12 && nowHour < 18 ? 'afternoon'
         : 'evening';
       let snap: any = null;
@@ -862,7 +862,7 @@ function buildErrorFallback(args: {
 }): CurrentEnergyState {
   const hour = new Date().getHours();
   const timeOfDay =
-    hour >= 6 && hour < 12 ? 'morning' as const
+    hour >= 5 && hour < 12 ? 'morning' as const
     : hour >= 12 && hour < 18 ? 'afternoon' as const
     : 'evening' as const;
 

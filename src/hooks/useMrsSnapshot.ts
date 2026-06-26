@@ -67,6 +67,15 @@ function asRecord(v: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function asFiniteNumber(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 export function useMrsSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
@@ -99,20 +108,20 @@ export function useMrsSnapshot() {
           ? state
           : null;
 
-      const refined = (row.readiness_score_refined ?? null) as number | null;
-      const baseline = (row.readiness_score_baseline ?? null) as number | null;
-      const inner = (row.inner_score ?? null) as number | null;
+      const refined = asFiniteNumber(row.readiness_score_refined);
+      const baseline = asFiniteNumber(row.readiness_score_baseline);
+      const inner = asFiniteNumber(row.inner_score);
       const score =
-        readinessState === 'refined' && typeof refined === 'number'
+        readinessState === 'refined' && refined !== null
           ? refined
-          : (typeof baseline === 'number' ? baseline : inner);
+          : (baseline ?? inner);
 
       const tier =
         (row.tier_displayed as string | null) ??
         (row.inner_tier as string | null) ??
         null;
 
-      const hasScore = typeof score === 'number';
+      const hasScore = score !== null;
       const status: MrsSnapshotStatus = hasScore
         ? 'ready'
         : readinessState === 'awaiting'
@@ -126,8 +135,7 @@ export function useMrsSnapshot() {
         scoreBaseline: baseline,
         scoreRefined: refined,
         readinessState,
-        refinedContribution:
-          (row.refined_contribution as number | null) ?? null,
+        refinedContribution: asFiniteNumber(row.refined_contribution),
         mrsWindow: (row.mrs_window as MrsWindow) ?? mrsWindow,
         weightProvenance: asRecord(row.weight_provenance),
         signalPills: asArray(row.signal_pills),
