@@ -505,6 +505,8 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergyState> {
   // 1. Read wearable data – try DB first, fall back to local storage
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
+  const todayLocal = localISODate();
+  const mrsWindow = getCurrentTimeWindow();
   // Phase 1 — track DB-read degradation so we can mark the final status as
   // 'stale' instead of 'ready' when the snapshot/wearable/checkin reads fail.
   let dbReadDegraded = false;
@@ -519,6 +521,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let wearableLatestSummaryDate: string | null = null;
 
   let hrvPatternContext: any = null;
+
+  let authTokenForRequests: string | null = null;
+  if (!DEV_MODE) {
+    authTokenForRequests = await getAuth0Token();
+  }
 
   // Try DB for latest HRV + baseline + patterns
   if (effectiveUserId) {
@@ -662,15 +669,40 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       // rates them as Stage 1 calendar-usable. Reading events lets us derive
       // a demand score and feed compute-inner-readiness so MRS doesn't collapse
       // to 'awaiting' when wearable is missing but calendar is usable.
-      const now = new Date();
-      const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+      const { startISO, endISO } = getLocalDayBounds();
       const { data: events } = await supabase
         .from('calendar_events')
         .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
         .eq('user_id', effectiveUserId)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', fourHoursLater.toISOString());
+        .gte('start_time', startISO)
+        .lte('start_time', endISO)
+        .order('start_time', { ascending: true });
       calendarData = events || [];
+      if (calendarData.length === 0 && authTokenForRequests) {
+        try {
+          calendarData = await fetchAuthedCalendarEvents({
+            userId: effectiveUserId,
+            token: authTokenForRequests,
+            startISO,
+            endISO,
+          });
+        } catch (restErr) {
+          console.warn('[energyStateEngine] Authenticated calendar_events REST fallback failed:', restErr);
+        }
+      }
+      if (calendarData.length === 0 && authTokenForRequests) {
+        try {
+          calendarData = await restSelect<any>('primary_calendar_events', [
+            ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
+            ['user_id', `eq.${effectiveUserId}`],
+            ['start_time', `gte.${startISO}`],
+            ['start_time', `lte.${endISO}`],
+            ['order', 'start_time.asc'],
+          ], authTokenForRequests);
+        } catch (primaryErr) {
+          console.warn('[energyStateEngine] Authenticated primary_calendar_events REST fallback failed:', primaryErr);
+        }
+      }
       if (!conn && calendarData.length > 0) {
         // Treat presence of events as a Stage 1 calendar signal so the
         // demand-score fallback below activates.
@@ -694,16 +726,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let snapshotMorningBaselineScore: number | null = null;
   if (effectiveUserId) {
     try {
-      const todayLocal = localISODate();
       // Phase 2 — daily_context_snapshot is now window-scoped
       // (user_id, local_date, mrs_window). Read the row for the current
       // window; if absent, fall back to the most recent row for today
       // (legacy single-row schema or earlier window in same day).
-      const nowHour = new Date().getHours();
-      const currentWindow =
-        nowHour >= 5 && nowHour < 12 ? 'morning'
-        : nowHour >= 12 && nowHour < 18 ? 'afternoon'
-        : 'evening';
+      const currentWindow = mrsWindow;
       let snap: any = null;
       {
         const { data } = await supabase
@@ -732,6 +759,26 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           snap = legacy;
         }
       }
+      if (!snap && authTokenForRequests) {
+        try {
+          snap = await fetchAuthedSnapshot({
+            userId: effectiveUserId,
+            localDate: todayLocal,
+            mrsWindow: currentWindow,
+            token: authTokenForRequests,
+          });
+          if (!snap) {
+            snap = await fetchAuthedSnapshot({
+              userId: effectiveUserId,
+              localDate: todayLocal,
+              token: authTokenForRequests,
+              latest: true,
+            });
+          }
+        } catch (restSnapErr) {
+          console.warn('[energyStateEngine] Authenticated daily_context_snapshot REST fallback failed:', restSnapErr);
+        }
+      }
       // If current-window row is missing morning_baseline_score, hydrate it
       // from the morning row (which owns the anchor).
       if (snap && (snap as any).morning_baseline_score == null && currentWindow !== 'morning') {
@@ -754,9 +801,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           pattern_signals?: ClientPatternSignalsLite | null;
           morning_baseline_score?: number | null;
         };
-        snapshotDemandScore = snapRow.calendar_demand_score ?? null;
+        snapshotDemandScore = coerceFiniteNumber(snapRow.calendar_demand_score);
         snapshotPatternSignals = snapRow.pattern_signals ?? null;
-        snapshotMorningBaselineScore = snapRow.morning_baseline_score ?? null;
+        snapshotMorningBaselineScore = coerceFiniteNumber(snapRow.morning_baseline_score);
       }
     } catch (err) {
       console.warn('[energyStateEngine] daily_context_snapshot fetch failed:', err);
@@ -800,7 +847,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // Get auth token for the EF call
     let authHeaders: Record<string, string> = {};
     if (!DEV_MODE) {
-      const token = await getAuth0Token();
+      const token = authTokenForRequests ?? await getAuth0Token();
       if (token) {
         authHeaders = { Authorization: `Bearer ${token}` };
       } else {
@@ -820,7 +867,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // Derive baseline confidence from pattern context
     const baselineConfidence = hrvPatternContext?.baselineConfidence ?? 'low';
     const sampleDays = hrvPatternContext?.sampleDays ?? 0;
-    const mrsWindow = getCurrentTimeWindow();
     const hrvDeviationPct =
       hasWearable &&
       typeof wearableHRV === 'number' &&
@@ -836,15 +882,10 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // when no check-in exists.
     const imminentMetricsHint = hasCalendar ? getCalendarMetrics(calendarData) : null;
     const hasImminentHighStakes = imminentMetricsHint?.pressure === 'high';
+    const fullDayDemandScore = hasCalendar ? deriveFullDayDemandScore(calendarData) : null;
     const demandScoreForV4 =
       snapshotDemandScore ??
-      (calendarConnected
-        ? (() => {
-            const loadComponent = imminentMetricsHint?.load === 'high' ? 70 : imminentMetricsHint?.load === 'medium' ? 40 : 0;
-            const pressureComponent = imminentMetricsHint?.pressure === 'high' ? 25 : imminentMetricsHint?.pressure === 'medium' ? 15 : 0;
-            return clampScore(loadComponent + pressureComponent);
-          })()
-        : null);
+      (fullDayDemandScore != null ? fullDayDemandScore : (calendarConnected ? 0 : null));
     const mrsSubScores = buildClientMrsV4SubScores({
       window: mrsWindow,
       hrvDeviationPct,
@@ -854,6 +895,12 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       demandScore: demandScoreForV4,
       patternSignals: snapshotPatternSignals,
     });
+    const demandScoreForInner = demandScoreForV4 ?? snapshotDemandScore;
+    console.log('[energyStateEngine][compute-inner-readiness-request]', JSON.stringify({
+      demandScore: demandScoreForInner,
+      mrsWindow,
+      mrsSubScores,
+    }));
     const sleepQuality = sleepQualityFromInputs(
       hasWearable ? wearableSleepScore : null,
       hasWearable ? wearableSleepHours : null,
@@ -895,7 +942,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         // so compute-inner-readiness can backfill the demand subcomponents when
         // Stage 1 calendar signal is usable but `calendar_connections` is missing
         // (e.g. Apple Calendar users). Stage 1 backfill is gated on this value.
-        demandScore: demandScoreForV4 ?? snapshotDemandScore,
+        demandScore: demandScoreForInner,
         patternSignals: snapshotPatternSignals,
         // MRS v4 — required baseline inputs. `weightingMode` is now label-only;
         // all score math flows through these sub-components and redistribution.
