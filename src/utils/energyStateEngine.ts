@@ -663,6 +663,18 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
       if (conn) {
         calendarConnected = true;
+      } else if (authTokenForRequests) {
+        try {
+          const authedConnections = await restSelect<any>('calendar_connections', [
+            ['select', 'is_active'],
+            ['user_id', `eq.${effectiveUserId}`],
+            ['is_active', 'eq.true'],
+            ['limit', '1'],
+          ], authTokenForRequests);
+          if (authedConnections.length > 0) calendarConnected = true;
+        } catch (connRestErr) {
+          console.warn('[energyStateEngine] Authenticated calendar_connections REST fallback failed:', connRestErr);
+        }
       }
       // Always probe calendar_events directly — Apple Calendar (native) users
       // do not always have a `calendar_connections` row, but the server still
