@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
+import { useMasteryPlanSnapshot } from '@/hooks/useMasteryPlanSnapshot';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 import { getTodayRitual, upsertRitual, getTodayCompletedUnion, persistPlanLedgerEdit } from '@/utils/dailyRituals';
@@ -232,6 +233,26 @@ const TodayThreePriorities = ({
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
+
+  // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
+  // Does NOT drive rendering or generation. Dev-mode console only.
+  const { data: masteryPlanSnapshot } = useMasteryPlanSnapshot();
+  useEffect(() => {
+    if (!(typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV === true)) return;
+    if (masteryPlanSnapshot === undefined) return;
+    if (masteryPlanSnapshot === null) {
+      console.info('[TodayThreePriorities:snapshot-diag] missing');
+      return;
+    }
+    console.info('[TodayThreePriorities:snapshot-diag] present', {
+      status: masteryPlanSnapshot.status,
+      generatedAt: masteryPlanSnapshot.generatedAt,
+      mrsWindow: masteryPlanSnapshot.mrsWindow,
+      planDate: masteryPlanSnapshot.planDate,
+      priorities: masteryPlanSnapshot.priorities.length,
+      horizonModules: masteryPlanSnapshot.horizonModules.length,
+    });
+  }, [masteryPlanSnapshot]);
 
   const todayForPlan = localISODate();
   const periodForPlan = getCurrentTimeWindow();
