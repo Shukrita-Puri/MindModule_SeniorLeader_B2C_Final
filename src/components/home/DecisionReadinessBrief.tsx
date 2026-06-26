@@ -2002,6 +2002,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const showLoader =
     !tourMockBriefActive &&
     !noLocalSignalAtMount &&
+    !snapshotIsRenderable &&
     (outerBriefLoading || outerBriefFetching);
 
   const briefId = (outerBrief as any)?.briefId ?? null;
