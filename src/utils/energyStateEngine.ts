@@ -323,6 +323,154 @@ function buildClientMrsV4SubScores(args: {
   ];
 }
 
+function getLocalDayBounds(now: Date = new Date()): { startISO: string; endISO: string } {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  return { startISO: start.toISOString(), endISO: end.toISOString() };
+}
+
+async function restSelect<T>(
+  table: string,
+  params: Array<[string, string]>,
+  token: string,
+): Promise<T[]> {
+  const urlBase = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  if (!urlBase || !anonKey) return [];
+
+  const url = new URL(`/rest/v1/${table}`, urlBase);
+  params.forEach(([key, value]) => url.searchParams.append(key, value));
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`REST ${table} ${response.status}: ${text.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  return Array.isArray(json) ? (json as T[]) : [];
+}
+
+async function fetchAuthedCalendarEvents(args: {
+  userId: string;
+  token: string;
+  startISO: string;
+  endISO: string;
+}): Promise<any[]> {
+  return restSelect<any>('calendar_events', [
+    ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
+    ['user_id', `eq.${args.userId}`],
+    ['start_time', `gte.${args.startISO}`],
+    ['start_time', `lte.${args.endISO}`],
+    ['order', 'start_time.asc'],
+  ], args.token);
+}
+
+async function fetchAuthedSnapshot(args: {
+  userId: string;
+  localDate: string;
+  token: string;
+  mrsWindow?: string;
+  latest?: boolean;
+}): Promise<any | null> {
+  const params: Array<[string, string]> = [
+    ['select', 'calendar_demand_score,pattern_signals,morning_baseline_score,mrs_window,updated_at'],
+    ['user_id', `eq.${args.userId}`],
+    ['local_date', `eq.${args.localDate}`],
+    ['limit', '1'],
+  ];
+  if (args.mrsWindow) params.push(['mrs_window', `eq.${args.mrsWindow}`]);
+  if (args.latest) params.push(['order', 'updated_at.desc']);
+  const rows = await restSelect<any>('daily_context_snapshot', params, args.token);
+  return rows[0] ?? null;
+}
+
+function coerceFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function inferRelationshipPressureClient(metadata: any, title: string, attendeeCount: number): number {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|vendor|supplier|partner|account|proposal|demo)/.test(lower)) return 2;
+  if (/(boss|manager|director|vp|1:1|one-on-one|one on one|feedback|review|performance|skip level)/.test(lower)) return 2;
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 1;
+  if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 1;
+  const attendees = metadata?.attendeeSignals?.attendees;
+  if (Array.isArray(attendees) && attendees.some((a: any) => a?.responseStatus === 'declined')) return 1;
+  if (attendeeCount >= 6) return 1;
+  return 0;
+}
+
+function deriveFullDayDemandScore(events: any[]): number | null {
+  if (!Array.isArray(events)) return null;
+  if (events.length === 0) return 0;
+
+  const sorted = [...events].sort(
+    (a, b) => new Date(a.start_time || a.startTime).getTime() - new Date(b.start_time || b.startTime).getTime(),
+  );
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    gaps.push(
+      (new Date(sorted[i].start_time || sorted[i].startTime).getTime() -
+        new Date(sorted[i - 1].end_time || sorted[i - 1].endTime).getTime()) / 60000,
+    );
+  }
+
+  const count = sorted.length;
+  const avgGap = gaps.length ? gaps.reduce((s, g) => s + g, 0) / gaps.length : Infinity;
+  const totalGapTime = gaps.length ? gaps.reduce((s, g) => s + Math.max(0, g), 0) : Infinity;
+  const loadComponent = count >= 4 || (count >= 3 && avgGap < 20) ? 70 : count >= 3 ? 40 : 0;
+
+  let totalPressure = 0;
+  const nowMs = Date.now();
+  for (const event of sorted) {
+    let pressure = 0;
+    if (event.is_organizer) pressure += 2;
+    const attendees = event.attendees_count || 0;
+    if (attendees > 5) pressure += 3;
+    else if (attendees > 2) pressure += 1;
+    const start = new Date(event.start_time || event.startTime);
+    const end = new Date(event.end_time || event.endTime);
+    const durationMin = (end.getTime() - start.getTime()) / 60000;
+    if (durationMin > 60) pressure += 2;
+    else if (durationMin >= 30) pressure += 1;
+    if (!event.is_recurring) pressure += 1;
+    const hour = start.getHours();
+    if ((hour >= 9 && hour < 12) || (hour >= 14 && hour < 16)) pressure += 1;
+    pressure += inferRelationshipPressureClient(event.event_metadata, event.title || event.eventTitle || '', attendees);
+    totalPressure += start.getTime() >= nowMs ? pressure : Math.ceil(pressure * 0.5);
+  }
+
+  for (const gap of gaps) {
+    if (gap < 5) totalPressure += 3;
+    else if (gap < 15) totalPressure += 2;
+  }
+  if (count >= 3 && totalGapTime < 30) totalPressure += 3;
+  const intenseMeetings = sorted.filter((e) => !e.is_recurring && e.is_organizer).length;
+  if (count > 0 && intenseMeetings / count > 0.5) totalPressure = Math.ceil(totalPressure * 1.5);
+
+  const pressureComponent = totalPressure >= 6 ? 25 : totalPressure >= 3 ? 15 : 0;
+  const hasHighStakes = sorted.some((event) =>
+    !event.is_recurring &&
+    ((event.attendees_count ?? 0) > 5 || (event.is_organizer && (event.attendees_count ?? 0) > 2)),
+  );
+  return clampScore(loadComponent + pressureComponent + (hasHighStakes ? 10 : 0));
+}
+
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
   const cacheKey = getEnergyStateCacheKey(userId);
   const cached = energyStateCache.get(cacheKey);
@@ -357,6 +505,8 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergyState> {
   // 1. Read wearable data – try DB first, fall back to local storage
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
+  const todayLocal = localISODate();
+  const mrsWindow = getCurrentTimeWindow();
   // Phase 1 — track DB-read degradation so we can mark the final status as
   // 'stale' instead of 'ready' when the snapshot/wearable/checkin reads fail.
   let dbReadDegraded = false;
@@ -371,6 +521,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let wearableLatestSummaryDate: string | null = null;
 
   let hrvPatternContext: any = null;
+
+  let authTokenForRequests: string | null = null;
+  if (!DEV_MODE) {
+    authTokenForRequests = await getAuth0Token();
+  }
 
   // Try DB for latest HRV + baseline + patterns
   if (effectiveUserId) {
@@ -508,21 +663,58 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
       if (conn) {
         calendarConnected = true;
+      } else if (authTokenForRequests) {
+        try {
+          const authedConnections = await restSelect<any>('calendar_connections', [
+            ['select', 'is_active'],
+            ['user_id', `eq.${effectiveUserId}`],
+            ['is_active', 'eq.true'],
+            ['limit', '1'],
+          ], authTokenForRequests);
+          if (authedConnections.length > 0) calendarConnected = true;
+        } catch (connRestErr) {
+          console.warn('[energyStateEngine] Authenticated calendar_connections REST fallback failed:', connRestErr);
+        }
       }
       // Always probe calendar_events directly — Apple Calendar (native) users
       // do not always have a `calendar_connections` row, but the server still
       // rates them as Stage 1 calendar-usable. Reading events lets us derive
       // a demand score and feed compute-inner-readiness so MRS doesn't collapse
       // to 'awaiting' when wearable is missing but calendar is usable.
-      const now = new Date();
-      const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+      const { startISO, endISO } = getLocalDayBounds();
       const { data: events } = await supabase
         .from('calendar_events')
         .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
         .eq('user_id', effectiveUserId)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', fourHoursLater.toISOString());
+        .gte('start_time', startISO)
+        .lte('start_time', endISO)
+        .order('start_time', { ascending: true });
       calendarData = events || [];
+      if (calendarData.length === 0 && authTokenForRequests) {
+        try {
+          calendarData = await fetchAuthedCalendarEvents({
+            userId: effectiveUserId,
+            token: authTokenForRequests,
+            startISO,
+            endISO,
+          });
+        } catch (restErr) {
+          console.warn('[energyStateEngine] Authenticated calendar_events REST fallback failed:', restErr);
+        }
+      }
+      if (calendarData.length === 0 && authTokenForRequests) {
+        try {
+          calendarData = await restSelect<any>('primary_calendar_events', [
+            ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
+            ['user_id', `eq.${effectiveUserId}`],
+            ['start_time', `gte.${startISO}`],
+            ['start_time', `lte.${endISO}`],
+            ['order', 'start_time.asc'],
+          ], authTokenForRequests);
+        } catch (primaryErr) {
+          console.warn('[energyStateEngine] Authenticated primary_calendar_events REST fallback failed:', primaryErr);
+        }
+      }
       if (!conn && calendarData.length > 0) {
         // Treat presence of events as a Stage 1 calendar signal so the
         // demand-score fallback below activates.
@@ -546,16 +738,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let snapshotMorningBaselineScore: number | null = null;
   if (effectiveUserId) {
     try {
-      const todayLocal = localISODate();
       // Phase 2 — daily_context_snapshot is now window-scoped
       // (user_id, local_date, mrs_window). Read the row for the current
       // window; if absent, fall back to the most recent row for today
       // (legacy single-row schema or earlier window in same day).
-      const nowHour = new Date().getHours();
-      const currentWindow =
-        nowHour >= 5 && nowHour < 12 ? 'morning'
-        : nowHour >= 12 && nowHour < 18 ? 'afternoon'
-        : 'evening';
+      const currentWindow = mrsWindow;
       let snap: any = null;
       {
         const { data } = await supabase
@@ -584,6 +771,26 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           snap = legacy;
         }
       }
+      if (!snap && authTokenForRequests) {
+        try {
+          snap = await fetchAuthedSnapshot({
+            userId: effectiveUserId,
+            localDate: todayLocal,
+            mrsWindow: currentWindow,
+            token: authTokenForRequests,
+          });
+          if (!snap) {
+            snap = await fetchAuthedSnapshot({
+              userId: effectiveUserId,
+              localDate: todayLocal,
+              token: authTokenForRequests,
+              latest: true,
+            });
+          }
+        } catch (restSnapErr) {
+          console.warn('[energyStateEngine] Authenticated daily_context_snapshot REST fallback failed:', restSnapErr);
+        }
+      }
       // If current-window row is missing morning_baseline_score, hydrate it
       // from the morning row (which owns the anchor).
       if (snap && (snap as any).morning_baseline_score == null && currentWindow !== 'morning') {
@@ -606,9 +813,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           pattern_signals?: ClientPatternSignalsLite | null;
           morning_baseline_score?: number | null;
         };
-        snapshotDemandScore = snapRow.calendar_demand_score ?? null;
+        snapshotDemandScore = coerceFiniteNumber(snapRow.calendar_demand_score);
         snapshotPatternSignals = snapRow.pattern_signals ?? null;
-        snapshotMorningBaselineScore = snapRow.morning_baseline_score ?? null;
+        snapshotMorningBaselineScore = coerceFiniteNumber(snapRow.morning_baseline_score);
       }
     } catch (err) {
       console.warn('[energyStateEngine] daily_context_snapshot fetch failed:', err);
@@ -652,7 +859,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // Get auth token for the EF call
     let authHeaders: Record<string, string> = {};
     if (!DEV_MODE) {
-      const token = await getAuth0Token();
+      const token = authTokenForRequests ?? await getAuth0Token();
       if (token) {
         authHeaders = { Authorization: `Bearer ${token}` };
       } else {
@@ -672,7 +879,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // Derive baseline confidence from pattern context
     const baselineConfidence = hrvPatternContext?.baselineConfidence ?? 'low';
     const sampleDays = hrvPatternContext?.sampleDays ?? 0;
-    const mrsWindow = getCurrentTimeWindow();
     const hrvDeviationPct =
       hasWearable &&
       typeof wearableHRV === 'number' &&
@@ -688,15 +894,10 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // when no check-in exists.
     const imminentMetricsHint = hasCalendar ? getCalendarMetrics(calendarData) : null;
     const hasImminentHighStakes = imminentMetricsHint?.pressure === 'high';
+    const fullDayDemandScore = hasCalendar ? deriveFullDayDemandScore(calendarData) : null;
     const demandScoreForV4 =
       snapshotDemandScore ??
-      (calendarConnected
-        ? (() => {
-            const loadComponent = imminentMetricsHint?.load === 'high' ? 70 : imminentMetricsHint?.load === 'medium' ? 40 : 0;
-            const pressureComponent = imminentMetricsHint?.pressure === 'high' ? 25 : imminentMetricsHint?.pressure === 'medium' ? 15 : 0;
-            return clampScore(loadComponent + pressureComponent);
-          })()
-        : null);
+      (fullDayDemandScore != null ? fullDayDemandScore : (calendarConnected ? 0 : null));
     const mrsSubScores = buildClientMrsV4SubScores({
       window: mrsWindow,
       hrvDeviationPct,
@@ -706,6 +907,12 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       demandScore: demandScoreForV4,
       patternSignals: snapshotPatternSignals,
     });
+    const demandScoreForInner = demandScoreForV4 ?? snapshotDemandScore;
+    console.log('[energyStateEngine][compute-inner-readiness-request]', JSON.stringify({
+      demandScore: demandScoreForInner,
+      mrsWindow,
+      mrsSubScores,
+    }));
     const sleepQuality = sleepQualityFromInputs(
       hasWearable ? wearableSleepScore : null,
       hasWearable ? wearableSleepHours : null,
@@ -747,7 +954,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         // so compute-inner-readiness can backfill the demand subcomponents when
         // Stage 1 calendar signal is usable but `calendar_connections` is missing
         // (e.g. Apple Calendar users). Stage 1 backfill is gated on this value.
-        demandScore: demandScoreForV4 ?? snapshotDemandScore,
+        demandScore: demandScoreForInner,
         patternSignals: snapshotPatternSignals,
         // MRS v4 — required baseline inputs. `weightingMode` is now label-only;
         // all score math flows through these sub-components and redistribution.

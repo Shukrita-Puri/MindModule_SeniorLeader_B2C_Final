@@ -676,7 +676,7 @@ function selectSignalsForStatement(
 
 interface ComputeRequest {
   // MRS v2 — primary scoring inputs.
-  demandScore?: number | null;
+  demandScore?: number | string | null;
   patternSignals?: PatternSignalsLite | null;
   weightingMode?: WeightingMode | null;
 
@@ -749,6 +749,15 @@ interface ComputeRequest {
   intradayHrDeviationPct?: number | null;
 }
 
+function coerceFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -780,7 +789,7 @@ serve(async (req) => {
     // The two former check-in inputs (felt-state, C×C internal readiness) are
     // replaced by calendar demand + wearable pattern. Legacy felt/IR helpers
     // are kept above for resurfacing later.
-    const demandScore = body.demandScore ?? null;
+    const demandScore = coerceFiniteNumber(body.demandScore);
     const demandStateScore = getDemandStateScore(demandScore);
     const patternScore = getPatternScore(body.patternSignals ?? null);
 
@@ -878,15 +887,16 @@ serve(async (req) => {
     // (no wearable + no calendar) still resolves to awaiting.
     const DEMAND_SUBCOMPONENTS: SubComponentId[] = [
       'todayFullDayDemand',
-      'yesterdayCarryover',
       'remainingDayDemand',
       'realizedSoFarCost',
       'todayRealizedDemand',
       'tomorrowOpeningDemand',
     ];
+    const rawDemandScore = body.demandScore;
+    const numericDemandScore = coerceFiniteNumber(rawDemandScore);
     const calendarDemandScore =
-      typeof body.demandScore === 'number' && Number.isFinite(body.demandScore)
-        ? Math.max(0, Math.min(100, Math.round(100 - body.demandScore)))
+      typeof numericDemandScore === 'number' && Number.isFinite(numericDemandScore)
+        ? Math.max(0, Math.min(100, Math.round(100 - numericDemandScore)))
         : null;
     const subsForCompose: SubScore[] = (body.mrsSubScores as SubScore[]).map((s) => {
       if (
@@ -898,19 +908,13 @@ serve(async (req) => {
       }
       return s;
     });
-    if (calendarDemandScore != null) {
-      console.log(
-        '[compute-inner-readiness][stage1-calendar-backfill]',
-        JSON.stringify({
-          window: body.mrsWindow,
-          demandScore: body.demandScore,
-          calendarDemandScore,
-          backfilled: subsForCompose
-            .filter((s, i) => s.available && !(body.mrsSubScores as SubScore[])[i].available)
-            .map((s) => s.id),
-        }),
-      );
-    }
+    console.log('[compute-inner-readiness][mrs-v4-input]', JSON.stringify({
+      mrsWindow: body.mrsWindow,
+      demandScore: body.demandScore,
+      calendarDemandScore,
+      incomingSubScores: body.mrsSubScores,
+      subsForCompose,
+    }));
 
     const v4 = composeBaselineV4(
       body.mrsWindow,
