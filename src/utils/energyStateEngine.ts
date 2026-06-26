@@ -820,9 +820,12 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const imminentMetricsHint = hasCalendar ? getCalendarMetrics(calendarData) : null;
     const hasImminentHighStakes = imminentMetricsHint?.pressure === 'high';
     const fullDayDemandScore = hasCalendar ? deriveFullDayDemandScore(calendarData) : null;
+    // MRS score-bearing signals only: calendar connection alone does NOT
+    // manufacture a numeric demand score. Only a real snapshot value or a
+    // numeric demand derived from actual events qualifies.
     const demandScoreForV4 =
       snapshotDemandScore ??
-      (fullDayDemandScore != null ? fullDayDemandScore : (calendarConnected ? 0 : null));
+      (fullDayDemandScore != null ? fullDayDemandScore : null);
     const hasCalendarSignal =
       hasCalendar ||
       calendarConnected ||
@@ -831,8 +834,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       outerContext?.calendarUsable === true ||
       outerContext?.calendarState === 'active' ||
       outerContext?.calendarState === 'connected_no_events';
-    const effectiveDemandScoreForSubScores =
-      demandScoreForV4 ?? (hasCalendarSignal ? 50 : null);
+    // Do not synthesise a neutral 50 from calendar usability — that would
+    // create a fake MRS baseline for users with no real score-bearing signal.
+    const effectiveDemandScoreForSubScores = demandScoreForV4 ?? null;
     const mrsSubScores = buildClientMrsV4SubScores({
       window: mrsWindow,
       hrvDeviationPct,
@@ -842,7 +846,18 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       demandScore: effectiveDemandScoreForSubScores,
       patternSignals: snapshotPatternSignals,
     });
-    const demandScoreForInner = demandScoreForV4 ?? snapshotDemandScore ?? (hasCalendarSignal ? 50 : null);
+    const demandScoreForInner = demandScoreForV4 ?? null;
+    const mrsSubScoresAvailableCount = Array.isArray(mrsSubScores)
+      ? mrsSubScores.filter((s: any) => s && s.available === true).length
+      : 0;
+    console.log('[energyStateEngine][mrs-score-bearing-signals]', JSON.stringify({
+      hasWearable,
+      snapshotDemandScore,
+      fullDayDemandScore,
+      demandScoreForInner,
+      hasCalendarSignal,
+      mrsSubScoresAvailableCount,
+    }));
     console.log('[energyStateEngine][compute-inner-readiness-request]', JSON.stringify({
       demandScore: demandScoreForInner,
       hasCalendarSignal,
