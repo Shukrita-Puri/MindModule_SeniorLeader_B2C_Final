@@ -6150,7 +6150,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       innerReadinessTierCapReason: (awaitingSignals || innerStateIsAwaiting) ? null : safeTierCapReason,
       // MRS v3 §3.3 — refined-score split echo. Suppressed when awaiting
       // signals for the same reason as the tier/score fields above.
-      innerReadinessScoreBaseline: (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreBaseline,
+      innerReadinessScoreBaseline: (awaitingSignals || innerStateIsAwaiting) ? null : effectiveBaselineScore,
       innerReadinessScoreRefined: (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreRefined,
       innerReadinessState: awaitingSignals
         ? null
