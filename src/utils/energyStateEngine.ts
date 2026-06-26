@@ -331,69 +331,6 @@ function getLocalDayBounds(now: Date = new Date()): { startISO: string; endISO: 
   return { startISO: start.toISOString(), endISO: end.toISOString() };
 }
 
-async function restSelect<T>(
-  table: string,
-  params: Array<[string, string]>,
-  token: string,
-): Promise<T[]> {
-  const urlBase = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-  if (!urlBase || !anonKey) return [];
-
-  const url = new URL(`/rest/v1/${table}`, urlBase);
-  params.forEach(([key, value]) => url.searchParams.append(key, value));
-
-  const response = await fetch(url.toString(), {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`REST ${table} ${response.status}: ${text.slice(0, 200)}`);
-  }
-
-  const json = await response.json();
-  return Array.isArray(json) ? (json as T[]) : [];
-}
-
-async function fetchAuthedCalendarEvents(args: {
-  userId: string;
-  token: string;
-  startISO: string;
-  endISO: string;
-}): Promise<any[]> {
-  return restSelect<any>('calendar_events', [
-    ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
-    ['user_id', `eq.${args.userId}`],
-    ['start_time', `gte.${args.startISO}`],
-    ['start_time', `lte.${args.endISO}`],
-    ['order', 'start_time.asc'],
-  ], args.token);
-}
-
-async function fetchAuthedSnapshot(args: {
-  userId: string;
-  localDate: string;
-  token: string;
-  mrsWindow?: string;
-  latest?: boolean;
-}): Promise<any | null> {
-  const params: Array<[string, string]> = [
-    ['select', 'calendar_demand_score,pattern_signals,morning_baseline_score,mrs_window,updated_at'],
-    ['user_id', `eq.${args.userId}`],
-    ['local_date', `eq.${args.localDate}`],
-    ['limit', '1'],
-  ];
-  if (args.mrsWindow) params.push(['mrs_window', `eq.${args.mrsWindow}`]);
-  if (args.latest) params.push(['order', 'updated_at.desc']);
-  const rows = await restSelect<any>('daily_context_snapshot', params, args.token);
-  return rows[0] ?? null;
-}
-
 function coerceFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value === 'string' && value.trim() !== '') {
