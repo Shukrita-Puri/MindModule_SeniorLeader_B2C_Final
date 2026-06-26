@@ -36,8 +36,8 @@ Three further properties follow from MRS's role as a continuous, proactive signa
 
 | State | Name | Inputs | When computed | Where shown |
 |---|---|---|---|---|
-| **State 1** | `readiness_score_baseline` | Window-aware Physiological + Demand + Pattern composite (§3) | Always — written by signal-assembly cron (every 15 min) and on any wearable / calendar refresh | Brief pre-population, all nudges, JIT scoring, plan generation |
-| **State 2** | `readiness_score_refined` | State 1 blended with the 4 Mind Check-in dimensions, hard-capped ±15 | Recomputed every cron cycle once any check-in exists for today (§2.1) | The number the user sees on Executive Home |
+| **State 1** | `readiness_score_baseline` | Window-aware Physiological + Demand + Pattern composite (§3) | Always — written by signal-assembly cron (every 15 min) and on any wearable / calendar refresh | Brief pre-population, all nudges, JIT scoring, plan generation. **UI stage label: "Early read"** (see §13.2) |
+| **State 2** | `readiness_score_refined` | State 1 blended with the 4 Mind Check-in dimensions, hard-capped ±15 | Recomputed every cron cycle once any check-in exists for today (§2.1) | The number the user sees on Executive Home. **UI stage label: "Full read"** (see §13.2) |
 
 `readiness_state ∈ {'baseline','refined'}`. Nudges always read baseline. Brief reads refined when present, else baseline.
 
@@ -663,6 +663,13 @@ Rules:
 
 Rendered as the small caption next to the score. Driven by
 `getReadinessStateLabel(state, stageOneSignalAvailable)`:
+
+**State → label mapping (canonical):**
+- **State 1** (`readiness_score_baseline`, `readiness_state='baseline'`) → **"Early read"** when a Stage 1 signal (wearable or calendar) is present; otherwise **"Awaiting signals"**.
+- **State 2** (`readiness_score_refined`, `readiness_state='refined'`) → **"Full read"** when a Stage 1 signal is present; otherwise **"Awaiting signals"** (refined-without-stage-1 is a degenerate state and downgrades).
+- `readiness_state='awaiting'` → always **"Awaiting signals"**.
+
+Note: the label is **"Full read"** (not "Final read") — verbatim string owned by `src/utils/readinessLabels.ts`. Any change requires a `BRIEF_PROMPT_VERSION` bump.
 
 | `state`    | Stage-1 signal? | Label              | Subtitle                                                                                  |
 | ---------- | --------------- | ------------------ | ----------------------------------------------------------------------------------------- |
