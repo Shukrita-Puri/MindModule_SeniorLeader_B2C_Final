@@ -167,11 +167,16 @@ async function runJitV2Shadow(
   // is observability + cold-start visibility for the shadow run. Never throws.
   try {
     const todayLocal = new Date().toISOString().split('T')[0];
+    // Phase 2 — daily_context_snapshot is window-scoped. For this
+    // observability log we just want the latest row for today regardless
+    // of window.
     const { data: snapRow } = await supabase
       .from('daily_context_snapshot')
-      .select('pattern_signals, supply_demand_gap_flag, calendar_demand_score')
+      .select('pattern_signals, supply_demand_gap_flag, calendar_demand_score, mrs_window')
       .eq('user_id', userId)
       .eq('local_date', todayLocal)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     const ps = (snapRow as any)?.pattern_signals ?? null;
     if (ps) {
