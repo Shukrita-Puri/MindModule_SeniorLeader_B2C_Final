@@ -408,6 +408,49 @@ function deriveFullDayDemandScore(events: any[]): number | null {
   return clampScore(loadComponent + pressureComponent + (hasHighStakes ? 10 : 0));
 }
 
+interface OuterReadinessContextPreflight {
+  contextOnly?: true;
+  calendarState?: 'active' | 'connected_no_events' | 'not_connected';
+  calendarUsable?: boolean;
+  hasCalendarSignal?: boolean;
+  calendarLoad?: CalendarLoad | null;
+  calendarPressure?: CalendarPressure | null;
+  meetingCount?: number | null;
+}
+
+async function fetchOuterReadinessContext(
+  authHeaders: Record<string, string>,
+  userId?: string,
+): Promise<OuterReadinessContextPreflight | null> {
+  try {
+    const res = await supabase.functions.invoke('compute-outer-readiness', {
+      headers: authHeaders,
+      body: {
+        contextOnly: true,
+        innerReadinessTier: 'managing',
+        innerReadinessScore: null,
+        clarityLevel: null,
+        confidenceLevel: null,
+        checkInOutcome: null,
+        timezoneOffset: new Date().getTimezoneOffset(),
+        currentTimezone: (() => {
+          try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; }
+          catch { return null; }
+        })(),
+        ...(DEV_MODE && userId ? { userId } : {}),
+      },
+    });
+    if (res.error) {
+      console.warn('[energyStateEngine] outer context preflight failed:', res.error);
+      return null;
+    }
+    return (res.data ?? null) as OuterReadinessContextPreflight | null;
+  } catch (err) {
+    console.warn('[energyStateEngine] outer context preflight threw:', err);
+    return null;
+  }
+}
+
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
   const cacheKey = getEnergyStateCacheKey(userId);
   const cached = energyStateCache.get(cacheKey);
@@ -756,6 +799,8 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       }
     }
 
+    const outerContext = await fetchOuterReadinessContext(authHeaders, effectiveUserId);
+
     // Derive baseline confidence from pattern context
     const baselineConfidence = hrvPatternContext?.baselineConfidence ?? 'low';
     const sampleDays = hrvPatternContext?.sampleDays ?? 0;
@@ -779,20 +824,29 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       snapshotDemandScore ??
       (fullDayDemandScore != null ? fullDayDemandScore : (calendarConnected ? 0 : null));
     const hasCalendarSignal =
-      hasCalendar || calendarConnected || snapshotDemandScore != null;
+      hasCalendar ||
+      calendarConnected ||
+      snapshotDemandScore != null ||
+      outerContext?.hasCalendarSignal === true ||
+      outerContext?.calendarUsable === true ||
+      outerContext?.calendarState === 'active' ||
+      outerContext?.calendarState === 'connected_no_events';
+    const effectiveDemandScoreForSubScores =
+      demandScoreForV4 ?? (hasCalendarSignal ? 50 : null);
     const mrsSubScores = buildClientMrsV4SubScores({
       window: mrsWindow,
       hrvDeviationPct,
       sleepScore: hasWearable ? wearableSleepScore : null,
       sleepHours: hasWearable ? wearableSleepHours : null,
       rhrTrend: hasWearable ? wearableRhrTrend : null,
-      demandScore: demandScoreForV4,
+      demandScore: effectiveDemandScoreForSubScores,
       patternSignals: snapshotPatternSignals,
     });
-    const demandScoreForInner = demandScoreForV4 ?? snapshotDemandScore;
+    const demandScoreForInner = demandScoreForV4 ?? snapshotDemandScore ?? (hasCalendarSignal ? 50 : null);
     console.log('[energyStateEngine][compute-inner-readiness-request]', JSON.stringify({
       demandScore: demandScoreForInner,
       hasCalendarSignal,
+      outerCalendarState: outerContext?.calendarState ?? null,
       mrsWindow,
       mrsSubScores,
     }));

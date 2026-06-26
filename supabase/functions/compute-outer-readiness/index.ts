@@ -245,6 +245,13 @@ interface OuterReadinessResult {
 interface ComputeRequest {
   innerReadinessTier: EnergyTier;
   innerReadinessScore: number | null;
+  /**
+   * Lightweight preflight mode for callers that need server-side calendar
+   * eligibility before computing inner readiness. Must return before any
+   * brief/daily_context_snapshot persistence so it cannot write an awaiting
+   * row with null MRS fields.
+   */
+  contextOnly?: boolean;
   // MRS v3 — soft-guard tier cap (forwarded from compute-inner-readiness).
   // The server mirrors these into daily_context_snapshot so the UI reads
   // the canonical displayed tier without re-deriving from the raw score.
@@ -1859,6 +1866,31 @@ serve(async (req) => {
     const tomorrowPressure: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.pressure : null;
     const tomorrowHighStakes: string[] = tomorrowResult?.highStakesEvents || [];
     const todayHighStakes: string[] = calendarResult.highStakesEvents || [];
+
+    if (body.contextOnly === true) {
+      const calendarUsable =
+        calendarResult.state === 'active' ||
+        calendarResult.state === 'connected_no_events';
+      return new Response(JSON.stringify({
+        contextOnly: true,
+        calendarState: calendarResult.state,
+        calendarUsable,
+        hasCalendarSignal: calendarUsable,
+        calendarLoad,
+        calendarPressure,
+        meetingCount: calendarResult.meetingCount ?? null,
+        eventCount: calendarResult.eventCount ?? null,
+        remainingMeetings: calendarResult.remainingMeetings ?? null,
+        remainingHighStakes: calendarResult.remainingHighStakes ?? [],
+        todayHighStakes,
+        tomorrowLoad,
+        tomorrowPressure,
+        tomorrowHighStakes,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // ── Fetch wearable data (always – mornings use sleep, evenings use HR/HRV) ──
     let wearableContext: WearableContext | null = null;
