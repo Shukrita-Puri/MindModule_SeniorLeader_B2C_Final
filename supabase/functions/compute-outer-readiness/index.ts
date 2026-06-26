@@ -1814,8 +1814,23 @@ serve(async (req) => {
     const safeTierDisplayed: EnergyTier = (clientTierDisplayed as EnergyTier | null) ?? safeTier;
     const safeTierCapReason: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null =
       clientTierCapReason ?? null;
+    // MRS persistence fix (2026-06-26): the previous awaiting rule treated a
+    // missing `clientScoreBaseline` as awaiting even when `innerReadinessScore`
+    // was a real number. That caused `daily_context_snapshot` to upsert NULL
+    // scores + `readiness_state='awaiting'` for live windows, so the MRS card
+    // could never read from the snapshot. Derive an effective baseline first
+    // and only treat the row as awaiting when there is no usable numeric
+    // score from either side.
+    const effectiveBaselineScore: number | null =
+      typeof clientScoreBaseline === 'number'
+        ? clientScoreBaseline
+        : typeof innerReadinessScore === 'number'
+          ? innerReadinessScore
+          : null;
+    const hasUsableInnerScore = typeof innerReadinessScore === 'number';
+    const hasUsableBaseline = typeof effectiveBaselineScore === 'number';
     const innerStateIsAwaiting =
-      clientReadinessState === 'awaiting' || clientScoreBaseline == null || innerReadinessScore == null;
+      clientReadinessState === 'awaiting' || (!hasUsableInnerScore && !hasUsableBaseline);
     const currentReadingIsReal = !innerStateIsAwaiting && typeof innerReadinessScore === 'number';
 
     // Compute user's local time
