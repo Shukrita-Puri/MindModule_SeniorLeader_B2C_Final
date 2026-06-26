@@ -600,18 +600,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
       if (conn) {
         calendarConnected = true;
-      } else if (authTokenForRequests) {
-        try {
-          const authedConnections = await restSelect<any>('calendar_connections', [
-            ['select', 'is_active'],
-            ['user_id', `eq.${effectiveUserId}`],
-            ['is_active', 'eq.true'],
-            ['limit', '1'],
-          ], authTokenForRequests);
-          if (authedConnections.length > 0) calendarConnected = true;
-        } catch (connRestErr) {
-          console.warn('[energyStateEngine] Authenticated calendar_connections REST fallback failed:', connRestErr);
-        }
       }
       // Always probe calendar_events directly — Apple Calendar (native) users
       // do not always have a `calendar_connections` row, but the server still
@@ -627,31 +615,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         .lte('start_time', endISO)
         .order('start_time', { ascending: true });
       calendarData = events || [];
-      if (calendarData.length === 0 && authTokenForRequests) {
-        try {
-          calendarData = await fetchAuthedCalendarEvents({
-            userId: effectiveUserId,
-            token: authTokenForRequests,
-            startISO,
-            endISO,
-          });
-        } catch (restErr) {
-          console.warn('[energyStateEngine] Authenticated calendar_events REST fallback failed:', restErr);
-        }
-      }
-      if (calendarData.length === 0 && authTokenForRequests) {
-        try {
-          calendarData = await restSelect<any>('primary_calendar_events', [
-            ['select', 'id,title,start_time,end_time,is_organizer,attendees_count,is_recurring,event_metadata'],
-            ['user_id', `eq.${effectiveUserId}`],
-            ['start_time', `gte.${startISO}`],
-            ['start_time', `lte.${endISO}`],
-            ['order', 'start_time.asc'],
-          ], authTokenForRequests);
-        } catch (primaryErr) {
-          console.warn('[energyStateEngine] Authenticated primary_calendar_events REST fallback failed:', primaryErr);
-        }
-      }
       if (!conn && calendarData.length > 0) {
         // Treat presence of events as a Stage 1 calendar signal so the
         // demand-score fallback below activates.
@@ -706,26 +669,6 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
               currentWindow + ', using window=' + ((legacy as any)?.mrs_window ?? 'null'),
           );
           snap = legacy;
-        }
-      }
-      if (!snap && authTokenForRequests) {
-        try {
-          snap = await fetchAuthedSnapshot({
-            userId: effectiveUserId,
-            localDate: todayLocal,
-            mrsWindow: currentWindow,
-            token: authTokenForRequests,
-          });
-          if (!snap) {
-            snap = await fetchAuthedSnapshot({
-              userId: effectiveUserId,
-              localDate: todayLocal,
-              token: authTokenForRequests,
-              latest: true,
-            });
-          }
-        } catch (restSnapErr) {
-          console.warn('[energyStateEngine] Authenticated daily_context_snapshot REST fallback failed:', restSnapErr);
         }
       }
       // If current-window row is missing morning_baseline_score, hydrate it
