@@ -13,7 +13,7 @@ import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
 
 const MrsPage = () => {
   const navigate = useNavigate();
-  const { data: outerBrief } = useOuterReadiness();
+  const { data: outerBrief, refetch, isFetching } = useOuterReadiness();
   const score = outerBrief?.innerReadinessScore ?? null;
   const tier =
     outerBrief?.innerReadinessTierDisplayed ||
@@ -22,6 +22,14 @@ const MrsPage = () => {
   const weekly = useWeeklyMrsDelta();
 
   const hasScore = typeof score === 'number';
+  // Phase 1 — distinguish transient compute/auth failures from true awaiting.
+  const engineStatus = (outerBrief as any)?.engineStatus as
+    | 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
+  const isFailureState =
+    engineStatus === 'auth-failure' ||
+    engineStatus === 'inner-failure' ||
+    engineStatus === 'outer-failure' ||
+    engineStatus === 'unknown-error';
   // Prefer the backend's explicit readiness contract. Stage 1 can be wearable
   // or calendar driven; check-in only upgrades baseline to refined.
   const ws = (outerBrief as any)?.wearableStatus;
@@ -69,8 +77,30 @@ const MrsPage = () => {
           <MrsGauge score={score} tier={tier} size={232} />
         </div>
 
+        {/* Phase 1 — engine failure retry block (auth/inner/outer/unknown). */}
+        {isFailureState && !hasScore && (
+          <div className="mt-4 flex flex-col items-center text-center gap-2">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
+              {engineStatus === 'auth-failure' ? 'Session expired' : 'Reading unavailable'}
+            </span>
+            <span className="text-[11px] text-muted-foreground/60 max-w-[260px]">
+              {engineStatus === 'auth-failure'
+                ? 'Reconnecting your session. Retry to refresh your score.'
+                : 'Couldn\'t reach the readiness service. Retry to refresh.'}
+            </span>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="mt-1 text-[11px] uppercase tracking-[0.16em] underline-offset-4 hover:underline disabled:opacity-50 text-foreground/80"
+            >
+              {isFetching ? 'Retrying…' : 'Retry'}
+            </button>
+          </div>
+        )}
+
         {/* One-line read derived from score; state label replaces (Refined)/(Baseline). */}
-        {hasScore && oneLiner && (
+        {hasScore && oneLiner && !isFailureState && (
           <div className="mt-4 flex flex-col items-center text-center">
             <span
               className="text-base font-medium tracking-wide"
@@ -86,7 +116,7 @@ const MrsPage = () => {
             </span>
           </div>
         )}
-        {!hasScore && (
+        {!hasScore && !isFailureState && (
           <div className="mt-4 flex flex-col items-center text-center">
             <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
               {stateLabel.label}
