@@ -508,15 +508,25 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
       if (conn) {
         calendarConnected = true;
-        const now = new Date();
-        const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-        const { data: events } = await supabase
-          .from('calendar_events')
-          .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
-          .eq('user_id', effectiveUserId)
-          .gte('start_time', now.toISOString())
-          .lte('start_time', fourHoursLater.toISOString());
-        calendarData = events || [];
+      }
+      // Always probe calendar_events directly — Apple Calendar (native) users
+      // do not always have a `calendar_connections` row, but the server still
+      // rates them as Stage 1 calendar-usable. Reading events lets us derive
+      // a demand score and feed compute-inner-readiness so MRS doesn't collapse
+      // to 'awaiting' when wearable is missing but calendar is usable.
+      const now = new Date();
+      const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+      const { data: events } = await supabase
+        .from('calendar_events')
+        .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
+        .eq('user_id', effectiveUserId)
+        .gte('start_time', now.toISOString())
+        .lte('start_time', fourHoursLater.toISOString());
+      calendarData = events || [];
+      if (!conn && calendarData.length > 0) {
+        // Treat presence of events as a Stage 1 calendar signal so the
+        // demand-score fallback below activates.
+        calendarConnected = true;
       }
     } catch (err) {
       console.warn('[energyStateEngine] Calendar fetch failed, using empty:', err);
