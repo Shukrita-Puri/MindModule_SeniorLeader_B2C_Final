@@ -537,12 +537,59 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   if (effectiveUserId) {
     try {
       const todayLocal = localISODate();
-      const { data: snap } = await supabase
-        .from('daily_context_snapshot')
-        .select('calendar_demand_score, pattern_signals, morning_baseline_score')
-        .eq('user_id', effectiveUserId)
-        .eq('local_date', todayLocal)
-        .maybeSingle();
+      // Phase 2 — daily_context_snapshot is now window-scoped
+      // (user_id, local_date, mrs_window). Read the row for the current
+      // window; if absent, fall back to the most recent row for today
+      // (legacy single-row schema or earlier window in same day).
+      const nowHour = new Date().getHours();
+      const currentWindow =
+        nowHour >= 6 && nowHour < 12 ? 'morning'
+        : nowHour >= 12 && nowHour < 18 ? 'afternoon'
+        : 'evening';
+      let snap: any = null;
+      {
+        const { data } = await supabase
+          .from('daily_context_snapshot')
+          .select('calendar_demand_score, pattern_signals, morning_baseline_score, mrs_window')
+          .eq('user_id', effectiveUserId)
+          .eq('local_date', todayLocal)
+          .eq('mrs_window', currentWindow)
+          .maybeSingle();
+        snap = data ?? null;
+      }
+      if (!snap) {
+        const { data: legacy } = await supabase
+          .from('daily_context_snapshot')
+          .select('calendar_demand_score, pattern_signals, morning_baseline_score, mrs_window')
+          .eq('user_id', effectiveUserId)
+          .eq('local_date', todayLocal)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (legacy) {
+          console.warn(
+            '[energyStateEngine] daily_context_snapshot legacy fallback: no row for window=' +
+              currentWindow + ', using window=' + ((legacy as any)?.mrs_window ?? 'null'),
+          );
+          snap = legacy;
+        }
+      }
+      // If current-window row is missing morning_baseline_score, hydrate it
+      // from the morning row (which owns the anchor).
+      if (snap && (snap as any).morning_baseline_score == null && currentWindow !== 'morning') {
+        try {
+          const { data: morningRow } = await supabase
+            .from('daily_context_snapshot')
+            .select('morning_baseline_score')
+            .eq('user_id', effectiveUserId)
+            .eq('local_date', todayLocal)
+            .eq('mrs_window', 'morning')
+            .maybeSingle();
+          if (morningRow && (morningRow as any).morning_baseline_score != null) {
+            (snap as any).morning_baseline_score = (morningRow as any).morning_baseline_score;
+          }
+        } catch { /* non-fatal */ }
+      }
       if (snap) {
         const snapRow = snap as {
           calendar_demand_score?: number | null;

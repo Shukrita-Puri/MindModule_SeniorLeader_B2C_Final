@@ -3967,13 +3967,31 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             try {
               let snap: any = null;
               try {
+                // Phase 2 — window-scoped snapshot. Prefer current-window
+                // row; fall back to latest row for today (legacy single-row
+                // schema or earlier window in same day).
                 const { data: snapRow } = await (db as any)
                   .from('daily_context_snapshot')
                   .select('pattern_signals, strategic_context, calendar_demand_score, supply_demand_gap_flag')
                   .eq('user_id', userId)
                   .eq('local_date', userLocalDate)
+                  .eq('mrs_window', timeOfDayStr)
                   .maybeSingle();
                 snap = snapRow ?? null;
+                if (!snap) {
+                  const { data: legacy } = await (db as any)
+                    .from('daily_context_snapshot')
+                    .select('pattern_signals, strategic_context, calendar_demand_score, supply_demand_gap_flag, mrs_window')
+                    .eq('user_id', userId)
+                    .eq('local_date', userLocalDate)
+                    .order('updated_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (legacy) {
+                    console.warn(`[compute-outer-readiness] daily_context_snapshot legacy fallback (brief): no row for window=${timeOfDayStr}, using window=${(legacy as any)?.mrs_window ?? 'null'}`);
+                    snap = legacy;
+                  }
+                }
               } catch (_snapErr) { /* fall through to compose */ }
 
               let ps: any = snap?.pattern_signals ?? null;
@@ -5708,11 +5726,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const timeWindow = getTimeOfDay(hour);
           let existingMorningBaselineScore: number | null = null;
           try {
+            // Phase 2 — anchor lives on the morning-window row.
             const { data: existingSnapshot } = await db
               .from('daily_context_snapshot')
               .select('morning_baseline_score')
               .eq('user_id', userId)
               .eq('local_date', userLocalDate)
+              .eq('mrs_window', 'morning')
               .maybeSingle();
             existingMorningBaselineScore = (existingSnapshot as any)?.morning_baseline_score ?? null;
           } catch (_snapReadErr) {
@@ -5765,6 +5785,27 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               ? { weightProvenance: clientWeightProvenance }
               : {}),
           });
+          // Phase 2 — morning anchor lives on the MORNING-window row. When
+          // we're backfilling from an afternoon run, write the anchor into
+          // the morning row in a separate idempotent upsert so downstream
+          // readers (which now key by mrs_window='morning') find it.
+          if (shouldBackfillMorningAnchor && timeWindow !== 'morning') {
+            try {
+              await db
+                .from('daily_context_snapshot')
+                .upsert(
+                  {
+                    user_id: userId,
+                    local_date: userLocalDate,
+                    mrs_window: 'morning',
+                    morning_baseline_score: currentBaselineForAnchor,
+                  },
+                  { onConflict: 'user_id,local_date,mrs_window' },
+                );
+            } catch (anchorErr) {
+              console.warn('[daily_context_snapshot] morning-anchor backfill failed:', anchorErr instanceof Error ? anchorErr.message : anchorErr);
+            }
+          }
         } catch (snapErr) {
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
         }

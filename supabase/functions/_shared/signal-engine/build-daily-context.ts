@@ -113,7 +113,7 @@ export async function upsertDailyContextSnapshot(
 
     const { error } = await db
       .from('daily_context_snapshot')
-      .upsert(row, { onConflict: 'user_id,local_date' });
+      .upsert(row, { onConflict: 'user_id,local_date,mrs_window' });
 
     if (error) {
       console.warn('[daily_context_snapshot] upsert failed:', error.message ?? error);

@@ -235,24 +235,36 @@ if (import.meta.main) serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
+        // Phase 2 — snapshot is window-scoped; collapse to one row per
+        // local_date by keeping the most recently updated window.
         const { data, error } = await supabase
           .from('daily_context_snapshot')
-          .select('local_date, readiness_score_baseline, readiness_score_refined, readiness_state')
+          .select('local_date, readiness_score_baseline, readiness_score_refined, readiness_state, mrs_window, updated_at')
           .eq('user_id', userId)
           .gte('local_date', lastMonday)
-          .lte('local_date', today);
+          .lte('local_date', today)
+          .order('updated_at', { ascending: false });
 
         if (error) {
           console.error('[mental-fitness-scores] GET_WEEKLY_DELTA error:', error);
           throw error;
         }
 
-        const rows = (data || []) as Array<{
+        const allRows = (data || []) as Array<{
           local_date: string;
           readiness_score_baseline: number | null;
           readiness_score_refined: number | null;
           readiness_state: string | null;
+          mrs_window?: string | null;
+          updated_at?: string | null;
         }>;
+        // Keep first occurrence per date (already ordered by updated_at DESC).
+        const seen = new Set<string>();
+        const rows = allRows.filter((r) => {
+          if (seen.has(r.local_date)) return false;
+          seen.add(r.local_date);
+          return true;
+        });
         const comparison = computeWeeklyDeltaComparison(rows, thisMonday, lastMonday, lastSunday, today);
 
         return new Response(JSON.stringify({

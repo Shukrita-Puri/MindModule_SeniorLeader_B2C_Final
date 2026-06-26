@@ -3931,12 +3931,37 @@ serve(async (req) => {
       // Never throws: missing snapshot row falls back to existing behaviour.
       let mrsEscalate = false;
       try {
-        const { data: snapRow } = await supabase
-          .from('daily_context_snapshot')
-          .select('supply_demand_gap_flag, pattern_signals')
-          .eq('user_id', userId)
-          .eq('local_date', todayStr)
-          .maybeSingle();
+        // Phase 2 — window-scoped snapshot. Prefer current-window row,
+        // fall back to latest row for today (legacy / earlier window).
+        const nudgeWindow =
+          localHour >= 6 && localHour < 12 ? 'morning'
+          : localHour >= 12 && localHour < 18 ? 'afternoon'
+          : 'evening';
+        let snapRow: any = null;
+        {
+          const { data } = await supabase
+            .from('daily_context_snapshot')
+            .select('supply_demand_gap_flag, pattern_signals')
+            .eq('user_id', userId)
+            .eq('local_date', todayStr)
+            .eq('mrs_window', nudgeWindow)
+            .maybeSingle();
+          snapRow = data ?? null;
+        }
+        if (!snapRow) {
+          const { data: legacy } = await supabase
+            .from('daily_context_snapshot')
+            .select('supply_demand_gap_flag, pattern_signals, mrs_window')
+            .eq('user_id', userId)
+            .eq('local_date', todayStr)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (legacy) {
+            console.warn(`[smart-nudges] daily_context_snapshot legacy fallback: no row for window=${nudgeWindow}, using window=${(legacy as any)?.mrs_window ?? 'null'} user=${userId}`);
+            snapRow = legacy;
+          }
+        }
         const gapFlag = (snapRow as any)?.supply_demand_gap_flag ?? null;
         const ps = (snapRow as any)?.pattern_signals ?? null;
         if (gapFlag === 'LIGHT_DAY_STRONG_STATE' && !isForcedUser) {
