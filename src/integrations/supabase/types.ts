@@ -2943,6 +2943,72 @@ export type Database = {
           },
         ]
       }
+      mastery_plan_snapshots: {
+        Row: {
+          brief_snapshot_id: string | null
+          created_at: string
+          day_kind: string | null
+          error_json: Json | null
+          generated_at: string
+          horizon_iso: string | null
+          horizon_modules: Json | null
+          id: string
+          input_signature: string | null
+          mrs_window: string
+          plan_date: string
+          plan_json: Json | null
+          plan_ledger: Json | null
+          priorities: Json | null
+          recommended_practice_ids: string[]
+          source_context_snapshot_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brief_snapshot_id?: string | null
+          created_at?: string
+          day_kind?: string | null
+          error_json?: Json | null
+          generated_at?: string
+          horizon_iso?: string | null
+          horizon_modules?: Json | null
+          id?: string
+          input_signature?: string | null
+          mrs_window: string
+          plan_date: string
+          plan_json?: Json | null
+          plan_ledger?: Json | null
+          priorities?: Json | null
+          recommended_practice_ids?: string[]
+          source_context_snapshot_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brief_snapshot_id?: string | null
+          created_at?: string
+          day_kind?: string | null
+          error_json?: Json | null
+          generated_at?: string
+          horizon_iso?: string | null
+          horizon_modules?: Json | null
+          id?: string
+          input_signature?: string | null
+          mrs_window?: string
+          plan_date?: string
+          plan_json?: Json | null
+          plan_ledger?: Json | null
+          priorities?: Json | null
+          recommended_practice_ids?: string[]
+          source_context_snapshot_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       mental_fitness_scores: {
         Row: {
           baseline_avg: number | null

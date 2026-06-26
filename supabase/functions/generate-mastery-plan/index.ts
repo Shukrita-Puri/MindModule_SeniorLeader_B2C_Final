@@ -7056,6 +7056,62 @@ if (import.meta.main) Deno.serve(async (req) => {
       }
     }
 
+    // Phase 3 — persist the full day-of Plan payload to
+    // `mastery_plan_snapshots`. This is write-only here; reads land in a
+    // later phase. Failures are non-fatal: the live response still ships.
+    try {
+      const planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
+      const visiblePriorities = Array.isArray((plan as any)?.timeOfDayPlan?.modules)
+        ? (plan as any).timeOfDayPlan.modules
+        : [];
+      const horizonMods = Array.isArray((plan as any)?.horizonModules)
+        ? (plan as any).horizonModules
+        : [];
+      const practiceIds: string[] = Array.from(new Set([
+        ...visiblePriorities.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
+        ...horizonMods.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
+      ]));
+
+      // Pull the just-persisted ledger so the snapshot row carries the
+      // canonical plan_ledger jsonb (single source: daily_ritual_completions).
+      let planLedger: any = null;
+      try {
+        const { data: ledgerRow } = await supabaseClient
+          .from('daily_ritual_completions')
+          .select('plan_ledger')
+          .eq('user_id', userId)
+          .eq('ritual_date', planDate)
+          .eq('session_period', currentPeriod)
+          .maybeSingle();
+        planLedger = (ledgerRow as any)?.plan_ledger ?? null;
+      } catch (_) { /* non-fatal */ }
+
+      const { error: snapErr } = await supabaseClient
+        .from('mastery_plan_snapshots')
+        .upsert({
+          user_id: userId,
+          plan_date: planDate,
+          mrs_window: currentPeriod,
+          day_kind: (plan as any)?.meta?.dayKind ?? (plan as any)?.dayKind ?? null,
+          horizon_iso: (plan as any)?.weekAheadDecision?.mode ?? null,
+          plan_json: plan,
+          horizon_modules: horizonMods,
+          priorities: visiblePriorities,
+          recommended_practice_ids: practiceIds,
+          plan_ledger: planLedger,
+          input_signature: stateFingerprint,
+          status: 'ready',
+          error_json: null,
+          generated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,plan_date,mrs_window' });
+      if (snapErr) {
+        console.warn('[mastery_plan_snapshots] upsert failed:', snapErr.message ?? snapErr);
+      }
+    } catch (snapPersistErr) {
+      console.warn('[mastery_plan_snapshots] upsert threw:',
+        snapPersistErr instanceof Error ? snapPersistErr.message : snapPersistErr);
+    }
+
     return new Response(JSON.stringify(plan), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
@@ -7067,6 +7123,26 @@ if (import.meta.main) Deno.serve(async (req) => {
       name: error?.name,
       userId: userId ?? 'unknown',
     });
+    // Phase 3 — best-effort error snapshot. Date/window derived in UTC
+    // since client-provided values aren't in scope here; the snapshot is
+    // just a marker so monitoring sees the failure. Never throws.
+    try {
+      const _url = Deno.env.get('SUPABASE_URL');
+      const _key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (userId && _url && _key) {
+        const _sb = createClient(_url, _key);
+        const _planDate = new Date().toISOString().slice(0, 10);
+        const _period = getTimeOfDay(0);
+        await _sb.from('mastery_plan_snapshots').upsert({
+          user_id: userId,
+          plan_date: _planDate,
+          mrs_window: _period,
+          status: 'error',
+          error_json: { message: error?.message ?? String(error), name: error?.name ?? null },
+          generated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,plan_date,mrs_window' });
+      }
+    } catch (_errSnapErr) { /* swallow */ }
     return new Response(JSON.stringify({ error: 'Plan generation failed', reason: error?.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
