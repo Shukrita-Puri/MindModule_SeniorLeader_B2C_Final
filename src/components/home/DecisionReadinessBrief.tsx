@@ -1778,8 +1778,62 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     (outerBriefReal as any)?.briefMode === 'cold-start' ||
     (outerBriefReal as any)?.awaitingSignals === true ||
     !outerBriefReal.phrase;
+  // Snapshot overlay: when a renderable current-window snapshot exists,
+  // override the brief-visible fields on the live payload with snapshot
+  // values. We spread the live payload first so wearable / calendar /
+  // engineStatus fields keep flowing from `useOuterReadiness` (MRS still
+  // depends on them); the snapshot only owns the brief copy + per-brief
+  // identity + pills surface.
+  const briefFromSnapshot: any | null = snapshotIsRenderable
+    ? (() => {
+        const snap = currentBriefSnapshot!;
+        const base = (outerBriefReal as any) ?? {};
+        return {
+          ...base,
+          phrase: snap.phrase,
+          bodyText: snap.bodyText,
+          leanOn: snap.leanOn ?? base.leanOn,
+          leanOnSource: snap.leanOnSource ?? base.leanOnSource,
+          watchFor: snap.watchFor ?? base.watchFor,
+          watchForSource: snap.watchForSource ?? base.watchForSource,
+          briefId: snap.briefId,
+          briefSource: snap.briefSource ?? base.briefSource,
+          driver: snap.driver ?? base.driver,
+          innerReadinessScore:
+            snap.innerReadinessScore ?? base.innerReadinessScore ?? null,
+          innerReadinessTier:
+            snap.innerReadinessTier ?? base.innerReadinessTier ?? null,
+          innerReadinessTierDisplayed:
+            snap.innerReadinessTierDisplayed ??
+            base.innerReadinessTierDisplayed ??
+            null,
+          innerReadinessScoreBaseline:
+            snap.innerReadinessScoreBaseline ??
+            base.innerReadinessScoreBaseline ??
+            null,
+          innerReadinessScoreRefined:
+            snap.innerReadinessScoreRefined ??
+            base.innerReadinessScoreRefined ??
+            null,
+          innerReadinessState:
+            snap.innerReadinessState ?? base.innerReadinessState ?? null,
+          signalPills: snap.signalPills ?? base.signalPills ?? null,
+          checkInOutcome: snap.checkInOutcome ?? base.checkInOutcome ?? null,
+          sourceProvenance: snap.sourceProvenance ?? base.sourceProvenance ?? null,
+          behaviourSnapshot: snap.behaviourSnapshot ?? base.behaviourSnapshot ?? null,
+          // The snapshot exists for the current window with copy — by
+          // contract this is never an awaiting state.
+          awaitingSignals: false,
+          briefMode:
+            snap.innerReadinessState === 'refined' ? 'refined' : 'baseline',
+          hasCurrentPeriodSignal: true,
+        };
+      })()
+    : null;
   const outerBrief =
-    tourMockBriefActive && realBriefEmpty ? MOCK_BRIEF : outerBriefReal;
+    tourMockBriefActive && realBriefEmpty
+      ? MOCK_BRIEF
+      : (briefFromSnapshot ?? outerBriefReal);
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
