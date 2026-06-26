@@ -2061,6 +2061,35 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         </>
       )}
 
+      {/* Phase 1 — engine failure retry block (auth / inner / outer / unknown).
+          This replaces the awaiting copy when the read failed due to
+          infrastructure rather than a real cold start. */}
+      {isEngineFailure && (
+        <div className="mt-4 rounded-lg border border-border/40 bg-background/60 px-3 py-3">
+          <p className="text-quote text-foreground">
+            {engineStatus === 'auth-failure'
+              ? 'Session expired — reconnecting.'
+              : 'Reading unavailable right now.'}
+          </p>
+          <p className="mt-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
+            {engineStatus === 'auth-failure'
+              ? 'Retry to refresh your brief.'
+              : 'Couldn\'t reach the readiness service. Retry to refresh.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              // Drop in-memory + persistent caches so retry forces a fresh read.
+              import('@/hooks/useOuterReadiness').then(m => m.clearOuterReadinessCache());
+              queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+            }}
+            className="mt-2 text-[11px] uppercase tracking-[0.16em] underline-offset-4 hover:underline text-foreground/80"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* 5. BODY COPY */}
       {bodyText && (
         <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
