@@ -939,9 +939,16 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     if (hasCalendar) sourceBreakdown.push('calendar_signal_used');
     if (hasCheckIn) sourceBreakdown.push('checkin_signal_used');
 
-    // Persist composite score to DB with retry guardrail
+    // Persist composite score to DB with retry guardrail.
+    // Guard: only persist when we have a numeric score (post-MRS-pure-fix,
+    // result.score may be null when no score-bearing signal exists).
     const todayISO = localISODate();
-    if (hasCheckIn && storedEnergyBalance !== result.score) {
+    if (
+      hasCheckIn &&
+      typeof result.score === 'number' &&
+      Number.isFinite(result.score) &&
+      storedEnergyBalance !== result.score
+    ) {
       persistCompositeScore(todayISO, result.score, checkInTimeWindow || undefined);
     }
 
