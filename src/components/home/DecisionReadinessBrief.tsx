@@ -1947,10 +1947,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     engineStatus === 'inner-failure' ||
     engineStatus === 'outer-failure' ||
     engineStatus === 'unknown-error';
+  // Phase 3.8 hardening: if a renderable current-window snapshot exists, do
+  // not also show the live engine-failure retry block underneath it.
+  const showFailureBlock = isEngineFailure && !snapshotIsRenderable;
   // Show the awaiting copy ONLY for a real cold-start. Engine failures get
   // their own retry block below.
   const showNeutralAwaitingCopy =
-    !isEngineFailure && (awaitingSignals || readinessState === 'awaiting' || score == null);
+    !showFailureBlock && (awaitingSignals || readinessState === 'awaiting' || score == null);
   const phrase = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.phrase || "Today's read.");
@@ -2130,8 +2133,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* Phase 1 — engine failure retry block (auth / inner / outer / unknown).
           This replaces the awaiting copy when the read failed due to
-          infrastructure rather than a real cold start. */}
-      {isEngineFailure && (
+          infrastructure rather than a real cold start. Suppressed when a
+          renderable current-window Brief snapshot is already displayed. */}
+      {showFailureBlock && (
         <div className="mt-4 rounded-lg border border-border/40 bg-background/60 px-3 py-3">
           <p className="text-quote text-foreground">
             {engineStatus === 'auth-failure'
