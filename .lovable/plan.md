@@ -1,42 +1,37 @@
 ## Goal
 
-Replace the multiple awaiting-state strings on MRS, Brief, and Plan cards with one canonical sentence, rendered exactly once per card, in each card's existing eyebrow/quote text style. No logic changes, no other UI changes.
+Update the three legal/transparency pages in the app to match the new copy the user provided:
 
-## Canonical copy
+- `src/pages/Privacy.tsx` ← `Privacy-Policy-Mind-Module.md`
+- `src/pages/Terms.tsx` ← `Terms-of-Use-Mind-Module.md`
+- `src/pages/PoweredByAI.tsx` ← `AI-Transparency-Disclosure-Mind-Module.md`
 
-```
-Awaiting signals — sync your wearable, calendar to get an early read and check in to sharpen it.
-```
+No business logic changes. Layout, navigation, footer links, and design tokens stay exactly as-is.
 
-The leading "Awaiting signals" stays as the eyebrow/label style each card already uses; the rest is the descriptive line. Update the shared constant so all three cards stay in lock-step.
+## Scope of changes
 
-## Files & exact edits
+For each page:
 
-### 1. `src/constants/awaitingSignals.ts`
-Replace `READINESS_AWAITING_MESSAGE` value with:
-`"Sync your wearable, calendar to get an early read and check in to sharpen it."`
-(The "Awaiting signals" prefix is rendered separately by each card as its eyebrow/title.)
+1. Keep the existing page shell: `UnifiedTopBar`, container width, headline + meta line, `space-y-8` section list, footer with cross-links to the other two pages, and the existing `text-foreground/80 font-body` typography.
+2. Replace section content with the new copy verbatim from the uploaded markdown (numbered sections 1–N, bullet lists, bold emphasis preserved).
+3. Strip the bracketed "legal counsel note" callouts at the top of each markdown — those are author notes, not user-facing copy.
+4. Set "Last Updated" / "Effective Date" to **June 29, 2026** (the user can edit later). Leave the existing "Last Updated" line styling intact.
+5. Preserve existing internal navigation pattern: `navigate('/privacy')`, `navigate('/terms')`, `navigate('/powered-by-ai')` for cross-links; render `contact@mindmodule.me` as a `mailto:` link; render external third-party links (Google AI Principles etc.) with `target="_blank" rel="noopener noreferrer"`.
+6. Keep the headline sizes (`text-[22px] sm:text-3xl font-headline`) and H2 sizes (`text-[17px] sm:text-xl font-body`) consistent across all three pages.
 
-### 2. `src/utils/readinessLabels.ts` (drives the eyebrow line beneath the MRS gauge and beside the Brief score)
-For both `awaiting` and `refined-without-wearable` branches, change `subtitle` from `"sync your wearable and check in"` to `"sync your wearable, calendar to get an early read and check in to sharpen it"`. Label stays `"Awaiting signals"`.
+## Notable content deltas vs current pages
 
-### 3. `src/components/home/mrs/MrsPage.tsx` (MRS page)
-Delete the `<p>{READINESS_AWAITING_MESSAGE}</p>` paragraph (lines ~94-99) in the `!hasScore` block. The eyebrow line (`stateLabel.label` + `stateLabel.subtitle`) now carries the full message via change #2.
-
-### 4. `src/components/home/DecisionReadinessBrief.tsx` (Brief card)
-- Line 2013: change `--` to a single `—` (or single `-`) — remove the doubled dashes so only one dash shows next to the score.
-- Line 2014: delete the inline `AWAITING SIGNALS · sync your wearable and check in` span (the eyebrow next to the score is already rendered by the `stateLabel` block above for the normal path; for the awaiting fallback the message is shown once via the block below).
-- Lines 2043-2052: in the `showNeutralAwaitingCopy` block, remove the "We do not have enough fresh signals yet for today's readiness read." `<p>` and keep one paragraph rendering `Awaiting signals — {READINESS_AWAITING_MESSAGE}` in the existing quote style.
-
-### 5. `src/components/home/TodayThreePriorities.tsx` (Plan card)
-Lines 1224-1230: keep the button + chevron structure, keep "Awaiting today's signal" replaced with `"Awaiting signals"` as the quote title, and the body span renders `READINESS_AWAITING_MESSAGE` (updated via change #1). Net effect on screen: "Awaiting signals" + one descriptive line.
+- **Privacy**: now names Auth0, Stripe, Apple Health/Oura, Google/Microsoft/Apple Calendar, adds wearable signal scope (HRV, RHR, HR, sleep), attendee-relationship inference section (§1.4), GDPR/CCPA/MENA/APAC/HealthKit regional sections, retention table.
+- **Terms**: adds 7-day free trial (§5.2), full calendar/wearable provider scope (§10), removes any present-tense conversational AI Coach references, UK/EU vs US pricing (£29/£24 vs $29/$24), England & Wales governing law.
+- **Powered by AI**: removes "AI Self-Mastery Coach" as a present-tense feature, adds Mental Readiness Score, Performance Patterns, Smart Nudges, Attendee Relationship Inference (§4), deterministic-fallback note, multi-LLM fallback acknowledgement.
 
 ## Out of scope
-- No changes to gating logic, hooks, edge functions, MRS scoring, brief generation, pill rendering, calendar pills, weekly delta dial, sidebar, or any other component.
-- `DailyRitual.tsx` line 602 ("Awaiting today's signal") is a separate code path not shown in the screenshots; leave untouched unless the user flags it.
 
-## Verification
-Reload `/executive-home` in the awaiting state and confirm:
-- MRS card: gauge → single eyebrow line "AWAITING SIGNALS · sync your wearable, calendar to get an early read and check in to sharpen it"; no second paragraph below.
-- Brief card: single dash next to score, no inline AWAITING SIGNALS subtitle next to it; body shows one paragraph "Awaiting signals — sync your wearable, calendar…".
-- Plan card: "Awaiting signals" + one descriptive line, chevron preserved.
+- No route changes (existing `/privacy`, `/terms`, `/powered-by-ai` are reused).
+- No new components, no new design tokens.
+- No edits to footer/PrivacyFooter or other entry points.
+- No legal review — copy is taken verbatim from the user-provided files.
+
+## Technical notes
+
+Each page is a single self-contained `.tsx` file rendered with Tailwind utilities and shadcn-free primitives. Replacement is a straight content rewrite inside the existing JSX scaffold — no new dependencies, no state, no data fetching.
