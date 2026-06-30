@@ -139,6 +139,19 @@ export interface ScorableContent {
   category?: string | null;          // Recalibrate category
   sub_type?: string | null;
   protocol_type?: string | null;
+  structuredTags?: {
+    pillar?: string | null;
+    masterySubtypes?: string[] | null;
+    goalTags?: string[] | null;
+    physioTarget?: string[] | null;
+    contextTags?: string[] | null;
+    environmentSuitability?: string[] | null;
+    equipment?: string[] | null;
+    cognitiveLoadHelp?: string[] | null;
+    socialTag?: string | null;
+    intensityLevel?: string | null;
+    energyDirection?: string | null;
+  } | null;
   metaSkillTags?: string[] | null;
   stateSignalTags?: string[] | null;
   isFoundational?: boolean | null;
@@ -164,8 +177,71 @@ export interface PracticeSelectionContext {
 export interface IntentScoreBreakdown {
   metaSkill: number;
   recalibrateCategory: number;
+  structuredTags: number;
   combo: number;
   total: number;
+}
+
+function arr(v: string[] | null | undefined): string[] {
+  return Array.isArray(v) ? v.map((s) => String(s).toLowerCase()) : [];
+}
+
+function scoreStructuredTags(c: ScorableContent, intent: SlotIntent): number {
+  const tags = c.structuredTags;
+  if (!tags) return 0;
+
+  const pillar = String(tags.pillar ?? "").toLowerCase();
+  const subtypes = arr(tags.masterySubtypes);
+  const goals = arr(tags.goalTags);
+  const context = arr(tags.contextTags);
+  const loadHelp = arr(tags.cognitiveLoadHelp);
+  const direction = String(tags.energyDirection ?? "").toLowerCase();
+
+  switch (intent.intentLabel) {
+    case "focus/flow-mastery": {
+      let score = 0;
+      if (pillar === "flow") score += 8;
+      if (subtypes.some((s) => ["optimize", "maintain-peak", "activate"].includes(s))) score += 5;
+      if (goals.some((g) => ["focus", "mental_clarity", "decision_readiness", "sustained_attention", "concentration", "flow"].includes(g))) score += 7;
+      if (loadHelp.some((h) => ["improves_concentration", "supports_decision", "deep_focus", "creative_thinking"].includes(h))) score += 4;
+      if (direction === "clarify" || direction === "stabilize") score += 2;
+      if (pillar === "renewal" && !goals.some((g) => ["focus", "mental_clarity", "decision_readiness"].includes(g))) score -= 8;
+      return score;
+    }
+    case "recovery/renewal": {
+      let score = 0;
+      if (pillar === "renewal" || pillar === "pause") score += 7;
+      if (subtypes.some((s) => ["recharge", "restore", "refresh", "deep-calm", "grounding"].includes(s))) score += 5;
+      if (goals.some((g) => ["resilience", "recovery", "stress_reduction", "deep_reset", "calming", "sleep_preparation", "acceptance"].includes(g))) score += 6;
+      if (context.some((t) => ["post-stress", "post-meeting", "evening_winddown", "bedtime", "rest", "post-performance"].includes(t))) score += 4;
+      if (direction === "downshift" || direction === "stabilize") score += 3;
+      return score;
+    }
+    case "circadian": {
+      let score = 0;
+      if (pillar === "pause" || pillar === "renewal") score += 6;
+      if (context.some((t) => ["evening_winddown", "bedtime", "morning_ritual", "rest"].includes(t))) score += 6;
+      if (direction === "downshift" || direction === "stabilize") score += 3;
+      return score;
+    }
+    case "activation/presence": {
+      let score = 0;
+      if (pillar === "flow" || pillar === "renewal") score += 5;
+      if (subtypes.some((s) => ["activate", "optimize", "maintain-peak", "recharge"].includes(s))) score += 5;
+      if (goals.some((g) => ["energize", "confidence", "courage", "focus", "mental_clarity", "presence"].includes(g))) score += 6;
+      if (direction === "uplift" || direction === "activate" || direction === "motivate" || direction === "clarify") score += 5;
+      return score;
+    }
+    default: {
+      let score = 0;
+      if (pillar === "pause") score += 7;
+      if (subtypes.some((s) => ["deep-calm", "grounding", "composure"].includes(s))) score += 6;
+      if (goals.some((g) => ["grounding", "breathing_regulation", "composure", "emotional_regulation", "presence", "centering", "calming"].includes(g))) score += 6;
+      if (loadHelp.includes("lowers_cognitive_load") || loadHelp.includes("supports_decision")) score += 3;
+      if (direction === "downshift" || direction === "stabilize") score += 3;
+      return score;
+    }
+  }
 }
 
 /**
@@ -205,6 +281,13 @@ export function scoreContentAgainstIntent(
   if (idx === 0) recalibrateCategory = 8;
   else if (idx > 0) recalibrateCategory = 4;
 
+  // Recalibrate v2 structured tags — sourced from the frontend
+  // `src/data/practicesAndSoundscapes.ts` catalog and mirrored into
+  // `sanctuary_content_metadata.structured_tags`. This lets Plan Step 3
+  // bind to the same multi-dimensional tagging model used by Recalibrate
+  // without importing the asset-heavy frontend TS file into Deno.
+  const structuredTags = scoreStructuredTags(c, intent);
+
   // Protocol combo — best-effort; `protocol_type` is currently sparse,
   // so this is a small tiebreaker rather than a strong signal.
   let combo = 0;
@@ -213,8 +296,8 @@ export function scoreContentAgainstIntent(
     if (c.protocol_type === proto) combo = 4;
   }
 
-  const total = metaSkill + recalibrateCategory + combo;
-  return { metaSkill, recalibrateCategory, combo, total };
+  const total = metaSkill + recalibrateCategory + structuredTags + combo;
+  return { metaSkill, recalibrateCategory, structuredTags, combo, total };
 }
 
 /**

@@ -3161,6 +3161,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     return {
       ...c,
       structured_tags: (meta as any)?.structured_tags,
+      structuredTags: (meta as any)?.structured_tags,
       mastery_category: (meta as any)?.mastery_category,
       horizonTags: (meta as any)?.horizon || [],
       metaSkillTags: (meta as any)?.meta_skill || [],

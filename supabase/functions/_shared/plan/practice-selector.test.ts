@@ -21,6 +21,14 @@ const trataka: ScorableContent = {
   category: "presence",
   metaSkillTags: ["meta-clarity"],
   stateSignalTags: [],
+  structuredTags: {
+    pillar: "flow",
+    masterySubtypes: ["optimize", "maintain-peak"],
+    goalTags: ["focus", "concentration", "mental_clarity", "flow"],
+    cognitiveLoadHelp: ["improves_concentration"],
+    intensityLevel: "low",
+    energyDirection: "clarify",
+  },
 };
 const boxBreathing: ScorableContent = {
   id: "box-breathing",
@@ -116,6 +124,42 @@ Deno.test("Empty meta_skill array does not negative-penalise", () => {
   // No meta_skill → no boost AND no penalty (only category match remains).
   assertEquals(s.metaSkill, 0);
   assert(s.recalibrateCategory > 0);
+});
+
+Deno.test("Recalibrate structuredTags can drive focus selection when meta_skill is missing", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Prime for focus",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  const structuredFocus: ScorableContent = {
+    id: "structured-focus-only",
+    category: "presence",
+    metaSkillTags: [],
+    structuredTags: {
+      pillar: "flow",
+      masterySubtypes: ["optimize", "maintain-peak"],
+      goalTags: ["focus", "mental_clarity", "decision_readiness"],
+      cognitiveLoadHelp: ["improves_concentration", "supports_decision"],
+      energyDirection: "clarify",
+    },
+  };
+  const offTarget: ScorableContent = {
+    id: "structured-renewal-only",
+    category: "presence",
+    metaSkillTags: [],
+    structuredTags: {
+      pillar: "renewal",
+      masterySubtypes: ["restore"],
+      goalTags: ["resilience"],
+      energyDirection: "downshift",
+    },
+  };
+
+  const ranked = rankByIntent([offTarget, structuredFocus], intent);
+  assertEquals(ranked[0].id, "structured-focus-only");
+  const score = scoreContentAgainstIntent(structuredFocus, intent);
+  assert(score.structuredTags > 0, `expected structuredTags boost, got ${score.structuredTags}`);
 });
 
 Deno.test("CEO verb 'Sharpen' maps to focus intent even without state verb", () => {
