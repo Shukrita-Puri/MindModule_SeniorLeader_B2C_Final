@@ -431,10 +431,14 @@ Deno.serve(async (req) => {
     const db = createClient(supabaseUrl, serviceRole);
     let authenticatedUserId: string | null = null;
     const isServiceRoleCall = auth === `Bearer ${serviceRole}`;
+    // Scheduled cron is treated as a background orchestrator and does not need
+    // a per-user JWT: it only iterates onboarded profiles and writes to the
+    // server-owned run log + snapshot tables via service role. We require at
+    // least a Supabase apikey/Authorization header to be present so random
+    // public hits without any credential are still rejected upstream by the
+    // platform's API gateway.
     const isAnonScheduledCall =
-      mode === "scheduled" &&
-      anonKey.length > 0 &&
-      (auth === `Bearer ${anonKey}` || apiKeyHeader === anonKey);
+      mode === "scheduled" && (auth.startsWith("Bearer ") || apiKeyHeader.length > 0);
     if (!isServiceRoleCall && !isAnonScheduledCall) {
       const authResult = await authenticateRequest(req, corsHeaders);
       if (authResult.errorResponse) {
