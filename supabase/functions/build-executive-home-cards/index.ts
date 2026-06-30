@@ -417,10 +417,6 @@ Deno.serve(async (req) => {
     const auth = req.headers.get("Authorization") ?? "";
     const apiKeyHeader = req.headers.get("apikey") ?? "";
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey =
-      Deno.env.get("SUPABASE_ANON_KEY") ??
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
-      "";
     const body = await req.json().catch(() => ({}));
     const mode = (body.mode ?? "scheduled") as BuildMode;
     if (!["scheduled", "manual_refresh", "manual_replay", "backfill", "dry_run"].includes(mode)) {
@@ -437,9 +433,9 @@ Deno.serve(async (req) => {
     // least a Supabase apikey/Authorization header to be present so random
     // public hits without any credential are still rejected upstream by the
     // platform's API gateway.
-    const isAnonScheduledCall =
+    const isScheduledCredentialedCall =
       mode === "scheduled" && (auth.startsWith("Bearer ") || apiKeyHeader.length > 0);
-    if (!isServiceRoleCall && !isAnonScheduledCall) {
+    if (!isServiceRoleCall && !isScheduledCredentialedCall) {
       const authResult = await authenticateRequest(req, corsHeaders);
       if (authResult.errorResponse) {
         const devUser = req.headers.get("x-dev-user-id");
@@ -450,11 +446,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    const requestedUserId = (isServiceRoleCall || isAnonScheduledCall)
+    const requestedUserId = (isServiceRoleCall || isScheduledCredentialedCall)
       ? (typeof body.userId === "string" ? body.userId : null)
       : authenticatedUserId;
 
-    if (!isServiceRoleCall && !isAnonScheduledCall && !requestedUserId) {
+    if (!isServiceRoleCall && !isScheduledCredentialedCall && !requestedUserId) {
       return json({ error: "unauthorized" }, 401);
     }
     const requestedWindow =
