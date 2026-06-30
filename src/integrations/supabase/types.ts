@@ -2356,6 +2356,66 @@ export type Database = {
         }
         Relationships: []
       }
+      executive_home_card_runs: {
+        Row: {
+          brief_status: string | null
+          created_at: string
+          day_type: string | null
+          duration_ms: number | null
+          effective_timezone: string | null
+          error: string | null
+          id: string
+          local_date: string | null
+          mode: string
+          mrs_status: string | null
+          plan_status: string | null
+          run_id: string
+          skipped_reason: string | null
+          status: string
+          travel_state: Json | null
+          user_id: string | null
+          window: string | null
+        }
+        Insert: {
+          brief_status?: string | null
+          created_at?: string
+          day_type?: string | null
+          duration_ms?: number | null
+          effective_timezone?: string | null
+          error?: string | null
+          id?: string
+          local_date?: string | null
+          mode: string
+          mrs_status?: string | null
+          plan_status?: string | null
+          run_id: string
+          skipped_reason?: string | null
+          status: string
+          travel_state?: Json | null
+          user_id?: string | null
+          window?: string | null
+        }
+        Update: {
+          brief_status?: string | null
+          created_at?: string
+          day_type?: string | null
+          duration_ms?: number | null
+          effective_timezone?: string | null
+          error?: string | null
+          id?: string
+          local_date?: string | null
+          mode?: string
+          mrs_status?: string | null
+          plan_status?: string | null
+          run_id?: string
+          skipped_reason?: string | null
+          status?: string
+          travel_state?: Json | null
+          user_id?: string | null
+          window?: string | null
+        }
+        Relationships: []
+      }
       inferred_states: {
         Row: {
           accuracy_score: number | null
