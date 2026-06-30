@@ -416,6 +416,7 @@ Deno.serve(async (req) => {
   try {
     const auth = req.headers.get("Authorization") ?? "";
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const body = await req.json().catch(() => ({}));
     const mode = (body.mode ?? "scheduled") as BuildMode;
     if (!["scheduled", "manual_refresh", "manual_replay", "backfill", "dry_run"].includes(mode)) {
@@ -426,7 +427,9 @@ Deno.serve(async (req) => {
     const db = createClient(supabaseUrl, serviceRole);
     let authenticatedUserId: string | null = null;
     const isServiceRoleCall = auth === `Bearer ${serviceRole}`;
-    if (!isServiceRoleCall) {
+    const isAnonScheduledCall =
+      mode === "scheduled" && anonKey.length > 0 && auth === `Bearer ${anonKey}`;
+    if (!isServiceRoleCall && !isAnonScheduledCall) {
       const authResult = await authenticateRequest(req, corsHeaders);
       if (authResult.errorResponse) {
         const devUser = req.headers.get("x-dev-user-id");
@@ -437,11 +440,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    const requestedUserId = isServiceRoleCall
+    const requestedUserId = (isServiceRoleCall || isAnonScheduledCall)
       ? (typeof body.userId === "string" ? body.userId : null)
       : authenticatedUserId;
 
-    if (!isServiceRoleCall && !requestedUserId) {
+    if (!isServiceRoleCall && !isAnonScheduledCall && !requestedUserId) {
       return json({ error: "unauthorized" }, 401);
     }
     const requestedWindow =
