@@ -6891,6 +6891,13 @@ if (import.meta.main) Deno.serve(async (req) => {
     // Authentication – verify JWT and extract userId
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) {
+      const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const authHeader = req.headers.get('Authorization') || '';
+      const internalUserId = req.headers.get('x-dev-user-id');
+      if (serviceRole && authHeader === `Bearer ${serviceRole}` && internalUserId) {
+        userId = internalUserId;
+        console.log(`[generate-mastery-plan] service-role orchestrator: userId=${userId}`);
+      } else {
       // DEV_MODE bypass: allow fallback when not in production
       const env = Deno.env.get('ENVIRONMENT') || '';
       if (env !== 'production') {
@@ -6903,6 +6910,7 @@ if (import.meta.main) Deno.serve(async (req) => {
         }
       } else {
         return auth.errorResponse;
+      }
       }
     } else {
       userId = auth.userId;

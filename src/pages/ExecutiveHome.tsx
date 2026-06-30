@@ -35,6 +35,9 @@ import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
+import { RefreshCw } from "lucide-react";
+import { useExecutiveHomeCardsRefresh } from "@/hooks/useExecutiveHomeCardsRefresh";
+import { useMrsSnapshot } from "@/hooks/useMrsSnapshot";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
@@ -61,6 +64,8 @@ const ExecutiveHome = () => {
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
   const [briefCtaReady, setBriefCtaReady] = useState(false);
+  const refreshCards = useExecutiveHomeCardsRefresh();
+  const { data: mrsSnapshot } = useMrsSnapshot();
   const serverWeekAheadDecision = useWeekAheadServerDecision();
   const weekAhead = useWeekAheadMode(serverWeekAheadDecision);
 
@@ -240,6 +245,18 @@ const ExecutiveHome = () => {
     if (!outerBrief) return "Let's make today count.";
     return outerBrief.phrase || "Let's make today count.";
   };
+
+  const lastUpdatedLabel = (() => {
+    if (!mrsSnapshot?.updatedAt) return null;
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(mrsSnapshot.updatedAt));
+    } catch {
+      return null;
+    }
+  })();
   
   return (
     <SidebarProvider defaultOpen={false}>
@@ -260,6 +277,25 @@ const ExecutiveHome = () => {
               </div>
               <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
                 <div data-tour="coach-access"><CoachAccessButton /></div>
+              </div>
+              <div className="flex items-center gap-2">
+                {lastUpdatedLabel && (
+                  <span className="hidden rounded-full bg-white/35 px-2 py-1 text-[10px] font-medium text-foreground/70 backdrop-blur-xl sm:inline">
+                    Updated {lastUpdatedLabel}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => refreshCards.mutate()}
+                  disabled={refreshCards.isPending}
+                  className="inline-flex h-9 items-center gap-2 rounded-full border border-white/35 bg-white/55 px-3 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-xl transition hover:bg-white/75 disabled:opacity-60"
+                  aria-label="Refresh today's cards"
+                >
+                  <RefreshCw className={refreshCards.isPending ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                  <span className="hidden sm:inline">
+                    {refreshCards.isPending ? "Refreshing" : "Refresh today's cards"}
+                  </span>
+                </button>
               </div>
             </header>
           </div>
