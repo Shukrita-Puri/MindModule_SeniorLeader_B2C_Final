@@ -572,7 +572,7 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
         .order('checkin_date', { ascending: false }),
       supabase
         .from('calendar_events')
-        .select('id, start_time, end_time, title, event_metadata, provider, attendees_count, is_organizer, is_recurring, external_id, status')
+        .select('id, start_time, end_time, title, event_metadata, provider, attendees_count, is_organizer, is_recurring, external_id')
         .eq('user_id', userId)
         .gte('start_time', thirtyDaysAgo.toISOString())
     ]);
@@ -657,7 +657,7 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
     
     const { data: rawTodayEvents } = await supabase
       .from('calendar_events')
-      .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id, status')
+      .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
       .eq('user_id', userId)
       .gte('start_time', todayStart.toISOString())
       .lte('start_time', todayEnd.toISOString());

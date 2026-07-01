@@ -57,7 +57,7 @@ const PostEventReflection = () => {
       // Get today's calendar events that ended recently
       const { data: rawEvents } = await supabase
         .from('calendar_events')
-        .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id, status')
+        .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
         .eq('user_id', userId)
         .gte('end_time', twoHoursAgo.toISOString())
         .lte('end_time', now.toISOString())
