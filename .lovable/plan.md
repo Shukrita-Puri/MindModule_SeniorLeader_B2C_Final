@@ -1,37 +1,59 @@
-## Goal
+## Why Shukrita didn't get an evening nudge (2026-07-01)
 
-Update the three legal/transparency pages in the app to match the new copy the user provided:
+Audit of `notification_evaluator_traces` + `notification_log` for `google-oauth2|111878424918915566691`:
 
-- `src/pages/Privacy.tsx` ← `Privacy-Policy-Mind-Module.md`
-- `src/pages/Terms.tsx` ← `Terms-of-Use-Mind-Module.md`
-- `src/pages/PoweredByAI.tsx` ← `AI-Transparency-Disclosure-Mind-Module.md`
+- **18:30 UTC (19:30 London)** — `smart-nudges` generated `nudge_three` ("Evening recalibration"), but it was **suppressed pre-evaluator** with `suppression_reason: 'back_to_back'`, `largest_gap_min: 0`. Row exists in `notification_log` with `delivery_state = 'suppressed'` — no APNs push was ever sent.
+- Every 15-min run after 19:30 → blocked by `two_hour_suppression` (referencing that 18:30 suppressed send as `last_sent_at`).
+- After 22:30 local → `outside_global_window`.
+- Same pattern on 30 June (`nudge_three` suppressed at 18:15 UTC with `back_to_back`).
 
-No business logic changes. Layout, navigation, footer links, and design tokens stay exactly as-is.
+## Root cause
 
-## Scope of changes
+`supabase/functions/smart-nudges/index.ts` lines 4322-4365 (v1.1 back-to-back guard):
 
-For each page:
+```ts
+const upcoming = ctx.todayEvents
+  .filter(e => e.end > nowMs && e.start < horizonMs)   // ← includes in-progress
+  .sort(...);
+let cursor = nowMs;
+for (const ev of upcoming) {
+  const gap = Math.max(0, Math.round((ev.start - cursor) / 60000));  // ← clamps negatives to 0
+  ...
+}
+```
 
-1. Keep the existing page shell: `UnifiedTopBar`, container width, headline + meta line, `space-y-8` section list, footer with cross-links to the other two pages, and the existing `text-foreground/80 font-body` typography.
-2. Replace section content with the new copy verbatim from the uploaded markdown (numbered sections 1–N, bullet lists, bold emphasis preserved).
-3. Strip the bracketed "legal counsel note" callouts at the top of each markdown — those are author notes, not user-facing copy.
-4. Set "Last Updated" / "Effective Date" to **June 29, 2026** (the user can edit later). Leave the existing "Last Updated" line styling intact.
-5. Preserve existing internal navigation pattern: `navigate('/privacy')`, `navigate('/terms')`, `navigate('/powered-by-ai')` for cross-links; render `contact@mindmodule.me` as a `mailto:` link; render external third-party links (Google AI Principles etc.) with `target="_blank" rel="noopener noreferrer"`.
-6. Keep the headline sizes (`text-[22px] sm:text-3xl font-headline`) and H2 sizes (`text-[17px] sm:text-xl font-body`) consistent across all three pages.
+Today's `calendar_events` for the user:
 
-## Notable content deltas vs current pages
+```
+Robinhood Presents: The World is Flat  18:00–19:00 UTC   (duplicate row)
+Robinhood Presents: The World is Flat  18:00–19:00 UTC
+```
 
-- **Privacy**: now names Auth0, Stripe, Apple Health/Oura, Google/Microsoft/Apple Calendar, adds wearable signal scope (HRV, RHR, HR, sleep), attendee-relationship inference section (§1.4), GDPR/CCPA/MENA/APAC/HealthKit regional sections, retention table.
-- **Terms**: adds 7-day free trial (§5.2), full calendar/wearable provider scope (§10), removes any present-tense conversational AI Coach references, UK/EU vs US pricing (£29/£24 vs $29/$24), England & Wales governing law.
-- **Powered by AI**: removes "AI Self-Mastery Coach" as a present-tense feature, adds Mental Readiness Score, Performance Patterns, Smart Nudges, Attendee Relationship Inference (§4), deterministic-fallback note, multi-LLM fallback acknowledgement.
+At 18:30 UTC: both events are **in progress** (started 30 min ago). The filter keeps them (`end > now`), then `Math.max(0, negative)` collapses the gap to `0`, so `largestGapMin = 0 < BACK_TO_BACK_MIN_GAP_MIN` → suppressed. Duplicate rows amplify the effect but the bug fires on any single in-progress event.
 
-## Out of scope
+This is a regression from the new SSOT §1.4 back-to-back cliff design: the intent is "meeting-to-meeting gap < 30 min → send an in-body, no-CTA nudge." Instead the current code (a) misclassifies a single in-progress meeting as back-to-back, and (b) fully drops the nudge instead of downgrading it. It also poisons the rest of the evening via the 2h-suppression window.
 
-- No route changes (existing `/privacy`, `/terms`, `/powered-by-ai` are reused).
-- No new components, no new design tokens.
-- No edits to footer/PrivacyFooter or other entry points.
-- No legal review — copy is taken verbatim from the user-provided files.
+## Fix
 
-## Technical notes
+Scope: `supabase/functions/smart-nudges/index.ts` back-to-back guard only. No changes to Plan/Brief/MRS.
 
-Each page is a single self-contained `.tsx` file rendered with Tailwind utilities and shadcn-free primitives. Replacement is a straight content rewrite inside the existing JSX scaffold — no new dependencies, no state, no data fetching.
+1. **Redefine "upcoming" as strictly future** — `e.start > nowMs && e.start < horizonMs`. In-progress meetings are not gaps to measure; they're the current event.
+2. **Require ≥ 2 future events** before the back-to-back gate can trigger. With `< 2` future events there is no meeting-to-meeting gap to test; skip the gate.
+3. **Dedupe events** (`start_time + end_time + normalized title`) before the gap walk, so duplicate calendar rows can't collapse the gap to 0.
+4. **Do not write a `suppressed` `notification_log` row** in the back-to-back branch when we skip. Writing it triggers `two_hour_suppression` for the next ~2 hours and kills the whole evening. Emit only a `trace(...)` with outcome `back_to_back_skip` so we keep observability without poisoning the cooldown window. (Keeping the suppressed row is only correct for the "notification IS the product" in-body variant — which we're not sending yet.)
+5. **Add a unit test** in `supabase/functions/smart-nudges/v1_1_headline_cta_test.ts` covering:
+   - single in-progress event → not back-to-back
+   - duplicate rows for same event → not back-to-back
+   - two future events 10 min apart → back-to-back
+   - one future event only → not back-to-back
+
+## Verification after deploy
+
+- Re-run `smart-nudges` manually for the user via `supabase--curl_edge_functions` at an evening slot; expect `nudge_three` `delivery_state = 'accepted'` in `notification_log`, APNs 200.
+- Confirm no new `back_to_back` suppression rows in `notification_log` for users whose only "conflict" is a single in-progress meeting.
+- Watch `notification_evaluator_traces` for `back_to_back_skip` outcomes: should be rare, only when ≥ 2 future meetings actually crowd the horizon.
+
+## Out of scope (flag only)
+
+- Duplicate Robinhood event rows in `calendar_events` — likely an Apple Calendar sync dedupe bug, tracked separately.
+- Building the actual in-body "notification IS the product" back-to-back variant from SSOT §1.4 — separate feature, not required to unblock tonight's nudges.
