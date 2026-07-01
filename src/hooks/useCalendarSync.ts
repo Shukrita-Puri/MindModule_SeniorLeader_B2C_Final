@@ -14,6 +14,8 @@ import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { queuePendingDisconnect } from '@/utils/integrationQaHelpers';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
+import { mergeCalendarEvents } from '@/utils/rules/calendarEvents';
+import { isNativeApp } from '@/utils/nativeAuth';
 
 interface CalendarConnection {
   id: string;
@@ -190,7 +192,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
     if (!user?.id) return;
 
     try {
-      const { data, error: eventsError } = await supabase
+      const { data: rawData, error: eventsError } = await supabase
         .from('calendar_events')
         .select('*')
         .eq('user_id', user.id)
@@ -201,11 +203,14 @@ export function useCalendarSync(): UseCalendarSyncResult {
         return;
       }
 
+      // Cross-provider dedupe before display counts (Apple/Google/MSFT mirrors -> 1).
+      const data = mergeCalendarEvents((rawData || []) as any[], isNativeApp() ? 'ios' : 'web');
+
       // Transform database format to CalendarEvent interface
       const transformedEvents: CalendarEvent[] = (data || []).map(event => {
         const metadata = event.event_metadata as Record<string, unknown> || {};
         return {
-          id: event.external_id,
+          id: (event as any).external_id ?? (event as any).id,
           title: event.title || 'Untitled Event',
           startTime: new Date(event.start_time),
           endTime: new Date(event.end_time),
@@ -401,7 +406,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
           setLastSync(usableConnection.last_sync ? new Date(usableConnection.last_sync) : null);
           
           // Fetch events
-          const { data: eventsData, error: eventsError } = await supabase
+          const { data: rawEventsData, error: eventsError } = await supabase
             .from('calendar_events')
             .select('*')
             .eq('user_id', user.id)
@@ -409,11 +414,12 @@ export function useCalendarSync(): UseCalendarSyncResult {
           
           if (cancelled) return;
           
-          if (!eventsError && eventsData) {
-            const transformedEvents: CalendarEvent[] = eventsData.map(event => {
+          if (!eventsError && rawEventsData) {
+            const eventsData = mergeCalendarEvents(rawEventsData as any[], isNativeApp() ? 'ios' : 'web');
+            const transformedEvents: CalendarEvent[] = eventsData.map((event: any) => {
               const metadata = event.event_metadata as Record<string, unknown> || {};
               return {
-                id: event.external_id,
+                id: event.external_id ?? event.id,
                 title: event.title || 'Untitled Event',
                 startTime: new Date(event.start_time),
                 endTime: new Date(event.end_time),
