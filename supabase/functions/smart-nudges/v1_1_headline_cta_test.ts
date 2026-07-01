@@ -101,6 +101,86 @@ Deno.test("v1.1 — 90 min gap → full nudge", () => {
   assertEquals(classifyGap(90), "full");
 });
 
+// ── Back-to-back gate: strictly-future + dedupe + ≥2 rule ──────────────
+
+interface RawEvt { start: number; end: number; title: string }
+
+function measureLargestGap(
+  events: RawEvt[],
+  nowMs: number,
+): { measured: boolean; gapMin: number; upcomingCount: number } {
+  const horizonMs = nowMs + 3 * 60 * 60 * 1000;
+  const rawUpcoming = events
+    .filter((e) => e.start > nowMs && e.start < horizonMs)
+    .sort((a, b) => a.start - b.start);
+  const seen = new Set<string>();
+  const upcoming = rawUpcoming.filter((e) => {
+    const key = `${e.start}|${e.end}|${e.title.trim().toLowerCase().replace(/\s+/g, " ")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (upcoming.length < 2) {
+    return { measured: false, gapMin: Number.POSITIVE_INFINITY, upcomingCount: upcoming.length };
+  }
+  let largest = Number.POSITIVE_INFINITY;
+  let cursor = upcoming[0].end;
+  for (let i = 1; i < upcoming.length; i++) {
+    const ev = upcoming[i];
+    const gap = Math.max(0, Math.round((ev.start - cursor) / 60000));
+    if (gap < largest) largest = gap;
+    cursor = Math.max(cursor, ev.end);
+  }
+  return { measured: true, gapMin: largest, upcomingCount: upcoming.length };
+}
+
+function isBackToBack(m: { measured: boolean; gapMin: number }): boolean {
+  return m.measured && m.gapMin < BACK_TO_BACK_MIN_GAP_MIN;
+}
+
+Deno.test("v1.1 — single in-progress event is not back-to-back", () => {
+  const now = 1_000_000_000_000;
+  const evts: RawEvt[] = [
+    { start: now - 30 * 60_000, end: now + 30 * 60_000, title: "Meeting" },
+  ];
+  const m = measureLargestGap(evts, now);
+  assertEquals(m.measured, false);
+  assertEquals(isBackToBack(m), false);
+});
+
+Deno.test("v1.1 — duplicate rows for same event do not collapse gap", () => {
+  const now = 1_000_000_000_000;
+  const evts: RawEvt[] = [
+    { start: now + 30 * 60_000, end: now + 90 * 60_000, title: "Robinhood" },
+    { start: now + 30 * 60_000, end: now + 90 * 60_000, title: "Robinhood" },
+  ];
+  const m = measureLargestGap(evts, now);
+  assertEquals(m.upcomingCount, 1);
+  assertEquals(isBackToBack(m), false);
+});
+
+Deno.test("v1.1 — two future events 10 min apart → back-to-back", () => {
+  const now = 1_000_000_000_000;
+  const evts: RawEvt[] = [
+    { start: now + 15 * 60_000, end: now + 45 * 60_000, title: "A" },
+    { start: now + 55 * 60_000, end: now + 85 * 60_000, title: "B" },
+  ];
+  const m = measureLargestGap(evts, now);
+  assertEquals(m.measured, true);
+  assertEquals(m.gapMin, 10);
+  assertEquals(isBackToBack(m), true);
+});
+
+Deno.test("v1.1 — one future event only → not back-to-back", () => {
+  const now = 1_000_000_000_000;
+  const evts: RawEvt[] = [
+    { start: now + 30 * 60_000, end: now + 60 * 60_000, title: "Solo" },
+  ];
+  const m = measureLargestGap(evts, now);
+  assertEquals(m.measured, false);
+  assertEquals(isBackToBack(m), false);
+});
+
 // ── Post-landing window ────────────────────────────────────────────────
 
 function isPostLanding(minutesUntil: number): boolean {
