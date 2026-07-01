@@ -55,15 +55,18 @@ const PostEventReflection = () => {
       const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
       // Get today's calendar events that ended recently
-      const { data: events } = await supabase
+      const { data: rawEvents } = await supabase
         .from('calendar_events')
-        .select('id, title, end_time')
+        .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id, status')
         .eq('user_id', userId)
         .gte('end_time', twoHoursAgo.toISOString())
         .lte('end_time', now.toISOString())
         .order('end_time', { ascending: false });
 
-      if (!events?.length) return;
+      if (!rawEvents?.length) return;
+      const { mergeCalendarEvents } = await import('@/utils/rules/calendarEvents');
+      const events = mergeCalendarEvents(rawEvents as any[], 'web') as any[];
+      if (!events.length) return;
 
       // Filter for high-stakes events
       const highStakes = events.filter(e => isHighStakesEvent(e.title || ''));
