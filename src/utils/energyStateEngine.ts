@@ -650,14 +650,18 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       // a demand score and feed compute-inner-readiness so MRS doesn't collapse
       // to 'awaiting' when wearable is missing but calendar is usable.
       const { startISO, endISO } = getLocalDayBounds();
-      const { data: events } = await supabase
+      const { data: rawEvents } = await supabase
         .from('calendar_events')
         .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
         .eq('user_id', effectiveUserId)
         .gte('start_time', startISO)
         .lte('start_time', endISO)
         .order('start_time', { ascending: true });
-      calendarData = events || [];
+      // Cross-provider dedupe (Apple+Google+MSFT mirrors collapse to one).
+      // See mem/architecture/event-load-and-dedupe-rules.md.
+      const { mergeCalendarEvents } = await import('@/utils/rules/calendarEvents');
+      const { isNativeApp } = await import('@/utils/nativeAuth');
+      calendarData = mergeCalendarEvents((rawEvents || []) as any[], isNativeApp() ? 'ios' : 'web');
       if (!conn && calendarData.length > 0) {
         // Treat presence of events as a Stage 1 calendar signal so the
         // demand-score fallback below activates.
