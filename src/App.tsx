@@ -28,7 +28,6 @@ import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalen
 import { syncAppleCalendarToBackend } from "./services/appleCalendarSync";
 import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
-import { PAYMENT_PAGE_SUPPRESSED } from "./config/payments";
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -70,18 +69,7 @@ const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutco
 
 // Onboarding pages
 const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
-const Stage1Welcome = lazy(() => import("./pages/onboarding/stages/Stage1Welcome"));
-const Stage2Identity = lazy(() => import("./pages/onboarding/stages/Stage2Identity"));
-const Stage3EmotionalAwareness = lazy(() => import("./pages/onboarding/stages/Stage3EmotionalAwareness"));
-const Stage4StressResponse = lazy(() => import("./pages/onboarding/stages/Stage4StressResponse"));
-const Stage5RecoveryPatterns = lazy(() => import("./pages/onboarding/stages/Stage5RecoveryPatterns"));
-const Stage6MentalClarity = lazy(() => import("./pages/onboarding/stages/Stage6MentalClarity"));
-const Stage7GrowthIntention = lazy(() => import("./pages/onboarding/stages/Stage7GrowthIntention"));
-const Stage8Results = lazy(() => import("./pages/onboarding/stages/Stage8Results"));
-const Stage8SignupStep = lazy(() => import("./pages/onboarding/stages/Stage8SignupStep"));
-const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro"));
-const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
 // v8 onboarding flow (replaces legacy questionnaire for new users)
@@ -400,18 +388,18 @@ const router = createBrowserRouter([
         path: "onboarding",
         element: <Suspense fallback={<LoadingFallback />}><OnboardingBlockGuard><OnboardingFlow /></OnboardingBlockGuard></Suspense>,
         children: [
-          { index: true, element: <Suspense fallback={<LoadingFallback />}><Stage1Welcome /></Suspense> },
-          { path: "identity", element: <Suspense fallback={<LoadingFallback />}><Stage2Identity /></Suspense> },
-          { path: "emotional-awareness", element: <Suspense fallback={<LoadingFallback />}><Stage3EmotionalAwareness /></Suspense> },
-          { path: "stress-response", element: <Suspense fallback={<LoadingFallback />}><Stage4StressResponse /></Suspense> },
-          { path: "recovery-patterns", element: <Suspense fallback={<LoadingFallback />}><Stage5RecoveryPatterns /></Suspense> },
-          { path: "mental-clarity", element: <Suspense fallback={<LoadingFallback />}><Stage6MentalClarity /></Suspense> },
-          { path: "growth-intention", element: <Suspense fallback={<LoadingFallback />}><Stage7GrowthIntention /></Suspense> },
-          { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
-          { path: "results", element: <Suspense fallback={<RouteSkeleton />}><Stage8Results /></Suspense> },
-          { path: "payment", element: PAYMENT_PAGE_SUPPRESSED ? <Navigate to="/onboarding/app-intro" replace /> : <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
+          { index: true, element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "identity", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "emotional-awareness", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "stress-response", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "recovery-patterns", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "mental-clarity", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "growth-intention", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "signup-step", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "results", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "payment", element: <Navigate to="/onboarding/app-intro" replace /> },
           { path: "app-intro", element: <Suspense fallback={<LoadingFallback />}><StageUSPIntro /></Suspense> },
-          { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
+          { path: "context-connection", element: <Navigate to="/onboarding/app-intro" replace /> },
           { path: "leadership-context", element: <Suspense fallback={<LoadingFallback />}><StageLeadershipContext /></Suspense> },
           { path: "cognitive-load", element: <Suspense fallback={<LoadingFallback />}><StageCognitiveLoad /></Suspense> },
           { path: "protect-goals", element: <Suspense fallback={<LoadingFallback />}><StageProtectGoals /></Suspense> },
@@ -419,6 +407,7 @@ const router = createBrowserRouter([
           { path: "permissions", element: <Suspense fallback={<LoadingFallback />}><StagePermissions /></Suspense> },
           { path: "connect", element: <Suspense fallback={<LoadingFallback />}><StageConnections /></Suspense> },
           { path: "done", element: <Suspense fallback={<LoadingFallback />}><StageDone /></Suspense> },
+          { path: "*", element: <Navigate to="/onboarding/app-intro" replace /> },
         ],
       },
     ],

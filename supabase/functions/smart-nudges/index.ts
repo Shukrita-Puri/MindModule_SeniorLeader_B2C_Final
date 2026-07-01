@@ -434,6 +434,15 @@ interface WearableSignals {
   totalSleepMinutes: number | null;
 }
 
+interface DailyContextSnapshotRead {
+  supply_demand_gap_flag?: string | null;
+  pattern_signals?: { sustained_deficit_flag?: boolean | null } | null;
+  readiness_state?: string | null;
+  wearable_status?: string | null;
+  mrs_awaiting_signals?: boolean | null;
+  mrs_window?: string | null;
+}
+
 type PlanSlotMode = 'jit' | 'state' | 'jit+state' | 'full_arc';
 type NudgeSlot = 'morning' | 'afternoon' | 'evening';
 
@@ -1195,7 +1204,7 @@ async function buildNudgeContext(
         signatureHash: loadedSnap.signatureHash,
         promptBlockBrief:
           loadedSnap.promptBlockBrief ??
-          snapshotToWiring(loadedSnap, 'brief')?.promptBlock ??
+          snapshotToWiring(loadedSnap, 'nudge')?.promptBlock ??
           '',
         taxonomyBlock: loadedSnap.taxonomyBlock,
         source: 'brief_snapshot' as const,
@@ -4027,6 +4036,7 @@ serve(async (req) => {
       // awaiting, or strong/light data must never suppress nudges.
       // Never throws: missing snapshot row falls back to existing behaviour.
       let mrsEscalate = false;
+      let mrsSnapshotMeta: Record<string, unknown> = {};
       try {
         // Phase 2 - window-scoped snapshot. Prefer current-window row,
         // fall back to latest row for today (legacy / earlier window).
@@ -4034,11 +4044,11 @@ serve(async (req) => {
           localHour >= 6 && localHour < 12 ? 'morning'
           : localHour >= 12 && localHour < 18 ? 'afternoon'
           : 'evening';
-        let snapRow: any = null;
+        let snapRow: DailyContextSnapshotRead | null = null;
         {
           const { data } = await supabase
             .from('daily_context_snapshot')
-            .select('supply_demand_gap_flag, pattern_signals')
+            .select('supply_demand_gap_flag, pattern_signals, readiness_state, wearable_status, mrs_awaiting_signals')
             .eq('user_id', userId)
             .eq('local_date', todayStr)
             .eq('mrs_window', nudgeWindow)
@@ -4048,19 +4058,28 @@ serve(async (req) => {
         if (!snapRow) {
           const { data: legacy } = await supabase
             .from('daily_context_snapshot')
-            .select('supply_demand_gap_flag, pattern_signals, mrs_window')
+            .select('supply_demand_gap_flag, pattern_signals, readiness_state, wearable_status, mrs_awaiting_signals, mrs_window')
             .eq('user_id', userId)
             .eq('local_date', todayStr)
             .order('updated_at', { ascending: false })
             .limit(1)
             .maybeSingle();
           if (legacy) {
-            console.warn(`[smart-nudges] daily_context_snapshot legacy fallback: no row for window=${nudgeWindow}, using window=${(legacy as any)?.mrs_window ?? 'null'} user=${userId}`);
+            console.warn(`[smart-nudges] daily_context_snapshot legacy fallback: no row for window=${nudgeWindow}, using window=${legacy.mrs_window ?? 'null'} user=${userId}`);
             snapRow = legacy;
           }
         }
-        const gapFlag = (snapRow as any)?.supply_demand_gap_flag ?? null;
-        const ps = (snapRow as any)?.pattern_signals ?? null;
+        const gapFlag = snapRow?.supply_demand_gap_flag ?? null;
+        const ps = snapRow?.pattern_signals ?? null;
+        mrsSnapshotMeta = {
+          mrs_readiness_state: snapRow?.readiness_state ?? null,
+          wearable_status: snapRow?.wearable_status ?? null,
+          mrs_awaiting_signals: snapRow?.mrs_awaiting_signals ?? null,
+        };
+        Object.assign(traceBase.metadata, mrsSnapshotMeta);
+        if (snapRow?.readiness_state === 'awaiting') {
+          console.log(`[smart-nudges][mrs-state1] User ${userId} awaiting signals; continuing so nudge can drive sync + check-in.`);
+        }
         if (gapFlag === 'LIGHT_DAY_STRONG_STATE') {
           console.log(`[smart-nudges][mrs-v2] User ${userId} LIGHT_DAY_STRONG_STATE read only; Plan slots decide cadence.`);
         }

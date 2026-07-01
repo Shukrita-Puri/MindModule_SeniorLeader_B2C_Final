@@ -44,7 +44,8 @@ export default function StageDone() {
       setError("Couldn't finalise onboarding. Please try again.");
       return;
     }
-    // 3. Only mark legacy onboarding completion after server-side completion succeeded.
+    // 3. Mirror completion into progress for resume/recovery views after the
+    // canonical V8 completion path has succeeded.
     try { await recordStep("context_connection", { completed: true }); } catch { /* non-blocking */ }
     navigate("/executive-home");
   };

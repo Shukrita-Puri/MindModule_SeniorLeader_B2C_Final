@@ -151,11 +151,11 @@ export function sanitizePayload(input: V8Payload): V8Payload {
   if ("goals" in input) out.goals = sanitizeArr(input.goals, GOAL_IDS, MAX_GOALS);
   if ("brief_timing" in input) {
     const v = typeof input.brief_timing === "string" ? input.brief_timing.trim() : input.brief_timing;
-    out.brief_timing = (BRIEF_TIMING as readonly string[]).includes(v as string) ? (v as string) : null;
+    out.brief_timing = v === "Use intelligence" ? null : (BRIEF_TIMING as readonly string[]).includes(v as string) ? (v as string) : null;
   }
   if ("reset_modality" in input) {
     const v = typeof input.reset_modality === "string" ? input.reset_modality.trim() : input.reset_modality;
-    out.reset_modality = (RESET_MODALITY as readonly string[]).includes(v as string) ? (v as string) : null;
+    out.reset_modality = v === "Use intelligence" ? null : (RESET_MODALITY as readonly string[]).includes(v as string) ? (v as string) : null;
   }
   if ("weekend_signals" in input) {
     const v = typeof input.weekend_signals === "string" ? input.weekend_signals.trim() : input.weekend_signals;
@@ -205,8 +205,6 @@ export function validateStep(step: StepKey, p: V8Payload): ValidationError[] {
       break;
     }
     case "brief_prefs": {
-      if (!p.brief_timing) errs.push({ field: "brief_timing", message: "Choose a brief timing" });
-      if (!p.reset_modality) errs.push({ field: "reset_modality", message: "Choose a reset modality" });
       if (!p.weekend_signals) errs.push({ field: "weekend_signals", message: "Choose weekend signals" });
       break;
     }

@@ -336,6 +336,24 @@ select cron.schedule(
 
 ---
 
+## 18. Smart Nudges Parity Contract (Downstream Consumer)
+
+Self-contained checklist for Smart Nudges card-side parity. Smart Nudges is the push-time projection of the Executive cards. It must read what the cards build in State 1 / Early Read, pre-check-in, and must not recompute readiness, day-shape, travel, behaviour, timezone, or copy voice. Full nudge spec: `docs/SMART_NUDGES_NOTIFICATIONS_FINAL_SSOT.md` and the final redesign source `SMART_NUDGES_FINAL_SSOT.md` when present.
+
+Other mentions of the word "nudge" elsewhere in this SSOT are descriptive context, not new work. The seven items below are the complete card-side nudge contract.
+
+1. **Plan slots are the nudge day-shape source.** `generate-mastery-plan` persists `mastery_plan_snapshots.horizon_modules[]` with `{ slotIndex, mode, arcLabel, jitPhase, jitEventTitle, whyLine }`. Smart Nudges reads this and sends one nudge per allocated slot; it does not re-derive morning / afternoon / evening. Day-shape, rest-day suspension, light-day fewer-slots, Sunday to week-ahead, and quiet-day handling are decided once by the Plan and inherited by nudges. Keep this slot contract stable as a public nudge contract.
+2. **State 1 / Early Read is readable pre-check-in.** Nudges fire before check-in, so they read the baseline MRS from `daily_context_snapshot` (`readiness_state ∈ baseline | awaiting`), the Brief State-1 behaviour snapshot, and the State-1 Plan slots. Do not gate these snapshots behind check-in. `awaiting` is valid State 1; nudges use it to drive sync + check-in and must not be suppressed just because data is missing.
+3. **One shared travel-aware timezone / circadian resolver.** `_shared/effective-timezone.ts :: resolveEffectiveTimezone` is the single source for cards, nudges, and travel notifications. `compute-outer-readiness`, `build-executive-home-cards`, `smart-nudges`, and `travel-notifications` must read the same `effectiveTimezone`, `circadianTimezone`, and `isAway` result. Nudges must not fall back to static `profiles.timezone_offset` as their authority.
+4. **Travel notifications consume the Plan full-arc.** The Plan slot allocator fans dominant travel into Pre / During / Post phases. `travel-notifications` consumes those persisted phases instead of re-deriving travel arcs.
+5. **One Chief-of-Staff persona across Brief, Plan, and Nudge.** The Brief composer, `_shared/plan/why-llm.ts`, and the nudge copy builder import the shared `CHIEF_OF_STAFF_PERSONA` and `FORBIDDEN_NOTIFICATION_WORDS` from `_shared/brief/copy-vocabulary.ts`. Nudge copy is Context + CTA in that same voice.
+6. **Measured-only / freshness rule is shared.** Nudges may cite only fresh, measured signals (`sleep`, `RHR`, `HR`, `HRV`). They must not carry forward or fabricate a number when the wearable was removed. Expose freshness state with the MRS / daily-context snapshot so nudges can honor the same measured-only contract as MRS.
+7. **Back-to-back shim cleanup stays retired.** `_shared/ceo-behaviour/back-to-back.ts` imports `isHighStakesTitle` directly from `_shared/events/event-classifier.ts`, not the legacy `executive-state-taxonomy.ts` shim. This rule is consumed by nudges for the meeting-prep cliff.
+
+Net: the cards calibrate once; MRS, Brief, Plan, and Nudge read the same result. No card behaviour changes are required beyond keeping the Plan slot contract stable, sharing timezone/persona/freshness resolvers, and preserving the back-to-back shim cleanup.
+
+---
+
 ## 11. Test & Verification Map
 
 | Concern | Test file |

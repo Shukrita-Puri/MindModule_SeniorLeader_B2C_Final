@@ -31,8 +31,8 @@ const ROWS: Row[] = [
 export default function StageBriefPrefs() {
   const navigate = useNavigate();
   const [prefs, setPrefs] = useState<Record<string, string>>({
-    timing: "Morning",
-    reset: "Sound",
+    timing: "Use intelligence",
+    reset: "Use intelligence",
     weekends: "Reduce",
   });
   const [saving, setSaving] = useState(false);
@@ -56,8 +56,8 @@ export default function StageBriefPrefs() {
     setSaveError(null);
     const res = await saveV8(
       {
-        brief_timing: prefs.timing,
-        reset_modality: prefs.reset,
+        brief_timing: prefs.timing === "Use intelligence" ? null : prefs.timing,
+        reset_modality: prefs.reset === "Use intelligence" ? null : prefs.reset,
         weekend_signals: prefs.weekends,
       },
       "brief_prefs",

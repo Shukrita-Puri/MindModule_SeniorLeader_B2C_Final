@@ -134,10 +134,11 @@ Deno.serve(async (req) => {
         return json(400, { error: "validation_failed", step: "completion", errors: completionErrors });
       }
 
+      const completedAt = new Date().toISOString();
       const { data, error } = await db
         .from("onboarding_v8_responses")
         .upsert(
-          { user_id: userId, completed_at: new Date().toISOString() },
+          { user_id: userId, completed_at: completedAt },
           { onConflict: "user_id" },
         )
         .select()
@@ -146,6 +147,24 @@ Deno.serve(async (req) => {
         console.error("[onboarding-v8-save] MARK_COMPLETE error:", error);
         return json(500, { error: "complete_failed" });
       }
+
+      const { data: profile } = await db
+        .from("profiles")
+        .select("onboarding_completed_at")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!profile?.onboarding_completed_at) {
+        const { error: profileErr } = await db
+          .from("profiles")
+          .update({ onboarding_completed_at: completedAt, updated_at: completedAt })
+          .eq("id", userId);
+        if (profileErr) {
+          console.error("[onboarding-v8-save] profile completion update error:", profileErr);
+          return json(500, { error: "profile_complete_failed" });
+        }
+      }
+
       return json(200, { ok: true, data });
     }
 

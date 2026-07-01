@@ -1,345 +1,178 @@
-# Onboarding - Final SSOT
+# Onboarding — MASTER SSOT (V8-only, code-verified)
 
-**Status:** code-level build source of truth  
-**Created:** 2026-06-30  
-**Primary route:** `/onboarding/*`  
-**Primary shell:** `src/pages/onboarding/OnboardingFlow.tsx`  
-**Primary guards:** `src/components/OnboardingGuard.tsx`  
-**Primary edge functions:** `onboarding-progress`, `complete-onboarding`, `generate-onboarding-insight`, `onboarding-v8-save`, `synthesize-cos-profile`
+**Version:** v2.0 — legacy removed; V8 = onboarding + Leader Profile build
+**Date:** 2026-06-30
+**Supersedes:** all earlier onboarding docs. **Legacy questionnaire onboarding is deleted** and must not be built, referenced, or routed to. V8 is the single onboarding path and the source of the Chief-of-Staff (CoS) Leader Profile. Sections marked **[CURRENT]** (shipped) or **[TARGET]** (build this refresh).
 
-This document is the practical source of truth for building or repairing Onboarding. It reflects the current code, including both the legacy questionnaire path and the newer v8 onboarding path.
-
-When this document conflicts with older onboarding docs, verify against the live files and update this file in the same change.
+**Primary route:** `/onboarding/*` (V8 stages only) · **Shell:** `OnboardingFlow.tsx` · **Guards:** `OnboardingGuard.tsx`, `OnboardingBlockGuard`.
+**Edge functions:** `onboarding-v8-save`, `synthesize-cos-profile`, `linkedin-profile-scrape`, `onboarding-progress`, `complete-onboarding` (completion flag only), `reset-onboarding`, `sync-profile`, `update-profile`.
+**Table of record:** `onboarding_v8_responses` (all V8 content + CoS profile). Also `profiles` (completion flag, preferences), `user_integrations` (connections).
 
 ---
 
-## 1. What Onboarding Is
+## 0. Legacy removal (do this first)
 
-Onboarding has two related responsibilities:
-
-1. Get a new user to a usable, completed product state.
-2. Collect enough profile, preference, context, and connection data to personalise Executive Home, Brief, Plan, Nudges, and Insights.
-
-Onboarding is not just UI. It is a persistence and gating system. Completion must be durable in the database, not only in localStorage.
-
----
-
-## 2. Route And Guard Contract
-
-Routes are defined in `src/App.tsx`.
-
-`/onboarding/*` is wrapped by:
-
-- `OnboardingBlockGuard`
-- `OnboardingFlow`
-
-Protected product routes are wrapped by:
-
-- `ProtectedRoute`
-- `OnboardingGuard`
-- usually `SubscriptionGuard`
-
-Rules:
-
-- incomplete authenticated users are routed back to the correct onboarding resume route;
-- completed users are blocked from onboarding routes except explicit whitelist/upgrade flows;
-- unresolved DB completion should fail open in `OnboardingGuard` to avoid false redirects from product pages;
-- anonymous users may start the legacy pre-auth assessment.
+**All legacy questionnaire onboarding is removed.** Delete/retire the legacy routes and stages — they do nothing and are not referenced:
+`/onboarding/identity`, `/emotional-awareness`, `/stress-response`, `/recovery-patterns`, `/mental-clarity`, `/growth-intention`, `/signup-step`, `/results`, `/payment`, `/context-connection`, and the legacy `Stage1..Stage8` components, the pre-auth questionnaire `localStorage` bridge, and the legacy scoring path. Consequences:
+- **`generate-onboarding-insight` legacy scoring** (q1–q4 → baseline/archetype) is legacy — not used by V8.
+- **MRS baseline no longer comes from onboarding** (see §5). It was a legacy artifact; MRS now builds its baseline from the user's live wearable/calendar/pattern data.
+- `complete-onboarding` is retained **only** to set the durable completion flag `profiles.onboarding_completed_at` (idempotent — only if NULL). It no longer needs to persist legacy baseline/component/archetype fields.
 
 ---
 
-## 3. Flow Families
+## 1. What onboarding is now
 
-### 3.1 Legacy Questionnaire Flow
-
-Legacy routes:
-
-- `/onboarding`
-- `/onboarding/identity`
-- `/onboarding/emotional-awareness`
-- `/onboarding/stress-response`
-- `/onboarding/recovery-patterns`
-- `/onboarding/mental-clarity`
-- `/onboarding/growth-intention`
-- `/onboarding/signup-step`
-- `/onboarding/results`
-- `/onboarding/payment`
-- `/onboarding/app-intro`
-- `/onboarding/context-connection`
-
-Pre-auth questionnaire responses live in localStorage through `src/utils/onboardingStorage.ts`.
-
-Post-auth progress and results live in:
-
-- `onboarding_progress`
-- `profiles`
-- `mental_fitness_scores`
-- `user_integrations`
-
-### 3.2 V8 Onboarding Flow
-
-V8 routes:
-
-- `/onboarding/app-intro`
-- `/onboarding/leadership-context`
-- `/onboarding/cognitive-load`
-- `/onboarding/protect-goals`
-- `/onboarding/brief-prefs`
-- `/onboarding/permissions`
-- `/onboarding/connect`
-- `/onboarding/done`
-
-V8 screens are full-bleed and suppress the legacy onboarding chrome. They bypass legacy stage gating because they are the newer entry path.
-
-V8 persistence lives in:
-
-- `onboarding_v8_responses`
-- optionally synthesized COS profile fields/tables through `synthesize-cos-profile`
+V8 onboarding has one job: **build the CoS Leader Profile so the Chief of Staff knows the leader from the very first session** — their preferences, goals, leadership style, communication style, high-stakes map, and cognitive-load/risk profile — and persist it so **Brief, Plan, Nudges, and Insights** can all read it. It also captures connections (calendar/wearable) and the durable completion flag. It is a persistence + personalisation system; completion is durable in the DB.
 
 ---
 
-## 4. Shell Ownership
+## 2. V8 flow **[CURRENT]**
 
-### `OnboardingFlow.tsx`
-
-Owns:
-
-- session initialization;
-- route-level stage gating for legacy stages;
-- weighted progress for legacy questionnaire;
-- top bar and back navigation;
-- v8 path bypass/suppression;
-- current stage persistence to local session.
-
-Do not scatter route gating into individual stage components unless the stage owns an internal sub-step.
-
-### `OnboardingGuard.tsx`
-
-Owns product-route enforcement.
-
-Important behaviour:
-
-- fast path from `user.onboarding_completed_at`;
-- slow DB reconciliation via `fetchOnboardingProgressSnapshot`;
-- fail-open when DB completion is unknown;
-- redirect incomplete users to `getResumeRoute`;
-- prevent completed users from re-entering onboarding via `OnboardingBlockGuard`.
+Routes: `/onboarding/app-intro` → `leadership-context` → `cognitive-load` → `protect-goals` → `brief-prefs` → `permissions` → `connect` → `done`. Full-bleed screens. Client `onboardingV8.ts` (`saveV8`, `markV8Complete`, `synthesizeCosProfile`, `makeDebouncedSaver`) → edge `onboarding-v8-save` (`GET` / `UPSERT` / `MARK_COMPLETE`; sanitation; step + completion validation; `step_status` merge). Canonical validation `_shared/onboardingV8Validation.ts` + client mirror `src/utils/onboardingV8Validation.ts` (keep in sync). Completion requires: ≥1 protected goal, weekend signal, ≥1 calendar selection, ≥1 wearable selection; leadership context optional. Brief timing and reset modality may be explicit overrides or unset/null for system-decides.
 
 ---
 
-## 5. Legacy Data Contract
+## 3. Preferences are OPTIONAL overrides (not hard settings)
 
-### Local Storage
+Every preference collected in `brief-prefs`/`connect` is an **override of the system's default dynamic behaviour**, not a replacement for it:
+- If the user picks **"let the system decide"** (or the equivalent default), the app runs its **full, current, dynamic behaviour** — e.g. Brief timing is chosen by the window/context engine, reset modality by the Plan, weekend behaviour by the day-kind logic.
+- Only when the user **explicitly selects a value** (e.g. brief timing = Morning, or = Evening) does that value **override** the dynamic default for that one preference.
+- This applies to every preference (`brief_timing`, `reset_modality`, `weekend_signals`, etc.): default = system-decides; explicit = override. Downstream surfaces must treat an unset/"system decides" value as "use dynamic behaviour," never as an empty/forced value.
 
-`src/utils/onboardingStorage.ts` stores the anonymous/pre-auth bridge.
+---
 
-Important functions:
+## 4. The CoS Leader Profile pipeline (the centrepiece)
 
-- `initializeSession`
-- `getSession`
-- `updateSession`
-- `saveResponse`
-- `getResponse`
-- `getAllResponses`
-- `clearSession`
+Owner: `synthesize-cos-profile/index.ts`. Client trigger: `onboardingV8.ts → synthesizeCosProfile`. Fired from `StageDone.tsx`.
 
-This is a bridge, not the final source of truth.
+### 4.1 Pipeline **[CURRENT]**
+1. **Inputs** from `onboarding_v8_responses`: `linkedin_url`, `writing_urls[]` (≤2), `freetext_context`, `stakes_chips`, `load_chips`, `burden_chips`, `goals` (≤3), `brief_timing`, `reset_modality`, `weekend_signals`, `calendar_selections`, `wearable_selections`, `leadership_context`.
+2. **Firecrawl v2 scrape** (`FIRECRAWL_API_KEY`): LinkedIn URL + up to 2 writing/interview URLs → markdown; persisted as `linkedin_scrape` + `writing_scrapes` (even on partial). Missing key → skip, list gaps.
+3. **LLM synthesis** via Lovable AI Gateway (`LOVABLE_API_KEY`), model **`google/gemini-2.5-pro`**, tool-forced `emit_cos_profile`. Rules: discreet CoS voice; DISC/Enneagram/archetype in freetext = PRIMARY SOURCE; LinkedIn → role/sector/trajectory/board; writing → cognitive style + how to speak; **never fabricate** → `what_is_missing[]`.
+4. **Persist + idempotent** (cached if `ready` & not `force`).
+5. **Best-effort** — onboarding completion must NOT block on CoS status.
 
-### Results Generation
+### 4.2 Profile schema (`emit_cos_profile`) **[CURRENT]**
+`identity` · `leadership_style` {primary_style, style_tags, style_description, source_note} · `communication_profile` {how_they_think, how_they_communicate, what_lands, what_wont_land, **cos_brief_rules**} · `existing_self_knowledge` {disc/archetype/frameworks, alignment_note} · `cognitive_risk_profile` {primary_risk, risk_flags[{flag, severity, description, trigger_conditions}], regulation_strengths} · `external_persona` · `high_stakes_map` {declared_events, inferred_events, event_frequency_estimate} · `cognitive_load_map` {declared_loads, inferred_loads, operating_burdens, primary_depletion_pattern} · `goals` {declared, **cos_accountability_note**} · `brief_personalisation` {timing, reset_modality, weekend_signals, **brief_voice_note**} · `provisional_archetype` · `what_is_missing[]` · per-section `confidence` · **`display_html`**.
 
-`Stage8Results.tsx` calls `generate-onboarding-insight` using raw answers:
+### 4.3 Where it is stored (DB) **[CURRENT]**
+All on **`onboarding_v8_responses`** (keyed by Auth0 `user_id`):
+- structured profile → **`cos_profile`** (jsonb)
+- rendered HTML → **`cos_profile_html`**
+- status → **`cos_profile_status`** (`in_progress|ready|failed`), **`cos_profile_error`**, **`cos_profile_generated_at`**
+- scrapes → **`linkedin_scrape`**, **`writing_scrapes`**
+- raw V8 inputs → `linkedin_url`, `writing_urls`, `freetext_context`, `stakes_chips`, `load_chips`, `burden_chips`, `goals`, `brief_timing`, `reset_modality`, `weekend_signals`, `calendar_selections`, `wearable_selections`, `leadership_context`, `step_status`, `completed_at`.
 
-- `emotional_awareness_response` -> `q1`
-- `stress_response_response` -> `q2`
-- `recovery_patterns_response` -> `q3`
-- `mental_clarity_response` -> `q4`
+### 4.4 Is it shown to the user? **[CURRENT] — NO.**
+Code-verified: `StageDone.tsx` calls `synthesizeCosProfile()` fire-and-forget and then navigates to `/executive-home`. **It does not render `cos_profile_html`; the profile is surfaced to no one in the UI today** (`dangerouslySetInnerHTML`/`cos_profile_html` appear in no user-facing component). The profile is generated and stored purely as a downstream/CRM asset.
 
-`generate-onboarding-insight` owns:
+### 4.5 Email follow-up + storage-for-CRM **[TARGET — no email infra exists]**
+Because the profile is stored but not shown, it is ready to be picked up by a follow-up channel. **[TARGET]** add `send-cos-profile-email`: the day after onboarding, send the leader a follow-up email built from `cos_profile_html` (or a templated email from `cos_profile`), gated on `cos_profile_status='ready'`, with `what_is_missing` visible so the leader can close gaps (a learning loop that enriches the profile). For a separate email blaster / CRM, the **single place to read from is `onboarding_v8_responses.cos_profile` + `cos_profile_html`**; **[TARGET]** consider mirroring to a stable `profiles.cos_profile` / `user_cos_profile` store so CRM/email and the edge engines can read it cheaply without loading the whole onboarding row.
 
-- component scoring;
-- baseline score;
-- archetype assignment;
-- AI insight generation with deterministic fallback if provider calls fail.
+---
 
-### Baseline Persistence
+## 5. Downstream data contract — ONE centralised read (`LeaderProfileContext`)
 
-`Stage8Results.tsx` persists baseline data through `complete-onboarding` with:
+**The onboarding profile is read ONCE per cycle into a single `LeaderProfileContext`, then passed to every surface** — exactly the pattern the cards already use for `WindowContextInput` (built once from pre-fetched data, passed to MRS + Brief + Plan). There is **no per-surface read of different fields**: every surface receives the *whole* resolved profile and uses the parts relevant to it. This avoids drift, avoids re-fetching, and means a field like `goals.declared` (needed by Brief *and* Plan *and* Nudges) or `brief_timing` (needed everywhere) is resolved in one place.
 
-```json
-{ "skip_completion": true }
+> **Naming note:** the DB field `brief_personalisation` is a legacy name — its contents (`brief_timing`, `reset_modality`, `weekend_signals`) are **cross-surface preferences**, not Brief-only. In `LeaderProfileContext` treat them as `preferences`, read by Brief, Plan, and Nudges alike. **MRS baseline is NOT part of this** — MRS builds its baseline from live data; onboarding contributes only priors.
+
+**The single read (build once):**
 ```
+loadLeaderProfile(userId) → LeaderProfileContext {          // [TARGET] one loader, one shape
+  voice:        { cos_brief_rules, brief_voice_note }        // → the shared CHIEF_OF_STAFF_PERSONA
+  goals:        { declared[], cos_accountability_note }
+  priors:       { high_stakes_map, cognitive_load_map }
+  preferences:  { brief_timing, reset_modality, weekend_signals,   // legacy: brief_personalisation
+                  calendar_selections, wearable_selections }
+  analysis:     { provisional_archetype, leadership_style, cognitive_risk_profile,
+                  communication_profile, existing_self_knowledge, external_persona }
+  meta:         { confidence_overall, what_is_missing[], cos_profile_status }
+}
+```
+Source: `onboarding_v8_responses.cos_profile` (**[TARGET]** mirror to a stable `profiles.cos_profile` / `user_cos_profile` so edge functions read it cheaply — the card orchestrator loads it alongside `WindowContextInput` and hands the same object to all surfaces).
 
-This is intentional. Results can be saved without marking onboarding done.
+**Which surface uses which part (all from the ONE read):**
 
-### Final Completion
+| Surface | Uses (from the single `LeaderProfileContext`) |
+|---|---|
+| **MRS** | `priors` (high_stakes_map, cognitive_load_map) — day-one priors only; **no baseline** |
+| **Brief** (phrase + body) | `voice` + `goals` + `priors` + `preferences.brief_timing` |
+| **Plan** (why-this-matters) | `voice` + `goals` (→ `goal-alignment`) + `priors` + `preferences.reset_modality/weekend_signals` |
+| **Nudges** | `voice` + `goals` + `priors` + `preferences` (notification timing/reset/weekend) |
+| **Insights** | `goals` + `priors.high_stakes_map` + **`analysis`** (archetype/leadership_style/cognitive_risk_profile) — §5.1 |
 
-`complete-onboarding` sets `profiles.onboarding_completed_at` only when `skip_completion` is not true and the profile was not already complete.
+**Preferences are optional overrides (§3):** any preference left "system decides" is read as *run dynamic behaviour*, never a forced value — the loader returns null for unset preferences and each surface treats null as dynamic.
 
-It also persists:
+**Parity rule:** compute the profile once (onboarding) → resolve once per cycle (`loadLeaderProfile`) → every surface reads the same object. Do not let any surface re-read or re-interpret onboarding fields on its own.
 
-- `mental_fitness_baseline`
-- `component_scores`
-- `user_archetype`
-- `practice_priority_tag`
-- `pressure_context_tag`
-- questionnaire responses
-- `onboarding_insight`
-- archetype title/description
-- `self_check_ins_enabled`
-- `user_integrations` data where provided
-- initial `mental_fitness_scores` row when baseline exists
-
-Completion is idempotent.
-
----
-
-## 6. V8 Data Contract
-
-### Client Utility
-
-`src/utils/onboardingV8.ts` owns:
-
-- `saveV8`
-- `markV8Complete`
-- `synthesizeCosProfile`
-- `makeDebouncedSaver`
-
-It posts to edge functions using Auth0-backed edge headers.
-
-### Edge Function
-
-`onboarding-v8-save` owns:
-
-- authenticated `GET`;
-- authenticated `UPSERT`;
-- authenticated `MARK_COMPLETE`;
-- sanitation;
-- step validation;
-- completion validation;
-- `step_status` merge;
-- upsert into `onboarding_v8_responses`.
-
-### Validation
-
-Canonical v8 validation lives in:
-
-- `supabase/functions/_shared/onboardingV8Validation.ts`
-- mirror: `src/utils/onboardingV8Validation.ts`
-
-Keep these in sync.
-
-V8 completion requires:
-
-- at least one protected goal;
-- brief timing;
-- reset modality;
-- weekend signal preference;
-- at least one calendar selection;
-- at least one wearable selection.
-
-Leadership context is optional at completion.
-
-### COS Synthesis
-
-`synthesize-cos-profile` may enrich a user's profile from:
-
-- LinkedIn URL;
-- writing/interview URLs;
-- free-text context;
-- stakes/load/burden chips;
-- goals;
-- brief/reset/weekend preferences;
-- calendar/wearable selections.
-
-COS synthesis is best-effort. Onboarding completion must not be blocked by COS synthesis status.
+### 5.1 Insights uses more of the total profile (recovery time + burnout risk)
+- **Drain map:** `goals` + `priors.high_stakes_map` anchor the "what drains the leader" analysis — the leader's declared high-stakes event types mapped to wearable response (HR/HRV/sleep), so Insights reports performance in exactly the events the leader said matter.
+- **Recovery time + burnout risk from `analysis`:** feed `cognitive_risk_profile` (primary_risk, risk_flags, regulation_strengths), `leadership_style`, and `provisional_archetype` into the recovery/burnout model. A leader whose archetype/style/cognitive-risk indicates they **take on more pressure/stress than required** is modelled as **recovering slower / higher burnout risk** as a prior, then live wearable/pattern data confirms or corrects it. Do more with the whole profile here, not just goals.
 
 ---
 
-## 7. Progress Contract
+## 6. Plan relationship enrichment via LinkedIn (cross-feature) **[TARGET]**
 
-`onboarding-progress` owns durable step tracking in `onboarding_progress`.
+When the **Plan's Event Prioritisation** resolves an attendee's **relationship** and the user has **not tagged** that attendee, enrich the inference from LinkedIn before the domain-only fallback. Two-fold aim, both within honest scope:
+1. **Leader-anchored:** use the leader's own scraped LinkedIn (`linkedin_scrape`: company, role, sector, positioning) to place the attendee *relative to the leader* — same company ⇒ internal peer/report; same board/investor sector ⇒ board_member/investor; different org ⇒ external_partner with seniority from the attendee's own profile.
+2. **Attendee-anchored (independent):** if the leader is not "connected," resolve the attendee's own LinkedIn **profile** by name/email (via the same Firecrawl path, `linkedin-profile-scrape`) and infer role/company/seniority directly from it.
 
-Actions:
-
-- `GET`
-- `UPSERT_STEP`
-
-`GET` merges `onboarding_progress` with profile completion/result fields so resume can recover if one table is missing data.
-
-Valid tracked step columns include:
-
-- `welcome_at`
-- `identity_at`
-- `emotional_awareness_at`
-- `stress_response_at`
-- `recovery_patterns_at`
-- `mental_clarity_at`
-- `growth_intention_at`
-- `signup_step_at`
-- `results_at`
-- `payment_at`
-- `context_connection_at`
-- `first_session_walkthrough_at`
-
-`useOnboardingProgress` is fire-and-forget and dedupes in-flight step writes.
+**Honest scope (do not complicate beyond this):** Firecrawl scrapes a **public profile page**, not the private connections graph. "Connection" is therefore inferred from **shared company/sector/role signals**, not a literal connection list — this is the best-in-class, allowed approach and the design intentionally stops here. Output is an `AttendeeRoleSignal` (`source:'llm'` or a new `'linkedin_graph'`) flowing through the existing `confidenceMultiplier`, so a user tag still overrides it and `unknown` still costs nothing. Documented as a standalone callout in the Exec card SSOT §6.5 / Wiring Step 5 so it drops straight into the cards.
 
 ---
 
-## 8. Resume Contract
+## 7. Progress · resume · guards **[CURRENT]**
 
-`src/utils/onboardingStatus.ts` owns resume decisions.
-
-Order:
-
-1. Try DB-backed progress via `getResumeRouteFromDB`.
-2. Fall back to localStorage via `getResumeRouteFromLocal`.
-
-Rules:
-
-- complete snapshot -> `/executive-home`;
-- valid beta/payment/results state -> next appropriate post-results step;
-- missing result after signup -> `/onboarding/results`;
-- pre-auth missing questionnaire responses -> resume the first missing stage;
-- payment suppression redirects payment route to app intro.
-
-Do not recreate resume logic inside individual stage components.
+- **Progress** (`onboarding-progress`, `useOnboardingProgress`): durable step markers; fire-and-forget, dedupes in-flight writes. (Legacy step columns are unused now.)
+- **Resume** (`onboardingStatus.ts`): DB-first then local; complete → `/executive-home`; incomplete → next V8 stage. One authority; do not recreate in stages.
+- **Guards:** `OnboardingGuard` (product routes; fast path from `onboarding_completed_at`; slow DB reconcile; **fail-open on unknown**; incomplete → resume). `OnboardingBlockGuard` (completed users blocked from onboarding except whitelist/upgrade).
 
 ---
 
-## 9. Database Contract
+## 8. Database & auth contract **[CURRENT]**
 
-Important tables:
-
-- `profiles`
-- `onboarding_progress`
-- `onboarding_v8_responses`
-- `mental_fitness_scores`
-- `user_integrations`
-
-Auth model:
-
-- user ids are Auth0 `sub` strings;
-- RLS policies should use `auth.jwt()->>'sub'`;
-- edge functions may use service role internally after authenticating caller.
-
-Do not migrate onboarding user ids to UUID unless the whole Auth0 identity model changes.
+Table of record **`onboarding_v8_responses`** (columns in §4.3). Also `profiles` (`onboarding_completed_at`, preference fields), `user_integrations` (connections). Auth0 `sub` **text** ids; RLS via `auth.jwt()->>'sub'`; edge functions use service role after authenticating the caller. Do not migrate to UUID.
 
 ---
 
-## 10. Build Definition Of Done
+## 9. Gap audit — expected / built / wired / missing / legacy / cleanup
 
-An onboarding change is done only when:
+| Area | Expected | Built? | Wired? | Status |
+|---|---|---|---|---|
+| **Legacy onboarding removed** | delete routes/stages/scoring | — | — | **[TARGET] delete entirely (§0)** |
+| V8 flow + validation | full flow | ✅ | ✅ | keep mirrors in sync |
+| CoS profile synthesis (Firecrawl + Gemini) | rich schema + html | ✅ | ✅ (generated + stored) | — |
+| CoS profile stored | `onboarding_v8_responses.cos_profile*` | ✅ | ✅ | — |
+| CoS profile shown to user | UI render | ❌ | ❌ | **not shown (§4.4)** — intentional for now |
+| **CoS profile → downstream** | Brief/Plan/Nudge/Insights read it | ✅ generated | ❌ not read | **[TARGET] §5** |
+| **MRS baseline from onboarding** | REMOVE | (was legacy) | — | **[TARGET] remove; MRS builds from live data** |
+| Preferences as optional overrides | system-decides default | partial | partial | **[TARGET] enforce "unset = dynamic" downstream (§3)** |
+| Email follow-up / CRM store | send `cos_profile_html` | ❌ | ❌ | **[TARGET] §4.5** |
+| Plan relationship via leader LinkedIn | untagged-attendee enrichment | ❌ | ❌ | **[TARGET] §6 + Exec standalone** |
+| Insights: recovery/burnout from CoS | use archetype/risk/style | ❌ | ❌ | **[TARGET] §5.1** |
+| Guards fail-open / Auth0 text ids | — | ✅ | ✅ | — |
 
-1. Anonymous user can start legacy onboarding.
-2. Legacy questionnaire answers persist across refresh.
-3. Signup/auth handoff preserves enough state for results.
-4. Results generation uses `generate-onboarding-insight`.
-5. Baseline persistence can save without marking complete.
-6. Final completion sets `profiles.onboarding_completed_at`.
-7. Product routes allow completed users.
-8. Product routes redirect incomplete users to resume.
-9. Completed users cannot re-enter onboarding unintentionally.
-10. V8 steps save through `onboarding-v8-save`.
-11. V8 completion enforces canonical validation.
-12. COS synthesis failure does not block completion.
+---
 
+## 10. Connection to Executive cards, Nudges & Insights (onboarding is the seed)
+
+Onboarding computes the profile **once**; every surface reads it. Do not re-derive persona/goals/priors per surface.
+
+1. **CoS persona unification:** `communication_profile.cos_brief_rules` + `brief_personalisation.brief_voice_note` define the one `CHIEF_OF_STAFF_PERSONA` imported by **Brief (phrase AND body)**, **Plan (`why-llm`)**, and **Nudges** (Exec SSOT persona-unification + Nudges §18).
+2. **Goals → Brief, Plan, and Nudges:** `goals.declared` feeds the Plan's `jit/goal-alignment.ts` (strategic axis), the **Brief** (goal references in phrase/body), and **Nudges** (strategic-framing copy).
+3. **Priors → MRS, Brief, Plan, and Nudges:** `high_stakes_map` + `cognitive_load_map` are day-one priors; Nudges read them via the shared unification.
+4. **Preferences → Brief, Plan, and Nudges:** `brief_timing`, `reset_modality`, `weekend_signals`, `calendar_selections`, `wearable_selections` drive Brief timing, Plan modality/weekend behaviour, connections — **and the notification-relevant preferences are read by Nudges** (timing/reset/weekend shape when and how a nudge fires). Treat "system decides" as dynamic (§3).
+5. **Insights → Goals + High-stakes map + recovery/burnout from the profile:** drain map (events↔wearable) + recovery-time/burnout-risk tuned by archetype/leadership_style/cognitive_risk_profile (§5.1). Month-over-month framing anchors on archetype (not an onboarding baseline).
+
+---
+
+## 11. Invariants
+
+1. **No legacy onboarding.** V8 is the only path; legacy routes/scoring/baseline are deleted.
+2. Completion is durable (`profiles.onboarding_completed_at`), idempotent, never blocked by CoS synthesis/scrape failure.
+3. The CoS profile never fabricates — gaps → `what_is_missing`; DISC/Enneagram/archetype = primary source.
+4. Preferences are optional overrides — "system decides" means run dynamic behaviour, not a forced/empty value.
+5. **MRS baseline is not sourced from onboarding.**
+6. The CoS profile is stored on `onboarding_v8_responses.cos_profile(_html)` and is the single seed read by Brief, Plan, Nudges, Insights — computed once, read everywhere.
+7. Auth0 text ids; RLS via `auth.jwt()->>'sub'`.
