@@ -3491,7 +3491,8 @@ type NotificationTraceOutcome =
   | 'week_ahead_selected'
   | 'apns_attempted'
   | 'apns_accepted'
-  | 'apns_rejected';
+  | 'apns_rejected'
+  | 'back_to_back_skip';
 
 interface TraceDetails {
   localDate?: string | null;
