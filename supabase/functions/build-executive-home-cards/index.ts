@@ -2,6 +2,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
+import {
+  localParts,
+  resolveEffectiveTimezone,
+  timezoneOffsetMinutes,
+} from "../_shared/effective-timezone.ts";
 
 type BuildMode = "scheduled" | "manual_refresh" | "manual_replay" | "backfill" | "dry_run";
 type TimeWindow = "morning" | "afternoon" | "evening";
@@ -23,47 +28,6 @@ function getWindow(hour: number): TimeWindow {
   if (hour >= 5 && hour < 12) return "morning";
   if (hour >= 12 && hour < 18) return "afternoon";
   return "evening";
-}
-
-function localParts(timeZone: string, at = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(at);
-  const p = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return {
-    localDate: `${p.year}-${p.month}-${p.day}`,
-    hour: Number(p.hour === "24" ? "0" : p.hour),
-    minute: Number(p.minute ?? "0"),
-  };
-}
-
-function timezoneOffsetMinutes(timeZone: string, at = new Date()): number {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(dtf.formatToParts(at).map((p) => [p.type, p.value]));
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour === "24" ? "0" : parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  return Math.round((at.getTime() - asUtc) / 60000);
 }
 
 function isForceMode(mode: BuildMode) {
@@ -94,29 +58,6 @@ function sleepQuality(score: number | null, hours: number | null): "poor" | "fai
     return "peak";
   }
   return null;
-}
-
-async function resolveEffectiveTimezone(db: any, userId: string, profile: any) {
-  const { data: travel } = await db
-    .from("travel_state")
-    .select("state,last_known_timezone,meta")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const profileCurrent = profile?.current_timezone ?? null;
-  const profileHome = profile?.home_timezone ?? null;
-  const isTravelling = travel?.state && travel.state !== "not_travelling";
-  const effectiveTimezone =
-    (isTravelling && (travel?.last_known_timezone || profileCurrent)) ||
-    profileCurrent ||
-    profileHome ||
-    "UTC";
-
-  return {
-    effectiveTimezone,
-    homeTimezone: profileHome || null,
-    travel,
-  };
 }
 
 async function countTodayEvents(db: any, userId: string, localDate: string) {

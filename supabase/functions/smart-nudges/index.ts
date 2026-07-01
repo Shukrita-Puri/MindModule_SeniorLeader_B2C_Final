@@ -12,12 +12,17 @@ import {
   type TimeWindow as BriefTimeWindow,
 } from "../_shared/load-brief-behaviour-snapshot.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
-import { FORBIDDEN_NOTIFICATION_WORDS } from "../_shared/brief/copy-vocabulary.ts";
+import { CHIEF_OF_STAFF_PERSONA, FORBIDDEN_NOTIFICATION_WORDS } from "../_shared/brief/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import {
+  localParts,
+  resolveEffectiveTimezone,
+  timezoneOffsetMinutes,
+} from "../_shared/effective-timezone.ts";
 // Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
@@ -106,7 +111,7 @@ async function sendApnsPush(
     subtitle?: string;
   } = {},
 ): Promise<{ ok: boolean; status: number; reason: string; expirationTs: number; collapseId: string | null }> {
-  // v5.3 — Punctuality + Clean Desk
+  // v5.3 - Punctuality + Clean Desk
   // Caller passes per-intent ttlSeconds and collapseId so APNs drops the push
   // once it stops being relevant ("no zombie notifications") and so a stale
   // queued one is replaced when the device reconnects.
@@ -115,7 +120,7 @@ async function sendApnsPush(
   const collapseId = options.collapseId ?? null;
   const badge = typeof options.badge === 'number' ? Math.max(0, options.badge) : 1;
 
-  // v1.1 — Collapsed/Expanded headline contract.
+  // v1.1 - Collapsed/Expanded headline contract.
   // title is forced to the brand string ('Mind Module') by the caller.
   // The original moment headline rides aps.alert.subtitle.
   const subtitle = (options.subtitle ?? '').trim();
@@ -178,30 +183,29 @@ const LOW_TIERS = ['depleted', 'managing'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const EVALUATOR_VERSION = 'smart-nudges-v8-trace-2026-06-23';
 
-// §17.7 — Week-Ahead Picker Invite is treated as a weekly digest, NOT a
+// §17.7 - Week-Ahead Picker Invite is treated as a weekly digest, NOT a
 // behavioural nudge. It has its own cap bucket (max one per ISO week per
 // user) and is exempt from:
 //   - DAILY_NOTIFICATION_CAP
 //   - 2-hour intra-tick suppression
-//   - APP_OPEN_COOLDOWN_MS
 //   - per-window slot cap
 // Kill-switch: set WEEK_AHEAD_PICKER_ENABLED='false' to disable without a
 // deploy. Any other value (or missing) → enabled.
 const WEEK_AHEAD_PICKER_ENABLED =
   (Deno.env.get('WEEK_AHEAD_PICKER_ENABLED') ?? 'true').toLowerCase() !== 'false';
 
-// MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
+// MVP feature flag - set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
-// v7 — Suppress legacy generic mid-day variants (priorities-count, consecutive-low).
+// v7 - Suppress legacy generic mid-day variants (priorities-count, consecutive-low).
 // Framework code is preserved for future use; flip this on to re-enable.
 const LEGACY_GENERIC_NUDGES_ENABLED = false;
 
-// ── v5.3 — Per-intent TTL + collapse-id helpers ────────────────────────
+// ── v5.3 - Per-intent TTL + collapse-id helpers ────────────────────────
 // Maps the resolved nudge variant to its actionable window (TTL) and the
 // collapse bucket APNs should de-dupe by. After expiration, APNs drops the
 // queued push, so when the device reconnects the user only sees pushes that
-// are still in their relevance window — exactly the Chief-of-Staff
+// are still in their relevance window - exactly the Chief-of-Staff
 // "no zombie notifications" contract.
 function nudgeTtlSeconds(variantId: string, type: string): number {
   if (variantId === 'nudge_one_jit')              return 45 * 60;          // 45 min
@@ -235,8 +239,6 @@ function nudgeCollapseId(family: string, localDate: string, isTravel: boolean): 
 // calendar anchor or evaluator. Protects "morning mindset" per CEO feedback.
 const GLOBAL_EARLIEST_LOCAL = 8.0;     // 08:00
 const GLOBAL_LATEST_LOCAL = 21.5;      // 21:30
-// Cool-down after the user opens the app — they just engaged, don't push.
-const APP_OPEN_COOLDOWN_MS = 60 * 60 * 1000; // 60 min (was 30)
 // Per-user, per-cron-tick: at most one notification regardless of evaluators.
 const INTRA_TICK_MAX = 1;
 
@@ -250,7 +252,6 @@ function isCanonicalIosApnsToken(token: string): boolean {
 import {
   isNoiseTitle,
   detectDayKindFromEvents,
-  isHighStakesTitle,
   highStakesScore,
   classifyEventBucket,
 } from '../_shared/executive-state-taxonomy.ts';
@@ -316,6 +317,103 @@ function mergeCalendarRows(rows: unknown[]): CalendarEvent[] {
   }));
 }
 
+function slotNameForIndex(index: number): NudgeSlot | null {
+  if (index === 0) return 'morning';
+  if (index === 1) return 'afternoon';
+  if (index === 2) return 'evening';
+  return null;
+}
+
+function currentSlotForLocalHour(localHour: number): NudgeSlot {
+  if (localHour < 12) return 'morning';
+  if (localHour < 18) return 'afternoon';
+  return 'evening';
+}
+
+function periodEndHour(slot: NudgeSlot): number {
+  if (slot === 'morning') return 12;
+  if (slot === 'afternoon') return 18;
+  return GLOBAL_LATEST_LOCAL;
+}
+
+function periodTtlSeconds(slot: NudgeSlot, localTime: number): number {
+  const seconds = Math.floor((periodEndHour(slot) - localTime) * 3600);
+  return Math.max(60, seconds);
+}
+
+function periodCollapseId(slot: NudgeSlot, localDate: string): string {
+  return `smart-nudge-${slot}-${localDate}`;
+}
+
+function normalizeNotificationCopy(copy: NudgeCopy): NudgeCopy {
+  return {
+    ...copy,
+    title: copy.title.replace(/\u2014/g, '-').trim(),
+    body: copy.body.replace(/\u2014/g, '-').trim(),
+  };
+}
+
+async function loadPlanNudgeSlots(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  planDate: string,
+  mrsWindow: BriefTimeWindow,
+): Promise<{ status: 'ready' | 'missing' | 'empty'; slots: PlanNudgeSlot[] | null }> {
+  const { data, error } = await supabase
+    .from('mastery_plan_snapshots')
+    .select('horizon_modules,status,generated_at')
+    .eq('user_id', userId)
+    .eq('plan_date', planDate)
+    .eq('mrs_window', mrsWindow)
+    .order('generated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn('[smart-nudges] plan snapshot read failed:', error.message ?? error);
+    return { status: 'missing', slots: null };
+  }
+  let row = data as { horizon_modules?: unknown; generated_at?: string | null } | null;
+  if (!row) {
+    const { data: latest, error: latestError } = await supabase
+      .from('mastery_plan_snapshots')
+      .select('horizon_modules,status,generated_at,mrs_window')
+      .eq('user_id', userId)
+      .eq('plan_date', planDate)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestError) {
+      console.warn('[smart-nudges] plan snapshot same-day fallback failed:', latestError.message ?? latestError);
+      return { status: 'missing', slots: null };
+    }
+    row = latest as { horizon_modules?: unknown; generated_at?: string | null } | null;
+  }
+  if (!row) return { status: 'missing', slots: null };
+  const raw = Array.isArray(row?.horizon_modules) ? row.horizon_modules : [];
+  const slots = raw
+    .map((module: unknown, idx: number): PlanNudgeSlot | null => {
+      const m = module as Record<string, unknown>;
+      const rawIndex = Number.isInteger(m.slotIndex) ? Number(m.slotIndex) : idx;
+      const slot = slotNameForIndex(rawIndex);
+      if (!slot) return null;
+      const mode = ['jit', 'state', 'jit+state', 'full_arc'].includes(String(m.mode))
+        ? String(m.mode) as PlanSlotMode
+        : (m.isJit ? 'jit' : 'state');
+      const jitPhase = m.jitPhase;
+      return {
+        slotIndex: rawIndex as 0 | 1 | 2,
+        slot,
+        mode,
+        arcLabel: typeof m.arcLabel === 'string' ? m.arcLabel : 'Steady',
+        jitPhase: jitPhase === 'pre' || jitPhase === 'during' || jitPhase === 'post' ? jitPhase : null,
+        jitEventTitle: typeof m.jitEventTitle === 'string' && m.jitEventTitle.trim() ? m.jitEventTitle.trim() : null,
+        whyLine: typeof m.whyLine === 'string' && m.whyLine.trim() ? m.whyLine.trim() : null,
+      };
+    })
+    .filter((slot): slot is PlanNudgeSlot => slot !== null);
+  return { status: slots.length > 0 ? 'ready' : 'empty', slots };
+}
+
 interface CalendarGap {
   startTime: Date;
   endTime: Date;
@@ -336,6 +434,19 @@ interface WearableSignals {
   totalSleepMinutes: number | null;
 }
 
+type PlanSlotMode = 'jit' | 'state' | 'jit+state' | 'full_arc';
+type NudgeSlot = 'morning' | 'afternoon' | 'evening';
+
+interface PlanNudgeSlot {
+  slotIndex: 0 | 1 | 2;
+  slot: NudgeSlot;
+  mode: PlanSlotMode;
+  arcLabel: 'Prepare' | 'During' | 'Recover' | 'Steady' | string;
+  jitPhase: 'pre' | 'during' | 'post' | null;
+  jitEventTitle: string | null;
+  whyLine: string | null;
+}
+
 interface CoachSignals {
   pendingCommitments: Array<{ text: string; overdueDays: number; patternArea: string | null; metaSkill: string | null }>;
   activePatterns: Array<{ description: string; patternArea: string | null; observationCount: number }>;
@@ -344,7 +455,7 @@ interface CoachSignals {
   sessionsIn7d: number;
 }
 
-// v7 — Unified pattern store projection (read from causality_findings.signal_summary)
+// v7 - Unified pattern store projection (read from causality_findings.signal_summary)
 interface PatternSummary {
   event_to_hrv: Array<{
     event_type: string;
@@ -387,6 +498,7 @@ interface NudgeContext {
   // Wearable
   wearable: WearableSignals;
   hasWearableData: boolean;
+  wearableFreshness: 'fresh' | 'stale' | 'missing';
   // Coach
   coach: CoachSignals;
   // Check-in
@@ -397,6 +509,8 @@ interface NudgeContext {
   // Mastery plan
   pendingPracticeIds: string[];
   completedPracticeIds: string[];
+  planSlots: PlanNudgeSlot[] | null;
+  planSnapshotStatus: 'ready' | 'missing' | 'empty';
   // JIT
   jitEvents: Array<{ eventId: string; eventTitle: string; eventStart: string; finalScore: number; externalId: string; confidenceBand: string }>;
   // Performance correlations (30d)
@@ -409,27 +523,27 @@ interface NudgeContext {
   inMeetingNow: boolean;
   // Energy snapshot
   hrvDeltaPctFromSnapshot: number | null;
-  // v7 — Unified pattern store (cross-event historical correlations)
+  // v7 - Unified pattern store (cross-event historical correlations)
   pattern: PatternSummary | null;
-  // V8 — Day-shape awareness (copy only). Travel/away-day/ooo and post-travel.
+  // V8 - Day-shape awareness (copy only). Travel/away-day/ooo and post-travel.
   dayContext: {
     kind: 'normal' | 'travel-day' | 'away-day' | 'ooo';
     signalToken?: string;
     postTravel: boolean;
-    // v5.3 — Travel arc sub-flags (derived from today's calendar). Each
-    // rides one of the existing 3 slots — they never add a 4th send.
+    // v5.3 - Travel arc sub-flags (derived from today's calendar). Each
+    // rides one of the existing 3 slots - they never add a 4th send.
     preFlight?: { eventTitle: string; minutesUntil: number } | null;
     inFlight?: { eventTitle: string; minutesUntil: number } | null;
-    // v5.3 — PTO / public-holiday "light touch" mode. Collapses the day to
+    // v5.3 - PTO / public-holiday "light touch" mode. Collapses the day to
     // a single morning nudge and skips JIT pre-event prep.
     ptoMode?: boolean;
-    // Pass 8 (P — travel arc) — post-flight + meeting awareness. True when
+    // Pass 8 (P - travel arc) - post-flight + meeting awareness. True when
     // yesterday was a travel day AND today has a high-stakes meeting in the
     // next 4 h. Mirrors the canonical `travelLandingPlusHighStakes` rule so
     // the copy can pivot from pure decompression to "decompress then sharpen".
     landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
   };
-  // §17 Week-Ahead — hydrated inputs for evaluateWeekAheadMode. Computed once
+  // §17 Week-Ahead - hydrated inputs for evaluateWeekAheadMode. Computed once
   // in buildNudgeContext from today/tomorrow/14-day-lookback calendar data so
   // the last_day_pto / last_day_holiday / last_day_long_weekend branches can
   // actually fire (previously these were stubbed undefined → never triggered).
@@ -443,10 +557,10 @@ interface NudgeContext {
     travelDay: boolean;
     fullWorkingWeekend: boolean;
   };
-  // v5.3 — Server-computed badge: outstanding cognitive debt the user
+  // v5.3 - Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
   badgeCount?: number;
-  // Brief↔Nudge parity — the persisted snapshot the Brief reasoned over for
+  // Brief↔Nudge parity - the persisted snapshot the Brief reasoned over for
   // the current (user, local_date, time_window). Loaded once in
   // buildNudgeContext; null when no Brief row exists yet (in which case
   // generateNudgeCopy falls back to evaluateForScope so we still ship the
@@ -456,7 +570,7 @@ interface NudgeContext {
     promptBlockBrief: string;
     taxonomyBlock: string;
     source: 'brief_snapshot';
-    // Part 1 — flag array surfaced so dispatch can read landingDeliveryMode
+    // Part 1 - flag array surfaced so dispatch can read landingDeliveryMode
     // and suppress deep-link CTAs for travel push_only flags. Optional for
     // back-compat with snapshots written before Part 1 shipped.
     flagsBrief?: Array<{
@@ -470,7 +584,7 @@ interface NudgeCopy {
   title: string;
   body: string;
   variantId: string;
-  // V8 telemetry — which provider produced this copy.
+  // V8 telemetry - which provider produced this copy.
   // 'claude' / 'gemini' when AI succeeded, 'static' when fallback library used,
   // null when never set (defensive).
   aiProvider?: 'claude' | 'gemini' | 'static' | null;
@@ -489,20 +603,20 @@ export type CtaVariant = 'A' | 'B' | 'C' | 'D';
 
 const CTA_VARIANTS: CtaVariant[] = ['A', 'B', 'C', 'D'];
 
-// v8 — Meaning-Forward / Mind-Prep CTA. Every variant is a qualified
-// mental-prep action verb (NEVER an unqualified "prep" — a CEO would read
+// v8 - Meaning-Forward / Mind-Prep CTA. Every variant is a qualified
+// mental-prep action verb (NEVER an unqualified "prep" - a CEO would read
 // that as "prep the board deck"). The user's job is always to log in /
 // check in and do MENTAL prep / recalibration / closing. Deep-link routing
-// is unchanged on the payload — verbs only imply a destination, the system
+// is unchanged on the payload - verbs only imply a destination, the system
 // still controls the route.
 const CTA_PHRASES: Record<CtaVariant, { brief: string; plan: string }> = {
-  // A = control — calm, mental-prep
+  // A = control - calm, mental-prep
   A: { brief: 'check in to set your intention', plan: 'log in to prep your mind' },
   // B = state-framed
   B: { brief: 'check in to recalibrate',        plan: 'log in to prep your state' },
   // C = urgency / recovery
   C: { brief: 'log in to recalibrate your mind', plan: 'log in to prep your mind' },
-  // D = close-of-day / week (evening variants — applyCtaVariant decides
+  // D = close-of-day / week (evening variants - applyCtaVariant decides
   // which 'close' verb based on deep-link route)
   D: { brief: 'check in to close the day',       plan: 'check in to close the week' },
 };
@@ -531,7 +645,7 @@ function nudgeFamily(nudgeType: string): string {
   return nudgeType;
 }
 
-// v8 — recognise legacy V6/V7 phrases AND the new V8 qualified mind-prep
+// v8 - recognise legacy V6/V7 phrases AND the new V8 qualified mind-prep
 // verbs so any generated body can be rewritten to match the assigned
 // variant. Anything matched here gets replaced with the variant's V8 verb.
 const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
@@ -551,7 +665,7 @@ const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
   { rx: /recalibrate now/gi,                       kind: 'brief' },
   { rx: /check in now/gi,                          kind: 'brief' },
   { rx: /open the app$/gi,                         kind: 'brief' },
-  // V7 unqualified-prep verbs (banned in V8 — rewritten away)
+  // V7 unqualified-prep verbs (banned in V8 - rewritten away)
   { rx: /open the app to prep tonight/gi,          kind: 'plan'  },
   { rx: /open the app to prep with a cool-down/gi, kind: 'plan'  },
   { rx: /check into the app to prep/gi,            kind: 'brief' },
@@ -572,7 +686,7 @@ const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
   { rx: /open your insights/gi,                    kind: 'brief' },
 ];
 
-// v1.1 — Brand constants for the collapsed/expanded headline contract and
+// v1.1 - Brand constants for the collapsed/expanded headline contract and
 // the new weekend / reminder CTA buckets.
 const MIND_MODULE_TITLE = 'Mind Module';
 const SUBTITLE_MAX_WORDS = 3;
@@ -628,7 +742,7 @@ function applyCtaVariant(
   variant: CtaVariant,
   deepLinkRoute: string,
 ): NudgeCopy {
-  // Variant A is the control — leave body untouched but tag it.
+  // Variant A is the control - leave body untouched but tag it.
   if (variant === 'A') {
     return { ...copy, variantId: `${copy.variantId}::A` };
   }
@@ -643,7 +757,7 @@ function applyCtaVariant(
     }
   }
 
-  // No canonical phrase found — append a CTA so the experiment still runs.
+  // No canonical phrase found - append a CTA so the experiment still runs.
   if (!rewrote) {
     const kind: 'brief' | 'plan' = deepLinkRoute === '/executive-home' ? 'plan' : 'brief';
     const phrase = CTA_PHRASES[variant][kind];
@@ -666,10 +780,10 @@ interface QualifiedNudge {
   commitmentText?: string;
   meetingTitle?: string;
   priority: number;
-  // v7 — JIT-or-State anchoring + slot + signal strength for the comparator
+  // v7 - JIT-or-State anchoring + slot + signal strength for the comparator
   anchorKind: 'jit' | 'state';
   slot: 'morning' | 'afternoon' | 'evening';
-  signalStrength: number; // 0..3 — higher wins ties (e.g., pattern-cited JIT > plain JIT)
+  signalStrength: number; // 0..3 - higher wins ties (e.g., pattern-cited JIT > plain JIT)
 }
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
@@ -681,6 +795,7 @@ interface QualifiedNudge {
 // parallel keyword tables.
 import {
   classifyEvent,
+  isHighStakesTitle,
   classifyPatternBucket as classifyEventForPattern,
 } from '../_shared/events/event-classifier.ts';
 
@@ -758,7 +873,7 @@ async function buildNudgeContext(
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  // V8 — yesterday's date string (local) for post-travel awareness
+  // V8 - yesterday's date string (local) for post-travel awareness
   const yesterdayDate = new Date(`${todayStr}T00:00:00`);
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
@@ -884,6 +999,9 @@ async function buildNudgeContext(
   // Process wearable signals
   const latestW = latestWearable?.[0];
   const hasWearableData = latestW !== null && latestW !== undefined;
+  const wearableFreshness: 'fresh' | 'stale' | 'missing' =
+    !hasWearableData ? 'missing' : latestW?.summary_date === todayStr ? 'fresh' : 'stale';
+  const hasFreshWearableData = wearableFreshness === 'fresh';
 
   const hrvValues = (wearable30d || []).map(w => w.hrv).filter((v): v is number => v !== null);
   const rhrValues = (wearable30d || []).map(w => w.resting_heart_rate).filter((v): v is number => v !== null);
@@ -898,7 +1016,9 @@ async function buildNudgeContext(
     : false;
 
   const snapshotComputed = latestSnapshot?.computed_data as Record<string, unknown> | null;
-  const hrvDeltaPctFromSnapshot = snapshotComputed?.hrv_delta_pct as number | null ?? hrvDeltaPct;
+  const hrvDeltaPctFromSnapshot = hasFreshWearableData
+    ? snapshotComputed?.hrv_delta_pct as number | null ?? hrvDeltaPct
+    : null;
 
   // Process calendar
   const todayEvents = mergeCalendarRows(todayEventsRaw || []);
@@ -1088,7 +1208,11 @@ async function buildNudgeContext(
       }
     : null;
   console.log(
-    `[smart-nudges] briefBehaviour ${briefBehaviour ? `loaded sig=${briefBehaviour.signatureHash}` : 'absent — will fall back to evaluateForScope'} user=${userId} date=${todayStr} window=${briefWindow}`,
+    `[smart-nudges] briefBehaviour ${briefBehaviour ? `loaded sig=${briefBehaviour.signatureHash}` : 'absent - will fall back to evaluateForScope'} user=${userId} date=${todayStr} window=${briefWindow}`,
+  );
+  const planSlotRead = await loadPlanNudgeSlots(supabase, userId, todayStr, briefWindow);
+  console.log(
+    `[smart-nudges] planSlots status=${planSlotRead.status} count=${planSlotRead.slots?.length ?? 0} user=${userId} date=${todayStr} window=${briefWindow}`,
   );
 
   return {
@@ -1110,16 +1234,17 @@ async function buildNudgeContext(
     calendarGaps,
     dayType,
     wearable: {
-      sleepScore: latestW?.sleep_score ?? null,
-      hrv: latestW?.hrv ?? null,
-      rhr: latestW?.resting_heart_rate ?? null,
+      sleepScore: hasFreshWearableData ? latestW?.sleep_score ?? null : null,
+      hrv: hasFreshWearableData ? latestW?.hrv ?? null : null,
+      rhr: hasFreshWearableData ? latestW?.resting_heart_rate ?? null : null,
       hrvBaseline30d: hrvBaseline,
       rhrBaseline30d: rhrBaseline,
-      hrvDeltaPct,
-      rhrElevated,
-      totalSleepMinutes: latestW?.total_sleep_minutes ?? null,
+      hrvDeltaPct: hasFreshWearableData ? hrvDeltaPct : null,
+      rhrElevated: hasFreshWearableData ? rhrElevated : false,
+      totalSleepMinutes: hasFreshWearableData ? latestW?.total_sleep_minutes ?? null : null,
     },
-    hasWearableData,
+    hasWearableData: hasFreshWearableData,
+    wearableFreshness,
     coach: {
       pendingCommitments: commitments,
       activePatterns: (activePatterns || []).map(p => ({
@@ -1137,6 +1262,8 @@ async function buildNudgeContext(
     checkinCountToday: (todayCheckins || []).length,
     pendingPracticeIds,
     completedPracticeIds: allCompleted,
+    planSlots: planSlotRead.slots,
+    planSnapshotStatus: planSlotRead.status,
     jitEvents,
     coachSessionReadinessLift,
     practiceCompletionCorrelation,
@@ -1148,7 +1275,7 @@ async function buildNudgeContext(
     dayContext: (() => {
       const today = detectDayKindFromEvents(todayEvents);
       const yesterday = detectDayKindFromEvents(mergeCalendarRows(yesterdayEventsRaw || []));
-      // v5.3 — Travel arc sub-flags. Travel-event detection AND the pre-flight
+      // v5.3 - Travel arc sub-flags. Travel-event detection AND the pre-flight
       // / in-flight windowing are delegated to the canonical ceo-behaviour
       // module so Brief / Plan / Nudges share one travel sub-arc taxonomy.
       let preFlight: { eventTitle: string; minutesUntil: number } | null = null;
@@ -1157,10 +1284,10 @@ async function buildNudgeContext(
         preFlight = detectPreFlightTravelEvent(todayEvents, now);
         inFlight = detectInFlightTravelEvent(todayEvents, now);
       }
-      // Pass 8 (P) — post-flight + meeting awareness. Only meaningful when
+      // Pass 8 (P) - post-flight + meeting awareness. Only meaningful when
       // yesterday was travel OR today already landed (preFlight==null but a
       // travel event has ended). Fires when the next high-stakes meeting is
-      // within the next 4 h. Pure read of existing arrays — no extra query.
+      // within the next 4 h. Pure read of existing arrays - no extra query.
       const postTravelToday = yesterday.kind === 'travel-day';
       let landingPlusHighStakes:
         | { eventTitle: string; minutesUntil: number } | null = null;
@@ -1183,7 +1310,7 @@ async function buildNudgeContext(
         postTravel: postTravelToday,
         preFlight,
         inFlight,
-        // v5.3 — PTO / public-holiday "light touch": away-day or ooo today.
+        // v5.3 - PTO / public-holiday "light touch": away-day or ooo today.
         ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
         landingPlusHighStakes,
       };
@@ -1203,7 +1330,7 @@ async function buildNudgeContext(
       const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
       const tomorrowIsWorkday =
         !ptoTomorrowAllDay && !holidayTomorrowAllDay && !tomorrowIsWeekend;
-      // §17.7 — Fail-open per-signal hydration. Each upstream source
+      // §17.7 - Fail-open per-signal hydration. Each upstream source
       // (today/tomorrow calendar, 14-day lookback) defaults to a SAFE
       // value when missing so the evaluator can still run; we emit a
       // structured [week-ahead-hydration] log line for every defaulted
@@ -1219,22 +1346,22 @@ async function buildNudgeContext(
       // ─── DATE GRANULARITY + DST CAVEAT ─────────────────────────────────
       // Date boundaries are computed in **UTC calendar days**, not the
       // user's local calendar. `cursor` is constructed from
-      // `${todayStr}T00:00:00` (no Z) — JS parses that as **local** to the
+      // `${todayStr}T00:00:00` (no Z) - JS parses that as **local** to the
       // runtime (Deno edge worker = UTC), so `cursor` is effectively
       // midnight UTC on `todayStr`. We then decrement by `setDate(-1)`
       // (24h hops, no DST awareness) and key into `byDate` using
-      // `cursor.toISOString().slice(0, 10)` — a UTC date string.
+      // `cursor.toISOString().slice(0, 10)` - a UTC date string.
       //
       // The lookback event map (`byDate`) is also keyed by
       // `start_time.slice(0, 10)`, i.e. the UTC date of the event start
       // (not the user's local date). So whenever a user's local date and
-      // the event's UTC date diverge — late-evening events in
+      // the event's UTC date diverge - late-evening events in
       // Europe/London winter (UTC=local, no skew), or any event after
       // ~20:00 local in EST, or every event during BST/EDT summer hours
-      // near midnight — an event can be filed under the "wrong" calendar
+      // near midnight - an event can be filed under the "wrong" calendar
       // bucket relative to the user's perception of the day.
       //
-      // Concrete DST failure mode — Europe/London, late-March
+      // Concrete DST failure mode - Europe/London, late-March
       // spring-forward (e.g. 2026-03-29):
       //   * Sat 2026-03-28: PTO all day. Sun 2026-03-29: clocks jump
       //     01:00 → 02:00 BST, user is on PTO. Mon 2026-03-30: PTO.
@@ -1269,7 +1396,7 @@ async function buildNudgeContext(
       // **local-date** space (e.g. format-and-parse via
       // `formatInTimeZone(..., timezone, 'yyyy-MM-dd')`). Add a
       // regression test covering the Oct fall-back case above. Not
-      // implemented today — see WEEK_AHEAD_TRIGGER_VERIFICATION.sql
+      // implemented today - see WEEK_AHEAD_TRIGGER_VERIFICATION.sql
       // header for cross-reference.
       // ────────────────────────────────────────────────────────────────────
       const byDate = new Map<string, Array<{ title?: string | null }>>();
@@ -1316,7 +1443,7 @@ async function buildNudgeContext(
       };
     })(),
     badgeCount: (() => {
-      // v5.3 — Intelligent badge: outstanding cognitive debt the user can
+      // v5.3 - Intelligent badge: outstanding cognitive debt the user can
       // clear today. Falls back to 1 when there is nothing to count.
       const open = pendingPracticeIds.length;
       const checkinDue = (() => {
@@ -1366,7 +1493,7 @@ function buildWearablePriorityLines(ctx: NudgeContext): string {
   return lines.join('\n');
 }
 
-// V8 — Day-shape awareness line for AI prompts. Empty when normal & no post-travel.
+// V8 - Day-shape awareness line for AI prompts. Empty when normal & no post-travel.
 function buildDayShapeLine(ctx: NudgeContext): string {
   const dc = ctx.dayContext;
   if (dc.kind === 'normal' && !dc.postTravel) return '';
@@ -1378,25 +1505,25 @@ function buildDayShapeLine(ctx: NudgeContext): string {
     // not taxonomy, and stays local.
     const travelGoal = EVENT_PHASE_MAP.G.pre?.goal ?? '';
     parts.push(
-      `Today shape: travel on the calendar — name "travel" verbatim (no long/short-haul)${travelGoal ? `. Frame intent: ${travelGoal}.` : '.'}`,
+      `Today shape: travel on the calendar - name "travel" verbatim (no long/short-haul)${travelGoal ? `. Frame intent: ${travelGoal}.` : '.'}`,
     );
   } else if (dc.kind === 'away-day') {
-    parts.push('Today shape: away-day — acknowledge the day away.');
+    parts.push('Today shape: away-day - acknowledge the day away.');
   } else if (dc.kind === 'ooo') {
-    parts.push('Today shape: out of office — acknowledge it.');
+    parts.push('Today shape: out of office - acknowledge it.');
   }
   if (dc.postTravel) {
     // Post-travel recovery goal also sourced from canonical G.post phase.
     const postGoal = EVENT_PHASE_MAP.G.post?.goal ?? '';
     parts.push(
-      `Recovery context: yesterday included travel — body may still be carrying load${postGoal ? ` (${postGoal})` : ''}. Lead the meaning sentence with this awareness.`,
+      `Recovery context: yesterday included travel - body may still be carrying load${postGoal ? ` (${postGoal})` : ''}. Lead the meaning sentence with this awareness.`,
     );
   }
   if (dc.landingPlusHighStakes) {
-    // Pass 8 (P) — sequence matters: decompress first, then sharpen for the
+    // Pass 8 (P) - sequence matters: decompress first, then sharpen for the
     // imminent meeting. Mirrors canonical travelLandingPlusHighStakes copyHint.
     parts.push(
-      `Travel + meeting awareness: high-stakes "${dc.landingPlusHighStakes.eventTitle}" in ${dc.landingPlusHighStakes.minutesUntil}min after yesterday's travel — frame as decompress then sharpen, do not skip the body-down step.`,
+      `Travel + meeting awareness: high-stakes "${dc.landingPlusHighStakes.eventTitle}" in ${dc.landingPlusHighStakes.minutesUntil}min after yesterday's travel - frame as decompress then sharpen, do not skip the body-down step.`,
     );
   }
   return parts.join('\n');
@@ -1418,7 +1545,7 @@ function containsFabricatedWearableData(body: string, hasWearableData: boolean):
   return FABRICATION_PATTERNS.some(pattern => pattern.test(body));
 }
 
-// v6 — title-case word truncation for long event titles to keep CTAs scannable
+// v6 - title-case word truncation for long event titles to keep CTAs scannable
 function truncateEventTitle(title: string | null | undefined): string {
   const t = (title || '').trim();
   if (!t) return 'your meeting';
@@ -1426,7 +1553,7 @@ function truncateEventTitle(title: string | null | undefined): string {
   return t.split(/\s+/).slice(0, 3).join(' ');
 }
 
-// v6 — copy-contract lint shared by AI output and any future fallback editor.
+// v6 - copy-contract lint shared by AI output and any future fallback editor.
 // Returns null if body passes; returns a string reason if it must be rejected.
 const FORBIDDEN_WORDS_V6 = [...FORBIDDEN_NOTIFICATION_WORDS];
 const ALLOWED_CTA_VERBS_V6 = [
@@ -1434,7 +1561,7 @@ const ALLOWED_CTA_VERBS_V6 = [
   'build your prep plan','build your plan',
   'recalibrate now','close the day','close the week','close the loop',
   'lock in your prep','tap to prep','see your prep','see your plan','see your readiness',
-  // v6.1 — short, human CTAs
+  // v6.1 - short, human CTAs
   'check in now','open the app','prep now','take 2 minutes',
 ];
 function violatesCopyContractV6(body: string): string | null {
@@ -1448,17 +1575,17 @@ function violatesCopyContractV6(body: string): string | null {
   }
   // No placeholder tokens
   if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
-  // v6.1 — hard length ceiling (CEO feedback: notifications too long)
+  // v6.1 - hard length ceiling (CEO feedback: notifications too long)
   const wordCount = body.trim().split(/\s+/).length;
   if (wordCount > 14) return `body too long (${wordCount} words, max 14)`;
   if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
   return null;
 }
 
-// ── v8 — Meaning-Forward + Mind-Prep CTA contract ──────────────────────
+// ── v8 - Meaning-Forward + Mind-Prep CTA contract ──────────────────────
 // Three principles, enforced verbatim:
 //   1. Lead with meaning, not the data point.  (the metric, if used, sits
-//      INSIDE a meaning sentence — never as the whole first sentence).
+//      INSIDE a meaning sentence - never as the whole first sentence).
 //   2. Title = state or moment.  Body = context + one clear action.
 //   3. CTA always ends at a specific app screen via a "log in / check in /
 //      open" verb that QUALIFIES the prep as mental (mind / state /
@@ -1475,20 +1602,20 @@ const ALLOWED_CTA_VERBS_V8 = [
   'check in to close the week',
   'check in to land the weekend',
   'open your insights',
-  // v1.1 — Weekend / post-holiday CTA (routes to /plan).
+  // v1.1 - Weekend / post-holiday CTA (routes to /plan).
   // Only fires when Brief snapshot + Plan ledger BOTH exist for today.
   "let's prioritise the week ahead",
-  // v1.1 — Reminder variant (no-app-open CTA, back-to-back gap downgrade,
+  // v1.1 - Reminder variant (no-app-open CTA, back-to-back gap downgrade,
   // post-landing window). Body is self-sufficient; tap is optional.
   'take 60 seconds',
 ];
 
-// V8 — body must reference at least one real, named context token.
+// V8 - body must reference at least one real, named context token.
 // Sources: a calendar event title, a numeric physiological signal with
 // unit, a countable today-state, a check-in outcome word, or a
 // minutes-until / clock-time for a real event.
 const NAMED_CONTEXT_RX_DEFAULT = [
-  /\b(HRV|RHR|HR|sleep)\b\s*[+\-]?\d/i,                               // HRV -22%, Sleep 62
+  /\b(HRV|RHR|HR|sleep)\b\s*[-+]?\d/i,                               // HRV -22%, Sleep 62
   /\b\d+\s*\/\s*100\b/,                                                // 62/100
   /\b\d+\s*(meeting|meetings|priority|priorities|min|minutes|day|days)\b/i,
   /\b(in|at)\s+\d{1,2}(?::\d{2})?\s*(min|minutes|am|pm|h)?\b/i,        // in 25 min, at 10am
@@ -1511,16 +1638,16 @@ function requiresNamedContextToken(
   return false;
 }
 
-// V8 — first sentence must NOT be a bare metric statement. The metric, if
+// V8 - first sentence must NOT be a bare metric statement. The metric, if
 // used, must be embedded INSIDE a meaning sentence (parenthetical or clause).
 function violatesMeaningSentence(body: string): string | null {
   const first = body.split(/(?<=[.!?])\s+/)[0]?.trim() ?? body.trim();
   // Bare metric leads (HRV -22% today, RHR +9 bpm, Sleep 62/100, etc.)
-  if (/^(HRV|RHR|HR|Sleep|Sleep score)\s*[+\-]?\d[^.]*$/i.test(first)) {
+  if (/^(HRV|RHR|HR|Sleep|Sleep score)\s*[-+]?\d[^.]*$/i.test(first)) {
     return `first sentence is a bare metric: "${first}"`;
   }
   // First sentence is purely a number+unit clause with no human meaning verb.
-  if (/^[+\-]?\d+\s*(%|bpm|\/100)\b[^.]*$/i.test(first)) {
+  if (/^[-+]?\d+\s*(%|bpm|\/100)\b[^.]*$/i.test(first)) {
     return `first sentence is a bare number+unit: "${first}"`;
   }
   return null;
@@ -1549,7 +1676,7 @@ function violatesCopyContractV8(
     return 'body cites no named context token (event title, metric+unit, count, time, or check-in word)';
   }
   const wordCount = body.trim().split(/\s+/).length;
-  // v8 — meaning-forward bodies are longer than V7 metric-led bodies.
+  // v8 - meaning-forward bodies are longer than V7 metric-led bodies.
   // Gold-standard examples run 18–22 words.
   if (wordCount > 22) return `body too long (${wordCount} words, max 22)`;
   if (body.length > 140) return `body too long (${body.length} chars, max 140)`;
@@ -1571,24 +1698,26 @@ async function generateNudgeCopy(
     return null;
   }
 
-  const systemPrompt = `You are the Chief of Staff for the Mind of a C-suite leader. You write push notifications for a MENTAL-PERFORMANCE app. The user's job, every time, is to OPEN THE APP and do MENTAL prep — never strategic prep, never deck prep.
+  const systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
+
+You write push notifications for a MENTAL-PERFORMANCE app. The user's job, every habit-building nudge, is to check in and do mental prep - never strategic prep, never deck prep.
 
 EVERY notification is anchored to ONE of two things:
-  • JIT  — a specific upcoming/just-past calendar event from the user's morning plan
-  • STATE — a specific physiological / check-in / plan-progress signal from today
+  • JIT  - a specific upcoming/just-past calendar event from the user's morning plan
+  • STATE - a specific physiological / check-in / plan-progress signal from today
 If neither anchor is present, do not write copy.
 
 THE THREE V8 PRINCIPLES (non-negotiable):
 
 1. LEAD WITH MEANING, NOT THE DATA POINT.
-   Raw metrics never lead. The first sentence translates what the data MEANS for the user's day. The number, if used, sits INSIDE the meaning sentence (parenthetical or clause) — it never carries the message alone.
-   ❌ "HRV -22% today — log in to prep."
-   ✅ "Your body's running below baseline (HRV -22%). Close the day before tomorrow loads up — log in to recalibrate your mind."
+   Raw metrics never lead. The first sentence translates what the data MEANS for the user's day. The number, if used, sits INSIDE the meaning sentence (parenthetical or clause) - it never carries the message alone.
+   Do not write: "HRV -22% today - log in to prep."
+   Write: "Your body's running below baseline (HRV -22%). Close the day before tomorrow loads up - log in to recalibrate your mind."
 
 2. TITLE = STATE OR MOMENT. BODY = CONTEXT + ONE CLEAR ACTION.
    Title names a moment a CEO recognises ("Recovery in progress", "Starting from where you are", "Recalibrating mid-day"). Body delivers the so-what plus a specific in-app action.
 
-3. CTA ALWAYS ENDS AT A SPECIFIC APP SCREEN VIA A "log in / check in / open" VERB — AND THE PREP IS ALWAYS MENTAL.
+3. CTA ALWAYS ENDS AT A SPECIFIC APP SCREEN VIA A "log in / check in / open" VERB - AND THE PREP IS ALWAYS MENTAL.
    This is a mental-performance system. Plain "prep" is ambiguous (a CEO reads it as "prep the deck"). Every CTA must qualify the prep as MIND / STATE / RECALIBRATE / CLOSE / SET / LAND.
 
 Allowed CTA verbs (verbatim end of body, modulo trailing punctuation):
@@ -1611,51 +1740,52 @@ BANNED CTA verbs (never use, even if the user's data tempts you):
   "prep now", "open the app to prep tonight", "open the app to prep with a cool-down".
 These either present the work as already done (passive consumption) or leave "prep" unqualified (CEO reads it as strategic prep).
 
-Gold-standard examples (match these shapes — meaning-first, named context, qualified mind-prep CTA):
+Gold-standard examples (match these shapes - meaning-first, named context, qualified mind-prep CTA):
 - Evening · 7 meetings:
   Title: "Evening cool-down"
-  Body:  "Seven meetings, no real break for your mind today. Close the day before it carries into tomorrow — log in to recalibrate your mind."
+  Body:  "Seven meetings, no real break for your mind today. Close the day before it carries into tomorrow - log in to recalibrate your mind."
 - Evening · HRV deficit:
   Title: "Recovery in progress"
-  Body:  "Your body's running below baseline (HRV -22%). Close the day with a short reset before tomorrow loads up — log in to recalibrate your mind."
+  Body:  "Your body's running below baseline (HRV -22%). Close the day with a short reset before tomorrow loads up - log in to recalibrate your mind."
 - Morning · yesterday depleted + heavy day:
   Title: "Starting from where you are"
-  Body:  "Yesterday was heavy and today has 5 meetings ahead. Manage your energy instead of reacting to it — check in to set your intention."
+  Body:  "Yesterday was heavy and today has 5 meetings ahead. Manage your energy instead of reacting to it - check in to set your intention."
 - Morning · JIT board in 60m:
   Title: "Preparing mental performance"
-  Body:  "Board Review in an hour. Walk in with the edge, not the anxiety — log in to prep your mind."
+  Body:  "Board Review in an hour. Walk in with the edge, not the anxiety - log in to prep your mind."
 - Afternoon · morning was low:
   Title: "Mid-day reset window"
-  Body:  "Your morning state was low and the afternoon is still ahead. This is the recovery window — check in to recalibrate."
+  Body:  "Your morning state was low and the afternoon is still ahead. This is the recovery window - check in to recalibrate."
 - Afternoon · 3 more meetings:
   Title: "Recalibrating mid-day"
-  Body:  "Halfway through with three more meetings ahead. Stay sharp instead of running on fumes — check in to recalibrate."
+  Body:  "Halfway through with three more meetings ahead. Stay sharp instead of running on fumes - check in to recalibrate."
 - Pre-event · investor 60m, peak:
   Title: "You're ready for this"
-  Body:  "Investor Update in an hour. Your mental prep is built for exactly this moment — log in to prep your mind."
+  Body:  "Investor Update in an hour. Your mental prep is built for exactly this moment - log in to prep your mind."
 - Pre-event · board 45m, depleted:
   Title: "Managing the moment"
-  Body:  "Board Review in 45 minutes and you're running low. Short, sharp, built for right now — log in to prep your state."
+  Body:  "Board Review in 45 minutes and you're running low. Short, sharp, built for right now - log in to prep your state."
 - Friday close:
   Title: "Week complete"
-  Body:  "Five heavy days behind you. Close the week before you disconnect so it doesn't bleed into the weekend — check in to close the week."
+  Body:  "Five heavy days behind you. Close the week before you disconnect so it doesn't bleed into the weekend - check in to close the week."
 - Sunday · heavy Monday:
   Title: "Monday is already mapped"
-  Body:  "Tomorrow opens with Board Review and a full calendar. Three minutes of clarity tonight beats two hours of catch-up — check in to set tomorrow."
+  Body:  "Tomorrow opens with Board Review and a full calendar. Three minutes of clarity tonight beats two hours of catch-up - check in to set tomorrow."
 - Sunday · high-stakes Monday event:
-  Title: "Big Monday — pre-loading now"
-  Body:  "Tomorrow opens with a high-stakes moment. Wake up ahead instead of behind — log in to prep your mind tonight."
+  Title: "Big Monday - pre-loading now"
+  Body:  "Tomorrow opens with a high-stakes moment. Wake up ahead instead of behind - log in to prep your mind tonight."
 - Saturday · low HRV:
   Title: "The body's still catching up"
-  Body:  "Recovery from the week isn't instant — your HRV is still below baseline. A short check-in tells you what kind of weekend you actually need — check in to land the weekend."
+  Body:  "Recovery from the week isn't instant - your HRV is still below baseline. A short check-in tells you what kind of weekend you actually need - check in to land the weekend."
 
 Hard rules:
 - Title: max 6 words, no emoji, names the state or moment in human language.
 - Body: max 22 words AND 140 characters. One or two short sentences.
 - Body MUST cite at least ONE named context token from the data block: a real event title, an HRV/RHR/sleep number with unit, a meetings/practices count, a minutes-until or clock time, or a check-in outcome word the user actually logged. Never invent a number or a meeting name.
-- The first sentence MUST be a meaning sentence — never a bare metric like "HRV -22% today" or "RHR +9 bpm".
+- The first sentence MUST be a meaning sentence - never a bare metric like "HRV -22% today" or "RHR +9 bpm".
 - The body MUST end with one of the V8 qualified mind-prep CTA verbs above (verbatim).
-- When the JIT anchor is an event from the user's morning plan, prefix with "From your morning Plan:" or "From your plan:" — that prefix IS the proactive lure.
+- When the JIT anchor is an event from the user's morning plan, prefix with "From your morning Plan:" or "From your plan:" - that prefix IS the proactive lure.
+- Do not use long em dashes. Use a short dash (-).
 - Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness", "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline", "set the tone", "loaded day", "come back", and every banned CTA verb listed above.
 - Truncate any event title longer than 20 characters to its first 3 words.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
@@ -1684,7 +1814,7 @@ ${dayShapeLine}
 ${sharedEventFrameLine}
 ${wearablePriorityLines ? wearablePriorityLines : ''}
 
-Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence — never a bare metric.`;
+Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence - never a bare metric.`;
       break;
     }
 
@@ -1695,7 +1825,7 @@ Required CTA verb at end of body: "check in to set your intention" (default) or 
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
       const dayShapeLine = buildDayShapeLine(ctx);
       const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
-      userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN — the prep plan is already queued.
+      userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN - the prep plan is already queued.
 The proactive job is to pull them back into the app to use that prep before the event starts.
 
 Available signals:
@@ -1705,7 +1835,7 @@ ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : 
 ${dayShapeLine}
 ${sharedEventFrameLine}
 
-Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence ("Walk in with the edge, not the anxiety", "Lead it instead of surviving it") — not a bare metric.
+Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence ("Walk in with the edge, not the anxiety", "Lead it instead of surviving it") - not a bare metric.
 Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if morning state was depleted/managing).`;
       break;
     }
@@ -1714,7 +1844,7 @@ Required CTA verb at end of body: "log in to prep your mind" (default) or "log i
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
-      userPrompt = `Mid-day JIT. This event is from the user's MORNING PLAN — the prep plan is already queued.
+      userPrompt = `Mid-day JIT. This event is from the user's MORNING PLAN - the prep plan is already queued.
 Pull them back into the app. Their context may have shifted since morning, but the event hasn't.
 
 Available signals:
@@ -1723,7 +1853,7 @@ ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : 
 - Meetings today: ${ctx.eventCount}
 ${sharedEventFrameLine}
 
-Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence (e.g. "Stay sharp instead of running on fumes") — never a bare metric.
+Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence (e.g. "Stay sharp instead of running on fumes") - never a bare metric.
 Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if depleted).`;
       break;
     }
@@ -1753,7 +1883,7 @@ Available signals:
 - Next event: "${eventTitle}"
 ${sharedEventFrameLine}
 
-Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next — this is the recovery window").
+Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next - this is the recovery window").
 Required CTA verb at end of body: "check in to recalibrate".`;
       break;
     }
@@ -1775,7 +1905,7 @@ Available signals:
 ${ctx.morningCheckinOutcome ? `- Morning check-in: ${ctx.morningCheckinOutcome}` : ''}
 ${sharedEventFrameLine}
 
-Required: cite the wearable signal INSIDE a meaning sentence (e.g. "You're running low (${signalLine}) and ${evtTitle} is next") — never lead with the bare metric.
+Required: cite the wearable signal INSIDE a meaning sentence (e.g. "You're running low (${signalLine}) and ${evtTitle} is next") - never lead with the bare metric.
 Required CTA verb at end of body: "log in to prep your state" or "check in to recalibrate".`;
       break;
     }
@@ -1834,7 +1964,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
   // Preferred path: read the Brief's persisted snapshot (loaded once in
   // buildNudgeContext as `ctx.briefBehaviour`) so the Nudge LLM sees the
   // EXACT advisory block + event taxonomy the Brief used. Fallback path:
-  // `evaluateForScope("nudge", …)` — only when no Brief row exists yet for
+  // `evaluateForScope("nudge", …)` - only when no Brief row exists yet for
   // this window, AND we still need `notificationIsProduct` (the nudge-only
   // rule) which the Brief's snapshot does not carry.
   let behaviourPromptBlock = '';
@@ -1860,7 +1990,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
-      // Part 1 — hydrate travel_state for the fallback path. Fail-open: any
+      // Part 1 - hydrate travel_state for the fallback path. Fail-open: any
       // error leaves the field undefined and the rule defaults take over.
       let _nudgeTravelState:
         | { state?: string | null; distanceFromHomeKm?: number | null }
@@ -1972,7 +2102,7 @@ function isAppOpenRateLow(lastAppOpen: Date | null): boolean {
   return Date.now() - lastAppOpen.getTime() > 72 * 3_600_000;
 }
 
-// V8 — shared real-context tokens for requiresNamedContextToken().
+// V8 - shared real-context tokens for requiresNamedContextToken().
 function buildV8CtxForCheck(ctx: NudgeContext): { eventTitles: string[]; checkinWord: string | null } {
   return {
     eventTitles: [
@@ -1995,7 +2125,7 @@ function isNamedContextViolation(violation: string): boolean {
   return violation.includes('no named context token');
 }
 
-// V8 — validate any static fallback copy through the same contract used for
+// V8 - validate any static fallback copy through the same contract used for
 // AI output. If the fallback violates V8, we drop it so the cron tick simply
 // sends nothing rather than ship V7 phrasing.
 function validateStaticFallbackCopy(
@@ -2004,6 +2134,7 @@ function validateStaticFallbackCopy(
   nudgeType: string,
 ): NudgeCopy | null {
   if (!copy) return null;
+  copy = normalizeNotificationCopy(copy);
   const v8Ctx = buildV8CtxForCheck(ctx);
   const violation = violatesCopyContractV8(copy.body, v8Ctx);
   if (violation && !(isLowContextStaticFallbackVariant(copy.variantId) && isNamedContextViolation(violation))) {
@@ -2017,7 +2148,7 @@ function validateStaticFallbackCopy(
       `[smart-nudges v8] Allowed low-context static fallback ${copy.variantId} for ${nudgeType}: ${violation}`,
     );
   }
-  // V8 telemetry — stamp the provider so the insert payload can record
+  // V8 telemetry - stamp the provider so the insert payload can record
   // which path actually produced the shipped copy (claude / gemini / static).
   return { ...copy, aiProvider: 'static' };
 }
@@ -2062,6 +2193,8 @@ async function tryAIProvider(
 
     const parsed = JSON.parse(jsonMatch[0]);
     if (!parsed?.title || !parsed?.body) return null;
+    parsed.title = String(parsed.title).replace(/\u2014/g, '-').trim();
+    parsed.body = String(parsed.body).replace(/\u2014/g, '-').trim();
 
     if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
       console.warn(`[smart-nudges ${provider}] Rejected AI copy for ${nudgeType}, fabricated wearable data: "${parsed.body}"`);
@@ -2100,36 +2233,36 @@ async function tryAIProvider(
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Static Fallback Copy — MVP Nudge System ──
+// ── Static Fallback Copy - MVP Nudge System ──
 // ══════════════════════════════════════════════════════════════
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // v8 — Meaning-first sentence + named context + qualified mind-prep CTA.
+  // v8 - Meaning-first sentence + named context + qualified mind-prep CTA.
   const dc = ctx.dayContext;
 
-  // V8 — Out-of-office / away-day morning (weekday or weekend, no meeting needed)
+  // V8 - Out-of-office / away-day morning (weekday or weekend, no meeting needed)
   if (dc.kind === 'ooo' || dc.kind === 'away-day') {
     return {
       title: 'Day away',
-      body: `On your day away — a short reset before you switch off. Check in to set your intention.`,
+      body: `On your day away - a short reset before you switch off. Check in to set your intention.`,
       variantId: 'FB-N1-away',
     };
   }
 
-  // V8 — Travel today (state-anchored, no meeting required)
+  // V8 - Travel today (state-anchored, no meeting required)
   if (dc.kind === 'travel-day') {
     return {
       title: 'Travel today',
-      body: `Travel on today's calendar. Ground yourself before the day moves — check in to set your intention.`,
+      body: `Travel on today's calendar. Ground yourself before the day moves - check in to set your intention.`,
       variantId: 'FB-N1-travel',
     };
   }
 
-  // V8 — Post-travel morning (yesterday included travel), STATE-only, no JIT
+  // V8 - Post-travel morning (yesterday included travel), STATE-only, no JIT
   if (dc.postTravel) {
     return {
       title: 'Recovery context',
-      body: `Yesterday included travel — body may still be carrying load. Log in to prep your state.`,
+      body: `Yesterday included travel - body may still be carrying load. Log in to prep your state.`,
       variantId: 'FB-N1-post-travel',
     };
   }
@@ -2137,14 +2270,14 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
     return {
       title: 'Short sleep last night',
-      body: `Last night was light on recovery (Sleep ${ctx.wearable.sleepScore}/100). Today still needs you sharp — log in to prep your state.`,
+      body: `Last night was light on recovery (Sleep ${ctx.wearable.sleepScore}/100). Today still needs you sharp - log in to prep your state.`,
       variantId: 'FB-N1-recovery',
     };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
     return {
       title: 'Starting from where you are',
-      body: `Your body is running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%) and ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} sit ahead. Manage the day rather than react to it — check in to set your intention.`,
+      body: `Your body is running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%) and ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} sit ahead. Manage the day rather than react to it - check in to set your intention.`,
       variantId: 'FB-N1-hrv',
     };
   }
@@ -2152,48 +2285,48 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
     return {
       title: 'Preparing mental performance',
-      body: `${ev} on the calendar today. Walk in with the edge, not the anxiety — log in to prep your mind.`,
+      body: `${ev} on the calendar today. Walk in with the edge, not the anxiety - log in to prep your mind.`,
       variantId: 'FB-N1-stakes',
     };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
     return {
       title: 'Starting from where you are',
-      body: `${ctx.eventCount} meetings ahead today. Manage your energy instead of reacting to it — check in to set your intention.`,
+      body: `${ctx.eventCount} meetings ahead today. Manage your energy instead of reacting to it - check in to set your intention.`,
       variantId: 'FB-N1-heavy',
     };
   }
   if (ctx.dayOfWeek === 6) {
-    // V8 — Saturday AM with a meeting: anchored Saturday tone.
+    // V8 - Saturday AM with a meeting: anchored Saturday tone.
     if (ctx.firstNonNoiseEvent) {
       const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title || 'today\'s meeting');
       return {
         title: 'Saturday with one to land',
-        body: `${ev} on the calendar today. Land your mind before it arrives — check in to set your intention.`,
+        body: `${ev} on the calendar today. Land your mind before it arrives - check in to set your intention.`,
         variantId: 'FB-N1-sat-anchored',
       };
     }
-    // V8 — Saturday AM no meeting: recovery/reset, sets tone for the weekend.
+    // V8 - Saturday AM no meeting: recovery/reset, sets tone for the weekend.
     return {
       title: 'Saturday recovery',
-      body: `No meetings today — a short reset shapes the kind of weekend you actually need. Check in to set your intention.`,
+      body: `No meetings today - a short reset shapes the kind of weekend you actually need. Check in to set your intention.`,
       variantId: 'FB-N1-sat-recovery',
     };
   }
 
-  // V8 — Sunday AM habit: recovery/reset before the week forms.
+  // V8 - Sunday AM habit: recovery/reset before the week forms.
   if (ctx.dayOfWeek === 0) {
     if (ctx.firstNonNoiseEvent) {
       const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title);
       return {
         title: 'Sunday reset',
-        body: `${ev} on the calendar today. A short reset before the day forms — check in to set your intention.`,
+        body: `${ev} on the calendar today. A short reset before the day forms - check in to set your intention.`,
         variantId: 'FB-N1-sun-anchored',
       };
     }
     return {
       title: 'Sunday reset',
-      body: `Quiet Sunday on the calendar — a short reset lands you before the week forms. Check in to set your intention.`,
+      body: `Quiet Sunday on the calendar - a short reset lands you before the week forms. Check in to set your intention.`,
       variantId: 'FB-N1-sun-reset',
     };
   }
@@ -2201,13 +2334,13 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
     return {
       title: 'Setting the day',
-      body: `${m} ahead today. Three minutes of clarity now beats reacting to the calendar — check in to set your intention.`,
+      body: `${m} ahead today. Three minutes of clarity now beats reacting to the calendar - check in to set your intention.`,
       variantId: 'FB-N1-calendar',
     };
   }
   return {
     title: 'Room to breathe today',
-    body: `Only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar today gives you the rare chance to choose what your mind owns. Use the space — check in to set your intention.`,
+    body: `Only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar today gives you the rare chance to choose what your mind owns. Use the space - check in to set your intention.`,
     variantId: 'FB-N1-light',
   };
 }
@@ -2216,17 +2349,17 @@ function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): N
   const ev = truncateEventTitle(eventTitle);
   return {
     title: 'Preparing mental performance',
-    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety — log in to prep your mind.`,
+    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety - log in to prep your mind.`,
     variantId: 'FB-N1-JIT',
   };
 }
 
-// V8 — Post-travel JIT variant: lead with travel-recovery awareness, then JIT, then CTA.
+// V8 - Post-travel JIT variant: lead with travel-recovery awareness, then JIT, then CTA.
 function getFallbackNudgeOneJitPostTravelCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   return {
     title: 'Preparing mental performance',
-    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Yesterday included travel — log in to prep your mind.`,
+    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Yesterday included travel - log in to prep your mind.`,
     variantId: 'FB-N1-JIT-post-travel',
   };
 }
@@ -2236,7 +2369,7 @@ function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): N
   if (minutesUntil <= 120) {
     return {
       title: 'Preparing mental performance',
-      body: `From your plan: ${ev} in ${minutesUntil} min. Walk in sharp — log in to prep your mind.`,
+      body: `From your plan: ${ev} in ${minutesUntil} min. Walk in sharp - log in to prep your mind.`,
       variantId: 'FB-N2-JIT-soon',
     };
   }
@@ -2244,7 +2377,7 @@ function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): N
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   return {
     title: 'Preparing mental performance',
-    body: `From your plan: ${ev} at ${timeStr}. Front-load the prep instead of scrambling later — log in to prep your mind.`,
+    body: `From your plan: ${ev} at ${timeStr}. Front-load the prep instead of scrambling later - log in to prep your mind.`,
     variantId: 'FB-N2-JIT-later',
   };
 }
@@ -2253,7 +2386,7 @@ function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: st
   const p = `${remaining} practice${remaining > 1 ? 's' : ''}`;
   return {
     title: 'Recalibrating mid-day',
-    body: `${p} still open on today's plan. Stay sharp instead of running on fumes — check in to recalibrate.`,
+    body: `${p} still open on today's plan. Stay sharp instead of running on fumes - check in to recalibrate.`,
     variantId: 'FB-N2-priorities',
   };
 }
@@ -2262,7 +2395,7 @@ function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   return {
     title: 'Mid-day reset window',
-    body: `Your morning state was low and ${ev} is next. This is the recovery window — check in to recalibrate.`,
+    body: `Your morning state was low and ${ev} is next. This is the recovery window - check in to recalibrate.`,
     variantId: 'FB-N2-recal',
   };
 }
@@ -2272,13 +2405,13 @@ function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' |
   if (signal === 'rhr') {
     return {
       title: 'Managing the moment',
-      body: `You're running warm (RHR elevated) and ${ev} is next. Short, sharp, built for right now — log in to prep your state.`,
+      body: `You're running warm (RHR elevated) and ${ev} is next. Short, sharp, built for right now - log in to prep your state.`,
       variantId: 'FB-N2-reserves-rhr',
     };
   }
   return {
     title: 'Managing the moment',
-    body: `You're running low (HRV below baseline) and ${ev} is next. Short, sharp, built for right now — log in to prep your state.`,
+    body: `You're running low (HRV below baseline) and ${ev} is next. Short, sharp, built for right now - log in to prep your state.`,
     variantId: 'FB-N2-reserves-hrv',
   };
 }
@@ -2286,12 +2419,12 @@ function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' |
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
   return {
     title: 'Recovery deficit detected',
-    body: `Your body's been under-recovering for ${daysLow} days. That's a load signal, not a weakness — log in to recalibrate your mind.`,
+    body: `Your body's been under-recovering for ${daysLow} days. That's a load signal, not a weakness - log in to recalibrate your mind.`,
     variantId: 'FB-N2-consec-low',
   };
 }
 
-// ── v5.3 — Travel arc + look-ahead fallback copy ──
+// ── v5.3 - Travel arc + look-ahead fallback copy ──
 // Self-sufficient bodies (the in-flight one names the protocol so the user
 // can still act if they have no Wi-Fi). All comply with the V8 qualified
 // mind-prep CTA contract.
@@ -2300,7 +2433,7 @@ function getFallbackNudgeOnePreFlightCopy(eventTitle: string, minutesUntil: numb
   const { goal } = travelPhaseFraming('pre');
   return {
     title: 'Travel ahead',
-    body: `${ev} in ~${minutesUntil} min. ${goal} — log in to prep your state.`,
+    body: `${ev} in ~${minutesUntil} min. ${goal} - log in to prep your state.`,
     variantId: 'nudge_one_pre_flight',
   };
 }
@@ -2310,7 +2443,7 @@ function getFallbackNudgeTwoInFlightCopy(eventTitle: string): NudgeCopy {
   const { goal, outcome } = travelPhaseFraming('during');
   return {
     title: 'Mid-air reset',
-    body: `You're in the air on ${ev}. ${goal}. ${outcome} — open in the app, or run it yourself: 4-in / 6-out for 2 minutes.`,
+    body: `You're in the air on ${ev}. ${goal}. ${outcome} - open in the app, or run it yourself: 4-in / 6-out for 2 minutes.`,
     variantId: 'nudge_two_in_flight',
   };
 }
@@ -2319,7 +2452,7 @@ function getFallbackNudgeOnePostArrivalCopy(): NudgeCopy {
   const { goal } = travelPhaseFraming('post');
   return {
     title: 'Recovery context',
-    body: `Yesterday included travel — body may still be carrying load. ${goal} — check in to recalibrate.`,
+    body: `Yesterday included travel - body may still be carrying load. ${goal} - check in to recalibrate.`,
     variantId: 'nudge_one_post_arrival',
   };
 }
@@ -2328,7 +2461,7 @@ function getFallbackNudgeThreeLookaheadCopy(tomorrowEventTitle: string): NudgeCo
   const ev = truncateEventTitle(tomorrowEventTitle);
   return {
     title: 'Tomorrow forms tonight',
-    body: `${ev} on tomorrow's calendar. A clean close tonight is half the prep — log in to prep your mind tonight.`,
+    body: `${ev} on tomorrow's calendar. A clean close tonight is half the prep - log in to prep your mind tonight.`,
     variantId: 'nudge_three_lookahead',
   };
 }
@@ -2343,21 +2476,21 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
       return {
-        title: 'Big Monday — pre-loading now',
-        body: `Tomorrow opens with ${ev}. Wake up ahead instead of behind — log in to prep your mind tonight.`,
+        title: 'Big Monday - pre-loading now',
+        body: `Tomorrow opens with ${ev}. Wake up ahead instead of behind - log in to prep your mind tonight.`,
         variantId: 'FB-N3-sun-stakes',
       };
     }
     if (tomorrowCount >= 4) {
       return {
         title: 'Monday is already mapped',
-        body: `Tomorrow opens with ${tomorrowCount} meetings. Three minutes of clarity tonight beats two hours of catch-up — check in to set tomorrow.`,
+        body: `Tomorrow opens with ${tomorrowCount} meetings. Three minutes of clarity tonight beats two hours of catch-up - check in to set tomorrow.`,
         variantId: 'FB-N3-sun-heavy',
       };
     }
     return {
       title: 'Carrying the right things into Monday',
-      body: `Light Monday ahead — ${tomorrowCount} meeting${tomorrowCount === 1 ? '' : 's'} on the calendar. Decide what you're bringing in — check in to set tomorrow.`,
+      body: `Light Monday ahead - ${tomorrowCount} meeting${tomorrowCount === 1 ? '' : 's'} on the calendar. Decide what you're bringing in - check in to set tomorrow.`,
       variantId: 'FB-N3-sun-default',
     };
   }
@@ -2366,13 +2499,13 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     if (ctx.eventCount > 0) {
       return {
         title: 'Week complete',
-        body: `${ctx.eventCount} meetings behind you this week. Close the week before it bleeds into the weekend — check in to close the week.`,
+        body: `${ctx.eventCount} meetings behind you this week. Close the week before it bleeds into the weekend - check in to close the week.`,
         variantId: 'FB-N3-fri',
       };
     }
     return {
       title: 'Week complete',
-      body: `Five days of leadership behind you this week. Close the week cleanly so it doesn't bleed into the weekend — check in to close the week.`,
+      body: `Five days of leadership behind you this week. Close the week cleanly so it doesn't bleed into the weekend - check in to close the week.`,
       variantId: 'FB-N3-fri-light',
     };
   }
@@ -2380,7 +2513,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.dayOfWeek === 6) {
     return {
       title: 'The body\'s still catching up',
-      body: `Recovery from the week isn't instant — even on Saturday. A short check-in tells you what kind of weekend you actually need — check in to land the weekend.`,
+      body: `Recovery from the week isn't instant - even on Saturday. A short check-in tells you what kind of weekend you actually need - check in to land the weekend.`,
       variantId: 'FB-N3-sat',
     };
   }
@@ -2389,14 +2522,14 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
     return {
       title: 'Closing strong',
-      body: `${p} still open on today's plan and the day is winding down. Land the close before tomorrow loads up — check in to close the day.`,
+      body: `${p} still open on today's plan and the day is winding down. Land the close before tomorrow loads up - check in to close the day.`,
       variantId: 'FB-N3-priorities',
     };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
     return {
       title: 'Closing strong',
-      body: `${prioritiesTotal} practice${prioritiesTotal === 1 ? '' : 's'} done today. Land it cleanly so tomorrow opens fresh — check in to close the day.`,
+      body: `${prioritiesTotal} practice${prioritiesTotal === 1 ? '' : 's'} done today. Land it cleanly so tomorrow opens fresh - check in to close the day.`,
       variantId: 'FB-N3-done',
     };
   }
@@ -2404,14 +2537,14 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
     return {
       title: 'Recovery in progress',
-      body: `Your body ran warm today (RHR elevated). Close the day with a short reset before tomorrow loads up — log in to recalibrate your mind.`,
+      body: `Your body ran warm today (RHR elevated). Close the day with a short reset before tomorrow loads up - log in to recalibrate your mind.`,
       variantId: 'FB-N3-rhr',
     };
   }
   if (ctx.eventCount >= 6) {
     return {
       title: 'Evening cool-down',
-      body: `${ctx.eventCount} meetings, no real break for your mind today. Close the day before it carries into tomorrow — log in to recalibrate your mind.`,
+      body: `${ctx.eventCount} meetings, no real break for your mind today. Close the day before it carries into tomorrow - log in to recalibrate your mind.`,
       variantId: 'FB-N3-heavy',
     };
   }
@@ -2419,13 +2552,13 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
     return {
       title: 'Closing the day',
-      body: `${m} behind you today. Close cleanly so tomorrow opens fresh — check in to close the day.`,
+      body: `${m} behind you today. Close cleanly so tomorrow opens fresh - check in to close the day.`,
       variantId: 'FB-N3-default',
     };
   }
   return {
     title: 'Closing the day',
-    body: `Quiet day on the calendar today, but tomorrow still benefits from a clean close tonight — check in to close the day.`,
+    body: `Quiet day on the calendar today, but tomorrow still benefits from a clean close tonight - check in to close the day.`,
     variantId: 'FB-N3-light',
   };
 }
@@ -2453,7 +2586,7 @@ async function evaluateNudgeOne(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
-  // ── v5.3 — Travel arc: pre-flight rides the morning slot ──
+  // ── v5.3 - Travel arc: pre-flight rides the morning slot ──
   if (ctx.dayContext.preFlight) {
     const pf = ctx.dayContext.preFlight;
     const copy = validateStaticFallbackCopy(
@@ -2473,7 +2606,7 @@ async function evaluateNudgeOne(
     }
   }
 
-  // ── v5.3 — Post-arrival recovery rides the morning slot ──
+  // ── v5.3 - Post-arrival recovery rides the morning slot ──
   if (ctx.dayContext.postTravel && ctx.morningCheckinOutcome === null) {
     const copy = validateStaticFallbackCopy(
       getFallbackNudgeOnePostArrivalCopy(),
@@ -2492,7 +2625,7 @@ async function evaluateNudgeOne(
     }
   }
 
-  // ── v5.3 — PTO / public-holiday "light touch": single morning nudge,
+  // ── v5.3 - PTO / public-holiday "light touch": single morning nudge,
   // skip JIT pre-event prep entirely. Falls through to morning anchor.
   const ptoMode = ctx.dayContext.ptoMode === true;
 
@@ -2502,7 +2635,7 @@ async function evaluateNudgeOne(
   // - Sunday AM: always fire recovery/reset habit nudge (08:00–10:30 if no meeting,
   //   calendar-anchored if a meeting exists).
 
-  // ── A) JIT morning event — check first ──
+  // ── A) JIT morning event - check first ──
   // v5: drop the jit_horizons_surfaced requirement so the lure fires on
   // any high-stakes event detected by the JIT scoring layer.
   if (ctx.morningCheckinOutcome === null || ctx.jitEvents.length > 0) {
@@ -2534,9 +2667,9 @@ async function evaluateNudgeOne(
         .limit(1);
       if (!jitPlan || jitPlan.length === 0) continue;
 
-      // ── v5.3 — JIT silence when prep is already consumed ──
+      // ── v5.3 - JIT silence when prep is already consumed ──
       // If today's plan ledger marks a matching priority as completed,
-      // skip — the user has already done the work.
+      // skip - the user has already done the work.
       const { data: ledgerRows } = await supabase
         .from('daily_ritual_completions')
         .select('plan_ledger')
@@ -2568,11 +2701,11 @@ async function evaluateNudgeOne(
       );
       if (!copy) continue;
 
-      // Route by check-in state — if user hasn't done check-in yet, send
+      // Route by check-in state - if user hasn't done check-in yet, send
       // them to the brief; otherwise send them to the queued plan.
       const route = ctx.morningCheckinOutcome === null ? '/daily-check-in' : '/executive-home';
 
-      // v7 — pattern-cited JIT outranks plain JIT in the comparator.
+      // v7 - pattern-cited JIT outranks plain JIT in the comparator.
       const pat = findEventPattern(ctx.pattern, evt.eventTitle);
       const sigStrength = pat ? 3 : 2;
 
@@ -2592,7 +2725,7 @@ async function evaluateNudgeOne(
   // ── B & C) Morning check-in (loaded vs light day) ──
   if (ctx.morningCheckinOutcome !== null) return null; // Already checked in
 
-  // v5 — calendar-anchored morning timing
+  // v5 - calendar-anchored morning timing
   // Hard floor: 08:00 local. If a first meeting exists, we anchor 60–90 min
   // before but never earlier than 08:00. If no first meeting, 08:00–09:30.
   let morningStart = GLOBAL_EARLIEST_LOCAL;
@@ -2616,7 +2749,7 @@ async function evaluateNudgeOne(
     morningEnd = Math.max(morningEnd, 11.0);
   }
 
-  // V8 — Sunday AM, or Saturday AM with no meeting: 09:00–10:30 local recovery window
+  // V8 - Sunday AM, or Saturday AM with no meeting: 09:00–10:30 local recovery window
   // (users may sleep in on weekends).
   if (ctx.dayOfWeek === 0 || (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent)) {
     morningStart = 9.0;
@@ -2666,7 +2799,7 @@ async function evaluateNudgeTwo(
   if (alreadySentTypes.has('nudge_two') || alreadySentTypes.has('pre_event_prep')) return null;
   if (ctx.localTime < GLOBAL_EARLIEST_LOCAL || ctx.localTime >= 16) return null;
 
-  // ── v5.3 — In-flight reset rides the mid-day slot ──
+  // ── v5.3 - In-flight reset rides the mid-day slot ──
   if (ctx.dayContext.inFlight) {
     const ifl = ctx.dayContext.inFlight;
     const copy = validateStaticFallbackCopy(
@@ -2686,7 +2819,7 @@ async function evaluateNudgeTwo(
     }
   }
 
-  // ── v5.3 — PTO collapse: no mid-day or JIT on PTO days ──
+  // ── v5.3 - PTO collapse: no mid-day or JIT on PTO days ──
   if (ctx.dayContext.ptoMode) return null;
 
   // ── A) JIT event approaching ──
@@ -2701,10 +2834,10 @@ async function evaluateNudgeTwo(
     }
 
     const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
-    // v5 — focus on the 30 min – 3 h pre-event window
+    // v5 - focus on the 30 min – 3 h pre-event window
     if (minutesUntil < 30 || minutesUntil > 180) continue;
 
-    // v5 — drop horizons-surfaced gate (was killing all JIT lures in prod)
+    // v5 - drop horizons-surfaced gate (was killing all JIT lures in prod)
     const { data: jitPlan } = await supabase
       .from('jit_event_context')
       .select('id')
@@ -2724,7 +2857,7 @@ async function evaluateNudgeTwo(
     );
     if (!copy) continue;
 
-    // v5 smart routing — brief if check-in pending, plan if check-in done
+    // v5 smart routing - brief if check-in pending, plan if check-in done
     const checkedInToday = ctx.morningCheckinOutcome !== null || ctx.afternoonCheckinOutcome !== null;
     const route = checkedInToday ? '/executive-home' : '/daily-check-in';
 
@@ -2778,7 +2911,7 @@ async function evaluateNudgeTwo(
     }
   }
 
-  // ── B) Priorities incomplete (afternoon, 13:00+) — v7 LEGACY GENERIC ──
+  // ── B) Priorities incomplete (afternoon, 13:00+) - v7 LEGACY GENERIC ──
   // Suppressed by default; framework retained behind LEGACY_GENERIC_NUDGES_ENABLED.
   if (LEGACY_GENERIC_NUDGES_ENABLED && ctx.localTime >= 13 && ctx.pendingPracticeIds.length > 0) {
     const priorityTitle = 'Priority 1'; // Generic, we don't have practice names in context
@@ -2856,7 +2989,7 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
     return null;
   }
 
-  // ── v5.3 — PTO collapse: no evening close on PTO days ──
+  // ── v5.3 - PTO collapse: no evening close on PTO days ──
   if (ctx.dayContext.ptoMode) {
     log('pto_mode');
     return null;
@@ -2881,7 +3014,7 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   let eveningStart = 18;
   let eveningEnd = 21.5;
 
-  // Sunday: ONLY early evening (17:00-19:30) — recovery + mental prep tone
+  // Sunday: ONLY early evening (17:00-19:30) - recovery + mental prep tone
   if (ctx.dayOfWeek === 0) {
     eveningStart = 17;
     eveningEnd = 19.5;
@@ -2900,7 +3033,7 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
     return null;
   }
 
-  // ── v5.3 — Look-ahead overlay: any evening (not just Sunday) where
+  // ── v5.3 - Look-ahead overlay: any evening (not just Sunday) where
   // tomorrow has a high-stakes event in the next 18 h gets a forward-set.
   const nowLookahead = Date.now();
   const lookaheadStakes = ctx.tomorrowEvents.find(e => {
@@ -2939,7 +3072,7 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   }
   log('emitted', { source: aiCopy ? 'ai' : 'fallback' });
 
-  // v7 — evening anchors to JIT when tomorrow has a non-noise first meeting,
+  // v7 - evening anchors to JIT when tomorrow has a non-noise first meeting,
   // otherwise to STATE (today's load / wearable / Sunday week prep).
   const tomorrowFirst = ctx.tomorrowEvents.find(e => !isNoiseEvent(e.title || ''));
   const anchorKind: 'jit' | 'state' = tomorrowFirst ? 'jit' : 'state';
@@ -2955,6 +3088,84 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   };
 }
 
+async function projectPlanSlotToNudge(
+  ctx: NudgeContext,
+  activeSlot: NudgeSlot,
+  alreadySentTypes: Set<string>,
+): Promise<QualifiedNudge | null> {
+  const slot = (ctx.planSlots ?? []).find((s) => s.slot === activeSlot);
+  if (!slot) return null;
+
+  const nudgeType =
+    activeSlot === 'morning' ? 'nudge_one' :
+    activeSlot === 'afternoon' ? 'nudge_two' :
+    'nudge_three';
+  if (alreadySentTypes.has(nudgeType)) return null;
+
+  const slotEventTitle = slot.jitEventTitle || null;
+  const matchingJit = slotEventTitle
+    ? ctx.jitEvents.find((e) => e.eventTitle?.toLowerCase() === slotEventTitle.toLowerCase())
+    : null;
+  const matchingCalendar = slotEventTitle
+    ? ctx.todayEvents.find((e) => e.title?.toLowerCase() === slotEventTitle.toLowerCase()) ?? null
+    : null;
+  const eventStart = matchingJit?.eventStart ?? matchingCalendar?.start_time ?? null;
+  const minutesUntil = eventStart
+    ? Math.round((new Date(eventStart).getTime() - Date.now()) / 60000)
+    : null;
+
+  let copy: NudgeCopy | null = null;
+  let anchorKind: 'jit' | 'state' =
+    slot.mode === 'jit' || slot.mode === 'jit+state' || slot.mode === 'full_arc' ? 'jit' : 'state';
+  let eventReference = matchingJit?.externalId ?? matchingCalendar?.external_id ?? undefined;
+
+  if (anchorKind === 'jit' && slotEventTitle && minutesUntil !== null && minutesUntil >= 0) {
+    const aiType = activeSlot === 'morning' ? 'nudge_one_jit' : activeSlot === 'afternoon' ? 'nudge_two_jit' : 'nudge_three';
+    const fallback =
+      activeSlot === 'morning'
+        ? getFallbackNudgeOneJitCopy(slotEventTitle, Math.max(1, minutesUntil))
+        : activeSlot === 'afternoon'
+          ? getFallbackNudgeTwoJitCopy(slotEventTitle, Math.max(1, minutesUntil))
+          : getFallbackNudgeThreeLookaheadCopy(slotEventTitle);
+    copy = await generateNudgeCopy(ctx, aiType, {
+      eventTitle: slotEventTitle,
+      minutesUntil: Math.max(1, minutesUntil),
+      planSlot: slot,
+    }) || validateStaticFallbackCopy(fallback, ctx, aiType);
+  }
+
+  if (!copy) {
+    anchorKind = 'state';
+    const aiType =
+      activeSlot === 'morning' ? 'nudge_one_morning' :
+      activeSlot === 'afternoon' ? 'nudge_two_recalibrate' :
+      'nudge_three';
+    const fallback =
+      activeSlot === 'morning' ? getFallbackNudgeOneMorningCopy(ctx) :
+      activeSlot === 'afternoon'
+        ? getFallbackNudgeTwoPrioritiesCopy(Math.max(1, ctx.pendingPracticeIds.length || 1), 'current plan slot')
+        : getFallbackNudgeThreeCopy(ctx);
+    copy = await generateNudgeCopy(ctx, aiType, {
+      planSlot: slot,
+      eventTitle: slotEventTitle ?? ctx.firstNonNoiseEvent?.title ?? 'today',
+    }) || validateStaticFallbackCopy(fallback, ctx, aiType);
+    eventReference = undefined;
+  }
+
+  if (!copy) return null;
+
+  return {
+    type: nudgeType,
+    copy,
+    deepLinkRoute: '/daily-check-in',
+    eventReference,
+    priority: activeSlot === 'morning' ? 0 : activeSlot === 'afternoon' ? 1 : 2,
+    anchorKind,
+    slot: activeSlot,
+    signalStrength: anchorKind === 'jit' ? 3 : (ctx.hasWearableData ? 2 : 1),
+  };
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── Week-Ahead Picker Invite (§17.7) ──
 // ══════════════════════════════════════════════════════════════
@@ -2966,7 +3177,7 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
  * Suppression order:
  *   - already shipped today (notification_log)
  *   - user already opened the picker today (event_priority_memory row with
- *     source='week_ahead_picker' written today is the proxy — set when the
+ *     source='week_ahead_picker' written today is the proxy - set when the
  *     user actually tags any priority in the picker)
  *   - shouldFireWeekAheadPickerInvite predicate (Sat / out-of-window /
  *     week-ahead inactive)
@@ -2979,7 +3190,7 @@ async function evaluateWeekAheadPickerInvite(
   const log = (reason: string, extra?: unknown) =>
     console.log(`[smart-nudges] week_ahead_picker_invite user=${ctx.userId} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
 
-  // §17.7 — ISO-week idempotency. At most ONE picker invite per user per
+  // §17.7 - ISO-week idempotency. At most ONE picker invite per user per
   // ISO week, regardless of reason. The weekly window is computed by the
   // main loop in user-local time and passed in.
   if (weeklyAlreadySent) {
@@ -3001,9 +3212,9 @@ async function evaluateWeekAheadPickerInvite(
       .gte('occurred_at', startOfDayIso)
       .limit(1);
     pickerOpenedToday = !!(openedRows && openedRows.length > 0);
-  } catch (_) { /* silent — proxy only */ }
+  } catch (_) { /* silent - proxy only */ }
 
-  // §17 Week-Ahead — use the hydrated weekAheadInputs bag (built once in
+  // §17 Week-Ahead - use the hydrated weekAheadInputs bag (built once in
   // buildNudgeContext from real calendar data). Fall back to the legacy
   // best-effort projection only if the bag is somehow missing.
   const wai = ctx.weekAheadInputs ?? {
@@ -3037,7 +3248,7 @@ async function evaluateWeekAheadPickerInvite(
     pickerOpenedToday,
   });
 
-  // Structured trigger log — always emitted when WAM is active so we can
+  // Structured trigger log - always emitted when WAM is active so we can
   // verify the post-PTO / post-holiday / long-weekend branches in edge logs.
   // Filter in supabase__edge_function_logs with `[week-ahead-trigger]`.
   if (wam.active || wai.ptoTodayAllDay || wai.holidayTodayAllDay || wai.consecutiveOffDaysBefore >= 2) {
@@ -3065,19 +3276,19 @@ async function evaluateWeekAheadPickerInvite(
   const variantByReason: Record<string, { title: string; body: string }> = {
     sunday_evening: {
       title: 'Sunday reset',
-      body: "10 priority choices can shape the week before Monday starts — log in to prep your mind tonight.",
+      body: "10 priority choices can shape the week before Monday starts - log in to prep your mind tonight.",
     },
     last_day_pto_evening: {
       title: 'Last day off',
-      body: "10 priority choices can shape tomorrow before work restarts — log in to prep your mind.",
+      body: "10 priority choices can shape tomorrow before work restarts - log in to prep your mind.",
     },
     last_day_holiday_evening: {
       title: 'Re-engaging',
-      body: "10 priority choices can shape re-entry before work restarts — log in to prep your mind.",
+      body: "10 priority choices can shape re-entry before work restarts - log in to prep your mind.",
     },
     last_day_long_weekend_evening: {
       title: 'Frame the week',
-      body: "10 priority choices can shape the week before Monday lands — log in to prep your mind.",
+      body: "10 priority choices can shape the week before Monday lands - log in to prep your mind.",
     },
   };
   const v = variantByReason[decision.reason] ?? variantByReason.sunday_evening;
@@ -3244,55 +3455,8 @@ function computeSignalRichness(ctx: NudgeContext): {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Engagement Learning ──
-// ══════════════════════════════════════════════════════════════
-
-interface EngagementProfile {
-  typeEffectiveness: Record<string, { sent: number; tapped: number; rate: number }>;
-  suppressedTypes: string[];
-}
-
-async function getUserEngagementProfile(
-  supabase: ReturnType<typeof createClient>,
-  userId: string
-): Promise<EngagementProfile> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  const { data: logs } = await supabase
-    .from('notification_log')
-    .select('notification_type, tapped')
-    .eq('user_id', userId)
-    .gte('sent_at', sevenDaysAgo);
-
-  const typeEffectiveness: Record<string, { sent: number; tapped: number; rate: number }> = {};
-
-  for (const log of (logs || [])) {
-    const t = log.notification_type;
-    if (!typeEffectiveness[t]) typeEffectiveness[t] = { sent: 0, tapped: 0, rate: 0 };
-    typeEffectiveness[t].sent++;
-    if (log.tapped) typeEffectiveness[t].tapped++;
-  }
-
-  const suppressedTypes: string[] = [];
-  for (const [type, stats] of Object.entries(typeEffectiveness)) {
-    stats.rate = stats.sent > 0 ? stats.tapped / stats.sent : 0;
-    if (stats.sent >= 5 && stats.tapped === 0) {
-      suppressedTypes.push(type);
-    }
-  }
-
-  return { typeEffectiveness, suppressedTypes };
-}
-
-// ══════════════════════════════════════════════════════════════
 // ── Day helpers ──
 // ══════════════════════════════════════════════════════════════
-
-function getUserLocalDate(timezoneOffset: number): Date {
-  const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utcMs + timezoneOffset * 60000);
-}
 
 function toDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -3304,18 +3468,10 @@ function isInDND(hour: number, dndStart: number | null, dndEnd: number | null): 
   return hour >= dndStart || hour < dndEnd;
 }
 
-function isQuietDay(dayOfWeek: number, quietDays: number[] | null): boolean {
-  if (!quietDays || quietDays.length === 0) return false;
-  return quietDays.includes(dayOfWeek);
-}
-
 type NotificationTraceOutcome =
   | 'no_active_device_token'
   | 'outside_global_window'
   | 'dnd_window'
-  | 'quiet_day'
-  | 'low_power_mode'
-  | 'app_open_cooldown'
   | 'daily_cap'
   | 'two_hour_suppression'
   | 'light_day_strong_state'
@@ -3505,7 +3661,7 @@ serve(async (req) => {
 
     console.log('[smart-nudges] Starting evaluation run (v7 JIT-or-State, prep CTA, unified pattern store)...');
 
-    // V8 test path — `?force_user=<id>` (or `?force_user_id=`) bypasses the
+    // V8 test path - `?force_user=<id>` (or `?force_user_id=`) bypasses the
     // global quiet-window + DND checks for that one user so we can trigger
     // the AI copy path on demand and verify Claude→Gemini are reachable in
     // production. All other guards (cooldowns, suppression, anchor presence,
@@ -3554,14 +3710,9 @@ serve(async (req) => {
 
     // Group tokens by user
     const userTokens = new Map<string, Array<{ token: string; platform: string }>>();
-    // v1.1 — per-user freshest device timestamp for the offline / airplane skip.
-    const lastDeviceSeenAt = new Map<string, number>();
     for (const row of tokenRows) {
       if (!userTokens.has(row.user_id)) userTokens.set(row.user_id, []);
       userTokens.get(row.user_id)!.push({ token: row.device_token, platform: row.platform });
-      const ts = row.updated_at ? new Date(row.updated_at).getTime() : 0;
-      const prev = lastDeviceSeenAt.get(row.user_id) ?? 0;
-      if (ts > prev) lastDeviceSeenAt.set(row.user_id, ts);
     }
 
     const userIds = Array.from(userTokens.keys());
@@ -3594,7 +3745,7 @@ serve(async (req) => {
       { data: preferences },
       { data: recentEngagements },
     ] = await Promise.all([
-      supabase.from('profiles').select('id, current_streak, timezone_offset').in('id', userIds),
+      supabase.from('profiles').select('id, current_streak, timezone_offset, current_timezone, home_timezone').in('id', userIds),
       supabase.from('notification_preferences').select('*').in('user_id', userIds),
       supabase.from('user_engagements')
         .select('user_id, event_type, timestamp')
@@ -3627,38 +3778,47 @@ serve(async (req) => {
       todayStr: string;
       qualificationWarnings: string[];
       v8Ctx: { eventTitles: string[]; checkinWord: string | null };
-      // v1.1 — collapsed/expanded headline + new telemetry buckets.
+      // v1.1 - collapsed/expanded headline + new telemetry buckets.
       subtitle: string;
       headlineVariant: 'full' | 'reminder' | 'post_landing';
       ctaBucket: 'weekday' | 'weekend_post_holiday';
       requiresAppOpen: boolean;
       weekendCtaGate?: 'ok' | 'missing_brief' | 'missing_plan' | null;
+      ttlSeconds: number;
+      collapseId: string;
     }> = [];
 
     // 3. Evaluate each user
     for (const userId of userIds) {
       const profile = profileMap.get(userId);
       const prefs = prefMap.get(userId);
-      const tzOffset = profile?.timezone_offset ?? 0;
-      const localDate = getUserLocalDate(tzOffset);
-      const localHour = localDate.getHours();
-      const localMinute = localDate.getMinutes();
-      const dayOfWeek = localDate.getDay();
-      const todayStr = toDateString(localDate);
+      const timezoneRead = await resolveEffectiveTimezone(supabase, userId, profile);
+      const clockTimezone = timezoneRead.circadianTimezone || timezoneRead.effectiveTimezone;
+      const parts = localParts(clockTimezone);
+      const tzOffset = timezoneOffsetMinutes(clockTimezone);
+      const localHour = parts.hour;
+      const localMinute = parts.minute;
+      const todayStr = parts.localDate;
+      const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
       const traceBase = {
         localDate: todayStr,
         localHour,
         timezoneOffset: tzOffset,
+        metadata: {
+          effective_timezone: timezoneRead.effectiveTimezone,
+          circadian_timezone: timezoneRead.circadianTimezone,
+          is_away: timezoneRead.isAway,
+        },
       };
 
-      const tomorrowDate = new Date(localDate);
+      const tomorrowDate = new Date(`${todayStr}T00:00:00Z`);
       tomorrowDate.setDate(tomorrowDate.getDate() + 1);
       const tomorrowStr = toDateString(tomorrowDate);
 
       // ── Quiet Hours: 10pm–6:30am ──
       const localTime = localHour + localMinute / 60;
       const isForcedUser = forceUserId !== null && forceUserId === userId;
-      // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) — kills 6/7am sends
+      // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) - kills 6/7am sends
       if (!isForcedUser && (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL)) {
         console.log(`[smart-nudges][v5] User ${userId} outside global window (${localTime.toFixed(1)}). Skipping.`);
         trace(userId, 'outside_global_window', {
@@ -3668,7 +3828,7 @@ serve(async (req) => {
         continue;
       }
 
-      // DND / quiet day check
+      // DND check. Quiet/rest days are represented by Plan slots upstream.
       const dndStart = prefs?.dnd_start ?? null;
       const dndEnd = prefs?.dnd_end ?? null;
       if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) {
@@ -3678,69 +3838,26 @@ serve(async (req) => {
         });
         continue;
       }
-      if (!isForcedUser && isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) {
-        trace(userId, 'quiet_day', {
-          ...traceBase,
-          metadata: { day_of_week: dayOfWeek, quiet_days: prefs?.quiet_days ?? null },
-        });
-        continue;
-      }
 
-      // Delivery-context: device-token `updated_at` is NOT a heartbeat — it
-      // only changes on token rotation / app launch — so we must not gate
-      // push delivery on it. Push exists to reach users who are NOT currently
-      // active in the app. We still compute `activityAgeMin` for diagnostics
-      // and continue to honour OS-level low-power preference.
-      const deviceLastSeen = lastDeviceSeenAt.get(userId) ?? 0;
-      const activityAgeMin = deviceLastSeen
-        ? Math.round((Date.now() - deviceLastSeen) / 60000)
-        : null;
-      const lowPowerMode = (prefs as any)?.low_power_mode === true;
-      if (!isForcedUser && lowPowerMode) {
-        console.log(`[smart-nudges] User ${userId} skip pre-evaluator reason=battery activityAgeMin=${activityAgeMin}`);
-        trace(userId, 'low_power_mode', {
-          ...traceBase,
-          metadata: { last_activity_age_min: activityAgeMin },
-        });
-        try {
-          await supabase.from('notification_log').insert({
-            user_id: userId,
-            notification_type: 'nudge_skip',
-            variant_id: 'skip-battery',
-            event_reference: null,
-            delivery_state: 'suppressed',
-            payload: {
-              notification_type: 'nudge_skip',
-              architecture: 'cos-mind-v8-meaning-forward',
-              suppression_reason: 'battery',
-              suppression_stage: 'pre_evaluator',
-              metadata: {
-                architecture: 'cos-mind-v8-meaning-forward',
-                delivery_skip_reason: 'battery',
-                last_activity_age_min: activityAgeMin,
-              },
-            },
-          });
-        } catch (_) { /* best-effort */ }
-        continue;
-      }
+      // Delivery-context: device-token `updated_at` is NOT a heartbeat, so it
+      // must not gate push delivery. Push exists to reach inactive users.
 
       // Convert local midnight to UTC for log queries
-      const localMidnightMs = new Date(`${todayStr}T00:00:00`).getTime();
-      const todayStartUtc = new Date(localMidnightMs - tzOffset * 60000).toISOString();
-      const todayEndUtc = new Date(localMidnightMs - tzOffset * 60000 + 24 * 60 * 60 * 1000).toISOString();
+      const localMidnightMs = new Date(`${todayStr}T00:00:00Z`).getTime();
+      const todayStartUtc = new Date(localMidnightMs + tzOffset * 60000).toISOString();
+      const todayEndUtc = new Date(localMidnightMs + tzOffset * 60000 + 24 * 60 * 60 * 1000).toISOString();
 
       // Fetch today's notification log.
       //
       // CAP SEMANTICS (fix for inflated 48/3, 55/3 counts):
       // Scope to rows the user actually saw or that were genuinely
       // attempted via APNs. This excludes:
-      //   • 'suppressed'           — pre-evaluator / back-to-back / post-CTA audit rows
-      //   • 'dry_run'              — ?force_user=...&dry_run=1 diagnostic probes
-      //   • 'failed'               — APNs rejected, never delivered
+      //   • 'suppressed'           - pre-evaluator / back-to-back / post-CTA audit rows
+      //   • 'dry_run'              - ?force_user=...&dry_run=1 diagnostic probes
+      //   • 'failed'               - APNs rejected, never delivered
       //   • 'expired_before_delivery'
       // The DAILY_NOTIFICATION_CAP and dedupe sets below derive from this
-      // query, so "cap" now means "things the user actually saw" — matching
+      // query, so "cap" now means "things the user actually saw" - matching
       // the product intent of 3 pushes/day. Suppression and dry-run rows
       // remain in notification_log for SQL auditing but no longer inflate
       // the cap or block legitimate sends.
@@ -3755,12 +3872,12 @@ serve(async (req) => {
         .order('sent_at', { ascending: false });
 
       // ══════════════════════════════════════════════════════════
-      // §17.7 — Week-Ahead Picker Invite dispatch (own bucket).
+      // §17.7 - Week-Ahead Picker Invite dispatch (own bucket).
       // Runs BEFORE the daily cap, 2h suppression, and app-open cool-
       // down. Counts ONLY against its own ISO-weekly cap (max 1 / user).
       // Kill switch: WEEK_AHEAD_PICKER_ENABLED=false to disable.
       // ══════════════════════════════════════════════════════════
-      // ctx is shared with the standard-nudge pipeline below — build
+      // ctx is shared with the standard-nudge pipeline below - build
       // lazily so a quick-fail (Saturday / out-of-window / kill switch)
       // adds zero DB cost.
       let ctx: NudgeContext | null = null;
@@ -3791,7 +3908,7 @@ serve(async (req) => {
         const daysSinceMonday = (dow + 6) % 7; // Sun=6, Mon=0, ... Sat=5
         weekStartLocal.setDate(weekStartLocal.getDate() - daysSinceMonday);
         const weekStartUtcIso = new Date(
-          weekStartLocal.getTime() - tzOffset * 60000,
+          weekStartLocal.getTime() + tzOffset * 60000,
         ).toISOString();
 
         const { data: weeklySent } = await supabase
@@ -3832,7 +3949,7 @@ serve(async (req) => {
             variantId: inv.copy.variantId,
             metadata: { weekly_already_sent: weeklyAlreadySent },
           });
-          // Direct dispatch — bypasses competitive ranking, daily cap,
+          // Direct dispatch - bypasses competitive ranking, daily cap,
           // 2h suppression, slot cap, post-CTA gates. This is a weekly
           // digest, not a behavioural nudge.
           allNotifications.push({
@@ -3852,8 +3969,10 @@ serve(async (req) => {
             ctaBucket: 'weekend_post_holiday',
             requiresAppOpen: true,
             weekendCtaGate: null,
+            ttlSeconds: periodTtlSeconds('evening', localTime),
+            collapseId: periodCollapseId('evening', todayStr),
           });
-          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${userId} variant=${inv.copy.variantId} (own bucket — bypassing daily cap)`);
+          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${userId} variant=${inv.copy.variantId} (own bucket - bypassing daily cap)`);
         } else if (!weeklyAlreadySent) {
           trace(userId, 'week_ahead_not_selected', {
             ...traceBase,
@@ -3887,28 +4006,8 @@ serve(async (req) => {
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
       const suppressed = lastSentAt !== null && lastSentAt > twoHoursAgo;
 
-      // ── In-meeting / app-open suppression ──
+      // ── Last app-open is telemetry only; inactivity must not suppress nudges. ──
       const lastAppOpen = lastAppOpenMap.get(userId) || null;
-      // v5: 60-min cool-down after app open (was 30)
-      const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < APP_OPEN_COOLDOWN_MS;
-
-      if (appOpenedRecently) {
-        console.log(`[smart-nudges][v5] User ${userId} opened app within 60 min. Skipping.`);
-        trace(userId, 'app_open_cooldown', {
-          ...traceBase,
-          metadata: { last_app_open: lastAppOpen?.toISOString() ?? null, cooldown_ms: APP_OPEN_COOLDOWN_MS },
-        });
-        continue;
-      }
-
-      // ── Engagement learning ──
-      const engagementProfile = await getUserEngagementProfile(supabase, userId);
-
-      function isEngagementSuppressed(type: string): boolean {
-        if (!engagementProfile.suppressedTypes.includes(type)) return false;
-        const hash = (userId + type + todayStr).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-        return hash % 2 === 0;
-      }
 
       // ══════════════════════════════════════════════════
       // ── Build NudgeContext (single parallel query) ──
@@ -3920,18 +4019,16 @@ serve(async (req) => {
           profile?.current_streak || 0,
           lastAppOpen,
         );
-        // v7 — hydrate unified pattern store (causality_findings.signal_summary)
+        // v7 - hydrate unified pattern store (causality_findings.signal_summary)
         ctx.pattern = await loadPatternSummary(supabase, userId);
       }
 
-      // MRS v2 Phase D — snapshot-first cadence gating.
-      //   LIGHT_DAY_STRONG_STATE → suppress all nudges for this user today.
-      //   SUPPLY_DEMAND_GAP + sustained_deficit_flag → escalate (override 2h
-      //   suppression so urgent prep gets through).
+      // MRS snapshot is read for escalation/freshness context only. Missing,
+      // awaiting, or strong/light data must never suppress nudges.
       // Never throws: missing snapshot row falls back to existing behaviour.
       let mrsEscalate = false;
       try {
-        // Phase 2 — window-scoped snapshot. Prefer current-window row,
+        // Phase 2 - window-scoped snapshot. Prefer current-window row,
         // fall back to latest row for today (legacy / earlier window).
         const nudgeWindow =
           localHour >= 6 && localHour < 12 ? 'morning'
@@ -3964,13 +4061,8 @@ serve(async (req) => {
         }
         const gapFlag = (snapRow as any)?.supply_demand_gap_flag ?? null;
         const ps = (snapRow as any)?.pattern_signals ?? null;
-        if (gapFlag === 'LIGHT_DAY_STRONG_STATE' && !isForcedUser) {
-          console.log(`[smart-nudges][mrs-v2] User ${userId} LIGHT_DAY_STRONG_STATE → suppressing all nudges.`);
-          trace(userId, 'light_day_strong_state', {
-            ...traceBase,
-            metadata: { supply_demand_gap_flag: gapFlag },
-          });
-          continue;
+        if (gapFlag === 'LIGHT_DAY_STRONG_STATE') {
+          console.log(`[smart-nudges][mrs-v2] User ${userId} LIGHT_DAY_STRONG_STATE read only; Plan slots decide cadence.`);
         }
         if (gapFlag === 'SUPPLY_DEMAND_GAP' && ps?.sustained_deficit_flag === true) {
           mrsEscalate = true;
@@ -3992,10 +4084,10 @@ serve(async (req) => {
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
 
-      // Pass 8 (O — strict M/A/E policy) — derive the set of slots that
+      // Pass 8 (O - strict M/A/E policy) - derive the set of slots that
       // already received a send today. Per the beta spec, each window
       // (morning / afternoon / evening) gets at most ONE nudge. Travel
-      // pre-flight rides morning, in-flight rides afternoon — see the
+      // pre-flight rides morning, in-flight rides afternoon - see the
       // slot assignments in evaluateNudgeOne / Two / Three.
       const slotForType = (t: string): 'morning' | 'afternoon' | 'evening' | null => {
         if (t === 'nudge_one' || t.startsWith('nudge_one')) return 'morning';
@@ -4008,20 +4100,52 @@ serve(async (req) => {
           .map((l) => slotForType(String(l.notification_type)))
           .filter((s): s is 'morning' | 'afternoon' | 'evening' => s !== null),
       );
+      const activeSlot = currentSlotForLocalHour(localHour);
 
       // ══════════════════════════════════════════════════
       // ── MVP 3-Nudge Cascade: Nudge 1 → 2 → 3 ──
       // ══════════════════════════════════════════════════
       const qualified: QualifiedNudge[] = [];
 
+      if (ctx.planSnapshotStatus === 'empty') {
+        trace(userId, 'no_qualified_nudge', {
+          ...traceBase,
+          metadata: {
+            reason: 'plan_snapshot_empty',
+            active_slot: activeSlot,
+            plan_slot_count: 0,
+          },
+        });
+        continue;
+      }
+
+      if (ctx.planSnapshotStatus === 'ready') {
+        const slotPrefEnabled =
+          activeSlot === 'morning' ? (prefs?.morning_anchor_enabled ?? true) :
+          activeSlot === 'afternoon' ? (prefs?.pre_event_prep_enabled ?? true) :
+          (prefs?.evening_close_enabled ?? true);
+        if (slotPrefEnabled && !suppressedEffective) {
+          const projected = await projectPlanSlotToNudge(ctx, activeSlot, alreadySentTypes);
+          if (projected) qualified.push(projected);
+        }
+        if (!slotPrefEnabled) {
+          trace(userId, 'no_qualified_nudge', {
+            ...traceBase,
+            metadata: { reason: 'slot_preference_disabled', active_slot: activeSlot },
+          });
+          continue;
+        }
+      }
+
+      if (ctx.planSnapshotStatus === 'missing') {
       // Nudge 1: First Touch (exempt from signal gate + 2h suppression for JIT)
-      if ((prefs?.morning_anchor_enabled ?? true) && !isEngagementSuppressed('nudge_one')) {
+      if ((prefs?.morning_anchor_enabled ?? true)) {
         const nudge = await evaluateNudgeOne(ctx, alreadySentTypes, sentEventRefs, supabase);
         if (nudge) qualified.push(nudge);
       }
 
       // Nudge 2: Mid-day Action (exempt from signal gate, respects 2h suppression unless JIT)
-      if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('nudge_two') && !suppressedEffective) {
+      if ((prefs?.pre_event_prep_enabled ?? true) && !suppressedEffective) {
         const nudge = await evaluateNudgeTwo(ctx, alreadySentTypes, sentEventRefs, supabase);
         if (nudge) qualified.push(nudge);
       }
@@ -4029,18 +4153,19 @@ serve(async (req) => {
       if (suppressedEffective && (prefs?.pre_event_prep_enabled ?? true)) {
         const nudge = await evaluateNudgeTwo(ctx, alreadySentTypes, sentEventRefs, supabase);
         if (nudge && nudge.deepLinkRoute === '/executive-home') {
-          // JIT variant — override suppression
+          // JIT variant - override suppression
           qualified.push(nudge);
         }
       }
 
       // Nudge 3: Evening Close (exempt from signal richness gate for MVP)
-      if ((prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('nudge_three') && !suppressedEffective) {
+      if ((prefs?.evening_close_enabled ?? true) && !suppressedEffective) {
         const nudge = await evaluateNudgeThree(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
+      }
 
-      // §17.7 — Week-Ahead Picker Invite has its OWN bucket and is
+      // §17.7 - Week-Ahead Picker Invite has its OWN bucket and is
       // dispatched above the daily cap earlier in this loop. It is
       // intentionally not part of the competitive `qualified` queue.
 
@@ -4097,7 +4222,7 @@ serve(async (req) => {
         return true;
       });
 
-      // Pass 8 (O) — strict per-window cap: drop any candidate whose slot
+      // Pass 8 (O) - strict per-window cap: drop any candidate whose slot
       // already shipped a notification today (durable across cron runs via
       // notification_log). Logged so dashboards can see the suppression.
       const slotCapped = dedupedByType.filter((n) => {
@@ -4110,7 +4235,7 @@ serve(async (req) => {
         return true;
       });
 
-      // Pass 8 (O) — stale-JIT suppression: any JIT-anchored qualified nudge
+      // Pass 8 (O) - stale-JIT suppression: any JIT-anchored qualified nudge
       // whose anchor event ended more than 60 min ago is no longer
       // actionable. Suppress before send so we don't ship "prep for X" after
       // X is finished.
@@ -4127,7 +4252,7 @@ serve(async (req) => {
       const freshOnly = slotCapped.filter((n) => {
         if (n.anchorKind !== 'jit' || !n.eventReference) return true;
         const ev = eventById.get(String(n.eventReference));
-        if (!ev) return true; // unknown — let downstream handle
+        if (!ev) return true; // unknown - let downstream handle
         if (ev.end < nowMsStale - STALE_MS) {
           console.log(
             `[smart-nudges][pass8] user=${userId} drop_stale_jit type=${n.type} event=${n.eventReference} endedMinAgo=${Math.round((nowMsStale - ev.end) / 60000)}`,
@@ -4154,7 +4279,7 @@ serve(async (req) => {
             metadata: { last_sent_at: lastSentAt?.toISOString() ?? null, jit_override: false },
           });
         } else {
-          // ── v5.3 — Receipt-feedback: stamp warning if last 3 sends for
+          // ── v5.3 - Receipt-feedback: stamp warning if last 3 sends for
           // this family expired before delivery (per-user timing signal).
           const family = nudgeFamily(bestNudge.type);
           const { data: lastThree } = await supabase
@@ -4171,7 +4296,7 @@ serve(async (req) => {
           }
           const isTravel = !!(ctx.dayContext.preFlight || ctx.dayContext.inFlight);
 
-          // ── v1.1 — Back-to-back gap guard ─────────────────────────────
+          // ── v1.1 - Back-to-back gap guard ─────────────────────────────
           // Find the largest gap between now and the next event(s) in the
           // next 3 h. No gap ≥ 30 min → suppress; gap 30–60 min → downgrade
           // to reminder variant (no-app-open CTA).
@@ -4220,7 +4345,7 @@ serve(async (req) => {
             continue;
           }
 
-          // ── v1.1 — Weekend / post-PTO CTA gate ───────────────────────
+          // ── v1.1 - Weekend / post-PTO CTA gate ───────────────────────
           // Force CTA = "let's prioritise the week ahead" only when:
           //   - today is Saturday/Sunday OR ctx.dayContext.ptoMode is true, AND
           //   - a Brief snapshot exists for today, AND
@@ -4262,7 +4387,7 @@ serve(async (req) => {
             }
           }
 
-          // ── v1.1 — Reminder downgrade for 30–60 min gap days ─────────
+          // ── v1.1 - Reminder downgrade for 30–60 min gap days ─────────
           let headlineVariant: 'full' | 'reminder' | 'post_landing' = 'full';
           let requiresAppOpen = true;
           if (isReminderGap && ctaBucket === 'weekday') {
@@ -4271,7 +4396,7 @@ serve(async (req) => {
             resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
           }
 
-          // ── v1.1 — Post-landing window (Nudge 1 slot, no 4th send) ──
+          // ── v1.1 - Post-landing window (Nudge 1 slot, no 4th send) ──
           // When landingPlusHighStakes is present and the meeting lands in
           // the 15–60 min window after landing, tag as post_landing and
           // route to /executive-home with a reminder-style CTA.
@@ -4283,7 +4408,7 @@ serve(async (req) => {
             resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
           }
 
-          // ── Part 1 — Travel push_only delivery override ──────────────
+          // ── Part 1 - Travel push_only delivery override ──────────────
           // When any active brief flag carries landingDeliveryMode='push_only'
           // (travelLandingPlusHighStakes ≤2h, travelDayArrivalFraming,
           //  travelDayDuringPushOnly), suppress the deep-link CTA so the
@@ -4301,12 +4426,16 @@ serve(async (req) => {
               );
             }
           } catch (_e) {
-            // Fail-open — never block a notification on the guard.
+            // Fail-open - never block a notification on the guard.
+          }
+
+          if (requiresAppOpen && /^nudge_(one|two|three)$/.test(bestNudge.type)) {
+            resolvedRoute = '/daily-check-in';
           }
 
           // Subtitle: original moment headline (3 words / 28 chars cap).
-          const subtitle = clampSubtitle(bestNudge.copy.title);
-          const adjustedCopy: NudgeCopy = { ...bestNudge.copy, body: resolvedBody };
+          const adjustedCopy: NudgeCopy = normalizeNotificationCopy({ ...bestNudge.copy, body: resolvedBody });
+          const subtitle = clampSubtitle(adjustedCopy.title);
 
           allNotifications.push({
             userId,
@@ -4321,7 +4450,7 @@ serve(async (req) => {
             isTravel,
             todayStr,
             qualificationWarnings,
-            // V8 — capture per-user named-context tokens so the post-CTA
+            // V8 - capture per-user named-context tokens so the post-CTA
             // recheck can satisfy requiresNamedContextToken() for AI bodies
             // anchored on event titles or the morning check-in word.
             v8Ctx: buildV8CtxForCheck(ctx),
@@ -4330,6 +4459,12 @@ serve(async (req) => {
             ctaBucket,
             requiresAppOpen,
             weekendCtaGate,
+            ttlSeconds: requiresAppOpen
+              ? periodTtlSeconds(bestNudge.slot, localTime)
+              : nudgeTtlSeconds(bestNudge.copy.variantId, bestNudge.type),
+            collapseId: requiresAppOpen
+              ? periodCollapseId(bestNudge.slot, todayStr)
+              : nudgeCollapseId(nudgeFamily(bestNudge.type), todayStr, isTravel),
           });
         }
       } else {
@@ -4386,7 +4521,7 @@ serve(async (req) => {
       const effectiveRoute = notif.deepLinkRoute;
 
       // ── A/B CTA variant assignment (v5.1) ──
-      // v1.1 — Weekend / reminder / post-landing buckets bypass the A/B
+      // v1.1 - Weekend / reminder / post-landing buckets bypass the A/B
       // rewrite because the verb is already locked by the gate.
       const skipAbRewrite =
         notif.ctaBucket === 'weekend_post_holiday' ||
@@ -4398,8 +4533,9 @@ serve(async (req) => {
       } else {
         notif.copy = { ...notif.copy, variantId: `${notif.copy.variantId}::${ctaVariant}` };
       }
+      notif.copy = normalizeNotificationCopy(notif.copy);
 
-      // V8 — final post-rewrite check. The CTA variant rewriter mutates the
+      // V8 - final post-rewrite check. The CTA variant rewriter mutates the
       // trailing verb; if anything in the chain produces a non-V8 body we
       // suppress the send rather than ship V7 phrasing.
       // Pass the per-notification ctx so AI bodies anchored on real event
@@ -4453,12 +4589,12 @@ serve(async (req) => {
         prompt_version: BRIEF_PROMPT_VERSION,
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v2',
-        // v5.3 — Per-intent TTL + collapse-id telemetry
-        apns_expiration: Math.floor(Date.now() / 1000) + nudgeTtlSeconds(notif.copy.variantId, notif.type),
-        apns_collapse_id: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
+        // v5.3 - Per-intent TTL + collapse-id telemetry
+        apns_expiration: Math.floor(Date.now() / 1000) + notif.ttlSeconds,
+        apns_collapse_id: notif.collapseId,
         badge: notif.badge,
         qualification_warnings: notif.qualificationWarnings,
-        // V8 telemetry — also persist under payload.metadata so SQL
+        // V8 telemetry - also persist under payload.metadata so SQL
         // dashboards that query JSON paths like
         // payload.metadata.architecture see the V8 tags.
         metadata: {
@@ -4468,10 +4604,10 @@ serve(async (req) => {
           cta_variant: ctaVariant,
           ai_fallback_chain: 'claude-haiku → gemini-flash → static',
           // Which provider in the fallback chain actually produced the
-          // copy that shipped. Defensive default 'static' — every NudgeCopy
+          // copy that shipped. Defensive default 'static' - every NudgeCopy
           // returned to the send loop should carry this stamp.
           ai_provider_used: notif.copy.aiProvider ?? 'static',
-          // v1.1 — new telemetry fields.
+          // v1.1 - new telemetry fields.
           delivery_skip_reason: null,
           headline_variant: notif.headlineVariant,
           cta_bucket: notif.ctaBucket,
@@ -4567,8 +4703,8 @@ serve(async (req) => {
               },
               apnsHost,
               {
-                ttlSeconds: nudgeTtlSeconds(notif.copy.variantId, notif.type),
-                collapseId: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
+                ttlSeconds: notif.ttlSeconds,
+                collapseId: notif.collapseId,
                 badge: notif.badge,
                 subtitle: notif.subtitle,
               },

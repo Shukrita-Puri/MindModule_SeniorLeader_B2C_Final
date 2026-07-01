@@ -5,7 +5,7 @@
  * APPLICATION (Batch 2):
  * - BRIEF: not surfaced (intra-day, nudge-only signal).
  * - PLAN:  no boost (slots already compressed).
- * - NUDGE: meetingPrepCliff forces notification-is-product copy contract — full
+ * - NUDGE: meetingPrepCliff forces notification-is-product copy contract - full
  *          reframe in body, no app-open CTA, TTL = gap minutes − 1.
  *
  * RULES (Batch 2):
@@ -23,7 +23,7 @@
  */
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
-import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
+import { isHighStakesTitle } from "../events/event-classifier.ts";
 import {
   LONG_HAUL_MIN_HOURS,
   LANDING_WINDOW_LONG_MIN,
@@ -65,7 +65,7 @@ export function backToBackLoadOverride(ctx: RuleContext): BehaviourFlag | null {
     evidence: [`back-to-back ${hours}h`],
     stake: "Mental Bandwidth",
     copyHint:
-      "the day is compressed — single in-body cue, no app open; notification IS the value, gap arithmetic decides the timing",
+      "the day is compressed - single in-body cue, no app open; notification IS the value, gap arithmetic decides the timing",
   };
 }
 
@@ -107,7 +107,7 @@ export function meetingPrepCliff(ctx: RuleContext): BehaviourFlag | null {
     anchorEvent: gap.nextEventTitle,
     stake: nextIsHighStakes ? "Executive Presence" : "Mental Bandwidth",
     copyHint: nextIsHighStakes
-      ? "no app-open CTA — full micro-reframe in body (1-2min); name the meeting, name one regulating action, end clean"
-      : "no app-open CTA — one in-body somatic to clear the residue between meetings; do not invite planning",
+      ? "no app-open CTA - full micro-reframe in body (1-2min); name the meeting, name one regulating action, end clean"
+      : "no app-open CTA - one in-body somatic to clear the residue between meetings; do not invite planning",
   };
 }
