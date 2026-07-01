@@ -94,16 +94,18 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
       }
 
       // Get calendar events for same period
-      const { data: events } = await supabase
+      const { data: rawEvents } = await supabase
         .from('calendar_events')
-        .select('title, start_time, event_metadata')
+        .select('id, title, start_time, end_time, event_metadata, provider, attendees_count, is_organizer, is_recurring, external_id')
         .eq('user_id', effectiveUserId)
         .gte('start_time', new Date(thirtyDaysAgo).toISOString());
 
-      if (!events || events.length === 0) {
+      if (!rawEvents || rawEvents.length === 0) {
         setLoading(false);
         return;
       }
+      const { mergeCalendarEvents } = await import('@/utils/rules/calendarEvents');
+      const events = mergeCalendarEvents(rawEvents as any[], 'web') as any[];
 
       // Analyze correlations
       const correlationMap = new Map<string, Map<string, number>>();

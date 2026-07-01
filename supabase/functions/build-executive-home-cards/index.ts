@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
+import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import {
   localParts,
@@ -63,13 +64,16 @@ function sleepQuality(score: number | null, hours: number | null): "poor" | "fai
 async function countTodayEvents(db: any, userId: string, localDate: string) {
   const start = `${localDate}T00:00:00`;
   const end = `${localDate}T23:59:59`;
-  const { count } = await db
+  // Cross-provider dedupe: same real-world event mirrored on apple/google/microsoft
+  // must collapse to 1. SQL count(*) over `calendar_events` double/triple-counts.
+  // See mem/architecture/event-load-and-dedupe-rules.md.
+  const { data } = await db
     .from("calendar_events")
-    .select("id", { count: "exact", head: true })
+    .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,external_id")
     .eq("user_id", userId)
     .gte("start_time", start)
     .lte("start_time", end);
-  return count ?? 0;
+  return mergeCalendarEvents((data || []) as any[], "unknown").length;
 }
 
 async function latestWearable(db: any, userId: string) {

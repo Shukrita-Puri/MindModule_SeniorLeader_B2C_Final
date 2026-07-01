@@ -24,6 +24,11 @@ import {
   type MergedCalendarEvent,
 } from './calendar-merge.ts';
 
+// Re-export the canonical cross-provider merger so all client callers can
+// import a single rules surface (mirrors supabase/functions/_shared/rules/calendarEvents.ts).
+export { mergeCalendarEvents } from './calendar-merge.ts';
+export type { CalendarMergeInput, MergedCalendarEvent } from './calendar-merge.ts';
+
 export type Period = 'morning' | 'afternoon' | 'evening';
 
 export interface RuleEvent {

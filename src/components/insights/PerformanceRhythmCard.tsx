@@ -468,7 +468,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             .maybeSingle(),
           supabase
             .from('calendar_events')
-            .select('title, start_time')
+            .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
             .eq('user_id', effectiveUserId)
             .gte('start_time', new Date(thirtyDaysAgo).toISOString()),
           supabase

@@ -572,7 +572,7 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
         .order('checkin_date', { ascending: false }),
       supabase
         .from('calendar_events')
-        .select('start_time, title, event_metadata')
+        .select('id, start_time, end_time, title, event_metadata, provider, attendees_count, is_organizer, is_recurring, external_id')
         .eq('user_id', userId)
         .gte('start_time', thirtyDaysAgo.toISOString())
     ]);
@@ -580,7 +580,9 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
     if (!checkInsResult.data || !calendarResult.data) return undefined;
     
     const checkIns = checkInsResult.data;
-    const events = calendarResult.data;
+    // Cross-provider dedupe — same event across apple/google/msft collapses to one.
+    const { mergeCalendarEvents } = await import('@/utils/rules/calendarEvents');
+    const events = mergeCalendarEvents((calendarResult.data || []) as any[], 'web') as any[];
     
     if (checkIns.length < 5 || events.length < 3) return undefined;
     
@@ -653,13 +655,14 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
     const todayEnd = new Date(today);
     todayEnd.setHours(23, 59, 59, 999);
     
-    const { data: todayEvents } = await supabase
+    const { data: rawTodayEvents } = await supabase
       .from('calendar_events')
-      .select('title')
+      .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
       .eq('user_id', userId)
       .gte('start_time', todayStart.toISOString())
       .lte('start_time', todayEnd.toISOString());
-    
+    const todayEvents = mergeCalendarEvents((rawTodayEvents || []) as any[], 'web') as any[];
+
     let todayPrediction: PredictivePatterns['todayPrediction'] | undefined;
     
     if (todayEvents && todayEvents.length > 0) {
