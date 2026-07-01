@@ -4316,51 +4316,61 @@ serve(async (req) => {
           const isTravel = !!(ctx.dayContext.preFlight || ctx.dayContext.inFlight);
 
           // ── v1.1 - Back-to-back gap guard ─────────────────────────────
-          // Find the largest gap between now and the next event(s) in the
-          // next 3 h. No gap ≥ 30 min → suppress; gap 30–60 min → downgrade
-          // to reminder variant (no-app-open CTA).
+          // Measure the smallest gap between STRICTLY-FUTURE meetings in the
+          // next 3 h. Only triggers when at least two future meetings crowd
+          // the horizon — a single in-progress meeting is not "back-to-back".
+          // Duplicate calendar rows are deduped so a single meeting synced
+          // twice cannot collapse the gap to 0.
           const nowMs = Date.now();
           const horizonMs = nowMs + 3 * 60 * 60 * 1000;
-          const upcoming = (ctx.todayEvents || [])
-            .map((e: any) => ({ start: new Date(e.start_time).getTime(), end: new Date(e.end_time).getTime() }))
-            .filter((e) => e.end > nowMs && e.start < horizonMs)
+          const rawUpcoming = (ctx.todayEvents || [])
+            .map((e: any) => ({
+              start: new Date(e.start_time).getTime(),
+              end: new Date(e.end_time).getTime(),
+              title: String(e.title ?? '').trim().toLowerCase().replace(/\s+/g, ' '),
+            }))
+            .filter((e) => e.start > nowMs && e.start < horizonMs)
             .sort((a, b) => a.start - b.start);
+          const seenDedupe = new Set<string>();
+          const upcoming = rawUpcoming.filter((e) => {
+            const key = `${e.start}|${e.end}|${e.title}`;
+            if (seenDedupe.has(key)) return false;
+            seenDedupe.add(key);
+            return true;
+          });
           let largestGapMin = Number.POSITIVE_INFINITY;
-          if (upcoming.length > 0) {
-            let cursor = nowMs;
-            for (const ev of upcoming) {
+          if (upcoming.length >= 2) {
+            let cursor = upcoming[0].end;
+            for (let i = 1; i < upcoming.length; i++) {
+              const ev = upcoming[i];
               const gap = Math.max(0, Math.round((ev.start - cursor) / 60000));
               if (gap < largestGapMin) largestGapMin = gap;
               cursor = Math.max(cursor, ev.end);
             }
           }
-          const isBackToBack = upcoming.length > 0 && largestGapMin < BACK_TO_BACK_MIN_GAP_MIN;
+          // Only classify as back-to-back when we actually measured a
+          // meeting-to-meeting gap (≥ 2 future meetings).
+          const measuredGap = upcoming.length >= 2 && Number.isFinite(largestGapMin);
+          const isBackToBack = measuredGap && largestGapMin < BACK_TO_BACK_MIN_GAP_MIN;
           const isReminderGap =
-            upcoming.length > 0 &&
+            measuredGap &&
             largestGapMin >= BACK_TO_BACK_MIN_GAP_MIN &&
             largestGapMin <= REMINDER_GAP_UPPER_MIN;
 
           if (isBackToBack) {
-            console.log(`[smart-nudges][v1.1] User ${userId} back_to_back (largestGap=${largestGapMin}min). Suppressing ${bestNudge.type}.`);
-            try {
-              await supabase.from('notification_log').insert({
-                user_id: userId,
-                notification_type: bestNudge.type,
-                variant_id: bestNudge.copy.variantId,
-                event_reference: bestNudge.eventReference || null,
-                delivery_state: 'suppressed',
-                payload: {
-                  title: bestNudge.copy.title,
-                  body: bestNudge.copy.body,
-                  notification_type: bestNudge.type,
-                  architecture: 'cos-mind-v8-meaning-forward',
-                  suppression_reason: 'back_to_back',
-                  suppression_stage: 'pre_evaluator',
-                  metadata: { delivery_skip_reason: 'back_to_back', largest_gap_min: largestGapMin },
-                },
-              });
-            } catch (_) { /* best-effort */ }
-            // skip the push for this user
+            // Skip this run's push but do NOT write a `notification_log`
+            // row — that would trigger `two_hour_suppression` on every
+            // subsequent evaluation and kill the whole evening. Trace only.
+            console.log(`[smart-nudges][v1.1] User ${userId} back_to_back skip (largestGap=${largestGapMin}min, upcoming=${upcoming.length}).`);
+            trace(userId, 'back_to_back_skip', {
+              ...traceBase,
+              notificationType: bestNudge.type,
+              variantId: bestNudge.copy.variantId,
+              metadata: {
+                largest_gap_min: largestGapMin,
+                upcoming_future_events: upcoming.length,
+              },
+            });
             continue;
           }
 
