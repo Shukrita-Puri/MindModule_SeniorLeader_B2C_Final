@@ -69,7 +69,7 @@ async function countTodayEvents(db: any, userId: string, localDate: string) {
   // See mem/architecture/event-load-and-dedupe-rules.md.
   const { data } = await db
     .from("calendar_events")
-    .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,external_id,status")
+    .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,external_id")
     .eq("user_id", userId)
     .gte("start_time", start)
     .lte("start_time", end);
