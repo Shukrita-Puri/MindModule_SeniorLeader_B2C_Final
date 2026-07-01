@@ -1,59 +1,62 @@
-## Why Shukrita didn't get an evening nudge (2026-07-01)
+## Problem
 
-Audit of `notification_evaluator_traces` + `notification_log` for `google-oauth2|111878424918915566691`:
+`mergeCalendarEvents` (src/utils/rules/calendar-merge.ts + mirror in `supabase/functions/_shared/rules/calendar-merge.ts`) is the canonical cross-provider dedupe helper. Per `mem/architecture/event-load-and-dedupe-rules.md`, every count / render surface must run raw `calendar_events` rows through it before counting load, showing titles, or scoring importance.
 
-- **18:30 UTC (19:30 London)** — `smart-nudges` generated `nudge_three` ("Evening recalibration"), but it was **suppressed pre-evaluator** with `suppression_reason: 'back_to_back'`, `largest_gap_min: 0`. Row exists in `notification_log` with `delivery_state = 'suppressed'` — no APNs push was ever sent.
-- Every 15-min run after 19:30 → blocked by `two_hour_suppression` (referencing that 18:30 suppressed send as `last_sent_at`).
-- After 22:30 local → `outside_global_window`.
-- Same pattern on 30 June (`nudge_three` suppressed at 18:15 UTC with `back_to_back`).
+Today the write-side syncs (Apple / Google / Microsoft) each insert into `calendar_events` independently — that is correct (each sync only knows its own provider). Dedupe is a **read-side** contract. Two things break that contract:
 
-## Root cause
+1. **`primary_calendar_events` view is not a dedupe** — it picks a single "winning" provider and drops the others. That hides cross-provider duplicates but also loses signal (e.g. Apple-only holds not present in Google). It is not equivalent to merging.
+2. **Several read paths query raw `calendar_events` and skip the merge entirely.** They count/list duplicates.
 
-`supabase/functions/smart-nudges/index.ts` lines 4322-4365 (v1.1 back-to-back guard):
+### Confirmed offenders (raw `calendar_events`, no merge)
 
-```ts
-const upcoming = ctx.todayEvents
-  .filter(e => e.end > nowMs && e.start < horizonMs)   // ← includes in-progress
-  .sort(...);
-let cursor = nowMs;
-for (const ev of upcoming) {
-  const gap = Math.max(0, Math.round((ev.start - cursor) / 60000));  // ← clamps negatives to 0
-  ...
-}
-```
+Backend:
+- `supabase/functions/build-executive-home-cards/index.ts` — `countTodayEvents` uses `select("id", { count: "exact" })` → double/triple counts eventCount used by MRS / Brief / Plan.
+- `supabase/functions/cause-effect-engine/index.ts` (~L441).
+- `supabase/functions/self-mastery-coach/index.ts` (~L1611, L2213, L2364).
+- `supabase/functions/record-event-priority-signal/index.ts` (~L123, L252).
+- `supabase/functions/performance-rhythm-insights/index.ts` (~L95).
+- `supabase/functions/generate-coach-summary/index.ts` (~L296).
 
-Today's `calendar_events` for the user:
+Frontend:
+- `src/utils/energyStateEngine.ts` (~L654) — direct Apple probe used for demand.
+- `src/utils/coachContextBuilder.ts` (~L574, L657).
+- `src/hooks/useCalendarSync.ts` (~L194, L405) — display + counts.
+- `src/components/insights/PerformanceRhythmCard.tsx` (~L470).
+- `src/components/insights/CalendarStateCorrelations.tsx` (~L98).
+- `src/components/home/PostEventReflection.tsx` (~L59).
 
-```
-Robinhood Presents: The World is Flat  18:00–19:00 UTC   (duplicate row)
-Robinhood Presents: The World is Flat  18:00–19:00 UTC
-```
-
-At 18:30 UTC: both events are **in progress** (started 30 min ago). The filter keeps them (`end > now`), then `Math.max(0, negative)` collapses the gap to `0`, so `largestGapMin = 0 < BACK_TO_BACK_MIN_GAP_MIN` → suppressed. Duplicate rows amplify the effect but the bug fires on any single in-progress event.
-
-This is a regression from the new SSOT §1.4 back-to-back cliff design: the intent is "meeting-to-meeting gap < 30 min → send an in-body, no-CTA nudge." Instead the current code (a) misclassifies a single in-progress meeting as back-to-back, and (b) fully drops the nudge instead of downgrading it. It also poisons the rest of the evening via the 2h-suppression window.
+Compliant paths (leave alone, use as reference):
+- `list-week-ahead-priorities`, `compute-outer-readiness`, `generate-mastery-plan`, `_shared/signal-engine/*` — all pipe through `mergeCalendarEvents` after fetch.
 
 ## Fix
 
-Scope: `supabase/functions/smart-nudges/index.ts` back-to-back guard only. No changes to Plan/Brief/MRS.
+**Single rule to enforce everywhere:** after any read of `calendar_events` (or `primary_calendar_events`), pass rows through `mergeCalendarEvents(rows, platform)` before counting, rendering, or scoring. Count the merged array's length, never a SQL `count(*)`.
 
-1. **Redefine "upcoming" as strictly future** — `e.start > nowMs && e.start < horizonMs`. In-progress meetings are not gaps to measure; they're the current event.
-2. **Require ≥ 2 future events** before the back-to-back gate can trigger. With `< 2` future events there is no meeting-to-meeting gap to test; skip the gate.
-3. **Dedupe events** (`start_time + end_time + normalized title`) before the gap walk, so duplicate calendar rows can't collapse the gap to 0.
-4. **Do not write a `suppressed` `notification_log` row** in the back-to-back branch when we skip. Writing it triggers `two_hour_suppression` for the next ~2 hours and kills the whole evening. Emit only a `trace(...)` with outcome `back_to_back_skip` so we keep observability without poisoning the cooldown window. (Keeping the suppressed row is only correct for the "notification IS the product" in-body variant — which we're not sending yet.)
-5. **Add a unit test** in `supabase/functions/smart-nudges/v1_1_headline_cta_test.ts` covering:
-   - single in-progress event → not back-to-back
-   - duplicate rows for same event → not back-to-back
-   - two future events 10 min apart → back-to-back
-   - one future event only → not back-to-back
+### Backend edits
 
-## Verification after deploy
+1. **build-executive-home-cards** — replace `countTodayEvents` with:
+   - `SELECT id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring` for today's window, then `mergeCalendarEvents(...).length`. This corrects `eventCount` that flows into MRS/Brief/Plan.
+2. **cause-effect-engine, self-mastery-coach, record-event-priority-signal, performance-rhythm-insights, generate-coach-summary** — import `mergeCalendarEvents` from `../_shared/rules/calendarEvents.ts`, select the merge-required columns (title, start_time, end_time, provider, event_metadata, attendees_count, is_organizer, is_recurring, external_id, status), and run through the merger before any counting / grouping / titles / attendee sums.
 
-- Re-run `smart-nudges` manually for the user via `supabase--curl_edge_functions` at an evening slot; expect `nudge_three` `delivery_state = 'accepted'` in `notification_log`, APNs 200.
-- Confirm no new `back_to_back` suppression rows in `notification_log` for users whose only "conflict" is a single in-progress meeting.
-- Watch `notification_evaluator_traces` for `back_to_back_skip` outcomes: should be rare, only when ≥ 2 future meetings actually crowd the horizon.
+### Frontend edits
 
-## Out of scope (flag only)
+3. `src/utils/energyStateEngine.ts`, `src/utils/coachContextBuilder.ts`, `src/hooks/useCalendarSync.ts`, `src/components/insights/PerformanceRhythmCard.tsx`, `src/components/insights/CalendarStateCorrelations.tsx`, `src/components/home/PostEventReflection.tsx` — same treatment: fetch → `mergeCalendarEvents(rows, isNativeApp() ? 'ios' : 'web')` → downstream logic.
 
-- Duplicate Robinhood event rows in `calendar_events` — likely an Apple Calendar sync dedupe bug, tracked separately.
-- Building the actual in-body "notification IS the product" back-to-back variant from SSOT §1.4 — separate feature, not required to unblock tonight's nudges.
+### Contract clarification (docs only)
+
+4. Update `mem/architecture/event-load-and-dedupe-rules.md` and `docs/EXECUTIVE_HOME_SSOT.md` with a "Dedupe is mandatory on every read" section that:
+   - Lists `mergeCalendarEvents` as the only supported entry point.
+   - Bans `select('id', { count: 'exact' })` against `calendar_events`.
+   - Notes `primary_calendar_events` is a legacy single-provider view — new code should read `calendar_events` and merge, not read the view.
+
+### Verification
+
+- Live check for `shukrita@mindmodule.me` (has Apple + Google): before fix, `countTodayEvents` returns N×providers; after fix, returns unique count.
+- Unit test: extend `_shared/ceo-behaviour-batch2.test.ts` with a fixture containing the same event mirrored across apple + google + microsoft and assert `mergeCalendarEvents(...).length === 1`, `sourceCalendars.length === 3`.
+- Manual: run `build-executive-home-cards` for the user and diff `eventCount` before/after.
+
+### Non-goals
+
+- No changes to write-side sync functions. Cross-provider dedupe cannot happen at insert time.
+- No changes to `primary_calendar_events` view semantics in this pass (documented as legacy; migration to raw+merge tracked as follow-up).
+- No UI changes beyond corrected counts / collapsed duplicate titles.
