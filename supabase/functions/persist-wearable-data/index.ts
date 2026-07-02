@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { deriveSleepEfficiency } from "../_shared/wearable/derive-sleep-efficiency.ts";
+import { mergeCanonicalWearableRow } from "../_shared/wearable/canonical.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -188,12 +189,21 @@ Deno.serve(async (req) => {
         // like { hrv: ["com.ouraring.oura"], sleep: ["com.apple.health"] };
         // `source_provider` is the resolved top-level label
         // (apple_health | oura_via_apple_health | apple_watch_via_apple_health | mixed_via_apple_health).
-        if (sample.source_apps && typeof sample.source_apps === "object") {
-          row.source_apps = sample.source_apps;
-        }
-        if (typeof sample.source_provider === "string" && sample.source_provider.length > 0) {
-          row.source_provider = sample.source_provider;
-        }
+        row.source_apps = sample.source_apps && typeof sample.source_apps === "object"
+          ? sample.source_apps
+          : {
+              ...(sample.hrv != null || sample.hrv_samples ? { hrv: ["apple-healthkit"], hrv_samples: ["apple-healthkit"] } : {}),
+              ...(sample.resting_heart_rate != null ? { resting_heart_rate: ["apple-healthkit"] } : {}),
+              ...(sample.heart_rate != null ? { heart_rate: ["apple-healthkit"] } : {}),
+              ...(sample.hr_samples ? { hr_samples: ["apple-healthkit"] } : {}),
+              ...(sample.total_sleep_minutes != null ? { total_sleep_minutes: ["apple-healthkit"] } : {}),
+              ...(sample.deep_sleep_minutes != null ? { deep_sleep_minutes: ["apple-healthkit"] } : {}),
+              ...(sample.rem_sleep_minutes != null ? { rem_sleep_minutes: ["apple-healthkit"] } : {}),
+              ...(sample.sleep_score != null ? { sleep_score: ["apple-healthkit"] } : {}),
+            };
+        row.source_provider = typeof sample.source_provider === "string" && sample.source_provider.length > 0
+          ? sample.source_provider
+          : "apple_healthkit";
 
         if (body.raw_data) {
           row.raw_data = body.raw_data;
@@ -209,10 +219,21 @@ Deno.serve(async (req) => {
           if (eff != null) row.sleep_efficiency = eff;
         }
 
+        const { data: existingRow } = await db
+          .from("wearable_data")
+          .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
+          .eq("user_id", userId)
+          .eq("summary_date", sample.summary_date)
+          .maybeSingle();
+        const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row);
+        if (body.raw_data) {
+          mergedRow.raw_data = body.raw_data;
+        }
+
         // Use upsert instead of select-then-update/insert to eliminate race conditions
         const { error } = await db
           .from("wearable_data")
-          .upsert(row, { onConflict: "user_id,summary_date" });
+          .upsert(mergedRow, { onConflict: "user_id,summary_date" });
 
         if (error) {
           console.error("[persist-wearable-data] DB error for", sample.summary_date, ":", error);
@@ -285,6 +306,16 @@ Deno.serve(async (req) => {
       rem_sleep_minutes,
       raw_data,
       updated_at: new Date().toISOString(),
+      source_provider: "apple_healthkit",
+      source_apps: {
+        ...(hrv != null ? { hrv: ["apple-healthkit"] } : {}),
+        ...(resting_heart_rate != null ? { resting_heart_rate: ["apple-healthkit"] } : {}),
+        ...(heart_rate != null ? { heart_rate: ["apple-healthkit"] } : {}),
+        ...(total_sleep_minutes != null ? { total_sleep_minutes: ["apple-healthkit"] } : {}),
+        ...(deep_sleep_minutes != null ? { deep_sleep_minutes: ["apple-healthkit"] } : {}),
+        ...(rem_sleep_minutes != null ? { rem_sleep_minutes: ["apple-healthkit"] } : {}),
+        ...(sleep_score != null ? { sleep_score: ["apple-healthkit"] } : {}),
+      },
     };
 
     // Persist sleep_efficiency (explicit body value preferred, else derive).
@@ -295,10 +326,18 @@ Deno.serve(async (req) => {
       if (eff != null) row.sleep_efficiency = eff;
     }
 
+    const { data: existingRow } = await db
+      .from("wearable_data")
+      .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
+      .eq("user_id", userId)
+      .eq("summary_date", summary_date)
+      .maybeSingle();
+    const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row);
+
     // Use upsert instead of select-then-update/insert to eliminate race conditions
     const { error } = await db
       .from("wearable_data")
-      .upsert(row, { onConflict: "user_id,summary_date" });
+      .upsert(mergedRow, { onConflict: "user_id,summary_date" });
 
     if (error) {
       console.error("[persist-wearable-data] DB error:", error);

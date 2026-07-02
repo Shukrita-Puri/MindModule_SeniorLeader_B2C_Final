@@ -34,11 +34,11 @@ import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/Feed
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 import { Button } from '@/components/ui/button';
 import EngravedLoader from '@/components/ui/engraved-loader';
-import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
 import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
+import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 
 // ─── TYPES ───
 interface SignalChip {
@@ -97,6 +97,52 @@ const safeText = (value: unknown): string => {
   }
   return '';
 };
+
+const isCardsAwaitingPayload = (payload: any): boolean => {
+  if (!payload) return false;
+  return payload.innerReadinessState === 'awaiting'
+    || payload.innerReadinessScore == null
+    || payload.awaitingSignals === true
+    || payload.briefMode === 'cold-start';
+};
+
+function buildNeutralServerPills(detail: string): PillTooltipPill[] {
+  return [
+    {
+      key: 'decision_readiness',
+      label: 'Decision Readiness',
+      tier: 'neutral',
+      tierLabel: 'Mind Unread',
+      isScoreBearing: false,
+      freshness: 'non_score_bearing',
+      hiddenReason: 'no_fresh_wearable',
+      detail,
+      contributors: {},
+    },
+    {
+      key: 'physical_reserves',
+      label: 'Physical Reserves',
+      tier: 'neutral',
+      tierLabel: 'Body Unread',
+      isScoreBearing: false,
+      freshness: 'non_score_bearing',
+      hiddenReason: 'no_fresh_wearable',
+      detail,
+      contributors: {},
+    },
+    {
+      key: 'resilience_capacity',
+      label: 'Resilience Capacity',
+      tier: 'neutral',
+      tierLabel: 'Reserve Unread',
+      isScoreBearing: false,
+      freshness: 'non_score_bearing',
+      hiddenReason: 'no_fresh_wearable',
+      detail,
+      contributors: {},
+    },
+  ];
+}
 
 const chipBgColor = (color: SignalChip['color']) => {
   switch (color) {
@@ -1359,11 +1405,13 @@ function ExecutivePillCapsule({
   expanded,
   onToggle,
   serverPill,
+  awaiting = false,
 }: {
   pill: ExecutivePill;
   expanded: boolean;
   onToggle: () => void;
   serverPill?: PillTooltipPill | null;
+  awaiting?: boolean;
 }) {
   // Signal Pills v3 SSOT: the visible tier + label come from the server-built
   // `signalPills` payload when present. The local `buildExecutivePills` engine
@@ -1371,10 +1419,14 @@ function ExecutivePillCapsule({
   // the headline word and pill colour MUST match the MRS v3 deterministic
   // engine — otherwise users see legacy taxonomy ("HIDDEN DRAG",
   // "PULLING WEIGHT") that no longer maps to the score.
-  const effectiveState: PillState = (serverPill?.tier as PillState | undefined) ?? pill.state;
-  const effectiveSignalWord = serverPill?.tierLabel
-    ? serverPill.tierLabel.toUpperCase()
-    : pill.signalWord;
+  const effectiveState: PillState = awaiting
+    ? 'neutral'
+    : (serverPill?.tier as PillState | undefined) ?? pill.state;
+  const effectiveSignalWord = awaiting
+    ? (serverPill?.tierLabel ? serverPill.tierLabel.toUpperCase() : '—')
+    : (serverPill?.tierLabel
+      ? serverPill.tierLabel.toUpperCase()
+      : pill.signalWord);
   const c = PILL_COLORS[effectiveState];
   const Icon = pill.Icon;
   // MRS V4 — never render the "(Refined)" / "(Baseline)" badge when the
@@ -1382,7 +1434,7 @@ function ExecutivePillCapsule({
   // wearable is stale/missing or no check-in has tightened it). This
   // prevents a check-in-only state from appearing as a refined coloured pill.
   const showReadinessBadge =
-    serverPill?.isScoreBearing !== false && !!pill.readinessState;
+    !awaiting && serverPill?.isScoreBearing !== false && !!pill.readinessState;
   // Plain-language glossary per pillar — what each pillar tracks, no calculations
   // or proprietary thresholds. Users see a single short definition.
   const glossary: Record<ExecutivePill['id'], { short: string; clinical?: string }> = {
@@ -1471,10 +1523,12 @@ function ExecutivePillRow({
   pills,
   inline = false,
   serverPills,
+  awaiting = false,
 }: {
   pills: ExecutivePill[];
   inline?: boolean;
   serverPills?: Array<PillTooltipPill> | null;
+  awaiting?: boolean;
 }) {
   const PILL_ID_TO_KEY: Record<ExecutivePill['id'], PillTooltipPill['key']> = {
     cognitive: 'decision_readiness',
@@ -1489,6 +1543,7 @@ function ExecutivePillRow({
       expanded={expandedId === pill.id}
       onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
       serverPill={serverPills?.find((sp) => sp.key === PILL_ID_TO_KEY[pill.id]) ?? null}
+      awaiting={awaiting}
     />
   ));
   if (inline) {
@@ -1765,7 +1820,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // it is an awaiting row with no copy, we fall through to the live
   // payload unchanged.
   const { data: currentBriefSnapshot } = useCurrentBriefSnapshot();
-  const snapshotIsRenderable = !!currentBriefSnapshot?.isRenderable;
+  const liveCardsAwaiting = isCardsAwaitingPayload(outerBriefReal);
+  const snapshotIsRenderable =
+    !!currentBriefSnapshot?.isRenderable &&
+    !liveCardsAwaiting &&
+    !isCardsAwaitingPayload(currentBriefSnapshot);
 
   // App-Tour mock injection — strict triple-AND gate (mock active + genuine
   // first-time user + no real brief yet). Substitutes a best-in-class demo
@@ -1834,6 +1893,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     tourMockBriefActive && realBriefEmpty
       ? MOCK_BRIEF
       : (briefFromSnapshot ?? outerBriefReal);
+  const cardsAwaiting = isCardsAwaitingPayload(outerBrief);
+  const awaitingCopy = getReadinessAwaitingCopy(outerBrief);
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
@@ -1853,6 +1914,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         !!v
         && v.briefMode !== 'cold-start'
         && !v.awaitingSignals
+        && !isCardsAwaitingPayload(v)
         && !!v.phrase
         && !!v.bodyText;
       // 1) In-memory React Query cache (same tab session)
@@ -1953,7 +2015,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // Show the awaiting copy ONLY for a real cold-start. Engine failures get
   // their own retry block below.
   const showNeutralAwaitingCopy =
-    !showFailureBlock && (awaitingSignals || readinessState === 'awaiting' || score == null);
+    !showFailureBlock && (cardsAwaiting || awaitingSignals || readinessState === 'awaiting' || score == null);
   const phrase = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.phrase || "Today's read.");
@@ -2126,7 +2188,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {showNeutralAwaitingCopy && (
         <>
           <p className="mt-4 text-quote text-foreground">
-            Awaiting signals — {READINESS_AWAITING_MESSAGE}
+            {awaitingCopy}
           </p>
         </>
       )}
@@ -2199,13 +2261,17 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           {/* 7. EXECUTIVE PILLS + CALENDAR PILLS — unified capsule grid */}
           {(() => {
             const execPills = buildExecutivePills(outerBrief);
+            const serverPillsForRender = cardsAwaiting
+              ? buildNeutralServerPills(awaitingCopy)
+              : ((outerBrief as any)?.signalPills ?? null);
             if (execPills) {
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                   <ExecutivePillRow
                     pills={execPills}
                     inline
-                    serverPills={(outerBrief as any)?.signalPills ?? null}
+                    serverPills={serverPillsForRender}
+                    awaiting={cardsAwaiting}
                   />
                   <CalendarPills outerBrief={outerBrief} />
                 </div>

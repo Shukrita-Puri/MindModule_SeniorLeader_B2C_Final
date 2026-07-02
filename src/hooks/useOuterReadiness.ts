@@ -86,6 +86,23 @@ export interface OuterReadinessData {
   driver: string;
   dataSources: string[];
   calendarState?: 'active' | 'connected_no_events' | 'not_connected';
+  integrationStatus?: {
+    wearable?: {
+      connectionStatus: 'connected' | 'connected_but_waiting_for_data' | 'sync_delayed' | 'permission_revoked' | 'disconnected' | 'error' | 'unknown';
+      syncStatus: 'synced' | 'waiting_for_data' | 'sync_delayed' | 'error' | 'watch_unavailable' | 'unknown';
+      hasTodayData: boolean;
+      hasRecentData: boolean;
+      hasHistoricalData: boolean;
+      lastSyncAt: string | null;
+      lastSampleAt: string | null;
+    } | null;
+    calendar?: {
+      provider: string | null;
+      connectionStatus: 'connected' | 'connected_no_events' | 'permission_revoked' | 'disconnected' | 'error';
+      needsReconnect: boolean;
+      lastSyncAt: string | null;
+    } | null;
+  };
   coachInsightAge?: number;
   coachInsightLabel?: string;
   // New fields for DecisionReadinessBrief

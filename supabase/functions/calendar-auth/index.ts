@@ -175,6 +175,55 @@ serve(async (req) => {
         JSON.stringify({ authUrl }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    } else if (action === 'update_status') {
+      if (!authenticatedUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required for status update.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (validProvider !== 'apple') {
+        return new Response(
+          JSON.stringify({ error: 'Status updates are only supported for Apple Calendar here.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const nowIso = new Date().toISOString();
+      const lastSync = typeof body.lastSync === 'string' && body.lastSync.length > 0 ? body.lastSync : null;
+      const { data: existingConn } = await supabaseAdmin
+        .from('calendar_connections')
+        .select('id')
+        .eq('user_id', authenticatedUserId)
+        .eq('provider', 'apple')
+        .maybeSingle();
+
+      const payload: Record<string, unknown> = {
+        user_id: authenticatedUserId,
+        provider: 'apple',
+        is_active: true,
+        updated_at: nowIso,
+      };
+      if (lastSync) payload.last_sync = lastSync;
+
+      if (existingConn) {
+        const { error: updateError } = await supabaseAdmin
+          .from('calendar_connections')
+          .update(payload)
+          .eq('id', existingConn.id);
+        if (updateError) throw new Error(updateError.message || 'Failed to update Apple Calendar status');
+      } else {
+        const { error: insertError } = await supabaseAdmin
+          .from('calendar_connections')
+          .insert(payload);
+        if (insertError) throw new Error(insertError.message || 'Failed to create Apple Calendar status');
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, statusUpdated: true, provider: 'apple', lastSync }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     } else if (action === 'callback' || url.searchParams.get('code')) {
       // OAuth callback
       const code = url.searchParams.get('code');

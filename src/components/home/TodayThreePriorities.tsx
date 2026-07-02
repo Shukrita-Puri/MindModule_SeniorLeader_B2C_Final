@@ -46,7 +46,7 @@ import {
   localISODate,
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
-import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
+import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -71,6 +71,14 @@ const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTit
   if (type === 'prepare')  return `Build resilience for high-demand days`;
   if (type === 'integrate')return tod === 'evening' ? `Close the day with intention` : `Consolidate what's working`;
   return `Strengthen your state for what's ahead`;
+};
+
+const isCardsAwaitingPayload = (payload: any): boolean => {
+  if (!payload) return false;
+  return payload.innerReadinessState === 'awaiting'
+    || payload.innerReadinessScore == null
+    || payload.awaitingSignals === true
+    || payload.briefMode === 'cold-start';
 };
 
 // Performance-oriented label for the 3 plan slots. The server is the single
@@ -233,6 +241,7 @@ const TodayThreePriorities = ({
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
+  const awaitingCopy = getReadinessAwaitingCopy(outerReadinessData ?? undefined);
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
   // Does NOT drive rendering or generation. Dev-mode console only.
@@ -262,6 +271,7 @@ const TodayThreePriorities = ({
 
   const todayForPlan = localISODate();
   const periodForPlan = getCurrentTimeWindow();
+  const cardsAwaiting = isCardsAwaitingPayload(outerReadinessData);
   const forceRefreshKey = cacheKeys.planForceRefresh(todayForPlan, periodForPlan);
   const hasPlanForceRefresh = (() => {
     try {
@@ -276,6 +286,7 @@ const TodayThreePriorities = ({
   // scripted loader. Background freshness checks in loadPlan() may still
   // silently swap the data later.
   const initialCached = (() => {
+    if (outerReadinessData === undefined || cardsAwaiting) return null;
     if (hasPlanForceRefresh) return null;
     try {
       const today = todayForPlan;
@@ -284,6 +295,7 @@ const TodayThreePriorities = ({
       if (loaded !== true) return null;
       const parsed = readPersistent<MasteryPlanResponse>(cacheKeys.planData(today, period));
       if (!parsed) return null;
+      if (isCardsAwaitingPayload(parsed)) return null;
       if (!parsed.horizonModules || parsed.horizonModules.length === 0) return null;
       return parsed;
     } catch {
@@ -694,9 +706,16 @@ const TodayThreePriorities = ({
         engineStatus === 'inner-failure' ||
         engineStatus === 'outer-failure' ||
         engineStatus === 'unknown-error';
-      if (briefAwaiting && !todayCheckin && !wearableFresh && !isEngineFailure) {
+      const planCardsAwaiting = isCardsAwaitingPayload(outerReadinessData);
+      if ((planCardsAwaiting || (briefAwaiting && !todayCheckin && !wearableFresh)) && !isEngineFailure) {
         setAwaitingSignals(true);
         setPlan(null);
+        clearPersistent(loadedKey);
+        clearPersistent(dataKey);
+        try {
+          sessionStorage.removeItem(forceKey);
+          sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+        } catch { /* ignore */ }
         setLoading(false);
         return;
       }
@@ -726,6 +745,14 @@ const TodayThreePriorities = ({
         const cachedPlan = readPersistent<MasteryPlanResponse>(dataKey);
         if (cachedPlan) {
           const parsed = cachedPlan;
+          if (isCardsAwaitingPayload(outerReadinessData) || isCardsAwaitingPayload(parsed)) {
+            clearPersistent(loadedKey);
+            clearPersistent(dataKey);
+            setAwaitingSignals(true);
+            setPlan(null);
+            setLoading(false);
+            return false;
+          }
           // Cache version invalidation: old plans without horizonModules must be regenerated
           if (!parsed.horizonModules || parsed.horizonModules.length === 0) {
             clearPersistent(loadedKey);
@@ -828,6 +855,8 @@ const TodayThreePriorities = ({
           forceRefresh: forceRefresh || awaitingSignals || !sessionLoaded,
           localDate: todayDate,
           todayCheckinId: todayCheckin?.id ?? null,
+          mrsReadinessState: (outerReadinessData as any)?.innerReadinessState ?? null,
+          mrsReadinessScore: (outerReadinessData as any)?.innerReadinessScore ?? null,
         };
         if (hasSlotReplacements) {
           // Per-slot anchoring contract: server pins each event to the
@@ -963,6 +992,22 @@ const TodayThreePriorities = ({
     // current window.
     if (masteryPlanSnapshot === undefined) return;
 
+    if (cardsAwaiting) {
+      const todayDate = localISODate();
+      const currentPeriod = getCurrentTimeWindow();
+      clearPersistent(cacheKeys.planLoaded(todayDate, currentPeriod));
+      clearPersistent(cacheKeys.planData(todayDate, currentPeriod));
+      try {
+        sessionStorage.removeItem(cacheKeys.planForceRefresh(todayDate, currentPeriod));
+        sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+      } catch { /* ignore */ }
+      hydratedFromSnapshotRef.current = false;
+      setAwaitingSignals(true);
+      setPlan(null);
+      setLoading(false);
+      return;
+    }
+
     // ── Snapshot-read-first hydration ──
     // Skip if user explicitly requested a manual refresh — the live
     // generator owns that path and will rewrite the snapshot via its
@@ -974,6 +1019,7 @@ const TodayThreePriorities = ({
       snap &&
       snap.status === 'ready' &&
       snap.planJson &&
+      !isCardsAwaitingPayload(snap.planJson) &&
       Array.isArray((snap.planJson as any).horizonModules) &&
       (snap.planJson as any).horizonModules.length > 0
     ) {
@@ -1322,7 +1368,7 @@ const TodayThreePriorities = ({
               Awaiting signals
             </span>
             <span className="flex items-start gap-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
-              <span>{READINESS_AWAITING_MESSAGE}</span>
+              <span>{awaitingCopy}</span>
               <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
             </span>
           </button>

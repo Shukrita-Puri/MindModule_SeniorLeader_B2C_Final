@@ -53,7 +53,7 @@ import {
   type DayContext,
 } from "../_shared/signal-engine/day-kind-detector.ts";
 import {
-  isAppleSleepSource,
+  isAppleMetricSource,
   hasMeaningfulDemand,
   coldStartLabel,
 } from "../_shared/signal-engine/context-builder.ts";
@@ -236,6 +236,23 @@ interface OuterReadinessResult {
   coachInsightAge?: number;
   coachInsightLabel?: string;
   relationshipPattern?: string;
+  integrationStatus?: {
+    wearable?: {
+      connectionStatus: 'connected' | 'connected_but_waiting_for_data' | 'sync_delayed' | 'permission_revoked' | 'disconnected' | 'error' | 'unknown';
+      syncStatus: 'synced' | 'waiting_for_data' | 'sync_delayed' | 'error' | 'watch_unavailable' | 'unknown';
+      hasTodayData: boolean;
+      hasRecentData: boolean;
+      hasHistoricalData: boolean;
+      lastSyncAt: string | null;
+      lastSampleAt: string | null;
+    } | null;
+    calendar?: {
+      provider: string | null;
+      connectionStatus: 'connected' | 'connected_no_events' | 'permission_revoked' | 'disconnected' | 'error';
+      needsReconnect: boolean;
+      lastSyncAt: string | null;
+    } | null;
+  };
   // New: State statement + alreadyUsed[] relay for SharedContext
   stateStatement?: string;
   stateAlreadyUsed?: string[];
@@ -1898,7 +1915,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_efficiency, raw_data, source, summary_date')
+        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_efficiency, raw_data, source, source_provider, source_apps, summary_date')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -1916,7 +1933,7 @@ serve(async (req) => {
         // Apple correction: HealthKit & Apple Watch report "time in bed",
         // not asleep — apply the standard 0.85 multiplier. Oura/Whoop
         // already report true sleep duration so they're left alone.
-        const sleepDuration = (rawSleepDuration !== null && isAppleSleepSource(source))
+        const sleepDuration = (rawSleepDuration !== null && isAppleMetricSource('total_sleep_minutes', wearableRow as Record<string, unknown>))
           ? Math.round(rawSleepDuration * 0.85)
           : rawSleepDuration;
 
@@ -2003,7 +2020,7 @@ serve(async (req) => {
     }));
 
     // Fetch coach insights, check-ins, archetype, coach memory, commitments, and breakthroughs in parallel
-    const [coachRes, checkInRes, profileRes, coachMemoryRes, coachCommitmentsRes, coachBreakthroughsRes] = await Promise.all([
+    const [coachRes, checkInRes, profileRes, coachMemoryRes, coachCommitmentsRes, coachBreakthroughsRes, wearableIntegrationRes, calendarConnectionRes] = await Promise.all([
       db.from('user_coach_insights')
         .select('insight_type, insight_content, created_at')
         .eq('user_id', userId)
@@ -2042,6 +2059,13 @@ serve(async (req) => {
         .gte('impact_score', 3)
         .order('created_at', { ascending: false })
         .limit(5),
+      db.from('user_integrations')
+        .select('watch_type, watch_connection_status, watch_sync_status, watch_last_sync_at, watch_last_sample_at, watch_last_error, watch_last_error_at, watch_disconnected_at')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      db.from('calendar_connections')
+        .select('provider, is_active, last_sync')
+        .eq('user_id', userId),
     ]);
 
     const coachInsights = coachRes.data || [];
@@ -2052,6 +2076,8 @@ serve(async (req) => {
     const coachMemories = coachMemoryRes.data || [];
     const coachCommitments = coachCommitmentsRes.data || [];
     const coachBreakthroughs = coachBreakthroughsRes.data || [];
+    const wearableIntegration = wearableIntegrationRes.data ?? null;
+    const calendarConnections = calendarConnectionRes.data || [];
     
     const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
     const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
@@ -2060,6 +2086,12 @@ serve(async (req) => {
     const coachGrowth = growthInsight?.insight_content || null;
     const relationshipPattern = relationshipInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
+    const appleCalendarConnection = (calendarConnections as Array<{ provider?: string | null; is_active?: boolean | null; last_sync?: string | null }>).find((conn) => conn.provider === 'apple') ?? null;
+    const appleCalendarNeedsReconnect = !!appleCalendarConnection && !appleCalendarConnection.is_active;
+    const wearableConnectionStatus = (wearableIntegration?.watch_connection_status ?? null) as
+      | 'connected' | 'connected_but_waiting_for_data' | 'sync_delayed' | 'permission_revoked' | 'disconnected' | 'error' | null;
+    const wearableSyncStatus = (wearableIntegration?.watch_sync_status ?? null) as
+      | 'synced' | 'waiting_for_data' | 'sync_delayed' | 'error' | 'watch_unavailable' | null;
 
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes, calendarResult.meetingCount, calendarResult.remainingMeetings);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
@@ -2389,6 +2421,58 @@ serve(async (req) => {
     // Canonical flag: true only when actual metric data exists
     const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
+    const integrationStatus: OuterReadinessResult['integrationStatus'] = {
+      wearable: wearableIntegration
+        ? {
+            connectionStatus:
+              wearableConnectionStatus === 'permission_revoked'
+                ? 'permission_revoked'
+                : wearableConnectionStatus === 'sync_delayed'
+                  ? 'sync_delayed'
+                  : wearableConnectionStatus === 'connected_but_waiting_for_data'
+                    ? 'connected_but_waiting_for_data'
+                    : wearableConnectionStatus === 'connected'
+                      ? (hasTodayWearableData || hasRecentWearableData ? 'connected' : (hasWearableData ? 'connected_but_waiting_for_data' : 'disconnected'))
+                      : wearableConnectionStatus === 'error'
+                        ? 'error'
+                        : hasWearableData
+                          ? 'connected'
+                          : 'unknown',
+            syncStatus:
+              wearableSyncStatus === 'synced' ||
+              wearableSyncStatus === 'waiting_for_data' ||
+              wearableSyncStatus === 'sync_delayed' ||
+              wearableSyncStatus === 'error' ||
+              wearableSyncStatus === 'watch_unavailable'
+                ? wearableSyncStatus
+                : hasTodayWearableData
+                  ? 'synced'
+                  : hasRecentWearableData
+                    ? 'waiting_for_data'
+                    : hasWearableData
+                      ? 'waiting_for_data'
+                      : 'unknown',
+            hasTodayData: hasTodayWearableData,
+            hasRecentData: hasRecentWearableData,
+            hasHistoricalData: wearableDaysConnected >= 7,
+            lastSyncAt: wearableIntegration?.watch_last_sync_at ?? null,
+            lastSampleAt: wearableIntegration?.watch_last_sample_at ?? null,
+          }
+        : null,
+      calendar: {
+        provider: appleCalendarConnection?.provider ?? null,
+        connectionStatus:
+          appleCalendarNeedsReconnect
+            ? 'permission_revoked'
+            : calendarResult.state === 'connected_no_events'
+              ? 'connected_no_events'
+              : calendarResult.state === 'active'
+                ? 'connected'
+                : 'disconnected',
+        needsReconnect: appleCalendarNeedsReconnect,
+        lastSyncAt: appleCalendarConnection?.last_sync ?? null,
+      },
+    };
 
     // === Readiness Eligibility Contract ===
     // Single source of truth for which readiness states the response may
@@ -2484,7 +2568,7 @@ serve(async (req) => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
         const { data: baseline } = await db
           .from('wearable_data')
-          .select('hrv, sleep_score, resting_heart_rate, heart_rate, total_sleep_minutes, source, summary_date')
+          .select('hrv, sleep_score, resting_heart_rate, heart_rate, total_sleep_minutes, source, source_provider, source_apps, summary_date')
           .eq('user_id', userId)
           .gte('summary_date', thirtyDaysAgo)
           .order('summary_date', { ascending: false })
@@ -2508,10 +2592,9 @@ serve(async (req) => {
             // Duration-based fallback (Apple Health)
             const durRows = baseline.filter((r: any) => r.total_sleep_minutes != null && r.total_sleep_minutes > 0);
             if (durRows.length >= 3) {
-              const isApple = isAppleSleepSource(wearableDataSource);
               const avgDur = durRows.reduce((s: number, r: any) => {
                 const raw = r.total_sleep_minutes;
-                return s + (isApple ? raw * 0.85 : raw);
+                return s + (isAppleMetricSource('total_sleep_minutes', r) ? raw * 0.85 : raw);
               }, 0) / durRows.length;
               sleepBaseline = Math.round(avgDur);
               sleepDeviation = Math.round(((sleepDuration - avgDur) / avgDur) * 100);
@@ -5872,37 +5955,39 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // resurrect deterministic fallback strings on a later read. Score,
         // tier, and signal pills still persist because they come from
         // wearable/calendar/check-in pipelines, not the LLM.
-        const persistPhrase = briefIsAwaiting ? null : responsePhrase;
-        const persistBody = briefIsAwaiting ? null : responseBody;
-        const persistLeanOn = briefIsAwaiting ? null : formattedLeanOn;
-        const persistWatchFor = briefIsAwaiting ? null : formattedWatchFor;
-        const persistLeanOnSource = briefIsAwaiting ? null : finalLeanOnSource;
-        const persistWatchForSource = briefIsAwaiting ? null : finalWatchForSource;
+        const suppressDeliveredBrief = briefIsAwaiting || awaitingSignals || innerStateIsAwaiting;
+        const persistPhrase = suppressDeliveredBrief ? null : responsePhrase;
+        const persistBody = suppressDeliveredBrief ? null : responseBody;
+        const persistLeanOn = suppressDeliveredBrief ? null : formattedLeanOn;
+        const persistWatchFor = suppressDeliveredBrief ? null : formattedWatchFor;
+        const persistLeanOnSource = suppressDeliveredBrief ? null : finalLeanOnSource;
+        const persistWatchForSource = suppressDeliveredBrief ? null : finalWatchForSource;
         const isRefinedWrite = (clientReadinessState ?? 'baseline') === 'refined';
+        const awaitingStateLabel = suppressDeliveredBrief ? 'awaiting' : (clientReadinessState ?? 'baseline');
         const stateColumns = isRefinedWrite
           ? {
-              refined_state: 'refined',
+              refined_state: awaitingStateLabel,
               refined_phrase: persistPhrase,
               refined_body_text: persistBody,
               refined_lean_on: persistLeanOn,
               refined_lean_on_source: persistLeanOnSource,
               refined_watch_for: persistWatchFor,
               refined_watch_for_source: persistWatchForSource,
-              refined_score: innerReadinessScore ?? null,
-              refined_tier: safeTier,
-              refined_signal_pills: signalPillsPayload,
+              refined_score: suppressDeliveredBrief ? null : (innerReadinessScore ?? null),
+              refined_tier: suppressDeliveredBrief ? null : safeTier,
+              refined_signal_pills: suppressDeliveredBrief ? null : signalPillsPayload,
             }
           : {
-              baseline_state: (clientReadinessState ?? 'baseline'),
+              baseline_state: awaitingStateLabel,
               baseline_phrase: persistPhrase,
               baseline_body_text: persistBody,
               baseline_lean_on: persistLeanOn,
               baseline_lean_on_source: persistLeanOnSource,
               baseline_watch_for: persistWatchFor,
               baseline_watch_for_source: persistWatchForSource,
-              baseline_score: innerReadinessScore ?? null,
-              baseline_tier: safeTier,
-              baseline_signal_pills: signalPillsPayload,
+              baseline_score: suppressDeliveredBrief ? null : (innerReadinessScore ?? null),
+              baseline_tier: suppressDeliveredBrief ? null : safeTier,
+              baseline_signal_pills: suppressDeliveredBrief ? null : signalPillsPayload,
             };
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
@@ -6043,13 +6128,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       awaitingSignals,
       awaitingReason,
       // briefMode is the canonical client-facing signal source contract.
-      //   • 'cold-start' — no baseline AND no check-in (legacy awaitingSignals=true)
+      //   • 'cold-start' — no baseline / no check-in / no usable inner score
       //   • 'baseline'   — wearable/calendar/patterns present, no check-in for today
       //   • 'refined'    — check-in present (with or without wearable/calendar)
       // Client rule: only render skeleton when briefMode === 'cold-start'.
       // In baseline mode pills, score, brief and Plan must all render.
       briefMode: (
-        awaitingSignals
+        awaitingSignals || innerStateIsAwaiting
           ? 'cold-start'
           : (hasTodayCheckIn ? 'refined' : 'baseline')
       ) as 'cold-start' | 'baseline' | 'refined',
@@ -6066,7 +6151,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // `checkInOutcome` or `innerReadinessScore`.
       hasCurrentPeriodCheckIn: hasTodayCheckIn,
       hasFreshWearable,
-      hasCurrentPeriodSignal: briefSignalContractMet,
+      hasCurrentPeriodSignal: briefSignalContractMet && !innerStateIsAwaiting,
       driver: theme.driver,
       dataSources,
       calendarState: calendarResult.state,
@@ -6097,6 +6182,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         sourceRowDate,
         dataSource: wearableDataSource,
       },
+      integrationStatus,
       remainingMeetings: calendarResult.remainingMeetings ?? 0,
       hrvDeviation,
       sleepDeviation,

@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
 
     const { data: anyWearable } = await db
       .from("wearable_data")
-      .select("id, updated_at, summary_date, source_provider, source_apps")
+      .select("id, updated_at, summary_date, source, source_provider, source_apps")
       .eq("user_id", userId)
       .order("summary_date", { ascending: false })
       .limit(1)
@@ -88,13 +88,25 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const hasHistoricalData = !!anyWearable;
+    const latestWearableSource = (anyWearable as { source?: string | null } | null)?.source ?? null;
     // Detect Oura-via-Apple-Health from latest day. `source_provider` is
     // set by the iOS native bridge when HealthKit sample sources resolve to Oura.
     const sourceProvider = (anyWearable as { source_provider?: string } | null)?.source_provider ?? null;
     const ouraDetectedViaAppleHealth = sourceProvider === "oura_via_apple_health";
+    const inferredAppleHistoricalConnection = !watchIntegration
+      && hasHistoricalData
+      && (
+        (latestWearableSource?.toLowerCase().includes("apple") ?? false)
+        || (sourceProvider?.toLowerCase().includes("apple") ?? false)
+      );
     const connectionStatus = watchIntegration?.watch_connection_status
-      ?? (watchIntegration?.watch_type ? "connected" : "disconnected");
-    let syncStatus = watchIntegration?.watch_sync_status ?? "unknown";
+      ?? (watchIntegration?.watch_type
+        ? "connected"
+        : inferredAppleHistoricalConnection
+          ? "connected"
+          : "disconnected");
+    let syncStatus = watchIntegration?.watch_sync_status
+      ?? (inferredAppleHistoricalConnection ? "sync_delayed" : "unknown");
 
     if (
       connectionStatus === "connected" &&

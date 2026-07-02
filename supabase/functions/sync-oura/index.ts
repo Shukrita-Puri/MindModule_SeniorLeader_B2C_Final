@@ -14,6 +14,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { mergeCanonicalWearableRow } from "../_shared/wearable/canonical.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,11 +244,31 @@ async function persistRows(
       ...r,
       user_id: userId,
       source: "oura",
+      source_provider: "oura",
+      source_apps: {
+        ...(r.hrv != null ? { hrv: ["oura"] } : {}),
+        ...(Array.isArray(r.hrv_samples) ? { hrv_samples: ["oura"] } : {}),
+        ...(r.resting_heart_rate != null ? { resting_heart_rate: ["oura"] } : {}),
+        ...(r.heart_rate != null ? { heart_rate: ["oura"] } : {}),
+        ...(Array.isArray(r.hr_samples) ? { hr_samples: ["oura"] } : {}),
+        ...(r.total_sleep_minutes != null ? { total_sleep_minutes: ["oura"] } : {}),
+        ...(r.deep_sleep_minutes != null ? { deep_sleep_minutes: ["oura"] } : {}),
+        ...(r.rem_sleep_minutes != null ? { rem_sleep_minutes: ["oura"] } : {}),
+        ...(r.sleep_score != null ? { sleep_score: ["oura"] } : {}),
+        ...(r.sleep_efficiency != null ? { sleep_efficiency: ["oura"] } : {}),
+      },
       updated_at: new Date().toISOString(),
     };
+    const { data: existingRow } = await db
+      .from("wearable_data")
+      .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
+      .eq("user_id", userId)
+      .eq("summary_date", summaryDate)
+      .maybeSingle();
+    const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row);
     const { error } = await db
       .from("wearable_data")
-      .upsert(row, { onConflict: "user_id,summary_date" });
+      .upsert(mergedRow, { onConflict: "user_id,summary_date" });
     if (error) {
       errors++;
       log("upsert_failed", { summary_date: summaryDate, error: error.message });

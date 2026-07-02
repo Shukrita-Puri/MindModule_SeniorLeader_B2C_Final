@@ -11,7 +11,7 @@ import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
-import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
+import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 
 const MrsPage = () => {
   const navigate = useNavigate();
@@ -67,6 +67,7 @@ const MrsPage = () => {
         : 'baseline';
   const readinessState: 'baseline' | 'refined' | 'awaiting' =
     rawState === 'refined' && !stageOneSignalAvailable ? 'baseline' : rawState;
+  const awaitingCopy = getReadinessAwaitingCopy(outerBrief ?? undefined);
 
   const tierColor = tierColorVar(tier);
   const oneLiner = getReadinessOneLiner(score);
@@ -136,7 +137,7 @@ const MrsPage = () => {
               {stateLabel.label}
             </span>
             <span className="mt-0.5 text-[11px] text-muted-foreground/60">
-              {stateLabel.subtitle}
+              {stateLabel.label === 'Awaiting signals' ? awaitingCopy : stateLabel.subtitle}
             </span>
           </div>
         )}

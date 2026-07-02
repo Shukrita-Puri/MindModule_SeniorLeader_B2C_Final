@@ -9,6 +9,8 @@
 // "early reading" labels — pill payloads call this rather than re-deriving
 // the day thresholds.
 
+export { isAppleMetricSource, resolveMetricProvider } from '../wearable/canonical.ts';
+
 export type CalendarLevel = 'low' | 'medium' | 'high';
 
 /** Apple sources report "time in bed", not asleep — needs ×0.85 correction. */

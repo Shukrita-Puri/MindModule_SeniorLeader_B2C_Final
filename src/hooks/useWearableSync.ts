@@ -62,16 +62,23 @@ export function useWearableSync(): WearableSyncState {
   const fetchLatestFromDB = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const { data, error: dbErr } = await supabase
-        .from('wearable_data')
-        .select('hrv, updated_at, summary_date')
-        .eq('user_id', user.id)
-        .order('summary_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [{ data, error: dbErr }, { data: integration, error: integrationErr }] = await Promise.all([
+        supabase
+          .from('wearable_data')
+          .select('hrv, updated_at, summary_date')
+          .eq('user_id', user.id)
+          .order('summary_date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('user_integrations')
+          .select('watch_connection_status, watch_sync_status')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ]);
 
-      if (dbErr) {
-        console.warn('[useWearableSync] DB fetch error:', dbErr);
+      if (dbErr || integrationErr) {
+        console.warn('[useWearableSync] DB fetch error:', dbErr ?? integrationErr);
         return;
       }
 
@@ -83,6 +90,20 @@ export function useWearableSync(): WearableSyncState {
         setHasData(false);
         setHrv(null);
         setLastSync(null);
+      }
+
+      const backendConnection = integration?.watch_connection_status;
+      const backendSync = integration?.watch_sync_status;
+      if (backendConnection === 'permission_revoked') {
+        setConnectionState('permission_revoked');
+      } else if (backendConnection === 'connected') {
+        if (backendSync === 'waiting_for_data') setConnectionState('connected_but_waiting_for_data');
+        else if (backendSync === 'sync_delayed') setConnectionState('sync_delayed');
+        else setConnectionState('connected');
+      } else if (data) {
+        // Historical Apple data should hold the connection in a soft
+        // connected state until iOS explicitly says permission was revoked.
+        setConnectionState('sync_delayed');
       }
     } catch (err) {
       console.warn('[useWearableSync] fetch error:', err);
@@ -208,32 +229,38 @@ export function useWearableSync(): WearableSyncState {
       await fetchLatestFromDB();
 
       // 2. On native, verify live permission + sync if stale
-      if (isNativeApp() && isHealthKitPermissionGranted()) {
-        console.log('[useWearableSync] Init: cached permission exists, verifying live access...');
-        const liveAccess = await verifyHealthKitAccess();
-        if (liveAccess) {
-          console.log('[useWearableSync] Init: live HealthKit access confirmed');
-          setLastVerifiedAt(new Date());
-          await syncIfStale();
-        } else {
-          // Only mark as permission_revoked when authorization is *explicitly* denied
-          // (not just "we couldn't verify this session"). This prevents ghost-disconnect UX.
-          const auth = await getHealthKitAuthorization();
-          if (auth.permissionGranted === false && (auth.readDenied?.length ?? 0) > 0) {
-            console.log('[useWearableSync] Init: HealthKit explicitly denied – marking permission_revoked');
-            setConnectionState('permission_revoked');
+      if (isNativeApp()) {
+        if (isHealthKitPermissionGranted()) {
+          console.log('[useWearableSync] Init: cached permission exists, verifying live access...');
+          const liveAccess = await verifyHealthKitAccess();
+          if (liveAccess) {
+            console.log('[useWearableSync] Init: live HealthKit access confirmed');
+            setLastVerifiedAt(new Date());
+            await syncIfStale();
           } else {
-            console.log('[useWearableSync] Init: HealthKit temporarily unavailable – marking sync_delayed');
-            setConnectionState('sync_delayed');
+            // Only mark as permission_revoked when authorization is *explicitly* denied
+            // (not just "we couldn't verify this session"). This prevents ghost-disconnect UX.
+            const auth = await getHealthKitAuthorization();
+            if (auth.permissionGranted === false && (auth.readDenied?.length ?? 0) > 0) {
+              console.log('[useWearableSync] Init: HealthKit explicitly denied – marking permission_revoked');
+              setConnectionState('permission_revoked');
+            } else {
+              console.log('[useWearableSync] Init: HealthKit temporarily unavailable – marking sync_delayed');
+              setConnectionState((prev) => (prev === 'disconnected' ? 'sync_delayed' : prev));
+            }
+            setLastVerifiedAt(new Date());
           }
-          setLastVerifiedAt(new Date());
+        } else if (lastSyncRef.current || hasData) {
+          // App reinstalls / localStorage clears should not erase the
+          // backend-connected state before we get a live permission answer.
+          setConnectionState((prev) => (prev === 'disconnected' ? 'sync_delayed' : prev));
         }
       } else if (!isNativeApp()) {
         // Web: rely on DB data only for display
         // connectionState stays whatever fetchLatestFromDB set (not_connected if no data)
       }
     })();
-  }, [user?.id, fetchLatestFromDB, syncIfStale]);
+  }, [user?.id, fetchLatestFromDB, hasData, syncIfStale]);
 
   // ---- App resume listener (foreground) ----
   useEffect(() => {

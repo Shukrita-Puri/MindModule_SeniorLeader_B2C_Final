@@ -29,7 +29,7 @@ import {
 // yet for the current (user, local_date, time_window). Pure, no DB.
 import { buildBehaviourSnapshot } from '../_shared/behaviour-snapshot.ts';
 import { BRIEF_PROMPT_VERSION } from '../_shared/brief-prompt-version.ts';
-import { READINESS_AWAITING_MESSAGE } from '../_shared/copy/awaiting.ts';
+import { buildReadinessAwaitingMessage } from '../_shared/copy/awaiting.ts';
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
 // (Pre / During / Post) contract. Slot labelling and JIT framing now consult
 // these modules instead of redefining the taxonomy locally.
@@ -655,6 +655,8 @@ interface PlanRequest {
   timezoneOffset: number;
   localDate?: string;
   todayCheckinId?: string | null;
+  mrsReadinessState?: 'baseline' | 'refined' | 'awaiting' | null;
+  mrsReadinessScore?: number | null;
   selectedCalendarEventIds?: string[];
   /**
    * Per-slot replacement map (preferred over `selectedCalendarEventIds`).
@@ -3088,12 +3090,35 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   const hasCalendarSignal = (req.calendarEvents?.length ?? 0) > 0;
   const hasCalendarConnected = req.hasCalendarConnection === true;
   const hasStage1Signal = hasWearableData || hasCalendarSignal || hasCalendarConnected;
+  let snapshotMrsAwaiting: boolean | null = null;
+  try {
+    const { data: mrsSnap } = await supabaseClient
+      .from('daily_context_snapshot')
+      .select('readiness_state, readiness_score_baseline, readiness_score_refined')
+      .eq('user_id', req.userId)
+      .eq('local_date', today)
+      .eq('mrs_window', timeOfDay)
+      .maybeSingle();
+    if (mrsSnap) {
+      snapshotMrsAwaiting =
+        mrsSnap.readiness_state === 'awaiting' ||
+        (mrsSnap.readiness_score_baseline == null && mrsSnap.readiness_score_refined == null);
+    }
+  } catch (mrsGateErr) {
+    console.warn('[generate-mastery-plan] MRS snapshot gate lookup failed:', (mrsGateErr as Error)?.message ?? mrsGateErr);
+  }
+  const requestMrsAwaiting =
+    req.mrsReadinessState === 'awaiting' ||
+    (req.mrsReadinessState != null && req.mrsReadinessScore == null) ||
+    outerReadinessCache?.awaitingSignals === true ||
+    outerReadinessCache?.briefMode === 'cold-start';
+  const mrsCardsAwaiting = snapshotMrsAwaiting === true || requestMrsAwaiting;
   const readinessStage = hasStage1Signal && hasTodayCheckIn
     ? 'full'
     : hasStage1Signal
       ? 'early'
       : 'cold_start';
-  const canGeneratePlan = hasStage1Signal;
+  const canGeneratePlan = hasStage1Signal && !mrsCardsAwaiting;
   const finalDecision = canGeneratePlan ? 'generate' : 'awaiting-signals';
   console.log('[generate-mastery-plan] signal-gate', {
     authenticatedUserId: req.userId,
@@ -3114,6 +3139,10 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     hasCalendarSignal,
     hasCalendarConnected,
     hasStage1Signal,
+    mrsCardsAwaiting,
+    snapshotMrsAwaiting,
+    requestMrsState: req.mrsReadinessState ?? null,
+    requestMrsScore: req.mrsReadinessScore ?? null,
     readinessStage,
     finalDecision,
   });
@@ -3123,11 +3152,55 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   if (!canGeneratePlan) {
     const gatingReason = 'missing_readiness_context';
     console.log('[generate-mastery-plan] awaiting-signals envelope returned', { gatingReason });
+    const { data: wearableIntegration } = await supabaseClient
+      .from('user_integrations')
+      .select('watch_connection_status, watch_sync_status, watch_last_sync_at, watch_last_sample_at')
+      .eq('user_id', req.userId)
+      .maybeSingle();
+    const { data: calendarConnections } = await supabaseClient
+      .from('calendar_connections')
+      .select('provider, is_active, last_sync')
+      .eq('user_id', req.userId);
+    const appleCalendarConnection = (calendarConnections ?? []).find((conn: any) => conn.provider === 'apple') ?? null;
+    const awaitingMessage = buildReadinessAwaitingMessage({
+      awaitingSignals: outerReadinessCache?.awaitingSignals === true,
+      briefMode: outerReadinessCache?.briefMode ?? null,
+      hasCurrentPeriodSignal: outerReadinessCache?.hasCurrentPeriodSignal ?? null,
+      hasWearable: hasWearableData,
+      hasCalendar: hasCalendarSignal || hasCalendarConnected,
+      calendarState: hasCalendarSignal
+        ? 'active'
+        : hasCalendarConnected
+          ? 'connected_no_events'
+          : 'not_connected',
+      wearableStatus: wearableIntegration ? {
+        connectionStatus: wearableIntegration.watch_connection_status ?? null,
+        syncStatus: wearableIntegration.watch_sync_status ?? null,
+        hasTodayData: hasWearableData,
+        hasRecentData: false,
+        hasHistoricalData: hasWearableData,
+      } : null,
+      integrationStatus: {
+        wearable: wearableIntegration ? {
+          connectionStatus: wearableIntegration.watch_connection_status ?? null,
+          syncStatus: wearableIntegration.watch_sync_status ?? null,
+          hasTodayData: hasWearableData,
+          hasRecentData: false,
+          hasHistoricalData: hasWearableData,
+        } : null,
+        calendar: appleCalendarConnection ? {
+          connectionStatus: appleCalendarConnection.is_active ? 'connected' : 'permission_revoked',
+          state: hasCalendarSignal ? 'active' : hasCalendarConnected ? 'connected_no_events' : 'not_connected',
+          needsReconnect: !appleCalendarConnection.is_active,
+          connected: !!appleCalendarConnection.is_active,
+        } : null,
+      },
+    });
     return {
       planState: 'awaiting_signals',
       awaitingSignals: true,
       reason: gatingReason,
-      message: READINESS_AWAITING_MESSAGE,
+      message: awaitingMessage,
       horizonModules: [],
       calendarPills: [],
       preEventPlan: null,
@@ -6960,6 +7033,7 @@ if (import.meta.main) Deno.serve(async (req) => {
       opts: { onlyIfMissing?: boolean } = {},
     ) => {
       try {
+        if (mrsCardsAwaiting) return;
         const planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
         if (opts.onlyIfMissing) {
           const { data: existing } = await supabaseClient
@@ -7080,8 +7154,23 @@ if (import.meta.main) Deno.serve(async (req) => {
       ].join(':');
     } catch { /* fallback to userId:period */ }
 
+    const requestMrsState =
+      body.mrsReadinessState === 'baseline' ||
+      body.mrsReadinessState === 'refined' ||
+      body.mrsReadinessState === 'awaiting'
+        ? body.mrsReadinessState
+        : null;
+    const requestMrsScore = typeof body.mrsReadinessScore === 'number' && Number.isFinite(body.mrsReadinessScore)
+      ? body.mrsReadinessScore
+      : null;
+    const requestMrsAwaiting =
+      requestMrsState === 'awaiting' ||
+      (requestMrsState != null && requestMrsScore == null) ||
+      outerReadinessCache?.awaitingSignals === true ||
+      outerReadinessCache?.briefMode === 'cold-start';
+
     const cached = rateLimitMap.get(stateFingerprint);
-    if (!forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
+    if (!requestMrsAwaiting && !forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
       console.log(`[generate-mastery-plan] Rate limited: ${userId} fingerprint=${stateFingerprint.substring(0, 60)}... (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
       // Phase 3.5 — backfill snapshot if absent, so a hot cache key never
       // leaves the DB without the most recent assembled payload.
@@ -7100,6 +7189,8 @@ if (import.meta.main) Deno.serve(async (req) => {
       todayCheckinId,
       selectedCalendarEventIds,
       slotReplacements,
+      mrsReadinessState: requestMrsState,
+      mrsReadinessScore: requestMrsScore,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,

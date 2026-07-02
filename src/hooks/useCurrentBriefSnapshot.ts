@@ -162,13 +162,23 @@ export function useCurrentBriefSnapshot() {
         (row.refined_state as string | null) ??
         (row.baseline_state as string | null) ??
         null;
+      const baselineScore =
+        typeof row.baseline_score === 'number' && Number.isFinite(row.baseline_score)
+          ? row.baseline_score
+          : null;
+      const refinedScore =
+        typeof row.refined_score === 'number' && Number.isFinite(row.refined_score)
+          ? row.refined_score
+          : null;
 
-      const isAwaitingRow = phrase == null && bodyText == null;
+      const isAwaitingState =
+        state === 'awaiting' || (baselineScore == null && refinedScore == null);
+      const isAwaitingRow = (phrase == null && bodyText == null) || isAwaitingState;
       // A row is renderable for the Brief card only when it carries copy.
       // Awaiting rows are flagged separately — DecisionReadinessBrief still
       // gates the awaiting copy on the live engine status to avoid masking
       // a real cold-start.
-      const isRenderable = !isAwaitingRow && !!phrase;
+      const isRenderable = !isAwaitingRow && !!phrase && !!bodyText;
 
       // TODO(brief-snapshot-read-first): `wearableStatus` (freshness +
       // source tier) and the full unified source provenance are NOT yet
@@ -200,9 +210,9 @@ export function useCurrentBriefSnapshot() {
         // We don't persist a separate `tier_displayed`; fall back to tier.
         innerReadinessTierDisplayed: (row.tier ?? null) as string | null,
         innerReadinessScoreBaseline:
-          (row.baseline_score ?? null) as number | null,
+          baselineScore,
         innerReadinessScoreRefined:
-          (row.refined_score ?? null) as number | null,
+          refinedScore,
         innerReadinessState:
           state === 'refined' || state === 'baseline' || state === 'awaiting'
             ? state

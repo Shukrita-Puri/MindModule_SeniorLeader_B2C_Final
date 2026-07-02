@@ -1,7 +1,6 @@
 /**
- * Single source of truth for the "awaiting signals" empty-state copy.
- * MRS, Brief, and Plan MUST render this exact string when readiness
- * context is not ready. Do not paraphrase.
+ * Shared fallback copy for the awaiting-signals state.
+ * The reason-aware helper can refine this text when the app knows more.
  */
 export const READINESS_AWAITING_MESSAGE =
-  "Sync your wearable, calendar to get an early read and check in to sharpen it.";
+  "Connect your wearable and calendar to get an early read, then check in to sharpen it.";

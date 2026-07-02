@@ -39,9 +39,13 @@ serve(async (req) => {
     if (deliveredOnly) {
       // Sidebar RECENT only — exclude awaiting-signals placeholder rows
       // (the "Sync your wearable…" fallback that gets persisted but is not
-      // a brief the user actually received). Older snapshots predating the
-      // state columns have NULL state and are kept (they were delivered).
-      query = query.or('baseline_state.is.null,baseline_state.neq.awaiting');
+      // a brief the user actually received). A delivered brief must have
+      // visible copy and neither baseline nor refined state may be awaiting.
+      query = query
+        .not('score', 'is', null)
+        .not('phrase', 'is', null)
+        .not('body_text', 'is', null)
+        .or('baseline_state.eq.baseline,refined_state.eq.refined');
     }
 
     if (startDate && DATE_RE.test(startDate)) {
