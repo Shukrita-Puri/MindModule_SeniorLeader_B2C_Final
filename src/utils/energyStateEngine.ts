@@ -229,6 +229,16 @@ function scoreFromDeviation(deviationPct: number | null, inverse = false): numbe
   return clampScore((inverse ? 55 - deviationPct * 2 : 55 + deviationPct * 2));
 }
 
+function scoreFromAbsoluteHrv(hrv: number | null): number | null {
+  if (typeof hrv !== 'number' || !Number.isFinite(hrv) || hrv <= 0) return null;
+  // Day-1 provisional read: when a fresh HRV value exists but a personal
+  // baseline is not mature yet, let HRV count as a real low-confidence
+  // State-1 signal instead of blocking MRS entirely.
+  if (hrv >= 50) return 75;
+  if (hrv >= 30) return 55;
+  return 35;
+}
+
 function scoreFromDemand(demandScore: number | null): number | null {
   if (typeof demandScore !== 'number' || !Number.isFinite(demandScore)) return null;
   return clampScore(100 - demandScore);
@@ -242,7 +252,7 @@ function scoreFromPattern(patternSignals: ClientPatternSignalsLite | null): numb
     case 'declining': return 30;
     case 'improving': return 70;
     case 'stable': return 50;
-    default: return 50;
+    default: return null;
   }
 }
 
@@ -251,6 +261,14 @@ function scoreFromRhrTrend(trend: 'falling' | 'stable' | 'rising' | null): numbe
   if (trend === 'stable') return 55;
   if (trend === 'rising') return 30;
   return null;
+}
+
+function scoreFromAbsoluteRhr(rhr: number | null): number | null {
+  if (typeof rhr !== 'number' || !Number.isFinite(rhr) || rhr <= 0) return null;
+  if (rhr <= 60) return 75;
+  if (rhr <= 75) return 55;
+  if (rhr <= 90) return 40;
+  return 25;
 }
 
 function sleepQualityFromInputs(score: number | null, hours: number | null): 'poor' | 'fair' | 'good' | 'peak' | null {
@@ -275,20 +293,25 @@ function sub(id: MrsV4SubComponentId, score: number | null): MrsV4SubScore {
 
 function buildClientMrsV4SubScores(args: {
   window: MrsV4Window;
+  hrvValue: number | null;
   hrvDeviationPct: number | null;
   sleepScore: number | null;
   sleepHours: number | null;
+  rhrValue: number | null;
   rhrTrend: 'falling' | 'stable' | 'rising' | null;
   demandScore: number | null;
   patternSignals: ClientPatternSignalsLite | null;
 }): MrsV4SubScore[] {
-  const hrv = sub('hrvMorningDeviation', scoreFromDeviation(args.hrvDeviationPct));
+  const hrv = sub(
+    'hrvMorningDeviation',
+    scoreFromDeviation(args.hrvDeviationPct) ?? scoreFromAbsoluteHrv(args.hrvValue),
+  );
   const sleepScore =
     args.sleepScore != null ? clampScore(args.sleepScore)
     : args.sleepHours != null ? clampScore((args.sleepHours / 8) * 100)
     : null;
   const sleep = sub('sleepDeviation', sleepScore);
-  const rhr = sub('rhrTrend', scoreFromRhrTrend(args.rhrTrend));
+  const rhr = sub('rhrTrend', scoreFromRhrTrend(args.rhrTrend) ?? scoreFromAbsoluteRhr(args.rhrValue));
   const pattern = sub('patternEngineComposite', scoreFromPattern(args.patternSignals));
 
   if (args.window === 'morning') {
@@ -316,7 +339,7 @@ function buildClientMrsV4SubScores(args: {
     hrv,
     sleep,
     rhr,
-    sub('eveningPhysioRead', scoreFromDeviation(args.hrvDeviationPct)),
+    sub('eveningPhysioRead', scoreFromDeviation(args.hrvDeviationPct) ?? scoreFromAbsoluteHrv(args.hrvValue)),
     sub('todayRealizedDemand', scoreFromDemand(args.demandScore)),
     sub('tomorrowOpeningDemand', scoreFromDemand(args.demandScore)),
     pattern,
@@ -495,6 +518,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let wearableReadiness: number = 0;
   let wearableSleepScore: number | null = null;
   let wearableSleepHours: number | null = null;
+  let wearableRhrValue: number | null = null;
   let wearableRhrTrend: 'falling' | 'stable' | 'rising' | null = null;
   let wearableFreshness: 'fresh' | 'stale' | 'missing' = 'missing';
   let wearableSignalsUsed: string[] = [];
@@ -581,6 +605,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           wearableSleepHours = Number(tsm) / 60;
           if (!wearableSignalsUsed.includes('sleep_score')) wearableSignalsUsed.push('sleep_hours');
         }
+        const rhr = (latestRow.data as any).resting_heart_rate;
+        if (rhr != null && Number.isFinite(Number(rhr)) && Number(rhr) > 0) {
+          wearableRhrValue = Number(rhr);
+          wearableSignalsUsed.push('rhr');
+        }
       }
       // Derive a coarse 3-day RHR trend vs prior history mean.
       const rhrRows = (rhrHistory.data ?? [])
@@ -609,6 +638,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     '[energyStateEngine] Wearable source:',
     wearableHRV !== null ? 'DB' : 'NONE (no fallback)',
     '| HRV:', wearableHRV,
+    '| RHR:', wearableRhrValue,
     '| RHR trend:', wearableRhrTrend,
     '| sleepScore:', wearableSleepScore,
     '| sleepHours:', wearableSleepHours,
@@ -622,9 +652,10 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   // Apple Health where fields are written piecewise across syncs).
   const hasWearable =
     wearableFreshness === 'fresh' &&
-    ((wearableHRV !== null && wearableHRV > 0) ||
+      ((wearableHRV !== null && wearableHRV > 0) ||
       wearableSleepScore !== null ||
       wearableSleepHours !== null ||
+      wearableRhrValue !== null ||
       wearableRhrTrend !== null);
 
   // Fetch calendar events from DB only if connection is active
@@ -843,9 +874,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const effectiveDemandScoreForSubScores = demandScoreForV4 ?? null;
     const mrsSubScores = buildClientMrsV4SubScores({
       window: mrsWindow,
+      hrvValue: hasWearable ? wearableHRV : null,
       hrvDeviationPct,
       sleepScore: hasWearable ? wearableSleepScore : null,
       sleepHours: hasWearable ? wearableSleepHours : null,
+      rhrValue: hasWearable ? wearableRhrValue : null,
       rhrTrend: hasWearable ? wearableRhrTrend : null,
       demandScore: effectiveDemandScoreForSubScores,
       patternSignals: snapshotPatternSignals,
@@ -1093,9 +1126,8 @@ function deriveReadyOrAwaiting(args: {
   hasCheckIn: boolean;
   dbReadDegraded: boolean;
 }): CurrentEnergyState['engineStatus'] {
-  const noSignals = !args.hasWearable && !args.hasCalendar && !args.hasCheckIn;
-  if (args.score == null && noSignals) return 'awaiting';
   if (args.dbReadDegraded) return 'stale';
+  if (args.score == null) return 'awaiting';
   return 'ready';
 }
 

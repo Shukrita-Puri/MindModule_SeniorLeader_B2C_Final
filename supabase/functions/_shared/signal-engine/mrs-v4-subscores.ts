@@ -11,10 +11,12 @@ import type { SubComponentId, Window } from './mrs-v4-weights.ts';
 type RhrTrend = 'declining' | 'falling' | 'stable' | 'rising' | 'unknown' | null;
 
 export interface MrsV4SubscoreSignals {
+  hrvValue?: number | null;
   hrvDeviationPct?: number | null;
   sleepDeviationPct?: number | null;
   sleepScore?: number | null;
   sleepHours?: number | null;
+  rhrValue?: number | null;
   rhrTrend?: RhrTrend;
   intradayHrDeviationPct?: number | null;
   eveningHrvDeviationPct?: number | null;
@@ -37,6 +39,21 @@ function fromDeviation(deviationPct: number | null | undefined, inverse = false)
   if (typeof deviationPct !== 'number' || !Number.isFinite(deviationPct)) return null;
   const raw = inverse ? 55 - deviationPct * 2 : 55 + deviationPct * 2;
   return clampScore(raw);
+}
+
+function fromAbsoluteHrv(hrv: number | null | undefined): number | null {
+  if (typeof hrv !== 'number' || !Number.isFinite(hrv) || hrv <= 0) return null;
+  if (hrv >= 50) return 75;
+  if (hrv >= 30) return 55;
+  return 35;
+}
+
+function fromAbsoluteRhr(rhr: number | null | undefined): number | null {
+  if (typeof rhr !== 'number' || !Number.isFinite(rhr) || rhr <= 0) return null;
+  if (rhr <= 60) return 75;
+  if (rhr <= 75) return 55;
+  if (rhr <= 90) return 40;
+  return 25;
 }
 
 function fromDemand(demandScore: number | null | undefined): number | null {
@@ -89,9 +106,12 @@ function sub(id: SubComponentId, score: number | null): SubScore {
 
 export function buildMrsV4SubScores(window: Window, signals: MrsV4SubscoreSignals): SubScore[] {
   const base = {
-    hrvMorningDeviation: sub('hrvMorningDeviation', fromDeviation(signals.hrvDeviationPct)),
+    hrvMorningDeviation: sub(
+      'hrvMorningDeviation',
+      fromDeviation(signals.hrvDeviationPct) ?? fromAbsoluteHrv(signals.hrvValue),
+    ),
     sleepDeviation: sub('sleepDeviation', fromSleep(signals)),
-    rhrTrend: sub('rhrTrend', fromRhrTrend(signals.rhrTrend ?? null)),
+    rhrTrend: sub('rhrTrend', fromRhrTrend(signals.rhrTrend ?? null) ?? fromAbsoluteRhr(signals.rhrValue)),
     patternEngineComposite: sub('patternEngineComposite', signals.patternScore ?? null),
   } satisfies Partial<Record<SubComponentId, SubScore>>;
 
@@ -122,10 +142,9 @@ export function buildMrsV4SubScores(window: Window, signals: MrsV4SubscoreSignal
     base.hrvMorningDeviation,
     base.sleepDeviation,
     base.rhrTrend,
-    sub('eveningPhysioRead', fromEveningPhysio(signals)),
+    sub('eveningPhysioRead', fromEveningPhysio(signals) ?? fromAbsoluteHrv(signals.hrvValue)),
     sub('todayRealizedDemand', fromDemand(signals.todayRealizedDemand)),
     sub('tomorrowOpeningDemand', fromDemand(signals.tomorrowOpeningDemand)),
     base.patternEngineComposite,
   ];
 }
-

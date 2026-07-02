@@ -181,11 +181,11 @@ Deno.test('patternToScore: declining → 30, stable → 50, improving → 70, un
   assertEquals(patternToScore({ ...base, hrv_3day_trend: 'declining' }), 30);
   assertEquals(patternToScore({ ...base, hrv_3day_trend: 'stable' }), 50);
   assertEquals(patternToScore({ ...base, hrv_3day_trend: 'improving' }), 70);
-  assertEquals(patternToScore({ ...base, hrv_3day_trend: 'unknown' }), 50);
+  assertEquals(patternToScore({ ...base, hrv_3day_trend: 'unknown' }), null);
 });
 
-Deno.test('patternToScore: null input → 50 (safe default)', () => {
-  assertEquals(patternToScore(null), 50);
+Deno.test('patternToScore: null input → unavailable', () => {
+  assertEquals(patternToScore(null), null);
 });
 
 // ── computeHrvLoadCooccurrence ─────────────────────────────────────────

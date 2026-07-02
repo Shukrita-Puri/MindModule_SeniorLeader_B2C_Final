@@ -179,15 +179,15 @@ interface PatternSignalsLite {
   hrv_3day_trend?: 'improving' | 'stable' | 'declining' | 'unknown';
   consecutive_high_load_days?: number;
 }
-function getPatternScore(p: PatternSignalsLite | null | undefined): number {
-  if (!p) return 50;
+function getPatternScore(p: PatternSignalsLite | null | undefined): number | null {
+  if (!p) return null;
   if ((p.consecutive_high_load_days ?? 0) >= 3) return 20;
   if ((p.consecutive_high_load_days ?? 0) === 0 && p.hrv_3day_trend === 'improving') return 80;
   switch (p.hrv_3day_trend) {
     case 'declining': return 30;
     case 'improving': return 70;
     case 'stable':    return 50;
-    default:          return 50;
+    default:          return null;
   }
 }
 

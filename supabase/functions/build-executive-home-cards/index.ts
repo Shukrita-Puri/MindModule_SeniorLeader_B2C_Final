@@ -243,9 +243,11 @@ async function buildForUser(db: any, args: {
     const demandScore = eventCount > 0 ? context.calendarDemandScore : null;
     const patternScore = scoreFromPattern(context.patternSignals);
     const mrsSubScores = buildMrsV4SubScores(window, {
+      hrvValue: hasFreshWearable ? latest?.hrv ?? null : null,
       hrvDeviationPct,
       sleepScore: hasFreshWearable ? latest?.sleep_score ?? null : null,
       sleepHours,
+      rhrValue: hasFreshWearable ? latest?.resting_heart_rate ?? null : null,
       rhrTrend,
       todayFullDayDemand: demandScore,
       remainingDayDemand: demandScore,

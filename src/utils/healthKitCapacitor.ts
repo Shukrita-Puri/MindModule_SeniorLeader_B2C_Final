@@ -283,6 +283,22 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     ]);
 
     console.log(`[HealthKit] Raw counts – HRV: ${hrvSamples.length}, RHR: ${rhrSamples.length}, HR: ${hrSamples.length}, Sleep: ${sleepSamples.length}`);
+    console.log('[HealthKit] Metric authorization:', JSON.stringify({
+      readAuthorized: authorization.readAuthorized,
+      readDenied: authorization.readDenied,
+      counts: {
+        hrv: hrvSamples.length,
+        rhr: rhrSamples.length,
+        hr: hrSamples.length,
+        sleep: sleepSamples.length,
+      },
+    }));
+    if (authorization.readAuthorized.includes('heartRate') && hrSamples.length === 0) {
+      console.warn('[HealthKit] HR authorized but returned zero samples in the 30-day window');
+    }
+    if (authorization.readAuthorized.includes('sleep') && sleepSamples.length === 0) {
+      console.warn('[HealthKit] Sleep authorized but returned zero samples in the 30-day window');
+    }
 
     // ---- Group HRV by day ----
     const hrvByDay: Record<string, { value: number; hour: number; timestamp: string }[]> = {};

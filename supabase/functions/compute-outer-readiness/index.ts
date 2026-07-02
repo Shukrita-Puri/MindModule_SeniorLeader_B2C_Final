@@ -5418,6 +5418,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               // MRS v3 — Physical Reserves owns RHR, HR, and the RHR 3-day trend.
               // Sleep belongs to Decision Readiness; sustained deficit belongs
               // to Resilience Capacity (deferred consequence, not raw reserve).
+              // Display contract: include sleep fields so the tooltip can show
+              // Sleep / RHR / HR together and mark missing values honestly.
+              sleepDuration,
+              sleepScore: sleepScoreVal,
               rhrValue,
               hrValue,
             },
@@ -6202,7 +6206,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // qualifiers so the client renders identical numbers to Insights
       // without recomputing aggregates. `coherenceWarning` is suppressed
       // in production (dev/QA only — see assertPillCoherence).
-      signalPills: awaitingSignals ? null : echoedSignalPills,
+      signalPills: echoedSignalPills,
       pillQualifiers: awaitingSignals ? null : echoedPillQualifiers,
       coherenceWarning: echoedCoherenceWarning,
       // Surface the deterministic shared-module snapshot the Brief reasoned

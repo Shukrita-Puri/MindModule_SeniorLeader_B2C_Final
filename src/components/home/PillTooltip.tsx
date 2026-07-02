@@ -62,6 +62,27 @@ const CONTRIBUTORS: Record<string, ContribSpec> = {
   pressureLevel:               { label: 'Pressure',         fmt: (v) => num(v, '/5') },
 };
 
+const EXPECTED_CONTRIBUTORS: Record<PillTooltipPill['key'], Array<{ key: string; label: string; missing: string }>> = {
+  decision_readiness: [
+    { key: 'hrvValue', label: 'HRV', missing: 'No HRV data available' },
+    { key: 'sleepDuration', label: 'Sleep Duration', missing: 'No sleep duration available' },
+    { key: 'sleepScore', label: 'Sleep Score', missing: 'No sleep score available' },
+    { key: 'clarityLevel', label: 'Clarity', missing: 'No check-in yet' },
+  ],
+  physical_reserves: [
+    { key: 'sleepDuration', label: 'Sleep Duration', missing: 'No sleep duration available' },
+    { key: 'sleepScore', label: 'Sleep Score', missing: 'No sleep score available' },
+    { key: 'rhrValue', label: 'RHR', missing: 'No RHR data available' },
+    { key: 'hrValue', label: 'HR', missing: 'No HR data available' },
+  ],
+  resilience_capacity: [
+    { key: 'sleepEfficiency', label: 'Sleep Efficiency', missing: 'No sleep efficiency available' },
+    { key: 'emotionLevel', label: 'Emotion', missing: 'No check-in yet' },
+    { key: 'regulationLevel', label: 'Regulation', missing: 'No check-in yet' },
+    { key: 'pressureLevel', label: 'Pressure', missing: 'No check-in yet' },
+  ],
+};
+
 // Contributor keys we intentionally suppress (legacy server payloads only).
 const SUPPRESS = new Set<string>([
   'calendarLoad',
@@ -251,6 +272,7 @@ export default function PillDetailContent({
 
   type Row = { key: string; label: string; value?: string; qualifier?: string };
   const rows: Row[] = [];
+  const seenRows = new Set<string>();
 
   // 1) Real contributors echoed by the server — humanised, suppressed if legacy.
   for (const [k, raw] of Object.entries(pill.contributors ?? {})) {
@@ -272,11 +294,24 @@ export default function PillDetailContent({
     const qualifier = qualifierMap.get(k);
     if (value == null && !qualifier) continue;
     rows.push({ key: k, label, value, qualifier });
+    seenRows.add(k);
   }
 
   // 2) Synthesised mind rows (Clarity for DR; Emotion/Regulation/Pressure for RC).
   for (const mr of mindRowsFromQualifiers(pill.qualifiers, pill.key)) {
     rows.push({ ...mr, qualifier: qualifierMap.get(mr.key) });
+    seenRows.add(mr.key);
+  }
+
+  // 3) Expected-but-missing rows. Missing signals should be visible to the
+  // user; they reduce confidence instead of silently disappearing.
+  for (const expected of EXPECTED_CONTRIBUTORS[pill.key] ?? []) {
+    if (seenRows.has(expected.key)) continue;
+    rows.push({
+      key: `missing_${expected.key}`,
+      label: expected.label,
+      value: expected.missing,
+    });
   }
 
   return (
