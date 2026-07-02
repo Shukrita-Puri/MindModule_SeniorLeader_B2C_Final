@@ -1319,7 +1319,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                                   <div
                                     key={tw}
                                     className={cn(
-                                      'w-[22px] h-[22px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
+                                      'w-[22px] h-[22px] rounded-md flex-shrink-0 relative overflow-hidden transition-all duration-200',
                                       day.isFuture
                                         ? 'border border-dashed border-border/40 bg-transparent'
                                         : hasOutcome
@@ -1346,7 +1346,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     {Object.entries(stateColors).map(([state, style]) => (
                       <div key={state} className="flex items-center gap-1.5">
                         <div
-                          className="w-2.5 h-2.5 rounded-full shadow-sm"
+                          className="w-3 h-2.5 rounded-sm shadow-sm"
                           style={{ background: `linear-gradient(135deg, ${style.color}, ${style.dark})` }}
                         />
                         <span>{style.label}</span>

@@ -456,7 +456,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
                     <div
                       key={tw}
                       className={cn(
-                        'w-[22px] h-[22px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
+                        'w-[22px] h-[22px] rounded-md flex-shrink-0 relative overflow-hidden transition-all duration-200',
                         day.isFuture
                           ? 'border border-dashed border-border/40 bg-transparent'
                           : hasValue
@@ -483,7 +483,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         {LEVEL_TIERS.slice().reverse().map((tier) => (
           <div key={tier.value} className="flex items-center gap-1.5">
             <div
-              className="w-2.5 h-2.5 rounded-full shadow-sm"
+              className="w-3 h-2.5 rounded-sm shadow-sm"
               style={{ background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` }}
             />
             <span>{labelFor(tier.value)}</span>

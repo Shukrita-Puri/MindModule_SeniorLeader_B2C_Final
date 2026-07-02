@@ -1,12 +1,10 @@
 /**
- * Performance Causality Card (v3 — tabbed heatmap)
+ * Performance Causality Card (v4 — unified drain grids)
  *
- * Replaces the prior text-based 4-lens UI with two tabs:
+ * Renders the three drain lenses with one shared grid grammar:
  *   - Stress Load   : per-event-window peak HR delta vs resting baseline
- *   - Burnout Risk  : 4 dims × 5 weeks intensity matrix
- *
- * Sleep Disruption / Recovery Cost are computed silently in the engine and
- * intentionally NOT rendered yet (will be exposed in a follow-up).
+ *   - Burnout Risk  : single HRV trend row across available weeks
+ *   - Recovery Time : event categories placed into recovery-duration buckets
  *
  * IMPORTANT — Proprietary logic protection:
  *   This component renders ONLY values, colors, sample sizes, and confidence
@@ -78,6 +76,53 @@ interface CausalityPayload {
   cached?: boolean;
 }
 
+type DrainCell = {
+  categoryId: string;
+  bucketLabel: string;
+  value: number | null;
+  n: number;
+  topEventLabel?: string;
+  topEventValue?: number;
+};
+
+interface DrainHeatmapGridProps {
+  rows: string[];
+  columns: string[];
+  cells: DrainCell[];
+  maxValue: number;
+  unit: 'bpm' | 'days' | 'risk score';
+  rampLabel: { low: string; high: string };
+  emptyLabel?: string;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  'Board reviews': 'Governance',
+  'Board / governance': 'Governance',
+  'Board governance': 'Governance',
+  'Investor calls': 'Visibility',
+  'Town halls': 'Visibility',
+  'Client meetings': 'Visibility',
+  'Small-group session': 'Visibility',
+  'Small-group sessions': 'Visibility',
+  '1:1s': 'Relationship / 1:1',
+  'Catch-up': 'Relationship / 1:1',
+  'Catch-ups': 'Relationship / 1:1',
+  Networking: 'Networking',
+  'Deep work': 'Deep Work',
+  'Solo work block': 'Deep Work',
+  Interviews: 'Hiring',
+};
+
+const RECOVERY_BUCKETS = [
+  { label: '<6hrs', min: 0, max: 0.25 },
+  { label: '6-24hrs', min: 0.25, max: 1 },
+  { label: '1-2d', min: 1, max: 2 },
+  { label: '2-4d', min: 2, max: 4 },
+  { label: '4+d', min: 4, max: Infinity },
+];
+
+const normalizeCategory = (label: string) => CATEGORY_LABELS[label] ?? label;
+
 // ── Coral ramp for Stress Load (from spec; opacity-free hex stops) ───
 const CORAL_RAMP = ['#FAECE7', '#F5C4B3', '#F0997B', '#D85A30', '#993C1D', '#712B13', '#4A1B0C'];
 function coralFor(value: number | null, max: number): { bg: string; fg: string } {
@@ -85,6 +130,110 @@ function coralFor(value: number | null, max: number): { bg: string; fg: string }
   const t = Math.max(0, Math.min(1, value / max));
   const idx = Math.min(CORAL_RAMP.length - 1, Math.floor(t * CORAL_RAMP.length));
   return { bg: CORAL_RAMP[idx], fg: idx >= 4 ? '#FFF5EE' : '#5b2716' };
+}
+
+function DrainHeatmapGrid({
+  rows,
+  columns,
+  cells,
+  maxValue,
+  unit,
+  rampLabel,
+  emptyLabel = 'No data yet',
+}: DrainHeatmapGridProps) {
+  const cellMap = useMemo(() => {
+    const map = new Map<string, DrainCell>();
+    cells.forEach((cell) => map.set(`${cell.categoryId}::${cell.bucketLabel}`, cell));
+    return map;
+  }, [cells]);
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto -mx-1 px-1">
+        <table className="w-full text-[11px] border-separate border-spacing-1">
+          <thead>
+            <tr>
+              <th className="text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
+              {columns.map((column) => (
+                <th
+                  key={column}
+                  title={column}
+                  className="text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom min-w-[3.4rem]"
+                >
+                  <span className="block truncate max-w-[5rem]">{column}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row}>
+                <td className="text-muted-foreground/80 font-medium pr-2 max-w-[7rem]">
+                  <span className="block truncate" title={row}>{row}</span>
+                </td>
+                {columns.map((column) => {
+                  const cell = cellMap.get(`${row}::${column}`);
+                  const value = cell?.value ?? null;
+                  const { bg, fg } = coralFor(value, maxValue);
+                  const displayValue =
+                    value === null
+                      ? '·'
+                      : unit === 'bpm'
+                        ? `+${Math.round(value)}`
+                        : unit === 'days'
+                          ? `${value}`
+                          : `${Math.round(value)}`;
+                  const topLine =
+                    value === null || !cell
+                      ? `${row} · ${column} — ${emptyLabel}`
+                      : `${row} · ${column} · n=${cell.n}`;
+                  const eventLine =
+                    cell?.topEventLabel && cell.topEventValue != null
+                      ? `\n${cell.topEventLabel} · ${unit === 'bpm' ? '+' : ''}${cell.topEventValue}${unit}`
+                      : '';
+
+                  return (
+                    <td key={`${row}-${column}`} className="p-0">
+                      <div
+                        title={`${topLine}${eventLine}`}
+                        className={cn(
+                          'h-9 rounded-md flex items-center justify-center tabular-nums font-medium transition-colors',
+                          value === null && 'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
+                        )}
+                        style={value !== null ? { background: bg, color: fg } : undefined}
+                      >
+                        {displayValue}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+        <span>{rampLabel.low}</span>
+        <div className="flex gap-1">
+          {CORAL_RAMP.map((c) => (
+            <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
+          ))}
+        </div>
+        <span>{rampLabel.high}</span>
+      </div>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div className="rounded-md bg-muted/30 px-2 py-2 min-w-0">
+      <div className="text-[9px] uppercase tracking-widest text-muted-foreground/70">{label}</div>
+      <div className="text-sm font-medium tabular-nums truncate">{value}</div>
+      <div className="text-[10px] text-muted-foreground/70 truncate">{sub}</div>
+    </div>
+  );
 }
 
 // ── Tab pill button ──────────────────────────────────────────────────
@@ -107,7 +256,7 @@ function TabPill({ active, onClick, children }: { active: boolean; onClick: () =
 
 // ── Stress Load tab ──────────────────────────────────────────────────
 function StressLoadTab({ matrix }: { matrix: StressMatrix }) {
-  const { events, days, cells, n, confidence, maxObserved, topCell, lowCell, topDay } = matrix;
+  const { events, days, cells, n, maxObserved, topDay } = matrix;
   const hasAny = cells.some((row) => row.some((v) => v !== null));
   if (!hasAny) {
     return (
@@ -116,91 +265,82 @@ function StressLoadTab({ matrix }: { matrix: StressMatrix }) {
       </p>
     );
   }
+
+  const rows = Array.from(new Set(events.map(normalizeCategory)));
+  const aggregatedCells = new Map<string, DrainCell>();
+  days.forEach((day, dayIndex) => {
+    events.forEach((event, eventIndex) => {
+      const value = cells[dayIndex]?.[eventIndex] ?? null;
+      const categoryId = normalizeCategory(event);
+      const count = n[dayIndex]?.[eventIndex] ?? 0;
+      const key = `${categoryId}::${day}`;
+      const existing = aggregatedCells.get(key);
+      if (!existing) {
+        aggregatedCells.set(key, {
+          categoryId,
+          bucketLabel: day,
+          value,
+          n: count,
+          topEventLabel: event,
+          topEventValue: value ?? undefined,
+        });
+        return;
+      }
+      existing.n += count;
+      if (value !== null && (existing.value === null || value > existing.value)) {
+        existing.value = value;
+        existing.topEventLabel = event;
+        existing.topEventValue = value;
+      }
+    });
+  });
+  const gridCells = Array.from(aggregatedCells.values());
+
+  const categoryCounts = new Map<string, number>();
+  gridCells.forEach((cell) => {
+    if (cell.value !== null) {
+      categoryCounts.set(cell.categoryId, (categoryCounts.get(cell.categoryId) ?? 0) + cell.n);
+    }
+  });
+  const eligibleCells = gridCells.filter((cell) => cell.value !== null && (categoryCounts.get(cell.categoryId) ?? 0) >= 3);
+  const peakCell = eligibleCells.reduce<DrainCell | null>(
+    (best, cell) => (!best || (cell.value ?? 0) > (best.value ?? 0) ? cell : best),
+    null,
+  );
+  const quietCell = eligibleCells.reduce<DrainCell | null>(
+    (best, cell) => (!best || (cell.value ?? Infinity) < (best.value ?? Infinity) ? cell : best),
+    null,
+  );
+
   return (
     <div className="space-y-3">
       <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#FAECE7] text-[11px] text-[#993C1D]">
         Heart-rate response during event windows
       </div>
 
-      <div className="overflow-x-auto -mx-1 px-1">
-        <table className="w-full text-[11px] border-separate border-spacing-1">
-          <thead>
-            <tr>
-              <th className="text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
-              {events.map((ev) => (
-                <th
-                  key={ev}
-                  title={ev}
-                  className="text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom min-w-[3.4rem]"
-                >
-                  <span className="block truncate max-w-[5rem]">{ev}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((day, r) => (
-              <tr key={day}>
-                <td className="text-muted-foreground/80 font-medium pr-2 tabular-nums">{day}</td>
-                {events.map((ev, c) => {
-                  const v = cells[r][c];
-                  const { bg, fg } = coralFor(v, maxObserved);
-                  return (
-                    <td key={`${day}-${ev}`} className="p-0">
-                      <div
-                        title={
-                          v === null
-                            ? `${ev} · ${day} — no data yet`
-                            : `${ev} · ${day} · n=${n[r][c]}${confidence[r][c] === 'emerging' ? ' · emerging' : ''}`
-                        }
-                        className="rounded-md flex items-center justify-center h-9 tabular-nums font-medium"
-                        style={{ background: bg, color: fg }}
-                      >
-                        {v === null ? '·' : `+${v}`}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DrainHeatmapGrid
+        rows={rows}
+        columns={days}
+        cells={gridCells}
+        maxValue={maxObserved}
+        unit="bpm"
+        rampLabel={{ low: 'Calm', high: 'Acute' }}
+      />
 
-      {/* Legend */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-        <span>Calm</span>
-        <div className="flex gap-1">
-          {CORAL_RAMP.map((c) => (
-            <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
-          ))}
-        </div>
-        <span>Acute</span>
-      </div>
-
-      {/* 3-stat row */}
-      {(topCell || lowCell || topDay) && (
+      {(peakCell || quietCell || topDay) && (
         <div className="grid grid-cols-3 gap-2 pt-1">
-          {topCell && (
-            <div className="rounded-md bg-muted/30 px-2 py-2">
-              <div className="text-[9px] uppercase tracking-widest text-muted-foreground/70">Peak</div>
-              <div className="text-sm font-medium tabular-nums">+{topCell.value}<span className="text-[10px] text-muted-foreground/70 ml-0.5">bpm</span></div>
-              <div className="text-[10px] text-muted-foreground/70 truncate">{topCell.event}</div>
-            </div>
+          {peakCell ? (
+            <SummaryStat label="Peak" value={`+${peakCell.value} bpm`} sub={peakCell.categoryId} />
+          ) : (
+            <SummaryStat label="Peak" value="—" sub="not enough data yet" />
           )}
-          {lowCell && (
-            <div className="rounded-md bg-muted/30 px-2 py-2">
-              <div className="text-[9px] uppercase tracking-widest text-muted-foreground/70">Quietest</div>
-              <div className="text-sm font-medium tabular-nums">+{lowCell.value}<span className="text-[10px] text-muted-foreground/70 ml-0.5">bpm</span></div>
-              <div className="text-[10px] text-muted-foreground/70 truncate">{lowCell.event}</div>
-            </div>
+          {quietCell ? (
+            <SummaryStat label="Quietest" value={`+${quietCell.value} bpm`} sub={quietCell.categoryId} />
+          ) : (
+            <SummaryStat label="Quietest" value="—" sub="not enough data yet" />
           )}
           {topDay && (
-            <div className="rounded-md bg-muted/30 px-2 py-2">
-              <div className="text-[9px] uppercase tracking-widest text-muted-foreground/70">Heaviest day</div>
-              <div className="text-sm font-medium">{topDay.day}</div>
-              <div className="text-[10px] text-muted-foreground/70 tabular-nums">avg +{topDay.total} bpm</div>
-            </div>
+            <SummaryStat label="Heaviest day" value={topDay.day} sub={`avg +${topDay.total} bpm`} />
           )}
         </div>
       )}
@@ -211,44 +351,55 @@ function StressLoadTab({ matrix }: { matrix: StressMatrix }) {
 // ── Burnout Risk tab ─────────────────────────────────────────────────
 function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
   const { weeks, dims, cardTrajectory, bannerCopy } = matrix;
+  const hrv = dims.find((d) => d.key === 'hrv');
   const bannerStyle =
     cardTrajectory === 'escalating'
       ? 'bg-[#FAECE7] text-[#993C1D]'
       : cardTrajectory === 'improving'
         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
         : 'bg-muted/40 text-muted-foreground';
+
+  if (!hrv) {
+    return (
+      <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
+        Burnout Risk needs HRV history from your wearable. No substitute signal is shown here.
+      </p>
+    );
+  }
+
+  const weekLabels = weeks.slice(-hrv.weekly.length);
+  const earlyRead = weekLabels.length < 3;
+  const gridCells: DrainCell[] = weekLabels.map((week, index) => ({
+    categoryId: 'Overall',
+    bucketLabel: week,
+    value: hrv.weekly[index] ?? null,
+    n: 4,
+    topEventLabel: 'HRV trend',
+    topEventValue: hrv.weekly[index],
+  }));
+  const maxValue = Math.max(5, ...hrv.weekly.filter((v) => v != null));
+
   return (
     <div className="space-y-3">
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-        Weekly view
+      <div className="flex items-center gap-2">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+          Weekly HRV trend
+        </div>
+        {earlyRead && (
+          <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+            Early read
+          </span>
+        )}
       </div>
-      <div className="space-y-2">
-        {dims.map((d) => (
-          <div key={d.key} className="flex items-center gap-2">
-            <div className="w-24 text-[11px] text-muted-foreground/80 truncate" title={d.label}>
-              {d.label}
-            </div>
-            <div className="flex-1 grid grid-cols-5 gap-1">
-              {d.weekly.map((v, i) => (
-                <div
-                  key={i}
-                  title={`${weeks[i]} · level ${v}/5`}
-                  className="h-6 rounded-sm"
-                  style={{
-                    background: d.color,
-                    opacity: 0.1 + (Math.max(1, Math.min(5, v)) / 5) * 0.9,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-5 gap-1 pl-[6.5rem] text-[9px] uppercase tracking-widest text-muted-foreground/60">
-        {weeks.map((w, i) => (
-          <div key={i} className="truncate text-center">{i === 0 ? '4w ago' : i === 4 ? 'This wk' : `${4 - i}w ago`}</div>
-        ))}
-      </div>
+      <DrainHeatmapGrid
+        rows={['Overall']}
+        columns={weekLabels}
+        cells={gridCells}
+        maxValue={maxValue}
+        unit="risk score"
+        rampLabel={{ low: 'Low risk', high: 'High risk' }}
+        emptyLabel="insufficient HRV days"
+      />
       <div className={cn('rounded-md px-2.5 py-2 text-[11px] font-medium', bannerStyle)}>
         {bannerCopy}
       </div>
@@ -269,42 +420,56 @@ function RecoveryTimeTab({ data }: { data: RecoveryByEvent }) {
       </p>
     );
   }
+  const qualifying = entries.filter((entry) => entry.n >= 3);
+  const microLocked = entries.filter((entry) => entry.n < 3);
+
+  if (!qualifying.length) {
+    return (
+      <div className="space-y-2 py-4">
+        <p className="text-xs text-muted-foreground/80 text-center">
+          Need at least 3 resolved recovery events in one category to show recovery time.
+        </p>
+        {entries.slice(0, 3).map((entry) => (
+          <p key={entry.eventType} className="text-[11px] text-muted-foreground text-center">
+            {normalizeCategory(entry.eventType)} — {3 - entry.n} more event{3 - entry.n === 1 ? '' : 's'} needed to show recovery time
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  const gridCells: DrainCell[] = qualifying.map((entry) => {
+    const bucket = RECOVERY_BUCKETS.find((candidate) => (
+      entry.recoveryDays >= candidate.min && entry.recoveryDays < candidate.max
+    )) ?? RECOVERY_BUCKETS[RECOVERY_BUCKETS.length - 1];
+    return {
+      categoryId: normalizeCategory(entry.eventType),
+      bucketLabel: bucket.label,
+      value: entry.recoveryDays,
+      n: entry.n,
+      topEventLabel: entry.eventType,
+      topEventValue: entry.recoveryDays,
+    };
+  });
+
   return (
     <div className="space-y-3">
-      <div className="space-y-2">
-        {entries.map((e) => {
-          const pct = Math.max(8, Math.round((e.recoveryDays / maxRecoveryDays) * 100));
-          const isTop = topEntry && e.eventType === topEntry.eventType;
-          const barColor = isTop ? CORAL_RAMP[4] : CORAL_RAMP[2];
-          return (
-            <div key={e.eventType} className="space-y-1">
-              <div className="flex items-baseline justify-between text-[11px]">
-                <span className="text-foreground/90 font-medium truncate pr-2">{e.eventType}</span>
-                <span className="tabular-nums text-muted-foreground">
-                  {e.recoveryDays}
-                  <span className="text-[10px] text-muted-foreground/70 ml-0.5">
-                    {e.recoveryDays === 1 ? 'day' : 'days'}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground/50 ml-1.5">n={e.n}</span>
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${pct}%`, backgroundColor: barColor }}
-                />
-              </div>
-              <div className="text-[10px] text-muted-foreground/60 tabular-nums">
-                Heart Rate +{Math.round(e.rhrDeltaBpm)} bpm on event day
-                {e.confidence === 'emerging' ? ' · emerging pattern' : ''}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <DrainHeatmapGrid
+        rows={qualifying.map((entry) => normalizeCategory(entry.eventType))}
+        columns={RECOVERY_BUCKETS.map((bucket) => bucket.label)}
+        cells={gridCells}
+        maxValue={Math.max(maxRecoveryDays, 1)}
+        unit="days"
+        rampLabel={{ low: 'Fast recovery', high: 'Slow recovery' }}
+      />
+      {microLocked.map((entry) => (
+        <p key={entry.eventType} className="text-[11px] text-muted-foreground">
+          {normalizeCategory(entry.eventType)} — {3 - entry.n} more event{3 - entry.n === 1 ? '' : 's'} needed to show recovery time
+        </p>
+      ))}
       {topEntry && (
         <div className="rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-          Longest recovery: <span className="text-foreground font-medium">{topEntry.eventType}</span>
+          Longest recovery: <span className="text-foreground font-medium">{normalizeCategory(topEntry.eventType)}</span>
           {' '}— typically {topEntry.recoveryDays} {topEntry.recoveryDays === 1 ? 'day' : 'days'}.
         </div>
       )}
