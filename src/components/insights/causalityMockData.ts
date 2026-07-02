@@ -49,11 +49,31 @@ export interface MockBurnoutMatrix {
     key: 'load' | 'rhr' | 'hrv' | 'sleep';
     label: string;
     color: string;
-    weekly: number[];
+    weekly: Array<number | null>;
     trajectory: 'escalating' | 'stable' | 'improving';
   }>;
   cardTrajectory: 'escalating' | 'stable' | 'improving';
   bannerCopy: string;
+}
+
+export interface MockRecoveryByEvent {
+  entries: Array<{
+    eventType: string;
+    recoveryDays: number;
+    rhrDeltaBpm: number;
+    n: number;
+    confidence: 'strong' | 'emerging';
+    lastSeen: string;
+  }>;
+  maxRecoveryDays: number;
+  topEntry: {
+    eventType: string;
+    recoveryDays: number;
+    rhrDeltaBpm: number;
+    n: number;
+    confidence: 'strong' | 'emerging';
+    lastSeen: string;
+  } | null;
 }
 
 export interface MockCausalityPayload {
@@ -67,6 +87,7 @@ export interface MockCausalityPayload {
   isMock: true;
   stressMatrix?: MockStressMatrix;
   burnoutMatrix?: MockBurnoutMatrix;
+  recoveryByEvent?: MockRecoveryByEvent | null;
 }
 
 const lensA: MockFinding[] = [
@@ -220,5 +241,14 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
     ],
     cardTrajectory: 'escalating',
     bannerCopy: 'Risk trajectory: escalating',
+  },
+  recoveryByEvent: {
+    entries: [
+      { eventType: 'Board reviews', recoveryDays: 3, rhrDeltaBpm: 7, n: 4, confidence: 'emerging', lastSeen: '2026-06-29' },
+      { eventType: 'Investor calls', recoveryDays: 2, rhrDeltaBpm: 5, n: 3, confidence: 'emerging', lastSeen: '2026-06-27' },
+      { eventType: '1:1s', recoveryDays: 1, rhrDeltaBpm: 3, n: 2, confidence: 'emerging', lastSeen: '2026-06-30' },
+    ],
+    maxRecoveryDays: 3,
+    topEntry: { eventType: 'Board reviews', recoveryDays: 3, rhrDeltaBpm: 7, n: 4, confidence: 'emerging', lastSeen: '2026-06-29' },
   },
 };

@@ -44,7 +44,7 @@ interface BurnoutMatrix {
     key: 'load' | 'rhr' | 'hrv' | 'sleep';
     label: string;
     color: string;
-    weekly: number[];
+    weekly: Array<number | null>;
     trajectory: 'escalating' | 'stable' | 'improving';
   }>;
   cardTrajectory: 'escalating' | 'stable' | 'improving';
@@ -236,6 +236,35 @@ function SummaryStat({ label, value, sub }: { label: string; value: string; sub:
   );
 }
 
+function LockedTile({
+  title,
+  message,
+  progress,
+}: {
+  title: string;
+  message: string;
+  progress?: { current: number; target: number };
+}) {
+  const pct = progress
+    ? Math.max(0, Math.min(100, Math.round((progress.current / Math.max(progress.target, 1)) * 100)))
+    : null;
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-4 space-y-2">
+      <div className="text-sm font-medium text-foreground">{title}</div>
+      <div className="text-xs text-muted-foreground">{message}</div>
+      {progress && pct !== null && (
+        <div className="space-y-1">
+          <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+            <div className="h-full rounded-full bg-foreground/80 transition-[width]" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="text-[10px] text-muted-foreground">{pct}%</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tab pill button ──────────────────────────────────────────────────
 function TabPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -373,11 +402,12 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
     categoryId: 'Overall',
     bucketLabel: week,
     value: hrv.weekly[index] ?? null,
-    n: 4,
+    n: hrv.weekly[index] == null ? 0 : 4,
     topEventLabel: 'HRV trend',
-    topEventValue: hrv.weekly[index],
+    topEventValue: hrv.weekly[index] ?? undefined,
   }));
-  const maxValue = Math.max(5, ...hrv.weekly.filter((v) => v != null));
+  const validValues = hrv.weekly.filter((v): v is number => typeof v === 'number');
+  const maxValue = Math.max(5, ...validValues);
 
   return (
     <div className="space-y-3">
@@ -550,11 +580,21 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
             headers: { Authorization: `Bearer ${accessToken}` },
             body: force ? { force: true } : {},
           });
-        let { data: result, error } = await invoke(false);
-        // Force a recompute if the cached payload predates v3 (no matrices).
+        const { data: initialResult, error } = await invoke(false);
+        let result = initialResult;
+        // Force a recompute if the cached payload predates any of the
+        // current card projections. This repairs older cached payloads that
+        // only had part of the v3/v5 tab contract and would otherwise leave
+        // Burnout / Recovery visually blank.
         if (!error && result) {
           const r = result as CausalityPayload;
-          const looksOld = !r.stressMatrix && !r.burnoutMatrix && r.cached === true;
+          const looksOld =
+            r.cached === true &&
+            (
+              !r.stressMatrix ||
+              !r.burnoutMatrix ||
+              !Object.prototype.hasOwnProperty.call(r, 'recoveryByEvent')
+            );
           if (looksOld) {
             const retry = await invoke(true);
             if (!retry.error && retry.data) result = retry.data;
@@ -592,13 +632,57 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
 
   const cov = data?.coverage;
   const showGating = !!cov && !cov.hasWearable && !cov.hasCalendar;
-  const partialBanner = useMemo(() => {
-    if (!cov || (cov.hasWearable && cov.hasCalendar)) return null;
-    if (!cov.hasWearable && !cov.hasCalendar) return null;
-    return cov.hasWearable
-      ? 'Add your calendar to fill out this view.'
-      : 'Add a wearable to fill out this view.';
-  }, [cov]);
+  const qualifyingRecoveryCount = useMemo(
+    () => (data?.recoveryByEvent?.entries ?? []).filter((entry) => entry.n >= 3).length,
+    [data?.recoveryByEvent],
+  );
+  const tabStates = useMemo(() => {
+    const checkinCount = cov?.checkinCount ?? 0;
+    const wearableDays = cov?.wearableDayCount ?? 0;
+    const eventCount = cov?.eventCount ?? 0;
+    const bestRecoveryN = Math.max(0, ...(data?.recoveryByEvent?.entries ?? []).map((entry) => entry.n));
+
+    return {
+      stress: {
+        unlocked: Boolean(cov?.hasCalendar && cov?.hasWearable && checkinCount >= 7 && wearableDays >= 5),
+        title: 'Stress Load',
+        message:
+          !cov?.hasCalendar
+            ? 'Stress Load needs your calendar to classify event windows.'
+            : !cov?.hasWearable
+              ? 'Stress Load needs a wearable with heart-rate samples.'
+              : checkinCount < 7
+                ? `Stress Load follows the existing causality gate — ${7 - checkinCount} more check-in${7 - checkinCount === 1 ? '' : 's'} needed.`
+                : wearableDays < 5
+                  ? `Stress Load needs at least 5 wearable days — ${wearableDays} so far.`
+                  : eventCount === 0
+                    ? 'Stress Load needs calendar events in the current window.'
+                    : 'Stress Load is still building.',
+        progress: cov?.hasWearable
+          ? { current: Math.min(wearableDays, 5), target: 5 }
+          : undefined,
+      },
+      burnout: {
+        unlocked: Boolean(cov?.hasWearable && wearableDays >= 7),
+        title: 'Burnout Risk',
+        message:
+          !cov?.hasWearable
+            ? 'Burnout Risk needs at least 7 days of wearable history.'
+            : `Burnout Risk needs at least 7 days of wearable history — ${wearableDays} so far.`,
+        progress: cov?.hasWearable
+          ? { current: Math.min(wearableDays, 7), target: 7 }
+          : undefined,
+      },
+      recovery: {
+        unlocked: qualifyingRecoveryCount > 0,
+        title: 'Recovery Time',
+        message: 'Recovery Time unlocks once one category has at least 3 resolved recovery events.',
+        progress: bestRecoveryN > 0
+          ? { current: Math.min(bestRecoveryN, 3), target: 3 }
+          : undefined,
+      },
+    } as const;
+  }, [cov, data?.recoveryByEvent, qualifyingRecoveryCount]);
 
   return (
     <LuxuryInsightCard>
@@ -649,14 +733,14 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               </TabPill>
             </div>
 
-            {partialBanner && (
-              <div className="rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-                {partialBanner}
-              </div>
-            )}
-
             {tab === 'stress' ? (
-              data.stressMatrix ? (
+              !tabStates.stress.unlocked ? (
+                <LockedTile
+                  title={tabStates.stress.title}
+                  message={tabStates.stress.message}
+                  progress={tabStates.stress.progress}
+                />
+              ) : data.stressMatrix ? (
                 <StressLoadTab matrix={data.stressMatrix} />
               ) : (
                 <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
@@ -664,13 +748,25 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 </p>
               )
             ) : tab === 'burnout' ? (
-              data.burnoutMatrix ? (
+              !tabStates.burnout.unlocked ? (
+                <LockedTile
+                  title={tabStates.burnout.title}
+                  message={tabStates.burnout.message}
+                  progress={tabStates.burnout.progress}
+                />
+              ) : data.burnoutMatrix ? (
                 <BurnoutRiskTab matrix={data.burnoutMatrix} />
               ) : (
                 <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
-                  Need a few more weeks of wearable + calendar data to populate.
+                  Burnout Risk is unlocked, but this chart is still waiting on enough HRV history to render.
                 </p>
               )
+            ) : !tabStates.recovery.unlocked ? (
+              <LockedTile
+                title={tabStates.recovery.title}
+                message={tabStates.recovery.message}
+                progress={tabStates.recovery.progress}
+              />
             ) : data.recoveryByEvent ? (
               <RecoveryTimeTab data={data.recoveryByEvent} />
             ) : (

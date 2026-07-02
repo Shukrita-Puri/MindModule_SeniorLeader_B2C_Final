@@ -1,7 +1,7 @@
-// OWNERSHIP: engineering. Single source of truth for the Elastic Lexicon (§2.20),
-// forbidden-word lists used across brief + smart-nudges, and allowed pattern-
-// reference keywords (§2.19.1 relevance gate). Wording changes go through code
-// review only.
+// OWNERSHIP: engineering. Single source of truth for the shared Chief-of-Staff
+// persona, notification blacklists, Elastic Lexicon (§2.20), and allowed
+// pattern-reference keywords (§2.19.1 relevance gate). Wording changes go
+// through code review only.
 //
 // Migration:
 // - smart-nudges/index.ts currently has its own FORBIDDEN_WORDS_V6 constant.
@@ -10,6 +10,10 @@
 //   Phase 2 work; this module is the destination.
 
 import type { PillarCluster } from "./brief-context.ts";
+export {
+  CHIEF_OF_STAFF_PERSONA,
+  FORBIDDEN_NOTIFICATION_WORDS,
+} from "./brief/copy-vocabulary.ts";
 
 /**
  * §2.20 Elastic Lexicon — three pillar clusters. The body must include ≥1

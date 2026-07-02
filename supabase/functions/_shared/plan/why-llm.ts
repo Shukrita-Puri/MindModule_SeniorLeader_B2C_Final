@@ -11,6 +11,10 @@
 import type { EventCategoryId } from "../events/event-categories.ts";
 import { EVENT_CATEGORIES } from "../events/event-categories.ts";
 import { EVENT_PHASE_MAP, type Phase } from "../events/event-phase-map.ts";
+import {
+  CHIEF_OF_STAFF_PERSONA,
+  FORBIDDEN_NOTIFICATION_WORDS,
+} from "../copy-vocabulary.ts";
 import type { SlotAnchor, TitleRole } from "./title-prefixes.ts";
 import { relativeEventPhrase } from "../text/sanitise.ts";
 
@@ -69,6 +73,19 @@ export interface WhyLLMInput {
   timezoneOffsetMinutes?: number;
   /** Event start in epoch ms — used to render the "When" phrase. */
   eventStartMs?: number | null;
+}
+
+interface GatewayToolArgs {
+  statement?: string;
+}
+
+interface GatewayChoiceMessage {
+  content?: string;
+  tool_calls?: Array<{ function?: { arguments?: string | GatewayToolArgs } }>;
+}
+
+interface GatewayResponse {
+  choices?: Array<{ message?: GatewayChoiceMessage }>;
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -338,8 +355,10 @@ function buildPrompt(inp: WhyLLMInput): string {
   const arcDirective = arcDirectiveFor(arc);
 
   const signalPhrases = pickRelevantSignalPhrases(inp);
+  const signalPhrase = signalPhrases[0] ?? "no single dominant signal";
   const practice = (inp.practiceTitle || "").trim() || "this practice";
   const protocol = (inp.protocolCombo || "").trim() || "(single-step)";
+  const forbiddenCopy = FORBIDDEN_NOTIFICATION_WORDS.join(", ");
 
   const evtTitle = inp.slotAnchor?.eventTitle || inp.eventName || "";
   const evtCatId = inp.slotAnchor?.categoryId || inp.category || null;
@@ -392,7 +411,9 @@ function buildPrompt(inp: WhyLLMInput): string {
     : "";
 
   return [
-    `You are the leader's Chief of Staff for the Mind, writing the one-line reason a specific practice has been placed in their plan today.`,
+    `${CHIEF_OF_STAFF_PERSONA}`,
+    ``,
+    `You are writing the one-line reason a specific practice has been placed in their plan today.`,
     ``,
     `You are not the Brief. The Brief already gave the read on how today feels and how to carry themselves. Your job now is narrower and more concrete: explain, in one human sentence, why THIS practice, for THIS event, RIGHT NOW. You are the person who put the move on their schedule and is telling them why it earns its place.`,
     ``,
@@ -416,6 +437,7 @@ function buildPrompt(inp: WhyLLMInput): string {
     `HARD CONSTRAINTS`,
     `- One sentence. The practice title carries the "what"; you carry the "why".`,
     `- Never use wellness words (recharge, self-care, mindful, breathe, nourish, restore, wellness, journey, calm, relax) or clinical jargon (parasympathetic, cortisol, sympathetic).`,
+    `- Shared forbidden notification words also apply here: ${forbiddenCopy}.`,
     `- Never name the score, the band, or the state-band word — imply the state in plain words.`,
     `- Never mention band mechanics, scores, or the internal plan system.`,
     `- Never use abstract system phrases ("optimise the window", "hold the base", "for your state"). If a real chief of staff wouldn't say it out loud handing over a task, rewrite it.`,
@@ -488,13 +510,13 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
       console.warn("[why-llm] gateway error", resp.status, await resp.text().catch(() => ""));
       return null;
     }
-    const data = await resp.json();
-    const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    const data = await resp.json() as GatewayResponse;
+    const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     let statement: string | null = null;
     if (typeof args === "string") {
       try { statement = JSON.parse(args)?.statement ?? null; } catch { statement = null; }
     } else if (args && typeof args === "object") {
-      statement = (args as any).statement ?? null;
+      statement = "statement" in args && typeof args.statement === "string" ? args.statement : null;
     }
     if (!statement) {
       const direct = data?.choices?.[0]?.message?.content;
@@ -504,8 +526,9 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
     const trimmed = trimToWords(statement, 30);
     if (trimmed.split(/\s+/).length < 5) return null;
     return trimmed;
-  } catch (e) {
-    console.warn("[why-llm] failed", (e as any)?.message || e);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.warn("[why-llm] failed", message);
     return null;
   }
 }

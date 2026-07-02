@@ -311,11 +311,11 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
             .gte('checkin_date', startDate)
             .lte('checkin_date', endDate);
           if (error) throw error;
-          data = (rows || []).map((row: any) => ({
+          data = (rows || []).map((row: Record<string, unknown>) => ({
             checkin_date: row.checkin_date,
             time_window: row.time_window,
             created_at: row.created_at,
-            value: row[field],
+            value: typeof row[field] === 'number' ? row[field] : 0,
           }));
         } else {
           const { data: result, error } = await supabase.functions.invoke('level-trend-calendar', {
@@ -416,7 +416,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         {/* Fixed row labels */}
         <div className="flex flex-col gap-1.5 mr-2.5 pt-[38px]">
           {['Morning', 'Midday', 'Evening'].map((label) => (
-            <div key={label} className="h-[22px] flex items-center justify-end">
+            <div key={label} className="h-[18px] flex items-center justify-end">
               <span className="text-xs text-muted-foreground whitespace-nowrap w-[44px] text-right">{label}</span>
             </div>
           ))}
@@ -456,7 +456,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
                     <div
                       key={tw}
                       className={cn(
-                        'w-[22px] h-[22px] rounded-md flex-shrink-0 relative overflow-hidden transition-all duration-200',
+                        'w-[24px] h-[16px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
                         day.isFuture
                           ? 'border border-dashed border-border/40 bg-transparent'
                           : hasValue

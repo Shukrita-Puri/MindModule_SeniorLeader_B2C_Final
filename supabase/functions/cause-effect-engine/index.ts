@@ -180,7 +180,7 @@ interface BurnoutMatrix {
     key: 'load' | 'rhr' | 'hrv' | 'sleep';
     label: string;
     color: string;                                  // hex from spec, ramp via opacity client-side
-    weekly: number[];                               // 1-5 intensity per week
+    weekly: Array<number | null>;                   // 1-5 intensity per week; null = insufficient data
     trajectory: 'escalating' | 'stable' | 'improving';
   }>;
   cardTrajectory: 'escalating' | 'stable' | 'improving';
@@ -1086,9 +1086,10 @@ serve(async (req) => {
       return t >= s && t < e;
     };
     const clamp1to5 = (x: number) => Math.max(1, Math.min(5, Math.round(x)));
-    const trajectoryOf = (weekly: number[]): "escalating" | "stable" | "improving" => {
-      if (weekly.length < 2) return "stable";
-      const delta = weekly[weekly.length - 1] - weekly[0];
+    const trajectoryOf = (weekly: Array<number | null>): "escalating" | "stable" | "improving" => {
+      const valid = weekly.filter((value): value is number => typeof value === "number");
+      if (valid.length < 2) return "stable";
+      const delta = valid[valid.length - 1] - valid[0];
       if (delta >= 1.5) return "escalating";
       if (delta <= -1.5) return "improving";
       return "stable";
@@ -1106,8 +1107,10 @@ serve(async (req) => {
     const loadWeekly = loadByWeek.map((v) => clamp1to5(1 + (v / loadMax) * 4));
 
     // rhr trend (positive slope = elevated): use weekly mean RHR
-    const wByWeek = (sig: "resting_heart_rate" | "hrv" | "sleep_score"): number[] => {
-      const out: number[] = [];
+    const wByWeek = (
+      sig: "resting_heart_rate" | "hrv" | "sleep_score",
+    ): Array<{ mean: number | null; count: number }> => {
+      const out: Array<{ mean: number | null; count: number }> = [];
       for (let w = 0; w < 5; w++) {
         const vals: number[] = [];
         (wearable as any[]).forEach((row) => {
@@ -1116,7 +1119,7 @@ serve(async (req) => {
           const v = row[sig];
           if (typeof v === "number" && v > 0) vals.push(v);
         });
-        out.push(vals.length ? mean(vals) : NaN);
+        out.push({ mean: vals.length ? mean(vals) : null, count: vals.length });
       }
       return out;
     };
@@ -1144,13 +1147,19 @@ serve(async (req) => {
     }
 
     // Map raw weekly values → 1..5 intensity using deviation from window baseline.
-    const intensityFromTrend = (weekly: number[], invert = false): number[] => {
-      const valid = weekly.filter((v) => Number.isFinite(v));
-      if (valid.length === 0) return WEEK_LABELS.map(() => 1);
+    const intensityFromTrend = (
+      weekly: Array<{ mean: number | null; count: number }>,
+      invert = false,
+      minCount = 1,
+    ): Array<number | null> => {
+      const valid = weekly
+        .filter((entry) => entry.count >= minCount && entry.mean !== null)
+        .map((entry) => entry.mean as number);
+      if (valid.length === 0) return WEEK_LABELS.map(() => null);
       const base = mean(valid);
       const span = Math.max(1, ...valid.map((v) => Math.abs(v - base)));
-      return weekly.map((v) => {
-        if (!Number.isFinite(v)) return 1;
+      return weekly.map(({ mean: v, count }) => {
+        if (count < minCount || v === null || !Number.isFinite(v)) return null;
         const dev = (v - base) / span; // -1..1
         const signed = invert ? -dev : dev;
         // Center at 3, scale to 1..5
@@ -1158,7 +1167,7 @@ serve(async (req) => {
       });
     };
     const rhrWeekly = intensityFromTrend(rhrWeeks, false);
-    const hrvWeekly = intensityFromTrend(hrvWeeks, true);
+    const hrvWeekly = intensityFromTrend(hrvWeeks, true, 4);
     const sleepDeficitMax = Math.max(1, ...sleepDeficitByWeek);
     const sleepWeekly = sleepDeficitByWeek.map((c) => clamp1to5(1 + (c / sleepDeficitMax) * 4));
 
