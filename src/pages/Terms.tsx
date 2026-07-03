@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
+import PageSeo from '@/components/PageSeo';
 
 const H2_CLS = "text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3";
 const H3_CLS = "text-[15px] sm:text-lg font-body text-foreground mb-2 mt-4";
@@ -8,6 +9,11 @@ const Terms = () => {
   const navigate = useNavigate();
   return (
     <ProfilePageLayout contentClassName="container max-w-4xl">
+      <PageSeo
+        title="Terms of Use — Mind Module"
+        description="The terms that govern your access to and use of the Mind Module mental performance OS."
+        path="/terms"
+      />
       <h1 className="text-[28px] font-headline font-semibold text-foreground mb-2">Terms of Use</h1>
       <p className="text-muted-foreground mb-8">Effective Date: June 29, 2026 · Last Updated: June 29, 2026</p>
 
