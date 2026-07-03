@@ -1,0 +1,17 @@
+# Mind Module
+
+> Mind Module is a proactive mental performance OS that helps executives sustain focus, energy, and recovery under load.
+
+Mind Module blends physiological signals (HRV, sleep, recovery), calendar load, and self-check-ins into a daily readiness brief, an adaptive mastery plan, and an on-demand executive coach.
+
+## Pages
+
+- [Home](/): Overview of the mental performance OS for leaders.
+- [Privacy Policy](/privacy): How Mind Module collects, uses, and protects personal data.
+- [Terms of Use](/terms): Terms governing use of the Service.
+- [Powered by AI](/powered-by-ai): AI transparency disclosure and safeguards.
+
+## Optional
+
+- [Sign in](/login): Existing account sign-in.
+- [Create account](/signup): Sign-up entry point.
