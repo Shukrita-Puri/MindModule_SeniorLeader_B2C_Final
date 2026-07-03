@@ -11,6 +11,7 @@ import {
   getSanitisedAuth0Audience,
 } from '@/utils/nativeAuth';
 import { isLogoutGuardActive, clearLogoutGuard } from '@/utils/logoutGuard';
+import PageSeo from '@/components/PageSeo';
 
 const REDIRECT_TIMEOUT_MS = 8000;
 
@@ -157,7 +158,13 @@ const Signup = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-transparent">
+      <PageSeo
+        title="Join Mind Module — Create your account"
+        description="Create your Mind Module account and start using the proactive mental performance OS for leaders."
+        path="/signup"
+      />
       <div className="text-center">
+        <h1 className="sr-only">Join Mind Module</h1>
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
         <p className="text-muted-foreground">Redirecting to signup...</p>
       </div>
