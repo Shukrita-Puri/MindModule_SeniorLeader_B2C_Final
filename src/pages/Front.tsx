@@ -19,6 +19,7 @@ import { clearLogoutGuard, isLogoutGuardActive } from "@/utils/logoutGuard";
 import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscriptionHelpers";
 import { getResumeRoute } from "@/utils/onboardingStatus";
 import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
+import PageSeo from "@/components/PageSeo";
 
 const CANONICAL_HOME = '/executive-home';
 const LEGAL_KEY = 'mm_legal_accepted_v1';
@@ -206,7 +207,11 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
   const disabled = !accepted || busy !== null;
 
   return <div className="relative h-screen h-[100dvh] flex flex-col items-center overflow-hidden">
-      
+      <PageSeo
+        title="Mind Module — Mental Performance OS for Leaders"
+        description="Mind Module is the proactive mental performance OS that helps executives sustain focus, energy, and recovery under load."
+        path="/"
+      />
       {/* Full-bleed background illustration */}
       <img 
         src={heroIllustration} 
@@ -239,7 +244,7 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
             className="relative text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-white tracking-wider leading-none"
             style={{ textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.45)" }}
           >
-            MIND MODULE
+            MIND MODULE — Executive Edition
           </h1>
           <p
             className="relative text-xs sm:text-xs tracking-[0.35em] uppercase text-white/90 font-body"
