@@ -37,7 +37,7 @@ export default function Stage1Welcome() {
             className="relative text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-white tracking-wider leading-none"
             style={{ textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.45)" }}
           >
-            MIND MODULE
+            MIND MODULE — Executive Edition
           </h1>
           <p
             className="relative text-xs tracking-[0.35em] uppercase text-white/90 font-body"

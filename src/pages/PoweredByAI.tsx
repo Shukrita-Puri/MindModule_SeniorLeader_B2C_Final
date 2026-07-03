@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
+import PageSeo from '@/components/PageSeo';
 
 const H2_CLS = "text-[17px] sm:text-xl font-body text-foreground mb-3";
 const H3_CLS = "text-[15px] sm:text-lg font-body text-foreground mb-2 mt-4";
@@ -8,6 +9,11 @@ const PoweredByAI = () => {
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-transparent">
+      <PageSeo
+        title="Powered by AI — Mind Module"
+        description="How Mind Module uses AI to power executive brief, plan, and coach features, and the safeguards in place."
+        path="/powered-by-ai"
+      />
       <UnifiedTopBar hideCoach />
       <div className="container max-w-4xl mx-auto px-4 pt-20 pb-12">
         <h1 className="text-[22px] sm:text-3xl font-headline text-foreground mb-2">Powered by AI</h1>

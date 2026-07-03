@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelmetProvider } from "react-helmet-async";
 import ErrorBoundary from "./components/ErrorBoundary";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import PlayerErrorBoundary from "./components/PlayerErrorBoundary";
@@ -419,6 +420,7 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <ErrorBoundary>
+      <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <div className="App">
@@ -426,6 +428,7 @@ function App() {
           </div>
         </TooltipProvider>
       </QueryClientProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 }
