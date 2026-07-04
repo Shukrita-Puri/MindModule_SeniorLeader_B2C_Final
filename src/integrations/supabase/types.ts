@@ -5635,6 +5635,7 @@ export type Database = {
       }
     }
     Functions: {
+      admin_delete_user_data: { Args: { _user_id: string }; Returns: Json }
       assign_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
