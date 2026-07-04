@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 type Row = Record<string, unknown>;
 interface Detail {
   profile: Row;
+  referral?: Row | null;
   latestCheckIn: Row | null;
   latestWearable: Row | null;
   calendarConnections: Row[];
@@ -136,6 +137,7 @@ const AdminUserDetail = () => {
       {data && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Section title="Profile"><KeyVal data={data.profile} /></Section>
+          <Section title="Referral"><KeyVal data={data.referral ?? null} /></Section>
           <Section title="Latest check-in"><KeyVal data={data.latestCheckIn} /></Section>
           <Section title="Latest wearable"><KeyVal data={data.latestWearable} /></Section>
           <Section title="Latest MRS / context"><KeyVal data={data.latestMrs} /></Section>

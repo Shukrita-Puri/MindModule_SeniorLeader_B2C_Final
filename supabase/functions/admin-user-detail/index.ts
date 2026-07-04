@@ -1,4 +1,5 @@
 import { requireAdmin, writeAdminAudit, adminCorsHeaders } from "../_shared/admin-guard.ts";
+import { buildReferralDetail } from "./referral-detail.ts";
 
 const cors = adminCorsHeaders();
 
@@ -22,7 +23,7 @@ Deno.serve(async (req) => {
   const { data: profile, error: profileErr } = await db
     .from("profiles")
     .select(
-      "id, email, full_name, display_name, avatar_url, created_at, onboarding_completed_at, subscription_tier, subscription_status, subscription_plan, trial_ends_at, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id, founding_member, referral_code, current_timezone, home_timezone, user_archetype",
+      "id, email, full_name, display_name, avatar_url, created_at, onboarding_completed_at, subscription_tier, subscription_status, subscription_plan, trial_ends_at, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id, founding_member, referral_code_used, referral_code_entered_at, current_timezone, home_timezone, user_archetype",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
     route: `/admin/users/${userId}`,
   });
 
-  const [checkin, wearable, calendar, brief, plan, mrs, deviceTokens, recentRuns] = await Promise.all([
+  const [checkin, wearable, calendar, brief, plan, mrs, deviceTokens, recentRuns, referral] = await Promise.all([
     db.from("daily_checkins").select("id, checkin_date, time_window, outcome, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     db.from("wearable_data").select("summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, data_source, created_at").eq("user_id", userId).order("summary_date", { ascending: false }).limit(1).maybeSingle(),
     db.from("calendar_connections").select("provider, connection_status, created_at, updated_at, last_synced_at").eq("user_id", userId),
@@ -50,10 +51,16 @@ Deno.serve(async (req) => {
     db.from("daily_context_snapshot").select("mrs_window, readiness_state, readiness_score_baseline, readiness_score_refined, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     db.from("notification_device_tokens").select("id, platform, is_active, created_at, updated_at").eq("user_id", userId),
     db.from("executive_home_card_runs").select("run_id, local_date, window, mode, status, mrs_status, brief_status, plan_status, skipped_reason, error, duration_ms, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(10),
+    db.from("user_referrals").select("referral_code, referral_link, total_signups, total_conversions, credited_months").eq("user_id", userId).maybeSingle(),
   ]);
+
+  if (referral.error) {
+    console.warn("[admin-user-detail] referral lookup skipped", referral.error.message);
+  }
 
   return json({
     profile,
+    referral: buildReferralDetail(profile, referral.error ? null : (referral.data ?? null)),
     latestCheckIn: checkin.data ?? null,
     latestWearable: wearable.data ?? null,
     calendarConnections: calendar.data ?? [],
