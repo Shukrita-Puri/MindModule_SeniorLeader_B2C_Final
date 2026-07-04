@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       .from("notification_log")
       .select("*")
       .gte("created_at", sinceIso)
-      .in("status", ["failed", "error", "bounced"] as any)
+      .in("delivery_state", ["failed", "error", "bounced", "undelivered"] as any)
       .order("created_at", { ascending: false })
       .limit(limit);
     if (userIdFilter) q = q.eq("user_id", userIdFilter);
@@ -98,10 +98,40 @@ Deno.serve(async (req) => {
             source: "notification-log",
             severity: "error",
             userId: r.user_id ?? null,
-            summary: (r.error_message ?? r.status ?? "notification failed").toString().slice(0, 240),
+            summary: (r.delivery_state ?? r.notification_type ?? "notification failed").toString().slice(0, 240),
             details: sanitize(r),
             relatedRunId: null,
-            status: r.status,
+            status: r.delivery_state,
+          })),
+        };
+      }),
+    );
+  }
+
+  if (!source || source === "notification_evaluator_traces") {
+    let q = db
+      .from("notification_evaluator_traces")
+      .select("id, run_id, evaluator, user_id, local_date, outcome, notification_type, apns_status, apns_reason, metadata, created_at")
+      .gte("created_at", sinceIso)
+      .in("outcome", ["error", "apns_failed", "failed"] as any)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (userIdFilter) q = q.eq("user_id", userIdFilter);
+    promises.push(
+      q.then(({ data, error }) => {
+        if (error) return { source: "notification_evaluator_traces", rows: [] };
+        return {
+          source: "notification_evaluator_traces",
+          rows: (data ?? []).map((r: any) => ({
+            id: r.id,
+            time: r.created_at,
+            source: r.evaluator ?? "notification-evaluator",
+            severity: "error",
+            userId: r.user_id ?? null,
+            summary: `${r.outcome ?? "error"}${r.apns_reason ? `: ${r.apns_reason}` : ""}`.slice(0, 240),
+            details: sanitize(r),
+            relatedRunId: r.run_id ?? null,
+            status: r.outcome,
           })),
         };
       }),
