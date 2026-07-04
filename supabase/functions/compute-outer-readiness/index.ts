@@ -2432,11 +2432,9 @@ serve(async (req) => {
     const wearableSourceAgeDays = sourceRowDate
       ? Math.max(0, Math.floor((new Date(`${userLocalDate}T00:00:00Z`).getTime() - new Date(`${sourceRowDate}T00:00:00Z`).getTime()) / 86400000))
       : null;
-    const wearableDaysConnected = deriveWearableDaysConnected({
-      connectedAt: wearableIntegration?.watch_connected_at ?? null,
-      fallbackConnectedAt: wearableIntegration?.updated_at ?? null,
-      isConnected: hasWearableConnectionRecord,
-    });
+    // wearableDaysConnected is hoisted above `getTheme(...)` (see block near
+    // line ~2100) so every consumer — including nested try/catch blocks — sees
+    // it as initialized. Do not redeclare here.
     const hasTodayWearableData = hasWearableData && wearableSourceAgeDays === 0;
     const hasRecentWearableData = hasWearableData && wearableSourceAgeDays === 1;
     const hasStaleWearableData = hasWearableData && wearableSourceAgeDays !== null && wearableSourceAgeDays > 1;
