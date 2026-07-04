@@ -60,6 +60,15 @@ export function getReadinessValence(score: number | null | undefined): Readiness
 }
 
 export type ReadinessState = "baseline" | "refined" | "awaiting";
+export type AwaitingReason =
+  | "first_time"
+  | "wearable_permission_revoked"
+  | "wearable_connected_no_data"
+  | "wearable_sync_delayed"
+  | "calendar_permission_revoked"
+  | "calendar_connected_no_events"
+  | "wearable_present_calendar_missing"
+  | "calendar_present_wearable_missing";
 
 /**
  * Stage contract:
@@ -94,4 +103,100 @@ export function getReadinessStateLabel(
     label: "Awaiting signals",
     subtitle: "sync your wearable, calendar to get an early read and check in to sharpen it",
   };
+}
+
+type AwaitingPayload = {
+  hasWearable?: boolean;
+  hasCalendar?: boolean;
+  calendarState?: string | null;
+  wearableStatus?: {
+    isConnected?: boolean;
+    hasTodayData?: boolean;
+    hasRecentData?: boolean;
+  } | null;
+  integrationStatus?: {
+    wearable?: {
+      connectionStatus?: string | null;
+      syncStatus?: string | null;
+      hasTodayData?: boolean;
+      hasRecentData?: boolean;
+      hasHistoricalData?: boolean;
+    } | null;
+    calendar?: {
+      connectionStatus?: string | null;
+      state?: string | null;
+      needsReconnect?: boolean;
+      connected?: boolean;
+    } | null;
+  } | null;
+};
+
+export function deriveAwaitingReason(payload?: AwaitingPayload): AwaitingReason {
+  if (!payload) return "first_time";
+
+  const wearable = payload.integrationStatus?.wearable ?? payload.wearableStatus ?? null;
+  const calendar = payload.integrationStatus?.calendar ?? null;
+
+  const hasWearableSignal =
+    payload.hasWearable === true ||
+    wearable?.hasTodayData === true ||
+    wearable?.hasRecentData === true;
+  const hasCalendarSignal =
+    payload.hasCalendar === true ||
+    payload.calendarState === "active" ||
+    payload.calendarState === "connected_no_events" ||
+    calendar?.state === "active" ||
+    calendar?.state === "connected_no_events" ||
+    calendar?.connected === true;
+
+  if (wearable?.connectionStatus === "permission_revoked") {
+    return "wearable_permission_revoked";
+  }
+  if (wearable?.connectionStatus === "sync_delayed" || wearable?.syncStatus === "sync_delayed") {
+    return "wearable_sync_delayed";
+  }
+  if (
+    wearable?.connectionStatus === "connected_but_waiting_for_data" ||
+    (wearable?.connectionStatus === "connected" &&
+      !wearable?.hasTodayData &&
+      !wearable?.hasRecentData &&
+      wearable?.hasHistoricalData === true)
+  ) {
+    return "wearable_connected_no_data";
+  }
+  if (calendar?.needsReconnect || calendar?.connectionStatus === "permission_revoked") {
+    return "calendar_permission_revoked";
+  }
+  if (payload.calendarState === "connected_no_events" || calendar?.state === "connected_no_events") {
+    return "calendar_connected_no_events";
+  }
+  if (hasWearableSignal && !hasCalendarSignal) {
+    return "wearable_present_calendar_missing";
+  }
+  if (hasCalendarSignal && !hasWearableSignal) {
+    return "calendar_present_wearable_missing";
+  }
+  return "first_time";
+}
+
+export function getAwaitingCopy(reason: AwaitingReason): string {
+  switch (reason) {
+    case "wearable_permission_revoked":
+      return "Apple Health access needs attention — reconnect it to restore your readiness read.";
+    case "wearable_connected_no_data":
+      return "Apple Health is connected, but no new wearable data has arrived yet.";
+    case "wearable_sync_delayed":
+      return "Apple Health is connected, but the latest sync is delayed. We’ll keep retrying.";
+    case "calendar_permission_revoked":
+      return "Apple Calendar access needs attention — reconnect it to restore your day context.";
+    case "calendar_connected_no_events":
+      return "Calendar connected — no events found for this window.";
+    case "wearable_present_calendar_missing":
+      return "Wearable signal received — connect calendar for a fuller read.";
+    case "calendar_present_wearable_missing":
+      return "Calendar signal received — sync wearable for a fuller read.";
+    case "first_time":
+    default:
+      return "Awaiting signals — connect your wearable and calendar to get an early read, then check in to sharpen it.";
+  }
 }

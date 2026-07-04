@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getReadinessOneLiner, getReadinessStateLabel } from './readinessLabels';
+import {
+  deriveAwaitingReason,
+  getAwaitingCopy,
+  getReadinessOneLiner,
+  getReadinessStateLabel,
+} from './readinessLabels';
 
 describe('readinessLabels', () => {
   it('treats awaiting as awaiting-signals copy', () => {
@@ -36,5 +41,33 @@ describe('readinessLabels', () => {
 
   it('returns null for missing one-liner score', () => {
     expect(getReadinessOneLiner(null)).toBeNull();
+  });
+
+  it('derives no-new-data wearable reason', () => {
+    expect(deriveAwaitingReason({
+      integrationStatus: {
+        wearable: {
+          connectionStatus: 'connected',
+          hasTodayData: false,
+          hasRecentData: false,
+          hasHistoricalData: true,
+        },
+      },
+    })).toBe('wearable_connected_no_data');
+  });
+
+  it('derives calendar-missing reason when wearable signal exists', () => {
+    expect(deriveAwaitingReason({
+      hasWearable: true,
+      wearableStatus: { isConnected: true, hasTodayData: true, hasRecentData: true },
+      hasCalendar: false,
+      calendarState: 'not_connected',
+    })).toBe('wearable_present_calendar_missing');
+  });
+
+  it('returns the canonical first-time awaiting copy', () => {
+    expect(getAwaitingCopy('first_time')).toBe(
+      'Awaiting signals — connect your wearable and calendar to get an early read, then check in to sharpen it.',
+    );
   });
 });

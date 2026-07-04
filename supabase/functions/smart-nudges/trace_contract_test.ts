@@ -53,3 +53,10 @@ Deno.test("APNs environment remains production/sandbox selectable", () => {
   assert(SRC.includes("APNS_ENVIRONMENT"));
   assertEquals(/apnsEnv\s*===\s*'production'/.test(SRC), true);
 });
+
+Deno.test("smart-nudges reads canonical jit confidence and avoids legacy missing columns", () => {
+  assert(SRC.includes("jit_confidence_score"), "expected jit_confidence_score read");
+  assert(!SRC.includes("confidence_band"), "legacy confidence_band column should not be queried");
+  assert(!SRC.includes("wearable_status"), "legacy daily_context_snapshot.wearable_status column should not be queried");
+  assert(!SRC.includes("mrs_awaiting_signals"), "legacy daily_context_snapshot.mrs_awaiting_signals column should not be queried");
+});

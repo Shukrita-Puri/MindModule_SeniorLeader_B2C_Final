@@ -438,8 +438,8 @@ interface DailyContextSnapshotRead {
   supply_demand_gap_flag?: string | null;
   pattern_signals?: { sustained_deficit_flag?: boolean | null } | null;
   readiness_state?: string | null;
-  wearable_status?: string | null;
-  mrs_awaiting_signals?: boolean | null;
+  readiness_score_baseline?: number | null;
+  readiness_score_refined?: number | null;
   mrs_window?: string | null;
 }
 
@@ -462,6 +462,16 @@ interface CoachSignals {
   stressSignals: Array<{ topic: string; sessionId: string }>;
   lastSessionAt: Date | null;
   sessionsIn7d: number;
+}
+
+function confidenceBandFromScore(
+  score: number | null | undefined,
+): 'high' | 'medium' | 'low' | 'none' {
+  if (typeof score !== 'number' || !Number.isFinite(score)) return 'low';
+  if (score >= 70) return 'high';
+  if (score >= 40) return 'medium';
+  if (score >= 20) return 'low';
+  return 'none';
 }
 
 // v7 - Unified pattern store projection (read from causality_findings.signal_summary)
@@ -963,7 +973,7 @@ async function buildNudgeContext(
       .eq('user_id', userId)
       .eq('ritual_date', todayStr),
     supabase.from('jit_event_context')
-      .select('id, event_title, event_start, final_score, confidence_band')
+      .select('id, event_title, event_start, final_score, jit_confidence_score')
       .eq('user_id', userId)
       .gte('event_start', new Date(now.getTime() + 30 * 60000).toISOString())
       .lte('event_start', new Date(now.getTime() + 360 * 60000).toISOString())
@@ -1178,7 +1188,7 @@ async function buildNudgeContext(
     eventStart: e.event_start,
     finalScore: e.final_score || 0,
     externalId: e.id,
-    confidenceBand: e.confidence_band || 'low',
+    confidenceBand: confidenceBandFromScore(e.jit_confidence_score),
   }));
 
   // Determine the Brief's time window for the snapshot lookup. Mirrors
@@ -4049,7 +4059,7 @@ serve(async (req) => {
         {
           const { data } = await supabase
             .from('daily_context_snapshot')
-            .select('supply_demand_gap_flag, pattern_signals, readiness_state, wearable_status, mrs_awaiting_signals')
+            .select('supply_demand_gap_flag, pattern_signals, readiness_state, readiness_score_baseline, readiness_score_refined')
             .eq('user_id', userId)
             .eq('local_date', todayStr)
             .eq('mrs_window', nudgeWindow)
@@ -4059,7 +4069,7 @@ serve(async (req) => {
         if (!snapRow) {
           const { data: legacy } = await supabase
             .from('daily_context_snapshot')
-            .select('supply_demand_gap_flag, pattern_signals, readiness_state, wearable_status, mrs_awaiting_signals, mrs_window')
+            .select('supply_demand_gap_flag, pattern_signals, readiness_state, readiness_score_baseline, readiness_score_refined, mrs_window')
             .eq('user_id', userId)
             .eq('local_date', todayStr)
             .order('updated_at', { ascending: false })
@@ -4072,12 +4082,19 @@ serve(async (req) => {
         }
         const gapFlag = snapRow?.supply_demand_gap_flag ?? null;
         const ps = snapRow?.pattern_signals ?? null;
+        const readinessScorePresent =
+          typeof snapRow?.readiness_score_refined === 'number' ||
+          typeof snapRow?.readiness_score_baseline === 'number';
         mrsSnapshotMeta = {
           mrs_readiness_state: snapRow?.readiness_state ?? null,
-          wearable_status: snapRow?.wearable_status ?? null,
-          mrs_awaiting_signals: snapRow?.mrs_awaiting_signals ?? null,
+          mrs_readiness_score_present: readinessScorePresent,
         };
         Object.assign(traceBase.metadata, mrsSnapshotMeta);
+        if (!readinessScorePresent) {
+          console.log(
+            `[smart-nudges][mrs-state1] Optional readiness score fields absent for user=${userId}, continuing with awaiting-safe behaviour.`,
+          );
+        }
         if (snapRow?.readiness_state === 'awaiting') {
           console.log(`[smart-nudges][mrs-state1] User ${userId} awaiting signals; continuing so nudge can drive sync + check-in.`);
         }

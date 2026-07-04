@@ -2596,7 +2596,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     supabaseClient.from('content_relevance_feedback').select('content_id').eq('user_id', req.userId).gte('star_rating', 4),
     supabaseClient.from('user_coach_insights').select('id, insight_type, insight_content, content_reference, confidence_score').eq('user_id', req.userId).eq('is_active', true).gte('confidence_score', 0.6).order('extracted_at', { ascending: false }).limit(50),
     supabaseClient.from('coach_accountability_tracker').select('commitment_text, target_practice_id, pattern_area, status').eq('user_id', req.userId).eq('status', 'pending'),
-    supabaseClient.from('practice_sessions').select('practice_id, completed_at').eq('user_id', req.userId).gte('completed_at', new Date(Date.now() - 14 * 86400000).toISOString()).order('completed_at', { ascending: false }).limit(100),
+    supabaseClient.from('practice_sessions').select('content_id, completed_at').eq('user_id', req.userId).gte('completed_at', new Date(Date.now() - 14 * 86400000).toISOString()).order('completed_at', { ascending: false }).limit(100),
   ]);
 
   // ── Calendar events ──
@@ -2780,7 +2780,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     const todayUtcMs = Date.now();
     const recentDays: Record<string, number> = {};
     for (const s of sessions) {
-      const pid = s?.practice_id;
+      const pid = s?.content_id;
       const ts = s?.completed_at ? new Date(s.completed_at).getTime() : NaN;
       if (!pid || !Number.isFinite(ts)) continue;
       const days = Math.max(0, Math.floor((todayUtcMs - ts) / 86_400_000));
@@ -2795,7 +2795,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
         if (sameDay.length >= 2) {
           const pre = sameDay[sameDay.length - 1].energy_balance ?? 50;
           const post = sameDay[0].energy_balance ?? 50;
-          const pid = session.practice_id;
+          const pid = session.content_id;
           if (!impactMap[pid]) impactMap[pid] = { totalShift: 0, count: 0 };
           impactMap[pid].totalShift += (post - pre);
           impactMap[pid].count++;
