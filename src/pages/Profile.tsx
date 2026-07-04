@@ -19,6 +19,8 @@ import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import PushNotificationTestDialog from '@/components/profile/PushNotificationTestDialog';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { ShieldCheck } from 'lucide-react';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -30,6 +32,7 @@ const tierLabels: Record<string, string> = {
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut, refreshProfile } = useAuth();
+  const { canAccessAdmin } = useIsAdmin();
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
