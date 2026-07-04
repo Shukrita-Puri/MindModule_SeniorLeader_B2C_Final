@@ -424,6 +424,23 @@ const router = createBrowserRouter([
           { path: "*", element: <Navigate to="/onboarding/app-intro" replace /> },
         ],
       },
+      {
+        path: "admin",
+        element: (
+          <Suspense fallback={<LoadingFallback />}>
+            <ProtectedRoute>
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            </ProtectedRoute>
+          </Suspense>
+        ),
+        children: [
+          { index: true, element: <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense> },
+          { path: "users", element: <Suspense fallback={<LoadingFallback />}><AdminUsers /></Suspense> },
+          { path: "users/:userId", element: <Suspense fallback={<LoadingFallback />}><AdminUserDetail /></Suspense> },
+        ],
+      },
     ],
   },
 ]);
