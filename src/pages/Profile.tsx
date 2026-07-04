@@ -195,6 +195,19 @@ const Profile = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {canAccessAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate('/admin')}
+                className="w-full flex items-center justify-between py-2 border-b border-border text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  <span className="text-sm">Admin Console</span>
+                </div>
+                <span className="text-xs text-muted-foreground">Desktop only</span>
+              </button>
+            )}
             <div className="flex items-center justify-between py-2 border-b border-border">
               <div className="flex items-center gap-3">
                 <Mail className="h-4 w-4 text-muted-foreground" />
