@@ -44,9 +44,17 @@ interface JobSummary {
 }
 
 interface JobsResp {
-  counts: { running: number; failed24h: number; success24h: number };
-  jobs: JobSummary[];
-  recentRuns: RunRow[];
+  summary?: {
+    totalRunningJobs?: number;
+    successfulJobs24h?: number;
+    failedJobs24h?: number;
+    lastExecutiveHomeBuildAt?: string | null;
+    lastNotificationJobAt?: string | null;
+  };
+  counts?: { running?: number; failed24h?: number; success24h?: number };
+  jobs?: JobSummary[];
+  recentRuns?: RunRow[];
+  sources?: Array<{ name: string; available: boolean; reason?: string }>;
 }
 
 const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : '—');
@@ -79,7 +87,7 @@ const AdminJobs = () => {
   });
 
   const executiveJob = useMemo(
-    () => data?.jobs.find((job) => job.jobKey === 'executive_home_cards') ?? null,
+    () => (data?.jobs ?? []).find((job) => job.jobKey === 'executive_home_cards') ?? null,
     [data],
   );
 
@@ -101,7 +109,10 @@ const AdminJobs = () => {
         { headers: { Authorization: `Bearer ${token}` } },
       );
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+      if (!res.ok) {
+        const detail = typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`;
+        throw new Error(`admin-jobs-summary · ${detail}`);
+      }
       setData(body as JobsResp);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -213,15 +224,35 @@ const AdminJobs = () => {
       </header>
 
       {loading && <p className="text-sm text-muted-foreground">Loading jobs…</p>}
-      {error && <p className="text-sm text-destructive">Error: {error}</p>}
+      {error && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-base text-destructive">Admin API error</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="font-mono text-xs text-destructive break-all">{error}</p>
+            <p className="text-muted-foreground text-xs">
+              Check Edge Function deployment, CORS, auth, and optional job table availability.
+            </p>
+            <Button size="sm" variant="secondary" onClick={() => void load()}>Retry</Button>
+          </CardContent>
+        </Card>
+      )}
 
-      {data && (
+      {data && (() => {
+        const jobs = data.jobs ?? [];
+        const recentRuns = data.recentRuns ?? [];
+        const sources = data.sources ?? [];
+        const running = data.summary?.totalRunningJobs ?? data.counts?.running ?? 0;
+        const failed24h = data.summary?.failedJobs24h ?? data.counts?.failed24h ?? 0;
+        const success24h = data.summary?.successfulJobs24h ?? data.counts?.success24h ?? 0;
+        return (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              ['Running', data.counts.running],
-              ['Failed (24h)', data.counts.failed24h],
-              ['Successful (24h)', data.counts.success24h],
+              ['Running', running],
+              ['Failed (24h)', failed24h],
+              ['Successful (24h)', success24h],
             ].map(([label, n]) => (
               <Card key={label as string}>
                 <CardHeader className="pb-2">
@@ -232,12 +263,30 @@ const AdminJobs = () => {
             ))}
           </div>
 
+          {sources.length > 0 && sources.some((s) => !s.available) && (
+            <Card className="border-amber-500/40">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Source availability</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs space-y-1">
+                {sources.map((s) => (
+                  <div key={s.name} className="flex justify-between gap-4">
+                    <span className="font-mono">{s.name}</span>
+                    <span className={s.available ? 'text-muted-foreground' : 'text-amber-600'}>
+                      {s.available ? 'available' : `unavailable${s.reason ? ` · ${s.reason}` : ''}`}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Job Registry</CardTitle>
             </CardHeader>
             <CardContent>
-              {data.jobs.length === 0 ? (
+              {jobs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No jobs configured yet.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -256,7 +305,7 @@ const AdminJobs = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.jobs.map((job) => (
+                      {jobs.map((job) => (
                         <tr key={job.jobKey} className="border-t border-border/40 align-top">
                           <td className="py-2 pr-3">
                             <div className="font-medium">{job.jobName}</div>
@@ -393,7 +442,7 @@ const AdminJobs = () => {
                 <Input value={localDateFilter} onChange={(e) => setLocalDateFilter(e.target.value)} placeholder="local date YYYY-MM-DD" />
                 <Input value={windowFilter} onChange={(e) => setWindowFilter(e.target.value)} placeholder="window" />
               </div>
-              {data.recentRuns.length === 0 ? (
+              {recentRuns.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No matching runs yet.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -405,20 +454,17 @@ const AdminJobs = () => {
                         <th className="py-2 pr-3">User</th>
                         <th className="py-2 pr-3">Status</th>
                         <th className="py-2 pr-3">Duration</th>
-                        <th className="py-2 pr-3">Retry</th>
                         <th className="py-2 pr-3">Error</th>
-                        <th className="py-2 pr-3">Trace</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.recentRuns.map((run, idx) => (
-                        <tr key={`${String(run.run_id ?? idx)}`} className="border-t border-border/40 align-top">
+                      {recentRuns.map((run, idx) => (
+                        <tr key={`${String((run as RunRow).run_id ?? idx)}`} className="border-t border-border/40 align-top">
                           <td className="py-2 pr-3">{String(run.local_date ?? '—')}</td>
                           <td className="py-2 pr-3">{String(run.window ?? '—')}</td>
                           <td className="py-2 pr-3 font-mono truncate max-w-[18ch]" title={String(run.user_id ?? '')}>{String(run.user_id ?? '—')}</td>
                           <td className="py-2 pr-3">{String(run.status ?? '—')}</td>
                           <td className="py-2 pr-3">{run.duration_ms != null ? `${String(run.duration_ms)} ms` : '—'}</td>
-                          <td className="py-2 pr-3">{String(run.retry_count ?? '0')}</td>
                           <td className="py-2 pr-3 max-w-[26ch]">
                             <div className="truncate text-destructive" title={String(run.error ?? '')}>{String(run.error ?? '—')}</div>
                             {run.error && (
@@ -426,9 +472,6 @@ const AdminJobs = () => {
                                 Copy error
                               </Button>
                             )}
-                          </td>
-                          <td className="py-2 pr-3 max-w-[28ch] truncate font-mono" title={JSON.stringify(run.trace_json ?? {})}>
-                            {run.trace_json ? JSON.stringify(run.trace_json) : '—'}
                           </td>
                         </tr>
                       ))}
@@ -439,7 +482,8 @@ const AdminJobs = () => {
             </CardContent>
           </Card>
         </>
-      )}
+        );
+      })()}
     </div>
   );
 };
