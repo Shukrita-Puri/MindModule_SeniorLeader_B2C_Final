@@ -5,6 +5,9 @@ import { getAuthToken } from '@/services/authTokenService';
 interface Summary {
   generatedAt: string;
   counts: Record<string, number>;
+  lastExecutiveHomeBuildAt?: string | null;
+  lastNotificationJobAt?: string | null;
+  latestCriticalError?: { id: string; time: string; summary: string } | null;
   recentFailedRuns: Array<{
     run_id: string;
     user_id: string;
@@ -26,6 +29,19 @@ const LABELS: Record<string, string> = {
   subscriptionsActive: 'Subscriptions active',
   subscriptionsTrialing: 'Trials in progress',
   activeDeviceTokens: 'Active APNs tokens',
+};
+
+const JOB_LABELS: Record<string, string> = {
+  runningJobs: 'Running jobs',
+  successJobs24h: 'Successful jobs (24h)',
+  failedJobs24h: 'Failed jobs (24h)',
+};
+
+const ERROR_LABELS: Record<string, string> = {
+  errors24h: 'Errors (24h)',
+  errors7d: 'Errors (7d)',
+  failedCardBuilds24h: 'Failed Executive Home builds (24h)',
+  failedNotificationDeliveries24h: 'Failed notification deliveries (24h)',
 };
 
 const AdminDashboard = () => {
@@ -91,6 +107,58 @@ const AdminDashboard = () => {
               </Card>
             ))}
           </div>
+
+          <section className="space-y-2">
+            <h2 className="text-sm uppercase tracking-wide text-muted-foreground">Jobs</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Object.entries(JOB_LABELS).map(([key, label]) => (
+                <Card key={key}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground font-medium">{label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-semibold tabular-nums">{(data.counts[key] ?? 0).toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+              ))}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Last builds</CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs space-y-1">
+                  <div><span className="text-muted-foreground">Exec Home: </span>{data.lastExecutiveHomeBuildAt ? new Date(data.lastExecutiveHomeBuildAt).toLocaleString() : '—'}</div>
+                  <div><span className="text-muted-foreground">Notifications: </span>{data.lastNotificationJobAt ? new Date(data.lastNotificationJobAt).toLocaleString() : '—'}</div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-sm uppercase tracking-wide text-muted-foreground">Errors</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Object.entries(ERROR_LABELS).map(([key, label]) => (
+                <Card key={key}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground font-medium">{label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-semibold tabular-nums">{(data.counts[key] ?? 0).toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            {data.latestCriticalError && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Latest critical error</CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs space-y-1">
+                  <div className="text-muted-foreground">{new Date(data.latestCriticalError.time).toLocaleString()}</div>
+                  <div className="text-destructive break-words">{data.latestCriticalError.summary}</div>
+                </CardContent>
+              </Card>
+            )}
+          </section>
 
           <Card>
             <CardHeader>

@@ -1,10 +1,12 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, Users, ArrowLeft, Activity, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/users', label: 'Users', icon: Users, end: false },
+  { to: '/admin/jobs', label: 'Jobs', icon: Activity, end: false },
+  { to: '/admin/error-logs', label: 'Error Logs', icon: AlertTriangle, end: false },
 ];
 
 const AdminLayout = () => {
