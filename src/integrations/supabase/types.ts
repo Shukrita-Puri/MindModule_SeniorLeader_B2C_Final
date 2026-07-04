@@ -62,6 +62,75 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_cron_job_configs: {
+        Row: {
+          config_json: Json
+          created_at: string
+          cron_expression: string | null
+          description: string | null
+          dispatcher_interval_minutes: number
+          enabled: boolean
+          function_name: string
+          id: string
+          job_key: string
+          job_name: string
+          last_updated_by: string | null
+          last_updated_by_email: string | null
+          max_users_per_run: number
+          retry_attempts: number
+          retry_delay_seconds: number
+          run_windows: Json
+          schedule_mode: string
+          timezone: string
+          timezone_mode: string
+          updated_at: string
+        }
+        Insert: {
+          config_json?: Json
+          created_at?: string
+          cron_expression?: string | null
+          description?: string | null
+          dispatcher_interval_minutes?: number
+          enabled?: boolean
+          function_name: string
+          id?: string
+          job_key: string
+          job_name: string
+          last_updated_by?: string | null
+          last_updated_by_email?: string | null
+          max_users_per_run?: number
+          retry_attempts?: number
+          retry_delay_seconds?: number
+          run_windows?: Json
+          schedule_mode?: string
+          timezone?: string
+          timezone_mode?: string
+          updated_at?: string
+        }
+        Update: {
+          config_json?: Json
+          created_at?: string
+          cron_expression?: string | null
+          description?: string | null
+          dispatcher_interval_minutes?: number
+          enabled?: boolean
+          function_name?: string
+          id?: string
+          job_key?: string
+          job_name?: string
+          last_updated_by?: string | null
+          last_updated_by_email?: string | null
+          max_users_per_run?: number
+          retry_attempts?: number
+          retry_delay_seconds?: number
+          run_windows?: Json
+          schedule_mode?: string
+          timezone?: string
+          timezone_mode?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       attendee_relationships: {
         Row: {
           attendee_domain: string | null
@@ -2364,14 +2433,20 @@ export type Database = {
           duration_ms: number | null
           effective_timezone: string | null
           error: string | null
+          error_json: Json | null
+          finished_at: string | null
           id: string
+          job_key: string
           local_date: string | null
           mode: string
           mrs_status: string | null
           plan_status: string | null
+          retry_count: number
           run_id: string
           skipped_reason: string | null
+          started_at: string | null
           status: string
+          trace_json: Json
           travel_state: Json | null
           user_id: string | null
           window: string | null
@@ -2383,14 +2458,20 @@ export type Database = {
           duration_ms?: number | null
           effective_timezone?: string | null
           error?: string | null
+          error_json?: Json | null
+          finished_at?: string | null
           id?: string
+          job_key?: string
           local_date?: string | null
           mode: string
           mrs_status?: string | null
           plan_status?: string | null
+          retry_count?: number
           run_id: string
           skipped_reason?: string | null
+          started_at?: string | null
           status: string
+          trace_json?: Json
           travel_state?: Json | null
           user_id?: string | null
           window?: string | null
@@ -2402,14 +2483,20 @@ export type Database = {
           duration_ms?: number | null
           effective_timezone?: string | null
           error?: string | null
+          error_json?: Json | null
+          finished_at?: string | null
           id?: string
+          job_key?: string
           local_date?: string | null
           mode?: string
           mrs_status?: string | null
           plan_status?: string | null
+          retry_count?: number
           run_id?: string
           skipped_reason?: string | null
+          started_at?: string | null
           status?: string
+          trace_json?: Json
           travel_state?: Json | null
           user_id?: string | null
           window?: string | null

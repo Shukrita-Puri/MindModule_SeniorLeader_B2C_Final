@@ -3663,6 +3663,31 @@ serve(async (req) => {
       });
     }
 
+    // Respect admin cron config: if the Notification Evaluator is disabled in
+    // admin_cron_job_configs, skip scheduled evaluation entirely. The `?force_user`
+    // test path (checked further below) still bypasses this so admins can trigger
+    // one-off runs even when the scheduled job is paused.
+    const forceUserIdForGate =
+      url.searchParams.get('force_user') || url.searchParams.get('force_user_id') || null;
+    if (!forceUserIdForGate) {
+      try {
+        const { data: cfg } = await supabase
+          .from('admin_cron_job_configs')
+          .select('enabled')
+          .eq('job_key', 'notification_evaluator')
+          .maybeSingle();
+        if (cfg && (cfg as { enabled?: boolean }).enabled === false) {
+          console.log('[smart-nudges] notification_evaluator disabled via admin_cron_job_configs; exiting');
+          return new Response(
+            JSON.stringify({ skipped: true, reason: 'job_disabled' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+      } catch (err) {
+        console.warn('[smart-nudges] admin_cron_job_configs lookup failed; proceeding with defaults', err);
+      }
+    }
+
     const { data: runRow, error: runErr } = await supabase
       .from('notification_evaluator_runs')
       .insert({

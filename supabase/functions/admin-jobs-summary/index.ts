@@ -1,4 +1,4 @@
-import { requireAdmin, adminCorsHeaders } from "../_shared/admin-guard.ts";
+import { requireAdmin, adminCorsHeaders, writeAdminAudit } from "../_shared/admin-guard.ts";
 import {
   defaultExecutiveHomeCronConfig,
   mergeExecutiveHomeCronConfig,
@@ -8,6 +8,7 @@ import {
 
 const cors = adminCorsHeaders();
 const JOB_KEY = "executive_home_cards";
+const NOTIFICATION_JOB_KEY = "notification_evaluator";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -27,18 +28,68 @@ async function loadExecutiveHomeConfig(db: any) {
   try {
     const { data, error } = await db
       .from("admin_cron_job_configs")
-      .select("id, job_key, job_name, function_name, enabled, schedule_mode, cron_expression, dispatcher_interval_minutes, timezone_mode, config_json, max_users_per_run, retry_attempts, retry_delay_seconds, created_at, updated_at")
+      .select("id, job_key, job_name, description, function_name, enabled, schedule_mode, cron_expression, dispatcher_interval_minutes, timezone_mode, timezone, run_windows, config_json, max_users_per_run, retry_attempts, retry_delay_seconds, last_updated_by, last_updated_by_email, created_at, updated_at")
       .eq("job_key", JOB_KEY)
       .maybeSingle();
     if (error) {
       console.warn("[admin-jobs-summary] config load failed", error.message);
-      return { id: null, ...fallback };
+      return { id: null, description: null, timezone: "UTC", runWindows: [], lastUpdatedBy: null, lastUpdatedByEmail: null, updatedAt: null, ...fallback };
     }
-    return { id: (data as any)?.id ?? null, ...mergeExecutiveHomeCronConfig(data ?? null) };
+    return {
+      id: (data as any)?.id ?? null,
+      description: (data as any)?.description ?? null,
+      timezone: (data as any)?.timezone ?? "UTC",
+      runWindows: Array.isArray((data as any)?.run_windows) ? (data as any).run_windows : [],
+      lastUpdatedBy: (data as any)?.last_updated_by ?? null,
+      lastUpdatedByEmail: (data as any)?.last_updated_by_email ?? null,
+      updatedAt: (data as any)?.updated_at ?? null,
+      ...mergeExecutiveHomeCronConfig(data ?? null),
+    };
   } catch (err) {
     console.warn("[admin-jobs-summary] config lookup threw", err);
-    return { id: null, ...fallback };
+    return { id: null, description: null, timezone: "UTC", runWindows: [], lastUpdatedBy: null, lastUpdatedByEmail: null, updatedAt: null, ...fallback };
   }
+}
+
+async function loadNotificationConfig(db: any) {
+  try {
+    const { data, error } = await db
+      .from("admin_cron_job_configs")
+      .select("id, job_key, job_name, description, function_name, enabled, schedule_mode, cron_expression, dispatcher_interval_minutes, timezone, run_windows, config_json, last_updated_by, last_updated_by_email, updated_at")
+      .eq("job_key", NOTIFICATION_JOB_KEY)
+      .maybeSingle();
+    if (error || !data) return null;
+    const d = data as Record<string, any>;
+    return {
+      id: d.id,
+      jobKey: d.job_key,
+      jobName: d.job_name,
+      description: d.description ?? null,
+      functionName: d.function_name,
+      enabled: d.enabled !== false,
+      scheduleMode: d.schedule_mode ?? "dispatcher",
+      cronExpression: d.cron_expression ?? null,
+      dispatcherIntervalMinutes: d.dispatcher_interval_minutes ?? null,
+      timezone: d.timezone ?? "UTC",
+      runWindows: Array.isArray(d.run_windows) ? d.run_windows : [],
+      config: d.config_json ?? {},
+      lastUpdatedBy: d.last_updated_by ?? null,
+      lastUpdatedByEmail: d.last_updated_by_email ?? null,
+      updatedAt: d.updated_at ?? null,
+    };
+  } catch (err) {
+    console.warn("[admin-jobs-summary] notification config lookup threw", err);
+    return null;
+  }
+}
+
+function isValidCronExpression(expr: unknown): expr is string {
+  if (typeof expr !== "string") return false;
+  const trimmed = expr.trim();
+  if (trimmed.length === 0 || trimmed.length > 120) return false;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 5 || parts.length > 6) return false;
+  return /^[0-9*,/\-A-Za-z? ]+$/.test(trimmed);
 }
 
 async function invokeBuildJob(body: Record<string, unknown>) {
@@ -64,7 +115,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const guard = await requireAdmin(req);
   if (guard.errorResponse) return guard.errorResponse;
-  const { db } = guard;
+  const { db, admin } = guard;
 
   if (req.method === "POST") {
     const body = await req.json().catch(() => ({}));
@@ -87,15 +138,28 @@ Deno.serve(async (req) => {
         return json({ error: "invalid_config", details: ["Max users per run must be between 1 and 1000."] }, 400);
       }
 
+      const timezone = typeof body.timezone === "string" && body.timezone.trim().length > 0
+        ? body.timezone.trim()
+        : current.timezone ?? "UTC";
+
+      const cronExpression = typeof body.scheduleCron === "string"
+        ? body.scheduleCron.trim()
+        : (current.cronExpression ?? null);
+      if (cronExpression && !isValidCronExpression(cronExpression)) {
+        return json({ error: "invalid_config", details: ["Cron expression is invalid."] }, 400);
+      }
+
       const updatePayload = {
         job_key: JOB_KEY,
         job_name: current.jobName,
         function_name: current.functionName,
         enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled,
         schedule_mode: "dispatcher",
-        cron_expression: current.cronExpression,
+        cron_expression: cronExpression,
         dispatcher_interval_minutes: Number(body.dispatcherIntervalMinutes ?? current.dispatcherIntervalMinutes),
         timezone_mode: "user_timezone",
+        timezone,
+        run_windows: Array.isArray(body.runWindows) ? body.runWindows : (current.runWindows ?? []),
         max_users_per_run: maxUsersPerRun,
         retry_attempts: Number(body.retryAttempts ?? current.retryAttempts),
         retry_delay_seconds: Number(body.retryDelaySeconds ?? current.retryDelaySeconds),
@@ -106,6 +170,8 @@ Deno.serve(async (req) => {
           respectTravelTimezone: typeof body.respectTravelTimezone === "boolean" ? body.respectTravelTimezone : current.configJson.respectTravelTimezone,
           dryRun: typeof body.dryRun === "boolean" ? body.dryRun : Boolean(current.configJson.dryRun),
         },
+        last_updated_by: admin!.adminSub,
+        last_updated_by_email: admin!.adminEmail,
       };
 
       const { error } = await db
@@ -113,7 +179,62 @@ Deno.serve(async (req) => {
         .upsert(updatePayload, { onConflict: "job_key" });
       if (error) return json({ error: error.message }, 500);
 
-      return json({ ok: true, config: await loadExecutiveHomeConfig(db) });
+      const nextConfig = await loadExecutiveHomeConfig(db);
+      await writeAdminAudit(db, {
+        admin: admin!,
+        action: "ADMIN_CRON_CONFIG_UPDATED",
+        route: "/admin/jobs",
+        metadata: {
+          job_key: JOB_KEY,
+          old_config: { enabled: current.enabled, config: current.configJson, cron: current.cronExpression, timezone: current.timezone },
+          new_config: { enabled: nextConfig.enabled, config: nextConfig.configJson, cron: nextConfig.cronExpression, timezone: nextConfig.timezone },
+        },
+      });
+      return json({ ok: true, config: nextConfig });
+    }
+
+    if (action === "update_notification_config") {
+      const current = await loadNotificationConfig(db);
+      const enabled = typeof body.enabled === "boolean" ? body.enabled : (current?.enabled ?? true);
+      const cronExpression = typeof body.scheduleCron === "string" ? body.scheduleCron.trim() : (current?.cronExpression ?? null);
+      if (cronExpression && !isValidCronExpression(cronExpression)) {
+        return json({ error: "invalid_config", details: ["Cron expression is invalid."] }, 400);
+      }
+      const timezone = typeof body.timezone === "string" && body.timezone.trim().length > 0
+        ? body.timezone.trim()
+        : (current?.timezone ?? "UTC");
+
+      const payload = {
+        job_key: NOTIFICATION_JOB_KEY,
+        job_name: current?.jobName ?? "Notification Evaluator",
+        function_name: current?.functionName ?? "smart-nudges",
+        enabled,
+        schedule_mode: "dispatcher",
+        cron_expression: cronExpression,
+        dispatcher_interval_minutes: current?.dispatcherIntervalMinutes ?? 5,
+        timezone_mode: "user_timezone",
+        timezone,
+        run_windows: Array.isArray(body.runWindows) ? body.runWindows : (current?.runWindows ?? []),
+        config_json: { ...(current?.config ?? {}), ...(typeof body.config === "object" && body.config ? body.config : {}) },
+        last_updated_by: admin!.adminSub,
+        last_updated_by_email: admin!.adminEmail,
+      };
+
+      const { error } = await db.from("admin_cron_job_configs").upsert(payload, { onConflict: "job_key" });
+      if (error) return json({ error: error.message }, 500);
+
+      const nextConfig = await loadNotificationConfig(db);
+      await writeAdminAudit(db, {
+        admin: admin!,
+        action: "ADMIN_CRON_CONFIG_UPDATED",
+        route: "/admin/jobs",
+        metadata: {
+          job_key: NOTIFICATION_JOB_KEY,
+          old_config: current ? { enabled: current.enabled, cron: current.cronExpression, timezone: current.timezone } : null,
+          new_config: nextConfig ? { enabled: nextConfig.enabled, cron: nextConfig.cronExpression, timezone: nextConfig.timezone } : null,
+        },
+      });
+      return json({ ok: true, config: nextConfig });
     }
 
     if (action === "run_job") {
@@ -142,7 +263,10 @@ Deno.serve(async (req) => {
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? "50") || 50));
 
   const todayIso = startOfTodayIso();
-  const config = await loadExecutiveHomeConfig(db);
+  const [config, notificationConfig] = await Promise.all([
+    loadExecutiveHomeConfig(db),
+    loadNotificationConfig(db),
+  ]);
 
   const sources: Array<{ name: string; available: boolean; reason?: string }> = [];
 
@@ -241,10 +365,10 @@ Deno.serve(async (req) => {
     jobKey: "notifications",
     jobName: "Notification Evaluator",
     functionName: "smart-nudges",
-    enabled: true,
+    enabled: notificationConfig?.enabled ?? true,
     scheduleType: "dispatcher",
-    cronExpression: null,
-    dispatcherIntervalMinutes: null,
+    cronExpression: notificationConfig?.cronExpression ?? null,
+    dispatcherIntervalMinutes: notificationConfig?.dispatcherIntervalMinutes ?? null,
     lastRunTime: (notificationLatest.data as any)?.started_at ?? null,
     lastSuccessTime: (notificationLatest.data as any)?.top_level_error
       ? null
@@ -253,20 +377,51 @@ Deno.serve(async (req) => {
       ? ((notificationLatest.data as any)?.finished_at ?? (notificationLatest.data as any)?.started_at ?? null)
       : null,
     nextExpectedRun: null,
-    currentStatus: (notificationLatest.data as any)?.top_level_error
-      ? "failed"
-      : ((notificationLatest.data as any)?.finished_at ? "success" : "idle"),
+    currentStatus: notificationConfig && notificationConfig.enabled === false
+      ? "disabled"
+      : (notificationLatest.data as any)?.top_level_error
+        ? "failed"
+        : ((notificationLatest.data as any)?.finished_at ? "success" : "idle"),
     totalRunsToday: null,
     failedRunsToday: null,
     averageDurationMs: null,
     lastErrorMessage: (notificationLatest.data as any)?.top_level_error ?? null,
-    editable: false,
-    config: null,
+    editable: true,
+    config: notificationConfig,
   };
 
   const totalRunningJobs = executiveJob.currentStatus === "running" ? 1 : 0;
   const failedJobs24h = todayFailed.count ?? 0;
   const successfulJobs24h = Math.max(0, (todayRuns.count ?? 0) - failedJobs24h);
+
+  const persistedConfigs = [
+    {
+      jobKey: config.jobKey,
+      jobName: config.jobName,
+      description: (config as any).description ?? null,
+      enabled: config.enabled,
+      scheduleCron: config.cronExpression,
+      timezone: (config as any).timezone ?? "UTC",
+      runWindows: (config as any).runWindows ?? [],
+      config: config.configJson,
+      updatedAt: (config as any).updatedAt ?? null,
+      lastUpdatedByEmail: (config as any).lastUpdatedByEmail ?? null,
+    },
+    ...(notificationConfig
+      ? [{
+          jobKey: notificationConfig.jobKey,
+          jobName: notificationConfig.jobName,
+          description: notificationConfig.description,
+          enabled: notificationConfig.enabled,
+          scheduleCron: notificationConfig.cronExpression,
+          timezone: notificationConfig.timezone,
+          runWindows: notificationConfig.runWindows,
+          config: notificationConfig.config,
+          updatedAt: notificationConfig.updatedAt,
+          lastUpdatedByEmail: notificationConfig.lastUpdatedByEmail,
+        }]
+      : []),
+  ];
 
   console.log("[admin-jobs-summary] responding", {
     totalRunningJobs,
@@ -293,6 +448,7 @@ Deno.serve(async (req) => {
     },
     jobs: [executiveJob, notificationJob],
     recentRuns: runsResult.data ?? [],
+    configs: persistedConfigs,
     sources,
   });
 });
