@@ -1,6 +1,13 @@
 import { requireAdmin, adminCorsHeaders } from "../_shared/admin-guard.ts";
+import {
+  defaultExecutiveHomeCronConfig,
+  mergeExecutiveHomeCronConfig,
+  nextExpectedRunAt,
+  validateWindowConfig,
+} from "../build-executive-home-cards/scheduler.ts";
 
 const cors = adminCorsHeaders();
+const JOB_KEY = "executive_home_cards";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -9,8 +16,48 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function isoHoursAgo(h: number) {
-  return new Date(Date.now() - h * 3600 * 1000).toISOString();
+function startOfTodayIso() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return now.toISOString();
+}
+
+async function loadExecutiveHomeConfig(db: any) {
+  const fallback = defaultExecutiveHomeCronConfig();
+  try {
+    const { data, error } = await db
+      .from("admin_cron_job_configs")
+      .select("id, job_key, job_name, function_name, enabled, schedule_mode, cron_expression, dispatcher_interval_minutes, timezone_mode, config_json, max_users_per_run, retry_attempts, retry_delay_seconds, created_at, updated_at")
+      .eq("job_key", JOB_KEY)
+      .maybeSingle();
+    if (error) {
+      console.warn("[admin-jobs-summary] config load failed", error.message);
+      return { id: null, ...fallback };
+    }
+    return { id: (data as any)?.id ?? null, ...mergeExecutiveHomeCronConfig(data ?? null) };
+  } catch (err) {
+    console.warn("[admin-jobs-summary] config lookup threw", err);
+    return { id: null, ...fallback };
+  }
+}
+
+async function invokeBuildJob(body: Record<string, unknown>) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const res = await fetch(`${supabaseUrl}/functions/v1/build-executive-home-cards`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceRole}`,
+      apikey: serviceRole,
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((payload as any)?.error ?? `build-executive-home-cards HTTP ${res.status}`);
+  }
+  return payload;
 }
 
 Deno.serve(async (req) => {
@@ -19,86 +66,181 @@ Deno.serve(async (req) => {
   if (guard.errorResponse) return guard.errorResponse;
   const { db } = guard;
 
-  const since24 = isoHoursAgo(24);
+  if (req.method === "POST") {
+    const body = await req.json().catch(() => ({}));
+    const action = typeof body.action === "string" ? body.action : "";
 
-  const [runningRuns, failed24, success24, latestRun, latestNotifRun, recentRuns, recentNotifRuns] = await Promise.all([
-    db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "running"),
-    db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", since24),
-    db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "success").gte("created_at", since24),
-    db.from("executive_home_card_runs").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    db.from("notification_evaluator_runs").select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
-    db
-      .from("executive_home_card_runs")
-      .select("run_id, user_id, local_date, window, mode, status, error, duration_ms, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50),
-    db
-      .from("notification_evaluator_runs")
-      .select("id, evaluator, evaluator_version, environment, started_at, finished_at, processed_user_count, qualified_count, shipped_count, apns_attempted_count, apns_succeeded_count, apns_failed_count, top_level_error")
-      .order("started_at", { ascending: false })
-      .limit(20),
+    if (action === "update_config") {
+      const current = await loadExecutiveHomeConfig(db);
+      const nextWindows = {
+        morning: String(body.morning ?? current.configJson.windows.morning),
+        afternoon: String(body.afternoon ?? current.configJson.windows.afternoon),
+        evening: String(body.evening ?? current.configJson.windows.evening),
+      };
+      const validationErrors = validateWindowConfig(nextWindows);
+      if (validationErrors.length > 0) {
+        return json({ error: "invalid_config", details: validationErrors }, 400);
+      }
+
+      const maxUsersPerRun = Number(body.maxUsersPerRun ?? current.maxUsersPerRun);
+      if (!Number.isFinite(maxUsersPerRun) || maxUsersPerRun < 1 || maxUsersPerRun > 1000) {
+        return json({ error: "invalid_config", details: ["Max users per run must be between 1 and 1000."] }, 400);
+      }
+
+      const updatePayload = {
+        job_key: JOB_KEY,
+        job_name: current.jobName,
+        function_name: current.functionName,
+        enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled,
+        schedule_mode: "dispatcher",
+        cron_expression: current.cronExpression,
+        dispatcher_interval_minutes: Number(body.dispatcherIntervalMinutes ?? current.dispatcherIntervalMinutes),
+        timezone_mode: "user_timezone",
+        max_users_per_run: maxUsersPerRun,
+        retry_attempts: Number(body.retryAttempts ?? current.retryAttempts),
+        retry_delay_seconds: Number(body.retryDelaySeconds ?? current.retryDelaySeconds),
+        config_json: {
+          ...current.configJson,
+          windows: nextWindows,
+          runOnWeekends: typeof body.runOnWeekends === "boolean" ? body.runOnWeekends : current.configJson.runOnWeekends,
+          respectTravelTimezone: typeof body.respectTravelTimezone === "boolean" ? body.respectTravelTimezone : current.configJson.respectTravelTimezone,
+          dryRun: typeof body.dryRun === "boolean" ? body.dryRun : Boolean(current.configJson.dryRun),
+        },
+      };
+
+      const { error } = await db
+        .from("admin_cron_job_configs")
+        .upsert(updatePayload, { onConflict: "job_key" });
+      if (error) return json({ error: error.message }, 500);
+
+      return json({ ok: true, config: await loadExecutiveHomeConfig(db) });
+    }
+
+    if (action === "run_job") {
+      const dryRun = body.dryRun === true;
+      const userId = typeof body.userId === "string" && body.userId.trim().length > 0 ? body.userId.trim() : undefined;
+      const window = ["morning", "afternoon", "evening"].includes(body.window) ? body.window : undefined;
+      const localDate = typeof body.localDate === "string" && body.localDate.trim().length > 0 ? body.localDate.trim() : undefined;
+
+      const payload = await invokeBuildJob({
+        mode: dryRun ? "dry_run" : (userId ? "manual_replay" : "scheduled"),
+        userId,
+        window,
+        localDate,
+      });
+      return json({ ok: true, result: payload });
+    }
+
+    return json({ error: "unsupported_action" }, 400);
+  }
+
+  const url = new URL(req.url);
+  const filterStatus = (url.searchParams.get("status") ?? "").trim();
+  const filterUserId = (url.searchParams.get("userId") ?? "").trim();
+  const filterLocalDate = (url.searchParams.get("localDate") ?? "").trim();
+  const filterWindow = (url.searchParams.get("window") ?? "").trim();
+  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? "50") || 50));
+
+  const todayIso = startOfTodayIso();
+  const config = await loadExecutiveHomeConfig(db);
+
+  let runsQuery = db
+    .from("executive_home_card_runs")
+    .select("id, run_id, job_key, user_id, local_date, effective_timezone, window, mode, status, mrs_status, brief_status, plan_status, skipped_reason, error, error_json, trace_json, duration_ms, retry_count, started_at, finished_at, created_at")
+    .eq("job_key", JOB_KEY)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (filterStatus) runsQuery = runsQuery.eq("status", filterStatus);
+  if (filterUserId) runsQuery = runsQuery.eq("user_id", filterUserId);
+  if (filterLocalDate) runsQuery = runsQuery.eq("local_date", filterLocalDate);
+  if (filterWindow) runsQuery = runsQuery.eq("window", filterWindow);
+
+  const [
+    runsResult,
+    latestRun,
+    latestSuccess,
+    latestFailure,
+    todayRuns,
+    todayFailed,
+    avgDurRows,
+    notificationLatest,
+  ] = await Promise.all([
+    runsQuery,
+    db.from("executive_home_card_runs").select("created_at, status").eq("job_key", JOB_KEY).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    db.from("executive_home_card_runs").select("created_at").eq("job_key", JOB_KEY).eq("status", "success").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    db.from("executive_home_card_runs").select("created_at, error").eq("job_key", JOB_KEY).eq("status", "error").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("job_key", JOB_KEY).gte("created_at", todayIso),
+    db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("job_key", JOB_KEY).eq("status", "error").gte("created_at", todayIso),
+    db.from("executive_home_card_runs").select("duration_ms").eq("job_key", JOB_KEY).not("duration_ms", "is", null).gte("created_at", todayIso).limit(500),
+    db.from("notification_evaluator_runs").select("started_at, finished_at, top_level_error").order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
-  const jobs: any[] = [];
+  const durationRows = (avgDurRows.data ?? []) as Array<{ duration_ms?: number | null }>;
+  const averageDurationMs = durationRows.length
+    ? Math.round(durationRows.reduce((sum, row) => sum + Number(row.duration_ms ?? 0), 0) / durationRows.length)
+    : null;
 
-  for (const r of recentRuns.data ?? []) {
-    const startIso = (r as any).created_at as string | null;
-    const start = startIso ? new Date(startIso).getTime() : null;
-    jobs.push({
-      id: (r as any).run_id,
-      name: "build-executive-home-cards",
-      source: "executive_home_card_runs",
-      status: (r as any).status,
-      startedAt: startIso,
-      finishedAt: null,
-      durationMs: (r as any).duration_ms ?? null,
-      recordsProcessed: 1,
-      relatedUserId: (r as any).user_id ?? null,
-      metadata: { window: (r as any).window, mode: (r as any).mode, local_date: (r as any).local_date },
-      error: (r as any).error ?? null,
-    });
-  }
+  const executiveJob = {
+    jobKey: JOB_KEY,
+    jobName: config.jobName,
+    functionName: config.functionName,
+    enabled: config.enabled,
+    scheduleType: config.scheduleMode,
+    cronExpression: config.cronExpression,
+    dispatcherIntervalMinutes: config.dispatcherIntervalMinutes,
+    lastRunTime: (latestRun.data as any)?.created_at ?? null,
+    lastSuccessTime: (latestSuccess.data as any)?.created_at ?? null,
+    lastFailureTime: (latestFailure.data as any)?.created_at ?? null,
+    nextExpectedRun: nextExpectedRunAt(new Date(), config.dispatcherIntervalMinutes),
+    currentStatus: !config.enabled
+      ? "disabled"
+      : (latestRun.data as any)?.status === "running"
+        ? "running"
+        : (latestRun.data as any)?.status ?? "idle",
+    totalRunsToday: todayRuns.count ?? 0,
+    failedRunsToday: todayFailed.count ?? 0,
+    averageDurationMs,
+    lastErrorMessage: (latestFailure.data as any)?.error ?? null,
+    editable: true,
+    config,
+  };
 
-  for (const r of recentNotifRuns.data ?? []) {
-    const startIso = (r as any).started_at as string | null;
-    const finIso = (r as any).finished_at as string | null;
-    const start = startIso ? new Date(startIso).getTime() : null;
-    const fin = finIso ? new Date(finIso).getTime() : null;
-    jobs.push({
-      id: (r as any).id,
-      name: (r as any).evaluator ?? "notification-evaluator",
-      source: "notification_evaluator_runs",
-      status: (r as any).top_level_error ? "error" : finIso ? "success" : "running",
-      startedAt: startIso,
-      finishedAt: finIso,
-      durationMs: start && fin ? fin - start : null,
-      recordsProcessed: (r as any).processed_user_count ?? null,
-      relatedUserId: null,
-      metadata: {
-        environment: (r as any).environment,
-        version: (r as any).evaluator_version,
-        qualified: (r as any).qualified_count,
-        shipped: (r as any).shipped_count,
-        apns_attempted: (r as any).apns_attempted_count,
-        apns_succeeded: (r as any).apns_succeeded_count,
-        apns_failed: (r as any).apns_failed_count,
-      },
-      error: (r as any).top_level_error ?? null,
-    });
-  }
-
-  jobs.sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""));
+  const notificationJob = {
+    jobKey: "notifications",
+    jobName: "Notification Evaluator",
+    functionName: "smart-nudges",
+    enabled: true,
+    scheduleType: "dispatcher",
+    cronExpression: null,
+    dispatcherIntervalMinutes: null,
+    lastRunTime: (notificationLatest.data as any)?.started_at ?? null,
+    lastSuccessTime: (notificationLatest.data as any)?.top_level_error
+      ? null
+      : ((notificationLatest.data as any)?.finished_at ?? (notificationLatest.data as any)?.started_at ?? null),
+    lastFailureTime: (notificationLatest.data as any)?.top_level_error
+      ? ((notificationLatest.data as any)?.finished_at ?? (notificationLatest.data as any)?.started_at ?? null)
+      : null,
+    nextExpectedRun: null,
+    currentStatus: (notificationLatest.data as any)?.top_level_error
+      ? "failed"
+      : ((notificationLatest.data as any)?.finished_at ? "success" : "idle"),
+    totalRunsToday: null,
+    failedRunsToday: null,
+    averageDurationMs: null,
+    lastErrorMessage: (notificationLatest.data as any)?.top_level_error ?? null,
+    editable: false,
+    config: null,
+  };
 
   return json({
     generatedAt: new Date().toISOString(),
     counts: {
-      running: runningRuns.count ?? 0,
-      failed24h: failed24.count ?? 0,
-      success24h: success24.count ?? 0,
+      running: executiveJob.currentStatus === "running" ? 1 : 0,
+      failed24h: todayFailed.count ?? 0,
+      success24h: (todayRuns.count ?? 0) - (todayFailed.count ?? 0),
     },
-    lastExecutiveHomeBuildAt: (latestRun.data as any)?.created_at ?? null,
-    lastNotificationJobAt:
-      (latestNotifRun.data as any)?.finished_at ?? (latestNotifRun.data as any)?.started_at ?? null,
-    jobs,
+    jobs: [executiveJob, notificationJob],
+    recentRuns: runsResult.data ?? [],
   });
 });

@@ -8,6 +8,7 @@ interface TravelTimezoneRow {
 interface ProfileTimezoneRow {
   current_timezone?: string | null;
   home_timezone?: string | null;
+  timezone?: string | null;
 }
 
 interface TimezoneDb {
@@ -84,6 +85,7 @@ export async function resolveEffectiveTimezone(
   userId: string,
   profile: ProfileTimezoneRow | null | undefined,
   at = new Date(),
+  options?: { respectTravelTimezone?: boolean },
 ): Promise<EffectiveTimezoneResult> {
   const { data: travel } = await db
     .from("travel_state")
@@ -93,9 +95,16 @@ export async function resolveEffectiveTimezone(
 
   const profileCurrent = isIanaTimezone(profile?.current_timezone) ? profile.current_timezone : null;
   const profileHome = isIanaTimezone(profile?.home_timezone) ? profile.home_timezone : null;
+  const profileLegacy = isIanaTimezone(profile?.timezone) ? profile.timezone : null;
   const travelTimezone = isIanaTimezone(travel?.last_known_timezone) ? travel.last_known_timezone : null;
   const isAway = Boolean(travel?.state && travel.state !== "not_travelling");
-  const effectiveTimezone = (isAway && (travelTimezone || profileCurrent)) || profileCurrent || profileHome || "UTC";
+  const respectTravelTimezone = options?.respectTravelTimezone !== false;
+  const effectiveTimezone =
+    (respectTravelTimezone && isAway && (travelTimezone || profileCurrent))
+    || profileCurrent
+    || profileLegacy
+    || profileHome
+    || "UTC";
 
   let circadianTimezone = effectiveTimezone;
   const updatedAt = travel?.updated_at ? new Date(travel.updated_at).getTime() : null;
