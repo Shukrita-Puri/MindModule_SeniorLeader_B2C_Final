@@ -55,6 +55,20 @@ interface JobsResp {
   jobs?: JobSummary[];
   recentRuns?: RunRow[];
   sources?: Array<{ name: string; available: boolean; reason?: string }>;
+  configs?: PersistedCronConfig[];
+}
+
+interface PersistedCronConfig {
+  jobKey: string;
+  jobName: string;
+  description: string | null;
+  enabled: boolean;
+  scheduleCron: string | null;
+  timezone: string;
+  runWindows: unknown[];
+  config: Record<string, unknown>;
+  updatedAt: string | null;
+  lastUpdatedByEmail: string | null;
 }
 
 const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : '—');
@@ -90,6 +104,34 @@ const AdminJobs = () => {
     () => (data?.jobs ?? []).find((job) => job.jobKey === 'executive_home_cards') ?? null,
     [data],
   );
+  const notificationJob = useMemo(
+    () => (data?.jobs ?? []).find((job) => job.jobKey === 'notifications' || job.jobKey === 'notification_evaluator') ?? null,
+    [data],
+  );
+  const persistedConfigs = data?.configs ?? [];
+  const configPersistenceAvailable = persistedConfigs.length > 0;
+
+  const toggleNotificationEnabled = async (nextEnabled: boolean) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/admin-update-cron-job-config`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobKey: 'notification_evaluator', enabled: nextEnabled }),
+        },
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+      toast.success(`Notification Evaluator ${nextEnabled ? 'enabled' : 'disabled'}`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update notification job');
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -328,6 +370,72 @@ const AdminJobs = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Persisted Cron Config</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {!configPersistenceAvailable ? (
+                <p className="text-sm text-muted-foreground">
+                  Cron config persistence is not available yet.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-left text-muted-foreground">
+                      <tr>
+                        <th className="py-2 pr-3">Job</th>
+                        <th className="py-2 pr-3">Enabled</th>
+                        <th className="py-2 pr-3">Cron</th>
+                        <th className="py-2 pr-3">Timezone</th>
+                        <th className="py-2 pr-3">Windows</th>
+                        <th className="py-2 pr-3">Updated</th>
+                        <th className="py-2 pr-3">By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {persistedConfigs.map((cfg) => (
+                        <tr key={cfg.jobKey} className="border-t border-border/40 align-top">
+                          <td className="py-2 pr-3">
+                            <div className="font-medium">{cfg.jobName}</div>
+                            {cfg.description && (
+                              <div className="text-muted-foreground max-w-[36ch]">{cfg.description}</div>
+                            )}
+                          </td>
+                          <td className="py-2 pr-3">{cfg.enabled ? 'Yes' : 'No'}</td>
+                          <td className="py-2 pr-3 font-mono">{cfg.scheduleCron ?? '—'}</td>
+                          <td className="py-2 pr-3">{cfg.timezone}</td>
+                          <td className="py-2 pr-3 font-mono">
+                            {Array.isArray(cfg.runWindows) && cfg.runWindows.length > 0
+                              ? cfg.runWindows.join(', ')
+                              : '—'}
+                          </td>
+                          <td className="py-2 pr-3">{fmt(cfg.updatedAt)}</td>
+                          <td className="py-2 pr-3">{cfg.lastUpdatedByEmail ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {notificationJob && (
+                <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                  <div>
+                    <div className="font-medium">Notification Evaluator</div>
+                    <div className="text-xs text-muted-foreground">
+                      Pauses smart-nudges scheduled runs. Force-user diagnostics still work.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notificationJob.enabled}
+                    onCheckedChange={(checked) => void toggleNotificationEnabled(checked)}
+                  />
                 </div>
               )}
             </CardContent>
