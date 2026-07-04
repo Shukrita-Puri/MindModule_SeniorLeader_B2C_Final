@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { getAuthToken } from '@/services/authTokenService';
 import { useImpersonation } from '@/hooks/useImpersonation';
 import { toast } from 'sonner';
+import DeleteUserModal from '@/components/admin/DeleteUserModal';
+import { ADMIN_EMAIL_ALLOWLIST } from '@/config/adminAllowlist';
+import { useAuth } from '@/hooks/useAuth';
 
 type Row = Record<string, unknown>;
 interface Detail {
@@ -51,6 +54,8 @@ const AdminUserDetail = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { start } = useImpersonation();
+  const { user } = useAuth();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +100,13 @@ const AdminUserDetail = () => {
     navigate('/executive-home');
   };
 
+  const profile = data?.profile as (Row & { id?: string; email?: string; display_name?: string; full_name?: string }) | undefined;
+  const targetEmail = (profile?.email as string | undefined) ?? null;
+  const isSelf = user?.id && profile?.id && user.id === profile.id;
+  const isProtected = !!targetEmail && ADMIN_EMAIL_ALLOWLIST
+    .some((e) => e.toLowerCase() === targetEmail.trim().toLowerCase());
+  const canDelete = !!profile && !isSelf && !isProtected;
+
   return (
     <div className="space-y-6">
       <header className="flex items-baseline justify-between gap-4">
@@ -105,7 +117,17 @@ const AdminUserDetail = () => {
           </h1>
           <p className="text-xs font-mono text-muted-foreground truncate max-w-[60ch]">{userId}</p>
         </div>
-        <Button onClick={viewAsUser} disabled={!data}>View app as this user</Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={viewAsUser} disabled={!data}>View app as this user</Button>
+          <Button
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+            disabled={!canDelete}
+            title={isSelf ? 'You cannot delete yourself' : isProtected ? 'Protected account' : ''}
+          >
+            Delete User
+          </Button>
+        </div>
       </header>
 
       {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -166,6 +188,19 @@ const AdminUserDetail = () => {
               )}
           </Section>
         </div>
+      )}
+
+      {profile && (
+        <DeleteUserModal
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          target={{
+            id: (profile.id as string) ?? userId,
+            email: targetEmail,
+            name: (profile.display_name as string) ?? (profile.full_name as string) ?? null,
+          }}
+          onDeleted={() => navigate('/admin/users')}
+        />
       )}
     </div>
   );
