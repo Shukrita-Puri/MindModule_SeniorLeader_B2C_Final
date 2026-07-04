@@ -45,19 +45,50 @@ Deno.test("deriveWearableDaysConnected supports connected fallback date", () => 
   }), 2);
 });
 
-Deno.test("compute-outer-readiness declares wearableDaysConnected before first use", async () => {
+Deno.test("compute-outer-readiness declares wearableDaysConnected exactly once and before first use", async () => {
   const source = await Deno.readTextFile(
     new URL("./index.ts", import.meta.url),
   );
 
-  const declaration = source.indexOf(
-    "const wearableDaysConnected = deriveWearableDaysConnected({",
-  );
-  const firstUse = source.indexOf(
-    "hasHistoricalData: wearableDaysConnected !== null && wearableDaysConnected >= 7",
-  );
+  const declRegex = /const wearableDaysConnected\s*=/g;
+  const declMatches = source.match(declRegex) ?? [];
+  // Regression guard: a second declaration would create a TDZ in the outer
+  // scope's nested try/catch blocks.
+  assertEquals(declMatches.length, 1);
 
+  const declaration = source.indexOf("const wearableDaysConnected =");
+  const firstReadRegex = /wearableDaysConnected(?!\s*=)/;
+  const firstReadMatch = firstReadRegex.exec(source);
   assertEquals(declaration >= 0, true);
-  assertEquals(firstUse >= 0, true);
-  assertEquals(declaration < firstUse, true);
+  assertEquals(firstReadMatch != null, true);
+  assertEquals(declaration < firstReadMatch!.index, true);
+});
+
+Deno.test("compute-outer-readiness hoists wearableDaysConnected above getTheme(...) call", async () => {
+  const source = await Deno.readTextFile(
+    new URL("./index.ts", import.meta.url),
+  );
+  const declaration = source.indexOf("const wearableDaysConnected =");
+  const getThemeCall = source.indexOf("const theme = getTheme(");
+  assertEquals(declaration >= 0, true);
+  assertEquals(getThemeCall >= 0, true);
+  assertEquals(declaration < getThemeCall, true);
+});
+
+Deno.test("deriveWearableDaysConnected handles scheduled build-executive-home-cards inputs", () => {
+  // Simulates a scheduled build path where the wearable integration row
+  // exists but the connected_at column is null (older rows). Must return
+  // null — not 0 — so cold-start gates behave correctly.
+  assertEquals(deriveWearableDaysConnected({
+    connectedAt: null,
+    fallbackConnectedAt: null,
+    isConnected: true,
+  }), null);
+
+  // contextOnly requests still pass through the same helper without throwing.
+  assertEquals(deriveWearableDaysConnected({
+    connectedAt: "2026-06-20T00:00:00.000Z",
+    isConnected: true,
+    nowMs: new Date("2026-07-04T12:00:00.000Z").getTime(),
+  }), 14);
 });
