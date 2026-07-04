@@ -147,7 +147,14 @@ const AdminUserDetail = () => {
       {data && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Section title="Profile"><KeyVal data={data.profile} /></Section>
-          <Section title="Referral"><KeyVal data={data.referral ?? null} /></Section>
+          <Section title="Referral">
+            {(() => {
+              const r = data.referral;
+              const hasAny = r && Object.values(r).some((v) => v !== null && v !== undefined && v !== '');
+              if (!hasAny) return <p className="text-muted-foreground">No referral data available.</p>;
+              return <KeyVal data={r as Row} emptyLabel="No referral data available." />;
+            })()}
+          </Section>
           <Section title="Latest check-in"><KeyVal data={data.latestCheckIn} /></Section>
           <Section title="Latest wearable"><KeyVal data={data.latestWearable} /></Section>
           <Section title="Latest MRS / context"><KeyVal data={data.latestMrs} /></Section>
