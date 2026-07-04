@@ -64,6 +64,8 @@ const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminUserDetail = lazy(() => import("./pages/admin/AdminUserDetail"));
+const AdminJobs = lazy(() => import("./pages/admin/AdminJobs"));
+const AdminErrorLogs = lazy(() => import("./pages/admin/AdminErrorLogs"));
 
 // Force a full remount of player components when the :id param changes so per-practice
 // state (carousel position, audio progress, view stage, etc.) NEVER leaks between
@@ -439,6 +441,8 @@ const router = createBrowserRouter([
           { index: true, element: <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense> },
           { path: "users", element: <Suspense fallback={<LoadingFallback />}><AdminUsers /></Suspense> },
           { path: "users/:userId", element: <Suspense fallback={<LoadingFallback />}><AdminUserDetail /></Suspense> },
+          { path: "jobs", element: <Suspense fallback={<LoadingFallback />}><AdminJobs /></Suspense> },
+          { path: "error-logs", element: <Suspense fallback={<LoadingFallback />}><AdminErrorLogs /></Suspense> },
         ],
       },
     ],
