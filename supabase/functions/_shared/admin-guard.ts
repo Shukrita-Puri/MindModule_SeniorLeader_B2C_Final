@@ -71,6 +71,13 @@ export async function requireAdmin(req: Request): Promise<AdminGuardResult> {
   const cors = adminCorsHeaders();
   const db = getServiceClient();
 
+  // Admin APIs ALWAYS authorize the real caller. If somebody attaches an
+  // impersonation token to an /admin call, log and ignore it — never let
+  // impersonation grant admin rights.
+  if (req.headers.get("x-impersonation-token")) {
+    console.warn("[admin-guard] x-impersonation-token ignored on admin call");
+  }
+
   // In production, refuse the dev header outright even if auth.ts also
   // strips it — belt and suspenders.
   if (isProductionEnv() && req.headers.get("x-dev-user-id")) {

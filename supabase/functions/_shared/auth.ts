@@ -14,6 +14,21 @@
  */
 
 import { createRemoteJWKSet, jwtVerify } from "https://deno.land/x/jose@v5.2.0/index.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyImpersonationToken, type ImpersonationClaims } from "./impersonation.ts";
+
+// Hard-coded admin email allowlist. MUST stay in sync with
+// supabase/functions/_shared/admin-guard.ts and src/config/adminAllowlist.ts.
+const ADMIN_EMAIL_ALLOWLIST: readonly string[] = [
+  "shukrita@mindmodule.me",
+  "itsmanojkdev@gmail.com",
+] as const;
+
+function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const n = email.trim().toLowerCase();
+  return ADMIN_EMAIL_ALLOWLIST.some((e) => e.toLowerCase() === n);
+}
 
 // ─── Domain sanitization ────────────────────────────────────────────
 /** Strip protocol and trailing slashes from domain env var */
@@ -223,10 +238,132 @@ async function fallbackUserInfo(token: string, domain: string): Promise<string> 
 export async function authenticateRequest(
   req: Request,
   corsHeaders: Record<string, string>
-): Promise<{ userId: string; errorResponse?: never } | { userId?: never; errorResponse: Response }> {
+): Promise<
+  | {
+      userId: string;
+      realUserId?: string;
+      impersonation?: {
+        adminSub: string;
+        adminEmail: string;
+        targetSub: string;
+        targetEmail: string;
+        expiresAt: number;
+      };
+      errorResponse?: never;
+    }
+  | { userId?: never; errorResponse: Response }
+> {
   try {
-    const userId = await verifyAuth0JWT(req.headers.get('Authorization'), req);
-    return { userId };
+    const realUserId = await verifyAuth0JWT(req.headers.get('Authorization'), req);
+
+    const impersonationHeader = req.headers.get('x-impersonation-token');
+    if (!impersonationHeader) {
+      return { userId: realUserId };
+    }
+
+    // ── Impersonation path ────────────────────────────────────────────
+    // SECURITY: impersonation NEVER trusts x-dev-user-id. If the real caller
+    // relied on the dev bypass we require a genuine Auth0 JWT to proceed.
+    const devUsed = !!req.headers.get('x-dev-user-id') && !isProductionEnv();
+    const authHeader = req.headers.get('Authorization');
+    if (devUsed || !authHeader?.startsWith('Bearer ')) {
+      console.warn('[shared/auth] impersonation requires real Bearer token');
+      return {
+        errorResponse: new Response(
+          JSON.stringify({ error: 'Impersonation requires real authentication' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        ),
+      };
+    }
+
+    // Verify HS256 impersonation token first (cheap, no DB).
+    let claims: ImpersonationClaims;
+    try {
+      claims = await verifyImpersonationToken(impersonationHeader);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Invalid impersonation token';
+      console.warn('[shared/auth] impersonation token rejected:', msg);
+      return {
+        errorResponse: new Response(
+          JSON.stringify({ error: 'Invalid impersonation token' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        ),
+      };
+    }
+
+    // Real caller must be an allow-listed admin AND must match the token.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceKey) {
+      console.error('[shared/auth] SUPABASE_URL / SERVICE_ROLE_KEY missing');
+      return {
+        errorResponse: new Response(
+          JSON.stringify({ error: 'Server misconfiguration' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        ),
+      };
+    }
+    const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    const { data: adminProfile } = await db
+      .from('profiles')
+      .select('email')
+      .eq('id', realUserId)
+      .maybeSingle();
+    const realEmail = (adminProfile?.email as string | null) ?? null;
+
+    if (!isAdminEmail(realEmail)) {
+      console.warn('[shared/auth] impersonation attempted by non-admin', { realUserId });
+      return {
+        errorResponse: new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        ),
+      };
+    }
+
+    if (claims.adminSub !== realUserId) {
+      console.warn('[shared/auth] impersonation token adminSub != caller sub', {
+        realUserId, tokenAdminSub: claims.adminSub,
+      });
+      return {
+        errorResponse: new Response(
+          JSON.stringify({ error: 'Impersonation token / caller mismatch' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        ),
+      };
+    }
+
+    // Confirm target user still exists.
+    const { data: targetProfile } = await db
+      .from('profiles')
+      .select('id, email')
+      .eq('id', claims.targetSub)
+      .maybeSingle();
+    if (!targetProfile) {
+      return {
+        errorResponse: new Response(
+          JSON.stringify({ error: 'Impersonation target not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        ),
+      };
+    }
+
+    console.log('[shared/auth] ✅ impersonation accepted', {
+      admin: realEmail, target: claims.targetSub,
+    });
+
+    return {
+      userId: claims.targetSub,
+      realUserId,
+      impersonation: {
+        adminSub: claims.adminSub,
+        adminEmail: claims.adminEmail,
+        targetSub: claims.targetSub,
+        targetEmail: claims.targetEmail,
+        expiresAt: claims.exp,
+      },
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Authentication failed';
     console.error('[shared/auth] Authentication error:', message);
