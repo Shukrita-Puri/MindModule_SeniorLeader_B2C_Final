@@ -243,14 +243,14 @@ const AdminJobs = () => {
         const jobs = data.jobs ?? [];
         const recentRuns = data.recentRuns ?? [];
         const sources = data.sources ?? [];
-        const running = data.summary?.totalRunningJobs ?? data.counts?.running ?? 0;
+        const runningCount = data.summary?.totalRunningJobs ?? data.counts?.running ?? 0;
         const failed24h = data.summary?.failedJobs24h ?? data.counts?.failed24h ?? 0;
         const success24h = data.summary?.successfulJobs24h ?? data.counts?.success24h ?? 0;
         return (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              ['Running', running],
+              ['Running', runningCount],
               ['Failed (24h)', failed24h],
               ['Successful (24h)', success24h],
             ].map(([label, n]) => (
