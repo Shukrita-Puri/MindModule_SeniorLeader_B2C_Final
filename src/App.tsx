@@ -66,6 +66,7 @@ const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminUserDetail = lazy(() => import("./pages/admin/AdminUserDetail"));
 const AdminJobs = lazy(() => import("./pages/admin/AdminJobs"));
 const AdminErrorLogs = lazy(() => import("./pages/admin/AdminErrorLogs"));
+const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 
 // Force a full remount of player components when the :id param changes so per-practice
 // state (carousel position, audio progress, view stage, etc.) NEVER leaks between
@@ -443,6 +444,7 @@ const router = createBrowserRouter([
           { path: "users/:userId", element: <Suspense fallback={<LoadingFallback />}><AdminUserDetail /></Suspense> },
           { path: "jobs", element: <Suspense fallback={<LoadingFallback />}><AdminJobs /></Suspense> },
           { path: "error-logs", element: <Suspense fallback={<LoadingFallback />}><AdminErrorLogs /></Suspense> },
+          { path: "notifications", element: <Suspense fallback={<LoadingFallback />}><AdminNotifications /></Suspense> },
         ],
       },
     ],
