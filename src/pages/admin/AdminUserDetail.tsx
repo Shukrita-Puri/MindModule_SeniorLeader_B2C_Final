@@ -155,9 +155,9 @@ const AdminUserDetail = () => {
                   <div key={i} className="border-b border-border/40 py-2 first:border-t"><KeyVal data={c} /></div>
                 ))}
           </Section>
-          <Section title="Recent card runs">
+          <Section title="Last 10 Executive Home Cards">
             {data.recentCardRuns.length === 0
-              ? <p className="text-muted-foreground">No recent runs.</p>
+              ? <p className="text-muted-foreground">No card history found for this user.</p>
               : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -167,6 +167,9 @@ const AdminUserDetail = () => {
                         <th className="py-1 pr-3">Window</th>
                         <th className="py-1 pr-3">Mode</th>
                         <th className="py-1 pr-3">Status</th>
+                        <th className="py-1 pr-3">MRS</th>
+                        <th className="py-1 pr-3">Brief</th>
+                        <th className="py-1 pr-3">Plan</th>
                         <th className="py-1 pr-3">Error</th>
                       </tr>
                     </thead>
@@ -177,6 +180,9 @@ const AdminUserDetail = () => {
                           <td className="py-1 pr-3">{String((r as Row).window ?? '—')}</td>
                           <td className="py-1 pr-3">{String((r as Row).mode ?? '—')}</td>
                           <td className="py-1 pr-3">{String((r as Row).status ?? '—')}</td>
+                          <td className="py-1 pr-3">{String((r as Row).mrs_status ?? '—')}</td>
+                          <td className="py-1 pr-3">{String((r as Row).brief_status ?? '—')}</td>
+                          <td className="py-1 pr-3">{String((r as Row).plan_status ?? '—')}</td>
                           <td className="py-1 pr-3 truncate max-w-[36ch]" title={String((r as Row).error ?? '')}>
                             {String((r as Row).error ?? '—')}
                           </td>
