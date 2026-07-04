@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
   });
 
   const todayIso = new Date().toISOString().slice(0, 10);
+  const since24 = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const since7d = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
 
   try {
     // Run counters in parallel — each uses HEAD + count for cheap totals.
@@ -35,6 +37,16 @@ Deno.serve(async (req) => {
       activeSubs,
       trialingSubs,
       apnsTokens,
+      runningJobs,
+      failedJobs24,
+      successJobs24,
+      lastCardRun,
+      lastNotifRun,
+      errors24,
+      errors7d,
+      latestCriticalError,
+      failedCardBuilds24,
+      failedNotifDeliveries24,
     ] = await Promise.all([
       db.from("profiles").select("id", { count: "exact", head: true }),
       db.from("profiles").select("id", { count: "exact", head: true }).not("onboarding_completed_at", "is", null),
@@ -58,6 +70,16 @@ Deno.serve(async (req) => {
       db.from("profiles").select("id", { count: "exact", head: true }).eq("subscription_status", "active"),
       db.from("profiles").select("id", { count: "exact", head: true }).eq("subscription_status", "trialing"),
       db.from("notification_device_tokens").select("id", { count: "exact", head: true }).eq("is_active", true),
+      db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "running"),
+      db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", since24),
+      db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "success").gte("created_at", since24),
+      db.from("executive_home_card_runs").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      db.from("notification_evaluator_runs").select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
+      db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", since24),
+      db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", since7d),
+      db.from("executive_home_card_runs").select("run_id, error, created_at").eq("status", "error").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", since24),
+      db.from("notification_log").select("id", { count: "exact", head: true }).eq("status", "failed" as any).gte("created_at", since24),
     ]);
 
     return json({
@@ -76,7 +98,24 @@ Deno.serve(async (req) => {
         subscriptionsActive: activeSubs.count ?? 0,
         subscriptionsTrialing: trialingSubs.count ?? 0,
         activeDeviceTokens: apnsTokens.count ?? 0,
+        runningJobs: runningJobs.count ?? 0,
+        failedJobs24h: failedJobs24.count ?? 0,
+        successJobs24h: successJobs24.count ?? 0,
+        errors24h: errors24.count ?? 0,
+        errors7d: errors7d.count ?? 0,
+        failedCardBuilds24h: failedCardBuilds24.count ?? 0,
+        failedNotificationDeliveries24h: failedNotifDeliveries24.count ?? 0,
       },
+      lastExecutiveHomeBuildAt: (lastCardRun.data as any)?.created_at ?? null,
+      lastNotificationJobAt:
+        (lastNotifRun.data as any)?.finished_at ?? (lastNotifRun.data as any)?.started_at ?? null,
+      latestCriticalError: latestCriticalError.data
+        ? {
+            id: (latestCriticalError.data as any).run_id,
+            time: (latestCriticalError.data as any).created_at,
+            summary: ((latestCriticalError.data as any).error ?? "").toString().slice(0, 240),
+          }
+        : null,
       recentFailedRuns: recentFailedRuns.data ?? [],
     });
   } catch (err) {
