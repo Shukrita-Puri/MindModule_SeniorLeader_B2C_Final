@@ -148,6 +148,38 @@ async function logRun(db: any, row: Record<string, unknown>) {
   }
 }
 
+// Claim the scheduled slot for (user_id, local_date, window). A partial unique
+// index on mode='scheduled' guarantees at most one row per window per day.
+// Returns the claimed row id, or null if another invocation already claimed it
+// (or a prior scheduled attempt already happened — success, skip, or error).
+async function claimScheduledSlot(db: any, row: Record<string, unknown>): Promise<string | null> {
+  try {
+    const { data, error } = await db
+      .from("executive_home_card_runs")
+      .insert({ ...row, status: "running" })
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      // 23505 unique_violation → slot already taken this window.
+      if ((error as any).code === "23505") return null;
+      console.warn("[build-executive-home-cards] claim failed", error);
+      return null;
+    }
+    return data?.id ?? null;
+  } catch (err) {
+    console.warn("[build-executive-home-cards] claim threw", err);
+    return null;
+  }
+}
+
+async function finalizeRun(db: any, id: string, patch: Record<string, unknown>) {
+  try {
+    await db.from("executive_home_card_runs").update(patch).eq("id", id);
+  } catch (err) {
+    console.warn("[build-executive-home-cards] finalize failed", err);
+  }
+}
+
 async function buildForUser(db: any, args: {
   userId: string;
   profile: any;
@@ -174,28 +206,33 @@ async function buildForUser(db: any, args: {
     mode,
   };
 
-  if (!force) {
-    const { data: existing } = await db
-      .from("daily_context_snapshot")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("local_date", localDate)
-      .eq("mrs_window", window)
-      .maybeSingle();
-    if (existing?.id) {
-      await logRun(db, {
-        ...baseLog,
+  // Scheduled cron: enforce hard one-attempt-per-window cap via DB uniqueness.
+  // A prior success, skip, or error still counts as that window's one attempt,
+  // so a failing user never gets retried every 15 minutes.
+  let claimedRunRowId: string | null = null;
+  if (mode === "scheduled") {
+    claimedRunRowId = await claimScheduledSlot(db, baseLog);
+    if (!claimedRunRowId) {
+      return {
+        userId,
+        localDate,
+        window,
         status: "skipped",
-        skipped_reason: "already_built",
-        duration_ms: Date.now() - started,
-      });
-      return { userId, localDate, window, status: "skipped", skippedReason: "already_built" };
+        skippedReason: "already_attempted_for_window",
+      };
     }
   }
 
+  const writeRun = async (patch: Record<string, unknown>) => {
+    if (claimedRunRowId) {
+      await finalizeRun(db, claimedRunRowId, patch);
+    } else {
+      await logRun(db, { ...baseLog, ...patch });
+    }
+  };
+
   if (mode === "dry_run") {
-    await logRun(db, {
-      ...baseLog,
+    await writeRun({
       status: "skipped",
       skipped_reason: "dry_run",
       travel_state: travel ?? null,
@@ -328,8 +365,7 @@ async function buildForUser(db: any, args: {
       planStatus = "ready";
     }
 
-    await logRun(db, {
-      ...baseLog,
+    await writeRun({
       day_type: plan?.dayKind ?? plan?.meta?.dayKind ?? null,
       status: "success",
       mrs_status: mrsStatus,
@@ -339,8 +375,7 @@ async function buildForUser(db: any, args: {
     });
     return { userId, localDate, window, status: "success", mrsStatus, briefStatus, planStatus };
   } catch (err) {
-    await logRun(db, {
-      ...baseLog,
+    await writeRun({
       status: "error",
       mrs_status: mrsStatus,
       brief_status: briefStatus,
