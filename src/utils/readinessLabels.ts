@@ -113,6 +113,9 @@ type AwaitingPayload = {
     isConnected?: boolean;
     hasTodayData?: boolean;
     hasRecentData?: boolean;
+    connectionStatus?: string | null;
+    syncStatus?: string | null;
+    hasHistoricalData?: boolean;
   } | null;
   integrationStatus?: {
     wearable?: {

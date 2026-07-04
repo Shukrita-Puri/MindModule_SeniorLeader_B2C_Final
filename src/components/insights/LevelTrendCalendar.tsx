@@ -312,10 +312,10 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
             .lte('checkin_date', endDate);
           if (error) throw error;
           data = (rows || []).map((row: Record<string, unknown>) => ({
-            checkin_date: row.checkin_date,
-            time_window: row.time_window,
-            created_at: row.created_at,
-            value: typeof row[field] === 'number' ? row[field] : 0,
+            checkin_date: String(row.checkin_date ?? ''),
+            time_window: String(row.time_window ?? ''),
+            created_at: String(row.created_at ?? ''),
+            value: typeof row[field] === 'number' ? (row[field] as number) : 0,
           }));
         } else {
           const { data: result, error } = await supabase.functions.invoke('level-trend-calendar', {
