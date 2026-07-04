@@ -4,7 +4,7 @@ import {
   mergeExecutiveHomeCronConfig,
   nextExpectedRunAt,
   validateWindowConfig,
-} from "../build-executive-home-cards/scheduler.ts";
+} from "./scheduler-local.ts";
 
 const cors = adminCorsHeaders();
 const JOB_KEY = "executive_home_cards";
