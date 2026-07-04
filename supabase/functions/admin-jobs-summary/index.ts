@@ -4,7 +4,7 @@ import {
   mergeExecutiveHomeCronConfig,
   nextExpectedRunAt,
   validateWindowConfig,
-} from "../build-executive-home-cards/scheduler.ts";
+} from "./scheduler-local.ts";
 
 const cors = adminCorsHeaders();
 const JOB_KEY = "executive_home_cards";
@@ -144,10 +144,30 @@ Deno.serve(async (req) => {
   const todayIso = startOfTodayIso();
   const config = await loadExecutiveHomeConfig(db);
 
+  const sources: Array<{ name: string; available: boolean; reason?: string }> = [];
+
+  const safe = async <T,>(
+    p: PromiseLike<{ data: T | null; error: unknown; count?: number | null }>,
+    label: string,
+  ): Promise<{ data: T | null; count: number | null; error: string | null }> => {
+    try {
+      const res = await p;
+      if (res.error) {
+        const msg = (res.error as { message?: string }).message ?? String(res.error);
+        console.warn(`[admin-jobs-summary] ${label} skipped:`, msg);
+        return { data: null, count: null, error: msg };
+      }
+      return { data: (res.data ?? null) as T | null, count: res.count ?? null, error: null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[admin-jobs-summary] ${label} threw:`, msg);
+      return { data: null, count: null, error: msg };
+    }
+  };
+
   let runsQuery = db
     .from("executive_home_card_runs")
-    .select("id, run_id, job_key, user_id, local_date, effective_timezone, window, mode, status, mrs_status, brief_status, plan_status, skipped_reason, error, error_json, trace_json, duration_ms, retry_count, started_at, finished_at, created_at")
-    .eq("job_key", JOB_KEY)
+    .select("id, run_id, user_id, local_date, effective_timezone, window, mode, status, mrs_status, brief_status, plan_status, skipped_reason, error, duration_ms, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -166,15 +186,26 @@ Deno.serve(async (req) => {
     avgDurRows,
     notificationLatest,
   ] = await Promise.all([
-    runsQuery,
-    db.from("executive_home_card_runs").select("created_at, status").eq("job_key", JOB_KEY).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    db.from("executive_home_card_runs").select("created_at").eq("job_key", JOB_KEY).eq("status", "success").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    db.from("executive_home_card_runs").select("created_at, error").eq("job_key", JOB_KEY).eq("status", "error").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("job_key", JOB_KEY).gte("created_at", todayIso),
-    db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("job_key", JOB_KEY).eq("status", "error").gte("created_at", todayIso),
-    db.from("executive_home_card_runs").select("duration_ms").eq("job_key", JOB_KEY).not("duration_ms", "is", null).gte("created_at", todayIso).limit(500),
-    db.from("notification_evaluator_runs").select("started_at, finished_at, top_level_error").order("started_at", { ascending: false }).limit(1).maybeSingle(),
+    safe<Array<Record<string, unknown>>>(runsQuery, "recent_runs"),
+    safe(db.from("executive_home_card_runs").select("created_at, status").order("created_at", { ascending: false }).limit(1).maybeSingle(), "latest_run"),
+    safe(db.from("executive_home_card_runs").select("created_at").eq("status", "success").order("created_at", { ascending: false }).limit(1).maybeSingle(), "latest_success"),
+    safe(db.from("executive_home_card_runs").select("created_at, error").eq("status", "error").order("created_at", { ascending: false }).limit(1).maybeSingle(), "latest_failure"),
+    safe(db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).gte("created_at", todayIso), "today_runs"),
+    safe(db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", todayIso), "today_failed"),
+    safe<Array<{ duration_ms?: number | null }>>(db.from("executive_home_card_runs").select("duration_ms").not("duration_ms", "is", null).gte("created_at", todayIso).limit(500), "avg_duration"),
+    safe(db.from("notification_evaluator_runs").select("started_at, finished_at, top_level_error").order("started_at", { ascending: false }).limit(1).maybeSingle(), "notification_latest"),
   ]);
+
+  sources.push({
+    name: "executive_home_card_runs",
+    available: !latestRun.error,
+    ...(latestRun.error ? { reason: latestRun.error } : {}),
+  });
+  sources.push({
+    name: "notification_evaluator_runs",
+    available: !notificationLatest.error,
+    ...(notificationLatest.error ? { reason: notificationLatest.error } : {}),
+  });
 
   const durationRows = (avgDurRows.data ?? []) as Array<{ duration_ms?: number | null }>;
   const averageDurationMs = durationRows.length
@@ -233,14 +264,35 @@ Deno.serve(async (req) => {
     config: null,
   };
 
+  const totalRunningJobs = executiveJob.currentStatus === "running" ? 1 : 0;
+  const failedJobs24h = todayFailed.count ?? 0;
+  const successfulJobs24h = Math.max(0, (todayRuns.count ?? 0) - failedJobs24h);
+
+  console.log("[admin-jobs-summary] responding", {
+    totalRunningJobs,
+    failedJobs24h,
+    successfulJobs24h,
+    sources: sources.map((s) => ({ name: s.name, available: s.available })),
+    recentRuns: (runsResult.data ?? []).length,
+  });
+
   return json({
     generatedAt: new Date().toISOString(),
+    summary: {
+      totalRunningJobs,
+      successfulJobs24h,
+      failedJobs24h,
+      lastExecutiveHomeBuildAt: executiveJob.lastSuccessTime ?? executiveJob.lastRunTime ?? null,
+      lastNotificationJobAt: notificationJob.lastRunTime ?? null,
+    },
+    // Legacy field kept for older frontend builds.
     counts: {
-      running: executiveJob.currentStatus === "running" ? 1 : 0,
-      failed24h: todayFailed.count ?? 0,
-      success24h: (todayRuns.count ?? 0) - (todayFailed.count ?? 0),
+      running: totalRunningJobs,
+      failed24h: failedJobs24h,
+      success24h: successfulJobs24h,
     },
     jobs: [executiveJob, notificationJob],
     recentRuns: runsResult.data ?? [],
+    sources,
   });
 });
