@@ -19,6 +19,8 @@ import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import PushNotificationTestDialog from '@/components/profile/PushNotificationTestDialog';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { ShieldCheck } from 'lucide-react';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -30,6 +32,7 @@ const tierLabels: Record<string, string> = {
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut, refreshProfile } = useAuth();
+  const { canAccessAdmin } = useIsAdmin();
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -192,6 +195,19 @@ const Profile = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {canAccessAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate('/admin')}
+                className="w-full flex items-center justify-between py-2 border-b border-border text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  <span className="text-sm">Admin Console</span>
+                </div>
+                <span className="text-xs text-muted-foreground">Desktop only</span>
+              </button>
+            )}
             <div className="flex items-center justify-between py-2 border-b border-border">
               <div className="flex items-center gap-3">
                 <Mail className="h-4 w-4 text-muted-foreground" />

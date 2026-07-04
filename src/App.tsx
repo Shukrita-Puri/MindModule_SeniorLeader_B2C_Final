@@ -19,6 +19,8 @@ import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { CheckInVisibilityGuard } from "./components/CheckInVisibilityGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
+import { ImpersonationProvider } from "./hooks/useImpersonation";
+import ImpersonationBanner from "./components/admin/ImpersonationBanner";
 import {
   ensureTravelMonitoringIfAuthorized,
   startTimezoneWatcher,
@@ -54,6 +56,14 @@ const ConnectedData = lazy(() => import("./pages/ConnectedData"));
 const Refer = lazy(() => import("./pages/Refer"));
 const JoinPage = lazy(() => import("./pages/JoinPage"));
 const CheckInDetail = lazy(() => import("./pages/CheckInDetail"));
+
+// Admin Console (desktop-only, allowlisted emails). Server enforcement lives
+// in supabase/functions/_shared/admin-guard.ts.
+const AdminRoute = lazy(() => import("./components/admin/AdminRoute"));
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminUserDetail = lazy(() => import("./pages/admin/AdminUserDetail"));
 
 // Force a full remount of player components when the :id param changes so per-practice
 // state (carousel position, audio progress, view stage, etc.) NEVER leaks between
@@ -254,13 +264,16 @@ const Layout = () => {
 
   return (
     <AuthProvider>
-      <ScrollToTop />
-      <TravelWatcher />
-      <AppleCalendarWatcher />
-      <PushNotificationProvider />
-      <PushNotificationActionHandler />
-      {showPillNav && !tourActive && <FloatingPillNav />}
-      <Outlet />
+      <ImpersonationProvider>
+        <ImpersonationBanner />
+        <ScrollToTop />
+        <TravelWatcher />
+        <AppleCalendarWatcher />
+        <PushNotificationProvider />
+        <PushNotificationActionHandler />
+        {showPillNav && !tourActive && <FloatingPillNav />}
+        <Outlet />
+      </ImpersonationProvider>
     </AuthProvider>
   );
 };
@@ -409,6 +422,23 @@ const router = createBrowserRouter([
           { path: "connect", element: <Suspense fallback={<LoadingFallback />}><StageConnections /></Suspense> },
           { path: "done", element: <Suspense fallback={<LoadingFallback />}><StageDone /></Suspense> },
           { path: "*", element: <Navigate to="/onboarding/app-intro" replace /> },
+        ],
+      },
+      {
+        path: "admin",
+        element: (
+          <Suspense fallback={<LoadingFallback />}>
+            <ProtectedRoute>
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            </ProtectedRoute>
+          </Suspense>
+        ),
+        children: [
+          { index: true, element: <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense> },
+          { path: "users", element: <Suspense fallback={<LoadingFallback />}><AdminUsers /></Suspense> },
+          { path: "users/:userId", element: <Suspense fallback={<LoadingFallback />}><AdminUserDetail /></Suspense> },
         ],
       },
     ],
