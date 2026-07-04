@@ -2144,11 +2144,15 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             <span className="text-[16px] text-muted-foreground/40">/100</span>
             {(() => {
               const stateLabel = getReadinessStateLabel(readinessState, hasCurrentPeriodSignal);
+              const stateSubtitle =
+                stateLabel.label === 'Awaiting signals'
+                  ? awaitingCopy
+                  : stateLabel.subtitle;
               return (
                 <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
                   {stateLabel.label}
                   <span className="ml-1 normal-case tracking-normal text-muted-foreground/50">
-                    · {stateLabel.subtitle}
+                    · {stateSubtitle}
                   </span>
                 </span>
               );

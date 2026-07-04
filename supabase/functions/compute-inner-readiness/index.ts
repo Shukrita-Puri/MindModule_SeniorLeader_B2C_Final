@@ -765,6 +765,24 @@ function coerceFiniteNumber(value: unknown): number | null {
   return null;
 }
 
+function normalizeMrsSubScores(value: unknown): SubScore[] {
+  if (!Array.isArray(value)) return [];
+  const out: SubScore[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const candidate = item as Record<string, unknown>;
+    const id = typeof candidate.id === 'string' ? candidate.id as SubComponentId : null;
+    if (!id) continue;
+    const score = coerceFiniteNumber(candidate.score) ?? 0;
+    out.push({
+      id,
+      score: Math.max(0, Math.min(100, Math.round(score))),
+      available: candidate.available === true,
+    });
+  }
+  return out;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -871,7 +889,8 @@ serve(async (req) => {
       });
     }
 
-    if (!Array.isArray(body.mrsSubScores) || body.mrsSubScores.length === 0) {
+    const normalizedSubScores = normalizeMrsSubScores(body.mrsSubScores);
+    if (normalizedSubScores.length === 0) {
       console.error('[compute-inner-readiness] FATAL: empty mrsSubScores; refusing legacy baseline fallback');
       return new Response(JSON.stringify({ error: 'mrs_v4_inputs_required' }), {
         status: 400,
@@ -879,21 +898,11 @@ serve(async (req) => {
       });
     }
 
-    // MRS v4 — Stage 1 calendar backfill (2026-06-26).
-    // The composer treats a sub-component as `available=false` whenever the
-    // client didn't have the underlying signal at request time. Apple Calendar
-    // users (and any case where `calendar_connections` is missing but the
-    // outer-readiness contract still rates calendar as `usable`) used to send
-    // all demand cells unavailable, which collapsed the whole window into
-    // `awaitingSignals=true` even when `body.demandScore` was a valid number.
-    //
-    // The controlled fix: when the caller forwards a numeric `demandScore`
-    // OR explicitly says a Stage 1 calendar signal exists, backfill any
-    // demand-pillar sub-component that is still unavailable. In the explicit
-    // calendar-signal/no-demand case, use a neutral demand baseline (50).
-    // We deliberately do NOT synthesize HRV/sleep/RHR — those remain
-    // wearable-gated, so true cold-start (no wearable + no calendar) still
-    // resolves to awaiting.
+    // MRS v4 — Stage 1 calendar backfill.
+    // Calendar demand may populate demand-pillar cells when the caller has a
+    // real numeric demand score, but the composer still enforces the SSOT
+    // rule that a wearable pillar is required for availability. Demand/pattern
+    // can sharpen a wearable-backed read; they never unlock a baseline alone.
     const DEMAND_SUBCOMPONENTS: SubComponentId[] = [
       'todayFullDayDemand',
       'remainingDayDemand',
@@ -910,7 +919,7 @@ serve(async (req) => {
       typeof effectiveDemandScore === 'number' && Number.isFinite(effectiveDemandScore)
         ? Math.max(0, Math.min(100, Math.round(100 - effectiveDemandScore)))
         : null;
-    const subsForCompose: SubScore[] = (body.mrsSubScores as SubScore[]).map((s) => {
+    const subsForCompose: SubScore[] = normalizedSubScores.map((s) => {
       if (
         !s.available &&
         calendarDemandScore != null &&
@@ -926,7 +935,7 @@ serve(async (req) => {
       hasCalendarSignal: body.hasCalendarSignal === true,
       effectiveDemandScore,
       calendarDemandScore,
-      incomingSubScores: body.mrsSubScores,
+      incomingSubScores: normalizedSubScores,
       subsForCompose,
     }));
 
@@ -1063,7 +1072,7 @@ serve(async (req) => {
     // so older callers keep behaving identically.
     const wearableStatus: 'fresh' | 'stale' | 'missing' =
       body.wearableStatus ?? (hasWearable ? 'fresh' : 'missing');
-    dataSources.push(`wearable_status:${wearableStatus}`);
+    dataSources.push(`wearable_freshness:${wearableStatus}`);
 
     // Extract Layer 3 as dedicated field for separate rendering
     const layer3Statement = getLayer3Text(divergenceFlag, hrvDeviation, hrvPatternContext ?? null, bConf, sampleDays);

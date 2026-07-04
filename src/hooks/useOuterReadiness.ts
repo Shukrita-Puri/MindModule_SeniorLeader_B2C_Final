@@ -286,6 +286,222 @@ export interface OuterReadinessData {
   coherenceWarning?: string | null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+}
+
+function asIsoString(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
+function asDateOnlyString(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeSignalPills(value: unknown): OuterReadinessData['signalPills'] {
+  if (!Array.isArray(value)) return null;
+  const keys = new Set(['decision_readiness', 'physical_reserves', 'resilience_capacity']);
+  const tiers = new Set(['green', 'amber', 'red', 'neutral']);
+  const pills = value
+    .map((item) => {
+      const row = asRecord(item);
+      if (!row) return null;
+      const key = asString(row.key);
+      const label = asString(row.label);
+      const tier = asString(row.tier);
+      if (!key || !label || !tier || !keys.has(key) || !tiers.has(tier)) return null;
+      return {
+        key: key as 'decision_readiness' | 'physical_reserves' | 'resilience_capacity',
+        label,
+        tier: tier as 'green' | 'amber' | 'red' | 'neutral',
+        tierLabel: asString(row.tierLabel) ?? undefined,
+        coldStartLabel: asString(row.coldStartLabel) ?? null,
+        contributors: asRecord(row.contributors) ?? undefined,
+        qualifiers: asRecord(row.qualifiers) ?? undefined,
+      };
+    })
+    .filter((item): item is NonNullable<OuterReadinessData['signalPills']>[number] => item !== null);
+  return pills;
+}
+
+function normalizePillQualifiers(value: unknown): OuterReadinessData['pillQualifiers'] {
+  const row = asRecord(value);
+  if (!row) return null;
+  const mind = (key: string) => {
+    const item = asRecord(row[key]);
+    return {
+      delta3d: asFiniteNumber(item?.delta3d) ?? null,
+      vsDow: asFiniteNumber(item?.vsDow) ?? null,
+      peakStreak: asFiniteNumber(item?.peakStreak) ?? 0,
+    };
+  };
+  return {
+    clarity: mind('clarity'),
+    emotion: mind('emotion'),
+    pressure: mind('pressure'),
+    regulation: mind('regulation'),
+    hrv: {
+      delta3d: asFiniteNumber(asRecord(row.hrv)?.delta3d) ?? null,
+      vsBaselinePct: asFiniteNumber(asRecord(row.hrv)?.vsBaselinePct) ?? null,
+    },
+    sleep: {
+      durationDelta7d: asFiniteNumber(asRecord(row.sleep)?.durationDelta7d) ?? null,
+      scoreVsBaseline: asFiniteNumber(asRecord(row.sleep)?.scoreVsBaseline) ?? null,
+    },
+    rhr: {
+      vsBaselinePct: asFiniteNumber(asRecord(row.rhr)?.vsBaselinePct) ?? null,
+    },
+  };
+}
+
+export function normalizeOuterReadinessPayload(input: unknown): OuterReadinessData {
+  const raw = asRecord(input) ?? {};
+  const wearableStatus = asRecord(raw.wearableStatus);
+  const wearableIntegration = asRecord(asRecord(raw.integrationStatus)?.wearable);
+  const calendarIntegration = asRecord(asRecord(raw.integrationStatus)?.calendar);
+  const nextHighStakesEvent = asRecord(raw.nextHighStakesEvent);
+  const nextEvent = asRecord(raw.nextEvent);
+
+  return {
+    ...(raw as unknown as OuterReadinessData),
+    phrase: asString(raw.phrase) ?? '',
+    context: asString(raw.context) ?? '',
+    leanOn: asString(raw.leanOn) ?? '',
+    watchFor: asString(raw.watchFor) ?? '',
+    driver: asString(raw.driver) ?? '',
+    dataSources: asStringArray(raw.dataSources),
+    bodyText: asString(raw.bodyText) ?? undefined,
+    leanOnSource: asString(raw.leanOnSource) ?? undefined,
+    watchForSource: asString(raw.watchForSource) ?? undefined,
+    briefId: asString(raw.briefId) ?? null,
+    calendarState:
+      raw.calendarState === 'active' || raw.calendarState === 'connected_no_events' || raw.calendarState === 'not_connected'
+        ? raw.calendarState
+        : undefined,
+    integrationStatus: {
+      wearable: wearableIntegration
+        ? {
+            connectionStatus: (asString(wearableIntegration.connectionStatus) as any) ?? 'unknown',
+            syncStatus: (asString(wearableIntegration.syncStatus) as any) ?? 'unknown',
+            hasTodayData: asBoolean(wearableIntegration.hasTodayData),
+            hasRecentData: asBoolean(wearableIntegration.hasRecentData),
+            hasHistoricalData: asBoolean(wearableIntegration.hasHistoricalData),
+            lastSyncAt: asIsoString(wearableIntegration.lastSyncAt),
+            lastSampleAt: asIsoString(wearableIntegration.lastSampleAt),
+          }
+        : null,
+      calendar: calendarIntegration
+        ? {
+            provider: asString(calendarIntegration.provider),
+            connectionStatus: (asString(calendarIntegration.connectionStatus) as any) ?? 'disconnected',
+            needsReconnect: asBoolean(calendarIntegration.needsReconnect),
+            lastSyncAt: asIsoString(calendarIntegration.lastSyncAt),
+          }
+        : null,
+    },
+    hasWearable: asBoolean(raw.hasWearable),
+    hasCalendar: asBoolean(raw.hasCalendar),
+    hasHistoricalData: asBoolean(raw.hasHistoricalData),
+    awaitingSignals: asBoolean(raw.awaitingSignals),
+    awaitingReason: asString(raw.awaitingReason) === 'no-checkin-no-wearable'
+      ? 'no-checkin-no-wearable'
+      : null,
+    briefMode:
+      raw.briefMode === 'cold-start' || raw.briefMode === 'baseline' || raw.briefMode === 'refined'
+        ? raw.briefMode
+        : undefined,
+    wearableStatus: wearableStatus
+      ? {
+          isConnected: asBoolean(wearableStatus.isConnected),
+          hasTodayData: asBoolean(wearableStatus.hasTodayData),
+          hasRecentData: asBoolean(wearableStatus.hasRecentData),
+          isStale: asBoolean(wearableStatus.isStale),
+          sourceAgeDays: asFiniteNumber(wearableStatus.sourceAgeDays) ?? null,
+          metricsAvailable: {
+            hrv: asBoolean(asRecord(wearableStatus.metricsAvailable)?.hrv),
+            sleep: asBoolean(asRecord(wearableStatus.metricsAvailable)?.sleep),
+            rhr: asBoolean(asRecord(wearableStatus.metricsAvailable)?.rhr),
+          },
+          sourceRowDate: asDateOnlyString(wearableStatus.sourceRowDate),
+          dataSource: asString(wearableStatus.dataSource) ?? null,
+        }
+      : undefined,
+    highStakesEvents: asStringArray(raw.highStakesEvents),
+    remainingHighStakes: asStringArray(raw.remainingHighStakes),
+    nextHighStakesEvent: nextHighStakesEvent
+      ? {
+          title: asString(nextHighStakesEvent.title) ?? '',
+          minutesUntil: asFiniteNumber(nextHighStakesEvent.minutesUntil) ?? 0,
+        }
+      : null,
+    nextEvent: nextEvent
+      ? {
+          title: asString(nextEvent.title) ?? '',
+          minutesUntil: asFiniteNumber(nextEvent.minutesUntil) ?? 0,
+        }
+      : null,
+    hrvDeviation: asFiniteNumber(raw.hrvDeviation) ?? null,
+    sleepDeviation: asFiniteNumber(raw.sleepDeviation) ?? null,
+    rhrDeviation: asFiniteNumber(raw.rhrDeviation) ?? null,
+    sleepDuration: asFiniteNumber(raw.sleepDuration) ?? null,
+    rhrValue: asFiniteNumber(raw.rhrValue) ?? null,
+    sleepScore: asFiniteNumber(raw.sleepScore) ?? null,
+    hrvValue: asFiniteNumber(raw.hrvValue) ?? null,
+    hrValue: asFiniteNumber(raw.hrValue) ?? null,
+    hrBaseline: asFiniteNumber(raw.hrBaseline) ?? null,
+    hrDeviation: asFiniteNumber(raw.hrDeviation) ?? null,
+    hrvBaseline: asFiniteNumber(raw.hrvBaseline) ?? null,
+    sleepBaseline: asFiniteNumber(raw.sleepBaseline) ?? null,
+    rhrBaseline: asFiniteNumber(raw.rhrBaseline) ?? null,
+    innerReadinessScore: asFiniteNumber(raw.innerReadinessScore) ?? null,
+    innerReadinessScoreBaseline: asFiniteNumber(raw.innerReadinessScoreBaseline) ?? null,
+    innerReadinessScoreRefined: asFiniteNumber(raw.innerReadinessScoreRefined) ?? null,
+    innerReadinessRefinedContribution: asFiniteNumber(raw.innerReadinessRefinedContribution) ?? null,
+    innerReadinessState:
+      raw.innerReadinessState === 'baseline' || raw.innerReadinessState === 'refined' || raw.innerReadinessState === 'awaiting'
+        ? raw.innerReadinessState
+        : null,
+    signalPills: normalizeSignalPills(raw.signalPills),
+    pillQualifiers: normalizePillQualifiers(raw.pillQualifiers),
+    weekAheadShape: asRecord(raw.weekAheadShape) ?? null,
+    sourceProvenance: (asRecord(raw.sourceProvenance) as OuterReadinessData['sourceProvenance']) ?? null,
+    pillCoherence: (asRecord(raw.pillCoherence) as OuterReadinessData['pillCoherence']) ?? null,
+    baselineReadinessScore: asFiniteNumber(raw.baselineReadinessScore) ?? null,
+    hasCurrentPeriodCheckIn: asBoolean(raw.hasCurrentPeriodCheckIn),
+    hasFreshWearable: asBoolean(raw.hasFreshWearable),
+    hasCurrentPeriodSignal: asBoolean(raw.hasCurrentPeriodSignal),
+    coherenceWarning: asString(raw.coherenceWarning) ?? null,
+  };
+}
+
 async function fetchOuterReadinessFresh(userId: string | undefined): Promise<OuterReadinessData | null> {
   if (!userId) return null;
 
@@ -396,7 +612,7 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
     } as OuterReadinessData;
   }
 
-  const data = res.data as OuterReadinessData;
+  const data = normalizeOuterReadinessPayload(res.data);
   // Phase 1 — stamp the engine status onto the server response so consumers
   // have one canonical field to read. Server has no opinion on this; the
   // client owns the inner/auth/outer infrastructure-failure taxonomy.

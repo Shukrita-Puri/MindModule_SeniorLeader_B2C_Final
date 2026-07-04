@@ -1,7 +1,7 @@
 // MRS v4 — tests for §8.3 redistribution + §3.2a sleep-deficit absence guard.
 //
-// Validates the four §8.4 worked examples plus the day-1 calendar-only DoW
-// variance that §0.2 requires.
+// Validates the four §8.4 worked examples plus the wearable-pillar
+// availability guard.
 
 import { assertEquals, assert } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
 import { composeBaselineV4, redistribute, isSevereSleepDeficit, type SubScore } from './mrs-v4-compose.ts';
@@ -44,35 +44,31 @@ function allMorningSubs(opts: Partial<Record<SubComponentId, SubScore>> = {}): S
   return defaults.map((s) => opts[s.id] ?? s);
 }
 
-// §8.4 Day 1 — only todayFullDayDemand earned, all others fall back to demand.
-Deno.test('§8.4 day-1: only calendar available → demand absorbs everything', () => {
+// Day 1 — calendar alone can never unlock a baseline.
+Deno.test('§4.15 day-1: only calendar available → awaiting=true', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
     id: c.id,
     score: c.id === 'todayFullDayDemand' ? 60 : 0,
     available: c.id === 'todayFullDayDemand',
   }));
-  const r = redistribute('morning', subs);
-  assertEquals(r.earnedWeight, 30);
-  assertEquals(Math.round(r.finalWeights.todayFullDayDemand), 100);
-  assertEquals(r.awaitingSignals, false);
+  const r = composeBaselineV4('morning', subs);
+  assertEquals(r.awaitingSignals, true);
+  assertEquals(r.baseline, null);
 });
 
-// §0.2: day-1 score must differ by demand input — same algorithm, two demand scores.
-Deno.test('§0.2 day-1 DoW variance: different demand → different baseline', () => {
-  const mondaySubs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
-    id: c.id,
-    score: c.id === 'todayFullDayDemand' ? 25 : 0, // heavy day → low score
-    available: c.id === 'todayFullDayDemand',
-  }));
-  const sundaySubs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
-    id: c.id,
-    score: c.id === 'todayFullDayDemand' ? 80 : 0, // empty day → high score
-    available: c.id === 'todayFullDayDemand',
-  }));
-  const monday = composeBaselineV4('morning', mondaySubs);
-  const sunday = composeBaselineV4('morning', sundaySubs);
-  assert(monday.baseline != null && sunday.baseline != null && monday.baseline < sunday.baseline,
-    `Expected Monday<Sunday but got ${monday.baseline} vs ${sunday.baseline}`);
+// Day 1 with a single wearable sub + demand is a valid early read.
+Deno.test('§4.15 day-1: single wearable sub + demand → baseline available', () => {
+  const subs: SubScore[] = [
+    { id: 'hrvMorningDeviation', score: 55, available: true },
+    { id: 'sleepDeviation', score: 0, available: false },
+    { id: 'rhrTrend', score: 0, available: false },
+    { id: 'todayFullDayDemand', score: 80, available: true },
+    { id: 'patternEngineComposite', score: 0, available: false },
+    { id: 'yesterdayCarryover', score: 0, available: false },
+  ];
+  const result = composeBaselineV4('morning', subs);
+  assertEquals(result.awaitingSignals, false);
+  assert(result.baseline != null);
 });
 
 // §8.4 Day 4 — rhrTrend + yesterdayCarryover join.

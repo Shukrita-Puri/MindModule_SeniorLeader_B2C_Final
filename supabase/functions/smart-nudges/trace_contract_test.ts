@@ -55,8 +55,11 @@ Deno.test("APNs environment remains production/sandbox selectable", () => {
 });
 
 Deno.test("smart-nudges reads canonical jit confidence and avoids legacy missing columns", () => {
+  const legacyConfidenceColumn = "confidence_" + "band";
+  const legacyWearableColumn = "wearable_" + "status";
+  const legacyAwaitingColumn = "mrs_" + "awaiting_signals";
   assert(SRC.includes("jit_confidence_score"), "expected jit_confidence_score read");
-  assert(!SRC.includes("confidence_band"), "legacy confidence_band column should not be queried");
-  assert(!SRC.includes("wearable_status"), "legacy daily_context_snapshot.wearable_status column should not be queried");
-  assert(!SRC.includes("mrs_awaiting_signals"), "legacy daily_context_snapshot.mrs_awaiting_signals column should not be queried");
+  assert(!SRC.includes(legacyConfidenceColumn), "legacy jit confidence column should not be queried");
+  assert(!SRC.includes(legacyWearableColumn), "legacy daily context wearable column should not be queried");
+  assert(!SRC.includes(legacyAwaitingColumn), "legacy daily context awaiting column should not be queried");
 });

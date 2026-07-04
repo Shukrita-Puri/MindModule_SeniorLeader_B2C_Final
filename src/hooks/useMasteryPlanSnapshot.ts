@@ -18,6 +18,7 @@ export type MrsWindow = 'morning' | 'afternoon' | 'evening';
 export type MasteryPlanSnapshotStatus = 'ready' | 'error' | 'pending';
 
 export interface MasteryPlanSnapshot {
+  id: string;
   planJson: Record<string, unknown> | null;
   horizonModules: unknown[];
   priorities: unknown[];
@@ -31,6 +32,8 @@ export interface MasteryPlanSnapshot {
   mrsWindow: MrsWindow;
   dayKind: string | null;
   horizonIso: string | null;
+  deliveredAt: string | null;
+  viewedAt: string | null;
 }
 
 const DEBUG =
@@ -65,7 +68,7 @@ export function useMasteryPlanSnapshot() {
       const { data, error } = await supabase
         .from('mastery_plan_snapshots')
         .select(
-          'plan_json, horizon_modules, priorities, recommended_practice_ids, plan_ledger, status, error_json, generated_at, input_signature, plan_date, mrs_window, day_kind, horizon_iso',
+          'id, plan_json, horizon_modules, priorities, recommended_practice_ids, plan_ledger, status, error_json, generated_at, input_signature, plan_date, mrs_window, day_kind, horizon_iso, delivered_at, viewed_at',
         )
         .eq('user_id', effectiveUserId)
         .eq('plan_date', planDate)
@@ -82,6 +85,7 @@ export function useMasteryPlanSnapshot() {
       }
 
       const snapshot: MasteryPlanSnapshot = {
+        id: (data as any).id as string,
         planJson: asRecord((data as any).plan_json),
         horizonModules: asArray((data as any).horizon_modules),
         priorities: asArray((data as any).priorities),
@@ -95,6 +99,8 @@ export function useMasteryPlanSnapshot() {
         mrsWindow: ((data as any).mrs_window ?? mrsWindow) as MrsWindow,
         dayKind: ((data as any).day_kind ?? null) as string | null,
         horizonIso: ((data as any).horizon_iso ?? null) as string | null,
+        deliveredAt: ((data as any).delivered_at ?? null) as string | null,
+        viewedAt: ((data as any).viewed_at ?? null) as string | null,
       };
 
       dbg('snapshot loaded', {

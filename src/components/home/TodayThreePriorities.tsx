@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Check, Heart, ChevronRight, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,7 @@ import {
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
+import { markExecutiveCardDelivery } from '@/utils/engagementTracking';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -238,6 +240,7 @@ const TodayThreePriorities = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
@@ -546,6 +549,7 @@ const TodayThreePriorities = ({
 
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
+  const deliveredPlanSnapshotRef = useRef<string | null>(null);
 
   // ── Celebration ──
   const triggerCelebration = useCallback((practiceName: string, isAllComplete: boolean, practiceId?: string) => {
@@ -930,6 +934,7 @@ const TodayThreePriorities = ({
         );
       }
       setPlan(planResponse);
+      queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] });
 
       // Store plan for stability
       if (user || DEV_MODE) {
@@ -980,7 +985,7 @@ const TodayThreePriorities = ({
     }
     setLoading(false);
     return true;
-  }, [user, outerReadinessData, noLocalSignalAtMount]);
+  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient]);
 
   useEffect(() => {
     // Wait for the brief to resolve before kicking off `loadPlan` — without
@@ -1075,6 +1080,32 @@ const TodayThreePriorities = ({
   }, [user?.id, outerReadinessData, masteryPlanSnapshot, hasPlanForceRefresh]);
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
+
+  useEffect(() => {
+    const snapshotId = masteryPlanSnapshot?.id ?? null;
+    const ready =
+      !!snapshotId &&
+      !!plan &&
+      !loading &&
+      !fetchFailed &&
+      !awaitingSignals &&
+      masteryPlanSnapshot?.status === 'ready';
+    if (!ready) return;
+    if (snapshotId === deliveredPlanSnapshotRef.current) return;
+    deliveredPlanSnapshotRef.current = snapshotId;
+    void markExecutiveCardDelivery({
+      cardType: 'plan',
+      snapshotId,
+      markViewed: false,
+    });
+  }, [
+    masteryPlanSnapshot?.id,
+    masteryPlanSnapshot?.status,
+    plan,
+    loading,
+    fetchFailed,
+    awaitingSignals,
+  ]);
 
   const checkCompletion = async () => {
     const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);

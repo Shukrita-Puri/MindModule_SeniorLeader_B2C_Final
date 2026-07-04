@@ -33,19 +33,13 @@ serve(async (req) => {
 
     let query = supabase
       .from('brief_snapshots')
-      .select('id, local_date, time_window, daily_checkin_id, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver, score, tier, signal_pills, wearable_snapshot, checkin_snapshot, created_at')
+      .select('id, local_date, time_window, daily_checkin_id, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver, score, tier, signal_pills, wearable_snapshot, checkin_snapshot, created_at, delivered_at, viewed_at')
       .eq('user_id', userId);
 
     if (deliveredOnly) {
-      // Sidebar RECENT only — exclude awaiting-signals placeholder rows
-      // (the "Sync your wearable…" fallback that gets persisted but is not
-      // a brief the user actually received). A delivered brief must have
-      // visible copy and neither baseline nor refined state may be awaiting.
-      query = query
-        .not('score', 'is', null)
-        .not('phrase', 'is', null)
-        .not('body_text', 'is', null)
-        .or('baseline_state.eq.baseline,refined_state.eq.refined');
+      // History is delivery-based, not existence-based. Generated rows stay
+      // invisible until the client confirms the card actually rendered.
+      query = query.not('delivered_at', 'is', null);
     }
 
     if (startDate && DATE_RE.test(startDate)) {
@@ -56,7 +50,7 @@ serve(async (req) => {
     }
 
     const { data, error } = await query
-      .order('created_at', { ascending: false })
+      .order(deliveredOnly ? 'delivered_at' : 'created_at', { ascending: false })
       .limit(limit);
 
     if (error) {

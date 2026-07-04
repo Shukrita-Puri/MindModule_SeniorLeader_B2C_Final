@@ -246,6 +246,7 @@ export type Database = {
           brief_source: string
           checkin_snapshot: Json | null
           created_at: string
+          delivered_at: string | null
           daily_checkin_id: string | null
           driver: string | null
           feedback_text: string | null
@@ -278,6 +279,7 @@ export type Database = {
           user_id: string
           user_rating: string | null
           validator_rejections: Json | null
+          viewed_at: string | null
           watch_for: string | null
           watch_for_source: string | null
           wearable_snapshot: Json | null
@@ -297,6 +299,7 @@ export type Database = {
           brief_source: string
           checkin_snapshot?: Json | null
           created_at?: string
+          delivered_at?: string | null
           daily_checkin_id?: string | null
           driver?: string | null
           feedback_text?: string | null
@@ -329,6 +332,7 @@ export type Database = {
           user_id: string
           user_rating?: string | null
           validator_rejections?: Json | null
+          viewed_at?: string | null
           watch_for?: string | null
           watch_for_source?: string | null
           wearable_snapshot?: Json | null
@@ -348,6 +352,7 @@ export type Database = {
           brief_source?: string
           checkin_snapshot?: Json | null
           created_at?: string
+          delivered_at?: string | null
           daily_checkin_id?: string | null
           driver?: string | null
           feedback_text?: string | null
@@ -380,6 +385,7 @@ export type Database = {
           user_id?: string
           user_rating?: string | null
           validator_rejections?: Json | null
+          viewed_at?: string | null
           watch_for?: string | null
           watch_for_source?: string | null
           wearable_snapshot?: Json | null
@@ -3008,6 +3014,7 @@ export type Database = {
           brief_snapshot_id: string | null
           created_at: string
           day_kind: string | null
+          delivered_at: string | null
           error_json: Json | null
           generated_at: string
           horizon_iso: string | null
@@ -3024,11 +3031,13 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          viewed_at: string | null
         }
         Insert: {
           brief_snapshot_id?: string | null
           created_at?: string
           day_kind?: string | null
+          delivered_at?: string | null
           error_json?: Json | null
           generated_at?: string
           horizon_iso?: string | null
@@ -3045,11 +3054,13 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          viewed_at?: string | null
         }
         Update: {
           brief_snapshot_id?: string | null
           created_at?: string
           day_kind?: string | null
+          delivered_at?: string | null
           error_json?: Json | null
           generated_at?: string
           horizon_iso?: string | null
@@ -3066,6 +3077,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          viewed_at?: string | null
         }
         Relationships: []
       }

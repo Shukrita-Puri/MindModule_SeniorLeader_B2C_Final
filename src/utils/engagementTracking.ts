@@ -52,6 +52,30 @@ export interface BriefSnapshot {
   briefId?: string;
 }
 
+export async function markExecutiveCardDelivery(args: {
+  cardType: 'brief' | 'plan';
+  snapshotId?: string | null;
+  markViewed?: boolean;
+}): Promise<void> {
+  try {
+    if (!args.snapshotId) return;
+    const accessToken = await getAuthToken();
+    if (!accessToken) return;
+
+    await supabase.functions.invoke('executive-card-delivery', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        cardType: args.cardType,
+        snapshotId: args.snapshotId,
+        markViewed: args.markViewed === true,
+        occurredAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to mark executive card delivery:', error);
+  }
+}
+
 function truncate(text: string | undefined, max: number): string | undefined {
   if (!text) return undefined;
   return text.length > max ? text.slice(0, max) + '…' : text;

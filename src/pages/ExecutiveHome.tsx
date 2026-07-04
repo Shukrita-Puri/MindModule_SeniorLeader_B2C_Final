@@ -5,7 +5,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { trackBriefView } from "@/utils/engagementTracking";
+import { markExecutiveCardDelivery, trackBriefView } from "@/utils/engagementTracking";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
@@ -209,6 +209,11 @@ const ExecutiveHome = () => {
       briefId !== trackedBriefIdRef.current
     ) {
       trackedBriefIdRef.current = briefId;
+      void markExecutiveCardDelivery({
+        cardType: 'brief',
+        snapshotId: briefId,
+        markViewed: true,
+      });
       trackBriefView({
         briefId,
         phrase,

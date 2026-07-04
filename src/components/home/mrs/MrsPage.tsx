@@ -147,7 +147,7 @@ const MrsPage = () => {
               {stateLabel.label}
             </span>
             <span className="mt-0.5 text-[11px] text-muted-foreground/60">
-              {stateLabel.subtitle}
+              {stateLabel.label === 'Awaiting signals' ? awaitingCopy : stateLabel.subtitle}
             </span>
           </div>
         )}

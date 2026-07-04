@@ -45,12 +45,13 @@ Deno.test("generatePlanBrief stays neutral when readiness is awaiting", () => {
 });
 
 Deno.test("generate-mastery-plan reads canonical practice_sessions.content_id", () => {
+  const staleSelect = ".from('practice_sessions').select('practice" + "_id, completed_at')";
   assert(
     SRC.includes(".from('practice_sessions').select('content_id, completed_at')"),
     "expected generate-mastery-plan to read practice_sessions.content_id",
   );
   assert(
-    !SRC.includes(".from('practice_sessions').select('practice_id, completed_at')"),
-    "stale practice_sessions.practice_id query should be removed",
+    !SRC.includes(staleSelect),
+    "stale practice session select should be removed",
   );
 });
