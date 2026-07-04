@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -121,8 +121,8 @@ const AdminErrorLogs = () => {
                 </thead>
                 <tbody>
                   {data.rows.map((r) => (
-                    <>
-                      <tr key={r.id} className="border-t border-border/40 align-top">
+                    <Fragment key={r.id}>
+                      <tr className="border-t border-border/40 align-top">
                         <td className="py-2 pr-3 whitespace-nowrap">{new Date(r.time).toLocaleString()}</td>
                         <td className="py-2 pr-3 text-muted-foreground">{r.source}</td>
                         <td className="py-2 pr-3">{r.severity}</td>
@@ -136,7 +136,7 @@ const AdminErrorLogs = () => {
                         </td>
                       </tr>
                       {expanded === r.id && (
-                        <tr key={`${r.id}-details`} className="bg-muted/30">
+                        <tr className="bg-muted/30">
                           <td colSpan={7} className="p-3">
                             <pre className="text-[11px] whitespace-pre-wrap break-all font-mono">
                               {JSON.stringify(r.details, null, 2)}
@@ -144,7 +144,7 @@ const AdminErrorLogs = () => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
