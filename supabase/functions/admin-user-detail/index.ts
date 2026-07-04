@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   const { data: profile, error: profileErr } = await db
     .from("profiles")
     .select(
-      "id, email, full_name, display_name, picture, created_at, onboarding_completed_at, subscription_tier, subscription_status, subscription_plan, trial_ends_at, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id, founding_member, referral_code, current_timezone, home_timezone, user_archetype",
+      "id, email, full_name, display_name, avatar_url, created_at, onboarding_completed_at, subscription_tier, subscription_status, subscription_plan, trial_ends_at, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id, founding_member, referral_code, current_timezone, home_timezone, user_archetype",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     db.from("mastery_plan_snapshots").select("id, plan_date, mrs_window, status, delivered_at, viewed_at, generated_at").eq("user_id", userId).order("generated_at", { ascending: false }).limit(1).maybeSingle(),
     db.from("daily_context_snapshot").select("mrs_window, readiness_state, readiness_score_baseline, readiness_score_refined, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     db.from("notification_device_tokens").select("id, platform, is_active, created_at, updated_at").eq("user_id", userId),
-    db.from("executive_home_card_runs").select("run_id, local_date, window, mode, status, error, duration_ms").eq("user_id", userId).order("run_id", { ascending: false }).limit(10),
+    db.from("executive_home_card_runs").select("run_id, local_date, window, mode, status, mrs_status, brief_status, plan_status, skipped_reason, error, duration_ms, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(10),
   ]);
 
   return json({
@@ -62,5 +62,6 @@ Deno.serve(async (req) => {
     latestMrs: mrs.data ?? null,
     deviceTokens: deviceTokens.data ?? [],
     recentCardRuns: recentRuns.data ?? [],
+    lastCards: recentRuns.data ?? [],
   });
 });
