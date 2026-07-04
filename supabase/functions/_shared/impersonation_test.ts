@@ -36,8 +36,9 @@ Deno.test('impersonation: valid token round-trips with all claims', async () => 
 Deno.test('impersonation: tampered signature is rejected', async () => {
   const { token } = await signImpersonationToken(baseInput());
   const [h, p, s] = token.split('.');
-  // Flip last char of signature.
-  const bad = `${h}.${p}.${s.slice(0, -1)}${s.endsWith('A') ? 'B' : 'A'}`;
+  // Flip first char of signature (guaranteed to change the raw bytes).
+  const first = s[0] === 'A' ? 'B' : 'A';
+  const bad = `${h}.${p}.${first}${s.slice(1)}`;
   await assertRejects(() => verifyImpersonationToken(bad), Error, 'Invalid impersonation signature');
 });
 
