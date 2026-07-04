@@ -2098,6 +2098,18 @@ serve(async (req) => {
       wearableConnectionStatus === 'connected_but_waiting_for_data' ||
       wearableConnectionStatus === 'sync_delayed';
 
+    // P0 2026-07-04 — Hoisted above every consumer (theme derivation, weekly
+    // logic, awaiting-reason branches, response assembly, snapshot persist,
+    // pillCoherence) so no execution path (including nested try/catch blocks
+    // and closures created between lines ~2100 and ~6167) can hit a TDZ read.
+    // Do NOT default to 0 when we don't know when the wearable was connected —
+    // downstream cold-start gates rely on `null` meaning "unknown".
+    const wearableDaysConnected = deriveWearableDaysConnected({
+      connectedAt: wearableIntegration?.watch_connected_at ?? null,
+      fallbackConnectedAt: wearableIntegration?.updated_at ?? null,
+      isConnected: hasWearableConnectionRecord,
+    });
+
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes, calendarResult.meetingCount, calendarResult.remainingMeetings);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
@@ -2420,11 +2432,9 @@ serve(async (req) => {
     const wearableSourceAgeDays = sourceRowDate
       ? Math.max(0, Math.floor((new Date(`${userLocalDate}T00:00:00Z`).getTime() - new Date(`${sourceRowDate}T00:00:00Z`).getTime()) / 86400000))
       : null;
-    const wearableDaysConnected = deriveWearableDaysConnected({
-      connectedAt: wearableIntegration?.watch_connected_at ?? null,
-      fallbackConnectedAt: wearableIntegration?.updated_at ?? null,
-      isConnected: hasWearableConnectionRecord,
-    });
+    // wearableDaysConnected is hoisted above `getTheme(...)` (see block near
+    // line ~2100) so every consumer — including nested try/catch blocks — sees
+    // it as initialized. Do not redeclare here.
     const hasTodayWearableData = hasWearableData && wearableSourceAgeDays === 0;
     const hasRecentWearableData = hasWearableData && wearableSourceAgeDays === 1;
     const hasStaleWearableData = hasWearableData && wearableSourceAgeDays !== null && wearableSourceAgeDays > 1;
