@@ -66,6 +66,9 @@ interface RecoveryByEvent {
 interface Coverage {
   hasCalendar: boolean;
   hasWearable: boolean;
+  checkinCount?: number;
+  wearableDayCount?: number;
+  eventCount?: number;
 }
 interface CausalityPayload {
   coverage: Coverage;
