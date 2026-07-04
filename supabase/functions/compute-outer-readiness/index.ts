@@ -57,6 +57,7 @@ import {
   hasMeaningfulDemand,
   coldStartLabel,
 } from "../_shared/signal-engine/context-builder.ts";
+import { deriveWearableDaysConnected } from "./wearable-connection-age.ts";
 import {
   getPillQualifiers,
   assertPillCoherence,
@@ -2060,7 +2061,7 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(5),
       db.from('user_integrations')
-        .select('watch_type, watch_connection_status, watch_sync_status, watch_last_sync_at, watch_last_sample_at, watch_last_error, watch_last_error_at, watch_disconnected_at')
+        .select('watch_type, watch_connection_status, watch_sync_status, watch_connected_at, watch_last_sync_at, watch_last_sample_at, watch_last_error, watch_last_error_at, watch_disconnected_at, updated_at')
         .eq('user_id', userId)
         .maybeSingle(),
       db.from('calendar_connections')
@@ -2092,6 +2093,10 @@ serve(async (req) => {
       | 'connected' | 'connected_but_waiting_for_data' | 'sync_delayed' | 'permission_revoked' | 'disconnected' | 'error' | null;
     const wearableSyncStatus = (wearableIntegration?.watch_sync_status ?? null) as
       | 'synced' | 'waiting_for_data' | 'sync_delayed' | 'error' | 'watch_unavailable' | null;
+    const hasWearableConnectionRecord =
+      wearableConnectionStatus === 'connected' ||
+      wearableConnectionStatus === 'connected_but_waiting_for_data' ||
+      wearableConnectionStatus === 'sync_delayed';
 
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes, calendarResult.meetingCount, calendarResult.remainingMeetings);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
@@ -2415,6 +2420,11 @@ serve(async (req) => {
     const wearableSourceAgeDays = sourceRowDate
       ? Math.max(0, Math.floor((new Date(`${userLocalDate}T00:00:00Z`).getTime() - new Date(`${sourceRowDate}T00:00:00Z`).getTime()) / 86400000))
       : null;
+    const wearableDaysConnected = deriveWearableDaysConnected({
+      connectedAt: wearableIntegration?.watch_connected_at ?? null,
+      fallbackConnectedAt: wearableIntegration?.updated_at ?? null,
+      isConnected: hasWearableConnectionRecord,
+    });
     const hasTodayWearableData = hasWearableData && wearableSourceAgeDays === 0;
     const hasRecentWearableData = hasWearableData && wearableSourceAgeDays === 1;
     const hasStaleWearableData = hasWearableData && wearableSourceAgeDays !== null && wearableSourceAgeDays > 1;
@@ -2454,7 +2464,7 @@ serve(async (req) => {
                       : 'unknown',
             hasTodayData: hasTodayWearableData,
             hasRecentData: hasRecentWearableData,
-            hasHistoricalData: wearableDaysConnected >= 7,
+            hasHistoricalData: wearableDaysConnected !== null && wearableDaysConnected >= 7,
             lastSyncAt: wearableIntegration?.watch_last_sync_at ?? null,
             lastSampleAt: wearableIntegration?.watch_last_sample_at ?? null,
           }
@@ -2523,18 +2533,6 @@ serve(async (req) => {
       reason: readinessEligibilityReason,
     };
     
-    // Wearable days connected count
-    let wearableDaysConnected = 0;
-    try {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
-      const { count } = await db
-        .from('wearable_data')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('summary_date', thirtyDaysAgo);
-      wearableDaysConnected = count ?? 0;
-    } catch (e) { console.error('[compute-outer-readiness] wearable days count error:', e); }
-
     // HRV/sleep/RHR deviation from 30-day baseline
     let hrvDeviation: number | null = null;
     let sleepDeviation: number | null = null;
@@ -2562,7 +2560,7 @@ serve(async (req) => {
       hrValue = null;
       rhrValue = null;
     }
-    const hasHistoricalData = wearableDaysConnected >= 7;
+    const hasHistoricalData = wearableDaysConnected !== null && wearableDaysConnected >= 7;
     try {
       if (hasWearable) {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
@@ -6355,7 +6353,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         dataSources: [],
         calendarState: 'unknown',
         hasWearable: false,
-        wearableDaysConnected: 0,
+        wearableDaysConnected: null,
         innerReadinessScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null,
         innerReadinessTier: typeof safeTier === 'string' ? safeTier : null,
       }), {
