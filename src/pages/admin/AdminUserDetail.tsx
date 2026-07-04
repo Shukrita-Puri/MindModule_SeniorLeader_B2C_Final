@@ -12,7 +12,15 @@ import { useAuth } from '@/hooks/useAuth';
 type Row = Record<string, unknown>;
 interface Detail {
   profile: Row;
-  referral?: Row | null;
+  referral?: (Row & {
+    ownReferralCode?: string | null;
+    referralLink?: string | null;
+    totalSignups?: number | null;
+    totalConversions?: number | null;
+    creditedMonths?: number | null;
+    referralCodeUsed?: string | null;
+    referralCodeEnteredAt?: string | null;
+  }) | null;
   latestCheckIn: Row | null;
   latestWearable: Row | null;
   calendarConnections: Row[];
@@ -32,11 +40,13 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </Card>
 );
 
-const KeyVal = ({ data }: { data: Row | null }) => {
-  if (!data) return <p className="text-muted-foreground">No data.</p>;
+const KeyVal = ({ data, emptyLabel = "No data." }: { data: Row | null; emptyLabel?: string }) => {
+  if (!data) return <p className="text-muted-foreground">{emptyLabel}</p>;
+  const entries = Object.entries(data);
+  if (entries.length === 0) return <p className="text-muted-foreground">{emptyLabel}</p>;
   return (
     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-      {Object.entries(data).map(([k, v]) => (
+      {entries.map(([k, v]) => (
         <div key={k} className="flex justify-between gap-4 border-b border-border/40 py-1">
           <dt className="text-muted-foreground">{k}</dt>
           <dd className="text-right font-mono text-xs truncate max-w-[24ch]" title={String(v ?? '')}>
