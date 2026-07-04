@@ -330,7 +330,8 @@ function normalizeSignalPills(value: unknown): OuterReadinessData['signalPills']
   if (!Array.isArray(value)) return null;
   const keys = new Set(['decision_readiness', 'physical_reserves', 'resilience_capacity']);
   const tiers = new Set(['green', 'amber', 'red', 'neutral']);
-  const pills = value
+  type Pill = NonNullable<OuterReadinessData['signalPills']>[number];
+  const pills: Pill[] = value
     .map((item) => {
       const row = asRecord(item);
       if (!row) return null;
@@ -338,7 +339,7 @@ function normalizeSignalPills(value: unknown): OuterReadinessData['signalPills']
       const label = asString(row.label);
       const tier = asString(row.tier);
       if (!key || !label || !tier || !keys.has(key) || !tiers.has(tier)) return null;
-      return {
+      const pill: Pill = {
         key: key as 'decision_readiness' | 'physical_reserves' | 'resilience_capacity',
         label,
         tier: tier as 'green' | 'amber' | 'red' | 'neutral',
@@ -347,8 +348,9 @@ function normalizeSignalPills(value: unknown): OuterReadinessData['signalPills']
         contributors: asRecord(row.contributors) ?? undefined,
         qualifiers: asRecord(row.qualifiers) ?? undefined,
       };
+      return pill;
     })
-    .filter((item): item is NonNullable<OuterReadinessData['signalPills']>[number] => item !== null);
+    .filter((item): item is Pill => item !== null);
   return pills;
 }
 
