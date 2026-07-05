@@ -436,7 +436,13 @@ serve(async (req) => {
             reason: classification.reason,
             retryAfterSeconds: classification.retryAfterSeconds ?? null,
             consecutivePriorCount: priorCount,
+            jitterSeed: connection.id,
           });
+          const baseDelay_m = resolveRetryDelaySeconds(
+            classification.retryAfterSeconds ?? null,
+            { consecutivePriorCount: priorCount },
+          );
+          const jitter_m = computeRetryJitterSeconds(`${connection.id}:${priorCount + 1}`, baseDelay_m);
           await serviceClient
             .from('calendar_connections')
             .update(rateUpdate)
@@ -444,10 +450,12 @@ serve(async (req) => {
           console.log('[sync-calendar] microsoft:rate_limited:sync_delayed', JSON.stringify({
             connectionId: connection.id,
             reason: classification.reason,
-            retryAfterSeconds: classification.retryAfterSeconds,
+            providerHintSeconds: classification.retryAfterSeconds,
             priorCount,
             appliedCount: rateUpdate.consecutive_delay_count,
-            appliedRetryAfterSeconds: rateUpdate.retry_after_seconds,
+            baseDelaySeconds: baseDelay_m,
+            jitterSeconds: jitter_m,
+            finalRetryAfterSeconds: rateUpdate.retry_after_seconds,
             nextRetryAt: rateUpdate.next_retry_at,
           }));
           return jsonOk({
