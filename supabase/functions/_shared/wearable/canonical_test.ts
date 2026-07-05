@@ -77,27 +77,30 @@ Deno.test("Apple Watch hard-preferred for heart_rate + hr_samples", () => {
   assertEquals(Array.isArray(merged.hr_samples) && (merged.hr_samples as unknown[]).length, 1);
 });
 
-Deno.test("recency guard BLOCKS losing-source overwrite beyond 12h", () => {
+Deno.test("recency guard BLOCKS cross-source HRV overwrite beyond 12h (freshness-only edge)", () => {
   const recon: ReconciliationRecord[] = [];
+  // Equal completeness (both have hrv + resting_heart_rate). Incoming Apple
+  // would win purely by being 20h newer — guard blocks it.
   const existing = {
     source_provider: "oura",
     source: "oura",
-    total_sleep_minutes: 420,
+    hrv: 62,
+    resting_heart_rate: 55,
     updated_at: "2026-07-04T08:00:00.000Z",
   };
-  // Losing source (Apple Health, no direct-Oura ⇒ still losing when Oura is
-  // connected) trying to overwrite with a write 20h newer.
   const incoming = {
     source_provider: "apple_healthkit",
     source: "apple-healthkit",
-    total_sleep_minutes: 999,
-    updated_at: "2026-07-05T04:00:00.000Z",
+    hrv: 40,
+    resting_heart_rate: 70,
+    updated_at: "2026-07-05T04:00:00.000Z", // +20h
   };
   const merged = mergeCanonicalWearableRow(existing, incoming, {
     context: ctxOuraConnected,
     onReconciliation: (r) => recon.push(r),
   });
-  assertEquals(merged.total_sleep_minutes, 420, "existing value preserved");
+  assertEquals(merged.hrv, 62, "existing HRV preserved");
+  assertEquals(merged.resting_heart_rate, 55, "existing RHR preserved");
   assertEquals(recon.length >= 1, true, "reconciliation record emitted");
   assertEquals(recon[0].reason, "recency_guard_blocked_overwrite");
   assertEquals(recon[0].details.guard_hours, DEFAULT_RECENCY_GUARD_HOURS);
@@ -105,27 +108,26 @@ Deno.test("recency guard BLOCKS losing-source overwrite beyond 12h", () => {
 
 Deno.test("recency guard does NOT trigger within 12h threshold", () => {
   const recon: ReconciliationRecord[] = [];
-  // Two writes within 6h — losing source's slight-freshness must not
-  // silently overwrite winning source.
   const existing = {
     source_provider: "oura",
     source: "oura",
-    total_sleep_minutes: 420,
+    hrv: 62,
+    resting_heart_rate: 55,
     updated_at: "2026-07-04T08:00:00.000Z",
   };
   const incoming = {
     source_provider: "apple_healthkit",
     source: "apple-healthkit",
-    total_sleep_minutes: 415,
-    updated_at: "2026-07-04T14:00:00.000Z", // +6h
+    hrv: 58,
+    resting_heart_rate: 60,
+    updated_at: "2026-07-04T14:00:00.000Z", // +6h, within 12h guard
   };
   const merged = mergeCanonicalWearableRow(existing, incoming, {
     context: ctxOuraConnected,
     onReconciliation: (r) => recon.push(r),
   });
-  // Oura is the winner by rule (direct connected). Merge should keep Oura,
-  // and guard should NOT fire (delta 6h < 12h threshold).
-  assertEquals(merged.total_sleep_minutes, 420);
+  // Within guard threshold: freshness tiebreak lets incoming Apple win.
+  assertEquals(merged.hrv, 58);
   assertEquals(recon.length, 0, "no reconciliation within threshold");
 });
 
