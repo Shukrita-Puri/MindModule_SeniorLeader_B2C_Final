@@ -632,8 +632,20 @@ serve(async (req) => {
         .lte('start_time', windowEndIso);
     }
 
-    // Update last_sync
-    await serviceClient.from('calendar_connections').update({ last_sync: new Date().toISOString() }).eq('user_id', userId).eq('provider', provider);
+    // Update last_sync AND clear any lingering error / delayed state so a
+    // previous transient rate-limit blip doesn't stick as a warning after a
+    // clean successful sync.
+    await serviceClient
+      .from('calendar_connections')
+      .update({
+        last_sync: new Date().toISOString(),
+        sync_status: 'synced',
+        last_error: null,
+        last_error_reason: null,
+        last_error_at: null,
+      })
+      .eq('user_id', userId)
+      .eq('provider', provider);
 
     console.log('[sync-calendar] Sync complete! Events upserted:', classifiedEvents.length, 'firstSync:', isFirstSync);
 
