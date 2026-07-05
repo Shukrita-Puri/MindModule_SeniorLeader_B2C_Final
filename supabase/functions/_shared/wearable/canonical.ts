@@ -1,5 +1,37 @@
 type Provider = 'oura' | 'apple-healthkit' | 'unknown';
 
+/**
+ * Explicit provenance for a wearable metric. Unlike the coarse `Provider`
+ * label (which cannot distinguish direct-Oura from Oura routed through Apple
+ * Health), `Provenance` captures the true origin so merge priority is not
+ * fooled by the ambiguous "oura" tag on a mirrored HealthKit row.
+ *
+ * States:
+ *  - `direct_oura`              — synced from the Oura API directly (sync-oura)
+ *  - `apple_health_native`      — sample originated on an Apple sensor
+ *                                 (Apple Watch or iPhone) surfaced via HealthKit
+ *  - `oura_via_apple_health`    — Oura Ring data mirrored through HealthKit
+ *  - `third_party_via_apple_health` — Whoop/Garmin/Fitbit/etc. via HealthKit.
+ *                                 New providers land here by default (extensible).
+ *  - `unknown`                  — legacy row / unresolvable provenance.
+ *
+ * To add a real provider (Garmin, Whoop, Fitbit) with first-class rules:
+ *   1. Add its bundle-id detection in the caller (see iOS
+ *      `WearableSyncBridge.providerForBundle`) so `source_provider` is
+ *      emitted as `<provider>_via_apple_health` OR a direct label like
+ *      `garmin` for native SDK writes.
+ *   2. Extend `Provenance` with a `direct_<provider>` variant if a native
+ *      ingestion path is added, and set its priority in `provenanceRank`.
+ * Until step 2 lands, `third_party_via_apple_health` is a safe fallback that
+ * keeps rows persisted and reconcilable.
+ */
+export type Provenance =
+  | 'direct_oura'
+  | 'apple_health_native'
+  | 'oura_via_apple_health'
+  | 'third_party_via_apple_health'
+  | 'unknown';
+
 type MetricKey =
   | 'hrv'
   | 'hrv_samples'
@@ -85,10 +117,65 @@ const HRV_METRICS: MetricKey[] = [
   'resting_heart_rate',
 ];
 
+/**
+ * Coarse provider inference retained for legacy call sites. Downstream merge
+ * logic should use `resolveMetricProvenance` instead — coarse inference
+ * cannot distinguish direct-Oura from Oura-via-Apple-Health.
+ */
 function inferProvider(source?: string | null, sourceProvider?: string | null): Provider {
-  const combined = `${source ?? ''} ${sourceProvider ?? ''}`.toLowerCase();
-  if (combined.includes('oura')) return 'oura';
-  if (combined.includes('apple')) return 'apple-healthkit';
+  const provenance = inferRowProvenance(source, sourceProvider);
+  return provenanceToProvider(provenance);
+}
+
+function provenanceToProvider(p: Provenance): Provider {
+  if (p === 'direct_oura') return 'oura';
+  if (
+    p === 'apple_health_native' ||
+    p === 'oura_via_apple_health' ||
+    p === 'third_party_via_apple_health'
+  ) {
+    return 'apple-healthkit';
+  }
+  return 'unknown';
+}
+
+/**
+ * Resolve provenance from row-level `source` / `source_provider` labels.
+ * Recognises the labels emitted by the iOS bridge
+ * (`oura_via_apple_health`, `apple_watch_via_apple_health`,
+ *  `<vendor>_via_apple_health`, `mixed_via_apple_health`, `apple_health`)
+ * plus the direct-sync labels (`oura`, `apple-healthkit`).
+ */
+function inferRowProvenance(
+  source?: string | null,
+  sourceProvider?: string | null,
+): Provenance {
+  const sp = (sourceProvider ?? '').toLowerCase();
+  const s = (source ?? '').toLowerCase();
+  const combined = `${s} ${sp}`;
+
+  const viaAppleHealth = combined.includes('_via_apple_health');
+  if (viaAppleHealth) {
+    if (combined.includes('oura')) return 'oura_via_apple_health';
+    if (combined.includes('apple_watch') || combined.includes('apple_health')) {
+      return 'apple_health_native';
+    }
+    if (combined.includes('mixed')) return 'third_party_via_apple_health';
+    return 'third_party_via_apple_health';
+  }
+
+  // Non-"via_apple_health" labels: direct sync paths.
+  if (sp === 'oura' || s === 'oura') return 'direct_oura';
+  if (
+    sp === 'apple_healthkit' || sp === 'apple-healthkit' || sp === 'apple_health' ||
+    s === 'apple-healthkit' || s === 'apple_healthkit' || s === 'apple_health'
+  ) {
+    return 'apple_health_native';
+  }
+  // Legacy loose contains — last resort so we degrade gracefully instead of
+  // mislabelling as `direct_oura`.
+  if (combined.includes('apple')) return 'apple_health_native';
+  if (combined.includes('oura')) return 'direct_oura';
   return 'unknown';
 }
 
@@ -102,8 +189,11 @@ function rowHasAppleWatch(row: WearableRowLike): boolean {
   for (const tags of Object.values(apps)) {
     if (tags.some(isAppleWatchTag)) return true;
   }
-  const combined = `${row.source ?? ''} ${row.source_provider ?? ''}`.toLowerCase();
-  return combined.includes('apple');
+  // Only trust the row-level provider label when it's a *native* Apple path.
+  // `oura_via_apple_health` also contains "apple" but must NOT count as Apple
+  // Watch — that's the exact bug this refactor closes.
+  const provenance = inferRowProvenance(row.source, row.source_provider);
+  return provenance === 'apple_health_native';
 }
 
 function isPresent(value: unknown, metric: MetricKey): boolean {
@@ -165,37 +255,35 @@ function preferIncoming(
 
   const existingProvider = resolveMetricProvider(metric, existing);
   const incomingProvider = resolveMetricProvider(metric, incoming);
+  const existingProvenance = resolveMetricProvenance(metric, existing);
+  const incomingProvenance = resolveMetricProvenance(metric, incoming);
 
-  // Sleep: direct Oura preferred if connected, else Apple Health.
+  // Sleep: prefer direct-Oura when a direct connection is verified;
+  // otherwise Apple-native > Oura-via-Apple > third-party-via-Apple.
   if (SLEEP_METRICS.includes(metric)) {
-    if (ctx.ouraDirectConnected) {
-      if (incomingProvider === 'oura' && existingProvider !== 'oura') return true;
-      if (existingProvider === 'oura' && incomingProvider !== 'oura') return false;
-    } else {
-      // No direct Oura connection — an "oura"-tagged row is almost certainly
-      // mirrored via Apple Health anyway; treat Apple Health as authoritative.
-      if (incomingProvider === 'apple-healthkit' && existingProvider !== 'apple-healthkit') return true;
-      if (existingProvider === 'apple-healthkit' && incomingProvider !== 'apple-healthkit') return false;
-    }
+    const iRank = sleepRank(incomingProvenance, ctx);
+    const eRank = sleepRank(existingProvenance, ctx);
+    if (iRank !== eRank) return iRank > eRank;
     return true;
   }
 
-  // Current/live HR + hr_samples: hard-prefer Apple Watch when any Apple
-  // Watch data exists for that day.
+  // Live HR + hr_samples: hard-prefer Apple Watch (apple_health_native).
+  // Oura-via-Apple-Health is explicitly NOT treated as Apple Watch here.
   if (HEART_METRICS.includes(metric)) {
-    const incomingIsAppleWatch = rowHasAppleWatch(incoming);
-    const existingIsAppleWatch = rowHasAppleWatch(existing);
-    if (ctx.appleWatchPresentToday || incomingIsAppleWatch || existingIsAppleWatch) {
-      if (incomingIsAppleWatch && !existingIsAppleWatch) return true;
-      if (existingIsAppleWatch && !incomingIsAppleWatch) return false;
+    const incomingIsAppleNative = incomingProvenance === 'apple_health_native';
+    const existingIsAppleNative = existingProvenance === 'apple_health_native';
+    if (ctx.appleWatchPresentToday || incomingIsAppleNative || existingIsAppleNative) {
+      if (incomingIsAppleNative && !existingIsAppleNative) return true;
+      if (existingIsAppleNative && !incomingIsAppleNative) return false;
     }
-    // Fall through to Apple-Healthkit preference / completeness.
-    if (incomingProvider === 'apple-healthkit' && existingProvider !== 'apple-healthkit') return true;
-    if (existingProvider === 'apple-healthkit' && incomingProvider !== 'apple-healthkit') return false;
+    const iRank = heartRank(incomingProvenance);
+    const eRank = heartRank(existingProvenance);
+    if (iRank !== eRank) return iRank > eRank;
     return true;
   }
 
-  // HRV / RHR: completeness first, freshness as tiebreaker within 24h only.
+  // HRV / RHR: completeness first, freshness within 24h, then provenance rank
+  // (direct_oura > apple_health_native > oura_via_apple_health > third_party).
   const incomingScore = completenessScore(incomingProvider, incoming);
   const existingScore = completenessScore(existingProvider, existing);
   if (incomingScore !== existingScore) return incomingScore > existingScore;
@@ -205,14 +293,62 @@ function preferIncoming(
   if (inc && exi) {
     const deltaHrs = Math.abs(inc.getTime() - exi.getTime()) / 3_600_000;
     if (deltaHrs <= 24) return inc.getTime() >= exi.getTime();
-    // >24h apart: fall through to provider preference (do not use freshness).
+    // >24h apart: fall through to provenance preference (do not use freshness).
   }
 
-  if (incomingProvider !== existingProvider) {
-    if (incomingProvider === 'apple-healthkit') return true;
-    if (existingProvider === 'apple-healthkit') return false;
-  }
+  const iRank = hrvRank(incomingProvenance);
+  const eRank = hrvRank(existingProvenance);
+  if (iRank !== eRank) return iRank > eRank;
   return true;
+}
+
+/** Priority ranks for the sleep metric family. Higher = wins. */
+function sleepRank(p: Provenance, ctx: WearableMergeContext): number {
+  if (ctx.ouraDirectConnected) {
+    // Direct Oura wins; Apple native next; Oura-via-Apple is lowest since it's
+    // just a stale mirror of what direct-Oura already provides.
+    switch (p) {
+      case 'direct_oura': return 5;
+      case 'apple_health_native': return 4;
+      case 'third_party_via_apple_health': return 3;
+      case 'oura_via_apple_health': return 2;
+      default: return 1;
+    }
+  }
+  // No direct Oura — Apple native is authoritative, mirrored Oura still useful.
+  switch (p) {
+    case 'apple_health_native': return 5;
+    case 'oura_via_apple_health': return 4;
+    case 'third_party_via_apple_health': return 3;
+    case 'direct_oura': return 2; // shouldn't happen w/o connection, but rank low
+    default: return 1;
+  }
+}
+
+/**
+ * Priority for live HR / hr_samples. Apple-native (Apple Watch) is the only
+ * source with true per-second telemetry; direct Oura is a coarse daily/hourly
+ * summary but still trusted over Oura-via-Apple-Health mirror.
+ */
+function heartRank(p: Provenance): number {
+  switch (p) {
+    case 'apple_health_native': return 5;
+    case 'direct_oura': return 4;
+    case 'oura_via_apple_health': return 3;
+    case 'third_party_via_apple_health': return 2;
+    default: return 1;
+  }
+}
+
+/** Priority for HRV / RHR tiebreak once completeness + freshness are equal. */
+function hrvRank(p: Provenance): number {
+  switch (p) {
+    case 'direct_oura': return 5;
+    case 'apple_health_native': return 4;
+    case 'oura_via_apple_health': return 3;
+    case 'third_party_via_apple_health': return 2;
+    default: return 1;
+  }
 }
 
 function setMetricSource(
@@ -235,16 +371,55 @@ function summarizeProvider(metricProviders: Provider[]): string | null {
   return 'mixed';
 }
 
-export function resolveMetricProvider(metric: string, row: WearableRowLike): Provider {
+/**
+ * Resolve the *explicit* provenance for a given metric on a row. Consults
+ * per-metric `source_apps` tags first (finest granularity), then falls back
+ * to the row-level `source_provider` / `source` label.
+ *
+ * The critical distinction vs. `resolveMetricProvider` (coarse) is that an
+ * "oura" tag on a metric whose row-level provider is `*_via_apple_health`
+ * resolves to `oura_via_apple_health`, NOT `direct_oura`.
+ */
+export function resolveMetricProvenance(metric: string, row: WearableRowLike): Provenance {
   const apps = parseSourceApps(row.source_apps);
-  const tags = apps[metric] ?? [];
-  if (tags.some((tag) => tag.toLowerCase().includes('oura'))) return 'oura';
-  if (tags.some((tag) => tag.toLowerCase().includes('apple'))) return 'apple-healthkit';
-  return inferProvider(row.source, row.source_provider);
+  const tags = (apps[metric] ?? []).map((t) => t.toLowerCase());
+  const rowProvenance = inferRowProvenance(row.source, row.source_provider);
+
+  const tagHasOura = tags.some((t) => t.includes('oura'));
+  const tagHasApple = tags.some((t) => t.includes('apple') || t === 'healthkit' || t.includes('watch'));
+
+  if (tagHasOura) {
+    // If the row itself came through HealthKit, the "oura" tag is a mirror.
+    if (
+      rowProvenance === 'oura_via_apple_health' ||
+      rowProvenance === 'apple_health_native' ||
+      rowProvenance === 'third_party_via_apple_health'
+    ) {
+      return 'oura_via_apple_health';
+    }
+    return 'direct_oura';
+  }
+  if (tagHasApple) return 'apple_health_native';
+
+  return rowProvenance;
 }
 
+/** Legacy coarse resolver — retained for backward-compat callers. */
+export function resolveMetricProvider(metric: string, row: WearableRowLike): Provider {
+  return provenanceToProvider(resolveMetricProvenance(metric, row));
+}
+
+/**
+ * True when the metric was delivered through HealthKit (Apple-native OR any
+ * `*_via_apple_health` provider). Callers use this to apply the Apple-Health
+ * sleep-duration dampener and other HealthKit-routed adjustments, so
+ * mirrored-Oura-via-Apple must be included.
+ */
 export function isAppleMetricSource(metric: string, row: WearableRowLike): boolean {
-  return resolveMetricProvider(metric, row) === 'apple-healthkit';
+  const p = resolveMetricProvenance(metric, row);
+  return p === 'apple_health_native'
+    || p === 'oura_via_apple_health'
+    || p === 'third_party_via_apple_health';
 }
 
 /**
