@@ -9,6 +9,7 @@ import {
   ensureFreshAccessToken,
   type OAuthClientConfig,
 } from "../_shared/calendar-token-refresh.ts";
+import { mapEnsureFreshOutcomeToSyncPhase } from "../_shared/rules/sync-calendar-token-outcome.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -170,136 +171,56 @@ serve(async (req) => {
       return jsonOk({ success: false, reconnectRequired: false, reason: 'config_error', error: 'Server configuration error.' });
     }
 
-    // Decrypt access token using token_iv (access token IV)
-    let accessToken: string | null = null;
-    if (connection.access_token_enc && connection.token_iv) {
-      try {
-        const dec = await decryptJson(connection.access_token_enc, connection.token_iv, encKeyB64) as { token: string };
-        accessToken = dec.token;
-      } catch (e) {
-        console.error('[sync-calendar] access_token_decrypt_failed – will attempt refresh', e);
-      }
-    }
-
-    // Proactive token refresh: refresh if within 5 min of expiry, already expired, or access token decrypt failed
-    const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
+    // Delegate access/refresh token lifecycle to the shared helper so
+    // `sync-calendar` and `register-calendar-watch` cannot drift on
+    // refresh, rotation, or reconnect semantics.
+    const oauthConfig: OAuthClientConfig = {
+      googleClientId: Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '',
+      googleClientSecret: Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') ?? '',
+      microsoftClientId: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '',
+      microsoftClientSecret: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_SECRET') ?? '',
+    };
     const now = new Date();
-    const needsRefresh = !accessToken || (expiresAt && now.getTime() >= expiresAt.getTime() - REFRESH_BUFFER_MS);
+    const tokenOutcome = await ensureFreshAccessToken(
+      serviceClient,
+      {
+        id: connection.id,
+        provider: connection.provider,
+        token_expires_at: connection.token_expires_at,
+        access_token_enc: connection.access_token_enc,
+        refresh_token_enc: connection.refresh_token_enc,
+        token_iv: connection.token_iv,
+        refresh_token_iv: connection.refresh_token_iv,
+      },
+      encKeyB64,
+      oauthConfig,
+      { now },
+    );
+    console.log('[sync-calendar] token_phase outcome:', tokenOutcome.outcome);
 
-    if (needsRefresh) {
-      console.log('[sync-calendar] token_refresh_start – expires:', expiresAt?.toISOString(), 'has_access:', !!accessToken);
-
-      // Decrypt refresh token using refresh_token_iv, falling back to token_iv for legacy rows
-      let refreshToken: string | null = null;
-      const refreshIv = connection.refresh_token_iv || connection.token_iv;
-      if (connection.refresh_token_enc && refreshIv) {
-        try {
-          const dec = await decryptJson(connection.refresh_token_enc, refreshIv, encKeyB64) as { token: string | null };
-          refreshToken = dec.token;
-        } catch {
-          console.error('[sync-calendar] reconnect_required:refresh_decrypt_failed');
-        }
-      }
-
-      if (!refreshToken) {
-        console.error('[sync-calendar] reconnect_required:no_refresh_token');
-        await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-        return jsonOk({ success: false, reconnectRequired: true, reason: 'no_refresh_token', error: 'Calendar session expired. Please reconnect your calendar.' });
-      }
-
-      // Refresh the access token
-      if (provider === 'google') {
-        const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '',
-            client_secret: Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') ?? '',
-            refresh_token: refreshToken,
-            grant_type: 'refresh_token',
-          }),
-        });
-        const refreshData = await refreshRes.json();
-
-        if (refreshData.error) {
-          console.error('[sync-calendar] token_refresh_failed:', refreshData.error, refreshData.error_description);
-          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-          return jsonOk({ success: false, reconnectRequired: true, reason: 'refresh_failed', error: 'Calendar session expired. Please reconnect your calendar.' });
-        }
-
-        accessToken = refreshData.access_token;
-        const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
-
-        // Encrypt and persist new access token (with its own IV)
-        const { ivB64: newAccessIv, ctB64: newAccessEnc } = await encryptJson({ token: accessToken }, encKeyB64);
-        
-        const updatePayload: Record<string, unknown> = {
-          access_token_enc: newAccessEnc,
-          token_iv: newAccessIv,
-          token_expires_at: newExpiresAt,
-        };
-
-        // Only rotate refresh token if Google returns a new one – preserve existing otherwise
-        if (refreshData.refresh_token) {
-          const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
-          updatePayload.refresh_token_enc = newRefreshEnc;
-          updatePayload.refresh_token_iv = newRefreshIv;
-          console.log('[sync-calendar] token_refresh_success – rotated refresh token');
-        } else {
-          console.log('[sync-calendar] token_refresh_success – kept existing refresh token');
-        }
-
-        await serviceClient.from('calendar_connections').update(updatePayload).eq('id', connection.id);
-      } else if (provider === 'microsoft') {
-        const refreshRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '',
-            client_secret: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_SECRET') ?? '',
-            refresh_token: refreshToken,
-            grant_type: 'refresh_token',
-            scope: 'offline_access openid profile email Calendars.Read',
-          }),
-        });
-        const refreshData = await refreshRes.json();
-
-        if (refreshData.error) {
-          console.error('[sync-calendar] microsoft token_refresh_failed:', refreshData.error, refreshData.error_description);
-          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-          return jsonOk({ success: false, reconnectRequired: true, reason: 'refresh_failed', error: 'Calendar session expired. Please reconnect your calendar.' });
-        }
-
-        accessToken = refreshData.access_token;
-        const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
-
-        const { ivB64: newAccessIv, ctB64: newAccessEnc } = await encryptJson({ token: accessToken }, encKeyB64);
-
-        const updatePayload: Record<string, unknown> = {
-          access_token_enc: newAccessEnc,
-          token_iv: newAccessIv,
-          token_expires_at: newExpiresAt,
-        };
-
-        // Microsoft typically returns a new refresh token on every refresh
-        if (refreshData.refresh_token) {
-          const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
-          updatePayload.refresh_token_enc = newRefreshEnc;
-          updatePayload.refresh_token_iv = newRefreshIv;
-          console.log('[sync-calendar] microsoft token_refresh_success – rotated refresh token');
-        } else {
-          console.log('[sync-calendar] microsoft token_refresh_success – kept existing refresh token');
-        }
-
-        await serviceClient.from('calendar_connections').update(updatePayload).eq('id', connection.id);
-      }
+    const phase = mapEnsureFreshOutcomeToSyncPhase(tokenOutcome);
+    if (phase.kind === 'reconnect') {
+      // Helper has already flipped is_active=false when appropriate.
+      return jsonOk(phase.response);
     }
-
-    if (!accessToken) {
-      console.error('[sync-calendar] reconnect_required:no_access_token after refresh attempt');
-      await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-      return jsonOk({ success: false, reconnectRequired: true, reason: 'no_access_token', error: 'Calendar session expired. Please reconnect your calendar.' });
+    if (phase.kind === 'transient') {
+      // Transient refresh failure — helper preserved is_active. Mark
+      // the connection as sync_delayed so the UI can render a soft
+      // "will retry" state, mirroring the Google rate-limit branch.
+      const ts = now.toISOString();
+      await serviceClient
+        .from('calendar_connections')
+        .update({
+          sync_status: 'sync_delayed',
+          last_error: phase.dbMessage,
+          last_error_reason: phase.dbReason,
+          last_error_at: ts,
+          last_sync_delayed_at: ts,
+        })
+        .eq('id', connection.id);
+      return jsonOk(phase.response);
     }
+    const accessToken = phase.accessToken;
 
     // Fetch calendar events
     interface CalendarEventRow {
