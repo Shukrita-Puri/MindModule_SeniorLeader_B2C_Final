@@ -104,6 +104,43 @@ async function countTodayEvents(db: any, userId: string, localDate: string) {
   return mergeCalendarEvents((data || []) as any[], "unknown").length;
 }
 
+// Fetch merged (deduped) event slices for today + tomorrow. Used by the
+// centralized day-type resolver so the orchestrator can decide cadence BEFORE
+// dispatching to MRS/Brief/Plan.
+async function loadDayTypeEventSlices(
+  db: any,
+  userId: string,
+  localDate: string,
+): Promise<{ todayEvents: any[]; tomorrowEvents: any[] }> {
+  const start = `${localDate}T00:00:00`;
+  const end = `${localDate}T23:59:59`;
+  const tomorrow = new Date(`${localDate}T00:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowDate = tomorrow.toISOString().slice(0, 10);
+  const tStart = `${tomorrowDate}T00:00:00`;
+  const tEnd = `${tomorrowDate}T23:59:59`;
+
+  const [todayRes, tomorrowRes] = await Promise.all([
+    db
+      .from("calendar_events")
+      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
+      .eq("user_id", userId)
+      .gte("start_time", start)
+      .lte("start_time", end),
+    db
+      .from("calendar_events")
+      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
+      .eq("user_id", userId)
+      .gte("start_time", tStart)
+      .lte("start_time", tEnd),
+  ]);
+
+  return {
+    todayEvents: mergeCalendarEvents((todayRes.data || []) as any[], "unknown") as any[],
+    tomorrowEvents: mergeCalendarEvents((tomorrowRes.data || []) as any[], "unknown") as any[],
+  };
+}
+
 async function latestWearable(db: any, userId: string) {
   const { data: latest } = await db
     .from("wearable_data")
