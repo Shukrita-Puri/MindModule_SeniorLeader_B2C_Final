@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.14.0";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileErr || !profile?.stripe_customer_id) {
-      console.error("[create-customer-portal] No stripe_customer_id for", userId);
+      console.error("[create-customer-portal] No stripe_customer_id for", redactUserId(userId));
       return new Response(
         JSON.stringify({ error: "No billing account found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
       return_url: `${frontendUrl}/profile`,
     });
 
-    console.log(`[create-customer-portal] ✅ Portal session created for ${userId}`);
+    console.log(`[create-customer-portal] ✅ Portal session created for ${redactUserId(redactUserId(userId))}`);
 
     return new Response(
       JSON.stringify({ portalUrl: session.url }),

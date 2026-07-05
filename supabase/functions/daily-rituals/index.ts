@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,7 +74,7 @@ serve(async (req) => {
         const devHeader = req.headers.get('x-dev-user-id');
         if (devHeader) {
           userId = devHeader;
-          console.log(`[daily-rituals] DEV bypass: userId=${userId}`);
+          console.log(`[daily-rituals] DEV bypass: userId=${redactUserId(redactUserId(userId))}`);
         } else {
           return auth.errorResponse;
         }
@@ -91,7 +92,7 @@ serve(async (req) => {
 
     const body = await req.json() as RequestBody;
     const { action, startDate, endDate, ritualData } = body;
-    console.log(`[daily-rituals] Action: ${action}, User: ${userId}`);
+    console.log(`[daily-rituals] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
 
     switch (action) {
       case 'GET_RITUALS': {
@@ -307,7 +308,7 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log(`[daily-rituals] DELETE_TODAY_RITUAL success for ${userId} on ${today}`);
+        console.log(`[daily-rituals] DELETE_TODAY_RITUAL success for ${redactUserId(redactUserId(userId))} on ${today}`);
 
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
