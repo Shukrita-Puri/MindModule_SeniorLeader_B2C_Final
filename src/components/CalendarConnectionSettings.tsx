@@ -30,10 +30,11 @@ const CalendarConnectionSettings = ({
     const runPostConnectSync = async () => {
       await new Promise(r => setTimeout(r, 500));
       try {
-        const state = await fetchCalendarProvidersState();
+        const result = await fetchCalendarProvidersState();
+        const providers = result.providers;
         const provider =
-          state.google?.connected ? 'google' :
-          state.microsoft?.connected ? 'microsoft' :
+          providers.google?.connected ? 'google' :
+          providers.microsoft?.connected ? 'microsoft' :
           null;
         if (!provider) {
           toast.error('Calendar connection could not be verified');
