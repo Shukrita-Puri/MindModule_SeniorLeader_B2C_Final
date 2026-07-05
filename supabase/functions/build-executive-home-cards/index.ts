@@ -618,7 +618,10 @@ async function buildForUser(db: any, args: {
     }
 
     await writeRun({
-      day_type: plan?.dayKind ?? plan?.meta?.dayKind ?? null,
+      // Orchestrator's centrally-resolved dayType wins; fall back to Plan's
+      // downstream dayKind only when the resolver returned no decision.
+      day_type:
+        dayTypeDecision?.dayType ?? plan?.dayKind ?? plan?.meta?.dayKind ?? null,
       status: "success",
       mrs_status: mrsStatus,
       brief_status: briefStatus,
@@ -632,14 +635,25 @@ async function buildForUser(db: any, args: {
         localDate,
         window,
         dueWindow: args.dueWindow,
+        dayType: dayTypeDecision,
       }),
       duration_ms: Date.now() - started,
     });
-    return { userId, localDate, window, status: "success", mrsStatus, briefStatus, planStatus };
+    return {
+      userId,
+      localDate,
+      window,
+      status: "success",
+      mrsStatus,
+      briefStatus,
+      planStatus,
+      dayType: dayTypeDecision?.dayType ?? null,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await writeRun({
       status: "error",
+      day_type: dayTypeDecision?.dayType ?? null,
       mrs_status: mrsStatus,
       brief_status: briefStatus,
       plan_status: planStatus,
@@ -653,6 +667,7 @@ async function buildForUser(db: any, args: {
         localDate,
         window,
         dueWindow: args.dueWindow,
+        dayType: dayTypeDecision,
       }),
       duration_ms: Date.now() - started,
     });
