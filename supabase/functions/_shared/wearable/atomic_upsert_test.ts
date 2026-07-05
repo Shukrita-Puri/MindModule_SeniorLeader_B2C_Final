@@ -26,15 +26,34 @@ type Row = Record<string, unknown> & { updated_at?: string | null };
 type Key = string;
 const rowKey = (u: string, d: string): Key => `${u}::${d}`;
 
-function makeMockDb() {
+/**
+ * The mock enforces CAS on whichever token column the helper filters on
+ * (currently `write_token`, previously `updated_at`), and can be configured
+ * to freeze the `updated_at` clock so we can reproduce the same-millisecond
+ * failure mode that killed the previous updated_at-only CAS design.
+ */
+function makeMockDb(opts: { freezeUpdatedAt?: boolean } = {}) {
   const store = new Map<Key, Row>();
   // Bump ordinal so successive updated_at strings are strictly monotonic per
   // test even if two writes happen inside the same millisecond.
   let ord = 0;
+  const FROZEN_TS = "2026-07-05T00:00:00.000Z";
   const nextTs = () => {
+    if (opts.freezeUpdatedAt) return FROZEN_TS;
     ord += 1;
     return `2026-07-05T00:00:00.${String(ord).padStart(6, "0")}Z`;
   };
+  // The helper writes both `updated_at` and `write_token` — persist whichever
+  // the caller supplies verbatim, falling back to a mock-generated ts.
+  const stampWrite = (row: Row): Row => ({
+    ...row,
+    // When freezing, override whatever the helper stamped so we can
+    // deterministically reproduce a same-ms scenario. Otherwise honour the
+    // caller-supplied value (or fall back to a monotonic mock ts).
+    updated_at: opts.freezeUpdatedAt
+      ? FROZEN_TS
+      : (row.updated_at as string | undefined) ?? nextTs(),
+  });
 
   const from = (table: string) => {
     if (table !== "wearable_data") throw new Error(`unexpected table ${table}`);
@@ -61,7 +80,7 @@ function makeMockDb() {
         const sd = row.summary_date as string;
         const key = rowKey(uid, sd);
         if (store.has(key)) return { data: null, error: { code: "23505", message: "duplicate" } };
-        const stamped: Row = { ...row, updated_at: nextTs() };
+        const stamped = stampWrite(row);
         store.set(key, stamped);
         return { data: null, error: null };
       },
@@ -75,19 +94,25 @@ function makeMockDb() {
           async select(_c: string) {
             const uid = filters.find((f) => f.col === "user_id")?.val as string;
             const sd = filters.find((f) => f.col === "summary_date")?.val as string;
-            const casFilter = filters.find((f) => f.col === "updated_at");
+            // Any filter other than user_id / summary_date is treated as the
+            // CAS predicate. This lets the mock cover updated_at OR
+            // write_token guards without change.
+            const casFilter = filters.find(
+              (f) => f.col !== "user_id" && f.col !== "summary_date",
+            );
             const key = rowKey(uid, sd);
             const current = store.get(key);
             if (!current) return { data: [], error: null };
             // CAS check
             if (casFilter) {
+              const currentVal = (current as Record<string, unknown>)[casFilter.col];
               if (casFilter.op === "is") {
-                if (current.updated_at != null) return { data: [], error: null };
-              } else if (current.updated_at !== casFilter.val) {
+                if (currentVal != null) return { data: [], error: null };
+              } else if (currentVal !== casFilter.val) {
                 return { data: [], error: null };
               }
             }
-            const stamped: Row = { ...row, updated_at: nextTs() };
+            const stamped = stampWrite(row);
             store.set(key, stamped);
             return { data: [{ summary_date: sd }], error: null };
           },
@@ -209,5 +234,122 @@ Deno.test("reconciliation callback still fires during concurrent path", async ()
   assert(
     recons.length === 0 || recons.some((m) => m.includes("sleep")),
     `unexpected reconciliation set: ${JSON.stringify(recons)}`,
+  );
+});
+
+/**
+ * Same-millisecond regression:
+ * Two concurrent writers finish inside the same wall-clock ms — under the old
+ * `updated_at`-CAS design both would produce identical timestamp strings and
+ * the stale writer's guarded UPDATE would still match, silently overwriting
+ * the earlier commit. The new write_token-based CAS must survive this
+ * scenario because every commit stamps a fresh uuid.
+ */
+Deno.test("same-millisecond concurrent writes: write_token CAS prevents lost updates", async () => {
+  const db = makeMockDb({ freezeUpdatedAt: true });
+
+  // Seed baseline row so both concurrent writers hit the UPDATE path.
+  await atomicMergeUpsertWearable(db, "u1", "2026-07-04", {
+    source: "apple-healthkit",
+    source_provider: "apple_healthkit",
+    total_sleep_minutes: 400,
+    source_apps: { total_sleep_minutes: ["apple-healthkit"] },
+  }, { context: ctx });
+
+  // Sanity-check: updated_at IS frozen — this is the exact condition that
+  // would break an updated_at CAS.
+  const seeded = db.__store.get(rowKey("u1", "2026-07-04"))!;
+  assertEquals(seeded.updated_at, "2026-07-05T00:00:00.000Z");
+
+  const { a, b, final } = await runInterleaved(db, "u1", "2026-07-04", {
+    source: "oura",
+    source_provider: "oura",
+    hrv: 71,
+    source_apps: { hrv: ["oura"] },
+  }, {
+    source: "apple-healthkit",
+    source_provider: "apple_healthkit",
+    resting_heart_rate: 53,
+    source_apps: { resting_heart_rate: ["apple-healthkit"] },
+  });
+
+  assert(a.ok && b.ok);
+  // Timestamps still collide (proving the ms-collision condition held)…
+  assertEquals(final.updated_at, "2026-07-05T00:00:00.000Z");
+  // …but write_token advanced, so both concurrent metrics survive.
+  assert(
+    typeof final.write_token === "string" && (final.write_token as string).length > 0,
+    "write_token must be stamped on every commit",
+  );
+  assertEquals(final.total_sleep_minutes, 400, "baseline sleep clobbered");
+  assertEquals(final.hrv, 71, "oura hrv lost under same-ms race");
+  assertEquals(final.resting_heart_rate, 53, "apple rhr lost under same-ms race");
+});
+
+/**
+ * Two stale writers both reading the same prior write_token must not both
+ * succeed against it — the second must observe a CAS miss and retry.
+ */
+Deno.test("two stale writers cannot both succeed against the same prior write_token", async () => {
+  const db = makeMockDb({ freezeUpdatedAt: true });
+
+  // Seed and capture prior token.
+  await atomicMergeUpsertWearable(db, "u9", "2026-07-04", {
+    source: "apple-healthkit",
+    source_provider: "apple_healthkit",
+    total_sleep_minutes: 410,
+    source_apps: { total_sleep_minutes: ["apple-healthkit"] },
+  }, { context: ctx });
+  const priorToken = db.__store.get(rowKey("u9", "2026-07-04"))!.write_token as string;
+
+  const { a, b } = await runInterleaved(db, "u9", "2026-07-04", {
+    source: "oura", source_provider: "oura", hrv: 60,
+    source_apps: { hrv: ["oura"] },
+  }, {
+    source: "apple-healthkit", source_provider: "apple_healthkit", heart_rate: 70,
+    source_apps: { heart_rate: ["apple-healthkit"] },
+  });
+
+  assert(a.ok && b.ok);
+  // Exactly one writer succeeded on the first attempt against priorToken;
+  // the other observed a CAS miss and retried.
+  const attempts = [a.attempts, b.attempts].sort();
+  assertEquals(attempts[0], 1, "one writer should commit on first attempt");
+  assert(attempts[1] >= 2, "the other writer must have retried after CAS miss");
+
+  const finalToken = db.__store.get(rowKey("u9", "2026-07-04"))!.write_token as string;
+  assert(finalToken !== priorToken, "write_token must advance past prior");
+});
+
+/**
+ * Legacy row with a null write_token (pre-migration data) must still be
+ * atomically upsertable during rollout.
+ */
+Deno.test("legacy row with null write_token is upgraded safely via .is(null) CAS", async () => {
+  const db = makeMockDb();
+  // Simulate a pre-migration row that predates the write_token column.
+  db.__store.set(rowKey("u_leg", "2026-07-04"), {
+    user_id: "u_leg",
+    summary_date: "2026-07-04",
+    source: "apple-healthkit",
+    source_provider: "apple_healthkit",
+    total_sleep_minutes: 380,
+    source_apps: { total_sleep_minutes: ["apple-healthkit"] },
+    updated_at: "2026-07-04T22:00:00.000Z",
+    write_token: null,
+  });
+
+  const res = await atomicMergeUpsertWearable(db, "u_leg", "2026-07-04", {
+    source: "oura", source_provider: "oura", hrv: 65,
+    source_apps: { hrv: ["oura"] },
+  }, { context: ctx });
+
+  assert(res.ok);
+  const finalRow = db.__store.get(rowKey("u_leg", "2026-07-04"))!;
+  assertEquals(finalRow.total_sleep_minutes, 380);
+  assertEquals(finalRow.hrv, 65);
+  assert(
+    typeof finalRow.write_token === "string" && (finalRow.write_token as string).length > 0,
+    "legacy null write_token must be replaced with a real uuid",
   );
 });
