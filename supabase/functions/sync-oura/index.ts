@@ -15,11 +15,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import {
-  mergeCanonicalWearableRow,
   loadWearableMergeContext,
   type WearableMergeContext,
   type ReconciliationRecord,
 } from "../_shared/wearable/canonical.ts";
+import { atomicMergeUpsertWearable } from "../_shared/wearable/atomic-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -291,25 +291,18 @@ async function persistRows(
       },
       updated_at: new Date().toISOString(),
     };
-    const { data: existingRow } = await db
-      .from("wearable_data")
-      .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
-      .eq("user_id", userId)
-      .eq("summary_date", summaryDate)
-      .maybeSingle();
     const mergeCtx = await getCtx(summaryDate);
     const reconRecords: ReconciliationRecord[] = [];
-    const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row, {
+    // Atomic CAS-guarded merge → write. Serialises against concurrent
+    // persist-wearable-data (Apple Health) or other sync-oura invocations.
+    const res = await atomicMergeUpsertWearable(db, userId, summaryDate, row, {
       context: mergeCtx,
       onReconciliation: (rec) => reconRecords.push(rec),
     });
     for (const rec of reconRecords) await logReconciliation(summaryDate, rec);
-    const { error } = await db
-      .from("wearable_data")
-      .upsert(mergedRow, { onConflict: "user_id,summary_date" });
-    if (error) {
+    if (!res.ok) {
       errors++;
-      log("upsert_failed", { summary_date: summaryDate, error: error.message });
+      log("upsert_failed", { summary_date: summaryDate, error: (res.error as { message?: string })?.message ?? String(res.error) });
     } else {
       written++;
       if (!latest || summaryDate > latest) latest = summaryDate;

@@ -2,11 +2,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { deriveSleepEfficiency } from "../_shared/wearable/derive-sleep-efficiency.ts";
 import {
-  mergeCanonicalWearableRow,
   loadWearableMergeContext,
   type WearableMergeContext,
   type ReconciliationRecord,
 } from "../_shared/wearable/canonical.ts";
+import { atomicMergeUpsertWearable } from "../_shared/wearable/atomic-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -252,30 +252,18 @@ Deno.serve(async (req) => {
           if (eff != null) row.sleep_efficiency = eff;
         }
 
-        const { data: existingRow } = await db
-          .from("wearable_data")
-          .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
-          .eq("user_id", userId)
-          .eq("summary_date", sample.summary_date)
-          .maybeSingle();
         const mergeCtx = await getCtx(sample.summary_date);
         const reconRecords: ReconciliationRecord[] = [];
-        const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row, {
+        // Atomic CAS-guarded read → merge → write. Prevents lost updates when
+        // sync-oura and this function race on the same summary_date.
+        const res = await atomicMergeUpsertWearable(db, userId, sample.summary_date, row, {
           context: mergeCtx,
           onReconciliation: (r) => reconRecords.push(r),
+          overrideRawData: body.raw_data ? body.raw_data : undefined,
         });
         for (const r of reconRecords) await logReconciliation(sample.summary_date, r);
-        if (body.raw_data) {
-          mergedRow.raw_data = body.raw_data;
-        }
-
-        // Use upsert instead of select-then-update/insert to eliminate race conditions
-        const { error } = await db
-          .from("wearable_data")
-          .upsert(mergedRow, { onConflict: "user_id,summary_date" });
-
-        if (error) {
-          console.error("[persist-wearable-data] DB error for", sample.summary_date, ":", error);
+        if (!res.ok) {
+          console.error("[persist-wearable-data] atomic upsert failed for", sample.summary_date, ":", res.error);
           results.errors++;
         } else {
           results.inserted++;  // upsert – counted as write
@@ -365,27 +353,15 @@ Deno.serve(async (req) => {
       if (eff != null) row.sleep_efficiency = eff;
     }
 
-    const { data: existingRow } = await db
-      .from("wearable_data")
-      .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
-      .eq("user_id", userId)
-      .eq("summary_date", summary_date)
-      .maybeSingle();
     const legacyCtx = await getCtx(summary_date);
     const legacyRecon: ReconciliationRecord[] = [];
-    const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row, {
+    const legacyRes = await atomicMergeUpsertWearable(db, userId, summary_date, row, {
       context: legacyCtx,
       onReconciliation: (r) => legacyRecon.push(r),
     });
     for (const r of legacyRecon) await logReconciliation(summary_date, r);
-
-    // Use upsert instead of select-then-update/insert to eliminate race conditions
-    const { error } = await db
-      .from("wearable_data")
-      .upsert(mergedRow, { onConflict: "user_id,summary_date" });
-
-    if (error) {
-      console.error("[persist-wearable-data] DB error:", error);
+    if (!legacyRes.ok) {
+      console.error("[persist-wearable-data] atomic upsert failed:", legacyRes.error);
       return new Response(
         JSON.stringify({ error: "Failed to persist wearable data" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
