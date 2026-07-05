@@ -223,7 +223,19 @@ export interface OuterReadinessData {
    * compute/auth failure so the UI can render a retry block rather than
    * the "Awaiting signals" copy.
    */
-  engineStatus?: 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error';
+  engineStatus?: 'ready' | 'awaiting' | 'auth-failure' | 'session-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error';
+  /**
+   * Optional machine-readable reason for a failure `engineStatus`. Present when
+   * the hook short-circuits due to a missing token, token-fetch timeout, or a
+   * non-2xx response from the edge function. Not written on success paths.
+   */
+  engineFailureReason?:
+    | 'missing-auth-token'
+    | 'auth-token-timeout'
+    | 'http-401'
+    | 'http-403'
+    | 'http-5xx'
+    | 'edge-invoke-error';
   /**
    * MRS v3 baseline-of-truth — canonical client-facing signal source contract.
    *   • 'cold-start' — no baseline AND no check-in → render skeleton
@@ -507,6 +519,27 @@ export function normalizeOuterReadinessPayload(input: unknown): OuterReadinessDa
 async function fetchOuterReadinessFresh(userId: string | undefined): Promise<OuterReadinessData | null> {
   if (!userId) return null;
 
+  // Structured failure stub – identical shape to a successful response so MRS,
+  // Decision Readiness Brief and Today's Priorities can render their retry /
+  // auth-recovery blocks instead of degrading into cold-start copy.
+  const buildFailureStub = (
+    engineStatus: NonNullable<OuterReadinessData['engineStatus']>,
+    reason?: OuterReadinessData['engineFailureReason'],
+  ): OuterReadinessData => ({
+    phrase: '',
+    context: '',
+    leanOn: '',
+    watchFor: '',
+    driver: '',
+    dataSources: [],
+    engineStatus,
+    engineFailureReason: reason,
+    awaitingSignals: false,
+    briefMode: undefined,
+    innerReadinessScore: null,
+    innerReadinessTier: null,
+  } as OuterReadinessData);
+
   // Energy state already reads today's check-in. Reuse those echoed fields so
   // the executive home brief does not make a second daily-checkins request.
   const energyState = await computeEnergyState(userId);
@@ -525,33 +558,41 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
       '[useOuterReadiness] Inner engine failed — short-circuiting with engineStatus =',
       innerStatus,
     );
-    return {
-      phrase: '',
-      context: '',
-      leanOn: '',
-      watchFor: '',
-      driver: '',
-      dataSources: [],
-      engineStatus: innerStatus,
-      awaitingSignals: false,
-      briefMode: undefined,
-      innerReadinessScore: null,
-      innerReadinessTier: null,
-    } as OuterReadinessData;
+    return buildFailureStub(innerStatus);
   }
 
   // Build auth headers – in DEV_MODE, skip Auth0 token and pass userId in body
   const headers: Record<string, string> = {};
   if (!DEV_MODE) {
     let token: string | null = null;
+    let timedOut = false;
     for (let attempt = 0; attempt < 5; attempt++) {
-      token = await getAuthToken();
+      try {
+        token = await getAuthToken();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (/timeout/i.test(message)) {
+          timedOut = true;
+        }
+        console.warn('[useOuterReadiness] getAuthToken threw:', message);
+        token = null;
+      }
       if (token) break;
       await new Promise(r => setTimeout(r, 500));
     }
     if (!token) {
-      console.warn('[useOuterReadiness] No Auth0 token after retries – skipping edge call');
-      return null;
+      // Do NOT return null here — that made the UI degrade into cold-start /
+      // "awaiting signals" copy for what is really an expired/missing session.
+      // Return a structured auth-failure so MRS / Brief / Today's Priorities
+      // can prompt the user to sign in again.
+      console.warn(
+        '[useOuterReadiness] No Auth0 token after retries – returning auth-failure stub',
+        { timedOut },
+      );
+      return buildFailureStub(
+        'auth-failure',
+        timedOut ? 'auth-token-timeout' : 'missing-auth-token',
+      );
     }
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -596,22 +637,30 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
   });
 
   if (res.error) {
-    console.error('[useOuterReadiness] Edge function error:', res.error);
-    // Phase 1 — surface as 'outer-failure' so MRS/Brief/Plan render the
-    // retry block instead of treating the blip as true awaiting signals.
-    return {
-      phrase: '',
-      context: '',
-      leanOn: '',
-      watchFor: '',
-      driver: '',
-      dataSources: [],
-      engineStatus: 'outer-failure',
-      awaitingSignals: false,
-      briefMode: undefined,
-      innerReadinessScore: null,
-      innerReadinessTier: null,
-    } as OuterReadinessData;
+    // supabase-js wraps non-2xx responses in a FunctionsHttpError with
+    // `context.status`. Classify auth failures separately from backend crashes
+    // so the UI shows "sign in again" instead of "readiness engine crashed".
+    const rawStatus =
+      (res.error as { context?: { status?: number } })?.context?.status ??
+      (res.error as { status?: number })?.status ??
+      null;
+    const status = typeof rawStatus === 'number' ? rawStatus : null;
+    console.error('[useOuterReadiness] Edge function error:', {
+      status,
+      message: res.error instanceof Error ? res.error.message : String(res.error),
+    });
+    if (status === 401) {
+      return buildFailureStub('auth-failure', 'http-401');
+    }
+    if (status === 403) {
+      return buildFailureStub('session-failure', 'http-403');
+    }
+    if (status !== null && status >= 500) {
+      return buildFailureStub('outer-failure', 'http-5xx');
+    }
+    // Network / invoke-level error with no HTTP status — treat as outer
+    // failure so the retry block renders, but tag the reason distinctly.
+    return buildFailureStub('outer-failure', 'edge-invoke-error');
   }
 
   const data = normalizeOuterReadinessPayload(res.data);
