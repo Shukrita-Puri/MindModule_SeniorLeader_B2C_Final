@@ -72,11 +72,15 @@ Deno.serve(async (req) => {
       }
 
       if (!dryRun && withKey.length > 0) {
-        // Batch-update via upsert on primary key. Only sends id + identity_key.
-        const { error: upErr } = await supabase
-          .from("calendar_events")
-          .upsert(withKey, { onConflict: "id" });
-        if (upErr) throw upErr;
+        // Per-row UPDATE (never upsert — upsert would try to INSERT a
+        // partial row and violate NOT NULL on user_id/start_time/etc.).
+        for (const w of withKey) {
+          const { error: upErr } = await supabase
+            .from("calendar_events")
+            .update({ identity_key: w.identity_key })
+            .eq("id", w.id);
+          if (upErr) throw upErr;
+        }
       }
       updated += withKey.length;
 
