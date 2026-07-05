@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarDays, ArrowLeft } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
