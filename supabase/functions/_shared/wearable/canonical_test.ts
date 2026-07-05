@@ -154,6 +154,56 @@ Deno.test("per-metric source_apps written for each chosen metric", () => {
   assertEquals(apps.hr_samples, ["Apple Watch"]);
 });
 
+// (loadWearableMergeContext test moved below)
+
+Deno.test("recency guard boundary: exactly 12h does NOT trigger (strict >)", () => {
+  const recon: ReconciliationRecord[] = [];
+  const existing = {
+    source_provider: "oura",
+    source: "oura",
+    hrv: 62,
+    resting_heart_rate: 55,
+    updated_at: "2026-07-04T08:00:00.000Z",
+  };
+  const incoming = {
+    source_provider: "apple_healthkit",
+    source: "apple-healthkit",
+    hrv: 40,
+    resting_heart_rate: 70,
+    updated_at: "2026-07-04T20:00:00.000Z", // +12h exactly
+  };
+  const merged = mergeCanonicalWearableRow(existing, incoming, {
+    context: ctxOuraConnected,
+    onReconciliation: (r) => recon.push(r),
+  });
+  assertEquals(recon.length, 0, "guard must NOT fire at exactly 12h");
+  assertEquals(merged.hrv, 40, "incoming wins at boundary");
+});
+
+Deno.test("recency guard boundary: 12h + 1ms DOES trigger", () => {
+  const recon: ReconciliationRecord[] = [];
+  const existing = {
+    source_provider: "oura",
+    source: "oura",
+    hrv: 62,
+    resting_heart_rate: 55,
+    updated_at: "2026-07-04T08:00:00.000Z",
+  };
+  const incoming = {
+    source_provider: "apple_healthkit",
+    source: "apple-healthkit",
+    hrv: 40,
+    resting_heart_rate: 70,
+    updated_at: "2026-07-04T20:00:00.001Z", // +12h + 1ms
+  };
+  const merged = mergeCanonicalWearableRow(existing, incoming, {
+    context: ctxOuraConnected,
+    onReconciliation: (r) => recon.push(r),
+  });
+  assertEquals(recon.length, 1, "guard fires just past 12h");
+  assertEquals(merged.hrv, 62, "existing preserved");
+});
+
 Deno.test("loadWearableMergeContext derives connection state from stubbed client", async () => {
   const stub = {
     from(table: string) {
