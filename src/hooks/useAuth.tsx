@@ -221,7 +221,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setAppUser(nativeUser);
       setNativeAuthed(true);
       setAuthResolved(true);
-      console.log('[useAuth] ✅ Native auth hydration complete, user:', payload.sub);
+      console.debug('[useAuth] ✅ Native auth hydration complete, user:', redactUserId(payload.sub));
 
       // Now attempt profile sync with native token
       try {
@@ -295,7 +295,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const currentSub = auth0User.sub;
 
       if (syncAttempted.current && currentSub && lastSyncedSub.current && currentSub !== lastSyncedSub.current) {
-        console.warn('[useAuth] ⚠️ Auth0 user changed mid-session:', lastSyncedSub.current, '→', currentSub);
+        console.warn('[useAuth] ⚠️ Auth0 user changed mid-session:', redactUserId(lastSyncedSub.current), '→', redactUserId(currentSub));
         syncAttempted.current = false;
       }
 
@@ -315,7 +315,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const payload = JSON.parse(atob(tokenParts[1]));
             const tokenSub = payload.sub;
             if (tokenSub && currentSub && tokenSub !== currentSub) {
-              console.error('[useAuth] 🚨 TOKEN MISMATCH – token sub:', tokenSub, 'auth0User sub:', currentSub);
+              console.error('[useAuth] 🚨 TOKEN MISMATCH – token sub:', redactUserId(tokenSub), 'auth0User sub:', redactUserId(currentSub));
               syncAttempted.current = false;
               setSyncing(false);
               toast.error('Session mismatch detected. Please log in again.');
