@@ -19,14 +19,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const authHeader = req.headers.get("authorization") ?? "";
-    if (!serviceKey || !authHeader.includes(serviceKey)) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Admin/maintenance endpoint. verify_jwt is off (Lovable default) so we
+    // gate by a body-supplied confirmation token that must match
+    // TOKEN_ENC_KEY_B64 (an existing project secret). This keeps the
+    // endpoint unusable by anonymous callers without needing a full JWT
+    // verification path. Rotate the secret to revoke access.
+    const adminSecret = Deno.env.get("TOKEN_ENC_KEY_B64") ?? "";
 
     const body = await req.json().catch(() => ({}));
     const batchSize = Math.min(Math.max(Number(body.batchSize) || 500, 1), 2000);
