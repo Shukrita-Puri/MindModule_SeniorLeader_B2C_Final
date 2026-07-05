@@ -83,6 +83,86 @@ export const RETRY_HINT_DEFAULT_SECONDS = 5 * 60; // 5 minute default
 export const RETRY_BACKOFF_LADDER_SECONDS = [300, 600, 1200, 2400, 3600] as const;
 
 /**
+ * Jitter policy for retry delays. Jitter spreads retries so many
+ * connections that hit the same provider quota at the same second do
+ * not all wake up on the exact same tick.
+ *
+ * Policy:
+ *   - jitter range is ±JITTER_RATIO of the base delay
+ *   - minimum absolute jitter window is JITTER_MIN_SECONDS
+ *   - maximum absolute jitter window is JITTER_MAX_SECONDS
+ *   - jitter is derived deterministically from a caller-supplied seed
+ *     (typically the connection id + attempt count) so the same
+ *     (connection, attempt) pair always resolves to the same delay
+ *     across process invocations. NEVER use Math.random() here.
+ */
+export const RETRY_JITTER_RATIO = 0.10;
+export const RETRY_JITTER_MIN_SECONDS = 15;
+export const RETRY_JITTER_MAX_SECONDS = 300;
+
+/**
+ * FNV-1a 32-bit hash of a string. Small, allocation-free, and
+ * deterministic across runtimes — good enough to spread a few
+ * thousand connection ids across a jitter window.
+ */
+function fnv1a32(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    // 32-bit FNV prime multiply: h = h * 16777619
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * Compute deterministic jitter in seconds for the given seed and base
+ * delay. Returns a signed integer in the range [-window, +window]
+ * where `window = clamp(base * RETRY_JITTER_RATIO, MIN, MAX)`.
+ *
+ * Deterministic: same (seed, base) → same output, every time.
+ */
+export function computeRetryJitterSeconds(
+  seed: string,
+  baseDelaySeconds: number,
+): number {
+  if (!seed || !Number.isFinite(baseDelaySeconds) || baseDelaySeconds <= 0) {
+    return 0;
+  }
+  const rawWindow = Math.floor(baseDelaySeconds * RETRY_JITTER_RATIO);
+  const window = Math.max(
+    RETRY_JITTER_MIN_SECONDS,
+    Math.min(RETRY_JITTER_MAX_SECONDS, rawWindow),
+  );
+  // Map hash → [0, 2*window] → shift to [-window, +window].
+  const span = 2 * window + 1;
+  const h = fnv1a32(seed);
+  return (h % span) - window;
+}
+
+/**
+ * Apply deterministic jitter to a resolved base delay and clamp the
+ * final result to the global [MIN, MAX] retry window.
+ *
+ * Returns `{ baseDelaySeconds, jitterSeconds, finalDelaySeconds }` so
+ * callers can log the split for debugging.
+ */
+export function applyJitterToDelay(
+  seed: string | null | undefined,
+  baseDelaySeconds: number,
+): { baseDelaySeconds: number; jitterSeconds: number; finalDelaySeconds: number } {
+  const jitterSeconds = seed
+    ? computeRetryJitterSeconds(seed, baseDelaySeconds)
+    : 0;
+  const withJitter = baseDelaySeconds + jitterSeconds;
+  const finalDelaySeconds = Math.max(
+    RETRY_HINT_MIN_SECONDS,
+    Math.min(RETRY_HINT_MAX_SECONDS, withJitter),
+  );
+  return { baseDelaySeconds, jitterSeconds, finalDelaySeconds };
+}
+
+/**
  * Compute the exponential backoff delay for the Nth consecutive
  * transient outcome. `consecutivePriorCount` is the number of prior
  * transient outcomes BEFORE this one (so the very first delayed sync
@@ -141,23 +221,37 @@ export function buildRateLimitedUpdate(input: {
    * builder increments it by one for the row it emits.
    */
   consecutivePriorCount?: number;
+  /**
+   * Stable per-connection seed for deterministic jitter. Callers
+   * should compose something like `${connection.id}:${nextAttempt}` so
+   * the same connection gets a different jitter on each attempt but
+   * two different connections with the same base delay do NOT collide
+   * on the exact same `next_retry_at`. When omitted, no jitter is
+   * applied (used by pure unit tests that assert exact delays).
+   */
+  jitterSeed?: string | null;
   now?: Date;
 }): RateLimitedUpdate {
   const now = input.now ?? new Date();
   const ts = now.toISOString();
   const priorCount = Math.max(0, Math.floor(input.consecutivePriorCount ?? 0));
-  const delaySeconds = resolveRetryDelaySeconds(input.retryAfterSeconds, {
+  const baseDelay = resolveRetryDelaySeconds(input.retryAfterSeconds, {
     consecutivePriorCount: priorCount,
   });
+  const nextAttempt = priorCount + 1;
+  const seed = input.jitterSeed && input.jitterSeed.length > 0
+    ? `${input.jitterSeed}:${nextAttempt}`
+    : null;
+  const { finalDelaySeconds } = applyJitterToDelay(seed, baseDelay);
   return {
     sync_status: 'sync_delayed',
     last_error: input.message,
     last_error_reason: input.reason,
     last_error_at: ts,
     last_sync_delayed_at: ts,
-    retry_after_seconds: delaySeconds,
-    next_retry_at: computeNextRetryAt(now, delaySeconds),
-    consecutive_delay_count: priorCount + 1,
+    retry_after_seconds: finalDelaySeconds,
+    next_retry_at: computeNextRetryAt(now, finalDelaySeconds),
+    consecutive_delay_count: nextAttempt,
   };
 }
 
