@@ -69,7 +69,12 @@ export interface DayTypeInput {
    *  all-day PTO/holiday event). The orchestrator hydrates this from a small
    *  2-day lookback so the `last_day_long_weekend` branch of week-ahead can
    *  actually fire. Defaults to 0 — leaving it unset just disables that
-   *  branch, it never breaks the resolver. */
+   *  branch, it never breaks the resolver.
+   *
+   *  Why 2 and not more: the only downstream consumer,
+   *  `evaluateWeekAheadMode`, triggers at `>= 2`. A deeper lookback would be
+   *  wasted work today. If a future rule needs a larger horizon, extend the
+   *  orchestrator query and the doc here together. */
   consecutiveOffDaysBefore?: number;
 }
 
@@ -267,9 +272,15 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   //    Heuristic: workday with either zero real meetings OR total real-meeting
   //    load < 60 min (a couple of short syncs, no anchoring block). A single
   //    long meeting (offsite, board slot, 90-min interview) intentionally
-  //    trips out of light-day so the afternoon regen still fires. This mirrors
-  //    the demand-score intent of `context.calendarDemandScore` used
-  //    downstream, without duplicating that scoring inside the resolver.
+  //    trips out of light-day so the afternoon regen still fires.
+  //
+  //    TRADEOFF (intentional): we do NOT read `context.calendarDemandScore`
+  //    here. That score is computed by the daily-context pipeline that runs
+  //    AFTER the day-type gate (MRS depends on it), so pulling it up would
+  //    force a second compose pass or duplicate the scorer. Meeting-minutes
+  //    is a cheap, monotonic proxy: it correlates with demand well enough for
+  //    a cadence decision, and the worst case is one extra afternoon regen
+  //    that downstream can no-op cheaply — never a suppressed real load day.
   const LIGHT_DAY_MEETING_MINUTES_MAX = 60;
   if (
     !isWeekend &&
