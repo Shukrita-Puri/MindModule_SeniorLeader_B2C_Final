@@ -3,6 +3,8 @@ import {
   mergeCanonicalWearableRow,
   loadWearableMergeContext,
   DEFAULT_RECENCY_GUARD_HOURS,
+  resolveMetricProvenance,
+  isAppleMetricSource,
   type WearableMergeContext,
   type ReconciliationRecord,
 } from "./canonical.ts";
@@ -234,4 +236,154 @@ Deno.test("loadWearableMergeContext derives connection state from stubbed client
   assertEquals(ctx.ouraDirectConnected, true);
   assertEquals(ctx.ouraWritesToAppleHealth, true);
   assertEquals(ctx.appleWatchPresentToday, true);
+});
+
+// ============================================================
+// Provenance tests: explicit direct_oura vs oura_via_apple_health
+// ============================================================
+
+Deno.test("provenance: direct_oura sleep beats Apple-native when Oura connected", () => {
+  // Existing = Apple Health native; Incoming = direct-Oura sync.
+  const existing = {
+    source: "apple-healthkit",
+    source_provider: "apple_healthkit",
+    source_apps: { total_sleep_minutes: ["apple-healthkit"] },
+    total_sleep_minutes: 410,
+  };
+  const incoming = {
+    source: "oura",
+    source_provider: "oura",
+    source_apps: { total_sleep_minutes: ["oura"] },
+    total_sleep_minutes: 430,
+  };
+  const merged = mergeCanonicalWearableRow(existing, incoming, { context: ctxOuraConnected });
+  assertEquals(merged.total_sleep_minutes, 430);
+  assertEquals(resolveMetricProvenance("total_sleep_minutes", merged), "direct_oura");
+});
+
+Deno.test("provenance: direct_oura sleep beats oura_via_apple_health mirror", () => {
+  // The exact bug this refactor closes: previously both looked like 'oura'
+  // to the coarse resolver, so they were treated as equivalent authority.
+  const existing = {
+    source: "apple-healthkit",
+    source_provider: "oura_via_apple_health",
+    source_apps: { total_sleep_minutes: ["com.ouraring.oura"] },
+    total_sleep_minutes: 405,
+  };
+  const incoming = {
+    source: "oura",
+    source_provider: "oura",
+    source_apps: { total_sleep_minutes: ["oura"] },
+    total_sleep_minutes: 425,
+  };
+  assertEquals(resolveMetricProvenance("total_sleep_minutes", existing), "oura_via_apple_health");
+  assertEquals(resolveMetricProvenance("total_sleep_minutes", incoming), "direct_oura");
+  const merged = mergeCanonicalWearableRow(existing, incoming, { context: ctxOuraConnected });
+  assertEquals(merged.total_sleep_minutes, 425, "direct_oura must beat oura_via_apple_health");
+});
+
+Deno.test("provenance: Apple-native HR beats Oura-via-Apple-Health HR (Apple Watch present)", () => {
+  const existing = {
+    source: "apple-healthkit",
+    source_provider: "oura_via_apple_health",
+    source_apps: { heart_rate: ["com.ouraring.oura"] },
+    heart_rate: 72,
+  };
+  const incoming = {
+    source: "apple-healthkit",
+    source_provider: "apple_watch_via_apple_health",
+    source_apps: { heart_rate: ["Apple Watch"] },
+    heart_rate: 60,
+  };
+  const merged = mergeCanonicalWearableRow(existing, incoming, { context: ctxAppleWatch });
+  assertEquals(merged.heart_rate, 60);
+  assertEquals(resolveMetricProvenance("heart_rate", merged), "apple_health_native");
+});
+
+Deno.test("provenance: without direct Oura connection, oura_via_apple_health outranks unknown for sleep", () => {
+  const existing = {
+    source: null,
+    source_provider: null,
+    total_sleep_minutes: 400,
+  };
+  const incoming = {
+    source: "apple-healthkit",
+    source_provider: "oura_via_apple_health",
+    source_apps: { total_sleep_minutes: ["com.ouraring.oura"] },
+    total_sleep_minutes: 420,
+  };
+  const merged = mergeCanonicalWearableRow(existing, incoming, { context: ctxNoOura });
+  assertEquals(merged.total_sleep_minutes, 420);
+  assertEquals(resolveMetricProvenance("total_sleep_minutes", merged), "oura_via_apple_health");
+});
+
+Deno.test("provenance: unknown fallback still merges (does not crash)", () => {
+  const existing = { total_sleep_minutes: 400 };
+  const incoming = { total_sleep_minutes: 415 };
+  const merged = mergeCanonicalWearableRow(existing, incoming);
+  // Both sides are unknown-provenance; incoming wins by default equal-rank rule.
+  assertEquals(merged.total_sleep_minutes, 415);
+  assertEquals(resolveMetricProvenance("total_sleep_minutes", merged), "unknown");
+});
+
+Deno.test("provenance: isAppleMetricSource returns TRUE for oura_via_apple_health (HealthKit-routed)", () => {
+  // Regression: previously the coarse resolver classified an "oura" tag as
+  // provider='oura' → isAppleMetricSource=false, so the Apple-Health sleep
+  // dampener silently skipped mirrored-Oura rows.
+  const row = {
+    source: "apple-healthkit",
+    source_provider: "oura_via_apple_health",
+    source_apps: { total_sleep_minutes: ["com.ouraring.oura"] },
+    total_sleep_minutes: 400,
+  };
+  assertEquals(isAppleMetricSource("total_sleep_minutes", row), true);
+});
+
+Deno.test("provenance: isAppleMetricSource returns FALSE for direct_oura", () => {
+  const row = {
+    source: "oura",
+    source_provider: "oura",
+    source_apps: { total_sleep_minutes: ["oura"] },
+    total_sleep_minutes: 400,
+  };
+  assertEquals(isAppleMetricSource("total_sleep_minutes", row), false);
+});
+
+Deno.test("regression: provenance survives merge round-trip end-to-end", () => {
+  // Simulate ingestion: direct-Oura sync arrives first, then an Apple mirror.
+  const dayA = {
+    source: "oura",
+    source_provider: "oura",
+    source_apps: {
+      total_sleep_minutes: ["oura"],
+      hrv: ["oura"],
+      heart_rate: ["oura"],
+    },
+    total_sleep_minutes: 430,
+    hrv: 62,
+    heart_rate: 65,
+    updated_at: "2026-07-04T08:00:00.000Z",
+  };
+  const dayB_appleMirror = {
+    source: "apple-healthkit",
+    source_provider: "oura_via_apple_health",
+    source_apps: {
+      total_sleep_minutes: ["com.ouraring.oura"],
+      hrv: ["com.ouraring.oura"],
+      heart_rate: ["Apple Watch"], // heart came from the Watch, not Oura
+    },
+    total_sleep_minutes: 405,
+    hrv: 58,
+    heart_rate: 60,
+    updated_at: "2026-07-04T09:00:00.000Z",
+  };
+  const merged = mergeCanonicalWearableRow(dayA, dayB_appleMirror, { context: ctxAppleWatch });
+  // Sleep: direct_oura wins → 430
+  assertEquals(merged.total_sleep_minutes, 430);
+  assertEquals(resolveMetricProvenance("total_sleep_minutes", merged), "direct_oura");
+  // HRV: same completeness, freshness within 24h → newer Apple mirror wins → 58
+  assertEquals(merged.hrv, 58);
+  // Heart: Apple Watch native wins over direct-Oura HR
+  assertEquals(merged.heart_rate, 60);
+  assertEquals(resolveMetricProvenance("heart_rate", merged), "apple_health_native");
 });
