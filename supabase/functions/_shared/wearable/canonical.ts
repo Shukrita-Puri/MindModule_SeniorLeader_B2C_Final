@@ -348,17 +348,22 @@ export function mergeCanonicalWearableRow(
     ) {
       const existingProvider = resolveMetricProvider(metric, existing);
       const incomingProvider = resolveMetricProvider(metric, incoming);
-      // Only guard cross-source overwrites where the LOSING (by rules)
-      // source is winning purely by being newer.
-      // preferIncoming already returned true — check whether without the
-      // freshness edge, existing would have won: i.e. incoming has lower
-      // completeness or lower priority provider.
       const incomingScore = completenessScore(incomingProvider, incoming);
       const existingScore = completenessScore(existingProvider, existing);
+      // Guard fires when incoming would win but has no true authority
+      // advantage — the only reason it's about to overwrite is that it's
+      // newer. Cross-source only (same-source updates always land).
+      const crossSource =
+        incomingProvider !== 'unknown' &&
+        existingProvider !== 'unknown' &&
+        incomingProvider !== existingProvider;
       const incomingIsLosingSource =
-        (SLEEP_METRICS.includes(metric) && ctx.ouraDirectConnected && incomingProvider !== 'oura' && existingProvider === 'oura') ||
-        (HEART_METRICS.includes(metric) && !rowHasAppleWatch(incoming) && rowHasAppleWatch(existing)) ||
-        (HRV_METRICS.includes(metric) && incomingScore < existingScore);
+        crossSource &&
+        (
+          (HRV_METRICS.includes(metric) && incomingScore <= existingScore) ||
+          (SLEEP_METRICS.includes(metric) && ctx.ouraDirectConnected && incomingProvider !== 'oura' && existingProvider === 'oura') ||
+          (HEART_METRICS.includes(metric) && !rowHasAppleWatch(incoming) && rowHasAppleWatch(existing))
+        );
 
       const deltaHrs = (incUpdated.getTime() - exiUpdated.getTime()) / 3_600_000;
       if (incomingIsLosingSource && deltaHrs > guardHours) {
