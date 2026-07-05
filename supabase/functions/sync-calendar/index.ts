@@ -159,7 +159,7 @@ serve(async (req) => {
     // Load connection – only active
     const { data: connection, error: connErr } = await serviceClient
       .from('calendar_connections')
-      .select('id, user_id, provider, is_active, last_sync, token_expires_at, access_token_enc, refresh_token_enc, token_iv, refresh_token_iv, token_enc_v')
+      .select('id, user_id, provider, is_active, last_sync, token_expires_at, access_token_enc, refresh_token_enc, token_iv, refresh_token_iv, token_enc_v, consecutive_delay_count')
       .eq('user_id', userId)
       .eq('provider', provider)
       .eq('is_active', true)
@@ -213,15 +213,25 @@ serve(async (req) => {
       // Transient refresh failure — helper preserved is_active. Mark
       // the connection as sync_delayed so the UI can render a soft
       // "will retry" state, mirroring the Google rate-limit branch.
+      const priorCount = (connection as { consecutive_delay_count?: number | null }).consecutive_delay_count ?? 0;
+      const rateUpdate = buildRateLimitedUpdate({
+        message: phase.dbMessage,
+        reason: phase.dbReason,
+        retryAfterSeconds: null, // token refresh has no Retry-After
+        consecutivePriorCount: priorCount,
+        now,
+      });
       await serviceClient
         .from('calendar_connections')
-        .update(buildRateLimitedUpdate({
-          message: phase.dbMessage,
-          reason: phase.dbReason,
-          retryAfterSeconds: null, // token refresh has no Retry-After
-          now,
-        }))
+        .update(rateUpdate)
         .eq('id', connection.id);
+      console.log('[sync-calendar] token_refresh:sync_delayed', JSON.stringify({
+        connectionId: connection.id,
+        priorCount,
+        appliedCount: rateUpdate.consecutive_delay_count,
+        appliedRetryAfterSeconds: rateUpdate.retry_after_seconds,
+        nextRetryAt: rateUpdate.next_retry_at,
+      }));
       return jsonOk(phase.response);
     }
     const accessToken = phase.accessToken;
@@ -280,10 +290,12 @@ serve(async (req) => {
           // Temporary throttling — DO NOT flip is_active or ask the user to
           // reconnect. Mark the connection as sync_delayed so the UI can
           // show a soft "will retry" state and move on.
+          const priorCount = (connection as { consecutive_delay_count?: number | null }).consecutive_delay_count ?? 0;
           const rateUpdate = buildRateLimitedUpdate({
             message: classification.message ?? `Google rate limit: ${classification.reason ?? 'unknown'}`,
             reason: classification.reason,
             retryAfterSeconds: classification.retryAfterSeconds ?? null,
+            consecutivePriorCount: priorCount,
           });
           await serviceClient
             .from('calendar_connections')
@@ -293,6 +305,8 @@ serve(async (req) => {
             connectionId: connection.id,
             reason: classification.reason,
             retryAfterSeconds: classification.retryAfterSeconds,
+            priorCount,
+            appliedCount: rateUpdate.consecutive_delay_count,
             appliedRetryAfterSeconds: rateUpdate.retry_after_seconds,
             nextRetryAt: rateUpdate.next_retry_at,
           }));
@@ -303,6 +317,7 @@ serve(async (req) => {
             reason: classification.reason ?? 'rate_limited',
             retryAfterSeconds: rateUpdate.retry_after_seconds,
             nextRetryAt: rateUpdate.next_retry_at,
+            consecutiveDelayCount: rateUpdate.consecutive_delay_count,
             error: 'Google Calendar is rate-limiting sync right now — will retry shortly.',
           });
         }
@@ -400,10 +415,12 @@ serve(async (req) => {
         if (classification.kind === 'rate_limited') {
           // Temporary throttling / upstream 5xx — keep is_active, mark as
           // sync_delayed so the UI can render a soft "will retry" state.
+          const priorCount = (connection as { consecutive_delay_count?: number | null }).consecutive_delay_count ?? 0;
           const rateUpdate = buildRateLimitedUpdate({
             message: classification.message ?? `Microsoft Graph transient error: ${classification.reason ?? 'unknown'}`,
             reason: classification.reason,
             retryAfterSeconds: classification.retryAfterSeconds ?? null,
+            consecutivePriorCount: priorCount,
           });
           await serviceClient
             .from('calendar_connections')
@@ -413,6 +430,8 @@ serve(async (req) => {
             connectionId: connection.id,
             reason: classification.reason,
             retryAfterSeconds: classification.retryAfterSeconds,
+            priorCount,
+            appliedCount: rateUpdate.consecutive_delay_count,
             appliedRetryAfterSeconds: rateUpdate.retry_after_seconds,
             nextRetryAt: rateUpdate.next_retry_at,
           }));
@@ -423,6 +442,7 @@ serve(async (req) => {
             reason: classification.reason ?? 'rate_limited',
             retryAfterSeconds: rateUpdate.retry_after_seconds,
             nextRetryAt: rateUpdate.next_retry_at,
+            consecutiveDelayCount: rateUpdate.consecutive_delay_count,
             error: 'Microsoft Calendar is throttling sync right now — will retry shortly.',
           });
         }
