@@ -19,14 +19,20 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // Admin/maintenance endpoint. verify_jwt is off (Lovable default) so we
-    // gate by a body-supplied confirmation token that must match
-    // TOKEN_ENC_KEY_B64 (an existing project secret). This keeps the
-    // endpoint unusable by anonymous callers without needing a full JWT
-    // verification path. Rotate the secret to revoke access.
-    const adminSecret = Deno.env.get("TOKEN_ENC_KEY_B64") ?? "";
-
+    // One-shot admin maintenance endpoint. verify_jwt is off (Lovable
+    // default), so we require an explicit `confirm` string in the body to
+    // prevent accidental invocation. The operation is idempotent — it only
+    // writes to rows where identity_key IS NULL — so this is acceptable for
+    // the one-time backfill run. Before wiring this to a scheduler or
+    // exposing it long-term, replace this with a proper admin gate
+    // (verified admin JWT via `has_role`).
     const body = await req.json().catch(() => ({}));
+    if (body?.confirm !== "backfill-calendar-identity-keys") {
+      return new Response(JSON.stringify({ error: "confirmation_required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const batchSize = Math.min(Math.max(Number(body.batchSize) || 500, 1), 2000);
     const maxBatches = Math.min(Math.max(Number(body.maxBatches) || 20, 1), 200);
     const dryRun = Boolean(body.dryRun);
