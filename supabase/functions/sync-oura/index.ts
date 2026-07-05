@@ -15,11 +15,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import {
-  mergeCanonicalWearableRow,
   loadWearableMergeContext,
   type WearableMergeContext,
   type ReconciliationRecord,
 } from "../_shared/wearable/canonical.ts";
+import { atomicMergeUpsertWearable } from "../_shared/wearable/atomic-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
