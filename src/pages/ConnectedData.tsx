@@ -114,7 +114,18 @@ function withAppleCalendarProvider(
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
-async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number; reconnectRequired?: boolean; skipped?: boolean; error?: string }> {
+async function triggerCalendarSync(provider: string): Promise<{
+  success: boolean;
+  eventCount?: number;
+  reconnectRequired?: boolean;
+  skipped?: boolean;
+  /** Temporary provider rate-limit / quota — NOT a hard failure. */
+  rateLimited?: boolean;
+  syncStatus?: 'sync_delayed' | 'error' | 'synced' | null;
+  retryAfterSeconds?: number | null;
+  reason?: string;
+  error?: string;
+}> {
   try {
     const token = await getAuthToken();
     if (!token) {
@@ -134,6 +145,19 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
     if (data.reconnectRequired) {
       console.warn('[ConnectedData] Calendar reconnect required:', data.reason);
       return { success: false, reconnectRequired: true, error: data.error };
+    }
+    if (data.rateLimited) {
+      console.warn('[ConnectedData] Calendar rate-limited:', JSON.stringify({
+        reason: data.reason, retryAfterSeconds: data.retryAfterSeconds,
+      }));
+      return {
+        success: false,
+        rateLimited: true,
+        syncStatus: data.syncStatus ?? 'sync_delayed',
+        retryAfterSeconds: data.retryAfterSeconds ?? null,
+        reason: data.reason,
+        error: data.error,
+      };
     }
     if (data.skipped) {
       console.warn('[ConnectedData] Sync skipped:', data.reason);
@@ -506,6 +530,9 @@ const ConnectedData = () => {
       const syncResult = await triggerCalendarSync(provider);
       if (syncResult.reconnectRequired) {
         toast.error('Calendar session expired. Please reconnect your calendar.');
+      } else if (syncResult.rateLimited) {
+        toast.warning(syncResult.error ?? 'Google Calendar is rate-limiting sync — will retry shortly.');
+        await fetchStatus();
       } else if (syncResult.skipped) {
         toast.error(syncResult.error || 'Calendar is disconnected. Reconnect to sync.');
       } else if (syncResult.success) {
@@ -624,6 +651,9 @@ const ConnectedData = () => {
     const result = await triggerCalendarSync(provider);
     if (result.reconnectRequired) {
       toast.error('Calendar session expired. Please reconnect your calendar.');
+    } else if (result.rateLimited) {
+      toast.warning(result.error ?? 'Google Calendar is rate-limiting sync — will retry shortly.');
+      await fetchStatus();
     } else if (result.skipped) {
       toast.error(result.error || 'Calendar is disconnected. Reconnect to sync.');
     } else if (result.success) {

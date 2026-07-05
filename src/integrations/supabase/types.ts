@@ -477,10 +477,15 @@ export type Database = {
           encrypted_refresh_token_id: string | null
           id: string
           is_active: boolean | null
+          last_error: string | null
+          last_error_at: string | null
+          last_error_reason: string | null
           last_sync: string | null
+          last_sync_delayed_at: string | null
           provider: string
           refresh_token_enc: string | null
           refresh_token_iv: string | null
+          sync_status: string | null
           token_enc_v: number | null
           token_expires_at: string | null
           token_iv: string | null
@@ -497,10 +502,15 @@ export type Database = {
           encrypted_refresh_token_id?: string | null
           id?: string
           is_active?: boolean | null
+          last_error?: string | null
+          last_error_at?: string | null
+          last_error_reason?: string | null
           last_sync?: string | null
+          last_sync_delayed_at?: string | null
           provider: string
           refresh_token_enc?: string | null
           refresh_token_iv?: string | null
+          sync_status?: string | null
           token_enc_v?: number | null
           token_expires_at?: string | null
           token_iv?: string | null
@@ -517,10 +527,15 @@ export type Database = {
           encrypted_refresh_token_id?: string | null
           id?: string
           is_active?: boolean | null
+          last_error?: string | null
+          last_error_at?: string | null
+          last_error_reason?: string | null
           last_sync?: string | null
+          last_sync_delayed_at?: string | null
           provider?: string
           refresh_token_enc?: string | null
           refresh_token_iv?: string | null
+          sync_status?: string | null
           token_enc_v?: number | null
           token_expires_at?: string | null
           token_iv?: string | null
