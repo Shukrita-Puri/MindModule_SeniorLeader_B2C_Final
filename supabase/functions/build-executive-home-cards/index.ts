@@ -686,7 +686,7 @@ Deno.serve(async (req) => {
     if (requestedUserId) {
       const { data, error } = await db
         .from("profiles")
-        .select("id,current_timezone,home_timezone,timezone")
+        .select("id,current_timezone,home_timezone")
         .eq("id", requestedUserId)
         .maybeSingle();
       if (error || !data) return json({ error: "profile_not_found", detail: error?.message }, 404);
@@ -694,7 +694,7 @@ Deno.serve(async (req) => {
     } else {
       const { data, error } = await db
         .from("profiles")
-        .select("id,current_timezone,home_timezone,timezone,onboarding_completed_at")
+        .select("id,current_timezone,home_timezone,onboarding_completed_at")
         .not("onboarding_completed_at", "is", null);
       if (error) return json({ error: "profiles_query_failed", detail: error.message }, 500);
       profiles = data ?? [];
