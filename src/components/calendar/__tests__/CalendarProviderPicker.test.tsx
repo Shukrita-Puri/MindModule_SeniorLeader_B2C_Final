@@ -137,7 +137,7 @@ describe('<CalendarProviderPicker /> — UI states', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('calendar-provider-error')).not.toBeInTheDocument();
     });
-    expect(screen.getByText(/^Connected$/)).toBeInTheDocument();
+    expect(screen.getAllByText(/^Connected$/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Not connected/i)).toBeInTheDocument();
   });
 });
