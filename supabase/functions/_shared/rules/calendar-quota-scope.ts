@@ -84,6 +84,12 @@ export interface QuotaCooldownUpsertInput {
    * Purely informational — used for debugging thundering-herd events.
    */
   priorHitCount?: number | null;
+  /**
+   * Existing `cooldown_until` (if any). If the incoming event would
+   * expire BEFORE the currently-persisted cooldown, we keep the
+   * longer window — see MERGE POLICY below.
+   */
+  priorCooldownUntil?: string | null;
   now?: Date;
 }
 
@@ -102,13 +108,41 @@ export function buildQuotaCooldownUpsert(
 ): QuotaCooldownUpsertRow {
   const now = input.now ?? new Date();
   const seconds = Math.max(1, Math.floor(input.finalRetryAfterSeconds));
-  const cooldownUntil = new Date(now.getTime() + seconds * 1000).toISOString();
+  const candidateMs = now.getTime() + seconds * 1000;
+  // ------------------------------------------------------------------
+  // MERGE POLICY (documented):
+  //
+  // When a new transient event arrives for a scope that is already
+  // cooling down, we keep the LATER of the existing and new
+  // `cooldown_until`. Rationale:
+  //
+  //   - Never shorten an active cooldown. If provider A already told
+  //     us "wait 30 min", a smaller Retry-After from provider B on a
+  //     different endpoint must not shrink the window.
+  //   - Extending is safe: we're only over-cautious for a few extra
+  //     minutes on the shared bucket.
+  //   - `retry_after_seconds` on the row reflects the delay that
+  //     PRODUCED the winning `cooldown_until` — so the two fields stay
+  //     consistent and don't disagree about how long the window is.
+  //   - `hit_count` always increments; it counts transient events
+  //     against the scope, not extensions of the cooldown itself.
+  // ------------------------------------------------------------------
+  let winningMs = candidateMs;
+  let winningSeconds = seconds;
+  if (input.priorCooldownUntil) {
+    const priorMs = new Date(input.priorCooldownUntil).getTime();
+    if (!Number.isNaN(priorMs) && priorMs > candidateMs) {
+      winningMs = priorMs;
+      winningSeconds = Math.max(1, Math.ceil((priorMs - now.getTime()) / 1000));
+    }
+  }
+  const cooldownUntil = new Date(winningMs).toISOString();
   const prior = Math.max(0, Math.floor(input.priorHitCount ?? 0));
   return {
     scope_key: input.scopeKey,
     provider: input.provider,
     cooldown_until: cooldownUntil,
-    retry_after_seconds: seconds,
+    retry_after_seconds: winningSeconds,
     last_reason: input.reason,
     hit_count: prior + 1,
     updated_at: now.toISOString(),
