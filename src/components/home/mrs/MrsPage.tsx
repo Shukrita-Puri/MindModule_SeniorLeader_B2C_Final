@@ -35,9 +35,10 @@ const MrsPage = () => {
   const hasScore = typeof score === 'number';
   // Phase 1 — distinguish transient compute/auth failures from true awaiting.
   const engineStatus = (outerBrief as any)?.engineStatus as
-    | 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
+    | 'ready' | 'awaiting' | 'auth-failure' | 'session-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
   const isFailureState =
     engineStatus === 'auth-failure' ||
+    engineStatus === 'session-failure' ||
     engineStatus === 'inner-failure' ||
     engineStatus === 'outer-failure' ||
     engineStatus === 'unknown-error';
@@ -99,11 +100,11 @@ const MrsPage = () => {
         {showFailureBlock && !hasScore && (
           <div className="mt-4 flex flex-col items-center text-center gap-2">
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
-              {engineStatus === 'auth-failure' ? 'Session expired' : 'Reading unavailable'}
+              {engineStatus === 'auth-failure' || engineStatus === 'session-failure' ? 'Session expired' : 'Reading unavailable'}
             </span>
             <span className="text-[11px] text-muted-foreground/60 max-w-[260px]">
-              {engineStatus === 'auth-failure'
-                ? 'Reconnecting your session. Retry to refresh your score.'
+              {engineStatus === 'auth-failure' || engineStatus === 'session-failure'
+                ? 'We couldn\u2019t verify your session. Please refresh or sign in again.'
                 : 'Couldn\'t reach the readiness service. Retry to refresh.'}
             </span>
             <button
