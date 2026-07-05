@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import {
+  computeQuotaScopeKey,
+  isScopeEligibleForSync,
+  type QuotaCooldownRow,
+} from "../_shared/rules/calendar-quota-scope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +65,44 @@ Deno.serve(async (req) => {
     const microsoftConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
     const appleConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "apple") ?? null;
     const primaryConn = googleConn ?? microsoftConn ?? appleConn; // backwards-compat single field
+
+    // Additive quota-scope debug surface. Never affects `connected` or
+    // `status`; only exposes shared cooldown timing so the UI/debug
+    // tools can explain why an otherwise-eligible connection is
+    // deferred by the scheduler.
+    const scopeKeys = [
+      googleConn ? computeQuotaScopeKey({
+        provider: 'google',
+        clientId: Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '',
+      }) : null,
+      microsoftConn ? computeQuotaScopeKey({
+        provider: 'microsoft',
+        clientId: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '',
+      }) : null,
+    ].filter((k): k is string => !!k);
+    const cooldownByScope = new Map<string, QuotaCooldownRow>();
+    if (scopeKeys.length > 0 && !calendarQueryFailed) {
+      const { data: cdRows } = await db
+        .from('calendar_quota_cooldowns')
+        .select('scope_key, provider, cooldown_until, retry_after_seconds, last_reason, hit_count, updated_at')
+        .in('scope_key', scopeKeys);
+      for (const r of cdRows ?? []) {
+        if (r?.scope_key) cooldownByScope.set(r.scope_key as string, r as QuotaCooldownRow);
+      }
+    }
+    const nowForScope = new Date();
+    const scopeDebugFor = (provider: 'google' | 'microsoft'): { quotaCooldownUntil: string | null; quotaCooldownReason: string | null; quotaCooldownActive: boolean } => {
+      const clientId = provider === 'google'
+        ? (Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '')
+        : (Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '');
+      const key = computeQuotaScopeKey({ provider, clientId });
+      const row = cooldownByScope.get(key) ?? null;
+      return {
+        quotaCooldownUntil: row?.cooldown_until ?? null,
+        quotaCooldownReason: row?.last_reason ?? null,
+        quotaCooldownActive: !isScopeEligibleForSync(row, nowForScope),
+      };
+    };
 
     const providerStatus = (conn: typeof googleConn):
       "connected" | "disconnected" | "unknown" => {
@@ -237,6 +280,7 @@ Deno.serve(async (req) => {
             retryAfterSeconds: (googleConn as { retry_after_seconds?: number | null } | null)?.retry_after_seconds ?? null,
             nextRetryAt: (googleConn as { next_retry_at?: string | null } | null)?.next_retry_at ?? null,
             consecutiveDelayCount: (googleConn as { consecutive_delay_count?: number | null } | null)?.consecutive_delay_count ?? null,
+            ...(googleConn ? scopeDebugFor('google') : {}),
           },
           microsoft: {
             connected: !!microsoftConn,
@@ -250,6 +294,7 @@ Deno.serve(async (req) => {
             retryAfterSeconds: (microsoftConn as { retry_after_seconds?: number | null } | null)?.retry_after_seconds ?? null,
             nextRetryAt: (microsoftConn as { next_retry_at?: string | null } | null)?.next_retry_at ?? null,
             consecutiveDelayCount: (microsoftConn as { consecutive_delay_count?: number | null } | null)?.consecutive_delay_count ?? null,
+            ...(microsoftConn ? scopeDebugFor('microsoft') : {}),
           },
           apple: {
             connected: !!appleConn,
