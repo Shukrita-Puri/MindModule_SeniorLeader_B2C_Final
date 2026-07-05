@@ -17,13 +17,18 @@
  */
 
 import { requireAdmin, adminCorsHeaders } from "../_shared/admin-guard.ts";
+// NOTE: Edge-function bundling forbids cross-function imports, so we mirror
+// the canonical scheduler locally (same pattern as admin-jobs-summary).
+// Keep `scheduler-local.ts` byte-identical with
+// `../build-executive-home-cards/scheduler.ts` or the audit will drift
+// from real runtime behaviour.
 import {
   defaultExecutiveHomeCronConfig,
   mergeExecutiveHomeCronConfig,
   resolveDueWindow,
   type ExecutiveHomeCronConfig,
   type TimeWindow,
-} from "../build-executive-home-cards/scheduler.ts";
+} from "./scheduler-local.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
