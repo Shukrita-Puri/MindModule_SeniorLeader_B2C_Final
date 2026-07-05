@@ -523,21 +523,23 @@ export function mergeCanonicalWearableRow(
     ) {
       const existingProvider = resolveMetricProvider(metric, existing);
       const incomingProvider = resolveMetricProvider(metric, incoming);
+      const existingProvenance = resolveMetricProvenance(metric, existing);
+      const incomingProvenance = resolveMetricProvenance(metric, incoming);
       const incomingScore = completenessScore(incomingProvider, incoming);
       const existingScore = completenessScore(existingProvider, existing);
       // Guard fires when incoming would win but has no true authority
       // advantage — the only reason it's about to overwrite is that it's
       // newer. Cross-source only (same-source updates always land).
       const crossSource =
-        incomingProvider !== 'unknown' &&
-        existingProvider !== 'unknown' &&
-        incomingProvider !== existingProvider;
+        incomingProvenance !== 'unknown' &&
+        existingProvenance !== 'unknown' &&
+        incomingProvenance !== existingProvenance;
       const incomingIsLosingSource =
         crossSource &&
         (
           (HRV_METRICS.includes(metric) && incomingScore <= existingScore) ||
-          (SLEEP_METRICS.includes(metric) && ctx.ouraDirectConnected && incomingProvider !== 'oura' && existingProvider === 'oura') ||
-          (HEART_METRICS.includes(metric) && !rowHasAppleWatch(incoming) && rowHasAppleWatch(existing))
+          (SLEEP_METRICS.includes(metric) && sleepRank(incomingProvenance, ctx) < sleepRank(existingProvenance, ctx)) ||
+          (HEART_METRICS.includes(metric) && heartRank(incomingProvenance) < heartRank(existingProvenance))
         );
 
       const deltaHrs = (incUpdated.getTime() - exiUpdated.getTime()) / 3_600_000;
@@ -555,6 +557,8 @@ export function mergeCanonicalWearableRow(
             guard_hours: guardHours,
             incoming_provider: incomingProvider,
             existing_provider: existingProvider,
+            incoming_provenance: incomingProvenance,
+            existing_provenance: existingProvenance,
             incoming_completeness: incomingScore,
             existing_completeness: existingScore,
           },
