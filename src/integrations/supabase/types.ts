@@ -646,6 +646,39 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_quota_cooldowns: {
+        Row: {
+          cooldown_until: string
+          created_at: string
+          hit_count: number
+          last_reason: string | null
+          provider: string
+          retry_after_seconds: number
+          scope_key: string
+          updated_at: string
+        }
+        Insert: {
+          cooldown_until: string
+          created_at?: string
+          hit_count?: number
+          last_reason?: string | null
+          provider: string
+          retry_after_seconds: number
+          scope_key: string
+          updated_at?: string
+        }
+        Update: {
+          cooldown_until?: string
+          created_at?: string
+          hit_count?: number
+          last_reason?: string | null
+          provider?: string
+          retry_after_seconds?: number
+          scope_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cancellation_feedback: {
         Row: {
           canceled_at: string | null
