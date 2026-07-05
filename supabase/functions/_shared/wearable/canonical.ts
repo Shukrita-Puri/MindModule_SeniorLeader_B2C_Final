@@ -385,21 +385,25 @@ export function resolveMetricProvenance(metric: string, row: WearableRowLike): P
   const tags = (apps[metric] ?? []).map((t) => t.toLowerCase());
   const rowProvenance = inferRowProvenance(row.source, row.source_provider);
 
-  const tagHasOura = tags.some((t) => t.includes('oura'));
-  const tagHasApple = tags.some((t) => t.includes('apple') || t === 'healthkit' || t.includes('watch'));
+  // Bundle-id-style tags (e.g. "com.ouraring.oura") are always HealthKit
+  // mirrors — Apple surfaces them via HKSource.bundleIdentifier. Bare
+  // provider tokens ("oura") are emitted by direct sync paths.
+  const hasBundleIdOura = tags.some((t) => t.includes('.') && t.includes('oura'));
+  const hasBareOura = tags.some((t) => t === 'oura');
+  const hasAppleTag = tags.some((t) =>
+    t === 'apple-healthkit' || t === 'apple_healthkit' || t === 'apple_health'
+    || t.includes('apple watch') || t.startsWith('com.apple.')
+    || (t.includes('apple') && t.includes('watch'))
+  );
 
-  if (tagHasOura) {
-    // If the row itself came through HealthKit, the "oura" tag is a mirror.
-    if (
-      rowProvenance === 'oura_via_apple_health' ||
-      rowProvenance === 'apple_health_native' ||
-      rowProvenance === 'third_party_via_apple_health'
-    ) {
-      return 'oura_via_apple_health';
-    }
+  if (hasBundleIdOura) return 'oura_via_apple_health';
+  if (hasBareOura) {
+    // Row context can still downgrade a bare "oura" tag if the row was
+    // explicitly written through HealthKit (defensive; iOS shouldn't do this).
+    if (rowProvenance === 'oura_via_apple_health') return 'oura_via_apple_health';
     return 'direct_oura';
   }
-  if (tagHasApple) return 'apple_health_native';
+  if (hasAppleTag) return 'apple_health_native';
 
   return rowProvenance;
 }
