@@ -492,7 +492,11 @@ export type Database = {
           updated_at: string
           user_id: string
           webhook_channel_id: string | null
+          webhook_client_state: string | null
           webhook_expiration: string | null
+          webhook_last_error: string | null
+          webhook_last_error_at: string | null
+          webhook_last_registered_at: string | null
           webhook_resource_id: string | null
         }
         Insert: {
@@ -517,7 +521,11 @@ export type Database = {
           updated_at?: string
           user_id: string
           webhook_channel_id?: string | null
+          webhook_client_state?: string | null
           webhook_expiration?: string | null
+          webhook_last_error?: string | null
+          webhook_last_error_at?: string | null
+          webhook_last_registered_at?: string | null
           webhook_resource_id?: string | null
         }
         Update: {
@@ -542,7 +550,11 @@ export type Database = {
           updated_at?: string
           user_id?: string
           webhook_channel_id?: string | null
+          webhook_client_state?: string | null
           webhook_expiration?: string | null
+          webhook_last_error?: string | null
+          webhook_last_error_at?: string | null
+          webhook_last_registered_at?: string | null
           webhook_resource_id?: string | null
         }
         Relationships: []

@@ -382,14 +382,14 @@ serve(async (req) => {
       // Failure is non-fatal — the daily cron will pick it up.
       const supaUrl = Deno.env.get('SUPABASE_URL');
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (supaUrl && serviceKey && validCallbackProvider === 'google') {
+      if (supaUrl && serviceKey && (validCallbackProvider === 'google' || validCallbackProvider === 'microsoft')) {
         fetch(`${supaUrl}/functions/v1/register-calendar-watch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY') ?? ''}`,
           },
-          body: JSON.stringify({ userId: validUserId }),
+          body: JSON.stringify({ userId: validUserId, provider: validCallbackProvider }),
         }).then(async (r) => {
           const txt = await r.text();
           console.log('[calendar-auth] register-calendar-watch enqueued user:', validUserId, 'status:', r.status, txt.slice(0, 200));

@@ -4,6 +4,7 @@ import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 import { classifyGoogleCalendarError } from "../_shared/rules/google-calendar-errors.ts";
+import { buildSuccessfulSyncUpdate } from "../_shared/rules/calendar-connection-state.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -632,18 +633,13 @@ serve(async (req) => {
         .lte('start_time', windowEndIso);
     }
 
-    // Update last_sync AND clear any lingering error / delayed state so a
-    // previous transient rate-limit blip doesn't stick as a warning after a
-    // clean successful sync.
+    // Update last_sync AND clear every lingering transient error/delay
+    // marker (including `last_sync_delayed_at`) so a previous rate-limit
+    // blip does not stick around as a stale warning after a clean sync.
+    // See supabase/functions/_shared/rules/calendar-connection-state.ts.
     await serviceClient
       .from('calendar_connections')
-      .update({
-        last_sync: new Date().toISOString(),
-        sync_status: 'synced',
-        last_error: null,
-        last_error_reason: null,
-        last_error_at: null,
-      })
+      .update(buildSuccessfulSyncUpdate())
       .eq('user_id', userId)
       .eq('provider', provider);
 
