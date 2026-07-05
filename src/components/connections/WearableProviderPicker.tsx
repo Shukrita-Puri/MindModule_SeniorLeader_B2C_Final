@@ -236,9 +236,11 @@ function WearableRow({ provider, label, iconSrc, status, onChanged, disabled }: 
               ? 'Coming soon'
               : isAppleWatch && !native
                 ? 'Available in the iOS app'
-                : connected
-                  ? lastSyncLabel ? `Last sync ${lastSyncLabel}` : 'Connected'
-                  : needsReconnect ? 'Permission revoked' : 'Not connected'}
+                : isUnknown
+                  ? 'Status unavailable'
+                  : connected
+                    ? lastSyncLabel ? `Last sync ${lastSyncLabel}` : 'Connected'
+                    : needsReconnect ? 'Permission revoked' : 'Not connected'}
           </span>
         </div>
       </div>
