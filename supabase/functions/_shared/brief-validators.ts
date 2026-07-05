@@ -68,10 +68,25 @@ const NUMBER_OR_TIME_RE = /(\d+\s*(?:%|bpm|h(?:rs?)?|min|ms|\/\d+)|\d{1,2}:\d{2}
 // signature, so it is intentionally left to prompt discipline.
 // -----------------------------------------------------------------------------
 
-// Small, deliberately generic lexicon of work-facing directive tokens. We do
-// NOT try to enumerate every valid verb — one match is enough to prove a
-// directive beat exists. Wellness / therapeutic verbs are intentionally absent
-// (those are caught by the forbidden-word gate above).
+// Deliberately broad lexicon of work-facing directive tokens. We do NOT try to
+// enumerate every valid verb — one match is enough to prove a directive beat
+// exists. Wellness / therapeutic verbs are intentionally absent (those are
+// caught by the forbidden-word gate above).
+//
+// WHY BROAD (not tightened further):
+//   • The Atomic Brief Contract retries once, then falls through to
+//     `awaiting`. A false-negative here blanks the dashboard for a valid
+//     brief, which is worse than a false-positive that lets a slightly weak
+//     directive through (still caught by lexicon + evidence gates above).
+//   • Common tokens like "keep", "take", "make", "back", "stay", "use"
+//     appear in genuine work directives ("keep answers narrow", "take the
+//     meeting cleanly", "make one call before the block"). Removing them
+//     rejects legitimate briefs; keeping them at worst passes a weak one.
+//   • Structural gates before this (sentence count, word band, evidence
+//     anchor, forbidden-word list, lexicon cluster) already exclude the
+//     most common failure modes.
+// If we ever tighten this, do it by ADDING a stricter secondary check (e.g.
+// verb-in-imperative-position), not by shrinking this list.
 const WORK_DIRECTIVE_TOKENS = [
   "lead", "open", "set", "run", "block", "front-load", "front load",
   "reserve", "protect", "save", "pick", "pace", "hold", "keep", "execute",
