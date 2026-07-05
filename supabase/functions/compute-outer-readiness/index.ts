@@ -3460,10 +3460,11 @@ serve(async (req) => {
             .eq('prompt_version', BRIEF_PROMPT_VERSION)
             .maybeSingle();
           if (snapshot) {
-            // LLM snapshots are preferred, but deterministic snapshots are
-            // valid fallback briefs when the Stage 1/2 signal contract is met.
-            // Awaiting/null snapshots are ignored so true cold-start rows never
-            // replay as live content.
+            // LLM snapshots are the current write path (v6.5). Older rows may
+            // still carry `brief_source='deterministic'` from pre-v6.5 writes;
+            // they remain readable so we don't blank the dashboard on legacy
+            // cache hits. Awaiting/null snapshots are ignored so true
+            // cold-start rows never replay as live content.
             const cacheableSource =
               snapshot.brief_source === 'llm' ||
               snapshot.brief_source === 'deterministic';
@@ -5102,7 +5103,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       'score-trajectory': 'score-trajectory',
     };
 
-    // Helper: format deterministic fallback into "SIGNAL · SOURCE" format (Chief of Staff Memory)
+    // Helper: format a shared-module signal row (rule/pattern derivation) into
+    // the "SIGNAL · SOURCE" pill format used by the Chief of Staff Memory
+    // strip. These strings are surfaced alongside — not instead of — the LLM
+    // brief; the v6.5 contract removed the prose-fallback path entirely.
     const formatFallbackSignal = (text: string, source: string): string => {
       // Strip existing parenthetical source if present
       let cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -5127,6 +5131,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       return `${signal} · ${sourceLabels[source] || 'SYSTEM'}`;
     };
 
+    // Named for legacy parity with older writes; these are now the
+    // formatted shared-module signal strings, not a prose fallback.
     const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
     const formattedDeterministicWatchFor = formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
 
@@ -5140,12 +5146,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
     try {
     // v6.5-no-deterministic-fallback contract:
-    //   • cache hit → render the cached brief (llm or legacy deterministic row)
+    //   • cache hit → render the cached brief (LLM row, or a pre-v6.5 row
+    //                 stamped brief_source='deterministic')
     //   • fresh LLM success → render it
     //   • fresh LLM miss (all attempts failed) → briefIsAwaiting=true; the
     //     response nulls phrase/body/leanOn/watchFor and persists
-    //     brief_source='awaiting' so a later read cannot resurrect
-    //     deterministic finalPhrase/finalContext strings.
+    //     brief_source='awaiting'. There is no runtime prose-fallback path;
+    //     legacy deterministic phrasing can only appear via a cache hit on a
+    //     pre-v6.5 row.
     // Signal-contract awaiting (`awaitingSignals`, computed below) is a
     // separate, orthogonal suppression path and remains intact.
     const briefIsAwaiting = !cachedSnapshot && !llmBrief;

@@ -36,10 +36,17 @@ export type DayType =
   | "weekend_sunday"
   | "travel"
   | "pto"
-  | "public_holiday"
   | "pto_with_meeting"
   | "light_day"
   | "week_ahead"; // last-day-PTO / last-day-holiday / long-weekend
+
+// NOTE ON `public_holiday`: the canonical PTO/holiday detector
+// (`isPtoOrHolidayTitle` in _shared/ceo-behaviour/pto-holiday.ts) intentionally
+// collapses PTO and public holidays into a single behaviour cluster (both use
+// the same `holidayReducedTouch` cadence: morning-only + optional
+// `pto_with_meeting` fallback). We therefore do NOT emit a separate
+// `public_holiday` day-type — it would be a distinction without a runtime
+// difference. Add one only if PTO and public-holiday cadences ever diverge.
 
 export interface DayTypeEventLite {
   title: string | null;
@@ -58,8 +65,11 @@ export interface DayTypeInput {
   tomorrowEvents: DayTypeEventLite[];
   /** travel_state row from effective-timezone.ts. `null` = no row. */
   travel: { state?: string | null } | null;
-  /** Number of consecutive off-days that just preceded today. Optional; when
-   *  omitted the long-weekend branch of week-ahead never triggers. */
+  /** Number of consecutive off-days that just preceded today (weekend day or
+   *  all-day PTO/holiday event). The orchestrator hydrates this from a small
+   *  2-day lookback so the `last_day_long_weekend` branch of week-ahead can
+   *  actually fire. Defaults to 0 — leaving it unset just disables that
+   *  branch, it never breaks the resolver. */
   consecutiveOffDaysBefore?: number;
 }
 
@@ -90,6 +100,26 @@ function hasRealMeeting(events: DayTypeEventLite[]): boolean {
     // event is enough to count as "a meeting slipped in".
     return true;
   });
+}
+
+/**
+ * Total meeting minutes today across real meetings (excluding all-day,
+ * PTO/holiday, and travel-titled events). Used by the light-day heuristic so
+ * "one 3-hour offsite" is not mistaken for a light day just because it is a
+ * single event.
+ */
+function realMeetingMinutes(events: DayTypeEventLite[]): number {
+  let mins = 0;
+  for (const e of events) {
+    if (e.is_all_day === true) continue;
+    if (isPtoOrHolidayTitle(e.title ?? "")) continue;
+    if (isTravelTitle(e.title ?? "")) continue;
+    const start = Date.parse(e.start_time);
+    const end = Date.parse(e.end_time);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    mins += Math.round((end - start) / 60000);
+  }
+  return mins;
 }
 
 function isPtoAllDayTomorrow(events: DayTypeEventLite[]): boolean {
@@ -133,6 +163,7 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   const travelDay = isTravelActive(input.travel, input.todayEvents);
   const ptoToday = isPtoAllDayToday(input.todayEvents);
   const meetingToday = hasRealMeeting(input.todayEvents);
+  const meetingMinutesToday = realMeetingMinutes(input.todayEvents);
   const ptoTomorrow = isPtoAllDayTomorrow(input.tomorrowEvents);
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
@@ -229,15 +260,28 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     };
   }
 
-  // 5. LIGHT DAY — workday with zero real meetings. Conservative heuristic:
-  //    skip the afternoon regen (there is no midday load to react to) but
-  //    keep morning + evening for orientation and close-out.
-  if (!isWeekend && !meetingToday) {
+  // 5. LIGHT DAY — workday with negligible meeting load. Skip the afternoon
+  //    regen (there is no midday load to react to) but keep morning + evening
+  //    for orientation and close-out.
+  //
+  //    Heuristic: workday with either zero real meetings OR total real-meeting
+  //    load < 60 min (a couple of short syncs, no anchoring block). A single
+  //    long meeting (offsite, board slot, 90-min interview) intentionally
+  //    trips out of light-day so the afternoon regen still fires. This mirrors
+  //    the demand-score intent of `context.calendarDemandScore` used
+  //    downstream, without duplicating that scoring inside the resolver.
+  const LIGHT_DAY_MEETING_MINUTES_MAX = 60;
+  if (
+    !isWeekend &&
+    (!meetingToday || meetingMinutesToday < LIGHT_DAY_MEETING_MINUTES_MAX)
+  ) {
     return {
       dayType: "light_day",
       allowedWindows: new Set<TimeWindow>(["morning", "evening"]),
       weekAheadReason: null,
-      evidence: ["workday_no_meetings"],
+      evidence: meetingToday
+        ? [`workday_low_load=${meetingMinutesToday}min`]
+        : ["workday_no_meetings"],
     };
   }
 

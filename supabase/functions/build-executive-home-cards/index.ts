@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
+import { isPtoOrHolidayTitle } from "../_shared/ceo-behaviour/pto-holiday.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import {
   localParts,
@@ -104,14 +105,18 @@ async function countTodayEvents(db: any, userId: string, localDate: string) {
   return mergeCalendarEvents((data || []) as any[], "unknown").length;
 }
 
-// Fetch merged (deduped) event slices for today + tomorrow. Used by the
-// centralized day-type resolver so the orchestrator can decide cadence BEFORE
-// dispatching to MRS/Brief/Plan.
+// Fetch merged (deduped) event slices for today + tomorrow, plus a small
+// 2-day lookback used to hydrate `consecutiveOffDaysBefore` for the day-type
+// resolver. A day is considered "off" when it is either a weekend day (Sat/Sun)
+// OR contains an all-day PTO/holiday event (per the canonical
+// `isPtoOrHolidayTitle` detector). The lookback stops at the first working
+// day so a mid-week holiday doesn't inflate the count.
 async function loadDayTypeEventSlices(
   db: any,
   userId: string,
   localDate: string,
-): Promise<{ todayEvents: any[]; tomorrowEvents: any[] }> {
+  effectiveTimezone: string,
+): Promise<{ todayEvents: any[]; tomorrowEvents: any[]; consecutiveOffDaysBefore: number }> {
   const start = `${localDate}T00:00:00`;
   const end = `${localDate}T23:59:59`;
   const tomorrow = new Date(`${localDate}T00:00:00Z`);
@@ -120,7 +125,17 @@ async function loadDayTypeEventSlices(
   const tStart = `${tomorrowDate}T00:00:00`;
   const tEnd = `${tomorrowDate}T23:59:59`;
 
-  const [todayRes, tomorrowRes] = await Promise.all([
+  // Lookback: cover the two days immediately preceding today. That's enough
+  // for `last_day_long_weekend` (which triggers at ≥2 consecutive off-days).
+  const dayBack = (n: number) => {
+    const d = new Date(`${localDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+  const y1 = dayBack(1);
+  const y2 = dayBack(2);
+
+  const [todayRes, tomorrowRes, lookbackRes] = await Promise.all([
     db
       .from("calendar_events")
       .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
@@ -133,11 +148,55 @@ async function loadDayTypeEventSlices(
       .eq("user_id", userId)
       .gte("start_time", tStart)
       .lte("start_time", tEnd),
+    db
+      .from("calendar_events")
+      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
+      .eq("user_id", userId)
+      .gte("start_time", `${y2}T00:00:00`)
+      .lte("start_time", `${y1}T23:59:59`),
   ]);
+
+  // Weekday lookup in the user's local timezone (0=Sun … 6=Sat).
+  const weekdayLocal = (isoDate: string): number => {
+    const short = new Intl.DateTimeFormat("en-US", {
+      timeZone: effectiveTimezone,
+      weekday: "short",
+    })
+      .format(new Date(`${isoDate}T12:00:00Z`))
+      .toLowerCase()
+      .slice(0, 3);
+    return short === "sun" ? 0
+      : short === "mon" ? 1
+      : short === "tue" ? 2
+      : short === "wed" ? 3
+      : short === "thu" ? 4
+      : short === "fri" ? 5
+      : 6;
+  };
+
+  const lookbackEvents = mergeCalendarEvents((lookbackRes.data || []) as any[], "unknown") as any[];
+  const hasAllDayPtoOn = (isoDate: string) =>
+    lookbackEvents.some((e: any) =>
+      e.is_all_day === true &&
+      isPtoOrHolidayTitle(e.title ?? "") &&
+      typeof e.start_time === "string" &&
+      e.start_time.slice(0, 10) === isoDate,
+    );
+  const isOffDay = (isoDate: string) => {
+    const dow = weekdayLocal(isoDate);
+    return dow === 0 || dow === 6 || hasAllDayPtoOn(isoDate);
+  };
+
+  let consecutive = 0;
+  for (const iso of [y1, y2]) {
+    if (isOffDay(iso)) consecutive += 1;
+    else break;
+  }
 
   return {
     todayEvents: mergeCalendarEvents((todayRes.data || []) as any[], "unknown") as any[],
     tomorrowEvents: mergeCalendarEvents((tomorrowRes.data || []) as any[], "unknown") as any[],
+    consecutiveOffDaysBefore: consecutive,
   };
 }
 
@@ -452,13 +511,14 @@ async function buildForUser(db: any, args: {
   // ---------------------------------------------------------------------------
   let dayTypeDecision: DayTypeDecision | null = null;
   try {
-    const slices = await loadDayTypeEventSlices(db, userId, localDate);
+    const slices = await loadDayTypeEventSlices(db, userId, localDate, effectiveTimezone);
     dayTypeDecision = resolveDayTypeAndCadence({
       effectiveTimezone,
       now: new Date(),
       todayEvents: slices.todayEvents as any,
       tomorrowEvents: slices.tomorrowEvents as any,
       travel: travel ?? null,
+      consecutiveOffDaysBefore: slices.consecutiveOffDaysBefore,
     });
   } catch (err) {
     // Fail-open: never let a day-type lookup take down the orchestrator run.
