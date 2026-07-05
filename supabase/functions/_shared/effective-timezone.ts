@@ -94,14 +94,12 @@ export async function resolveEffectiveTimezone(
 
   const profileCurrent = isIanaTimezone(profile?.current_timezone) ? profile.current_timezone : null;
   const profileHome = isIanaTimezone(profile?.home_timezone) ? profile.home_timezone : null;
-  const profileLegacy = isIanaTimezone(profile?.timezone) ? profile.timezone : null;
   const travelTimezone = isIanaTimezone(travel?.last_known_timezone) ? travel.last_known_timezone : null;
   const isAway = Boolean(travel?.state && travel.state !== "not_travelling");
   const respectTravelTimezone = options?.respectTravelTimezone !== false;
   const effectiveTimezone =
     (respectTravelTimezone && isAway && (travelTimezone || profileCurrent))
     || profileCurrent
-    || profileLegacy
     || profileHome
     || "UTC";
 
