@@ -67,24 +67,41 @@ Deno.serve(async (req) => {
       return conn ? "connected" : "disconnected";
     };
 
-    // Check Oura connection (full state model)
-    const { data: ouraConn } = await db
+    // Check Oura connection (full state model).
+    // As with the calendar branch we MUST NOT silently map a query failure to
+    // "disconnected" — that would flip real Oura connections to Not connected
+    // on any transient DB blip. Surface an explicit error marker instead.
+    const { data: ouraConn, error: ouraError } = await db
       .from("oura_connections")
       .select("id, is_active, last_sync, last_sample_at, last_error, last_error_at, connection_status, sync_status, created_at, updated_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (ouraError) {
+      logIntegrationEvent("oura_connection_status_query_failure", {
+        userId,
+        errorReason: ouraError.message,
+        errorCode: ouraError.code,
+      });
+    }
 
-    const { data: anyWearable } = await db
+    const { data: anyWearable, error: wearableError } = await db
       .from("wearable_data")
       .select("id, updated_at, summary_date, source, source_provider, source_apps")
       .eq("user_id", userId)
       .order("summary_date", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (wearableError) {
+      logIntegrationEvent("wearable_data_status_query_failure", {
+        userId,
+        errorReason: wearableError.message,
+        errorCode: wearableError.code,
+      });
+    }
 
-    const { data: watchIntegration } = await db
+    const { data: watchIntegration, error: watchIntegrationError } = await db
       .from("user_integrations")
       .select(`
         watch_type,
@@ -100,26 +117,45 @@ Deno.serve(async (req) => {
       `)
       .eq("user_id", userId)
       .maybeSingle();
+    if (watchIntegrationError) {
+      logIntegrationEvent("user_integrations_status_query_failure", {
+        userId,
+        errorReason: watchIntegrationError.message,
+        errorCode: watchIntegrationError.code,
+      });
+    }
 
-    const hasHistoricalData = !!anyWearable;
+    // The Apple Watch branch derives its state from BOTH `wearable_data` (for
+    // historical rows / inferred connection) AND `user_integrations` (for the
+    // authoritative watch status columns). If either query failed we cannot
+    // safely derive "disconnected" or "no historical data" — we must return
+    // an explicit unknown/error state.
+    const ouraQueryFailed = !!ouraError;
+    const appleWatchQueryFailed = !!wearableError || !!watchIntegrationError;
+
+    const hasHistoricalData = wearableError ? null : !!anyWearable;
     const latestWearableSource = (anyWearable as { source?: string | null } | null)?.source ?? null;
     // Detect Oura-via-Apple-Health from latest day. `source_provider` is
     // set by the iOS native bridge when HealthKit sample sources resolve to Oura.
     const sourceProvider = (anyWearable as { source_provider?: string } | null)?.source_provider ?? null;
     const ouraDetectedViaAppleHealth = sourceProvider === "oura_via_apple_health";
     const inferredAppleHistoricalConnection = !watchIntegration
-      && hasHistoricalData
+      && hasHistoricalData === true
       && (
         (latestWearableSource?.toLowerCase().includes("apple") ?? false)
         || (sourceProvider?.toLowerCase().includes("apple") ?? false)
       );
-    const connectionStatus = watchIntegration?.watch_connection_status
+    const connectionStatus = appleWatchQueryFailed
+      ? "unknown"
+      : watchIntegration?.watch_connection_status
       ?? (watchIntegration?.watch_type
         ? "connected"
         : inferredAppleHistoricalConnection
           ? "connected"
           : "disconnected");
-    let syncStatus = watchIntegration?.watch_sync_status
+    let syncStatus = appleWatchQueryFailed
+      ? "unknown"
+      : watchIntegration?.watch_sync_status
       ?? (inferredAppleHistoricalConnection ? "sync_delayed" : "unknown");
 
     if (
@@ -136,10 +172,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Same 24h stale heuristic for Oura
-    let ouraConnectionStatus = ouraConn?.connection_status ?? "disconnected";
-    let ouraSyncStatus = ouraConn?.sync_status ?? "unknown";
+    // Same 24h stale heuristic for Oura. If the oura_connections query
+    // failed we return `unknown` for both fields instead of the false
+    // "disconnected" default.
+    let ouraConnectionStatus = ouraQueryFailed
+      ? "unknown"
+      : ouraConn?.connection_status ?? "disconnected";
+    let ouraSyncStatus = ouraQueryFailed
+      ? "unknown"
+      : ouraConn?.sync_status ?? "unknown";
     if (
+      !ouraQueryFailed &&
       ouraConn?.is_active &&
       ouraConnectionStatus === "connected" &&
       ouraSyncStatus === "synced" &&
@@ -200,19 +243,28 @@ Deno.serve(async (req) => {
         },
       },
       oura: {
-        connected: !!ouraConn?.is_active && ouraConnectionStatus === "connected",
+        // On query failure we do NOT emit `connected: false`; keep it null so
+        // legacy clients that only read the boolean can detect the transient
+        // state instead of rendering as "Disconnected".
+        connected: ouraQueryFailed
+          ? null
+          : (!!ouraConn?.is_active && ouraConnectionStatus === "connected"),
         connectionStatus: ouraConnectionStatus,
         syncStatus: ouraSyncStatus,
-        hasHistoricalData,
+        hasHistoricalData: wearableError ? null : hasHistoricalData,
         needsReconnect: ouraConnectionStatus === "permission_revoked",
         lastSync: ouraConn?.last_sync || null,
         lastSampleAt: ouraConn?.last_sample_at || null,
         lastError: ouraConn?.last_error || null,
         lastErrorAt: ouraConn?.last_error_at || null,
         statusUpdatedAt: ouraConn?.updated_at || null,
+        status: ouraQueryFailed ? "error" : "ok",
+        ...(ouraQueryFailed
+          ? { error: "query_failed", errorMessage: ouraError?.message ?? null }
+          : {}),
       },
       appleWatch: {
-        connected: connectionStatus === "connected",
+        connected: appleWatchQueryFailed ? null : connectionStatus === "connected",
         connectionStatus,
         syncStatus,
         hasHistoricalData,
@@ -227,6 +279,17 @@ Deno.serve(async (req) => {
         sourceProvider,
         ouraDetectedViaAppleHealth,
         sourceApps: (anyWearable as { source_apps?: Record<string, string[]> } | null)?.source_apps ?? null,
+        status: appleWatchQueryFailed ? "error" : "ok",
+        ...(appleWatchQueryFailed
+          ? {
+              error: "query_failed",
+              errorMessage: wearableError?.message ?? watchIntegrationError?.message ?? null,
+              erroredSources: [
+                wearableError ? "wearable_data" : null,
+                watchIntegrationError ? "user_integrations" : null,
+              ].filter(Boolean),
+            }
+          : {}),
       },
     };
 
