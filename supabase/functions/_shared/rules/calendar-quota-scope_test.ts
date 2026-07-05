@@ -99,6 +99,66 @@ Deno.test("buildQuotaCooldownUpsert: increments prior hit_count", () => {
   assertEquals(row.hit_count, 8);
 });
 
+// ------------------------------ Merge policy
+
+Deno.test("merge policy: keeps LATER of existing vs new cooldown_until", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  // Existing cooldown expires far in the future (10:30).
+  // New event only wants 60s (would expire 10:01) → keep existing.
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x",
+    provider: "google",
+    finalRetryAfterSeconds: 60,
+    reason: "userRateLimitExceeded",
+    priorHitCount: 3,
+    priorCooldownUntil: "2026-07-05T10:30:00.000Z",
+    now,
+  });
+  assertEquals(row.cooldown_until, "2026-07-05T10:30:00.000Z");
+  // retry_after_seconds reflects the WINNING window (30 min from now).
+  assertEquals(row.retry_after_seconds, 1800);
+  assertEquals(row.hit_count, 4);
+});
+
+Deno.test("merge policy: new event extends when it would expire LATER", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x",
+    provider: "google",
+    finalRetryAfterSeconds: 3600, // 1 hour → expires 11:00
+    reason: "quotaExceeded",
+    priorCooldownUntil: "2026-07-05T10:05:00.000Z", // existing 5 min
+    now,
+  });
+  assertEquals(row.cooldown_until, "2026-07-05T11:00:00.000Z");
+  assertEquals(row.retry_after_seconds, 3600);
+});
+
+Deno.test("merge policy: hit_count increments even when cooldown_until unchanged", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x", provider: "google",
+    finalRetryAfterSeconds: 60,
+    reason: null, priorHitCount: 9,
+    priorCooldownUntil: "2026-07-05T10:30:00.000Z", // wins
+    now,
+  });
+  assertEquals(row.hit_count, 10);
+});
+
+Deno.test("merge policy: unparseable prior cooldown falls back to new (fails open)", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x", provider: "google",
+    finalRetryAfterSeconds: 300,
+    reason: null,
+    priorCooldownUntil: "not-a-date",
+    now,
+  });
+  assertEquals(row.cooldown_until, "2026-07-05T10:05:00.000Z");
+  assertEquals(row.retry_after_seconds, 300);
+});
+
 // ------------------------------ Lifecycle: cross-connection coordination
 
 Deno.test("lifecycle: same-scope Google throttle extends shared cooldown; other scope untouched", () => {
