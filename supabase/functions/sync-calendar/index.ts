@@ -5,39 +5,15 @@ import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 import { classifyGoogleCalendarError } from "../_shared/rules/google-calendar-errors.ts";
 import { buildSuccessfulSyncUpdate } from "../_shared/rules/calendar-connection-state.ts";
+import {
+  ensureFreshAccessToken,
+  type OAuthClientConfig,
+} from "../_shared/calendar-token-refresh.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// ========== AES-256-GCM Helpers ==========
-function b64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-function bytesToB64(bytes: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
-async function encryptJson(payload: unknown, keyB64: string): Promise<{ ivB64: string; ctB64: string }> {
-  const keyBytes = b64ToBytes(keyB64);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, ["encrypt"]);
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(JSON.stringify(payload))));
-  return { ivB64: bytesToB64(iv), ctB64: bytesToB64(ct) };
-}
-async function decryptJson(ctB64: string, ivB64: string, keyB64: string): Promise<unknown> {
-  const keyBytes = b64ToBytes(keyB64);
-  const iv = b64ToBytes(ivB64);
-  const ct = b64ToBytes(ctB64);
-  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, ["decrypt"]);
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv.buffer as ArrayBuffer }, key, ct.buffer as ArrayBuffer);
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
-}
 
 // Helper: safe 200 JSON response
 function jsonOk(body: Record<string, unknown>): Response {
@@ -59,9 +35,6 @@ async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   if (!info.sub) throw new Error('Token missing sub claim');
   return info.sub;
 }
-
-// Token refresh buffer: refresh 5 minutes before expiry
-const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 type AttendeeSignal = {
   displayName: string | null;
