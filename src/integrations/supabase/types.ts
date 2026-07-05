@@ -472,6 +472,7 @@ export type Database = {
       calendar_connections: {
         Row: {
           access_token_enc: string | null
+          consecutive_delay_count: number
           created_at: string
           encrypted_access_token_id: string | null
           encrypted_refresh_token_id: string | null
@@ -503,6 +504,7 @@ export type Database = {
         }
         Insert: {
           access_token_enc?: string | null
+          consecutive_delay_count?: number
           created_at?: string
           encrypted_access_token_id?: string | null
           encrypted_refresh_token_id?: string | null
@@ -534,6 +536,7 @@ export type Database = {
         }
         Update: {
           access_token_enc?: string | null
+          consecutive_delay_count?: number
           created_at?: string
           encrypted_access_token_id?: string | null
           encrypted_refresh_token_id?: string | null
