@@ -195,8 +195,10 @@ serve(async (req) => {
     const now = new Date();
 
     // Shared quota-scope coordination. Every transient outcome below
-    // additionally upserts a `calendar_quota_cooldowns` row keyed by
-    // provider + oauth client id, so many rows sharing the same
+    // additionally upserts a `calendar_quota_cooldowns` row. The
+    // canonical conflict key is `scope_key` (the table's PRIMARY KEY),
+    // which already namespaces the provider — e.g. `google:<clientId>`
+    // or `microsoft:<clientId>` — so many rows sharing the same
     // upstream quota bucket can be suppressed collectively by the
     // scheduler. See `_shared/rules/calendar-quota-scope.ts` for the
     // success-policy rationale (per-connection success does NOT clear
