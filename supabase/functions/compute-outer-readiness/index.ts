@@ -5009,7 +5009,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
           }
           if (!llmBrief) {
-            console.log(`[compute-outer-readiness] [LLM] FALLBACK to deterministic | reason=${llmFallbackReason || 'unknown'} | models_tried=${llmAttempts.map(a => a.model).join(',')} | promptChars=${sysPromptLen + userPromptLen}`);
+            // v6.5 contract: LLM miss no longer renders deterministic prose.
+            // The response falls to `awaiting` (see briefIsAwaiting below).
+            console.log(`[compute-outer-readiness] [LLM] FALLBACK to awaiting | reason=${llmFallbackReason || 'unknown'} | models_tried=${llmAttempts.map(a => a.model).join(',')} | promptChars=${sysPromptLen + userPromptLen}`);
           }
     }
 
@@ -5027,7 +5029,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       hasLlmBrief: !!llmBrief,
     });
 
-    console.log(`[compute-outer-readiness] DRB brief source: ${llmBrief ? 'llm' : 'deterministic'}`);
+    console.log(`[compute-outer-readiness] DRB brief source: ${llmBrief ? 'llm' : 'awaiting'}`);
 
     // Map leanOn source to human-readable label
     const sourceMap: Record<string, string> = {
