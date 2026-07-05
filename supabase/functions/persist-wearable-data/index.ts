@@ -354,27 +354,15 @@ Deno.serve(async (req) => {
       if (eff != null) row.sleep_efficiency = eff;
     }
 
-    const { data: existingRow } = await db
-      .from("wearable_data")
-      .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
-      .eq("user_id", userId)
-      .eq("summary_date", summary_date)
-      .maybeSingle();
     const legacyCtx = await getCtx(summary_date);
     const legacyRecon: ReconciliationRecord[] = [];
-    const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row, {
+    const legacyRes = await atomicMergeUpsertWearable(db, userId, summary_date, row, {
       context: legacyCtx,
       onReconciliation: (r) => legacyRecon.push(r),
     });
     for (const r of legacyRecon) await logReconciliation(summary_date, r);
-
-    // Use upsert instead of select-then-update/insert to eliminate race conditions
-    const { error } = await db
-      .from("wearable_data")
-      .upsert(mergedRow, { onConflict: "user_id,summary_date" });
-
-    if (error) {
-      console.error("[persist-wearable-data] DB error:", error);
+    if (!legacyRes.ok) {
+      console.error("[persist-wearable-data] atomic upsert failed:", legacyRes.error);
       return new Response(
         JSON.stringify({ error: "Failed to persist wearable data" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
