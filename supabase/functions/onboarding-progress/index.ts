@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,7 +134,7 @@ Deno.serve(async (req) => {
         if (updateErr) throw updateErr;
       }
 
-      console.log(`[onboarding-progress] ✅ Step '${step}' recorded for user:`, userId);
+      console.log(`[onboarding-progress] ✅ Step '${step}' recorded for user:`, redactUserId(userId));
       return new Response(
         JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
