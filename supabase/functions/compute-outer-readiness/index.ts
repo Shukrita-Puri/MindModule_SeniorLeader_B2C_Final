@@ -18,6 +18,11 @@ import {
   buildBehaviourSnapshot,
   type BehaviourSnapshotResult,
 } from "../_shared/behaviour-snapshot.ts";
+// §5.1 / §5.2 Atomic Brief Contract validator. Enforced after the per-model
+// `normalizeLlmBrief` gate so forbidden words, missing lexicon cluster,
+// missing signal evidence, and unanchored pattern references all trigger
+// the same retry-once-then-awaiting path as the other validator rejects.
+import { validateBrief } from "../_shared/brief-validators.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
@@ -4936,6 +4941,57 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     continue; // Try next model
                   }
 
+                  // ── §5.1 / §5.2 Atomic Brief Contract gate ──
+                  // Runs after normalizeLlmBrief so the forbidden-word,
+                  // Elastic Lexicon cluster, Signal Evidence, and §2.19.1
+                  // pattern-relevance checks are enforced at runtime rather
+                  // than being prompt-only. Rejection is treated exactly
+                  // like the normaliser's validator_reject: log + push
+                  // per-attempt diagnostics + `continue` to the next model.
+                  // If every attempt fails, `llmBrief` stays null and the
+                  // downstream `briefIsAwaiting` gate returns an awaiting
+                  // Brief — never deterministic fallback prose.
+                  const atomicCtx: any = {
+                    signals: {
+                      highStakesEventInNext24h: nextHighStakesEvent
+                        ? { title: nextHighStakesEvent.title, minutesUntil: nextHighStakesEvent.minutesUntil }
+                        : null,
+                      emotionalDrainEventInNext4h: null,
+                    },
+                    behaviourFlags: [
+                      ...(briefBehaviourSnapshot?.flagsBrief ?? []),
+                      ...(briefBehaviourSnapshot?.flagsPlan ?? []),
+                    ],
+                    lexiconClusters: [],
+                    forbiddenWords: [],
+                    allowedPatternKeywords: [],
+                  };
+                  const atomic = validateBrief(
+                    normalized.brief.phrase,
+                    normalized.brief.bodyText,
+                    atomicCtx,
+                  );
+                  if (!atomic.ok) {
+                    const reason = atomic.reason || 'atomic_reject';
+                    llmFallbackReason = `attempt${attempt}_atomic_${reason}`;
+                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} atomic-rejected: ${reason} | model=${model} | duration=${durationMs}ms | phrase="${normalized.brief.phrase}"`);
+                    llmAttemptRecords.push({
+                      model, attempt, durationMs,
+                      outcome: 'atomic_validator_reject',
+                      rawReason: `attempt${attempt}_atomic_${reason}`,
+                      validatorRule: reason,
+                      httpStatus: 200,
+                      errorMessageHead: null,
+                    });
+                    llmValidatorRejections.push({
+                      attempt, model, rule: reason,
+                      layer: 'atomic',
+                      phrasePreview: normalized.brief.phrase.slice(0, 80),
+                      bodyPreview: normalized.brief.bodyText.slice(0, 100),
+                    });
+                    continue; // Try next model; retry-once-then-awaiting.
+                  }
+
                   llmBrief = normalized.brief;
                   llmFallbackReason = null;
                   llmAttemptRecords.push({
@@ -4945,7 +5001,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     httpStatus: 200,
                     errorMessageHead: null,
                   });
-                  console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED in ${durationMs}ms | model=${model} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
+                  console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED (normaliser + atomic) in ${durationMs}ms | model=${model} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
                   break;
                 } catch (parseErr) {
                   llmFallbackReason = `attempt${attempt}_parse_failed`;
