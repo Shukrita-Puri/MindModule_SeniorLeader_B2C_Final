@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.calendar_quota_cooldowns_provider_scope_key_uidx;
