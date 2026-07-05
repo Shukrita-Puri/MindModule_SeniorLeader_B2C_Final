@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
+import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -141,6 +142,13 @@ serve(async (req) => {
         attendees_count: e.attendees_count,
         is_recurring: e.is_recurring,
         event_metadata: { ...e.event_metadata, source: 'apple_calendar', eventType, isHighStakes },
+        // Phase 2 write-time dedupe foundation. See sync-calendar for
+        // the shared contract. Null when title/times are missing.
+        identity_key: computeIdentityKey({
+          title: e.title,
+          start_time: e.start_time,
+          end_time: e.end_time,
+        }),
       };
     });
 
