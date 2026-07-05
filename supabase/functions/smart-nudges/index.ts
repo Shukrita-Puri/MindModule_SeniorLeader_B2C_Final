@@ -263,6 +263,7 @@ import {
 } from '../_shared/ceo-behaviour/travel.ts';
 import { EVENT_PHASE_MAP } from '../_shared/events/event-phase-map.ts';
 import { PROTOCOL_COMBOS } from '../_shared/protocols/protocol-combos.ts';
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 // ── Canonical Travel-phase copy adapter ──
 // Mirrors the `copyForPhase` pattern used by `travel-notifications`. Smart-
@@ -2704,7 +2705,7 @@ async function evaluateNudgeOne(
           (evtBucket && (ref.includes(evtBucket) || title.includes(evtBucket))));
       });
       if (prepDone) {
-        console.log(`[smart-nudges][v5.3] JIT silenced (prep_already_done) user=${ctx.userId} event=${evt.externalId}`);
+        console.log(`[smart-nudges][v5.3] JIT silenced (prep_already_done) user=${redactUserId(ctx.userId)} event=${evt.externalId}`);
         continue;
       }
 
@@ -3001,7 +3002,7 @@ async function evaluateNudgeTwo(
  */
 async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
   const log = (reason: string, extra?: unknown) =>
-    console.log(`[nudge_three] user=${ctx.userId} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
+    console.log(`[nudge_three] user=${redactUserId(ctx.userId)} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
 
   if (alreadySentTypes.has('nudge_three') || alreadySentTypes.has('evening_close')) {
     log('already_sent_today');
@@ -3207,7 +3208,7 @@ async function evaluateWeekAheadPickerInvite(
   weeklyAlreadySent: boolean,
 ): Promise<QualifiedNudge | null> {
   const log = (reason: string, extra?: unknown) =>
-    console.log(`[smart-nudges] week_ahead_picker_invite user=${ctx.userId} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
+    console.log(`[smart-nudges] week_ahead_picker_invite user=${redactUserId(ctx.userId)} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
 
   // §17.7 - ISO-week idempotency. At most ONE picker invite per user per
   // ISO week, regardless of reason. The weekly window is computed by the
@@ -3865,7 +3866,7 @@ serve(async (req) => {
       const isForcedUser = forceUserId !== null && forceUserId === userId;
       // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) - kills 6/7am sends
       if (!isForcedUser && (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL)) {
-        console.log(`[smart-nudges][v5] User ${userId} outside global window (${localTime.toFixed(1)}). Skipping.`);
+        console.log(`[smart-nudges][v5] User ${redactUserId(userId)} outside global window (${localTime.toFixed(1)}). Skipping.`);
         trace(userId, 'outside_global_window', {
           ...traceBase,
           metadata: { local_time: localTime, earliest: GLOBAL_EARLIEST_LOCAL, latest: GLOBAL_LATEST_LOCAL },
@@ -4017,7 +4018,7 @@ serve(async (req) => {
             ttlSeconds: periodTtlSeconds('evening', localTime),
             collapseId: periodCollapseId('evening', todayStr),
           });
-          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${userId} variant=${inv.copy.variantId} (own bucket - bypassing daily cap)`);
+          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${redactUserId(userId)} variant=${inv.copy.variantId} (own bucket - bypassing daily cap)`);
         } else if (!weeklyAlreadySent) {
           trace(userId, 'week_ahead_not_selected', {
             ...traceBase,
@@ -4029,7 +4030,7 @@ serve(async (req) => {
 
       // ── DAILY CAP ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
-        console.log(`[smart-nudges] User ${userId} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
+        console.log(`[smart-nudges] User ${redactUserId(userId)} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
         trace(userId, 'daily_cap', {
           ...traceBase,
           metadata: { count: todayLogs.length, cap: DAILY_NOTIFICATION_CAP },
@@ -4101,7 +4102,7 @@ serve(async (req) => {
             .limit(1)
             .maybeSingle();
           if (legacy) {
-            console.warn(`[smart-nudges] daily_context_snapshot legacy fallback: no row for window=${nudgeWindow}, using window=${legacy.mrs_window ?? 'null'} user=${userId}`);
+            console.warn(`[smart-nudges] daily_context_snapshot legacy fallback: no row for window=${nudgeWindow}, using window=${legacy.mrs_window ?? 'null'} user=${redactUserId(userId)}`);
             snapRow = legacy;
           }
         }
@@ -4121,14 +4122,14 @@ serve(async (req) => {
           );
         }
         if (snapRow?.readiness_state === 'awaiting') {
-          console.log(`[smart-nudges][mrs-state1] User ${userId} awaiting signals; continuing so nudge can drive sync + check-in.`);
+          console.log(`[smart-nudges][mrs-state1] User ${redactUserId(userId)} awaiting signals; continuing so nudge can drive sync + check-in.`);
         }
         if (gapFlag === 'LIGHT_DAY_STRONG_STATE') {
-          console.log(`[smart-nudges][mrs-v2] User ${userId} LIGHT_DAY_STRONG_STATE read only; Plan slots decide cadence.`);
+          console.log(`[smart-nudges][mrs-v2] User ${redactUserId(userId)} LIGHT_DAY_STRONG_STATE read only; Plan slots decide cadence.`);
         }
         if (gapFlag === 'SUPPLY_DEMAND_GAP' && ps?.sustained_deficit_flag === true) {
           mrsEscalate = true;
-          console.log(`[smart-nudges][mrs-v2] User ${userId} SUPPLY_DEMAND_GAP + sustained_deficit → escalate (bypass 2h suppression).`);
+          console.log(`[smart-nudges][mrs-v2] User ${redactUserId(userId)} SUPPLY_DEMAND_GAP + sustained_deficit → escalate (bypass 2h suppression).`);
         }
       } catch (snapErr) {
         console.warn('[smart-nudges][mrs-v2] snapshot read failed:',
@@ -4333,7 +4334,7 @@ serve(async (req) => {
           (bestNudge.type === 'nudge_one' || bestNudge.type === 'nudge_two');
 
         if (suppressedEffective && !isJitNudge) {
-          console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
+          console.log(`[smart-nudges] User ${redactUserId(userId)} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
           trace(userId, 'two_hour_suppression', {
             ...traceBase,
             notificationType: bestNudge.type,
@@ -4404,7 +4405,7 @@ serve(async (req) => {
             // Skip this run's push but do NOT write a `notification_log`
             // row — that would trigger `two_hour_suppression` on every
             // subsequent evaluation and kill the whole evening. Trace only.
-            console.log(`[smart-nudges][v1.1] User ${userId} back_to_back skip (largestGap=${largestGapMin}min, upcoming=${upcoming.length}).`);
+            console.log(`[smart-nudges][v1.1] User ${redactUserId(userId)} back_to_back skip (largestGap=${largestGapMin}min, upcoming=${upcoming.length}).`);
             trace(userId, 'back_to_back_skip', {
               ...traceBase,
               notificationType: bestNudge.type,
@@ -4717,7 +4718,7 @@ serve(async (req) => {
           sendAttempted++;
           const normalizedToken = tokenInfo.token.trim().toLowerCase();
           if (!isCanonicalIosApnsToken(normalizedToken)) {
-            console.error(`[smart-nudges] Deactivating malformed APNs token user=${notif.userId} len=${tokenInfo.token.length} prefix=${tokenInfo.token.substring(0, 12)}...`);
+            console.error(`[smart-nudges] Deactivating malformed APNs token user=${redactUserId(notif.userId)} len=${tokenInfo.token.length} prefix=${tokenInfo.token.substring(0, 12)}...`);
             sendFailed++;
             trace(notif.userId, 'apns_rejected', {
               notificationType: notif.type,
@@ -4821,7 +4822,7 @@ serve(async (req) => {
                 reasonLc.includes('devicetokennotforTopic'.toLowerCase())
               ));
             if (shouldDeactivate) {
-              console.log(`[smart-nudges] Deactivating dead token user=${notif.userId} prefix=${tokenInfo.token.substring(0, 12)}... status=${result.status} reason=${result.reason}`);
+              console.log(`[smart-nudges] Deactivating dead token user=${redactUserId(notif.userId)} prefix=${tokenInfo.token.substring(0, 12)}... status=${result.status} reason=${result.reason}`);
               await supabase
                 .from('notification_device_tokens')
                 .update({ is_active: false })
@@ -4829,7 +4830,7 @@ serve(async (req) => {
                 .eq('device_token', tokenInfo.token);
             }
           } catch (e) {
-            console.error(`[smart-nudges] APNs send error for ${notif.userId}:`, e);
+            console.error(`[smart-nudges] APNs send error for ${redactUserId(notif.userId)}:`, e);
             sendFailed++;
             trace(notif.userId, 'apns_rejected', {
               notificationType: notif.type,
@@ -4861,7 +4862,7 @@ serve(async (req) => {
         }
       }
 
-      console.log(`[smart-nudges] ${isDryRun ? 'DRY RUN' : 'SENT'}: ${notif.type}/${notif.copy.variantId} → ${notif.userId} | "${notif.copy.body}"`);
+      console.log(`[smart-nudges] ${isDryRun ? 'DRY RUN' : 'SENT'}: ${notif.type}/${notif.copy.variantId} → ${redactUserId(notif.userId)} | "${notif.copy.body}"`);
     }
 
     console.log(

@@ -9,6 +9,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -118,17 +119,17 @@ Deno.serve(async (req) => {
       if (intErr) {
         console.warn("[complete-onboarding] user_integrations upsert warning:", intErr);
       } else {
-        console.log("[complete-onboarding] ✅ user_integrations saved for:", userId);
+        console.log("[complete-onboarding] ✅ user_integrations saved for:", redactUserId(userId));
       }
     }
 
     // Idempotent: only set onboarding_completed_at if not already set
     // skip_completion=true allows persisting baseline data without marking onboarding as done
     if (skip_completion) {
-      console.log("[complete-onboarding] skip_completion=true, persisting data only for user:", userId);
+      console.log("[complete-onboarding] skip_completion=true, persisting data only for user:", redactUserId(userId));
     } else if (!existing?.onboarding_completed_at) {
       updateData.onboarding_completed_at = new Date().toISOString();
-      console.log("[complete-onboarding] Setting onboarding_completed_at for user:", userId);
+      console.log("[complete-onboarding] Setting onboarding_completed_at for user:", redactUserId(userId));
     } else {
       console.log("[complete-onboarding] onboarding_completed_at already set, skipping timestamp update");
     }
@@ -167,7 +168,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log("[complete-onboarding] ✅ Onboarding completed for:", userId);
+    console.log("[complete-onboarding] ✅ Onboarding completed for:", redactUserId(userId));
 
     return new Response(
       JSON.stringify({ success: true, profile }),

@@ -15,6 +15,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT, isProductionEnv } from "./auth.ts";
+import { redactUserId } from "./identity/redact-user-id.ts";
 
 export const ADMIN_EMAIL_ALLOWLIST: readonly string[] = [
   "shukrita@mindmodule.me",
@@ -107,7 +108,16 @@ export async function requireAdmin(req: Request): Promise<AdminGuardResult> {
 
   const email = (profile?.email as string | undefined) ?? null;
   if (!isEmailAllowlisted(email)) {
-    console.warn("[admin-guard] non-admin access attempt", { sub, email });
+    // Log a redacted sub correlator plus the email domain only. The raw
+    // Auth0 sub is never persisted in logs; the domain is enough to notice
+    // e.g. sudden spikes from an unexpected org without leaking the actor.
+    const emailDomain = typeof email === "string" && email.includes("@")
+      ? email.slice(email.indexOf("@") + 1)
+      : null;
+    console.warn("[admin-guard] non-admin access attempt", {
+      sub: redactUserId(sub),
+      emailDomain,
+    });
     return { db, errorResponse: json({ error: "Forbidden" }, 403, cors) };
   }
 

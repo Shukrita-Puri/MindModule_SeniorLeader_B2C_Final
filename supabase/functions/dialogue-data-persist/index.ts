@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) return auth.errorResponse;
     const userId = auth.userId;
-    console.log("[dialogue-data-persist] Verified user:", userId);
+    console.log("[dialogue-data-persist] Verified user:", redactUserId(userId));
 
     // Initialize Supabase client with service role (bypasses RLS)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

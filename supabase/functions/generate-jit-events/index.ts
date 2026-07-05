@@ -5,6 +5,7 @@ import { isNoiseTitle, classifyEvent, isEducationalTitle, type EventGroup } from
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -449,7 +450,7 @@ serve(async (req) => {
         const devHeader = req.headers.get('x-dev-user-id');
         if (devHeader) {
           userId = devHeader;
-          console.log(`[generate-jit-events] DEV bypass: userId=${userId}`);
+          console.log(`[generate-jit-events] DEV bypass: userId=${redactUserId(userId)}`);
         } else {
           return auth.errorResponse;
         }
@@ -470,7 +471,7 @@ serve(async (req) => {
     );
 
     const { timezoneOffset = 0 } = await req.json();
-    console.log(`[generate-jit-events] User: ${userId}, TZ offset: ${timezoneOffset}`);
+    console.log(`[generate-jit-events] User: ${redactUserId(userId)}, TZ offset: ${timezoneOffset}`);
 
     const now = new Date();
     // Selection window: 4 weeks. Events are scored and stored but only surfaced

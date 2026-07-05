@@ -12,6 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.14.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
         (selectedPlan === 'annual' && currentTier === 'annual_pro');
 
       if (isAlreadyOnRequestedPlan) {
-        console.log(`[create-checkout-session] User ${userId} already on ${currentTier}, redirecting to portal`);
+        console.log(`[create-checkout-session] User ${redactUserId(userId)} already on ${currentTier}, redirecting to portal`);
 
         if (profile.stripe_customer_id) {
           const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
@@ -87,7 +88,7 @@ Deno.serve(async (req) => {
       }
 
       // Different plan requested — allow checkout to proceed as an upgrade (no trial)
-      console.log(`[create-checkout-session] User ${userId} upgrading from ${currentTier} to ${selectedPlan}`);
+      console.log(`[create-checkout-session] User ${redactUserId(userId)} upgrading from ${currentTier} to ${selectedPlan}`);
     }
 
     // Get or create Stripe customer
@@ -184,7 +185,7 @@ Deno.serve(async (req) => {
       metadata: sessionMetadata,
     });
 
-    console.log(`[create-checkout-session] Session created for user ${userId}, plan: ${selectedPlan}, currency: ${selectedCurrency}${validatedReferralCode ? `, referral: ${validatedReferralCode}` : ''}, mode: ${stripeConfig.isLiveMode ? 'LIVE' : 'TEST'}`);
+    console.log(`[create-checkout-session] Session created for user ${redactUserId(userId)}, plan: ${selectedPlan}, currency: ${selectedCurrency}${validatedReferralCode ? `, referral: ${validatedReferralCode}` : ''}, mode: ${stripeConfig.isLiveMode ? 'LIVE' : 'TEST'}`);
 
     return new Response(
       JSON.stringify({ sessionId: session.id, checkoutUrl: session.url }),

@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +46,7 @@ serve(async (req) => {
 
     const body = await req.json() as RequestBody;
     const { action, contentId, feedbackData, sessionId: reqSessionId, rating, qualitativeRating, feedbackText } = body;
-    console.log(`[content-feedback] Action: ${action}, User: ${userId}`);
+    console.log(`[content-feedback] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_FEEDBACK': {

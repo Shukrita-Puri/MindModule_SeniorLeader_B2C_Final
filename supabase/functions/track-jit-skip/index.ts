@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +22,7 @@ serve(async (req) => {
         const devHeader = req.headers.get('x-dev-user-id');
         if (devHeader) {
           userId = devHeader;
-          console.log(`[track-jit-skip] DEV bypass: userId=${userId}`);
+          console.log(`[track-jit-skip] DEV bypass: userId=${redactUserId(userId)}`);
         } else {
           return auth.errorResponse;
         }
@@ -46,7 +47,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[track-jit-skip] User: ${userId}, Action: ${action}, Event: ${eventTitle}, Horizon: ${horizon || 'none'}`);
+    console.log(`[track-jit-skip] User: ${redactUserId(userId)}, Action: ${action}, Event: ${eventTitle}, Horizon: ${horizon || 'none'}`);
 
     // Update jit_event_context if eventId provided
     // RULE: 'snoozed' = session-only hide, no backend suppression

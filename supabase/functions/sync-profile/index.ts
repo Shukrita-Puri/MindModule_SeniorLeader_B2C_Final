@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     if (!email) {
-      console.error("[sync-profile] No email available for user:", userId);
+      console.error("[sync-profile] No email available for user:", redactUserId(userId));
       return new Response(
         JSON.stringify({ error: "Email is required for profile sync" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
       console.warn("[sync-profile] Referral data fetch failed (non-critical):", refErr);
     }
 
-    console.log("[sync-profile] ✅ Profile synced for:", userId, "isNew:", isNewProfile);
+    console.log("[sync-profile] ✅ Profile synced for:", redactUserId(userId), "isNew:", isNewProfile);
 
     return new Response(
       JSON.stringify({

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,18 +87,18 @@ Deno.serve(async (req) => {
 
     // Verify Auth0 token
     const userId = await verifyAuth0JWT(req);
-    console.log("Verified Auth0 user:", userId);
+    console.log("Verified Auth0 user:", redactUserId(userId));
 
     // Check admin status
     if (!isAdmin(userId)) {
-      console.warn("Non-admin user attempted to access admin list:", userId);
+      console.warn("Non-admin user attempted to access admin list:", redactUserId(userId));
       return new Response(
         JSON.stringify({ error: "Forbidden - admin access required" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Admin access granted for:", userId);
+    console.log("Admin access granted for:", redactUserId(userId));
 
     // Initialize Supabase client with service role (bypasses RLS)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

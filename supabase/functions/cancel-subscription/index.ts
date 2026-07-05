@@ -10,6 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.14.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
       retention_offer_accepted: false
     });
 
-    console.log(`[cancel-subscription] Canceled for ${userId}, ends at ${endsAt.toISOString()}`);
+    console.log(`[cancel-subscription] Canceled for ${redactUserId(userId)}, ends at ${endsAt.toISOString()}`);
 
     return new Response(
       JSON.stringify({ success: true, endsAt: endsAt.toISOString() }),

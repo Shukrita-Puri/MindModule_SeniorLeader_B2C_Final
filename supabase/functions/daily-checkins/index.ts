@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,7 +74,7 @@ serve(async (req) => {
 
     const body = await req.json() as RequestBody;
     const { action } = body;
-    console.log(`[daily-checkins] Action: ${action}, User: ${userId}`);
+    console.log(`[daily-checkins] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_CHECKINS': {
@@ -525,7 +526,7 @@ serve(async (req) => {
             console.error('[daily-checkins] UPDATE_BODY_CHECKIN insert-fallback error:', insertErr);
             throw insertErr;
           }
-          console.log('[daily-checkins] UPDATE_BODY_CHECKIN insert-fallback created row for user:', userId);
+          console.log('[daily-checkins] UPDATE_BODY_CHECKIN insert-fallback created row for user:', redactUserId(userId));
           return new Response(JSON.stringify({ data: inserted }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });

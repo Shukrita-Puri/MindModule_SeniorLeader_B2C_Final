@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { mergeCalendarEvents, periodFor } from "../_shared/rules/calendarEvents.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -123,7 +124,7 @@ serve(async (req) => {
         return Number.isFinite(endMs) && endMs > nowMs;
       });
 
-    console.log(`[list-replacement-calendar-events] user=${userId} raw=${rawEvents.length} deduped=${events.length}`);
+    console.log(`[list-replacement-calendar-events] user=${redactUserId(userId)} raw=${rawEvents.length} deduped=${events.length}`);
 
     return new Response(JSON.stringify({ events }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import {
   buildWearableDailySeries,
   computeWearableBaselines,
@@ -148,7 +149,7 @@ serve(async (req) => {
       dialogueMessages = msgs || [];
     }
 
-    console.log(`[perf-rhythm] ${userId}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs ${wearableData.length}hrv`);
+    console.log(`[perf-rhythm] ${redactUserId(userId)}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs ${wearableData.length}hrv`);
 
     // ── BUILD 3×7 GRID ──
     // Uses stored time_window (not UTC-derived hours) to avoid timezone mismatch

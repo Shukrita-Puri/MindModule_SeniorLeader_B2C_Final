@@ -22,6 +22,7 @@ import {
   type OAuthClientConfig,
 } from "../_shared/calendar-token-refresh.ts";
 import { mapEnsureFreshOutcomeToSyncPhase } from "../_shared/rules/sync-calendar-token-outcome.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -143,7 +144,7 @@ serve(async (req) => {
     if (body._internalUserId && body._internalKey === internalSecret) {
       // Trusted internal call from sync-calendar-scheduled
       userId = body._internalUserId as string;
-      console.log('[sync-calendar] Internal call for user:', userId);
+      console.log('[sync-calendar] Internal call for user:', redactUserId(userId));
     } else {
       try {
         userId = await verifyAuth0Token(authHeader);
@@ -155,7 +156,7 @@ serve(async (req) => {
       }
     }
 
-    console.log('[sync-calendar] Starting sync for user:', userId, 'provider:', provider);
+    console.log('[sync-calendar] Starting sync for user:', redactUserId(userId), 'provider:', provider);
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -172,7 +173,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (connErr || !connection) {
-      console.log('[sync-calendar] connection_inactive_or_missing for user:', userId);
+      console.log('[sync-calendar] connection_inactive_or_missing for user:', redactUserId(userId));
       return jsonOk({ success: false, skipped: true, reason: 'connection_inactive_or_missing', error: 'Calendar is disconnected.' });
     }
 

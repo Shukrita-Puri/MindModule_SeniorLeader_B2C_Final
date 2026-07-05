@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[update-profile] ✅ Updated display_name for ${userId} to "${sanitizedName}"`);
+    console.log(`[update-profile] ✅ Updated display_name for ${redactUserId(userId)} to "${sanitizedName}"`);
 
     return new Response(
       JSON.stringify({ profile: data }),

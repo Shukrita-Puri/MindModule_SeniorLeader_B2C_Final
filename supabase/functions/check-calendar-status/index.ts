@@ -65,7 +65,7 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    console.log("[check-calendar-status] Querying calendar_connections for user:", userId);
+    console.log("[check-calendar-status] Querying calendar_connections for user:", redactUserId(userId));
 
     const { data, error } = await supabaseAdmin
       .from("calendar_connections")

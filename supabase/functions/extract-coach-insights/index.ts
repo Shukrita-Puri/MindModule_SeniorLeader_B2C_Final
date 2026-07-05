@@ -11,6 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -106,7 +107,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[extract-coach-insights] Processing session ${sessionId} for user ${userId}`);
+    console.log(`[extract-coach-insights] Processing session ${sessionId} for user ${redactUserId(userId)}`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,

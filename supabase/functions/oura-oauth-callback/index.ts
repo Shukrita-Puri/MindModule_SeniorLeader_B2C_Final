@@ -6,6 +6,7 @@
  * an initial sync (fire-and-forget), then redirects back into the app.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!row || row.oauth_state !== nonce) {
-      console.warn("[oura-oauth-callback] state mismatch for user", userId);
+      console.warn("[oura-oauth-callback] state mismatch for user", redactUserId(userId));
       return Response.redirect(appReturnUrl(false, "state_mismatch"), 302);
     }
     if (row.oauth_state_expires_at && new Date(row.oauth_state_expires_at) < new Date()) {
