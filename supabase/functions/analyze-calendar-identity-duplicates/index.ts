@@ -15,7 +15,7 @@
 //
 // Auth: SUPABASE_SERVICE_ROLE_KEY in Authorization header.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { requireAdmin } from "../_shared/admin-guard.ts";
 
 type Row = {
   id: string;
@@ -31,26 +31,14 @@ type Row = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  try {
-    // Read-only admin analysis endpoint. verify_jwt is off (Lovable default).
-    // We require a body confirmation string to prevent accidental invocation.
-    // Output aggregates only — no PII beyond meeting titles the caller
-    // already sees via calendar_events reads. Replace with a proper admin
-    // gate before continuous exposure.
-    const body = await req.json().catch(() => ({}));
-    if (body?.confirm !== "analyze-calendar-identity-duplicates") {
-      return new Response(JSON.stringify({ error: "confirmation_required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const sampleLimit = Math.min(Math.max(Number(body.sampleLimit) || 25, 1), 200);
+  const guard = await requireAdmin(req);
+  if (guard.errorResponse) return guard.errorResponse;
+  const supabase = guard.db;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } },
-    );
+  try {
+    // Read-only. Admin-gated via requireAdmin (Auth0 JWT + email allowlist).
+    const body = await req.json().catch(() => ({}));
+    const sampleLimit = Math.min(Math.max(Number(body.sampleLimit) || 25, 1), 200);
 
     // Full scan is fine — table is small (thousands, not millions).
     // Paginate to defeat the 1k default limit.
