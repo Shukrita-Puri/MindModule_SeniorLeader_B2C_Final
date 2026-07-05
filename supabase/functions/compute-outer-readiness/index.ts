@@ -5009,7 +5009,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
           }
           if (!llmBrief) {
-            console.log(`[compute-outer-readiness] [LLM] FALLBACK to deterministic | reason=${llmFallbackReason || 'unknown'} | models_tried=${llmAttempts.map(a => a.model).join(',')} | promptChars=${sysPromptLen + userPromptLen}`);
+            // v6.5 contract: LLM miss no longer renders deterministic prose.
+            // The response falls to `awaiting` (see briefIsAwaiting below).
+            console.log(`[compute-outer-readiness] [LLM] FALLBACK to awaiting | reason=${llmFallbackReason || 'unknown'} | models_tried=${llmAttempts.map(a => a.model).join(',')} | promptChars=${sysPromptLen + userPromptLen}`);
           }
     }
 
@@ -5027,7 +5029,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       hasLlmBrief: !!llmBrief,
     });
 
-    console.log(`[compute-outer-readiness] DRB brief source: ${llmBrief ? 'llm' : 'deterministic'}`);
+    console.log(`[compute-outer-readiness] DRB brief source: ${llmBrief ? 'llm' : 'awaiting'}`);
 
     // Map leanOn source to human-readable label
     const sourceMap: Record<string, string> = {
@@ -5081,13 +5083,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // If anything below throws (scope regression, undefined access, etc.), fail soft with a
     // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
     try {
-    // If the LLM/cache path misses but the signal contract is met, serve the
-    // deterministic fallback as a real fallback Brief. True awaiting is still
-    // controlled exclusively by the signal gate below.
-    const briefIsAwaiting = false;
+    // v6.5-no-deterministic-fallback contract:
+    //   • cache hit → render the cached brief (llm or legacy deterministic row)
+    //   • fresh LLM success → render it
+    //   • fresh LLM miss (all attempts failed) → briefIsAwaiting=true; the
+    //     response nulls phrase/body/leanOn/watchFor and persists
+    //     brief_source='awaiting' so a later read cannot resurrect
+    //     deterministic finalPhrase/finalContext strings.
+    // Signal-contract awaiting (`awaitingSignals`, computed below) is a
+    // separate, orthogonal suppression path and remains intact.
+    const briefIsAwaiting = !cachedSnapshot && !llmBrief;
     const briefSource: 'llm' | 'deterministic' | 'awaiting' = cachedSnapshot
       ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
-      : (llmBrief ? 'llm' : 'deterministic');
+      : (llmBrief ? 'llm' : 'awaiting');
     const responsePhrase = briefIsAwaiting
       ? null
       : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);
@@ -6114,7 +6122,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             briefSource,
             promptVersion: BRIEF_PROMPT_VERSION,
             inputSignature: inputSignature.slice(0, 8) + '...',
-            generationPath: briefSource === 'llm' ? 'fresh_llm' : 'fresh_deterministic',
+            generationPath: briefSource === 'llm'
+              ? 'fresh_llm'
+              : briefSource === 'awaiting'
+                ? 'fresh_awaiting'
+                : 'fresh_deterministic',
             snapshotReason: 'miss_fresh_generation',
           }));
         }
