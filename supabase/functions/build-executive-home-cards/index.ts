@@ -17,6 +17,7 @@ import {
   type ExecutiveHomeCronConfig,
   type TimeWindow,
 } from "./scheduler.ts";
+import { resolveDayTypeAndCadence, type DayTypeDecision } from "./day-type.ts";
 
 type BuildMode = "scheduled" | "manual_refresh" | "manual_replay" | "backfill" | "dry_run";
 const JOB_KEY = "executive_home_cards";
@@ -264,6 +265,7 @@ function buildTrace(args: {
   window: TimeWindow;
   dueWindow?: TimeWindow | null;
   skippedReason?: string | null;
+  dayType?: DayTypeDecision | null;
 }) {
   return {
     jobKey: JOB_KEY,
@@ -281,9 +283,20 @@ function buildTrace(args: {
       runOnWeekends: args.config.configJson.runOnWeekends,
       respectTravelTimezone: args.config.configJson.respectTravelTimezone,
       dryRun: args.config.configJson.dryRun ?? false,
+      // `buildSequence` is intentionally CONFIG-ONLY. The MRS → Brief → Plan
+      // order is enforced in code below; the config value is surfaced here
+      // only for observability. Reordering it in admin_cron_job_configs will
+      // NOT reorder execution — change the code if the sequence must change.
+      buildSequence: args.config.configJson.buildSequence,
     },
     travelState: args.travel ?? null,
     skippedReason: args.skippedReason ?? null,
+    dayType: args.dayType?.dayType ?? null,
+    dayTypeAllowedWindows: args.dayType
+      ? Array.from(args.dayType.allowedWindows)
+      : null,
+    dayTypeEvidence: args.dayType?.evidence ?? null,
+    weekAheadReason: args.dayType?.weekAheadReason ?? null,
   };
 }
 
