@@ -4,44 +4,28 @@
 // _shared/rules/calendar-merge.ts) — never a SQL reimplementation — so the
 // backfilled value is bit-identical to what the sync writers now produce.
 //
-// Contract:
-//   POST { batchSize?: number = 500, maxBatches?: number = 20, dryRun?: boolean = false }
-//   Auth: SUPABASE_SERVICE_ROLE_KEY in the Authorization header (admin/cron only).
-//
 // Idempotent: only touches rows where identity_key IS NULL. Rows whose title /
 // start_time / end_time cannot produce a stable key are left NULL by design
 // (see computeIdentityKey doc).
+//
+// Auth: `requireAdmin` — caller must present a valid Auth0 JWT whose profile
+// email is in ADMIN_EMAIL_ALLOWLIST (see _shared/admin-guard.ts).
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
+import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const guard = await requireAdmin(req);
+  if (guard.errorResponse) return guard.errorResponse;
+  const supabase = guard.db;
+
   try {
-    // One-shot admin maintenance endpoint. verify_jwt is off (Lovable
-    // default), so we require an explicit `confirm` string in the body to
-    // prevent accidental invocation. The operation is idempotent — it only
-    // writes to rows where identity_key IS NULL — so this is acceptable for
-    // the one-time backfill run. Before wiring this to a scheduler or
-    // exposing it long-term, replace this with a proper admin gate
-    // (verified admin JWT via `has_role`).
     const body = await req.json().catch(() => ({}));
-    if (body?.confirm !== "backfill-calendar-identity-keys") {
-      return new Response(JSON.stringify({ error: "confirmation_required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     const batchSize = Math.min(Math.max(Number(body.batchSize) || 500, 1), 2000);
     const maxBatches = Math.min(Math.max(Number(body.maxBatches) || 20, 1), 200);
     const dryRun = Boolean(body.dryRun);
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } },
-    );
 
     let scanned = 0;
     let updated = 0;
@@ -63,9 +47,9 @@ Deno.serve(async (req) => {
       const withKey: { id: string; identity_key: string }[] = [];
       for (const r of rows) {
         const key = computeIdentityKey({
-          title: r.title,
-          start_time: r.start_time,
-          end_time: r.end_time,
+          title: r.title as string | null,
+          start_time: r.start_time as string,
+          end_time: r.end_time as string,
         });
         if (key) withKey.push({ id: r.id as string, identity_key: key });
         else leftNull++;
@@ -86,6 +70,12 @@ Deno.serve(async (req) => {
 
       if (rows.length < batchSize) break;
     }
+
+    await writeAdminAudit(supabase, {
+      admin: guard.admin!,
+      action: "backfill_calendar_identity_keys",
+      metadata: { dryRun, batches, scanned, updated, leftNull },
+    });
 
     return new Response(
       JSON.stringify({ ok: true, dryRun, batches, scanned, updated, leftNull }),

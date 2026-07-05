@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
+import { collapseAppleMultiSource } from "../_shared/rules/apple-source-collapse.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -152,9 +153,19 @@ serve(async (req) => {
       };
     });
 
+    // Apple multi-source collapse — see _shared/rules/apple-source-collapse.ts.
+    const collapsed = collapseAppleMultiSource(classifiedRaw);
+    if (collapsed.length !== classifiedRaw.length) {
+      console.log(
+        '[sync-apple-calendar] Apple multi-source collapse:',
+        'in=', classifiedRaw.length, 'out=', collapsed.length,
+        'dropped=', classifiedRaw.length - collapsed.length,
+      );
+    }
+
     // Defensive dedupe by final composite key in case of any residual duplicates.
-    const byKey = new Map<string, typeof classifiedRaw[number]>();
-    for (const row of classifiedRaw) byKey.set(row.external_id, row);
+    const byKey = new Map<string, typeof collapsed[number]>();
+    for (const row of collapsed) byKey.set(row.external_id, row);
     const classified = Array.from(byKey.values());
 
     if (classified.length > 0) {
