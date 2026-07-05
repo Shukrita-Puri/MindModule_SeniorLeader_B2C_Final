@@ -17,6 +17,7 @@ import {
   type ExecutiveHomeCronConfig,
   type TimeWindow,
 } from "./scheduler.ts";
+import { resolveDayTypeAndCadence, type DayTypeDecision } from "./day-type.ts";
 
 type BuildMode = "scheduled" | "manual_refresh" | "manual_replay" | "backfill" | "dry_run";
 const JOB_KEY = "executive_home_cards";
@@ -101,6 +102,43 @@ async function countTodayEvents(db: any, userId: string, localDate: string) {
     .gte("start_time", start)
     .lte("start_time", end);
   return mergeCalendarEvents((data || []) as any[], "unknown").length;
+}
+
+// Fetch merged (deduped) event slices for today + tomorrow. Used by the
+// centralized day-type resolver so the orchestrator can decide cadence BEFORE
+// dispatching to MRS/Brief/Plan.
+async function loadDayTypeEventSlices(
+  db: any,
+  userId: string,
+  localDate: string,
+): Promise<{ todayEvents: any[]; tomorrowEvents: any[] }> {
+  const start = `${localDate}T00:00:00`;
+  const end = `${localDate}T23:59:59`;
+  const tomorrow = new Date(`${localDate}T00:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowDate = tomorrow.toISOString().slice(0, 10);
+  const tStart = `${tomorrowDate}T00:00:00`;
+  const tEnd = `${tomorrowDate}T23:59:59`;
+
+  const [todayRes, tomorrowRes] = await Promise.all([
+    db
+      .from("calendar_events")
+      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
+      .eq("user_id", userId)
+      .gte("start_time", start)
+      .lte("start_time", end),
+    db
+      .from("calendar_events")
+      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
+      .eq("user_id", userId)
+      .gte("start_time", tStart)
+      .lte("start_time", tEnd),
+  ]);
+
+  return {
+    todayEvents: mergeCalendarEvents((todayRes.data || []) as any[], "unknown") as any[],
+    tomorrowEvents: mergeCalendarEvents((tomorrowRes.data || []) as any[], "unknown") as any[],
+  };
 }
 
 async function latestWearable(db: any, userId: string) {
@@ -264,6 +302,7 @@ function buildTrace(args: {
   window: TimeWindow;
   dueWindow?: TimeWindow | null;
   skippedReason?: string | null;
+  dayType?: DayTypeDecision | null;
 }) {
   return {
     jobKey: JOB_KEY,
@@ -281,9 +320,20 @@ function buildTrace(args: {
       runOnWeekends: args.config.configJson.runOnWeekends,
       respectTravelTimezone: args.config.configJson.respectTravelTimezone,
       dryRun: args.config.configJson.dryRun ?? false,
+      // `buildSequence` is intentionally CONFIG-ONLY. The MRS → Brief → Plan
+      // order is enforced in code below; the config value is surfaced here
+      // only for observability. Reordering it in admin_cron_job_configs will
+      // NOT reorder execution — change the code if the sequence must change.
+      buildSequence: args.config.configJson.buildSequence,
     },
     travelState: args.travel ?? null,
     skippedReason: args.skippedReason ?? null,
+    dayType: args.dayType?.dayType ?? null,
+    dayTypeAllowedWindows: args.dayType
+      ? Array.from(args.dayType.allowedWindows)
+      : null,
+    dayTypeEvidence: args.dayType?.evidence ?? null,
+    weekAheadReason: args.dayType?.weekAheadReason ?? null,
   };
 }
 
@@ -370,6 +420,7 @@ async function buildForUser(db: any, args: {
           window,
           dueWindow: args.dueWindow,
           skippedReason: (patch.skipped_reason as string | undefined) ?? null,
+          dayType: dayTypeDecision,
         }),
         ...patch,
       });
@@ -386,6 +437,59 @@ async function buildForUser(db: any, args: {
       timezoneUsed: effectiveTimezone,
       dueWindow: args.dueWindow ?? window,
       skippedReason: null,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // CENTRALIZED DAY-TYPE / CADENCE GATE
+  // Runs BEFORE MRS. The orchestrator owns whether this window fires at all.
+  // Downstream (compute-outer-readiness / generate-mastery-plan) owns the
+  // content generated inside a window the orchestrator chose to run.
+  //
+  // Scoping: scheduled cron respects the gate strictly. Manual refresh,
+  // replay, and backfill ALWAYS proceed — a user pulling to refresh (or an
+  // admin replaying a failed run) is an explicit override of cadence.
+  // ---------------------------------------------------------------------------
+  let dayTypeDecision: DayTypeDecision | null = null;
+  try {
+    const slices = await loadDayTypeEventSlices(db, userId, localDate);
+    dayTypeDecision = resolveDayTypeAndCadence({
+      effectiveTimezone,
+      now: new Date(),
+      todayEvents: slices.todayEvents as any,
+      tomorrowEvents: slices.tomorrowEvents as any,
+      travel: travel ?? null,
+    });
+  } catch (err) {
+    // Fail-open: never let a day-type lookup take down the orchestrator run.
+    console.warn("[build-executive-home-cards] day-type resolve failed", err);
+    dayTypeDecision = null;
+  }
+
+  if (
+    mode === "scheduled" &&
+    dayTypeDecision &&
+    !dayTypeDecision.allowedWindows.has(window)
+  ) {
+    await writeRun({
+      status: "skipped",
+      day_type: dayTypeDecision.dayType,
+      mrs_status: "skipped",
+      brief_status: "skipped",
+      plan_status: "skipped",
+      skipped_reason: "day_type_window_suppressed",
+      error_json: null,
+      duration_ms: Date.now() - started,
+    });
+    return {
+      userId,
+      localDate,
+      window,
+      status: "skipped",
+      skippedReason: "day_type_window_suppressed",
+      dayType: dayTypeDecision.dayType,
+      allowedWindows: Array.from(dayTypeDecision.allowedWindows),
+      effectiveTimezone,
     };
   }
 
@@ -514,7 +618,10 @@ async function buildForUser(db: any, args: {
     }
 
     await writeRun({
-      day_type: plan?.dayKind ?? plan?.meta?.dayKind ?? null,
+      // Orchestrator's centrally-resolved dayType wins; fall back to Plan's
+      // downstream dayKind only when the resolver returned no decision.
+      day_type:
+        dayTypeDecision?.dayType ?? plan?.dayKind ?? plan?.meta?.dayKind ?? null,
       status: "success",
       mrs_status: mrsStatus,
       brief_status: briefStatus,
@@ -528,14 +635,25 @@ async function buildForUser(db: any, args: {
         localDate,
         window,
         dueWindow: args.dueWindow,
+        dayType: dayTypeDecision,
       }),
       duration_ms: Date.now() - started,
     });
-    return { userId, localDate, window, status: "success", mrsStatus, briefStatus, planStatus };
+    return {
+      userId,
+      localDate,
+      window,
+      status: "success",
+      mrsStatus,
+      briefStatus,
+      planStatus,
+      dayType: dayTypeDecision?.dayType ?? null,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await writeRun({
       status: "error",
+      day_type: dayTypeDecision?.dayType ?? null,
       mrs_status: mrsStatus,
       brief_status: briefStatus,
       plan_status: planStatus,
@@ -549,6 +667,7 @@ async function buildForUser(db: any, args: {
         localDate,
         window,
         dueWindow: args.dueWindow,
+        dayType: dayTypeDecision,
       }),
       duration_ms: Date.now() - started,
     });

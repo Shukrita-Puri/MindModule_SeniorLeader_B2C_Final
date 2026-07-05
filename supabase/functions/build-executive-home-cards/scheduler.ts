@@ -26,6 +26,13 @@ export interface ExecutiveHomeCronConfig {
     runOnWeekends: boolean;
     respectTravelTimezone: boolean;
     skipIfAlreadyBuilt: boolean;
+    /**
+     * CONFIG-ONLY: labels the intended pipeline sequence for observability.
+     * The MRS → Brief → Plan order is hard-coded in `buildForUser` inside
+     * `index.ts`; changing this array in `admin_cron_job_configs` will NOT
+     * reorder execution. If the sequence must change, change the code.
+     * See mem://architecture/mastery-plan-server-side-derivation.
+     */
     buildSequence: string[];
     mode: "scheduled";
     dryRun?: boolean;
