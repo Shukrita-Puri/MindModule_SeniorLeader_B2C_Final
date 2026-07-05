@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
+import { isPtoOrHolidayTitle } from "../_shared/ceo-behaviour/pto-holiday.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import {
   localParts,
@@ -510,13 +511,14 @@ async function buildForUser(db: any, args: {
   // ---------------------------------------------------------------------------
   let dayTypeDecision: DayTypeDecision | null = null;
   try {
-    const slices = await loadDayTypeEventSlices(db, userId, localDate);
+    const slices = await loadDayTypeEventSlices(db, userId, localDate, effectiveTimezone);
     dayTypeDecision = resolveDayTypeAndCadence({
       effectiveTimezone,
       now: new Date(),
       todayEvents: slices.todayEvents as any,
       tomorrowEvents: slices.tomorrowEvents as any,
       travel: travel ?? null,
+      consecutiveOffDaysBefore: slices.consecutiveOffDaysBefore,
     });
   } catch (err) {
     // Fail-open: never let a day-type lookup take down the orchestrator run.
