@@ -503,6 +503,7 @@ serve(async (req) => {
             .from('calendar_connections')
             .update(rateUpdate)
             .eq('id', connection.id);
+          await upsertScopeCooldown(rateUpdate.retry_after_seconds, classification.reason);
           console.log('[sync-calendar] microsoft:rate_limited:sync_delayed', JSON.stringify({
             connectionId: connection.id,
             reason: classification.reason,
