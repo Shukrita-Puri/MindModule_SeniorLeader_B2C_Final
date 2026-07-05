@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, Check, AlertCircle } from 'lucide-react';
+import { Loader2, Check, AlertCircle, AlertTriangle, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -16,8 +16,23 @@ import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 
 export type CalendarProviderId = 'google' | 'microsoft' | 'apple';
 
+/**
+ * Per-provider connection state.
+ *
+ * `status` is the new canonical field:
+ *   - 'connected'    → row shows Connected badge + Disconnect action
+ *   - 'disconnected' → row shows Connect action
+ *   - 'unknown'      → status query failed transiently; row shows
+ *                      "Status unavailable" and disables actions until retry.
+ *
+ * `connected` is retained for backward-compat consumers but derives from
+ * `status === 'connected'` in the new fetch layer.
+ */
+export type ProviderConnectionStatus = 'connected' | 'disconnected' | 'unknown';
+
 export interface ProviderStatus {
   connected: boolean;
+  status: ProviderConnectionStatus;
   lastSync: string | null;
   needsReconnect?: boolean;
   accountIdentifier?: string | null;
@@ -29,34 +44,74 @@ export interface CalendarProvidersState {
   apple?: ProviderStatus;
 }
 
+/** Typed result returned by fetchCalendarProvidersState. */
+export type CalendarProvidersFetchResult =
+  | { status: 'ok'; providers: CalendarProvidersState }
+  | { status: 'error'; providers: CalendarProvidersState; message: string };
+
+const UNKNOWN_PROVIDERS: CalendarProvidersState = {
+  google: { connected: false, status: 'unknown', lastSync: null },
+  microsoft: { connected: false, status: 'unknown', lastSync: null },
+  apple: { connected: false, status: 'unknown', lastSync: null },
+};
+
 /**
  * Fetches the per-provider calendar connection state from the unified
- * check-connections-status edge function. Falls back to a disconnected shape
- * on any failure so the picker is always renderable.
+ * check-connections-status edge function.
+ *
+ * Returns a typed { status, providers, message? } object. Transient failures
+ * (network error, function 5xx, backend `calendar.error`) resolve to
+ * `status: 'error'` with every provider marked `unknown` — NEVER to a
+ * silently-disconnected shape. The UI is responsible for showing an error /
+ * retry affordance for that state.
  */
-export async function fetchCalendarProvidersState(): Promise<CalendarProvidersState> {
+export async function fetchCalendarProvidersState(): Promise<CalendarProvidersFetchResult> {
+  const token = await getAuthToken().catch(() => null);
+  if (!token) {
+    return { status: 'error', providers: UNKNOWN_PROVIDERS, message: 'Not authenticated' };
+  }
   try {
-    const token = await getAuthToken();
-    if (!token) return {};
     const { data, error } = await supabase.functions.invoke('check-connections-status', {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (error || !data) return {};
-    const providers = (data as any)?.calendar?.providers ?? {};
+    if (error || !data) {
+      console.warn('[CalendarProviderPicker] status fetch failed:', error);
+      return {
+        status: 'error',
+        providers: UNKNOWN_PROVIDERS,
+        message: (error as { message?: string } | null)?.message ?? 'Status service unavailable',
+      };
+    }
+    const calendar = (data as { calendar?: Record<string, unknown> }).calendar ?? {};
+    // Backend surfaces query failures as calendar.error even on a 200 body.
+    if (calendar.error || calendar.status === 'error') {
+      return {
+        status: 'error',
+        providers: UNKNOWN_PROVIDERS,
+        message: (calendar.errorMessage as string | undefined) ?? 'Calendar status temporarily unavailable',
+      };
+    }
+    const providers = (calendar.providers as Record<string, { connected?: boolean; status?: string; lastSync?: string | null } | undefined>) ?? {};
+    const one = (p?: { connected?: boolean; status?: string; lastSync?: string | null }): ProviderStatus => {
+      const s = (p?.status as ProviderConnectionStatus | undefined)
+        ?? (p?.connected ? 'connected' : 'disconnected');
+      return { connected: s === 'connected', status: s, lastSync: p?.lastSync ?? null };
+    };
     return {
-      google: providers.google
-        ? { connected: !!providers.google.connected, lastSync: providers.google.lastSync ?? null }
-        : { connected: false, lastSync: null },
-      microsoft: providers.microsoft
-        ? { connected: !!providers.microsoft.connected, lastSync: providers.microsoft.lastSync ?? null }
-        : { connected: false, lastSync: null },
-      apple: providers.apple
-        ? { connected: !!providers.apple.connected, lastSync: providers.apple.lastSync ?? null }
-        : { connected: false, lastSync: null },
+      status: 'ok',
+      providers: {
+        google: one(providers.google),
+        microsoft: one(providers.microsoft),
+        apple: one(providers.apple),
+      },
     };
   } catch (err) {
     console.warn('[CalendarProviderPicker] fetch state failed:', err);
-    return {};
+    return {
+      status: 'error',
+      providers: UNKNOWN_PROVIDERS,
+      message: err instanceof Error ? err.message : 'Status service unavailable',
+    };
   }
 }
 
