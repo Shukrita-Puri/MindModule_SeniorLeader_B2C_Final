@@ -244,16 +244,24 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
           <span className="text-xs text-muted-foreground truncate">
             {isApple && !appleAvailable
               ? 'Available in the iOS app'
-              : connected
-                ? lastSyncLabel ? `Last sync ${lastSyncLabel}` : 'Connected'
-                : needsReconnect
-                  ? 'Permission revoked'
-                  : 'Not connected'}
+              : status?.status === 'unknown'
+                ? 'Status unavailable'
+                : connected
+                  ? lastSyncLabel ? `Last sync ${lastSyncLabel}` : 'Connected'
+                  : needsReconnect
+                    ? 'Permission revoked'
+                    : 'Not connected'}
           </span>
         </div>
       </div>
       <div>
-        {connected || needsReconnect ? (
+        {status?.status === 'unknown' ? (
+          // We don't know the real state — do NOT show a Connect action that
+          // would misleadingly imply the provider is disconnected.
+          <Button size="sm" variant="ghost" disabled aria-label="Status unavailable">
+            —
+          </Button>
+        ) : connected || needsReconnect ? (
           <Button
             size="sm"
             variant={needsReconnect ? 'default' : 'ghost'}
@@ -293,11 +301,13 @@ interface CalendarProviderPickerProps {
 export default function CalendarProviderPicker({ redirectPath, hideApple, onChanged }: CalendarProviderPickerProps) {
   const [state, setState] = useState<CalendarProvidersState>({});
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const next = await fetchCalendarProvidersState();
-    setState(next);
+    const result = await fetchCalendarProvidersState();
+    setState(result.providers);
+    setFetchError(result.status === 'error' ? result.message : null);
     setLoading(false);
   }, []);
 
@@ -311,6 +321,32 @@ export default function CalendarProviderPicker({ redirectPath, hideApple, onChan
 
   return (
     <div className="space-y-3">
+      {fetchError && (
+        <div
+          role="alert"
+          data-testid="calendar-provider-error"
+          className="flex items-start gap-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900"
+        >
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium">Couldn't load calendar status</div>
+            <div className="text-xs text-amber-900/80 truncate">
+              {fetchError}. Your existing connections are still active.
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={refresh}
+            disabled={loading}
+            aria-label="Retry loading calendar status"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+              <><RotateCw className="w-3.5 h-3.5 mr-1" /> Retry</>
+            )}
+          </Button>
+        </div>
+      )}
       <ProviderRow
         provider="google"
         label="Google Calendar"
