@@ -28,7 +28,7 @@ Deno.test("four-beat: accepts worked example — Sunday evening, depleted", () =
 
 Deno.test("four-beat: rejects body with no work-directive verb", () => {
   const body =
-    "Your recovery is down, your sleep was short, and the numbers say you're running on reserves today, and that's simply where the week has landed you now.";
+    "Your recovery is down, your sleep was really short overnight, and the raw numbers now say the week has landed you on a bit of a deficit, and that is simply where things sit for you at this moment in time today.";
   const r = validateBodyFourBeatStructure(body);
   assertEquals(r.ok, false);
   assert(r.reason?.includes("WORK DIRECTIVE"));
@@ -36,7 +36,7 @@ Deno.test("four-beat: rejects body with no work-directive verb", () => {
 
 Deno.test("four-beat: rejects body with no closing clause (no coordinator in final sentence)", () => {
   const body =
-    "Recovery is down and sleep was short. The read is that today is a reserves day. Protect the first hour for the board deck this morning.";
+    "Recovery is down and sleep was short overnight for you again. The read is that today is a reserves day for the week ahead. Protect the first hour of the morning for the board deck preparation session before it begins.";
   const r = validateBodyFourBeatStructure(body);
   assertEquals(r.ok, false);
   assert(r.reason?.includes("SELF-REGULATION"));
@@ -59,7 +59,7 @@ Deno.test("four-beat: rejects body that is too short to carry four beats", () =>
 
 Deno.test("four-beat: rejects body that exceeds the 60-word ceiling", () => {
   const body =
-    "Recovery is down hard and sleep was short and your head feels foggy but the 2pm board is still the day, and you need to open it and set the agenda yourself and keep the small calls before then short, and keep the morning quiet so nothing chips at what you have left on the reserves today and tomorrow.";
+    "Recovery is down hard and sleep was really short and your head feels foggy but the 2pm board meeting is still the main event of the day today, and you should open the meeting and set the agenda yourself and also keep the small internal calls before then very short in duration, and keep the morning slot quiet so that nothing chips away at whatever edge you still have left on the reserves for later.";
   const r = validateBodyFourBeatStructure(body);
   assertEquals(r.ok, false);
   assert(r.reason?.includes("too long"));
