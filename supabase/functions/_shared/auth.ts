@@ -16,6 +16,7 @@
 import { createRemoteJWKSet, jwtVerify } from "https://deno.land/x/jose@v5.2.0/index.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyImpersonationToken, type ImpersonationClaims } from "./impersonation.ts";
+import { redactUserId } from "./identity/redact-user-id.ts";
 
 // Hard-coded admin email allowlist. MUST stay in sync with
 // supabase/functions/_shared/admin-guard.ts and src/config/adminAllowlist.ts.
@@ -324,7 +325,7 @@ export async function authenticateRequest(
 
     if (claims.adminSub !== realUserId) {
       console.warn('[shared/auth] impersonation token adminSub != caller sub', {
-        realUserId, tokenAdminSub: claims.adminSub,
+        realUserId: redactUserId(realUserId), tokenAdminSub: redactUserId(claims.adminSub),
       });
       return {
         errorResponse: new Response(
