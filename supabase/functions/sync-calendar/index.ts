@@ -365,12 +365,78 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error('[sync-calendar] Google API error:', response.status, errText);
-        // 401 from Google means token actually invalid despite refresh
-        if (response.status === 401) {
-          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-          return jsonOk({ success: false, reconnectRequired: true, reason: 'google_api_unauthorized', error: 'Calendar session expired. Please reconnect your calendar.' });
+        const classification = classifyGoogleCalendarError(response.status, errText, response.headers);
+        console.error(
+          '[sync-calendar] Google API error:',
+          JSON.stringify({
+            status: response.status,
+            kind: classification.kind,
+            reason: classification.reason,
+            retryAfterSeconds: classification.retryAfterSeconds,
+            body: errText.slice(0, 500),
+          }),
+        );
+
+        if (classification.kind === 'rate_limited') {
+          // Temporary throttling — DO NOT flip is_active or ask the user to
+          // reconnect. Mark the connection as sync_delayed so the UI can
+          // show a soft "will retry" state and move on.
+          await serviceClient
+            .from('calendar_connections')
+            .update({
+              sync_status: 'sync_delayed',
+              last_error: classification.message ?? `Google rate limit: ${classification.reason ?? 'unknown'}`,
+              last_error_reason: classification.reason,
+              last_error_at: new Date().toISOString(),
+              last_sync_delayed_at: new Date().toISOString(),
+            })
+            .eq('id', connection.id);
+          console.log('[sync-calendar] rate_limited:sync_delayed', JSON.stringify({
+            connectionId: connection.id,
+            reason: classification.reason,
+            retryAfterSeconds: classification.retryAfterSeconds,
+          }));
+          return jsonOk({
+            success: false,
+            rateLimited: true,
+            syncStatus: 'sync_delayed',
+            reason: classification.reason ?? 'rate_limited',
+            retryAfterSeconds: classification.retryAfterSeconds,
+            error: 'Google Calendar is rate-limiting sync right now — will retry shortly.',
+          });
         }
+
+        if (classification.kind === 'auth_failed') {
+          // 401 or true 403 auth/permission failure — token actually invalid
+          // despite refresh, or scope was revoked. Existing reconnect path.
+          await serviceClient
+            .from('calendar_connections')
+            .update({
+              is_active: false,
+              sync_status: 'error',
+              last_error: classification.message ?? `Google auth error: ${classification.reason ?? 'unauthorized'}`,
+              last_error_reason: classification.reason,
+              last_error_at: new Date().toISOString(),
+            })
+            .eq('id', connection.id);
+          return jsonOk({
+            success: false,
+            reconnectRequired: true,
+            reason: `google_api_${classification.reason ?? 'unauthorized'}`,
+            error: 'Calendar session expired. Please reconnect your calendar.',
+          });
+        }
+
+        // Generic non-rate-limit failure — surface but do not disconnect.
+        await serviceClient
+          .from('calendar_connections')
+          .update({
+            sync_status: 'error',
+            last_error: classification.message ?? `Google API error ${response.status}`,
+            last_error_reason: classification.reason,
+            last_error_at: new Date().toISOString(),
+          })
+          .eq('id', connection.id);
         return jsonOk({ success: false, error: 'Failed to fetch calendar events from Google' });
       }
 
