@@ -49,10 +49,7 @@ describe('collapseAppleMultiSource', () => {
     ]);
     const googleRow = { external_id: 'g-evt-x', identity_key, provider: 'google',
       title: "Father's Day", start_time: start, end_time: end };
-    const merged = mergeCalendarEvents(
-      [...collapsedApple, googleRow] as any,
-      { platform: 'web' },
-    );
+    const merged = mergeCalendarEvents([...collapsedApple, googleRow] as any, 'web');
     expect(collapsedApple).toHaveLength(1);
     expect(merged).toHaveLength(1);
   });
