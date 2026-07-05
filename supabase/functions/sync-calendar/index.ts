@@ -14,6 +14,10 @@ import {
   computeRetryJitterSeconds,
 } from "../_shared/rules/calendar-connection-state.ts";
 import {
+  buildQuotaCooldownUpsert,
+  computeQuotaScopeKey,
+} from "../_shared/rules/calendar-quota-scope.ts";
+import {
   ensureFreshAccessToken,
   type OAuthClientConfig,
 } from "../_shared/calendar-token-refresh.ts";
