@@ -222,7 +222,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setAppUser(nativeUser);
       setNativeAuthed(true);
       setAuthResolved(true);
-      console.debug('[useAuth] ✅ Native auth hydration complete, user:', redactUserId(payload.sub));
+      console.debug('[useAuth] ✅ Native auth hydration complete, user:', redactUserId(typeof payload.sub === 'string' ? payload.sub : null));
 
       // Now attempt profile sync with native token
       try {
