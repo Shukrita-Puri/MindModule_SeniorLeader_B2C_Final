@@ -14,6 +14,10 @@ import {
   computeRetryJitterSeconds,
 } from "../_shared/rules/calendar-connection-state.ts";
 import {
+  buildQuotaCooldownUpsert,
+  computeQuotaScopeKey,
+} from "../_shared/rules/calendar-quota-scope.ts";
+import {
   ensureFreshAccessToken,
   type OAuthClientConfig,
 } from "../_shared/calendar-token-refresh.ts";
@@ -189,6 +193,56 @@ serve(async (req) => {
       microsoftClientSecret: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_SECRET') ?? '',
     };
     const now = new Date();
+
+    // Shared quota-scope coordination. Every transient outcome below
+    // additionally upserts a `calendar_quota_cooldowns` row keyed by
+    // provider + oauth client id, so many rows sharing the same
+    // upstream quota bucket can be suppressed collectively by the
+    // scheduler. See `_shared/rules/calendar-quota-scope.ts` for the
+    // success-policy rationale (per-connection success does NOT clear
+    // the shared scope).
+    const scopeKey = computeQuotaScopeKey({
+      provider,
+      clientId: provider === 'google'
+        ? oauthConfig.googleClientId
+        : oauthConfig.microsoftClientId,
+    });
+    async function upsertScopeCooldown(finalRetryAfterSeconds: number, reason: string | null): Promise<void> {
+      const { data: existing } = await serviceClient
+        .from('calendar_quota_cooldowns')
+        .select('hit_count')
+        .eq('scope_key', scopeKey)
+        .maybeSingle();
+      const upsertRow = buildQuotaCooldownUpsert({
+        scopeKey,
+        provider,
+        finalRetryAfterSeconds,
+        reason,
+        priorHitCount: (existing as { hit_count?: number | null } | null)?.hit_count ?? 0,
+        now,
+      });
+      const { error: upsertErr } = await serviceClient
+        .from('calendar_quota_cooldowns')
+        .upsert(upsertRow, { onConflict: 'scope_key' });
+      if (upsertErr) {
+        // Never let a shared-cooldown write failure mask the per-row
+        // response. Log and continue — the per-row `next_retry_at`
+        // still protects this connection.
+        console.warn('[sync-calendar] quota_scope_upsert_failed', JSON.stringify({
+          scopeKey, provider, error: upsertErr.message,
+        }));
+        return;
+      }
+      console.log('[sync-calendar] quota_scope_cooldown_upserted', JSON.stringify({
+        scopeKey,
+        provider,
+        cooldownUntil: upsertRow.cooldown_until,
+        finalRetryAfterSeconds: upsertRow.retry_after_seconds,
+        hitCount: upsertRow.hit_count,
+        reason: upsertRow.last_reason,
+      }));
+    }
+
     const tokenOutcome = await ensureFreshAccessToken(
       serviceClient,
       {
@@ -230,6 +284,7 @@ serve(async (req) => {
         .from('calendar_connections')
         .update(rateUpdate)
         .eq('id', connection.id);
+      await upsertScopeCooldown(rateUpdate.retry_after_seconds, phase.dbReason);
       console.log('[sync-calendar] token_refresh:sync_delayed', JSON.stringify({
         connectionId: connection.id,
         priorCount,
@@ -314,6 +369,7 @@ serve(async (req) => {
             .from('calendar_connections')
             .update(rateUpdate)
             .eq('id', connection.id);
+          await upsertScopeCooldown(rateUpdate.retry_after_seconds, classification.reason);
           console.log('[sync-calendar] rate_limited:sync_delayed', JSON.stringify({
             connectionId: connection.id,
             reason: classification.reason,
@@ -447,6 +503,7 @@ serve(async (req) => {
             .from('calendar_connections')
             .update(rateUpdate)
             .eq('id', connection.id);
+          await upsertScopeCooldown(rateUpdate.retry_after_seconds, classification.reason);
           console.log('[sync-calendar] microsoft:rate_limited:sync_delayed', JSON.stringify({
             connectionId: connection.id,
             reason: classification.reason,

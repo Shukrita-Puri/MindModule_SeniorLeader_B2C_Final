@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isConnectionEligibleForSync } from "../_shared/rules/calendar-connection-state.ts";
+import {
+  computeQuotaScopeKey,
+  isScopeEligibleForSync,
+  type QuotaCooldownRow,
+} from "../_shared/rules/calendar-quota-scope.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,6 +54,32 @@ serve(async (req) => {
     const total = connections?.length || 0;
     console.log('[sync-calendar-scheduled] Found', total, 'active OAuth calendar connections');
 
+    // Pre-fetch shared quota cooldowns in one query so we can defer a
+    // whole scope without hammering `sync-calendar` for each row.
+    const scopeCooldowns = new Map<string, QuotaCooldownRow>();
+    {
+      const { data: cooldownRows, error: cooldownErr } = await serviceClient
+        .from('calendar_quota_cooldowns')
+        .select('scope_key, provider, cooldown_until, retry_after_seconds, last_reason, hit_count, updated_at');
+      if (cooldownErr) {
+        // Fail open — better to sync than to freeze the scheduler on a
+        // read error against the coordination table.
+        console.warn('[sync-calendar-scheduled] quota_scope_read_failed:', cooldownErr.message);
+      } else {
+        for (const r of cooldownRows ?? []) {
+          if (r?.scope_key) scopeCooldowns.set(r.scope_key as string, r as QuotaCooldownRow);
+        }
+      }
+    }
+    const scopeKeyFor = (provider: string): string => computeQuotaScopeKey({
+      provider,
+      clientId: provider === 'google'
+        ? (Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '')
+        : provider === 'microsoft'
+        ? (Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '')
+        : '',
+    });
+
     let successCount = 0;
     let reconnectCount = 0;
     let skippedCount = 0;
@@ -75,6 +106,27 @@ serve(async (req) => {
         console.log('[sync-calendar-scheduled] ⏳ deferred', conn.user_id, conn.provider,
           'until', (conn as { next_retry_at?: string | null }).next_retry_at,
           'syncStatus:', (conn as { sync_status?: string | null }).sync_status ?? 'unknown');
+        continue;
+      }
+
+      // Shared quota-scope guard (additive to per-row `next_retry_at`).
+      // A row whose OWN retry window has elapsed can still be blocked
+      // if its upstream quota bucket is cooling down.
+      const scopeKey = scopeKeyFor(conn.provider);
+      const scopeRow = scopeCooldowns.get(scopeKey) ?? null;
+      if (!isScopeEligibleForSync(scopeRow, now)) {
+        deferredCount++;
+        details.push({
+          userId: conn.user_id,
+          provider: conn.provider,
+          outcome: 'scope_deferred',
+          reason: `scope_key=${scopeKey} cooldown_until=${scopeRow?.cooldown_until} reason=${scopeRow?.last_reason ?? 'n/a'}`,
+        });
+        console.log('[sync-calendar-scheduled] 🛑 scope deferred', conn.user_id, conn.provider,
+          'scopeKey:', scopeKey,
+          'until:', scopeRow?.cooldown_until,
+          'reason:', scopeRow?.last_reason,
+          'hitCount:', scopeRow?.hit_count);
         continue;
       }
       try {
