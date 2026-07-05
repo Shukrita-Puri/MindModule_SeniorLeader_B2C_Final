@@ -8,7 +8,6 @@ interface TravelTimezoneRow {
 interface ProfileTimezoneRow {
   current_timezone?: string | null;
   home_timezone?: string | null;
-  timezone?: string | null;
 }
 
 interface TimezoneDb {
