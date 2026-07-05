@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -297,7 +298,7 @@ Deno.serve(async (req) => {
       return auth.errorResponse;
     }
     const userId = auth.userId!;
-    console.info(`[synthesize-cos] start user_id=${userId}`);
+    console.info(`[synthesize-cos] start user_id=${redactUserId(userId)}`);
 
     const body = await req.json().catch(() => ({}));
     const force = !!(body as any)?.force;
@@ -329,7 +330,7 @@ Deno.serve(async (req) => {
 
     // Idempotency: if already ready and not forced, return cached
     if (!force && row.cos_profile_status === "ready" && row.cos_profile) {
-      console.info(`[synthesize-cos] cached user_id=${userId}`);
+      console.info(`[synthesize-cos] cached user_id=${redactUserId(userId)}`);
       return json(200, {
         ok: true,
         cached: true,
@@ -407,7 +408,7 @@ Deno.serve(async (req) => {
     });
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
-    console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${userId}`);
+    console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
     const aiRes = await fetch(AI_GATEWAY_URL, {
       method: "POST",
       headers: {
@@ -483,7 +484,7 @@ Deno.serve(async (req) => {
       return json(500, { error: "persist_failed" });
     }
 
-    console.info(`[synthesize-cos] success user_id=${userId} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
+    console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
     return json(200, {
       ok: true,
       cached: false,

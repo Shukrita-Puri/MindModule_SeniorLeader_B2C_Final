@@ -9,6 +9,7 @@ import { openUrl } from '@/utils/openUrl';
 import {
   isAppleCalendarSupported,
   requestAppleCalendarPermission,
+  showAppleCalendarPermissionRevokeNotice,
 } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
@@ -207,6 +208,11 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
     try {
       await disconnectOAuth(provider);
       toast.success(`${label} disconnected`);
+      if (isApple) {
+        // See src/utils/appleCalendar.ts — this warns the user that in-app
+        // disconnect does NOT revoke the iOS EventKit permission.
+        showAppleCalendarPermissionRevokeNotice();
+      }
       onChanged?.();
     } catch (err) {
       console.error('[CalendarProviderPicker] disconnect failed:', err);
@@ -214,7 +220,7 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
     } finally {
       setBusy(false);
     }
-  }, [busy, label, onChanged, provider]);
+  }, [busy, isApple, label, onChanged, provider]);
 
   const pill = needsReconnect ? (
     <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[10px]">

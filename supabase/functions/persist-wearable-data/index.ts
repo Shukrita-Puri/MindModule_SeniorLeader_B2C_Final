@@ -295,96 +295,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===== LEGACY SINGLE FORMAT: { summary_date, hrv, ... } =====
-    const {
-      summary_date,
-      hrv = null,
-      resting_heart_rate = null,
-      heart_rate = null,
-      steps = null,
-      active_calories = null,
-      sleep_score = null,
-      total_sleep_minutes = null,
-      deep_sleep_minutes = null,
-      rem_sleep_minutes = null,
-      raw_data = null,
-      sleep_efficiency: bodySleepEfficiency = null,
-    } = body;
-
-    if (!summary_date) {
-      return new Response(
-        JSON.stringify({ error: "summary_date is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const row: Record<string, unknown> = {
-      user_id: userId,
-      summary_date,
-      source: "apple-healthkit",
-      hrv,
-      resting_heart_rate,
-      heart_rate,
-      steps,
-      active_calories,
-      sleep_score,
-      total_sleep_minutes,
-      deep_sleep_minutes,
-      rem_sleep_minutes,
-      raw_data,
-      updated_at: new Date().toISOString(),
-      source_provider: "apple_healthkit",
-      source_apps: {
-        ...(hrv != null ? { hrv: ["apple-healthkit"] } : {}),
-        ...(resting_heart_rate != null ? { resting_heart_rate: ["apple-healthkit"] } : {}),
-        ...(heart_rate != null ? { heart_rate: ["apple-healthkit"] } : {}),
-        ...(total_sleep_minutes != null ? { total_sleep_minutes: ["apple-healthkit"] } : {}),
-        ...(deep_sleep_minutes != null ? { deep_sleep_minutes: ["apple-healthkit"] } : {}),
-        ...(rem_sleep_minutes != null ? { rem_sleep_minutes: ["apple-healthkit"] } : {}),
-        ...(sleep_score != null ? { sleep_score: ["apple-healthkit"] } : {}),
-      },
-    };
-
-    // Persist sleep_efficiency (explicit body value preferred, else derive).
-    if (typeof bodySleepEfficiency === 'number') {
-      row.sleep_efficiency = Math.max(0, Math.min(100, Math.round(bodySleepEfficiency)));
-    } else {
-      const eff = deriveSleepEfficiency(raw_data, total_sleep_minutes);
-      if (eff != null) row.sleep_efficiency = eff;
-    }
-
-    const legacyCtx = await getCtx(summary_date);
-    const legacyRecon: ReconciliationRecord[] = [];
-    const legacyRes = await atomicMergeUpsertWearable(db, userId, summary_date, row, {
-      context: legacyCtx,
-      onReconciliation: (r) => legacyRecon.push(r),
-    });
-    for (const r of legacyRecon) await logReconciliation(summary_date, r);
-    if (!legacyRes.ok) {
-      console.error("[persist-wearable-data] atomic upsert failed:", legacyRes.error);
-      return new Response(
-        JSON.stringify({ error: "Failed to persist wearable data" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    await upsertIntegrationStatus({
-      watch_type: "apple",
-      watch_connected_at: new Date().toISOString(),
-      watch_connection_status: "connected",
-      watch_sync_status: "synced",
-      watch_last_sync_at: new Date().toISOString(),
-      watch_last_sample_at: new Date(`${summary_date}T00:00:00.000Z`).toISOString(),
-      watch_last_error: null,
-      watch_last_error_at: null,
-      watch_disconnected_at: null,
-      watch_status_updated_at: new Date().toISOString(),
-    });
-
-    await recordProcessed();
+    // ===== LEGACY SINGLE FORMAT — REMOVED =====
+    // The old { summary_date, hrv, ... } path is intentionally gone.
+    //
+    // Why: it defaulted every metric to `null` before the merge step, which
+    // meant a partial payload (e.g. HRV-only) could silently erase existing
+    // RHR / sleep values already stored for that day. The bulk `samples`
+    // path is presence-aware (only sets metrics that are actually provided)
+    // and is what every real client uses today (see
+    // src/services/wearableSyncService.ts — foreground sync, retry
+    // orchestrator, and background/idempotent posts all send `samples`).
+    //
+    // Any caller that still POSTs the legacy shape now receives a clear
+    // 400 so it surfaces immediately in logs instead of quietly nulling
+    // canonical data.
     return new Response(
-      JSON.stringify({ success: true, summary_date }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: "unsupported_payload_shape",
+        detail: "Legacy single-sample body is no longer accepted. Send { samples: [...] } or { action: 'update_status' | 'disconnect' }.",
+      }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("[persist-wearable-data] Error:", err);

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -164,7 +165,7 @@ Deno.serve(async (req) => {
       return authResult.errorResponse;
     }
     const userId = authResult.userId;
-    console.info(`[linkedin-profile-scrape] start user_id=${userId}`);
+    console.info(`[linkedin-profile-scrape] start user_id=${redactUserId(userId)}`);
 
     const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (!apiKey) {
@@ -303,7 +304,7 @@ Deno.serve(async (req) => {
         console.warn("[linkedin-profile-scrape] v8 mirror failed:", mirrorErr.message);
       }
     }
-    console.info(`[linkedin-profile-scrape] upsert ok user_id=${userId} status=${status}`);
+    console.info(`[linkedin-profile-scrape] upsert ok user_id=${redactUserId(userId)} status=${status}`);
 
     if (status === "insufficient") {
       return json(200, {

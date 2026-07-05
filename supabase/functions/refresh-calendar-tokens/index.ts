@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -101,11 +102,11 @@ serve(async (req) => {
 
     for (const conn of connections!) {
       try {
-        console.log('[refresh-calendar-tokens] token_near_expiry_refresh_start user:', conn.user_id, 'provider:', conn.provider, 'expires:', conn.token_expires_at);
+        console.log('[refresh-calendar-tokens] token_near_expiry_refresh_start user:', redactUserId(conn.user_id), 'provider:', conn.provider, 'expires:', conn.token_expires_at);
 
         // Decrypt refresh token – use refresh_token_iv if available, fall back to token_iv for legacy rows
         if (!conn.refresh_token_enc) {
-          console.warn('[refresh-calendar-tokens] reconnect_required:no_refresh_token user:', conn.user_id);
+          console.warn('[refresh-calendar-tokens] reconnect_required:no_refresh_token user:', redactUserId(conn.user_id));
           await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'no_refresh_token' });
@@ -114,7 +115,7 @@ serve(async (req) => {
 
         const refreshIv = conn.refresh_token_iv || conn.token_iv;
         if (!refreshIv) {
-          console.warn('[refresh-calendar-tokens] reconnect_required:no_iv user:', conn.user_id);
+          console.warn('[refresh-calendar-tokens] reconnect_required:no_iv user:', redactUserId(conn.user_id));
           await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'no_iv' });
@@ -126,7 +127,7 @@ serve(async (req) => {
           const dec = await decryptJson(conn.refresh_token_enc, refreshIv, encKeyB64) as { token: string | null };
           refreshToken = dec.token;
         } catch (e) {
-          console.error('[refresh-calendar-tokens] reconnect_required:refresh_decrypt_failed user:', conn.user_id, e);
+          console.error('[refresh-calendar-tokens] reconnect_required:refresh_decrypt_failed user:', redactUserId(conn.user_id), e);
           await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'refresh_decrypt_failed' });
@@ -134,7 +135,7 @@ serve(async (req) => {
         }
 
         if (!refreshToken) {
-          console.warn('[refresh-calendar-tokens] reconnect_required:null_refresh_token user:', conn.user_id);
+          console.warn('[refresh-calendar-tokens] reconnect_required:null_refresh_token user:', redactUserId(conn.user_id));
           await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'null_refresh_token' });
@@ -157,7 +158,7 @@ serve(async (req) => {
           const refreshData = await refreshRes.json();
 
           if (refreshData.error) {
-            console.error('[refresh-calendar-tokens] token_refresh_failed user:', conn.user_id, 'error:', refreshData.error);
+            console.error('[refresh-calendar-tokens] token_refresh_failed user:', redactUserId(conn.user_id), 'error:', refreshData.error);
             await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
             reconnectCount++;
             details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: `refresh_failed:${refreshData.error}` });
@@ -179,10 +180,10 @@ serve(async (req) => {
             const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
             updatePayload.refresh_token_enc = newRefreshEnc;
             updatePayload.refresh_token_iv = newRefreshIv;
-            console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '– rotated refresh token');
+            console.log('[refresh-calendar-tokens] token_refresh_success user:', redactUserId(conn.user_id), '– rotated refresh token');
           } else {
             // Preserve existing refresh token and its IV – do NOT overwrite
-            console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '– kept existing refresh token');
+            console.log('[refresh-calendar-tokens] token_refresh_success user:', redactUserId(conn.user_id), '– kept existing refresh token');
           }
 
           await serviceClient.from('calendar_connections').update(updatePayload).eq('id', conn.id);
@@ -204,7 +205,7 @@ serve(async (req) => {
           const refreshData = await refreshRes.json();
 
           if (refreshData.error) {
-            console.error('[refresh-calendar-tokens] microsoft token_refresh_failed user:', conn.user_id, 'error:', refreshData.error);
+            console.error('[refresh-calendar-tokens] microsoft token_refresh_failed user:', redactUserId(conn.user_id), 'error:', refreshData.error);
             await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
             reconnectCount++;
             details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: `refresh_failed:${refreshData.error}` });
@@ -225,9 +226,9 @@ serve(async (req) => {
             const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
             updatePayload.refresh_token_enc = newRefreshEnc;
             updatePayload.refresh_token_iv = newRefreshIv;
-            console.log('[refresh-calendar-tokens] microsoft token_refresh_success user:', conn.user_id, '– rotated refresh token');
+            console.log('[refresh-calendar-tokens] microsoft token_refresh_success user:', redactUserId(conn.user_id), '– rotated refresh token');
           } else {
-            console.log('[refresh-calendar-tokens] microsoft token_refresh_success user:', conn.user_id, '– kept existing refresh token');
+            console.log('[refresh-calendar-tokens] microsoft token_refresh_success user:', redactUserId(conn.user_id), '– kept existing refresh token');
           }
 
           await serviceClient.from('calendar_connections').update(updatePayload).eq('id', conn.id);
@@ -239,7 +240,7 @@ serve(async (req) => {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        console.error('[refresh-calendar-tokens] Exception for user:', conn.user_id, msg);
+        console.error('[refresh-calendar-tokens] Exception for user:', redactUserId(conn.user_id), msg);
         failedCount++;
         details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'failed', reason: msg });
       }

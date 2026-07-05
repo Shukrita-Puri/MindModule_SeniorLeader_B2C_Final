@@ -30,6 +30,7 @@ import {
   isAppleCalendarSupported,
   markAppleCalendarManuallyDisconnected,
   requestAppleCalendarPermission,
+  showAppleCalendarPermissionRevokeNotice,
   wasAppleCalendarManuallyDisconnected,
 } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
@@ -839,6 +840,10 @@ const ConnectedData = () => {
       clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       toast.success('Apple Calendar disconnected');
+      // Explicit iOS Settings guidance: in-app disconnect never revokes the
+      // underlying EventKit permission. Show this at the actual disconnect
+      // flow so users aren't left thinking device-level access is gone.
+      showAppleCalendarPermissionRevokeNotice();
       await fetchStatus();
     } catch (err) {
       console.error('[ConnectedData] Apple Calendar disconnect result:', err);

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -184,7 +185,7 @@ serve(async (req) => {
       };
 
       const url = `https://${apnsHost}/3/device/${t.device_token}`;
-      console.log(`[test-push] Sending to ${apnsHost} | token=${t.device_token.substring(0, 12)}... | user=${t.user_id} | ttl=${ttlSeconds}s | collapse=${collapseId}`);
+      console.log(`[test-push] Sending to ${apnsHost} | token=${t.device_token.substring(0, 12)}... | user=${redactUserId(t.user_id)} | ttl=${ttlSeconds}s | collapse=${collapseId}`);
 
       const res = await fetch(url, {
         method: "POST",

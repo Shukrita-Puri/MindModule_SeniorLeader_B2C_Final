@@ -37,6 +37,7 @@ export type IntegrationEventName =
   | 'disconnect_success'
   | 'disconnect_failed'
   | 'disconnect_retry_queued'
+  | 'permission_revoke_notice_shown'
   // sync
   | 'sync_started'
   | 'sync_success'
