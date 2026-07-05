@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     // Check calendar connections (users may connect multiple providers)
     const { data: calendarConns, error: calError } = await db
       .from("calendar_connections")
-      .select("id, provider, is_active, last_sync, sync_status, last_error, last_error_reason, last_error_at, last_sync_delayed_at")
+      .select("id, provider, is_active, last_sync, sync_status, last_error, last_error_reason, last_error_at, last_sync_delayed_at, retry_after_seconds, next_retry_at")
       .eq("user_id", userId)
       .eq("is_active", true);
 
@@ -234,6 +234,8 @@ Deno.serve(async (req) => {
             lastErrorReason: googleConn?.last_error_reason ?? null,
             lastErrorAt: googleConn?.last_error_at ?? null,
             lastSyncDelayedAt: googleConn?.last_sync_delayed_at ?? null,
+            retryAfterSeconds: (googleConn as { retry_after_seconds?: number | null } | null)?.retry_after_seconds ?? null,
+            nextRetryAt: (googleConn as { next_retry_at?: string | null } | null)?.next_retry_at ?? null,
           },
           microsoft: {
             connected: !!microsoftConn,
@@ -243,6 +245,9 @@ Deno.serve(async (req) => {
             lastError: microsoftConn?.last_error ?? null,
             lastErrorReason: microsoftConn?.last_error_reason ?? null,
             lastErrorAt: microsoftConn?.last_error_at ?? null,
+            lastSyncDelayedAt: (microsoftConn as { last_sync_delayed_at?: string | null } | null)?.last_sync_delayed_at ?? null,
+            retryAfterSeconds: (microsoftConn as { retry_after_seconds?: number | null } | null)?.retry_after_seconds ?? null,
+            nextRetryAt: (microsoftConn as { next_retry_at?: string | null } | null)?.next_retry_at ?? null,
           },
           apple: {
             connected: !!appleConn,

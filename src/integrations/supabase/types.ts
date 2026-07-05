@@ -482,9 +482,11 @@ export type Database = {
           last_error_reason: string | null
           last_sync: string | null
           last_sync_delayed_at: string | null
+          next_retry_at: string | null
           provider: string
           refresh_token_enc: string | null
           refresh_token_iv: string | null
+          retry_after_seconds: number | null
           sync_status: string | null
           token_enc_v: number | null
           token_expires_at: string | null
@@ -511,9 +513,11 @@ export type Database = {
           last_error_reason?: string | null
           last_sync?: string | null
           last_sync_delayed_at?: string | null
+          next_retry_at?: string | null
           provider: string
           refresh_token_enc?: string | null
           refresh_token_iv?: string | null
+          retry_after_seconds?: number | null
           sync_status?: string | null
           token_enc_v?: number | null
           token_expires_at?: string | null
@@ -540,9 +544,11 @@ export type Database = {
           last_error_reason?: string | null
           last_sync?: string | null
           last_sync_delayed_at?: string | null
+          next_retry_at?: string | null
           provider?: string
           refresh_token_enc?: string | null
           refresh_token_iv?: string | null
+          retry_after_seconds?: number | null
           sync_status?: string | null
           token_enc_v?: number | null
           token_expires_at?: string | null

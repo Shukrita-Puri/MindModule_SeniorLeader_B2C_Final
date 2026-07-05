@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isConnectionEligibleForSync } from "../_shared/rules/calendar-connection-state.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,7 +24,7 @@ serve(async (req) => {
     // Apple Calendar is synced on-device by the native iOS bridge.
     const { data: connections, error: connError } = await serviceClient
       .from('calendar_connections')
-      .select('user_id, provider')
+      .select('user_id, provider, next_retry_at, retry_after_seconds, sync_status')
       .eq('is_active', true)
       .in('provider', ['google', 'microsoft']);
 
@@ -52,9 +53,30 @@ serve(async (req) => {
     let reconnectCount = 0;
     let skippedCount = 0;
     let failureCount = 0;
+    let deferredCount = 0;
     const details: { userId: string; provider: string; outcome: string; reason?: string }[] = [];
 
+    const now = new Date();
+
     for (const conn of connections || []) {
+      // Honor persisted provider retry hints. A row whose next_retry_at is
+      // still in the future represents a provider that explicitly asked us
+      // to back off (or a bounded default we applied) — retrying it now
+      // would risk a retry storm and noisy logs. Log the skip with enough
+      // detail to debug, but do NOT count it as a failure.
+      if (!isConnectionEligibleForSync(conn as { next_retry_at?: string | null }, now)) {
+        deferredCount++;
+        details.push({
+          userId: conn.user_id,
+          provider: conn.provider,
+          outcome: 'retry_deferred',
+          reason: `next_retry_at=${(conn as { next_retry_at?: string | null }).next_retry_at} retry_after_seconds=${(conn as { retry_after_seconds?: number | null }).retry_after_seconds ?? 'n/a'}`,
+        });
+        console.log('[sync-calendar-scheduled] ⏳ deferred', conn.user_id, conn.provider,
+          'until', (conn as { next_retry_at?: string | null }).next_retry_at,
+          'syncStatus:', (conn as { sync_status?: string | null }).sync_status ?? 'unknown');
+        continue;
+      }
       try {
         const syncUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/sync-calendar`;
         const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -100,10 +122,10 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[sync-calendar-scheduled] Done. success=${successCount} reconnect=${reconnectCount} skipped=${skippedCount} failure=${failureCount}`);
+    console.log(`[sync-calendar-scheduled] Done. success=${successCount} reconnect=${reconnectCount} skipped=${skippedCount} deferred=${deferredCount} failure=${failureCount}`);
 
     return new Response(
-      JSON.stringify({ success: true, totalConnections: total, successCount, reconnectCount, skippedCount, failureCount, details }),
+      JSON.stringify({ success: true, totalConnections: total, successCount, reconnectCount, skippedCount, deferredCount, failureCount, details }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
