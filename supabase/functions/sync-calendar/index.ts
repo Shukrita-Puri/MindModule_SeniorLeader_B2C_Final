@@ -5,7 +5,12 @@ import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 import { classifyGoogleCalendarError } from "../_shared/rules/google-calendar-errors.ts";
 import { classifyMicrosoftCalendarError } from "../_shared/rules/microsoft-calendar-errors.ts";
-import { buildSuccessfulSyncUpdate } from "../_shared/rules/calendar-connection-state.ts";
+import {
+  buildSuccessfulSyncUpdate,
+  buildRateLimitedUpdate,
+  buildAuthFailureUpdate,
+  buildGenericErrorUpdate,
+} from "../_shared/rules/calendar-connection-state.ts";
 import {
   ensureFreshAccessToken,
   type OAuthClientConfig,
@@ -208,16 +213,14 @@ serve(async (req) => {
       // Transient refresh failure — helper preserved is_active. Mark
       // the connection as sync_delayed so the UI can render a soft
       // "will retry" state, mirroring the Google rate-limit branch.
-      const ts = now.toISOString();
       await serviceClient
         .from('calendar_connections')
-        .update({
-          sync_status: 'sync_delayed',
-          last_error: phase.dbMessage,
-          last_error_reason: phase.dbReason,
-          last_error_at: ts,
-          last_sync_delayed_at: ts,
-        })
+        .update(buildRateLimitedUpdate({
+          message: phase.dbMessage,
+          reason: phase.dbReason,
+          retryAfterSeconds: null, // token refresh has no Retry-After
+          now,
+        }))
         .eq('id', connection.id);
       return jsonOk(phase.response);
     }
@@ -277,27 +280,29 @@ serve(async (req) => {
           // Temporary throttling — DO NOT flip is_active or ask the user to
           // reconnect. Mark the connection as sync_delayed so the UI can
           // show a soft "will retry" state and move on.
+          const rateUpdate = buildRateLimitedUpdate({
+            message: classification.message ?? `Google rate limit: ${classification.reason ?? 'unknown'}`,
+            reason: classification.reason,
+            retryAfterSeconds: classification.retryAfterSeconds ?? null,
+          });
           await serviceClient
             .from('calendar_connections')
-            .update({
-              sync_status: 'sync_delayed',
-              last_error: classification.message ?? `Google rate limit: ${classification.reason ?? 'unknown'}`,
-              last_error_reason: classification.reason,
-              last_error_at: new Date().toISOString(),
-              last_sync_delayed_at: new Date().toISOString(),
-            })
+            .update(rateUpdate)
             .eq('id', connection.id);
           console.log('[sync-calendar] rate_limited:sync_delayed', JSON.stringify({
             connectionId: connection.id,
             reason: classification.reason,
             retryAfterSeconds: classification.retryAfterSeconds,
+            appliedRetryAfterSeconds: rateUpdate.retry_after_seconds,
+            nextRetryAt: rateUpdate.next_retry_at,
           }));
           return jsonOk({
             success: false,
             rateLimited: true,
             syncStatus: 'sync_delayed',
             reason: classification.reason ?? 'rate_limited',
-            retryAfterSeconds: classification.retryAfterSeconds,
+            retryAfterSeconds: rateUpdate.retry_after_seconds,
+            nextRetryAt: rateUpdate.next_retry_at,
             error: 'Google Calendar is rate-limiting sync right now — will retry shortly.',
           });
         }
@@ -307,13 +312,10 @@ serve(async (req) => {
           // despite refresh, or scope was revoked. Existing reconnect path.
           await serviceClient
             .from('calendar_connections')
-            .update({
-              is_active: false,
-              sync_status: 'error',
-              last_error: classification.message ?? `Google auth error: ${classification.reason ?? 'unauthorized'}`,
-              last_error_reason: classification.reason,
-              last_error_at: new Date().toISOString(),
-            })
+            .update(buildAuthFailureUpdate({
+              message: classification.message ?? `Google auth error: ${classification.reason ?? 'unauthorized'}`,
+              reason: classification.reason,
+            }))
             .eq('id', connection.id);
           return jsonOk({
             success: false,
@@ -326,12 +328,10 @@ serve(async (req) => {
         // Generic non-rate-limit failure — surface but do not disconnect.
         await serviceClient
           .from('calendar_connections')
-          .update({
-            sync_status: 'error',
-            last_error: classification.message ?? `Google API error ${response.status}`,
-            last_error_reason: classification.reason,
-            last_error_at: new Date().toISOString(),
-          })
+          .update(buildGenericErrorUpdate({
+            message: classification.message ?? `Google API error ${response.status}`,
+            reason: classification.reason,
+          }))
           .eq('id', connection.id);
         return jsonOk({ success: false, error: 'Failed to fetch calendar events from Google' });
       }
@@ -400,23 +400,29 @@ serve(async (req) => {
         if (classification.kind === 'rate_limited') {
           // Temporary throttling / upstream 5xx — keep is_active, mark as
           // sync_delayed so the UI can render a soft "will retry" state.
-          const ts = new Date().toISOString();
+          const rateUpdate = buildRateLimitedUpdate({
+            message: classification.message ?? `Microsoft Graph transient error: ${classification.reason ?? 'unknown'}`,
+            reason: classification.reason,
+            retryAfterSeconds: classification.retryAfterSeconds ?? null,
+          });
           await serviceClient
             .from('calendar_connections')
-            .update({
-              sync_status: 'sync_delayed',
-              last_error: classification.message ?? `Microsoft Graph transient error: ${classification.reason ?? 'unknown'}`,
-              last_error_reason: classification.reason,
-              last_error_at: ts,
-              last_sync_delayed_at: ts,
-            })
+            .update(rateUpdate)
             .eq('id', connection.id);
+          console.log('[sync-calendar] microsoft:rate_limited:sync_delayed', JSON.stringify({
+            connectionId: connection.id,
+            reason: classification.reason,
+            retryAfterSeconds: classification.retryAfterSeconds,
+            appliedRetryAfterSeconds: rateUpdate.retry_after_seconds,
+            nextRetryAt: rateUpdate.next_retry_at,
+          }));
           return jsonOk({
             success: false,
             rateLimited: true,
             syncStatus: 'sync_delayed',
             reason: classification.reason ?? 'rate_limited',
-            retryAfterSeconds: classification.retryAfterSeconds,
+            retryAfterSeconds: rateUpdate.retry_after_seconds,
+            nextRetryAt: rateUpdate.next_retry_at,
             error: 'Microsoft Calendar is throttling sync right now — will retry shortly.',
           });
         }
@@ -424,13 +430,10 @@ serve(async (req) => {
         if (classification.kind === 'auth_failed') {
           await serviceClient
             .from('calendar_connections')
-            .update({
-              is_active: false,
-              sync_status: 'error',
-              last_error: classification.message ?? `Microsoft auth error: ${classification.reason ?? 'unauthorized'}`,
-              last_error_reason: classification.reason,
-              last_error_at: new Date().toISOString(),
-            })
+            .update(buildAuthFailureUpdate({
+              message: classification.message ?? `Microsoft auth error: ${classification.reason ?? 'unauthorized'}`,
+              reason: classification.reason,
+            }))
             .eq('id', connection.id);
           return jsonOk({
             success: false,
@@ -443,12 +446,10 @@ serve(async (req) => {
         // Generic non-auth failure — surface but do not disconnect.
         await serviceClient
           .from('calendar_connections')
-          .update({
-            sync_status: 'error',
-            last_error: classification.message ?? `Microsoft Graph error ${response.status}`,
-            last_error_reason: classification.reason,
-            last_error_at: new Date().toISOString(),
-          })
+          .update(buildGenericErrorUpdate({
+            message: classification.message ?? `Microsoft Graph error ${response.status}`,
+            reason: classification.reason,
+          }))
           .eq('id', connection.id);
         return jsonOk({ success: false, error: 'Failed to fetch calendar events from Microsoft Calendar' });
       }
