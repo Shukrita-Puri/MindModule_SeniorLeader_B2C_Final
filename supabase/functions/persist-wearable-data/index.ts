@@ -253,30 +253,18 @@ Deno.serve(async (req) => {
           if (eff != null) row.sleep_efficiency = eff;
         }
 
-        const { data: existingRow } = await db
-          .from("wearable_data")
-          .select("hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_score, sleep_efficiency, source, source_provider, source_apps, raw_data")
-          .eq("user_id", userId)
-          .eq("summary_date", sample.summary_date)
-          .maybeSingle();
         const mergeCtx = await getCtx(sample.summary_date);
         const reconRecords: ReconciliationRecord[] = [];
-        const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row, {
+        // Atomic CAS-guarded read → merge → write. Prevents lost updates when
+        // sync-oura and this function race on the same summary_date.
+        const res = await atomicMergeUpsertWearable(db, userId, sample.summary_date, row, {
           context: mergeCtx,
           onReconciliation: (r) => reconRecords.push(r),
+          overrideRawData: body.raw_data ? body.raw_data : undefined,
         });
         for (const r of reconRecords) await logReconciliation(sample.summary_date, r);
-        if (body.raw_data) {
-          mergedRow.raw_data = body.raw_data;
-        }
-
-        // Use upsert instead of select-then-update/insert to eliminate race conditions
-        const { error } = await db
-          .from("wearable_data")
-          .upsert(mergedRow, { onConflict: "user_id,summary_date" });
-
-        if (error) {
-          console.error("[persist-wearable-data] DB error for", sample.summary_date, ":", error);
+        if (!res.ok) {
+          console.error("[persist-wearable-data] atomic upsert failed for", sample.summary_date, ":", res.error);
           results.errors++;
         } else {
           results.inserted++;  // upsert – counted as write
