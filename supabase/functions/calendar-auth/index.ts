@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,7 +111,7 @@ serve(async (req) => {
       
       if (!authenticatedUserId && body.userId && body.action === 'connect') {
         authenticatedUserId = body.userId as string;
-        console.log('[calendar-auth] Using userId from body for connect:', authenticatedUserId);
+        console.log('[calendar-auth] Using userId from body for connect:', redactUserId(authenticatedUserId));
       }
     }
     
