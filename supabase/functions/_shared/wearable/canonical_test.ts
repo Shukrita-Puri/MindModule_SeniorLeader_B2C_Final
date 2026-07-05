@@ -154,9 +154,7 @@ Deno.test("per-metric source_apps written for each chosen metric", () => {
   assertEquals(apps.hr_samples, ["Apple Watch"]);
 });
 
-Deno.test("loadWearableMergeContext derives connection state from stubbed client", async () => {
-
-});
+// (loadWearableMergeContext test moved below)
 
 Deno.test("recency guard boundary: exactly 12h does NOT trigger (strict >)", () => {
   const recon: ReconciliationRecord[] = [];
@@ -206,7 +204,7 @@ Deno.test("recency guard boundary: 12h + 1ms DOES trigger", () => {
   assertEquals(merged.hrv, 62, "existing preserved");
 });
 
-Deno.test("_placeholder", () => {
+Deno.test("loadWearableMergeContext derives connection state from stubbed client", async () => {
   const stub = {
     from(table: string) {
       if (table === "oura_connections") {
