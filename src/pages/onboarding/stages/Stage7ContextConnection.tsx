@@ -38,11 +38,12 @@ export default function Stage7ContextConnection() {
 
   // On mount: check existing per-provider connection status
   const verifyConnection = useCallback(async () => {
-    const state = await fetchCalendarProvidersState();
+    const result = await fetchCalendarProvidersState();
+    const providers = result.providers;
     const provider =
-      state.google?.connected ? 'google' :
-      state.microsoft?.connected ? 'microsoft' :
-      state.apple?.connected ? 'apple' :
+      providers.google?.connected ? 'google' :
+      providers.microsoft?.connected ? 'microsoft' :
+      providers.apple?.connected ? 'apple' :
       null;
     setConnectedCalendarProvider(provider);
     setCalendarEnabled(!!provider);
