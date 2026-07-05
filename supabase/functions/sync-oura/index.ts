@@ -14,7 +14,12 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
-import { mergeCanonicalWearableRow } from "../_shared/wearable/canonical.ts";
+import {
+  mergeCanonicalWearableRow,
+  loadWearableMergeContext,
+  type WearableMergeContext,
+  type ReconciliationRecord,
+} from "../_shared/wearable/canonical.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -227,6 +232,33 @@ async function persistRows(
   let written = 0;
   let errors = 0;
   let latest: string | null = null;
+  // Per-request cache: one context load per unique summary_date.
+  const ctxCache = new Map<string, WearableMergeContext>();
+  const getCtx = async (summaryDate: string): Promise<WearableMergeContext> => {
+    const hit = ctxCache.get(summaryDate);
+    if (hit) return hit;
+    const ctx = await loadWearableMergeContext(db, userId, summaryDate);
+    ctxCache.set(summaryDate, ctx);
+    return ctx;
+  };
+  const logReconciliation = async (summaryDate: string, rec: ReconciliationRecord) => {
+    try {
+      await db.from("wearable_reconciliation_log").insert({
+        user_id: userId,
+        summary_date: summaryDate,
+        metric: rec.metric,
+        winning_source: rec.winning_source,
+        losing_source: rec.losing_source,
+        winning_updated_at: rec.winning_updated_at,
+        losing_updated_at: rec.losing_updated_at,
+        delta_hours: rec.delta_hours,
+        reason: rec.reason,
+        details: rec.details,
+      });
+    } catch (e) {
+      log("reconciliation_log_insert_failed", { error: (e as Error)?.message });
+    }
+  };
   for (const r of rows) {
     const summaryDate = r.summary_date as string | undefined;
     if (!summaryDate) {
@@ -265,7 +297,13 @@ async function persistRows(
       .eq("user_id", userId)
       .eq("summary_date", summaryDate)
       .maybeSingle();
-    const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row);
+    const mergeCtx = await getCtx(summaryDate);
+    const reconRecords: ReconciliationRecord[] = [];
+    const mergedRow = mergeCanonicalWearableRow(existingRow as Record<string, unknown> | null, row, {
+      context: mergeCtx,
+      onReconciliation: (rec) => reconRecords.push(rec),
+    });
+    for (const rec of reconRecords) await logReconciliation(summaryDate, rec);
     const { error } = await db
       .from("wearable_data")
       .upsert(mergedRow, { onConflict: "user_id,summary_date" });
