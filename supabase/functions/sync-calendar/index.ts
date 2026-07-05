@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
+import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -506,6 +507,14 @@ serve(async (req) => {
         user_id: userId,
         provider,
         event_metadata: { ...event.event_metadata, eventType, isHighStakes },
+        // Phase 2 write-time dedupe foundation: shared TS key computed once
+        // per row so mirrored Apple/Google/MS copies land with the same
+        // identity_key. Null-safe when title/times are missing.
+        identity_key: computeIdentityKey({
+          title: event.title,
+          start_time: event.start_time,
+          end_time: event.end_time,
+        }),
       };
     });
 

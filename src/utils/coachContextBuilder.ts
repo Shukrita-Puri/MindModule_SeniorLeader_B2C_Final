@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- grandfathered raw calendar_events reads. Tracked in .lovable/plan.md for wiring through mergeCalendarEvents(). Remove this directive once every .from('calendar_events') read below has been replaced. */
 /**
  * Coach Context Builder
  * Builds comprehensive user context for the Self Mastery Coach
