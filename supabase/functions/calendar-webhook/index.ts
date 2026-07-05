@@ -40,9 +40,9 @@ async function enqueueSyncForConnection(
     }),
   }).then(async (r) => {
     const txt = await r.text();
-    console.log(`[calendar-webhook:${label}] sync-calendar enqueued user=${redactUserId(redactUserId(userId))} status=${r.status}`, txt.slice(0, 200));
+    console.log(`[calendar-webhook:${label}] sync-calendar enqueued user=${redactUserId(userId)} status=${r.status}`, txt.slice(0, 200));
   }).catch((err) => {
-    console.error(`[calendar-webhook:${label}] sync-calendar enqueue failed user=${redactUserId(redactUserId(userId))}`, err);
+    console.error(`[calendar-webhook:${label}] sync-calendar enqueue failed user=${redactUserId(userId)}`, err);
   });
 }
 

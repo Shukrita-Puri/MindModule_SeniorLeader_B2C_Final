@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       retention_offer_accepted: false
     });
 
-    console.log(`[cancel-subscription] Canceled for ${redactUserId(redactUserId(userId))}, ends at ${endsAt.toISOString()}`);
+    console.log(`[cancel-subscription] Canceled for ${redactUserId(userId)}, ends at ${endsAt.toISOString()}`);
 
     return new Response(
       JSON.stringify({ success: true, endsAt: endsAt.toISOString() }),

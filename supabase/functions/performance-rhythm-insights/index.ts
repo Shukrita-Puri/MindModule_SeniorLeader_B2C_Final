@@ -149,7 +149,7 @@ serve(async (req) => {
       dialogueMessages = msgs || [];
     }
 
-    console.log(`[perf-rhythm] ${redactUserId(redactUserId(userId))}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs ${wearableData.length}hrv`);
+    console.log(`[perf-rhythm] ${redactUserId(userId)}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs ${wearableData.length}hrv`);
 
     // ── BUILD 3×7 GRID ──
     // Uses stored time_window (not UTC-derived hours) to avoid timezone mismatch

@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       p_increment_conversions: false,
     });
 
-    console.log(`[track-referral-signup] ✅ Signup tracked: ${referralCode} → ${redactUserId(redactUserId(userId))}`);
+    console.log(`[track-referral-signup] ✅ Signup tracked: ${referralCode} → ${redactUserId(userId)}`);
 
     return new Response(
       JSON.stringify({ message: "Signup tracked" }),

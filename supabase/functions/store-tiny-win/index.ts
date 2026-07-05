@@ -67,7 +67,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[store-tiny-win] Stored win for user ${redactUserId(redactUserId(userId))} from source: ${source}`);
+    console.log(`[store-tiny-win] Stored win for user ${redactUserId(userId)} from source: ${source}`);
 
     return new Response(JSON.stringify({ success: true, data }), {
       status: 200,

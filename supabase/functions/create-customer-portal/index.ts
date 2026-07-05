@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       return_url: `${frontendUrl}/profile`,
     });
 
-    console.log(`[create-customer-portal] ✅ Portal session created for ${redactUserId(redactUserId(userId))}`);
+    console.log(`[create-customer-portal] ✅ Portal session created for ${redactUserId(userId)}`);
 
     return new Response(
       JSON.stringify({ portalUrl: session.url }),

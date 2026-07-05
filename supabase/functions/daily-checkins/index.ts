@@ -74,7 +74,7 @@ serve(async (req) => {
 
     const body = await req.json() as RequestBody;
     const { action } = body;
-    console.log(`[daily-checkins] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[daily-checkins] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_CHECKINS': {

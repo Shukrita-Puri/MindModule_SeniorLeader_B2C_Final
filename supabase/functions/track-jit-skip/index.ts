@@ -22,7 +22,7 @@ serve(async (req) => {
         const devHeader = req.headers.get('x-dev-user-id');
         if (devHeader) {
           userId = devHeader;
-          console.log(`[track-jit-skip] DEV bypass: userId=${redactUserId(redactUserId(userId))}`);
+          console.log(`[track-jit-skip] DEV bypass: userId=${redactUserId(userId)}`);
         } else {
           return auth.errorResponse;
         }
@@ -47,7 +47,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[track-jit-skip] User: ${redactUserId(redactUserId(userId))}, Action: ${action}, Event: ${eventTitle}, Horizon: ${horizon || 'none'}`);
+    console.log(`[track-jit-skip] User: ${redactUserId(userId)}, Action: ${action}, Event: ${eventTitle}, Horizon: ${horizon || 'none'}`);
 
     // Update jit_event_context if eventId provided
     // RULE: 'snoozed' = session-only hide, no backend suppression

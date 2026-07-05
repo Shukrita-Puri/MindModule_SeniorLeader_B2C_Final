@@ -74,7 +74,7 @@ serve(async (req) => {
         const devHeader = req.headers.get('x-dev-user-id');
         if (devHeader) {
           userId = devHeader;
-          console.log(`[daily-rituals] DEV bypass: userId=${redactUserId(redactUserId(userId))}`);
+          console.log(`[daily-rituals] DEV bypass: userId=${redactUserId(userId)}`);
         } else {
           return auth.errorResponse;
         }
@@ -92,7 +92,7 @@ serve(async (req) => {
 
     const body = await req.json() as RequestBody;
     const { action, startDate, endDate, ritualData } = body;
-    console.log(`[daily-rituals] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[daily-rituals] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_RITUALS': {
@@ -308,7 +308,7 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log(`[daily-rituals] DELETE_TODAY_RITUAL success for ${redactUserId(redactUserId(userId))} on ${today}`);
+        console.log(`[daily-rituals] DELETE_TODAY_RITUAL success for ${redactUserId(userId)} on ${today}`);
 
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

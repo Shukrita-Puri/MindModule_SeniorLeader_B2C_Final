@@ -42,7 +42,7 @@ serve(async (req) => {
     );
 
     const { action, days, snapshotData } = await req.json() as RequestBody;
-    console.log(`[energy-snapshots] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[energy-snapshots] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_SNAPSHOTS': {

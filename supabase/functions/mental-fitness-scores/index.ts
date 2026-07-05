@@ -184,7 +184,7 @@ if (import.meta.main) serve(async (req) => {
 
     const reqBody = await req.json() as RequestBody;
     const { action, days, scoreData } = reqBody;
-    console.log(`[mental-fitness-scores] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[mental-fitness-scores] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_SCORES': {

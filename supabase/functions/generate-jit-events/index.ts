@@ -450,7 +450,7 @@ serve(async (req) => {
         const devHeader = req.headers.get('x-dev-user-id');
         if (devHeader) {
           userId = devHeader;
-          console.log(`[generate-jit-events] DEV bypass: userId=${redactUserId(redactUserId(userId))}`);
+          console.log(`[generate-jit-events] DEV bypass: userId=${redactUserId(userId)}`);
         } else {
           return auth.errorResponse;
         }
@@ -471,7 +471,7 @@ serve(async (req) => {
     );
 
     const { timezoneOffset = 0 } = await req.json();
-    console.log(`[generate-jit-events] User: ${redactUserId(redactUserId(userId))}, TZ offset: ${timezoneOffset}`);
+    console.log(`[generate-jit-events] User: ${redactUserId(userId)}, TZ offset: ${timezoneOffset}`);
 
     const now = new Date();
     // Selection window: 4 weeks. Events are scored and stored but only surfaced

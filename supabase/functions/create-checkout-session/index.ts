@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
         (selectedPlan === 'annual' && currentTier === 'annual_pro');
 
       if (isAlreadyOnRequestedPlan) {
-        console.log(`[create-checkout-session] User ${redactUserId(redactUserId(userId))} already on ${currentTier}, redirecting to portal`);
+        console.log(`[create-checkout-session] User ${redactUserId(userId)} already on ${currentTier}, redirecting to portal`);
 
         if (profile.stripe_customer_id) {
           const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       }
 
       // Different plan requested — allow checkout to proceed as an upgrade (no trial)
-      console.log(`[create-checkout-session] User ${redactUserId(redactUserId(userId))} upgrading from ${currentTier} to ${selectedPlan}`);
+      console.log(`[create-checkout-session] User ${redactUserId(userId)} upgrading from ${currentTier} to ${selectedPlan}`);
     }
 
     // Get or create Stripe customer
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
       metadata: sessionMetadata,
     });
 
-    console.log(`[create-checkout-session] Session created for user ${redactUserId(redactUserId(userId))}, plan: ${selectedPlan}, currency: ${selectedCurrency}${validatedReferralCode ? `, referral: ${validatedReferralCode}` : ''}, mode: ${stripeConfig.isLiveMode ? 'LIVE' : 'TEST'}`);
+    console.log(`[create-checkout-session] Session created for user ${redactUserId(userId)}, plan: ${selectedPlan}, currency: ${selectedCurrency}${validatedReferralCode ? `, referral: ${validatedReferralCode}` : ''}, mode: ${stripeConfig.isLiveMode ? 'LIVE' : 'TEST'}`);
 
     return new Response(
       JSON.stringify({ sessionId: session.id, checkoutUrl: session.url }),

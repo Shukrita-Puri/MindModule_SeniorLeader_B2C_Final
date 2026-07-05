@@ -46,7 +46,7 @@ serve(async (req) => {
 
     const body = await req.json() as RequestBody;
     const { action, contentId, feedbackData, sessionId: reqSessionId, rating, qualitativeRating, feedbackText } = body;
-    console.log(`[content-feedback] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[content-feedback] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_FEEDBACK': {

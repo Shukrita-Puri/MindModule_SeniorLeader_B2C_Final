@@ -32,7 +32,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log(`[user-favorites] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[user-favorites] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_FAVORITES': {

@@ -107,7 +107,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[extract-coach-insights] Processing session ${sessionId} for user ${redactUserId(redactUserId(userId))}`);
+    console.log(`[extract-coach-insights] Processing session ${sessionId} for user ${redactUserId(userId)}`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,

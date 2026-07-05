@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[update-profile] ✅ Updated display_name for ${redactUserId(redactUserId(userId))} to "${sanitizedName}"`);
+    console.log(`[update-profile] ✅ Updated display_name for ${redactUserId(userId)} to "${sanitizedName}"`);
 
     return new Response(
       JSON.stringify({ profile: data }),

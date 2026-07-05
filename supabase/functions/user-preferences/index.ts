@@ -34,7 +34,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log(`[user-preferences] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[user-preferences] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_PREFERENCES': {

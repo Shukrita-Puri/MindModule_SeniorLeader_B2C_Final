@@ -122,7 +122,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[learn-checkin-patterns] Learned ${patternsLearned} patterns for user ${redactUserId(redactUserId(userId))}`);
+    console.log(`[learn-checkin-patterns] Learned ${patternsLearned} patterns for user ${redactUserId(userId)}`);
 
     return new Response(JSON.stringify({ data: { patternsLearned } }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

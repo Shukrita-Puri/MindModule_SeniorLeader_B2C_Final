@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
           })
           .eq("id", s.id);
       }
-      console.log(`[travel-notifications] cancelled ${stale.length} stale rows for ${redactUserId(redactUserId(userId))}`);
+      console.log(`[travel-notifications] cancelled ${stale.length} stale rows for ${redactUserId(userId)}`);
     }
 
     // 2. Schedule the new notification for this transition (if any).

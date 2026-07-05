@@ -42,7 +42,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log(`[saved-debriefs] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
+    console.log(`[saved-debriefs] Action: ${action}, User: ${redactUserId(userId)}`);
 
     switch (action) {
       case 'GET_DEBRIEFS': {

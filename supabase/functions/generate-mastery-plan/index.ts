@@ -6971,7 +6971,7 @@ if (import.meta.main) Deno.serve(async (req) => {
       const internalUserId = req.headers.get('x-dev-user-id');
       if (serviceRole && authHeader === `Bearer ${serviceRole}` && internalUserId) {
         userId = internalUserId;
-        console.log(`[generate-mastery-plan] service-role orchestrator: userId=${redactUserId(redactUserId(userId))}`);
+        console.log(`[generate-mastery-plan] service-role orchestrator: userId=${redactUserId(userId)}`);
       } else {
       // DEV_MODE bypass: allow fallback when not in production
       const env = Deno.env.get('ENVIRONMENT') || '';
@@ -6979,7 +6979,7 @@ if (import.meta.main) Deno.serve(async (req) => {
         const devHeader = req.headers.get('x-dev-user-id');
         if (devHeader) {
           userId = devHeader;
-          console.log(`[generate-mastery-plan] DEV bypass: userId=${redactUserId(redactUserId(userId))}`);
+          console.log(`[generate-mastery-plan] DEV bypass: userId=${redactUserId(userId)}`);
         } else {
           return auth.errorResponse;
         }
@@ -7172,7 +7172,7 @@ if (import.meta.main) Deno.serve(async (req) => {
 
     const cached = rateLimitMap.get(stateFingerprint);
     if (!requestMrsAwaiting && !forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
-      console.log(`[generate-mastery-plan] Rate limited: ${redactUserId(redactUserId(userId))} fingerprint=${stateFingerprint.substring(0, 60)}... (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
+      console.log(`[generate-mastery-plan] Rate limited: ${redactUserId(userId)} fingerprint=${stateFingerprint.substring(0, 60)}... (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
       // Phase 3.5 — backfill snapshot if absent, so a hot cache key never
       // leaves the DB without the most recent assembled payload.
       await persistMasteryPlanSnapshot(cached.cachedResponse, { onlyIfMissing: true });

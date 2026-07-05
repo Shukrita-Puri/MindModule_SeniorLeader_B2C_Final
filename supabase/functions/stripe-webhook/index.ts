@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
           console.warn('[stripe-webhook] Referral attribution failed:', refErr);
         }
 
-        console.log(`[stripe-webhook] Trial started for ${redactUserId(redactUserId(userId))}`);
+        console.log(`[stripe-webhook] Trial started for ${redactUserId(userId)}`);
         break;
       }
 
@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
             stripe_event_type: event.type
           });
 
-          console.log(`[stripe-webhook] Subscription active for ${redactUserId(redactUserId(userId))}: ${tier}`);
+          console.log(`[stripe-webhook] Subscription active for ${redactUserId(userId)}: ${tier}`);
 
           // ═══════════════════════════════════════════════════════════
           // STAGE 2: REFERRAL CONVERSION – Credit referrer on Pro purchase
@@ -370,7 +370,7 @@ Deno.serve(async (req) => {
           stripe_event_type: event.type
         });
 
-        console.log(`[stripe-webhook] Payment failed for ${redactUserId(redactUserId(userId))}`);
+        console.log(`[stripe-webhook] Payment failed for ${redactUserId(userId)}`);
         break;
       }
 
@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
           stripe_event_type: event.type
         });
 
-        console.log(`[stripe-webhook] Subscription canceled for ${redactUserId(redactUserId(userId))}`);
+        console.log(`[stripe-webhook] Subscription canceled for ${redactUserId(userId)}`);
         break;
       }
     }

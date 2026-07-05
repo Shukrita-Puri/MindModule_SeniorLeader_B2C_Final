@@ -3866,7 +3866,7 @@ serve(async (req) => {
       const isForcedUser = forceUserId !== null && forceUserId === userId;
       // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) - kills 6/7am sends
       if (!isForcedUser && (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL)) {
-        console.log(`[smart-nudges][v5] User ${redactUserId(redactUserId(userId))} outside global window (${localTime.toFixed(1)}). Skipping.`);
+        console.log(`[smart-nudges][v5] User ${redactUserId(userId)} outside global window (${localTime.toFixed(1)}). Skipping.`);
         trace(userId, 'outside_global_window', {
           ...traceBase,
           metadata: { local_time: localTime, earliest: GLOBAL_EARLIEST_LOCAL, latest: GLOBAL_LATEST_LOCAL },
@@ -4018,7 +4018,7 @@ serve(async (req) => {
             ttlSeconds: periodTtlSeconds('evening', localTime),
             collapseId: periodCollapseId('evening', todayStr),
           });
-          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${redactUserId(redactUserId(userId))} variant=${inv.copy.variantId} (own bucket - bypassing daily cap)`);
+          console.log(`[smart-nudges] week_ahead_picker_invite dispatched user=${redactUserId(userId)} variant=${inv.copy.variantId} (own bucket - bypassing daily cap)`);
         } else if (!weeklyAlreadySent) {
           trace(userId, 'week_ahead_not_selected', {
             ...traceBase,
@@ -4030,7 +4030,7 @@ serve(async (req) => {
 
       // ── DAILY CAP ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
-        console.log(`[smart-nudges] User ${redactUserId(redactUserId(userId))} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
+        console.log(`[smart-nudges] User ${redactUserId(userId)} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
         trace(userId, 'daily_cap', {
           ...traceBase,
           metadata: { count: todayLogs.length, cap: DAILY_NOTIFICATION_CAP },
@@ -4102,7 +4102,7 @@ serve(async (req) => {
             .limit(1)
             .maybeSingle();
           if (legacy) {
-            console.warn(`[smart-nudges] daily_context_snapshot legacy fallback: no row for window=${nudgeWindow}, using window=${legacy.mrs_window ?? 'null'} user=${redactUserId(redactUserId(userId))}`);
+            console.warn(`[smart-nudges] daily_context_snapshot legacy fallback: no row for window=${nudgeWindow}, using window=${legacy.mrs_window ?? 'null'} user=${redactUserId(userId)}`);
             snapRow = legacy;
           }
         }
@@ -4122,14 +4122,14 @@ serve(async (req) => {
           );
         }
         if (snapRow?.readiness_state === 'awaiting') {
-          console.log(`[smart-nudges][mrs-state1] User ${redactUserId(redactUserId(userId))} awaiting signals; continuing so nudge can drive sync + check-in.`);
+          console.log(`[smart-nudges][mrs-state1] User ${redactUserId(userId)} awaiting signals; continuing so nudge can drive sync + check-in.`);
         }
         if (gapFlag === 'LIGHT_DAY_STRONG_STATE') {
-          console.log(`[smart-nudges][mrs-v2] User ${redactUserId(redactUserId(userId))} LIGHT_DAY_STRONG_STATE read only; Plan slots decide cadence.`);
+          console.log(`[smart-nudges][mrs-v2] User ${redactUserId(userId)} LIGHT_DAY_STRONG_STATE read only; Plan slots decide cadence.`);
         }
         if (gapFlag === 'SUPPLY_DEMAND_GAP' && ps?.sustained_deficit_flag === true) {
           mrsEscalate = true;
-          console.log(`[smart-nudges][mrs-v2] User ${redactUserId(redactUserId(userId))} SUPPLY_DEMAND_GAP + sustained_deficit → escalate (bypass 2h suppression).`);
+          console.log(`[smart-nudges][mrs-v2] User ${redactUserId(userId)} SUPPLY_DEMAND_GAP + sustained_deficit → escalate (bypass 2h suppression).`);
         }
       } catch (snapErr) {
         console.warn('[smart-nudges][mrs-v2] snapshot read failed:',
@@ -4334,7 +4334,7 @@ serve(async (req) => {
           (bestNudge.type === 'nudge_one' || bestNudge.type === 'nudge_two');
 
         if (suppressedEffective && !isJitNudge) {
-          console.log(`[smart-nudges] User ${redactUserId(redactUserId(userId))} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
+          console.log(`[smart-nudges] User ${redactUserId(userId)} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
           trace(userId, 'two_hour_suppression', {
             ...traceBase,
             notificationType: bestNudge.type,
@@ -4405,7 +4405,7 @@ serve(async (req) => {
             // Skip this run's push but do NOT write a `notification_log`
             // row — that would trigger `two_hour_suppression` on every
             // subsequent evaluation and kill the whole evening. Trace only.
-            console.log(`[smart-nudges][v1.1] User ${redactUserId(redactUserId(userId))} back_to_back skip (largestGap=${largestGapMin}min, upcoming=${upcoming.length}).`);
+            console.log(`[smart-nudges][v1.1] User ${redactUserId(userId)} back_to_back skip (largestGap=${largestGapMin}min, upcoming=${upcoming.length}).`);
             trace(userId, 'back_to_back_skip', {
               ...traceBase,
               notificationType: bestNudge.type,

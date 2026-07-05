@@ -124,7 +124,7 @@ serve(async (req) => {
         return Number.isFinite(endMs) && endMs > nowMs;
       });
 
-    console.log(`[list-replacement-calendar-events] user=${redactUserId(redactUserId(userId))} raw=${rawEvents.length} deduped=${events.length}`);
+    console.log(`[list-replacement-calendar-events] user=${redactUserId(userId)} raw=${rawEvents.length} deduped=${events.length}`);
 
     return new Response(JSON.stringify({ events }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
