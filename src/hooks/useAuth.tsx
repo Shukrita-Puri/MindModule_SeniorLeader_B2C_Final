@@ -9,6 +9,7 @@ import { clearHealthKitPermission } from '@/services/wearableSyncService';
 import { clear as clearSyncQueue } from '@/services/syncQueue';
 import { clearByPrefixes, cacheKeyPrefixes } from '@/utils/persistentBriefCache';
 import { toast } from 'sonner';
+import { redactUserId } from '@/utils/identity/redactUserId';
 
 declare global {
   interface Window {
