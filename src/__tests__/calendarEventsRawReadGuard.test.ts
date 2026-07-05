@@ -25,6 +25,13 @@ const APPROVED_WRITERS = new Set<string>([
   'supabase/functions/calendar-auth/index.ts',
   'supabase/functions/list-replacement-calendar-events/index.ts',
   'supabase/functions/list-week-ahead-priorities/index.ts',
+  // Admin-only identity/duplicate maintenance tools. These MUST read raw
+  // calendar_events by design — mergeCalendarEvents() would hide the exact
+  // cross-provider duplicates they exist to analyze/backfill. Both are
+  // requireAdmin-gated and use the shared computeIdentityKey helper for
+  // any derived values, so they cannot drift from the merge layer.
+  'supabase/functions/analyze-calendar-identity-duplicates/index.ts',
+  'supabase/functions/backfill-calendar-identity-keys/index.ts',
 ]);
 
 // Grandfathered: raw reads tracked in .lovable/plan.md (calendar dedupe
