@@ -205,6 +205,14 @@ const ConnectedData = () => {
   const [appleCalendarPermissionStatus, setAppleCalendarPermissionStatus] = useState<string | null>(null);
   const [appleCalendarSyncFailed, setAppleCalendarSyncFailed] = useState(false);
 
+  // Keep the ref mirror aligned with every committed status update. React
+  // guarantees this effect runs after commit, so `statusRef.current` always
+  // reflects the freshest DOM-visible state by the time any async work
+  // (fetchStatus, listeners, resume handlers) reads it.
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
   const clearIntegrationCaches = useCallback((scope: 'calendar' | 'wearable' | 'all') => {
     console.log('[ConnectedData] Clearing integration caches:', scope);
     try {
