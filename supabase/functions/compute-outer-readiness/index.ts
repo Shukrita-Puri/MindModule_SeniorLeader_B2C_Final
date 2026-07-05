@@ -6122,7 +6122,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             briefSource,
             promptVersion: BRIEF_PROMPT_VERSION,
             inputSignature: inputSignature.slice(0, 8) + '...',
-            generationPath: briefSource === 'llm' ? 'fresh_llm' : 'fresh_deterministic',
+            generationPath: briefSource === 'llm'
+              ? 'fresh_llm'
+              : briefSource === 'awaiting'
+                ? 'fresh_awaiting'
+                : 'fresh_deterministic',
             snapshotReason: 'miss_fresh_generation',
           }));
         }
