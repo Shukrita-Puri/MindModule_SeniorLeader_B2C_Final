@@ -5471,6 +5471,7 @@ export type Database = {
           total_sleep_minutes: number | null
           updated_at: string
           user_id: string
+          write_token: string
         }
         Insert: {
           active_calories?: number | null
@@ -5498,6 +5499,7 @@ export type Database = {
           total_sleep_minutes?: number | null
           updated_at?: string
           user_id: string
+          write_token?: string
         }
         Update: {
           active_calories?: number | null
@@ -5525,6 +5527,7 @@ export type Database = {
           total_sleep_minutes?: number | null
           updated_at?: string
           user_id?: string
+          write_token?: string
         }
         Relationships: []
       }
