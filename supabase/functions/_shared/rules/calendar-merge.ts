@@ -149,8 +149,27 @@ export function normalizeForClassify(title: string | null | undefined): string {
 }
 
 /**
- * Write-time identity key for cross-provider dedupe. See the mirror in
- * src/utils/rules/calendar-merge.ts for the full contract. KEEP IN SYNC.
+ * Write-time identity key for cross-provider dedupe.
+ *
+ * IMPORTANT: this is a CANONICALIZATION AID for the write path only. It
+ * collapses obvious mirror rows across providers (same normalized title +
+ * rounded start minute + duration) so that downstream reads see fewer
+ * duplicate provider copies of the same meeting.
+ *
+ * It is NOT a replacement for `mergeCalendarEvents`, which remains the sole
+ * source of truth for read-time deduplication. `mergeCalendarEvents` performs
+ * additional fuzzy matching (±5min start, ±10min duration, attendee/organizer
+ * intersection, platform-dependent provider precedence, status resolution)
+ * that a stable string key cannot express.
+ *
+ * Consequences:
+ *   - `identity_key` collisions are a strong hint of duplication, not a proof.
+ *   - `identity_key` misses (distinct keys) do NOT mean the rows are distinct
+ *     to the reader — mergeCalendarEvents may still fuse them.
+ *   - Never enforce a UNIQUE constraint on `identity_key` without an offline
+ *     collision analysis proving the false-positive rate is acceptable.
+ *
+ * Mirror lives at src/utils/rules/calendar-merge.ts. KEEP IN SYNC.
  */
 export function computeIdentityKey(input: CalendarMergeInput): string | null {
   const title = normalizeForClassify(input.title as string | null | undefined);
