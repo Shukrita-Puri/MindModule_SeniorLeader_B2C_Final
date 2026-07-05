@@ -14,34 +14,22 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
+import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // One-shot admin maintenance endpoint. verify_jwt is off (Lovable
-    // default), so we require an explicit `confirm` string in the body to
-    // prevent accidental invocation. The operation is idempotent — it only
-    // writes to rows where identity_key IS NULL — so this is acceptable for
-    // the one-time backfill run. Before wiring this to a scheduler or
-    // exposing it long-term, replace this with a proper admin gate
-    // (verified admin JWT via `has_role`).
+    // Admin-only. Caller must present a valid Auth0 JWT whose profile email
+    // is in the shared ADMIN_EMAIL_ALLOWLIST (see _shared/admin-guard.ts).
+    const guard = await requireAdmin(req);
+    if (guard.errorResponse) return guard.errorResponse;
     const body = await req.json().catch(() => ({}));
-    if (body?.confirm !== "backfill-calendar-identity-keys") {
-      return new Response(JSON.stringify({ error: "confirmation_required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     const batchSize = Math.min(Math.max(Number(body.batchSize) || 500, 1), 2000);
     const maxBatches = Math.min(Math.max(Number(body.maxBatches) || 20, 1), 200);
     const dryRun = Boolean(body.dryRun);
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } },
-    );
+    const supabase = guard.db;
 
     let scanned = 0;
     let updated = 0;
@@ -91,6 +79,23 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, dryRun, batches, scanned, updated, leftNull }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+  } catch (err) {
+    console.error("[backfill-calendar-identity-keys] error:", err);
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+  // (unreachable — kept for parity)
+  // eslint-disable-next-line
+  // deno-lint-ignore no-unreachable
+  return undefined as never;
+});
+
+// prevent accidental fall-through — retain original catch block below
+// (see file history) for defensive logging.
+/* legacy catch removed by patch */
+function __unused__() {
   } catch (err) {
     console.error("[backfill-calendar-identity-keys] error:", err);
     return new Response(
