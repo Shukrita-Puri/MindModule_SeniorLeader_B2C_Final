@@ -65,6 +65,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminUserDetail = lazy(() => import("./pages/admin/AdminUserDetail"));
 const AdminJobs = lazy(() => import("./pages/admin/AdminJobs"));
+const AdminExecutiveHomeAudit = lazy(() => import("./pages/admin/AdminExecutiveHomeAudit"));
 const AdminErrorLogs = lazy(() => import("./pages/admin/AdminErrorLogs"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 
@@ -443,6 +444,7 @@ const router = createBrowserRouter([
           { path: "users", element: <Suspense fallback={<LoadingFallback />}><AdminUsers /></Suspense> },
           { path: "users/:userId", element: <Suspense fallback={<LoadingFallback />}><AdminUserDetail /></Suspense> },
           { path: "jobs", element: <Suspense fallback={<LoadingFallback />}><AdminJobs /></Suspense> },
+          { path: "executive-home-audit", element: <Suspense fallback={<LoadingFallback />}><AdminExecutiveHomeAudit /></Suspense> },
           { path: "error-logs", element: <Suspense fallback={<LoadingFallback />}><AdminErrorLogs /></Suspense> },
           { path: "notifications", element: <Suspense fallback={<LoadingFallback />}><AdminNotifications /></Suspense> },
         ],
