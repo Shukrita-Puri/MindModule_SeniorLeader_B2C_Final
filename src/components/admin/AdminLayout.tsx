@@ -1,11 +1,12 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, ArrowLeft, Activity, AlertTriangle, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, ArrowLeft, Activity, AlertTriangle, Bell, Gauge } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/users', label: 'Users', icon: Users, end: false },
   { to: '/admin/jobs', label: 'Jobs', icon: Activity, end: false },
+  { to: '/admin/executive-home-audit', label: 'Home Cards Audit', icon: Gauge, end: false },
   { to: '/admin/error-logs', label: 'Error Logs', icon: AlertTriangle, end: false },
   { to: '/admin/notifications', label: 'Notifications', icon: Bell, end: false },
 ];
