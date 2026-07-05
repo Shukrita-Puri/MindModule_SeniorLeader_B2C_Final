@@ -18,6 +18,11 @@ import {
   buildBehaviourSnapshot,
   type BehaviourSnapshotResult,
 } from "../_shared/behaviour-snapshot.ts";
+// §5.1 / §5.2 Atomic Brief Contract validator. Enforced after the per-model
+// `normalizeLlmBrief` gate so forbidden words, missing lexicon cluster,
+// missing signal evidence, and unanchored pattern references all trigger
+// the same retry-once-then-awaiting path as the other validator rejects.
+import { validateBrief } from "../_shared/brief-validators.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
