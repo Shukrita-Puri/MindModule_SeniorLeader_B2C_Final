@@ -184,7 +184,7 @@ serve(async (req) => {
       };
 
       const url = `https://${apnsHost}/3/device/${t.device_token}`;
-      console.log(`[test-push] Sending to ${apnsHost} | token=${t.device_token.substring(0, 12)}... | user=${t.user_id} | ttl=${ttlSeconds}s | collapse=${collapseId}`);
+      console.log(`[test-push] Sending to ${apnsHost} | token=${t.device_token.substring(0, 12)}... | user=${redactUserId(t.user_id)} | ttl=${ttlSeconds}s | collapse=${collapseId}`);
 
       const res = await fetch(url, {
         method: "POST",

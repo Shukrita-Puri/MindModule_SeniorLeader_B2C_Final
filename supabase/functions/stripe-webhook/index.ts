@@ -163,10 +163,10 @@ Deno.serve(async (req) => {
                   p_increment_conversions: false,
                 });
 
-                console.log(`[stripe-webhook] Referral attribution: ${referralCode} → referrer ${referrer.user_id}`);
+                console.log(`[stripe-webhook] Referral attribution: ${referralCode} → referrer ${redactUserId(referrer.user_id)}`);
               }
             } else if (referrer && referrer.user_id === userId) {
-              console.warn(`[stripe-webhook] Self-referral blocked: ${userId} used own code ${referralCode}`);
+              console.warn(`[stripe-webhook] Self-referral blocked: ${redactUserId(userId)} used own code ${referralCode}`);
             }
           }
         } catch (refErr) {
