@@ -194,6 +194,11 @@ const ConnectedData = () => {
     }
   }, [user?.id, queryClient]);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
+  // Ref mirror of `status`. Kept in sync via the effect below and read inside
+  // fetchStatus/listeners so we always merge against the freshest committed
+  // state without recreating those callbacks (which would re-register the
+  // native `appStateChange` listener and cause churn/leaks).
+  const statusRef = useRef<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
