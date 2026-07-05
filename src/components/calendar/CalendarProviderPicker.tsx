@@ -9,6 +9,7 @@ import { openUrl } from '@/utils/openUrl';
 import {
   isAppleCalendarSupported,
   requestAppleCalendarPermission,
+  showAppleCalendarPermissionRevokeNotice,
 } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
