@@ -4,6 +4,7 @@ import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 import { classifyGoogleCalendarError } from "../_shared/rules/google-calendar-errors.ts";
+import { buildSuccessfulSyncUpdate } from "../_shared/rules/calendar-connection-state.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
