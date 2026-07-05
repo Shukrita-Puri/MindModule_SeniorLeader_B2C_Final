@@ -39,17 +39,25 @@ export type SyncTokenPhase =
 export function mapEnsureFreshOutcomeToSyncPhase(
   outcome: EnsureFreshAccessTokenResult,
 ): SyncTokenPhase {
-  if (outcome.outcome === 'ok' || outcome.outcome === 'refreshed') {
-    return { kind: 'ok', accessToken: outcome.accessToken };
+  const o = outcome.outcome;
+  if (o === 'ok' || o === 'refreshed') {
+    return { kind: 'ok', accessToken: (outcome as { accessToken: string }).accessToken };
   }
-  if (outcome.outcome === 'reconnect_required') {
+  if (o === 'reconnect_required') {
+    const rc = outcome as {
+      outcome: 'reconnect_required';
+      reason:
+        | 'no_access_token_and_no_refresh_token'
+        | 'refresh_decrypt_failed'
+        | 'refresh_rejected';
+    };
     // Preserve the pre-refactor reason vocabulary so existing clients
     // (which switch on `no_refresh_token` / `refresh_failed`) keep
     // working after the shared-helper refactor.
     let reason = 'refresh_failed';
-    if (outcome.reason === 'no_access_token_and_no_refresh_token') {
+    if (rc.reason === 'no_access_token_and_no_refresh_token') {
       reason = 'no_refresh_token';
-    } else if (outcome.reason === 'refresh_decrypt_failed') {
+    } else if (rc.reason === 'refresh_decrypt_failed') {
       reason = 'refresh_decrypt_failed';
     }
     return {
@@ -63,10 +71,15 @@ export function mapEnsureFreshOutcomeToSyncPhase(
     };
   }
   // transient
-  const dbReason = `token_refresh_${outcome.reason}`;
-  const dbMessage = outcome.providerError
-    ? `Token refresh transient failure: ${outcome.providerError}`
-    : `Token refresh transient failure (${outcome.reason})`;
+  const tr = outcome as {
+    outcome: 'refresh_transient_error';
+    reason: string;
+    providerError?: string;
+  };
+  const dbReason = `token_refresh_${tr.reason}`;
+  const dbMessage = tr.providerError
+    ? `Token refresh transient failure: ${tr.providerError}`
+    : `Token refresh transient failure (${tr.reason})`;
   return {
     kind: 'transient',
     response: {
