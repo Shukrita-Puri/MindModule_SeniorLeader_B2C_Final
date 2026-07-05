@@ -47,7 +47,12 @@ function makeMockDb(opts: { freezeUpdatedAt?: boolean } = {}) {
   // the caller supplies verbatim, falling back to a mock-generated ts.
   const stampWrite = (row: Row): Row => ({
     ...row,
-    updated_at: (row.updated_at as string | undefined) ?? nextTs(),
+    // When freezing, override whatever the helper stamped so we can
+    // deterministically reproduce a same-ms scenario. Otherwise honour the
+    // caller-supplied value (or fall back to a monotonic mock ts).
+    updated_at: opts.freezeUpdatedAt
+      ? FROZEN_TS
+      : (row.updated_at as string | undefined) ?? nextTs(),
   });
 
   const from = (table: string) => {
