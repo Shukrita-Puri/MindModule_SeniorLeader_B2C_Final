@@ -179,9 +179,26 @@ function inferRowProvenance(
   return 'unknown';
 }
 
+/**
+ * True only for tags that are unambiguously Apple-Watch-backed telemetry.
+ *
+ * Matches:
+ *  - The row-level provenance token `apple_watch_via_apple_health` emitted by
+ *    the iOS bridge when the metric's HKSource is an Apple Watch.
+ *  - The display-name token `"Apple Watch"` (HealthKit surfaces the source
+ *    display name; watches show up as `"Apple Watch"` / `"<owner>'s Apple Watch"`).
+ *
+ * Does NOT match:
+ *  - Generic `apple-healthkit` / `apple_health_native` — an iPhone-only
+ *    Health row (steps, HR from AirPods, etc.) is NOT an Apple Watch signal.
+ *  - `com.apple.health.*` bundle IDs — these are surfaced for any HealthKit
+ *    write regardless of which sensor produced the sample.
+ */
 function isAppleWatchTag(tag: string): boolean {
   const t = tag.toLowerCase();
-  return t.includes('apple') && (t.includes('watch') || t.includes('healthkit'));
+  if (t === 'apple_watch_via_apple_health') return true;
+  if (t.includes('apple watch')) return true;
+  return false;
 }
 
 function rowHasAppleWatch(row: WearableRowLike): boolean {
@@ -189,11 +206,10 @@ function rowHasAppleWatch(row: WearableRowLike): boolean {
   for (const tags of Object.values(apps)) {
     if (tags.some(isAppleWatchTag)) return true;
   }
-  // Only trust the row-level provider label when it's a *native* Apple path.
-  // `oura_via_apple_health` also contains "apple" but must NOT count as Apple
-  // Watch — that's the exact bug this refactor closes.
-  const provenance = inferRowProvenance(row.source, row.source_provider);
-  return provenance === 'apple_health_native';
+  // Row-level: only the explicit `apple_watch_via_apple_health` label counts.
+  // Plain `apple_healthkit` / `apple_health_native` may be iPhone-only data.
+  const sp = (row.source_provider ?? '').toString().toLowerCase();
+  return sp === 'apple_watch_via_apple_health';
 }
 
 function isPresent(value: unknown, metric: MetricKey): boolean {
@@ -219,6 +235,25 @@ function providerTag(provider: Provider): string[] {
   if (provider === 'oura') return ['oura'];
   if (provider === 'apple-healthkit') return ['apple-healthkit'];
   return ['unknown'];
+}
+
+/**
+ * Provenance-preserving fallback tag for `source_apps[metric]` when the chosen
+ * row supplied no per-metric tag. Emits the explicit provenance token so a
+ * later merge/read can still distinguish `oura_via_apple_health` from
+ * `direct_oura`, closing the "legacy row loses provenance on merge" leak.
+ *
+ * The tokens are the same ones understood by `resolveMetricProvenance`,
+ * making round-trips lossless.
+ */
+function provenanceTag(p: Provenance): string[] {
+  switch (p) {
+    case 'direct_oura':                    return ['oura'];
+    case 'apple_health_native':            return ['apple_health_native'];
+    case 'oura_via_apple_health':          return ['oura_via_apple_health'];
+    case 'third_party_via_apple_health':   return ['third_party_via_apple_health'];
+    default:                               return ['unknown'];
+  }
 }
 
 function completenessScore(provider: Provider, row: WearableRowLike): number {
@@ -354,12 +389,16 @@ function hrvRank(p: Provenance): number {
 function setMetricSource(
   apps: SourceApps,
   metric: MetricKey,
-  provider: Provider,
+  provenance: Provenance,
   row: WearableRowLike,
 ): void {
   const rowApps = parseSourceApps(row.source_apps);
   const existing = rowApps[metric];
-  apps[metric] = existing && existing.length > 0 ? existing : providerTag(provider);
+  // Preserve any explicit per-metric tag from the chosen row. Otherwise fall
+  // back to a provenance-preserving token (not the coarse provider name), so
+  // legacy rows that only carry row-level `source_provider` keep their true
+  // provenance after merge.
+  apps[metric] = existing && existing.length > 0 ? existing : provenanceTag(provenance);
 }
 
 function summarizeProvider(metricProviders: Provider[]): string | null {
@@ -384,6 +423,17 @@ export function resolveMetricProvenance(metric: string, row: WearableRowLike): P
   const apps = parseSourceApps(row.source_apps);
   const tags = (apps[metric] ?? []).map((t) => t.toLowerCase());
   const rowProvenance = inferRowProvenance(row.source, row.source_provider);
+
+  // Explicit provenance tokens (highest priority — written by our own
+  // fallback in `setMetricSource` and understood round-trip).
+  if (tags.includes('oura_via_apple_health')) return 'oura_via_apple_health';
+  if (tags.includes('apple_watch_via_apple_health')) return 'apple_health_native';
+  if (tags.includes('apple_health_native')) return 'apple_health_native';
+  if (tags.includes('third_party_via_apple_health')) return 'third_party_via_apple_health';
+  if (tags.some((t) => t !== 'oura_via_apple_health' && t.endsWith('_via_apple_health'))) {
+    return 'third_party_via_apple_health';
+  }
+  if (tags.includes('direct_oura')) return 'direct_oura';
 
   // Bundle-id-style tags (e.g. "com.ouraring.oura") are always HealthKit
   // mirrors — Apple surfaces them via HKSource.bundleIdentifier. Bare
@@ -571,11 +621,12 @@ export function mergeCanonicalWearableRow(
     }
 
     const chosenRow = useIncoming ? incoming : existing;
-    const provider = resolveMetricProvider(metric, chosenRow);
+    const chosenProvenance = resolveMetricProvenance(metric, chosenRow);
+    const provider = provenanceToProvider(chosenProvenance);
     chosenProviders.push(provider);
     if (isPresent(chosenRow[metric], metric)) {
       merged[metric] = chosenRow[metric];
-      setMetricSource(mergedApps, metric, provider, chosenRow);
+      setMetricSource(mergedApps, metric, chosenProvenance, chosenRow);
     }
   }
 
