@@ -148,6 +148,32 @@ export function normalizeForClassify(title: string | null | undefined): string {
   return normalizeWhitespace(out);
 }
 
+/**
+ * Write-time identity key for cross-provider dedupe.
+ *
+ * Conservative EXACT-match key intended for the sync insert path:
+ *   normalizedTitle | roundedStartMinute | durationMinutes
+ *
+ * NOT a replacement for mergeCalendarEvents() at read time. The read-side
+ * merger applies fuzzy ±5min / ±10min tolerance, attendee-overlap gates and
+ * status resolution; this key intentionally omits those so it can be
+ * computed once per row at insert with no cross-row context.
+ *
+ * Returns null when we can't build a stable key (missing title / bad times),
+ * in which case callers should leave identity_key NULL rather than fall back
+ * to a lossy value that could collide across unrelated events.
+ */
+export function computeIdentityKey(input: CalendarMergeInput): string | null {
+  const title = normalizeForClassify(input.title as string | null | undefined);
+  if (!title) return null;
+  const startMs = toMs(input.startTime ?? input.start_time);
+  const endMs = toMs(input.endTime ?? input.end_time);
+  if (startMs == null || endMs == null) return null;
+  const startMinute = Math.round(startMs / 60000);
+  const durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000));
+  return `${title}|${startMinute}|${durationMinutes}`;
+}
+
 function isBusyTitle(title: string | null | undefined): boolean {
   const t = normalizeForClassify(title);
   if (!t) return true;
