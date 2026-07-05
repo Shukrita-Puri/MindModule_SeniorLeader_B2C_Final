@@ -2882,10 +2882,10 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
         selectedPlan: snapRow.selected_plan ?? null,
         userEdits: snapRow.user_edits ?? null,
       };
-      console.log('[week_ahead.read.hit]', { userId: req.userId, weekStart, priorities: ctx.weeklyPlanSnapshot.priorities.length });
+      console.log('[week_ahead.read.hit]', { userId: redactUserId(req.userId), weekStart, priorities: ctx.weeklyPlanSnapshot.priorities.length });
     } else {
       ctx.weeklyPlanSnapshot = null;
-      console.log('[week_ahead.read.miss]', { userId: req.userId, weekStart });
+      console.log('[week_ahead.read.miss]', { userId: redactUserId(req.userId), weekStart });
     }
   } catch (e) {
     console.warn('[week_ahead.read.error]', (e as Error).message);
