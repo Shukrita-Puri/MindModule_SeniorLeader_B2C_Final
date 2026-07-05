@@ -6,27 +6,16 @@ import {
   classifyMicrosoftSubscriptionError,
   MS_GRAPH_RENEW_WINDOW_MS,
 } from "../_shared/rules/microsoft-graph-subscription.ts";
+import {
+  ensureFreshAccessToken,
+  type CalendarConnectionTokenRow,
+  type OAuthClientConfig,
+} from "../_shared/calendar-token-refresh.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// ========== AES-256-GCM Helpers (same as sync-calendar) ==========
-function b64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-async function decryptJson(ctB64: string, ivB64: string, keyB64: string): Promise<unknown> {
-  const keyBytes = b64ToBytes(keyB64);
-  const iv = b64ToBytes(ivB64);
-  const ct = b64ToBytes(ctB64);
-  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, ["decrypt"]);
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv.buffer as ArrayBuffer }, key, ct.buffer as ArrayBuffer);
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
-}
 
 // Renewal threshold: renew if expiration is within 24h
 const RENEW_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -36,7 +25,7 @@ const WATCH_TTL_SECONDS = 7 * 24 * 60 * 60;
 interface WatchResult {
   userId: string;
   provider: 'google' | 'microsoft';
-  outcome: 'registered' | 'renewed' | 'skipped' | 'failed';
+  outcome: 'registered' | 'renewed' | 'skipped' | 'failed' | 'deferred';
   reason?: string;
 }
 
@@ -181,7 +170,7 @@ serve(async (req) => {
 
     let query = serviceClient
       .from('calendar_connections')
-      .select('id, user_id, provider, access_token_enc, token_iv, webhook_channel_id, webhook_resource_id, webhook_expiration, webhook_client_state')
+      .select('id, user_id, provider, access_token_enc, refresh_token_enc, token_iv, refresh_token_iv, token_expires_at, webhook_channel_id, webhook_resource_id, webhook_expiration, webhook_client_state')
       .eq('is_active', true)
       .in('provider', ['google', 'microsoft']);
 
@@ -205,16 +194,72 @@ serve(async (req) => {
     const results: WatchResult[] = [];
     let registeredCount = 0;
     let failedCount = 0;
+    let deferredCount = 0;
+
+    const oauthConfig: OAuthClientConfig = {
+      googleClientId: Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '',
+      googleClientSecret: Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') ?? '',
+      microsoftClientId: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '',
+      microsoftClientSecret: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_SECRET') ?? '',
+    };
 
     for (const conn of connections || []) {
       try {
-        if (!conn.access_token_enc || !conn.token_iv) {
-          results.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: 'no_access_token' });
+        // Refresh the access token if missing / expired / near expiry so
+        // provider watch/subscription calls don't 401 for stale-token reasons.
+        const tokenRow: CalendarConnectionTokenRow = {
+          id: conn.id,
+          provider: conn.provider,
+          token_expires_at: conn.token_expires_at,
+          access_token_enc: conn.access_token_enc,
+          refresh_token_enc: conn.refresh_token_enc,
+          token_iv: conn.token_iv,
+          refresh_token_iv: conn.refresh_token_iv,
+        };
+        const tokenResult = await ensureFreshAccessToken(
+          serviceClient,
+          tokenRow,
+          encKeyB64,
+          oauthConfig,
+        );
+
+        if (tokenResult.outcome === 'reconnect_required') {
+          // ensureFreshAccessToken has already flipped is_active=false.
+          await recordWebhookError(
+            serviceClient,
+            conn.id,
+            `token_refresh_${tokenResult.reason}`,
+          );
+          failedCount++;
+          results.push({
+            userId: conn.user_id,
+            provider: conn.provider,
+            outcome: 'failed',
+            reason: `token_refresh_${tokenResult.reason}`,
+          });
           continue;
         }
 
-        const dec = await decryptJson(conn.access_token_enc, conn.token_iv, encKeyB64) as { token: string };
-        const accessToken = dec.token;
+        if (tokenResult.outcome === 'refresh_transient_error') {
+          // Provider gave us a 429/5xx/network blip while refreshing.
+          // Leave is_active=true so the next cron pass can retry, but
+          // record the error and defer this connection.
+          await recordWebhookError(
+            serviceClient,
+            conn.id,
+            `token_refresh_transient_${tokenResult.reason}${tokenResult.status ? '_' + tokenResult.status : ''}`,
+          );
+          deferredCount++;
+          results.push({
+            userId: conn.user_id,
+            provider: conn.provider,
+            outcome: 'deferred',
+            reason: `token_refresh_transient_${tokenResult.reason}`,
+          });
+          continue;
+        }
+
+        const accessToken = tokenResult.accessToken;
 
         if (conn.provider === 'google') {
           // Stop previous channel if it exists (best-effort; ignore failures)
@@ -320,6 +365,7 @@ serve(async (req) => {
         totalScanned: total,
         registered: registeredCount,
         failed: failedCount,
+        deferred: deferredCount,
         results,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
