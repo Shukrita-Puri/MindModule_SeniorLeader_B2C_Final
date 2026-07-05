@@ -290,7 +290,7 @@ serve(async (req) => {
             provider: 'google',
             outcome: conn.webhook_channel_id ? 'renewed' : 'registered',
           });
-          console.log('[register-calendar-watch] ✅ google', conn.user_id, '→ expires', watch.expiration);
+          console.log('[register-calendar-watch] ✅ google', redactUserId(conn.user_id), '→ expires', watch.expiration);
         } else if (conn.provider === 'microsoft') {
           // Renew in place when a subscription id already exists; otherwise create.
           let subResult: { id?: string; expiration: string } | null = null;
@@ -346,14 +346,14 @@ serve(async (req) => {
             provider: 'microsoft',
             outcome: conn.webhook_channel_id ? 'renewed' : 'registered',
           });
-          console.log('[register-calendar-watch] ✅ microsoft', conn.user_id, '→ expires', subResult.expiration);
+          console.log('[register-calendar-watch] ✅ microsoft', redactUserId(conn.user_id), '→ expires', subResult.expiration);
         } else {
           results.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: 'unsupported_provider' });
         }
       } catch (err) {
         failedCount++;
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        console.error('[register-calendar-watch] Exception for user:', conn.user_id, msg);
+        console.error('[register-calendar-watch] Exception for user:', redactUserId(conn.user_id), msg);
         results.push({ userId: conn.user_id, provider: conn.provider, outcome: 'failed', reason: msg });
         await recordWebhookError(serviceClient, conn.id, msg);
       }

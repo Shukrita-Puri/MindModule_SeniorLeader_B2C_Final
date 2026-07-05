@@ -37,7 +37,9 @@ async function getAuth0Sub(accessToken: string): Promise<string> {
   const data = await res.json();
   if (!data?.sub) throw new Error("Auth0 userinfo response missing sub");
   
-  console.log("[check-calendar-status] Auth0 user verified:", data.sub);
+  // Do not log raw Auth0 sub. Emit only a redacted correlator.
+  const { redactUserId } = await import("../_shared/identity/redact-user-id.ts");
+  console.debug("[check-calendar-status] Auth0 user verified:", redactUserId(data.sub));
   return data.sub as string;
 }
 
