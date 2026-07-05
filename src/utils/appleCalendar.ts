@@ -7,6 +7,7 @@
 
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { emitIntegrationEvent } from './integrationTelemetry';
+import { toast } from 'sonner';
 
 export interface AppleCalendarEvent {
   external_id: string;
@@ -51,6 +52,30 @@ export function wasAppleCalendarManuallyDisconnected(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Show explicit guidance after an in-app Apple Calendar disconnect.
+ *
+ * Disconnecting inside the app removes our access token / backend record but
+ * does NOT revoke the underlying EventKit permission that iOS grants to the
+ * native shell. Users who want to fully remove device-level calendar access
+ * must do it in iOS Settings → Privacy & Security → Calendars.
+ *
+ * Kept as a single shared helper so every Apple Calendar disconnect entry
+ * point (settings screen, provider picker, background retry drainage) emits
+ * the same message. Uses a long-lived sonner toast so the user can still
+ * read it after navigating away from the disconnect button.
+ */
+export function showAppleCalendarPermissionRevokeNotice(): void {
+  emitIntegrationEvent({
+    provider: 'apple-calendar',
+    event: 'permission_revoke_notice_shown',
+  });
+  toast.info(
+    'Apple Calendar disconnected in Mind Module. To fully revoke device calendar access, also go to iOS Settings → Privacy & Security → Calendars and remove Mind Module.',
+    { duration: 10000 },
+  );
 }
 
 export function isAppleCalendarSupported(): boolean {
