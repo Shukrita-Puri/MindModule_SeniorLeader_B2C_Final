@@ -284,6 +284,7 @@ serve(async (req) => {
         .from('calendar_connections')
         .update(rateUpdate)
         .eq('id', connection.id);
+      await upsertScopeCooldown(rateUpdate.retry_after_seconds, phase.dbReason);
       console.log('[sync-calendar] token_refresh:sync_delayed', JSON.stringify({
         connectionId: connection.id,
         priorCount,
