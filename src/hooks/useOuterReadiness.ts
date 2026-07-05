@@ -223,7 +223,19 @@ export interface OuterReadinessData {
    * compute/auth failure so the UI can render a retry block rather than
    * the "Awaiting signals" copy.
    */
-  engineStatus?: 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error';
+  engineStatus?: 'ready' | 'awaiting' | 'auth-failure' | 'session-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error';
+  /**
+   * Optional machine-readable reason for a failure `engineStatus`. Present when
+   * the hook short-circuits due to a missing token, token-fetch timeout, or a
+   * non-2xx response from the edge function. Not written on success paths.
+   */
+  engineFailureReason?:
+    | 'missing-auth-token'
+    | 'auth-token-timeout'
+    | 'http-401'
+    | 'http-403'
+    | 'http-5xx'
+    | 'edge-invoke-error';
   /**
    * MRS v3 baseline-of-truth — canonical client-facing signal source contract.
    *   • 'cold-start' — no baseline AND no check-in → render skeleton
