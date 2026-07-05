@@ -7,6 +7,7 @@ import {
   type WearableMergeContext,
   type ReconciliationRecord,
 } from "../_shared/wearable/canonical.ts";
+import { atomicMergeUpsertWearable } from "../_shared/wearable/atomic-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
