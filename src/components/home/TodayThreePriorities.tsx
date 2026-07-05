@@ -704,9 +704,10 @@ const TodayThreePriorities = ({
       // cold-start. If the inner/outer engine errored, we still attempt
       // generation off whatever calendar/checkin/wearable context exists.
       const engineStatus = (outerReadinessData as any)?.engineStatus as
-        | 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
+        | 'ready' | 'awaiting' | 'auth-failure' | 'session-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
       const isEngineFailure =
         engineStatus === 'auth-failure' ||
+        engineStatus === 'session-failure' ||
         engineStatus === 'inner-failure' ||
         engineStatus === 'outer-failure' ||
         engineStatus === 'unknown-error';
