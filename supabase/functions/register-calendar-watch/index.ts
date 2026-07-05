@@ -11,6 +11,7 @@ import {
   type CalendarConnectionTokenRow,
   type OAuthClientConfig,
 } from "../_shared/calendar-token-refresh.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

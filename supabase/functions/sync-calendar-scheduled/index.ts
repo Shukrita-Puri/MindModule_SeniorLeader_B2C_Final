@@ -6,6 +6,7 @@ import {
   isScopeEligibleForSync,
   type QuotaCooldownRow,
 } from "../_shared/rules/calendar-quota-scope.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -103,7 +104,7 @@ serve(async (req) => {
           outcome: 'retry_deferred',
           reason: `next_retry_at=${(conn as { next_retry_at?: string | null }).next_retry_at} retry_after_seconds=${(conn as { retry_after_seconds?: number | null }).retry_after_seconds ?? 'n/a'}`,
         });
-        console.log('[sync-calendar-scheduled] ⏳ deferred', conn.user_id, conn.provider,
+        console.log('[sync-calendar-scheduled] ⏳ deferred', redactUserId(conn.user_id), conn.provider,
           'until', (conn as { next_retry_at?: string | null }).next_retry_at,
           'syncStatus:', (conn as { sync_status?: string | null }).sync_status ?? 'unknown');
         continue;
@@ -122,7 +123,7 @@ serve(async (req) => {
           outcome: 'scope_deferred',
           reason: `scope_key=${scopeKey} cooldown_until=${scopeRow?.cooldown_until} reason=${scopeRow?.last_reason ?? 'n/a'}`,
         });
-        console.log('[sync-calendar-scheduled] 🛑 scope deferred', conn.user_id, conn.provider,
+        console.log('[sync-calendar-scheduled] 🛑 scope deferred', redactUserId(conn.user_id), conn.provider,
           'scopeKey:', scopeKey,
           'until:', scopeRow?.cooldown_until,
           'reason:', scopeRow?.last_reason,
@@ -152,25 +153,25 @@ serve(async (req) => {
         if (result.success === true) {
           successCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'success' });
-          console.log('[sync-calendar-scheduled] ✅', conn.user_id, '–', result.eventCount, 'events');
+          console.log('[sync-calendar-scheduled] ✅', redactUserId(conn.user_id), '–', result.eventCount, 'events');
         } else if (result.reconnectRequired) {
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: result.reason });
-          console.warn('[sync-calendar-scheduled] ⚠️', conn.user_id, '– reconnect_required:', result.reason);
+          console.warn('[sync-calendar-scheduled] ⚠️', redactUserId(conn.user_id), '– reconnect_required:', result.reason);
         } else if (result.skipped) {
           skippedCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: result.reason });
-          console.log('[sync-calendar-scheduled] ⏭️', conn.user_id, '– skipped:', result.reason);
+          console.log('[sync-calendar-scheduled] ⏭️', redactUserId(conn.user_id), '– skipped:', result.reason);
         } else {
           failureCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'failure', reason: result.error });
-          console.error('[sync-calendar-scheduled] ❌', conn.user_id, '–', result.error);
+          console.error('[sync-calendar-scheduled] ❌', redactUserId(conn.user_id), '–', result.error);
         }
       } catch (err) {
         failureCount++;
         const msg = err instanceof Error ? err.message : 'Unknown error';
         details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'exception', reason: msg });
-        console.error('[sync-calendar-scheduled] ❌ exception for', conn.user_id, ':', msg);
+        console.error('[sync-calendar-scheduled] ❌ exception for', redactUserId(conn.user_id), ':', msg);
       }
     }
 

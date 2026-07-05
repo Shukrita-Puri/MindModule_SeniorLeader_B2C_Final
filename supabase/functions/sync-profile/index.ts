@@ -64,7 +64,11 @@ Deno.serve(async (req) => {
 
         // TIER 3: Server-side cross-check – verify JWT sub matches /userinfo sub
         if (info.sub && info.sub !== userId) {
-          console.error("[sync-profile] 🚨 IDENTITY MISMATCH – JWT sub:", userId, "userinfo sub:", info.sub);
+          // Do not log raw sub values on either side. A redacted correlator
+          // is enough to diagnose stale/duplicate sessions without persisting
+          // the raw Auth0 subject in log storage.
+          const { redactUserId } = await import("../_shared/identity/redact-user-id.ts");
+          console.error("[sync-profile] 🚨 IDENTITY MISMATCH – JWT sub:", redactUserId(userId), "userinfo sub:", redactUserId(info.sub));
           return new Response(
             JSON.stringify({
               error: "Token identity mismatch detected",
