@@ -152,9 +152,45 @@ serve(async (req) => {
       };
     });
 
+    // ─── Apple multi-source collapse ──────────────────────────────────────
+    // Apple EventKit surfaces the SAME logical event once per calendar
+    // "source" (personal iCloud + shared iCloud + Google-in-Apple + Exchange,
+    // etc.) — each row carries a distinct `<sourceUUID>:...` external_id but
+    // an identical `identity_key` (title|start-minute|duration). Left alone,
+    // this produces the Apple-only `identity_key` collisions that blocked
+    // enforcing UNIQUE (user_id, identity_key) on `calendar_events`.
+    //
+    // We collapse those mirrors HERE, at write time, by grouping on the
+    // shared `identity_key` and keeping a deterministic winner (lex-min
+    // external_id, so retries are stable). Rows whose identity_key came back
+    // null (missing title/times) are passed through unchanged — they still
+    // get the defensive external_id dedupe below.
+    //
+    // NOTE: this does not replace `mergeCalendarEvents`. Cross-provider
+    // Apple↔Google mirrors are still fused at read time by that function,
+    // which uses fuzzy title/time/attendee matching that a stable key can't
+    // express.
+    const byIdentity = new Map<string, typeof classifiedRaw[number]>();
+    const noIdentity: typeof classifiedRaw[number][] = [];
+    for (const row of classifiedRaw) {
+      if (!row.identity_key) { noIdentity.push(row); continue; }
+      const prev = byIdentity.get(row.identity_key);
+      if (!prev || row.external_id < prev.external_id) {
+        byIdentity.set(row.identity_key, row);
+      }
+    }
+    const collapsed = [...byIdentity.values(), ...noIdentity];
+    if (collapsed.length !== classifiedRaw.length) {
+      console.log(
+        '[sync-apple-calendar] Apple multi-source collapse:',
+        'in=', classifiedRaw.length, 'out=', collapsed.length,
+        'dropped=', classifiedRaw.length - collapsed.length,
+      );
+    }
+
     // Defensive dedupe by final composite key in case of any residual duplicates.
-    const byKey = new Map<string, typeof classifiedRaw[number]>();
-    for (const row of classifiedRaw) byKey.set(row.external_id, row);
+    const byKey = new Map<string, typeof collapsed[number]>();
+    for (const row of collapsed) byKey.set(row.external_id, row);
     const classified = Array.from(byKey.values());
 
     if (classified.length > 0) {
