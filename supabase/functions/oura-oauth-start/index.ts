@@ -7,6 +7,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,7 +85,7 @@ Deno.serve(async (req) => {
     url.searchParams.set("scope", OURA_SCOPES);
     url.searchParams.set("state", state);
 
-    console.log("[oura-oauth-start] generated authorize URL for", userId);
+    console.log("[oura-oauth-start] generated authorize URL for", redactUserId(userId));
     return new Response(JSON.stringify({ authorizeUrl: url.toString() }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

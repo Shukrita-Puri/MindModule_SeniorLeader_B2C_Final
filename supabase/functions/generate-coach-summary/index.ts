@@ -11,6 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -371,7 +372,7 @@ Return ONLY the message text, no quotes, no prefix.`
                         trigger_condition: 'commitment_event_match',
                         expires_at: new Date(Date.now() + 8 * 3600000).toISOString(),
                       });
-                    console.log(`[generate-coach-summary] Surface message created for user ${userId}`);
+                    console.log(`[generate-coach-summary] Surface message created for user ${redactUserId(redactUserId(userId))}`);
                   }
                 }
               }

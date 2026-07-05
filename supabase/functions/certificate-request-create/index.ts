@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) return auth.errorResponse;
     const userId = auth.userId;
-    console.log("Verified Auth0 user:", userId);
+    console.log("Verified Auth0 user:", redactUserId(userId));
 
     // Parse request body
     const body = await req.json();

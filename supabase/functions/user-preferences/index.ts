@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 interface RequestBody {
   action: 'GET_PREFERENCES' | 'UPSERT_PREFERENCES';
@@ -33,7 +34,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log(`[user-preferences] Action: ${action}, User: ${userId}`);
+    console.log(`[user-preferences] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
 
     switch (action) {
       case 'GET_PREFERENCES': {

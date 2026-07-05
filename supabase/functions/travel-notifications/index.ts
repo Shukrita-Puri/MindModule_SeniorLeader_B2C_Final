@@ -27,6 +27,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { EVENT_PHASE_MAP } from "../_shared/events/event-phase-map.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { PROTOCOL_COMBOS } from "../_shared/protocols/protocol-combos.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
@@ -189,7 +190,7 @@ Deno.serve(async (req) => {
           })
           .eq("id", s.id);
       }
-      console.log(`[travel-notifications] cancelled ${stale.length} stale rows for ${userId}`);
+      console.log(`[travel-notifications] cancelled ${stale.length} stale rows for ${redactUserId(redactUserId(userId))}`);
     }
 
     // 2. Schedule the new notification for this transition (if any).

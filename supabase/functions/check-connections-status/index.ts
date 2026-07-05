@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import {
   computeQuotaScopeKey,
   isScopeEligibleForSync,
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
     if (authResult.errorResponse) return authResult.errorResponse;
     const userId = authResult.userId;
 
-    console.log("[check-connections-status] Authenticated userId:", userId);
+    console.log("[check-connections-status] Authenticated userId:", redactUserId(userId));
 
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,

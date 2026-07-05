@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -121,7 +122,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[learn-checkin-patterns] Learned ${patternsLearned} patterns for user ${userId}`);
+    console.log(`[learn-checkin-patterns] Learned ${patternsLearned} patterns for user ${redactUserId(redactUserId(userId))}`);
 
     return new Response(JSON.stringify({ data: { patternsLearned } }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -183,7 +184,7 @@ if (import.meta.main) serve(async (req) => {
 
     const reqBody = await req.json() as RequestBody;
     const { action, days, scoreData } = reqBody;
-    console.log(`[mental-fitness-scores] Action: ${action}, User: ${userId}`);
+    console.log(`[mental-fitness-scores] Action: ${action}, User: ${redactUserId(redactUserId(userId))}`);
 
     switch (action) {
       case 'GET_SCORES': {

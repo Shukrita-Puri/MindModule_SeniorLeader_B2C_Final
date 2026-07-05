@@ -4,6 +4,7 @@ import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 import { collapseAppleMultiSource } from "../_shared/rules/apple-source-collapse.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,7 +115,7 @@ serve(async (req) => {
     }
     const { windowStart, windowEnd, events } = parsed.data;
 
-    console.log('[sync-apple-calendar] user:', userId, 'events:', events.length, 'window:', windowStart, '→', windowEnd);
+    console.log('[sync-apple-calendar] user:', redactUserId(userId), 'events:', events.length, 'window:', windowStart, '→', windowEnd);
 
     // Ensure connection row exists for (user_id, provider='apple')
     const { data: existingConn } = await serviceClient
@@ -239,7 +240,7 @@ serve(async (req) => {
       }
     }
 
-    console.log('[sync-apple-calendar] success user=', userId, 'eventCount=', classified.length, 'lastSync=', nowIso);
+    console.log('[sync-apple-calendar] success user=', redactUserId(userId), 'eventCount=', classified.length, 'lastSync=', nowIso);
 
     // Post-sync attendee resolver (fire-and-forget). See sync-calendar
     // for rationale. Apple EventKit rarely exposes attendee emails, so

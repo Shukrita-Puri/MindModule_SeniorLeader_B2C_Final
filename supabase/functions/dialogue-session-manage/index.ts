@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) return auth.errorResponse;
     const userId = auth.userId;
-    console.log("[dialogue-session-manage] Verified user:", userId);
+    console.log("[dialogue-session-manage] Verified user:", redactUserId(userId));
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
     if (action === "create") {
       const { scenarioId, personaId, coachPersonality, metaData } = body;
 
-      console.log("[dialogue-session-manage] Creating session for user:", userId);
+      console.log("[dialogue-session-manage] Creating session for user:", redactUserId(userId));
 
       const [scenarioRes, personaRes] = await Promise.all([
         supabase.from("scenario_definitions").select("*").eq("id", scenarioId).single(),
@@ -227,7 +228,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log("[dialogue-session-manage] Creating coach session:", sessionId, "for user:", userId);
+      console.log("[dialogue-session-manage] Creating coach session:", sessionId, "for user:", redactUserId(userId));
 
       const { data: session, error: sessionError } = await supabase
         .from("dialogue_sessions")

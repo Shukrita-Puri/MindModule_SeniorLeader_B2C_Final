@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import {
   extractGraphValidationToken,
   parseGraphNotificationEnvelope,
@@ -39,9 +40,9 @@ async function enqueueSyncForConnection(
     }),
   }).then(async (r) => {
     const txt = await r.text();
-    console.log(`[calendar-webhook:${label}] sync-calendar enqueued user=${userId} status=${r.status}`, txt.slice(0, 200));
+    console.log(`[calendar-webhook:${label}] sync-calendar enqueued user=${redactUserId(redactUserId(userId))} status=${r.status}`, txt.slice(0, 200));
   }).catch((err) => {
-    console.error(`[calendar-webhook:${label}] sync-calendar enqueue failed user=${userId}`, err);
+    console.error(`[calendar-webhook:${label}] sync-calendar enqueue failed user=${redactUserId(redactUserId(userId))}`, err);
   });
 }
 

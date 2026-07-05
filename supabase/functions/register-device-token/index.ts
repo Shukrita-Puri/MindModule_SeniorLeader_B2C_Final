@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,7 +36,7 @@ serve(async (req) => {
         /^[0-9a-f]+$/.test(normalizedToken) &&
         allowedHexLengths.has(normalizedToken.length);
       if (!isValid) {
-        console.warn(`[register-device-token] Rejected malformed iOS token for ${userId}: length=${device_token?.length}`);
+        console.warn(`[register-device-token] Rejected malformed iOS token for ${redactUserId(redactUserId(userId))}: length=${device_token?.length}`);
         return new Response(JSON.stringify({
           error: 'Invalid iOS device token format (expected canonical APNs hex token)',
           length: typeof device_token === 'string' ? device_token.length : null,
@@ -88,7 +89,7 @@ serve(async (req) => {
       console.warn('[register-device-token] Prune failed (non-fatal):', pruneErr.message);
     }
 
-    console.log(`[register-device-token] Token registered for ${userId} (${platform}); pruned ${prunedCount ?? 0} stale tokens`);
+    console.log(`[register-device-token] Token registered for ${redactUserId(redactUserId(userId))} (${platform}); pruned ${prunedCount ?? 0} stale tokens`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
