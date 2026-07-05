@@ -44,6 +44,7 @@ import {
 import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';
 import { useCheckInMode } from '@/hooks/useCheckInMode';
+import { mergeConnectionStatus } from '@/pages/connectedData/mergeConnectionStatus';
 
 /* ─── Types ─── */
 
@@ -310,24 +311,17 @@ const ConnectedData = () => {
       if (res.ok) {
         const data = await res.json();
         console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
-        // Merge relative to the freshest prior state so a transient backend
-        // error for the Oura or Apple Watch branch does not overwrite an
-        // already-connected provider with a fallback disconnected shape.
-        const applyMerge = (prev: ConnectionStatus | null): ConnectionStatus => {
-          if (!prev) return data;
-          const next: ConnectionStatus = { ...data };
-          const anyData = data as unknown as { oura?: { status?: string }; appleWatch?: { status?: string } };
-          if (anyData?.oura?.status === 'error' && prev.oura) {
-            console.warn('[ConnectedData] Oura status transiently unavailable — preserving prior state');
-            next.oura = prev.oura;
-          }
-          if (anyData?.appleWatch?.status === 'error' && prev.appleWatch) {
-            console.warn('[ConnectedData] Apple Watch status transiently unavailable — preserving prior state');
-            next.appleWatch = prev.appleWatch;
-          }
-          return next;
-        };
-        const merged = applyMerge(status);
+        // Read the freshest committed state via a functional setState — the
+        // outer `status` closure can be stale when fetchStatus is invoked
+        // from an event/listener that captured an earlier render, which used
+        // to let transient `oura.status === 'error'` / `appleWatch.status ===
+        // 'error'` responses overwrite a real connected provider.
+        let freshest: ConnectionStatus | null = null;
+        setStatus((prev) => {
+          freshest = prev;
+          return prev;
+        });
+        const merged = mergeConnectionStatus(freshest, data);
         const verifiedStatus = await verifyNativeConnectionState(merged);
         setStatus(verifiedStatus);
       } else {
