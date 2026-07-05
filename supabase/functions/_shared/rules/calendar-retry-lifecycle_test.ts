@@ -135,3 +135,140 @@ Deno.test("scheduler eligibility mirrors the persisted next_retry_at exactly", (
   const eligible = rows.filter((r) => isConnectionEligibleForSync(r, now)).map((r) => r.user_id);
   assertEquals(eligible, ["a", "c"]);
 });
+
+/**
+ * Simulate the full server-side lifecycle for a connection that hits
+ * repeated Google 403 quotaExceeded (no Retry-After) followed by a
+ * clean success. We mimic what the DB row would look like after each
+ * sync-calendar tick by feeding the previous row's counter back into
+ * the next call.
+ */
+Deno.test("Google: 3 consecutive quotaExceeded → backoff ladder advances, success resets", () => {
+  let row: Record<string, unknown> = {
+    consecutive_delay_count: 0,
+    next_retry_at: null,
+    retry_after_seconds: null,
+    sync_status: "synced",
+    is_active: true,
+  };
+
+  // ── Tick 1: first miss ─────────────────────────────────────────
+  let cls = classifyGoogleCalendarError(
+    403,
+    JSON.stringify({ error: { code: 403, message: "quota", errors: [{ reason: "quotaExceeded" }] } }),
+    headers({}),
+  );
+  let upd = buildRateLimitedUpdate({
+    message: cls.message ?? "quota",
+    reason: cls.reason,
+    retryAfterSeconds: cls.retryAfterSeconds,
+    consecutivePriorCount: (row.consecutive_delay_count as number) ?? 0,
+    now: new Date("2026-07-05T10:00:00.000Z"),
+  });
+  row = { ...row, ...upd };
+  assertEquals(row.consecutive_delay_count, 1);
+  assertEquals(row.retry_after_seconds, 300);
+  assertEquals(row.is_active, true); // never flipped by a transient outcome
+
+  // ── Tick 2 (after next_retry_at elapsed): still quotaExceeded ───
+  upd = buildRateLimitedUpdate({
+    message: cls.message ?? "quota",
+    reason: cls.reason,
+    retryAfterSeconds: cls.retryAfterSeconds,
+    consecutivePriorCount: row.consecutive_delay_count as number,
+    now: new Date("2026-07-05T10:05:00.000Z"),
+  });
+  row = { ...row, ...upd };
+  assertEquals(row.consecutive_delay_count, 2);
+  assertEquals(row.retry_after_seconds, 600);
+
+  // ── Tick 3: still throttled ───────────────────────────────────
+  upd = buildRateLimitedUpdate({
+    message: cls.message ?? "quota",
+    reason: cls.reason,
+    retryAfterSeconds: cls.retryAfterSeconds,
+    consecutivePriorCount: row.consecutive_delay_count as number,
+    now: new Date("2026-07-05T10:15:00.000Z"),
+  });
+  row = { ...row, ...upd };
+  assertEquals(row.consecutive_delay_count, 3);
+  assertEquals(row.retry_after_seconds, 1200);
+  assertEquals(row.sync_status, "sync_delayed");
+
+  // ── Tick 4: clean success ─────────────────────────────────────
+  const success = buildSuccessfulSyncUpdate(new Date("2026-07-05T10:35:00.000Z"));
+  row = { ...row, ...success };
+  assertEquals(row.sync_status, "synced");
+  assertEquals(row.consecutive_delay_count, 0);
+  assertEquals(row.retry_after_seconds, null);
+  assertEquals(row.next_retry_at, null);
+  assertEquals(row.last_error, null);
+  assertEquals(row.last_sync_delayed_at, null);
+});
+
+/**
+ * Microsoft equivalent: 3 consecutive 503s with NO Retry-After, then
+ * one 429 that DOES provide Retry-After (must override the ladder),
+ * then success.
+ */
+Deno.test("Microsoft: 3× 503 (no hint) → 429 with hint → success resets streak", () => {
+  let row: Record<string, unknown> = {
+    consecutive_delay_count: 0,
+    next_retry_at: null,
+    retry_after_seconds: null,
+    sync_status: "synced",
+    is_active: true,
+  };
+
+  const cls503 = classifyMicrosoftCalendarError(
+    503,
+    JSON.stringify({ error: { code: "ServiceUnavailable", message: "down" } }),
+    headers({}),
+  );
+  assertEquals(cls503.kind, "rate_limited");
+  assertEquals(cls503.retryAfterSeconds, null);
+
+  const expectedLadder = [300, 600, 1200];
+  for (let i = 0; i < 3; i++) {
+    const upd = buildRateLimitedUpdate({
+      message: cls503.message ?? "down",
+      reason: cls503.reason,
+      retryAfterSeconds: cls503.retryAfterSeconds,
+      consecutivePriorCount: row.consecutive_delay_count as number,
+      now: new Date(`2026-07-05T10:0${i}:00.000Z`),
+    });
+    row = { ...row, ...upd };
+    assertEquals(row.consecutive_delay_count, i + 1);
+    assertEquals(row.retry_after_seconds, expectedLadder[i]);
+    assertEquals(row.is_active, true);
+  }
+
+  // Provider then returns 429 with explicit Retry-After: 90 → clamp
+  // to floor is not needed (90 >= 60). It MUST override the ladder
+  // even though the streak is now at 3 (which would otherwise yield
+  // 2400s).
+  const cls429 = classifyMicrosoftCalendarError(
+    429,
+    JSON.stringify({ error: { code: "TooManyRequests", message: "throttled" } }),
+    headers({ "Retry-After": "90" }),
+  );
+  const upd429 = buildRateLimitedUpdate({
+    message: cls429.message ?? "throttled",
+    reason: cls429.reason,
+    retryAfterSeconds: cls429.retryAfterSeconds,
+    consecutivePriorCount: row.consecutive_delay_count as number,
+    now: new Date("2026-07-05T10:10:00.000Z"),
+  });
+  row = { ...row, ...upd429 };
+  assertEquals(row.retry_after_seconds, 90);            // explicit hint wins
+  assertEquals(row.consecutive_delay_count, 4);         // streak still advances
+  assertEquals(row.is_active, true);
+
+  // Clean success resets everything.
+  const success = buildSuccessfulSyncUpdate(new Date("2026-07-05T10:20:00.000Z"));
+  row = { ...row, ...success };
+  assertEquals(row.consecutive_delay_count, 0);
+  assertEquals(row.retry_after_seconds, null);
+  assertEquals(row.next_retry_at, null);
+  assertEquals(row.sync_status, "synced");
+});
