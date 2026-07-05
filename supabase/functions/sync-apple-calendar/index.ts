@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
+import { collapseAppleMultiSource } from "../_shared/rules/apple-source-collapse.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -152,34 +153,8 @@ serve(async (req) => {
       };
     });
 
-    // ─── Apple multi-source collapse ──────────────────────────────────────
-    // Apple EventKit surfaces the SAME logical event once per calendar
-    // "source" (personal iCloud + shared iCloud + Google-in-Apple + Exchange,
-    // etc.) — each row carries a distinct `<sourceUUID>:...` external_id but
-    // an identical `identity_key` (title|start-minute|duration). Left alone,
-    // this produces the Apple-only `identity_key` collisions that blocked
-    // enforcing UNIQUE (user_id, identity_key) on `calendar_events`.
-    //
-    // We collapse those mirrors HERE, at write time, by grouping on the
-    // shared `identity_key` and keeping a deterministic winner (lex-min
-    // external_id, so retries are stable). Rows whose identity_key came back
-    // null (missing title/times) are passed through unchanged — they still
-    // get the defensive external_id dedupe below.
-    //
-    // NOTE: this does not replace `mergeCalendarEvents`. Cross-provider
-    // Apple↔Google mirrors are still fused at read time by that function,
-    // which uses fuzzy title/time/attendee matching that a stable key can't
-    // express.
-    const byIdentity = new Map<string, typeof classifiedRaw[number]>();
-    const noIdentity: typeof classifiedRaw[number][] = [];
-    for (const row of classifiedRaw) {
-      if (!row.identity_key) { noIdentity.push(row); continue; }
-      const prev = byIdentity.get(row.identity_key);
-      if (!prev || row.external_id < prev.external_id) {
-        byIdentity.set(row.identity_key, row);
-      }
-    }
-    const collapsed = [...byIdentity.values(), ...noIdentity];
+    // Apple multi-source collapse — see _shared/rules/apple-source-collapse.ts.
+    const collapsed = collapseAppleMultiSource(classifiedRaw);
     if (collapsed.length !== classifiedRaw.length) {
       console.log(
         '[sync-apple-calendar] Apple multi-source collapse:',
