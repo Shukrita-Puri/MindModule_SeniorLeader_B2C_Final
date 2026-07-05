@@ -26,6 +26,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import {
   mergeCalendarEvents,
   periodFor,
@@ -200,7 +201,7 @@ serve(async (req) => {
             });
           }
         }
-        console.log("[week_ahead.save.success]", { userId, weekStart });
+        console.log("[week_ahead.save.success]", { userId: redactUserId(userId), weekStart });
         return new Response(JSON.stringify({ ok: true, weekStartDate: weekStart }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -398,9 +399,9 @@ serve(async (req) => {
           { onConflict: "user_id,week_start_date,source" },
         );
       if (upsertErr) {
-        console.warn("[week_ahead.write.error]", upsertErr.message, { userId, weekStart });
+        console.warn("[week_ahead.write.error]", upsertErr.message, { userId: redactUserId(userId), weekStart });
       } else {
-        console.log("[week_ahead.write.success]", { userId, weekStart, weekEnd, count: picked.length });
+        console.log("[week_ahead.write.success]", { userId: redactUserId(userId), weekStart, weekEnd, count: picked.length });
       }
     } catch (e) {
       console.warn("[week_ahead.write.error] threw:", (e as Error).message);
