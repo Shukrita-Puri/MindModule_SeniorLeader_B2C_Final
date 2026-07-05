@@ -10,6 +10,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log("[disconnect-oura] disconnected", { userId, cleared });
+    console.log("[disconnect-oura] disconnected", { userId: redactUserId(userId), cleared });
     return new Response(JSON.stringify({ ok: true, cleared }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
