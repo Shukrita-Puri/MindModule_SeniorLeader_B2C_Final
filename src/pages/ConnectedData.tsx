@@ -44,6 +44,7 @@ import {
 import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';
 import { useCheckInMode } from '@/hooks/useCheckInMode';
+import { mergeConnectionStatus } from '@/pages/connectedData/mergeConnectionStatus';
 
 /* ─── Types ─── */
 
