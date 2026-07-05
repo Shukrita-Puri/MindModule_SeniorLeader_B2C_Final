@@ -327,7 +327,6 @@ const ConnectedData = () => {
           }
           return next;
         };
-        setStatus((prev) => prev); // no-op read is unnecessary; use functional flow below
         const merged = applyMerge(status);
         const verifiedStatus = await verifyNativeConnectionState(merged);
         setStatus(verifiedStatus);
