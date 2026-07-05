@@ -157,10 +157,10 @@ function inferRowProvenance(
   const viaAppleHealth = combined.includes('_via_apple_health');
   if (viaAppleHealth) {
     if (combined.includes('oura')) return 'oura_via_apple_health';
-    if (combined.includes('apple_watch') || combined.includes('apple_health')) {
-      return 'apple_health_native';
-    }
-    if (combined.includes('mixed')) return 'third_party_via_apple_health';
+    // Only Apple-Watch-via-Apple-Health is native. `<vendor>_via_apple_health`
+    // (whoop, garmin, fitbit, mixed …) all land in the third-party bucket —
+    // do NOT match on the trailing "apple_health" substring of the label.
+    if (combined.includes('apple_watch')) return 'apple_health_native';
     return 'third_party_via_apple_health';
   }
 
