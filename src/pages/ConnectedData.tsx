@@ -310,7 +310,25 @@ const ConnectedData = () => {
       if (res.ok) {
         const data = await res.json();
         console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
-        const verifiedStatus = await verifyNativeConnectionState(data);
+        // Merge relative to the freshest prior state so a transient backend
+        // error for the Oura or Apple Watch branch does not overwrite an
+        // already-connected provider with a fallback disconnected shape.
+        const applyMerge = (prev: ConnectionStatus | null): ConnectionStatus => {
+          if (!prev) return data;
+          const next: ConnectionStatus = { ...data };
+          const anyData = data as unknown as { oura?: { status?: string }; appleWatch?: { status?: string } };
+          if (anyData?.oura?.status === 'error' && prev.oura) {
+            console.warn('[ConnectedData] Oura status transiently unavailable — preserving prior state');
+            next.oura = prev.oura;
+          }
+          if (anyData?.appleWatch?.status === 'error' && prev.appleWatch) {
+            console.warn('[ConnectedData] Apple Watch status transiently unavailable — preserving prior state');
+            next.appleWatch = prev.appleWatch;
+          }
+          return next;
+        };
+        const merged = applyMerge(status);
+        const verifiedStatus = await verifyNativeConnectionState(merged);
         setStatus(verifiedStatus);
       } else {
         const body = await readResponseBody(res);
