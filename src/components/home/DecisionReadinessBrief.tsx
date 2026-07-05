@@ -2003,9 +2003,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // Phase 1 — distinguish transient compute/auth failures from true awaiting.
   // engineStatus is stamped by useOuterReadiness from computeEnergyState.
   const engineStatus = (outerBrief as any)?.engineStatus as
-    | 'ready' | 'awaiting' | 'auth-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
+    | 'ready' | 'awaiting' | 'auth-failure' | 'session-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
   const isEngineFailure =
     engineStatus === 'auth-failure' ||
+    engineStatus === 'session-failure' ||
     engineStatus === 'inner-failure' ||
     engineStatus === 'outer-failure' ||
     engineStatus === 'unknown-error';
@@ -2204,13 +2205,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {showFailureBlock && (
         <div className="mt-4 rounded-lg border border-border/40 bg-background/60 px-3 py-3">
           <p className="text-quote text-foreground">
-            {engineStatus === 'auth-failure'
-              ? 'Session expired — reconnecting.'
+            {engineStatus === 'auth-failure' || engineStatus === 'session-failure'
+              ? 'We couldn\u2019t verify your session.'
               : 'Reading unavailable right now.'}
           </p>
           <p className="mt-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
-            {engineStatus === 'auth-failure'
-              ? 'Retry to refresh your brief.'
+            {engineStatus === 'auth-failure' || engineStatus === 'session-failure'
+              ? 'Please refresh or sign in again.'
               : 'Couldn\'t reach the readiness service. Retry to refresh.'}
           </p>
           <button
