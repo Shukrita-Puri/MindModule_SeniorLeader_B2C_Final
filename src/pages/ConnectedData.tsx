@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarDays, ArrowLeft } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
@@ -194,11 +194,24 @@ const ConnectedData = () => {
     }
   }, [user?.id, queryClient]);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
+  // Ref mirror of `status`. Kept in sync via the effect below and read inside
+  // fetchStatus/listeners so we always merge against the freshest committed
+  // state without recreating those callbacks (which would re-register the
+  // native `appStateChange` listener and cause churn/leaks).
+  const statusRef = useRef<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [appleCalendarPermissionStatus, setAppleCalendarPermissionStatus] = useState<string | null>(null);
   const [appleCalendarSyncFailed, setAppleCalendarSyncFailed] = useState(false);
+
+  // Keep the ref mirror aligned with every committed status update. React
+  // guarantees this effect runs after commit, so `statusRef.current` always
+  // reflects the freshest DOM-visible state by the time any async work
+  // (fetchStatus, listeners, resume handlers) reads it.
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const clearIntegrationCaches = useCallback((scope: 'calendar' | 'wearable' | 'all') => {
     console.log('[ConnectedData] Clearing integration caches:', scope);
@@ -311,17 +324,13 @@ const ConnectedData = () => {
       if (res.ok) {
         const data = await res.json();
         console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
-        // Read the freshest committed state via a functional setState — the
-        // outer `status` closure can be stale when fetchStatus is invoked
-        // from an event/listener that captured an earlier render, which used
-        // to let transient `oura.status === 'error'` / `appleWatch.status ===
-        // 'error'` responses overwrite a real connected provider.
-        let freshest: ConnectionStatus | null = null;
-        setStatus((prev) => {
-          freshest = prev;
-          return prev;
-        });
-        const merged = mergeConnectionStatus(freshest, data);
+        // Read the freshest committed state from a ref mirror. We do NOT
+        // rely on `setStatus(prev => prev)` — under React batching /
+        // concurrent rendering the functional updater is not guaranteed to
+        // execute synchronously before the next line, so it can't be used as
+        // a "read latest" primitive. The ref is updated in a post-commit
+        // effect above and is always the freshest DOM-visible state here.
+        const merged = mergeConnectionStatus(statusRef.current, data);
         const verifiedStatus = await verifyNativeConnectionState(merged);
         setStatus(verifiedStatus);
       } else {
