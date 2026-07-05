@@ -1,28 +1,25 @@
 /**
  * Atomic merge+upsert for public.wearable_data.
  *
- * Problem this solves:
- *   Two concurrent syncs (e.g. sync-oura + persist-wearable-data) could each
- *   read the same (user_id, summary_date) row, compute a merged variant, and
- *   both upsert — the later write silently clobbering metrics chosen by the
- *   earlier merge. That is a classic lost-update race even though
- *   mergeCanonicalWearableRow is correct.
+ * CAS token: `write_token` (uuid). We used to CAS on `updated_at`, but that
+ * value is generated in JavaScript with millisecond precision — two writers
+ * that finish in the same ms would stamp the identical string and the second
+ * (stale) writer's CAS predicate would still match the first writer's
+ * post-write row, silently clobbering it. `write_token` is a fresh
+ * `crypto.randomUUID()` on every successful write, so every commit strictly
+ * advances the token and stale writers always miss.
  *
- * Strategy: optimistic concurrency control (CAS) on `updated_at`.
- *   1. Read the existing row (including updated_at).
- *   2. Run mergeCanonicalWearableRow with the same TS logic every path uses.
- *   3. Guard the write:
- *        - if no row existed → INSERT; on unique-violation retry as update.
- *        - if a row existed → UPDATE ... WHERE updated_at = <prev_updated_at>.
- *      If the guarded UPDATE affects 0 rows, a concurrent writer moved
- *      updated_at → re-read and retry the merge (bounded).
+ * Flow (bounded retry):
+ *   1. Read the existing row incl. `write_token`.
+ *   2. Run mergeCanonicalWearableRow (single source of TS merge truth).
+ *   3. Stamp a new `write_token`, then guard the write:
+ *        - no row existed → INSERT; on 23505 retry as update.
+ *        - row existed → UPDATE ... WHERE write_token = <prev_write_token>.
+ *      Zero rows affected ⇒ another writer committed first ⇒ re-read + merge.
  *
- * This preserves:
- *   - per-metric provenance / source_apps merging
- *   - recency guard + reconciliation callbacks (called during merge)
- *   - deterministic outcome for near-simultaneous Oura + Apple writes:
- *     after the last successful CAS the row is a merge of ALL inputs seen so
- *     far, regardless of arrival order.
+ * Preserves per-metric provenance/source_apps, recency guard, reconciliation
+ * callbacks, and yields a deterministic final row that reflects ALL inputs
+ * regardless of arrival order.
  */
 
 import {
@@ -36,7 +33,7 @@ export const WEARABLE_MERGE_COLUMNS =
   "hrv, hrv_samples, resting_heart_rate, heart_rate, hr_samples, " +
   "total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, " +
   "sleep_score, sleep_efficiency, source, source_provider, source_apps, " +
-  "raw_data, updated_at";
+  "raw_data, updated_at, write_token";
 
 export interface AtomicUpsertOptions {
   context: WearableMergeContext;
@@ -79,8 +76,10 @@ export async function atomicMergeUpsertWearable(
 
     if (readErr) return { ok: false, attempts: attempt, error: readErr };
 
-    const prevUpdatedAt: string | null =
-      (existing as { updated_at?: string | null } | null)?.updated_at ?? null;
+    // Legacy rows written before the write_token column existed will surface
+    // as null here; the CAS predicate below handles that via `.is(...)`.
+    const prevWriteToken: string | null =
+      (existing as { write_token?: string | null } | null)?.write_token ?? null;
 
     const merged = mergeCanonicalWearableRow(
       (existing as Record<string, unknown> | null) ?? null,
@@ -90,6 +89,8 @@ export async function atomicMergeUpsertWearable(
     merged.user_id = userId;
     merged.summary_date = summaryDate;
     merged.updated_at = new Date().toISOString();
+    // Always advance the CAS token, even on same-millisecond writes.
+    merged.write_token = crypto.randomUUID();
     if (opts.overrideRawData !== undefined) {
       merged.raw_data = opts.overrideRawData;
     }
@@ -110,9 +111,9 @@ export async function atomicMergeUpsertWearable(
       .update(merged)
       .eq("user_id", userId)
       .eq("summary_date", summaryDate);
-    update = prevUpdatedAt === null
-      ? update.is("updated_at", null)
-      : update.eq("updated_at", prevUpdatedAt);
+    update = prevWriteToken === null
+      ? update.is("write_token", null)
+      : update.eq("write_token", prevWriteToken);
 
     const { data: updated, error: updErr } = await update.select("summary_date");
     if (updErr) return { ok: false, attempts: attempt, error: updErr };
