@@ -1,9 +1,8 @@
 import pg from 'pg';
 import { computeIdentityKey } from '/dev-server/src/utils/rules/calendar-merge.ts';
 
-// Fallback: dynamic import via bun if pg unavailable
 const { Client } = pg;
-const client = new Client();
+const client = new Client({ ssl: { rejectUnauthorized: false } });
 await client.connect();
 const { rows } = await client.query("SELECT id, title, start_time, end_time, provider FROM calendar_events WHERE identity_key IS NULL");
 let updated = 0, leftNull = 0;
