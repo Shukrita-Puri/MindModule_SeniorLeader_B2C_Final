@@ -1792,7 +1792,7 @@ serve(async (req) => {
 
     let userId: string;
     if (body.userId) {
-      console.log('[compute-outer-readiness] Using userId from body (dev mode):', body.userId);
+      console.log('[compute-outer-readiness] Using userId from body (dev mode):', redactUserId(body.userId));
       userId = body.userId;
     } else {
       const authHeader = req.headers.get('Authorization');
