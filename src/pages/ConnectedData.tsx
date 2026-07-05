@@ -324,17 +324,13 @@ const ConnectedData = () => {
       if (res.ok) {
         const data = await res.json();
         console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
-        // Read the freshest committed state via a functional setState — the
-        // outer `status` closure can be stale when fetchStatus is invoked
-        // from an event/listener that captured an earlier render, which used
-        // to let transient `oura.status === 'error'` / `appleWatch.status ===
-        // 'error'` responses overwrite a real connected provider.
-        let freshest: ConnectionStatus | null = null;
-        setStatus((prev) => {
-          freshest = prev;
-          return prev;
-        });
-        const merged = mergeConnectionStatus(freshest, data);
+        // Read the freshest committed state from a ref mirror. We do NOT
+        // rely on `setStatus(prev => prev)` — under React batching /
+        // concurrent rendering the functional updater is not guaranteed to
+        // execute synchronously before the next line, so it can't be used as
+        // a "read latest" primitive. The ref is updated in a post-commit
+        // effect above and is always the freshest DOM-visible state here.
+        const merged = mergeConnectionStatus(statusRef.current, data);
         const verifiedStatus = await verifyNativeConnectionState(merged);
         setStatus(verifiedStatus);
       } else {
