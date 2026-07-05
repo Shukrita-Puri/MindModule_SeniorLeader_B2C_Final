@@ -651,6 +651,9 @@ const ConnectedData = () => {
     const result = await triggerCalendarSync(provider);
     if (result.reconnectRequired) {
       toast.error('Calendar session expired. Please reconnect your calendar.');
+    } else if (result.rateLimited) {
+      toast.warning(result.error ?? 'Google Calendar is rate-limiting sync — will retry shortly.');
+      await fetchStatus();
     } else if (result.skipped) {
       toast.error(result.error || 'Calendar is disconnected. Reconnect to sync.');
     } else if (result.success) {
