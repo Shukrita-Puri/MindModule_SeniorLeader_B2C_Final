@@ -103,7 +103,7 @@ serve(async (req) => {
       if (authHeader && authHeader.startsWith('Bearer ')) {
         try {
           authenticatedUserId = await verifyAuth0Token(authHeader);
-          console.log('[calendar-auth] Authenticated user:', authenticatedUserId);
+          console.log('[calendar-auth] Authenticated user:', redactUserId(authenticatedUserId));
         } catch (error) {
           console.warn('[calendar-auth] Token auth failed:', error);
         }
@@ -153,7 +153,7 @@ serve(async (req) => {
         });
         const encodedState = btoa(statePayload);
         authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&include_granted_scopes=true&state=${encodeURIComponent(encodedState)}`;
-        console.log('[calendar-auth] Generated OAuth URL for user:', authenticatedUserId);
+        console.log('[calendar-auth] Generated OAuth URL for user:', redactUserId(authenticatedUserId));
       } else if (validProvider === 'microsoft') {
         const clientId = Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '';
         if (!clientId) {
@@ -169,7 +169,7 @@ serve(async (req) => {
         });
         const encodedState = btoa(statePayload);
         authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(encodedState)}&prompt=consent`;
-        console.log('[calendar-auth] Generated Microsoft OAuth URL for user:', authenticatedUserId);
+        console.log('[calendar-auth] Generated Microsoft OAuth URL for user:', redactUserId(authenticatedUserId));
       }
 
       return new Response(
@@ -344,9 +344,9 @@ serve(async (req) => {
         if (refreshTokenEnc && refreshIv) {
           updatePayload.refresh_token_enc = refreshTokenEnc;
           updatePayload.refresh_token_iv = refreshIv;
-          console.log('[calendar-auth] Stored new refresh token for user:', validUserId);
+          console.log('[calendar-auth] Stored new refresh token for user:', redactUserId(validUserId));
         } else {
-          console.log('[calendar-auth] Preserved existing refresh token for user:', validUserId);
+          console.log('[calendar-auth] Preserved existing refresh token for user:', redactUserId(validUserId));
         }
 
         const { error: updateError } = await supabaseAdmin
@@ -372,7 +372,7 @@ serve(async (req) => {
           });
 
         if (insertError) throw new Error(insertError.message || 'Failed to create connection');
-        console.log('[calendar-auth] Created new connection for user:', validUserId);
+        console.log('[calendar-auth] Created new connection for user:', redactUserId(validUserId));
       }
 
       const frontendUrl = Deno.env.get('FRONTEND_URL');
@@ -393,7 +393,7 @@ serve(async (req) => {
           body: JSON.stringify({ userId: validUserId, provider: validCallbackProvider }),
         }).then(async (r) => {
           const txt = await r.text();
-          console.log('[calendar-auth] register-calendar-watch enqueued user:', validUserId, 'status:', r.status, txt.slice(0, 200));
+          console.log('[calendar-auth] register-calendar-watch enqueued user:', redactUserId(validUserId), 'status:', r.status, txt.slice(0, 200));
         }).catch((err) => {
           console.warn('[calendar-auth] register-calendar-watch enqueue failed (non-fatal):', err);
         });
@@ -438,7 +438,7 @@ serve(async (req) => {
         }
       }
 
-      console.log('[calendar-auth] Disconnected provider:', validProvider, 'user:', authenticatedUserId);
+      console.log('[calendar-auth] Disconnected provider:', validProvider, 'user:', redactUserId(authenticatedUserId));
 
       return new Response(
         JSON.stringify({ success: true }),
