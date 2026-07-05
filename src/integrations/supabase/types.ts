@@ -570,6 +570,7 @@ export type Database = {
           event_metadata: Json | null
           external_id: string
           id: string
+          identity_key: string | null
           is_organizer: boolean | null
           is_recurring: boolean | null
           provider: string
@@ -584,6 +585,7 @@ export type Database = {
           event_metadata?: Json | null
           external_id: string
           id?: string
+          identity_key?: string | null
           is_organizer?: boolean | null
           is_recurring?: boolean | null
           provider?: string
@@ -598,6 +600,7 @@ export type Database = {
           event_metadata?: Json | null
           external_id?: string
           id?: string
+          identity_key?: string | null
           is_organizer?: boolean | null
           is_recurring?: boolean | null
           provider?: string
