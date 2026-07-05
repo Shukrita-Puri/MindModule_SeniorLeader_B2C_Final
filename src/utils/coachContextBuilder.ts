@@ -571,6 +571,7 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
         .gte('checkin_date', thirtyDaysAgoStr)
         .order('checkin_date', { ascending: false }),
       supabase
+        // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
         .from('calendar_events')
         .select('id, start_time, end_time, title, event_metadata, provider, attendees_count, is_organizer, is_recurring, external_id')
         .eq('user_id', userId)
@@ -656,6 +657,7 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
     todayEnd.setHours(23, 59, 59, 999);
     
     const { data: rawTodayEvents } = await supabase
+      // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
       .from('calendar_events')
       .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
       .eq('user_id', userId)

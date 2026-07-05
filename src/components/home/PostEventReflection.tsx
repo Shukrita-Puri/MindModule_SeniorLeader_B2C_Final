@@ -56,6 +56,7 @@ const PostEventReflection = () => {
 
       // Get today's calendar events that ended recently
       const { data: rawEvents } = await supabase
+        // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
         .from('calendar_events')
         .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
         .eq('user_id', userId)

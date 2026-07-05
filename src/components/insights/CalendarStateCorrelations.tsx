@@ -95,6 +95,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
 
       // Get calendar events for same period
       const { data: rawEvents } = await supabase
+        // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
         .from('calendar_events')
         .select('id, title, start_time, end_time, event_metadata, provider, attendees_count, is_organizer, is_recurring, external_id')
         .eq('user_id', effectiveUserId)

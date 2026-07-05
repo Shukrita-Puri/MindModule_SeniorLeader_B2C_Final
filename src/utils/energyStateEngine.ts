@@ -682,6 +682,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       // to 'awaiting' when wearable is missing but calendar is usable.
       const { startISO, endISO } = getLocalDayBounds();
       const { data: rawEvents } = await supabase
+        // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
         .from('calendar_events')
         .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
         .eq('user_id', effectiveUserId)
