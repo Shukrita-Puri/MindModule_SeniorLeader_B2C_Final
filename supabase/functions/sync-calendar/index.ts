@@ -221,8 +221,11 @@ serve(async (req) => {
         reason: phase.dbReason,
         retryAfterSeconds: null, // token refresh has no Retry-After
         consecutivePriorCount: priorCount,
+        jitterSeed: connection.id,
         now,
       });
+      const baseDelay_tr = resolveRetryDelaySeconds(null, { consecutivePriorCount: priorCount });
+      const jitter_tr = computeRetryJitterSeconds(`${connection.id}:${priorCount + 1}`, baseDelay_tr);
       await serviceClient
         .from('calendar_connections')
         .update(rateUpdate)
@@ -231,7 +234,9 @@ serve(async (req) => {
         connectionId: connection.id,
         priorCount,
         appliedCount: rateUpdate.consecutive_delay_count,
-        appliedRetryAfterSeconds: rateUpdate.retry_after_seconds,
+        baseDelaySeconds: baseDelay_tr,
+        jitterSeconds: jitter_tr,
+        finalRetryAfterSeconds: rateUpdate.retry_after_seconds,
         nextRetryAt: rateUpdate.next_retry_at,
       }));
       return jsonOk(phase.response);
