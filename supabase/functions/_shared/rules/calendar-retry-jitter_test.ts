@@ -84,7 +84,7 @@ Deno.test("buildRateLimitedUpdate: explicit Retry-After still wins before jitter
     `expected ~120±15, got ${upd.retry_after_seconds}`);
 });
 
-Deno.test("buildRateLimitedUpdate: two connections at same base do NOT get same next_retry_at", () => {
+Deno.test("buildRateLimitedUpdate: two connections at same base are unlikely to get same next_retry_at (collision-reducing, not collision-proof)", () => {
   const now = new Date("2026-07-05T10:00:00.000Z");
   const a = buildRateLimitedUpdate({
     message: "quota", reason: "quotaExceeded",
@@ -98,8 +98,10 @@ Deno.test("buildRateLimitedUpdate: two connections at same base do NOT get same 
     jitterSeed: "connection-b",
     now,
   });
-  assertNotEquals(a.next_retry_at, b.next_retry_at,
-    "two different connections at same base should not collide on next_retry_at");
+  // These two specific seeds resolve to different jittered delays; the
+  // real guarantee we're documenting is spread across MANY seeds, not a
+  // per-pair uniqueness contract. See the spread test above.
+  assertNotEquals(a.next_retry_at, b.next_retry_at);
 });
 
 Deno.test("lifecycle: repeated Google throttles advance streak and stay in retry window", () => {
