@@ -8,6 +8,7 @@ import {
 import {
   buildRateLimitedUpdate,
   buildSuccessfulSyncUpdate,
+  buildAuthFailureUpdate,
 } from "./calendar-connection-state.ts";
 
 // ------------------------------ Scope key derivation
@@ -97,6 +98,66 @@ Deno.test("buildQuotaCooldownUpsert: increments prior hit_count", () => {
     now: new Date("2026-07-05T10:00:00.000Z"),
   });
   assertEquals(row.hit_count, 8);
+});
+
+// ------------------------------ Merge policy
+
+Deno.test("merge policy: keeps LATER of existing vs new cooldown_until", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  // Existing cooldown expires far in the future (10:30).
+  // New event only wants 60s (would expire 10:01) → keep existing.
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x",
+    provider: "google",
+    finalRetryAfterSeconds: 60,
+    reason: "userRateLimitExceeded",
+    priorHitCount: 3,
+    priorCooldownUntil: "2026-07-05T10:30:00.000Z",
+    now,
+  });
+  assertEquals(row.cooldown_until, "2026-07-05T10:30:00.000Z");
+  // retry_after_seconds reflects the WINNING window (30 min from now).
+  assertEquals(row.retry_after_seconds, 1800);
+  assertEquals(row.hit_count, 4);
+});
+
+Deno.test("merge policy: new event extends when it would expire LATER", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x",
+    provider: "google",
+    finalRetryAfterSeconds: 3600, // 1 hour → expires 11:00
+    reason: "quotaExceeded",
+    priorCooldownUntil: "2026-07-05T10:05:00.000Z", // existing 5 min
+    now,
+  });
+  assertEquals(row.cooldown_until, "2026-07-05T11:00:00.000Z");
+  assertEquals(row.retry_after_seconds, 3600);
+});
+
+Deno.test("merge policy: hit_count increments even when cooldown_until unchanged", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x", provider: "google",
+    finalRetryAfterSeconds: 60,
+    reason: null, priorHitCount: 9,
+    priorCooldownUntil: "2026-07-05T10:30:00.000Z", // wins
+    now,
+  });
+  assertEquals(row.hit_count, 10);
+});
+
+Deno.test("merge policy: unparseable prior cooldown falls back to new (fails open)", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  const row = buildQuotaCooldownUpsert({
+    scopeKey: "google:x", provider: "google",
+    finalRetryAfterSeconds: 300,
+    reason: null,
+    priorCooldownUntil: "not-a-date",
+    now,
+  });
+  assertEquals(row.cooldown_until, "2026-07-05T10:05:00.000Z");
+  assertEquals(row.retry_after_seconds, 300);
 });
 
 // ------------------------------ Lifecycle: cross-connection coordination
@@ -190,4 +251,42 @@ Deno.test("regression: adding scope layer does NOT alter per-row backoff/jitter 
   // → clamp to 300s absolute in policy, but for base=600 window = 60).
   assert(upd.retry_after_seconds >= 540 && upd.retry_after_seconds <= 660,
     `expected ~600±60, got ${upd.retry_after_seconds}`);
+});
+
+Deno.test("regression: auth failures do NOT emit a shared-cooldown-shaped row", () => {
+  // The auth-failure builder owns per-row state only. `sync-calendar`
+  // never calls `buildQuotaCooldownUpsert` on the auth branch, so a
+  // reconnect requirement can never poison the shared scope for other
+  // healthy connections. Structural guard against future drift.
+  const upd = buildAuthFailureUpdate({
+    message: "unauthorized", reason: "invalidCredentials",
+    now: new Date("2026-07-05T10:00:00.000Z"),
+  });
+  for (const k of ["scope_key", "cooldown_until", "hit_count"]) {
+    assertEquals(Object.prototype.hasOwnProperty.call(upd, k), false, `unexpected ${k}`);
+  }
+});
+
+Deno.test("scheduler-shape: row in different scope is not blocked by another scope's cooldown", () => {
+  const now = new Date("2026-07-05T10:00:00.000Z");
+  const activeGoogle = {
+    scope_key: "google:client-1",
+    cooldown_until: "2026-07-05T10:30:00.000Z",
+  };
+  const map = new Map([["google:client-1", activeGoogle]]);
+
+  // Microsoft scope not in the map → eligible.
+  const msKey = computeQuotaScopeKey({ provider: "microsoft", clientId: "client-1" });
+  assertEquals(isScopeEligibleForSync(map.get(msKey) ?? null, now), true);
+
+  // Google other-client scope not in the map → eligible.
+  const otherGoogleKey = computeQuotaScopeKey({ provider: "google", clientId: "client-2" });
+  assertEquals(isScopeEligibleForSync(map.get(otherGoogleKey) ?? null, now), true);
+
+  // The blocked scope is still blocked.
+  assertEquals(isScopeEligibleForSync(map.get("google:client-1") ?? null, now), false);
+
+  // After cooldown_until elapses, it becomes eligible again.
+  const later = new Date("2026-07-05T10:31:00.000Z");
+  assertEquals(isScopeEligibleForSync(map.get("google:client-1") ?? null, later), true);
 });

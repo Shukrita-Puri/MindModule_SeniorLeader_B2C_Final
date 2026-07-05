@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       }
     }
     const nowForScope = new Date();
-    const scopeDebugFor = (provider: 'google' | 'microsoft'): { quotaCooldownUntil: string | null; quotaCooldownReason: string | null; quotaCooldownActive: boolean } => {
+    const scopeDebugFor = (provider: 'google' | 'microsoft'): { quotaCooldownUntil: string | null; quotaCooldownReason: string | null; quotaCooldownHitCount: number | null; quotaCooldownActive: boolean } => {
       const clientId = provider === 'google'
         ? (Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '')
         : (Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '');
@@ -100,6 +100,7 @@ Deno.serve(async (req) => {
       return {
         quotaCooldownUntil: row?.cooldown_until ?? null,
         quotaCooldownReason: row?.last_reason ?? null,
+        quotaCooldownHitCount: row?.hit_count ?? null,
         quotaCooldownActive: !isScopeEligibleForSync(row, nowForScope),
       };
     };

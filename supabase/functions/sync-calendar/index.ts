@@ -210,7 +210,7 @@ serve(async (req) => {
     async function upsertScopeCooldown(finalRetryAfterSeconds: number, reason: string | null): Promise<void> {
       const { data: existing } = await serviceClient
         .from('calendar_quota_cooldowns')
-        .select('hit_count')
+        .select('hit_count, cooldown_until')
         .eq('scope_key', scopeKey)
         .maybeSingle();
       const upsertRow = buildQuotaCooldownUpsert({
@@ -219,6 +219,7 @@ serve(async (req) => {
         finalRetryAfterSeconds,
         reason,
         priorHitCount: (existing as { hit_count?: number | null } | null)?.hit_count ?? 0,
+        priorCooldownUntil: (existing as { cooldown_until?: string | null } | null)?.cooldown_until ?? null,
         now,
       });
       const { error: upsertErr } = await serviceClient
