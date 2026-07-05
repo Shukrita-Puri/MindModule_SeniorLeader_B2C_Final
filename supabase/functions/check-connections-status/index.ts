@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     // Check calendar connections (users may connect multiple providers)
     const { data: calendarConns, error: calError } = await db
       .from("calendar_connections")
-      .select("id, provider, is_active, last_sync")
+      .select("id, provider, is_active, last_sync, sync_status, last_error, last_error_reason, last_error_at, last_sync_delayed_at")
       .eq("user_id", userId)
       .eq("is_active", true);
 
