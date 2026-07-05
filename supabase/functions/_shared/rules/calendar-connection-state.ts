@@ -83,9 +83,15 @@ export const RETRY_HINT_DEFAULT_SECONDS = 5 * 60; // 5 minute default
 export const RETRY_BACKOFF_LADDER_SECONDS = [300, 600, 1200, 2400, 3600] as const;
 
 /**
- * Jitter policy for retry delays. Jitter spreads retries so many
- * connections that hit the same provider quota at the same second do
- * not all wake up on the exact same tick.
+ * Jitter policy for retry delays.
+ *
+ * Jitter deterministically spreads retries so many connections that
+ * hit the same provider quota at the same second are unlikely to all
+ * wake up on the exact same tick. This is collision-REDUCING, not
+ * collision-PROOF: with a bounded jitter window and a 32-bit hash,
+ * two different connections at the same base delay can and sometimes
+ * will land on the same `next_retry_at` second — that's expected and
+ * still much better than the pre-jitter lockstep behavior.
  *
  * Policy:
  *   - jitter range is ±JITTER_RATIO of the base delay
