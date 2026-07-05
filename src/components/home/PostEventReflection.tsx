@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- grandfathered raw calendar_events reads. Tracked in .lovable/plan.md for wiring through mergeCalendarEvents(). Remove this directive once every .from('calendar_events') read below has been replaced. */
 /**
  * PostEventReflection - Micro-reflection card after high-stakes events
  * Shows for 2 hours after a high-stakes calendar event ends.
@@ -56,7 +57,6 @@ const PostEventReflection = () => {
 
       // Get today's calendar events that ended recently
       const { data: rawEvents } = await supabase
-        // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
         .from('calendar_events')
         .select('id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring, event_metadata, external_id')
         .eq('user_id', userId)

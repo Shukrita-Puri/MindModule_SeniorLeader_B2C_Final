@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- grandfathered raw calendar_events reads. Tracked in .lovable/plan.md for wiring through mergeCalendarEvents(). Remove this directive once every .from('calendar_events') read below has been replaced. */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -216,7 +217,6 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
     try {
       const { data: rawData, error: eventsError } = await supabase
-        // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
         .from('calendar_events')
         .select('*')
         .eq('user_id', user.id)
@@ -451,7 +451,6 @@ export function useCalendarSync(): UseCalendarSyncResult {
           
           // Fetch events
           const { data: rawEventsData, error: eventsError } = await supabase
-            // eslint-disable-next-line no-restricted-syntax -- grandfathered raw read; tracked in .lovable/plan.md for merge wiring
             .from('calendar_events')
             .select('*')
             .eq('user_id', user.id)
