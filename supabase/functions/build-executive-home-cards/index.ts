@@ -420,6 +420,7 @@ async function buildForUser(db: any, args: {
           window,
           dueWindow: args.dueWindow,
           skippedReason: (patch.skipped_reason as string | undefined) ?? null,
+          dayType: dayTypeDecision,
         }),
         ...patch,
       });
@@ -436,6 +437,59 @@ async function buildForUser(db: any, args: {
       timezoneUsed: effectiveTimezone,
       dueWindow: args.dueWindow ?? window,
       skippedReason: null,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // CENTRALIZED DAY-TYPE / CADENCE GATE
+  // Runs BEFORE MRS. The orchestrator owns whether this window fires at all.
+  // Downstream (compute-outer-readiness / generate-mastery-plan) owns the
+  // content generated inside a window the orchestrator chose to run.
+  //
+  // Scoping: scheduled cron respects the gate strictly. Manual refresh,
+  // replay, and backfill ALWAYS proceed — a user pulling to refresh (or an
+  // admin replaying a failed run) is an explicit override of cadence.
+  // ---------------------------------------------------------------------------
+  let dayTypeDecision: DayTypeDecision | null = null;
+  try {
+    const slices = await loadDayTypeEventSlices(db, userId, localDate);
+    dayTypeDecision = resolveDayTypeAndCadence({
+      effectiveTimezone,
+      now: new Date(),
+      todayEvents: slices.todayEvents as any,
+      tomorrowEvents: slices.tomorrowEvents as any,
+      travel: travel ?? null,
+    });
+  } catch (err) {
+    // Fail-open: never let a day-type lookup take down the orchestrator run.
+    console.warn("[build-executive-home-cards] day-type resolve failed", err);
+    dayTypeDecision = null;
+  }
+
+  if (
+    mode === "scheduled" &&
+    dayTypeDecision &&
+    !dayTypeDecision.allowedWindows.has(window)
+  ) {
+    await writeRun({
+      status: "skipped",
+      day_type: dayTypeDecision.dayType,
+      mrs_status: "skipped",
+      brief_status: "skipped",
+      plan_status: "skipped",
+      skipped_reason: "day_type_window_suppressed",
+      error_json: null,
+      duration_ms: Date.now() - started,
+    });
+    return {
+      userId,
+      localDate,
+      window,
+      status: "skipped",
+      skippedReason: "day_type_window_suppressed",
+      dayType: dayTypeDecision.dayType,
+      allowedWindows: Array.from(dayTypeDecision.allowedWindows),
+      effectiveTimezone,
     };
   }
 
