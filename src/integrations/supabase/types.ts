@@ -5513,6 +5513,51 @@ export type Database = {
         }
         Relationships: []
       }
+      wearable_reconciliation_log: {
+        Row: {
+          created_at: string
+          delta_hours: number | null
+          details: Json
+          id: string
+          losing_source: string | null
+          losing_updated_at: string | null
+          metric: string
+          reason: string
+          summary_date: string
+          user_id: string
+          winning_source: string | null
+          winning_updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          delta_hours?: number | null
+          details?: Json
+          id?: string
+          losing_source?: string | null
+          losing_updated_at?: string | null
+          metric: string
+          reason: string
+          summary_date: string
+          user_id: string
+          winning_source?: string | null
+          winning_updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          delta_hours?: number | null
+          details?: Json
+          id?: string
+          losing_source?: string | null
+          losing_updated_at?: string | null
+          metric?: string
+          reason?: string
+          summary_date?: string
+          user_id?: string
+          winning_source?: string | null
+          winning_updated_at?: string | null
+        }
+        Relationships: []
+      }
       wearable_signal_diagnostics: {
         Row: {
           computed_at: string
