@@ -48,10 +48,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const googleConn = (calendarConns ?? []).find((c) => c.provider === "google") ?? null;
-    const microsoftConn = (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
-    const appleConn = (calendarConns ?? []).find((c) => c.provider === "apple") ?? null;
+    // If the calendar-connections query itself failed we MUST NOT fabricate a
+    // "disconnected" answer for every provider — that would flip real
+    // connected providers to "Not connected" for the duration of any
+    // transient DB blip. Instead surface an explicit `error` marker and set
+    // per-provider `status: 'unknown'`. Clients that opt into the new field
+    // render an error/retry banner; legacy clients still see `connected: false`
+    // but the presence of `calendar.error` lets them detect the situation.
+    const calendarQueryFailed = !!calError;
+    const googleConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "google") ?? null;
+    const microsoftConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
+    const appleConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "apple") ?? null;
     const primaryConn = googleConn ?? microsoftConn ?? appleConn; // backwards-compat single field
+
+    const providerStatus = (conn: typeof googleConn):
+      "connected" | "disconnected" | "unknown" => {
+      if (calendarQueryFailed) return "unknown";
+      return conn ? "connected" : "disconnected";
+    };
 
     // Check Oura connection (full state model)
     const { data: ouraConn } = await db
@@ -161,17 +175,26 @@ Deno.serve(async (req) => {
         connected: !!primaryConn,
         provider: primaryConn?.provider || null,
         lastSync: primaryConn?.last_sync || null,
+        // 'ok' when the connections query succeeded, 'error' when it didn't.
+        status: calendarQueryFailed ? "error" : "ok",
+        // Present only on transient failure; safe for clients to key off.
+        ...(calendarQueryFailed
+          ? { error: "query_failed", errorMessage: calError?.message ?? null }
+          : {}),
         providers: {
           google: {
             connected: !!googleConn,
+            status: providerStatus(googleConn),
             lastSync: googleConn?.last_sync || null,
           },
           microsoft: {
             connected: !!microsoftConn,
+            status: providerStatus(microsoftConn),
             lastSync: microsoftConn?.last_sync || null,
           },
           apple: {
             connected: !!appleConn,
+            status: providerStatus(appleConn),
             lastSync: appleConn?.last_sync || null,
           },
         },
