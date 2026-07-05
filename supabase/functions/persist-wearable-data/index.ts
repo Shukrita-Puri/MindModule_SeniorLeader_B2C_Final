@@ -2,7 +2,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { deriveSleepEfficiency } from "../_shared/wearable/derive-sleep-efficiency.ts";
 import {
-  mergeCanonicalWearableRow,
   loadWearableMergeContext,
   type WearableMergeContext,
   type ReconciliationRecord,
