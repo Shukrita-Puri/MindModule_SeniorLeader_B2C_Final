@@ -10,6 +10,8 @@ import {
   buildRateLimitedUpdate,
   buildAuthFailureUpdate,
   buildGenericErrorUpdate,
+  resolveRetryDelaySeconds,
+  computeRetryJitterSeconds,
 } from "../_shared/rules/calendar-connection-state.ts";
 import {
   ensureFreshAccessToken,
