@@ -314,7 +314,7 @@ export async function authenticateRequest(
     const realEmail = (adminProfile?.email as string | null) ?? null;
 
     if (!isAdminEmail(realEmail)) {
-      console.warn('[shared/auth] impersonation attempted by non-admin', { realUserId });
+      console.warn('[shared/auth] impersonation attempted by non-admin', { realUserId: redactUserId(realUserId) });
       return {
         errorResponse: new Response(
           JSON.stringify({ error: 'Forbidden' }),
