@@ -4,6 +4,7 @@ import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
 import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
 import { classifyGoogleCalendarError } from "../_shared/rules/google-calendar-errors.ts";
+import { classifyMicrosoftCalendarError } from "../_shared/rules/microsoft-calendar-errors.ts";
 import { buildSuccessfulSyncUpdate } from "../_shared/rules/calendar-connection-state.ts";
 import {
   ensureFreshAccessToken,
@@ -380,11 +381,75 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error('[sync-calendar] Microsoft Graph API error:', response.status, errText);
-        if (response.status === 401) {
-          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-          return jsonOk({ success: false, reconnectRequired: true, reason: 'microsoft_api_unauthorized', error: 'Calendar session expired. Please reconnect your calendar.' });
+        const classification = classifyMicrosoftCalendarError(
+          response.status,
+          errText,
+          response.headers,
+        );
+        console.error(
+          '[sync-calendar] Microsoft Graph API error:',
+          JSON.stringify({
+            status: response.status,
+            kind: classification.kind,
+            reason: classification.reason,
+            retryAfterSeconds: classification.retryAfterSeconds,
+            body: errText.slice(0, 500),
+          }),
+        );
+
+        if (classification.kind === 'rate_limited') {
+          // Temporary throttling / upstream 5xx — keep is_active, mark as
+          // sync_delayed so the UI can render a soft "will retry" state.
+          const ts = new Date().toISOString();
+          await serviceClient
+            .from('calendar_connections')
+            .update({
+              sync_status: 'sync_delayed',
+              last_error: classification.message ?? `Microsoft Graph transient error: ${classification.reason ?? 'unknown'}`,
+              last_error_reason: classification.reason,
+              last_error_at: ts,
+              last_sync_delayed_at: ts,
+            })
+            .eq('id', connection.id);
+          return jsonOk({
+            success: false,
+            rateLimited: true,
+            syncStatus: 'sync_delayed',
+            reason: classification.reason ?? 'rate_limited',
+            retryAfterSeconds: classification.retryAfterSeconds,
+            error: 'Microsoft Calendar is throttling sync right now — will retry shortly.',
+          });
         }
+
+        if (classification.kind === 'auth_failed') {
+          await serviceClient
+            .from('calendar_connections')
+            .update({
+              is_active: false,
+              sync_status: 'error',
+              last_error: classification.message ?? `Microsoft auth error: ${classification.reason ?? 'unauthorized'}`,
+              last_error_reason: classification.reason,
+              last_error_at: new Date().toISOString(),
+            })
+            .eq('id', connection.id);
+          return jsonOk({
+            success: false,
+            reconnectRequired: true,
+            reason: `microsoft_api_${classification.reason ?? 'unauthorized'}`,
+            error: 'Calendar session expired. Please reconnect your calendar.',
+          });
+        }
+
+        // Generic non-auth failure — surface but do not disconnect.
+        await serviceClient
+          .from('calendar_connections')
+          .update({
+            sync_status: 'error',
+            last_error: classification.message ?? `Microsoft Graph error ${response.status}`,
+            last_error_reason: classification.reason,
+            last_error_at: new Date().toISOString(),
+          })
+          .eq('id', connection.id);
         return jsonOk({ success: false, error: 'Failed to fetch calendar events from Microsoft Calendar' });
       }
 
