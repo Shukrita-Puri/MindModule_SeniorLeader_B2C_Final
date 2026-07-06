@@ -137,6 +137,20 @@ export function useMrsSnapshot() {
           ? 'awaiting'
           : 'unknown';
 
+      // eslint-disable-next-line no-console
+      console.info('[useMrsSnapshot] row', {
+        effectiveUserId,
+        localDate,
+        mrsWindow,
+        rowWindow: row.mrs_window,
+        score,
+        baseline,
+        refined,
+        readinessState,
+        tier,
+        hasScore,
+      });
+
       return {
         score,
         tier,
