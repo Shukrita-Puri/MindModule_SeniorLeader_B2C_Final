@@ -6069,6 +6069,37 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               weightProvenance: existingWp,
             });
           }
+          // Adopt the preserved existing MRS as canonical so brief_snapshots
+          // and the client response echo cannot show a different (lower/
+          // stale/awaiting) score than daily_context_snapshot for the same
+          // window. Without this, MrsPage and DecisionReadinessBrief could
+          // diverge (e.g. MRS=78 evening vs Brief=50).
+          if (shouldPreserveExistingMrs) {
+            if (
+              typeof innerReadinessScore === 'number' &&
+              typeof existingWindowMrs!.inner_score === 'number' &&
+              innerReadinessScore !== existingWindowMrs!.inner_score
+            ) {
+              console.warn('[canonical-mrs] incoming score differs from preserved existing MRS — preserving existing', {
+                userId,
+                localDate: snapshotLocalDate,
+                window: timeWindow,
+                incomingScore: innerReadinessScore,
+                existingScore: existingWindowMrs!.inner_score,
+              });
+            }
+            canonicalInnerScore = existingWindowMrs!.inner_score ?? canonicalInnerScore;
+            canonicalTier = (existingWindowMrs!.inner_tier as any) ?? canonicalTier;
+            canonicalTierDisplayed = (existingWindowMrs!.tier_displayed as any) ?? canonicalTierDisplayed;
+            canonicalTierCapReason = (existingWindowMrs!.tier_cap_reason as any) ?? canonicalTierCapReason;
+            canonicalScoreBaseline = existingWindowMrs!.readiness_score_baseline ?? canonicalScoreBaseline;
+            canonicalScoreRefined = existingWindowMrs!.readiness_score_refined ?? canonicalScoreRefined;
+            canonicalReadinessState =
+              (existingWindowMrs!.readiness_state as any) ?? canonicalReadinessState ?? 'baseline';
+            canonicalRefinedContribution =
+              existingWindowMrs!.refined_contribution ?? canonicalRefinedContribution;
+            canonicalScoreSource = 'preserved_existing_mrs';
+          }
           const currentBaselineForAnchor =
             typeof clientScoreBaseline === 'number'
               ? clientScoreBaseline
