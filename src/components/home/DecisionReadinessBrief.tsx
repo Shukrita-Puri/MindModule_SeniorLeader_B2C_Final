@@ -1820,10 +1820,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // it is an awaiting row with no copy, we fall through to the live
   // payload unchanged.
   const { data: currentBriefSnapshot } = useCurrentBriefSnapshot();
-  const liveCardsAwaiting = isCardsAwaitingPayload(outerBriefReal);
   const snapshotIsRenderable =
     !!currentBriefSnapshot?.isRenderable &&
-    !liveCardsAwaiting &&
     !isCardsAwaitingPayload(currentBriefSnapshot);
 
   // App-Tour mock injection — strict triple-AND gate (mock active + genuine
