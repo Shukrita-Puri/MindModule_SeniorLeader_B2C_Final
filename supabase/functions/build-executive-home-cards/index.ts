@@ -57,8 +57,11 @@ function scoreFromPattern(patternSignals: any): number | null {
 }
 
 function weightProvenanceIndicatesAwaiting(weightProvenance: any): boolean {
-  const earned = Array.isArray(weightProvenance?.earned) ? weightProvenance.earned : null;
-  return weightProvenance?.awaiting_signals === true || (earned !== null && earned.length === 0);
+  if (weightProvenance?.awaiting_signals === true) return true;
+  if (weightProvenance && Object.prototype.hasOwnProperty.call(weightProvenance, "earned")) {
+    return !Array.isArray(weightProvenance.earned) || weightProvenance.earned.length === 0;
+  }
+  return false;
 }
 
 async function loadJobConfig(db: any): Promise<ExecutiveHomeCronConfig> {
