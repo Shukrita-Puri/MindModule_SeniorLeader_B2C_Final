@@ -296,6 +296,16 @@ export interface OuterReadinessData {
   } | null;
   // Dev-only — populated when MRS tier and pill mix had to be reconciled.
   coherenceWarning?: string | null;
+  /**
+   * LLM diagnostics echoed from compute-outer-readiness. Used exclusively
+   * for browser-console debugging via [PRB][llm]. Never render to users.
+   *   • llmFallbackReason — reason code from the LLM path when the brief
+   *     fell back to awaiting (e.g. `workspace_credit_limit`,
+   *     `attempt1_parse_failed`, `attempt2_atomic_em_dash_body`).
+   *   • validatorRejections — compact per-rule rejection records.
+   */
+  llmFallbackReason?: string | null;
+  validatorRejections?: Array<Record<string, unknown>> | null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
