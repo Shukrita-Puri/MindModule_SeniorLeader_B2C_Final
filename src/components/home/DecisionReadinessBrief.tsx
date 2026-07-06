@@ -2051,6 +2051,62 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     : (outerBrief?.bodyText ? stripStrayAsterisks(String(outerBrief.bodyText)) : null);
   const briefBeats = collectBriefBeats(outerBrief);
 
+  // ── [PRB] Diagnostic — render-decision + final-payload logs ─────────────
+  // Effect-gated so we only emit when the resolved values actually change.
+  // No PII, no prompt text, no tokens.
+  const _prbRenderKey = JSON.stringify({
+    period: currentPeriodLocal(),
+    snapshotExists: !!currentBriefSnapshot,
+    snapshotIsRenderable,
+    usingSnapshot: !!briefFromSnapshot && !(tourMockBriefActive && realBriefEmpty),
+    usingLive: !briefFromSnapshot && !(tourMockBriefActive && realBriefEmpty),
+    cardsAwaiting,
+    awaitingSignals,
+    readinessState,
+    score,
+    tier,
+    hasPhrase: !!phrase,
+    hasBodyText: !!bodyText,
+    hasSignalPills:
+      Array.isArray((outerBrief as any)?.signalPills) &&
+      (outerBrief as any).signalPills.length > 0,
+    showFailureBlock,
+    showNeutralAwaitingCopy,
+    showCopyOnlyAwaiting,
+  });
+  useEffect(() => {
+    console.log('[PRB][render]', JSON.parse(_prbRenderKey));
+    // Final resolved payload — one normalized line summarising origin.
+    const source: 'mock' | 'snapshot' | 'live' | 'none' =
+      tourMockBriefActive && realBriefEmpty
+        ? 'mock'
+        : briefFromSnapshot
+          ? 'snapshot'
+          : outerBriefReal
+            ? 'live'
+            : 'none';
+    console.log('[PRB][final]', {
+      source,
+      briefId: (outerBrief as any)?.briefId ?? null,
+      briefSource: (outerBrief as any)?.briefSource ?? null,
+      innerReadinessScore: (outerBrief as any)?.innerReadinessScore ?? null,
+      innerReadinessScoreBaseline:
+        (outerBrief as any)?.innerReadinessScoreBaseline ?? null,
+      innerReadinessScoreRefined:
+        (outerBrief as any)?.innerReadinessScoreRefined ?? null,
+      innerReadinessState: (outerBrief as any)?.innerReadinessState ?? null,
+      innerReadinessTier: (outerBrief as any)?.innerReadinessTier ?? null,
+      innerReadinessTierDisplayed:
+        (outerBrief as any)?.innerReadinessTierDisplayed ?? null,
+      hasPhrase: !!(outerBrief as any)?.phrase,
+      hasBodyText: !!(outerBrief as any)?.bodyText,
+      hasSignalPills:
+        Array.isArray((outerBrief as any)?.signalPills) &&
+        (outerBrief as any).signalPills.length > 0,
+      engineStatus: (outerBrief as any)?.engineStatus ?? null,
+    });
+  }, [_prbRenderKey, tourMockBriefActive, realBriefEmpty, briefFromSnapshot, outerBriefReal, outerBrief]);
+
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {
     const normalized = text.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
