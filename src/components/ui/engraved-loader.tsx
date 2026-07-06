@@ -5,7 +5,7 @@
  * the system is working and they don't need to act.
  */
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface EngravedLoaderProps {
   /** Optional message under the bar. Defaults to "Loading…". */
@@ -42,32 +42,41 @@ const EngravedLoader = ({
 }: EngravedLoaderProps) => {
   const hasSteps = Array.isArray(steps) && steps.length > 0;
   const [stepIdx, setStepIdx] = useState(0);
+  const onCompleteRef = useRef(onAllStepsComplete);
+  const stepsKey = hasSteps ? steps!.join("\u0001") : "";
+
+  useEffect(() => {
+    onCompleteRef.current = onAllStepsComplete;
+  }, [onAllStepsComplete]);
 
   useEffect(() => {
     if (!hasSteps) return;
+    const activeSteps = stepsKey.split("\u0001");
     setStepIdx(0);
-    if (steps!.length === 1) {
+    if (activeSteps.length === 1) {
       // Single-step scripts complete after one interval as well.
       const t = window.setTimeout(() => {
-        onAllStepsComplete?.();
+        onCompleteRef.current?.();
       }, stepDurationMs);
       return () => window.clearTimeout(t);
     }
     let completed = false;
+    let currentStep = 0;
     const id = window.setInterval(() => {
-      setStepIdx((i) => {
-        if (i < steps!.length - 1) return i + 1;
-        // Final step has now held for one full interval — fire once and stop.
-        if (!completed) {
-          completed = true;
-          window.clearInterval(id);
-          onAllStepsComplete?.();
-        }
-        return i;
-      });
+      if (currentStep < activeSteps.length - 1) {
+        currentStep += 1;
+        setStepIdx(currentStep);
+        return;
+      }
+      // Final step has now held for one full interval — fire once and stop.
+      if (!completed) {
+        completed = true;
+        window.clearInterval(id);
+        onCompleteRef.current?.();
+      }
     }, stepDurationMs);
     return () => window.clearInterval(id);
-  }, [hasSteps, steps, stepDurationMs, onAllStepsComplete]);
+  }, [hasSteps, stepsKey, stepDurationMs]);
 
   const currentLabel = hasSteps ? steps![Math.min(stepIdx, steps!.length - 1)] : label;
 
