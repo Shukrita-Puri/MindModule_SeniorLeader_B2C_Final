@@ -5115,9 +5115,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               // attemptN_error.
               const bodyLower = (errBodyHead ?? '').toLowerCase();
               let providerReason: string | null = null;
+              let terminalOperational: 'workspace_credit_limit' | null = null;
               if (httpStatus === 401) providerReason = 'invalid_key';
               else if (httpStatus === 403 && bodyLower.includes('credit_limit_reached')) {
                 providerReason = 'gateway_credit_limit_reached';
+                terminalOperational = 'workspace_credit_limit';
                 console.error(`[compute-outer-readiness] [LLM] provider unavailable — workspace AI credit limit reached | model=${model} | attempt=${attempt} | httpStatus=${httpStatus} (billing limit, not a content or key failure)`);
               }
               else if (httpStatus === 403) providerReason = 'gateway_forbidden';
@@ -5141,6 +5143,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 timeoutMs: isAbort ? timeoutMs : null,
               });
               console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'TIMEOUT' : 'ERROR'} | model=${model} | timeout=${timeoutMs}ms | elapsed=${durationMs}ms | promptChars=${sysPromptLen + userPromptLen}`, isAbort ? '' : err);
+              // Terminal operational dependency failure: workspace AI credit
+              // ceiling reached. Do NOT chain to attempt 2 (Anthropic) — that
+              // just yields a second noisy provider-billing error and buries
+              // the real actionable cause. Short-circuit with a single clean
+              // summarized fallback reason; per-attempt diagnostics above
+              // preserve the raw provider detail for debugging.
+              if (terminalOperational === 'workspace_credit_limit') {
+                llmFallbackReason = 'workspace_credit_limit';
+                console.error(`[compute-outer-readiness] [LLM] terminal operational failure: workspace_credit_limit — skipping remaining ${llmAttempts.length - attempt} attempt(s) and falling to awaiting Brief`);
+                break;
+              }
               continue; // Try next model
             }
           }
