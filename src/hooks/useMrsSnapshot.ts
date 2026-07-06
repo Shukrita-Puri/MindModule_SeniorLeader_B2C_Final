@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 import {
   localISODate,
   currentPeriod as currentPeriodLocal,
@@ -41,22 +42,6 @@ export interface MrsSnapshot {
   /** True when a numeric score is present and the row is for the current window. */
   isRenderable: boolean;
 }
-
-const SELECT_COLUMNS = [
-  'inner_score',
-  'inner_tier',
-  'tier_displayed',
-  'tier_cap_reason',
-  'readiness_score_baseline',
-  'readiness_score_refined',
-  'readiness_state',
-  'refined_contribution',
-  'mrs_window',
-  'weight_provenance',
-  'signal_pills',
-  'supply_demand_gap_flag',
-  'updated_at',
-].join(', ');
 
 function asArray(v: unknown): unknown[] | null {
   return Array.isArray(v) ? v : null;
@@ -89,17 +74,20 @@ export function useMrsSnapshot() {
     queryFn: async () => {
       if (!effectiveUserId) return null;
 
-      const { data, error } = await supabase
-        .from('daily_context_snapshot')
-        .select(SELECT_COLUMNS)
-        .eq('user_id', effectiveUserId)
-        .eq('local_date', localDate)
-        .eq('mrs_window', mrsWindow)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Read via authenticated Edge Function — the shared browser client
+      // is anon-keyed only, so a direct table read is filtered by RLS on
+      // `daily_context_snapshot` and always returns null for Auth0 users.
+      const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
+      const { data: resp, error } = await supabase.functions.invoke(
+        'get-mrs-snapshot',
+        {
+          body: { localDate, mrsWindow },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        },
+      );
 
-      if (error || !data) {
+      const row = (resp as { data?: Record<string, any> | null } | null)?.data ?? null;
+      if (error || !row) {
         // eslint-disable-next-line no-console
         console.warn('[useMrsSnapshot] no row', {
           effectiveUserId,
@@ -110,7 +98,6 @@ export function useMrsSnapshot() {
         return null;
       }
 
-      const row = data as Record<string, any>;
       const state = (row.readiness_state as string | null) ?? null;
       const readinessState: MrsReadinessState | null =
         state === 'refined' || state === 'baseline' || state === 'awaiting'
