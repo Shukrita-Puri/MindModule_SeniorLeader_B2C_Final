@@ -3877,6 +3877,7 @@ export type Database = {
           sync_status: string
           updated_at: string
           user_id: string
+          writes_to_apple_health: boolean
         }
         Insert: {
           access_token_expires_at?: string | null
@@ -3895,6 +3896,7 @@ export type Database = {
           sync_status?: string
           updated_at?: string
           user_id: string
+          writes_to_apple_health?: boolean
         }
         Update: {
           access_token_expires_at?: string | null
@@ -3913,6 +3915,7 @@ export type Database = {
           sync_status?: string
           updated_at?: string
           user_id?: string
+          writes_to_apple_health?: boolean
         }
         Relationships: []
       }
