@@ -1830,6 +1830,8 @@ serve(async (req) => {
       regulationLevel = null,
       checkInOutcome,
       timezoneOffset = 0,
+      localDate: requestedLocalDateRaw = null,
+      mrsWindow: requestedMrsWindowRaw = null,
       currentTimezone: clientCurrentTz = null,
       homeTimezone: clientHomeTz = null,
       tierDisplayed: clientTierDisplayed = null,
@@ -1890,6 +1892,14 @@ serve(async (req) => {
     const userLocalDate = userTime.toISOString().split('T')[0];
     const hour = userTime.getHours();
     const dayOfWeek = userTime.getDay();
+    const snapshotLocalDate =
+      typeof requestedLocalDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(requestedLocalDateRaw)
+        ? requestedLocalDateRaw
+        : userLocalDate;
+    const requestedMrsWindow =
+      requestedMrsWindowRaw === 'morning' || requestedMrsWindowRaw === 'afternoon' || requestedMrsWindowRaw === 'evening'
+        ? requestedMrsWindowRaw
+        : null;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -5959,7 +5969,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   ? 'recovery_window'
                   : 'aligned';
 
-          const timeWindow = getTimeOfDay(hour);
+          const timeWindow = requestedMrsWindow ?? getTimeOfDay(hour);
           let existingMorningBaselineScore: number | null = null;
           try {
             // Phase 2 — anchor lives on the morning-window row.
@@ -5967,7 +5977,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .from('daily_context_snapshot')
               .select('morning_baseline_score')
               .eq('user_id', userId)
-              .eq('local_date', userLocalDate)
+              .eq('local_date', snapshotLocalDate)
               .eq('mrs_window', 'morning')
               .maybeSingle();
             existingMorningBaselineScore = (existingSnapshot as any)?.morning_baseline_score ?? null;
@@ -5995,7 +6005,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .from('daily_context_snapshot')
               .select('inner_score, inner_tier, readiness_score_baseline, readiness_score_refined, readiness_state, tier_displayed, tier_cap_reason, refined_contribution, weight_provenance')
               .eq('user_id', userId)
-              .eq('local_date', userLocalDate)
+              .eq('local_date', snapshotLocalDate)
               .eq('mrs_window', timeWindow)
               .maybeSingle();
             existingWindowMrs = (existingWindowRow as any) ?? null;
@@ -6023,7 +6033,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           if (shouldPreserveExistingMrs) {
             console.warn('[daily_context_snapshot] preserving existing ready MRS; incoming run is awaiting', {
               userId,
-              localDate: userLocalDate,
+              localDate: snapshotLocalDate,
               window: timeWindow,
               existingInnerScore: existingWindowMrs?.inner_score,
               existingState: existingWindowMrs?.readiness_state,
@@ -6032,7 +6042,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           } else if (innerStateIsAwaiting && existingWindowMrs != null && typeof existingWindowMrs.inner_score === 'number') {
             console.warn('[daily_context_snapshot] overwriting existing fallback MRS row; not a ready snapshot', {
               userId,
-              localDate: userLocalDate,
+              localDate: snapshotLocalDate,
               window: timeWindow,
               existingInnerScore: existingWindowMrs?.inner_score,
               existingState: existingWindowMrs?.readiness_state,
@@ -6052,7 +6062,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           await upsertDailyContextSnapshot(db, {
             userId,
-            localDate: userLocalDate,
+            localDate: snapshotLocalDate,
             patternSignals: patternSignals as any,
             strategicContext: strategic,
             calendarDemandScore,
@@ -6113,7 +6123,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 .upsert(
                   {
                     user_id: userId,
-                    local_date: userLocalDate,
+                    local_date: snapshotLocalDate,
                     mrs_window: 'morning',
                     morning_baseline_score: currentBaselineForAnchor,
                   },
