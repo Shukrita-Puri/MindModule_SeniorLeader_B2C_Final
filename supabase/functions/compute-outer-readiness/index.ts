@@ -4774,18 +4774,60 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
 
           const normalizeLlmBrief = (parsed: any, opts: { strict?: boolean } = {}): { brief: LlmBriefPackage | null; reason: string; softReject?: boolean } => {
-            const phrase = typeof parsed?.phrase === 'string' && parsed.phrase !== 'null' ? parsed.phrase.trim() : null;
-            const bodyText = typeof parsed?.body === 'string' && parsed.body !== 'null'
+            // Style-only punctuation normalization. The em/en dash used as a
+            // clause break is a stylistic issue, not a semantic contract
+            // violation. We rewrite it to a comma (or period when the dash
+            // is preceded by a full clause) BEFORE validation so an
+            // otherwise-valid brief is not blanked by punctuation alone.
+            // Semantic validators (forbidden vocab, missing evidence, band
+            // mismatch, invalid source labels, length caps) run unchanged.
+            const normalizePunct = (input: string | null): string | null => {
+              if (input == null) return input;
+              let s = String(input);
+              // Smart quotes → straight quotes.
+              s = s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+              // Space-em-dash-space / space-en-dash-space → ", ".
+              s = s.replace(/\s+[—–]\s+/g, ', ');
+              // Letter—letter (no spaces) as clause break → ", ".
+              s = s.replace(/([A-Za-z])[—–]([A-Za-z])/g, '$1, $2');
+              // Collapse ", ," and stray double spaces created above.
+              s = s.replace(/,\s*,+/g, ',').replace(/\s{2,}/g, ' ').trim();
+              return s;
+            };
+
+            const rawPhrase = typeof parsed?.phrase === 'string' && parsed.phrase !== 'null' ? parsed.phrase.trim() : null;
+            const rawBody = typeof parsed?.body === 'string' && parsed.body !== 'null'
               ? parsed.body.trim()
               : typeof parsed?.bodyText === 'string' && parsed.bodyText !== 'null'
                 ? parsed.bodyText.trim()
                 : null;
-            const leanOn = Array.isArray(parsed?.leanOn) ? parsed.leanOn : null;
-            const watchFor = Array.isArray(parsed?.watchFor) ? parsed.watchFor : null;
+            const phrase = normalizePunct(rawPhrase);
+            const bodyText = normalizePunct(rawBody);
+            const rawLeanOn = Array.isArray(parsed?.leanOn) ? parsed.leanOn : null;
+            const rawWatchFor = Array.isArray(parsed?.watchFor) ? parsed.watchFor : null;
+            const normalizeItems = (items: any[] | null) =>
+              items == null
+                ? null
+                : items.map((it) =>
+                    it && typeof it === 'object'
+                      ? { ...it, signal: typeof it.signal === 'string' ? normalizePunct(it.signal) : it.signal }
+                      : it,
+                  );
+            const leanOn = normalizeItems(rawLeanOn);
+            const watchFor = normalizeItems(rawWatchFor);
+
+            const punctuationChanged =
+              rawPhrase !== phrase ||
+              rawBody !== bodyText ||
+              JSON.stringify(rawLeanOn) !== JSON.stringify(leanOn) ||
+              JSON.stringify(rawWatchFor) !== JSON.stringify(watchFor);
 
             const validation = validateV61Output({ ...parsed, leanOn, watchFor }, phrase, bodyText, opts);
             if (!validation.valid) {
               return { brief: null, reason: `validation_${validation.reason}`, softReject: validation.softReject };
+            }
+            if (punctuationChanged) {
+              console.log('[compute-outer-readiness] [LLM] punctuation normalized and accepted');
             }
 
             return {
@@ -5077,6 +5119,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               else if (httpStatus === 429) providerReason = 'rate_limited';
               else if (httpStatus === 402 || (httpStatus === 400 && bodyLower.includes('credit balance'))) {
                 providerReason = 'anthropic_402_credits';
+                console.error(`[compute-outer-readiness] [LLM] provider unavailable — credits exhausted | model=${model} | attempt=${attempt} | httpStatus=${httpStatus} (operational dependency failure, not a content failure)`);
               }
               llmFallbackReason = isAbort
                 ? `attempt${attempt}_timeout_${timeoutMs}ms`
