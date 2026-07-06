@@ -706,6 +706,45 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
     hasSignalPills: Array.isArray(data.signalPills) && data.signalPills.length > 0,
   });
 
+  // [PRB][llm] Diagnostic — categorize why the LLM Brief slot rendered
+  // what it did. Purely for browser-console debugging: reason codes only,
+  // no prompt text, no tokens, no PII.
+  const llmReason = (data as any).llmFallbackReason as string | null | undefined;
+  const rejections = (data as any).validatorRejections as unknown[] | null | undefined;
+  const hasPhrase = !!data.phrase;
+  const hasBodyText = !!data.bodyText;
+  const hasScore = typeof data.innerReadinessScore === 'number';
+  const category: string = (() => {
+    const r = (llmReason || '').toLowerCase();
+    if (r) {
+      if (r.includes('credit_limit') || r.includes('402') || r.includes('billing')) return 'provider_credit';
+      if (r.includes('timeout') || r.includes('abort')) return 'provider_timeout';
+      if (r.includes('atomic') || r.includes('em_dash') || r.includes('validation') || (Array.isArray(rejections) && rejections.length > 0)) return 'validator_failure';
+      if (r.includes('parse')) return 'parse_failed';
+      if (r.includes('returned_null') || r.includes('http-') || r.includes('gateway') || r.includes('workspace_credit')) return 'provider_failure';
+      return 'provider_failure';
+    }
+    if (data.awaitingSignals && !hasScore) return 'true_cold_start';
+    if (hasScore && !hasPhrase && !hasBodyText) return 'score_present_copy_missing';
+    if (hasPhrase && hasBodyText) return 'fully_rendered';
+    return 'unknown';
+  })();
+  console.log('[PRB][llm]', {
+    briefId: data.briefId ?? null,
+    briefSource: data.briefSource ?? null,
+    engineStatus: data.engineStatus ?? null,
+    briefMode: data.briefMode ?? null,
+    awaitingSignals: !!data.awaitingSignals,
+    awaitingReason: (data as any).awaitingReason ?? null,
+    innerReadinessState: data.innerReadinessState ?? null,
+    llmFallbackReason: llmReason ?? null,
+    validatorRejectionCount: Array.isArray(rejections) ? rejections.length : 0,
+    hasPhrase,
+    hasBodyText,
+    hasScore,
+    category,
+  });
+
   return data;
 }
 
