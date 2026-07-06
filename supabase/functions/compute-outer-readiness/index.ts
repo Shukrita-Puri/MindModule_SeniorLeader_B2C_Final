@@ -6154,15 +6154,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // resurrect deterministic fallback strings on a later read. Score,
         // tier, and signal pills still persist because they come from
         // wearable/calendar/check-in pipelines, not the LLM.
-        const suppressDeliveredBrief = briefIsAwaiting || awaitingSignals || innerStateIsAwaiting;
-        const persistPhrase = suppressDeliveredBrief ? null : responsePhrase;
-        const persistBody = suppressDeliveredBrief ? null : responseBody;
-        const persistLeanOn = suppressDeliveredBrief ? null : formattedLeanOn;
-        const persistWatchFor = suppressDeliveredBrief ? null : formattedWatchFor;
-        const persistLeanOnSource = suppressDeliveredBrief ? null : finalLeanOnSource;
-        const persistWatchForSource = suppressDeliveredBrief ? null : finalWatchForSource;
+        // Split suppression: LLM copy failure (briefIsAwaiting) must NOT
+        // erase score/tier/signal_pills, which come from wearable/calendar/
+        // check-in pipelines. Only signal-contract awaiting or inner-state
+        // awaiting nulls the score payload.
+        const suppressBriefCopy = briefIsAwaiting || awaitingSignals || innerStateIsAwaiting;
+        const suppressScorePayload = awaitingSignals || innerStateIsAwaiting;
+        const persistPhrase = suppressBriefCopy ? null : responsePhrase;
+        const persistBody = suppressBriefCopy ? null : responseBody;
+        const persistLeanOn = suppressBriefCopy ? null : formattedLeanOn;
+        const persistWatchFor = suppressBriefCopy ? null : formattedWatchFor;
+        const persistLeanOnSource = suppressBriefCopy ? null : finalLeanOnSource;
+        const persistWatchForSource = suppressBriefCopy ? null : finalWatchForSource;
         const isRefinedWrite = (clientReadinessState ?? 'baseline') === 'refined';
-        const awaitingStateLabel = suppressDeliveredBrief ? 'awaiting' : (clientReadinessState ?? 'baseline');
+        // State reflects score-payload readiness, not copy readiness.
+        const awaitingStateLabel = suppressScorePayload ? 'awaiting' : (clientReadinessState ?? 'baseline');
         const stateColumns = isRefinedWrite
           ? {
               refined_state: awaitingStateLabel,
@@ -6172,9 +6178,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               refined_lean_on_source: persistLeanOnSource,
               refined_watch_for: persistWatchFor,
               refined_watch_for_source: persistWatchForSource,
-              refined_score: suppressDeliveredBrief ? null : (innerReadinessScore ?? null),
-              refined_tier: suppressDeliveredBrief ? null : safeTier,
-              refined_signal_pills: suppressDeliveredBrief ? null : signalPillsPayload,
+              refined_score: suppressScorePayload ? null : (innerReadinessScore ?? null),
+              refined_tier: suppressScorePayload ? null : safeTier,
+              refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             }
           : {
               baseline_state: awaitingStateLabel,
@@ -6184,9 +6190,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               baseline_lean_on_source: persistLeanOnSource,
               baseline_watch_for: persistWatchFor,
               baseline_watch_for_source: persistWatchForSource,
-              baseline_score: suppressDeliveredBrief ? null : (innerReadinessScore ?? null),
-              baseline_tier: suppressDeliveredBrief ? null : safeTier,
-              baseline_signal_pills: suppressDeliveredBrief ? null : signalPillsPayload,
+              baseline_score: suppressScorePayload ? null : (innerReadinessScore ?? null),
+              baseline_tier: suppressScorePayload ? null : safeTier,
+              baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             };
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
