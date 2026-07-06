@@ -535,7 +535,45 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   // Try DB for latest HRV + baseline + patterns
   if (effectiveUserId) {
     try {
-      const [latestRow, latestHrvRow, baseline, patterns, rhrHistory] = await Promise.all([
+      // Prefer the authenticated edge function `get-wearable-context`.
+      // The browser Supabase client is anon-keyed only, so direct RLS-
+      // protected reads of `wearable_data` return zero rows for real
+      // users — that made the Brief live-path flicker through cold-start
+      // (Wearable source: NONE) before the persisted snapshot with the
+      // true score loaded. The edge function returns the exact shape the
+      // engine used to compute locally, using the service role.
+      let latestRow: { data: any } | { data: null } = { data: null };
+      let latestHrvRow: { data: any } | { data: null } = { data: null };
+      let baseline: number | null = null;
+      let patterns: any = null;
+      let rhrHistory: { data: any[] } = { data: [] };
+      let usedEdgeFunction = false;
+      try {
+        const efRes = await supabase.functions.invoke('get-wearable-context', {
+          body: {},
+        });
+        if (!efRes.error && efRes.data && (efRes.data as any).success) {
+          const d = (efRes.data as any).data ?? {};
+          latestRow = { data: d.latestRow ?? null };
+          latestHrvRow = { data: d.latestHrvRow ?? null };
+          baseline = typeof d.baseline === 'number' ? d.baseline : null;
+          patterns = d.hrvPatternContext ?? null;
+          rhrHistory = { data: Array.isArray(d.rhrHistory) ? d.rhrHistory : [] };
+          usedEdgeFunction = true;
+        } else if (efRes.error) {
+          console.warn(
+            '[energyStateEngine] get-wearable-context failed, falling back to direct read:',
+            (efRes.error as Error)?.message ?? efRes.error,
+          );
+        }
+      } catch (efErr) {
+        console.warn('[energyStateEngine] get-wearable-context threw, falling back:', efErr);
+      }
+
+      if (!usedEdgeFunction) {
+        // Fallback: legacy direct client reads (return empty for authenticated
+        // web users under RLS, but preserved for DEV_MODE and future auth wiring).
+        const [_latestRow, _latestHrvRow, _baseline, _patterns, _rhrHistory] = await Promise.all([
         // Latest wearable row with ANY usable physio metric (HRV, RHR, or
         // sleep). Used to gauge freshness + pull sleep/RHR even when today's
         // row has no HRV (Apple Health/Oura often write fields piecewise).
@@ -569,7 +607,13 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           .not('resting_heart_rate', 'is', null)
           .order('summary_date', { ascending: false })
           .limit(14),
-      ]);
+        ]);
+        latestRow = _latestRow as any;
+        latestHrvRow = _latestHrvRow as any;
+        baseline = _baseline;
+        patterns = _patterns;
+        rhrHistory = _rhrHistory as any;
+      }
       // Freshness gate — daily summaries are usable if captured within 48h.
       // Older than that and we treat wearable as stale (do not pass as current).
       const FRESH_WINDOW_MS = 48 * 60 * 60 * 1000;
