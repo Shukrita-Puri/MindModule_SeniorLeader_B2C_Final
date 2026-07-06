@@ -94,6 +94,14 @@ function pillSourceList(
   return out;
 }
 
+function weightProvenanceIndicatesAwaiting(weightProvenance: any): boolean {
+  if (weightProvenance?.awaiting_signals === true) return true;
+  if (weightProvenance && Object.prototype.hasOwnProperty.call(weightProvenance, 'earned')) {
+    return !Array.isArray(weightProvenance.earned) || weightProvenance.earned.length === 0;
+  }
+  return false;
+}
+
 type BriefPromptEvent = {
   title: string;
   startTime: string;
@@ -1837,6 +1845,7 @@ serve(async (req) => {
     // forwarded 'refined' to 'baseline'.
     let clientReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
       clientReadinessStateRaw as any;
+    const incomingWeightProvenanceAwaiting = weightProvenanceIndicatesAwaiting(clientWeightProvenance);
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
     const safeTier: EnergyTier = innerReadinessTier || 'managing';
@@ -1861,7 +1870,7 @@ serve(async (req) => {
     const hasUsableInnerScore = typeof innerReadinessScore === 'number';
     const hasUsableBaseline = typeof effectiveBaselineScore === 'number';
     const innerStateIsAwaiting =
-      clientReadinessState === 'awaiting' || (!hasUsableInnerScore && !hasUsableBaseline);
+      clientReadinessState === 'awaiting' || incomingWeightProvenanceAwaiting || (!hasUsableInnerScore && !hasUsableBaseline);
     const currentReadingIsReal = !innerStateIsAwaiting && typeof innerReadinessScore === 'number';
 
     // Compute user's local time
@@ -5986,7 +5995,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // weight_provenance.awaiting_signals === true or an empty `earned`
           // array is a fallback and must not shield fresh awaiting runs.
           const existingWp: any = existingWindowMrs?.weight_provenance ?? null;
-          const existingWpAwaiting = existingWp?.awaiting_signals === true;
+          const existingWpAwaiting = weightProvenanceIndicatesAwaiting(existingWp);
           const existingEarned = Array.isArray(existingWp?.earned) ? existingWp.earned : null;
           const existingIsReadyRow =
             existingWindowMrs != null &&
