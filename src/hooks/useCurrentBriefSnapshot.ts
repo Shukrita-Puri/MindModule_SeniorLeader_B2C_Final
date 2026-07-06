@@ -57,9 +57,18 @@ export interface CurrentBriefSnapshot {
   behaviourSnapshot: Record<string, unknown> | null;
   sourceProvenance: Record<string, unknown> | null;
   // ── Derived ──
-  /** Row is usable for rendering — either has copy or is an explicit awaiting row. */
+  /** Row has usable LLM copy (phrase + body). */
+  hasRenderableCopy: boolean;
+  /** Row has usable score payload (numeric score, non-awaiting state, signals ready). */
+  hasRenderableScore: boolean;
+  /**
+   * Row is usable for rendering — either copy or score payload is present.
+   * A row with score/tier/signal_pills but null phrase/body is still
+   * renderable: the Brief card can show the score + signals and fall
+   * back to neutral awaiting prose for the copy slot.
+   */
   isRenderable: boolean;
-  /** True for an awaiting row (phrase/body null but the row exists for this window). */
+  /** True only when neither copy nor score payload is present. */
   isAwaitingRow: boolean;
   updatedAt: string | null;
 }
