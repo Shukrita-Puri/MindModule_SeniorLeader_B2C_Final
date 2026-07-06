@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 import {
   localISODate,
   currentPeriod as currentPeriodLocal,
@@ -78,33 +79,6 @@ function asArray(v: unknown): unknown[] | null {
   return Array.isArray(v) ? v : null;
 }
 
-const SELECT_COLUMNS = [
-  'id',
-  'local_date',
-  'time_window',
-  'updated_at',
-  // Generated COALESCE columns
-  'phrase',
-  'body_text',
-  'lean_on',
-  'lean_on_source',
-  'watch_for',
-  'watch_for_source',
-  'score',
-  'tier',
-  'signal_pills',
-  // Split columns we still need for state/baseline-vs-refined surface
-  'refined_state',
-  'baseline_state',
-  'refined_score',
-  'baseline_score',
-  'brief_source',
-  'driver',
-  'wearable_snapshot',
-  'checkin_snapshot',
-  'payload_json',
-].join(', ');
-
 export function useCurrentBriefSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
@@ -124,24 +98,28 @@ export function useCurrentBriefSnapshot() {
     queryFn: async () => {
       if (!effectiveUserId) return null;
 
-      const { data, error } = await supabase
-        .from('brief_snapshots')
-        .select(SELECT_COLUMNS)
-        .eq('user_id', effectiveUserId)
-        .eq('local_date', localDate)
-        .eq('time_window', timeWindow)
-        // Prompt-version filter: after a backend rollback an older-prompt
-        // row could be the most-recently-updated row for this window
-        // (compute-outer-readiness upserts on
-        //   user_id, local_date, time_window, input_signature, prompt_version
-        // so different prompt versions live as distinct rows). Without
-        // this filter the UI could serve a brief produced by an inactive
-        // prompt contract. Keep `BRIEF_PROMPT_VERSION` in sync with
-        // `supabase/functions/_shared/brief-prompt-version.ts`.
-        .eq('prompt_version', BRIEF_PROMPT_VERSION)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Read via authenticated Edge Function — the shared browser client
+      // is anon-keyed only, so a direct table read is filtered by RLS on
+      // `brief_snapshots` (auth.jwt()->>'sub' = user_id) and returns null
+      // for Auth0 users. The Edge Function verifies the Auth0 token and
+      // reads with the service role scoped to the verified `userId`.
+      const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
+      const { data: resp, error } = await supabase.functions.invoke(
+        'get-current-brief-snapshot',
+        {
+          body: {
+            localDate,
+            timeWindow,
+            // Keep BRIEF_PROMPT_VERSION in sync with
+            // supabase/functions/_shared/brief-prompt-version.ts so a
+            // stale prompt-version row can never render.
+            promptVersion: BRIEF_PROMPT_VERSION,
+          },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        },
+      );
+
+      const data = (resp as { data?: Record<string, any> | null } | null)?.data ?? null;
 
       if (error) {
         dbg('query error', error.message);
