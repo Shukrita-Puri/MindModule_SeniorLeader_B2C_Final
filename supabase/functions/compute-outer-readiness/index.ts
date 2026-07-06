@@ -1882,7 +1882,8 @@ serve(async (req) => {
     const incomingIsLegacyIncompleteMrsPayload = !incomingHasMrsContract;
     const innerStateIsAwaiting =
       clientReadinessState === 'awaiting' || incomingWeightProvenanceAwaiting || (!hasUsableInnerScore && !hasUsableBaseline);
-    const currentReadingIsReal = !innerStateIsAwaiting && typeof innerReadinessScore === 'number';
+    const suppressIncomingMrsSnapshot = innerStateIsAwaiting || incomingIsLegacyIncompleteMrsPayload;
+    const currentReadingIsReal = !suppressIncomingMrsSnapshot && typeof innerReadinessScore === 'number';
 
     // Compute user's local time
     const userTime = getUserTime(timezoneOffset);
@@ -6018,8 +6019,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               existingWp == null // legacy row w/ valid baseline
               || (existingEarned != null && existingEarned.length > 0)
             );
-          const shouldPreserveExistingMrs =
-            (innerStateIsAwaiting || incomingIsLegacyIncompleteMrsPayload) && existingIsReadyRow;
+          const shouldPreserveExistingMrs = suppressIncomingMrsSnapshot && existingIsReadyRow;
           if (shouldPreserveExistingMrs) {
             console.warn('[daily_context_snapshot] preserving existing ready MRS; incoming run is awaiting', {
               userId,
@@ -6061,10 +6061,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             hasHighStakes: _hasStakes,
             innerScore: shouldPreserveExistingMrs
               ? (existingWindowMrs!.inner_score ?? null)
-              : (innerStateIsAwaiting ? null : (innerReadinessScore ?? null)),
+              : (suppressIncomingMrsSnapshot ? null : (innerReadinessScore ?? null)),
             innerTier: shouldPreserveExistingMrs
               ? (existingWindowMrs!.inner_tier ?? null)
-              : (innerStateIsAwaiting ? null : (safeTier ?? null)),
+              : (suppressIncomingMrsSnapshot ? null : (safeTier ?? null)),
             pillarMode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             weightingMode,
             supplyDemandGapFlag,
@@ -6072,25 +6072,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // MRS v3 — soft-guard tier cap mirror.
             tierDisplayed: shouldPreserveExistingMrs
               ? ((existingWindowMrs!.tier_displayed as any) ?? null)
-              : (innerStateIsAwaiting ? null : safeTierDisplayed),
+              : (suppressIncomingMrsSnapshot ? null : safeTierDisplayed),
             tierCapReason: shouldPreserveExistingMrs
               ? ((existingWindowMrs!.tier_cap_reason as any) ?? null)
-              : (innerStateIsAwaiting ? null : safeTierCapReason),
+              : (suppressIncomingMrsSnapshot ? null : safeTierCapReason),
             // MRS v3 §3.3 — refined-score split mirror. Falls back to the
             // displayed `innerReadinessScore` when the client didn't forward
             // a baseline (back-compat with older client builds).
             readinessScoreBaseline: shouldPreserveExistingMrs
               ? (existingWindowMrs!.readiness_score_baseline ?? null)
-              : (innerStateIsAwaiting ? null : currentBaselineForAnchor),
+              : (suppressIncomingMrsSnapshot ? null : currentBaselineForAnchor),
             readinessScoreRefined: shouldPreserveExistingMrs
               ? (existingWindowMrs!.readiness_score_refined ?? null)
-              : (innerStateIsAwaiting ? null : clientScoreRefined),
+              : (suppressIncomingMrsSnapshot ? null : clientScoreRefined),
             readinessState: shouldPreserveExistingMrs
               ? ((existingWindowMrs!.readiness_state as any) ?? 'baseline')
-              : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
+              : (suppressIncomingMrsSnapshot ? 'awaiting' : (clientReadinessState ?? 'baseline')),
             refinedContribution: shouldPreserveExistingMrs
               ? (existingWindowMrs!.refined_contribution ?? null)
-              : (innerStateIsAwaiting ? null : (clientRefinedContribution ?? null)),
+              : (suppressIncomingMrsSnapshot ? null : (clientRefinedContribution ?? null)),
             // MRS v4 — window resolution + morning-anchor management.
             // Morning writes the anchor; afternoon/evening leave it
             // untouched (omitted ⇒ existing column value preserved).
