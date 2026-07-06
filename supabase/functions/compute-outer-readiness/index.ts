@@ -5967,11 +5967,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tier_displayed: string | null;
             tier_cap_reason: string | null;
             refined_contribution: number | null;
+            weight_provenance: any | null;
           } | null = null;
           try {
             const { data: existingWindowRow } = await db
               .from('daily_context_snapshot')
-              .select('inner_score, inner_tier, readiness_score_baseline, readiness_score_refined, readiness_state, tier_displayed, tier_cap_reason, refined_contribution')
+              .select('inner_score, inner_tier, readiness_score_baseline, readiness_score_refined, readiness_state, tier_displayed, tier_cap_reason, refined_contribution, weight_provenance')
               .eq('user_id', userId)
               .eq('local_date', userLocalDate)
               .eq('mrs_window', timeWindow)
@@ -5980,10 +5981,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           } catch (_readErr) {
             existingWindowMrs = null;
           }
-          const shouldPreserveExistingMrs =
-            innerStateIsAwaiting &&
+          // Preserve only when the existing row represents a genuinely ready
+          // MRS — not a prior awaiting/fallback write. A row with
+          // weight_provenance.awaiting_signals === true or an empty `earned`
+          // array is a fallback and must not shield fresh awaiting runs.
+          const existingWp: any = existingWindowMrs?.weight_provenance ?? null;
+          const existingWpAwaiting = existingWp?.awaiting_signals === true;
+          const existingEarned = Array.isArray(existingWp?.earned) ? existingWp.earned : null;
+          const existingIsReadyRow =
             existingWindowMrs != null &&
-            typeof existingWindowMrs.inner_score === 'number';
+            typeof existingWindowMrs.inner_score === 'number' &&
+            typeof existingWindowMrs.readiness_score_baseline === 'number' &&
+            existingWindowMrs.readiness_state !== 'awaiting' &&
+            !existingWpAwaiting &&
+            (
+              existingWp == null // legacy row w/ valid baseline
+              || (existingEarned != null && existingEarned.length > 0)
+            );
+          const shouldPreserveExistingMrs = innerStateIsAwaiting && existingIsReadyRow;
           if (shouldPreserveExistingMrs) {
             console.warn('[daily_context_snapshot] preserving existing ready MRS; incoming run is awaiting', {
               userId,
@@ -5991,6 +6006,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               window: timeWindow,
               existingInnerScore: existingWindowMrs?.inner_score,
               existingState: existingWindowMrs?.readiness_state,
+            });
+          } else if (innerStateIsAwaiting && existingWindowMrs != null && typeof existingWindowMrs.inner_score === 'number') {
+            console.warn('[daily_context_snapshot] overwriting existing fallback MRS row; not a ready snapshot', {
+              userId,
+              localDate: userLocalDate,
+              window: timeWindow,
+              existingInnerScore: existingWindowMrs?.inner_score,
+              existingState: existingWindowMrs?.readiness_state,
+              existingAwaitingSignals: existingWpAwaiting,
+              existingEarnedLen: existingEarned?.length ?? null,
             });
           }
           const currentBaselineForAnchor =
