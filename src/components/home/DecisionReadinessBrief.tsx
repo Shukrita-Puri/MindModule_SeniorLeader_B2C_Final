@@ -1820,9 +1820,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // it is an awaiting row with no copy, we fall through to the live
   // payload unchanged.
   const { data: currentBriefSnapshot } = useCurrentBriefSnapshot();
-  const snapshotIsRenderable =
-    !!currentBriefSnapshot?.isRenderable &&
-    !isCardsAwaitingPayload(currentBriefSnapshot);
+  // Snapshot is usable if EITHER copy or score payload is present. We
+  // intentionally do NOT AND with `isCardsAwaitingPayload` here — that
+  // helper treats "no phrase" as awaiting, which would re-hide a valid
+  // score-only snapshot after the backend split copy vs. score suppression.
+  const snapshotHasScore = !!currentBriefSnapshot?.hasRenderableScore;
+  const snapshotHasCopy = !!currentBriefSnapshot?.hasRenderableCopy;
+  const snapshotIsRenderable = !!currentBriefSnapshot?.isRenderable;
 
   // App-Tour mock injection — strict triple-AND gate (mock active + genuine
   // first-time user + no real brief yet). Substitutes a best-in-class demo
@@ -1878,8 +1882,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           checkInOutcome: snap.checkInOutcome ?? base.checkInOutcome ?? null,
           sourceProvenance: snap.sourceProvenance ?? base.sourceProvenance ?? null,
           behaviourSnapshot: snap.behaviourSnapshot ?? base.behaviourSnapshot ?? null,
-          // The snapshot exists for the current window with copy — by
-          // contract this is never an awaiting state.
+          // Snapshot exists for the current window with either copy or a
+          // valid score payload. When only the score payload is present,
+          // the state is still baseline/refined per the backend split
+          // (suppressBriefCopy vs. suppressScorePayload) — the LLM copy
+          // slot falls back to neutral awaiting prose in the render tree.
           awaitingSignals: false,
           briefMode:
             snap.innerReadinessState === 'refined' ? 'refined' : 'baseline',
