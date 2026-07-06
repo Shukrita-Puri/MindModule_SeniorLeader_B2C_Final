@@ -2022,6 +2022,15 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // their own retry block below.
   const showNeutralAwaitingCopy =
     !showFailureBlock && (cardsAwaiting || awaitingSignals || readinessState === 'awaiting' || score == null);
+  // Copy-only awaiting: score payload is present but the LLM never delivered
+  // phrase/body (e.g. validation reject or provider 402). Show neutral prose
+  // in the copy slot so the card is never blank, while keeping the score,
+  // tier and "Based on your signals" rendered from the score payload.
+  const showCopyOnlyAwaiting =
+    !showFailureBlock &&
+    !showNeutralAwaitingCopy &&
+    !outerBrief?.phrase &&
+    !outerBrief?.bodyText;
   const phrase = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.phrase || "Today's read.");
@@ -2201,6 +2210,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             {awaitingCopy}
           </p>
         </>
+      )}
+
+      {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
+      {showCopyOnlyAwaiting && (
+        <p className="mt-4 text-quote text-foreground">
+          {awaitingCopy}
+        </p>
       )}
 
       {/* Phase 1 — engine failure retry block (auth / inner / outer / unknown).
