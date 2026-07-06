@@ -99,7 +99,16 @@ export function useMrsSnapshot() {
         .limit(1)
         .maybeSingle();
 
-      if (error || !data) return null;
+      if (error || !data) {
+        // eslint-disable-next-line no-console
+        console.warn('[useMrsSnapshot] no row', {
+          effectiveUserId,
+          localDate,
+          mrsWindow,
+          error: error?.message ?? null,
+        });
+        return null;
+      }
 
       const row = data as Record<string, any>;
       const state = (row.readiness_state as string | null) ?? null;
@@ -128,6 +137,20 @@ export function useMrsSnapshot() {
           ? 'awaiting'
           : 'unknown';
 
+      // eslint-disable-next-line no-console
+      console.info('[useMrsSnapshot] row', {
+        effectiveUserId,
+        localDate,
+        mrsWindow,
+        rowWindow: row.mrs_window,
+        score,
+        baseline,
+        refined,
+        readinessState,
+        tier,
+        hasScore,
+      });
+
       return {
         score,
         tier,
@@ -145,6 +168,7 @@ export function useMrsSnapshot() {
         status,
         isRenderable: hasScore,
       };
+
     },
   });
 }
