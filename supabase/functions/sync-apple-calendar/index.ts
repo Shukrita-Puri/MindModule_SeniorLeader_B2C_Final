@@ -47,6 +47,7 @@ const EventSchema = z.object({
   is_organizer: z.boolean().optional().default(false),
   attendees_count: z.number().int().nonnegative().optional().default(0),
   is_recurring: z.boolean().optional().default(false),
+  is_all_day: z.boolean().optional(),
   event_metadata: z.record(z.unknown()).optional().default({}),
 });
 
