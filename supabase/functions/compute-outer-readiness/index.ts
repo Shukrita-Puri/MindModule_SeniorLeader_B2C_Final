@@ -6014,8 +6014,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               window: timeWindow,
               existingInnerScore: existingWindowMrs?.inner_score,
               existingState: existingWindowMrs?.readiness_state,
-              existingAwaitingSignals: existingWpAwaiting,
-              existingEarnedLen: existingEarned?.length ?? null,
+              weightProvenance: existingWp,
             });
           }
           const currentBaselineForAnchor =
