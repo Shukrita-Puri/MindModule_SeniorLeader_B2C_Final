@@ -311,6 +311,7 @@ serve(async (req) => {
       is_organizer: boolean;
       attendees_count: number;
       is_recurring: boolean;
+      is_all_day: boolean;
       event_metadata: Record<string, unknown>;
       user_id?: string;
     }
