@@ -358,6 +358,25 @@ export async function callLovableAIText(params: {
   if (params.system) allMessages.push({ role: 'system', content: params.system });
   for (const m of params.messages) allMessages.push({ role: m.role, content: m.content });
 
+  if (allMessages.length === 0) {
+    const err = new Error('Lovable AI request invalid: empty messages array') as any;
+    err.status = 400;
+    err.body = 'empty_messages';
+    throw err;
+  }
+
+  const invalidMessage = allMessages.find((m) =>
+    !['system', 'user', 'assistant'].includes(m.role) ||
+    typeof m.content !== 'string' ||
+    m.content.trim().length === 0
+  );
+  if (invalidMessage) {
+    const err = new Error('Lovable AI request invalid: messages must have role system/user/assistant and non-empty string content') as any;
+    err.status = 400;
+    err.body = 'invalid_messages';
+    throw err;
+  }
+
   const body: Record<string, unknown> = {
     model: params.model || 'google/gemini-2.5-flash',
     messages: allMessages,
@@ -369,7 +388,8 @@ export async function callLovableAIText(params: {
   const fetchOptions: RequestInit = {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Lovable-API-Key': apiKey,
+      'X-Lovable-AIG-SDK': 'classic-edge-fetch',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -395,7 +415,10 @@ export async function callLovableAIText(params: {
     const errorText = await response.text();
     console.error(`[lovable-ai] HTTP ${response.status}:`, errorText);
     let reason = errorText;
-    if (response.status === 401 || response.status === 403) {
+    const lowerErrorText = errorText.toLowerCase();
+    if (response.status === 403 && lowerErrorText.includes('credit_limit_reached')) {
+      reason = `Workspace AI credit limit reached (403). Ask the workspace owner to increase the AI credit limit or add credits. Upstream: ${errorText}`;
+    } else if (response.status === 401 || response.status === 403) {
       reason = `Unauthorized (${response.status}) — LOVABLE_API_KEY rejected by gateway. Rotate the key and redeploy edge functions. Upstream: ${errorText}`;
     } else if (response.status === 402) {
       reason = `Credits exhausted (402). Add credits in workspace billing. Upstream: ${errorText}`;
