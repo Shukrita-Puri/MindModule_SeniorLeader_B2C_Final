@@ -888,8 +888,12 @@ const TodayThreePriorities = ({
           forceRefresh: forceRefresh || awaitingSignals || !sessionLoaded,
           localDate: todayDate,
           todayCheckinId: todayCheckin?.id ?? null,
-          mrsReadinessState: (outerReadinessData as any)?.innerReadinessState ?? null,
-          mrsReadinessScore: (outerReadinessData as any)?.innerReadinessScore ?? null,
+          mrsReadinessState:
+            mrsSnapshot?.readinessState ??
+            (outerReadinessData as any)?.innerReadinessState ?? null,
+          mrsReadinessScore:
+            (typeof mrsSnapshot?.score === 'number' ? mrsSnapshot.score : null) ??
+            (outerReadinessData as any)?.innerReadinessScore ?? null,
         };
         if (hasSlotReplacements) {
           // Per-slot anchoring contract: server pins each event to the
