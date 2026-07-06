@@ -236,6 +236,25 @@ export function useCurrentBriefSnapshot() {
         isAwaitingRow,
         state: snapshot.innerReadinessState,
       });
+      // [PRB] Diagnostic — snapshot fetch result (fires only on network
+      // fetch, not on every render). Compact object; no PII, no tokens.
+      console.log('[PRB][snapshot]', {
+        effectiveUserId,
+        localDate,
+        timeWindow,
+        rowExists: true,
+        briefId: snapshot.briefId,
+        briefSource: snapshot.briefSource,
+        innerReadinessScore: snapshot.innerReadinessScore,
+        innerReadinessScoreBaseline: snapshot.innerReadinessScoreBaseline,
+        innerReadinessScoreRefined: snapshot.innerReadinessScoreRefined,
+        innerReadinessState: snapshot.innerReadinessState,
+        hasPhrase: !!snapshot.phrase,
+        hasBodyText: !!snapshot.bodyText,
+        hasSignalPills: Array.isArray(snapshot.signalPills) && snapshot.signalPills.length > 0,
+        isRenderable: snapshot.isRenderable,
+        isAwaitingRow: snapshot.isAwaitingRow,
+      });
       return snapshot;
     },
   });
