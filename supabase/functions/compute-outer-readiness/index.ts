@@ -1869,6 +1869,17 @@ serve(async (req) => {
           : null;
     const hasUsableInnerScore = typeof innerReadinessScore === 'number';
     const hasUsableBaseline = typeof effectiveBaselineScore === 'number';
+    // Some downstream legacy callers still invoke compute-outer-readiness with
+    // only check-in-derived `innerReadinessScore` / tier fields and without the
+    // MRS v4 contract from compute-inner-readiness. Those payloads are useful
+    // for copy context, but they are not authoritative enough to overwrite a
+    // window-scoped daily_context_snapshot MRS row.
+    const incomingHasMrsContract =
+      clientReadinessStateRaw != null ||
+      clientWeightProvenance != null ||
+      clientScoreBaseline != null ||
+      clientScoreRefined != null;
+    const incomingIsLegacyIncompleteMrsPayload = !incomingHasMrsContract;
     const innerStateIsAwaiting =
       clientReadinessState === 'awaiting' || incomingWeightProvenanceAwaiting || (!hasUsableInnerScore && !hasUsableBaseline);
     const currentReadingIsReal = !innerStateIsAwaiting && typeof innerReadinessScore === 'number';
@@ -6007,7 +6018,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               existingWp == null // legacy row w/ valid baseline
               || (existingEarned != null && existingEarned.length > 0)
             );
-          const shouldPreserveExistingMrs = innerStateIsAwaiting && existingIsReadyRow;
+          const shouldPreserveExistingMrs =
+            (innerStateIsAwaiting || incomingIsLegacyIncompleteMrsPayload) && existingIsReadyRow;
           if (shouldPreserveExistingMrs) {
             console.warn('[daily_context_snapshot] preserving existing ready MRS; incoming run is awaiting', {
               userId,
@@ -6015,6 +6027,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               window: timeWindow,
               existingInnerScore: existingWindowMrs?.inner_score,
               existingState: existingWindowMrs?.readiness_state,
+              reason: innerStateIsAwaiting ? 'incoming_awaiting' : 'legacy_incomplete_mrs_payload',
             });
           } else if (innerStateIsAwaiting && existingWindowMrs != null && typeof existingWindowMrs.inner_score === 'number') {
             console.warn('[daily_context_snapshot] overwriting existing fallback MRS row; not a ready snapshot', {
