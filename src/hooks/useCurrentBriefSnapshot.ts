@@ -136,6 +136,12 @@ export function useCurrentBriefSnapshot() {
       }
       if (!data) {
         dbg('no current-window row', { effectiveUserId, localDate, timeWindow });
+        console.log('[PRB][snapshot]', {
+          effectiveUserId,
+          localDate,
+          timeWindow,
+          rowExists: false,
+        });
         return null;
       }
 
