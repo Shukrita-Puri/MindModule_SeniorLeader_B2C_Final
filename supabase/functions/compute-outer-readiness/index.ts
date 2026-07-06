@@ -5119,6 +5119,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               else if (httpStatus === 429) providerReason = 'rate_limited';
               else if (httpStatus === 402 || (httpStatus === 400 && bodyLower.includes('credit balance'))) {
                 providerReason = 'anthropic_402_credits';
+                console.error(`[compute-outer-readiness] [LLM] provider unavailable — credits exhausted | model=${model} | attempt=${attempt} | httpStatus=${httpStatus} (operational dependency failure, not a content failure)`);
               }
               llmFallbackReason = isAbort
                 ? `attempt${attempt}_timeout_${timeoutMs}ms`
