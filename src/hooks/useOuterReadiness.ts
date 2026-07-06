@@ -675,6 +675,26 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
     dataSources: data.dataSources,
     engineStatus: data.engineStatus,
   });
+  // [PRB] Diagnostic — live outer-readiness normalized payload.
+  // Fires only on a real network fetch (not cache hits). No PII / tokens.
+  console.log('[PRB][outer]', {
+    effectiveUserId: userId,
+    localDate: localISODate(),
+    currentPeriod: currentPeriodLocal(),
+    briefMode: data.briefMode ?? null,
+    awaitingSignals: !!data.awaitingSignals,
+    engineStatus: data.engineStatus,
+    innerReadinessScore: data.innerReadinessScore ?? null,
+    innerReadinessScoreBaseline: data.innerReadinessScoreBaseline ?? null,
+    innerReadinessScoreRefined: data.innerReadinessScoreRefined ?? null,
+    innerReadinessState: data.innerReadinessState ?? null,
+    innerReadinessTier: data.innerReadinessTier ?? null,
+    innerReadinessTierDisplayed: data.innerReadinessTierDisplayed ?? null,
+    hasPhrase: !!data.phrase,
+    hasBodyText: !!data.bodyText,
+    briefId: data.briefId ?? null,
+    hasSignalPills: Array.isArray(data.signalPills) && data.signalPills.length > 0,
+  });
 
   return data;
 }
