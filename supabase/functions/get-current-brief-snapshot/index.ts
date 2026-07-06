@@ -42,6 +42,10 @@ const SELECT_COLUMNS = [
   'wearable_snapshot',
   'checkin_snapshot',
   'payload_json',
+  // Diagnostics — surfaced to the browser [PRB][snapshot-llm] logs so a
+  // snapshot with missing copy still explains WHY the LLM did not fill it.
+  'llm_fallback_reason',
+  'validator_rejections',
 ].join(', ');
 
 serve(async (req) => {
