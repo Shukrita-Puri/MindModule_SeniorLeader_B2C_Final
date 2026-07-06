@@ -377,12 +377,34 @@ export async function callLovableAIText(params: {
 
   if (params.signal) fetchOptions.signal = params.signal;
 
+  // Safe pre-flight debug (no keys, no user content).
+  const firstMsg = allMessages[0];
+  console.log('[lovable-ai] request', {
+    endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions',
+    model: body.model,
+    hasMessages: allMessages.length > 0,
+    messageCount: allMessages.length,
+    firstMessageRole: firstMsg?.role ?? null,
+    firstMessageContentLength: typeof firstMsg?.content === 'string' ? firstMsg.content.length : 0,
+    hasApiKey: !!apiKey,
+  });
+
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', fetchOptions);
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[lovable-ai] HTTP ${response.status}:`, errorText);
-    const err = new Error(`Lovable AI error: ${response.status} - ${errorText}`) as any;
+    let reason = errorText;
+    if (response.status === 401 || response.status === 403) {
+      reason = `Unauthorized (${response.status}) — LOVABLE_API_KEY rejected by gateway. Rotate the key and redeploy edge functions. Upstream: ${errorText}`;
+    } else if (response.status === 402) {
+      reason = `Credits exhausted (402). Add credits in workspace billing. Upstream: ${errorText}`;
+    } else if (response.status === 429) {
+      reason = `Rate limited (429). Retry with backoff. Upstream: ${errorText}`;
+    } else if (response.status === 400) {
+      reason = `Bad request (400) — likely invalid model or malformed payload. Upstream: ${errorText}`;
+    }
+    const err = new Error(`Lovable AI error: ${response.status} - ${reason}`) as any;
     err.status = response.status;
     err.body = errorText;
     throw err;
