@@ -311,6 +311,7 @@ serve(async (req) => {
       is_organizer: boolean;
       attendees_count: number;
       is_recurring: boolean;
+      is_all_day: boolean;
       event_metadata: Record<string, unknown>;
       user_id?: string;
     }
@@ -447,6 +448,8 @@ serve(async (req) => {
             is_organizer: !!(organizer?.self),
             attendees_count: attendees?.length || 0,
             is_recurring: !!event.recurringEventId,
+            // Google marks all-day events with `date` (no `dateTime`).
+            is_all_day: !!start?.date && !start?.dateTime,
             event_metadata: {
               location: event.location,
               description: event.description,
@@ -586,6 +589,7 @@ serve(async (req) => {
             is_organizer: !!(event.isOrganizer),
             attendees_count: attendees?.length || 0,
             is_recurring: !!event.recurrence,
+            is_all_day: !!event.isAllDay,
             event_metadata: {
               location: loc?.displayName,
               body: event.bodyPreview,

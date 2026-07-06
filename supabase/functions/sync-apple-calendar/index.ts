@@ -47,6 +47,7 @@ const EventSchema = z.object({
   is_organizer: z.boolean().optional().default(false),
   attendees_count: z.number().int().nonnegative().optional().default(0),
   is_recurring: z.boolean().optional().default(false),
+  is_all_day: z.boolean().optional(),
   event_metadata: z.record(z.unknown()).optional().default({}),
 });
 
@@ -143,6 +144,10 @@ serve(async (req) => {
         is_organizer: e.is_organizer,
         attendees_count: e.attendees_count,
         is_recurring: e.is_recurring,
+        // Native Apple bridge may send `is_all_day` top-level or only inside
+        // event_metadata.isAllDay — accept either shape.
+        is_all_day: e.is_all_day
+          ?? (e.event_metadata as Record<string, unknown> | undefined)?.isAllDay === true,
         event_metadata: { ...e.event_metadata, source: 'apple_calendar', eventType, isHighStakes },
         // Phase 2 write-time dedupe foundation. See sync-calendar for
         // the shared contract. Null when title/times are missing.
