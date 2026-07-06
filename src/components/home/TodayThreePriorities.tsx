@@ -279,7 +279,17 @@ const TodayThreePriorities = ({
   const snapshotAwaiting =
     mrsSnapshot?.readinessState === 'awaiting' ||
     mrsSnapshot?.status === 'awaiting';
-  const cardsAwaiting = isCardsAwaitingPayload(outerReadinessData) || snapshotAwaiting;
+  // MRS snapshot is the authoritative readiness signal for Plan generation.
+  // When a ready current-window MRS snapshot exists, do NOT let stale
+  // outerReadinessData awaiting-cache veto Plan generation.
+  const mrsReadyForPlan =
+    !!mrsSnapshot?.isRenderable &&
+    mrsSnapshot.readinessState !== 'awaiting' &&
+    typeof mrsSnapshot.score === 'number';
+  const outerAwaiting = isCardsAwaitingPayload(outerReadinessData);
+  const cardsAwaiting = mrsReadyForPlan
+    ? snapshotAwaiting
+    : (outerAwaiting || snapshotAwaiting);
   const forceRefreshKey = cacheKeys.planForceRefresh(todayForPlan, periodForPlan);
   const hasPlanForceRefresh = (() => {
     try {
@@ -716,8 +726,21 @@ const TodayThreePriorities = ({
         engineStatus === 'inner-failure' ||
         engineStatus === 'outer-failure' ||
         engineStatus === 'unknown-error';
-      const planCardsAwaiting = isCardsAwaitingPayload(outerReadinessData);
-      if ((planCardsAwaiting || (briefAwaiting && !todayCheckin && !wearableFresh)) && !isEngineFailure) {
+      const planCardsAwaiting = mrsReadyForPlan
+        ? false
+        : isCardsAwaitingPayload(outerReadinessData);
+      console.info('[TodayThreePriorities:plan-gate]', {
+        mrsReadyForPlan,
+        mrsSnapshotScore: mrsSnapshot?.score ?? null,
+        mrsSnapshotState: mrsSnapshot?.readinessState ?? null,
+        outerAwaiting: isCardsAwaitingPayload(outerReadinessData),
+        snapshotAwaiting,
+        planCardsAwaiting,
+        briefAwaiting,
+        isEngineFailure,
+        willGenerate: !(planCardsAwaiting || (briefAwaiting && !todayCheckin && !wearableFresh)) || isEngineFailure,
+      });
+      if ((planCardsAwaiting || (briefAwaiting && !todayCheckin && !wearableFresh)) && !isEngineFailure && !mrsReadyForPlan) {
         setAwaitingSignals(true);
         setPlan(null);
         clearPersistent(loadedKey);
@@ -865,8 +888,12 @@ const TodayThreePriorities = ({
           forceRefresh: forceRefresh || awaitingSignals || !sessionLoaded,
           localDate: todayDate,
           todayCheckinId: todayCheckin?.id ?? null,
-          mrsReadinessState: (outerReadinessData as any)?.innerReadinessState ?? null,
-          mrsReadinessScore: (outerReadinessData as any)?.innerReadinessScore ?? null,
+          mrsReadinessState:
+            mrsSnapshot?.readinessState ??
+            (outerReadinessData as any)?.innerReadinessState ?? null,
+          mrsReadinessScore:
+            (typeof mrsSnapshot?.score === 'number' ? mrsSnapshot.score : null) ??
+            (outerReadinessData as any)?.innerReadinessScore ?? null,
         };
         if (hasSlotReplacements) {
           // Per-slot anchoring contract: server pins each event to the
