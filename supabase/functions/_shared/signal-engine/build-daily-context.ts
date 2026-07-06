@@ -53,12 +53,18 @@ export interface UpsertContextSnapshotInput {
   demandLoad: DemandLevel | null;
   demandPressure: DemandLevel | null;
   hasHighStakes: boolean;
-  innerScore: number | null;
-  innerTier: string | null;
-  pillarMode: string | null;
-  weightingMode: WeightingMode | null;
-  supplyDemandGapFlag: DivergenceFlag | null;
-  signalPills: unknown | null;
+  // MRS block — all optional. When `undefined`, the field is OMITTED from
+  // the upsert payload so an existing column value is preserved. This is
+  // essential for context-only writers (composeDailyContext) that must
+  // never clobber a ready MRS row with nulls. Callers that own the MRS
+  // pipeline (compute-outer-readiness) still pass explicit values
+  // (including `null` for a genuine awaiting write).
+  innerScore?: number | null;
+  innerTier?: string | null;
+  pillarMode?: string | null;
+  weightingMode?: WeightingMode | null;
+  supplyDemandGapFlag?: DivergenceFlag | null;
+  signalPills?: unknown | null;
   // MRS v3 — soft-guard tier cap (see compute-inner-readiness §tier-cap).
   tierDisplayed?: string | null;
   tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
@@ -110,20 +116,26 @@ export async function upsertDailyContextSnapshot(
       demand_load: input.demandLoad,
       demand_pressure: input.demandPressure,
       has_high_stakes: input.hasHighStakes,
-      inner_score: input.innerScore,
-      inner_tier: input.innerTier,
-      pillar_mode: input.pillarMode,
-      weighting_mode: input.weightingMode,
-      supply_demand_gap_flag: input.supplyDemandGapFlag,
-      signal_pills: input.signalPills,
-      tier_displayed: input.tierDisplayed ?? input.innerTier ?? null,
-      tier_cap_reason: input.tierCapReason ?? null,
-      // MRS v3 §3.3 — refined-score split mirror.
-      readiness_score_baseline: input.readinessScoreBaseline ?? null,
-      readiness_score_refined: input.readinessScoreRefined ?? null,
-      readiness_state: input.readinessState ?? null,
-      refined_contribution: input.refinedContribution ?? null,
     };
+
+    // MRS-block fields — omitted when `undefined` so context-only writers
+    // (composeDailyContext) don't overwrite an existing ready snapshot.
+    if (input.innerScore !== undefined) (row as any).inner_score = input.innerScore;
+    if (input.innerTier !== undefined) (row as any).inner_tier = input.innerTier;
+    if (input.pillarMode !== undefined) (row as any).pillar_mode = input.pillarMode;
+    if (input.weightingMode !== undefined) (row as any).weighting_mode = input.weightingMode;
+    if (input.supplyDemandGapFlag !== undefined) (row as any).supply_demand_gap_flag = input.supplyDemandGapFlag;
+    if (input.signalPills !== undefined) (row as any).signal_pills = input.signalPills;
+    if (input.tierDisplayed !== undefined) {
+      (row as any).tier_displayed = input.tierDisplayed;
+    } else if (input.innerTier !== undefined) {
+      (row as any).tier_displayed = input.innerTier;
+    }
+    if (input.tierCapReason !== undefined) (row as any).tier_cap_reason = input.tierCapReason;
+    if (input.readinessScoreBaseline !== undefined) (row as any).readiness_score_baseline = input.readinessScoreBaseline;
+    if (input.readinessScoreRefined !== undefined) (row as any).readiness_score_refined = input.readinessScoreRefined;
+    if (input.readinessState !== undefined) (row as any).readiness_state = input.readinessState;
+    if (input.refinedContribution !== undefined) (row as any).refined_contribution = input.refinedContribution;
 
     // MRS v4 §11 — only write the additive columns when the caller has
     // supplied them. Avoids clobbering existing values on rows being updated
@@ -132,6 +144,36 @@ export async function upsertDailyContextSnapshot(
     if (input.checkInCountToday !== undefined) (row as any).check_in_count_today = input.checkInCountToday;
     if (input.lastCheckInWindow !== undefined) (row as any).last_check_in_window = input.lastCheckInWindow;
     if (input.weightProvenance !== undefined) (row as any).weight_provenance = input.weightProvenance;
+
+    // Invariant guard — never persist a row that claims a numeric MRS score
+    // while also flagging awaiting_signals=true. That combination produces
+    // contradictory rows the downstream UI/refresh logic then nulls out.
+    // Scrub the score-side fields into a clean awaiting write instead.
+    const _wp: any = (row as any).weight_provenance;
+    const _wpAwaiting =
+      _wp?.awaiting_signals === true ||
+      (_wp && Object.prototype.hasOwnProperty.call(_wp, 'earned') &&
+        (!Array.isArray(_wp.earned) || _wp.earned.length === 0));
+    if (_wpAwaiting && typeof (row as any).inner_score === 'number') {
+      console.warn(
+        '[daily_context_snapshot] invariant violation: numeric inner_score with awaiting_signals=true; scrubbing to awaiting write',
+        {
+          userId: input.userId,
+          localDate: input.localDate,
+          window: input.mrsWindow,
+          innerScore: (row as any).inner_score,
+          weightProvenance: _wp,
+        },
+      );
+      (row as any).inner_score = null;
+      (row as any).inner_tier = null;
+      (row as any).tier_displayed = null;
+      (row as any).tier_cap_reason = null;
+      (row as any).readiness_score_baseline = null;
+      (row as any).readiness_score_refined = null;
+      (row as any).refined_contribution = null;
+      (row as any).readiness_state = 'awaiting';
+    }
 
     const { error } = await db
       .from('daily_context_snapshot')
@@ -241,14 +283,10 @@ export async function composeDailyContext(
         demandLoad: demand.load,
         demandPressure: demand.pressure,
         hasHighStakes: demand.hasHighStakes,
-        // Score-side fields are owned by compute-outer-readiness — leave null
-        // so we don't accidentally overwrite a fresher value from that path.
-        innerScore: null,
-        innerTier: null,
-        pillarMode: null,
-        weightingMode: null,
-        supplyDemandGapFlag: null,
-        signalPills: null,
+        // Score-side (MRS-block) fields are owned by compute-outer-readiness.
+        // We intentionally OMIT them here — the low-level upsert now skips
+        // any undefined MRS field, so an existing ready row is preserved
+        // instead of being nulled by this context-only refresh.
       });
     }
   }
