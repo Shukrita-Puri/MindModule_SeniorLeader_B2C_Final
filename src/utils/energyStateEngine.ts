@@ -549,8 +549,14 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       let rhrHistory: { data: any[] } = { data: [] };
       let usedEdgeFunction = false;
       try {
+        // Must forward the Auth0 Bearer token — otherwise supabase-js
+        // attaches the anon (HS256) JWT and the edge function's
+        // Auth0-JWKS verifier rejects it with "Unsupported alg".
         const efRes = await supabase.functions.invoke('get-wearable-context', {
           body: {},
+          headers: authTokenForRequests
+            ? { Authorization: `Bearer ${authTokenForRequests}` }
+            : undefined,
         });
         if (!efRes.error && efRes.data && (efRes.data as any).success) {
           const d = (efRes.data as any).data ?? {};
