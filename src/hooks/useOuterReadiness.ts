@@ -296,6 +296,16 @@ export interface OuterReadinessData {
   } | null;
   // Dev-only — populated when MRS tier and pill mix had to be reconciled.
   coherenceWarning?: string | null;
+  /**
+   * LLM diagnostics echoed from compute-outer-readiness. Used exclusively
+   * for browser-console debugging via [PRB][llm]. Never render to users.
+   *   • llmFallbackReason — reason code from the LLM path when the brief
+   *     fell back to awaiting (e.g. `workspace_credit_limit`,
+   *     `attempt1_parse_failed`, `attempt2_atomic_em_dash_body`).
+   *   • validatorRejections — compact per-rule rejection records.
+   */
+  llmFallbackReason?: string | null;
+  validatorRejections?: Array<Record<string, unknown>> | null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -694,6 +704,45 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
     hasBodyText: !!data.bodyText,
     briefId: data.briefId ?? null,
     hasSignalPills: Array.isArray(data.signalPills) && data.signalPills.length > 0,
+  });
+
+  // [PRB][llm] Diagnostic — categorize why the LLM Brief slot rendered
+  // what it did. Purely for browser-console debugging: reason codes only,
+  // no prompt text, no tokens, no PII.
+  const llmReason = (data as any).llmFallbackReason as string | null | undefined;
+  const rejections = (data as any).validatorRejections as unknown[] | null | undefined;
+  const hasPhrase = !!data.phrase;
+  const hasBodyText = !!data.bodyText;
+  const hasScore = typeof data.innerReadinessScore === 'number';
+  const category: string = (() => {
+    const r = (llmReason || '').toLowerCase();
+    if (r) {
+      if (r.includes('credit_limit') || r.includes('402') || r.includes('billing')) return 'provider_credit';
+      if (r.includes('timeout') || r.includes('abort')) return 'provider_timeout';
+      if (r.includes('atomic') || r.includes('em_dash') || r.includes('validation') || (Array.isArray(rejections) && rejections.length > 0)) return 'validator_failure';
+      if (r.includes('parse')) return 'parse_failed';
+      if (r.includes('returned_null') || r.includes('http-') || r.includes('gateway') || r.includes('workspace_credit')) return 'provider_failure';
+      return 'provider_failure';
+    }
+    if (data.awaitingSignals && !hasScore) return 'true_cold_start';
+    if (hasScore && !hasPhrase && !hasBodyText) return 'score_present_copy_missing';
+    if (hasPhrase && hasBodyText) return 'fully_rendered';
+    return 'unknown';
+  })();
+  console.log('[PRB][llm]', {
+    briefId: data.briefId ?? null,
+    briefSource: data.briefSource ?? null,
+    engineStatus: data.engineStatus ?? null,
+    briefMode: data.briefMode ?? null,
+    awaitingSignals: !!data.awaitingSignals,
+    awaitingReason: (data as any).awaitingReason ?? null,
+    innerReadinessState: data.innerReadinessState ?? null,
+    llmFallbackReason: llmReason ?? null,
+    validatorRejectionCount: Array.isArray(rejections) ? rejections.length : 0,
+    hasPhrase,
+    hasBodyText,
+    hasScore,
+    category,
   });
 
   return data;

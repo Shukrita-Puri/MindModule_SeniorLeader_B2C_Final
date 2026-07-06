@@ -6469,6 +6469,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       relationshipPattern: (awaitingSignals || briefIsAwaiting) ? null : relationshipPattern,
       awaitingSignals,
       awaitingReason,
+      // ── LLM diagnostics (frontend browser-console only) ─────────────
+      // Exposed so [PRB][llm] logs can distinguish provider vs validator
+      // vs true cold-start awaiting. Persisted equivalents live on
+      // `brief_snapshots.llm_fallback_reason` / `.validator_rejections`.
+      // No prompts, tokens, or user content — reason codes only.
+      llmFallbackReason: llmFallbackReason ?? null,
+      validatorRejections: llmValidatorRejections.length > 0
+        ? llmValidatorRejections.map((r) => {
+            const row = (r || {}) as Record<string, unknown>;
+            return {
+              attempt: row.attempt ?? null,
+              reason: row.reason ?? null,
+              rule: row.rule ?? null,
+              field: row.field ?? null,
+            };
+          })
+        : null,
       // briefMode is the canonical client-facing signal source contract.
       //   • 'cold-start' — no baseline / no check-in / no usable inner score
       //   • 'baseline'   — wearable/calendar/patterns present, no check-in for today

@@ -2105,6 +2105,48 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         (outerBrief as any).signalPills.length > 0,
       engineStatus: (outerBrief as any)?.engineStatus ?? null,
     });
+
+    // [PRB][llm-render] Diagnostic — the final LLM-related render cause
+    // as resolved by this component. Merges snapshot + live LLM metadata
+    // and categorises the visible state so browser logs no longer hide a
+    // real provider/validator failure behind a generic "awaiting" card.
+    const liveLlmReason = (outerBriefReal as any)?.llmFallbackReason ?? null;
+    const snapLlmReason = (currentBriefSnapshot as any)?.llmFallbackReason ?? null;
+    const llmFallbackReason: string | null =
+      source === 'snapshot' ? (snapLlmReason ?? liveLlmReason) : (liveLlmReason ?? snapLlmReason);
+    const validatorRejectionCount =
+      (Array.isArray((outerBriefReal as any)?.validatorRejections) ? (outerBriefReal as any).validatorRejections.length : 0) ||
+      (Array.isArray((currentBriefSnapshot as any)?.validatorRejections) ? (currentBriefSnapshot as any).validatorRejections.length : 0);
+    const scorePresent = typeof score === 'number';
+    const copyMissing = !phrase || !bodyText;
+    const renderCategory: string = (() => {
+      const r = (llmFallbackReason || '').toLowerCase();
+      if (showFailureBlock) return 'engine_failure';
+      if (r) {
+        if (r.includes('credit_limit') || r.includes('402') || r.includes('billing') || r.includes('workspace_credit')) return 'provider_failure';
+        if (r.includes('timeout') || r.includes('abort')) return 'provider_failure';
+        if (r.includes('atomic') || r.includes('em_dash') || r.includes('validation') || validatorRejectionCount > 0) return 'validator_failure';
+        if (r.includes('parse')) return 'validator_failure';
+        return 'provider_failure';
+      }
+      if (showNeutralAwaitingCopy && !scorePresent) return 'cold_start';
+      if (showCopyOnlyAwaiting || (scorePresent && copyMissing)) return 'score_present_copy_missing';
+      if (!copyMissing && scorePresent) return 'fully_rendered';
+      return 'copy_only_awaiting';
+    })();
+    console.log('[PRB][llm-render]', {
+      source,
+      usingSnapshot: source === 'snapshot',
+      usingLive: source === 'live',
+      scorePresent,
+      copyMissing,
+      showFailureBlock,
+      showNeutralAwaitingCopy,
+      showCopyOnlyAwaiting,
+      llmFallbackReason,
+      validatorRejectionCount,
+      renderCategory,
+    });
   }, [_prbRenderKey, tourMockBriefActive, realBriefEmpty, briefFromSnapshot, outerBriefReal, outerBrief]);
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML

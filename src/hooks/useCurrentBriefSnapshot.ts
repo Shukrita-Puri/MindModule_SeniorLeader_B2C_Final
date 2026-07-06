@@ -71,6 +71,9 @@ export interface CurrentBriefSnapshot {
   /** True only when neither copy nor score payload is present. */
   isAwaitingRow: boolean;
   updatedAt: string | null;
+  // ── LLM diagnostics (persisted equivalents; browser-console only) ──
+  llmFallbackReason: string | null;
+  validatorRejections: unknown[] | null;
 }
 
 const DEBUG =
@@ -232,6 +235,10 @@ export function useCurrentBriefSnapshot() {
         isRenderable,
         isAwaitingRow,
         updatedAt: (row.updated_at ?? null) as string | null,
+        llmFallbackReason: (row.llm_fallback_reason ?? null) as string | null,
+        validatorRejections: Array.isArray(row.validator_rejections)
+          ? (row.validator_rejections as unknown[])
+          : null,
       };
 
       dbg('loaded', {
@@ -260,6 +267,20 @@ export function useCurrentBriefSnapshot() {
         hasSignalPills: Array.isArray(snapshot.signalPills) && snapshot.signalPills.length > 0,
         isRenderable: snapshot.isRenderable,
         isAwaitingRow: snapshot.isAwaitingRow,
+      });
+      // [PRB][snapshot-llm] Diagnostic — persisted LLM failure reason on
+      // the snapshot row, so a snapshot with missing copy still shows WHY.
+      console.log('[PRB][snapshot-llm]', {
+        briefId: snapshot.briefId,
+        briefSource: snapshot.briefSource,
+        hasPhrase: !!snapshot.phrase,
+        hasBodyText: !!snapshot.bodyText,
+        hasRenderableScore: snapshot.hasRenderableScore,
+        isAwaitingRow: snapshot.isAwaitingRow,
+        llmFallbackReason: snapshot.llmFallbackReason,
+        validatorRejectionCount: Array.isArray(snapshot.validatorRejections)
+          ? snapshot.validatorRejections.length
+          : 0,
       });
       return snapshot;
     },
