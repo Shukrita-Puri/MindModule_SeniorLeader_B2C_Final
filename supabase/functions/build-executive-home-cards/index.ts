@@ -615,6 +615,15 @@ async function buildForUser(db: any, args: {
       yesterdayCarryoverDemand: null,
     });
 
+    console.log("[build-executive-home-cards] compute-inner-readiness input:", {
+      userId,
+      localDate,
+      window,
+      latestWearableDate: latest?.summary_date ?? null,
+      hasFreshWearable,
+      mrsSubScores,
+    });
+
     const mrs = await callFunction("compute-inner-readiness", {
       checkInOutcome: checkin?.outcome ?? null,
       clarityLevel: checkin?.clarity_level ?? null,
@@ -701,6 +710,8 @@ async function buildForUser(db: any, args: {
       timezoneOffset: offset,
       currentTimezone: effectiveTimezone,
       homeTimezone,
+      localDate,
+      mrsWindow: window,
       tierDisplayed: mrsIsReady ? (mrs?.tierDisplayed ?? mrs?.tier ?? null) : null,
       tierCapReason: mrsIsReady ? (mrs?.tierCapReason ?? null) : null,
       innerReadinessScoreBaseline: mrsIsReady ? (mrs?.scoreBaseline ?? null) : null,

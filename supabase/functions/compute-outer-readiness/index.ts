@@ -1830,6 +1830,8 @@ serve(async (req) => {
       regulationLevel = null,
       checkInOutcome,
       timezoneOffset = 0,
+      localDate: requestedLocalDateRaw = null,
+      mrsWindow: requestedMrsWindowRaw = null,
       currentTimezone: clientCurrentTz = null,
       homeTimezone: clientHomeTz = null,
       tierDisplayed: clientTierDisplayed = null,
@@ -1869,15 +1871,35 @@ serve(async (req) => {
           : null;
     const hasUsableInnerScore = typeof innerReadinessScore === 'number';
     const hasUsableBaseline = typeof effectiveBaselineScore === 'number';
+    // Some downstream legacy callers still invoke compute-outer-readiness with
+    // only check-in-derived `innerReadinessScore` / tier fields and without the
+    // MRS v4 contract from compute-inner-readiness. Those payloads are useful
+    // for copy context, but they are not authoritative enough to overwrite a
+    // window-scoped daily_context_snapshot MRS row.
+    const incomingHasMrsContract =
+      clientReadinessStateRaw != null ||
+      clientWeightProvenance != null ||
+      clientScoreBaseline != null ||
+      clientScoreRefined != null;
+    const incomingIsLegacyIncompleteMrsPayload = !incomingHasMrsContract;
     const innerStateIsAwaiting =
       clientReadinessState === 'awaiting' || incomingWeightProvenanceAwaiting || (!hasUsableInnerScore && !hasUsableBaseline);
-    const currentReadingIsReal = !innerStateIsAwaiting && typeof innerReadinessScore === 'number';
+    const suppressIncomingMrsSnapshot = innerStateIsAwaiting || incomingIsLegacyIncompleteMrsPayload;
+    const currentReadingIsReal = !suppressIncomingMrsSnapshot && typeof innerReadinessScore === 'number';
 
     // Compute user's local time
     const userTime = getUserTime(timezoneOffset);
     const userLocalDate = userTime.toISOString().split('T')[0];
     const hour = userTime.getHours();
     const dayOfWeek = userTime.getDay();
+    const snapshotLocalDate =
+      typeof requestedLocalDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(requestedLocalDateRaw)
+        ? requestedLocalDateRaw
+        : userLocalDate;
+    const requestedMrsWindow =
+      requestedMrsWindowRaw === 'morning' || requestedMrsWindowRaw === 'afternoon' || requestedMrsWindowRaw === 'evening'
+        ? requestedMrsWindowRaw
+        : null;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -5947,7 +5969,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   ? 'recovery_window'
                   : 'aligned';
 
-          const timeWindow = getTimeOfDay(hour);
+          const timeWindow = requestedMrsWindow ?? getTimeOfDay(hour);
           let existingMorningBaselineScore: number | null = null;
           try {
             // Phase 2 — anchor lives on the morning-window row.
@@ -5955,7 +5977,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .from('daily_context_snapshot')
               .select('morning_baseline_score')
               .eq('user_id', userId)
-              .eq('local_date', userLocalDate)
+              .eq('local_date', snapshotLocalDate)
               .eq('mrs_window', 'morning')
               .maybeSingle();
             existingMorningBaselineScore = (existingSnapshot as any)?.morning_baseline_score ?? null;
@@ -5983,7 +6005,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .from('daily_context_snapshot')
               .select('inner_score, inner_tier, readiness_score_baseline, readiness_score_refined, readiness_state, tier_displayed, tier_cap_reason, refined_contribution, weight_provenance')
               .eq('user_id', userId)
-              .eq('local_date', userLocalDate)
+              .eq('local_date', snapshotLocalDate)
               .eq('mrs_window', timeWindow)
               .maybeSingle();
             existingWindowMrs = (existingWindowRow as any) ?? null;
@@ -6007,19 +6029,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               existingWp == null // legacy row w/ valid baseline
               || (existingEarned != null && existingEarned.length > 0)
             );
-          const shouldPreserveExistingMrs = innerStateIsAwaiting && existingIsReadyRow;
+          const shouldPreserveExistingMrs = suppressIncomingMrsSnapshot && existingIsReadyRow;
           if (shouldPreserveExistingMrs) {
             console.warn('[daily_context_snapshot] preserving existing ready MRS; incoming run is awaiting', {
               userId,
-              localDate: userLocalDate,
+              localDate: snapshotLocalDate,
               window: timeWindow,
               existingInnerScore: existingWindowMrs?.inner_score,
               existingState: existingWindowMrs?.readiness_state,
+              reason: innerStateIsAwaiting ? 'incoming_awaiting' : 'legacy_incomplete_mrs_payload',
             });
           } else if (innerStateIsAwaiting && existingWindowMrs != null && typeof existingWindowMrs.inner_score === 'number') {
             console.warn('[daily_context_snapshot] overwriting existing fallback MRS row; not a ready snapshot', {
               userId,
-              localDate: userLocalDate,
+              localDate: snapshotLocalDate,
               window: timeWindow,
               existingInnerScore: existingWindowMrs?.inner_score,
               existingState: existingWindowMrs?.readiness_state,
@@ -6039,7 +6062,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           await upsertDailyContextSnapshot(db, {
             userId,
-            localDate: userLocalDate,
+            localDate: snapshotLocalDate,
             patternSignals: patternSignals as any,
             strategicContext: strategic,
             calendarDemandScore,
@@ -6048,10 +6071,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             hasHighStakes: _hasStakes,
             innerScore: shouldPreserveExistingMrs
               ? (existingWindowMrs!.inner_score ?? null)
-              : (innerStateIsAwaiting ? null : (innerReadinessScore ?? null)),
+              : (suppressIncomingMrsSnapshot ? null : (innerReadinessScore ?? null)),
             innerTier: shouldPreserveExistingMrs
               ? (existingWindowMrs!.inner_tier ?? null)
-              : (innerStateIsAwaiting ? null : (safeTier ?? null)),
+              : (suppressIncomingMrsSnapshot ? null : (safeTier ?? null)),
             pillarMode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             weightingMode,
             supplyDemandGapFlag,
@@ -6059,25 +6082,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // MRS v3 — soft-guard tier cap mirror.
             tierDisplayed: shouldPreserveExistingMrs
               ? ((existingWindowMrs!.tier_displayed as any) ?? null)
-              : (innerStateIsAwaiting ? null : safeTierDisplayed),
+              : (suppressIncomingMrsSnapshot ? null : safeTierDisplayed),
             tierCapReason: shouldPreserveExistingMrs
               ? ((existingWindowMrs!.tier_cap_reason as any) ?? null)
-              : (innerStateIsAwaiting ? null : safeTierCapReason),
+              : (suppressIncomingMrsSnapshot ? null : safeTierCapReason),
             // MRS v3 §3.3 — refined-score split mirror. Falls back to the
             // displayed `innerReadinessScore` when the client didn't forward
             // a baseline (back-compat with older client builds).
             readinessScoreBaseline: shouldPreserveExistingMrs
               ? (existingWindowMrs!.readiness_score_baseline ?? null)
-              : (innerStateIsAwaiting ? null : currentBaselineForAnchor),
+              : (suppressIncomingMrsSnapshot ? null : currentBaselineForAnchor),
             readinessScoreRefined: shouldPreserveExistingMrs
               ? (existingWindowMrs!.readiness_score_refined ?? null)
-              : (innerStateIsAwaiting ? null : clientScoreRefined),
+              : (suppressIncomingMrsSnapshot ? null : clientScoreRefined),
             readinessState: shouldPreserveExistingMrs
               ? ((existingWindowMrs!.readiness_state as any) ?? 'baseline')
-              : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
+              : (suppressIncomingMrsSnapshot ? 'awaiting' : (clientReadinessState ?? 'baseline')),
             refinedContribution: shouldPreserveExistingMrs
               ? (existingWindowMrs!.refined_contribution ?? null)
-              : (innerStateIsAwaiting ? null : (clientRefinedContribution ?? null)),
+              : (suppressIncomingMrsSnapshot ? null : (clientRefinedContribution ?? null)),
             // MRS v4 — window resolution + morning-anchor management.
             // Morning writes the anchor; afternoon/evening leave it
             // untouched (omitted ⇒ existing column value preserved).
@@ -6100,7 +6123,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 .upsert(
                   {
                     user_id: userId,
-                    local_date: userLocalDate,
+                    local_date: snapshotLocalDate,
                     mrs_window: 'morning',
                     morning_baseline_score: currentBaselineForAnchor,
                   },
