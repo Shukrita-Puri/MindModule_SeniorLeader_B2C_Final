@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +68,6 @@ Deno.serve(async (req) => {
           // Do not log raw sub values on either side. A redacted correlator
           // is enough to diagnose stale/duplicate sessions without persisting
           // the raw Auth0 subject in log storage.
-          const { redactUserId } = await import("../_shared/identity/redact-user-id.ts");
           console.error("[sync-profile] 🚨 IDENTITY MISMATCH – JWT sub:", redactUserId(userId), "userinfo sub:", redactUserId(info.sub));
           return new Response(
             JSON.stringify({
