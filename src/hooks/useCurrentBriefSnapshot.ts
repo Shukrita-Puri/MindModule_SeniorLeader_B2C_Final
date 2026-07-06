@@ -158,14 +158,23 @@ export function useCurrentBriefSnapshot() {
           ? row.refined_score
           : null;
 
-      const isAwaitingState =
-        state === 'awaiting' || (baselineScore == null && refinedScore == null);
-      const isAwaitingRow = (phrase == null && bodyText == null) || isAwaitingState;
-      // A row is renderable for the Brief card only when it carries copy.
-      // Awaiting rows are flagged separately — DecisionReadinessBrief still
-      // gates the awaiting copy on the live engine status to avoid masking
-      // a real cold-start.
-      const isRenderable = !isAwaitingRow && !!phrase && !!bodyText;
+      const score = (row.score ?? null) as number | null;
+      const scoreState =
+        state === 'refined' || state === 'baseline' || state === 'awaiting'
+          ? state
+          : null;
+      // Score payload is renderable when we have a numeric score AND the
+      // state is not the explicit awaiting label. LLM copy failure alone
+      // must NOT gate score/tier/signal_pills — those come from the
+      // wearable/calendar/check-in pipelines.
+      const hasRenderableScore =
+        typeof score === 'number' &&
+        Number.isFinite(score) &&
+        scoreState !== 'awaiting';
+      const hasRenderableCopy = !!phrase && !!bodyText;
+      const isRenderable = hasRenderableCopy || hasRenderableScore;
+      // Only fully awaiting when neither copy nor score payload is present.
+      const isAwaitingRow = !isRenderable;
 
       // TODO(brief-snapshot-read-first): `wearableStatus` (freshness +
       // source tier) and the full unified source provenance are NOT yet
@@ -212,6 +221,8 @@ export function useCurrentBriefSnapshot() {
         checkInOutcome: (checkin?.checkInOutcome ?? null) as string | null,
         behaviourSnapshot: asRecord(payload?.behaviour_snapshot),
         sourceProvenance: asRecord(payload?.source_provenance),
+        hasRenderableCopy,
+        hasRenderableScore,
         isRenderable,
         isAwaitingRow,
         updatedAt: (row.updated_at ?? null) as string | null,
@@ -219,6 +230,8 @@ export function useCurrentBriefSnapshot() {
 
       dbg('loaded', {
         briefId: snapshot.briefId,
+        hasRenderableCopy,
+        hasRenderableScore,
         isRenderable,
         isAwaitingRow,
         state: snapshot.innerReadinessState,
