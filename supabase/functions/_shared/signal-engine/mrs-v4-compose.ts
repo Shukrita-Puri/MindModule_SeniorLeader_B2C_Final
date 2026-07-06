@@ -53,7 +53,6 @@ export function redistribute(window: Window, subs: SubScore[]): RedistributeResu
   const byId = new Map(subs.map((s) => [s.id, s]));
 
   const earnedCells = cells.filter((c) => byId.get(c.id)?.available === true);
-  const hasPhysiologicalPillar = earnedCells.some((c) => c.pillar === 'physiological');
   const earnedWeight = earnedCells.reduce((s, c) => s + c.weight, 0);
   const unearnedWeight = Math.max(0, 100 - earnedWeight);
 
@@ -77,10 +76,9 @@ export function redistribute(window: Window, subs: SubScore[]): RedistributeResu
     }
   }
 
-  // Executive Home SSOT §4.15: MRS availability requires the wearable
-  // pillar. Calendar/pattern demand can sharpen a wearable-backed read, but
-  // they can never unlock a baseline on their own.
-  const awaitingSignals = earnedCells.length === 0 || !hasPhysiologicalPillar;
+  // MRS awaits only when zero earned score-bearing signals exist. Calendar/
+  // demand/pattern signals can produce a baseline via redistribution.
+  const awaitingSignals = earnedCells.length === 0;
 
   return {
     finalWeights,
