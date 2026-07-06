@@ -39,7 +39,11 @@ serve(async (req) => {
     if (deliveredOnly) {
       // History is delivery-based, not existence-based. Generated rows stay
       // invisible until the client confirms the card actually rendered.
-      query = query.not('delivered_at', 'is', null);
+      query = query
+        .not('delivered_at', 'is', null)
+        .not('phrase', 'is', null)
+        .not('body_text', 'is', null)
+        .not('score', 'is', null);
     }
 
     if (startDate && DATE_RE.test(startDate)) {

@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
+import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useMasteryPlanSnapshot } from '@/hooks/useMasteryPlanSnapshot';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -244,6 +245,7 @@ const TodayThreePriorities = ({
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
+  const { data: mrsSnapshot } = useMrsSnapshot();
   const awaitingCopy = getReadinessAwaitingCopy(outerReadinessData ?? undefined);
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
@@ -274,7 +276,10 @@ const TodayThreePriorities = ({
 
   const todayForPlan = localISODate();
   const periodForPlan = getCurrentTimeWindow();
-  const cardsAwaiting = isCardsAwaitingPayload(outerReadinessData);
+  const snapshotAwaiting =
+    mrsSnapshot?.readinessState === 'awaiting' ||
+    mrsSnapshot?.status === 'awaiting';
+  const cardsAwaiting = isCardsAwaitingPayload(outerReadinessData) || snapshotAwaiting;
   const forceRefreshKey = cacheKeys.planForceRefresh(todayForPlan, periodForPlan);
   const hasPlanForceRefresh = (() => {
     try {
@@ -986,7 +991,7 @@ const TodayThreePriorities = ({
     }
     setLoading(false);
     return true;
-  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient]);
+  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting]);
 
   useEffect(() => {
     // Wait for the brief to resolve before kicking off `loadPlan` — without
@@ -996,7 +1001,7 @@ const TodayThreePriorities = ({
     // Wait for the snapshot read to resolve too. Snapshot-read-first beats
     // both localStorage cache and live generation when it's ready for the
     // current window.
-    if (masteryPlanSnapshot === undefined) return;
+    if (masteryPlanSnapshot === undefined || mrsSnapshot === undefined) return;
 
     if (cardsAwaiting) {
       const todayDate = localISODate();
@@ -1078,7 +1083,7 @@ const TodayThreePriorities = ({
     document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(() => { if (plan) checkCompletion(); }, 60000);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility); };
-  }, [user?.id, outerReadinessData, masteryPlanSnapshot, hasPlanForceRefresh]);
+  }, [user?.id, outerReadinessData, masteryPlanSnapshot, mrsSnapshot, hasPlanForceRefresh]);
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
 

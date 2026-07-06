@@ -21,7 +21,15 @@ const MrsPage = () => {
   // `daily_context_snapshot` when present; otherwise fall through to
   // the live `useOuterReadiness` payload (unchanged).
   const { data: mrsSnapshot } = useMrsSnapshot();
-  const snapshotRenderable = !!mrsSnapshot?.isRenderable;
+  const liveSaysAwaiting =
+    !!outerBrief &&
+    (
+      outerBrief.innerReadinessState === 'awaiting' ||
+      outerBrief.awaitingSignals === true ||
+      outerBrief.briefMode === 'cold-start' ||
+      outerBrief.innerReadinessScore == null
+    );
+  const snapshotRenderable = !!mrsSnapshot?.isRenderable && !liveSaysAwaiting;
   const score = snapshotRenderable
     ? mrsSnapshot!.score
     : (outerBrief?.innerReadinessScore ?? null);

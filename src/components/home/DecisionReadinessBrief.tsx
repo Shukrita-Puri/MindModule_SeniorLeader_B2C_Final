@@ -2387,12 +2387,14 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       </Collapsible>
 
       {/* 13. INLINE FEEDBACK ROW — non-intrusive, one chance per day */}
-      <BriefFeedbackRow
-        briefId={briefId}
-        tier={(outerBrief as any)?.innerReadinessTier ?? null}
-        score={(outerBrief as any)?.innerReadinessScore ?? null}
-        onFeedbackSubmitted={() => setShowCta(true)}
-      />
+      {!showNeutralAwaitingCopy && phrase && bodyText && (
+        <BriefFeedbackRow
+          briefId={briefId}
+          tier={(outerBrief as any)?.innerReadinessTier ?? null}
+          score={(outerBrief as any)?.innerReadinessScore ?? null}
+          onFeedbackSubmitted={() => setShowCta(true)}
+        />
+      )}
     </div>
   );
 };

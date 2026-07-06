@@ -64,6 +64,11 @@ interface HealthReader {
   readSamples(opts: { dataType: string; startDate: string; endDate: string }): Promise<unknown>;
 }
 
+interface HealthReadResult {
+  samples: Record<string, unknown>[];
+  failed: boolean;
+}
+
 function classifyHealthKitError(message: string): { temporarilyUnavailable: boolean; explicitDenied: boolean } {
   const lowered = message.toLowerCase();
   const temporarilyUnavailable = /health data unavailable|healthdataunavailable|databaseinaccessible|device is locked|protected and the device is locked|not available/i.test(message)
@@ -227,16 +232,19 @@ async function safeReadSamples(
   startDate: string,
   endDate: string,
   label: string,
-): Promise<Record<string, unknown>[]> {
+): Promise<HealthReadResult> {
   try {
     const res = await Health.readSamples({ dataType, startDate, endDate });
     const raw = res as Record<string, unknown> | null;
     const samples = raw?.samples ?? raw?.data ?? raw?.results ?? raw?.resultData ?? [];
     console.log(`[HealthKit] ${label}: ${Array.isArray(samples) ? samples.length : 0} samples`);
-    return Array.isArray(samples) ? samples as Record<string, unknown>[] : [];
+    return {
+      samples: Array.isArray(samples) ? samples as Record<string, unknown>[] : [],
+      failed: false,
+    };
   } catch (err) {
     console.warn(`[HealthKit] ${label} read failed (non-fatal):`, err);
-    return [];
+    return { samples: [], failed: true };
   }
 }
 
@@ -275,17 +283,33 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     // Cast through unknown because @capgo/capacitor-health types `dataType`
     // as a strict union; we centralise validation in `safeReadSamples`.
     const HealthAny = Health as unknown as HealthReader;
-    const [hrvSamples, rhrSamples, hrSamples, sleepSamples] = await Promise.all([
+    const [hrvRead, rhrRead, hrRead, sleepRead] = await Promise.all([
       safeReadSamples(HealthAny, 'heartRateVariability', startISO, endISO, 'HRV'),
       safeReadSamples(HealthAny, 'restingHeartRate', startISO, endISO, 'RHR'),
       safeReadSamples(HealthAny, 'heartRate', startISO, endISO, 'HR'),
       safeReadSamples(HealthAny, 'sleep', startISO, endISO, 'Sleep'),
     ]);
+    const hrvSamples = hrvRead.samples;
+    const rhrSamples = rhrRead.samples;
+    const hrSamples = hrRead.samples;
+    const sleepSamples = sleepRead.samples;
+    const readFailures = {
+      heartRateVariability: hrvRead.failed,
+      restingHeartRate: rhrRead.failed,
+      heartRate: hrRead.failed,
+      sleep: sleepRead.failed,
+    };
+    const authorizedReads = authorization.readAuthorized.length > 0
+      ? authorization.readAuthorized
+      : [...HEALTHKIT_READ_TYPES];
+    const allAuthorizedReadsFailed = authorizedReads.length > 0
+      && authorizedReads.every((metric) => readFailures[metric as keyof typeof readFailures] === true);
 
     console.log(`[HealthKit] Raw counts – HRV: ${hrvSamples.length}, RHR: ${rhrSamples.length}, HR: ${hrSamples.length}, Sleep: ${sleepSamples.length}`);
     console.log('[HealthKit] Metric authorization:', JSON.stringify({
       readAuthorized: authorization.readAuthorized,
       readDenied: authorization.readDenied,
+      readFailures,
       counts: {
         hrv: hrvSamples.length,
         rhr: rhrSamples.length,
@@ -293,6 +317,17 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
         sleep: sleepSamples.length,
       },
     }));
+    if (allAuthorizedReadsFailed) {
+      console.warn('[HealthKit] All authorized metric reads failed; treating as read_failed, not waiting_for_data');
+      return {
+        hrv: null,
+        latestSampleDate: null,
+        permissionGranted: true,
+        readError: 'read_failed',
+        dailySamples: [],
+        dailySummaries: [],
+      };
+    }
     if (authorization.readAuthorized.includes('heartRate') && hrSamples.length === 0) {
       console.warn('[HealthKit] HR authorized but returned zero samples in the 30-day window');
     }

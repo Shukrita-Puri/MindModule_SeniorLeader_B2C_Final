@@ -200,7 +200,9 @@ const ExecutiveHome = () => {
       | 'cold-start' | 'baseline' | 'refined' | undefined;
     const isAwaiting = mode
       ? mode === 'cold-start'
-      : outerBrief?.awaitingSignals === true;
+      : outerBrief?.awaitingSignals === true ||
+        outerBrief?.innerReadinessState === 'awaiting' ||
+        outerBrief?.innerReadinessScore == null;
     if (
       !isAwaiting &&
       briefId &&
