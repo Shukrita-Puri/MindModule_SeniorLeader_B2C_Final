@@ -44,16 +44,41 @@ function allMorningSubs(opts: Partial<Record<SubComponentId, SubScore>> = {}): S
   return defaults.map((s) => opts[s.id] ?? s);
 }
 
-// Day 1 — calendar alone can never unlock a baseline.
-Deno.test('§4.15 day-1: only calendar available → awaiting=true', () => {
+// Day 1 — calendar alone now unlocks a baseline via redistribution.
+Deno.test('day-1: only calendar available → baseline numeric, awaiting=false', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
     id: c.id,
     score: c.id === 'todayFullDayDemand' ? 60 : 0,
     available: c.id === 'todayFullDayDemand',
   }));
   const r = composeBaselineV4('morning', subs);
-  assertEquals(r.awaitingSignals, true);
-  assertEquals(r.baseline, null);
+  assertEquals(r.awaitingSignals, false);
+  assert(r.baseline != null);
+});
+
+// Afternoon pattern-only sub → baseline unlocked.
+Deno.test('afternoon: pattern-only sub available → baseline numeric', () => {
+  const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
+    id: c.id,
+    score: c.id === 'patternEngineComposite' ? 55 : 0,
+    available: c.id === 'patternEngineComposite',
+  }));
+  const r = composeBaselineV4('afternoon', subs);
+  assertEquals(r.awaitingSignals, false);
+  assert(r.baseline != null);
+});
+
+// Afternoon demand + pattern → baseline unlocked.
+Deno.test('afternoon: demand+pattern available → baseline numeric', () => {
+  const earnedIds = new Set(['remainingDayDemand', 'realizedSoFarCost', 'patternEngineComposite']);
+  const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
+    id: c.id,
+    score: earnedIds.has(c.id) ? 55 : 0,
+    available: earnedIds.has(c.id),
+  }));
+  const r = composeBaselineV4('afternoon', subs);
+  assertEquals(r.awaitingSignals, false);
+  assert(r.baseline != null);
 });
 
 // Day 1 with a single wearable sub + demand is a valid early read.
