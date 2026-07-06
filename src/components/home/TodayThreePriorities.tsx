@@ -1764,9 +1764,17 @@ const TodayThreePriorities = ({
               )}
             >
               {/* Slot header row */}
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setExpandedSlot(isExpanded ? -1 : index)}
-                className="w-full flex items-center gap-3 py-2 text-left"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setExpandedSlot(isExpanded ? -1 : index);
+                  }
+                }}
+                className="w-full flex items-center gap-3 py-2 text-left cursor-pointer"
               >
                 {/* Number circle */}
                 <div
@@ -1858,7 +1866,7 @@ const TodayThreePriorities = ({
                     <X size={14} className="text-muted-foreground/50" />
                   </button>
                 )}
-              </button>
+              </div>
 
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
