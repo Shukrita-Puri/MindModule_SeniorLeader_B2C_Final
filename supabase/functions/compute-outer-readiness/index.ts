@@ -6210,16 +6210,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // check-in pipelines. Only signal-contract awaiting or inner-state
         // awaiting nulls the score payload.
         const suppressBriefCopy = briefIsAwaiting || awaitingSignals || innerStateIsAwaiting;
-        const suppressScorePayload = awaitingSignals || innerStateIsAwaiting;
+        // Canonical override: when we adopted a preserved existing MRS
+        // snapshot (or otherwise have a real canonical score), we MUST NOT
+        // null the score payload just because the incoming run is
+        // awaiting/lower-quality. Otherwise brief_snapshots would end up
+        // with score=null while daily_context_snapshot has 78.
+        const hasCanonicalScore = typeof canonicalInnerScore === 'number';
+        const suppressScorePayload = (awaitingSignals || innerStateIsAwaiting) && !hasCanonicalScore;
+        if ((awaitingSignals || innerStateIsAwaiting) && hasCanonicalScore) {
+          console.warn('[canonical-mrs] brief_snapshots score persistence realigned to preserved MRS', {
+            userId,
+            localDate: userLocalDate,
+            window: getTimeOfDay(hour),
+            canonicalInnerScore,
+            canonicalReadinessState,
+            canonicalScoreSource,
+          });
+        }
         const persistPhrase = suppressBriefCopy ? null : responsePhrase;
         const persistBody = suppressBriefCopy ? null : responseBody;
         const persistLeanOn = suppressBriefCopy ? null : formattedLeanOn;
         const persistWatchFor = suppressBriefCopy ? null : formattedWatchFor;
         const persistLeanOnSource = suppressBriefCopy ? null : finalLeanOnSource;
         const persistWatchForSource = suppressBriefCopy ? null : finalWatchForSource;
-        const isRefinedWrite = (clientReadinessState ?? 'baseline') === 'refined';
+        const isRefinedWrite = (canonicalReadinessState ?? 'baseline') === 'refined';
         // State reflects score-payload readiness, not copy readiness.
-        const awaitingStateLabel = suppressScorePayload ? 'awaiting' : (clientReadinessState ?? 'baseline');
+        const awaitingStateLabel = suppressScorePayload
+          ? 'awaiting'
+          : (canonicalReadinessState ?? 'baseline');
         const stateColumns = isRefinedWrite
           ? {
               refined_state: awaitingStateLabel,
@@ -6229,8 +6247,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               refined_lean_on_source: persistLeanOnSource,
               refined_watch_for: persistWatchFor,
               refined_watch_for_source: persistWatchForSource,
-              refined_score: suppressScorePayload ? null : (innerReadinessScore ?? null),
-              refined_tier: suppressScorePayload ? null : safeTier,
+              refined_score: suppressScorePayload ? null : (canonicalInnerScore ?? null),
+              refined_tier: suppressScorePayload ? null : (canonicalTier ?? null),
               refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             }
           : {
@@ -6241,8 +6259,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               baseline_lean_on_source: persistLeanOnSource,
               baseline_watch_for: persistWatchFor,
               baseline_watch_for_source: persistWatchForSource,
-              baseline_score: suppressScorePayload ? null : (innerReadinessScore ?? null),
-              baseline_tier: suppressScorePayload ? null : safeTier,
+              baseline_score: suppressScorePayload ? null : (canonicalInnerScore ?? null),
+              baseline_tier: suppressScorePayload ? null : (canonicalTier ?? null),
               baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             };
         const { data: upsertRow, error: upsertError } = await db
