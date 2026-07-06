@@ -1,0 +1,2 @@
+ALTER TABLE public.brief_snapshots DROP CONSTRAINT IF EXISTS brief_snapshots_brief_source_check;
+ALTER TABLE public.brief_snapshots ADD CONSTRAINT brief_snapshots_brief_source_check CHECK (brief_source IN ('llm','deterministic','awaiting'));
