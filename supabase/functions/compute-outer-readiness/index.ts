@@ -5358,6 +5358,29 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       };
     } | null = null;
 
+    // Canonical MRS payload — populated inside the daily_context_snapshot
+    // mirror below and reused by brief_snapshots + response echo so MRS
+    // and Brief cannot diverge (e.g. MRS=78 vs Brief=50). When we preserve
+    // an existing ready daily_context_snapshot row over an awaiting /
+    // lower-quality incoming payload, the same preserved score/tier/state
+    // must flow into brief_snapshots and the client echo. Hoisted to the
+    // request-handler scope so it is visible from the `result` builder
+    // below (which lives outside the cache-miss `if` and mirror `try`).
+    let canonicalInnerScore: number | null =
+      typeof innerReadinessScore === 'number' ? innerReadinessScore : null;
+    let canonicalTier: any = safeTier ?? null;
+    let canonicalTierDisplayed: any = safeTierDisplayed ?? null;
+    let canonicalTierCapReason: any = safeTierCapReason ?? null;
+    let canonicalScoreBaseline: number | null =
+      typeof effectiveBaselineScore === 'number' ? effectiveBaselineScore : null;
+    let canonicalScoreRefined: number | null =
+      typeof clientScoreRefined === 'number' ? clientScoreRefined : null;
+    let canonicalReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
+      clientReadinessState ?? null;
+    let canonicalRefinedContribution: number | null =
+      typeof clientRefinedContribution === 'number' ? clientRefinedContribution : null;
+    let canonicalScoreSource: 'incoming' | 'preserved_existing_mrs' = 'incoming';
+
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
         // ── MRS v2 Phase B: hydrate pattern signals + resilience inputs ─────
@@ -6049,6 +6072,37 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               weightProvenance: existingWp,
             });
           }
+          // Adopt the preserved existing MRS as canonical so brief_snapshots
+          // and the client response echo cannot show a different (lower/
+          // stale/awaiting) score than daily_context_snapshot for the same
+          // window. Without this, MrsPage and DecisionReadinessBrief could
+          // diverge (e.g. MRS=78 evening vs Brief=50).
+          if (shouldPreserveExistingMrs) {
+            if (
+              typeof innerReadinessScore === 'number' &&
+              typeof existingWindowMrs!.inner_score === 'number' &&
+              innerReadinessScore !== existingWindowMrs!.inner_score
+            ) {
+              console.warn('[canonical-mrs] incoming score differs from preserved existing MRS — preserving existing', {
+                userId,
+                localDate: snapshotLocalDate,
+                window: timeWindow,
+                incomingScore: innerReadinessScore,
+                existingScore: existingWindowMrs!.inner_score,
+              });
+            }
+            canonicalInnerScore = existingWindowMrs!.inner_score ?? canonicalInnerScore;
+            canonicalTier = (existingWindowMrs!.inner_tier as any) ?? canonicalTier;
+            canonicalTierDisplayed = (existingWindowMrs!.tier_displayed as any) ?? canonicalTierDisplayed;
+            canonicalTierCapReason = (existingWindowMrs!.tier_cap_reason as any) ?? canonicalTierCapReason;
+            canonicalScoreBaseline = existingWindowMrs!.readiness_score_baseline ?? canonicalScoreBaseline;
+            canonicalScoreRefined = existingWindowMrs!.readiness_score_refined ?? canonicalScoreRefined;
+            canonicalReadinessState =
+              (existingWindowMrs!.readiness_state as any) ?? canonicalReadinessState ?? 'baseline';
+            canonicalRefinedContribution =
+              existingWindowMrs!.refined_contribution ?? canonicalRefinedContribution;
+            canonicalScoreSource = 'preserved_existing_mrs';
+          }
           const currentBaselineForAnchor =
             typeof clientScoreBaseline === 'number'
               ? clientScoreBaseline
@@ -6159,16 +6213,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // check-in pipelines. Only signal-contract awaiting or inner-state
         // awaiting nulls the score payload.
         const suppressBriefCopy = briefIsAwaiting || awaitingSignals || innerStateIsAwaiting;
-        const suppressScorePayload = awaitingSignals || innerStateIsAwaiting;
+        // Canonical override: when we adopted a preserved existing MRS
+        // snapshot (or otherwise have a real canonical score), we MUST NOT
+        // null the score payload just because the incoming run is
+        // awaiting/lower-quality. Otherwise brief_snapshots would end up
+        // with score=null while daily_context_snapshot has 78.
+        const hasCanonicalScore = typeof canonicalInnerScore === 'number';
+        const suppressScorePayload = (awaitingSignals || innerStateIsAwaiting) && !hasCanonicalScore;
+        if ((awaitingSignals || innerStateIsAwaiting) && hasCanonicalScore) {
+          console.warn('[canonical-mrs] brief_snapshots score persistence realigned to preserved MRS', {
+            userId,
+            localDate: userLocalDate,
+            window: getTimeOfDay(hour),
+            canonicalInnerScore,
+            canonicalReadinessState,
+            canonicalScoreSource,
+          });
+        }
         const persistPhrase = suppressBriefCopy ? null : responsePhrase;
         const persistBody = suppressBriefCopy ? null : responseBody;
         const persistLeanOn = suppressBriefCopy ? null : formattedLeanOn;
         const persistWatchFor = suppressBriefCopy ? null : formattedWatchFor;
         const persistLeanOnSource = suppressBriefCopy ? null : finalLeanOnSource;
         const persistWatchForSource = suppressBriefCopy ? null : finalWatchForSource;
-        const isRefinedWrite = (clientReadinessState ?? 'baseline') === 'refined';
+        const isRefinedWrite = (canonicalReadinessState ?? 'baseline') === 'refined';
         // State reflects score-payload readiness, not copy readiness.
-        const awaitingStateLabel = suppressScorePayload ? 'awaiting' : (clientReadinessState ?? 'baseline');
+        const awaitingStateLabel = suppressScorePayload
+          ? 'awaiting'
+          : (canonicalReadinessState ?? 'baseline');
         const stateColumns = isRefinedWrite
           ? {
               refined_state: awaitingStateLabel,
@@ -6178,8 +6250,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               refined_lean_on_source: persistLeanOnSource,
               refined_watch_for: persistWatchFor,
               refined_watch_for_source: persistWatchForSource,
-              refined_score: suppressScorePayload ? null : (innerReadinessScore ?? null),
-              refined_tier: suppressScorePayload ? null : safeTier,
+              refined_score: suppressScorePayload ? null : (canonicalInnerScore ?? null),
+              refined_tier: suppressScorePayload ? null : (canonicalTier ?? null),
               refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             }
           : {
@@ -6190,8 +6262,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               baseline_lean_on_source: persistLeanOnSource,
               baseline_watch_for: persistWatchFor,
               baseline_watch_for_source: persistWatchForSource,
-              baseline_score: suppressScorePayload ? null : (innerReadinessScore ?? null),
-              baseline_tier: suppressScorePayload ? null : safeTier,
+              baseline_score: suppressScorePayload ? null : (canonicalInnerScore ?? null),
+              baseline_tier: suppressScorePayload ? null : (canonicalTier ?? null),
               baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             };
         const { data: upsertRow, error: upsertError } = await db
@@ -6467,26 +6539,44 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           && (confidenceLevel != null && confidenceLevel >= 4),
         sleepUnread: sleepDuration == null && sleepScoreVal == null,
       },
-      // Echo inner readiness so client doesn't need a separate computeEnergyState call
-      // When the current period is awaiting signals we MUST suppress these
-      // period-sensitive surfaced fields. Otherwise the UI re-uses an older
-      // check-in's score/outcome from earlier in the day and the Brief looks
-      // "live" when it should read awaiting.
-      innerReadinessScore: (awaitingSignals || innerStateIsAwaiting) ? null : innerReadinessScore,
-      innerReadinessTier: (awaitingSignals || innerStateIsAwaiting) ? null : safeTier,
-      // MRS v3 — echo the soft-guard displayed tier + reason so the UI
-      // renders the cap without a second round trip. Suppressed in the
-      // awaiting-signals window for the same reason as innerReadinessTier.
-      innerReadinessTierDisplayed: (awaitingSignals || innerStateIsAwaiting) ? null : safeTierDisplayed,
-      innerReadinessTierCapReason: (awaitingSignals || innerStateIsAwaiting) ? null : safeTierCapReason,
-      // MRS v3 §3.3 — refined-score split echo. Suppressed when awaiting
-      // signals for the same reason as the tier/score fields above.
-      innerReadinessScoreBaseline: (awaitingSignals || innerStateIsAwaiting) ? null : effectiveBaselineScore,
-      innerReadinessScoreRefined: (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreRefined,
-      innerReadinessState: awaitingSignals
-        ? null
-        : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
-      innerReadinessRefinedContribution: (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? null),
+      // Echo inner readiness so client doesn't need a separate computeEnergyState call.
+      // Uses the canonical MRS payload so a preserved existing MRS row can
+      // never be undercut by a stale/awaiting incoming score in the echo.
+      // When there is genuinely no canonical score (fully awaiting), we
+      // suppress the period-sensitive fields exactly as before so the UI
+      // doesn't re-use an older check-in's score/outcome.
+      innerReadinessScore: (() => {
+        if (typeof canonicalInnerScore === 'number') return canonicalInnerScore;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : innerReadinessScore;
+      })(),
+      innerReadinessTier: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalTier != null) return canonicalTier;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : safeTier;
+      })(),
+      innerReadinessTierDisplayed: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalTierDisplayed != null) return canonicalTierDisplayed;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : safeTierDisplayed;
+      })(),
+      innerReadinessTierCapReason: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs') return canonicalTierCapReason;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : safeTierCapReason;
+      })(),
+      innerReadinessScoreBaseline: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalScoreBaseline != null) return canonicalScoreBaseline;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : effectiveBaselineScore;
+      })(),
+      innerReadinessScoreRefined: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs') return canonicalScoreRefined;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreRefined;
+      })(),
+      innerReadinessState: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalReadinessState != null) return canonicalReadinessState;
+        return awaitingSignals ? null : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline'));
+      })(),
+      innerReadinessRefinedContribution: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs') return canonicalRefinedContribution;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? null);
+      })(),
       // MRS V4 — explicit eligibility contract. Frontend MUST prefer this
       // over deriving state from individual fields. See helper definition
       // near `wearableFreshForGate` for the rule table.
