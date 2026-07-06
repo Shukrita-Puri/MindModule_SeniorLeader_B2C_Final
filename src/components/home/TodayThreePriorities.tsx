@@ -726,8 +726,21 @@ const TodayThreePriorities = ({
         engineStatus === 'inner-failure' ||
         engineStatus === 'outer-failure' ||
         engineStatus === 'unknown-error';
-      const planCardsAwaiting = isCardsAwaitingPayload(outerReadinessData);
-      if ((planCardsAwaiting || (briefAwaiting && !todayCheckin && !wearableFresh)) && !isEngineFailure) {
+      const planCardsAwaiting = mrsReadyForPlan
+        ? false
+        : isCardsAwaitingPayload(outerReadinessData);
+      console.info('[TodayThreePriorities:plan-gate]', {
+        mrsReadyForPlan,
+        mrsSnapshotScore: mrsSnapshot?.score ?? null,
+        mrsSnapshotState: mrsSnapshot?.readinessState ?? null,
+        outerAwaiting: isCardsAwaitingPayload(outerReadinessData),
+        snapshotAwaiting,
+        planCardsAwaiting,
+        briefAwaiting,
+        isEngineFailure,
+        willGenerate: !(planCardsAwaiting || (briefAwaiting && !todayCheckin && !wearableFresh)) || isEngineFailure,
+      });
+      if ((planCardsAwaiting || (briefAwaiting && !todayCheckin && !wearableFresh)) && !isEngineFailure && !mrsReadyForPlan) {
         setAwaitingSignals(true);
         setPlan(null);
         clearPersistent(loadedKey);
