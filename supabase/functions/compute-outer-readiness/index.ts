@@ -5116,6 +5116,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const bodyLower = (errBodyHead ?? '').toLowerCase();
               let providerReason: string | null = null;
               if (httpStatus === 401) providerReason = 'invalid_key';
+              else if (httpStatus === 403 && bodyLower.includes('credit_limit_reached')) {
+                providerReason = 'gateway_credit_limit_reached';
+                console.error(`[compute-outer-readiness] [LLM] provider unavailable — workspace AI credit limit reached | model=${model} | attempt=${attempt} | httpStatus=${httpStatus} (billing limit, not a content or key failure)`);
+              }
+              else if (httpStatus === 403) providerReason = 'gateway_forbidden';
               else if (httpStatus === 429) providerReason = 'rate_limited';
               else if (httpStatus === 402 || (httpStatus === 400 && bodyLower.includes('credit balance'))) {
                 providerReason = 'anthropic_402_credits';
