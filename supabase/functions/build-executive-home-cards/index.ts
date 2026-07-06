@@ -638,9 +638,38 @@ async function buildForUser(db: any, args: {
         sleepQuality: sleepQuality(latest?.sleep_score ?? null, sleepHours),
       },
     }, userId);
-    mrsStatus = mrs?.readinessState === "awaiting" ? "awaiting" : "ready";
 
-    const hasStageOneSignal = mrs?.readinessState !== "awaiting" && typeof mrs?.score === "number";
+    // Diagnostic — surface exactly what compute-inner-readiness returned so
+    // we can tell an awaiting run apart from a malformed / null-scored one.
+    console.log("[build-executive-home-cards] compute-inner-readiness summary:", {
+      userId,
+      window,
+      score: mrs?.score ?? null,
+      scoreBaseline: mrs?.scoreBaseline ?? null,
+      scoreRefined: mrs?.scoreRefined ?? null,
+      readinessState: mrs?.readinessState ?? null,
+      tier: mrs?.tier ?? null,
+      mrsAwaitingSignals: mrs?.mrsAwaitingSignals ?? mrs?.awaitingSignals ?? null,
+    });
+
+    // MRS is only genuinely "ready" when compute-inner-readiness returned
+    // a numeric score AND a numeric baseline AND is not itself awaiting.
+    // Previously we treated any non-awaiting response as ready, which meant
+    // a malformed/null-scored payload still marked the run ready and then
+    // caused compute-outer-readiness to mirror NULL/awaiting into
+    // daily_context_snapshot.
+    const mrsIsReady =
+      !!mrs &&
+      mrs.readinessState !== "awaiting" &&
+      typeof mrs.score === "number" &&
+      typeof mrs.scoreBaseline === "number";
+    mrsStatus = mrsIsReady
+      ? "ready"
+      : mrs?.readinessState === "awaiting"
+        ? "awaiting"
+        : "awaiting_no_score";
+
+    const hasStageOneSignal = mrsIsReady;
     const brief = await callFunction("compute-outer-readiness", {
       userId,
       innerReadinessTier: mrs?.tier ?? null,
