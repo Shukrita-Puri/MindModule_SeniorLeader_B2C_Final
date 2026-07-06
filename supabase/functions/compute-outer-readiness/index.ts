@@ -6108,9 +6108,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             ...(shouldWriteMorningAnchor ? { morningBaselineScore: currentBaselineForAnchor } : {}),
             ...(shouldBackfillMorningAnchor ? { morningBaselineScore: currentBaselineForAnchor } : {}),
             // Mirror v4 audit JSONB when inner-readiness forwarded it.
-            ...(clientWeightProvenance !== null
-              ? { weightProvenance: clientWeightProvenance }
-              : {}),
+            // When preserving an existing ready row, also preserve its
+            // original weight_provenance — never overwrite a numeric MRS
+            // with an awaiting provenance (that produces contradictory
+            // rows like inner_score=78 + awaiting_signals=true).
+            ...(shouldPreserveExistingMrs
+              ? { weightProvenance: existingWp }
+              : (clientWeightProvenance !== null
+                ? { weightProvenance: clientWeightProvenance }
+                : {})),
           });
           // Phase 2 — morning anchor lives on the MORNING-window row. When
           // we're backfilling from an afternoon run, write the anchor into
