@@ -5890,26 +5890,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
         // MRS v2 — mirror canonical pill payload + demand into daily_context_snapshot.
         // Best-effort, non-blocking (errors are logged inside the helper).
-        // Canonical MRS payload — computed inside the mirror try below and
-        // reused by brief_snapshots + response echo so MRS and Brief cannot
-        // diverge (e.g. MRS=78 vs Brief=50). When we preserve an existing
-        // ready daily_context_snapshot row over an awaiting/lower-quality
-        // incoming payload, the same preserved score/tier/state must flow
-        // into brief_snapshots and the client echo.
-        let canonicalInnerScore: number | null =
-          typeof innerReadinessScore === 'number' ? innerReadinessScore : null;
-        let canonicalTier: any = safeTier ?? null;
-        let canonicalTierDisplayed: any = safeTierDisplayed ?? null;
-        let canonicalTierCapReason: any = safeTierCapReason ?? null;
-        let canonicalScoreBaseline: number | null =
-          typeof effectiveBaselineScore === 'number' ? effectiveBaselineScore : null;
-        let canonicalScoreRefined: number | null =
-          typeof clientScoreRefined === 'number' ? clientScoreRefined : null;
-        let canonicalReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
-          clientReadinessState ?? null;
-        let canonicalRefinedContribution: number | null =
-          typeof clientRefinedContribution === 'number' ? clientRefinedContribution : null;
-        let canonicalScoreSource: 'incoming' | 'preserved_existing_mrs' = 'incoming';
         try {
           const strategic = await resolveStrategicContext(db, userId);
 
