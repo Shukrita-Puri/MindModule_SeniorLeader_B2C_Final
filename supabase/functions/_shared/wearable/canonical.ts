@@ -493,11 +493,20 @@ export async function loadWearableMergeContext(
 ): Promise<WearableMergeContext> {
   const ctx: WearableMergeContext = { ...DEFAULT_MERGE_CONTEXT };
   try {
-    const { data: conns } = await supabase
+    const { data: conns, error: connErr } = await supabase
       .from('oura_connections')
       .select('connection_status, writes_to_apple_health')
       .eq('user_id', userId);
-    if (Array.isArray(conns)) {
+    if (connErr) {
+      // Fail-open: keep defaults so wearable sync/readiness never crashes on
+      // a merge-context lookup failure, but surface the error so schema drift
+      // (missing column, revoked GRANT, etc.) is visible in logs instead of
+      // silently degrading merge priority.
+      console.warn(
+        '[wearable/canonical] oura_connections lookup failed:',
+        connErr?.message ?? connErr,
+      );
+    } else if (Array.isArray(conns)) {
       for (const c of conns) {
         if ((c?.connection_status ?? '').toLowerCase() === 'connected') {
           ctx.ouraDirectConnected = true;
@@ -507,7 +516,13 @@ export async function loadWearableMergeContext(
         }
       }
     }
-  } catch (_e) { /* connection table optional in tests */ }
+  } catch (e) {
+    // Connection table may be absent in unit tests — swallow but log.
+    console.warn(
+      '[wearable/canonical] oura_connections lookup threw:',
+      (e as Error)?.message ?? e,
+    );
+  }
 
   try {
     const { data: rows } = await supabase
