@@ -5953,6 +5953,46 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           } catch (_snapReadErr) {
             existingMorningBaselineScore = null;
           }
+          // Preserve-existing guard: if this run is awaiting (no usable
+          // inner score) but a prior run for the SAME (user, date, window)
+          // already persisted a real numeric MRS, do NOT clobber it with
+          // NULL/awaiting values. This prevents a later awaiting brief
+          // refresh from wiping an already-ready MRS snapshot.
+          let existingWindowMrs: {
+            inner_score: number | null;
+            inner_tier: string | null;
+            readiness_score_baseline: number | null;
+            readiness_score_refined: number | null;
+            readiness_state: string | null;
+            tier_displayed: string | null;
+            tier_cap_reason: string | null;
+            refined_contribution: number | null;
+          } | null = null;
+          try {
+            const { data: existingWindowRow } = await db
+              .from('daily_context_snapshot')
+              .select('inner_score, inner_tier, readiness_score_baseline, readiness_score_refined, readiness_state, tier_displayed, tier_cap_reason, refined_contribution')
+              .eq('user_id', userId)
+              .eq('local_date', userLocalDate)
+              .eq('mrs_window', timeWindow)
+              .maybeSingle();
+            existingWindowMrs = (existingWindowRow as any) ?? null;
+          } catch (_readErr) {
+            existingWindowMrs = null;
+          }
+          const shouldPreserveExistingMrs =
+            innerStateIsAwaiting &&
+            existingWindowMrs != null &&
+            typeof existingWindowMrs.inner_score === 'number';
+          if (shouldPreserveExistingMrs) {
+            console.warn('[daily_context_snapshot] preserving existing ready MRS; incoming run is awaiting', {
+              userId,
+              localDate: userLocalDate,
+              window: timeWindow,
+              existingInnerScore: existingWindowMrs?.inner_score,
+              existingState: existingWindowMrs?.readiness_state,
+            });
+          }
           const currentBaselineForAnchor =
             typeof clientScoreBaseline === 'number'
               ? clientScoreBaseline
@@ -5973,22 +6013,38 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             demandLoad: (calendarLoad as any) ?? null,
             demandPressure: (calendarPressure as any) ?? null,
             hasHighStakes: _hasStakes,
-            innerScore: innerStateIsAwaiting ? null : (innerReadinessScore ?? null),
-            innerTier: innerStateIsAwaiting ? null : (safeTier ?? null),
+            innerScore: shouldPreserveExistingMrs
+              ? (existingWindowMrs!.inner_score ?? null)
+              : (innerStateIsAwaiting ? null : (innerReadinessScore ?? null)),
+            innerTier: shouldPreserveExistingMrs
+              ? (existingWindowMrs!.inner_tier ?? null)
+              : (innerStateIsAwaiting ? null : (safeTier ?? null)),
             pillarMode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             weightingMode,
             supplyDemandGapFlag,
             signalPills: signalPillsPayload,
             // MRS v3 — soft-guard tier cap mirror.
-            tierDisplayed: innerStateIsAwaiting ? null : safeTierDisplayed,
-            tierCapReason: innerStateIsAwaiting ? null : safeTierCapReason,
+            tierDisplayed: shouldPreserveExistingMrs
+              ? ((existingWindowMrs!.tier_displayed as any) ?? null)
+              : (innerStateIsAwaiting ? null : safeTierDisplayed),
+            tierCapReason: shouldPreserveExistingMrs
+              ? ((existingWindowMrs!.tier_cap_reason as any) ?? null)
+              : (innerStateIsAwaiting ? null : safeTierCapReason),
             // MRS v3 §3.3 — refined-score split mirror. Falls back to the
             // displayed `innerReadinessScore` when the client didn't forward
             // a baseline (back-compat with older client builds).
-            readinessScoreBaseline: innerStateIsAwaiting ? null : currentBaselineForAnchor,
-            readinessScoreRefined: innerStateIsAwaiting ? null : clientScoreRefined,
-            readinessState: innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline'),
-            refinedContribution: innerStateIsAwaiting ? null : (clientRefinedContribution ?? null),
+            readinessScoreBaseline: shouldPreserveExistingMrs
+              ? (existingWindowMrs!.readiness_score_baseline ?? null)
+              : (innerStateIsAwaiting ? null : currentBaselineForAnchor),
+            readinessScoreRefined: shouldPreserveExistingMrs
+              ? (existingWindowMrs!.readiness_score_refined ?? null)
+              : (innerStateIsAwaiting ? null : clientScoreRefined),
+            readinessState: shouldPreserveExistingMrs
+              ? ((existingWindowMrs!.readiness_state as any) ?? 'baseline')
+              : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
+            refinedContribution: shouldPreserveExistingMrs
+              ? (existingWindowMrs!.refined_contribution ?? null)
+              : (innerStateIsAwaiting ? null : (clientRefinedContribution ?? null)),
             // MRS v4 — window resolution + morning-anchor management.
             // Morning writes the anchor; afternoon/evening leave it
             // untouched (omitted ⇒ existing column value preserved).
