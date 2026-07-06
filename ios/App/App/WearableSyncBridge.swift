@@ -184,6 +184,20 @@ import Security
         }
     }
 
+    /// Foreground/manual fallback used when the JS HealthKit plugin reports
+    /// zero samples. This bypasses HKQueryAnchor short-circuiting so a newly
+    /// granted device can backfill the last 7 days even if observer anchors
+    /// were initialized before Health permissions or watch data were ready.
+    @objc public func forceFetchAndPersist(done: @escaping () -> Void) {
+        guard let token = readKeychain(key: kKeychainTokenKey), !token.isEmpty else {
+            NSLog("[WearableSyncBridge] forceFetchAndPersist: no auth token — skipping")
+            done()
+            return
+        }
+        NSLog("[WearableSyncBridge] forceFetchAndPersist: bypassing anchor probe")
+        fetchAndPersistFull(token: token, done: done)
+    }
+
     private func fetchAndPersistFull(token: String, done: @escaping () -> Void) {
         let endDate = Date()
         let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate) ?? endDate

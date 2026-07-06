@@ -18,6 +18,7 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "updateAuthToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearAuthToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "runNow", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "forceHealthSync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "forceCalendarSync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDiagnostics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPendingOutboxItems", returnType: CAPPluginReturnPromise),
@@ -78,6 +79,12 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
                 "wearableDone": wearableDone,
                 "calendarDone": calendarDone,
             ])
+        }
+    }
+
+    @objc func forceHealthSync(_ call: CAPPluginCall) {
+        WearableSyncBridge.shared.forceFetchAndPersist {
+            call.resolve(["success": true])
         }
     }
 

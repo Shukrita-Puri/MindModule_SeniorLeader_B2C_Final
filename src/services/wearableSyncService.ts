@@ -9,6 +9,7 @@ import { saveWearableDataLocally } from '@/services/localDataStore';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { enqueue as queueEnqueue } from '@/services/syncQueue';
 import { isSimulatedOffline, isSimulatedSyncFailure, consumeSimulatedSyncFailure } from '@/utils/integrationQaHelpers';
+import { forceNativeHealthSync } from '@/utils/nativeBackgroundSync';
 
 const WEARABLE_PERMISSION_KEY = 'healthkit_permission_granted';
 
@@ -333,6 +334,35 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
 
     if (!hasAnyData) {
       console.log('[WearableSync] HealthKit accessible, no samples in 30-day window');
+      await persistWatchStatus({
+        watch_connection_status: 'connected',
+        watch_sync_status: 'sync_delayed',
+        watch_last_sync_at: startedAt,
+        watch_last_sample_at: null,
+        watch_last_error: 'native_healthkit_fallback_triggered',
+        watch_type: 'apple',
+      });
+      const nativeFallbackStarted = await forceNativeHealthSync();
+      if (nativeFallbackStarted) {
+        emitIntegrationEvent({
+          provider: 'apple-health',
+          event: 'sync_partial',
+          connectionState: 'sync_delayed',
+          syncState: 'sync_delayed',
+          errorCode: 'native_healthkit_fallback_triggered',
+        });
+        return {
+          success: true,
+          permissionGranted: true,
+          hasData: false,
+          dbPersisted: true,
+          connectionState: 'sync_delayed',
+          syncStatus: 'sync_delayed',
+          lastSyncAttemptAt: startedAt,
+          errorCode: 'native_healthkit_fallback_triggered',
+        };
+      }
+
       await persistWatchStatus({
         watch_connection_status: 'connected',
         watch_sync_status: 'waiting_for_data',

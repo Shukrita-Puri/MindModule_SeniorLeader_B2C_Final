@@ -33,6 +33,7 @@ interface NativeBackgroundSyncPlugin {
   updateAuthToken(opts: { token: string; expiresAt?: number }): Promise<{ success: boolean }>;
   clearAuthToken(): Promise<{ success: boolean }>;
   runNow(): Promise<{ success: boolean; wearableDone?: boolean; calendarDone?: boolean }>;
+  forceHealthSync(): Promise<{ success: boolean }>;
   forceCalendarSync(): Promise<{ success: boolean }>;
   getDiagnostics(): Promise<NativeOutboxDiagnostics>;
   getPendingOutboxItems(): Promise<{ items: Record<string, NativeOutboxItem[]> }>;
@@ -76,6 +77,17 @@ export async function runNativeBackgroundSyncNow(): Promise<void> {
     console.log('[NativeBackgroundSync] Manual native sync result:', result);
   } catch (err) {
     console.warn('[NativeBackgroundSync] Manual native sync failed:', err);
+  }
+}
+
+export async function forceNativeHealthSync(): Promise<boolean> {
+  if (!isNativeIos()) return false;
+  try {
+    await NativeBackgroundSync.forceHealthSync();
+    return true;
+  } catch (err) {
+    console.warn('[NativeBackgroundSync] forceHealthSync failed:', err);
+    return false;
   }
 }
 
