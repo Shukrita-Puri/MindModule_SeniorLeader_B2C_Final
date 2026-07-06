@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 import { localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
 
 export type MrsWindow = 'morning' | 'afternoon' | 'evening';
@@ -65,22 +66,40 @@ export function useMasteryPlanSnapshot() {
     queryFn: async () => {
       if (!effectiveUserId) return null;
 
-      const { data, error } = await supabase
-        .from('mastery_plan_snapshots')
-        .select(
-          'id, plan_json, horizon_modules, priorities, recommended_practice_ids, plan_ledger, status, error_json, generated_at, input_signature, plan_date, mrs_window, day_kind, horizon_iso, delivered_at, viewed_at',
-        )
-        .eq('user_id', effectiveUserId)
-        .eq('plan_date', planDate)
-        .eq('mrs_window', mrsWindow)
-        .maybeSingle();
+      // Read via authenticated Edge Function — the browser Supabase
+      // client is anon-keyed and RLS on `mastery_plan_snapshots` scopes
+      // by auth.jwt()->>'sub', so a direct read always returns null for
+      // Auth0 users.
+      const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
+      const { data: resp, error } = await supabase.functions.invoke(
+        'get-mastery-plan-snapshot',
+        {
+          body: { planDate, mrsWindow },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        },
+      );
+      const data = (resp as { data?: Record<string, any> | null } | null)?.data ?? null;
 
       if (error) {
         dbg('query error', error.message);
+        // eslint-disable-next-line no-console
+        console.warn('[useMasteryPlanSnapshot] no row', {
+          effectiveUserId,
+          planDate,
+          mrsWindow,
+          error: error.message,
+        });
         return null;
       }
       if (!data) {
         dbg('no snapshot', { effectiveUserId, planDate, mrsWindow });
+        // eslint-disable-next-line no-console
+        console.warn('[useMasteryPlanSnapshot] no row', {
+          effectiveUserId,
+          planDate,
+          mrsWindow,
+          error: null,
+        });
         return null;
       }
 
@@ -108,6 +127,14 @@ export function useMasteryPlanSnapshot() {
         generatedAt: snapshot.generatedAt,
         priorities: snapshot.priorities.length,
         horizonModules: snapshot.horizonModules.length,
+      });
+      // eslint-disable-next-line no-console
+      console.info('[useMasteryPlanSnapshot] loaded', {
+        planDate,
+        mrsWindow,
+        status: snapshot.status,
+        horizonModules: snapshot.horizonModules.length,
+        priorities: snapshot.priorities.length,
       });
 
       return snapshot;
