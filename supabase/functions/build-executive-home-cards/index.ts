@@ -56,6 +56,11 @@ function scoreFromPattern(patternSignals: any): number | null {
   return null;
 }
 
+function weightProvenanceIndicatesAwaiting(weightProvenance: any): boolean {
+  const earned = Array.isArray(weightProvenance?.earned) ? weightProvenance.earned : null;
+  return weightProvenance?.awaiting_signals === true || (earned !== null && earned.length === 0);
+}
+
 async function loadJobConfig(db: any): Promise<ExecutiveHomeCronConfig> {
   try {
     const { data, error } = await db
@@ -650,6 +655,7 @@ async function buildForUser(db: any, args: {
       readinessState: mrs?.readinessState ?? null,
       tier: mrs?.tier ?? null,
       mrsAwaitingSignals: mrs?.mrsAwaitingSignals ?? mrs?.awaitingSignals ?? null,
+      weightProvenance: mrs?.weightProvenance ?? null,
     });
 
     // MRS is only genuinely "ready" when compute-inner-readiness returned
@@ -658,22 +664,31 @@ async function buildForUser(db: any, args: {
     // a malformed/null-scored payload still marked the run ready and then
     // caused compute-outer-readiness to mirror NULL/awaiting into
     // daily_context_snapshot.
+    const mrsWeightProvenanceAwaiting = weightProvenanceIndicatesAwaiting(mrs?.weightProvenance ?? null);
     const mrsIsReady =
       !!mrs &&
       mrs.readinessState !== "awaiting" &&
       typeof mrs.score === "number" &&
-      typeof mrs.scoreBaseline === "number";
+      typeof mrs.scoreBaseline === "number" &&
+      mrs.mrsAwaitingSignals !== true &&
+      mrs.awaitingSignals !== true &&
+      !mrsWeightProvenanceAwaiting;
+    const mrsIsAwaiting =
+      mrs?.readinessState === "awaiting" ||
+      mrs?.mrsAwaitingSignals === true ||
+      mrs?.awaitingSignals === true ||
+      mrsWeightProvenanceAwaiting;
     mrsStatus = mrsIsReady
       ? "ready"
-      : mrs?.readinessState === "awaiting"
+      : mrsIsAwaiting
         ? "awaiting"
         : "awaiting_no_score";
 
     const hasStageOneSignal = mrsIsReady;
     const brief = await callFunction("compute-outer-readiness", {
       userId,
-      innerReadinessTier: mrs?.tier ?? null,
-      innerReadinessScore: mrs?.score ?? null,
+      innerReadinessTier: mrsIsReady ? (mrs?.tier ?? null) : null,
+      innerReadinessScore: mrsIsReady ? (mrs?.score ?? null) : null,
       clarityLevel: checkin?.clarity_level ?? null,
       confidenceLevel: checkin?.confidence_level ?? null,
       emotionLevel: checkin?.emotion_level ?? null,
@@ -683,12 +698,12 @@ async function buildForUser(db: any, args: {
       timezoneOffset: offset,
       currentTimezone: effectiveTimezone,
       homeTimezone,
-      tierDisplayed: mrs?.tierDisplayed ?? mrs?.tier ?? null,
-      tierCapReason: mrs?.tierCapReason ?? null,
-      innerReadinessScoreBaseline: mrs?.scoreBaseline ?? null,
-      innerReadinessScoreRefined: mrs?.scoreRefined ?? null,
-      innerReadinessState: mrs?.readinessState ?? "awaiting",
-      innerReadinessRefinedContribution: mrs?.refinedContribution ?? null,
+      tierDisplayed: mrsIsReady ? (mrs?.tierDisplayed ?? mrs?.tier ?? null) : null,
+      tierCapReason: mrsIsReady ? (mrs?.tierCapReason ?? null) : null,
+      innerReadinessScoreBaseline: mrsIsReady ? (mrs?.scoreBaseline ?? null) : null,
+      innerReadinessScoreRefined: mrsIsReady ? (mrs?.scoreRefined ?? null) : null,
+      innerReadinessState: mrsIsReady ? (mrs?.readinessState ?? "baseline") : "awaiting",
+      innerReadinessRefinedContribution: mrsIsReady ? (mrs?.refinedContribution ?? null) : null,
       weightProvenance: mrs?.weightProvenance ?? null,
     }, userId);
     briefStatus = brief?.awaitingSignals ? "awaiting" : "ready";
