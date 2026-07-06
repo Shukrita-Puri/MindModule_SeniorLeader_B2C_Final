@@ -6536,26 +6536,44 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           && (confidenceLevel != null && confidenceLevel >= 4),
         sleepUnread: sleepDuration == null && sleepScoreVal == null,
       },
-      // Echo inner readiness so client doesn't need a separate computeEnergyState call
-      // When the current period is awaiting signals we MUST suppress these
-      // period-sensitive surfaced fields. Otherwise the UI re-uses an older
-      // check-in's score/outcome from earlier in the day and the Brief looks
-      // "live" when it should read awaiting.
-      innerReadinessScore: (awaitingSignals || innerStateIsAwaiting) ? null : innerReadinessScore,
-      innerReadinessTier: (awaitingSignals || innerStateIsAwaiting) ? null : safeTier,
-      // MRS v3 — echo the soft-guard displayed tier + reason so the UI
-      // renders the cap without a second round trip. Suppressed in the
-      // awaiting-signals window for the same reason as innerReadinessTier.
-      innerReadinessTierDisplayed: (awaitingSignals || innerStateIsAwaiting) ? null : safeTierDisplayed,
-      innerReadinessTierCapReason: (awaitingSignals || innerStateIsAwaiting) ? null : safeTierCapReason,
-      // MRS v3 §3.3 — refined-score split echo. Suppressed when awaiting
-      // signals for the same reason as the tier/score fields above.
-      innerReadinessScoreBaseline: (awaitingSignals || innerStateIsAwaiting) ? null : effectiveBaselineScore,
-      innerReadinessScoreRefined: (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreRefined,
-      innerReadinessState: awaitingSignals
-        ? null
-        : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline')),
-      innerReadinessRefinedContribution: (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? null),
+      // Echo inner readiness so client doesn't need a separate computeEnergyState call.
+      // Uses the canonical MRS payload so a preserved existing MRS row can
+      // never be undercut by a stale/awaiting incoming score in the echo.
+      // When there is genuinely no canonical score (fully awaiting), we
+      // suppress the period-sensitive fields exactly as before so the UI
+      // doesn't re-use an older check-in's score/outcome.
+      innerReadinessScore: (() => {
+        if (typeof canonicalInnerScore === 'number') return canonicalInnerScore;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : innerReadinessScore;
+      })(),
+      innerReadinessTier: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalTier != null) return canonicalTier;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : safeTier;
+      })(),
+      innerReadinessTierDisplayed: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalTierDisplayed != null) return canonicalTierDisplayed;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : safeTierDisplayed;
+      })(),
+      innerReadinessTierCapReason: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs') return canonicalTierCapReason;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : safeTierCapReason;
+      })(),
+      innerReadinessScoreBaseline: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalScoreBaseline != null) return canonicalScoreBaseline;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : effectiveBaselineScore;
+      })(),
+      innerReadinessScoreRefined: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs') return canonicalScoreRefined;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : clientScoreRefined;
+      })(),
+      innerReadinessState: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs' && canonicalReadinessState != null) return canonicalReadinessState;
+        return awaitingSignals ? null : (innerStateIsAwaiting ? 'awaiting' : (clientReadinessState ?? 'baseline'));
+      })(),
+      innerReadinessRefinedContribution: (() => {
+        if (canonicalScoreSource === 'preserved_existing_mrs') return canonicalRefinedContribution;
+        return (awaitingSignals || innerStateIsAwaiting) ? null : (clientRefinedContribution ?? null);
+      })(),
       // MRS V4 — explicit eligibility contract. Frontend MUST prefer this
       // over deriving state from individual fields. See helper definition
       // near `wearableFreshForGate` for the rule table.
