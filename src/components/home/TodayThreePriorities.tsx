@@ -279,7 +279,17 @@ const TodayThreePriorities = ({
   const snapshotAwaiting =
     mrsSnapshot?.readinessState === 'awaiting' ||
     mrsSnapshot?.status === 'awaiting';
-  const cardsAwaiting = isCardsAwaitingPayload(outerReadinessData) || snapshotAwaiting;
+  // MRS snapshot is the authoritative readiness signal for Plan generation.
+  // When a ready current-window MRS snapshot exists, do NOT let stale
+  // outerReadinessData awaiting-cache veto Plan generation.
+  const mrsReadyForPlan =
+    !!mrsSnapshot?.isRenderable &&
+    mrsSnapshot.readinessState !== 'awaiting' &&
+    typeof mrsSnapshot.score === 'number';
+  const outerAwaiting = isCardsAwaitingPayload(outerReadinessData);
+  const cardsAwaiting = mrsReadyForPlan
+    ? snapshotAwaiting
+    : (outerAwaiting || snapshotAwaiting);
   const forceRefreshKey = cacheKeys.planForceRefresh(todayForPlan, periodForPlan);
   const hasPlanForceRefresh = (() => {
     try {
