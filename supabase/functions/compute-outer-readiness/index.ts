@@ -5358,6 +5358,29 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       };
     } | null = null;
 
+    // Canonical MRS payload — populated inside the daily_context_snapshot
+    // mirror below and reused by brief_snapshots + response echo so MRS
+    // and Brief cannot diverge (e.g. MRS=78 vs Brief=50). When we preserve
+    // an existing ready daily_context_snapshot row over an awaiting /
+    // lower-quality incoming payload, the same preserved score/tier/state
+    // must flow into brief_snapshots and the client echo. Hoisted to the
+    // request-handler scope so it is visible from the `result` builder
+    // below (which lives outside the cache-miss `if` and mirror `try`).
+    let canonicalInnerScore: number | null =
+      typeof innerReadinessScore === 'number' ? innerReadinessScore : null;
+    let canonicalTier: any = safeTier ?? null;
+    let canonicalTierDisplayed: any = safeTierDisplayed ?? null;
+    let canonicalTierCapReason: any = safeTierCapReason ?? null;
+    let canonicalScoreBaseline: number | null =
+      typeof effectiveBaselineScore === 'number' ? effectiveBaselineScore : null;
+    let canonicalScoreRefined: number | null =
+      typeof clientScoreRefined === 'number' ? clientScoreRefined : null;
+    let canonicalReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
+      clientReadinessState ?? null;
+    let canonicalRefinedContribution: number | null =
+      typeof clientRefinedContribution === 'number' ? clientRefinedContribution : null;
+    let canonicalScoreSource: 'incoming' | 'preserved_existing_mrs' = 'incoming';
+
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
         // ── MRS v2 Phase B: hydrate pattern signals + resilience inputs ─────
