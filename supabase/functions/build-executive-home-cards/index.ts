@@ -710,6 +710,8 @@ async function buildForUser(db: any, args: {
       timezoneOffset: offset,
       currentTimezone: effectiveTimezone,
       homeTimezone,
+      localDate,
+      mrsWindow: window,
       tierDisplayed: mrsIsReady ? (mrs?.tierDisplayed ?? mrs?.tier ?? null) : null,
       tierCapReason: mrsIsReady ? (mrs?.tierCapReason ?? null) : null,
       innerReadinessScoreBaseline: mrsIsReady ? (mrs?.scoreBaseline ?? null) : null,
