@@ -45,7 +45,7 @@ for future consolidation — see the "Consolidation note" below.
 | Travel-context omission | `body_omits_material_travel_context` — when `materialTravelContextActive`, body must include a `MATERIAL_TRAVEL_BODY_RX` marker. |
 | Material work-context omission | `body_omits_material_work_context` — when material travel is active AND today has named work events, body must reference ≥1 significant token from those event titles. |
 | Band-gate valence | `body_prescribes_score_improvement` · `body_valence_mismatch_low_push` · `body_valence_mismatch_high_protect` — deterministic tone check against MRS band. |
-| Four-beat structural fingerprint | Word band, work-directive verb, self-regulation closing clause (see `validateBodyFourBeatStructure` in `_shared/brief-validators.ts` — the STRUCTURAL rules are duplicated conceptually inside the inline validator's body-length + one-line-read + repeated-4gram gates). |
+| Four-beat structural fingerprint | A cleaner structural implementation exists in `_shared/brief-validators.ts` (`validateBodyFourBeatStructure`), but that module is **not** the authoritative production gate. The live inline validator in `compute-outer-readiness/index.ts` approximates the same fingerprint via body-length, one-line-read, and repeated-4gram gates. |
 | One-line score-read echoes | `body_restates_one_line_read` — body cannot restate any of the 5 canonical MRS one-line reads. |
 | Numeric score / tier restatement | `body_restates_score_xx_100` · `body_restates_score_phrase` · `body_restates_tier_label`. |
 | Metric-list bodies | `body_metric_list_N` — ≥2 metric qualifiers in close proximity. |
