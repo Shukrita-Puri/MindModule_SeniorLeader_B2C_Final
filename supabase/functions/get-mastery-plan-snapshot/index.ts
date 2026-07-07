@@ -68,12 +68,16 @@ serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
+    // Canonical day plan: the morning row is the day's plan. Afternoon /
+    // evening callers read the same morning snapshot so the plan stays
+    // stable across the day (see plan doc: cron-written snapshot-read model).
+    const CANONICAL_WINDOW = 'morning' as const;
     const { data, error } = await db
       .from('mastery_plan_snapshots')
       .select(SELECT_COLUMNS)
       .eq('user_id', userId)
       .eq('plan_date', planDate)
-      .eq('mrs_window', mrsWindow)
+      .eq('mrs_window', CANONICAL_WINDOW)
       .maybeSingle();
 
     if (error) {
@@ -84,10 +88,18 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data: data ?? null }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.log(
+      `[get-mastery-plan-snapshot] requested=${mrsWindow} canonical=${CANONICAL_WINDOW} planDate=${planDate} found=${!!data}`,
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: data ?? null,
+        source: { canonicalWindow: CANONICAL_WINDOW, requestedWindow: mrsWindow },
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   } catch (err) {
     console.error('[get-mastery-plan-snapshot] fatal:', (err as Error)?.message);
     return new Response(JSON.stringify({ error: 'Internal error' }), {
