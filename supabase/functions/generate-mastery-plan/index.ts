@@ -658,6 +658,23 @@ interface PlanRequest {
   todayCheckinId?: string | null;
   mrsReadinessState?: 'baseline' | 'refined' | 'awaiting' | null;
   mrsReadinessScore?: number | null;
+  /**
+   * Explicit target window for persistence + gating. Set by the Executive
+   * Home orchestrator (`build-executive-home-cards`) so a manual refresh
+   * or backfill for `afternoon` always writes into the `afternoon` row,
+   * regardless of the wall-clock at execution time. When omitted (legacy
+   * clients), the handler falls back to `getTimeOfDay(timezoneOffset)`.
+   */
+  timeWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  /**
+   * Strict Brief↔Plan handshake. When true, the Plan MUST reason over the
+   * same-window persisted Brief behaviour snapshot (or the inline snapshot
+   * from the same orchestrator request). A missing/stale snapshot returns
+   * an awaiting envelope instead of silently rebuilding behaviour flags
+   * locally. Set by `build-executive-home-cards`; unset by legacy callers
+   * that still want the local fallback.
+   */
+  strictBriefHandshake?: boolean;
   selectedCalendarEventIds?: string[];
   /**
    * Per-slot replacement map (preferred over `selectedCalendarEventIds`).
