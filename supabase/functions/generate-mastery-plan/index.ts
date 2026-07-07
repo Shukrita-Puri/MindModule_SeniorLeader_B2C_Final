@@ -2742,7 +2742,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   if (profileRes.data) {
     req.practicePriorityTag = profileRes.data.practice_priority_tag || '';
     req.pressureContextTag = profileRes.data.pressure_context_tag || '';
-    req.archetype = profileRes.data.archetype || '';
+    req.archetype = (profileRes.data as any).user_archetype || '';
     req.componentScores = profileRes.data.component_scores || null;
   }
 
