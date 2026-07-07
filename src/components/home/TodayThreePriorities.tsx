@@ -942,7 +942,7 @@ const TodayThreePriorities = ({
         setFetchFailed(true);
         setLoading(false);
         // Auto-retry once after 3s if not already tried
-        if (!autoRetryDoneRef.current) {
+        if (!autoRetryDoneRef.current && !HOME_SNAPSHOT_ONLY) {
           autoRetryDoneRef.current = true;
           setTimeout(() => { loadPlan(); }, 3000);
         }
