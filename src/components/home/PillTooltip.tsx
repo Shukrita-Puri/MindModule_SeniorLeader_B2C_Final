@@ -19,6 +19,23 @@ type PillTier = 'green' | 'amber' | 'red' | 'neutral';
 
 import { formatDisplayValue, isUnsafeObjectText } from '@/utils/safeDisplayValue';
 
+/**
+ * Pill keys whose "expected missing" fallback rows can create a
+ * contradictory display when the tier is positive but no real contributor
+ * values exist (e.g. tier="Body Steady" while every row reads "No data
+ * available"). For these pills, when the tier is non-neutral but zero
+ * displayable contributor rows resolve, we render a single neutral line
+ * instead of a wall of fake missing rows.
+ */
+const NEUTRAL_FALLBACK_ON_EMPTY: Record<
+  'decision_readiness' | 'physical_reserves' | 'resilience_capacity',
+  string
+> = {
+  decision_readiness: 'Mind detail not available for this reading.',
+  physical_reserves: 'Body detail not available for this reading.',
+  resilience_capacity: 'Reserve detail not available for this reading.',
+};
+
 export interface PillTooltipPill {
   key: 'decision_readiness' | 'physical_reserves' | 'resilience_capacity';
   label: string;
@@ -273,11 +290,17 @@ export default function PillDetailContent({
   type Row = { key: string; label: string; value?: string; qualifier?: string };
   const rows: Row[] = [];
   const seenRows = new Set<string>();
+  const contributorKeysPresent: string[] = [];
+  const contributorKeysSuppressed: string[] = [];
 
   // 1) Real contributors echoed by the server — humanised, suppressed if legacy.
   for (const [k, raw] of Object.entries(pill.contributors ?? {})) {
     if (raw == null) continue;
-    if (SUPPRESS.has(k)) continue;
+    contributorKeysPresent.push(k);
+    if (SUPPRESS.has(k)) {
+      contributorKeysSuppressed.push(k);
+      continue;
+    }
     const spec = CONTRIBUTORS[k];
     const label = spec?.label ?? titleCase(k);
     let value: string | undefined;
@@ -303,16 +326,44 @@ export default function PillDetailContent({
     seenRows.add(mr.key);
   }
 
+  // Row 1/2 above only counts rows backed by REAL contributor evidence.
+  const realRowCount = rows.length;
+  const nonNeutralTier = pill.tier !== 'neutral';
+  // When the pill claims a non-neutral tier (e.g. "Body Steady") but no
+  // displayable contributor rows resolved, do NOT paint the expected-missing
+  // rows underneath — that reads as "positive label backed by nothing".
+  // Render a single neutral explanatory line instead.
+  const useNeutralFallback = nonNeutralTier && realRowCount === 0;
+
   // 3) Expected-but-missing rows. Missing signals should be visible to the
   // user; they reduce confidence instead of silently disappearing.
-  for (const expected of EXPECTED_CONTRIBUTORS[pill.key] ?? []) {
-    if (seenRows.has(expected.key)) continue;
-    rows.push({
-      key: `missing_${expected.key}`,
-      label: expected.label,
-      value: expected.missing,
-    });
+  if (!useNeutralFallback) {
+    for (const expected of EXPECTED_CONTRIBUTORS[pill.key] ?? []) {
+      if (seenRows.has(expected.key)) continue;
+      rows.push({
+        key: `missing_${expected.key}`,
+        label: expected.label,
+        value: expected.missing,
+      });
+    }
   }
+
+  // Diagnostics — helps trace tier/contributor disagreements from the browser.
+  // No PII; keys only.
+  try {
+    // eslint-disable-next-line no-console
+    console.log('[pill-detail]', {
+      key: pill.key,
+      tier: pill.tier,
+      tierLabel: pill.tierLabel,
+      isScoreBearing: pill.isScoreBearing ?? null,
+      hiddenReason: pill.hiddenReason ?? null,
+      contributorKeysPresent,
+      contributorKeysSuppressed,
+      displayableRowCount: realRowCount,
+      useNeutralFallback,
+    });
+  } catch {}
 
   return (
     <div className="flex flex-col gap-3">
@@ -326,7 +377,11 @@ export default function PillDetailContent({
           </span>
         )}
       </div>
-      {rows.length > 0 ? (
+      {useNeutralFallback ? (
+        <span className="text-xs text-muted-foreground/70 font-body italic">
+          {NEUTRAL_FALLBACK_ON_EMPTY[pill.key] ?? 'Detail not available for this reading.'}
+        </span>
+      ) : rows.length > 0 ? (
         <ul className="space-y-1.5">
           {rows.map((row) => (
             <li
