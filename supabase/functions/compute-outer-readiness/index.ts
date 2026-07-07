@@ -6610,7 +6610,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } catch {}
             return payload;
           })(), { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' })
-          .select('id')
+          .select('id, phrase, body_text, brief_source')
           .maybeSingle();
         if (upsertError) {
           console.error('[brief-cache] Snapshot write failed:', upsertError.message);
@@ -6633,9 +6633,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               timeWindow: getTimeOfDay(hour),
               ok: true,
               briefId: resolvedBriefId,
-              briefSource: effectiveBriefSource,
-              hasPhrase: !!persistPhrase,
-              hasBodyText: !!persistBody,
+              // Values echoed BACK from the row we just wrote. These are the
+              // generated-column values (COALESCE refined → baseline) that a
+              // subsequent get-current-brief-snapshot read will see.
+              storedPhrase: (upsertRow as any)?.phrase ?? null,
+              storedBodyText: (upsertRow as any)?.body_text ?? null,
+              storedBriefSource: (upsertRow as any)?.brief_source ?? null,
+              intendedBriefSource: effectiveBriefSource,
+              intendedPhrase: persistPhrase,
+              intendedBody: persistBody,
               overwriteDecision,
             }));
           } catch {}
