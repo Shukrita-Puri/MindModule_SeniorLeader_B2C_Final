@@ -665,6 +665,45 @@ const TodayThreePriorities = ({
     prevCompletedIdsRef.current = completedPracticeIds;
   }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
 
+  // Shared payload builder — single source of truth for both the normal
+  // `loadPlan()` generation path and the manual recovery CTA. Keeping one
+  // builder guarantees the manual button sends the same effective generation
+  // context (check-in id, outer-readiness cache, behaviour snapshot, MRS
+  // readiness, per-slot replacements) as the normal flow.
+  const buildGeneratePlanRequestBody = useCallback((opts: {
+    localDate: string;
+    todayCheckinId: string | null;
+    forceRefresh: boolean;
+    slotReplacements?: Record<string, { eventId: string }>;
+  }) => {
+    const body: any = {
+      timezoneOffset: new Date().getTimezoneOffset(),
+      forceRefresh: opts.forceRefresh,
+      localDate: opts.localDate,
+      todayCheckinId: opts.todayCheckinId,
+      mrsReadinessState:
+        mrsSnapshot?.readinessState ??
+        (outerReadinessData as any)?.innerReadinessState ?? null,
+      mrsReadinessScore:
+        (typeof mrsSnapshot?.score === 'number' ? mrsSnapshot.score : null) ??
+        (outerReadinessData as any)?.innerReadinessScore ?? null,
+    };
+    if (opts.slotReplacements && Object.keys(opts.slotReplacements).length > 0) {
+      body.slotReplacements = opts.slotReplacements;
+    }
+    if (outerReadinessData?.phrase) {
+      body.outerReadinessCache = {
+        phrase: outerReadinessData.phrase,
+        context: outerReadinessData.context,
+        leanOn: outerReadinessData.leanOn,
+        watchFor: outerReadinessData.watchFor,
+        driver: outerReadinessData.driver,
+        behaviourSnapshot: (outerReadinessData as any)?.behaviourSnapshot ?? null,
+      };
+    }
+    return body;
+  }, [mrsSnapshot, outerReadinessData]);
+
   // ── Manual recovery: user-triggered plan generation when snapshot missing ──
   const handleManualGenerate = useCallback(async () => {
     if (manualGenerating) return;
@@ -679,17 +718,28 @@ const TodayThreePriorities = ({
       const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
+      // Use the same payload contract as the normal generator path so
+      // manual recovery reasons over identical context (today's check-in,
+      // cached outer-readiness brief, behaviour snapshot, MRS readiness).
+      const todayCheckin = await getLatestTodayCheckin().catch(() => null);
+      const requestBody = buildGeneratePlanRequestBody({
+        localDate: todayForPlan,
+        todayCheckinId: todayCheckin?.id ?? null,
+        forceRefresh: true,
+      });
+      console.log('[plan-snapshot][manual-generate] payload-fields', {
+        fields: Object.keys(requestBody).sort(),
+        hasOuterReadinessCache: !!requestBody.outerReadinessCache,
+        outerReadinessCacheFields: requestBody.outerReadinessCache
+          ? Object.keys(requestBody.outerReadinessCache).sort()
+          : [],
+        hasTodayCheckinId: !!requestBody.todayCheckinId,
+        mrsReadinessState: requestBody.mrsReadinessState,
+        mrsReadinessScorePresent: typeof requestBody.mrsReadinessScore === 'number',
+      });
       const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
         headers,
-        body: {
-          timezoneOffset: new Date().getTimezoneOffset(),
-          forceRefresh: true,
-          localDate: todayForPlan,
-          mrsReadinessState: mrsSnapshot?.readinessState ?? null,
-          mrsReadinessScore:
-            typeof mrsSnapshot?.score === 'number' ? mrsSnapshot.score : null,
-          manualRecovery: true,
-        },
+        body: requestBody,
       });
       if (error || !data) {
         console.error('[plan-snapshot][manual-generate] failed', error);
@@ -715,7 +765,7 @@ const TodayThreePriorities = ({
     } finally {
       setManualGenerating(false);
     }
-  }, [manualGenerating, effectiveUserId, todayForPlan, periodForPlan, mrsReadyForPlan, mrsSnapshot, queryClient]);
+  }, [manualGenerating, effectiveUserId, todayForPlan, periodForPlan, mrsReadyForPlan, mrsSnapshot, queryClient, buildGeneratePlanRequestBody]);
 
   // ── Load plan ──
   const loadPlan = useCallback(async (opts?: {
