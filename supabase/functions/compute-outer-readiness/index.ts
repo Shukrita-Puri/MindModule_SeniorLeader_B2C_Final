@@ -6487,7 +6487,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             };
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
-          .upsert({
+          .upsert(((): Record<string, unknown> => {
+            const payload: Record<string, unknown> = {
             user_id: userId,
             local_date: userLocalDate,
             time_window: getTimeOfDay(hour),
@@ -6588,13 +6589,56 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               consecutiveLowClarity,
             },
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' })
+            };
+            try {
+              console.log('[compute-outer-readiness][brief-snapshot-write]', JSON.stringify({
+                userId,
+                localDate: userLocalDate,
+                timeWindow: getTimeOfDay(hour),
+                briefSource: effectiveBriefSource,
+                incomingBriefSource: briefSource,
+                phrase: persistPhrase,
+                bodyText: persistBody,
+                leanOn: persistLeanOn,
+                watchFor: persistWatchFor,
+                suppressBriefCopy,
+                suppressScorePayload,
+                hasAcceptedBriefCopy,
+                overwriteDecision,
+                isRefinedWrite,
+              }));
+            } catch {}
+            return payload;
+          })(), { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' })
           .select('id')
           .maybeSingle();
         if (upsertError) {
           console.error('[brief-cache] Snapshot write failed:', upsertError.message);
+          try {
+            console.error('[compute-outer-readiness][brief-snapshot-written]', JSON.stringify({
+              userId,
+              localDate: userLocalDate,
+              timeWindow: getTimeOfDay(hour),
+              ok: false,
+              error: upsertError.message,
+              briefSource: effectiveBriefSource,
+            }));
+          } catch {}
         } else {
           resolvedBriefId = (upsertRow as any)?.id ?? null;
+          try {
+            console.log('[compute-outer-readiness][brief-snapshot-written]', JSON.stringify({
+              userId,
+              localDate: userLocalDate,
+              timeWindow: getTimeOfDay(hour),
+              ok: true,
+              briefId: resolvedBriefId,
+              briefSource: effectiveBriefSource,
+              hasPhrase: !!persistPhrase,
+              hasBodyText: !!persistBody,
+              overwriteDecision,
+            }));
+          } catch {}
           console.log('[brief-cache] Result:', JSON.stringify({
             snapshotHit: false,
             briefId: resolvedBriefId,
