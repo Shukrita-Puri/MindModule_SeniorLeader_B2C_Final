@@ -1159,6 +1159,22 @@ const TodayThreePriorities = ({
       setSnapshotMissingReady(false);
       setPlan(null);
       setLoading(false);
+      console.info('[plan-card][hydrate:decision]', {
+        planDate: todayForPlan,
+        requestedWindow: periodForPlan,
+        snapshotExists: !!masteryPlanSnapshot,
+        snapshotStatus: masteryPlanSnapshot?.status ?? null,
+        snapshotWindow: masteryPlanSnapshot?.mrsWindow ?? null,
+        hasPlanJson: !!(masteryPlanSnapshot?.planJson),
+        horizonModuleCount: Array.isArray((masteryPlanSnapshot?.planJson as any)?.horizonModules)
+          ? ((masteryPlanSnapshot!.planJson as any).horizonModules as unknown[]).length
+          : 0,
+        mrsReadyForPlan,
+        cardsAwaiting,
+        hasPlanForceRefresh,
+        action: 'show_awaiting',
+        reason: 'cards-awaiting',
+      });
       return;
     }
 
@@ -1179,6 +1195,20 @@ const TodayThreePriorities = ({
 
     if (!hydratedFromSnapshotRef.current && !hasPlanForceRefresh && planSnapshotRenderable) {
       hydratedFromSnapshotRef.current = true;
+      console.info('[plan-card][hydrate:decision]', {
+        planDate: todayForPlan,
+        requestedWindow: periodForPlan,
+        snapshotExists: true,
+        snapshotStatus: snap!.status,
+        snapshotWindow: snap!.mrsWindow,
+        hasPlanJson: true,
+        horizonModuleCount: planHorizonModules.length,
+        mrsReadyForPlan,
+        cardsAwaiting,
+        hasPlanForceRefresh,
+        action: 'hydrate_snapshot',
+        reason: 'ready-current-window',
+      });
       (async () => {
         try {
           const stripped = stripCoachFromPlan(planJson as unknown as MasteryPlanResponse)!;
@@ -1264,7 +1294,43 @@ const TodayThreePriorities = ({
         setAwaitingSignals(snapAwaiting || !canRecover);
         setSnapshotMissingReady(canRecover);
         setLoading(false);
+        console.info('[plan-card][hydrate:decision]', {
+          planDate: todayForPlan,
+          requestedWindow: periodForPlan,
+          snapshotExists: !!snap,
+          snapshotStatus: snap?.status ?? null,
+          snapshotWindow: snap?.mrsWindow ?? null,
+          hasPlanJson: !!planJson,
+          horizonModuleCount: planHorizonModules.length,
+          mrsReadyForPlan,
+          cardsAwaiting,
+          hasPlanForceRefresh,
+          action: canRecover ? 'show_manual_generate' : (snap ? 'reject_snapshot' : 'show_awaiting'),
+          reason: !snap
+            ? 'no-snapshot'
+            : !planJson
+              ? 'missing-plan-json'
+              : snap.status !== 'ready'
+                ? `non-ready-status:${snap.status}`
+                : planHorizonModules.length === 0
+                  ? 'empty-horizon-modules'
+                  : 'unknown',
+        });
       } else {
+        console.info('[plan-card][hydrate:decision]', {
+          planDate: todayForPlan,
+          requestedWindow: periodForPlan,
+          snapshotExists: !!snap,
+          snapshotStatus: snap?.status ?? null,
+          snapshotWindow: snap?.mrsWindow ?? null,
+          hasPlanJson: !!planJson,
+          horizonModuleCount: planHorizonModules.length,
+          mrsReadyForPlan,
+          cardsAwaiting,
+          hasPlanForceRefresh,
+          action: 'fallback_live_generate',
+          reason: hasPlanForceRefresh ? 'force-refresh' : 'snapshot-only-off',
+        });
         loadPlan({ silent: initialCachedRef.current });
       }
     }
@@ -1278,6 +1344,53 @@ const TodayThreePriorities = ({
   }, [user?.id, outerReadinessData, masteryPlanSnapshot, mrsSnapshot, hasPlanForceRefresh]);
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
+
+  // ── Structured render:final log ──
+  // Fires only when the rendered source/state actually transitions.
+  const lastRenderFinalRef = useRef<string>('');
+  useEffect(() => {
+    const source: 'snapshot' | 'live' | 'awaiting' | 'manual-generate' | 'empty' =
+      snapshotMissingReady && !plan
+        ? 'manual-generate'
+        : awaitingSignals
+          ? 'awaiting'
+          : plan && hydratedFromSnapshotRef.current
+            ? 'snapshot'
+            : plan
+              ? 'live'
+              : 'empty';
+    const renderedModuleCount = plan?.horizonModules?.length ?? 0;
+    const sig = [
+      source,
+      masteryPlanSnapshot?.status ?? 'none',
+      masteryPlanSnapshot?.mrsWindow ?? 'none',
+      renderedModuleCount,
+      awaitingSignals ? 1 : 0,
+      snapshotMissingReady ? 1 : 0,
+      loading ? 1 : 0,
+      fetchFailed ? 1 : 0,
+    ].join('|');
+    if (sig === lastRenderFinalRef.current) return;
+    lastRenderFinalRef.current = sig;
+    console.info('[plan-card][render:final]', {
+      source,
+      snapshotStatus: masteryPlanSnapshot?.status ?? null,
+      snapshotWindow: masteryPlanSnapshot?.mrsWindow ?? null,
+      renderedModuleCount,
+      awaitingSignals,
+      snapshotMissingReady,
+      loading,
+      fetchFailed,
+    });
+  }, [
+    plan,
+    awaitingSignals,
+    snapshotMissingReady,
+    loading,
+    fetchFailed,
+    masteryPlanSnapshot?.status,
+    masteryPlanSnapshot?.mrsWindow,
+  ]);
 
   useEffect(() => {
     const snapshotId = masteryPlanSnapshot?.id ?? null;

@@ -66,6 +66,12 @@ export function useMasteryPlanSnapshot() {
     queryFn: async () => {
       if (!effectiveUserId) return null;
 
+      console.info('[plan-snapshot][fetch:start]', {
+        effectiveUserId,
+        planDate,
+        requestedWindow: mrsWindow,
+      });
+
       // Read via authenticated Edge Function — the browser Supabase
       // client is anon-keyed and RLS on `mastery_plan_snapshots` scopes
       // by auth.jwt()->>'sub', so a direct read always returns null for
@@ -87,21 +93,22 @@ export function useMasteryPlanSnapshot() {
 
       if (error) {
         dbg('query error', error.message);
-        // eslint-disable-next-line no-console
-        console.warn('[useMasteryPlanSnapshot] no row', {
+        console.warn('[plan-snapshot][fetch:error]', {
           effectiveUserId,
           planDate,
+          requestedWindow: mrsWindow,
           error: error.message,
         });
         return null;
       }
       if (!data) {
         dbg('no snapshot', { effectiveUserId, planDate });
-        // eslint-disable-next-line no-console
-        console.warn('[useMasteryPlanSnapshot] no row', {
+        console.info('[plan-snapshot][fetch:empty]', {
           effectiveUserId,
           planDate,
-          error: null,
+          requestedWindow: mrsWindow,
+          sourceStrategy: source?.strategy ?? null,
+          selectedWindow: source?.selectedWindow ?? null,
         });
         return null;
       }
@@ -131,17 +138,20 @@ export function useMasteryPlanSnapshot() {
         priorities: snapshot.priorities.length,
         horizonModules: snapshot.horizonModules.length,
       });
-      // eslint-disable-next-line no-console
-      console.info('[useMasteryPlanSnapshot] loaded', {
+      console.info('[plan-snapshot][fetch:response]', {
+        effectiveUserId,
         planDate,
+        requestedWindow: mrsWindow,
+        sourceStrategy: source?.strategy ?? null,
+        selectedWindow: snapshot.mrsWindow,
+        found: true,
+        snapshotId: snapshot.id,
         status: snapshot.status,
-        horizonModules: snapshot.horizonModules.length,
-        priorities: snapshot.priorities.length,
+        generatedAt: snapshot.generatedAt,
+        horizonModulesCount: snapshot.horizonModules.length,
+        prioritiesCount: snapshot.priorities.length,
+        hasPlanJson: !!snapshot.planJson,
       });
-      // eslint-disable-next-line no-console
-      console.log(
-        `[plan-snapshot][render] source=snapshot strategy=${source?.strategy ?? 'unknown'} planDate=${planDate} requestedWindow=${mrsWindow} selectedWindow=${snapshot.mrsWindow} generatedAt=${snapshot.generatedAt ?? 'n/a'} status=${snapshot.status} found=true`,
-      );
 
       return snapshot;
     },
