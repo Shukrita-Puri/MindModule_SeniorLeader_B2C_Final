@@ -295,16 +295,11 @@ BODY
     • one of these approved state-quality words:
       recovery, sleep, rested, fatigued, sharp, foggy, drained, steady,
       compressed, elevated, shifted, heavy, light, loaded.
-- Include at least one concept from ONE of these lexicon clusters:
-    • Cognition: intelligence, cognition, decision power, mental bandwidth,
-      sharpness, sharp, clarity.
-    • Physiology: physiology, stamina, drive, recovery, restoration, body,
-      heart rate, preparation.
-    • Resilience: resilience, stability, composure, buffer, executive
-      presence, diplomatic shield, release.
-    • Executive context: board, conference, pitch, negotiation, travel,
-      landing, back-to-back, compressed, decisions, density, re-entry,
-      offsite, presentation, high-stakes, governance.
+- The body MUST contain at least one literal concept from ONE of these Elastic Lexicon clusters. The word (or its listed form) must appear in the body text; do not rely on a near-synonym or paraphrase.
+    • Cognition: mind, sharpness, clarity, decision power, mental bandwidth.
+    • Physiology: body, recovery, stamina, drive, physiology.
+    • Resilience: composure, buffer, stability, executive presence, resilience.
+    • Executive context: board, conference, travel, negotiation, high-stakes, governance, presentation.
 - Never use the banned abstract phrases: "hold the base", "mask the surge",
   "optimise/optimize the window", "leverage your physiological runway",
   "come down clean".
@@ -315,9 +310,24 @@ LEAN ON / WATCH FOR
 - Return valid non-empty arrays.
 - \`source\` must be one of exactly: ARCHETYPE, COACH, PATTERN, GOALS
   (uppercase, no other values).
-- Do not repeat body text verbatim inside a signal.
-- Avoid generic trait labels (Self-Awareness, Self-Honesty, Discernment,
-  Alignment, Clear Direction, Execution Confidence) UNLESS source = COACH.`;
+- Preferred source order: PATTERN, GOALS, ARCHETYPE, COACH.
+- When source is PATTERN, GOALS, or ARCHETYPE, the signal must be a specific resource or trap the person is facing, not a broad personality trait.
+- Generic trait labels (Self-Awareness, Self-Honesty, Discernment, Alignment, Clear Direction, Execution Confidence) are only acceptable when source = COACH.
+- Positive examples:
+    • Post-board composure · PATTERN
+    • Recovery discipline · GOALS
+    • Strategic patience · COACH
+    • Spending early · PATTERN
+- Negative examples (will be rejected unless source = COACH):
+    • Self-Awareness · ARCHETYPE
+    • Discernment · PATTERN
+    • Alignment · GOALS
+
+SAFE EXAMPLES (passing first-attempt shape)
+- phrase: "Go get them"
+  body: "Recovery is solid, your mind is sharp, and the 2pm board owns the day; open the room and set the agenda, and keep the morning calls short so you walk in with edge intact."
+  leanOn: [{"signal": "Post-board composure", "source": "PATTERN"}]
+  watchFor: [{"signal": "Spending early", "source": "PATTERN"}]`;
 
 /**
  * Build the complete SYSTEM role for the Brief LLM call. Pure — same inputs,
