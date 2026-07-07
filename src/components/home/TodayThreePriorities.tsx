@@ -990,41 +990,15 @@ const TodayThreePriorities = ({
 
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        // Build request body with outer readiness cache to skip ~2.8s server-to-server call
-        const requestBody: any = {
-          timezoneOffset: new Date().getTimezoneOffset(),
-          forceRefresh: forceRefresh || awaitingSignals || !sessionLoaded,
+        // Build request body via the shared payload builder. Per-slot
+        // anchoring: server pins each event to the exact slot index here
+        // and never re-ranks other slots.
+        const requestBody: any = buildGeneratePlanRequestBody({
           localDate: todayDate,
           todayCheckinId: todayCheckin?.id ?? null,
-          mrsReadinessState:
-            mrsSnapshot?.readinessState ??
-            (outerReadinessData as any)?.innerReadinessState ?? null,
-          mrsReadinessScore:
-            (typeof mrsSnapshot?.score === 'number' ? mrsSnapshot.score : null) ??
-            (outerReadinessData as any)?.innerReadinessScore ?? null,
-        };
-        if (hasSlotReplacements) {
-          // Per-slot anchoring contract: server pins each event to the
-          // exact slot index here and never re-ranks other slots.
-          requestBody.slotReplacements = slotReplacements;
-        }
-        if (outerReadinessData?.phrase) {
-          requestBody.outerReadinessCache = {
-            phrase: outerReadinessData.phrase,
-            context: outerReadinessData.context,
-            leanOn: outerReadinessData.leanOn,
-            watchFor: outerReadinessData.watchFor,
-            driver: outerReadinessData.driver,
-            // Forward the canonical behaviour snapshot inline so the Plan
-            // function reuses the exact snapshot the Brief reasoned over
-            // (signatureHash, flagsPlan, slotBoosts, taxonomy, prompt block)
-            // instead of re-loading a potentially-stale row from
-            // brief_snapshots. The server still falls back to the DB row
-            // (filtered by promptVersion + expectedSignatureHash) when this
-            // field is absent.
-            behaviourSnapshot: (outerReadinessData as any)?.behaviourSnapshot ?? null,
-          };
-        }
+          forceRefresh: forceRefresh || awaitingSignals || !sessionLoaded,
+          slotReplacements: hasSlotReplacements ? slotReplacements : undefined,
+        });
 
         const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
           headers,
