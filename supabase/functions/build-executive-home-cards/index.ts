@@ -723,7 +723,12 @@ async function buildForUser(db: any, args: {
     briefStatus = brief?.awaitingSignals ? "awaiting" : "ready";
 
     let plan: any = null;
-    if (!hasStageOneSignal) {
+    if (window !== "morning") {
+      // Cron-written, snapshot-read model: Plan is generated once per day
+      // in the morning slot. Afternoon/evening render the morning snapshot
+      // via `resolveCanonicalPlanSnapshot` in `get-mastery-plan-snapshot`.
+      planStatus = "skipped_non_morning_window";
+    } else if (!hasStageOneSignal) {
       planStatus = "skipped_no_stage_one_signal";
     } else {
       plan = await callFunction("generate-mastery-plan", {
@@ -734,6 +739,16 @@ async function buildForUser(db: any, args: {
       }, userId);
       planStatus = "ready";
     }
+
+    try {
+      const built: string[] = ["mrs", "brief"];
+      const skipped: string[] = [];
+      if (planStatus === "ready") built.push("plan");
+      else skipped.push(`plan(${planStatus})`);
+      console.log(
+        `[exec-home-cron] window=${window} user=${userId} localDate=${localDate} built=[${built.join(",")}] skipped=[${skipped.join(",")}]`,
+      );
+    } catch (_) { /* noop */ }
 
     await writeRun({
       // Orchestrator's centrally-resolved dayType wins; fall back to Plan's
