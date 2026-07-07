@@ -225,16 +225,31 @@ DIRECTIVE is a short closing clause, not a full sentence:
     "…and keep the morning quiet.", "…and switch off tonight.", "…and
     pace yourself.", "…and protect the next hour."). Never a duration,
     never a named practice, never Plan territory. Use the executive
-    substitutes from HARD CONSTRAINTS — never wellness vocabulary.
+    substitutes from HARD CONSTRAINTS; never wellness vocabulary.
+
+LEXICON ANCHOR: the body must explicitly include at least one literal concept from one of the Elastic Lexicon clusters. The word (or its listed form) must appear in the body text; do not rely on a near-synonym or paraphrase.
+  • Cognition: mind, sharpness, clarity, decision power, mental bandwidth.
+  • Physiology: body, recovery, stamina, drive, physiology.
+  • Resilience: composure, buffer, stability, executive presence, resilience.
+  • Executive context: board, conference, travel, negotiation, high-stakes, governance, presentation.
 
 NON-REPETITION IS THE RULE: every beat must add something the others don't.
 If two beats say the same thing, cut one. No abstract system phrase. No
 score, no band, no one-line state read echoed inside the body.
 
-LEAN ON / WATCH FOR — 1–3 words each, a derived quality (not a raw signal
-label). Every item needs a real source: Pattern, Archetype, Coach, or Goals,
-and may draw on the Leadership profile, Context, Communication style, or
-leadership style from the Onboarding V8 profile.`;
+LEAN ON / WATCH FOR — short signal phrase (not a raw data label), tied to a real source.
+- Preferred source order: PATTERN, GOALS, ARCHETYPE, COACH.
+- When source is PATTERN, GOALS, or ARCHETYPE, write a specific resource or trap the person is facing, not a broad personality trait.
+- Generic trait labels such as Self-Awareness, Self-Honesty, Discernment, Alignment, Clear Direction, or Execution Confidence are only acceptable when source = COACH.
+- Positive examples:
+  • Post-board composure · PATTERN
+  • Recovery discipline · GOALS
+  • Strategic patience · COACH
+  • Spending early · PATTERN
+- Negative examples (these will be rejected unless source = COACH):
+  • Self-Awareness · ARCHETYPE
+  • Discernment · PATTERN
+  • Alignment · GOALS`;
 
 export const WORKED_EXAMPLES = `WORKED EXAMPLES (triangulated four-beat body — synthesise, never copy)
 - Strong body, sharp mind, board call ahead (evidence: recovery + clarity + 2pm board; read: edge is real; work: lead from the front; self-reg: don't spend it before the room):
