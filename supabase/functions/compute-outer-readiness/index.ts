@@ -5076,6 +5076,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     errorMessageHead: null,
                   });
                   console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED (normaliser + atomic) in ${durationMs}ms | model=${model} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
+                  try {
+                    console.log('[compute-outer-readiness][llm-accepted]', JSON.stringify({
+                      userId,
+                      localDate: userLocalDate,
+                      timeWindow: getTimeOfDay(hour),
+                      model,
+                      attempt,
+                      durationMs,
+                      phrase: llmBrief.phrase,
+                      bodyText: llmBrief.bodyText,
+                      leanOn: llmBrief.leanOn,
+                      watchFor: llmBrief.watchFor,
+                    }));
+                  } catch {}
                   break;
                 } catch (parseErr) {
                   llmFallbackReason = `attempt${attempt}_parse_failed`;
