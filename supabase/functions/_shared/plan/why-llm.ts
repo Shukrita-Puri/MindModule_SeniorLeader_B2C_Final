@@ -21,6 +21,13 @@ import { relativeEventPhrase } from "../text/sanitise.ts";
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
 
+/**
+ * Hard request timeout for the Why-line LLM call. Spec-mandated 10s. When
+ * the fetch exceeds this budget it is aborted and callers fall back to the
+ * deterministic repair path in `generate-mastery-plan`.
+ */
+const WHY_LLM_TIMEOUT_MS = 10_000;
+
 /** Canonical state-band union — same vocabulary the Brief uses. */
 export type StateBand = "firing" | "sharp" | "steady" | "stretched" | "depleted";
 
@@ -475,6 +482,8 @@ export function trimToWords(s: string, max = 25): string {
 export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), WHY_LLM_TIMEOUT_MS);
   try {
     const prompt = buildPrompt(inp);
     const tool = {
@@ -505,6 +514,7 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
         tools: [tool],
         tool_choice: { type: "function", function: { name: "write_why" } },
       }),
+      signal: controller.signal,
     });
     if (!resp.ok) {
       console.warn("[why-llm] gateway error", resp.status, await resp.text().catch(() => ""));
@@ -527,9 +537,15 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
     if (trimmed.split(/\s+/).length < 5) return null;
     return trimmed;
   } catch (e: unknown) {
+    if ((e as any)?.name === "AbortError") {
+      console.warn(`[why-llm] gateway timeout after ${WHY_LLM_TIMEOUT_MS}ms`);
+      return null;
+    }
     const message = e instanceof Error ? e.message : String(e);
     console.warn("[why-llm] failed", message);
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
