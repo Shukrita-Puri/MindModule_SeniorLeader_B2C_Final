@@ -6419,6 +6419,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             : null;
           if (!existingRow) {
             overwriteDecision = 'no_existing';
+            // Cold-start / first-run for this window: if we have no copy
+            // to write, still persist an explicit awaiting row rather
+            // than a mislabelled 'llm'/'deterministic' null-copy row.
+            const newHasCopy = !!persistPhrase && !!persistBody;
+            if (!newHasCopy) {
+              effectiveBriefSource = 'awaiting';
+            }
           } else {
             // Pick whichever tier of copy actually exists on the prior row
             // — prefer the incoming write's tier, but fall back to the
