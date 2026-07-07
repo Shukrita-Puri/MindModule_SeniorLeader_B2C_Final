@@ -6323,7 +6323,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // erase score/tier/signal_pills, which come from wearable/calendar/
         // check-in pipelines. Only signal-contract awaiting or inner-state
         // awaiting nulls the score payload.
-        const suppressBriefCopy = briefIsAwaiting || awaitingSignals || innerStateIsAwaiting;
+        // Accepted LLM copy MUST be persisted even when the signal contract
+        // is otherwise flagged awaiting — the LLM already reasoned over
+        // whatever signals were available and the accepted output is the
+        // canonical brief prose. Only null the copy when we truly have no
+        // brief output to persist (no LLM, no cached snapshot).
+        const hasAcceptedBriefCopy =
+          (briefSource === 'llm' || briefSource === 'deterministic') &&
+          typeof responsePhrase === 'string' && responsePhrase.length > 0 &&
+          typeof responseBody === 'string' && responseBody.length > 0;
+        const suppressBriefCopy = !hasAcceptedBriefCopy && (
+          briefIsAwaiting || awaitingSignals || innerStateIsAwaiting
+        );
         // Canonical override: when we adopted a preserved existing MRS
         // snapshot (or otherwise have a real canonical score), we MUST NOT
         // null the score payload just because the incoming run is
@@ -6341,12 +6352,95 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             canonicalScoreSource,
           });
         }
-        const persistPhrase = suppressBriefCopy ? null : responsePhrase;
-        const persistBody = suppressBriefCopy ? null : responseBody;
-        const persistLeanOn = suppressBriefCopy ? null : formattedLeanOn;
-        const persistWatchFor = suppressBriefCopy ? null : formattedWatchFor;
-        const persistLeanOnSource = suppressBriefCopy ? null : finalLeanOnSource;
-        const persistWatchForSource = suppressBriefCopy ? null : finalWatchForSource;
+        let persistPhrase: string | null = suppressBriefCopy ? null : responsePhrase;
+        let persistBody: string | null = suppressBriefCopy ? null : responseBody;
+        let persistLeanOn: string | null = suppressBriefCopy ? null : formattedLeanOn;
+        let persistWatchFor: string | null = suppressBriefCopy ? null : formattedWatchFor;
+        let persistLeanOnSource: string | null = suppressBriefCopy ? null : finalLeanOnSource;
+        let persistWatchForSource: string | null = suppressBriefCopy ? null : finalWatchForSource;
+        let effectiveBriefSource: 'llm' | 'deterministic' | 'awaiting' = briefSource;
+
+        // ── Overwrite protection ──────────────────────────────────────
+        // Read the existing current-window row FIRST. If it already has
+        // non-null LLM copy, never let a later awaiting/null-copy pass
+        // wipe it. Preserve the prior phrase/body/leanOn/watchFor and
+        // brief_source='llm' on a null-write.
+        let overwriteDecision: 'no_existing' | 'overwrite_applied' | 'overwrite_prevented' | 'none' = 'none';
+        try {
+          const { data: existingRow } = await db
+            .from('brief_snapshots')
+            .select('id, brief_source, baseline_phrase, baseline_body_text, baseline_lean_on, baseline_lean_on_source, baseline_watch_for, baseline_watch_for_source, refined_phrase, refined_body_text, refined_lean_on, refined_lean_on_source, refined_watch_for, refined_watch_for_source')
+            .eq('user_id', userId)
+            .eq('local_date', userLocalDate)
+            .eq('time_window', getTimeOfDay(hour))
+            .eq('input_signature', inputSignature)
+            .eq('prompt_version', BRIEF_PROMPT_VERSION)
+            .maybeSingle();
+          if (!existingRow) {
+            overwriteDecision = 'no_existing';
+          } else {
+            const isRefined = (canonicalReadinessState ?? 'baseline') === 'refined';
+            const existingPhrase = (isRefined
+              ? (existingRow as any).refined_phrase
+              : (existingRow as any).baseline_phrase) ?? null;
+            const existingBody = (isRefined
+              ? (existingRow as any).refined_body_text
+              : (existingRow as any).baseline_body_text) ?? null;
+            const existingLeanOn = (isRefined
+              ? (existingRow as any).refined_lean_on
+              : (existingRow as any).baseline_lean_on) ?? null;
+            const existingLeanOnSrc = (isRefined
+              ? (existingRow as any).refined_lean_on_source
+              : (existingRow as any).baseline_lean_on_source) ?? null;
+            const existingWatchFor = (isRefined
+              ? (existingRow as any).refined_watch_for
+              : (existingRow as any).baseline_watch_for) ?? null;
+            const existingWatchForSrc = (isRefined
+              ? (existingRow as any).refined_watch_for_source
+              : (existingRow as any).baseline_watch_for_source) ?? null;
+            const existingBriefSource = (existingRow as any).brief_source as
+              | 'llm' | 'deterministic' | 'awaiting' | null;
+
+            const existingHasCopy = !!existingPhrase && !!existingBody;
+            const newHasCopy = !!persistPhrase && !!persistBody;
+            if (existingHasCopy && !newHasCopy) {
+              // Prevent wipe — keep prior copy and brief_source.
+              persistPhrase = existingPhrase;
+              persistBody = existingBody;
+              persistLeanOn = existingLeanOn ?? persistLeanOn;
+              persistLeanOnSource = existingLeanOnSrc ?? persistLeanOnSource;
+              persistWatchFor = existingWatchFor ?? persistWatchFor;
+              persistWatchForSource = existingWatchForSrc ?? persistWatchForSource;
+              if (existingBriefSource === 'llm' || existingBriefSource === 'deterministic') {
+                effectiveBriefSource = existingBriefSource;
+              }
+              overwriteDecision = 'overwrite_prevented';
+            } else if (newHasCopy) {
+              overwriteDecision = 'overwrite_applied';
+            } else {
+              overwriteDecision = 'none';
+            }
+            console.log('[brief-cache][copy-persist]', {
+              userId,
+              localDate: userLocalDate,
+              window: getTimeOfDay(hour),
+              existingRowId: (existingRow as any).id,
+              existingBriefSource,
+              existingHasCopy,
+              newHasCopy,
+              hasAcceptedBriefCopy,
+              suppressBriefCopy,
+              briefIsAwaiting,
+              awaitingSignals,
+              innerStateIsAwaiting,
+              incomingBriefSource: briefSource,
+              effectiveBriefSource,
+              decision: overwriteDecision,
+            });
+          }
+        } catch (readErr) {
+          console.warn('[brief-cache][copy-persist] pre-read failed:', readErr instanceof Error ? readErr.message : readErr);
+        }
         const isRefinedWrite = (canonicalReadinessState ?? 'baseline') === 'refined';
         // State reflects score-payload readiness, not copy readiness.
         const awaitingStateLabel = suppressScorePayload
@@ -6387,7 +6481,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             prompt_version: BRIEF_PROMPT_VERSION,
             daily_checkin_id: linkedDailyCheckinId,
             ...stateColumns,
-            brief_source: briefSource,
+            brief_source: effectiveBriefSource,
             driver: theme.driver,
             // Phase 1A — preserve EVERY attempt's reason instead of only the
             // last one. `llmFallbackReason` is overwritten between attempts,
