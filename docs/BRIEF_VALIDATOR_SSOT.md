@@ -65,6 +65,9 @@ for future consolidation — see the "Consolidation note" below.
   `leanOn` / `watchFor` signals; the live validator only enforces signal
   presence, a 10-word upper bound, 60-character width, and source/vocabulary
   validity.
+- The `OUTPUT_CONTRACT` body description now says **one to three short
+  human sentences**, matching the 1–3 sentence shape the live validator
+  permits (the hard gate is the 60-word ceiling).
 
 ## Prompt-only vs hard-gated inventory
 
