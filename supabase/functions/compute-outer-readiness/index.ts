@@ -5468,7 +5468,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       typeof clientRefinedContribution === 'number' ? clientRefinedContribution : null;
     let canonicalScoreSource: 'incoming' | 'preserved_existing_mrs' = 'incoming';
 
-    if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
+    // Persistence contract (cron/snapshot-read model):
+    // Always attempt to persist both `daily_context_snapshot` (MRS mirror)
+    // and `brief_snapshots` on every run that isn't a same-signature cache
+    // hit — including cold-start / awaiting / no-sig runs. Suppression of
+    // score payload and copy is handled INSIDE this block via
+    // `suppressScorePayload` / `suppressBriefCopy`, so an awaiting run
+    // writes an explicit awaiting row (state='awaiting', copy=null,
+    // brief_source='awaiting') instead of leaving no row at all.
+    if (!cachedSnapshot) {
       try {
         // ── MRS v2 Phase B: hydrate pattern signals + resilience inputs ─────
         // Pull the orchestrator-derived pattern signals (real 14d HRV trend,
