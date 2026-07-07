@@ -55,10 +55,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    // `mrsWindow` is accepted for backwards compatibility but ignored
-    // for lookup. Plans can now be generated at any time during the
-    // day, so reads resolve to the latest ready snapshot for the date
-    // rather than a hardcoded morning row.
+    // Plans are generated for every window (morning/afternoon/evening).
+    // Read policy: prefer the current-window snapshot if present, and
+    // fall back to the latest ready snapshot for the date only when the
+    // current window has not been generated yet. `mrsWindow` is the
+    // caller's current local window.
     const requestedWindow =
       mrsWindow === 'morning' || mrsWindow === 'afternoon' || mrsWindow === 'evening'
         ? mrsWindow
@@ -70,31 +71,60 @@ serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    // Latest-ready-row semantics: plans may be generated in any window
-    // (morning cron, midday regen, evening refresh, manual). The UI
-    // must show the most recently successfully generated plan for the
-    // date. We deliberately filter status = 'ready' so pending/error
-    // rows never shadow a prior good plan.
-    const { data, error } = await db
-      .from('mastery_plan_snapshots')
-      .select(SELECT_COLUMNS)
-      .eq('user_id', userId)
-      .eq('plan_date', planDate)
-      .eq('status', 'ready')
-      .order('generated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Resolution:
+    //   1. Current-window ready row (if `mrsWindow` was supplied).
+    //   2. Fallback: latest ready row for the day across all windows.
+    // Pending/error rows never shadow a ready row.
+    let data: any = null;
+    let strategy: 'current_window' | 'latest_ready' | 'none' = 'none';
 
-    if (error) {
-      console.error('[get-mastery-plan-snapshot] read failed:', error.message);
-      return new Response(JSON.stringify({ error: 'Failed to fetch snapshot' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (requestedWindow) {
+      const { data: currentRow, error: currentErr } = await db
+        .from('mastery_plan_snapshots')
+        .select(SELECT_COLUMNS)
+        .eq('user_id', userId)
+        .eq('plan_date', planDate)
+        .eq('mrs_window', requestedWindow)
+        .eq('status', 'ready')
+        .maybeSingle();
+      if (currentErr) {
+        console.error('[get-mastery-plan-snapshot] current-window read failed:', currentErr.message);
+        return new Response(JSON.stringify({ error: 'Failed to fetch snapshot' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (currentRow) {
+        data = currentRow;
+        strategy = 'current_window';
+      }
+    }
+
+    if (!data) {
+      const { data: latestRow, error: latestErr } = await db
+        .from('mastery_plan_snapshots')
+        .select(SELECT_COLUMNS)
+        .eq('user_id', userId)
+        .eq('plan_date', planDate)
+        .eq('status', 'ready')
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestErr) {
+        console.error('[get-mastery-plan-snapshot] fallback read failed:', latestErr.message);
+        return new Response(JSON.stringify({ error: 'Failed to fetch snapshot' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (latestRow) {
+        data = latestRow;
+        strategy = 'latest_ready';
+      }
     }
 
     console.log(
-      `[get-mastery-plan-snapshot] planDate=${planDate} requestedWindow=${requestedWindow ?? 'none'} found=${!!data} selectedWindow=${(data as any)?.mrs_window ?? 'n/a'} generatedAt=${(data as any)?.generated_at ?? 'n/a'} status=${(data as any)?.status ?? 'n/a'}`,
+      `[get-mastery-plan-snapshot] planDate=${planDate} requestedWindow=${requestedWindow ?? 'none'} strategy=${strategy} found=${!!data} selectedWindow=${(data as any)?.mrs_window ?? 'n/a'} generatedAt=${(data as any)?.generated_at ?? 'n/a'}`,
     );
 
     return new Response(
@@ -102,7 +132,7 @@ serve(async (req) => {
         success: true,
         data: data ?? null,
         source: {
-          strategy: 'latest_ready',
+          strategy,
           requestedWindow,
           selectedWindow: (data as any)?.mrs_window ?? null,
           generatedAt: (data as any)?.generated_at ?? null,

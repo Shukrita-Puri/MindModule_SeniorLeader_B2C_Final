@@ -7164,31 +7164,12 @@ if (import.meta.main) Deno.serve(async (req) => {
             return;
           }
         }
-        // Day-scoped plan guarantee: a non-morning invocation (manual /
-        // admin refresh) must never overwrite a valid morning `ready`
-        // snapshot for the same day. Cron writes ONLY in the morning
-        // window; afternoon/evening reads fall back to the morning row
-        // via `resolveCanonicalPlanSnapshot`.
-        if (currentPeriod !== 'morning') {
-          try {
-            const { data: morningRow } = await supabaseClient
-              .from('mastery_plan_snapshots')
-              .select('id, status')
-              .eq('user_id', userId!)
-              .eq('plan_date', planDate)
-              .eq('mrs_window', 'morning')
-              .maybeSingle();
-            if (morningRow?.id && morningRow.status === 'ready') {
-              console.log('[mastery-plan-snapshot][early-return]', {
-                reason: 'preserve_morning_snapshot',
-                morningId: morningRow.id,
-                requestedWindow: currentPeriod,
-                planDate,
-              });
-              return;
-            }
-          } catch (_) { /* non-fatal — fall through and persist */ }
-        }
+        // Plans are now context-aware per window. Each (user, plan_date,
+        // mrs_window) is written independently — morning does not shadow
+        // afternoon or evening. Overwrite protection lives at the
+        // window-key level via the unique constraint + `onConflict`, and
+        // the error path (below) refuses to clobber an existing ready
+        // row for the same window.
         const practiceIds: string[] = Array.from(new Set([
           ...visiblePriorities.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
           ...horizonMods.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
@@ -7452,14 +7433,34 @@ if (import.meta.main) Deno.serve(async (req) => {
         const _sb = createClient(_url, _key);
         const _planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
         const _period = currentPeriod;
-        await _sb.from('mastery_plan_snapshots').upsert({
-          user_id: userId,
-          plan_date: _planDate,
-          mrs_window: _period,
-          status: 'error',
-          error_json: { message: error?.message ?? String(error), name: error?.name ?? null },
-          generated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,plan_date,mrs_window' });
+        // Overwrite protection: never clobber a valid ready snapshot for
+        // this (user, date, window) with an error row. If a ready row
+        // exists, the UI keeps rendering it and the error is captured in
+        // logs / `executive_home_card_runs`.
+        const { data: existingReady } = await _sb
+          .from('mastery_plan_snapshots')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('plan_date', _planDate)
+          .eq('mrs_window', _period)
+          .eq('status', 'ready')
+          .maybeSingle();
+        if (!existingReady?.id) {
+          await _sb.from('mastery_plan_snapshots').upsert({
+            user_id: userId,
+            plan_date: _planDate,
+            mrs_window: _period,
+            status: 'error',
+            error_json: { message: error?.message ?? String(error), name: error?.name ?? null },
+            generated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,plan_date,mrs_window' });
+        } else {
+          console.log('[mastery-plan-snapshot][error-preserved-ready]', {
+            planDate: _planDate,
+            window: _period,
+            existingReadyId: existingReady.id,
+          });
+        }
       }
     } catch (_errSnapErr) { /* swallow */ }
     return new Response(JSON.stringify({ error: 'Plan generation failed', reason: error?.message }), {
