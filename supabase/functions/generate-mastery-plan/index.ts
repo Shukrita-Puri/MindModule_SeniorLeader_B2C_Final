@@ -3090,6 +3090,42 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   const combinedAlreadyUsed = shared.combinedAlreadyUsed;
   const pendingCommitments = shared.pendingCommitments;
 
+  // F2 — Strict Brief handshake: if the caller requires exact same-window
+  // Brief snapshot parity and the loader returned nothing, short-circuit
+  // with an awaiting envelope. This is deliberately narrower than the
+  // signal-gate below: even if the user has stage-1 signals and an MRS,
+  // a missing/stale Brief snapshot means the Plan would be reasoning over
+  // a locally rebuilt behaviour surface, which the Executive Home snapshot
+  // contract forbids.
+  if (req.strictBriefHandshake === true && shared.briefBehaviourSource === 'absent') {
+    const timeOfDayForAwaiting =
+      (req.timeWindow ?? getTimeOfDay(req.timezoneOffset)) as
+        'morning' | 'afternoon' | 'evening';
+    console.warn('[generate-mastery-plan] strict-handshake awaiting envelope', {
+      userId: req.userId,
+      window: timeOfDayForAwaiting,
+      reason: 'brief_behaviour_snapshot_missing_or_stale',
+    });
+    return {
+      planState: 'awaiting_signals',
+      awaitingSignals: true,
+      reason: 'brief_handshake_missing',
+      message: 'Waiting for the Brief to publish for this window.',
+      horizonModules: [],
+      calendarPills: [],
+      preEventPlan: null,
+      jitPriority: null,
+      timeOfDayPlan: {
+        label: '',
+        period: timeOfDayForAwaiting,
+        modules: [],
+        totalDuration: 0,
+        progressTracked: false,
+      },
+      meta: { generatedAt: new Date().toISOString(), promptVersion: BRIEF_PROMPT_VERSION },
+    } as any;
+  }
+
   // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
   // If the user has no fresh check-in today AND no fresh
   // wearable data today, suppress the time-of-day plan from generating
