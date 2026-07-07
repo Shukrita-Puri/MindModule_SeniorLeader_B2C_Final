@@ -665,6 +665,58 @@ const TodayThreePriorities = ({
     prevCompletedIdsRef.current = completedPracticeIds;
   }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
 
+  // ── Manual recovery: user-triggered plan generation when snapshot missing ──
+  const handleManualGenerate = useCallback(async () => {
+    if (manualGenerating) return;
+    console.log('[plan-snapshot][manual-generate] clicked', {
+      userId: effectiveUserId,
+      planDate: todayForPlan,
+      window: periodForPlan,
+      mrsReady: mrsReadyForPlan,
+    });
+    setManualGenerating(true);
+    try {
+      const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
+        headers,
+        body: {
+          timezoneOffset: new Date().getTimezoneOffset(),
+          forceRefresh: true,
+          localDate: todayForPlan,
+          mrsReadinessState: mrsSnapshot?.readinessState ?? null,
+          mrsReadinessScore:
+            typeof mrsSnapshot?.score === 'number' ? mrsSnapshot.score : null,
+          manualRecovery: true,
+        },
+      });
+      if (error || !data) {
+        console.error('[plan-snapshot][manual-generate] failed', error);
+        toast({
+          title: "Couldn't generate today's plan",
+          description: 'Please try again in a moment.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      console.log('[plan-snapshot][manual-generate] success — snapshot persisted, invalidating reader');
+      hydratedFromSnapshotRef.current = false;
+      setSnapshotMissingReady(false);
+      await queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] });
+      console.log('[plan-snapshot][manual-generate] snapshot reloaded');
+    } catch (e) {
+      console.error('[plan-snapshot][manual-generate] exception', e);
+      toast({
+        title: "Couldn't generate today's plan",
+        description: 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setManualGenerating(false);
+    }
+  }, [manualGenerating, effectiveUserId, todayForPlan, periodForPlan, mrsReadyForPlan, mrsSnapshot, queryClient]);
+
   // ── Load plan ──
   const loadPlan = useCallback(async (opts?: {
     silent?: boolean;
