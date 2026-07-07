@@ -16,7 +16,6 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -98,13 +97,6 @@ export function useCurrentBriefSnapshot() {
   const localDate = localISODate();
   const timeWindow = currentPeriodLocal() as BriefWindow;
 
-  // Tracks when we first observed a score-only snapshot (score present but
-  // phrase/body still missing). We poll briefly for late-arriving LLM copy
-  // and stop the loop as soon as copy lands or the window elapses.
-  const copyPendingSinceRef = useRef<number | null>(null);
-  const COPY_PENDING_POLL_MS = 2000;
-  const COPY_PENDING_MAX_MS = 15000;
-
   return useQuery<CurrentBriefSnapshot | null>({
     queryKey: [
       'current-brief-snapshot',
@@ -114,52 +106,23 @@ export function useCurrentBriefSnapshot() {
       BRIEF_PROMPT_VERSION,
     ],
     enabled: !!effectiveUserId,
-    // Fully-rendered rows (score + copy) cache normally. When we're in a
-    // "score present, copy missing" transient state the refetchInterval
-    // below short-circuits staleness by polling directly.
-    staleTime: 60 * 1000,
-    refetchInterval: (query) => {
-      const snap = query.state.data as CurrentBriefSnapshot | null | undefined;
-      // No row yet, or fully rendered → no polling.
-      if (!snap || snap.hasRenderableCopy || !snap.hasRenderableScore) {
-        if (copyPendingSinceRef.current !== null) {
-          console.log('[PRB][copy-pending] stop', {
-            reason: !snap
-              ? 'no-snapshot'
-              : snap.hasRenderableCopy
-                ? 'copy-arrived'
-                : 'no-score',
-            briefId: snap?.briefId ?? null,
-          });
-          copyPendingSinceRef.current = null;
-        }
-        return false;
-      }
-      // Score-only snapshot: mark start-time and poll briefly.
-      const now = Date.now();
-      if (copyPendingSinceRef.current === null) {
-        copyPendingSinceRef.current = now;
-        console.log('[PRB][copy-pending] start', {
-          briefId: snap.briefId,
-          updatedAt: snap.updatedAt,
-          pollEveryMs: COPY_PENDING_POLL_MS,
-          maxMs: COPY_PENDING_MAX_MS,
-        });
-      }
-      const elapsed = now - copyPendingSinceRef.current;
-      if (elapsed >= COPY_PENDING_MAX_MS) {
-        console.log('[PRB][copy-pending] timeout', {
-          briefId: snap.briefId,
-          elapsedMs: elapsed,
-        });
-        copyPendingSinceRef.current = null;
-        return false;
-      }
-      return COPY_PENDING_POLL_MS;
-    },
+    // Snapshot-read model: cron owns generation. Read once per window,
+    // cache generously, and never auto-poll for late-arriving LLM copy.
+    // Manual recovery paths invalidate this query explicitly.
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: false,
     refetchIntervalInBackground: false,
     queryFn: async () => {
       if (!effectiveUserId) return null;
+      console.log('[PRB][snapshot] requested', {
+        effectiveUserId,
+        localDate,
+        timeWindow,
+        autoPoll: false,
+      });
 
       // Read via authenticated Edge Function — the shared browser client
       // is anon-keyed only, so a direct table read is filtered by RLS on
