@@ -1113,6 +1113,7 @@ const TodayThreePriorities = ({
       if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
         console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan');
         setPlan(null);
+        setAwaitingSignals(true);
         setLoading(false);
       } else {
         loadPlan({ silent: initialCachedRef.current });
