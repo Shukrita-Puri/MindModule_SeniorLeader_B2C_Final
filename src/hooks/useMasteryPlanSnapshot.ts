@@ -134,7 +134,7 @@ export function useMasteryPlanSnapshot() {
       });
       // eslint-disable-next-line no-console
       console.log(
-        `[plan-snapshot][render] source=snapshot canonicalWindow=morning planDate=${planDate} found=true`,
+        `[plan-snapshot][render] source=snapshot strategy=latest_ready planDate=${planDate} selectedWindow=${snapshot.mrsWindow} generatedAt=${snapshot.generatedAt ?? 'n/a'} status=${snapshot.status} found=true`,
       );
 
       return snapshot;
