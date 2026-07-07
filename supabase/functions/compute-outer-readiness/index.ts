@@ -5833,6 +5833,56 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
         }
 
+        // ── Physical Reserves displayable-contributor gate ──────────────
+        // The visible tier label ("Body Steady" / "Body Strained" / etc.)
+        // must reflect the same evidence the expanded panel can render.
+        // Displayable contributors for physical_reserves are strictly:
+        //   sleepDuration, sleepScore, rhrValue, hrValue.
+        // If none of these are present, no matter what the derived tier is
+        // (RHR-deviation-only path, RHR 3-day trend, sustained-deficit
+        // flag, or a legacy signal_pills row rehydrated from an older
+        // schema), force the pill to neutral so the header cannot claim
+        // "Body Steady" while the tooltip lists only "No data available"
+        // rows.
+        for (const p of signalPillsPayload as Array<any>) {
+          if (p.key !== 'physical_reserves') continue;
+          const c = (p.contributors ?? {}) as Record<string, unknown>;
+          const isNum = (v: unknown): v is number =>
+            typeof v === 'number' && Number.isFinite(v);
+          const displayableCount =
+            (isNum(c.sleepDuration) ? 1 : 0) +
+            (isNum(c.sleepScore) ? 1 : 0) +
+            (isNum(c.rhrValue) ? 1 : 0) +
+            (isNum(c.hrValue) ? 1 : 0);
+          const suppressedKeys = Object.keys(c).filter(
+            (k) =>
+              k !== 'sleepDuration' &&
+              k !== 'sleepScore' &&
+              k !== 'rhrValue' &&
+              k !== 'hrValue',
+          );
+          console.log('[signal-pills-v4][physical_reserves] displayable audit', {
+            tier: p.tier,
+            tierLabel: p.tierLabel,
+            contributorKeys: Object.keys(c),
+            suppressedOrLegacyKeys: suppressedKeys,
+            displayableCount,
+          });
+          if (displayableCount === 0 && p.tier !== 'neutral') {
+            console.warn(
+              '[signal-pills-v4][physical_reserves] forcing neutral — no displayable contributors',
+              { previousTier: p.tier, previousTierLabel: p.tierLabel },
+            );
+            p.tier = 'neutral';
+            p.tierLabel = PILL_NEUTRAL_LABELS.physical_reserves ?? 'Body Unread';
+            p.isScoreBearing = false;
+            p.contributedByCheckIn = false;
+            p.hiddenReason = p.hiddenReason ?? 'no_fresh_wearable';
+            p.detail = 'Body detail not available for this reading.';
+            p.freshness = hasWearable ? 'stale' : 'missing';
+          }
+        }
+
         // F3.1 — Hoist the base pill payload immediately so a downstream throw
         // in qualifier/coherence enrichment can no longer null the entire
         // signalPills response (which surfaces in the UI as "No signal detail
