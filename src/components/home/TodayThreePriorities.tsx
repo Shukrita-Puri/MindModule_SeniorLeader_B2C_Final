@@ -1345,6 +1345,53 @@ const TodayThreePriorities = ({
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
 
+  // ── Structured render:final log ──
+  // Fires only when the rendered source/state actually transitions.
+  const lastRenderFinalRef = useRef<string>('');
+  useEffect(() => {
+    const source: 'snapshot' | 'live' | 'awaiting' | 'manual-generate' | 'empty' =
+      snapshotMissingReady && !plan
+        ? 'manual-generate'
+        : awaitingSignals
+          ? 'awaiting'
+          : plan && hydratedFromSnapshotRef.current
+            ? 'snapshot'
+            : plan
+              ? 'live'
+              : 'empty';
+    const renderedModuleCount = plan?.horizonModules?.length ?? 0;
+    const sig = [
+      source,
+      masteryPlanSnapshot?.status ?? 'none',
+      masteryPlanSnapshot?.mrsWindow ?? 'none',
+      renderedModuleCount,
+      awaitingSignals ? 1 : 0,
+      snapshotMissingReady ? 1 : 0,
+      loading ? 1 : 0,
+      fetchFailed ? 1 : 0,
+    ].join('|');
+    if (sig === lastRenderFinalRef.current) return;
+    lastRenderFinalRef.current = sig;
+    console.info('[plan-card][render:final]', {
+      source,
+      snapshotStatus: masteryPlanSnapshot?.status ?? null,
+      snapshotWindow: masteryPlanSnapshot?.mrsWindow ?? null,
+      renderedModuleCount,
+      awaitingSignals,
+      snapshotMissingReady,
+      loading,
+      fetchFailed,
+    });
+  }, [
+    plan,
+    awaitingSignals,
+    snapshotMissingReady,
+    loading,
+    fetchFailed,
+    masteryPlanSnapshot?.status,
+    masteryPlanSnapshot?.mrsWindow,
+  ]);
+
   useEffect(() => {
     const snapshotId = masteryPlanSnapshot?.id ?? null;
     const ready =
