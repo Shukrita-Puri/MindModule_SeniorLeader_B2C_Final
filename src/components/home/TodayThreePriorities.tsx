@@ -1081,6 +1081,7 @@ const TodayThreePriorities = ({
           }
           setPlan(stripped);
           setAwaitingSignals(false);
+          setSnapshotMissingReady(false);
           setFetchFailed(false);
           // Completions still come from daily_ritual_completions — the
           // snapshot is never the completion source.
