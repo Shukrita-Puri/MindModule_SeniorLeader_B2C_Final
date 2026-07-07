@@ -249,11 +249,60 @@ export const WORKED_EXAMPLES = `WORKED EXAMPLES (triangulated four-beat body —
 
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble.
 {
- "phrase": "2-3 word human headline, or null",
+ "phrase": "2–4 word human headline (target 3), or null",
  "body": "one or two short human sentences with the orientation beat, or null",
- "leanOn":  [{ "signal": "1-3 words", "source": "Pattern|Archetype|Coach|Goals" }],
- "watchFor":[{ "signal": "1-3 words", "source": "Pattern|Archetype|Coach|Goals" }]
+ "leanOn":  [{ "signal": "1-3 words", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }],
+ "watchFor":[{ "signal": "1-3 words", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }]
 }`;
+
+/**
+ * Validator-shaped guardrails. Mirrors the rules the live inline
+ * `validateV61Output` in compute-outer-readiness/index.ts already enforces,
+ * so the model produces outputs that pass on the first attempt. This block
+ * ADDS NO NEW rules — it only surfaces existing gates to the LLM in plain
+ * terms. Keep in sync with validateV61Output when live gates change.
+ */
+export const VALIDATOR_ALIGNED_GUARDRAILS = `WHAT GETS REJECTED (mirror of the live gate — write to pass on the first try)
+
+PHRASE
+- 2–4 words accepted. 3 words is the sweet spot.
+- 5 words will be retried with a stricter instruction. 6+ words is a hard reject.
+- Never start with: "you", "your", "the".
+- No coaching imperatives: "try", "consider", "should", "you need", "you should".
+- No readiness / tier / wellness vocabulary. No em dash (—) or en dash (–) as a break.
+
+BODY
+- Target 45–55 words. Absolute maximum 60. Do not write a metric list.
+- Never restate the phrase verbatim. Never name the score, band, or tier.
+- Ground the body with at least ONE of:
+    • a number with a unit, OR
+    • a named calendar event from the CALENDAR block, OR
+    • one of these approved state-quality words:
+      recovery, sleep, rested, fatigued, sharp, foggy, drained, steady,
+      compressed, elevated, shifted, heavy, light, loaded.
+- Include at least one concept from ONE of these lexicon clusters:
+    • Cognition: intelligence, cognition, decision power, mental bandwidth,
+      sharpness, sharp, clarity.
+    • Physiology: physiology, stamina, drive, recovery, restoration, body,
+      heart rate, preparation.
+    • Resilience: resilience, stability, composure, buffer, executive
+      presence, diplomatic shield, release.
+    • Executive context: board, conference, pitch, negotiation, travel,
+      landing, back-to-back, compressed, decisions, density, re-entry,
+      offsite, presentation, high-stakes, governance.
+- Never use the banned abstract phrases: "hold the base", "mask the surge",
+  "optimise/optimize the window", "leverage your physiological runway",
+  "come down clean".
+- No em dash (—) or en dash (–) as a sentence break. Use a comma, period,
+  colon, or semicolon.
+
+LEAN ON / WATCH FOR
+- Return valid non-empty arrays.
+- \`source\` must be one of exactly: ARCHETYPE, COACH, PATTERN, GOALS
+  (uppercase, no other values).
+- Do not repeat body text verbatim inside a signal.
+- Avoid generic trait labels (Self-Awareness, Self-Honesty, Discernment,
+  Alignment, Clear Direction, Execution Confidence) UNLESS source = COACH.`;
 
 /**
  * Build the complete SYSTEM role for the Brief LLM call. Pure — same inputs,
@@ -284,6 +333,8 @@ export function buildBriefSystemPrompt(opts?: { bandValence?: ReadinessValence |
     BODY_FOUR_BEAT_CONTRACT,
     '',
     WORKED_EXAMPLES,
+    '',
+    VALIDATOR_ALIGNED_GUARDRAILS,
     '',
     OUTPUT_CONTRACT,
   ].join('\n');
