@@ -69,7 +69,7 @@ for future consolidation — see the "Consolidation note" below.
 ## Prompt-only vs hard-gated inventory
 
 Rules below are grouped by where they are actually enforced. The prompt
-surfacing all of them via `VALIDATOR_ALIGNED_GUARDRAILS` in
+surfaces all of them via `VALIDATOR_ALIGNED_GUARDRAILS` in
 `_shared/brief/copy-vocabulary.ts`, but only the **Hard-gated live** column
 causes a rejection in `validateV61Output` today.
 
