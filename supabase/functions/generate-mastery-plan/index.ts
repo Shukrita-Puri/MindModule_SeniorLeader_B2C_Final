@@ -7047,7 +7047,7 @@ if (import.meta.main) Deno.serve(async (req) => {
           planDate,
           window: currentPeriod,
           onlyIfMissing: !!opts.onlyIfMissing,
-          mrsCardsAwaiting,
+          requestMrsAwaiting: (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : null,
           hasPayload,
           prioritiesCount: visiblePriorities.length,
           horizonModulesCount: horizonMods.length,
@@ -7057,7 +7057,14 @@ if (import.meta.main) Deno.serve(async (req) => {
         // horizon module survived even in an awaiting envelope) must
         // still land in mastery_plan_snapshots so the snapshot-read-first
         // UI can hydrate. True cold-start (no payload) skips.
-        if (mrsCardsAwaiting && !hasPayload) {
+        // Outer handler declares `requestMrsAwaiting` in the same scope
+        // (see below, before `generateMasteryPlan` is invoked). We guard
+        // with typeof for defensive safety and only skip when there is
+        // literally nothing to persist. A partial plan (any priority or
+        // horizon module) still lands so the snapshot-read-first UI can
+        // hydrate rather than showing an empty card.
+        const _awaiting = (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : false;
+        if (_awaiting && !hasPayload) {
           console.log('[mastery-plan-snapshot][early-return]', {
             reason: 'awaiting_and_empty_payload',
             userId: redactUserId(userId!),
