@@ -723,14 +723,16 @@ async function buildForUser(db: any, args: {
     briefStatus = brief?.awaitingSignals ? "awaiting" : "ready";
 
     let plan: any = null;
-    if (window !== "morning") {
-      // Cron-written, snapshot-read model: Plan is generated once per day
-      // in the morning slot. Afternoon/evening render the morning snapshot
-      // via `resolveCanonicalPlanSnapshot` in `get-mastery-plan-snapshot`.
-      planStatus = "skipped_non_morning_window";
-    } else if (!hasStageOneSignal) {
+    if (!hasStageOneSignal) {
       planStatus = "skipped_no_stage_one_signal";
     } else {
+      // Context-aware Plan: generated for every window (morning / afternoon
+      // / evening). Each window persists its own `mastery_plan_snapshots`
+      // row keyed on (user_id, plan_date, mrs_window), so afternoon/evening
+      // regeneration reflects updated calendar, physiology, and check-in
+      // context without clobbering earlier windows for the same day. The
+      // reader (`get-mastery-plan-snapshot`) resolves current-window first
+      // and falls back to the latest ready row for the day.
       plan = await callFunction("generate-mastery-plan", {
         timezoneOffset: offset,
         localDate,
