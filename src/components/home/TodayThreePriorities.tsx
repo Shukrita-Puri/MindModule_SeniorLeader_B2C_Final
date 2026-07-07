@@ -241,6 +241,7 @@ const TodayThreePriorities = ({
   reflectionContext?: string | null;
   reflectionEvent?: string | null;
 }) => {
+  console.info('[plan-card] component-mounted');
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -1139,11 +1140,21 @@ const TodayThreePriorities = ({
     // Wait for the brief to resolve before kicking off `loadPlan` — without
     // this the first call races ahead of the awaiting-signals contract and
     // generates a plan from defaults before the brief tells us to suppress.
-    if (outerReadinessData === undefined) return;
+    if (outerReadinessData === undefined) {
+      console.info('[plan-card] hydrate-effect skipped', { reason: 'outerReadinessData-undefined' });
+      return;
+    }
     // Wait for the snapshot read to resolve too. Snapshot-read-first beats
     // both localStorage cache and live generation when it's ready for the
     // current window.
-    if (masteryPlanSnapshot === undefined || mrsSnapshot === undefined) return;
+    if (masteryPlanSnapshot === undefined || mrsSnapshot === undefined) {
+      console.info('[plan-card] hydrate-effect skipped', {
+        reason: 'snapshot-or-mrs-undefined',
+        masteryPlanSnapshotDefined: masteryPlanSnapshot !== undefined,
+        mrsSnapshotDefined: mrsSnapshot !== undefined,
+      });
+      return;
+    }
 
     if (cardsAwaiting) {
       const todayDate = localISODate();
@@ -1659,6 +1670,7 @@ const TodayThreePriorities = ({
   const showPlanLoader =
     !initialCachedRef.current && (loading || (dataReady && !planScriptDone));
   if (showPlanLoader) {
+    console.info('[plan-card] early-return', { branch: 'loader', loading, dataReady, planScriptDone, initialCached: initialCachedRef.current });
     return (
       <div className="space-y-4 pt-2">
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
@@ -1693,6 +1705,7 @@ const TodayThreePriorities = ({
   // Mirrors the Brief contract: when neither check-in nor today's wearable
   // is present, show the same quiet prompt instead of a generated plan.
   if (snapshotMissingReady && !plan) {
+    console.info('[plan-card] early-return', { branch: 'snapshot-missing-ready', manualGenerating });
     return (
       <div className="space-y-4 pt-2">
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
@@ -1733,6 +1746,7 @@ const TodayThreePriorities = ({
   }
 
   if (awaitingSignals) {
+    console.info('[plan-card] early-return', { branch: 'awaiting', outerReadinessDefined: outerReadinessData !== undefined });
     return (
       <div className="space-y-4 pt-2">
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
@@ -1765,6 +1779,7 @@ const TodayThreePriorities = ({
 
   // ── Empty / error state — always show card shell ──
   if (!horizonModules || horizonModules.length === 0) {
+    console.info('[plan-card] early-return', { branch: 'empty', fetchFailed, planExists: !!plan });
     return (
       <div className="space-y-4 pt-2">
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
