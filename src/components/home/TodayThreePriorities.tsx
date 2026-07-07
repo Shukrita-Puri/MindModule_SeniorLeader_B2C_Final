@@ -1117,9 +1117,15 @@ const TodayThreePriorities = ({
       // triggering `generate-mastery-plan`. Manual force-refresh still
       // runs the live path.
       if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
-        console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan');
+        const canRecover = mrsReadyForPlan && !cardsAwaiting;
+        console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan', {
+          canRecover,
+          mrsReadyForPlan,
+          cardsAwaiting,
+        });
         setPlan(null);
-        setAwaitingSignals(true);
+        setAwaitingSignals(!canRecover);
+        setSnapshotMissingReady(canRecover);
         setLoading(false);
       } else {
         loadPlan({ silent: initialCachedRef.current });
