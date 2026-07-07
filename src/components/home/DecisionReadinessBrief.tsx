@@ -1891,14 +1891,52 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             source: preferLivePills ? 'live' : snapPills ? 'snapshot' : 'live-fallback',
           });
         } catch {}
+        // ── Copy source preference ────────────────────────────────────
+        // Snapshot is authoritative for score/tier/state. For LLM copy
+        // (phrase/body/leanOn/watchFor) we prefer the freshest valid
+        // pair: if the snapshot is score-only (no copy) but the live
+        // payload already carries a phrase+body, use the live copy so
+        // the card doesn't sit on stale "copy missing" until the next
+        // snapshot refetch lands.
+        const liveHasCopy =
+          typeof base?.phrase === 'string' &&
+          !!base.phrase &&
+          typeof base?.bodyText === 'string' &&
+          !!base.bodyText;
+        const useLiveCopy = !snap.hasRenderableCopy && liveHasCopy;
+        const chosenPhrase = useLiveCopy ? base.phrase : snap.phrase;
+        const chosenBody = useLiveCopy ? base.bodyText : snap.bodyText;
+        const chosenLeanOn = useLiveCopy ? (base.leanOn ?? snap.leanOn) : (snap.leanOn ?? base.leanOn);
+        const chosenLeanOnSource = useLiveCopy
+          ? (base.leanOnSource ?? snap.leanOnSource)
+          : (snap.leanOnSource ?? base.leanOnSource);
+        const chosenWatchFor = useLiveCopy ? (base.watchFor ?? snap.watchFor) : (snap.watchFor ?? base.watchFor);
+        const chosenWatchForSource = useLiveCopy
+          ? (base.watchForSource ?? snap.watchForSource)
+          : (snap.watchForSource ?? base.watchForSource);
+        try {
+          // eslint-disable-next-line no-console
+          console.log('[PRB][copy-source]', {
+            snapshotUpdatedAt: snap.updatedAt,
+            hasRenderableScore: snap.hasRenderableScore,
+            hasRenderableCopy: snap.hasRenderableCopy,
+            liveHasCopy,
+            source: useLiveCopy
+              ? 'live'
+              : snap.hasRenderableCopy
+                ? 'snapshot'
+                : 'snapshot-copy-missing',
+            waitingForCopy: !snap.hasRenderableCopy && !liveHasCopy,
+          });
+        } catch {}
         return {
           ...base,
-          phrase: snap.phrase,
-          bodyText: snap.bodyText,
-          leanOn: snap.leanOn ?? base.leanOn,
-          leanOnSource: snap.leanOnSource ?? base.leanOnSource,
-          watchFor: snap.watchFor ?? base.watchFor,
-          watchForSource: snap.watchForSource ?? base.watchForSource,
+          phrase: chosenPhrase,
+          bodyText: chosenBody,
+          leanOn: chosenLeanOn,
+          leanOnSource: chosenLeanOnSource,
+          watchFor: chosenWatchFor,
+          watchForSource: chosenWatchForSource,
           briefId: snap.briefId,
           briefSource: snap.briefSource ?? base.briefSource,
           driver: snap.driver ?? base.driver,
