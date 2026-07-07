@@ -55,9 +55,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    // `mrsWindow` is accepted for backwards compatibility but ignored:
-    // plan reads are day-scoped and always resolve to the canonical
-    // morning snapshot row.
+    // `mrsWindow` is accepted for backwards compatibility but ignored
+    // for lookup. Plans can now be generated at any time during the
+    // day, so reads resolve to the latest ready snapshot for the date
+    // rather than a hardcoded morning row.
     const requestedWindow =
       mrsWindow === 'morning' || mrsWindow === 'afternoon' || mrsWindow === 'evening'
         ? mrsWindow
@@ -69,16 +70,19 @@ serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    // Canonical day plan: the morning row is the day's plan. Afternoon /
-    // evening callers read the same morning snapshot so the plan stays
-    // stable across the day (see plan doc: cron-written snapshot-read model).
-    const CANONICAL_WINDOW = 'morning' as const;
+    // Latest-ready-row semantics: plans may be generated in any window
+    // (morning cron, midday regen, evening refresh, manual). The UI
+    // must show the most recently successfully generated plan for the
+    // date. We deliberately filter status = 'ready' so pending/error
+    // rows never shadow a prior good plan.
     const { data, error } = await db
       .from('mastery_plan_snapshots')
       .select(SELECT_COLUMNS)
       .eq('user_id', userId)
       .eq('plan_date', planDate)
-      .eq('mrs_window', CANONICAL_WINDOW)
+      .eq('status', 'ready')
+      .order('generated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -90,14 +94,19 @@ serve(async (req) => {
     }
 
     console.log(
-      `[get-mastery-plan-snapshot] requested=${requestedWindow ?? 'none'} canonical=${CANONICAL_WINDOW} planDate=${planDate} found=${!!data}`,
+      `[get-mastery-plan-snapshot] planDate=${planDate} requestedWindow=${requestedWindow ?? 'none'} found=${!!data} selectedWindow=${(data as any)?.mrs_window ?? 'n/a'} generatedAt=${(data as any)?.generated_at ?? 'n/a'} status=${(data as any)?.status ?? 'n/a'}`,
     );
 
     return new Response(
       JSON.stringify({
         success: true,
         data: data ?? null,
-        source: { canonicalWindow: CANONICAL_WINDOW, requestedWindow },
+        source: {
+          strategy: 'latest_ready',
+          requestedWindow,
+          selectedWindow: (data as any)?.mrs_window ?? null,
+          generatedAt: (data as any)?.generated_at ?? null,
+        },
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
