@@ -2256,9 +2256,14 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
             {(() => {
-              const stateLabel = getReadinessStateLabel(readinessState, hasCurrentPeriodSignal);
+              // When a numeric score is displayed, never render cold-start
+              // "Awaiting signals" wording next to it — force the label to
+              // reflect the score-backed state (baseline → Early read,
+              // refined → Full read).
+              const scoreBackedSignal = score != null || hasCurrentPeriodSignal;
+              const stateLabel = getReadinessStateLabel(readinessState, scoreBackedSignal);
               const stateSubtitle =
-                stateLabel.label === 'Awaiting signals'
+                stateLabel.label === 'Awaiting signals' && score == null
                   ? awaitingCopy
                   : stateLabel.subtitle;
               return (
