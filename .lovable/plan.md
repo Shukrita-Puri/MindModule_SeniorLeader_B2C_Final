@@ -1,6 +1,16 @@
 ## Goal
 
-Move Executive Home to a **cron-written, snapshot-read** model. Homepage never triggers live generation. MRS + PRB are built by cron 3×/day (morning, afternoon, evening). Plan is built by cron once/day in the morning slot and reused for afternoon/evening. All intelligence (scoring, LLM, ranking) stays exactly as-is — we only change *when* generation runs and *what* the UI reads.
+Move Executive Home to a **cron-written, snapshot-read** model. Homepage never triggers live generation. **All three cards — MRS, PRB, and Plan — are built by cron 3×/day (morning, afternoon, evening)** so context changes (calendar, physiology, check-in) can reshape every card across the day. All intelligence (scoring, LLM, ranking) stays exactly as-is — we only change *when* generation runs and *what* the UI reads.
+
+### Read/write policy per card
+
+| Card | Writer | Reader policy |
+| --- | --- | --- |
+| MRS   | Cron 3×/day + manual refresh | current-window snapshot |
+| PRB   | Cron 3×/day + manual refresh | current-window snapshot |
+| Plan  | Cron 3×/day + manual refresh | current-window snapshot, fall back to latest ready row for the day |
+
+A single manual refresh regenerates the current window's MRS + PRB + Plan and invalidates all three React Query keys, so the sibling cards re-hydrate from the shared refreshed snapshots automatically.
 
 ## Approach for Plan day-scoping
 
