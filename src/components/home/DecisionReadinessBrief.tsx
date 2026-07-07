@@ -2227,6 +2227,31 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       validatorRejectionCount,
       renderCategory,
     });
+
+    // [PRB][llm-response] Diagnostic — the ACTUAL copy payload the card
+    // is about to render, sourced from whichever payload won (snapshot vs
+    // live vs mock). This lets us distinguish "LLM never returned copy"
+    // from "LLM copy landed but isn't rendering" without cross-referencing
+    // other logs. Nulls are logged explicitly.
+    const finalPhrase = (outerBrief as any)?.phrase ?? null;
+    const finalBody = (outerBrief as any)?.bodyText ?? null;
+    const finalLeanOn = (outerBrief as any)?.leanOn ?? null;
+    const finalWatchFor = (outerBrief as any)?.watchFor ?? null;
+    console.log('[PRB][llm-response]', {
+      source,
+      briefId: (outerBrief as any)?.briefId ?? null,
+      briefSource: (outerBrief as any)?.briefSource ?? null,
+      phrase: finalPhrase,
+      bodyText: finalBody,
+      leanOn: finalLeanOn,
+      watchFor: finalWatchFor,
+      innerReadinessScore: (outerBrief as any)?.innerReadinessScore ?? null,
+      innerReadinessState: (outerBrief as any)?.innerReadinessState ?? null,
+      llmFallbackReason,
+      hasSignalPills:
+        Array.isArray((outerBrief as any)?.signalPills) &&
+        (outerBrief as any).signalPills.length > 0,
+    });
   }, [_prbRenderKey, tourMockBriefActive, realBriefEmpty, briefFromSnapshot, outerBriefReal, outerBrief]);
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
