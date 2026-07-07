@@ -3474,6 +3474,13 @@ serve(async (req) => {
         console.error('[brief-cache] Signature failed:', sigError instanceof Error ? sigError.message : sigError);
         inputSignature = 'no-sig';
       }
+      if (inputSignature === 'no-sig') {
+        console.warn('[compute-outer-readiness][no-sig] input signature unavailable — persistence will proceed with fallback signature so awaiting/cold-start snapshot rows still land', {
+          userId,
+          localDate: userLocalDate,
+          window: getTimeOfDay(hour),
+        });
+      }
 
       if (inputSignature !== 'no-sig') {
         try {
