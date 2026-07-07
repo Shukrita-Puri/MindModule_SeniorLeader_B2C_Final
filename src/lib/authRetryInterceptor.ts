@@ -10,6 +10,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE } from '@/config/devMode';
 import { clearTokenCache, getAuthToken } from '@/services/authTokenService';
+import { getInvokeTransportDiagnostics, normalizeInvokeOptions } from '@/lib/functionInvokeTransport';
 
 let patched = false;
 
@@ -50,7 +51,15 @@ export function installAuthRetryInterceptor(): void {
   const originalInvoke = supabase.functions.invoke.bind(supabase.functions);
 
   supabase.functions.invoke = async (functionName: string, options?: any) => {
-    const result = await originalInvoke(functionName, options);
+    const normalizedOptions = normalizeInvokeOptions(options);
+    if (functionName === 'generate-mastery-plan') {
+      console.info('[authRetryInterceptor] invoke dispatch', {
+        functionName,
+        retry: false,
+        ...getInvokeTransportDiagnostics(normalizedOptions),
+      });
+    }
+    const result = await originalInvoke(functionName, normalizedOptions);
 
     const status = getResponseStatus(result?.error);
     if (status !== 401) return result;
@@ -63,13 +72,21 @@ export function installAuthRetryInterceptor(): void {
       return result;
     }
 
-    const retryOptions = {
-      ...(options || {}),
+    const retryOptions = normalizeInvokeOptions({
+      ...(normalizedOptions || {}),
       headers: {
-        ...((options && options.headers) || {}),
+        ...((normalizedOptions && normalizedOptions.headers) || {}),
         Authorization: `Bearer ${freshToken}`,
       },
-    };
+    });
+
+    if (functionName === 'generate-mastery-plan') {
+      console.info('[authRetryInterceptor] retry replay', {
+        functionName,
+        retry: true,
+        ...getInvokeTransportDiagnostics(retryOptions),
+      });
+    }
 
     const retryResult = await originalInvoke(functionName, retryOptions);
     const retryStatus = getResponseStatus(retryResult?.error);

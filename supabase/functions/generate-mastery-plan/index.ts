@@ -7014,6 +7014,20 @@ if (import.meta.main) Deno.serve(async (req) => {
     const contentType = req.headers.get('content-type') || '';
     const bodyIsEmpty = !rawBodyText || rawBodyText.trim().length === 0;
     const requestMode = req.headers.get('x-request-mode') || 'default';
+    const caller = req.headers.get('x-plan-caller') || req.headers.get('x-client-path') || 'unknown';
+
+    console.log('[generate-mastery-plan][request-body]', {
+      contentType,
+      contentLength: req.headers.get('content-length'),
+      rawBodyLength: rawBodyText.length,
+      bodyEmpty: bodyIsEmpty,
+      userId: redactUserId(userId),
+      requestMode,
+      caller,
+      hasAuthHeader: !!req.headers.get('authorization'),
+      hasDevUserHeader: !!req.headers.get('x-dev-user-id'),
+      hasImpersonationHeader: !!req.headers.get('x-impersonation-token'),
+    });
 
     if (bodyIsEmpty) {
       console.warn('[generate-mastery-plan] request body missing; defaulting to empty object', {
@@ -7021,6 +7035,7 @@ if (import.meta.main) Deno.serve(async (req) => {
         bodyEmpty: true,
         userId: redactUserId(userId),
         requestMode,
+        caller,
       });
       body = {};
     } else {
@@ -7032,6 +7047,7 @@ if (import.meta.main) Deno.serve(async (req) => {
           bodyEmpty: false,
           userId: redactUserId(userId),
           requestMode,
+          caller,
           reason: parseErr?.message || String(parseErr),
         });
         return new Response(
@@ -7046,6 +7062,7 @@ if (import.meta.main) Deno.serve(async (req) => {
         bodyEmpty: false,
         userId: redactUserId(userId),
         requestMode,
+        caller,
       });
       return new Response(
         JSON.stringify({ error: 'Invalid request body', reason: 'Expected JSON object' }),

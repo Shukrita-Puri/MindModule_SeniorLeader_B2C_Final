@@ -10,6 +10,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getInvokeTransportDiagnostics, normalizeInvokeOptions } from '@/lib/functionInvokeTransport';
 
 let patched = false;
 
@@ -24,13 +25,20 @@ export function installDevInterceptor(): void {
       'x-dev-user-id': DEV_USER.id,
     };
 
-    const mergedOptions = {
+    const mergedOptions = normalizeInvokeOptions({
       ...options,
       headers: {
         ...devHeaders,
         ...(options?.headers || {}),
       },
-    };
+    });
+
+    if (functionName === 'generate-mastery-plan') {
+      console.info('[devInterceptor] invoke dispatch', {
+        functionName,
+        ...getInvokeTransportDiagnostics(mergedOptions),
+      });
+    }
 
     return originalInvoke(functionName, mergedOptions);
   };
