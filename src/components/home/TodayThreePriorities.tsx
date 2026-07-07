@@ -1491,6 +1491,46 @@ const TodayThreePriorities = ({
   // ── Awaiting-signals empty state ──
   // Mirrors the Brief contract: when neither check-in nor today's wearable
   // is present, show the same quiet prompt instead of a generated plan.
+  if (snapshotMissingReady && !plan) {
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/30 font-bold">
+                {n}
+              </div>
+              <div className="flex-1">
+                <div className="h-3.5 bg-muted/10 rounded-md w-2/3" />
+              </div>
+            </div>
+          ))}
+          <div className="pt-2 flex flex-col items-center gap-2">
+            <p className="text-xs text-muted-foreground/70 font-body">
+              Today's plan hasn't been prepared yet.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualGenerate}
+              disabled={manualGenerating}
+              className="h-8 text-xs gap-1.5 rounded-lg border-muted-foreground/20"
+            >
+              {manualGenerating ? (
+                <>
+                  <RefreshCw size={12} className="animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>Generate today's plan</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (awaitingSignals) {
     return (
       <div className="space-y-4 pt-2">
