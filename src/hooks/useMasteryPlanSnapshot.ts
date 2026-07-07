@@ -136,6 +136,10 @@ export function useMasteryPlanSnapshot() {
         horizonModules: snapshot.horizonModules.length,
         priorities: snapshot.priorities.length,
       });
+      // eslint-disable-next-line no-console
+      console.log(
+        `[plan-snapshot][render] source=snapshot canonicalWindow=morning requestedWindow=${mrsWindow} found=true`,
+      );
 
       return snapshot;
     },

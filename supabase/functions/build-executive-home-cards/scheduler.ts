@@ -32,6 +32,10 @@ export interface ExecutiveHomeCronConfig {
      * `index.ts`; changing this array in `admin_cron_job_configs` will NOT
      * reorder execution. If the sequence must change, change the code.
      * See mem://architecture/mastery-plan-server-side-derivation.
+     *
+     * NOTE: Plan is generated ONCE PER DAY in the morning window only.
+     * Afternoon and evening cron passes build MRS + Brief and re-read the
+     * canonical morning Plan snapshot via `get-mastery-plan-snapshot`.
      */
     buildSequence: string[];
     mode: "scheduled";
