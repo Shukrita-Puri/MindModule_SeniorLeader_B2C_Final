@@ -1849,6 +1849,48 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     ? (() => {
         const snap = currentBriefSnapshot!;
         const base = (outerBriefReal as any) ?? {};
+        // ── Snapshot vs live pill preference ───────────────────────────
+        // Legacy `brief_snapshots.signal_pills` rows can carry a positive
+        // Physical Reserves tier ("Body Steady") with only suppressed /
+        // legacy contributor keys (e.g. `rhrDeviation`, `sleepDeviation`)
+        // and no displayable contributors. Live `useOuterReadiness` now
+        // enforces the displayable-contributor gate — so when the live
+        // payload has a richer Physical Reserves pill for the same
+        // window, prefer live pills over snapshot pills as the render
+        // source. Score / state stay snapshot-authoritative.
+        const displayableCount = (arr: unknown): number => {
+          if (!Array.isArray(arr)) return 0;
+          const p = arr.find(
+            (x: any) => x && x.key === 'physical_reserves',
+          ) as any;
+          const c = p?.contributors ?? {};
+          const isNum = (v: unknown) =>
+            typeof v === 'number' && Number.isFinite(v);
+          return (
+            (isNum(c.sleepDuration) ? 1 : 0) +
+            (isNum(c.sleepScore) ? 1 : 0) +
+            (isNum(c.rhrValue) ? 1 : 0) +
+            (isNum(c.hrValue) ? 1 : 0)
+          );
+        };
+        const snapPills = (snap.signalPills ?? null) as unknown;
+        const livePills = (base.signalPills ?? null) as unknown;
+        const snapDisplayable = displayableCount(snapPills);
+        const liveDisplayable = displayableCount(livePills);
+        const preferLivePills =
+          Array.isArray(livePills) &&
+          liveDisplayable > 0 &&
+          snapDisplayable === 0;
+        const chosenPills = preferLivePills ? livePills : (snapPills ?? livePills ?? null);
+        try {
+          // eslint-disable-next-line no-console
+          console.log('[PRB][pills-source]', {
+            snapDisplayable,
+            liveDisplayable,
+            preferLivePills,
+            source: preferLivePills ? 'live' : snapPills ? 'snapshot' : 'live-fallback',
+          });
+        } catch {}
         return {
           ...base,
           phrase: snap.phrase,
@@ -1878,7 +1920,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             null,
           innerReadinessState:
             snap.innerReadinessState ?? base.innerReadinessState ?? null,
-          signalPills: snap.signalPills ?? base.signalPills ?? null,
+          signalPills: chosenPills,
           checkInOutcome: snap.checkInOutcome ?? base.checkInOutcome ?? null,
           sourceProvenance: snap.sourceProvenance ?? base.sourceProvenance ?? null,
           behaviourSnapshot: snap.behaviourSnapshot ?? base.behaviourSnapshot ?? null,
