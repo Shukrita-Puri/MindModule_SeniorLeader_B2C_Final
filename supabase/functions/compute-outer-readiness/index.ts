@@ -6401,35 +6401,49 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // brief_source='llm' on a null-write.
         let overwriteDecision: 'no_existing' | 'overwrite_applied' | 'overwrite_prevented' | 'none' = 'none';
         try {
-          const { data: existingRow } = await db
+          // Overwrite protection is scoped to (user_id, local_date,
+          // time_window) — NOT input_signature / prompt_version. This
+          // prevents a later different-signature awaiting/null-copy row
+          // from silently shadowing a valid earlier LLM brief for the
+          // same day+window (which readers surface by latest row).
+          const { data: existingRows } = await db
             .from('brief_snapshots')
-            .select('id, brief_source, baseline_phrase, baseline_body_text, baseline_lean_on, baseline_lean_on_source, baseline_watch_for, baseline_watch_for_source, refined_phrase, refined_body_text, refined_lean_on, refined_lean_on_source, refined_watch_for, refined_watch_for_source')
+            .select('id, brief_source, baseline_phrase, baseline_body_text, baseline_lean_on, baseline_lean_on_source, baseline_watch_for, baseline_watch_for_source, refined_phrase, refined_body_text, refined_lean_on, refined_lean_on_source, refined_watch_for, refined_watch_for_source, updated_at')
             .eq('user_id', userId)
             .eq('local_date', userLocalDate)
             .eq('time_window', getTimeOfDay(hour))
-            .eq('input_signature', inputSignature)
-            .eq('prompt_version', BRIEF_PROMPT_VERSION)
-            .maybeSingle();
+            .order('updated_at', { ascending: false })
+            .limit(1);
+          const existingRow = Array.isArray(existingRows) && existingRows.length > 0
+            ? existingRows[0]
+            : null;
           if (!existingRow) {
             overwriteDecision = 'no_existing';
           } else {
+            // Pick whichever tier of copy actually exists on the prior row
+            // — prefer the incoming write's tier, but fall back to the
+            // other tier so a refined pass never silently loses an earlier
+            // baseline LLM brief (or vice-versa).
             const isRefined = (canonicalReadinessState ?? 'baseline') === 'refined';
-            const existingPhrase = (isRefined
+            const refinedHas = !!(existingRow as any).refined_phrase && !!(existingRow as any).refined_body_text;
+            const baselineHas = !!(existingRow as any).baseline_phrase && !!(existingRow as any).baseline_body_text;
+            const useRefined = isRefined ? refinedHas : (!baselineHas && refinedHas);
+            const existingPhrase = (useRefined
               ? (existingRow as any).refined_phrase
               : (existingRow as any).baseline_phrase) ?? null;
-            const existingBody = (isRefined
+            const existingBody = (useRefined
               ? (existingRow as any).refined_body_text
               : (existingRow as any).baseline_body_text) ?? null;
-            const existingLeanOn = (isRefined
+            const existingLeanOn = (useRefined
               ? (existingRow as any).refined_lean_on
               : (existingRow as any).baseline_lean_on) ?? null;
-            const existingLeanOnSrc = (isRefined
+            const existingLeanOnSrc = (useRefined
               ? (existingRow as any).refined_lean_on_source
               : (existingRow as any).baseline_lean_on_source) ?? null;
-            const existingWatchFor = (isRefined
+            const existingWatchFor = (useRefined
               ? (existingRow as any).refined_watch_for
               : (existingRow as any).baseline_watch_for) ?? null;
-            const existingWatchForSrc = (isRefined
+            const existingWatchForSrc = (useRefined
               ? (existingRow as any).refined_watch_for_source
               : (existingRow as any).baseline_watch_for_source) ?? null;
             const existingBriefSource = (existingRow as any).brief_source as
@@ -6452,6 +6466,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } else if (newHasCopy) {
               overwriteDecision = 'overwrite_applied';
             } else {
+              // No prior copy AND no new copy — this is an explicit
+              // awaiting row. Persist `brief_source='awaiting'` so the
+              // reader can distinguish "missing row" from "awaiting row"
+              // from "real score-bearing row".
+              effectiveBriefSource = 'awaiting';
               overwriteDecision = 'none';
             }
             console.log('[brief-cache][copy-persist]', {
