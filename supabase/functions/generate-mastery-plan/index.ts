@@ -3058,7 +3058,9 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
 // ==================== MAIN PLAN GENERATION ====================
 
 async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any) {
-  const timeOfDay = getTimeOfDay(req.timezoneOffset);
+  // F1 — same window resolution as buildSharedContext.
+  const timeOfDay = (req.timeWindow ?? getTimeOfDay(req.timezoneOffset)) as
+    'morning' | 'afternoon' | 'evening';
 
   // Phase 2: Recovery day override (feature-flagged OFF)
   if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
