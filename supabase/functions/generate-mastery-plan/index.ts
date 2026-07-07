@@ -7433,14 +7433,34 @@ if (import.meta.main) Deno.serve(async (req) => {
         const _sb = createClient(_url, _key);
         const _planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
         const _period = currentPeriod;
-        await _sb.from('mastery_plan_snapshots').upsert({
-          user_id: userId,
-          plan_date: _planDate,
-          mrs_window: _period,
-          status: 'error',
-          error_json: { message: error?.message ?? String(error), name: error?.name ?? null },
-          generated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,plan_date,mrs_window' });
+        // Overwrite protection: never clobber a valid ready snapshot for
+        // this (user, date, window) with an error row. If a ready row
+        // exists, the UI keeps rendering it and the error is captured in
+        // logs / `executive_home_card_runs`.
+        const { data: existingReady } = await _sb
+          .from('mastery_plan_snapshots')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('plan_date', _planDate)
+          .eq('mrs_window', _period)
+          .eq('status', 'ready')
+          .maybeSingle();
+        if (!existingReady?.id) {
+          await _sb.from('mastery_plan_snapshots').upsert({
+            user_id: userId,
+            plan_date: _planDate,
+            mrs_window: _period,
+            status: 'error',
+            error_json: { message: error?.message ?? String(error), name: error?.name ?? null },
+            generated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,plan_date,mrs_window' });
+        } else {
+          console.log('[mastery-plan-snapshot][error-preserved-ready]', {
+            planDate: _planDate,
+            window: _period,
+            existingReadyId: existingReady.id,
+          });
+        }
       }
     } catch (_errSnapErr) { /* swallow */ }
     return new Response(JSON.stringify({ error: 'Plan generation failed', reason: error?.message }), {
