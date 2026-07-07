@@ -242,6 +242,7 @@ const TodayThreePriorities = ({
   reflectionEvent?: string | null;
 }) => {
   console.info('[plan-card] component-mounted');
+  console.info('[plan-card] build-marker', { marker: 'TTP-HYDRATE-V2-2026-07-07-A' });
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -1137,10 +1138,18 @@ const TodayThreePriorities = ({
   }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting, buildGeneratePlanRequestBody, invokeGenerateMasteryPlan]);
 
   useEffect(() => {
+    try {
+    console.info('[plan-card] hydrate-effect-enter', {
+      marker: 'TTP-HYDRATE-V2-2026-07-07-A',
+      masteryPlanSnapshotDefined: masteryPlanSnapshot !== undefined,
+      mrsSnapshotDefined: mrsSnapshot !== undefined,
+      outerReadinessDefined: outerReadinessData !== undefined,
+    });
     // Wait for the brief to resolve before kicking off `loadPlan` — without
     // this the first call races ahead of the awaiting-signals contract and
     // generates a plan from defaults before the brief tells us to suppress.
     if (outerReadinessData === undefined) {
+      console.info('[plan-card] hydrate-branch', { branch: 'outerReadiness-undefined' });
       console.info('[plan-card] hydrate-effect skipped', { reason: 'outerReadinessData-undefined' });
       return;
     }
@@ -1148,6 +1157,7 @@ const TodayThreePriorities = ({
     // both localStorage cache and live generation when it's ready for the
     // current window.
     if (masteryPlanSnapshot === undefined || mrsSnapshot === undefined) {
+      console.info('[plan-card] hydrate-branch', { branch: 'snapshot-or-mrs-undefined' });
       console.info('[plan-card] hydrate-effect skipped', {
         reason: 'snapshot-or-mrs-undefined',
         masteryPlanSnapshotDefined: masteryPlanSnapshot !== undefined,
@@ -1157,6 +1167,7 @@ const TodayThreePriorities = ({
     }
 
     if (cardsAwaiting) {
+      console.info('[plan-card] hydrate-branch', { branch: 'cards-awaiting' });
       const todayDate = localISODate();
       const currentPeriod = getCurrentTimeWindow();
       clearPersistent(cacheKeys.planLoaded(todayDate, currentPeriod));
@@ -1205,6 +1216,7 @@ const TodayThreePriorities = ({
       planHorizonModules.length > 0;
 
     if (!hydratedFromSnapshotRef.current && !hasPlanForceRefresh && planSnapshotRenderable) {
+      console.info('[plan-card] hydrate-branch', { branch: 'planSnapshotRenderable' });
       hydratedFromSnapshotRef.current = true;
       console.info('[plan-card][hydrate:decision]', {
         planDate: todayForPlan,
@@ -1262,6 +1274,7 @@ const TodayThreePriorities = ({
         }
       })();
     } else if (!hydratedFromSnapshotRef.current) {
+      console.info('[plan-card] hydrate-branch', { branch: 'snapshot-not-renderable' });
       // No usable snapshot (missing, error, pending, or empty plan shape).
       // Snapshot-only home: cron (`build-executive-home-cards`, morning
       // slot) owns Plan generation. If the morning snapshot is missing,
@@ -1356,6 +1369,9 @@ const TodayThreePriorities = ({
     document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(() => { if (plan) checkCompletion(); }, 60000);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility); };
+    } catch (error) {
+      console.error('[plan-card] hydrate-effect-error', error);
+    }
   }, [user?.id, outerReadinessData, masteryPlanSnapshot, mrsSnapshot, hasPlanForceRefresh]);
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
