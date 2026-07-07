@@ -1100,7 +1100,7 @@ const TodayThreePriorities = ({
     }
     setLoading(false);
     return true;
-  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting]);
+  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting, buildGeneratePlanRequestBody]);
 
   useEffect(() => {
     // Wait for the brief to resolve before kicking off `loadPlan` — without
