@@ -337,6 +337,11 @@ const TodayThreePriorities = ({
   // Plan card renders the same quiet "Begin with your check-in" prompt
   // instead of generating a plan from defaults.
   const [awaitingSignals, setAwaitingSignals] = useState(noLocalSignalAtMount);
+  // Manual-recovery state: snapshot missing today but MRS readiness is ready,
+  // so we can offer the user an explicit "Generate today's plan" CTA instead
+  // of the awaiting-signals empty state.
+  const [snapshotMissingReady, setSnapshotMissingReady] = useState(false);
+  const [manualGenerating, setManualGenerating] = useState(false);
   // Ref preserves the "we already had a cached payload at mount" fact for
   // the lifetime of this component, so a transient `loading=true` from a
   // silent refresh can never re-trigger the scripted EngravedLoader.
