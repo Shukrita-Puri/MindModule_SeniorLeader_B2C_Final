@@ -249,10 +249,10 @@ export const WORKED_EXAMPLES = `WORKED EXAMPLES (triangulated four-beat body —
 
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble.
 {
- "phrase": "2–4 word human headline (target 3), or null",
- "body": "one or two short human sentences with the orientation beat, or null",
- "leanOn":  [{ "signal": "1-3 words", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }],
- "watchFor":[{ "signal": "1-3 words", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }]
+  "phrase": "2–4 word human headline (target 3), or null",
+  "body": "one or two short human sentences with the orientation beat, or null",
+  "leanOn":  [{ "signal": "short signal phrase", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }],
+  "watchFor":[{ "signal": "short signal phrase", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }]
 }`;
 
 /**

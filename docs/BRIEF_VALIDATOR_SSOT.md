@@ -61,6 +61,46 @@ for future consolidation — see the "Consolidation note" below.
   matches the inline `ALLOWED_SOURCES` gate.
 - No stale "40 words max" copy remains in either the prompt module or the
   inline validator as of this SSOT.
+- The `OUTPUT_CONTRACT` no longer claims a strict `1-3 words` rule for
+  `leanOn` / `watchFor` signals; the live validator only enforces signal
+  presence, a 10-word upper bound, 60-character width, and source/vocabulary
+  validity.
+
+## Prompt-only vs hard-gated inventory
+
+Rules below are grouped by where they are actually enforced. The prompt
+surfaces all of them via `VALIDATOR_ALIGNED_GUARDRAILS` in
+`_shared/brief/copy-vocabulary.ts`, but only the **Hard-gated live** column
+causes a rejection in `validateV61Output` today.
+
+### Already hard-gated live (rejection reasons from `validateV61Output`)
+
+| Rule | Rejection reason | Notes |
+| --- | --- | --- |
+| Phrase length 2–4 words | `phrase_hard_reject_*` / `phrase_soft_reject_*` | 5 words soft-retry, 6+ hard reject. |
+| Phrase forbidden openers | `phrase_forbidden_opener` | Blocks `you` / `your` / `the` at phrase start. |
+| Phrase coaching imperatives | `phrase_coaching_imperative` | Blocks `you should`, `you need to`, `try to`, `consider`, etc. |
+| Em dash / en dash in phrase or body | `phrase_em_dash` / `body_em_dash` | Plain typography only. |
+| Body metric list | `body_metric_list_N` | ≥2 metric qualifiers in close proximity. |
+| Body restates phrase | `body_restates_phrase` | Verbatim echo of the phrase in the body. |
+| Generic-trait / COACH restriction | `leanOn_generic_trait` / `watchFor_generic_trait` | Traits like `Self-Awareness`, `Discernment`, `Alignment` allowed only when `source = COACH`. |
+| `leanOn` / `watchFor` source whitelist | `leanOn_invalid_source_*` / `watchFor_invalid_source_*` | Only `ARCHETYPE`, `COACH`, `PATTERN`, `GOALS`. |
+| Body signal evidence / state-quality fallback | `body_no_signal_evidence` | Requires number + unit, named event, calendar-empty baseline lexicon, or approved state-quality word. |
+| Executive-context lexicon cluster | `body_no_signal_evidence` (lexicon branch) | Body must include cognition, physiology, resilience, or executive-context lexicon. |
+| Abstract system phrases in body | `body_abstract_system_phrase` | Blocks "come down clean", "hold the base", "mask the surge", "optimise the window", "leverage your physiological runway". |
+
+### Still mostly prompt-only (not a hard gate in `validateV61Output` today)
+
+| Guidance | Why it is prompt-only | Risk if ignored |
+| --- | --- | --- |
+| No numbers in phrase | Not regex-gated in phrase validator; only discouraged in prompt. | May produce less human-sounding headlines. |
+| Explicit directional-move requirement | Four-beat directive verbs live in `BODY_FOUR_BEAT_CONTRACT` and are mirrored in `_shared/brief-validators.ts`, but the production `validateV61Output` does not re-check directive verbs directly. | Body may feel advisory rather than oriented. |
+| Preferred sentence shape (1–3 short sentences, four-beat structure) | Structural rules are enforced in the parallel `_shared/brief-validators.ts` implementation, but not in the live inline validator. | Body may exceed word budget or lose the Chief-of-Staff cadence. |
+| Ideal `leanOn` / `watchFor` word target | Live validator only caps at 10 words / 60 chars and checks vocabulary/source; no tight 1–3 word gate. | Signals may become verbose or raw-signal-like. |
+
+If any of the prompt-only guidance above needs to be promoted to a hard gate,
+that requires a separate validator ticket and must be implemented in
+`validateV61Output` (and mirrored in tests) rather than in the prompt module.
 
 ## Tests
 
