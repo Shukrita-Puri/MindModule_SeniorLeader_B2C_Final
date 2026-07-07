@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
-import { localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
+import { localISODate } from '@/utils/persistentBriefCache';
 
 export type MrsWindow = 'morning' | 'afternoon' | 'evening';
 export type MasteryPlanSnapshotStatus = 'ready' | 'error' | 'pending';
@@ -57,10 +57,9 @@ export function useMasteryPlanSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
   const planDate = localISODate();
-  const mrsWindow = currentPeriodLocal() as MrsWindow;
 
   return useQuery<MasteryPlanSnapshot | null>({
-    queryKey: ['mastery-plan-snapshot', effectiveUserId, planDate, mrsWindow],
+    queryKey: ['mastery-plan-snapshot', effectiveUserId, planDate],
     enabled: !!effectiveUserId,
     staleTime: 60 * 1000,
     queryFn: async () => {
@@ -74,7 +73,7 @@ export function useMasteryPlanSnapshot() {
       const { data: resp, error } = await supabase.functions.invoke(
         'get-mastery-plan-snapshot',
         {
-          body: { planDate, mrsWindow },
+          body: { planDate },
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         },
       );
@@ -86,18 +85,16 @@ export function useMasteryPlanSnapshot() {
         console.warn('[useMasteryPlanSnapshot] no row', {
           effectiveUserId,
           planDate,
-          mrsWindow,
           error: error.message,
         });
         return null;
       }
       if (!data) {
-        dbg('no snapshot', { effectiveUserId, planDate, mrsWindow });
+        dbg('no snapshot', { effectiveUserId, planDate });
         // eslint-disable-next-line no-console
         console.warn('[useMasteryPlanSnapshot] no row', {
           effectiveUserId,
           planDate,
-          mrsWindow,
           error: null,
         });
         return null;
@@ -115,7 +112,7 @@ export function useMasteryPlanSnapshot() {
         generatedAt: ((data as any).generated_at ?? null) as string | null,
         inputSignature: ((data as any).input_signature ?? null) as string | null,
         planDate: ((data as any).plan_date ?? planDate) as string,
-        mrsWindow: ((data as any).mrs_window ?? mrsWindow) as MrsWindow,
+        mrsWindow: ((data as any).mrs_window ?? 'morning') as MrsWindow,
         dayKind: ((data as any).day_kind ?? null) as string | null,
         horizonIso: ((data as any).horizon_iso ?? null) as string | null,
         deliveredAt: ((data as any).delivered_at ?? null) as string | null,
@@ -131,14 +128,13 @@ export function useMasteryPlanSnapshot() {
       // eslint-disable-next-line no-console
       console.info('[useMasteryPlanSnapshot] loaded', {
         planDate,
-        mrsWindow,
         status: snapshot.status,
         horizonModules: snapshot.horizonModules.length,
         priorities: snapshot.priorities.length,
       });
       // eslint-disable-next-line no-console
       console.log(
-        `[plan-snapshot][render] source=snapshot canonicalWindow=morning requestedWindow=${mrsWindow} found=true`,
+        `[plan-snapshot][render] source=snapshot canonicalWindow=morning planDate=${planDate} found=true`,
       );
 
       return snapshot;
