@@ -6993,7 +6993,38 @@ if (import.meta.main) Deno.serve(async (req) => {
 
     // Rate limiting – 30s cooldown per user+state fingerprint (not just period)
     const now = Date.now();
-    const body = await req.json();
+    // Defensive body parse: empty or malformed JSON must not crash the handler.
+    // Return 400 with a concise reason instead of a generic 500.
+    let body: any = {};
+    let rawBodyText = '';
+    try {
+      rawBodyText = await req.text();
+      if (rawBodyText && rawBodyText.trim().length > 0) {
+        body = JSON.parse(rawBodyText);
+      }
+    } catch (parseErr: any) {
+      console.error('[generate-mastery-plan] request body parse failed', {
+        contentType: req.headers.get('content-type'),
+        bodyEmpty: !rawBodyText || rawBodyText.trim().length === 0,
+        userId: redactUserId(userId),
+        reason: parseErr?.message || String(parseErr),
+      });
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', reason: 'Malformed JSON' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      console.error('[generate-mastery-plan] request body invalid shape', {
+        contentType: req.headers.get('content-type'),
+        bodyEmpty: !rawBodyText || rawBodyText.trim().length === 0,
+        userId: redactUserId(userId),
+      });
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', reason: 'Expected JSON object' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
     clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
     clientLocalDate = typeof body.localDate === 'string' ? body.localDate : null;
     const todayCheckinId = typeof body.todayCheckinId === 'string' ? body.todayCheckinId : null;
