@@ -7211,6 +7211,16 @@ if (import.meta.main) Deno.serve(async (req) => {
           ? planObj.horizonModules
           : [];
         const hasPayload = visiblePriorities.length > 0 || horizonMods.length > 0;
+        // F3 — snapshot status contract:
+        //   'ready'    → hasPayload AND plan is not an awaiting envelope
+        //   'awaiting' → plan is an awaiting envelope OR payload absent
+        //               while readiness signals are still missing
+        //   'error'    → written by the outer catch below only
+        const planIsAwaiting =
+          planObj?.planState === 'awaiting_signals' ||
+          planObj?.awaitingSignals === true;
+        const snapshotStatus: 'ready' | 'awaiting' =
+          (!planIsAwaiting && hasPayload) ? 'ready' : 'awaiting';
         console.log('[mastery-plan-snapshot][persist-start]', {
           userId: redactUserId(userId!),
           planDate,
@@ -7218,30 +7228,15 @@ if (import.meta.main) Deno.serve(async (req) => {
           onlyIfMissing: !!opts.onlyIfMissing,
           requestMrsAwaiting: (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : null,
           hasPayload,
+          planIsAwaiting,
+          snapshotStatus,
           prioritiesCount: visiblePriorities.length,
           horizonModulesCount: horizonMods.length,
         });
-        // Only skip persistence when awaiting AND we have literally no
-        // plan content to persist. A partially generated plan (e.g. a
-        // horizon module survived even in an awaiting envelope) must
-        // still land in mastery_plan_snapshots so the snapshot-read-first
-        // UI can hydrate. True cold-start (no payload) skips.
-        // Outer handler declares `requestMrsAwaiting` in the same scope
-        // (see below, before `generateMasteryPlan` is invoked). We guard
-        // with typeof for defensive safety and only skip when there is
-        // literally nothing to persist. A partial plan (any priority or
-        // horizon module) still lands so the snapshot-read-first UI can
-        // hydrate rather than showing an empty card.
-        const _awaiting = (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : false;
-        if (_awaiting && !hasPayload) {
-          console.log('[mastery-plan-snapshot][early-return]', {
-            reason: 'awaiting_and_empty_payload',
-            userId: redactUserId(userId!),
-            planDate,
-            window: currentPeriod,
-          });
-          return;
-        }
+        // F3 — awaiting rows are ALWAYS persisted so the reader can
+        // return a truthful awaiting state. They land with status='awaiting'
+        // and never shadow a ready row (see error-path guard below and the
+        // reader's precedence rules).
         if (opts.onlyIfMissing) {
           const { data: existing } = await supabaseClient
             .from('mastery_plan_snapshots')
@@ -7254,6 +7249,30 @@ if (import.meta.main) Deno.serve(async (req) => {
             console.log('[mastery-plan-snapshot][early-return]', {
               reason: 'only_if_missing_row_exists',
               existingId: existing.id,
+            });
+            return;
+          }
+        }
+        // F3 — never let an awaiting write clobber an existing ready row
+        // for the same (user, plan_date, mrs_window). The reader also
+        // prefers ready, but keeping the ready row on disk means a
+        // downstream consumer (Smart Nudges, insights) doesn't briefly
+        // see the awaiting state either.
+        if (snapshotStatus === 'awaiting') {
+          const { data: existingReady } = await supabaseClient
+            .from('mastery_plan_snapshots')
+            .select('id')
+            .eq('user_id', userId!)
+            .eq('plan_date', planDate)
+            .eq('mrs_window', currentPeriod)
+            .eq('status', 'ready')
+            .maybeSingle();
+          if (existingReady?.id) {
+            console.log('[mastery-plan-snapshot][awaiting-preserved-ready]', {
+              userId: redactUserId(userId!),
+              planDate,
+              window: currentPeriod,
+              existingReadyId: existingReady.id,
             });
             return;
           }
