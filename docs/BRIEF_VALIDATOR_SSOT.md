@@ -45,7 +45,7 @@ for future consolidation — see the "Consolidation note" below.
 | Travel-context omission | `body_omits_material_travel_context` — when `materialTravelContextActive`, body must include a `MATERIAL_TRAVEL_BODY_RX` marker. |
 | Material work-context omission | `body_omits_material_work_context` — when material travel is active AND today has named work events, body must reference ≥1 significant token from those event titles. |
 | Band-gate valence | `body_prescribes_score_improvement` · `body_valence_mismatch_low_push` · `body_valence_mismatch_high_protect` — deterministic tone check against MRS band. |
-| Four-beat structural fingerprint | Word band, work-directive verb, self-regulation closing clause (see `validateBodyFourBeatStructure` in `_shared/brief-validators.ts` — the STRUCTURAL rules are duplicated conceptually inside the inline validator's body-length + one-line-read + repeated-4gram gates). |
+| Four-beat structural fingerprint | A cleaner structural implementation exists in `_shared/brief-validators.ts` (`validateBodyFourBeatStructure`), but that module is **not** the authoritative production gate. The live inline validator in `compute-outer-readiness/index.ts` approximates the same fingerprint via body-length, one-line-read, and repeated-4gram gates. |
 | One-line score-read echoes | `body_restates_one_line_read` — body cannot restate any of the 5 canonical MRS one-line reads. |
 | Numeric score / tier restatement | `body_restates_score_xx_100` · `body_restates_score_phrase` · `body_restates_tier_label`. |
 | Metric-list bodies | `body_metric_list_N` — ≥2 metric qualifiers in close proximity. |
@@ -65,6 +65,9 @@ for future consolidation — see the "Consolidation note" below.
   `leanOn` / `watchFor` signals; the live validator only enforces signal
   presence, a 10-word upper bound, 60-character width, and source/vocabulary
   validity.
+- The `OUTPUT_CONTRACT` body description now says **one to three short
+  human sentences**, matching the 1–3 sentence shape the live validator
+  permits (the hard gate is the 60-word ceiling).
 
 ## Prompt-only vs hard-gated inventory
 
@@ -86,7 +89,7 @@ causes a rejection in `validateV61Output` today.
 | Generic-trait / COACH restriction | `leanOn_generic_trait` / `watchFor_generic_trait` | Traits like `Self-Awareness`, `Discernment`, `Alignment` allowed only when `source = COACH`. |
 | `leanOn` / `watchFor` source whitelist | `leanOn_invalid_source_*` / `watchFor_invalid_source_*` | Only `ARCHETYPE`, `COACH`, `PATTERN`, `GOALS`. |
 | Body signal evidence / state-quality fallback | `body_no_signal_evidence` | Requires number + unit, named event, calendar-empty baseline lexicon, or approved state-quality word. |
-| Executive-context lexicon cluster | `body_no_signal_evidence` (lexicon branch) | Body must include cognition, physiology, resilience, or executive-context lexicon. |
+| Executive-context lexicon cluster | `body_no_lexicon_cluster` | Body must include cognition, physiology, resilience, or executive-context lexicon. |
 | Abstract system phrases in body | `body_abstract_system_phrase` | Blocks "come down clean", "hold the base", "mask the surge", "optimise the window", "leverage your physiological runway". |
 
 ### Still mostly prompt-only (not a hard gate in `validateV61Output` today)
@@ -94,8 +97,8 @@ causes a rejection in `validateV61Output` today.
 | Guidance | Why it is prompt-only | Risk if ignored |
 | --- | --- | --- |
 | No numbers in phrase | Not regex-gated in phrase validator; only discouraged in prompt. | May produce less human-sounding headlines. |
-| Explicit directional-move requirement | Four-beat directive verbs live in `BODY_FOUR_BEAT_CONTRACT` and are mirrored in `_shared/brief-validators.ts`, but the production `validateV61Output` does not re-check directive verbs directly. | Body may feel advisory rather than oriented. |
-| Preferred sentence shape (1–3 short sentences, four-beat structure) | Structural rules are enforced in the parallel `_shared/brief-validators.ts` implementation, but not in the live inline validator. | Body may exceed word budget or lose the Chief-of-Staff cadence. |
+| Explicit directional-move requirement | The four-beat directive verbs are described in `BODY_FOUR_BEAT_CONTRACT` and also implemented in the parallel `_shared/brief-validators.ts` module, but that module is **not** the live production gate. The production `validateV61Output` does not re-check directive verbs directly. | Body may feel advisory rather than oriented. |
+| Preferred sentence shape (1–3 short sentences, four-beat structure) | Structural rules are implemented in the parallel `_shared/brief-validators.ts` module, but that module is **not** the live production gate. The live inline validator only enforces the body word ceiling and related copy gates. | Body may exceed word budget or lose the Chief-of-Staff cadence. |
 | Ideal `leanOn` / `watchFor` word target | Live validator only caps at 10 words / 60 chars and checks vocabulary/source; no tight 1–3 word gate. | Signals may become verbose or raw-signal-like. |
 
 If any of the prompt-only guidance above needs to be promoted to a hard gate,

@@ -239,18 +239,18 @@ leadership style from the Onboarding V8 profile.`;
 export const WORKED_EXAMPLES = `WORKED EXAMPLES (triangulated four-beat body — synthesise, never copy)
 - Strong body, sharp mind, board call ahead (evidence: recovery + clarity + 2pm board; read: edge is real; work: lead from the front; self-reg: don't spend it before the room):
   phrase: "Go get them"
-  body: "Recovery's solid, your head is clear, and the 2pm board is the day — open it and set the agenda yourself, and keep the small calls before then short so you walk in with edge intact."
+  body: "Recovery's solid, your head is clear, and the 2pm board is the day; open it and set the agenda yourself, and keep the small calls before then short so you walk in with edge intact."
 - Masked fatigue, high felt-state, investor pitch (evidence: recovery down + felt sharp + investor pitch; read: divergence is the risk; work: lean on the prep; self-reg: protect the bandwidth):
   phrase: "Don't trust the lift"
-  body: "Your recovery's down hard but you're feeling sharp, and that gap is where big calls slip — run the pitch off the prep and the script, and keep the morning quiet so nothing chips at what you've got left."
+  body: "Your recovery's down hard but you're feeling sharp, and that gap is where big calls slip; run the pitch off the prep and the script, and keep the morning quiet so nothing chips at what you've got left."
 - Sunday evening, depleted, heavy Monday (evidence: low reserves + 3-week late-night pattern + Monday investor review; read: starting behind; work: front-load Monday's first hour; self-reg: close tonight cleanly):
   phrase: "Set up Monday"
-  body: "Reserves are low and the late-night pattern's been running for three weeks, with the investor review opening Monday — block the first hour for the deck only, and shut the laptop early tonight so tomorrow doesn't start in deficit."`;
+  body: "Reserves are low and the late-night pattern's been running for three weeks, with the investor review opening Monday; block the first hour for the deck only, and shut the laptop early tonight so tomorrow doesn't start in deficit."`;
 
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble.
 {
   "phrase": "2–4 word human headline (target 3), or null",
-  "body": "one or two short human sentences with the orientation beat, or null",
+  "body": "one to three short human sentences with the orientation beat, or null",
   "leanOn":  [{ "signal": "short signal phrase", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }],
   "watchFor":[{ "signal": "short signal phrase", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }]
 }`;
