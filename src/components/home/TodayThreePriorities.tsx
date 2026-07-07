@@ -1221,15 +1221,30 @@ const TodayThreePriorities = ({
         }
       })();
     } else if (!hydratedFromSnapshotRef.current) {
-      // No usable snapshot (missing, error, or pending without payload).
+      // No usable snapshot (missing, error, pending, or empty plan shape).
       // Snapshot-only home: cron (`build-executive-home-cards`, morning
       // slot) owns Plan generation. If the morning snapshot is missing,
       // render the existing pending/preparing state instead of silently
       // triggering `generate-mastery-plan`. Manual force-refresh still
       // runs the live path.
+      if (snap) {
+        const rejectReason = !planJson
+          ? 'missing-plan-json'
+          : snap.status !== 'ready'
+            ? `non-ready-status:${snap.status}`
+            : planHorizonModules.length === 0
+              ? 'empty-horizon-modules'
+              : 'unknown';
+        console.log('[plan-snapshot][render] source=snapshot strategy=latest_ready skipped=hydrate reason=' + rejectReason, {
+          planDate: snap.planDate,
+          status: snap.status,
+          hasPlanJson: !!planJson,
+          horizonModuleCount: planHorizonModules.length,
+        });
+      }
       if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
         const canRecover = mrsReadyForPlan && !cardsAwaiting;
-        console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan', {
+        console.log('[plan-snapshot][render] source=snapshot strategy=latest_ready found=false skipped=generate-mastery-plan', {
           canRecover,
           mrsReadyForPlan,
           cardsAwaiting,
