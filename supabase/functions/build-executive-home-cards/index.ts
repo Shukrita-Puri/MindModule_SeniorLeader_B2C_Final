@@ -745,9 +745,23 @@ async function buildForUser(db: any, args: {
       const skipped: string[] = [];
       if (planStatus === "ready") built.push("plan");
       else skipped.push(`plan(${planStatus})`);
+      const briefSnapshotId = brief?.briefSnapshotId ?? brief?.briefId ?? null;
+      const briefSnapshotWritten = brief?.briefSnapshotWritten === true;
+      const mrsSnapshotWritten = brief?.mrsSnapshotWritten === true;
       console.log(
-        `[exec-home-cron] window=${window} user=${userId} localDate=${localDate} built=[${built.join(",")}] skipped=[${skipped.join(",")}]`,
+        `[exec-home-cron] window=${window} user=${userId} localDate=${localDate} built=[${built.join(",")}] skipped=[${skipped.join(",")}] mrsSnapshotWritten=${mrsSnapshotWritten} briefSnapshotWritten=${briefSnapshotWritten} briefSnapshotId=${briefSnapshotId ?? "null"}`,
       );
+      if (!mrsSnapshotWritten || !briefSnapshotWritten) {
+        console.warn('[exec-home-cron][persistence-gap]', JSON.stringify({
+          userId,
+          localDate,
+          window,
+          mrsSnapshotWritten,
+          briefSnapshotWritten,
+          briefSnapshotId,
+          briefStatus,
+        }));
+      }
     } catch (_) { /* noop */ }
 
     await writeRun({
