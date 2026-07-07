@@ -7034,8 +7034,45 @@ if (import.meta.main) Deno.serve(async (req) => {
       opts: { onlyIfMissing?: boolean } = {},
     ) => {
       try {
-        if (mrsCardsAwaiting) return;
         const planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
+        const visiblePriorities = Array.isArray(planObj?.timeOfDayPlan?.modules)
+          ? planObj.timeOfDayPlan.modules
+          : [];
+        const horizonMods = Array.isArray(planObj?.horizonModules)
+          ? planObj.horizonModules
+          : [];
+        const hasPayload = visiblePriorities.length > 0 || horizonMods.length > 0;
+        console.log('[mastery-plan-snapshot][persist-start]', {
+          userId: redactUserId(userId!),
+          planDate,
+          window: currentPeriod,
+          onlyIfMissing: !!opts.onlyIfMissing,
+          requestMrsAwaiting: (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : null,
+          hasPayload,
+          prioritiesCount: visiblePriorities.length,
+          horizonModulesCount: horizonMods.length,
+        });
+        // Only skip persistence when awaiting AND we have literally no
+        // plan content to persist. A partially generated plan (e.g. a
+        // horizon module survived even in an awaiting envelope) must
+        // still land in mastery_plan_snapshots so the snapshot-read-first
+        // UI can hydrate. True cold-start (no payload) skips.
+        // Outer handler declares `requestMrsAwaiting` in the same scope
+        // (see below, before `generateMasteryPlan` is invoked). We guard
+        // with typeof for defensive safety and only skip when there is
+        // literally nothing to persist. A partial plan (any priority or
+        // horizon module) still lands so the snapshot-read-first UI can
+        // hydrate rather than showing an empty card.
+        const _awaiting = (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : false;
+        if (_awaiting && !hasPayload) {
+          console.log('[mastery-plan-snapshot][early-return]', {
+            reason: 'awaiting_and_empty_payload',
+            userId: redactUserId(userId!),
+            planDate,
+            window: currentPeriod,
+          });
+          return;
+        }
         if (opts.onlyIfMissing) {
           const { data: existing } = await supabaseClient
             .from('mastery_plan_snapshots')
@@ -7044,14 +7081,14 @@ if (import.meta.main) Deno.serve(async (req) => {
             .eq('plan_date', planDate)
             .eq('mrs_window', currentPeriod)
             .maybeSingle();
-          if (existing?.id) return;
+          if (existing?.id) {
+            console.log('[mastery-plan-snapshot][early-return]', {
+              reason: 'only_if_missing_row_exists',
+              existingId: existing.id,
+            });
+            return;
+          }
         }
-        const visiblePriorities = Array.isArray(planObj?.timeOfDayPlan?.modules)
-          ? planObj.timeOfDayPlan.modules
-          : [];
-        const horizonMods = Array.isArray(planObj?.horizonModules)
-          ? planObj.horizonModules
-          : [];
         const practiceIds: string[] = Array.from(new Set([
           ...visiblePriorities.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
           ...horizonMods.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
@@ -7085,7 +7122,18 @@ if (import.meta.main) Deno.serve(async (req) => {
           planLedger = (ledgerRow as any)?.plan_ledger ?? null;
         } catch (_) { /* non-fatal */ }
 
-        const { error: snapErr } = await supabaseClient
+        console.log('[mastery-plan-snapshot][payload-details]', {
+          userId: redactUserId(userId!),
+          planDate,
+          window: currentPeriod,
+          horizonModulesCount: horizonMods.length,
+          prioritiesCount: visiblePriorities.length,
+          recommendedPracticeIds: practiceIds,
+          hasPlanLedger: !!planLedger,
+          horizonIso: horizonIsoValue,
+          status: 'ready',
+        });
+        const { data: upserted, error: snapErr } = await supabaseClient
           .from('mastery_plan_snapshots')
           .upsert({
             user_id: userId!,
@@ -7106,13 +7154,38 @@ if (import.meta.main) Deno.serve(async (req) => {
             status: 'ready',
             error_json: null,
             generated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id,plan_date,mrs_window' });
+          }, { onConflict: 'user_id,plan_date,mrs_window' })
+          .select('id, status')
+          .maybeSingle();
         if (snapErr) {
-          console.warn('[mastery_plan_snapshots] upsert failed:', snapErr.message ?? snapErr);
+          console.error('[mastery-plan-snapshot][upsert-failure]', {
+            userId: redactUserId(userId!),
+            planDate,
+            window: currentPeriod,
+            error: snapErr.message ?? String(snapErr),
+            code: (snapErr as any)?.code ?? null,
+            details: (snapErr as any)?.details ?? null,
+            hint: (snapErr as any)?.hint ?? null,
+          });
+        } else {
+          console.log('[mastery-plan-snapshot][upsert-success]', {
+            userId: redactUserId(userId!),
+            planDate,
+            window: currentPeriod,
+            snapshotId: upserted?.id ?? null,
+            status: upserted?.status ?? 'ready',
+            prioritiesCount: visiblePriorities.length,
+            horizonModulesCount: horizonMods.length,
+            recommendedPracticeIds: practiceIds.length,
+          });
         }
       } catch (snapPersistErr) {
-        console.warn('[mastery_plan_snapshots] upsert threw:',
-          snapPersistErr instanceof Error ? snapPersistErr.message : snapPersistErr);
+        console.error('[mastery-plan-snapshot][upsert-threw]', {
+          userId: redactUserId(userId ?? ''),
+          window: currentPeriod,
+          error: snapPersistErr instanceof Error ? snapPersistErr.message : String(snapPersistErr),
+          stack: snapPersistErr instanceof Error ? snapPersistErr.stack : null,
+        });
       }
     };
 
