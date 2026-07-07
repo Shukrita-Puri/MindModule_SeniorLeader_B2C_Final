@@ -261,6 +261,10 @@ const TodayThreePriorities = ({
   // existing live generation path.
   const { data: masteryPlanSnapshot } = useMasteryPlanSnapshot();
   const hydratedFromSnapshotRef = useRef<boolean>(false);
+  // In-flight guard — prevents two concurrent hydrate passes from firing
+  // for the same snapshot without falsely marking success. Success is
+  // latched onto `hydratedFromSnapshotRef` only AFTER setPlan resolves.
+  const hydratingFromSnapshotRef = useRef<boolean>(false);
   useEffect(() => {
     if (!(typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV === true)) return;
     if (masteryPlanSnapshot === undefined) return;
@@ -1241,9 +1245,18 @@ const TodayThreePriorities = ({
       hydratedFromSnapshot: hydratedFromSnapshotRef.current,
     });
 
-    if (!hydratedFromSnapshotRef.current && !hasPlanForceRefresh && planSnapshotRenderable) {
+    if (
+      !hydratedFromSnapshotRef.current &&
+      !hydratingFromSnapshotRef.current &&
+      !hasPlanForceRefresh &&
+      planSnapshotRenderable
+    ) {
       console.info('[plan-card] hydrate-branch', { branch: 'planSnapshotRenderable' });
-      hydratedFromSnapshotRef.current = true;
+      hydratingFromSnapshotRef.current = true;
+      console.info('[plan-card] hydration_started', {
+        planSnapshotRenderable,
+        hydratedFromSnapshot: hydratedFromSnapshotRef.current,
+      });
       console.info('[plan-card][hydrate:decision]', {
         planDate: todayForPlan,
         requestedWindow: periodForPlan,
@@ -1287,9 +1300,21 @@ const TodayThreePriorities = ({
               : allCompleted,
           );
           setLoading(false);
+          // Success latch — set ONLY after Plan state is committed.
+          hydratedFromSnapshotRef.current = true;
+          hydratingFromSnapshotRef.current = false;
+          console.info('[plan-card] hydration_succeeded', {
+            renderedModuleCount: stripped.horizonModules?.length ?? 0,
+            hydratedFromSnapshot: hydratedFromSnapshotRef.current,
+          });
         } catch (e) {
           // If hydration unexpectedly fails, fall back to live generation.
           hydratedFromSnapshotRef.current = false;
+          hydratingFromSnapshotRef.current = false;
+          console.warn('[plan-card] hydration_failed', {
+            error: (e as Error)?.message ?? String(e),
+            hydratedFromSnapshot: hydratedFromSnapshotRef.current,
+          });
           if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
             console.log('[plan-snapshot][render] source=snapshot skipped=generate-mastery-plan reason=home-snapshot-only-hydrate-error');
             setPlan(null);
@@ -1299,7 +1324,7 @@ const TodayThreePriorities = ({
           }
         }
       })();
-    } else if (!hydratedFromSnapshotRef.current) {
+    } else if (!hydratedFromSnapshotRef.current && !hydratingFromSnapshotRef.current) {
       console.info('[plan-card] hydrate-branch', { branch: 'snapshot-not-renderable' });
       // No usable snapshot (missing, error, pending, or empty plan shape).
       // Snapshot-only home: cron (`build-executive-home-cards`, morning
