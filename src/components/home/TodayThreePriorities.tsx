@@ -1591,7 +1591,7 @@ const TodayThreePriorities = ({
           ))}
           <div className="pt-2 flex flex-col items-center gap-2">
             <p className="text-xs text-muted-foreground/70 font-body">
-              Today's plan hasn't been prepared yet.
+              Today's plan is ready to generate.
             </p>
             <Button
               variant="outline"
