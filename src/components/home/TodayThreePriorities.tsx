@@ -1243,14 +1243,25 @@ const TodayThreePriorities = ({
         });
       }
       if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
-        const canRecover = mrsReadyForPlan && !cardsAwaiting;
+        // F5 — distinguish snapshot states:
+        //   • snap.status === 'awaiting' → server said awaiting; show
+        //     shared awaiting copy (never the "not prepared" message).
+        //   • snap.status === 'error'    → show awaiting shell too (the
+        //     error is captured server-side; the ready row, if any, wins
+        //     via the reader precedence).
+        //   • no snapshot at all         → distinguish "recoverable"
+        //     (MRS ready, no awaiting) → offer manual generate, from
+        //     "not yet" (awaiting signals) → show awaiting copy.
+        const snapAwaiting = snap?.status === 'awaiting' || snap?.status === 'error';
+        const canRecover = !snapAwaiting && mrsReadyForPlan && !cardsAwaiting;
         console.log('[plan-snapshot][render] source=snapshot strategy=latest_ready found=false skipped=generate-mastery-plan', {
           canRecover,
+          snapStatus: snap?.status ?? null,
           mrsReadyForPlan,
           cardsAwaiting,
         });
         setPlan(null);
-        setAwaitingSignals(!canRecover);
+        setAwaitingSignals(snapAwaiting || !canRecover);
         setSnapshotMissingReady(canRecover);
         setLoading(false);
       } else {
@@ -1580,7 +1591,7 @@ const TodayThreePriorities = ({
           ))}
           <div className="pt-2 flex flex-col items-center gap-2">
             <p className="text-xs text-muted-foreground/70 font-body">
-              Today's plan hasn't been prepared yet.
+              Today's plan is ready to generate.
             </p>
             <Button
               variant="outline"

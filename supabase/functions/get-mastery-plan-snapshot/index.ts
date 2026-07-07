@@ -71,12 +71,23 @@ serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    // Resolution:
-    //   1. Current-window ready row (if `mrsWindow` was supplied).
-    //   2. Fallback: latest ready row for the day across all windows.
-    // Pending/error rows never shadow a ready row.
+    // Resolution precedence (F4). Ready rows always win over awaiting rows
+    // — a non-ready row must never shadow a ready row.
+    //
+    //   1. Current-window ready
+    //   2. Latest same-date ready (across all windows)
+    //   3. Current-window awaiting  ← surfaces the honest awaiting state
+    //   4. Latest same-date awaiting (across all windows)
+    //
+    // Error rows are never returned; they exist only for observability
+    // and are backfilled to `error` by the generator's outer catch.
     let data: any = null;
-    let strategy: 'current_window' | 'latest_ready' | 'none' = 'none';
+    let strategy:
+      | 'current_window_ready'
+      | 'latest_ready'
+      | 'current_window_awaiting'
+      | 'latest_awaiting'
+      | 'none' = 'none';
 
     if (requestedWindow) {
       const { data: currentRow, error: currentErr } = await db
@@ -96,7 +107,7 @@ serve(async (req) => {
       }
       if (currentRow) {
         data = currentRow;
-        strategy = 'current_window';
+        strategy = 'current_window_ready';
       }
     }
 
@@ -120,6 +131,49 @@ serve(async (req) => {
       if (latestRow) {
         data = latestRow;
         strategy = 'latest_ready';
+      }
+    }
+
+    // Awaiting rows — only considered when no ready row exists. This lets
+    // the UI render an explicit awaiting state instead of a stale-but-ready
+    // one, while still guaranteeing ready > awaiting precedence.
+    if (!data && requestedWindow) {
+      const { data: awaitingCurrent, error: awaitingCurrentErr } = await db
+        .from('mastery_plan_snapshots')
+        .select(SELECT_COLUMNS)
+        .eq('user_id', userId)
+        .eq('plan_date', planDate)
+        .eq('mrs_window', requestedWindow)
+        .eq('status', 'awaiting')
+        .maybeSingle();
+      if (awaitingCurrentErr) {
+        console.warn(
+          '[get-mastery-plan-snapshot] awaiting current-window read failed:',
+          awaitingCurrentErr.message,
+        );
+      } else if (awaitingCurrent) {
+        data = awaitingCurrent;
+        strategy = 'current_window_awaiting';
+      }
+    }
+    if (!data) {
+      const { data: awaitingLatest, error: awaitingLatestErr } = await db
+        .from('mastery_plan_snapshots')
+        .select(SELECT_COLUMNS)
+        .eq('user_id', userId)
+        .eq('plan_date', planDate)
+        .eq('status', 'awaiting')
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (awaitingLatestErr) {
+        console.warn(
+          '[get-mastery-plan-snapshot] awaiting latest read failed:',
+          awaitingLatestErr.message,
+        );
+      } else if (awaitingLatest) {
+        data = awaitingLatest;
+        strategy = 'latest_awaiting';
       }
     }
 

@@ -16,7 +16,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
 
 export type MrsWindow = 'morning' | 'afternoon' | 'evening';
-export type MasteryPlanSnapshotStatus = 'ready' | 'error' | 'pending';
+export type MasteryPlanSnapshotStatus = 'ready' | 'awaiting' | 'error' | 'pending';
 
 export interface MasteryPlanSnapshot {
   id: string;

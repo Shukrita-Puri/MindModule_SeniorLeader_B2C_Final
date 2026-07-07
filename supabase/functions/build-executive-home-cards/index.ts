@@ -738,6 +738,18 @@ async function buildForUser(db: any, args: {
         localDate,
         forceRefresh: force,
         outerReadinessCache: brief,
+        // F1 — bind Plan persistence to the exact window this orchestrator
+        // run is for (morning/afternoon/evening). Without this, the Plan
+        // derives a window from wall-clock, so a manual refresh or backfill
+        // executed at a different real-time period would persist into the
+        // wrong (user, plan_date, mrs_window) row.
+        mrsWindow: window,
+        // F2 — strict Brief→Plan handshake for the Executive Home snapshot
+        // path. The Plan MUST reason over the same-window persisted Brief
+        // behaviour snapshot (or the inline snapshot from this same request).
+        // A silent local rebuild here is a drift risk; treat it as awaiting
+        // instead so the snapshot state stays honest.
+        strictBriefHandshake: true,
       }, userId);
       planStatus = "ready";
     }

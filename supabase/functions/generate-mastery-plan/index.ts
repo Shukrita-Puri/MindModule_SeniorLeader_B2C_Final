@@ -658,6 +658,23 @@ interface PlanRequest {
   todayCheckinId?: string | null;
   mrsReadinessState?: 'baseline' | 'refined' | 'awaiting' | null;
   mrsReadinessScore?: number | null;
+  /**
+   * Explicit target window for persistence + gating. Set by the Executive
+   * Home orchestrator (`build-executive-home-cards`) so a manual refresh
+   * or backfill for `afternoon` always writes into the `afternoon` row,
+   * regardless of the wall-clock at execution time. When omitted (legacy
+   * clients), the handler falls back to `getTimeOfDay(timezoneOffset)`.
+   */
+  timeWindow?: 'morning' | 'afternoon' | 'evening' | null;
+  /**
+   * Strict Brief↔Plan handshake. When true, the Plan MUST reason over the
+   * same-window persisted Brief behaviour snapshot (or the inline snapshot
+   * from the same orchestrator request). A missing/stale snapshot returns
+   * an awaiting envelope instead of silently rebuilding behaviour flags
+   * locally. Set by `build-executive-home-cards`; unset by legacy callers
+   * that still want the local fallback.
+   */
+  strictBriefHandshake?: boolean;
   selectedCalendarEventIds?: string[];
   /**
    * Per-slot replacement map (preferred over `selectedCalendarEventIds`).
@@ -2565,7 +2582,10 @@ interface SharedContext {
 }
 
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
-  const timeOfDay = getTimeOfDay(req.timezoneOffset);
+  // F1 — prefer the caller-supplied window (Executive Home orchestrator);
+  // fall back to wall-clock only for legacy callers with no explicit window.
+  const timeOfDay = (req.timeWindow ?? getTimeOfDay(req.timezoneOffset)) as
+    'morning' | 'afternoon' | 'evening';
   const today = getLocalDateISO(req.timezoneOffset);
   const now = new Date();
   const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
@@ -2929,6 +2949,19 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
         ctx.briefBehaviour = loaded;
         ctx.briefBehaviourSource = 'brief_snapshot';
       } else {
+        // F2 — strict Brief↔Plan handshake for Executive Home snapshot
+        // path. When the caller (`build-executive-home-cards`) demands
+        // exact same-window Brief parity, refuse to silently rebuild
+        // behaviour flags locally — the Plan returns an awaiting envelope
+        // upstream instead. `briefBehaviourSource` stays `'absent'` so
+        // callers can see the handshake failed.
+        if (req.strictBriefHandshake === true) {
+          console.warn(
+            `[buildSharedContext] strict Brief handshake failed user=${req.userId} date=${localDateForLookup} window=${timeOfDay} promptVersion=${BRIEF_PROMPT_VERSION} expectedSig=${expectedSig ?? 'none'} — skipping local rebuild`,
+          );
+          ctx.briefBehaviour = null;
+          ctx.briefBehaviourSource = 'absent';
+        } else {
         // Logged for visibility — every fallback here is a drift risk.
         console.warn(
           `[buildSharedContext] briefBehaviour fallback to local rebuild user=${req.userId} date=${localDateForLookup} window=${timeOfDay} promptVersion=${BRIEF_PROMPT_VERSION} expectedSig=${expectedSig ?? 'none'}`,
@@ -3023,6 +3056,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
           promptBlockPlan: fallback.promptBlockPlan,
         };
         ctx.briefBehaviourSource = 'local_fallback';
+        }
       }
     }
     console.log(
@@ -3038,7 +3072,9 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
 // ==================== MAIN PLAN GENERATION ====================
 
 async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any) {
-  const timeOfDay = getTimeOfDay(req.timezoneOffset);
+  // F1 — same window resolution as buildSharedContext.
+  const timeOfDay = (req.timeWindow ?? getTimeOfDay(req.timezoneOffset)) as
+    'morning' | 'afternoon' | 'evening';
 
   // Phase 2: Recovery day override (feature-flagged OFF)
   if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
@@ -3053,6 +3089,42 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   const rawCalendarEvents = shared.rawCalendarEvents;
   const combinedAlreadyUsed = shared.combinedAlreadyUsed;
   const pendingCommitments = shared.pendingCommitments;
+
+  // F2 — Strict Brief handshake: if the caller requires exact same-window
+  // Brief snapshot parity and the loader returned nothing, short-circuit
+  // with an awaiting envelope. This is deliberately narrower than the
+  // signal-gate below: even if the user has stage-1 signals and an MRS,
+  // a missing/stale Brief snapshot means the Plan would be reasoning over
+  // a locally rebuilt behaviour surface, which the Executive Home snapshot
+  // contract forbids.
+  if (req.strictBriefHandshake === true && shared.briefBehaviourSource === 'absent') {
+    const timeOfDayForAwaiting =
+      (req.timeWindow ?? getTimeOfDay(req.timezoneOffset)) as
+        'morning' | 'afternoon' | 'evening';
+    console.warn('[generate-mastery-plan] strict-handshake awaiting envelope', {
+      userId: req.userId,
+      window: timeOfDayForAwaiting,
+      reason: 'brief_behaviour_snapshot_missing_or_stale',
+    });
+    return {
+      planState: 'awaiting_signals',
+      awaitingSignals: true,
+      reason: 'brief_handshake_missing',
+      message: 'Waiting for the Brief to publish for this window.',
+      horizonModules: [],
+      calendarPills: [],
+      preEventPlan: null,
+      jitPriority: null,
+      timeOfDayPlan: {
+        label: '',
+        period: timeOfDayForAwaiting,
+        modules: [],
+        totalDuration: 0,
+        progressTracked: false,
+      },
+      meta: { generatedAt: new Date().toISOString(), promptVersion: BRIEF_PROMPT_VERSION },
+    } as any;
+  }
 
   // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
   // If the user has no fresh check-in today AND no fresh
@@ -7090,7 +7162,29 @@ if (import.meta.main) Deno.serve(async (req) => {
     }
     const forceRefresh = body.forceRefresh === true;
     const outerReadinessCache = body.outerReadinessCache ?? null;
-    currentPeriod = getTimeOfDay(clientTimezoneOffset) as any;
+    // F1 — accept an explicit target window from the caller. Executive
+    // Home orchestrator (`build-executive-home-cards`) sends `mrsWindow`;
+    // accept `timeWindow` too for symmetry with other Executive Home
+    // callers. Fall back to wall-clock only for legacy callers that never
+    // set either.
+    const requestedWindowRaw =
+      typeof body.mrsWindow === 'string' ? body.mrsWindow :
+      typeof body.timeWindow === 'string' ? body.timeWindow :
+      null;
+    const requestedWindow =
+      requestedWindowRaw === 'morning' ||
+      requestedWindowRaw === 'afternoon' ||
+      requestedWindowRaw === 'evening'
+        ? requestedWindowRaw
+        : null;
+    const strictBriefHandshake = body.strictBriefHandshake === true;
+    currentPeriod = (requestedWindow ?? getTimeOfDay(clientTimezoneOffset)) as any;
+    console.log('[generate-mastery-plan][window-resolve]', {
+      requestedWindow,
+      derivedFromClock: requestedWindow ? null : currentPeriod,
+      strictBriefHandshake,
+      caller,
+    });
 
     // Build state fingerprint from latest check-in + completions for cache key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -7117,6 +7211,16 @@ if (import.meta.main) Deno.serve(async (req) => {
           ? planObj.horizonModules
           : [];
         const hasPayload = visiblePriorities.length > 0 || horizonMods.length > 0;
+        // F3 — snapshot status contract:
+        //   'ready'    → hasPayload AND plan is not an awaiting envelope
+        //   'awaiting' → plan is an awaiting envelope OR payload absent
+        //               while readiness signals are still missing
+        //   'error'    → written by the outer catch below only
+        const planIsAwaiting =
+          planObj?.planState === 'awaiting_signals' ||
+          planObj?.awaitingSignals === true;
+        const snapshotStatus: 'ready' | 'awaiting' =
+          (!planIsAwaiting && hasPayload) ? 'ready' : 'awaiting';
         console.log('[mastery-plan-snapshot][persist-start]', {
           userId: redactUserId(userId!),
           planDate,
@@ -7124,30 +7228,15 @@ if (import.meta.main) Deno.serve(async (req) => {
           onlyIfMissing: !!opts.onlyIfMissing,
           requestMrsAwaiting: (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : null,
           hasPayload,
+          planIsAwaiting,
+          snapshotStatus,
           prioritiesCount: visiblePriorities.length,
           horizonModulesCount: horizonMods.length,
         });
-        // Only skip persistence when awaiting AND we have literally no
-        // plan content to persist. A partially generated plan (e.g. a
-        // horizon module survived even in an awaiting envelope) must
-        // still land in mastery_plan_snapshots so the snapshot-read-first
-        // UI can hydrate. True cold-start (no payload) skips.
-        // Outer handler declares `requestMrsAwaiting` in the same scope
-        // (see below, before `generateMasteryPlan` is invoked). We guard
-        // with typeof for defensive safety and only skip when there is
-        // literally nothing to persist. A partial plan (any priority or
-        // horizon module) still lands so the snapshot-read-first UI can
-        // hydrate rather than showing an empty card.
-        const _awaiting = (typeof requestMrsAwaiting !== 'undefined') ? requestMrsAwaiting : false;
-        if (_awaiting && !hasPayload) {
-          console.log('[mastery-plan-snapshot][early-return]', {
-            reason: 'awaiting_and_empty_payload',
-            userId: redactUserId(userId!),
-            planDate,
-            window: currentPeriod,
-          });
-          return;
-        }
+        // F3 — awaiting rows are ALWAYS persisted so the reader can
+        // return a truthful awaiting state. They land with status='awaiting'
+        // and never shadow a ready row (see error-path guard below and the
+        // reader's precedence rules).
         if (opts.onlyIfMissing) {
           const { data: existing } = await supabaseClient
             .from('mastery_plan_snapshots')
@@ -7160,6 +7249,30 @@ if (import.meta.main) Deno.serve(async (req) => {
             console.log('[mastery-plan-snapshot][early-return]', {
               reason: 'only_if_missing_row_exists',
               existingId: existing.id,
+            });
+            return;
+          }
+        }
+        // F3 — never let an awaiting write clobber an existing ready row
+        // for the same (user, plan_date, mrs_window). The reader also
+        // prefers ready, but keeping the ready row on disk means a
+        // downstream consumer (Smart Nudges, insights) doesn't briefly
+        // see the awaiting state either.
+        if (snapshotStatus === 'awaiting') {
+          const { data: existingReady } = await supabaseClient
+            .from('mastery_plan_snapshots')
+            .select('id')
+            .eq('user_id', userId!)
+            .eq('plan_date', planDate)
+            .eq('mrs_window', currentPeriod)
+            .eq('status', 'ready')
+            .maybeSingle();
+          if (existingReady?.id) {
+            console.log('[mastery-plan-snapshot][awaiting-preserved-ready]', {
+              userId: redactUserId(userId!),
+              planDate,
+              window: currentPeriod,
+              existingReadyId: existingReady.id,
             });
             return;
           }
@@ -7212,7 +7325,7 @@ if (import.meta.main) Deno.serve(async (req) => {
           recommendedPracticeIds: practiceIds,
           hasPlanLedger: !!planLedger,
           horizonIso: horizonIsoValue,
-          status: 'ready',
+          status: snapshotStatus,
         });
         const { data: upserted, error: snapErr } = await supabaseClient
           .from('mastery_plan_snapshots')
@@ -7232,8 +7345,15 @@ if (import.meta.main) Deno.serve(async (req) => {
             // surfaces one rather than inventing a value.
             brief_snapshot_id: null,
             input_signature: stateFingerprint,
-            status: 'ready',
-            error_json: null,
+            status: snapshotStatus,
+            error_json: snapshotStatus === 'awaiting'
+              ? {
+                  awaitingReason:
+                    planObj?.reason ??
+                    (planIsAwaiting ? 'awaiting_signals' : 'no_payload'),
+                  message: planObj?.message ?? null,
+                }
+              : null,
             generated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,plan_date,mrs_window' })
           .select('id, status')
@@ -7254,7 +7374,7 @@ if (import.meta.main) Deno.serve(async (req) => {
             planDate,
             window: currentPeriod,
             snapshotId: upserted?.id ?? null,
-            status: upserted?.status ?? 'ready',
+            status: upserted?.status ?? snapshotStatus,
             prioritiesCount: visiblePriorities.length,
             horizonModulesCount: horizonMods.length,
             recommendedPracticeIds: practiceIds.length,
@@ -7346,6 +7466,8 @@ if (import.meta.main) Deno.serve(async (req) => {
       slotReplacements,
       mrsReadinessState: requestMrsState,
       mrsReadinessScore: requestMrsScore,
+      timeWindow: requestedWindow,
+      strictBriefHandshake,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,
