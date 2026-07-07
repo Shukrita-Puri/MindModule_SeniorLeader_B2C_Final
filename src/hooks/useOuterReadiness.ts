@@ -10,6 +10,7 @@ import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
+import { HOME_SNAPSHOT_ONLY } from '@/config/homeSnapshotMode';
 import {
   read as readPersistent,
   write as writePersistent,
@@ -885,6 +886,20 @@ export function useOuterReadiness() {
   return useQuery({
     queryKey: ['outer-readiness', effectiveUserId, period],
     queryFn: async () => {
+      // Snapshot-only home mode: cron owns generation via
+      // `build-executive-home-cards`. Home load must NOT invoke
+      // `compute-outer-readiness`. If a persistent cache exists, use it;
+      // otherwise return null and let snapshot-read hooks
+      // (useMrsSnapshot / useCurrentBriefSnapshot) drive the UI.
+      // Manual force-refresh (admin/pull-to-refresh) still runs a live
+      // compute — it sets `forceRefreshKey` in sessionStorage.
+      if (HOME_SNAPSHOT_ONLY && !forceRefresh) {
+        console.log('[PRB][render] source=snapshot skipped=compute-outer-readiness reason=home-snapshot-only', {
+          hasInitialData: !!initialData,
+          period,
+        });
+        return initialData ?? null;
+      }
       dbg('queryFn invoked → network fetch', {
         key: ['outer-readiness', effectiveUserId, period],
         reason: initialData ? 'manual-invalidate-or-stale' : 'no-initialData',
