@@ -242,6 +242,7 @@ const TodayThreePriorities = ({
   reflectionEvent?: string | null;
 }) => {
   console.info('[plan-card] component-mounted');
+  console.info('[plan-card] build-marker', { marker: 'TTP-HYDRATE-V2-2026-07-07-A' });
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
