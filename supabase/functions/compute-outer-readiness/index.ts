@@ -6684,6 +6684,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           } catch {}
         } else {
           resolvedBriefId = (upsertRow as any)?.id ?? null;
+          briefSnapshotWritten = resolvedBriefId !== null;
           try {
             console.log('[compute-outer-readiness][brief-snapshot-written]', JSON.stringify({
               userId,
