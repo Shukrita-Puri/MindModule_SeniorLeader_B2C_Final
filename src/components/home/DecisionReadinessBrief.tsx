@@ -2256,9 +2256,14 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
             {(() => {
-              const stateLabel = getReadinessStateLabel(readinessState, hasCurrentPeriodSignal);
+              // When a numeric score is displayed, never render cold-start
+              // "Awaiting signals" wording next to it — force the label to
+              // reflect the score-backed state (baseline → Early read,
+              // refined → Full read).
+              const scoreBackedSignal = score != null || hasCurrentPeriodSignal;
+              const stateLabel = getReadinessStateLabel(readinessState, scoreBackedSignal);
               const stateSubtitle =
-                stateLabel.label === 'Awaiting signals'
+                stateLabel.label === 'Awaiting signals' && score == null
                   ? awaitingCopy
                   : stateLabel.subtitle;
               return (
@@ -2313,7 +2318,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
         <p className="mt-4 text-quote text-foreground">
-          {awaitingCopy}
+          Read from your signals. Full brief prose is momentarily unavailable.
         </p>
       )}
 
