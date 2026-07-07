@@ -33,21 +33,74 @@ export function useExecutiveHomeCardsRefresh() {
       const token = await getAuthToken();
       if (token) headers.Authorization = `Bearer ${token}`;
 
+      const localDate = localISODate();
+      const window = currentPeriodLocal();
+      console.info('[exec-home][refresh:start]', {
+        localDate,
+        window,
+        trigger: 'manual_refresh',
+      });
       const { data, error } = await supabase.functions.invoke('build-executive-home-cards', {
         headers,
         body: {
           mode: 'manual_refresh',
           userId: DEV_MODE ? effectiveUserId : undefined,
-          localDate: localISODate(),
-          window: currentPeriodLocal(),
+          localDate,
+          window,
         },
       });
-      if (error) throw new Error(error.message || 'Refresh failed.');
+      if (error) {
+        console.warn('[exec-home][refresh:response]', {
+          localDate,
+          window,
+          status: 'error',
+          error: error.message,
+        });
+        throw new Error(error.message || 'Refresh failed.');
+      }
+      const rawResults = Array.isArray((data as any)?.results) ? (data as any).results : null;
+      if (!rawResults) {
+        console.warn('[exec-home][refresh:response]', {
+          localDate,
+          window,
+          status: 'success',
+          malformed: true,
+          raw: data,
+        });
+      } else {
+        console.info('[exec-home][refresh:response]', {
+          localDate,
+          window,
+          status: 'success',
+          resultCount: rawResults.length,
+          results: rawResults.map((r: any) => ({
+            userId: r?.userId,
+            localDate: r?.localDate,
+            window: r?.window,
+            mrsStatus: r?.mrsStatus ?? r?.mrs?.status ?? null,
+            briefStatus: r?.briefStatus ?? r?.brief?.status ?? null,
+            planStatus: r?.planStatus ?? r?.plan?.status ?? null,
+            dayType: r?.dayType ?? null,
+          })),
+        });
+      }
       return data;
     },
     onSuccess: async () => {
       clearEnergyStateCache();
       clearOuterReadinessCache(effectiveUserId);
+      const localDate = localISODate();
+      const window = currentPeriodLocal();
+      console.info('[exec-home][refresh:invalidate]', {
+        queries: [
+          'mrs-snapshot',
+          'current-brief-snapshot',
+          'mastery-plan-snapshot',
+          'outer-readiness',
+        ],
+        localDate,
+        window,
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
         queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
