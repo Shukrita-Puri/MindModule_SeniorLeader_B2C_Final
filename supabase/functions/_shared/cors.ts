@@ -25,6 +25,11 @@ const ALLOWED_HEADERS = [
   "x-supabase-client-runtime",
   "x-supabase-client-runtime-version",
   "x-outbox-item-id",
+  "x-request-mode",
+  "x-plan-caller",
+  "x-client-path",
+  "x-dev-user-id",
+  "x-impersonation-token",
 ].join(", ");
 
 export function getCorsHeaders(req: Request): Record<string, string> {
