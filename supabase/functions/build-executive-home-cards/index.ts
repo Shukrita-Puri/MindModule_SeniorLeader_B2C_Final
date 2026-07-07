@@ -723,9 +723,25 @@ async function buildForUser(db: any, args: {
     briefStatus = brief?.awaitingSignals ? "awaiting" : "ready";
 
     let plan: any = null;
-    if (!hasStageOneSignal) {
+    // Manual refresh is an explicit user action: it must always regenerate
+    // Plan for the requested (userId, localDate, window), even when
+    // hasStageOneSignal is false. Scheduled/backfill/replay/dry_run keep
+    // the existing stage-one gating.
+    const shouldForcePlanOnManualRefresh = mode === "manual_refresh";
+    const skippedStageOneGate = shouldForcePlanOnManualRefresh && !hasStageOneSignal;
+    if (!hasStageOneSignal && !shouldForcePlanOnManualRefresh) {
       planStatus = "skipped_no_stage_one_signal";
     } else {
+      if (shouldForcePlanOnManualRefresh) {
+        console.log('[build-executive-home-cards][manual-refresh-plan]', JSON.stringify({
+          userId,
+          localDate,
+          window,
+          mode,
+          forced: true,
+          skippedStageOneGate,
+        }));
+      }
       // Context-aware Plan: generated for every window (morning / afternoon
       // / evening). Each window persists its own `mastery_plan_snapshots`
       // row keyed on (user_id, plan_date, mrs_window), so afternoon/evening
@@ -733,25 +749,71 @@ async function buildForUser(db: any, args: {
       // context without clobbering earlier windows for the same day. The
       // reader (`get-mastery-plan-snapshot`) resolves current-window first
       // and falls back to the latest ready row for the day.
-      plan = await callFunction("generate-mastery-plan", {
-        timezoneOffset: offset,
-        localDate,
-        forceRefresh: force,
-        outerReadinessCache: brief,
+      try {
+        plan = await callFunction("generate-mastery-plan", {
+          timezoneOffset: offset,
+          localDate,
+          forceRefresh: force,
+          outerReadinessCache: brief,
         // F1 — bind Plan persistence to the exact window this orchestrator
         // run is for (morning/afternoon/evening). Without this, the Plan
         // derives a window from wall-clock, so a manual refresh or backfill
         // executed at a different real-time period would persist into the
         // wrong (user, plan_date, mrs_window) row.
-        mrsWindow: window,
+          mrsWindow: window,
         // F2 — strict Brief→Plan handshake for the Executive Home snapshot
         // path. The Plan MUST reason over the same-window persisted Brief
         // behaviour snapshot (or the inline snapshot from this same request).
         // A silent local rebuild here is a drift risk; treat it as awaiting
         // instead so the snapshot state stays honest.
-        strictBriefHandshake: true,
-      }, userId);
-      planStatus = "ready";
+          strictBriefHandshake: true,
+        }, userId);
+
+        // Honest status derivation: never assume "ready" from HTTP 200.
+        const awaitingSignals =
+          plan?.awaitingSignals === true ||
+          plan?.planState === "awaiting_signals" ||
+          plan?.status === "awaiting";
+        const hasRenderable =
+          !!plan &&
+          !awaitingSignals &&
+          (
+            (Array.isArray(plan?.horizonModules) && plan.horizonModules.length > 0) ||
+            (Array.isArray(plan?.timeOfDayModules) && plan.timeOfDayModules.length > 0) ||
+            (Array.isArray(plan?.priorities) && plan.priorities.length > 0)
+          );
+        planStatus = hasRenderable ? "ready" : awaitingSignals ? "awaiting" : "awaiting";
+
+        console.log('[build-executive-home-cards][plan-summary]', JSON.stringify({
+          userId,
+          localDate,
+          window,
+          mode,
+          forced: shouldForcePlanOnManualRefresh,
+          awaitingSignals,
+          planState: plan?.planState ?? null,
+          reason: plan?.reason ?? plan?.awaitingReason ?? null,
+          horizonModulesCount: Array.isArray(plan?.horizonModules) ? plan.horizonModules.length : 0,
+          timeOfDayModulesCount: Array.isArray(plan?.timeOfDayModules) ? plan.timeOfDayModules.length : 0,
+          derivedPlanStatus: planStatus,
+        }));
+      } catch (planErr) {
+        const message = planErr instanceof Error ? planErr.message : String(planErr);
+        planStatus = "error";
+        console.warn('[build-executive-home-cards][plan-summary]', JSON.stringify({
+          userId,
+          localDate,
+          window,
+          mode,
+          forced: shouldForcePlanOnManualRefresh,
+          awaitingSignals: null,
+          planState: null,
+          reason: message,
+          horizonModulesCount: 0,
+          timeOfDayModulesCount: 0,
+          derivedPlanStatus: planStatus,
+        }));
+      }
     }
 
     try {
