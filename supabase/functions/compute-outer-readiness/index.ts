@@ -6317,6 +6317,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 ? { weightProvenance: clientWeightProvenance }
                 : {})),
           });
+          mrsSnapshotWritten = true;
+          console.log('[compute-outer-readiness][mrs-snapshot-written]', JSON.stringify({
+            userId,
+            localDate: snapshotLocalDate,
+            window: timeWindow,
+            innerScore: shouldPreserveExistingMrs
+              ? (existingWindowMrs!.inner_score ?? null)
+              : (suppressIncomingMrsSnapshot ? null : (innerReadinessScore ?? null)),
+            readinessState: shouldPreserveExistingMrs
+              ? ((existingWindowMrs!.readiness_state as any) ?? 'baseline')
+              : (suppressIncomingMrsSnapshot ? 'awaiting' : (clientReadinessState ?? 'baseline')),
+          }));
           // Phase 2 — morning anchor lives on the MORNING-window row. When
           // we're backfilling from an afternoon run, write the anchor into
           // the morning row in a separate idempotent upsert so downstream
