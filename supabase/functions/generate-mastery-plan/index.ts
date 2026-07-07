@@ -7089,6 +7089,31 @@ if (import.meta.main) Deno.serve(async (req) => {
             return;
           }
         }
+        // Day-scoped plan guarantee: a non-morning invocation (manual /
+        // admin refresh) must never overwrite a valid morning `ready`
+        // snapshot for the same day. Cron writes ONLY in the morning
+        // window; afternoon/evening reads fall back to the morning row
+        // via `resolveCanonicalPlanSnapshot`.
+        if (currentPeriod !== 'morning') {
+          try {
+            const { data: morningRow } = await supabaseClient
+              .from('mastery_plan_snapshots')
+              .select('id, status')
+              .eq('user_id', userId!)
+              .eq('plan_date', planDate)
+              .eq('mrs_window', 'morning')
+              .maybeSingle();
+            if (morningRow?.id && morningRow.status === 'ready') {
+              console.log('[mastery-plan-snapshot][early-return]', {
+                reason: 'preserve_morning_snapshot',
+                morningId: morningRow.id,
+                requestedWindow: currentPeriod,
+                planDate,
+              });
+              return;
+            }
+          } catch (_) { /* non-fatal — fall through and persist */ }
+        }
         const practiceIds: string[] = Array.from(new Set([
           ...visiblePriorities.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
           ...horizonMods.map((m: any) => m?.content?.id ?? m?.contentId ?? m?.id).filter((v: any) => typeof v === 'string'),
