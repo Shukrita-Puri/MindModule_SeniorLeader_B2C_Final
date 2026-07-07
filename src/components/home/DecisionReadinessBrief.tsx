@@ -2313,7 +2313,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
         <p className="mt-4 text-quote text-foreground">
-          {awaitingCopy}
+          Read from your signals. Full brief prose is momentarily unavailable.
         </p>
       )}
 
