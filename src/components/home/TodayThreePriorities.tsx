@@ -1167,16 +1167,17 @@ const TodayThreePriorities = ({
     // generator owns that path and will rewrite the snapshot via its
     // existing persist hook.
     const snap = masteryPlanSnapshot;
-    if (
-      !hydratedFromSnapshotRef.current &&
-      !hasPlanForceRefresh &&
-      snap &&
+    const planJson = snap?.planJson as Record<string, unknown> | null;
+    const planHorizonModules = Array.isArray(planJson?.horizonModules)
+      ? (planJson.horizonModules as unknown[])
+      : [];
+    const planSnapshotRenderable =
+      !!snap &&
       snap.status === 'ready' &&
-      snap.planJson &&
-      !isCardsAwaitingPayload(snap.planJson) &&
-      Array.isArray((snap.planJson as any).horizonModules) &&
-      (snap.planJson as any).horizonModules.length > 0
-    ) {
+      !!planJson &&
+      planHorizonModules.length > 0;
+
+    if (!hydratedFromSnapshotRef.current && !hasPlanForceRefresh && planSnapshotRenderable) {
       hydratedFromSnapshotRef.current = true;
       (async () => {
         try {
