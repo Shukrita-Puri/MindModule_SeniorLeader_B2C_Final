@@ -6932,6 +6932,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // request (cache hit OR successful upsert). The client uses this to
       // decide whether to track a brief_view event for Recent history.
       briefPersisted: resolvedBriefId !== null,
+      // Cron persistence receipts. `briefSnapshotWritten` is true only when
+      // this run performed a fresh upsert (not just a same-signature cache
+      // hit); `mrsSnapshotWritten` mirrors the daily_context_snapshot write.
+      briefSnapshotId: resolvedBriefId,
+      briefSnapshotWritten,
+      mrsSnapshotWritten,
       // Signal Pills v3 — echo server-built pill payload + bracketed
       // qualifiers so the client renders identical numbers to Insights
       // without recomputing aggregates. `coherenceWarning` is suppressed
