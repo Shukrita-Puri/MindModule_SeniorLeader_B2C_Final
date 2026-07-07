@@ -337,6 +337,11 @@ const TodayThreePriorities = ({
   // Plan card renders the same quiet "Begin with your check-in" prompt
   // instead of generating a plan from defaults.
   const [awaitingSignals, setAwaitingSignals] = useState(noLocalSignalAtMount);
+  // Manual-recovery state: snapshot missing today but MRS readiness is ready,
+  // so we can offer the user an explicit "Generate today's plan" CTA instead
+  // of the awaiting-signals empty state.
+  const [snapshotMissingReady, setSnapshotMissingReady] = useState(false);
+  const [manualGenerating, setManualGenerating] = useState(false);
   // Ref preserves the "we already had a cached payload at mount" fact for
   // the lifetime of this component, so a transient `loading=true` from a
   // silent refresh can never re-trigger the scripted EngravedLoader.
@@ -659,6 +664,58 @@ const TodayThreePriorities = ({
 
     prevCompletedIdsRef.current = completedPracticeIds;
   }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
+
+  // ── Manual recovery: user-triggered plan generation when snapshot missing ──
+  const handleManualGenerate = useCallback(async () => {
+    if (manualGenerating) return;
+    console.log('[plan-snapshot][manual-generate] clicked', {
+      userId: effectiveUserId,
+      planDate: todayForPlan,
+      window: periodForPlan,
+      mrsReady: mrsReadyForPlan,
+    });
+    setManualGenerating(true);
+    try {
+      const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
+        headers,
+        body: {
+          timezoneOffset: new Date().getTimezoneOffset(),
+          forceRefresh: true,
+          localDate: todayForPlan,
+          mrsReadinessState: mrsSnapshot?.readinessState ?? null,
+          mrsReadinessScore:
+            typeof mrsSnapshot?.score === 'number' ? mrsSnapshot.score : null,
+          manualRecovery: true,
+        },
+      });
+      if (error || !data) {
+        console.error('[plan-snapshot][manual-generate] failed', error);
+        toast({
+          title: "Couldn't generate today's plan",
+          description: 'Please try again in a moment.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      console.log('[plan-snapshot][manual-generate] success — snapshot persisted, invalidating reader');
+      hydratedFromSnapshotRef.current = false;
+      setSnapshotMissingReady(false);
+      await queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] });
+      console.log('[plan-snapshot][manual-generate] snapshot reloaded');
+    } catch (e) {
+      console.error('[plan-snapshot][manual-generate] exception', e);
+      toast({
+        title: "Couldn't generate today's plan",
+        description: 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setManualGenerating(false);
+    }
+  }, [manualGenerating, effectiveUserId, todayForPlan, periodForPlan, mrsReadyForPlan, mrsSnapshot, queryClient]);
 
   // ── Load plan ──
   const loadPlan = useCallback(async (opts?: {
@@ -1042,6 +1099,7 @@ const TodayThreePriorities = ({
       } catch { /* ignore */ }
       hydratedFromSnapshotRef.current = false;
       setAwaitingSignals(true);
+      setSnapshotMissingReady(false);
       setPlan(null);
       setLoading(false);
       return;
@@ -1075,6 +1133,7 @@ const TodayThreePriorities = ({
           }
           setPlan(stripped);
           setAwaitingSignals(false);
+          setSnapshotMissingReady(false);
           setFetchFailed(false);
           // Completions still come from daily_ritual_completions — the
           // snapshot is never the completion source.
@@ -1111,9 +1170,15 @@ const TodayThreePriorities = ({
       // triggering `generate-mastery-plan`. Manual force-refresh still
       // runs the live path.
       if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
-        console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan');
+        const canRecover = mrsReadyForPlan && !cardsAwaiting;
+        console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan', {
+          canRecover,
+          mrsReadyForPlan,
+          cardsAwaiting,
+        });
         setPlan(null);
-        setAwaitingSignals(true);
+        setAwaitingSignals(!canRecover);
+        setSnapshotMissingReady(canRecover);
         setLoading(false);
       } else {
         loadPlan({ silent: initialCachedRef.current });
@@ -1426,6 +1491,46 @@ const TodayThreePriorities = ({
   // ── Awaiting-signals empty state ──
   // Mirrors the Brief contract: when neither check-in nor today's wearable
   // is present, show the same quiet prompt instead of a generated plan.
+  if (snapshotMissingReady && !plan) {
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/30 font-bold">
+                {n}
+              </div>
+              <div className="flex-1">
+                <div className="h-3.5 bg-muted/10 rounded-md w-2/3" />
+              </div>
+            </div>
+          ))}
+          <div className="pt-2 flex flex-col items-center gap-2">
+            <p className="text-xs text-muted-foreground/70 font-body">
+              Today's plan hasn't been prepared yet.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualGenerate}
+              disabled={manualGenerating}
+              className="h-8 text-xs gap-1.5 rounded-lg border-muted-foreground/20"
+            >
+              {manualGenerating ? (
+                <>
+                  <RefreshCw size={12} className="animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>Generate today's plan</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (awaitingSignals) {
     return (
       <div className="space-y-4 pt-2">
