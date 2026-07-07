@@ -55,12 +55,13 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    if (mrsWindow !== 'morning' && mrsWindow !== 'afternoon' && mrsWindow !== 'evening') {
-      return new Response(JSON.stringify({ error: 'mrsWindow must be morning|afternoon|evening' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // `mrsWindow` is accepted for backwards compatibility but ignored:
+    // plan reads are day-scoped and always resolve to the canonical
+    // morning snapshot row.
+    const requestedWindow =
+      mrsWindow === 'morning' || mrsWindow === 'afternoon' || mrsWindow === 'evening'
+        ? mrsWindow
+        : null;
 
     const db = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -89,14 +90,14 @@ serve(async (req) => {
     }
 
     console.log(
-      `[get-mastery-plan-snapshot] requested=${mrsWindow} canonical=${CANONICAL_WINDOW} planDate=${planDate} found=${!!data}`,
+      `[get-mastery-plan-snapshot] requested=${requestedWindow ?? 'none'} canonical=${CANONICAL_WINDOW} planDate=${planDate} found=${!!data}`,
     );
 
     return new Response(
       JSON.stringify({
         success: true,
         data: data ?? null,
-        source: { canonicalWindow: CANONICAL_WINDOW, requestedWindow: mrsWindow },
+        source: { canonicalWindow: CANONICAL_WINDOW, requestedWindow },
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
