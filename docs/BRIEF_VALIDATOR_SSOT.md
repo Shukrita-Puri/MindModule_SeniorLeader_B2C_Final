@@ -94,8 +94,8 @@ causes a rejection in `validateV61Output` today.
 | Guidance | Why it is prompt-only | Risk if ignored |
 | --- | --- | --- |
 | No numbers in phrase | Not regex-gated in phrase validator; only discouraged in prompt. | May produce less human-sounding headlines. |
-| Explicit directional-move requirement | Four-beat directive verbs live in `BODY_FOUR_BEAT_CONTRACT` and are mirrored in `_shared/brief-validators.ts`, but the production `validateV61Output` does not re-check directive verbs directly. | Body may feel advisory rather than oriented. |
-| Preferred sentence shape (1–3 short sentences, four-beat structure) | Structural rules are enforced in the parallel `_shared/brief-validators.ts` implementation, but not in the live inline validator. | Body may exceed word budget or lose the Chief-of-Staff cadence. |
+| Explicit directional-move requirement | The four-beat directive verbs are described in `BODY_FOUR_BEAT_CONTRACT` and also implemented in the parallel `_shared/brief-validators.ts` module, but that module is **not** the live production gate. The production `validateV61Output` does not re-check directive verbs directly. | Body may feel advisory rather than oriented. |
+| Preferred sentence shape (1–3 short sentences, four-beat structure) | Structural rules are implemented in the parallel `_shared/brief-validators.ts` module, but that module is **not** the live production gate. The live inline validator only enforces the body word ceiling and related copy gates. | Body may exceed word budget or lose the Chief-of-Staff cadence. |
 | Ideal `leanOn` / `watchFor` word target | Live validator only caps at 10 words / 60 chars and checks vocabulary/source; no tight 1–3 word gate. | Signals may become verbose or raw-signal-like. |
 
 If any of the prompt-only guidance above needs to be promoted to a hard gate,
