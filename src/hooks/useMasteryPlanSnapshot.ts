@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
-import { localISODate } from '@/utils/persistentBriefCache';
+import { localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
 
 export type MrsWindow = 'morning' | 'afternoon' | 'evening';
 export type MasteryPlanSnapshotStatus = 'ready' | 'error' | 'pending';
@@ -57,9 +57,10 @@ export function useMasteryPlanSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
   const planDate = localISODate();
+  const mrsWindow = currentPeriodLocal() as MrsWindow;
 
   return useQuery<MasteryPlanSnapshot | null>({
-    queryKey: ['mastery-plan-snapshot', effectiveUserId, planDate],
+    queryKey: ['mastery-plan-snapshot', effectiveUserId, planDate, mrsWindow],
     enabled: !!effectiveUserId,
     staleTime: 60 * 1000,
     queryFn: async () => {
@@ -73,11 +74,16 @@ export function useMasteryPlanSnapshot() {
       const { data: resp, error } = await supabase.functions.invoke(
         'get-mastery-plan-snapshot',
         {
-          body: { planDate },
+          // Send the current window so the reader prefers the
+          // current-window snapshot; it falls back to the latest
+          // ready row for the day if the current window has not
+          // been generated yet.
+          body: { planDate, mrsWindow },
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         },
       );
       const data = (resp as { data?: Record<string, any> | null } | null)?.data ?? null;
+      const source = (resp as { source?: Record<string, any> | null } | null)?.source ?? null;
 
       if (error) {
         dbg('query error', error.message);
@@ -134,7 +140,7 @@ export function useMasteryPlanSnapshot() {
       });
       // eslint-disable-next-line no-console
       console.log(
-        `[plan-snapshot][render] source=snapshot strategy=latest_ready planDate=${planDate} selectedWindow=${snapshot.mrsWindow} generatedAt=${snapshot.generatedAt ?? 'n/a'} status=${snapshot.status} found=true`,
+        `[plan-snapshot][render] source=snapshot strategy=${source?.strategy ?? 'unknown'} planDate=${planDate} requestedWindow=${mrsWindow} selectedWindow=${snapshot.mrsWindow} generatedAt=${snapshot.generatedAt ?? 'n/a'} status=${snapshot.status} found=true`,
       );
 
       return snapshot;
