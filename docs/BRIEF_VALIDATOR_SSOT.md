@@ -86,7 +86,7 @@ causes a rejection in `validateV61Output` today.
 | Generic-trait / COACH restriction | `leanOn_generic_trait` / `watchFor_generic_trait` | Traits like `Self-Awareness`, `Discernment`, `Alignment` allowed only when `source = COACH`. |
 | `leanOn` / `watchFor` source whitelist | `leanOn_invalid_source_*` / `watchFor_invalid_source_*` | Only `ARCHETYPE`, `COACH`, `PATTERN`, `GOALS`. |
 | Body signal evidence / state-quality fallback | `body_no_signal_evidence` | Requires number + unit, named event, calendar-empty baseline lexicon, or approved state-quality word. |
-| Executive-context lexicon cluster | `body_no_signal_evidence` (lexicon branch) | Body must include cognition, physiology, resilience, or executive-context lexicon. |
+| Executive-context lexicon cluster | `body_no_lexicon_cluster` | Body must include cognition, physiology, resilience, or executive-context lexicon. |
 | Abstract system phrases in body | `body_abstract_system_phrase` | Blocks "come down clean", "hold the base", "mask the surge", "optimise the window", "leverage your physiological runway". |
 
 ### Still mostly prompt-only (not a hard gate in `validateV61Output` today)
