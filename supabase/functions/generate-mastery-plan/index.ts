@@ -6999,14 +6999,43 @@ if (import.meta.main) Deno.serve(async (req) => {
     let rawBodyText = '';
     try {
       rawBodyText = await req.text();
-      if (rawBodyText && rawBodyText.trim().length > 0) {
-        body = JSON.parse(rawBodyText);
-      }
+    } catch (readErr: any) {
+      console.error('[generate-mastery-plan] request body read failed', {
+        contentType: req.headers.get('content-type'),
+        userId: redactUserId(userId),
+        reason: readErr?.message || String(readErr),
+      });
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', reason: 'Unable to read request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const contentType = req.headers.get('content-type') || '';
+    const bodyIsEmpty = !rawBodyText || rawBodyText.trim().length === 0;
+    const requestMode = req.headers.get('x-request-mode') || 'default';
+
+    if (bodyIsEmpty) {
+      console.error('[generate-mastery-plan] request body missing', {
+        contentType,
+        bodyEmpty: true,
+        userId: redactUserId(userId),
+        requestMode,
+      });
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', reason: 'Expected JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    try {
+      body = JSON.parse(rawBodyText);
     } catch (parseErr: any) {
       console.error('[generate-mastery-plan] request body parse failed', {
-        contentType: req.headers.get('content-type'),
-        bodyEmpty: !rawBodyText || rawBodyText.trim().length === 0,
+        contentType,
+        bodyEmpty: false,
         userId: redactUserId(userId),
+        requestMode,
         reason: parseErr?.message || String(parseErr),
       });
       return new Response(
@@ -7016,9 +7045,10 @@ if (import.meta.main) Deno.serve(async (req) => {
     }
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       console.error('[generate-mastery-plan] request body invalid shape', {
-        contentType: req.headers.get('content-type'),
-        bodyEmpty: !rawBodyText || rawBodyText.trim().length === 0,
+        contentType,
+        bodyEmpty: false,
         userId: redactUserId(userId),
+        requestMode,
       });
       return new Response(
         JSON.stringify({ error: 'Invalid request body', reason: 'Expected JSON object' }),
