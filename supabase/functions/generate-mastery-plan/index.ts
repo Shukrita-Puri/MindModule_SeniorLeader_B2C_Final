@@ -7440,6 +7440,8 @@ if (import.meta.main) Deno.serve(async (req) => {
       slotReplacements,
       mrsReadinessState: requestMrsState,
       mrsReadinessScore: requestMrsScore,
+      timeWindow: requestedWindow,
+      strictBriefHandshake,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,
