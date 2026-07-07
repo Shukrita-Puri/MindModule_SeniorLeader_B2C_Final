@@ -1145,6 +1145,8 @@ const TodayThreePriorities = ({
       mrsSnapshotDefined: mrsSnapshot !== undefined,
       outerReadinessDefined: outerReadinessData !== undefined,
     });
+    console.info('[plan-card] hydrate-step', { step: 1, message: 'after-enter' });
+    console.info('[plan-card] hydrate-step', { step: 2, outerReadinessUndefined: outerReadinessData === undefined });
     // Wait for the brief to resolve before kicking off `loadPlan` — without
     // this the first call races ahead of the awaiting-signals contract and
     // generates a plan from defaults before the brief tells us to suppress.
@@ -1153,6 +1155,7 @@ const TodayThreePriorities = ({
       console.info('[plan-card] hydrate-effect skipped', { reason: 'outerReadinessData-undefined' });
       return;
     }
+    console.info('[plan-card] hydrate-step', { step: 3, masteryPlanSnapshotUndefined: masteryPlanSnapshot === undefined, mrsSnapshotUndefined: mrsSnapshot === undefined });
     // Wait for the snapshot read to resolve too. Snapshot-read-first beats
     // both localStorage cache and live generation when it's ready for the
     // current window.
@@ -1165,6 +1168,7 @@ const TodayThreePriorities = ({
       });
       return;
     }
+    console.info('[plan-card] hydrate-step', { step: 4, cardsAwaiting });
 
     if (cardsAwaiting) {
       console.info('[plan-card] hydrate-branch', { branch: 'cards-awaiting' });
@@ -1199,6 +1203,12 @@ const TodayThreePriorities = ({
       });
       return;
     }
+    console.info('[plan-card] hydrate-step', {
+      step: 5,
+      snapExists: !!masteryPlanSnapshot,
+      snapStatus: masteryPlanSnapshot?.status ?? null,
+      snapWindow: masteryPlanSnapshot?.mrsWindow ?? null,
+    });
 
     // ── Snapshot-read-first hydration ──
     // Skip if user explicitly requested a manual refresh — the live
@@ -1214,6 +1224,22 @@ const TodayThreePriorities = ({
       snap.status === 'ready' &&
       !!planJson &&
       planHorizonModules.length > 0;
+    console.info('[plan-card] hydrate-step', {
+      step: 6,
+      hasPlanJson: !!planJson,
+      horizonModuleCount: planHorizonModules.length,
+    });
+    console.info('[plan-card] hydrate-step', {
+      step: 7,
+      hasPlanForceRefresh,
+      hydratedFromSnapshot: hydratedFromSnapshotRef.current,
+    });
+    console.info('[plan-card] hydrate-pre-branch-summary', {
+      cardsAwaiting,
+      planSnapshotRenderable,
+      hasPlanForceRefresh,
+      hydratedFromSnapshot: hydratedFromSnapshotRef.current,
+    });
 
     if (!hydratedFromSnapshotRef.current && !hasPlanForceRefresh && planSnapshotRenderable) {
       console.info('[plan-card] hydrate-branch', { branch: 'planSnapshotRenderable' });
