@@ -51,6 +51,7 @@ import {
 import { getLocalDataSummary } from '@/services/localDataStore';
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 import { markExecutiveCardDelivery } from '@/utils/engagementTracking';
+import { getInvokeTransportDiagnostics, normalizeInvokeOptions } from '@/lib/functionInvokeTransport';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -704,6 +705,37 @@ const TodayThreePriorities = ({
     return body;
   }, [mrsSnapshot, outerReadinessData]);
 
+  const invokeGenerateMasteryPlan = useCallback((
+    requestBody: Record<string, any>,
+    opts: {
+      source: 'manual-generate' | 'load-plan';
+      attempt?: number;
+      headers?: Record<string, string>;
+    },
+  ) => {
+    const headers: Record<string, string> = {
+      ...(opts.headers || {}),
+      'x-request-mode': opts.source,
+      'x-plan-caller': `TodayThreePriorities:${opts.source}`,
+    };
+    const invokeOptions = normalizeInvokeOptions({
+      headers,
+      body: requestBody,
+    });
+    console.info('[TodayThreePriorities][generate-mastery-plan] invoke', {
+      source: opts.source,
+      attempt: opts.attempt ?? null,
+      authTokenExists: !!headers.Authorization,
+      contentType: 'sdk-managed/application-json',
+      ...getInvokeTransportDiagnostics(invokeOptions),
+      hasOuterReadinessCache: !!requestBody.outerReadinessCache,
+      hasBehaviourSnapshot: !!requestBody.outerReadinessCache?.behaviourSnapshot,
+      hasTodayCheckinId: !!requestBody.todayCheckinId,
+      hasSlotReplacements: !!requestBody.slotReplacements,
+    });
+    return supabase.functions.invoke('generate-mastery-plan', invokeOptions);
+  }, []);
+
   // ── Manual recovery: user-triggered plan generation when snapshot missing ──
   const handleManualGenerate = useCallback(async () => {
     if (manualGenerating) return;
@@ -716,7 +748,7 @@ const TodayThreePriorities = ({
     setManualGenerating(true);
     try {
       const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       // Use the same payload contract as the normal generator path so
       // manual recovery reasons over identical context (today's check-in,
@@ -737,9 +769,9 @@ const TodayThreePriorities = ({
         mrsReadinessState: requestBody.mrsReadinessState,
         mrsReadinessScorePresent: typeof requestBody.mrsReadinessScore === 'number',
       });
-      const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
+      const { data, error } = await invokeGenerateMasteryPlan(requestBody, {
+        source: 'manual-generate',
         headers,
-        body: requestBody,
       });
       if (error || !data) {
         console.error('[plan-snapshot][manual-generate] failed', error);
@@ -765,7 +797,7 @@ const TodayThreePriorities = ({
     } finally {
       setManualGenerating(false);
     }
-  }, [manualGenerating, effectiveUserId, todayForPlan, periodForPlan, mrsReadyForPlan, mrsSnapshot, queryClient, buildGeneratePlanRequestBody]);
+  }, [manualGenerating, effectiveUserId, todayForPlan, periodForPlan, mrsReadyForPlan, queryClient, buildGeneratePlanRequestBody, invokeGenerateMasteryPlan]);
 
   // ── Load plan ──
   const loadPlan = useCallback(async (opts?: {
@@ -1000,9 +1032,10 @@ const TodayThreePriorities = ({
           slotReplacements: hasSlotReplacements ? slotReplacements : undefined,
         });
 
-        const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
+        const { data, error } = await invokeGenerateMasteryPlan(requestBody, {
+          source: 'load-plan',
+          attempt: attempt + 1,
           headers,
-          body: requestBody,
         });
 
         if (!error) {
@@ -1100,7 +1133,7 @@ const TodayThreePriorities = ({
     }
     setLoading(false);
     return true;
-  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting, buildGeneratePlanRequestBody]);
+  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting, buildGeneratePlanRequestBody, invokeGenerateMasteryPlan]);
 
   useEffect(() => {
     // Wait for the brief to resolve before kicking off `loadPlan` — without
