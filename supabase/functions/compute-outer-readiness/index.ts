@@ -3785,7 +3785,7 @@ WATCH FOR
   ✅ "Forcing clarity · PATTERN" / "Performing Resilience · ARCHETYPE" / "Spending surplus early · PATTERN" / "Over-adapting · ARCHETYPE" / "Back-to-back compounding · PATTERN"
   ❌ "Body Under Load · PHYSIOLOGY" (repeats body) / "Self-Honesty · CHECK-IN" (generic)
 
-FORMAT: Each leanOn/watchFor item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE ∈ {ARCHETYPE, COACH, PATTERN}. DATA and CHECK-IN are NOT allowed sources. If no pattern/archetype/coach data exists, return the archetype-specific trait, never generic, never empty.
+FORMAT: Each leanOn/watchFor item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE ∈ {ARCHETYPE, COACH, PATTERN, GOALS}. DATA and CHECK-IN are NOT allowed sources. If no pattern/archetype/coach/goals data exists, return the archetype-specific trait, never generic, never empty.
 
 NON-REDUNDANCY TEST (run silently before emitting):
   1. Phrase orients without explaining? If it explains, shorten.
@@ -4547,6 +4547,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const LEXICON_COGNITION = /\b(intelligence|cognition|decision power|strategic accuracy|mental bandwidth|processing capacity|solving logic|sharpness|sharp|clarity)\b/i;
           const LEXICON_PHYSIOLOGY = /\b(physiology|operational drive|leadership stamina|physical recovery|physical runway|stamina|drive|restoration|restore|recover|recovery|heart rate|pulse|prepare|preparation|body)\b/i;
           const LEXICON_RESILIENCE = /\b(resilience|stability|strategic composure|executive presence|diplomatic shield|reactive risk|internal buffer|composure|buffer|release)\b/i;
+          // Executive-context cluster (additive) — CEO-behaviour-driven copy
+          // grounded in the leader's day: board room, travel, high-stakes work.
+          const LEXICON_EXECUTIVE_CONTEXT = /\b(conference|summit|board|pitch|negotiation|travel|landing|back[- ]to[- ]back|compressed|decisions?|density|re[- ]?entry|offsite|speaking|presentation|high[- ]stakes|governance)\b/i;
+          // Approved state-quality words (additive Signal-Evidence acceptance).
+          // Natural executive prose that names grounded state without raw
+          // numbers should still pass body_no_signal_evidence.
+          const STATE_QUALITY_WORDS = /\b(recovery|sleep|rested|fatigued|sharp|foggy|drained|steady|compressed|elevated|shifted|heavy|light|loaded)\b/i;
           // §2.22 Calendar-empty whitelist
           const BASELINE_LEXICON = /\b(base[- ]?level|baseline intelligence|stabili[sz]ing|base for future load|hold the base)\b/i;
 
@@ -4563,12 +4570,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (PHRASE_FORBIDDEN_OPENER.test(phraseText.trim())) return { valid: false, reason: 'phrase_forbidden_opener' };
             if (COACHING_IMPERATIVE.test(phraseText)) return { valid: false, reason: 'phrase_coaching_imperative' };
 
-            // §2.18 Phrase length: target 2-3 words, soft-reject at 4 (retry once), hard-reject at 6+
+            // §2.18 Phrase length (loosened): 2–4 words accepted, 5 words
+            // soft-reject (retry once with stricter instruction), 6+ hard-reject.
+            // Many valid CoS phrases are naturally 4 words.
             const phraseWords = phraseText.trim().replace(/[.!?,;:]/g, '').split(/\s+/).filter(Boolean);
             if (phraseWords.length >= 6) return { valid: false, reason: `phrase_hard_reject_${phraseWords.length}w` };
-            if (phraseWords.length === 4 && !opts.strict) {
-              // Soft-reject: signal caller to retry with stricter instruction
-              return { valid: false, reason: 'phrase_soft_reject_4w', softReject: true };
+            if (phraseWords.length === 5 && !opts.strict) {
+              return { valid: false, reason: 'phrase_soft_reject_5w', softReject: true };
             }
 
             const GENERIC_PHRASE = /\b(awareness|prevents?|regrets?|future|potential|inner|strength|power|courage|deserve|believe|transform|unlock|embrace|overcome|thrive)\b/i;
@@ -4688,11 +4696,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (!hasNumberOrEvent && !baselineOK) {
               // Fallback to legacy data-vocab check to keep cold-start days valid
               const hasLegacyDataRef = /\b(HRV|RHR|HR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure|sharpness|energy)\b/i.test(strippedBody);
-              if (!hasLegacyDataRef) return { valid: false, reason: 'body_no_signal_evidence' };
+              // Additive loosening: also accept natural state-quality prose
+              // ("recovery was short", "afternoon is heavy") without raw metrics.
+              const hasStateQuality = STATE_QUALITY_WORDS.test(strippedBody);
+              if (!hasLegacyDataRef && !hasStateQuality) return { valid: false, reason: 'body_no_signal_evidence' };
             }
 
-            // §2.20 Elastic Lexicon — body must contain ≥1 cluster concept (or baseline lexicon when calendar-empty)
-            const hasLexicon = LEXICON_COGNITION.test(strippedBody) || LEXICON_PHYSIOLOGY.test(strippedBody) || LEXICON_RESILIENCE.test(strippedBody) || baselineOK;
+            // §2.20 Elastic Lexicon — body must contain ≥1 cluster concept
+            // (cognition / physiology / resilience / executive-context), or
+            // baseline lexicon when calendar-empty. Executive-context is
+            // additive to support CEO-behaviour-driven copy.
+            const hasLexicon = LEXICON_COGNITION.test(strippedBody) || LEXICON_PHYSIOLOGY.test(strippedBody) || LEXICON_RESILIENCE.test(strippedBody) || LEXICON_EXECUTIVE_CONTEXT.test(strippedBody) || baselineOK;
             if (!hasLexicon) return { valid: false, reason: 'body_no_lexicon_cluster' };
 
             // §2.19.1 Pattern-relevance gate: if pattern reference used, require today-signal AND today-context anchor
@@ -4748,9 +4762,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 if (WELLNESS_BLACKLIST.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
                 if (DASH_BREAK.test(signal)) return { valid: false, reason: `${label}_em_dash` };
 
-                // §2.18.5 Source must be ARCHETYPE | COACH | PATTERN
+                // §2.18.5 Source must be ARCHETYPE | COACH | PATTERN | GOALS
                 const sourceUpper = source.toUpperCase();
-                if (!['ARCHETYPE', 'COACH', 'PATTERN'].includes(sourceUpper)) {
+                if (!['ARCHETYPE', 'COACH', 'PATTERN', 'GOALS'].includes(sourceUpper)) {
                   return { valid: false, reason: `${label}_invalid_source_${sourceUpper}` };
                 }
 
