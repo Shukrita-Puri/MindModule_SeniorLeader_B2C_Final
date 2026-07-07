@@ -1140,11 +1140,21 @@ const TodayThreePriorities = ({
     // Wait for the brief to resolve before kicking off `loadPlan` — without
     // this the first call races ahead of the awaiting-signals contract and
     // generates a plan from defaults before the brief tells us to suppress.
-    if (outerReadinessData === undefined) return;
+    if (outerReadinessData === undefined) {
+      console.info('[plan-card] hydrate-effect skipped', { reason: 'outerReadinessData-undefined' });
+      return;
+    }
     // Wait for the snapshot read to resolve too. Snapshot-read-first beats
     // both localStorage cache and live generation when it's ready for the
     // current window.
-    if (masteryPlanSnapshot === undefined || mrsSnapshot === undefined) return;
+    if (masteryPlanSnapshot === undefined || mrsSnapshot === undefined) {
+      console.info('[plan-card] hydrate-effect skipped', {
+        reason: 'snapshot-or-mrs-undefined',
+        masteryPlanSnapshotDefined: masteryPlanSnapshot !== undefined,
+        mrsSnapshotDefined: mrsSnapshot !== undefined,
+      });
+      return;
+    }
 
     if (cardsAwaiting) {
       const todayDate = localISODate();
