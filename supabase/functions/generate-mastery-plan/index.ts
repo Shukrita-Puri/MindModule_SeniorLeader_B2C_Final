@@ -7162,7 +7162,29 @@ if (import.meta.main) Deno.serve(async (req) => {
     }
     const forceRefresh = body.forceRefresh === true;
     const outerReadinessCache = body.outerReadinessCache ?? null;
-    currentPeriod = getTimeOfDay(clientTimezoneOffset) as any;
+    // F1 — accept an explicit target window from the caller. Executive
+    // Home orchestrator (`build-executive-home-cards`) sends `mrsWindow`;
+    // accept `timeWindow` too for symmetry with other Executive Home
+    // callers. Fall back to wall-clock only for legacy callers that never
+    // set either.
+    const requestedWindowRaw =
+      typeof body.mrsWindow === 'string' ? body.mrsWindow :
+      typeof body.timeWindow === 'string' ? body.timeWindow :
+      null;
+    const requestedWindow =
+      requestedWindowRaw === 'morning' ||
+      requestedWindowRaw === 'afternoon' ||
+      requestedWindowRaw === 'evening'
+        ? requestedWindowRaw
+        : null;
+    const strictBriefHandshake = body.strictBriefHandshake === true;
+    currentPeriod = (requestedWindow ?? getTimeOfDay(clientTimezoneOffset)) as any;
+    console.log('[generate-mastery-plan][window-resolve]', {
+      requestedWindow,
+      derivedFromClock: requestedWindow ? null : currentPeriod,
+      strictBriefHandshake,
+      caller,
+    });
 
     // Build state fingerprint from latest check-in + completions for cache key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
