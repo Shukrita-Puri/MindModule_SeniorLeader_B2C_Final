@@ -1167,20 +1167,21 @@ const TodayThreePriorities = ({
     // generator owns that path and will rewrite the snapshot via its
     // existing persist hook.
     const snap = masteryPlanSnapshot;
-    if (
-      !hydratedFromSnapshotRef.current &&
-      !hasPlanForceRefresh &&
-      snap &&
+    const planJson = snap?.planJson as Record<string, unknown> | null;
+    const planHorizonModules = Array.isArray(planJson?.horizonModules)
+      ? (planJson.horizonModules as unknown[])
+      : [];
+    const planSnapshotRenderable =
+      !!snap &&
       snap.status === 'ready' &&
-      snap.planJson &&
-      !isCardsAwaitingPayload(snap.planJson) &&
-      Array.isArray((snap.planJson as any).horizonModules) &&
-      (snap.planJson as any).horizonModules.length > 0
-    ) {
+      !!planJson &&
+      planHorizonModules.length > 0;
+
+    if (!hydratedFromSnapshotRef.current && !hasPlanForceRefresh && planSnapshotRenderable) {
       hydratedFromSnapshotRef.current = true;
       (async () => {
         try {
-          const stripped = stripCoachFromPlan(snap.planJson as unknown as MasteryPlanResponse)!;
+          const stripped = stripCoachFromPlan(planJson as unknown as MasteryPlanResponse)!;
           const todayDate = localISODate();
           const currentPeriod = getCurrentTimeWindow();
           if (stripped.horizonModules) {
@@ -1220,15 +1221,30 @@ const TodayThreePriorities = ({
         }
       })();
     } else if (!hydratedFromSnapshotRef.current) {
-      // No usable snapshot (missing, error, or pending without payload).
+      // No usable snapshot (missing, error, pending, or empty plan shape).
       // Snapshot-only home: cron (`build-executive-home-cards`, morning
       // slot) owns Plan generation. If the morning snapshot is missing,
       // render the existing pending/preparing state instead of silently
       // triggering `generate-mastery-plan`. Manual force-refresh still
       // runs the live path.
+      if (snap) {
+        const rejectReason = !planJson
+          ? 'missing-plan-json'
+          : snap.status !== 'ready'
+            ? `non-ready-status:${snap.status}`
+            : planHorizonModules.length === 0
+              ? 'empty-horizon-modules'
+              : 'unknown';
+        console.log('[plan-snapshot][render] source=snapshot strategy=latest_ready skipped=hydrate reason=' + rejectReason, {
+          planDate: snap.planDate,
+          status: snap.status,
+          hasPlanJson: !!planJson,
+          horizonModuleCount: planHorizonModules.length,
+        });
+      }
       if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
         const canRecover = mrsReadyForPlan && !cardsAwaiting;
-        console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan', {
+        console.log('[plan-snapshot][render] source=snapshot strategy=latest_ready found=false skipped=generate-mastery-plan', {
           canRecover,
           mrsReadyForPlan,
           cardsAwaiting,
