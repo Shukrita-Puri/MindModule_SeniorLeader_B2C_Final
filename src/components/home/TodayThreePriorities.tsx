@@ -1294,7 +1294,11 @@ const TodayThreePriorities = ({
         setAwaitingSignals(snapAwaiting || !canRecover);
         setSnapshotMissingReady(canRecover);
         setLoading(false);
-        console.info('[plan-card][hydrate:decision]', {
+        const decisionAction = canRecover
+          ? 'show_manual_generate'
+          : (snap ? 'reject_snapshot' : 'show_awaiting');
+        const decisionLog = decisionAction === 'reject_snapshot' ? console.warn : console.info;
+        decisionLog('[plan-card][hydrate:decision]', {
           planDate: todayForPlan,
           requestedWindow: periodForPlan,
           snapshotExists: !!snap,
@@ -1305,7 +1309,7 @@ const TodayThreePriorities = ({
           mrsReadyForPlan,
           cardsAwaiting,
           hasPlanForceRefresh,
-          action: canRecover ? 'show_manual_generate' : (snap ? 'reject_snapshot' : 'show_awaiting'),
+          action: decisionAction,
           reason: !snap
             ? 'no-snapshot'
             : !planJson
