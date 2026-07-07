@@ -2949,6 +2949,19 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
         ctx.briefBehaviour = loaded;
         ctx.briefBehaviourSource = 'brief_snapshot';
       } else {
+        // F2 — strict Brief↔Plan handshake for Executive Home snapshot
+        // path. When the caller (`build-executive-home-cards`) demands
+        // exact same-window Brief parity, refuse to silently rebuild
+        // behaviour flags locally — the Plan returns an awaiting envelope
+        // upstream instead. `briefBehaviourSource` stays `'absent'` so
+        // callers can see the handshake failed.
+        if (req.strictBriefHandshake === true) {
+          console.warn(
+            `[buildSharedContext] strict Brief handshake failed user=${req.userId} date=${localDateForLookup} window=${timeOfDay} promptVersion=${BRIEF_PROMPT_VERSION} expectedSig=${expectedSig ?? 'none'} — skipping local rebuild`,
+          );
+          ctx.briefBehaviour = null;
+          ctx.briefBehaviourSource = 'absent';
+        } else {
         // Logged for visibility — every fallback here is a drift risk.
         console.warn(
           `[buildSharedContext] briefBehaviour fallback to local rebuild user=${req.userId} date=${localDateForLookup} window=${timeOfDay} promptVersion=${BRIEF_PROMPT_VERSION} expectedSig=${expectedSig ?? 'none'}`,
@@ -3043,6 +3056,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
           promptBlockPlan: fallback.promptBlockPlan,
         };
         ctx.briefBehaviourSource = 'local_fallback';
+        }
       }
     }
     console.log(
