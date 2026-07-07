@@ -7016,32 +7016,29 @@ if (import.meta.main) Deno.serve(async (req) => {
     const requestMode = req.headers.get('x-request-mode') || 'default';
 
     if (bodyIsEmpty) {
-      console.error('[generate-mastery-plan] request body missing', {
+      console.warn('[generate-mastery-plan] request body missing; defaulting to empty object', {
         contentType,
         bodyEmpty: true,
         userId: redactUserId(userId),
         requestMode,
       });
-      return new Response(
-        JSON.stringify({ error: 'Invalid request body', reason: 'Expected JSON body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    try {
-      body = JSON.parse(rawBodyText);
-    } catch (parseErr: any) {
-      console.error('[generate-mastery-plan] request body parse failed', {
-        contentType,
-        bodyEmpty: false,
-        userId: redactUserId(userId),
-        requestMode,
-        reason: parseErr?.message || String(parseErr),
-      });
-      return new Response(
-        JSON.stringify({ error: 'Invalid request body', reason: 'Malformed JSON' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      body = {};
+    } else {
+      try {
+        body = JSON.parse(rawBodyText);
+      } catch (parseErr: any) {
+        console.error('[generate-mastery-plan] request body parse failed', {
+          contentType,
+          bodyEmpty: false,
+          userId: redactUserId(userId),
+          requestMode,
+          reason: parseErr?.message || String(parseErr),
+        });
+        return new Response(
+          JSON.stringify({ error: 'Invalid request body', reason: 'Malformed JSON' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
     }
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       console.error('[generate-mastery-plan] request body invalid shape', {
