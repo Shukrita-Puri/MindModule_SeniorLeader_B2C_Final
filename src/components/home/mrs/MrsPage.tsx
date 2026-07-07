@@ -50,8 +50,12 @@ const MrsPage = () => {
   // or calendar driven; check-in only upgrades baseline to refined.
   const ws = (outerBrief as any)?.wearableStatus;
   const eligibility = (outerBrief as any)?.readinessEligibility ?? null;
-  const stageOneSignalAvailable =
-    typeof (outerBrief as any)?.hasCurrentPeriodSignal === 'boolean'
+  // When a current-window snapshot is renderable, the snapshot is the
+  // authoritative source for MRS card display. A numeric score implies
+  // at minimum a Stage 1 signal was available at compute time.
+  const stageOneSignalAvailable = snapshotRenderable
+    ? true
+    : typeof (outerBrief as any)?.hasCurrentPeriodSignal === 'boolean'
       ? (outerBrief as any).hasCurrentPeriodSignal
       : typeof eligibility?.stageOneSignal === 'boolean'
         ? eligibility.stageOneSignal
@@ -67,9 +71,17 @@ const MrsPage = () => {
         (outerBrief as any)?.innerReadinessState === 'awaiting'
         ? 'awaiting'
         : 'baseline';
-  const readinessState: 'baseline' | 'refined' | 'awaiting' =
-    rawState === 'refined' && !stageOneSignalAvailable ? 'baseline' : rawState;
-  const awaitingCopy = getReadinessAwaitingCopy(outerBrief ?? undefined);
+  const readinessState: 'baseline' | 'refined' | 'awaiting' = snapshotRenderable
+    ? (mrsSnapshot!.readinessState === 'refined' ? 'refined' : 'baseline')
+    : rawState === 'refined' && !stageOneSignalAvailable
+      ? 'baseline'
+      : rawState;
+  // Only consult live awaiting copy when no renderable snapshot exists.
+  // Otherwise the snapshot score is authoritative and awaiting/sync-delayed
+  // copy from live outerBrief would contradict the visible score.
+  const awaitingCopy = snapshotRenderable
+    ? ''
+    : getReadinessAwaitingCopy(outerBrief ?? undefined);
 
   const tierColor = tierColorVar(tier);
   const oneLiner = getReadinessOneLiner(score);
