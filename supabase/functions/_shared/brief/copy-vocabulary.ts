@@ -202,7 +202,7 @@ export const SILENT_REASONING = `SILENT REASONING (think through this; do NOT ou
 6. FIND THE ONE THING. Given all of it: what is the single most useful read
    for this person, right now? That is the Phrase, the Body, the orientation.`;
 
-export const BODY_FOUR_BEAT_CONTRACT = `THE BODY — visible analysis, 1–3 short human sentences, 55–60 words MAX (target 45–55).
+export const BODY_FOUR_BEAT_CONTRACT = `THE BODY — visible analysis, 1–3 short human sentences, target 45–55 words, absolute max 60.
 The Body is your VISIBLE ANALYSIS — show the user you weighed their data
 and reached a judgment. Four beats, woven into one to three sentences,
 never listed. Each beat has an explicit word budget — the WORK DIRECTIVE
