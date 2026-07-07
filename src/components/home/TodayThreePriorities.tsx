@@ -241,6 +241,7 @@ const TodayThreePriorities = ({
   reflectionContext?: string | null;
   reflectionEvent?: string | null;
 }) => {
+  console.info('[plan-card] component-mounted');
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
