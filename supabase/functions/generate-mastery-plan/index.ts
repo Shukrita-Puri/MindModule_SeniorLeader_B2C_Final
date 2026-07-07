@@ -2582,7 +2582,10 @@ interface SharedContext {
 }
 
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
-  const timeOfDay = getTimeOfDay(req.timezoneOffset);
+  // F1 — prefer the caller-supplied window (Executive Home orchestrator);
+  // fall back to wall-clock only for legacy callers with no explicit window.
+  const timeOfDay = (req.timeWindow ?? getTimeOfDay(req.timezoneOffset)) as
+    'morning' | 'afternoon' | 'evening';
   const today = getLocalDateISO(req.timezoneOffset);
   const now = new Date();
   const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
