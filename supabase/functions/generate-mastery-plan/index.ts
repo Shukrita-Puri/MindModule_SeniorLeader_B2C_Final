@@ -7325,7 +7325,7 @@ if (import.meta.main) Deno.serve(async (req) => {
           recommendedPracticeIds: practiceIds,
           hasPlanLedger: !!planLedger,
           horizonIso: horizonIsoValue,
-          status: 'ready',
+          status: snapshotStatus,
         });
         const { data: upserted, error: snapErr } = await supabaseClient
           .from('mastery_plan_snapshots')
@@ -7345,8 +7345,15 @@ if (import.meta.main) Deno.serve(async (req) => {
             // surfaces one rather than inventing a value.
             brief_snapshot_id: null,
             input_signature: stateFingerprint,
-            status: 'ready',
-            error_json: null,
+            status: snapshotStatus,
+            error_json: snapshotStatus === 'awaiting'
+              ? {
+                  awaitingReason:
+                    planObj?.reason ??
+                    (planIsAwaiting ? 'awaiting_signals' : 'no_payload'),
+                  message: planObj?.message ?? null,
+                }
+              : null,
             generated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,plan_date,mrs_window' })
           .select('id, status')
@@ -7367,7 +7374,7 @@ if (import.meta.main) Deno.serve(async (req) => {
             planDate,
             window: currentPeriod,
             snapshotId: upserted?.id ?? null,
-            status: upserted?.status ?? 'ready',
+            status: upserted?.status ?? snapshotStatus,
             prioritiesCount: visiblePriorities.length,
             horizonModulesCount: horizonMods.length,
             recommendedPracticeIds: practiceIds.length,
