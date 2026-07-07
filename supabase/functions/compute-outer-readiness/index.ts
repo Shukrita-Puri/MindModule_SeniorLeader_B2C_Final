@@ -5383,6 +5383,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // Note: snapshot id resolution for the response is done synchronously below
     // (best-effort) so the client can key feedback by it.
     let resolvedBriefId: string | null = null;
+    // Persistence receipts surfaced back to the cron orchestrator so
+    // `[exec-home-cron]` logs can tell at a glance whether the two
+    // snapshot rows for this run actually landed.
+    let mrsSnapshotWritten = false;
+    let briefSnapshotWritten = false;
     if (cachedSnapshot && inputSignature !== 'no-sig') {
       try {
         const { data: idRow } = await db
