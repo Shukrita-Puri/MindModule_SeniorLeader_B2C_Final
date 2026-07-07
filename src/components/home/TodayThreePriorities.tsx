@@ -1159,6 +1159,22 @@ const TodayThreePriorities = ({
       setSnapshotMissingReady(false);
       setPlan(null);
       setLoading(false);
+      console.info('[plan-card][hydrate:decision]', {
+        planDate: todayForPlan,
+        requestedWindow: periodForPlan,
+        snapshotExists: !!masteryPlanSnapshot,
+        snapshotStatus: masteryPlanSnapshot?.status ?? null,
+        snapshotWindow: masteryPlanSnapshot?.mrsWindow ?? null,
+        hasPlanJson: !!(masteryPlanSnapshot?.planJson),
+        horizonModuleCount: Array.isArray((masteryPlanSnapshot?.planJson as any)?.horizonModules)
+          ? ((masteryPlanSnapshot!.planJson as any).horizonModules as unknown[]).length
+          : 0,
+        mrsReadyForPlan,
+        cardsAwaiting,
+        hasPlanForceRefresh,
+        action: 'show_awaiting',
+        reason: 'cards-awaiting',
+      });
       return;
     }
 
@@ -1179,6 +1195,20 @@ const TodayThreePriorities = ({
 
     if (!hydratedFromSnapshotRef.current && !hasPlanForceRefresh && planSnapshotRenderable) {
       hydratedFromSnapshotRef.current = true;
+      console.info('[plan-card][hydrate:decision]', {
+        planDate: todayForPlan,
+        requestedWindow: periodForPlan,
+        snapshotExists: true,
+        snapshotStatus: snap!.status,
+        snapshotWindow: snap!.mrsWindow,
+        hasPlanJson: true,
+        horizonModuleCount: planHorizonModules.length,
+        mrsReadyForPlan,
+        cardsAwaiting,
+        hasPlanForceRefresh,
+        action: 'hydrate_snapshot',
+        reason: 'ready-current-window',
+      });
       (async () => {
         try {
           const stripped = stripCoachFromPlan(planJson as unknown as MasteryPlanResponse)!;
@@ -1264,7 +1294,43 @@ const TodayThreePriorities = ({
         setAwaitingSignals(snapAwaiting || !canRecover);
         setSnapshotMissingReady(canRecover);
         setLoading(false);
+        console.info('[plan-card][hydrate:decision]', {
+          planDate: todayForPlan,
+          requestedWindow: periodForPlan,
+          snapshotExists: !!snap,
+          snapshotStatus: snap?.status ?? null,
+          snapshotWindow: snap?.mrsWindow ?? null,
+          hasPlanJson: !!planJson,
+          horizonModuleCount: planHorizonModules.length,
+          mrsReadyForPlan,
+          cardsAwaiting,
+          hasPlanForceRefresh,
+          action: canRecover ? 'show_manual_generate' : (snap ? 'reject_snapshot' : 'show_awaiting'),
+          reason: !snap
+            ? 'no-snapshot'
+            : !planJson
+              ? 'missing-plan-json'
+              : snap.status !== 'ready'
+                ? `non-ready-status:${snap.status}`
+                : planHorizonModules.length === 0
+                  ? 'empty-horizon-modules'
+                  : 'unknown',
+        });
       } else {
+        console.info('[plan-card][hydrate:decision]', {
+          planDate: todayForPlan,
+          requestedWindow: periodForPlan,
+          snapshotExists: !!snap,
+          snapshotStatus: snap?.status ?? null,
+          snapshotWindow: snap?.mrsWindow ?? null,
+          hasPlanJson: !!planJson,
+          horizonModuleCount: planHorizonModules.length,
+          mrsReadyForPlan,
+          cardsAwaiting,
+          hasPlanForceRefresh,
+          action: 'fallback_live_generate',
+          reason: hasPlanForceRefresh ? 'force-refresh' : 'snapshot-only-off',
+        });
         loadPlan({ silent: initialCachedRef.current });
       }
     }
