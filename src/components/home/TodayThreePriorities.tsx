@@ -1047,6 +1047,7 @@ const TodayThreePriorities = ({
       } catch { /* ignore */ }
       hydratedFromSnapshotRef.current = false;
       setAwaitingSignals(true);
+      setSnapshotMissingReady(false);
       setPlan(null);
       setLoading(false);
       return;
