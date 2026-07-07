@@ -1181,7 +1181,7 @@ const TodayThreePriorities = ({
       hydratedFromSnapshotRef.current = true;
       (async () => {
         try {
-          const stripped = stripCoachFromPlan(snap.planJson as unknown as MasteryPlanResponse)!;
+          const stripped = stripCoachFromPlan(planJson as unknown as MasteryPlanResponse)!;
           const todayDate = localISODate();
           const currentPeriod = getCurrentTimeWindow();
           if (stripped.horizonModules) {
