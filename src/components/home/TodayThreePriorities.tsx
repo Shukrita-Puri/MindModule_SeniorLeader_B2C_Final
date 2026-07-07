@@ -23,6 +23,7 @@ import { getCurrentTimeWindow, getLatestTodayCheckin } from '@/utils/dailyChecki
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { HOME_SNAPSHOT_ONLY } from '@/config/homeSnapshotMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
