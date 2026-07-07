@@ -1094,15 +1094,29 @@ const TodayThreePriorities = ({
         } catch (e) {
           // If hydration unexpectedly fails, fall back to live generation.
           hydratedFromSnapshotRef.current = false;
-          loadPlan({ silent: initialCachedRef.current });
+          if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
+            console.log('[plan-snapshot][render] source=snapshot skipped=generate-mastery-plan reason=home-snapshot-only-hydrate-error');
+            setPlan(null);
+            setLoading(false);
+          } else {
+            loadPlan({ silent: initialCachedRef.current });
+          }
         }
       })();
     } else if (!hydratedFromSnapshotRef.current) {
       // No usable snapshot (missing, error, or pending without payload).
-      // Use the existing live generation path unchanged. Awaiting-signals
-      // is gated inside loadPlan and only fires on true awaiting — engine
-      // failure or error snapshots never trigger awaiting copy here.
-      loadPlan({ silent: initialCachedRef.current });
+      // Snapshot-only home: cron (`build-executive-home-cards`, morning
+      // slot) owns Plan generation. If the morning snapshot is missing,
+      // render the existing pending/preparing state instead of silently
+      // triggering `generate-mastery-plan`. Manual force-refresh still
+      // runs the live path.
+      if (HOME_SNAPSHOT_ONLY && !hasPlanForceRefresh) {
+        console.log('[plan-snapshot][render] source=snapshot canonicalWindow=morning found=false skipped=generate-mastery-plan');
+        setPlan(null);
+        setLoading(false);
+      } else {
+        loadPlan({ silent: initialCachedRef.current });
+      }
     }
 
     const handleVisibility = () => {
