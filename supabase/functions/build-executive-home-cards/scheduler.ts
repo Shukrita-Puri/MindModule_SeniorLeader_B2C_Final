@@ -33,9 +33,11 @@ export interface ExecutiveHomeCronConfig {
      * reorder execution. If the sequence must change, change the code.
      * See mem://architecture/mastery-plan-server-side-derivation.
      *
-     * NOTE: Plan is generated ONCE PER DAY in the morning window only.
-     * Afternoon and evening cron passes build MRS + Brief and re-read the
-     * canonical morning Plan snapshot via `get-mastery-plan-snapshot`.
+     * NOTE: All three cards (MRS, Brief, Plan) are generated in EVERY
+     * window — morning, afternoon, and evening — so context changes
+     * across the day (calendar, physiology, check-in) can reshape each
+     * card. Each window persists its own snapshot row; the UI resolves
+     * current-window first and falls back to the latest ready row.
      */
     buildSequence: string[];
     mode: "scheduled";
