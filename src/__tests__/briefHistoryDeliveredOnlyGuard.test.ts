@@ -25,11 +25,14 @@ const CALL_SITES = [
 describe('brief-history delivered-only guard', () => {
   for (const rel of CALL_SITES) {
     it(`${rel} requests brief-history with delivered=1`, () => {
-      const src = readFileSync(join(process.cwd(), rel), 'utf8');
+      const raw = readFileSync(join(process.cwd(), rel), 'utf8');
+      // Collapse whitespace so URL template literals split across lines
+      // still match the guard pattern.
+      const src = raw.replace(/\s+/g, ' ');
       // Sanity: file actually calls brief-history.
       expect(src).toMatch(/brief-history/);
       // Guard: every brief-history URL must carry delivered=1.
-      expect(src).toMatch(/brief-history[^\n]*delivered=1/);
+      expect(src).toMatch(/brief-history.{0,500}delivered=1/);
       // Regression: no bare functions.invoke('brief-history') without a
       // delivered flag in body (invoke can't send query params, so we
       // banned that pattern here — must use fetch).
