@@ -4476,6 +4476,8 @@ interface HorizonModule {
   priorityTag?: 'high' | 'medium' | 'low' | null;
   relationshipTag?: string | null;
   customTags?: string[];
+  // Sprint 1–4 identity fields — allocator authoritative for these.
+  arcLabel?: 'Prepare' | 'During' | 'Recover' | 'Steady';
   // Phase C: which §4 phase (pre/during/post) the slot anchors against the
   // event. Lets a single JIT event legitimately occupy multiple slots when
   // CATEGORY_MAX_SLOTS allows (G long-haul = 3, F multi-day = 3, A/D = 2).
