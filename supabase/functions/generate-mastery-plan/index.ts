@@ -6652,10 +6652,7 @@ function buildHorizonModules(
   const allocation = allocatePlanSlots({
     nowMs,
     rankedCandidates: jitRankedCandidates,
-    hasTravelDay: (req.calendarEvents || []).some((e: any) => /travel|flight|train|airport|hotel/i.test(String(e.title || ''))),
-    hasConferenceDay: (req.calendarEvents || []).some((e: any) => /conference|offsite|retreat|summit/i.test(String(e.title || ''))),
-    hasOffsiteDay: (req.calendarEvents || []).some((e: any) => /offsite|off-site/i.test(String(e.title || ''))),
-    hasRestSignals: (req as any).calendarLoad === 'low' && !(req.calendarEvents || []).length,
+    ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad),
   });
   const finalized = out.map((m, idx) => {
     const a = allocation.slots[idx];
