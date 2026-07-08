@@ -23,6 +23,11 @@ import {
 // missing signal evidence, and unanchored pattern references all trigger
 // the same retry-once-then-awaiting path as the other validator rejects.
 import { validateBrief } from "../_shared/brief-validators.ts";
+import {
+  decideBriefFallback,
+  capDeterministicBody,
+  type FallbackDecision,
+} from "../_shared/brief/deterministic-fallback.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
