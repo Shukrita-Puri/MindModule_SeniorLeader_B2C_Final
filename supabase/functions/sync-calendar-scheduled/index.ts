@@ -148,24 +148,49 @@ serve(async (req) => {
           }),
         });
 
-        const result = await response.json();
+        const contentType = response.headers.get('content-type') ?? '';
+        const rawBody = await response.text();
+
+        if (!response.ok || !contentType.includes('application/json')) {
+          failureCount++;
+          const snippet = rawBody.slice(0, 200).replace(/\s+/g, ' ');
+          const reason = `gateway_error status=${response.status} content-type=${contentType || 'none'} body=${snippet}`;
+          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'gateway_error', reason });
+          console.error('[sync-calendar-scheduled] ❌ gateway error for', redactUserId(conn.user_id),
+            'status:', response.status, 'content-type:', contentType, 'body:', snippet);
+          continue;
+        }
+
+        let result: Record<string, unknown>;
+        try {
+          result = JSON.parse(rawBody);
+        } catch (parseErr) {
+          failureCount++;
+          const snippet = rawBody.slice(0, 200).replace(/\s+/g, ' ');
+          const reason = `invalid_json status=${response.status} body=${snippet}`;
+          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'invalid_json', reason });
+          console.error('[sync-calendar-scheduled] ❌ invalid JSON for', redactUserId(conn.user_id),
+            'status:', response.status, 'body:', snippet,
+            'parseErr:', parseErr instanceof Error ? parseErr.message : String(parseErr));
+          continue;
+        }
 
         if (result.success === true) {
           successCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'success' });
-          console.log('[sync-calendar-scheduled] ✅', redactUserId(conn.user_id), '–', result.eventCount, 'events');
-        } else if (result.reconnectRequired) {
+          console.log('[sync-calendar-scheduled] ✅', redactUserId(conn.user_id), '–', (result as { eventCount?: number }).eventCount, 'events');
+        } else if ((result as { reconnectRequired?: boolean }).reconnectRequired) {
           reconnectCount++;
-          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: result.reason });
-          console.warn('[sync-calendar-scheduled] ⚠️', redactUserId(conn.user_id), '– reconnect_required:', result.reason);
-        } else if (result.skipped) {
+          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: (result as { reason?: string }).reason });
+          console.warn('[sync-calendar-scheduled] ⚠️', redactUserId(conn.user_id), '– reconnect_required:', (result as { reason?: string }).reason);
+        } else if ((result as { skipped?: boolean }).skipped) {
           skippedCount++;
-          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: result.reason });
-          console.log('[sync-calendar-scheduled] ⏭️', redactUserId(conn.user_id), '– skipped:', result.reason);
+          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: (result as { reason?: string }).reason });
+          console.log('[sync-calendar-scheduled] ⏭️', redactUserId(conn.user_id), '– skipped:', (result as { reason?: string }).reason);
         } else {
           failureCount++;
-          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'failure', reason: result.error });
-          console.error('[sync-calendar-scheduled] ❌', redactUserId(conn.user_id), '–', result.error);
+          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'failure', reason: (result as { error?: string }).error });
+          console.error('[sync-calendar-scheduled] ❌', redactUserId(conn.user_id), '–', (result as { error?: string }).error);
         }
       } catch (err) {
         failureCount++;
