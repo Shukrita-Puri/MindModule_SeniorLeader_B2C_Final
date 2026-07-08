@@ -347,6 +347,30 @@ function pickRelevantSignalPhrases(inp: WhyLLMInput): string[] {
   return out.slice(0, 3);
 }
 
+/**
+ * Sprint E — extra Window-signal lines rendered inside the STATE block.
+ * ONLY non-null / true fields are emitted. Missing keys are silently
+ * dropped so the LLM never sees inverted or fabricated signals. Kept as
+ * an exported helper so the deterministic path can reuse the same
+ * decision matrix if needed.
+ */
+export function buildWindowSignalLines(inp: WhyLLMInput): string[] {
+  const lines: string[] = [];
+  if (inp.decisionLeakageRisk === true) {
+    lines.push(`Window signal: decision leakage risk present`);
+  }
+  if (inp.bodyLoadElevated === true) {
+    lines.push(`Window signal: body load elevated`);
+  }
+  if (inp.recoveryNote != null) {
+    lines.push(`Window signal: evening recovery note: ${inp.recoveryNote}`);
+  }
+  if (inp.vetoRisk === true) {
+    lines.push(`Window signal: veto risk present`);
+  }
+  return lines;
+}
+
 function formatMinutesUntil(min: number): string {
   if (min < 0) return `${Math.round(-min / 60)}h ago`;
   if (min < 60) return `in ${Math.max(1, Math.round(min))}m`;
