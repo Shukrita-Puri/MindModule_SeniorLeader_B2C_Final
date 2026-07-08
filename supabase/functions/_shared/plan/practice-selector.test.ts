@@ -203,3 +203,200 @@ Deno.test("findAlternate prefers same intent outcome with secondary mastery cate
   assert(alt);
   assertEquals(alt?.id, "vagus-wind-down");
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// Sprint 5 (Phase 7) — state-based mindset.pause branch.
+//
+// Locks the following contract:
+//   1. deriveSlotIntent triggers pre-decision-clarity on
+//      decision-fatigue / clarify / detach / reactive / explicit combo.
+//   2. The new branch sits BEFORE focus/flow so `verb === "decide"`
+//      still routes to flow (active decision) but explicit clarity
+//      signals are not shadowed by it.
+//   3. Real catalog fixtures (eye-of-storm, detachment-observer-new,
+//      stillness-gap-new, fudoshin-immovable-mind) can be selected.
+//   4. Existing focus/flow behaviour on plain "focus" verbs is intact.
+//   5. Event-driven Cat-A post-event mindset.pause still routes to the
+//      pre-decision-clarity intent when the combo is explicit.
+// ═══════════════════════════════════════════════════════════════════════
+
+// Fixtures modelled on the actual catalog rows in
+// `src/data/practicesAndSoundscapes.ts`. structuredTags are copied
+// verbatim where the catalog provides them; the two rows without
+// structuredTags in the frontend catalog (stillness-gap-new,
+// detachment-observer-new) are represented as-is so the test asserts
+// they can still be picked via category + meta_skill alone.
+const eyeOfStorm: ScorableContent = {
+  id: "eye-of-storm",
+  content_type: "micro-practice",
+  category: "pause",
+  sub_type: "mindset",
+  metaSkillTags: ["meta-clarity"],
+  structuredTags: {
+    pillar: "pause",
+    masterySubtypes: ["grounding", "composure"],
+    goalTags: ["mental_clarity", "overwhelm_reduction", "focus", "perspective"],
+    contextTags: ["overwhelm", "information_overload", "crisis_mode", "multitasking_chaos"],
+    cognitiveLoadHelp: ["lowers_cognitive_load", "supports_decision"],
+    intensityLevel: "low",
+    energyDirection: "stabilize",
+  },
+};
+const fudoshin: ScorableContent = {
+  id: "fudoshin-immovable-mind",
+  content_type: "micro-practice",
+  category: "pause",
+  sub_type: "tool",
+  metaSkillTags: ["meta-clarity", "meta-recalibration"],
+  structuredTags: {
+    pillar: "pause",
+    masterySubtypes: ["composure", "grounding"],
+    goalTags: ["composure", "leadership", "presence", "emotional_regulation"],
+    contextTags: ["high_pressure", "leadership_moment", "crisis", "difficult_conversation"],
+    cognitiveLoadHelp: ["supports_decision", "emotional_intelligence"],
+    intensityLevel: "low",
+    energyDirection: "stabilize",
+  },
+};
+const stillnessGap: ScorableContent = {
+  id: "stillness-gap-new",
+  content_type: "micro-practice",
+  category: "pause",
+  sub_type: "mindset",
+  metaSkillTags: ["meta-clarity"],
+};
+const detachmentObserver: ScorableContent = {
+  id: "detachment-observer-new",
+  content_type: "micro-practice",
+  category: "pause",
+  sub_type: "mindset",
+  metaSkillTags: ["meta-clarity"],
+};
+
+Deno.test("Phase 7 — state-based decision fatigue tag returns combo:'mindset.pause'", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Steady the system",
+    ceoVerb: null,
+    anchorCategory: null,
+    anchorPhase: null,
+    practicePriorityTag: "decision_fatigue",
+  });
+  assertEquals(intent.intentLabel, "pre-decision-clarity");
+  assertEquals(intent.combo, "mindset.pause");
+  assertEquals(intent.recalibrateCategories, ["pause"]);
+  assertEquals(intent.metaSkills, ["meta-clarity", "meta-recalibration"]);
+});
+
+Deno.test("Phase 7 — 'clarify' stateAction triggers pre-decision-clarity", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Clarify before the board decision",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  assertEquals(intent.intentLabel, "pre-decision-clarity");
+});
+
+Deno.test("Phase 7 — 'detach' stateAction triggers pre-decision-clarity", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Detach from the last conversation",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  assertEquals(intent.intentLabel, "pre-decision-clarity");
+});
+
+Deno.test("Phase 7 — reachability: intended practice pool is non-empty and rankable", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Steady the system",
+    practicePriorityTag: "decision_fatigue",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  const pool = [eyeOfStorm, fudoshin, stillnessGap, detachmentObserver, ikigai, boxBreathing];
+  const ranked = rankByIntent(pool, intent);
+  const top = ranked[0];
+  const intendedIds = new Set([
+    "eye-of-storm", "fudoshin-immovable-mind",
+    "stillness-gap-new", "detachment-observer-new",
+  ]);
+  assert(intendedIds.has(top.id),
+    `expected one of the four pre-decision-clarity practices to win, got ${top.id} (scores: ${JSON.stringify(ranked.map(r => ({ id: r.id, s: r.intentScore })))})`);
+  // Ikigai (renewal-only) must not win a pre-decision-clarity slot.
+  const ikigaiRow = ranked.find((r) => r.id === "ikigai-purpose")!;
+  assert(ikigaiRow.intentScore < top.intentScore,
+    `Ikigai should rank below the intended clarity practices`);
+});
+
+Deno.test("Phase 7 — practices without structuredTags (stillness-gap, detachment-observer) still score positive on clarity", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Steady the system",
+    practicePriorityTag: "decision_fatigue",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  // meta-clarity match (+18) + category 'pause' (+8) = +26 minimum.
+  const gap = scoreContentAgainstIntent(stillnessGap, intent);
+  const obs = scoreContentAgainstIntent(detachmentObserver, intent);
+  assert(gap.total >= 20, `stillness-gap-new must remain selectable; got ${gap.total}`);
+  assert(obs.total >= 20, `detachment-observer-new must remain selectable; got ${obs.total}`);
+});
+
+Deno.test("Phase 7 — selectPracticeForSlot for state slot returns one of the intended practices", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Steady the system",
+    practicePriorityTag: "decision_fatigue",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  const res = selectPracticeForSlot(
+    [eyeOfStorm, fudoshin, stillnessGap, detachmentObserver, ikigai, boxBreathing],
+    { mode: "state", slotRole: "state_anchor", arcLabel: "Steady", jitPhase: null },
+    intent,
+    new Set(),
+  );
+  assert(res.selected.length === 1);
+  const intendedIds = new Set([
+    "eye-of-storm", "fudoshin-immovable-mind",
+    "stillness-gap-new", "detachment-observer-new",
+  ]);
+  assert(intendedIds.has(res.selected[0].id),
+    `state-mode selection returned ${res.selected[0].id}; expected one of ${[...intendedIds]}`);
+});
+
+Deno.test("Phase 7 — 'decide' verb WITHOUT clarity signals still routes to focus/flow (no over-capture)", () => {
+  // Regression guard: user flagged that if `verb === "decide"` routes to
+  // mindset.flow, the mindset.pause branch must not shadow it. The new
+  // branch triggers only on explicit clarity/detach/fatigue/combo
+  // signals — plain "decide" stays in flow.
+  const intent = deriveSlotIntent({
+    stateAction: "Prime for focus",
+    ceoVerb: "decide",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  assertEquals(intent.intentLabel, "focus/flow-mastery");
+  assertEquals(intent.combo, "mindset.flow");
+});
+
+Deno.test("Phase 7 — event-driven Cat-A post-event with explicit mindset.pause combo still routes to pre-decision-clarity", () => {
+  // Cat A post-event protocol is 'Pause' (see event-categories.ts).
+  // When the caller passes the resolved combo explicitly, the branch
+  // must honour it without depending on the anchor category alone.
+  const intent = deriveSlotIntent({
+    stateAction: "Decompress after the board",
+    anchorCategory: "A",
+    anchorPhase: "post",
+    combo: "mindset.pause",
+  });
+  assertEquals(intent.intentLabel, "pre-decision-clarity");
+  assertEquals(intent.combo, "mindset.pause");
+});
+
+Deno.test("Phase 7 — 'focus' stateAction still routes to focus/flow (existing branch intact)", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Prime for focus",
+    anchorCategory: null,
+    anchorPhase: null,
+  });
+  assertEquals(intent.intentLabel, "focus/flow-mastery");
+});
