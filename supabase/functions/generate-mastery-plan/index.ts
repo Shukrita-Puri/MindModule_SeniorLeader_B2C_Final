@@ -4280,6 +4280,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       durationCeiling: maxDuration,
       maxModules,
       jitRankedCandidates: jitRankedCandidates.slice(0, 8),
+      // Sprint 4 (Phase 6) — surface the day-shape verdict so the frontend
+      // can render a truthful rest-day state instead of the empty-shell
+      // "check in to build your plan" prompt.
+      dayShape: planDayShape,
+      restDay: planIsRestDay,
       calendarContext: calendarContext.todayMeetingCount > 0 || calendarContext.upcomingMeetingCount > 0
         ? { todayLoad: calendarContext.todayLoad, upcomingLoad: calendarContext.upcomingLoad, todayMeetingCount: calendarContext.todayMeetingCount, todayMeetingHours: calendarContext.todayMeetingHours }
         : undefined
