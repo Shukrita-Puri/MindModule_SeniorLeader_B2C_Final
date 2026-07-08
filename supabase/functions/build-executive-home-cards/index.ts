@@ -774,10 +774,17 @@ async function buildForUser(db: any, args: {
           plan?.awaitingSignals === true ||
           plan?.planState === "awaiting_signals" ||
           plan?.status === "awaiting";
+        // Rest-day is a valid ready Plan with zero modules. Recognize it
+        // so the orchestrator doesn't downgrade it to awaiting.
+        const isRestDayPlan =
+          plan?.meta?.restDay === true ||
+          plan?.meta?.dayShape === "rest_day" ||
+          plan?.restDay === true;
         const hasRenderable =
           !!plan &&
           !awaitingSignals &&
           (
+            isRestDayPlan ||
             (Array.isArray(plan?.horizonModules) && plan.horizonModules.length > 0) ||
             (Array.isArray(plan?.timeOfDayModules) && plan.timeOfDayModules.length > 0) ||
             (Array.isArray(plan?.priorities) && plan.priorities.length > 0)
