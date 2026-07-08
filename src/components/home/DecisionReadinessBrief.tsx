@@ -13,7 +13,7 @@
  *   No icon on pills — hint text is sufficient affordance
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
@@ -105,6 +105,35 @@ const isCardsAwaitingPayload = (payload: any): boolean => {
     || payload.awaitingSignals === true
     || payload.briefMode === 'cold-start';
 };
+
+// ─── SPRINT A HELPERS — SEPARATE COPY vs SCORE vs TRUE-AWAITING ───
+// The legacy `isCardsAwaitingPayload` conflates missing score with
+// awaiting. That causes the PRB to flash back to the awaiting state when
+// a valid Brief is momentarily missing a score (e.g. transient refetch,
+// snapshot in transition, copy-only payload). Split the concerns:
+//   • hasRenderableBriefCopy — phrase + bodyText usable
+//   • hasRenderableBriefScore — numeric score payload usable
+//   • isTrueAwaitingBrief — true cold-start / explicit awaiting only
+export function hasRenderableBriefCopy(payload: any): boolean {
+  if (!payload) return false;
+  const phrase = typeof payload.phrase === 'string' ? payload.phrase.trim() : '';
+  const body = typeof payload.bodyText === 'string' ? payload.bodyText.trim() : '';
+  return phrase.length > 0 && body.length > 0;
+}
+export function hasRenderableBriefScore(payload: any): boolean {
+  if (!payload) return false;
+  const s = payload.innerReadinessScore;
+  const state = payload.innerReadinessState;
+  return typeof s === 'number' && Number.isFinite(s) && state !== 'awaiting';
+}
+export function isTrueAwaitingBrief(payload: any): boolean {
+  if (!payload) return true;
+  if (payload.briefMode === 'cold-start') return true;
+  if (payload.awaitingSignals === true) return true;
+  if (payload.innerReadinessState === 'awaiting') return true;
+  // Only classify as awaiting when NEITHER copy nor score is renderable.
+  return !hasRenderableBriefCopy(payload) && !hasRenderableBriefScore(payload);
+}
 
 function buildNeutralServerPills(detail: string): PillTooltipPill[] {
   return [
@@ -1974,11 +2003,61 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         };
       })()
     : null;
-  const outerBrief =
+  let outerBrief: any =
     tourMockBriefActive && realBriefEmpty
       ? MOCK_BRIEF
       : (briefFromSnapshot ?? outerBriefReal);
-  const cardsAwaiting = isCardsAwaitingPayload(outerBrief);
+
+  // ─── SPRINT A — STABLE LAST-GOOD BRIEF GUARD ───
+  // Once a valid current-window Brief has rendered, hold it as
+  // last-good so a transient null/awaiting payload during refetch,
+  // React Query transition, or snapshot flip doesn't flash the card
+  // back to awaiting. Key includes localDate + timeWindow + briefId so
+  // a new window/date/brief invalidates the guard.
+  const currentWindowKey = `${localISODate()}|${currentPeriodLocal()}`;
+  const currentBriefId =
+    (outerBrief as any)?.briefId ?? currentBriefSnapshot?.briefId ?? null;
+  const lastGoodBriefRef = useRef<{ key: string; payload: any } | null>(null);
+  const currentIsRenderable =
+    hasRenderableBriefCopy(outerBrief) || hasRenderableBriefScore(outerBrief);
+  if (currentIsRenderable) {
+    const key = `${currentWindowKey}|${currentBriefId ?? 'no-id'}`;
+    // Only update when the incoming payload actually improves on what
+    // we already have for this key — prevents overwriting a rich
+    // payload with a thinner one mid-window.
+    const prev = lastGoodBriefRef.current;
+    const prevRicher =
+      prev &&
+      prev.key === key &&
+      hasRenderableBriefCopy(prev.payload) &&
+      !hasRenderableBriefCopy(outerBrief);
+    if (!prevRicher) {
+      lastGoodBriefRef.current = { key, payload: outerBrief };
+    }
+  }
+  const lastGood = lastGoodBriefRef.current;
+  const canReuseLastGood =
+    !!lastGood &&
+    lastGood.key.startsWith(`${currentWindowKey}|`) &&
+    !currentIsRenderable &&
+    !tourMockBriefActive;
+  if (canReuseLastGood) {
+    // Reassign so all downstream reads (score, tier, chips, pills,
+    // copy) draw from the last-good payload for this window.
+    outerBrief = lastGood!.payload;
+  }
+  try {
+    // eslint-disable-next-line no-console
+    console.log('[PRB][stable-brief]', {
+      currentWindowKey,
+      currentBriefId,
+      currentIsRenderable,
+      lastGoodKey: lastGood?.key ?? null,
+      reusingLastGood: canReuseLastGood,
+    });
+  } catch {}
+
+  const cardsAwaiting = isTrueAwaitingBrief(outerBrief);
   const awaitingCopy = getReadinessAwaitingCopy(outerBrief);
 
   // Eager cache peek: if React Query already has data for this user/period at
@@ -2098,10 +2177,19 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // Phase 3.8 hardening: if a renderable current-window snapshot exists, do
   // not also show the live engine-failure retry block underneath it.
   const showFailureBlock = isEngineFailure && !snapshotIsRenderable;
-  // Show the awaiting copy ONLY for a real cold-start. Engine failures get
-  // their own retry block below.
+  // ─── SPRINT A — TRUE-AWAITING ONLY ───
+  // Show the awaiting copy ONLY when the payload is genuinely awaiting:
+  //   • no renderable copy AND
+  //   • no renderable score AND
+  //   • no engine-failure block AND
+  //   • backend flagged awaiting (cardsAwaiting from isTrueAwaitingBrief
+  //     already captures cold-start / explicit awaitingSignals)
+  // A missing score alone must NOT hide a valid phrase/body — the score
+  // slot renders `--` while the copy stays stable.
+  const copyRenderable = hasRenderableBriefCopy(outerBrief);
+  const scoreRenderable = hasRenderableBriefScore(outerBrief);
   const showNeutralAwaitingCopy =
-    !showFailureBlock && (cardsAwaiting || awaitingSignals || readinessState === 'awaiting' || score == null);
+    !showFailureBlock && cardsAwaiting && !copyRenderable && !scoreRenderable;
   // Copy-only awaiting: score payload is present but the LLM never delivered
   // phrase/body (e.g. validation reject or provider 402). Show neutral prose
   // in the copy slot so the card is never blank, while keeping the score,
