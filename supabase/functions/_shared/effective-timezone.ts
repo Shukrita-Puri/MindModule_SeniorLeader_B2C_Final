@@ -1,8 +1,12 @@
+import { decideTravelFreshness } from "./travel/freshness.ts";
+
 interface TravelTimezoneRow {
   state?: string | null;
   last_known_timezone?: string | null;
   meta?: Record<string, unknown> | null;
   updated_at?: string | null;
+  last_state_change_at?: string | null;
+  last_location_at?: string | null;
 }
 
 interface ProfileTimezoneRow {
@@ -88,7 +92,7 @@ export async function resolveEffectiveTimezone(
 ): Promise<EffectiveTimezoneResult> {
   const { data: travel } = await db
     .from("travel_state")
-    .select("state,last_known_timezone,meta,updated_at")
+    .select("state,last_known_timezone,meta,updated_at,last_state_change_at,last_location_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -104,9 +108,20 @@ export async function resolveEffectiveTimezone(
     || "UTC";
 
   let circadianTimezone = effectiveTimezone;
-  const updatedAt = travel?.updated_at ? new Date(travel.updated_at).getTime() : null;
-  const hoursSinceTravelUpdate =
-    updatedAt && Number.isFinite(updatedAt) ? (at.getTime() - updatedAt) / 3_600_000 : null;
+  // Sprint 11 hardening: `updated_at` is bumped on skip-sync bookkeeping
+  // and cannot be trusted as freshness. Gate long-haul circadian override
+  // on the shared travel-freshness helper, which reads only
+  // `last_state_change_at` / `last_location_at`.
+  const freshness = decideTravelFreshness(
+    travel
+      ? {
+          state: travel.state ?? null,
+          lastStateChangeAt: travel.last_state_change_at ?? null,
+          lastLocationAt: travel.last_location_at ?? null,
+          now: at,
+        }
+      : null,
+  );
   const longHaul =
     typeof travel?.meta?.long_haul === "boolean"
       ? travel.meta.long_haul
@@ -114,7 +129,7 @@ export async function resolveEffectiveTimezone(
         ? travel.meta.longHaul
         : false;
 
-  if (isAway && longHaul && profileHome && hoursSinceTravelUpdate !== null && hoursSinceTravelUpdate <= 48) {
+  if (isAway && longHaul && profileHome && freshness.used) {
     circadianTimezone = profileHome;
   }
 

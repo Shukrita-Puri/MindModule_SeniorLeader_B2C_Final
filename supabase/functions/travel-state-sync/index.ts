@@ -23,6 +23,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { detectTravelFromTitle } from "../_shared/events/travel-patterns.ts";
 import { decideTravelSync, type TravelState } from "./derive.ts";
+import { decideTravelSyncAuth } from "./auth.ts";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { ADMIN_EMAIL_ALLOWLIST } from "../_shared/admin-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -182,6 +185,52 @@ Deno.serve(async (req) => {
 
   const db = svc();
 
+  // ── Authorization (Sprint 11 hardening) ──
+  // verify_jwt=false in config.toml, so we authorize the call ourselves.
+  const authHeader = req.headers.get("Authorization");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const isServiceRoleCall =
+    !!authHeader && authHeader === `Bearer ${serviceRoleKey}`;
+
+  let callerSub: string | null = null;
+  let callerIsAdmin = false;
+  if (!isServiceRoleCall) {
+    try {
+      callerSub = await verifyAuth0JWT(authHeader, req);
+    } catch {
+      callerSub = null;
+    }
+    if (callerSub) {
+      const { data: profile } = await db
+        .from("profiles")
+        .select("email")
+        .eq("id", callerSub)
+        .maybeSingle();
+      const email = ((profile as any)?.email ?? "").toString().trim().toLowerCase();
+      callerIsAdmin =
+        !!email && ADMIN_EMAIL_ALLOWLIST.some((e) => e.toLowerCase() === email);
+    }
+  }
+
+  const authDecision = decideTravelSyncAuth({
+    authHeader,
+    serviceRoleKey,
+    bodyUserId: singleUserId,
+    callerSub,
+    callerIsAdmin,
+  });
+  if (!authDecision.allow) {
+    console.warn("[travel-state-sync][auth-reject]", {
+      reason: authDecision.reason,
+      status: authDecision.status,
+    });
+    return new Response(
+      JSON.stringify({ ok: false, error: authDecision.reason }),
+      { status: authDecision.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+  const scopedUserId = authDecision.forceSingleUserId;
+
   console.log("[travel-state-sync][start]", { mode, singleUser: !!singleUserId, maxUsers });
 
   let profilesQuery = db
@@ -189,8 +238,8 @@ Deno.serve(async (req) => {
     .select("id, home_timezone, current_timezone, home_lat, home_lng, travel_notifications_enabled")
     .limit(maxUsers);
 
-  if (singleUserId) {
-    profilesQuery = profilesQuery.eq("id", singleUserId);
+  if (scopedUserId) {
+    profilesQuery = profilesQuery.eq("id", scopedUserId);
   } else {
     // Only scan users where at least one of the input signals could exist.
     // (home_timezone OR home coordinates OR travel notifications opted in.)
@@ -244,7 +293,7 @@ Deno.serve(async (req) => {
   };
   console.log("[travel-state-sync][summary]", summary);
 
-  return new Response(JSON.stringify({ ok: true, summary, results: singleUserId ? results : undefined }), {
+  return new Response(JSON.stringify({ ok: true, summary, results: scopedUserId ? results : undefined }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
