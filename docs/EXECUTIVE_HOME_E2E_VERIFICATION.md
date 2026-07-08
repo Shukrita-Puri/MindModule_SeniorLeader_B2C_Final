@@ -82,11 +82,19 @@ For each scenario below, run the build (§1) and inspect (§2, §3).
 
 | Scenario | MRS | Brief | Plan | Expected UI |
 |---|---|---|---|---|
-| Calendar-only (no wearable, no checkin) | `awaiting` | `awaiting` | `awaiting` | Empty shell + check-in prompt |
+| Calendar-only (no wearable, no checkin) | `awaiting` | `awaiting` (deterministic fallback NOT allowed) | `awaiting` (no ready Plan, no fake priorities) | Empty shell + check-in prompt |
+| Check-in-only (no wearable pillar) | `awaiting` | `awaiting` | `awaiting` | Check-in cannot fabricate the wearable pillar |
 | Wearable-backed (readiness + baseline present) | `ok` | `ok`/`deterministic` | `ok` | Full 3 priorities |
 | Ready signals + LLM miss | `ok` | `deterministic` (`brief_source='deterministic'`) | `ok` | Full 3 priorities with deterministic body |
 | Low/no-stakes calendar (only breaks / low-stakes) | `ok`/`awaiting` | as above | `ok` (no JIT event anchor) | No fake JIT event card |
 | Rest day (`meta.restDay=true`, `horizon_modules=[]`) | `ok` | `ok` | `ok` | Rest-day panel, no numbered cards |
+
+**Contract reminder (locked in Sprint 8):** The deterministic Brief
+fallback is ONLY permitted when underlying readiness/signals are truly
+ready and the LLM misses. It must NEVER rescue a true awaiting state.
+Calendar-only and check-in-only users have no wearable pillar, so MRS
+stays `awaiting`, Brief stays `awaiting` (no deterministic rescue), and
+Plan stays `awaiting` — no fake priorities under any circumstance.
 
 ### Focused SQL checks per scenario
 
