@@ -2066,21 +2066,8 @@ const TodayThreePriorities = ({
           // fields the Plan card renders decisions on, without exposing
           // any user data beyond what is already visible in the card.
           if (import.meta.env?.DEV) {
-            const planMeta: any = (plan as any)?.meta || {};
             // eslint-disable-next-line no-console
-            console.info('[Plan][slot-debug]', {
-              dayShape: planMeta.dayShape ?? null,
-              mode: (hm as any).mode ?? planMeta.mode ?? null,
-              slotIndex: index,
-              arcLabel: hm.arcLabel ?? null,
-              slotRole: (hm as any).slotRole ?? null,
-              jitPhase: (hm as any).jitPhase ?? null,
-              jitEventTitle: hm.jitEventTitle ?? null,
-              practiceId: module?.contentId ?? null,
-              practiceTitle: module?.title ?? null,
-              combo: (hm as any).combo ?? null,
-              intent: (hm as any).intent ?? null,
-            });
+            console.info('[Plan][slot-debug]', buildSlotDebugPayload(plan, hm, index));
           }
 
           const tagState: PriorityTagState = {
@@ -2339,11 +2326,7 @@ const TodayThreePriorities = ({
                     render when the slot is genuinely anchored to a known
                     event, so state-only slots never carry a fake event
                     arc. Muted chip style — no new colour token. */}
-                {hm.arcLabel && (
-                  hm.arcLabel === 'Steady'
-                    ? true
-                    : (hm.isJit || !!hm.jitEventTitle)
-                ) && (
+                {shouldRenderArcBadge(hm) && (
                   <span
                     className={cn(
                       "text-[10px] tracking-[0.12em] uppercase font-body px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground/80 flex-shrink-0",
