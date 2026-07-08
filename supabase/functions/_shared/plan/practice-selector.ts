@@ -207,6 +207,23 @@ export interface PracticeSelectionContext {
   recentPracticeDays?: Record<string, number>;
   stateSignalTags?: string[];
   mrsScore?: number | null;
+  /**
+   * Sprint D — coarse window-time physiology/state signals used ONLY as
+   * small additive scoring boosts inside `selectPracticeForSlot`. Must
+   * never override protocol combo fit, meta-skill fit, or recency
+   * penalty. Missing / null keys are no-ops. Do NOT add new DB queries
+   * or new derivation paths just to populate these — they must come
+   * from data already assembled upstream (wearable context, check-in,
+   * behaviour snapshot, current time window).
+   */
+  windowSignals?: {
+    sleepQuality?: 'poor' | 'fair' | 'good' | 'peak' | null;
+    hrvDeviationPct?: number | null;
+    currentHrVsRestingPct?: number | null;
+    bodyLoadElevated?: boolean;
+    decisionLeakageRisk?: boolean;
+    recoveryNote?: 'rest' | 'light' | 'normal' | null;
+  } | null;
 }
 
 export interface IntentScoreBreakdown {
@@ -397,6 +414,71 @@ function recencyPenalty(daysAgo: number | undefined): number {
   return 0;
 }
 
+/**
+ * Sprint D — small additive scoring bias from coarse morning/afternoon/
+ * evening window signals. Additive only. Missing signals return 0.
+ * Never used to gate or hard-filter, and cannot overpower protocol combo
+ * fit / meta-skill fit / recency penalty by design (max total ≈ +12).
+ */
+function windowSignalBoost(
+  c: ScorableContent,
+  intent: SlotIntent,
+  ws: NonNullable<PracticeSelectionContext['windowSignals']> | undefined | null,
+): number {
+  if (!ws) return 0;
+  const proto = (c.protocol_type || '').toLowerCase();
+  const pillar = (c.structuredTags?.pillar || '').toLowerCase();
+  const goals = (c.structuredTags?.goalTags || []).map((g) => String(g).toLowerCase());
+  const subtypes = (c.structuredTags?.masterySubtypes || []).map((s) => String(s).toLowerCase());
+
+  let boost = 0;
+
+  // Poor sleep → boost somatic practices (+6).
+  if (ws.sleepQuality === 'poor' && proto === 'somatic') boost += 6;
+
+  // HR elevated vs resting → boost somatic regulation / pause (+4).
+  if (
+    typeof ws.currentHrVsRestingPct === 'number' &&
+    ws.currentHrVsRestingPct >= 10 &&
+    proto === 'somatic' &&
+    (pillar === 'pause' || subtypes.some((s) => ['grounding', 'composure', 'deep-calm'].includes(s)))
+  ) {
+    boost += 4;
+  }
+
+  // Decision leakage risk → boost mindset.pause / pre-decision-clarity (+5).
+  if (
+    ws.decisionLeakageRisk === true &&
+    (intent.intentLabel === 'pre-decision-clarity' ||
+      (proto === 'mindset' && pillar === 'pause'))
+  ) {
+    boost += 5;
+  }
+
+  // Evening body load → boost recovery / renewal (+4).
+  if (
+    ws.bodyLoadElevated === true &&
+    (pillar === 'renewal' ||
+      goals.some((g) => ['recovery', 'resilience', 'deep_reset', 'stress_reduction'].includes(g)))
+  ) {
+    boost += 4;
+  }
+
+  // Good/peak sleep + stable HRV → boost mindset / flow (+3).
+  if (
+    (ws.sleepQuality === 'good' || ws.sleepQuality === 'peak') &&
+    typeof ws.hrvDeviationPct === 'number' &&
+    ws.hrvDeviationPct > -5 &&
+    (pillar === 'flow' ||
+      proto === 'mindset' ||
+      goals.some((g) => ['focus', 'flow', 'sustained_attention'].includes(g)))
+  ) {
+    boost += 3;
+  }
+
+  return boost;
+}
+
 function masterySecondaryBoost(c: ScorableContent, targetType: LegacyPracticeType | null): number {
   const secondary = c.masteryCategory?.secondary ?? [];
   if (!targetType || secondary.length === 0) return 0;
@@ -464,6 +546,7 @@ export function selectPracticeForSlot<T extends ScorableContent>(
       if (slot.mode === "jit+state") score += 3;
       if (slot.mode === "full_arc" && slot.jitPhase === "during") score += 4;
       if (slot.mode === "full_arc" && slot.jitPhase === "post") score += 4;
+      score += windowSignalBoost(c, intent, ctx.windowSignals);
       return { c, score };
     })
     .sort((a, b) => b.score - a.score);
