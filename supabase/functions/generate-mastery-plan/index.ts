@@ -5111,7 +5111,48 @@ function immediateClause(
   req: PlanRequest,
   ceo: CeoRealityTag[],
   slotAnchorCategoryId: string | null,
+  opts: {
+    timeOfDay?: 'morning' | 'afternoon' | 'evening' | null;
+    windowSignals?: ReturnType<typeof derivePlanWindowSignals> | null;
+    slotKind?: string | null;
+    phase?: 'pre' | 'during' | 'post' | null;
+    practiceIsMindsetPause?: boolean;
+    hasHrvEventCorrelation?: boolean;
+  } = {},
 ): string | null {
+  const ws = opts.windowSignals ?? null;
+  const tod = opts.timeOfDay ?? null;
+
+  // ── Sprint E — window-signal clauses.
+  // Ordering matters: the most specific / most actionable clause wins.
+  // Mindset.pause branches (state, Cat-A/pre, post-event) come first
+  // because they carry the strongest tactical framing.
+  if (opts.practiceIsMindsetPause) {
+    if (slotAnchorCategoryId === 'A' && opts.phase === 'pre') {
+      return opts.hasHrvEventCorrelation
+        ? 'Past board-style events have pushed recovery off baseline — clear the reactive noise before the room.'
+        : 'High-stakes call ahead — detach from the prior block and enter with a clear head.';
+    }
+    if (opts.phase === 'post') {
+      return 'This moment carries emotional charge — offload the residue before it leaks into the next conversation.';
+    }
+    if (!slotAnchorCategoryId) {
+      return 'Reactive thinking is building — pause to separate the noise from the signal before the next call.';
+    }
+  }
+  if (tod === 'morning' && ws?.vetoRisk === true) {
+    return 'Your body reads differently from how you feel — lead from the prep, not the instinct.';
+  }
+  if (tod === 'afternoon' && ws?.decisionLeakageRisk === true) {
+    return 'Emotional drain is already showing — protect composure before the next decision.';
+  }
+  if (tod === 'evening' && ws?.recoveryNote === 'rest') {
+    return 'Today was heavy and tomorrow opens heavy — tonight is genuine recovery.';
+  }
+  if (tod === 'evening' && ws?.bodyLoadElevated === true) {
+    return 'Body load is elevated from the day — settle before the evening.';
+  }
+
   // decision_leakage is anchored to a drain event in the next 24h. Only
   // surface it on slots that are themselves anchored to a calendar event
   // (i.e. JIT or fusion slots). Don't bleed it onto unrelated state slots.
@@ -5149,6 +5190,10 @@ function composeWhyLine(
   ceo: CeoRealityTag[],
   briefClaim: Set<string>,
   fusionEventTitle: string | null,
+  opts: {
+    timeOfDay?: 'morning' | 'afternoon' | 'evening' | null;
+    windowSignals?: ReturnType<typeof derivePlanWindowSignals> | null;
+  } = {},
 ): string {
   // Slot-scoped anchor identity. composeWhyLine MUST only emit clauses
   // that belong to the slot's own anchor — global plan-scope CEO flags
@@ -5164,9 +5209,26 @@ function composeWhyLine(
   const slotAnchorCategoryId: string | null = (hm as any).anchorCategoryId
     ?? ((hm as any).jitCategoryId ?? null);
 
+  // Mindset.pause detection off the selected practice's metadata.
+  const p = (hm as any).practice ?? null;
+  const practiceIsMindsetPause =
+    !!p &&
+    String(p.protocol_type || '').toLowerCase() === 'mindset' &&
+    String(p.category || '').toLowerCase() === 'pause';
+  const corr = hrvCorrelations?.eventToHrv || hrvCorrelations?.hrvEventCorrelation || null;
+  const hasHrvEventCorrelation =
+    !!corr && typeof corr.avgHrvDelta === 'number' && Math.abs(corr.avgHrvDelta) >= 10 && (corr.occurrences ?? 0) >= 3;
+
   let strat = strategicAnchorClause(req, ceo, slotAnchorCategoryId);
   let tac = tacticalClause(req, shared, hrvCorrelations, ceo);
-  let imm = immediateClause(req, ceo, slotAnchorCategoryId);
+  let imm = immediateClause(req, ceo, slotAnchorCategoryId, {
+    timeOfDay: opts.timeOfDay ?? null,
+    windowSignals: opts.windowSignals ?? null,
+    slotKind: hm.slotKind ?? null,
+    phase: ((hm as any).jitPhase as 'pre' | 'during' | 'post' | null) ?? null,
+    practiceIsMindsetPause,
+    hasHrvEventCorrelation,
+  });
 
   if (strat && clauseOverlapsBrief(strat, briefClaim)) strat = null;
   if (tac && clauseOverlapsBrief(tac, briefClaim)) tac = null;
@@ -5279,6 +5341,22 @@ async function applyV51Enrichment(
   const briefClaim = buildBriefClaimSet(outerReadinessCache, req);
   const fusionEvent = detectMorningFusionEvent(req, ceo);
 
+  // Sprint E — reuse the Sprint D window signal derivation. Same object
+  // is threaded into both the deterministic composeWhyLine path and the
+  // Why LLM input below, so both surfaces read the same signal shape.
+  const timeOfDayForWhy = (timeOfDay === 'morning' || timeOfDay === 'afternoon' || timeOfDay === 'evening')
+    ? timeOfDay as 'morning' | 'afternoon' | 'evening'
+    : null;
+  const whyWindowSignals = timeOfDayForWhy ? derivePlanWindowSignals(req, timeOfDayForWhy) : null;
+  if (whyWindowSignals) {
+    console.log('[Plan][why-window-signals]', {
+      timeOfDay: timeOfDayForWhy,
+      keys: Object.entries(whyWindowSignals)
+        .filter(([, v]) => v !== null && v !== undefined && v !== false)
+        .map(([k]) => k),
+    });
+  }
+
   // Pre-compute today's local date for tomorrow detection.
   const tzOffsetMin = typeof req.timezoneOffset === 'number' ? req.timezoneOffset : 0;
   const nowLocal = new Date(Date.now() - tzOffsetMin * 60_000);
@@ -5307,7 +5385,34 @@ async function applyV51Enrichment(
 
     // Compose Why — deterministic baseline (always set, LLM will overwrite on success)
     const fusion = idx === 0 && fusionEvent && hm.slotKind === 'start_of_day' ? fusionEvent : null;
-    const fallbackWhyLine = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion);
+    let fallbackWhyLine = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion, {
+      timeOfDay: timeOfDayForWhy,
+      windowSignals: whyWindowSignals,
+    });
+    // Sprint E — deterministic valence guard. Reuse the existing
+    // validateWhyLine so the deterministic path cannot violate the same
+    // band discipline as the LLM output. On rejection, recompose without
+    // window-signal clauses (the safer generic deterministic line).
+    const detBand: StateBand | null = tierToStateBand(req.innerReadinessTier);
+    const detSlotAnchor: SlotAnchor = {
+      eventTitle: ((hm as any).anchorEventTitle ?? hm.jitEventTitle ?? null),
+      categoryId: ((hm as any).anchorCategoryId ?? (hm as any).jitCategoryId ?? null) as EventCategoryId | null,
+      phase: ((hm as any).jitPhase as Phase) ?? 'pre',
+    };
+    const detVerdict = validateWhyLine({
+      text: fallbackWhyLine,
+      stateBand: detBand,
+      slotAnchor: detSlotAnchor,
+    });
+    if (!detVerdict.ok && (detVerdict.reason === 'valence_firing_recovery' || detVerdict.reason === 'valence_depleted_push')) {
+      console.log(
+        `[why-llm.telemetry] idx=${idx} band=${detBand} bandSource=deterministic fallback=deterministic_repair reject=${detVerdict.reason}`,
+      );
+      fallbackWhyLine = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion, {
+        timeOfDay: timeOfDayForWhy,
+        windowSignals: null,
+      });
+    }
     if (fallbackWhyLine && fallbackWhyLine.length >= 12) {
       fallbackWhyLineByIndex.set(idx, fallbackWhyLine);
     }
@@ -5429,6 +5534,16 @@ async function applyV51Enrichment(
           protocolCombo,
           timezoneOffsetMinutes: typeof req.timezoneOffset === 'number' ? req.timezoneOffset : 0,
           eventStartMs: evtStartMs,
+          // Sprint E — same window signals used by the deterministic path
+          // (Sprint D derivation). Only true / non-null keys reach the
+          // prompt; helper drops the rest.
+          decisionLeakageRisk: whyWindowSignals?.decisionLeakageRisk === true ? true : undefined,
+          bodyLoadElevated: whyWindowSignals?.bodyLoadElevated === true ? true : undefined,
+          recoveryNote: whyWindowSignals?.recoveryNote ?? null,
+          // vetoRisk is not safely derivable from the current PlanRequest
+          // (no body/subjective divergence field on `req`). Left undefined
+          // so the prompt drops it rather than fabricates a signal.
+          vetoRisk: undefined,
         };
         jitJobs.push({ idx, input });
       }

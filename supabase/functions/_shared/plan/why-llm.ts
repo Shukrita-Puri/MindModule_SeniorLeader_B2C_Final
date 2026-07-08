@@ -80,6 +80,18 @@ export interface WhyLLMInput {
   timezoneOffsetMinutes?: number;
   /** Event start in epoch ms — used to render the "When" phrase. */
   eventStartMs?: number | null;
+
+  // ── Sprint E — window signals (reused from Sprint D derivation). Only
+  // added to the prompt when explicitly true / non-null. Missing / false
+  // keys are dropped so the LLM never sees inverted signals.
+  /** Afternoon/evening: check-in clarity is reading low → protect composure. */
+  decisionLeakageRisk?: boolean;
+  /** Evening: sustained HRV depression → body load elevated. */
+  bodyLoadElevated?: boolean;
+  /** Evening: genuine recovery signal ('rest' most common; others rare). */
+  recoveryNote?: 'rest' | 'light' | 'normal' | null;
+  /** Body ↔ subjective divergence flag. Left null when not safely derivable. */
+  vetoRisk?: boolean;
 }
 
 interface GatewayToolArgs {
@@ -335,6 +347,30 @@ function pickRelevantSignalPhrases(inp: WhyLLMInput): string[] {
   return out.slice(0, 3);
 }
 
+/**
+ * Sprint E — extra Window-signal lines rendered inside the STATE block.
+ * ONLY non-null / true fields are emitted. Missing keys are silently
+ * dropped so the LLM never sees inverted or fabricated signals. Kept as
+ * an exported helper so the deterministic path can reuse the same
+ * decision matrix if needed.
+ */
+export function buildWindowSignalLines(inp: WhyLLMInput): string[] {
+  const lines: string[] = [];
+  if (inp.decisionLeakageRisk === true) {
+    lines.push(`Window signal: decision leakage risk present`);
+  }
+  if (inp.bodyLoadElevated === true) {
+    lines.push(`Window signal: body load elevated`);
+  }
+  if (inp.recoveryNote != null) {
+    lines.push(`Window signal: evening recovery note: ${inp.recoveryNote}`);
+  }
+  if (inp.vetoRisk === true) {
+    lines.push(`Window signal: veto risk present`);
+  }
+  return lines;
+}
+
 function formatMinutesUntil(min: number): string {
   if (min < 0) return `${Math.round(-min / 60)}h ago`;
   if (min < 60) return `in ${Math.max(1, Math.round(min))}m`;
@@ -411,6 +447,7 @@ function buildPrompt(inp: WhyLLMInput): string {
     `=== STATE ===`,
     band ? `Band: ${band}  (match; do not name)` : `Band: unknown  (do not invent a band)`,
     `Most relevant signal: ${signalPhrase}`,
+    ...buildWindowSignalLines(inp),
   ].join("\n");
 
   const practiceBlock = [
