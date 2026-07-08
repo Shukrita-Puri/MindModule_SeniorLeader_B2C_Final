@@ -27,6 +27,7 @@ import { validateBrief } from "../_shared/brief-validators.ts";
 import {
   decideBriefFallback,
   capDeterministicBody,
+  buildDeterministicBrief,
   type FallbackDecision,
 } from "../_shared/brief/deterministic-fallback.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
