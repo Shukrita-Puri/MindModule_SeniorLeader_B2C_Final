@@ -397,7 +397,9 @@ const Profile = () => {
             )}
           </CardContent>
         </Card>
-      
+
+        {/* Home location — Sprint 10 / Phase 9B */}
+        <HomeLocationCard />
 
       {/* Edit Name Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
