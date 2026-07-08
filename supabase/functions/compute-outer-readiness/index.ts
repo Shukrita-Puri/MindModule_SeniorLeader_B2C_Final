@@ -5385,10 +5385,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       }));
     }
 
-    const briefIsAwaiting = !cachedSnapshot && !llmBrief && !useDeterministicFallback;
-    const briefSource: 'llm' | 'deterministic' | 'awaiting' = cachedSnapshot
-      ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
-      : (llmBrief ? 'llm' : (useDeterministicFallback ? 'deterministic' : 'awaiting'));
+    // Sprint 13.2 — Brief MUST await whenever MRS/inner-state is awaiting
+    // OR the signal contract is not met. Deterministic fallback is already
+    // blocked in decideBriefFallback for these cases, but a
+    // previously-accepted LLM brief could still leak copy through. We
+    // gate the response + persistence on `briefMustAwait` so calendar-only
+    // and inner-awaiting runs never emit Brief prose.
+    const briefMustAwait = awaitingSignals || innerStateIsAwaiting;
+    const briefIsAwaiting =
+      briefMustAwait || (!cachedSnapshot && !llmBrief && !useDeterministicFallback);
+    const briefSource: 'llm' | 'deterministic' | 'awaiting' = briefMustAwait
+      ? 'awaiting'
+      : cachedSnapshot
+        ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
+        : (llmBrief ? 'llm' : (useDeterministicFallback ? 'deterministic' : 'awaiting'));
     const responsePhrase = briefIsAwaiting
       ? null
       : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);

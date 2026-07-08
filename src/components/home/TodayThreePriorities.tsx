@@ -1223,11 +1223,22 @@ const TodayThreePriorities = ({
     const planHorizonModules = Array.isArray(planJson?.horizonModules)
       ? (planJson.horizonModules as unknown[])
       : [];
+    // Rest-day snapshots are valid "ready" plans with an intentionally
+    // empty horizonModules array; recognize them so hydration doesn't
+    // reject them as empty-horizon-modules (the later rest-day UI branch
+    // depends on `plan` being set, not null).
+    const isRestDaySnapshot =
+      !!planJson &&
+      (
+        (planJson as any)?.meta?.restDay === true ||
+        (planJson as any)?.meta?.dayShape === 'rest_day' ||
+        (planJson as any)?.restDay === true
+      );
     const planSnapshotRenderable =
       !!snap &&
       snap.status === 'ready' &&
       !!planJson &&
-      planHorizonModules.length > 0;
+      (planHorizonModules.length > 0 || isRestDaySnapshot);
     console.info('[plan-card] hydrate-step', {
       step: 6,
       hasPlanJson: !!planJson,
