@@ -5111,7 +5111,48 @@ function immediateClause(
   req: PlanRequest,
   ceo: CeoRealityTag[],
   slotAnchorCategoryId: string | null,
+  opts: {
+    timeOfDay?: 'morning' | 'afternoon' | 'evening' | null;
+    windowSignals?: ReturnType<typeof derivePlanWindowSignals> | null;
+    slotKind?: string | null;
+    phase?: 'pre' | 'during' | 'post' | null;
+    practiceIsMindsetPause?: boolean;
+    hasHrvEventCorrelation?: boolean;
+  } = {},
 ): string | null {
+  const ws = opts.windowSignals ?? null;
+  const tod = opts.timeOfDay ?? null;
+
+  // ── Sprint E — window-signal clauses.
+  // Ordering matters: the most specific / most actionable clause wins.
+  // Mindset.pause branches (state, Cat-A/pre, post-event) come first
+  // because they carry the strongest tactical framing.
+  if (opts.practiceIsMindsetPause) {
+    if (slotAnchorCategoryId === 'A' && opts.phase === 'pre') {
+      return opts.hasHrvEventCorrelation
+        ? 'Past board-style events have pushed recovery off baseline — clear the reactive noise before the room.'
+        : 'High-stakes call ahead — detach from the prior block and enter with a clear head.';
+    }
+    if (opts.phase === 'post') {
+      return 'This moment carries emotional charge — offload the residue before it leaks into the next conversation.';
+    }
+    if (!slotAnchorCategoryId) {
+      return 'Reactive thinking is building — pause to separate the noise from the signal before the next call.';
+    }
+  }
+  if (tod === 'morning' && ws?.vetoRisk === true) {
+    return 'Your body reads differently from how you feel — lead from the prep, not the instinct.';
+  }
+  if (tod === 'afternoon' && ws?.decisionLeakageRisk === true) {
+    return 'Emotional drain is already showing — protect composure before the next decision.';
+  }
+  if (tod === 'evening' && ws?.recoveryNote === 'rest') {
+    return 'Today was heavy and tomorrow opens heavy — tonight is genuine recovery.';
+  }
+  if (tod === 'evening' && ws?.bodyLoadElevated === true) {
+    return 'Body load is elevated from the day — settle before the evening.';
+  }
+
   // decision_leakage is anchored to a drain event in the next 24h. Only
   // surface it on slots that are themselves anchored to a calendar event
   // (i.e. JIT or fusion slots). Don't bleed it onto unrelated state slots.
