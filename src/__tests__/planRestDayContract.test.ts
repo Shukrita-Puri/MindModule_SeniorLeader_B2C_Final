@@ -116,6 +116,40 @@ describe("Plan rest-day contract (frontend render branch)", () => {
     ).toBe("noop");
   });
 
+  // Sprint 13.2 — the snapshot-hydration gate in TodayThreePriorities must
+  // accept rest-day snapshots (status='ready', empty horizonModules,
+  // meta.restDay=true). Otherwise `plan` stays null and the rest-day UI
+  // branch never runs.
+  function planSnapshotRenderable(snap: {
+    status: string;
+    planJson: PlanLike;
+  } | null): boolean {
+    if (!snap) return false;
+    const planJson = snap.planJson;
+    if (!planJson) return false;
+    if (snap.status !== "ready") return false;
+    const horizonModules = (planJson.horizonModules ?? []) as unknown[];
+    return horizonModules.length > 0 || isRestDayPlan(planJson);
+  }
+
+  it("hydration gate accepts a ready rest-day snapshot with empty horizonModules", () => {
+    expect(
+      planSnapshotRenderable({ status: "ready", planJson: REST_DAY_PLAN }),
+    ).toBe(true);
+  });
+
+  it("hydration gate still rejects a ready snapshot with empty modules AND no rest-day marker", () => {
+    expect(
+      planSnapshotRenderable({ status: "ready", planJson: { horizonModules: [] } }),
+    ).toBe(false);
+  });
+
+  it("hydration gate rejects non-ready snapshot even if rest-day marker is set", () => {
+    expect(
+      planSnapshotRenderable({ status: "awaiting", planJson: REST_DAY_PLAN }),
+    ).toBe(false);
+  });
+
   // Regression: no numbered priority cards and no JIT/event anchor text
   // can leak into the rest-day branch by construction, because the
   // rest-day branch NEVER iterates horizonModules. This test locks that
