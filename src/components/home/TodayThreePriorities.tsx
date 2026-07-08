@@ -1998,6 +1998,29 @@ const TodayThreePriorities = ({
           const module = hm.practice; // primary practice for collapsed view
           const slotKey = buildPriorityKey(index, hm);
           const slotCancelled = hm.isCancelled === true;
+
+          // Sprint F — dev-only slot diagnostic. Guarded behind DEV so it
+          // never fires in production bundles. Emits the allocator-driven
+          // fields the Plan card renders decisions on, without exposing
+          // any user data beyond what is already visible in the card.
+          if (import.meta.env?.DEV) {
+            const planMeta: any = (plan as any)?.meta || {};
+            // eslint-disable-next-line no-console
+            console.info('[Plan][slot-debug]', {
+              dayShape: planMeta.dayShape ?? null,
+              mode: (hm as any).mode ?? planMeta.mode ?? null,
+              slotIndex: index,
+              arcLabel: hm.arcLabel ?? null,
+              slotRole: (hm as any).slotRole ?? null,
+              jitPhase: (hm as any).jitPhase ?? null,
+              jitEventTitle: hm.jitEventTitle ?? null,
+              practiceId: module?.contentId ?? null,
+              practiceTitle: module?.title ?? null,
+              combo: (hm as any).combo ?? null,
+              intent: (hm as any).intent ?? null,
+            });
+          }
+
           const tagState: PriorityTagState = {
             priorityTag: (hm.priorityTag ?? null) as PriorityTagState['priorityTag'],
             relationshipTag: (hm.relationshipTag ?? null) as PriorityTagState['relationshipTag'],
