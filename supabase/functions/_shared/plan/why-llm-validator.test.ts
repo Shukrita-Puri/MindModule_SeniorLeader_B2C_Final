@@ -240,6 +240,36 @@ Deno.test("validator — same-event dedupe threshold unchanged (0.85 gate still 
   assert(r.ok, JSON.stringify(r));
 });
 
+// ────────────────────────────────────────────────────────────────────────
+// Sprint 7 pre-check — Sprint 6 word-count ceiling boundary confirmation
+// (MAX_WHY_LINE_WORDS = 35 → exactly 35 accepted, 36+ rejected).
+// ────────────────────────────────────────────────────────────────────────
+
+Deno.test("validator — 35 words with grounding accepted (boundary at ceiling)", () => {
+  // Exactly 35 words, includes a steady state token so grounding passes.
+  const words = ["The", "morning", "is", "calm", "before", "the", "review"];
+  while (words.length < 35) words.push("hold");
+  const text = words.join(" ");
+  const r = validateWhyLine({
+    text,
+    stateBand: "steady" as StateBand,
+    slotAnchor: anchorA,
+  });
+  assert(r.ok, `expected accept at exactly 35 words → ${JSON.stringify(r)}`);
+});
+
+Deno.test("validator — 36 words rejected as too_long (one past ceiling)", () => {
+  const words = ["The", "morning", "is", "calm", "before", "the", "review"];
+  while (words.length < 36) words.push("hold");
+  const text = words.join(" ");
+  const r = validateWhyLine({
+    text,
+    stateBand: "steady" as StateBand,
+    slotAnchor: anchorA,
+  });
+  assertEquals(r, { ok: false, reason: "too_long" });
+});
+
 Deno.test("tierToStateBand — canonical mappings", () => {
   assertEquals(tierToStateBand("peak"), "firing");
   assertEquals(tierToStateBand("strong"), "sharp");
