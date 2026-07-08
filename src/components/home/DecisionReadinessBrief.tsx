@@ -2003,7 +2003,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         };
       })()
     : null;
-  const outerBrief =
+  let outerBrief: any =
     tourMockBriefActive && realBriefEmpty
       ? MOCK_BRIEF
       : (briefFromSnapshot ?? outerBriefReal);
@@ -2041,7 +2041,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     lastGood.key.startsWith(`${currentWindowKey}|`) &&
     !currentIsRenderable &&
     !tourMockBriefActive;
-  const stableOuterBrief = canReuseLastGood ? lastGood!.payload : outerBrief;
+  if (canReuseLastGood) {
+    // Reassign so all downstream reads (score, tier, chips, pills,
+    // copy) draw from the last-good payload for this window.
+    outerBrief = lastGood!.payload;
+  }
   try {
     // eslint-disable-next-line no-console
     console.log('[PRB][stable-brief]', {
@@ -2053,8 +2057,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     });
   } catch {}
 
-  const cardsAwaiting = isTrueAwaitingBrief(stableOuterBrief);
-  const awaitingCopy = getReadinessAwaitingCopy(stableOuterBrief);
+  const cardsAwaiting = isTrueAwaitingBrief(outerBrief);
+  const awaitingCopy = getReadinessAwaitingCopy(outerBrief);
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
