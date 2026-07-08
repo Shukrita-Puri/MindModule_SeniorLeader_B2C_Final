@@ -2582,6 +2582,92 @@ interface SharedContext {
   } | null;
 }
 
+// ═════════════════════════════════════════════════════════════════════
+// Sprint D — Plan practice window signals.
+//
+// Coarse morning/afternoon/evening physiology + state signals derived
+// entirely from data already assembled on `req`. No new DB queries, no
+// new derivation paths. Only ever used as *additive* scoring bias inside
+// `selectPracticeForSlot` (see practice-selector.ts::windowSignalBoost).
+// Missing / unknown signals stay null → no-op on selection.
+// ═════════════════════════════════════════════════════════════════════
+export function derivePlanWindowSignals(
+  req: PlanRequest,
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+): {
+  sleepQuality: 'poor' | 'fair' | 'good' | 'peak' | null;
+  hrvDeviationPct: number | null;
+  currentHrVsRestingPct: number | null;
+  bodyLoadElevated: boolean;
+  decisionLeakageRisk: boolean;
+  recoveryNote: 'rest' | 'light' | 'normal' | null;
+} | null {
+  const w = req.wearableContext;
+  const hasWearable = !!w?.hasData;
+
+  // sleepQuality — trust explicit label if provided, else derive from score.
+  let sleepQuality: 'poor' | 'fair' | 'good' | 'peak' | null = null;
+  if (hasWearable) {
+    const label = (w?.sleepQuality || '').toLowerCase();
+    if (label === 'poor' || label === 'fair' || label === 'good' || label === 'peak') {
+      sleepQuality = label as any;
+    } else if (typeof w?.sleepScore === 'number') {
+      if (w.sleepScore < 60) sleepQuality = 'poor';
+      else if (w.sleepScore < 75) sleepQuality = 'fair';
+      else if (w.sleepScore < 85) sleepQuality = 'good';
+      else sleepQuality = 'peak';
+    }
+  }
+
+  const hrvDeviationPct = hasWearable && typeof w?.hrvDeviation === 'number' ? w.hrvDeviation : null;
+
+  // currentHrVsRestingPct — not currently computed in this function's
+  // wearable context; compute-outer-readiness owns that derivation. Leave
+  // null rather than invent a new reader. (Documented Sprint D gap.)
+  const currentHrVsRestingPct: number | null = null;
+
+  // Evening body load — proxy off sustained HRV depression.
+  const bodyLoadElevated =
+    timeOfDay === 'evening' && typeof hrvDeviationPct === 'number' && hrvDeviationPct <= -10;
+
+  // Decision leakage risk — afternoon/evening only, and only when the
+  // check-in itself signals low clarity. Never invented from calendar.
+  const clarity = typeof req.clarityLevel === 'number' ? req.clarityLevel : null;
+  const decisionLeakageRisk =
+    (timeOfDay === 'afternoon' || timeOfDay === 'evening') &&
+    clarity !== null &&
+    clarity > 0 &&
+    clarity <= 2;
+
+  // Recovery note — evening only, conservative 'rest' signal when the
+  // body clearly needs it. Otherwise null (no fabricated light/normal).
+  let recoveryNote: 'rest' | 'light' | 'normal' | null = null;
+  if (timeOfDay === 'evening' && hasWearable) {
+    const deepDeficit = typeof hrvDeviationPct === 'number' && hrvDeviationPct <= -15;
+    const lowSleep = typeof w?.sleepScore === 'number' && w.sleepScore < 55;
+    if (deepDeficit || lowSleep) recoveryNote = 'rest';
+  }
+
+  // If literally nothing usable, return null so the selector short-circuits.
+  const anyPresent =
+    sleepQuality !== null ||
+    hrvDeviationPct !== null ||
+    currentHrVsRestingPct !== null ||
+    bodyLoadElevated ||
+    decisionLeakageRisk ||
+    recoveryNote !== null;
+  if (!anyPresent) return null;
+
+  return {
+    sleepQuality,
+    hrvDeviationPct,
+    currentHrVsRestingPct,
+    bodyLoadElevated,
+    decisionLeakageRisk,
+    recoveryNote,
+  };
+}
+
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
   // F1 — prefer the caller-supplied window (Executive Home orchestrator);
   // fall back to wall-clock only for legacy callers with no explicit window.
