@@ -5385,7 +5385,34 @@ async function applyV51Enrichment(
 
     // Compose Why — deterministic baseline (always set, LLM will overwrite on success)
     const fusion = idx === 0 && fusionEvent && hm.slotKind === 'start_of_day' ? fusionEvent : null;
-    const fallbackWhyLine = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion);
+    let fallbackWhyLine = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion, {
+      timeOfDay: timeOfDayForWhy,
+      windowSignals: whyWindowSignals,
+    });
+    // Sprint E — deterministic valence guard. Reuse the existing
+    // validateWhyLine so the deterministic path cannot violate the same
+    // band discipline as the LLM output. On rejection, recompose without
+    // window-signal clauses (the safer generic deterministic line).
+    const detBand: StateBand | null = tierToStateBand(req.innerReadinessTier);
+    const detSlotAnchor: SlotAnchor = {
+      eventTitle: ((hm as any).anchorEventTitle ?? hm.jitEventTitle ?? null),
+      categoryId: ((hm as any).anchorCategoryId ?? (hm as any).jitCategoryId ?? null) as EventCategoryId | null,
+      phase: ((hm as any).jitPhase as Phase) ?? 'pre',
+    };
+    const detVerdict = validateWhyLine({
+      text: fallbackWhyLine,
+      stateBand: detBand,
+      slotAnchor: detSlotAnchor,
+    });
+    if (!detVerdict.ok && (detVerdict.reason === 'valence_firing_recovery' || detVerdict.reason === 'valence_depleted_push')) {
+      console.log(
+        `[why-llm.telemetry] idx=${idx} band=${detBand} bandSource=deterministic fallback=deterministic_repair reject=${detVerdict.reason}`,
+      );
+      fallbackWhyLine = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion, {
+        timeOfDay: timeOfDayForWhy,
+        windowSignals: null,
+      });
+    }
     if (fallbackWhyLine && fallbackWhyLine.length >= 12) {
       fallbackWhyLineByIndex.set(idx, fallbackWhyLine);
     }
