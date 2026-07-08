@@ -5402,61 +5402,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       return s.trim();
     })();
 
-    // ═══ BRIEF SIGNAL CONTRACT (day-scoped) ═══
-    // The brief reflects *today*. ANY non-skipped check-in for the user's
-    // local date satisfies the contract — regardless of which time_window
-    // the check-in was tagged to. Period-scoped gating caused false-negative
-    // `awaitingSignals` whenever a user's local time-of-day window drifted
-    // away from the window stamped on their existing check-in (e.g. user
-    // checked in during their local "afternoon" but the server now
-    // computes "morning" or "evening" relative to UTC + offset). The Brief
-    // and the Plan must both proceed if today has a real check-in; the
-    // freshness/recency of state is encoded into the input signature, which
-    // already drives snapshot regeneration when newer rows arrive.
-    const currentPeriod = getTimeOfDay(hour);
-    let hasTodayCheckInDB = false;
-    let latestCheckinId: string | null = null;
-    let latestCheckinWindow: string | null = null;
-    try {
-      const { data: anyCheckin } = await db
-        .from('daily_checkins')
-        .select('id, time_window, timestamp')
-        .eq('user_id', userId)
-        .eq('checkin_date', userLocalDate)
-        .eq('skipped', false)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      hasTodayCheckInDB = !!anyCheckin;
-      latestCheckinId = anyCheckin?.id ?? null;
-      latestCheckinWindow = anyCheckin?.time_window ?? null;
-    } catch (e) {
-      console.warn('[compute-outer-readiness] Day-scoped check-in lookup failed:', e);
-      // Fail safe: never block a brief on a transient DB error.
-      hasTodayCheckInDB = !!checkInOutcome;
-    }
-    const hasTodayCheckIn = hasTodayCheckInDB;
-    const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
-    // MRS v3 — State 1 (baseline brief) is built from wearable + calendar
-    // context. Check-in is the State 2 refiner, not a gate.
-    const hasCalendarSignal = calendarResult?.state === 'active';
-    const hasCalendarConnected = calendarResult?.state && calendarResult.state !== 'not_connected';
-    const hasStage1Signal = hasWearableData || hasCalendarSignal || hasCalendarConnected;
-    const briefSignalContractMet = hasStage1Signal;
-    const awaitingSignals = !briefSignalContractMet;
-    const awaitingReason: string | null = awaitingSignals ? 'cold-start-no-context' : null;
-    console.log('[compute-outer-readiness] signal-gate', {
-      userId,
-      userLocalDate,
-      currentPeriod,
-      hasTodayCheckIn,
-      latestCheckinId,
-      latestCheckinWindow,
-      hasFreshWearable,
-      hasCalendarSignal,
-      hasStage1Signal,
-      awaitingSignals,
-    });
+    // Signal-contract (awaitingSignals / awaitingReason / hasTodayCheckIn
+    // / hasFreshWearable / hasStage1Signal) is now hoisted above the
+    // briefSource decision — see the "BRIEF SIGNAL CONTRACT (day-scoped)"
+    // block earlier in this handler.
     // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
