@@ -1708,13 +1708,18 @@ const TodayThreePriorities = ({
       !loading &&
       !fetchFailed &&
       !awaitingSignals &&
+      !isRestDayPlan &&
       (!horizonModules || horizonModules.length === 0)
     ) {
       onEmpty?.();
     } else if (!loading && horizonModules && horizonModules.length > 0) {
       onLoaded?.();
+    } else if (!loading && isRestDayPlan) {
+      // Rest-day render is a valid terminal state; notify the parent so
+      // it does not remount DailyRitual on top of our rest state.
+      onLoaded?.();
     }
-  }, [loading, fetchFailed, awaitingSignals, horizonModules, onEmpty, onLoaded]);
+  }, [loading, fetchFailed, awaitingSignals, isRestDayPlan, horizonModules, onEmpty, onLoaded]);
 
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
