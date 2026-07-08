@@ -56,6 +56,34 @@ Deno.test("floor: meaningful conference/visibility event still ranks", () => {
   assert(ranked.length > 0, "conference should produce candidates");
 });
 
+// Sprint 4 pre-check regression: Category G = Travel MUST be in the
+// structural allow-list. Without this, a genuine multi-hour travel event
+// with medium stakes would silently drop unless the numeric floor
+// happened to catch it, and travel is exactly the kind of event we do
+// not want surviving by accident.
+Deno.test("floor (G/travel): medium-stakes travel event clears the structural allow-list, not just the score floor", () => {
+  const travel: RankableEventInput = {
+    event: {
+      id: "trip-1",
+      title: "Long-haul flight to New York",
+      start_time: "2026-07-08T14:00:00Z",
+      end_time: "2026-07-08T22:00:00Z",
+    },
+    stakesLevel: "medium",
+  };
+  const ranked = rankJitCandidates([travel], NOW);
+  const gCandidate = ranked.find(c => String(c.categoryId) === "G");
+  assert(gCandidate, `expected a Category G candidate for travel event, ranked=${JSON.stringify(ranked)}`);
+  // Structural predicate must be what keeps this in — not the numeric
+  // floor. Verify by checking that the drop predicate accepts it even
+  // when the numeric floor would have rejected the raw score.
+  assertEquals(
+    getJitCandidateDropReason(gCandidate!, travel),
+    null,
+    "medium-stakes travel must clear the meaningful-candidate floor via the G structural allow-list",
+  );
+});
+
 Deno.test("floor: one weak event does NOT get recycled across all three slots (mixed/light)", () => {
   // Single weak candidate that squeaks through the floor via score.
   const strongOne = evt("Investor Update", "investor");

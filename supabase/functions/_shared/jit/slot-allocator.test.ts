@@ -137,3 +137,38 @@ Deno.test("allocator — identity fields expose jitEventId + jitCategoryId (used
   assertEquals(alloc.slots[2].jitEventId, "evt-x");
   assertEquals(alloc.slots[2].jitCategoryId, "A");
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Sprint 4 (Phase 6) — rest-day contract
+// ═══════════════════════════════════════════════════════════════════
+
+Deno.test("allocator — rest_day returns ZERO slots and the rest-day marker", () => {
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    hasTravelDay: false,
+    hasConferenceDay: false,
+    hasOffsiteDay: false,
+    hasRestSignals: true,
+  });
+  assertEquals(alloc.dayShape, "rest_day");
+  assertEquals(alloc.mode, "state");
+  assertEquals(alloc.restDay, true);
+  assertEquals(alloc.allocationReason, "rest_day_no_priorities");
+  assertEquals(alloc.slots.length, 0, "rest_day must NOT fabricate 3 state_anchor slots");
+});
+
+Deno.test("allocator — non-rest empty-calendar day still returns 3 state fallback slots (not the rest-day path)", () => {
+  // No ranked candidates and no rest signals → light_routine, NOT rest_day.
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    hasTravelDay: false,
+    hasConferenceDay: false,
+    hasOffsiteDay: false,
+    hasRestSignals: false,
+  });
+  assertEquals(alloc.dayShape, "light_routine");
+  assertEquals(alloc.slots.length, 3, "non-rest state-only day still shows 3 state fallback slots");
+  assertEquals(alloc.restDay, undefined);
+});

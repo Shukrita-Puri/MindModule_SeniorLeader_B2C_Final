@@ -1682,6 +1682,15 @@ const TodayThreePriorities = ({
 
   const horizonModules = plan?.horizonModules;
 
+  // Sprint 4 (Phase 6) — rest-day contract. When the backend classifies
+  // today as a true rest day, `horizonModules` is intentionally empty and
+  // the Plan card must NOT render three fabricated priorities or the
+  // empty-shell "check in to build your plan" prompt.
+  const isRestDayPlan =
+    (plan as any)?.meta?.restDay === true ||
+    (plan as any)?.meta?.dayShape === 'rest_day' ||
+    (plan as any)?.restDay === true;
+
   // ── Script-gated reveal ──
   // Hold the priorities content until BOTH the fetch completes AND the
   // scripted "mixture" narration plays every step in order. Empty/error
@@ -1699,13 +1708,18 @@ const TodayThreePriorities = ({
       !loading &&
       !fetchFailed &&
       !awaitingSignals &&
+      !isRestDayPlan &&
       (!horizonModules || horizonModules.length === 0)
     ) {
       onEmpty?.();
     } else if (!loading && horizonModules && horizonModules.length > 0) {
       onLoaded?.();
+    } else if (!loading && isRestDayPlan) {
+      // Rest-day render is a valid terminal state; notify the parent so
+      // it does not remount DailyRitual on top of our rest state.
+      onLoaded?.();
     }
-  }, [loading, fetchFailed, awaitingSignals, horizonModules, onEmpty, onLoaded]);
+  }, [loading, fetchFailed, awaitingSignals, isRestDayPlan, horizonModules, onEmpty, onLoaded]);
 
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
@@ -1846,6 +1860,26 @@ const TodayThreePriorities = ({
 
   // ── Empty / error state — always show card shell ──
   if (!horizonModules || horizonModules.length === 0) {
+    // Sprint 4 (Phase 6) — truthful rest-day state. Zero horizon modules
+    // is not an error and not an awaiting state; it's the backend saying
+    // "today has no performance demand — recover and reset". Render a
+    // calm, non-numeric state (no "1/2/3" placeholders, no JIT, no
+    // event anchors, no "check in" prompt).
+    if (isRestDayPlan) {
+      console.info('[plan-card] early-return', { branch: 'rest-day', planExists: !!plan });
+      return (
+        <div className="space-y-4 pt-2 animate-fade-in">
+          <div className="flex flex-col items-center gap-2 px-6 py-6 max-w-lg mx-auto text-center">
+            <p className="text-sm text-foreground/80 font-body">
+              No priorities needed today.
+            </p>
+            <p className="text-xs text-muted-foreground font-body leading-relaxed">
+              Use today to recover and reset.
+            </p>
+          </div>
+        </div>
+      );
+    }
     console.info('[plan-card] early-return', { branch: 'empty', fetchFailed, planExists: !!plan });
     return (
       <div className="space-y-4 pt-2">

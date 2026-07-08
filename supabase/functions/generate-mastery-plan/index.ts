@@ -4195,6 +4195,42 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.warn('[generate-mastery-plan] final dedupe pass failed:', dedupeErr?.message);
   }
 
+  // ─── Sprint 4 (Phase 6) — rest-day truncation ─────────────────────────
+  // Recompute allocation at the outer level so the Plan snapshot's
+  // top-level metadata (and downstream renderers) can distinguish a
+  // truthful rest_day from a low/no-stakes workday. When dayShape is
+  // rest_day we drop all horizon modules — a rest day must NOT ship
+  // three fabricated Performance Priorities. Ledger stays untouched;
+  // completed slots from earlier in the day (if any) remain on the
+  // ledger row but are not resurfaced as fresh priorities.
+  let planDayShape: 'light_routine' | 'dominant_structural_event' | 'mixed_day' | 'rest_day' | null = null;
+  let planIsRestDay = false;
+  try {
+    const outerAllocation = allocatePlanSlots({
+      nowMs: Date.now(),
+      rankedCandidates: jitRankedCandidates,
+      ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad),
+    });
+    planDayShape = outerAllocation.dayShape;
+    planIsRestDay = outerAllocation.dayShape === 'rest_day';
+    if (planIsRestDay) {
+      const slotCountBefore = finalHorizonModules.length;
+      finalHorizonModules = [];
+      console.log('[generate-mastery-plan][rest-day]', {
+        userId: redactUserId(req.userId),
+        date: today,
+        window: timeOfDay,
+        dayShape: outerAllocation.dayShape,
+        mode: outerAllocation.mode,
+        slotCount: 0,
+        slotCountBefore,
+        reason: outerAllocation.allocationReason ?? 'rest_day_no_priorities',
+      });
+    }
+  } catch (restErr: any) {
+    console.warn('[generate-mastery-plan][rest-day-check-failed]', restErr?.message ?? String(restErr));
+  }
+
   // Persist the (possibly evolved) ledger onto the current period row so the
   // very next regeneration sees it. Service role bypasses the ledger guard.
   try {
@@ -4244,6 +4280,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       durationCeiling: maxDuration,
       maxModules,
       jitRankedCandidates: jitRankedCandidates.slice(0, 8),
+      // Sprint 4 (Phase 6) — surface the day-shape verdict so the frontend
+      // can render a truthful rest-day state instead of the empty-shell
+      // "check in to build your plan" prompt.
+      dayShape: planDayShape,
+      restDay: planIsRestDay,
       calendarContext: calendarContext.todayMeetingCount > 0 || calendarContext.upcomingMeetingCount > 0
         ? { todayLoad: calendarContext.todayLoad, upcomingLoad: calendarContext.upcomingLoad, todayMeetingCount: calendarContext.todayMeetingCount, todayMeetingHours: calendarContext.todayMeetingHours }
         : undefined
@@ -7380,7 +7421,17 @@ if (import.meta.main) Deno.serve(async (req) => {
         const horizonMods = Array.isArray(planObj?.horizonModules)
           ? planObj.horizonModules
           : [];
-        const hasPayload = visiblePriorities.length > 0 || horizonMods.length > 0;
+        // Sprint 4 (Phase 6): a truthful rest_day carries zero horizon
+        // modules by design. Treat it as a valid payload so the snapshot
+        // lands as `ready`, not `awaiting`.
+        const isRestDayPayload =
+          planObj?.meta?.restDay === true ||
+          planObj?.meta?.dayShape === 'rest_day' ||
+          planObj?.restDay === true;
+        const hasPayload =
+          visiblePriorities.length > 0 ||
+          horizonMods.length > 0 ||
+          isRestDayPayload;
         // F3 — snapshot status contract:
         //   'ready'    → hasPayload AND plan is not an awaiting envelope
         //   'awaiting' → plan is an awaiting envelope OR payload absent
