@@ -197,3 +197,75 @@ Deno.test("Check-in-only guardrail — check-in without wearable baseline does n
   };
   assertEquals(canGeneratePlan(checkInOnly), false);
 });
+
+// ---------- Brief awaiting cannot be rescued by accepted LLM (Sprint 13.2) ----------
+
+/**
+ * Mirrors the runtime `briefMustAwait` / `briefIsAwaiting` / `briefSource`
+ * gate now enforced in compute-outer-readiness/index.ts. Even if the LLM
+ * returned an accepted brief, the response and persistence MUST remain
+ * awaiting whenever `awaitingSignals` or `innerStateIsAwaiting` is true.
+ */
+function briefRuntimeGate(inp: {
+  awaitingSignals: boolean;
+  innerStateIsAwaiting: boolean;
+  cachedSnapshotPresent: boolean;
+  llmBriefPresent: boolean;
+  deterministicAccepted: boolean;
+}): {
+  briefMustAwait: boolean;
+  briefIsAwaiting: boolean;
+  briefSource: "llm" | "deterministic" | "awaiting" | "cached";
+} {
+  const briefMustAwait = inp.awaitingSignals || inp.innerStateIsAwaiting;
+  const briefIsAwaiting =
+    briefMustAwait ||
+    (!inp.cachedSnapshotPresent && !inp.llmBriefPresent && !inp.deterministicAccepted);
+  const briefSource: "llm" | "deterministic" | "awaiting" | "cached" = briefMustAwait
+    ? "awaiting"
+    : inp.cachedSnapshotPresent
+      ? "cached"
+      : inp.llmBriefPresent
+        ? "llm"
+        : inp.deterministicAccepted
+          ? "deterministic"
+          : "awaiting";
+  return { briefMustAwait, briefIsAwaiting, briefSource };
+}
+
+Deno.test("Brief runtime guardrail — calendar-only + MRS awaiting + LLM accepted → Brief stays awaiting, no copy persisted", () => {
+  const gate = briefRuntimeGate({
+    awaitingSignals: false,
+    innerStateIsAwaiting: true, // MRS awaiting propagates here
+    cachedSnapshotPresent: false,
+    llmBriefPresent: true, // even an accepted LLM brief cannot rescue this
+    deterministicAccepted: false,
+  });
+  assertEquals(gate.briefMustAwait, true);
+  assertEquals(gate.briefIsAwaiting, true);
+  assertEquals(gate.briefSource, "awaiting");
+});
+
+Deno.test("Brief runtime guardrail — cold-start signals + LLM accepted → Brief stays awaiting", () => {
+  const gate = briefRuntimeGate({
+    awaitingSignals: true,
+    innerStateIsAwaiting: false,
+    cachedSnapshotPresent: false,
+    llmBriefPresent: true,
+    deterministicAccepted: false,
+  });
+  assertEquals(gate.briefIsAwaiting, true);
+  assertEquals(gate.briefSource, "awaiting");
+});
+
+Deno.test("Brief runtime guardrail — signals ready + LLM accepted → LLM wins", () => {
+  const gate = briefRuntimeGate({
+    awaitingSignals: false,
+    innerStateIsAwaiting: false,
+    cachedSnapshotPresent: false,
+    llmBriefPresent: true,
+    deterministicAccepted: false,
+  });
+  assertEquals(gate.briefIsAwaiting, false);
+  assertEquals(gate.briefSource, "llm");
+});
