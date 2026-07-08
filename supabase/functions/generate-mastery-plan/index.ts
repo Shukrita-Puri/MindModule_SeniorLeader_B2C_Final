@@ -4195,6 +4195,42 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.warn('[generate-mastery-plan] final dedupe pass failed:', dedupeErr?.message);
   }
 
+  // ─── Sprint 4 (Phase 6) — rest-day truncation ─────────────────────────
+  // Recompute allocation at the outer level so the Plan snapshot's
+  // top-level metadata (and downstream renderers) can distinguish a
+  // truthful rest_day from a low/no-stakes workday. When dayShape is
+  // rest_day we drop all horizon modules — a rest day must NOT ship
+  // three fabricated Performance Priorities. Ledger stays untouched;
+  // completed slots from earlier in the day (if any) remain on the
+  // ledger row but are not resurfaced as fresh priorities.
+  let planDayShape: 'light_routine' | 'dominant_structural_event' | 'mixed_day' | 'rest_day' | null = null;
+  let planIsRestDay = false;
+  try {
+    const outerAllocation = allocatePlanSlots({
+      nowMs: Date.now(),
+      rankedCandidates: jitRankedCandidates,
+      ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad),
+    });
+    planDayShape = outerAllocation.dayShape;
+    planIsRestDay = outerAllocation.dayShape === 'rest_day';
+    if (planIsRestDay) {
+      const slotCountBefore = finalHorizonModules.length;
+      finalHorizonModules = [];
+      console.log('[generate-mastery-plan][rest-day]', {
+        userId: redactUserId(req.userId),
+        date: today,
+        window: timeOfDay,
+        dayShape: outerAllocation.dayShape,
+        mode: outerAllocation.mode,
+        slotCount: 0,
+        slotCountBefore,
+        reason: outerAllocation.allocationReason ?? 'rest_day_no_priorities',
+      });
+    }
+  } catch (restErr: any) {
+    console.warn('[generate-mastery-plan][rest-day-check-failed]', restErr?.message ?? String(restErr));
+  }
+
   // Persist the (possibly evolved) ledger onto the current period row so the
   // very next regeneration sees it. Service role bypasses the ledger guard.
   try {
