@@ -289,8 +289,9 @@ export function getJitCandidateDropReason(
     // literally no metadata still deserve consideration if the raw score
     // is high enough (proximity, category weight).
   } else {
-    // Non-structural (B, E, G, ...): require at least two secondary
-    // signals OR a clear numeric floor.
+    // Non-structural (B, D, E, H, ...): require at least two secondary
+    // signals OR a clear numeric floor. G (Travel) is structural — see
+    // STRUCTURAL_CATEGORIES above — and is handled in the branch above.
     const secondarySignals = [hasMediumStakes, hasStrongSeverity, hasStrongDemand].filter(Boolean).length;
     if (secondarySignals >= 2) return null;
   }
