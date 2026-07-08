@@ -18,6 +18,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { decideHomeLocation } from "./decide.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,11 +56,6 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json().catch(() => ({}));
-  const lat = body?.lat;
-  const lng = body?.lng;
-  const timezone = body?.timezone;
-  const force = body?.force === true;
-  const clear = body?.clear === true;
 
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -72,7 +68,22 @@ Deno.serve(async (req) => {
     .eq("id", userId)
     .maybeSingle();
 
-  if (clear) {
+  const decision = decideHomeLocation({
+    lat: body?.lat,
+    lng: body?.lng,
+    timezone: body?.timezone,
+    force: body?.force,
+    clear: body?.clear,
+    existing: existing
+      ? {
+          home_lat: (existing as any).home_lat ?? null,
+          home_lng: (existing as any).home_lng ?? null,
+          home_location_set_at: (existing as any).home_location_set_at ?? null,
+        }
+      : null,
+  });
+
+  if (decision.action === "clear") {
     await db
       .from("profiles")
       .update({
@@ -88,15 +99,14 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (!isFiniteLat(lat) || !isFiniteLng(lng)) {
+  if (decision.action === "invalid") {
     return new Response(JSON.stringify({ error: "invalid_coords" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const alreadySet = existing?.home_location_set_at != null || existing?.home_lat != null;
-  if (alreadySet && !force) {
+  if (decision.action === "refused") {
     console.log("[set-home-location][refused-overwrite]", {
       user_id_prefix: userId.slice(0, 8),
       hadTz: !!existing?.home_timezone,
@@ -113,12 +123,12 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
-    home_lat: lat,
-    home_lng: lng,
+    home_lat: decision.lat,
+    home_lng: decision.lng,
     home_location_set_at: now,
     updated_at: now,
   };
-  if (isIanaTz(timezone)) patch.home_timezone = timezone;
+  if (decision.timezone) patch.home_timezone = decision.timezone;
 
   const { error } = await db.from("profiles").update(patch).eq("id", userId);
   if (error) {
@@ -131,8 +141,8 @@ Deno.serve(async (req) => {
 
   console.log("[set-home-location][set]", {
     user_id_prefix: userId.slice(0, 8),
-    changed: alreadySet,
-    tz: isIanaTz(timezone) ? timezone : null,
+    changed: decision.changed,
+    tz: decision.timezone,
   });
 
   // Fire travel-state-sync for this user, best-effort.
@@ -147,7 +157,7 @@ Deno.serve(async (req) => {
   }).catch((e) => console.warn("[set-home-location] sync fire failed", (e as Error).message));
 
   return new Response(
-    JSON.stringify({ ok: true, homeSet: true, changed: alreadySet }),
+    JSON.stringify({ ok: true, homeSet: true, changed: decision.changed }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 });
