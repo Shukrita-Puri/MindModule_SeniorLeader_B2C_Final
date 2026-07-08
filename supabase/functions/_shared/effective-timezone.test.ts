@@ -69,7 +69,7 @@ Deno.test("long-haul override NOT applied when only updated_at is fresh (skip-sy
   assertEquals(r.circadianTimezone, LON, "stale travel row must NOT trigger circadian override");
 });
 
-Deno.test("no signal timestamps — override skipped, fallback safe", async () => {
+Deno.test("no signal timestamps — treated as not-away (Sprint 14 freshness)", async () => {
   const db = mockDb({
     state: "away",
     last_known_timezone: LON,
@@ -80,7 +80,8 @@ Deno.test("no signal timestamps — override skipped, fallback safe", async () =
   });
   const r = await resolveEffectiveTimezone(db, "u1", { home_timezone: NY, current_timezone: LON }, now);
   assertEquals(r.circadianTimezone, LON);
-  // isAway is still true (based on state), but that's classifier's job to
-  // downstream-gate on freshness where required.
-  assertEquals(r.isAway, true);
+  // Sprint 14: `isAway` is now gated on travel-freshness. A row with no
+  // last_state_change_at and no last_location_at is `no_signal` and must
+  // NOT be treated as away by any consumer — including effectiveTimezone.
+  assertEquals(r.isAway, false);
 });
