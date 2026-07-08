@@ -26,6 +26,14 @@ export interface SlotAllocationInput {
 export interface SlotAllocation {
   dayShape: DayShape;
   mode: SlotMode;
+  /**
+   * Sprint 4 (Phase 6): true for a genuine no-demand day where the Plan
+   * card must render a rest-day state rather than three fabricated
+   * priorities. When `restDay` is true, `slots` MUST be empty.
+   */
+  restDay?: boolean;
+  /** Top-level allocation reason — populated for the rest-day contract. */
+  allocationReason?: string;
   slots: Array<{
     index: 0 | 1 | 2;
     slotRole: SlotRole;
@@ -100,6 +108,29 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     dayShape === "light_routine" ? "jit+state" :
     dayShape === "dominant_structural_event" ? "full_arc" :
     "jit+state";
+
+  // ── Sprint 4 (Phase 6) — rest-day contract ─────────────────────────
+  // A true rest day has no calendar demand and no ranked candidates.
+  // We MUST NOT fabricate three state_anchor slots (which the frontend
+  // would render as three normal Performance Priorities). Return zero
+  // slots and mark the allocation as rest-day so downstream persistence
+  // and rendering can show a truthful rest state.
+  if (dayShape === "rest_day") {
+    return {
+      dayShape,
+      mode,
+      restDay: true,
+      allocationReason: "rest_day_no_priorities",
+      slots: [],
+      debug: {
+        dayShape,
+        mode,
+        candidateCount: ranked.length,
+        multiPhaseEligible: false,
+        sameEventFan: false,
+      },
+    };
+  }
 
   // ---- Phase-aware slot picking (Sprint 1 fix) --------------------------
   // For a dominant structural event, choose ranked candidates by intended
