@@ -14,6 +14,17 @@
  *   • After a successful write, best-effort fires travel-state-sync
  *     for this user so the classifier can promote to a real state
  *     without waiting for the hourly cron.
+ *
+ * Sprint 11 auth: `verify_jwt = false` in supabase/config.toml is
+ * INTENTIONAL — we verify the caller's Auth0 JWT in-handler via
+ * `verifyAuth0JWT` and update only `.eq("id", userId)` where userId is
+ * the JWT sub. `body.user_id` is never read. Dev bypass headers are
+ * rejected in production by `_shared/auth.ts`.
+ *
+ * Freshness SSOT: this function writes profiles.*, not travel_state.
+ * Any downstream consumer of travel_state MUST use
+ * `_shared/travel/freshness.ts::decideTravelFreshness` — do not treat
+ * `updated_at` or `meta.last_sync_at` as travel-signal freshness.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
