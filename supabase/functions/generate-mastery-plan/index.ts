@@ -5823,9 +5823,21 @@ function buildHorizonModules(
       ...m,
       masteryCategory: m.masteryCategory ?? m.mastery_category ?? null,
     }));
+    // Sprint D — derive coarse window signals from data already assembled
+    // upstream (no new DB queries). Missing signals stay null → no-op.
+    const windowSignals = derivePlanWindowSignals(req, timeOfDay);
+    if (windowSignals) {
+      console.log('[Plan][practice-window-signals]', {
+        timeOfDay,
+        keys: Object.entries(windowSignals)
+          .filter(([, v]) => v !== null && v !== undefined && v !== false)
+          .map(([k]) => k),
+      });
+    }
     const firstPick = selectPracticeForSlot(poolWithMeta, { ...slotContract, mode: slotContract.mode ?? 'jit+state' }, intent, consumed, {
       recentPracticeDays: recencyMap,
       mrsScore: (req as any).mrsScore ?? null,
+      windowSignals,
     });
     const head = firstPick.selected[0] ?? null;
     if (!head) return [];
