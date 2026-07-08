@@ -6809,7 +6809,36 @@ function isSlotCompleted(slot: HorizonModule, completedIds: Set<string>): boolea
  *
  * Returns the 3-slot plan to render PLUS metadata describing how it was built.
  */
-function mergeWithLedger(
+/**
+ * Sprint 2 (Phase 3) – Derive real day-shape structural flags from the raw
+ * calendar event list. Extracted so the fresh-generation path and the
+ * ledger-evolution path share ONE definition and cannot drift.
+ */
+export function deriveStructuralDayFlags(calendarEvents: any[] | null | undefined, calendarLoad?: string): {
+  hasTravelDay: boolean;
+  hasConferenceDay: boolean;
+  hasOffsiteDay: boolean;
+  hasRestSignals: boolean;
+} {
+  const events = Array.isArray(calendarEvents) ? calendarEvents : [];
+  const titleOf = (e: any) => String(e?.title || '');
+  const hasTravelDay = events.some((e: any) => /travel|flight|train|airport|hotel/i.test(titleOf(e)));
+  const hasConferenceDay = events.some((e: any) => /conference|offsite|retreat|summit/i.test(titleOf(e)));
+  const hasOffsiteDay = events.some((e: any) => /offsite|off-site/i.test(titleOf(e)));
+  const hasRestSignals = calendarLoad === 'low' && events.length === 0;
+  return { hasTravelDay, hasConferenceDay, hasOffsiteDay, hasRestSignals };
+}
+
+export interface LedgerAllocatorContext {
+  nowMs: number;
+  rankedCandidates: RankedJitCandidate[];
+  hasTravelDay: boolean;
+  hasConferenceDay: boolean;
+  hasOffsiteDay: boolean;
+  hasRestSignals: boolean;
+}
+
+export function mergeWithLedger(
   freshModules: HorizonModule[],
   ledgerModules: HorizonModule[],
   completedIds: Set<string>,
@@ -6817,6 +6846,7 @@ function mergeWithLedger(
   calendarEventTitles: Set<string>,
   userEdits?: PlanLedger['userEdits'],
   calendarEventTitleById?: Map<string, string>,
+  allocatorContext?: LedgerAllocatorContext,
 ): {
   modules: HorizonModule[];
   source: 'fresh' | 'ledger-evolution' | 'bonus-round';
@@ -6858,6 +6888,11 @@ function mergeWithLedger(
   let carriedSlots = 0;
   let anchoredSlots = 0;
   const usedFreshIndexes = new Set<number>();
+  // Sprint 2 (Phase 3): track per-slot origin so the allocator identity
+  // override only touches slots that are eligible for a context refresh
+  // (unfinished/current/future). Sticky slots — completed, user-anchored,
+  // or ledger anchor-stability carry — keep their persisted identity.
+  const slotOrigins: Array<'sticky' | 'refreshed'> = [];
 
   // Index fresh slots by JIT event title for anchor refresh lookups.
   const freshByJitTitle = new Map<string, { slot: HorizonModule; idx: number }>();
@@ -6902,6 +6937,7 @@ function mergeWithLedger(
     if (isSlotCompleted(ledgerSlot, completedIds)) {
       out.push({ ...ledgerSlot });
       carriedSlots++;
+      slotOrigins.push('sticky');
       continue;
     }
 
@@ -6948,11 +6984,13 @@ function mergeWithLedger(
           replacementEventIds: ledgerSlot.replacementEventIds || [],
         });
         anchoredSlots++;
+        slotOrigins.push('refreshed');
         continue;
       }
       // No matching fresh slot but the event still exists — keep ledger as-is.
       out.push({ ...ledgerSlot });
       anchoredSlots++;
+      slotOrigins.push('sticky');
       continue;
     }
 
@@ -6973,6 +7011,7 @@ function mergeWithLedger(
           relationshipTag: ledgerSlot.relationshipTag ?? null,
         });
         anchoredSlots++;
+        slotOrigins.push('refreshed');
         continue;
       }
       // Fall through to generic recompute if we couldn't find a match.
@@ -6984,6 +7023,7 @@ function mergeWithLedger(
     if (!slotCancelled) {
       out.push({ ...ledgerSlot });
       carriedSlots++;
+      slotOrigins.push('sticky');
       continue;
     }
 
@@ -7005,10 +7045,12 @@ function mergeWithLedger(
         priorityTag: ledgerSlot.priorityTag ?? null,
         relationshipTag: ledgerSlot.relationshipTag ?? null,
       });
+      slotOrigins.push('refreshed');
     } else {
       // No fresh content available — keep ledger slot.
       out.push({ ...ledgerSlot });
       carriedSlots++;
+      slotOrigins.push('sticky');
     }
   }
 
@@ -7018,9 +7060,19 @@ function mergeWithLedger(
     if (nextIdx < 0) break;
     usedFreshIndexes.add(nextIdx);
     out.push(freshModules[nextIdx]);
+    slotOrigins.push('refreshed');
   }
 
-  const allocation = allocatePlanSlots({
+  // Sprint 2 (Phase 3): allocator now receives the REAL current-window
+  // context (real ranked candidates + real day-shape flags + current nowMs)
+  // — the same inputs used by the fresh-generation path. This fixes the
+  // afternoon/evening degradation where the ledger-evolution path was
+  // fabricating score:0 pseudo-candidates with hardcoded structural flags.
+  //
+  // Fallback: if a caller did not pass an allocatorContext (older test
+  // path only), fall back to the legacy pseudo-candidate reconstruction
+  // so we never hard-crash.
+  const effectiveAllocatorContext: LedgerAllocatorContext = allocatorContext ?? {
     nowMs: Date.now(),
     rankedCandidates: freshModules.map((m, idx) => ({
       eventId: String(m.anchorEventId || m.jitEventTitle || idx),
@@ -7032,22 +7084,42 @@ function mergeWithLedger(
       importance: 0,
       components: null as any,
       event: { id: String(m.anchorEventId || idx), title: m.jitEventTitle || m.timeLabel || '', start_time: '', end_time: '' },
-    })),
+    })) as any,
     hasTravelDay: false,
     hasConferenceDay: false,
     hasOffsiteDay: false,
     hasRestSignals: false,
+  };
+
+  const allocation = allocatePlanSlots({
+    nowMs: effectiveAllocatorContext.nowMs,
+    rankedCandidates: effectiveAllocatorContext.rankedCandidates,
+    hasTravelDay: effectiveAllocatorContext.hasTravelDay,
+    hasConferenceDay: effectiveAllocatorContext.hasConferenceDay,
+    hasOffsiteDay: effectiveAllocatorContext.hasOffsiteDay,
+    hasRestSignals: effectiveAllocatorContext.hasRestSignals,
   });
-  // Sprint 1 (Phase 2): allocator IDENTITY wins over legacy slot identity
-  // — same rule as the fresh-plan path above. Content fields (whyLine,
-  // timeLabel, practice, ...) remain owned by legacy `m`.
-  //
-  // NB: `rankedCandidates` here are reconstructed from `freshModules` with
-  // score:0 and hardcoded structural flags. That degrades the allocator's
-  // day-shape / mode inputs, which Phase 3 will fix. Sprint 1 only
-  // guarantees IDENTITY precedence — not day-shape correctness — on the
-  // ledger-evolution path.
+
+  // Sprint 2 (Phase 3): allocator identity STILL wins (Sprint 1 rule) — but
+  // only for slots whose origin is 'refreshed' (unfinished / current /
+  // future). Sticky slots (completed, user-anchored ledger carry) keep
+  // their persisted identity intact so replacing one priority never
+  // reshuffles a completed win. dayShape / mode are informational and
+  // still applied globally.
+  let refreshedSlotCount = 0;
+  let carriedSlotCount = 0;
   const annotated = out.slice(0, 3).map((m, idx) => {
+    const origin = slotOrigins[idx] ?? 'refreshed';
+    if (origin === 'sticky') {
+      carriedSlotCount++;
+      return {
+        ...m,
+        mode: allocation.mode,
+        dayShape: allocation.dayShape,
+        slotAllocationDebug: allocation.debug,
+      };
+    }
+    refreshedSlotCount++;
     const a = allocation.slots[idx];
     const merged: any = {
       ...m,
@@ -7071,12 +7143,25 @@ function mergeWithLedger(
     return merged;
   });
   try {
+    console.info('[generate-mastery-plan][ledger-evolution-context]', {
+      hasTravelDay: effectiveAllocatorContext.hasTravelDay,
+      hasConferenceDay: effectiveAllocatorContext.hasConferenceDay,
+      hasOffsiteDay: effectiveAllocatorContext.hasOffsiteDay,
+      hasRestSignals: effectiveAllocatorContext.hasRestSignals,
+      rankedCandidateCount: effectiveAllocatorContext.rankedCandidates.length,
+      dayShape: allocation.dayShape,
+      mode: allocation.mode,
+      carriedSlotCount,
+      refreshedSlotCount,
+      usedFallbackContext: !allocatorContext,
+    });
     console.info('[generate-mastery-plan][slot-allocation-final]', {
       source: 'ledger-evolution',
       dayShape: allocation.dayShape,
       mode: allocation.mode,
       slots: annotated.map((m: any, idx: number) => ({
         idx,
+        origin: slotOrigins[idx] ?? 'refreshed',
         allocatorPhase: allocation.slots[idx]?.jitPhase ?? null,
         finalPhase: m.jitPhase ?? null,
         allocatorTitle: allocation.slots[idx]?.jitEventTitle ?? null,
