@@ -9,6 +9,7 @@ import {
 const cors = adminCorsHeaders();
 const JOB_KEY = "executive_home_cards";
 const NOTIFICATION_JOB_KEY = "notification_evaluator";
+const TRAVEL_SYNC_JOB_KEY = "travel_state_sync";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -79,6 +80,44 @@ async function loadNotificationConfig(db: any) {
     };
   } catch (err) {
     console.warn("[admin-jobs-summary] notification config lookup threw", err);
+    return null;
+  }
+}
+
+/**
+ * Sprint 10 / Phase 9B — Travel State Sync job visibility.
+ * There is no dedicated run-log table for this job yet, so only static
+ * config plus dispatcher metadata is surfaced. Missing config row is
+ * safe: returns null and the summary simply omits the entry.
+ */
+async function loadTravelSyncConfig(db: any) {
+  try {
+    const { data, error } = await db
+      .from("admin_cron_job_configs")
+      .select("id, job_key, job_name, description, function_name, enabled, schedule_mode, cron_expression, dispatcher_interval_minutes, timezone, run_windows, config_json, last_updated_by, last_updated_by_email, updated_at")
+      .eq("job_key", TRAVEL_SYNC_JOB_KEY)
+      .maybeSingle();
+    if (error || !data) return null;
+    const d = data as Record<string, any>;
+    return {
+      id: d.id,
+      jobKey: d.job_key,
+      jobName: d.job_name,
+      description: d.description ?? null,
+      functionName: d.function_name,
+      enabled: d.enabled !== false,
+      scheduleMode: d.schedule_mode ?? "dispatcher",
+      cronExpression: d.cron_expression ?? null,
+      dispatcherIntervalMinutes: d.dispatcher_interval_minutes ?? null,
+      timezone: d.timezone ?? "UTC",
+      runWindows: Array.isArray(d.run_windows) ? d.run_windows : [],
+      config: d.config_json ?? {},
+      lastUpdatedBy: d.last_updated_by ?? null,
+      lastUpdatedByEmail: d.last_updated_by_email ?? null,
+      updatedAt: d.updated_at ?? null,
+    };
+  } catch (err) {
+    console.warn("[admin-jobs-summary] travel sync config lookup threw", err);
     return null;
   }
 }
@@ -263,9 +302,10 @@ Deno.serve(async (req) => {
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? "50") || 50));
 
   const todayIso = startOfTodayIso();
-  const [config, notificationConfig] = await Promise.all([
+  const [config, notificationConfig, travelSyncConfig] = await Promise.all([
     loadExecutiveHomeConfig(db),
     loadNotificationConfig(db),
+    loadTravelSyncConfig(db),
   ]);
 
   const sources: Array<{ name: string; available: boolean; reason?: string }> = [];
@@ -394,6 +434,29 @@ Deno.serve(async (req) => {
   const failedJobs24h = todayFailed.count ?? 0;
   const successfulJobs24h = Math.max(0, (todayRuns.count ?? 0) - failedJobs24h);
 
+  const travelSyncJob = travelSyncConfig
+    ? {
+        jobKey: travelSyncConfig.jobKey,
+        jobName: travelSyncConfig.jobName,
+        functionName: travelSyncConfig.functionName,
+        enabled: travelSyncConfig.enabled,
+        scheduleType: travelSyncConfig.scheduleMode,
+        cronExpression: travelSyncConfig.cronExpression,
+        dispatcherIntervalMinutes: travelSyncConfig.dispatcherIntervalMinutes,
+        lastRunTime: null,
+        lastSuccessTime: null,
+        lastFailureTime: null,
+        nextExpectedRun: null,
+        currentStatus: travelSyncConfig.enabled ? "idle" : "disabled",
+        totalRunsToday: null,
+        failedRunsToday: null,
+        averageDurationMs: null,
+        lastErrorMessage: null,
+        editable: true,
+        config: travelSyncConfig,
+      }
+    : null;
+
   const persistedConfigs = [
     {
       jobKey: config.jobKey,
@@ -421,6 +484,20 @@ Deno.serve(async (req) => {
           lastUpdatedByEmail: notificationConfig.lastUpdatedByEmail,
         }]
       : []),
+    ...(travelSyncConfig
+      ? [{
+          jobKey: travelSyncConfig.jobKey,
+          jobName: travelSyncConfig.jobName,
+          description: travelSyncConfig.description,
+          enabled: travelSyncConfig.enabled,
+          scheduleCron: travelSyncConfig.cronExpression,
+          timezone: travelSyncConfig.timezone,
+          runWindows: travelSyncConfig.runWindows,
+          config: travelSyncConfig.config,
+          updatedAt: travelSyncConfig.updatedAt,
+          lastUpdatedByEmail: travelSyncConfig.lastUpdatedByEmail,
+        }]
+      : []),
   ];
 
   console.log("[admin-jobs-summary] responding", {
@@ -446,7 +523,7 @@ Deno.serve(async (req) => {
       failed24h: failedJobs24h,
       success24h: successfulJobs24h,
     },
-    jobs: [executiveJob, notificationJob],
+    jobs: travelSyncJob ? [executiveJob, notificationJob, travelSyncJob] : [executiveJob, notificationJob],
     recentRuns: runsResult.data ?? [],
     configs: persistedConfigs,
     sources,
