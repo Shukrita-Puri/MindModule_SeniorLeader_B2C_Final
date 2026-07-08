@@ -1887,37 +1887,66 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         // payload has a richer Physical Reserves pill for the same
         // window, prefer live pills over snapshot pills as the render
         // source. Score / state stay snapshot-authoritative.
-        const displayableCount = (arr: unknown): number => {
-          if (!Array.isArray(arr)) return 0;
-          const p = arr.find(
-            (x: any) => x && x.key === 'physical_reserves',
-          ) as any;
-          const c = p?.contributors ?? {};
-          const isNum = (v: unknown) =>
-            typeof v === 'number' && Number.isFinite(v);
-          return (
-            (isNum(c.sleepDuration) ? 1 : 0) +
-            (isNum(c.sleepScore) ? 1 : 0) +
-            (isNum(c.rhrValue) ? 1 : 0) +
-            (isNum(c.hrValue) ? 1 : 0)
-          );
+        // Sprint B — compare contributor richness across ALL three pills,
+        // not only physical_reserves. Every value that the tooltip whitelist
+        // knows how to format counts as one displayable contributor. Whichever
+        // payload has more displayable evidence wins; ties prefer snapshot
+        // (score/tier authority). Stale previous-window snapshots are already
+        // filtered upstream by `snapshotIsRenderable`.
+        const DISPLAYABLE_KEYS: Record<string, string[]> = {
+          decision_readiness: ['hrvValue', 'sleepDuration', 'sleepScore', 'clarityLevel'],
+          physical_reserves: ['sleepDuration', 'sleepScore', 'rhrValue', 'hrValue'],
+          resilience_capacity: [
+            'sleepEfficiency',
+            'sleep_efficiency',
+            'emotionLevel',
+            'regulationLevel',
+            'pressureLevel',
+          ],
+        };
+        const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+        const perPillCount = (arr: unknown): Record<string, number> => {
+          const out: Record<string, number> = {
+            decision_readiness: 0,
+            physical_reserves: 0,
+            resilience_capacity: 0,
+          };
+          if (!Array.isArray(arr)) return out;
+          for (const p of arr as any[]) {
+            if (!p || typeof p.key !== 'string') continue;
+            const keys = DISPLAYABLE_KEYS[p.key];
+            if (!keys) continue;
+            const c = (p.contributors ?? {}) as Record<string, unknown>;
+            out[p.key] = keys.reduce((n, k) => n + (isNum(c[k]) ? 1 : 0), 0);
+          }
+          return out;
         };
         const snapPills = (snap.signalPills ?? null) as unknown;
         const livePills = (base.signalPills ?? null) as unknown;
-        const snapDisplayable = displayableCount(snapPills);
-        const liveDisplayable = displayableCount(livePills);
-        const preferLivePills =
-          Array.isArray(livePills) &&
-          liveDisplayable > 0 &&
-          snapDisplayable === 0;
+        const snapPerPill = perPillCount(snapPills);
+        const livePerPill = perPillCount(livePills);
+        const snapTotal =
+          snapPerPill.decision_readiness + snapPerPill.physical_reserves + snapPerPill.resilience_capacity;
+        const liveTotal =
+          livePerPill.decision_readiness + livePerPill.physical_reserves + livePerPill.resilience_capacity;
+        const preferLivePills = Array.isArray(livePills) && liveTotal > snapTotal;
         const chosenPills = preferLivePills ? livePills : (snapPills ?? livePills ?? null);
         try {
+          const chosenArr = Array.isArray(chosenPills) ? (chosenPills as any[]) : [];
           // eslint-disable-next-line no-console
           console.log('[PRB][pills-source]', {
-            snapDisplayable,
-            liveDisplayable,
-            preferLivePills,
             source: preferLivePills ? 'live' : snapPills ? 'snapshot' : 'live-fallback',
+            snapPerPill,
+            livePerPill,
+            snapTotal,
+            liveTotal,
+            perPill: chosenArr.map((p: any) => ({
+              key: p?.key,
+              contributorCount: Object.values(p?.contributors ?? {}).filter((v) => v != null).length,
+              sourceTypes: p?.sourceTypes ?? [],
+              contributedByCheckIn: !!p?.contributedByCheckIn,
+              isScoreBearing: !!p?.isScoreBearing,
+            })),
           });
         } catch {}
         // ── Copy source preference ────────────────────────────────────
