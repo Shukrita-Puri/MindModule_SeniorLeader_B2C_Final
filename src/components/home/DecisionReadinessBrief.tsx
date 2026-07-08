@@ -2177,10 +2177,19 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // Phase 3.8 hardening: if a renderable current-window snapshot exists, do
   // not also show the live engine-failure retry block underneath it.
   const showFailureBlock = isEngineFailure && !snapshotIsRenderable;
-  // Show the awaiting copy ONLY for a real cold-start. Engine failures get
-  // their own retry block below.
+  // ─── SPRINT A — TRUE-AWAITING ONLY ───
+  // Show the awaiting copy ONLY when the payload is genuinely awaiting:
+  //   • no renderable copy AND
+  //   • no renderable score AND
+  //   • no engine-failure block AND
+  //   • backend flagged awaiting (cardsAwaiting from isTrueAwaitingBrief
+  //     already captures cold-start / explicit awaitingSignals)
+  // A missing score alone must NOT hide a valid phrase/body — the score
+  // slot renders `--` while the copy stays stable.
+  const copyRenderable = hasRenderableBriefCopy(outerBrief);
+  const scoreRenderable = hasRenderableBriefScore(outerBrief);
   const showNeutralAwaitingCopy =
-    !showFailureBlock && (cardsAwaiting || awaitingSignals || readinessState === 'awaiting' || score == null);
+    !showFailureBlock && cardsAwaiting && !copyRenderable && !scoreRenderable;
   // Copy-only awaiting: score payload is present but the LLM never delivered
   // phrase/body (e.g. validation reject or provider 402). Show neutral prose
   // in the copy slot so the card is never blank, while keeping the score,
