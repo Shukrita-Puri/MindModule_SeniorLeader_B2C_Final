@@ -1682,6 +1682,15 @@ const TodayThreePriorities = ({
 
   const horizonModules = plan?.horizonModules;
 
+  // Sprint 4 (Phase 6) — rest-day contract. When the backend classifies
+  // today as a true rest day, `horizonModules` is intentionally empty and
+  // the Plan card must NOT render three fabricated priorities or the
+  // empty-shell "check in to build your plan" prompt.
+  const isRestDayPlan =
+    (plan as any)?.meta?.restDay === true ||
+    (plan as any)?.meta?.dayShape === 'rest_day' ||
+    (plan as any)?.restDay === true;
+
   // ── Script-gated reveal ──
   // Hold the priorities content until BOTH the fetch completes AND the
   // scripted "mixture" narration plays every step in order. Empty/error
