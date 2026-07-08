@@ -484,6 +484,20 @@ Deno.serve(async (req) => {
           lastUpdatedByEmail: notificationConfig.lastUpdatedByEmail,
         }]
       : []),
+    ...(travelSyncConfig
+      ? [{
+          jobKey: travelSyncConfig.jobKey,
+          jobName: travelSyncConfig.jobName,
+          description: travelSyncConfig.description,
+          enabled: travelSyncConfig.enabled,
+          scheduleCron: travelSyncConfig.cronExpression,
+          timezone: travelSyncConfig.timezone,
+          runWindows: travelSyncConfig.runWindows,
+          config: travelSyncConfig.config,
+          updatedAt: travelSyncConfig.updatedAt,
+          lastUpdatedByEmail: travelSyncConfig.lastUpdatedByEmail,
+        }]
+      : []),
   ];
 
   console.log("[admin-jobs-summary] responding", {
@@ -509,7 +523,7 @@ Deno.serve(async (req) => {
       failed24h: failedJobs24h,
       success24h: successfulJobs24h,
     },
-    jobs: [executiveJob, notificationJob],
+    jobs: travelSyncJob ? [executiveJob, notificationJob, travelSyncJob] : [executiveJob, notificationJob],
     recentRuns: runsResult.data ?? [],
     configs: persistedConfigs,
     sources,
