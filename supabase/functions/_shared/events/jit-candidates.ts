@@ -143,6 +143,7 @@ export function rankJitCandidates(
   nowMs: number,
 ): RankedJitCandidate[] {
   const out: RankedJitCandidate[] = [];
+  const dropped: Array<{ title: string; categoryId: string; phase: string; score: number; reason: string }> = [];
   for (const ev of events) {
     if (ev.memoryHardDemote) continue;
     const startMs = new Date(ev.event.start_time).getTime();
@@ -170,7 +171,7 @@ export function rankJitCandidates(
       const demW = demandWeight(phase, enriched.demandProfile);
       const prox = proximityScore(nowMs, winStart, winEnd);
       const score = base + catW + sevW + demW + prox - skipPenalty + memory;
-      out.push({
+      const candidate: RankedJitCandidate = {
         eventId: ev.event.id || '',
         title: ev.event.title || '',
         phase,
@@ -193,9 +194,107 @@ export function rankJitCandidates(
           skipPenalty,
           memory,
         },
-      });
+      };
+      // Sprint 3 (Phase 5): drop weak/low-stakes candidates so one weak
+      // classifier hit cannot anchor a Plan slot (or worse, be recycled
+      // across all three).
+      const dropReason = getJitCandidateDropReason(candidate, ev);
+      if (dropReason) {
+        dropped.push({
+          title: candidate.title,
+          categoryId: String(candidate.categoryId),
+          phase: candidate.phase,
+          score: candidate.score,
+          reason: dropReason,
+        });
+        continue;
+      }
+      out.push(candidate);
     }
   }
   out.sort((a, b) => b.score - a.score);
+  if (dropped.length > 0) {
+    try {
+      // Keep the log compact — only the top 10 drops per call.
+      console.info('[rankJitCandidates][filtered-low-stakes]', {
+        droppedCount: dropped.length,
+        keptCount: out.length,
+        dropped: dropped.slice(0, 10),
+      });
+    } catch { /* logging must never break ranking */ }
+  }
   return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Sprint 3 (Phase 5) — meaningful-candidate floor
+//
+// Weak, low-stakes classifier hits ("Liquid Fast", "personal errand",
+// weakly-matched routine items) were entering ranked candidates and, via
+// `allocatePlanSlots`' `second ?? top` fallback, being repeated across
+// all three Plan slots. This floor drops candidates that carry no real
+// executive signal.
+//
+// The rule is a PREDICATE, not just a magic score — a low-scoring but
+// genuinely high-stakes short event (e.g. a 10-minute board vote) still
+// clears the floor via `hasStrongStakes`.
+// ═══════════════════════════════════════════════════════════════════════
+
+/** Absolute floor when the predicate has no strong signals to rely on. */
+export const MIN_CANDIDATE_SCORE = 25;
+
+const STRONG_STAKES = new Set(['board', 'external', 'investor', 'critical', 'high']);
+const STRUCTURAL_CATEGORIES = new Set(['A', 'C', 'D', 'F']); // governance, delivery, visibility/travel, high-stakes interpersonal
+const PERSONAL_CATEGORY = 'H';
+
+/**
+ * Returns a short string reason if the candidate should be dropped, or
+ * `null` if it is meaningful enough to enter the ranked list.
+ */
+export function getJitCandidateDropReason(
+  c: RankedJitCandidate,
+  ev: RankableEventInput,
+): string | null {
+  const stakes = String(ev.stakesLevel || '').toLowerCase();
+  const hasStrongStakes = STRONG_STAKES.has(stakes);
+  const hasMediumStakes = stakes === 'medium';
+  const hasStrongSeverity = c.severity === 'high';
+  const hasStrongDemand = (c.components?.demand ?? 0) >= 8;
+  const hasPositiveMemory = (c.components?.memory ?? 0) >= 10;
+  const isStructural = STRUCTURAL_CATEGORIES.has(String(c.categoryId));
+  const isPersonal = String(c.categoryId) === PERSONAL_CATEGORY;
+
+  // Explicit strong signals are always enough on their own.
+  if (hasStrongStakes) return null;
+  if (hasPositiveMemory) return null;
+
+  // Personal-category items must have an explicit user/stakes signal —
+  // routine personal errands should never anchor an executive Plan slot.
+  if (isPersonal) return 'personal_category_without_explicit_stakes';
+
+  // Structural categories keep any candidate carrying at least one real
+  // signal (stakes-medium, severity-high, or a real demand profile).
+  if (isStructural) {
+    if (hasMediumStakes || hasStrongSeverity || hasStrongDemand) return null;
+    // Otherwise fall through to the numeric floor — structural events with
+    // literally no metadata still deserve consideration if the raw score
+    // is high enough (proximity, category weight).
+  } else {
+    // Non-structural (B, E, G, ...): require at least two secondary
+    // signals OR a clear numeric floor.
+    const secondarySignals = [hasMediumStakes, hasStrongSeverity, hasStrongDemand].filter(Boolean).length;
+    if (secondarySignals >= 2) return null;
+  }
+
+  if (c.score >= MIN_CANDIDATE_SCORE) return null;
+
+  return 'below_meaningful_floor';
+}
+
+/** Inverse of `getJitCandidateDropReason` — convenience for tests / callers. */
+export function isMeaningfulJitCandidate(
+  c: RankedJitCandidate,
+  ev: RankableEventInput,
+): boolean {
+  return getJitCandidateDropReason(c, ev) === null;
 }
