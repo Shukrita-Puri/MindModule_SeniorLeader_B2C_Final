@@ -5277,27 +5277,104 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // If anything below throws (scope regression, undefined access, etc.), fail soft with a
     // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
     try {
-    // v6.5-no-deterministic-fallback contract:
-    //   • cache hit → render the cached brief (LLM row, or a pre-v6.5 row
-    //                 stamped brief_source='deterministic')
-    //   • fresh LLM success → render it
-    //   • fresh LLM miss (all attempts failed) → briefIsAwaiting=true; the
-    //     response nulls phrase/body/leanOn/watchFor and persists
-    //     brief_source='awaiting'. There is no runtime prose-fallback path;
-    //     legacy deterministic phrasing can only appear via a cache hit on a
-    //     pre-v6.5 row.
-    // Signal-contract awaiting (`awaitingSignals`, computed below) is a
-    // separate, orthogonal suppression path and remains intact.
-    const briefIsAwaiting = !cachedSnapshot && !llmBrief;
+    // ═══ BRIEF SIGNAL CONTRACT (day-scoped) ═══
+    // Hoisted above the briefSource decision so the deterministic
+    // fallback (Sprint 7 / Phase 9A) can honour the awaiting rules. The
+    // Brief reflects *today*: ANY non-skipped check-in for the user's
+    // local date satisfies the contract regardless of which time_window
+    // stamp it carries.
+    const currentPeriod = getTimeOfDay(hour);
+    let hasTodayCheckInDB = false;
+    let latestCheckinId: string | null = null;
+    let latestCheckinWindow: string | null = null;
+    try {
+      const { data: anyCheckin } = await db
+        .from('daily_checkins')
+        .select('id, time_window, timestamp')
+        .eq('user_id', userId)
+        .eq('checkin_date', userLocalDate)
+        .eq('skipped', false)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      hasTodayCheckInDB = !!anyCheckin;
+      latestCheckinId = anyCheckin?.id ?? null;
+      latestCheckinWindow = anyCheckin?.time_window ?? null;
+    } catch (e) {
+      console.warn('[compute-outer-readiness] Day-scoped check-in lookup failed:', e);
+      hasTodayCheckInDB = !!checkInOutcome;
+    }
+    const hasTodayCheckIn = hasTodayCheckInDB;
+    const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
+    const hasCalendarSignal = calendarResult?.state === 'active';
+    const hasCalendarConnected = calendarResult?.state && calendarResult.state !== 'not_connected';
+    const hasStage1Signal = hasWearableData || hasCalendarSignal || hasCalendarConnected;
+    const briefSignalContractMet = hasStage1Signal;
+    const awaitingSignals = !briefSignalContractMet;
+    const awaitingReason: string | null = awaitingSignals ? 'cold-start-no-context' : null;
+    console.log('[compute-outer-readiness] signal-gate', {
+      userId,
+      userLocalDate,
+      currentPeriod,
+      hasTodayCheckIn,
+      latestCheckinId,
+      latestCheckinWindow,
+      hasFreshWearable,
+      hasCalendarSignal,
+      hasStage1Signal,
+      awaitingSignals,
+    });
+
+    // Sprint 7 / Phase 9A — Brief deterministic fallback.
+    // Contract: cache hit wins → LLM wins → deterministic (only when the
+    // underlying signal + inner-state contracts are ready) → awaiting.
+    // Deterministic prose is NEVER emitted when awaitingSignals or
+    // innerStateIsAwaiting is true; those states must remain awaiting.
+    const fallbackDecision: FallbackDecision = decideBriefFallback({
+      cachedSnapshotPresent: !!cachedSnapshot,
+      llmBriefPresent: !!llmBrief,
+      awaitingSignals,
+      innerStateIsAwaiting,
+      deterministicPhrase: finalPhrase,
+      deterministicBody: finalContext,
+    });
+    const useDeterministicFallback = fallbackDecision.use;
+    if (useDeterministicFallback) {
+      console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
+        source: 'deterministic',
+        reason: llmFallbackReason || 'llm_miss_signals_ready',
+        llmAttempted: llmAttemptRecords.length > 0,
+        validatorRejectReason: llmValidatorRejections.length > 0
+          ? (llmValidatorRejections[llmValidatorRejections.length - 1] as any)?.rule ?? null
+          : null,
+        awaiting: false,
+        snapshotPersisted: true,
+      }));
+    } else if (!cachedSnapshot && !llmBrief) {
+      console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
+        source: 'awaiting',
+        reason: fallbackDecision.reason,
+        llmAttempted: llmAttemptRecords.length > 0,
+        validatorRejectReason: llmValidatorRejections.length > 0
+          ? (llmValidatorRejections[llmValidatorRejections.length - 1] as any)?.rule ?? null
+          : null,
+        awaiting: true,
+        snapshotPersisted: true,
+      }));
+    }
+
+    const briefIsAwaiting = !cachedSnapshot && !llmBrief && !useDeterministicFallback;
     const briefSource: 'llm' | 'deterministic' | 'awaiting' = cachedSnapshot
       ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
-      : (llmBrief ? 'llm' : 'awaiting');
+      : (llmBrief ? 'llm' : (useDeterministicFallback ? 'deterministic' : 'awaiting'));
     const responsePhrase = briefIsAwaiting
       ? null
       : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);
     const rawResponseBody = briefIsAwaiting
       ? null
-      : (cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext);
+      : (cachedSnapshot?.body_text
+          ?? llmBrief?.bodyText
+          ?? (useDeterministicFallback ? capDeterministicBody(finalContext) : finalContext));
     // Strip stray markdown emphasis the LLM occasionally emits (e.g.
     // "*Board Meeting *"). The client renderer still parses **bold** spans
     // so we intentionally do NOT touch them — only lone-asterisk noise.
