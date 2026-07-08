@@ -3191,6 +3191,13 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     : hasStage1Signal
       ? 'early'
       : 'cold_start';
+  // Sprint 8 / Phase 10 guardrail:
+  // Stage-1 signal (wearable OR calendar event OR calendar-connected) is
+  // NECESSARY but NOT SUFFICIENT to unlock the Plan. Calendar-only cannot
+  // fabricate a Plan while MRS cards are still awaiting — the readiness
+  // pillar must have produced at least a baseline score. Do not weaken
+  // this gate to `hasStage1Signal` alone; that would ship three fake
+  // priorities to Executive Home on calendar-only mornings.
   const canGeneratePlan = hasStage1Signal && !mrsCardsAwaiting;
   const finalDecision = canGeneratePlan ? 'generate' : 'awaiting-signals';
   console.log('[generate-mastery-plan] signal-gate', {
