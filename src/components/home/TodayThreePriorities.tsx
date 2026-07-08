@@ -1855,6 +1855,26 @@ const TodayThreePriorities = ({
 
   // ── Empty / error state — always show card shell ──
   if (!horizonModules || horizonModules.length === 0) {
+    // Sprint 4 (Phase 6) — truthful rest-day state. Zero horizon modules
+    // is not an error and not an awaiting state; it's the backend saying
+    // "today has no performance demand — recover and reset". Render a
+    // calm, non-numeric state (no "1/2/3" placeholders, no JIT, no
+    // event anchors, no "check in" prompt).
+    if (isRestDayPlan) {
+      console.info('[plan-card] early-return', { branch: 'rest-day', planExists: !!plan });
+      return (
+        <div className="space-y-4 pt-2 animate-fade-in">
+          <div className="flex flex-col items-center gap-2 px-6 py-6 max-w-lg mx-auto text-center">
+            <p className="text-sm text-foreground/80 font-body">
+              No priorities needed today.
+            </p>
+            <p className="text-xs text-muted-foreground font-body leading-relaxed">
+              Use today to recover and reset.
+            </p>
+          </div>
+        </div>
+      );
+    }
     console.info('[plan-card] early-return', { branch: 'empty', fetchFailed, planExists: !!plan });
     return (
       <div className="space-y-4 pt-2">
