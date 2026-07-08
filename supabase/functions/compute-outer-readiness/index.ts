@@ -5796,6 +5796,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               hrvValue,
               sleepDuration,
               sleepScore: sleepScoreVal,
+              // Sprint B — persist raw clarity so the tooltip can render the
+              // check-in contributor row even when the qualifier pipeline
+              // hasn't attached a Δ3d/vsDow enrichment yet.
+              clarityLevel,
             },
           },
           {
@@ -5829,6 +5833,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               // and the protection-goals framing. Raw calendarLoad/calendarPressure
               // are intentionally NOT surfaced as contributors — they live in
               // the Brief body, not as standalone pill rows.
+              // Sprint B — persist raw check-in dims + sleepEfficiency so the
+              // tooltip can honestly render the contributor rows without
+              // waiting on the qualifier enrichment step.
+              sleepEfficiency: sleepEffPill,
+              emotionLevel,
+              regulationLevel,
+              pressureLevel,
               sustainedDeficit: sustainedDeficitFlag,
               hrvHighDemandCooccurrence7d: cooccurrence7d,
               protectionGoalsCount: protectionGoals.length,
