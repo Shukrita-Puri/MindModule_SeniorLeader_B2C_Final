@@ -41,9 +41,9 @@ curl -s -X POST \
 ```sql
 SELECT
   run_id, window, status,
-  mrs_status,      -- expect 'ok' | 'awaiting' | 'skipped'
-  brief_status,    -- expect 'ok' | 'awaiting' | 'deterministic' | 'skipped'
-  plan_status,     -- expect 'ok' | 'awaiting' | 'skipped'
+  mrs_status,      -- expect 'ready' | 'awaiting' | 'awaiting_no_score' | 'skipped'
+  brief_status,    -- expect 'ready' | 'awaiting' | 'skipped'
+  plan_status,     -- expect 'ready' | 'awaiting' | 'skipped_no_stage_one_signal' | 'error'
   skipped_reason, error, duration_ms, created_at
 FROM executive_home_card_runs
 WHERE user_id = '$USER_ID' AND local_date = '$LOCAL_DATE'
@@ -51,8 +51,12 @@ ORDER BY created_at DESC LIMIT 5;
 ```
 
 **Contract:** MRS must resolve first, Brief second, Plan third. If
-`mrs_status='awaiting'` then `brief_status` must be `awaiting` or
-`skipped`, and `plan_status` must be `awaiting` or `skipped`.
+`mrs_status` is anything other than `ready` (e.g. `awaiting`,
+`awaiting_no_score`) then `brief_status` must be `awaiting` and
+`plan_status` must be `awaiting` or `skipped_no_stage_one_signal`.
+Brief `brief_source='deterministic'` on `brief_snapshots` is only valid
+when `brief_status='ready'` and the underlying signals are truly ready
+— it must never rescue a true awaiting state.
 
 ## 3. Verify snapshot writes
 
@@ -147,8 +151,11 @@ ORDER BY delivered_at DESC;
 Delivered-only history filter:
 
 ```bash
-curl -s "https://<edge-host>/functions/v1/brief-history?delivered=1&userId=$USER_ID" \
-  -H "Authorization: Bearer $ADMIN_JWT" | jq '.rows | length'
+# brief-history scopes results to the JWT subject — the `userId` query
+# param is IGNORED. Call it with the test user's own bearer token, not
+# an admin token, and inspect `.briefs` (not `.rows`).
+curl -s "https://<edge-host>/functions/v1/brief-history?delivered=1" \
+  -H "Authorization: Bearer $USER_JWT" | jq '.briefs | length'
 ```
 
 The count must equal `SELECT count(*) FROM brief_snapshots WHERE
