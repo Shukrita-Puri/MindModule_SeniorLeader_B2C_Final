@@ -2272,11 +2272,16 @@ const TodayThreePriorities = ({
                 </div>
 
                 {/* Arc badge — Prepare / During / Recover / Steady.
-                    Renders only when the slot is anchored to a known event
-                    (or carries an explicit arc), so multi-arc allocations
-                    of the same event are self-explanatory. Muted chip style
-                    — no new colour token. */}
-                {hm.arcLabel && (hm.isJit || !!hm.jitEventTitle) && (
+                    Sprint F rule: Steady is a state-only label and renders
+                    without an event anchor; Prepare / During / Recover only
+                    render when the slot is genuinely anchored to a known
+                    event, so state-only slots never carry a fake event
+                    arc. Muted chip style — no new colour token. */}
+                {hm.arcLabel && (
+                  hm.arcLabel === 'Steady'
+                    ? true
+                    : (hm.isJit || !!hm.jitEventTitle)
+                ) && (
                   <span
                     className={cn(
                       "text-[10px] tracking-[0.12em] uppercase font-body px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground/80 flex-shrink-0",
