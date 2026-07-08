@@ -183,21 +183,30 @@ export function anchorTokens(title: string, categoryId: EventCategoryId | null):
 }
 
 const STATE_TOKEN_REGEX: Record<StateBand, RegExp> = {
-  firing: /\b(sharp|firing|clear|edge|locked in|on form)\b/i,
-  sharp: /\b(sharp|firing|clear|edge|locked in|on form)\b/i,
-  steady: /\b(steady|holding|on track|even)\b/i,
-  stretched: /\b(low|running low|reserves|stretched|tired|drained|behind)\b/i,
-  depleted: /\b(low|running low|reserves|stretched|tired|drained|behind)\b/i,
+  firing: /\b(sharp|firing|clear|edge|locked in|on form|dialed in|in flow|switched on)\b/i,
+  sharp: /\b(sharp|firing|clear|edge|locked in|on form|dialed in|in flow|switched on)\b/i,
+  steady: /\b(steady|holding|on track|even|calm|settled|on pace|in rhythm)\b/i,
+  stretched: /\b(low|running low|reserves|stretched|tired|drained|behind|thin|running on fumes|worn|heavy|foggy)\b/i,
+  depleted: /\b(low|running low|reserves|stretched|tired|drained|behind|thin|running on fumes|worn|heavy|foggy)\b/i,
 };
 
-const VALENCE_REJECT_FIRING = /\b(recover|recovery|recharge|wind down|come down|refill|rest up)\b/i;
-const VALENCE_REJECT_DEPLETED = /\b(push|sprint|spend the edge|go harder|lean in|grind)\b/i;
+const VALENCE_REJECT_FIRING = /\b(recover|recovery|recharge|wind down|come down|refill|rest up|unwind|ease off|ramp down)\b/i;
+const VALENCE_REJECT_DEPLETED = /\b(push|sprint|spend the edge|go harder|lean in|grind|power through|dig in)\b/i;
+
+/**
+ * Soft word-count ceiling for the Why-line. The prompt asks for one
+ * sentence, but the validator must enforce it so paragraph-length LLM
+ * output falls through to the deterministic repair path instead of
+ * reaching the card.
+ */
+const MAX_WHY_LINE_WORDS = 35;
 
 export type ValidatorReject =
   | "generic"
   | "valence_firing_recovery"
   | "valence_depleted_push"
   | "jaccard_dup"
+  | "too_long"
   | "empty";
 
 export interface ValidateWhyLineInput {
@@ -226,6 +235,13 @@ export function validateWhyLine(inp: ValidateWhyLineInput): ValidateWhyLineResul
   const raw = (inp.text || "").trim();
   if (!raw) return { ok: false, reason: "empty" };
   const lower = raw.toLowerCase();
+
+  // 0. Word-count ceiling — reject paragraph-length output. Prefer reject +
+  // deterministic fallback over silent truncation.
+  const wordCount = raw.split(/\s+/).filter(Boolean).length;
+  if (wordCount > MAX_WHY_LINE_WORDS) {
+    return { ok: false, reason: "too_long" };
+  }
 
   // 1. Anchor / state grounding (asymmetric — either anchor OR state grounds).
   const anchorSet = inp.slotAnchor?.eventTitle
