@@ -19,6 +19,7 @@ import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import PushNotificationTestDialog from '@/components/profile/PushNotificationTestDialog';
+import HomeLocationCard from '@/components/profile/HomeLocationCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ShieldCheck } from 'lucide-react';
 
