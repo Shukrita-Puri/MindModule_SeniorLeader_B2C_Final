@@ -2591,6 +2591,8 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   const now = new Date();
   const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
+  // hoisted below; keep buildSharedContext body unchanged.
+
   const ctx: SharedContext = {
     rawCalendarEvents: [],
     calendarGaps: [],
