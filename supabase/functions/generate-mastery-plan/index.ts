@@ -5190,6 +5190,10 @@ function composeWhyLine(
   ceo: CeoRealityTag[],
   briefClaim: Set<string>,
   fusionEventTitle: string | null,
+  opts: {
+    timeOfDay?: 'morning' | 'afternoon' | 'evening' | null;
+    windowSignals?: ReturnType<typeof derivePlanWindowSignals> | null;
+  } = {},
 ): string {
   // Slot-scoped anchor identity. composeWhyLine MUST only emit clauses
   // that belong to the slot's own anchor — global plan-scope CEO flags
@@ -5205,9 +5209,26 @@ function composeWhyLine(
   const slotAnchorCategoryId: string | null = (hm as any).anchorCategoryId
     ?? ((hm as any).jitCategoryId ?? null);
 
+  // Mindset.pause detection off the selected practice's metadata.
+  const p = (hm as any).practice ?? null;
+  const practiceIsMindsetPause =
+    !!p &&
+    String(p.protocol_type || '').toLowerCase() === 'mindset' &&
+    String(p.category || '').toLowerCase() === 'pause';
+  const corr = hrvCorrelations?.eventToHrv || hrvCorrelations?.hrvEventCorrelation || null;
+  const hasHrvEventCorrelation =
+    !!corr && typeof corr.avgHrvDelta === 'number' && Math.abs(corr.avgHrvDelta) >= 10 && (corr.occurrences ?? 0) >= 3;
+
   let strat = strategicAnchorClause(req, ceo, slotAnchorCategoryId);
   let tac = tacticalClause(req, shared, hrvCorrelations, ceo);
-  let imm = immediateClause(req, ceo, slotAnchorCategoryId);
+  let imm = immediateClause(req, ceo, slotAnchorCategoryId, {
+    timeOfDay: opts.timeOfDay ?? null,
+    windowSignals: opts.windowSignals ?? null,
+    slotKind: hm.slotKind ?? null,
+    phase: ((hm as any).jitPhase as 'pre' | 'during' | 'post' | null) ?? null,
+    practiceIsMindsetPause,
+    hasHrvEventCorrelation,
+  });
 
   if (strat && clauseOverlapsBrief(strat, briefClaim)) strat = null;
   if (tac && clauseOverlapsBrief(tac, briefClaim)) tac = null;
