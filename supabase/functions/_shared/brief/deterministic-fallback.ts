@@ -44,6 +44,16 @@ export type FallbackSkipReason =
 export const DETERMINISTIC_BODY_MAX_WORDS = 60;
 
 /**
+ * Hard runaway ceiling. Beyond this length the deterministic body is
+ * treated as suspicious template drift and rejected rather than silently
+ * truncated. Set well above the soft cap (60) so normal templates in the
+ * 45–65 range are always capped-and-used, never dropped to awaiting.
+ * Sprint 8: raised from 70 → 120 so valid 65–80 word templates no longer
+ * fall through to awaiting when the LLM path fails.
+ */
+export const DETERMINISTIC_BODY_RUNAWAY_WORDS = 120;
+
+/**
  * Decide whether the deterministic Brief may be persisted/returned this
  * run. Rules — in strict precedence order:
  *   1. cache hit → use cache, not deterministic
@@ -87,7 +97,7 @@ const DETERMINISTIC_BANNED = /\b(mindful|recharge|self-care|wellness|journey|syn
 function isDeterministicBodyValid(body: string): boolean {
   const words = body.split(/\s+/).filter(Boolean).length;
   if (words < 3) return false;
-  if (words > DETERMINISTIC_BODY_MAX_WORDS + 10) return false; // hard reject well beyond soft cap
+  if (words > DETERMINISTIC_BODY_RUNAWAY_WORDS) return false; // hard reject only on runaway drift
   if (DETERMINISTIC_BANNED.test(body)) return false;
   return true;
 }
