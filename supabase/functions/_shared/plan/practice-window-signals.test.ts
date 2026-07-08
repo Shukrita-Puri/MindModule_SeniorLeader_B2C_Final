@@ -163,9 +163,15 @@ Deno.test("Sprint D — good sleep + stable HRV boosts mindset/flow", () => {
 
 Deno.test("Sprint D — recency penalty still wins over window boost", () => {
   // Poor sleep boosts somatic (+6), but a 1-day recency penalty (-30)
-  // must dominate and hand the slot to the alternative.
+  // must dominate and hand the slot to the somatic alternative. Both
+  // candidates share protocol_type=somatic so the combo gate keeps them
+  // in the pool.
+  const somaticAlt: ScorableContent = {
+    ...somaticPause,
+    id: "somatic-pause-alt",
+  };
   const res = selectPracticeForSlot(
-    [somaticPause, mindsetPause],
+    [somaticPause, somaticAlt],
     { mode: "state" },
     steadyIntent,
     new Set(),
