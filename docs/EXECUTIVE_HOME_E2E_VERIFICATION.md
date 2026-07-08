@@ -151,8 +151,11 @@ ORDER BY delivered_at DESC;
 Delivered-only history filter:
 
 ```bash
-curl -s "https://<edge-host>/functions/v1/brief-history?delivered=1&userId=$USER_ID" \
-  -H "Authorization: Bearer $ADMIN_JWT" | jq '.rows | length'
+# brief-history scopes results to the JWT subject — the `userId` query
+# param is IGNORED. Call it with the test user's own bearer token, not
+# an admin token, and inspect `.briefs` (not `.rows`).
+curl -s "https://<edge-host>/functions/v1/brief-history?delivered=1" \
+  -H "Authorization: Bearer $USER_JWT" | jq '.briefs | length'
 ```
 
 The count must equal `SELECT count(*) FROM brief_snapshots WHERE
