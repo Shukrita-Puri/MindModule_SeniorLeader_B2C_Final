@@ -218,6 +218,68 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
+// Sprint F — pure helpers exported for focused unit tests. They mirror the
+// exact predicates used below in the render path, so tests can pin the
+// rendering contract without mounting the full component tree.
+export type ArcBadgeSlot = {
+  arcLabel?: 'Prepare' | 'During' | 'Recover' | 'Steady' | null;
+  isJit?: boolean;
+  jitEventTitle?: string | null;
+};
+
+/**
+ * Sprint F rule:
+ *  - Steady is a state-only arc and renders regardless of event anchor.
+ *  - Prepare / During / Recover only render when the slot is genuinely
+ *    anchored to a known event (isJit true or jitEventTitle present).
+ *  - Missing arcLabel never renders.
+ */
+export function shouldRenderArcBadge(slot: ArcBadgeSlot): boolean {
+  if (!slot?.arcLabel) return false;
+  if (slot.arcLabel === 'Steady') return true;
+  return slot.isJit === true || !!slot.jitEventTitle;
+}
+
+/**
+ * Sprint F rest-day contract mirror. True when the backend has classified
+ * today as a rest day via any of the accepted meta flags.
+ */
+export function isRestDayPlanShape(plan: { meta?: any; restDay?: boolean } | null | undefined): boolean {
+  if (!plan) return false;
+  const meta: any = (plan as any).meta || {};
+  return (
+    meta.restDay === true ||
+    meta.dayShape === 'rest_day' ||
+    (plan as any).restDay === true
+  );
+}
+
+/**
+ * Sprint F debug payload shape. Extracted so the dev-only slot log stays
+ * schema-stable and can be asserted without touching the render tree.
+ */
+export function buildSlotDebugPayload(
+  plan: { meta?: any } | null | undefined,
+  hm: any,
+  index: number,
+): Record<string, unknown> {
+  const planMeta: any = (plan as any)?.meta || {};
+  const module = hm?.practice;
+  return {
+    dayShape: planMeta.dayShape ?? null,
+    mode: hm?.mode ?? planMeta.mode ?? null,
+    slotIndex: index,
+    arcLabel: hm?.arcLabel ?? null,
+    slotRole: hm?.slotRole ?? null,
+    jitPhase: hm?.jitPhase ?? null,
+    jitEventTitle: hm?.jitEventTitle ?? null,
+    practiceId: module?.contentId ?? null,
+    practiceTitle: module?.title ?? null,
+    combo: hm?.combo ?? null,
+    intent: hm?.intent ?? null,
+  };
+}
+
 // Coach feature is suppressed (mem://features/coach/suppression-standard).
 // The server no longer hard-codes a coach card into the evening integrate
 // slot, so the client filter is now a uniform "drop everything coach". The
