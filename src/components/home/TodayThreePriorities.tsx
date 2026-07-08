@@ -158,6 +158,14 @@ interface HorizonModule {
   // (Prepare / Recover) are self-explanatory.
   arcLabel?: 'Prepare' | 'During' | 'Recover' | 'Steady';
   arcVerb?: string;
+  // Sprint F — allocator-driven diagnostic fields. These are read for the
+  // dev-only [Plan][slot-debug] log and are intentionally optional; the
+  // backend may omit them without any rendering fallout.
+  jitPhase?: string | null;
+  slotRole?: string | null;
+  combo?: string | null;
+  intent?: string | null;
+  mode?: string | null;
 }
 
 interface CoachCardData {
@@ -208,6 +216,68 @@ interface MasteryPlanResponse {
     victoryLine?: string;
   };
   meta: { generatedAt: string; [key: string]: any };
+}
+
+// Sprint F — pure helpers exported for focused unit tests. They mirror the
+// exact predicates used below in the render path, so tests can pin the
+// rendering contract without mounting the full component tree.
+export type ArcBadgeSlot = {
+  arcLabel?: 'Prepare' | 'During' | 'Recover' | 'Steady' | null;
+  isJit?: boolean;
+  jitEventTitle?: string | null;
+};
+
+/**
+ * Sprint F rule:
+ *  - Steady is a state-only arc and renders regardless of event anchor.
+ *  - Prepare / During / Recover only render when the slot is genuinely
+ *    anchored to a known event (isJit true or jitEventTitle present).
+ *  - Missing arcLabel never renders.
+ */
+export function shouldRenderArcBadge(slot: ArcBadgeSlot): boolean {
+  if (!slot?.arcLabel) return false;
+  if (slot.arcLabel === 'Steady') return true;
+  return slot.isJit === true || !!slot.jitEventTitle;
+}
+
+/**
+ * Sprint F rest-day contract mirror. True when the backend has classified
+ * today as a rest day via any of the accepted meta flags.
+ */
+export function isRestDayPlanShape(plan: { meta?: any; restDay?: boolean } | null | undefined): boolean {
+  if (!plan) return false;
+  const meta: any = (plan as any).meta || {};
+  return (
+    meta.restDay === true ||
+    meta.dayShape === 'rest_day' ||
+    (plan as any).restDay === true
+  );
+}
+
+/**
+ * Sprint F debug payload shape. Extracted so the dev-only slot log stays
+ * schema-stable and can be asserted without touching the render tree.
+ */
+export function buildSlotDebugPayload(
+  plan: { meta?: any } | null | undefined,
+  hm: any,
+  index: number,
+): Record<string, unknown> {
+  const planMeta: any = (plan as any)?.meta || {};
+  const module = hm?.practice;
+  return {
+    dayShape: planMeta.dayShape ?? null,
+    mode: hm?.mode ?? planMeta.mode ?? null,
+    slotIndex: index,
+    arcLabel: hm?.arcLabel ?? null,
+    slotRole: hm?.slotRole ?? null,
+    jitPhase: hm?.jitPhase ?? null,
+    jitEventTitle: hm?.jitEventTitle ?? null,
+    practiceId: module?.contentId ?? null,
+    practiceTitle: module?.title ?? null,
+    combo: hm?.combo ?? null,
+    intent: hm?.intent ?? null,
+  };
 }
 
 // Coach feature is suppressed (mem://features/coach/suppression-standard).
@@ -1990,6 +2060,16 @@ const TodayThreePriorities = ({
           const module = hm.practice; // primary practice for collapsed view
           const slotKey = buildPriorityKey(index, hm);
           const slotCancelled = hm.isCancelled === true;
+
+          // Sprint F — dev-only slot diagnostic. Guarded behind DEV so it
+          // never fires in production bundles. Emits the allocator-driven
+          // fields the Plan card renders decisions on, without exposing
+          // any user data beyond what is already visible in the card.
+          if (import.meta.env?.DEV) {
+            // eslint-disable-next-line no-console
+            console.info('[Plan][slot-debug]', buildSlotDebugPayload(plan, hm, index));
+          }
+
           const tagState: PriorityTagState = {
             priorityTag: (hm.priorityTag ?? null) as PriorityTagState['priorityTag'],
             relationshipTag: (hm.relationshipTag ?? null) as PriorityTagState['relationshipTag'],
@@ -2241,11 +2321,12 @@ const TodayThreePriorities = ({
                 </div>
 
                 {/* Arc badge — Prepare / During / Recover / Steady.
-                    Renders only when the slot is anchored to a known event
-                    (or carries an explicit arc), so multi-arc allocations
-                    of the same event are self-explanatory. Muted chip style
-                    — no new colour token. */}
-                {hm.arcLabel && (hm.isJit || !!hm.jitEventTitle) && (
+                    Sprint F rule: Steady is a state-only label and renders
+                    without an event anchor; Prepare / During / Recover only
+                    render when the slot is genuinely anchored to a known
+                    event, so state-only slots never carry a fake event
+                    arc. Muted chip style — no new colour token. */}
+                {shouldRenderArcBadge(hm) && (
                   <span
                     className={cn(
                       "text-[10px] tracking-[0.12em] uppercase font-body px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground/80 flex-shrink-0",
