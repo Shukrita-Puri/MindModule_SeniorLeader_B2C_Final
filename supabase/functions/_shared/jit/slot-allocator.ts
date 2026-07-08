@@ -208,6 +208,6 @@ function makeSlot(
         ? "state_fallback_phase_unavailable"
         : isJit
           ? `ranked_candidate_${index + 1}`
-          : "state_fallback",
+          : "state_fallback_no_meaningful_jit",
   };
 }
