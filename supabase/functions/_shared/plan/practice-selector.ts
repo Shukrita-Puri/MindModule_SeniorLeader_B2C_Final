@@ -65,6 +65,41 @@ export function deriveSlotIntent(inp: SlotIntentInput): SlotIntent {
   const verb = (inp.ceoVerb || "").toLowerCase();
   const tag = (inp.practicePriorityTag || "").toLowerCase();
 
+  // ────────────────────────────────────────────────────────────────
+  // 0. Pre-decision clarity / detachment — Sprint 5 (Phase 7).
+  //
+  // Placed BEFORE the Focus/Flow branch so it cannot be shadowed by
+  // `verb === "decide"` which routes to mindset.flow. Focus/Flow is
+  // for ACTIVE decision-making (sharpen and go); this branch is for
+  // the state that comes BEFORE the decision — clarity, detachment,
+  // decision fatigue, reactive-thinking recovery.
+  //
+  // Also handles state-based slots explicitly asking for the
+  // `mindset.pause` combo (e.g. a state anchor whose upstream label
+  // has already resolved to a Cat-A "pre" clarity moment). This
+  // makes the branch reachable independent of an event anchor.
+  // ────────────────────────────────────────────────────────────────
+  const wantsPreDecisionPause =
+    action.includes("clarify") ||
+    action.includes("clarity") ||
+    action.includes("detach") ||
+    action.includes("reactive") ||
+    action.includes("decision fatigue") ||
+    action.includes("pre-decision") ||
+    verb === "clarify" ||
+    verb === "detach" ||
+    tag === "decision_fatigue" ||
+    tag === "pre_decision_clarity" ||
+    inp.combo === "mindset.pause";
+  if (wantsPreDecisionPause) {
+    return {
+      metaSkills: ["meta-clarity", "meta-recalibration"],
+      recalibrateCategories: ["pause"],
+      combo: inp.combo ?? "mindset.pause",
+      intentLabel: "pre-decision-clarity",
+    };
+  }
+
   // 1. Focus / Flow Mastery family.
   if (
     action.includes("focus") ||
