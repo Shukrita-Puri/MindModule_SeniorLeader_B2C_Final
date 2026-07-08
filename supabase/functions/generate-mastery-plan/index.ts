@@ -5341,6 +5341,22 @@ async function applyV51Enrichment(
   const briefClaim = buildBriefClaimSet(outerReadinessCache, req);
   const fusionEvent = detectMorningFusionEvent(req, ceo);
 
+  // Sprint E — reuse the Sprint D window signal derivation. Same object
+  // is threaded into both the deterministic composeWhyLine path and the
+  // Why LLM input below, so both surfaces read the same signal shape.
+  const timeOfDayForWhy = (timeOfDay === 'morning' || timeOfDay === 'afternoon' || timeOfDay === 'evening')
+    ? timeOfDay as 'morning' | 'afternoon' | 'evening'
+    : null;
+  const whyWindowSignals = timeOfDayForWhy ? derivePlanWindowSignals(req, timeOfDayForWhy) : null;
+  if (whyWindowSignals) {
+    console.log('[Plan][why-window-signals]', {
+      timeOfDay: timeOfDayForWhy,
+      keys: Object.entries(whyWindowSignals)
+        .filter(([, v]) => v !== null && v !== undefined && v !== false)
+        .map(([k]) => k),
+    });
+  }
+
   // Pre-compute today's local date for tomorrow detection.
   const tzOffsetMin = typeof req.timezoneOffset === 'number' ? req.timezoneOffset : 0;
   const nowLocal = new Date(Date.now() - tzOffsetMin * 60_000);
