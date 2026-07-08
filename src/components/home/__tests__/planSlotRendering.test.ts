@@ -44,7 +44,7 @@ describe('Sprint F — Plan slot rendering contract', () => {
 
   describe('Full-arc board/governance day', () => {
     it('renders Prepare / Steady / Recover but never fabricates During', () => {
-      const slots = [
+      const slots: Array<Parameters<typeof shouldRenderArcBadge>[0]> = [
         { arcLabel: 'Prepare', isJit: true, jitEventTitle: 'Board meeting' },
         { arcLabel: 'Steady', isJit: false, jitEventTitle: null },
         { arcLabel: 'Recover', isJit: true, jitEventTitle: 'Board meeting' },
