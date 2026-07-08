@@ -7187,7 +7187,6 @@ export function mergeWithLedger(
     carriedSlots,
     anchoredSlots,
     completedSlots: ledgerCompleted,
-    debug: planDebugSignals,
   };
 }
 
