@@ -158,6 +158,14 @@ interface HorizonModule {
   // (Prepare / Recover) are self-explanatory.
   arcLabel?: 'Prepare' | 'During' | 'Recover' | 'Steady';
   arcVerb?: string;
+  // Sprint F — allocator-driven diagnostic fields. These are read for the
+  // dev-only [Plan][slot-debug] log and are intentionally optional; the
+  // backend may omit them without any rendering fallout.
+  jitPhase?: string | null;
+  slotRole?: string | null;
+  combo?: string | null;
+  intent?: string | null;
+  mode?: string | null;
 }
 
 interface CoachCardData {
