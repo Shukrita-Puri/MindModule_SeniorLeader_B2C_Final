@@ -171,6 +171,11 @@ function makeSlot(
   // the fallback for pickForDominant is `top` in the pre phase).
   const phaseMismatch =
     !!intendedPhase && !!candidate && candidate.phase !== intendedPhase;
+  // For dominant_structural_event, an intendedPhase with no candidate at all
+  // (e.g. Cat A slot-1 "during") is also a phase-unavailability case, not a
+  // generic state fallback.
+  const phaseUnavailable =
+    dayShape === "dominant_structural_event" && !!intendedPhase && (!candidate || phaseMismatch);
   const effectiveCandidate = phaseMismatch ? null : candidate;
   const isJit = !!effectiveCandidate;
   const phase = effectiveCandidate?.phase ?? null;
@@ -195,10 +200,10 @@ function makeSlot(
     jitCategoryId: effectiveCandidate?.categoryId ?? null,
     allocationReason: dayShape === "rest_day"
       ? "rest_day_uses_state_only"
-      : dayShape === "dominant_structural_event" && phaseMismatch
+      : phaseUnavailable
         ? "state_fallback_phase_unavailable"
         : isJit
-        ? `ranked_candidate_${index + 1}`
-        : "state_fallback",
+          ? `ranked_candidate_${index + 1}`
+          : "state_fallback",
   };
 }
