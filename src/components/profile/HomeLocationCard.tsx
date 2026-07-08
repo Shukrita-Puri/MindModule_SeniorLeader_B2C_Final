@@ -70,7 +70,10 @@ export default function HomeLocationCard() {
         .maybeSingle(),
     ]);
     setStatus({
-      isSet: !!(profile?.home_lat && profile?.home_lng),
+      // Sprint 14: explicit null-check. 0.0 lat/lng (equator / prime meridian)
+      // is a valid coordinate; truthiness would mis-classify it as unset.
+      isSet:
+        (profile as any)?.home_lat != null && (profile as any)?.home_lng != null,
       setAt: (profile as any)?.home_location_set_at ?? null,
       timezone: (profile as any)?.home_timezone ?? null,
       lastSyncAt: (travel as any)?.meta?.last_sync_at ?? null,
