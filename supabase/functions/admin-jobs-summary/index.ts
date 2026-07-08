@@ -5,6 +5,7 @@ import {
   nextExpectedRunAt,
   validateWindowConfig,
 } from "./scheduler-local.ts";
+import { summarizeTravelSync } from "./travel-sync-summary.ts";
 
 const cors = adminCorsHeaders();
 const JOB_KEY = "executive_home_cards";
@@ -371,6 +372,30 @@ Deno.serve(async (req) => {
     ...(notificationLatest.error ? { reason: notificationLatest.error } : {}),
   });
 
+  // travel_state_sync has no run-log table. Best-effort proxy: the most
+  // recent meta.last_sync_at across travel_state rows (written on every
+  // user the sync producer visits). Advertised as a proxy — never as a
+  // real run log — via `runLogAvailable: false` on the job payload.
+  const travelSyncObserved = await safe<{ last_observed_sync_at: string | null } | null>(
+    db
+      .from("travel_state")
+      .select("last_observed_sync_at:meta->>last_sync_at")
+      .not("meta->>last_sync_at", "is", null)
+      .order("meta->>last_sync_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    "travel_sync_observed",
+  );
+  const lastObservedSyncAt =
+    (travelSyncObserved.data as any)?.last_observed_sync_at ?? null;
+  sources.push({
+    name: "travel_state.meta.last_sync_at (proxy)",
+    available: !travelSyncObserved.error,
+    ...(travelSyncObserved.error
+      ? { reason: travelSyncObserved.error }
+      : { reason: "proxy_only_no_run_log_table" }),
+  });
+
   const durationRows = (avgDurRows.data ?? []) as Array<{ duration_ms?: number | null }>;
   const averageDurationMs = durationRows.length
     ? Math.round(durationRows.reduce((sum, row) => sum + Number(row.duration_ms ?? 0), 0) / durationRows.length)
@@ -435,26 +460,40 @@ Deno.serve(async (req) => {
   const successfulJobs24h = Math.max(0, (todayRuns.count ?? 0) - failedJobs24h);
 
   const travelSyncJob = travelSyncConfig
-    ? {
-        jobKey: travelSyncConfig.jobKey,
-        jobName: travelSyncConfig.jobName,
-        functionName: travelSyncConfig.functionName,
-        enabled: travelSyncConfig.enabled,
-        scheduleType: travelSyncConfig.scheduleMode,
-        cronExpression: travelSyncConfig.cronExpression,
-        dispatcherIntervalMinutes: travelSyncConfig.dispatcherIntervalMinutes,
-        lastRunTime: null,
-        lastSuccessTime: null,
-        lastFailureTime: null,
-        nextExpectedRun: null,
-        currentStatus: travelSyncConfig.enabled ? "idle" : "disabled",
-        totalRunsToday: null,
-        failedRunsToday: null,
-        averageDurationMs: null,
-        lastErrorMessage: null,
-        editable: true,
-        config: travelSyncConfig,
-      }
+    ? (() => {
+        const s = summarizeTravelSync({
+          enabled: travelSyncConfig.enabled,
+          dispatcherIntervalMinutes: travelSyncConfig.dispatcherIntervalMinutes,
+          lastObservedSyncAt,
+          now: new Date(),
+        });
+        return {
+          jobKey: travelSyncConfig.jobKey,
+          jobName: travelSyncConfig.jobName,
+          functionName: travelSyncConfig.functionName,
+          enabled: travelSyncConfig.enabled,
+          scheduleType: travelSyncConfig.scheduleMode,
+          cronExpression: travelSyncConfig.cronExpression,
+          dispatcherIntervalMinutes: travelSyncConfig.dispatcherIntervalMinutes,
+          // No real run log — do NOT synthesize lastRun/lastSuccess/lastFailure.
+          lastRunTime: null,
+          lastSuccessTime: null,
+          lastFailureTime: null,
+          nextExpectedRun: null,
+          // Honest status derived by summarizeTravelSync (never bare "idle").
+          currentStatus: s.currentStatus,
+          lastObservedSyncAt: s.lastObservedSyncAt,
+          runLogAvailable: s.runLogAvailable,
+          statusReason: s.statusReason,
+          observedProxy: s.observedProxy,
+          totalRunsToday: null,
+          failedRunsToday: null,
+          averageDurationMs: null,
+          lastErrorMessage: null,
+          editable: true,
+          config: travelSyncConfig,
+        };
+      })()
     : null;
 
   const persistedConfigs = [
