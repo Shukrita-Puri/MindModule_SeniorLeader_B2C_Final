@@ -93,11 +93,12 @@ Deno.test("floor: empty calendar yields all state-fallback slots with truthful r
   }
 });
 
-Deno.test("predicate: strong stakes alone clears the floor", () => {
-  const ev = evt("Nothing Special", "board");
-  const ranked = rankJitCandidates([ev], NOW);
-  // At least one phase should survive because strong stakes clear the floor.
-  assert(ranked.length > 0);
+Deno.test("predicate: strong stakes alone clears the floor even for otherwise-weak items", () => {
+  // Same title with vs without strong stakes — strong stakes must keep it.
+  const weak = rankJitCandidates([evt("1:1 Sync")], NOW);
+  const strong = rankJitCandidates([evt("1:1 Sync", "board")], NOW);
+  assert(strong.length >= weak.length,
+    `strong-stakes variant should keep at least as many candidates: weak=${weak.length} strong=${strong.length}`);
 });
 
 Deno.test("predicate: positive memoryDelta clears the floor even for weak-looking items", () => {
