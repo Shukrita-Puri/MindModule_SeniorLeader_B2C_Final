@@ -17,7 +17,21 @@
  * INVOCATION:
  *   POST /functions/v1/travel-state-sync
  *   Body: { userId?: string, mode?: "scheduled" | "manual" }
- *   Service-role auth (verify_jwt=false; caller is dispatcher or admin).
+ *   Sprint 11 auth: `verify_jwt = false` in supabase/config.toml is
+ *   INTENTIONAL — we authorize the request in-handler via
+ *   `decideTravelSyncAuth` (see ./auth.ts). The handler accepts:
+ *     • service-role bearer (dispatcher / internal),
+ *     • admin Auth0 JWT (allowlist),
+ *     • regular Auth0 JWT for self-sync only (body.userId === sub).
+ *   Anything else → 401/403. Do NOT switch this to verify_jwt=true
+ *   without removing the in-handler auth (they would both attempt to
+ *   read the same Authorization header and duplicate work).
+ *
+ * FRESHNESS SSOT (Sprint 11):
+ *   `travel_state.updated_at` and `meta.last_sync_at` are BOOKKEEPING,
+ *   not travel-signal freshness. Any consumer that reads travel_state
+ *   MUST use `_shared/travel/freshness.ts::decideTravelFreshness`.
+ *   `meta.last_sync_at` = "checked", never "fresh travel signal".
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
