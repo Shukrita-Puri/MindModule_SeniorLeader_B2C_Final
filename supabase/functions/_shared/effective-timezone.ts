@@ -99,19 +99,14 @@ export async function resolveEffectiveTimezone(
   const profileCurrent = isIanaTimezone(profile?.current_timezone) ? profile.current_timezone : null;
   const profileHome = isIanaTimezone(profile?.home_timezone) ? profile.home_timezone : null;
   const travelTimezone = isIanaTimezone(travel?.last_known_timezone) ? travel.last_known_timezone : null;
-  const isAway = Boolean(travel?.state && travel.state !== "not_travelling");
-  const respectTravelTimezone = options?.respectTravelTimezone !== false;
-  const effectiveTimezone =
-    (respectTravelTimezone && isAway && (travelTimezone || profileCurrent))
-    || profileCurrent
-    || profileHome
-    || "UTC";
-
-  let circadianTimezone = effectiveTimezone;
   // Sprint 11 hardening: `updated_at` is bumped on skip-sync bookkeeping
-  // and cannot be trusted as freshness. Gate long-haul circadian override
-  // on the shared travel-freshness helper, which reads only
-  // `last_state_change_at` / `last_location_at`.
+  // and cannot be trusted as freshness. Gate BOTH the `isAway`
+  // classification and the long-haul circadian override on the shared
+  // travel-freshness helper, which reads only `last_state_change_at` /
+  // `last_location_at`. Sprint 14: previously only the circadian override
+  // used this guard; effective-timezone still trusted stale
+  // `travel.state !== 'not_travelling'` rows, which could keep an old
+  // "away" timezone active weeks after the last real signal.
   const freshness = decideTravelFreshness(
     travel
       ? {
@@ -122,6 +117,16 @@ export async function resolveEffectiveTimezone(
         }
       : null,
   );
+  const travelStateAway = Boolean(travel?.state && travel.state !== "not_travelling");
+  const isAway = travelStateAway && freshness.used;
+  const respectTravelTimezone = options?.respectTravelTimezone !== false;
+  const effectiveTimezone =
+    (respectTravelTimezone && isAway && (travelTimezone || profileCurrent))
+    || profileCurrent
+    || profileHome
+    || "UTC";
+
+  let circadianTimezone = effectiveTimezone;
   const longHaul =
     typeof travel?.meta?.long_haul === "boolean"
       ? travel.meta.long_haul
