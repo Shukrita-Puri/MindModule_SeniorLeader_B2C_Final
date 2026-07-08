@@ -127,6 +127,119 @@ Deno.test("validator — empty text → reject 'empty'", () => {
   );
 });
 
+// ────────────────────────────────────────────────────────────────────────
+// Sprint 6 (Phase 8) — widened state synonyms, tightened valence, length cap
+// ────────────────────────────────────────────────────────────────────────
+
+Deno.test("validator — steady synonym 'calm' accepted (no anchor)", () => {
+  const r = validateWhyLine({
+    text: "The morning is calm before the back-to-backs begin.",
+    stateBand: "steady" as StateBand,
+    slotAnchor: { eventTitle: "", categoryId: null, phase: "pre" } as SlotAnchor,
+  });
+  assert(r.ok, JSON.stringify(r));
+});
+
+Deno.test("validator — steady synonyms 'settled', 'on pace', 'in rhythm' accepted", () => {
+  for (const text of [
+    "You are settled heading in — hold the line before the next block.",
+    "You are on pace for the afternoon; this keeps the tempo steady.",
+    "You are in rhythm and this locks it in before the review.",
+  ]) {
+    const r = validateWhyLine({
+      text,
+      stateBand: "steady",
+      slotAnchor: { eventTitle: "", categoryId: null, phase: "pre" } as SlotAnchor,
+    });
+    assert(r.ok, `expected accept for: ${text} → ${JSON.stringify(r)}`);
+  }
+});
+
+Deno.test("validator — stretched/depleted synonyms accepted (thin, worn, heavy, foggy, fumes)", () => {
+  for (const text of [
+    "Energy is thin heading into the review — steady the system first.",
+    "You are worn from the week; ground before the panel begins.",
+    "The load is heavy today; clear the head before the next call.",
+    "Focus is foggy right now — reset before the decision lands.",
+    "You are running on fumes; protect the attention you have left.",
+  ]) {
+    const r = validateWhyLine({
+      text,
+      stateBand: "stretched",
+      slotAnchor: { eventTitle: "", categoryId: null, phase: "pre" } as SlotAnchor,
+    });
+    assert(r.ok, `expected accept for: ${text} → ${JSON.stringify(r)}`);
+  }
+});
+
+Deno.test("validator — firing/sharp synonyms accepted (dialed in, in flow, switched on)", () => {
+  for (const text of [
+    "You are dialed in — this holds the edge into the board meeting.",
+    "You are in flow; this keeps the attention where it needs to be.",
+    "You are switched on; this sustains the sharpness through the pitch.",
+  ]) {
+    const r = validateWhyLine({
+      text,
+      stateBand: "sharp",
+      slotAnchor: { eventTitle: "", categoryId: null, phase: "pre" } as SlotAnchor,
+    });
+    assert(r.ok, `expected accept for: ${text} → ${JSON.stringify(r)}`);
+  }
+});
+
+Deno.test("validator — overlong (>35 words) rejected as 'too_long'", () => {
+  const longLine = Array.from({ length: 60 }, (_, i) => `word${i}`).join(" ");
+  const r = validateWhyLine({
+    text: longLine,
+    stateBand: "steady",
+    slotAnchor: anchorA,
+  });
+  assertEquals(r, { ok: false, reason: "too_long" });
+});
+
+Deno.test("validator — firing rejects 'unwind', 'ease off', 'ramp down'", () => {
+  for (const text of [
+    "You are sharp — unwind before the board meeting starts.",
+    "You are sharp — ease off the pace before the board meeting.",
+    "You are sharp — ramp down before the board meeting begins.",
+  ]) {
+    const r = validateWhyLine({
+      text,
+      stateBand: "firing",
+      slotAnchor: anchorA,
+    });
+    assertEquals(r, { ok: false, reason: "valence_firing_recovery" });
+  }
+});
+
+Deno.test("validator — depleted rejects 'power through' and 'dig in'", () => {
+  for (const text of [
+    "You are running low — power through the board meeting anyway.",
+    "You are running low — dig in and get the board meeting done.",
+  ]) {
+    const r = validateWhyLine({
+      text,
+      stateBand: "depleted",
+      slotAnchor: anchorA,
+    });
+    assertEquals(r, { ok: false, reason: "valence_depleted_push" });
+  }
+});
+
+Deno.test("validator — same-event dedupe threshold unchanged (0.85 gate still holds)", () => {
+  // Distinct-enough second line for same event/arc should still pass.
+  const first = "Before the board meeting, this sharpens the decision you need to make.";
+  const second = "Before the board meeting, this grounds you so the room reads calm.";
+  const r = validateWhyLine({
+    text: second,
+    stateBand: "sharp",
+    slotAnchor: anchorA,
+    arcPosition: "prepare",
+    priorAccepted: [{ text: first, slotAnchor: anchorA, arcPosition: "prepare" }],
+  });
+  assert(r.ok, JSON.stringify(r));
+});
+
 Deno.test("tierToStateBand — canonical mappings", () => {
   assertEquals(tierToStateBand("peak"), "firing");
   assertEquals(tierToStateBand("strong"), "sharp");
