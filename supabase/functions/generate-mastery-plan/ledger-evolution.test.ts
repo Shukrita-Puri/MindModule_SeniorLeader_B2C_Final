@@ -132,9 +132,13 @@ Deno.test("mergeWithLedger: newly-added travel event flows into allocator contex
     rankedCandidates: [ranked("evt_1", "1:1 Sync", "pre", "B", 40, START_ISO)],
     hasTravelDay: false, hasConferenceDay: false, hasOffsiteDay: false, hasRestSignals: false,
   };
+  // Two structural signals (travel + offsite) push the allocator's
+  // dayShape to "mixed_day". This proves the real flags reach the
+  // allocator, unlike the pre-Sprint-2 hardcoded `false` reconstruction.
   const withTravelCtx: LedgerAllocatorContext = {
     ...baseCtx,
     hasTravelDay: true,
+    hasOffsiteDay: true,
   };
   const before = mergeWithLedger(
     fresh, ledger, new Set(), new Set(), new Set(),
@@ -146,11 +150,8 @@ Deno.test("mergeWithLedger: newly-added travel event flows into allocator contex
   );
   // dayShape / mode are copied onto slots from the allocator, so they must
   // differ between the two contexts (base=no travel vs travel added).
-  assert(
-    (before.modules[0] as any).dayShape !== (after.modules[0] as any).dayShape ||
-    (before.modules[0] as any).mode !== (after.modules[0] as any).mode,
-    `Expected day-shape or mode to change when travel is added. before=${(before.modules[0] as any).dayShape}/${(before.modules[0] as any).mode} after=${(after.modules[0] as any).dayShape}/${(after.modules[0] as any).mode}`,
-  );
+  assertEquals((before.modules[0] as any).dayShape, "light_routine");
+  assertEquals((after.modules[0] as any).dayShape, "mixed_day");
 });
 
 Deno.test("mergeWithLedger: cancelled (unfinished) slot refreshes from real allocator context, not score:0 pseudo-candidates", () => {
