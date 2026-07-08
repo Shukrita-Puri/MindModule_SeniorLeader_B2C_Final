@@ -110,7 +110,10 @@ const InnerReadinessDial = () => {
       try {
         const projectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID;
         const base = `https://${projectId}.supabase.co/functions/v1/brief-history`;
-        const url = `${base}?startDate=${mondayISO}&endDate=${sundayISO}&limit=100`;
+        // Sprint 1 (Phase 1): trend must only aggregate briefs actually
+        // delivered to the user. Undelivered snapshot rows (generated but
+        // never rendered) must NOT leak into weekly readiness trend.
+        const url = `${base}?startDate=${mondayISO}&endDate=${sundayISO}&limit=100&delivered=1`;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (DEV_MODE) {
           const anon = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY;
