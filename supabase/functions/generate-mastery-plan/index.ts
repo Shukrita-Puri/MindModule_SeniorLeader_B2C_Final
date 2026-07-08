@@ -7421,7 +7421,17 @@ if (import.meta.main) Deno.serve(async (req) => {
         const horizonMods = Array.isArray(planObj?.horizonModules)
           ? planObj.horizonModules
           : [];
-        const hasPayload = visiblePriorities.length > 0 || horizonMods.length > 0;
+        // Sprint 4 (Phase 6): a truthful rest_day carries zero horizon
+        // modules by design. Treat it as a valid payload so the snapshot
+        // lands as `ready`, not `awaiting`.
+        const isRestDayPayload =
+          planObj?.meta?.restDay === true ||
+          planObj?.meta?.dayShape === 'rest_day' ||
+          planObj?.restDay === true;
+        const hasPayload =
+          visiblePriorities.length > 0 ||
+          horizonMods.length > 0 ||
+          isRestDayPayload;
         // F3 — snapshot status contract:
         //   'ready'    → hasPayload AND plan is not an awaiting envelope
         //   'awaiting' → plan is an awaiting envelope OR payload absent
