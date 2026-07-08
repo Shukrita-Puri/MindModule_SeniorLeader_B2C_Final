@@ -7038,17 +7038,57 @@ function mergeWithLedger(
     hasOffsiteDay: false,
     hasRestSignals: false,
   });
-  const annotated = out.slice(0, 3).map((m, idx) => ({
-    ...m,
-    mode: allocation.mode,
-    slotRole: allocation.slots[idx]?.slotRole,
-    allocationReason: allocation.slots[idx]?.allocationReason,
-    dayShape: allocation.dayShape,
-    slotAllocationDebug: allocation.debug,
-    jitPhase: m.jitPhase ?? allocation.slots[idx]?.jitPhase ?? null,
-    jitEventTitle: m.jitEventTitle ?? allocation.slots[idx]?.jitEventTitle ?? null,
-    arcLabel: m.arcLabel ?? allocation.slots[idx]?.arcLabel ?? undefined,
-  }));
+  // Sprint 1 (Phase 2): allocator IDENTITY wins over legacy slot identity
+  // — same rule as the fresh-plan path above. Content fields (whyLine,
+  // timeLabel, practice, ...) remain owned by legacy `m`.
+  //
+  // NB: `rankedCandidates` here are reconstructed from `freshModules` with
+  // score:0 and hardcoded structural flags. That degrades the allocator's
+  // day-shape / mode inputs, which Phase 3 will fix. Sprint 1 only
+  // guarantees IDENTITY precedence — not day-shape correctness — on the
+  // ledger-evolution path.
+  const annotated = out.slice(0, 3).map((m, idx) => {
+    const a = allocation.slots[idx];
+    const merged: any = {
+      ...m,
+      mode: allocation.mode,
+      dayShape: allocation.dayShape,
+      slotAllocationDebug: allocation.debug,
+      slotRole: a?.slotRole ?? (m as any).slotRole,
+      allocationReason: a?.allocationReason ?? (m as any).allocationReason,
+      arcLabel: a?.arcLabel ?? m.arcLabel ?? undefined,
+      jitPhase: a?.jitPhase ?? m.jitPhase ?? null,
+      jitEventTitle: a?.jitEventTitle ?? m.jitEventTitle ?? null,
+    };
+    if (a && a.jitPhase == null && a.jitEventTitle == null) {
+      merged.isJit = false;
+      merged.anchorEventId = null;
+      merged.anchorCategoryId = null;
+    } else if (a?.jitEventId) {
+      merged.anchorEventId = a.jitEventId;
+      merged.anchorCategoryId = a.jitCategoryId ?? (m as any).anchorCategoryId ?? null;
+    }
+    return merged;
+  });
+  try {
+    console.info('[generate-mastery-plan][slot-allocation-final]', {
+      source: 'ledger-evolution',
+      dayShape: allocation.dayShape,
+      mode: allocation.mode,
+      slots: annotated.map((m: any, idx: number) => ({
+        idx,
+        allocatorPhase: allocation.slots[idx]?.jitPhase ?? null,
+        finalPhase: m.jitPhase ?? null,
+        allocatorTitle: allocation.slots[idx]?.jitEventTitle ?? null,
+        finalTitle: m.jitEventTitle ?? null,
+        identityMatched:
+          (allocation.slots[idx]?.jitPhase ?? null) === (m.jitPhase ?? null) &&
+          (allocation.slots[idx]?.jitEventTitle ?? null) === (m.jitEventTitle ?? null),
+        slotRole: m.slotRole,
+        allocationReason: m.allocationReason,
+      })),
+    });
+  } catch { /* logging must not break plan */ }
 
   return {
     modules: annotated,
