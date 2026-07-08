@@ -4291,16 +4291,37 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // Part 1 — hydrate travel_state so awayFromHome / travelTier are
             // populated on the matrix. Fail-open: any error leaves the
             // travelState field undefined and rules behave exactly as before.
+            //
+            // Sprint 10 / Phase 9B: STALENESS GUARD.
+            //   • We do NOT trust `updated_at` — the travel-state-sync producer
+            //     touches it on skip runs for freshness bookkeeping only.
+            //   • We trust only `last_state_change_at` (real state transition)
+            //     or `last_location_at` (real coord fix). If neither is fresh,
+            //     we ignore the row and let day-type / behaviour rules fall back
+            //     to calendar-title travel detection (see day-type.ts:142).
             let travelStateForCtx:
               | { state?: string | null; distanceFromHomeKm?: number | null }
               | null = null;
             try {
               const { data: tsRow } = await (db as any)
                 .from('travel_state')
-                .select('state, distance_from_home_km')
+                .select('state, distance_from_home_km, last_state_change_at, last_location_at')
                 .eq('user_id', userId)
                 .maybeSingle();
-              if (tsRow) {
+              const freshness = decideTravelFreshness({
+                state: (tsRow as any)?.state ?? null,
+                lastStateChangeAt: (tsRow as any)?.last_state_change_at ?? null,
+                lastLocationAt: (tsRow as any)?.last_location_at ?? null,
+                now: new Date(),
+              });
+              console.log('[travel-state][consumer]', {
+                fn: 'compute-outer-readiness',
+                used: freshness.used,
+                reason: freshness.reason,
+                hasRow: !!tsRow,
+                state: (tsRow as any)?.state ?? null,
+              });
+              if (tsRow && freshness.used) {
                 travelStateForCtx = {
                   state: (tsRow as any).state ?? null,
                   distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
