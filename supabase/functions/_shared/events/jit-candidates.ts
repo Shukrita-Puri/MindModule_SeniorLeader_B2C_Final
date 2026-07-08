@@ -244,7 +244,16 @@ export function rankJitCandidates(
 export const MIN_CANDIDATE_SCORE = 25;
 
 const STRONG_STAKES = new Set(['board', 'external', 'investor', 'critical', 'high']);
-const STRUCTURAL_CATEGORIES = new Set(['A', 'C', 'D', 'F']); // governance, delivery, visibility/travel, high-stakes interpersonal
+// Structural pillars per event-categories.ts:
+//   A = High-Stakes Governance
+//   C = Visibility & Communication
+//   F = Conferences & External Events
+//   G = Travel
+// These are the day-shape drivers referenced by slot-allocator.ts's
+// topIsStructural check. D (People / Difficult Conversations) is NOT a
+// structural pillar — it must clear the floor via explicit stakes,
+// severity, demand or memory signal like any other interpersonal item.
+const STRUCTURAL_CATEGORIES = new Set(['A', 'C', 'F', 'G']);
 const PERSONAL_CATEGORY = 'H';
 
 /**
