@@ -142,12 +142,27 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
       } else {
         const accessToken = await getAuthToken();
         if (!accessToken) return;
-        const { data: result, error } = await supabase.functions.invoke('brief-history', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: {},
-        });
-        if (error) {
-          console.warn('[LeadershipPatternsCard] brief-history error:', error.message);
+        // Sprint 1 (Phase 1): baseline / trend must come from delivered
+        // briefs only. `supabase.functions.invoke` cannot send query
+        // params, so we hit the function URL directly with ?delivered=1.
+        const projectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID;
+        const base = `https://${projectId}.supabase.co/functions/v1/brief-history`;
+        const url = `${base}?limit=60&delivered=1`;
+        let result: any = null;
+        try {
+          const res = await fetch(url, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          if (!res.ok) {
+            console.warn('[LeadershipPatternsCard] brief-history http error:', res.status);
+            return;
+          }
+          result = await res.json();
+        } catch (err) {
+          console.warn('[LeadershipPatternsCard] brief-history fetch failed:', (err as Error)?.message);
           return;
         }
         rows = ((result?.briefs ?? []) as Array<any>)
