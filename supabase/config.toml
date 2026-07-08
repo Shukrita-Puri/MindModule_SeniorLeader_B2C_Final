@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.travel-state-sync]
 verify_jwt = false
+
+[functions.set-home-location]
+verify_jwt = false
