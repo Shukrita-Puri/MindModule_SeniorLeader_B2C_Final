@@ -80,6 +80,18 @@ export interface WhyLLMInput {
   timezoneOffsetMinutes?: number;
   /** Event start in epoch ms — used to render the "When" phrase. */
   eventStartMs?: number | null;
+
+  // ── Sprint E — window signals (reused from Sprint D derivation). Only
+  // added to the prompt when explicitly true / non-null. Missing / false
+  // keys are dropped so the LLM never sees inverted signals.
+  /** Afternoon/evening: check-in clarity is reading low → protect composure. */
+  decisionLeakageRisk?: boolean;
+  /** Evening: sustained HRV depression → body load elevated. */
+  bodyLoadElevated?: boolean;
+  /** Evening: genuine recovery signal ('rest' most common; others rare). */
+  recoveryNote?: 'rest' | 'light' | 'normal' | null;
+  /** Body ↔ subjective divergence flag. Left null when not safely derivable. */
+  vetoRisk?: boolean;
 }
 
 interface GatewayToolArgs {
@@ -411,6 +423,7 @@ function buildPrompt(inp: WhyLLMInput): string {
     `=== STATE ===`,
     band ? `Band: ${band}  (match; do not name)` : `Band: unknown  (do not invent a band)`,
     `Most relevant signal: ${signalPhrase}`,
+    ...buildWindowSignalLines(inp),
   ].join("\n");
 
   const practiceBlock = [
