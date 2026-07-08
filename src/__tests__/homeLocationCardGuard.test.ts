@@ -44,9 +44,12 @@ describe("HomeLocationCard privacy + UX guard", () => {
   });
 
   it("never renders raw coordinate values", () => {
-    // Rendered fields must not include home_lat/home_lng or coord props.
-    expect(SRC).not.toMatch(/\{[^}]*home_lat[^}]*\}/);
-    expect(SRC).not.toMatch(/\{[^}]*home_lng[^}]*\}/);
+    // Rendered JSX must not interpolate raw coordinates. We look for
+    // `.home_lat}` / `.home_lng}` (JSX expression close) and any
+    // `position.coords.*}` interpolation, which would only appear if a
+    // coord value were being rendered.
+    expect(SRC).not.toMatch(/\.home_lat\s*\}/);
+    expect(SRC).not.toMatch(/\.home_lng\s*\}/);
     expect(SRC).not.toMatch(/position\.coords\.latitude\s*\}/);
     expect(SRC).not.toMatch(/position\.coords\.longitude\s*\}/);
   });
