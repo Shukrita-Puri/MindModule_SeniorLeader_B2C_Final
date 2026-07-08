@@ -26,16 +26,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function isFiniteLat(v: unknown): v is number {
-  return typeof v === "number" && Number.isFinite(v) && v >= -90 && v <= 90;
-}
-function isFiniteLng(v: unknown): v is number {
-  return typeof v === "number" && Number.isFinite(v) && v >= -180 && v <= 180;
-}
-function isIanaTz(v: unknown): v is string {
-  return typeof v === "string" && /^[A-Za-z_]+\/[A-Za-z0-9_+\-/]+$/.test(v);
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") {
