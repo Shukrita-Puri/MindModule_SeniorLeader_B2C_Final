@@ -3975,6 +3975,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       calendarEventTitles,
       ledger?.userEdits,
       calendarEventTitleById,
+      // Sprint 2 (Phase 3): pass REAL current-window allocator context so
+      // the ledger-evolution path derives the same day-shape / mode as the
+      // fresh-generation path. `jitRankedCandidates` is populated ~525
+      // lines up from the same request's calendar events.
+      {
+        nowMs: Date.now(),
+        rankedCandidates: jitRankedCandidates,
+        ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad),
+      },
     );
     finalHorizonModules = merged.modules;
     ledgerMeta = {
