@@ -132,9 +132,13 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
         makeSlot(2, dayShape, mode, pickForDominant("post") ?? top, "recovery", "post"),
       ]
     : [
+        // Sprint 3 (Phase 5): non-dominant days must NOT recycle the
+        // single top candidate across all three slots. If only one
+        // meaningful candidate cleared the floor, slots 1 & 2 fall back
+        // to state anchors instead of re-anchoring the same event.
         makeSlot(0, dayShape, mode, top, "start_of_day"),
-        makeSlot(1, dayShape, mode, second ?? top, "dominant_demand"),
-        makeSlot(2, dayShape, mode, third ?? second ?? top, "recovery"),
+        makeSlot(1, dayShape, mode, second, "dominant_demand"),
+        makeSlot(2, dayShape, mode, third, "recovery"),
       ];
 
   return {
