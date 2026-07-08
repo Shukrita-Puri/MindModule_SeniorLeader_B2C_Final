@@ -302,9 +302,10 @@ Deno.serve(async (req) => {
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? "50") || 50));
 
   const todayIso = startOfTodayIso();
-  const [config, notificationConfig] = await Promise.all([
+  const [config, notificationConfig, travelSyncConfig] = await Promise.all([
     loadExecutiveHomeConfig(db),
     loadNotificationConfig(db),
+    loadTravelSyncConfig(db),
   ]);
 
   const sources: Array<{ name: string; available: boolean; reason?: string }> = [];
@@ -432,6 +433,29 @@ Deno.serve(async (req) => {
   const totalRunningJobs = executiveJob.currentStatus === "running" ? 1 : 0;
   const failedJobs24h = todayFailed.count ?? 0;
   const successfulJobs24h = Math.max(0, (todayRuns.count ?? 0) - failedJobs24h);
+
+  const travelSyncJob = travelSyncConfig
+    ? {
+        jobKey: travelSyncConfig.jobKey,
+        jobName: travelSyncConfig.jobName,
+        functionName: travelSyncConfig.functionName,
+        enabled: travelSyncConfig.enabled,
+        scheduleType: travelSyncConfig.scheduleMode,
+        cronExpression: travelSyncConfig.cronExpression,
+        dispatcherIntervalMinutes: travelSyncConfig.dispatcherIntervalMinutes,
+        lastRunTime: null,
+        lastSuccessTime: null,
+        lastFailureTime: null,
+        nextExpectedRun: null,
+        currentStatus: travelSyncConfig.enabled ? "idle" : "disabled",
+        totalRunsToday: null,
+        failedRunsToday: null,
+        averageDurationMs: null,
+        lastErrorMessage: null,
+        editable: true,
+        config: travelSyncConfig,
+      }
+    : null;
 
   const persistedConfigs = [
     {
