@@ -3003,16 +3003,32 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
         const _fbCurrentTz = (req as any).effectiveCurrentTimezone ?? (req as any).currentTimezone ?? null;
         const _fbHomeTz = (req as any).effectiveHomeTimezone ?? (req as any).homeTimezone ?? null;
         // Part 1 — hydrate travel_state for the fail-open fallback rebuild.
+        // Sprint 10: apply the shared travel freshness guard so a stale row
+        // (`updated_at` bumped by sync skip only) can't masquerade as real
+        // travel evidence.
         let _fbTravelState:
           | { state?: string | null; distanceFromHomeKm?: number | null }
           | null = null;
         try {
           const { data: tsRow } = await (supabaseClient as any)
             .from('travel_state')
-            .select('state, distance_from_home_km')
+            .select('state, distance_from_home_km, last_state_change_at, last_location_at')
             .eq('user_id', req.userId)
             .maybeSingle();
-          if (tsRow) {
+          const freshness = decideTravelFreshness({
+            state: (tsRow as any)?.state ?? null,
+            lastStateChangeAt: (tsRow as any)?.last_state_change_at ?? null,
+            lastLocationAt: (tsRow as any)?.last_location_at ?? null,
+            now,
+          });
+          console.log('[travel-state][consumer]', {
+            fn: 'generate-mastery-plan',
+            used: freshness.used,
+            reason: freshness.reason,
+            hasRow: !!tsRow,
+            state: (tsRow as any)?.state ?? null,
+          });
+          if (tsRow && freshness.used) {
             _fbTravelState = {
               state: (tsRow as any).state ?? null,
               distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
