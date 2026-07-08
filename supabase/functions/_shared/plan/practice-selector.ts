@@ -233,6 +233,37 @@ function scoreStructuredTags(c: ScorableContent, intent: SlotIntent): number {
   const direction = String(tags.energyDirection ?? "").toLowerCase();
 
   switch (intent.intentLabel) {
+    case "pre-decision-clarity": {
+      // Sprint 5 (Phase 7) — reward pause-pillar practices whose goal
+      // profile matches pre-decision clarity: mental clarity, perspective,
+      // composure, emotional regulation, decision readiness. Real catalog
+      // fixtures this targets: eye-of-storm, detachment-observer-new,
+      // stillness-gap-new, fudoshin-immovable-mind. Practices without
+      // structuredTags fall through with 0 here and still win via the
+      // Recalibrate category ('pause') + meta_skill ('meta-clarity')
+      // signals in scoreContentAgainstIntent.
+      let score = 0;
+      if (pillar === "pause") score += 7;
+      if (subtypes.some((s) => ["grounding", "composure", "deep-calm"].includes(s))) score += 5;
+      if (goals.some((g) => [
+        "mental_clarity", "perspective", "decision_readiness",
+        "emotional_regulation", "composure", "overwhelm_reduction",
+        "focus",
+      ].includes(g))) score += 6;
+      if (context.some((t) => [
+        "high_pressure", "overwhelm", "information_overload",
+        "crisis_mode", "difficult_conversation", "pre-meeting",
+        "leadership_moment", "multitasking_chaos",
+      ].includes(t))) score += 4;
+      if (loadHelp.includes("supports_decision") || loadHelp.includes("lowers_cognitive_load")) score += 3;
+      if (direction === "stabilize" || direction === "clarify") score += 2;
+      // Guardrail: penalise pure renewal content that has no clarity
+      // signal — same shape as focus/flow-mastery's Ikigai guard.
+      if (pillar === "renewal" && !goals.some((g) => [
+        "mental_clarity", "perspective", "decision_readiness", "composure",
+      ].includes(g))) score -= 8;
+      return score;
+    }
     case "focus/flow-mastery": {
       let score = 0;
       if (pillar === "flow") score += 8;
