@@ -5534,6 +5534,16 @@ async function applyV51Enrichment(
           protocolCombo,
           timezoneOffsetMinutes: typeof req.timezoneOffset === 'number' ? req.timezoneOffset : 0,
           eventStartMs: evtStartMs,
+          // Sprint E — same window signals used by the deterministic path
+          // (Sprint D derivation). Only true / non-null keys reach the
+          // prompt; helper drops the rest.
+          decisionLeakageRisk: whyWindowSignals?.decisionLeakageRisk === true ? true : undefined,
+          bodyLoadElevated: whyWindowSignals?.bodyLoadElevated === true ? true : undefined,
+          recoveryNote: whyWindowSignals?.recoveryNote ?? null,
+          // vetoRisk is not safely derivable from the current PlanRequest
+          // (no body/subjective divergence field on `req`). Left undefined
+          // so the prompt drops it rather than fabricates a signal.
+          vetoRisk: undefined,
         };
         jitJobs.push({ idx, input });
       }
