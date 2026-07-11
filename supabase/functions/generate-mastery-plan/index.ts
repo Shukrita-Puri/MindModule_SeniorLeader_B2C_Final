@@ -7654,11 +7654,16 @@ if (import.meta.main) Deno.serve(async (req) => {
     ) => {
       try {
         const planDate = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
-        const visiblePriorities = Array.isArray(planObj?.timeOfDayPlan?.modules)
-          ? planObj.timeOfDayPlan.modules
-          : [];
         const horizonMods = Array.isArray(planObj?.horizonModules)
           ? planObj.horizonModules
+          : [];
+        // Executive Home's "Today's Performance Priorities" card renders from
+        // `horizonModules`, not `timeOfDayPlan.modules`. Persist the snapshot
+        // `priorities` projection from the same horizon source so a `ready`
+        // row cannot claim priorities exist while `horizon_modules` is empty.
+        const visiblePriorities = horizonMods;
+        const timeOfDayModules = Array.isArray(planObj?.timeOfDayPlan?.modules)
+          ? planObj.timeOfDayPlan.modules
           : [];
         // Sprint 4 (Phase 6): a truthful rest_day carries zero horizon
         // modules by design. Treat it as a valid payload so the snapshot
@@ -7669,7 +7674,7 @@ if (import.meta.main) Deno.serve(async (req) => {
           planObj?.restDay === true;
         const hasPayload =
           visiblePriorities.length > 0 ||
-          horizonMods.length > 0 ||
+          timeOfDayModules.length > 0 ||
           isRestDayPayload;
         // F3 — snapshot status contract:
         //   'ready'    → hasPayload AND plan is not an awaiting envelope
@@ -7692,6 +7697,7 @@ if (import.meta.main) Deno.serve(async (req) => {
           snapshotStatus,
           prioritiesCount: visiblePriorities.length,
           horizonModulesCount: horizonMods.length,
+          timeOfDayModulesCount: timeOfDayModules.length,
         });
         // F3 — awaiting rows are ALWAYS persisted so the reader can
         // return a truthful awaiting state. They land with status='awaiting'
@@ -7782,6 +7788,7 @@ if (import.meta.main) Deno.serve(async (req) => {
           window: currentPeriod,
           horizonModulesCount: horizonMods.length,
           prioritiesCount: visiblePriorities.length,
+          timeOfDayModulesCount: timeOfDayModules.length,
           recommendedPracticeIds: practiceIds,
           hasPlanLedger: !!planLedger,
           horizonIso: horizonIsoValue,
@@ -7837,6 +7844,7 @@ if (import.meta.main) Deno.serve(async (req) => {
             status: upserted?.status ?? snapshotStatus,
             prioritiesCount: visiblePriorities.length,
             horizonModulesCount: horizonMods.length,
+            timeOfDayModulesCount: timeOfDayModules.length,
             recommendedPracticeIds: practiceIds.length,
           });
         }
