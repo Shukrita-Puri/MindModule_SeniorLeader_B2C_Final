@@ -906,14 +906,25 @@ async function buildNudgeContext(
   dayOfWeek: number,
   currentStreak: number,
   lastAppOpen: Date | null,
+  timeZone: string = "UTC",
 ): Promise<NudgeContext> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  // V8 - yesterday's date string (local) for post-travel awareness
-  const yesterdayDate = new Date(`${todayStr}T00:00:00`);
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+  // V8 - yesterday's date string (user-local) for post-travel awareness.
+  // Compute purely in the user's timezone to survive DST + midnight.
+  const yesterdayStr = (() => {
+    const anchorUtc = new Date(`${todayStr}T12:00:00Z`).getTime() - 24 * 60 * 60 * 1000;
+    return localParts(timeZone, new Date(anchorUtc)).localDate;
+  })();
+
+  // Batch B follow-up: every calendar query below must scope by the
+  // UTC boundaries of the user's LOCAL day, not by naive
+  // `${date}T00:00:00` strings (which parse as server-local ≡ UTC on
+  // edge functions and skew calendar fetches by the user's UTC offset).
+  const todayBounds = localDayBoundsUtc(todayStr, timeZone);
+  const tomorrowBounds = localDayBoundsUtc(tomorrowStr, timeZone);
+  const yesterdayBounds = localDayBoundsUtc(yesterdayStr, timeZone);
 
   // All queries in parallel
   const [
@@ -935,20 +946,20 @@ async function buildNudgeContext(
     supabase.from('primary_calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
-      .gte('start_time', `${todayStr}T00:00:00`)
-      .lte('start_time', `${todayStr}T23:59:59`)
+      .gte('start_time', todayBounds.startUtc)
+      .lt('start_time', todayBounds.endUtc)
       .order('start_time', { ascending: true }),
     supabase.from('primary_calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
-      .gte('start_time', `${tomorrowStr}T00:00:00`)
-      .lte('start_time', `${tomorrowStr}T23:59:59`)
+      .gte('start_time', tomorrowBounds.startUtc)
+      .lt('start_time', tomorrowBounds.endUtc)
       .order('start_time', { ascending: true }),
     supabase.from('primary_calendar_events')
       .select('id, title, start_time')
       .eq('user_id', userId)
-      .gte('start_time', `${yesterdayStr}T00:00:00`)
-      .lte('start_time', `${yesterdayStr}T23:59:59`),
+      .gte('start_time', yesterdayBounds.startUtc)
+      .lt('start_time', yesterdayBounds.endUtc),
     supabase.from('wearable_data')
       .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date')
       .eq('user_id', userId)
