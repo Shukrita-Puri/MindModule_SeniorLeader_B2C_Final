@@ -3954,10 +3954,26 @@ serve(async (req) => {
       // DND check. Quiet/rest days are represented by Plan slots upstream.
       const dndStart = prefs?.dnd_start ?? null;
       const dndEnd = prefs?.dnd_end ?? null;
-      if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) {
+      // Batch B follow-up: use the shared cross-midnight DND helper
+      // (isHourInDndWindow) and emit a rich trace that includes the
+      // effective timezone, its source, the local time, and whether the
+      // window crossed midnight — so an admin diagnosing a suppressed
+      // push has every field they need in one place.
+      const dndBlocked = !isForcedUser && isHourInDndWindow(localHour, dndStart, dndEnd);
+      if (dndBlocked) {
         trace(userId, 'dnd_window', {
           ...traceBase,
-          metadata: { dnd_start: dndStart, dnd_end: dndEnd },
+          metadata: {
+            dnd_start: dndStart,
+            dnd_end: dndEnd,
+            dnd_crosses_midnight: dndStart != null && dndEnd != null && dndStart > dndEnd,
+            local_time: `${String(localHour).padStart(2, '0')}:${String(localMinute).padStart(2, '0')}`,
+            local_date: todayStr,
+            effective_timezone: timezoneRead.effectiveTimezone,
+            circadian_timezone: timezoneRead.circadianTimezone,
+            timezone_source: timezoneRead.isAway ? 'travel' : (profile?.current_timezone ? 'profile_current' : (profile?.home_timezone ? 'profile_home' : 'fallback_utc')),
+            blocked: true,
+          },
         });
         continue;
       }
