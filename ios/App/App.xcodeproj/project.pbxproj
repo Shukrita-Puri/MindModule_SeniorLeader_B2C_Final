@@ -11,18 +11,22 @@
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
-		7B8A3F152DB0A00300AA0001 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F142DB0A00300AA0001 /* MainViewController.swift */; };
-		7B8A3F132DB0A00200AA0001 /* AppleCalendarBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F122DB0A00200AA0001 /* AppleCalendarBridge.swift */; };
+		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
+		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
+		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
+		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		7B8A3F112DB0A00100AA0001 /* WearableSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F102DB0A00100AA0001 /* WearableSyncBridge.swift */; };
+		7B8A3F132DB0A00200AA0001 /* AppleCalendarBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F122DB0A00200AA0001 /* AppleCalendarBridge.swift */; };
+		7B8A3F152DB0A00300AA0001 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F142DB0A00300AA0001 /* MainViewController.swift */; };
 		7B8A3F172DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F162DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift */; };
 		7B8A3F192DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F182DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift */; };
 		7B8A3F1B2DB0A00600AA0001 /* NativeOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1A2DB0A00600AA0001 /* NativeOutbox.swift */; };
 		7B8A3F1D2DB0A00700AA0001 /* LocationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */; };
 		7B8A3F1F2DB0A00800AA0001 /* LocationBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */; };
-		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
-		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
-		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
-		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		FC1443A830025A7700459011 /* HealthKitAnchorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1443A330025A7700459011 /* HealthKitAnchorStore.swift */; };
+		FC1443A930025A7700459011 /* HealthKitSampleNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1443A430025A7700459011 /* HealthKitSampleNormalizer.swift */; };
+		FC1443AA30025A7700459011 /* WearableStatusWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1443A630025A7700459011 /* WearableStatusWriter.swift */; };
+		FC1443AB30025A7700459011 /* HealthKitSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1443A530025A7700459011 /* HealthKitSyncManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,20 +34,24 @@
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		7B8A3F142DB0A00300AA0001 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
-		7B8A3F122DB0A00200AA0001 /* AppleCalendarBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCalendarBridge.swift; sourceTree = "<group>"; };
-		7B8A3F102DB0A00100AA0001 /* WearableSyncBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableSyncBridge.swift; sourceTree = "<group>"; };
-		7B8A3F162DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBackgroundSyncPlugin.swift; sourceTree = "<group>"; };
-		7B8A3F182DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCalendarBackgroundSyncBridge.swift; sourceTree = "<group>"; };
-		7B8A3F1A2DB0A00600AA0001 /* NativeOutbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOutbox.swift; sourceTree = "<group>"; };
-		7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridge.swift; sourceTree = "<group>"; };
-		7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridgePlugin.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		7B8A3F102DB0A00100AA0001 /* WearableSyncBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableSyncBridge.swift; sourceTree = "<group>"; };
+		7B8A3F122DB0A00200AA0001 /* AppleCalendarBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCalendarBridge.swift; sourceTree = "<group>"; };
+		7B8A3F142DB0A00300AA0001 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		7B8A3F162DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBackgroundSyncPlugin.swift; sourceTree = "<group>"; };
+		7B8A3F182DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCalendarBackgroundSyncBridge.swift; sourceTree = "<group>"; };
+		7B8A3F1A2DB0A00600AA0001 /* NativeOutbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOutbox.swift; sourceTree = "<group>"; };
+		7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridge.swift; sourceTree = "<group>"; };
+		7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridgePlugin.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		FC1443A330025A7700459011 /* HealthKitAnchorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAnchorStore.swift; sourceTree = "<group>"; };
+		FC1443A430025A7700459011 /* HealthKitSampleNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSampleNormalizer.swift; sourceTree = "<group>"; };
+		FC1443A530025A7700459011 /* HealthKitSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncManager.swift; sourceTree = "<group>"; };
+		FC1443A630025A7700459011 /* WearableStatusWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableStatusWriter.swift; sourceTree = "<group>"; };
 		FCADDC042F4E0D48005ACA0F /* App.Release.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.Release.entitlements; sourceTree = "<group>"; };
 		FCADDC052F4E0D48005ACA0F /* App.Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.Debug.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -80,6 +88,7 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				FC1443A730025A7700459011 /* HealthKit */,
 				FCADDC042F4E0D48005ACA0F /* App.Release.entitlements */,
 				FCADDC052F4E0D48005ACA0F /* App.Debug.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -100,6 +109,17 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		FC1443A730025A7700459011 /* HealthKit */ = {
+			isa = PBXGroup;
+			children = (
+				FC1443A330025A7700459011 /* HealthKitAnchorStore.swift */,
+				FC1443A430025A7700459011 /* HealthKitSampleNormalizer.swift */,
+				FC1443A530025A7700459011 /* HealthKitSyncManager.swift */,
+				FC1443A630025A7700459011 /* WearableStatusWriter.swift */,
+			);
+			path = HealthKit;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -186,6 +206,10 @@
 				7B8A3F152DB0A00300AA0001 /* MainViewController.swift in Sources */,
 				7B8A3F132DB0A00200AA0001 /* AppleCalendarBridge.swift in Sources */,
 				7B8A3F112DB0A00100AA0001 /* WearableSyncBridge.swift in Sources */,
+				FC1443A830025A7700459011 /* HealthKitAnchorStore.swift in Sources */,
+				FC1443A930025A7700459011 /* HealthKitSampleNormalizer.swift in Sources */,
+				FC1443AA30025A7700459011 /* WearableStatusWriter.swift in Sources */,
+				FC1443AB30025A7700459011 /* HealthKitSyncManager.swift in Sources */,
 				7B8A3F172DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift in Sources */,
 				7B8A3F192DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift in Sources */,
 				7B8A3F1B2DB0A00600AA0001 /* NativeOutbox.swift in Sources */,

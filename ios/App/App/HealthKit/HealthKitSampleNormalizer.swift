@@ -98,22 +98,27 @@ public enum HealthKitSampleNormalizer {
     }
 
     private static func isStageRow(_ raw: Int) -> Bool {
-        switch raw {
-        case HKCategoryValueSleepAnalysis.asleepCore.rawValue,
-             HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
-             HKCategoryValueSleepAnalysis.asleepREM.rawValue,
-             HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
-            return true
-        default:
-            return false
+        if #available(iOS 16.0, *) {
+            switch raw {
+            case HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                 HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                 HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+                 HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
+                return true
+            default:
+                return false
+            }
         }
+        return false
     }
 
     private static func sleepStageLabel(_ raw: Int) -> String {
-        if raw == HKCategoryValueSleepAnalysis.asleepCore.rawValue { return "core" }
-        if raw == HKCategoryValueSleepAnalysis.asleepDeep.rawValue { return "deep" }
-        if raw == HKCategoryValueSleepAnalysis.asleepREM.rawValue { return "rem" }
-        if raw == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue { return "unspecified" }
+        if #available(iOS 16.0, *) {
+            if raw == HKCategoryValueSleepAnalysis.asleepCore.rawValue { return "core" }
+            if raw == HKCategoryValueSleepAnalysis.asleepDeep.rawValue { return "deep" }
+            if raw == HKCategoryValueSleepAnalysis.asleepREM.rawValue { return "rem" }
+            if raw == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue { return "unspecified" }
+        }
         if raw == HKCategoryValueSleepAnalysis.asleep.rawValue { return "asleep" }
         if raw == HKCategoryValueSleepAnalysis.awake.rawValue { return "awake" }
         if raw == HKCategoryValueSleepAnalysis.inBed.rawValue { return "inBed" }

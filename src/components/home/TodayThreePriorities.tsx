@@ -298,6 +298,26 @@ const stripCoachFromPlan = (plan: MasteryPlanResponse | null): MasteryPlanRespon
   return { ...plan, horizonModules: filtered };
 };
 
+// Snapshot hydration prefers the top-level `horizon_modules` payload from the
+// reader because it is the canonical persisted projection. Older or drifted
+// `plan_json` blobs can miss `horizonModules` even when the snapshot row is
+// otherwise valid and ready to render.
+const normalizeSnapshotPlan = (
+  planJson: Record<string, unknown> | null,
+  snapshotHorizonModules: unknown[],
+): MasteryPlanResponse | null => {
+  if (!planJson) return null;
+  const planJsonHorizonModules = Array.isArray((planJson as any).horizonModules)
+    ? ((planJson as any).horizonModules as HorizonModule[])
+    : [];
+  return {
+    ...(planJson as unknown as MasteryPlanResponse),
+    horizonModules: snapshotHorizonModules.length > 0
+      ? (snapshotHorizonModules as HorizonModule[])
+      : planJsonHorizonModules,
+  };
+};
+
 const TodayThreePriorities = ({
   onEmpty,
   onLoaded,
@@ -1290,9 +1310,15 @@ const TodayThreePriorities = ({
     // existing persist hook.
     const snap = masteryPlanSnapshot;
     const planJson = snap?.planJson as Record<string, unknown> | null;
-    const planHorizonModules = Array.isArray(planJson?.horizonModules)
-      ? (planJson.horizonModules as unknown[])
+    const snapshotHorizonModules = Array.isArray(snap?.horizonModules)
+      ? snap.horizonModules
       : [];
+    const planHorizonModules = snapshotHorizonModules.length > 0
+      ? snapshotHorizonModules
+      : Array.isArray(planJson?.horizonModules)
+        ? (planJson.horizonModules as unknown[])
+        : [];
+    const normalizedSnapshotPlan = normalizeSnapshotPlan(planJson, snapshotHorizonModules);
     // Rest-day snapshots are valid "ready" plans with an intentionally
     // empty horizonModules array; recognize them so hydration doesn't
     // reject them as empty-horizon-modules (the later rest-day UI branch
@@ -1312,6 +1338,7 @@ const TodayThreePriorities = ({
     console.info('[plan-card] hydrate-step', {
       step: 6,
       hasPlanJson: !!planJson,
+      snapshotHorizonModuleCount: snapshotHorizonModules.length,
       horizonModuleCount: planHorizonModules.length,
     });
     console.info('[plan-card] hydrate-step', {
@@ -1345,6 +1372,7 @@ const TodayThreePriorities = ({
         snapshotStatus: snap!.status,
         snapshotWindow: snap!.mrsWindow,
         hasPlanJson: true,
+        snapshotHorizonModuleCount: snapshotHorizonModules.length,
         horizonModuleCount: planHorizonModules.length,
         mrsReadyForPlan,
         cardsAwaiting,
@@ -1354,7 +1382,7 @@ const TodayThreePriorities = ({
       });
       (async () => {
         try {
-          const stripped = stripCoachFromPlan(planJson as unknown as MasteryPlanResponse)!;
+          const stripped = stripCoachFromPlan(normalizedSnapshotPlan)!;
           const todayDate = localISODate();
           const currentPeriod = getCurrentTimeWindow();
           if (stripped.horizonModules) {
@@ -1425,6 +1453,7 @@ const TodayThreePriorities = ({
           planDate: snap.planDate,
           status: snap.status,
           hasPlanJson: !!planJson,
+          snapshotHorizonModuleCount: snapshotHorizonModules.length,
           horizonModuleCount: planHorizonModules.length,
         });
       }
@@ -1461,6 +1490,7 @@ const TodayThreePriorities = ({
           snapshotStatus: snap?.status ?? null,
           snapshotWindow: snap?.mrsWindow ?? null,
           hasPlanJson: !!planJson,
+          snapshotHorizonModuleCount: snapshotHorizonModules.length,
           horizonModuleCount: planHorizonModules.length,
           mrsReadyForPlan,
           cardsAwaiting,
@@ -1484,6 +1514,7 @@ const TodayThreePriorities = ({
           snapshotStatus: snap?.status ?? null,
           snapshotWindow: snap?.mrsWindow ?? null,
           hasPlanJson: !!planJson,
+          snapshotHorizonModuleCount: snapshotHorizonModules.length,
           horizonModuleCount: planHorizonModules.length,
           mrsReadyForPlan,
           cardsAwaiting,
