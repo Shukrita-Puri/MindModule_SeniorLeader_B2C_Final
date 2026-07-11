@@ -2787,8 +2787,11 @@ async function evaluateNudgeOne(
   let morningEnd = 9.5;
 
   if (ctx.firstNonNoiseEvent) {
-    const eventTime = new Date(ctx.firstNonNoiseEvent.start_time);
-    const eventHour = eventTime.getHours() + eventTime.getMinutes() / 60;
+    // Batch B follow-up: classify the first meeting in the USER's
+    // timezone. `.getHours()` returned server-local (UTC on edge
+    // functions), so a 09:00 IST meeting was seen as 03:30 UTC and the
+    // morning anchor slid to 02:00 IST.
+    const eventHour = eventHourInTimezone(ctx.firstNonNoiseEvent.start_time, ctx.timeZone);
     const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
     const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
     // 60 min before virtual, 90 min before in-person
