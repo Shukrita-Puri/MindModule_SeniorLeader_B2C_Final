@@ -5429,9 +5429,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // still computed so telemetry stays intact.
     const useDeterministicFallback = false;
     const fallbackDecisionRaw = fallbackDecision.use;
-    if (useDeterministicFallback) {
+    if (fallbackDecisionRaw) {
       console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
-        source: 'deterministic',
+        source: 'awaiting',
+        wouldHaveBeen: 'deterministic',
+        blockedBy: 'v6.5-no-deterministic-fallback',
         reason: llmFallbackReason || 'llm_miss_signals_ready',
         llmAttempted: llmAttemptRecords.length > 0,
         validatorRejectReason: llmValidatorRejections.length > 0
