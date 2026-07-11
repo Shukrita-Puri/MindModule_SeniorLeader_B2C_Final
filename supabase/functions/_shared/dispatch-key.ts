@@ -42,7 +42,10 @@ export function computeDispatchKey(input: DispatchKeyInput): string {
     input.planSnapshotId ?? "-",
     input.candidateType ?? "-",
   ];
-  return parts.map((p) => String(p).replace(/\|/g, "_")).join("|");
+  // Delimiter is a double-colon: uncommon in IDs / dates / slots and
+  // won't be produced by any of our identifier generators. If a future
+  // field could legitimately contain "::" it must be sanitised here.
+  return parts.map((p) => String(p).replace(/::/g, "_")).join("::");
 }
 
 export interface ClaimResult {
