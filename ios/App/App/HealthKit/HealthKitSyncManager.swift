@@ -246,7 +246,7 @@ public final class HealthKitSyncManager {
             "identityKeys": samples.map { $0.identityKey },
             "capturedAt": ISO8601DateFormatter().string(from: Date()),
         ]
-        NativeOutbox.shared.enqueue(provider: "apple-health", payload: payload)
+        _ = NativeOutbox.shared.enqueue(provider: .appleHealth, payload: payload)
     }
 
     // MARK: - Observers
