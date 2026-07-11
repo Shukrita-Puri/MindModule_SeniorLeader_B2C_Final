@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { hashTokenPrefix } from "../_shared/token-hash.ts";
 
 /**
  * Batch A/B — Secure device-token unregister on logout.
@@ -83,9 +84,11 @@ serve(async (req) => {
 
     if (error) throw error;
 
+    // Privacy: log only an irreversible SHA-256 hash prefix — never
+    // the raw token nor its raw prefix. See _shared/token-hash.ts.
+    const tokenHash = await hashTokenPrefix(deviceToken);
     console.log(
-      `[unregister-device-token] Deactivated ${count ?? 0} token(s) for ${redactUserId(userId)}` +
-      ` (prefix=${deviceToken.substring(0, 12)})`,
+      `[unregister-device-token] Deactivated ${count ?? 0} token(s) for ${redactUserId(userId)} (${tokenHash})`,
     );
 
     return new Response(
