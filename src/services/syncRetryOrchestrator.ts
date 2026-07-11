@@ -20,7 +20,6 @@ import {
   type SyncQueueItem,
 } from '@/services/syncQueue';
 import { postWearableDirect, type WearablePersistPayload } from '@/services/wearableSyncService';
-import { postAppleCalendarDirect, type AppleCalendarSyncPayload } from '@/services/appleCalendarSync';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 
 const DRAIN_DEBOUNCE_MS = 5_000;
@@ -35,8 +34,19 @@ async function processItem(item: SyncQueueItem): Promise<{ ok: boolean; error?: 
     return { ok: r.ok, error: r.error };
   }
   if (item.kind === 'apple-calendar') {
-    const r = await postAppleCalendarDirect(item.payload as AppleCalendarSyncPayload, item.id);
-    return { ok: r.ok, error: r.error };
+    // Apple Calendar is native-authoritative — see src/services/appleCalendarSync.ts.
+    // Any queued Apple payload here is stale JS-era work; drop it so the
+    // orchestrator can remove it from the queue without racing native writes.
+    emitIntegrationEvent({
+      provider: 'apple-calendar',
+      event: 'sync_temporary_unavailable',
+      meta: {
+        reason: 'native_authoritative_deprecated',
+        itemId: item.id,
+        action: 'dropped_from_js_queue',
+      },
+    });
+    return { ok: true };
   }
   return { ok: false, error: 'unknown_kind' };
 }

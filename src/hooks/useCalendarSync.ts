@@ -106,27 +106,10 @@ export function useCalendarSync(): UseCalendarSyncResult {
     }
   }, [user?.id]);
 
-  const persistAppleCalendarPresence = useCallback(async (lastSync?: string | null) => {
-    try {
-      const token = await getAuthToken();
-      if (!token) return false;
-
-      const res = await fetch(getSupabaseFunctionUrl('calendar-auth'), {
-        method: 'POST',
-        headers: getSupabaseFunctionHeaders(token),
-        body: JSON.stringify({ action: 'update_status', provider: 'apple', lastSync: lastSync ?? null }),
-      });
-
-      if (!res.ok) {
-        console.warn('[useCalendarSync] Failed to persist Apple Calendar presence:', res.status);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.warn('[useCalendarSync] Apple Calendar presence persistence failed:', err);
-      return false;
-    }
-  }, []);
+  // NOTE: Apple Calendar presence is native-authoritative — see
+  // src/services/appleCalendarSync.ts and supabase/functions/sync-apple-calendar.
+  // The JS layer must not write durable `calendar_connections` status for
+  // Apple; the previous persistAppleCalendarPresence() helper was removed.
 
   const verifyConnectionUsable = useCallback(async (conn: CalendarConnection | null) => {
     if (!conn) return null;
@@ -185,7 +168,10 @@ export function useCalendarSync(): UseCalendarSyncResult {
             is_active: true,
             last_sync: null,
           };
-          void persistAppleCalendarPresence(null);
+          // Do NOT persist. Apple presence is written only by native iOS via
+          // sync-apple-calendar. The synthetic connection stays in-memory so
+          // the UI can render a "permission-connected" pill while the first
+          // native sync completes and writes the authoritative row.
           emitIntegrationEvent({
             provider: 'apple-calendar',
             event: 'native_verify_success',
@@ -209,7 +195,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
       console.error('[useCalendarSync] Error:', err);
       return null;
     }
-  }, [persistAppleCalendarPresence, resetCalendarState, user?.id, verifyConnectionUsable]);
+  }, [resetCalendarState, user?.id, verifyConnectionUsable]);
 
   // Fetch events from database
   const fetchEvents = useCallback(async () => {
@@ -296,7 +282,6 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
         const result = await syncAppleCalendarToBackend({ reason: 'manual' });
         if (!result.success) {
-          void persistAppleCalendarPresence(connection.last_sync ?? null);
           emitIntegrationEvent({
             provider: 'apple-calendar',
             event: 'sync_failed',
@@ -317,7 +302,6 @@ export function useCalendarSync(): UseCalendarSyncResult {
           syncState: 'synced',
           meta: { eventCount: result.eventCount ?? 0, source: 'useCalendarSync' },
         });
-        void persistAppleCalendarPresence(new Date().toISOString());
         setLastSync(new Date());
         await fetchEvents();
         void triggerCalendarRelationshipLearning();
@@ -387,7 +371,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
     } finally {
       setIsSyncing(false);
     }
-  }, [connection, fetchEvents, markAppleCalendarInactive, persistAppleCalendarPresence, resetCalendarState, triggerCalendarRelationshipLearning, user?.id]);
+  }, [connection, fetchEvents, markAppleCalendarInactive, resetCalendarState, triggerCalendarRelationshipLearning, user?.id]);
 
   // Initial load: check connection and fetch events
   useEffect(() => {
@@ -489,13 +473,11 @@ export function useCalendarSync(): UseCalendarSyncResult {
             syncAppleCalendarToBackend({ reason: 'init_bootstrap' })
               .then((res) => {
                 if (!cancelled && res.success === true) {
-                  void persistAppleCalendarPresence(new Date().toISOString());
-                  setLastSync(new Date());
+                  // Native writes the authoritative row — re-fetch events shortly.
                   fetchEvents();
                   void triggerCalendarRelationshipLearning();
                 }
                 if (!cancelled && res.success === false) {
-                  void persistAppleCalendarPresence(usableConnection.last_sync ?? null);
                   console.warn('[useCalendarSync] Apple bootstrap sync returned failure');
                 }
               })
@@ -513,13 +495,10 @@ export function useCalendarSync(): UseCalendarSyncResult {
                 syncAppleCalendarToBackend({ reason: 'init_stale_refresh' })
                   .then((res) => {
                 if (!cancelled && res.success === true) {
-                  void persistAppleCalendarPresence(new Date().toISOString());
-                  setLastSync(new Date());
                   fetchEvents();
                   void triggerCalendarRelationshipLearning();
                 }
                 if (!cancelled && res.success === false) {
-                  void persistAppleCalendarPresence(usableConnection.last_sync ?? null);
                   console.warn('[useCalendarSync] Apple stale refresh failed; keeping permission-connected state');
                 }
               })
@@ -550,7 +529,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
     init();
     
     return () => { cancelled = true; };
-  }, [fetchEvents, persistAppleCalendarPresence, resetCalendarState, user?.id, verifyConnectionUsable, triggerCalendarRelationshipLearning]);
+  }, [fetchEvents, resetCalendarState, user?.id, verifyConnectionUsable, triggerCalendarRelationshipLearning]);
 
   // Apple Calendar live refresh:
   //  - native EKEventStoreChanged → debounce → sync + refetch
@@ -583,8 +562,6 @@ export function useCalendarSync(): UseCalendarSyncResult {
         .then((res) => {
           if (cancelled) return;
           if (res.success) {
-            void persistAppleCalendarPresence(new Date().toISOString());
-            setLastSync(new Date());
             void fetchEvents();
             void triggerCalendarRelationshipLearning();
           }

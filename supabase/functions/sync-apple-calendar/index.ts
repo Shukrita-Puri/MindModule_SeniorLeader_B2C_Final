@@ -210,10 +210,18 @@ serve(async (req) => {
     }
 
     const nowIso = new Date().toISOString();
+    // Apple Calendar is native-authoritative. Only this edge function (invoked
+    // by the native iOS AppleCalendarBackgroundSyncBridge) writes durable
+    // status. Stamp the row so `calendar-auth update_status` can reject stale
+    // JS writes and any downstream reader can trust it.
+    const statusStamp = {
+      status_source: 'native-ios',
+      status_authoritative_at: nowIso,
+    } as const;
     if (existingConn) {
       const { error: connUpdateError } = await serviceClient
         .from('calendar_connections')
-        .update({ is_active: true, last_sync: nowIso, updated_at: nowIso })
+        .update({ is_active: true, last_sync: nowIso, updated_at: nowIso, ...statusStamp })
         .eq('id', existingConn.id);
       if (connUpdateError) {
         console.warn('[sync-apple-calendar] Connection update warning:', connUpdateError.message);
@@ -221,7 +229,7 @@ serve(async (req) => {
     } else {
       const { error: connInsertError } = await serviceClient
         .from('calendar_connections')
-        .insert({ user_id: userId, provider: 'apple', is_active: true, last_sync: nowIso });
+        .insert({ user_id: userId, provider: 'apple', is_active: true, last_sync: nowIso, ...statusStamp });
       if (connInsertError) {
         console.warn('[sync-apple-calendar] Connection insert warning:', connInsertError.message);
       }
