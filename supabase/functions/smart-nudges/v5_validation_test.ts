@@ -123,7 +123,11 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
   // evaluators (calendar_gap, pattern_alert, …) are dormant under
   // MVP_POST_LAUNCH=false and may carry legacy strings that the v5
   // contract does not yet apply to.
-  const startMarker = "// ── Static Fallback Copy — MVP Nudge System ──";
+  // Batch B follow-up — anchor comment now uses an ASCII hyphen, not an
+  // em-dash. Current production contract (index.ts):
+  //   // ── Static Fallback Copy - MVP Nudge System ──
+  //   // ── MVP Nudge Evaluators (Nudge 1, 2, 3) ──
+  const startMarker = "// ── Static Fallback Copy - MVP Nudge System ──";
   const endMarker   = "// ── MVP Nudge Evaluators";
   const startIdx = src.indexOf(startMarker);
   const endIdx   = src.indexOf(endMarker, startIdx);
