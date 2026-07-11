@@ -3712,14 +3712,44 @@ serve(async (req) => {
     // global quiet-window + DND checks for that one user so we can trigger
     // the AI copy path on demand and verify Claude→Gemini are reachable in
     // production. All other guards (cooldowns, suppression, anchor presence,
-    // V8 validators) still run. Optional `?force_dry=1` skips APNs delivery.
+    // V8 validators) still run.
+    //
+    // Batch A hardening:
+    //   • The `force_user` path now REQUIRES a valid Auth0 admin JWT
+    //     (allow-listed email). Unauthenticated callers cannot trigger
+    //     APNs deliveries to arbitrary users.
+    //   • The evaluation loop is restricted to the forced user only —
+    //     an admin diagnostic run must NEVER notify unrelated users.
+    //   • Dry-run default is now `true`. Real APNs sending requires an
+    //     explicit `?force_dry=0` from an authenticated admin.
     const forceUserId =
       url.searchParams.get('force_user') ||
       url.searchParams.get('force_user_id') ||
       null;
-    const forceDryRun = url.searchParams.get('force_dry') === '1';
+    // Default TRUE unless the caller explicitly opts into a real send.
+    let forceDryRun = url.searchParams.get('force_dry') !== '0';
     if (forceUserId) {
-      console.log(`[smart-nudges][v8 test] force_user=${forceUserId} (bypassing window+DND, dry=${forceDryRun})`);
+      const guard = await requireAdmin(req);
+      if (guard.errorResponse) {
+        console.warn('[smart-nudges][force_user] admin gate rejected caller');
+        await finishRun('force_user_admin_gate_rejected');
+        return guard.errorResponse;
+      }
+      // Extra safety: real-send requires admin + explicit flag. If a caller
+      // ever passes force_dry=0 in a way the guard missed, we still refuse
+      // by requiring the admin identity to be present.
+      if (!forceDryRun && !guard.admin) forceDryRun = true;
+      await writeAdminAudit(guard.db, {
+        admin: guard.admin!,
+        action: 'smart_nudges.force_user',
+        targetUserId: forceUserId,
+        route: 'smart-nudges',
+        metadata: { dry_run: forceDryRun, evaluator_version: EVALUATOR_VERSION },
+      });
+      console.log(
+        `[smart-nudges][v8 test] force_user=${redactUserId(forceUserId)} ` +
+        `admin=${guard.admin!.adminEmail} dry_run=${forceDryRun}`,
+      );
     }
 
     // 1. Fetch all users with active device tokens
