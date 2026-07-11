@@ -24,12 +24,13 @@ import {
 // missing signal evidence, and unanchored pattern references all trigger
 // the same retry-once-then-awaiting path as the other validator rejects.
 import { validateBrief } from "../_shared/brief-validators.ts";
-import {
-  decideBriefFallback,
-  capDeterministicBody,
-  buildDeterministicBrief,
-  type FallbackDecision,
-} from "../_shared/brief/deterministic-fallback.ts";
+// v6.5-no-deterministic-fallback (2026-07-11): the legacy deterministic
+// Brief path (`buildDeterministicBrief`, `decideBriefFallback`,
+// `capDeterministicBody`) has been removed from the render pipeline. When
+// both LLM attempts miss, the Brief becomes `awaiting` — never templated
+// prose. Do NOT re-import these symbols; a fresh deterministic system
+// (spec: "Deterministic Fallback Final") must pass validateBrief() before
+// shipping and is not implemented in this file.
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
@@ -4702,6 +4703,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (/\b\d{1,3}\s*\/\s*100\b/.test(strippedBody)) return { valid: false, reason: 'body_restates_score_xx_100' };
             if (/\b(score\s+(of|is)|your\s+score|readiness\s+score)\b/i.test(strippedBody)) return { valid: false, reason: 'body_restates_score_phrase' };
             if (/\b\d{1,3}\s+out\s+of\s+100\b/i.test(strippedBody)) return { valid: false, reason: 'body_restates_score_out_of_100' };
+            // 2026-07-11 — tightened after "Readiness sits at 79" leaked. Cover
+            // conversational score restatements the earlier regexes missed:
+            //   "Readiness sits at 79", "score reads 79", "you're at 79",
+            //   "sitting at 79", "coming in at 79", "landing at 79".
+            if (/\breadiness\s+(sits\s+at|reads|is\s+at|at|stands\s+at|came\s+in\s+at)\s+\d{1,3}\b/i.test(strippedBody)) {
+              return { valid: false, reason: 'body_restates_readiness_sits_at' };
+            }
+            if (/\bscore\s+(sits\s+at|reads|came\s+in\s+at|stands\s+at)\s+\d{1,3}\b/i.test(strippedBody)) {
+              return { valid: false, reason: 'body_restates_score_reads' };
+            }
+            if (/\b(you(?:'re| are)\s+at|sitting\s+at|landing\s+at|coming\s+in\s+at)\s+\d{1,3}\b(?!\s*(?:am|pm|o'clock|min|hour|h\b|%))/i.test(strippedBody)) {
+              return { valid: false, reason: 'body_restates_conversational_score' };
+            }
             // Tier label restatement (e.g. "you're depleted today", "in peak today")
             if (/\b(you(?:'re|\sare)\s+(depleted|managing|strong|peak)|(?:in|at)\s+(depleted|managing|strong|peak)\s+(?:state|tier|today))\b/i.test(strippedBody)) {
               return { valid: false, reason: 'body_restates_tier_label' };
@@ -4775,6 +4789,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
 
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
+
+            // 2026-07-11 — Time-of-day framing gate. Prevents morning framing
+            // ("Anchor the first hour") landing in the evening and vice
+            // versa. `hour` is captured from the outer request scope.
+            {
+              const _tw: 'morning' | 'afternoon' | 'evening' =
+                hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+              const MORNING_PHRASES = /\b(first hour|start (?:of )?the day|morning block|front[- ]load(?:ing)? the morning|set the day|begin with|opening hours|open the day)\b/i;
+              const EVENING_PHRASES = /\b(close (?:out )?the day|protect the evening|tonight|wind down|winding down|tomorrow morning|before sleep|before bed)\b/i;
+              if (_tw === 'evening' && MORNING_PHRASES.test(strippedBody)) {
+                return { valid: false, reason: 'body_morning_framing_in_evening' };
+              }
+              if (_tw === 'morning' && EVENING_PHRASES.test(strippedBody)) {
+                return { valid: false, reason: 'body_evening_framing_in_morning' };
+              }
+            }
+
+            // 2026-07-11 — False-neutrality gate. When physiological /
+            // cognitive signals disagree (MASKED_HIGH or RECOVERY_UNDERWAY),
+            // the body must not claim the day is neutral or that nothing is
+            // standing out. `divergenceMode` is captured from the outer
+            // request scope.
+            if (divergenceMode && divergenceMode !== 'ALIGNED') {
+              const NEUTRAL_PHRASES = /\b(neutral day|no\s+(?:single\s+)?signal\s+dominat|evenly balanced|nothing\s+(?:is\s+)?(?:standing\s+out|dominant|clear))\b/i;
+              if (NEUTRAL_PHRASES.test(strippedBody)) {
+                return { valid: false, reason: 'body_false_neutrality_when_divergent' };
+              }
+            }
 
             // LeanOn/WatchFor validation
             const validateItems = (items: any[], label: string) => {
@@ -4901,6 +4943,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // from rendered output — see briefIsAwaiting gate below).
           const llmAttempts: Array<{ model: string; timeoutMs: number; useGateway: boolean }> = [
             { model: 'google/gemini-2.5-flash', timeoutMs: 8000, useGateway: true },
+            { model: CLAUDE_MODELS.SONNET, timeoutMs: 9000, useGateway: false },
+            // 2026-07-11 — Attempt 3 (Claude Sonnet, second pass). Uses the
+            // corrective-retry instruction seeded from attempt 2's reject
+            // reason. Reduces `awaiting` states caused by two back-to-back
+            // validator misses (e.g. tier-word on attempt 1, phrase-length
+            // soft-reject on attempt 2) before we fall through to awaiting.
             { model: CLAUDE_MODELS.SONNET, timeoutMs: 9000, useGateway: false },
           ];
 
@@ -5347,111 +5395,28 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       awaitingSignals,
     });
 
-    // Sprint 7 / Phase 9A — Brief deterministic fallback.
-    // Contract: cache hit wins → LLM wins → deterministic (only when the
-    // underlying signal + inner-state contracts are ready) → awaiting.
-    // Deterministic prose is NEVER emitted when awaitingSignals or
-    // innerStateIsAwaiting is true; those states must remain awaiting.
-    // ── Sprint C — signal-grounded deterministic Brief ──────────────
-    // Rebuild `finalPhrase` / `finalContext` from the SAME in-scope
-    // signal variables the LLM prompt reads (no new DB queries, no new
-    // signal assembly). Only fires when signals are ready and no LLM/
-    // cache winner exists. Falls through to the theme composer output
-    // if the builder rejects (validator, banned tokens, etc).
-    if (!cachedSnapshot && !llmBrief && !awaitingSignals && !innerStateIsAwaiting) {
-      try {
-        const timeOfDayStr: 'morning' | 'afternoon' | 'evening' =
-          hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
-        const bandValenceLocal: 'low' | 'mid' | 'high' | null = (() => {
-          const s = typeof innerReadinessScore === 'number'
-            ? Math.max(0, Math.min(100, Math.round(innerReadinessScore))) : null;
-          if (s == null) return null;
-          if (s < 50) return 'low';
-          if (s < 65) return 'mid';
-          return 'high';
-        })();
-        const sleepHardFloorLocal =
-          typeof sleepDuration === 'number' && sleepDuration < 360;
-        const detOut = buildDeterministicBrief({
-          timeOfDay: timeOfDayStr,
-          bandValence: bandValenceLocal,
-          safeTier: safeTier as any,
-          innerReadinessScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null,
-          hasWearable: !!wearableContext,
-          hrvDeviation: typeof hrvDeviation === 'number' ? hrvDeviation : null,
-          sleepDuration: typeof sleepDuration === 'number' ? sleepDuration : null,
-          sleepDeviation: typeof sleepDeviation === 'number' ? sleepDeviation : null,
-          sleepHardFloor: sleepHardFloorLocal,
-          rhrDeviation: typeof (wearableContext as any)?.rhrDeviation === 'number'
-            ? (wearableContext as any).rhrDeviation : null,
-          calendarLoad: (calendarLoad as any) ?? null,
-          todayHighStakes: Array.isArray(todayHighStakes) ? todayHighStakes : [],
-          nextHighStakesEvent: nextHighStakesEvent
-            ? { title: nextHighStakesEvent.title, minutesUntil: nextHighStakesEvent.minutesUntil }
-            : null,
-          hasBackToBack,
-          avgScore7d,
-          scoreTrajectory7d: (scoreTrajectory7d as any) ?? null,
-          hrvEventCorrelation,
-          checkInOutcome: checkInOutcome ?? null,
-          clarityLevel: typeof clarityLevel === 'number' ? clarityLevel : null,
-          confidenceLevel: typeof confidenceLevel === 'number' ? confidenceLevel : null,
-          tomorrowLoad: (tomorrowLoad as any) ?? null,
-          tomorrowHighStakesTitles: Array.isArray(tomorrowHighStakesTitles) ? tomorrowHighStakesTitles : [],
-        });
-        if (detOut) {
-          console.log('[compute-outer-readiness][deterministic-builder]', JSON.stringify({
-            topSignal: detOut.topSignal,
-            wordCount: detOut.body.split(/\s+/).filter(Boolean).length,
-            timeOfDay: timeOfDayStr,
-          }));
-          finalPhrase = detOut.phrase;
-          finalContext = detOut.body;
-        }
-      } catch (detErr) {
-        console.warn('[compute-outer-readiness][deterministic-builder] fallback to theme composer:',
-          detErr instanceof Error ? detErr.message : detErr);
-      }
-    }
-
-    const fallbackDecision: FallbackDecision = decideBriefFallback({
-      cachedSnapshotPresent: !!cachedSnapshot,
-      llmBriefPresent: !!llmBrief,
-      awaitingSignals,
-      innerStateIsAwaiting,
-      deterministicPhrase: finalPhrase,
-      deterministicBody: finalContext,
-    });
-    // v6.5-no-deterministic-fallback: honour the prompt-version contract.
-    // Deterministic prose (`Readiness sits at N, no single signal dominating…`
-    // / `Channel the peak.` / `A neutral day is when compounding still moves`)
-    // is never emitted to users; LLM miss → awaiting. `fallbackDecision` is
-    // still computed so telemetry stays intact.
-    const useDeterministicFallback = false;
-    const fallbackDecisionRaw = fallbackDecision.use;
-    if (fallbackDecisionRaw) {
+    // v6.5-no-deterministic-fallback (2026-07-11): the legacy deterministic
+    // Brief path was removed here. Contract is now:
+    //   cache hit (LLM-only) → LLM winner → awaiting.
+    // A fresh deterministic system (spec: "Deterministic Fallback Final")
+    // must pass validateBrief() before shipping and is not implemented
+    // here. Do NOT reintroduce buildDeterministicBrief / decideBriefFallback
+    // / capDeterministicBody at this call site.
+    if (!cachedSnapshot && !llmBrief) {
       console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
         source: 'awaiting',
-        wouldHaveBeen: 'deterministic',
-        blockedBy: 'v6.5-no-deterministic-fallback',
-        reason: llmFallbackReason || 'llm_miss_signals_ready',
-        llmAttempted: llmAttemptRecords.length > 0,
-        validatorRejectReason: llmValidatorRejections.length > 0
-          ? (llmValidatorRejections[llmValidatorRejections.length - 1] as any)?.rule ?? null
-          : null,
-        awaiting: false,
-        snapshotPersisted: true,
-      }));
-    } else if (!cachedSnapshot && !llmBrief) {
-      console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
-        source: 'awaiting',
-        reason: fallbackDecision.reason,
+        reason: awaitingSignals
+          ? 'awaiting_signals'
+          : innerStateIsAwaiting
+            ? 'inner_state_awaiting'
+            : (llmFallbackReason || 'llm_miss_no_deterministic'),
         llmAttempted: llmAttemptRecords.length > 0,
         validatorRejectReason: llmValidatorRejections.length > 0
           ? (llmValidatorRejections[llmValidatorRejections.length - 1] as any)?.rule ?? null
           : null,
         awaiting: true,
         snapshotPersisted: true,
+        blockedBy: 'v6.5-no-deterministic-fallback',
       }));
     }
 
@@ -5463,12 +5428,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // and inner-awaiting runs never emit Brief prose.
     const briefMustAwait = awaitingSignals || innerStateIsAwaiting;
     const briefIsAwaiting =
-      briefMustAwait || (!cachedSnapshot && !llmBrief && !useDeterministicFallback);
+      briefMustAwait || (!cachedSnapshot && !llmBrief);
     const briefSource: 'llm' | 'deterministic' | 'awaiting' = briefMustAwait
       ? 'awaiting'
       : cachedSnapshot
         ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
-        : (llmBrief ? 'llm' : (useDeterministicFallback ? 'deterministic' : 'awaiting'));
+        : (llmBrief ? 'llm' : 'awaiting');
     const responsePhrase = briefIsAwaiting
       ? null
       : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);
@@ -5476,7 +5441,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       ? null
       : (cachedSnapshot?.body_text
           ?? llmBrief?.bodyText
-          ?? (useDeterministicFallback ? capDeterministicBody(finalContext) : finalContext));
+          ?? finalContext);
     // Strip stray markdown emphasis the LLM occasionally emits (e.g.
     // "*Board Meeting *"). The client renderer still parses **bold** spans
     // so we intentionally do NOT touch them — only lone-asterisk noise.
