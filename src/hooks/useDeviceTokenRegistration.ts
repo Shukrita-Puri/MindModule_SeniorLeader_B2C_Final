@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
-import { rememberPushTokenMeta } from '@/utils/notificationDiagnostics';
+import { rememberPushTokenMeta, rememberCurrentDeviceToken } from '@/utils/notificationDiagnostics';
 import { getSupabaseFunctionHeaders, getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
 
 interface NormalizedApnsToken {
@@ -155,6 +155,7 @@ export function useDeviceTokenRegistration() {
             return;
           }
           rememberPushTokenMeta({ userId: user.id, tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length, source: normalized.source });
+          rememberCurrentDeviceToken(cleaned);
           try {
             const accessToken = await getRegistrationAuthToken();
             if (!accessToken && !DEV_MODE) {
