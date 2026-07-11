@@ -54,8 +54,25 @@ export function getRememberedPushTokenMeta(): PushTokenMeta | null {
 /**
  * Full APNs device token for THIS device only. Stored so that logout
  * can identify which token to deactivate server-side without touching
- * the user's other devices (iPad B, second iPhone). Kept in
- * localStorage on-device; never synced elsewhere.
+ * the user's other devices (iPad B, second iPhone).
+ *
+ * Storage backend:
+ *   • Native iOS/Android (Capacitor): WKWebView localStorage is
+ *     already per-app-container, on-device, and survives app upgrades
+ *     — i.e. functionally equivalent to Capacitor Preferences for
+ *     this single value. We deliberately do NOT pull in
+ *     @capacitor/preferences solely for one string (see Batch B
+ *     follow-up: "do not introduce a large new storage dependency
+ *     solely for this").
+ *   • Web (Lovable preview / installed PWA): localStorage on the
+ *     origin. This is a KNOWN TEMPORARY LIMITATION on web: clearing
+ *     site data will drop the token, so a web logout may skip the
+ *     server-side revoke. This is acceptable because the token
+ *     survives on the server until APNs BadDeviceToken triggers
+ *     deactivation on the next tick.
+ *
+ * The raw token is never logged anywhere; only an irreversible
+ * SHA-256 hash prefix is used for correlation.
  */
 export function rememberCurrentDeviceToken(token: string): void {
   try { localStorage.setItem(CURRENT_DEVICE_TOKEN_KEY, token); } catch { /* best-effort */ }
