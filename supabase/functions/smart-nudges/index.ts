@@ -3548,7 +3548,8 @@ type NotificationTraceOutcome =
   | 'apns_attempted'
   | 'apns_accepted'
   | 'apns_rejected'
-  | 'back_to_back_skip';
+  | 'back_to_back_skip'
+  | 'duplicate_claim';
 
 interface TraceDetails {
   localDate?: string | null;
