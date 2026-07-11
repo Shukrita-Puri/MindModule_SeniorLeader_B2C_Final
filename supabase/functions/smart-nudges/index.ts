@@ -4058,6 +4058,7 @@ serve(async (req) => {
           localHour, localMinute, dayOfWeek,
           profile?.current_streak || 0,
           lastAppOpenMap.get(userId) || null,
+          clockTimezone,
         );
         ctx.pattern = await loadPatternSummary(supabase, userId);
 
@@ -4138,6 +4139,7 @@ serve(async (req) => {
           localHour, localMinute, dayOfWeek,
           profile?.current_streak || 0,
           lastAppOpen,
+          clockTimezone,
         );
         // v7 - hydrate unified pattern store (causality_findings.signal_summary)
         ctx.pattern = await loadPatternSummary(supabase, userId);
