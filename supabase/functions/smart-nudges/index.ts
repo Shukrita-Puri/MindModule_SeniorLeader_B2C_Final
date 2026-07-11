@@ -32,6 +32,9 @@ import {
   COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
   isCountableDeliveryState,
 } from "../_shared/countable-notification-states.ts";
+// Batch C — atomic dispatch-key claim + per-device delivery attempts.
+import { claimDispatch, attachNotificationLogToClaim } from "../_shared/dispatch-key.ts";
+import { recordDeliveryAttempt } from "../_shared/delivery-attempts.ts";
 // Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
@@ -3545,7 +3548,8 @@ type NotificationTraceOutcome =
   | 'apns_attempted'
   | 'apns_accepted'
   | 'apns_rejected'
-  | 'back_to_back_skip';
+  | 'back_to_back_skip'
+  | 'duplicate_claim';
 
 interface TraceDetails {
   localDate?: string | null;
@@ -4853,6 +4857,36 @@ serve(async (req) => {
         },
       };
 
+      // Batch C — atomic dispatch-key claim. Two overlapping cron runs
+      // or an admin force-run racing the scheduler must collapse to a
+      // single logical send. The claim is inserted with a UNIQUE
+      // constraint; the loser trace-logs `duplicate_claim` and exits.
+      // Dry-run and Week-Ahead follow the same rule so admin probes
+      // cannot double-fire either.
+      // Local date is already resolved per-user upstream and stored on
+      // each qualified notification as `todayStr`. Fall back to the UTC
+      // ISO date only when that plumbing is missing (defensive).
+      const dispatchLocalDate = notif.todayStr ?? new Date().toISOString().slice(0, 10);
+      const claim = await claimDispatch(supabase, {
+        userId: notif.userId,
+        notificationType: notif.type,
+        localDate: dispatchLocalDate,
+        eventReference: notif.eventReference ?? null,
+      });
+      if (!claim.claimed) {
+        trace(notif.userId, 'duplicate_claim', {
+          notificationType: notif.type,
+          variantId: notif.copy.variantId,
+          notificationLogId: claim.existingLogId,
+          metadata: {
+            dispatch_key: claim.dispatchKey,
+            reason: claim.reason ?? 'already_claimed',
+          },
+        });
+        console.log(`[smart-nudges] duplicate_claim skip user=${redactUserId(notif.userId)} type=${notif.type} evt=${notif.eventReference ?? '-'}`);
+        continue;
+      }
+
       const { data: logRow } = await supabase.from('notification_log').insert({
         user_id: notif.userId,
         notification_type: notif.type,
@@ -4868,6 +4902,11 @@ serve(async (req) => {
       }).select('id').single();
 
       const notificationLogId = logRow?.id;
+      if (notificationLogId && claim.claimId) {
+        // Best-effort: attach the log to the claim so losers observing
+        // the claim can point at the canonical send row.
+        await attachNotificationLogToClaim(supabase, claim.claimId, notificationLogId);
+      }
 
       if (!isDryRun && apnsJwt) {
         for (const tokenInfo of notif.tokens) {
@@ -4900,6 +4939,18 @@ serve(async (req) => {
                   delivery_state: 'failed',
                 })
                 .eq('id', notificationLogId);
+              // Batch C - per-device attempt row (never blocks the send loop).
+              await recordDeliveryAttempt(supabase, {
+                notificationLogId,
+                userId: notif.userId,
+                rawToken: tokenInfo.token,
+                platform: tokenInfo.platform,
+                apnsEnvironment: apnsEnv,
+                apnsStatus: 0,
+                apnsReason: 'MalformedDeviceToken',
+                apnsId: null,
+                permanentFailure: true,
+              });
             }
             await supabase
               .from('notification_device_tokens')
@@ -4967,6 +5018,20 @@ serve(async (req) => {
                   delivery_state: result.ok ? 'accepted' : 'failed',
                 })
                 .eq('id', notificationLogId);
+              // Batch C - per-device attempt. Parent notification_log
+              // still gets a last-write for backward compatibility, but
+              // multi-device fan-out is now derivable from this table.
+              await recordDeliveryAttempt(supabase, {
+                notificationLogId,
+                userId: notif.userId,
+                rawToken: tokenInfo.token,
+                platform: tokenInfo.platform,
+                apnsEnvironment: apnsEnv,
+                apnsStatus: result.status,
+                apnsReason: result.reason,
+                apnsId: null,
+                permanentFailure: !!(result.status === 410 || (result.status === 400 && /baddevicetoken/i.test(result.reason || ''))),
+              });
             }
 
             // Auto-deactivate tokens APNs has rejected as permanently bad.
@@ -5014,6 +5079,17 @@ serve(async (req) => {
                   delivery_state: 'failed',
                 })
                 .eq('id', notificationLogId);
+              await recordDeliveryAttempt(supabase, {
+                notificationLogId,
+                userId: notif.userId,
+                rawToken: tokenInfo.token,
+                platform: tokenInfo.platform,
+                apnsEnvironment: apnsEnv,
+                apnsStatus: 0,
+                apnsReason: 'send_threw',
+                apnsId: null,
+                extra: { error: String(e) },
+              });
             }
           }
         }
