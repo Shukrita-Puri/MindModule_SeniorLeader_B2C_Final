@@ -18,6 +18,7 @@ import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
