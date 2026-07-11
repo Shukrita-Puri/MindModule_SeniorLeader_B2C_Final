@@ -24,6 +24,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { decideWrite } from "./decide-write.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -203,65 +204,4 @@ Deno.serve(async (req) => {
   }
 });
 
-// -----------------------------------------------------------------------------
-// Pure decision function — exported for testing without a DB.
-// -----------------------------------------------------------------------------
-
-export interface CurrentRow {
-  watch_sync_status?: string | null;
-  watch_last_error?: string | null;
-  watch_status_source?: string | null;
-  watch_status_authoritative_at?: string | null;
-}
-
-export type WriteDecision =
-  | { apply: true }
-  | { apply: false; reason: "stale_timestamp" | "js_cannot_downgrade_native" | "js_cannot_downgrade_synced" };
-
-export function decideWrite(
-  current: CurrentRow | null | undefined,
-  incoming: Pick<WatchStatusRequest, "status" | "source" | "authoritativeAt">,
-): WriteDecision {
-  // First write ever — always apply.
-  if (!current || !current.watch_status_authoritative_at) return { apply: true };
-
-  const currentAt = Date.parse(current.watch_status_authoritative_at);
-  const incomingAt = Date.parse(incoming.authoritativeAt);
-  const isNewer = Number.isFinite(incomingAt) && incomingAt > currentAt;
-
-  const currentStatus = current.watch_sync_status ?? null;
-  const currentSource = current.watch_status_source ?? null;
-
-  // Rule: "synced" always wins over any non-synced current, regardless of clock skew.
-  if (incoming.status === "synced" && currentStatus !== "synced") return { apply: true };
-
-  // Rule: JS opportunistic writes may NEVER downgrade an authoritative
-  // native record. They can only refresh a same-status row (harmless).
-  if (incoming.source === "js-opportunistic") {
-    if (currentSource === "native-ios" && currentStatus === "synced" && incoming.status !== "synced") {
-      return { apply: false, reason: "js_cannot_downgrade_synced" };
-    }
-    if (currentSource === "native-ios" && !isNewer) {
-      return { apply: false, reason: "js_cannot_downgrade_native" };
-    }
-  }
-
-  // Rule: native downgrade requires newer timestamp.
-  if (
-    incoming.source === "native-ios" &&
-    currentStatus === "synced" &&
-    incoming.status !== "synced" &&
-    !isNewer
-  ) {
-    return { apply: false, reason: "stale_timestamp" };
-  }
-
-  // Otherwise: newer wins.
-  if (isNewer) return { apply: true };
-
-  // Same clock, same source, same status — treat as idempotent apply
-  // so lastSampleAt / error fields can refresh.
-  if (incomingAt === currentAt) return { apply: true };
-
-  return { apply: false, reason: "stale_timestamp" };
-}
+// Pure decision logic lives in ./decide-write.ts.
