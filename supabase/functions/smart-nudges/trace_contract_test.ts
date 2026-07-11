@@ -13,25 +13,43 @@ Deno.test("smart-nudges creates durable run and per-user trace records", () => {
 });
 
 Deno.test("smart-nudges traces required skip and APNs outcomes", () => {
+  // Batch B follow-up — updated to current NotificationTraceOutcome enum.
+  //
+  // Prior contract: `quiet_day`, `low_power_mode`, `app_open_cooldown`
+  // were separate suppression outcomes.
+  //
+  // Current production contract (see enum in index.ts):
+  //   • quiet days are represented by Plan slots upstream — not by a
+  //     `quiet_day` trace outcome. The comment above the DND check
+  //     documents this: "Quiet/rest days are represented by Plan slots
+  //     upstream."
+  //   • low-power mode has no server-side signal and is not a trace outcome.
+  //   • the app-open cooldown was removed entirely; there is no
+  //     `APP_OPEN_COOLDOWN_MS` constant anymore.
   for (const outcome of [
     "no_active_device_token",
     "outside_global_window",
     "dnd_window",
-    "quiet_day",
-    "low_power_mode",
-    "app_open_cooldown",
     "daily_cap",
     "two_hour_suppression",
     "light_day_strong_state",
     "no_qualified_nudge",
     "week_ahead_not_in_window",
     "week_ahead_already_sent_this_week",
+    "week_ahead_not_selected",
     "week_ahead_selected",
     "apns_attempted",
     "apns_accepted",
     "apns_rejected",
+    "back_to_back_skip",
   ]) {
     assert(SRC.includes(outcome), `missing trace outcome: ${outcome}`);
+  }
+  // Batch A/B additions that MUST be present.
+  assert(SRC.includes("plan_snapshot_empty_fallback"), "plan-fallback trace missing");
+  // Removed outcomes MUST NOT be re-added silently.
+  for (const gone of ["'quiet_day'", "'low_power_mode'", "'app_open_cooldown'"]) {
+    assert(!SRC.includes(gone), `outcome ${gone} was removed and must not be re-added without contract update`);
   }
 });
 

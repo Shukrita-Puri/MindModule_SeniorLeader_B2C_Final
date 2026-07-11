@@ -6,6 +6,7 @@ import { DEV_MODE } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { rememberPushTokenMeta, rememberCurrentDeviceToken } from '@/utils/notificationDiagnostics';
+import { hashTokenPrefix } from '@/utils/tokenHash';
 import { getSupabaseFunctionHeaders, getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
 
 interface NormalizedApnsToken {
@@ -136,15 +137,16 @@ export function useDeviceTokenRegistration() {
           const raw = token.value ?? '';
           const normalized = normalizeApnsToken(raw);
           const cleaned = normalized.token;
+          const tokenHash = cleaned ? await hashTokenPrefix(cleaned) : 'sha256:invalid';
           console.log(
             `[PushReg] Device token received: type=${typeof raw} len=${String(raw).length} ` +
-            `source=${normalized.source} valid=${!!cleaned} prefix=${cleaned?.substring(0, 12) ?? 'n/a'}...`
+            `source=${normalized.source} valid=${!!cleaned} hash=${tokenHash}`
           );
           emitIntegrationEvent({
             provider: 'notification',
             event: cleaned ? 'notification_apns_registration_success' : 'notification_apns_registration_failed',
             userId: user.id,
-            meta: { rawLength: String(raw).length, normalizedLength: cleaned?.length ?? 0, source: normalized.source, tokenPrefix: cleaned?.substring(0, 12) ?? null },
+            meta: { rawLength: String(raw).length, normalizedLength: cleaned?.length ?? 0, source: normalized.source, tokenHash },
           });
           if (!cleaned) {
             registered.current = false;
@@ -154,7 +156,7 @@ export function useDeviceTokenRegistration() {
             );
             return;
           }
-          rememberPushTokenMeta({ userId: user.id, tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length, source: normalized.source });
+          rememberPushTokenMeta({ userId: user.id, tokenPrefix: tokenHash, tokenLength: cleaned.length, source: normalized.source });
           rememberCurrentDeviceToken(cleaned);
           try {
             const accessToken = await getRegistrationAuthToken();
@@ -164,7 +166,7 @@ export function useDeviceTokenRegistration() {
               return;
             }
 
-            emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_started', userId: user.id, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
+              emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_started', userId: user.id, meta: { tokenHash, tokenLength: cleaned.length } });
             const response = await fetch(
               getSupabaseFunctionUrl('register-device-token'),
               {
@@ -180,12 +182,12 @@ export function useDeviceTokenRegistration() {
             if (!response.ok) {
               registered.current = false;
               console.error('[PushReg] Backend rejected token:', response.status, responseText);
-              emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_failed', userId: user.id, errorCode: String(response.status), errorMessage: responseText, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
+              emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_failed', userId: user.id, errorCode: String(response.status), errorMessage: responseText, meta: { tokenHash, tokenLength: cleaned.length } });
               return;
             }
             console.log('[PushReg] Token persisted to backend');
             registered.current = true;
-            emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_success', userId: user.id, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
+            emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_success', userId: user.id, meta: { tokenHash, tokenLength: cleaned.length } });
           } catch (err) {
             registered.current = false;
             console.error('[PushReg] Failed to persist token:', err);

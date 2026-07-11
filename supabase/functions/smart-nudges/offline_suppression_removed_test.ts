@@ -60,9 +60,25 @@ Deno.test("smart-nudges emits APNs attempt metadata on the notification_log row"
   }
 });
 
-Deno.test("smart-nudges renames the stale-device metric to a diagnostic 'activityAge' field", () => {
-  assert(SRC.includes("activityAgeMin"), "expected diagnostic activityAgeMin variable");
-  assert(SRC.includes("last_activity_age_min"), "expected diagnostic last_activity_age_min payload field");
+/**
+ * Batch B follow-up — updated to current production contract.
+ *
+ * Prior contract: renamed the stale-device metric to `activityAgeMin` /
+ * `last_activity_age_min` diagnostic fields. That intermediate rename
+ * was removed entirely — device-token `updated_at` is NOT a heartbeat
+ * (see the comment at the "Delivery-context" block in index.ts) and
+ * there is no per-user staleness diagnostic anymore. The current
+ * contract is simply: no such metric, and no source reference to
+ * DEVICE_OFFLINE_STALE_MIN as a delivery gate.
+ */
+Deno.test("stale-device metric is fully removed (no activityAge diagnostic)", () => {
+  assert(!SRC.includes("activityAgeMin"), "activityAgeMin must NOT exist — stale-device diagnostic was removed");
+  assert(!SRC.includes("last_activity_age_min"), "last_activity_age_min must NOT exist");
+  assert(
+    SRC.includes("device-token `updated_at` is NOT a heartbeat") ||
+      SRC.includes("device-token `updated_at`"),
+    "expected the anchor comment explaining why no heartbeat exists",
+  );
 });
 
 /**

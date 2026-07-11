@@ -45,11 +45,18 @@ Deno.test("unregister-device-token never logs the raw device token", () => {
   // 12-char prefix is fine for correlation; bare `deviceToken` is not.
   const logCalls = src.match(/console\.(log|warn|error)\([\s\S]*?\)/g) ?? [];
   for (const call of logCalls) {
-    if (call.includes("deviceToken") && !call.includes("deviceToken.substring")) {
+    // Batch B follow-up privacy contract: the ONLY acceptable log surface
+    // that references the token is `hashTokenPrefix(deviceToken)`. Raw
+    // token, raw `deviceToken.substring(0, N)`, and any concatenation
+    // that includes the plaintext value are all forbidden.
+    if (call.includes("deviceToken") && !call.includes("hashTokenPrefix")) {
       throw new Error(`raw device token leaked into log: ${call}`);
     }
+    if (call.includes(".substring(0, 12)") && call.includes("deviceToken")) {
+      throw new Error(`raw 12-char prefix leaked into log: ${call}`);
+    }
   }
-  assertStringIncludes(src, "deviceToken.substring(0, 12)");
+  assertStringIncludes(src, "hashTokenPrefix(deviceToken)");
 });
 
 Deno.test(

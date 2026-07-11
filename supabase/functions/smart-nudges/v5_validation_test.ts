@@ -123,7 +123,11 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
   // evaluators (calendar_gap, pattern_alert, …) are dormant under
   // MVP_POST_LAUNCH=false and may carry legacy strings that the v5
   // contract does not yet apply to.
-  const startMarker = "// ── Static Fallback Copy — MVP Nudge System ──";
+  // Batch B follow-up — anchor comment now uses an ASCII hyphen, not an
+  // em-dash. Current production contract (index.ts):
+  //   // ── Static Fallback Copy - MVP Nudge System ──
+  //   // ── MVP Nudge Evaluators (Nudge 1, 2, 3) ──
+  const startMarker = "// ── Static Fallback Copy - MVP Nudge System ──";
   const endMarker   = "// ── MVP Nudge Evaluators";
   const startIdx = src.indexOf(startMarker);
   const endIdx   = src.indexOf(endMarker, startIdx);
@@ -153,7 +157,13 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
 Deno.test("v8 source: global timing constants + arch stamp", async () => {
   const src = await Deno.readTextFile(SOURCE_PATH);
   assert(/GLOBAL_EARLIEST_LOCAL\s*=\s*8(\.0)?/.test(src), "GLOBAL_EARLIEST_LOCAL must = 8.0");
-  assert(/APP_OPEN_COOLDOWN_MS\s*=\s*60\s*\*\s*60\s*\*\s*1000/.test(src), "APP_OPEN_COOLDOWN_MS must be 60 min");
+  // Batch B follow-up — APP_OPEN_COOLDOWN_MS was removed entirely.
+  // Current production contract:
+  //   • no per-user app-open cooldown gate on outbound nudges
+  //   • the only intra-tick guard is INTRA_TICK_MAX = 1
+  // Guard against silent re-introduction of the old constant.
+  assert(!/APP_OPEN_COOLDOWN_MS/.test(src),
+    "APP_OPEN_COOLDOWN_MS was intentionally removed; do not re-introduce it without a contract update");
   assert(/INTRA_TICK_MAX\s*=\s*1/.test(src), "INTRA_TICK_MAX must be 1");
   assert(/architecture:\s*['"`]cos-mind-v8-meaning-forward['"`]/.test(src), "Payload must stamp architecture='cos-mind-v8-meaning-forward'");
   assert(/cta_experiment:\s*['"`]cta-action-verb-v2['"`]/.test(src), "Payload must stamp cta_experiment='cta-action-verb-v2'");

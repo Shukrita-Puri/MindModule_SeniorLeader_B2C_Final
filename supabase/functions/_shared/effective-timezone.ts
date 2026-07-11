@@ -60,6 +60,84 @@ export function localParts(timeZone: string, at = new Date()) {
   };
 }
 
+/**
+ * Batch B follow-up — fractional local hour of an event in an IANA
+ * timezone. Replaces every notification-path use of
+ * `new Date(event.start_time).getHours()`, which returns the server's
+ * local hour (UTC on Supabase Edge Functions) — a real defect that
+ * misclassifies events into morning/afternoon/evening for any user
+ * whose effective timezone isn't UTC.
+ */
+export function eventHourInTimezone(
+  eventStart: string | Date,
+  timeZone: string,
+): number {
+  const at = typeof eventStart === "string" ? new Date(eventStart) : eventStart;
+  const parts = localParts(timeZone, at);
+  return parts.hour + parts.minute / 60;
+}
+
+/**
+ * Batch B follow-up — convert a user-local YYYY-MM-DD day into the
+ * UTC ISO half-open interval `[startUtc, endUtc)` that a calendar
+ * query must use to fetch that day's events. Replaces unsafe
+ * timezone-less boundary strings like `${localDate}T00:00:00`.
+ */
+export function localDayBoundsUtc(localDate: string, timeZone: string): {
+  startUtc: string;
+  endUtc: string;
+} {
+  // `timezoneOffsetMinutes` returns (actualUtc − localWallAsIfUtc).
+  // For zones east of UTC (Asia/Kolkata = −330), west of UTC
+  // (America/New_York EDT = +240). To convert a local wall-clock
+  // instant to real UTC we ADD that offset.
+  //
+  // DST correctness requires a two-pass fix: the offset AT the
+  // resulting instant may differ from the offset at our initial guess.
+  // Two iterations converge for every IANA zone.
+  const y = Number(localDate.slice(0, 4));
+  const m = Number(localDate.slice(5, 7)) - 1;
+  const d = Number(localDate.slice(8, 10));
+  const startWallAsUtc = Date.UTC(y, m, d, 0, 0, 0, 0);
+  const off1 = timezoneOffsetMinutes(timeZone, new Date(startWallAsUtc));
+  const off2 = timezoneOffsetMinutes(
+    timeZone,
+    new Date(startWallAsUtc + off1 * 60_000),
+  );
+  const startUtcMs = startWallAsUtc + off2 * 60_000;
+  // End = next local midnight (repeat two-pass for DST-start days
+  // where the day is 23h and DST-end days where it is 25h).
+  const nextWallAsUtc = startWallAsUtc + 24 * 60 * 60_000;
+  const eOff1 = timezoneOffsetMinutes(timeZone, new Date(nextWallAsUtc));
+  const eOff2 = timezoneOffsetMinutes(
+    timeZone,
+    new Date(nextWallAsUtc + eOff1 * 60_000),
+  );
+  const endUtcMs = nextWallAsUtc + eOff2 * 60_000;
+  return {
+    startUtc: new Date(startUtcMs).toISOString(),
+    endUtc: new Date(endUtcMs).toISOString(),
+  };
+}
+
+/**
+ * Batch B follow-up — is the given local hour inside a DND window
+ * that may cross midnight? Mirrors smart-nudges' inline helper so
+ * every DND decision uses the same logic AND is unit-testable in
+ * isolation.
+ */
+export function isHourInDndWindow(
+  hour: number,
+  dndStart: number | null | undefined,
+  dndEnd: number | null | undefined,
+): boolean {
+  if (dndStart == null || dndEnd == null) return false;
+  if (dndStart === dndEnd) return false;
+  if (dndStart < dndEnd) return hour >= dndStart && hour < dndEnd;
+  // crosses midnight (e.g. 21:30 -> 08:00)
+  return hour >= dndStart || hour < dndEnd;
+}
+
 export function timezoneOffsetMinutes(timeZone: string, at = new Date()): number {
   const dtf = new Intl.DateTimeFormat("en-US", {
     timeZone,

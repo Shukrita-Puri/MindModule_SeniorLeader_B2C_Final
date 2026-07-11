@@ -24,6 +24,9 @@ import {
   localParts,
   resolveEffectiveTimezone,
   timezoneOffsetMinutes,
+  eventHourInTimezone,
+  localDayBoundsUtc,
+  isHourInDndWindow,
 } from "../_shared/effective-timezone.ts";
 import {
   COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
@@ -512,6 +515,14 @@ interface NudgeContext {
   dayOfWeek: number;
   dayName: string;
   isWeekend: boolean;
+  briefWindow: BriefTimeWindow;
+  /**
+   * Batch B follow-up — IANA timezone used for ALL notification
+   * decisions in this ctx. Callers MUST use `eventHourInTimezone(evt,
+   * ctx.timeZone)` and `localDayBoundsUtc(date, ctx.timeZone)` rather
+   * than `new Date(evt).getHours()` or `${date}T00:00:00`.
+   */
+  timeZone: string;
   // Calendar
   todayEvents: CalendarEvent[];
   tomorrowEvents: CalendarEvent[];
@@ -895,14 +906,25 @@ async function buildNudgeContext(
   dayOfWeek: number,
   currentStreak: number,
   lastAppOpen: Date | null,
+  timeZone: string = "UTC",
 ): Promise<NudgeContext> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  // V8 - yesterday's date string (local) for post-travel awareness
-  const yesterdayDate = new Date(`${todayStr}T00:00:00`);
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+  // V8 - yesterday's date string (user-local) for post-travel awareness.
+  // Compute purely in the user's timezone to survive DST + midnight.
+  const yesterdayStr = (() => {
+    const anchorUtc = new Date(`${todayStr}T12:00:00Z`).getTime() - 24 * 60 * 60 * 1000;
+    return localParts(timeZone, new Date(anchorUtc)).localDate;
+  })();
+
+  // Batch B follow-up: every calendar query below must scope by the
+  // UTC boundaries of the user's LOCAL day, not by naive
+  // `${date}T00:00:00` strings (which parse as server-local ≡ UTC on
+  // edge functions and skew calendar fetches by the user's UTC offset).
+  const todayBounds = localDayBoundsUtc(todayStr, timeZone);
+  const tomorrowBounds = localDayBoundsUtc(tomorrowStr, timeZone);
+  const yesterdayBounds = localDayBoundsUtc(yesterdayStr, timeZone);
 
   // All queries in parallel
   const [
@@ -924,20 +946,20 @@ async function buildNudgeContext(
     supabase.from('primary_calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
-      .gte('start_time', `${todayStr}T00:00:00`)
-      .lte('start_time', `${todayStr}T23:59:59`)
+      .gte('start_time', todayBounds.startUtc)
+      .lt('start_time', todayBounds.endUtc)
       .order('start_time', { ascending: true }),
     supabase.from('primary_calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
-      .gte('start_time', `${tomorrowStr}T00:00:00`)
-      .lte('start_time', `${tomorrowStr}T23:59:59`)
+      .gte('start_time', tomorrowBounds.startUtc)
+      .lt('start_time', tomorrowBounds.endUtc)
       .order('start_time', { ascending: true }),
     supabase.from('primary_calendar_events')
       .select('id, title, start_time')
       .eq('user_id', userId)
-      .gte('start_time', `${yesterdayStr}T00:00:00`)
-      .lte('start_time', `${yesterdayStr}T23:59:59`),
+      .gte('start_time', yesterdayBounds.startUtc)
+      .lt('start_time', yesterdayBounds.endUtc),
     supabase.from('wearable_data')
       .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date')
       .eq('user_id', userId)
@@ -1251,6 +1273,13 @@ async function buildNudgeContext(
     dayOfWeek,
     dayName: DAYS[dayOfWeek],
     isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+    // Batch B follow-up: `briefWindow` is used downstream in the
+    // plan-empty-fallback warning. Previously it lived only in this
+    // function's scope and referencing it at the top-level evaluator
+    // threw `ReferenceError: briefWindow is not defined`, surfacing as
+    // a 500 on every live tick that hit the fallback path.
+    briefWindow,
+    timeZone,
     todayEvents,
     tomorrowEvents,
     nonNoiseEvents,
@@ -2758,8 +2787,11 @@ async function evaluateNudgeOne(
   let morningEnd = 9.5;
 
   if (ctx.firstNonNoiseEvent) {
-    const eventTime = new Date(ctx.firstNonNoiseEvent.start_time);
-    const eventHour = eventTime.getHours() + eventTime.getMinutes() / 60;
+    // Batch B follow-up: classify the first meeting in the USER's
+    // timezone. `.getHours()` returned server-local (UTC on edge
+    // functions), so a 09:00 IST meeting was seen as 03:30 UTC and the
+    // morning anchor slid to 02:00 IST.
+    const eventHour = eventHourInTimezone(ctx.firstNonNoiseEvent.start_time, ctx.timeZone);
     const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
     const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
     // 60 min before virtual, 90 min before in-person
@@ -2967,7 +2999,8 @@ async function evaluateNudgeTwo(
   // ── C) State-aware recalibrate (low morning + heavy afternoon) ──
   if (!ctx.isWeekend && ctx.morningCheckinOutcome && LOW_TIERS.includes(ctx.morningCheckinOutcome)) {
     const afternoonHighStakes = ctx.highStakesEvents.filter(e => {
-      const hour = new Date(e.start_time).getHours();
+      // Batch B follow-up: filter afternoon events in the user's tz.
+      const hour = eventHourInTimezone(e.start_time, ctx.timeZone);
       return hour >= 12;
     });
 
@@ -3429,7 +3462,10 @@ async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: 
   if (!ctx.morningCheckinOutcome || !LOW_TIERS.includes(ctx.morningCheckinOutcome)) return null;
   if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 3 * 60 * 60 * 1000) return null;
 
-  const afternoonHighStakes = ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12);
+  // Batch B follow-up: classify high-stakes afternoon events in the user's tz.
+  const afternoonHighStakes = ctx.highStakesEvents.filter(
+    (e) => eventHourInTimezone(e.start_time, ctx.timeZone) >= 12,
+  );
   if (afternoonHighStakes.length >= 1) {
     const eventTitle = afternoonHighStakes[0].title || 'your next meeting';
     return {
@@ -3918,10 +3954,26 @@ serve(async (req) => {
       // DND check. Quiet/rest days are represented by Plan slots upstream.
       const dndStart = prefs?.dnd_start ?? null;
       const dndEnd = prefs?.dnd_end ?? null;
-      if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) {
+      // Batch B follow-up: use the shared cross-midnight DND helper
+      // (isHourInDndWindow) and emit a rich trace that includes the
+      // effective timezone, its source, the local time, and whether the
+      // window crossed midnight — so an admin diagnosing a suppressed
+      // push has every field they need in one place.
+      const dndBlocked = !isForcedUser && isHourInDndWindow(localHour, dndStart, dndEnd);
+      if (dndBlocked) {
         trace(userId, 'dnd_window', {
           ...traceBase,
-          metadata: { dnd_start: dndStart, dnd_end: dndEnd },
+          metadata: {
+            dnd_start: dndStart,
+            dnd_end: dndEnd,
+            dnd_crosses_midnight: dndStart != null && dndEnd != null && dndStart > dndEnd,
+            local_time: `${String(localHour).padStart(2, '0')}:${String(localMinute).padStart(2, '0')}`,
+            local_date: todayStr,
+            effective_timezone: timezoneRead.effectiveTimezone,
+            circadian_timezone: timezoneRead.circadianTimezone,
+            timezone_source: timezoneRead.isAway ? 'travel' : (profile?.current_timezone ? 'profile_current' : (profile?.home_timezone ? 'profile_home' : 'fallback_utc')),
+            blocked: true,
+          },
         });
         continue;
       }
@@ -4029,6 +4081,7 @@ serve(async (req) => {
           localHour, localMinute, dayOfWeek,
           profile?.current_streak || 0,
           lastAppOpenMap.get(userId) || null,
+          clockTimezone,
         );
         ctx.pattern = await loadPatternSummary(supabase, userId);
 
@@ -4109,6 +4162,7 @@ serve(async (req) => {
           localHour, localMinute, dayOfWeek,
           profile?.current_streak || 0,
           lastAppOpen,
+          clockTimezone,
         );
         // v7 - hydrate unified pattern store (causality_findings.signal_summary)
         ctx.pattern = await loadPatternSummary(supabase, userId);
@@ -4233,7 +4287,7 @@ serve(async (req) => {
         console.warn('[smart-nudges][plan-empty-fallback]', {
           userId,
           date: todayStr,
-          window: briefWindow,
+          window: ctx.briefWindow,
           activeSlot,
           reason: 'plan_snapshot_empty_falling_through_to_legacy_cascade',
         });
