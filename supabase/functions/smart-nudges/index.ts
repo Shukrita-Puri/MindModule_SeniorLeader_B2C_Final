@@ -4862,17 +4862,13 @@ serve(async (req) => {
       // constraint; the loser trace-logs `duplicate_claim` and exits.
       // Dry-run and Week-Ahead follow the same rule so admin probes
       // cannot double-fire either.
-      const dispatchLocalDate = (() => {
-        try {
-          return localParts(userTimezone).localDate;
-        } catch {
-          return new Date().toISOString().slice(0, 10);
-        }
-      })();
+      // Local date is already resolved per-user upstream and stored on
+      // each qualified notification as `todayStr`. Fall back to the UTC
+      // ISO date only when that plumbing is missing (defensive).
+      const dispatchLocalDate = notif.todayStr ?? new Date().toISOString().slice(0, 10);
       const claim = await claimDispatch(supabase, {
         userId: notif.userId,
         notificationType: notif.type,
-        slot: notif.slot ?? null,
         localDate: dispatchLocalDate,
         eventReference: notif.eventReference ?? null,
       });
