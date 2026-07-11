@@ -191,39 +191,24 @@ serve(async (req) => {
         );
       }
 
-      const nowIso = new Date().toISOString();
-      const lastSync = typeof body.lastSync === 'string' && body.lastSync.length > 0 ? body.lastSync : null;
-      const { data: existingConn } = await supabaseAdmin
-        .from('calendar_connections')
-        .select('id')
-        .eq('user_id', authenticatedUserId)
-        .eq('provider', 'apple')
-        .maybeSingle();
-
-      const payload: Record<string, unknown> = {
-        user_id: authenticatedUserId,
-        provider: 'apple',
-        is_active: true,
-        updated_at: nowIso,
-      };
-      if (lastSync) payload.last_sync = lastSync;
-
-      if (existingConn) {
-        const { error: updateError } = await supabaseAdmin
-          .from('calendar_connections')
-          .update(payload)
-          .eq('id', existingConn.id);
-        if (updateError) throw new Error(updateError.message || 'Failed to update Apple Calendar status');
-      } else {
-        const { error: insertError } = await supabaseAdmin
-          .from('calendar_connections')
-          .insert(payload);
-        if (insertError) throw new Error(insertError.message || 'Failed to create Apple Calendar status');
-      }
-
+      // Apple Calendar is native-authoritative. The only durable writer for
+      // Apple `calendar_connections` is `sync-apple-calendar` invoked by the
+      // native iOS bridge. JS opportunistic presence writes are rejected here
+      // to prevent stale/local state from fabricating "connected + synced"
+      // and to preserve the monotonic guard (native writes stamp
+      // status_source='native-ios' + status_authoritative_at).
+      console.log(
+        '[calendar-auth] Apple update_status rejected — native-authoritative',
+        'user=', redactUserId(authenticatedUserId),
+      );
       return new Response(
-        JSON.stringify({ success: true, statusUpdated: true, provider: 'apple', lastSync }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          applied: false,
+          reason: 'apple_status_is_native_authoritative',
+          provider: 'apple',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (action === 'callback' || url.searchParams.get('code')) {
       // OAuth callback
