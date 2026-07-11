@@ -25,7 +25,8 @@ import { hashTokenPrefix } from "../_shared/token-hash.ts";
  *
  * Auth: real Auth0 JWT required. The caller can only touch their OWN
  * tokens (scoped by user_id AND device_token). Raw token is never
- * logged — only the first 12 chars for correlation.
+ * logged — only an irreversible SHA-256 hash prefix (see
+ * _shared/token-hash.ts) is emitted for correlation.
  */
 
 const corsHeaders = {
