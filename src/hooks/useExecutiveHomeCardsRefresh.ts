@@ -96,7 +96,6 @@ export function useExecutiveHomeCardsRefresh() {
           'mrs-snapshot',
           'current-brief-snapshot',
           'mastery-plan-snapshot',
-          'outer-readiness',
         ],
         localDate,
         window,
@@ -105,7 +104,6 @@ export function useExecutiveHomeCardsRefresh() {
         queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
         queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
         queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
-        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] }),
       ]);
       toast.success("Today's cards refreshed");
     },
