@@ -1,94 +1,141 @@
-## Goal
+# Apple Health Native-Authoritative Sync — Implementation Plan
 
-Move Executive Home to a **cron-written, snapshot-read** model. Homepage never triggers live generation. **All three cards — MRS, PRB, and Plan — are built by cron 3×/day (morning, afternoon, evening)** so context changes (calendar, physiology, check-in) can reshape every card across the day. All intelligence (scoring, LLM, ranking) stays exactly as-is — we only change *when* generation runs and *what* the UI reads.
+This is a multi-file architectural change touching iOS Swift, backend edge functions, JS/Capacitor layer, and DB schema. Presenting scope + sequencing before implementing so we agree on shape (est. ~1.5k new Swift lines, ~300 backend lines, targeted JS deletions, one migration, ~15 new tests).
 
-### Read/write policy per card
+## 1. Findings (from current code)
 
-| Card | Writer | Reader policy |
-| --- | --- | --- |
-| MRS   | Cron 3×/day + manual refresh | current-window snapshot |
-| PRB   | Cron 3×/day + manual refresh | current-window snapshot |
-| Plan  | Cron 3×/day + manual refresh | current-window snapshot, fall back to latest ready row for the day |
+Current state (`WearableSyncBridge.swift` 687 LOC, `NativeOutbox.swift` 291 LOC, `wearableSyncService.ts` 577 LOC):
 
-A single manual refresh regenerates the current window's MRS + PRB + Plan and invalidates all three React Query keys, so the sibling cards re-hydrate from the shared refreshed snapshots automatically.
+- **No `HKAnchoredObjectQuery`** — reads are time-window based, so observer wakes re-scan and can double-persist samples.
+- **No `HKObserverQuery` background delivery** for HRV/RHR/HR/sleep — background wake exists only for BGTaskScheduler; observer path is missing (only BGTasks fire).
+- **JS can still write authoritative status.** `wearableSyncService.syncHealthKitToBackend` calls `update_status` directly from JS on every foreground run — even after native ran a moment earlier. Native success can be regressed to `waiting_for_data`.
+- **`NativeOutbox`** dedupes by opaque payload hash only; not by (metric, sampleUUID) — retries after partial upload can re-post samples.
+- **`update_status` endpoint accepts any client write** (no monotonic guard, no source-of-truth precedence). Backend has no notion of "authoritative native vs opportunistic JS".
+- **Anchors not persisted** anywhere — every sync is a full window scan.
+- **Sleep double-counting risk**: current normalizer sums all HKCategoryValueSleepAnalysis rows including umbrella `asleep` + stage rows.
+- **`native_healthkit_fallback_triggered`** is masked at read time but still gets written by legacy code paths; no self-heal write on next native success.
 
-## Approach for Plan day-scoping
+## 2. Native Architecture Summary
 
-Recommend the **minimal-change path**:
-- Keep `mastery_plan_snapshots` keyed by `(user_id, plan_date, mrs_window)`.
-- Cron only writes the `morning` row.
-- A new shared helper `resolveCanonicalPlanSnapshot(userId, planDate)` returns the morning row for that day regardless of current window.
-- Structure the helper + `get-mastery-plan-snapshot` response so switching to a truly day-scoped row later is a one-line change.
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  AppDelegate / SceneDelegate                                │
+│    - launches HealthKitSyncManager.shared.bootstrap()       │
+│    - BGTaskScheduler → handleBackgroundWake()               │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+              ┌──────────▼───────────┐
+              │ HealthKitSyncManager │  (serial DispatchQueue)
+              │  - requestAuth...    │
+              │  - runForegroundSync │
+              │  - handleObserverUpd │
+              │  - handleBackground  │
+              └──┬───────┬───────┬───┘
+                 │       │       │
+         ┌───────▼─┐ ┌───▼────┐ ┌▼────────────────┐
+         │ Anchor  │ │Sample  │ │ WearableStatus  │
+         │ Store   │ │Normaliz│ │ Writer (native  │
+         │(UserDef)│ │er      │ │ authority only) │
+         └─────────┘ └────┬───┘ └────────┬────────┘
+                          │              │
+                     ┌────▼──────────────▼────┐
+                     │  NativeSyncOutbox      │
+                     │  (dedupe by identityKey│
+                     │   = metric+bucketDate) │
+                     └────────────────────────┘
+```
 
-## Changes
+Serialization: single `DispatchQueue(label: "healthkit.sync", qos: .utility)` — observer + foreground + BG all funnel through one op queue with `maxConcurrent = 1`. Prevents race where observer callback interleaves with foreground run.
 
-### 1. Cron orchestrator — `supabase/functions/build-executive-home-cards/index.ts`
-- In `buildForUser`, gate the Plan step behind `window === 'morning'`.
-  - Afternoon/evening: set `planStatus = 'skipped_non_morning_window'`, do not call `generate-mastery-plan`.
-- Update `scheduler.ts` `buildSequence` config comment/log to reflect: morning = mrs+brief+plan, afternoon/evening = mrs+brief.
-- Structured log per user/window: `{ window, built: [...], skipped: [...] }`.
+## 3. Swift Module Plan
 
-### 2. Plan persistence guarantees — `supabase/functions/generate-mastery-plan/index.ts`
-- Keep the earlier fix (never overwrite a valid morning plan with an empty/awaiting later run):
-  - Persist unconditionally on morning success.
-  - On any non-morning invocation (manual/admin only), refuse to overwrite an existing `ready` morning row for the same `plan_date`.
-- Keep `[mastery-plan-snapshot]` logs (persist-start, upsert-success/failure, early-return with reason).
+New files under `ios/App/App/HealthKit/`:
 
-### 3. Snapshot reader for Plan — `supabase/functions/get-mastery-plan-snapshot/index.ts`
-- Accept `planDate` (and ignore `mrsWindow` for resolution purposes, but still echo it back).
-- New internal helper `resolveCanonicalPlanSnapshot(db, userId, planDate)`:
-  1. Try `mrs_window = 'morning'` for that date.
-  2. (Future) fall through to a day-scoped row.
-- Return `{ data, source: { canonicalWindow: 'morning', requestedWindow } }`.
-- Log requested vs canonical window and found/missing.
+- **`HealthKitSyncManager.swift`** — public API: `bootstrap()`, `requestAuthorizationAndPrimeSync()`, `runForegroundSync(reason:) async -> SyncOutcome`, `handleObserverUpdate(type:)`, `handleBackgroundWake(completion:)`. Serialized OperationQueue. Classifies outcomes: `.permissionRevoked | .waitingForData | .synced(counts) | .readFailed(err) | .persistFailed(err)`.
+- **`HealthKitAnchorStore.swift`** — `func load(for: HKQuantityTypeIdentifier|SleepAnalysis) -> HKQueryAnchor?`, `save(_:for:)`, `clearAll()`. Backed by `UserDefaults(suiteName: "app.mindmodule.healthkit.anchors")` with `NSKeyedArchiver` (secure coding). Anchor only advances **after** outbox enqueue + local persist succeed (two-phase: read → enqueue → persist anchor).
+- **`HealthKitSampleNormalizer.swift`** — per-metric mappers to canonical JSON payload; sleep collapses umbrella+stage to prevent double counting (prefer stage rows when present in same window, per Apple's HKCategoryValueSleepAnalysisAsleep* enum). Emits `identityKey = "<metric>|<startISO>|<sourceBundleId>"`.
+- **`NativeSyncOutbox.swift`** (replace existing) — file-backed queue at `Library/Application Support/native-outbox/*.json`, per-item retry count, exponential backoff (1m/5m/30m/2h/8h then drop), dedupe by `identityKey`. Extends existing NativeOutbox shape (keep provider="apple-health") — outbox stays backwards compat for calendar.
+- **`WearableStatusWriter.swift`** — sole caller of `/functions/v1/wearable-status-update` (new endpoint). Sends `{status, source: "native-ios", authoritativeAt: ISO, counts, errorCode?}`. Never emits internal marker strings.
+- Refactor **`WearableSyncBridge.swift`** — remove read/persist logic, keep only Capacitor bridge that proxies to `HealthKitSyncManager`. Legacy JS `syncHealthKitData()` becomes a passthrough that returns `{routed: "native"}` — no samples returned to JS.
+- **`AppDelegate.swift`** — call `HealthKitSyncManager.shared.bootstrap()`. Registers observers on launch if authorization is present.
 
-### 4. Homepage read-only — client
-- `src/components/home/TodayThreePriorities.tsx`
-  - Remove the on-mount `supabase.functions.invoke('generate-mastery-plan', …)` path from the normal render flow.
-  - Data source becomes `useMasteryPlanSnapshot` only; if snapshot missing, render the existing preparing/awaiting state.
-  - Keep the manual/admin "force refresh" button wired to the existing invoke path, but behind an explicit user action (not auto).
-- `src/hooks/useMasteryPlanSnapshot.ts`
-  - Call `get-mastery-plan-snapshot` with `planDate` only; treat the canonical morning row as the day's plan.
-  - Log `[plan-snapshot][render] source=snapshot canonicalWindow=morning requestedWindow=<w> found=<bool>`.
-- `src/components/home/DecisionReadinessBrief.tsx` + `src/hooks/useOuterReadiness.ts` / `useCurrentBriefSnapshot.ts`
-  - Homepage path: read `brief_snapshots` via `get-current-brief-snapshot` only. Do NOT call `compute-outer-readiness` on mount.
-  - If snapshot missing for `(userId, localDate, timeWindow)`, show existing awaiting/preparing UI. Do not silently generate.
-  - Keep manual refresh (pull-to-refresh / admin) as a separately-invoked path.
-  - Log `[PRB][render] source=snapshot localDate=… timeWindow=…`.
-- `src/hooks/useMrsSnapshot.ts` / MRS card
-  - Already snapshot-read via `get-mrs-snapshot`. Confirm no live `compute-inner-readiness` is invoked from normal home render; if any remains, gate it behind manual refresh.
-  - Log `[MRS][render] source=snapshot`.
+## 4. Backend Hardening
 
-### 5. Feature flag / staged rollout
-- Add `VITE_HOME_SNAPSHOT_ONLY` (default `true`) checked in the three card consumers.
-  - `true` (default): read-only behavior above.
-  - `false`: legacy live-generation fallback (kept only for local debugging and admin tools).
-- Admin/debug "regenerate" buttons always bypass the flag and call the edge functions directly.
+New endpoint **`supabase/functions/wearable-status-update/index.ts`** (native-authoritative writer):
 
-### 6. Logging summary
-| Point | Log |
-| --- | --- |
-| Cron per user/window | `[exec-home-cron] window=… built=[mrs,brief(,plan)] skipped=[…]` |
-| Plan persist | `[mastery-plan-snapshot] upsert-success id=… priorities=N modules=M` |
-| Plan snapshot read | `[get-mastery-plan-snapshot] requested=<w> canonical=morning found=<bool>` |
-| PRB snapshot read | `[get-current-brief-snapshot] localDate=… timeWindow=… found=<bool>` |
-| UI render source | `[MRS][render] source=snapshot`, `[PRB][render] source=snapshot`, `[plan-snapshot][render] source=snapshot canonicalWindow=morning` |
+Monotonic guard SQL:
+```sql
+UPDATE user_integrations SET
+  watch_sync_status = $new_status,
+  watch_last_sync_at = $auth_at,
+  watch_last_error = CASE WHEN $new_status='synced' THEN NULL ELSE watch_last_error END,
+  watch_last_error_at = CASE WHEN $new_status='synced' THEN NULL ELSE watch_last_error_at END,
+  watch_status_source = 'native-ios',
+  watch_status_authoritative_at = $auth_at
+WHERE user_id = $uid
+  AND (
+    watch_status_authoritative_at IS NULL
+    OR $auth_at > watch_status_authoritative_at
+    OR ($new_status = 'synced' AND watch_sync_status <> 'synced')
+  );
+```
 
-## Acceptance (mapped to spec)
-1. Home load makes zero calls to `compute-inner-readiness`, `compute-outer-readiness`, or `generate-mastery-plan`.
-2. Morning cron writes MRS + PRB + Plan snapshots.
-3. Afternoon/evening cron writes MRS + PRB only; Plan row untouched.
-4. Plan card renders the same morning plan across all 3 windows via `resolveCanonicalPlanSnapshot`.
-5. Missing snapshots render the existing awaiting/preparing UI, never trigger live generation.
-6. All existing scoring, brief validation, and plan ranking code paths are unchanged.
+Rules encoded:
+- `synced` always wins if newer OR if current isn't synced.
+- Downgrades (`synced → waiting_for_data`) rejected unless newer `authoritative_at` **and** source=native.
+- JS calls to legacy `update_status` are restricted: reject if body doesn't include `source: "native-ios"` (returns 200 no-op + telemetry).
 
-## Files touched
-- `supabase/functions/build-executive-home-cards/index.ts` (+ `scheduler.ts` comment)
-- `supabase/functions/generate-mastery-plan/index.ts`
-- `supabase/functions/get-mastery-plan-snapshot/index.ts`
-- `src/components/home/TodayThreePriorities.tsx`
-- `src/components/home/DecisionReadinessBrief.tsx`
-- `src/hooks/useMasteryPlanSnapshot.ts`
-- `src/hooks/useOuterReadiness.ts` / `src/hooks/useCurrentBriefSnapshot.ts`
-- `src/hooks/useMrsSnapshot.ts` (verify only, gate any live call)
-- New: `src/config/homeSnapshotMode.ts` (feature flag helper)
+Migration `20260712_watch_authoritative_source.sql`:
+- Add `watch_status_source text`, `watch_status_authoritative_at timestamptz` to `user_integrations`.
+- Backfill NULLs. GRANTs preserved.
+- One-shot cleanup: `UPDATE user_integrations SET watch_last_error=NULL, watch_last_error_at=NULL WHERE watch_last_error='native_healthkit_fallback_triggered'`.
+
+Keep `normalize-watch-status.ts` masking for read paths during rollout window.
+
+## 5. JS / Capacitor De-authorization
+
+- `src/services/wearableSyncService.ts`: `syncHealthKitToBackend()` becomes a thin wrapper that calls `forceNativeHealthSync()` and then reads status from `check-connections-status`. Removes all `supabase.functions.invoke('update_status', ...)` calls from JS entirely.
+- `useWearableSync.ts`: `fetchLatestFromDB` continues to read display state, but never writes.
+- Add ESLint boundary comment + a unit test that greps for forbidden `update_status` invocations from `src/`.
+
+## 6. Test Coverage
+
+Native (XCTest under `ios/App/AppTests/HealthKit/` — new target if missing, else Swift Package tests exercising pure logic):
+- `HealthKitAnchorStoreTests` — save/load/roundtrip/clear.
+- `HealthKitSampleNormalizerTests` — HRV/RHR/HR mapping, sleep umbrella+stage collapse, partial availability.
+- `NativeSyncOutboxTests` — dedupe by identityKey, backoff progression, restart persistence, retry cap.
+- `HealthKitSyncManagerTests` (with mock HKHealthStore) — serialized ops, observer during foreground, outcome classification, permission-revoked path.
+
+Backend (Deno tests):
+- `wearable-status-update` monotonic guard: newer native beats older; older beats newer rejected; JS write without source rejected; synced clears error fields.
+- Extend `normalize-watch-status_test.ts` with post-migration row shapes.
+
+JS:
+- New test asserting `src/services/wearableSyncService.ts` contains no `update_status` string.
+
+## 7. Rollout Sequence
+
+1. **Backend migration + monotonic guard endpoint** deployed (idempotent — no client change yet).
+2. **Native iOS build** (HealthKitSyncManager + writer) shipped via TestFlight; validates on real device with observer background delivery.
+3. **JS deauthorization** shipped only after native writer is confirmed working (feature flag `nativeWearableAuthority` gated for first 24h).
+4. Legacy `update_status` route stays live but no-ops non-native writes; retire after 2 releases.
+
+## 8. Remaining Risks
+
+- **HKObserverQuery reliability** varies with iOS 17/18 background budget; BGTaskScheduler is the safety net.
+- **Sleep source collapse heuristic** may need tuning per device (Apple Watch vs 3rd-party). Ship telemetry counters first.
+- **UserDefaults-backed anchors** are wiped on app uninstall — first post-reinstall sync will do a bounded 30-day scan; documented as expected.
+- **Feature-flag flip** requires coordinated release; if native ship slips, keep JS writer authoritative to avoid stuck states.
+- Cannot unit-test real HKObserverQuery from CI — covered by manual TestFlight checklist in rollout notes.
+
+## Technical details
+
+- HealthKit types: `heartRateVariabilitySDNN`, `restingHeartRate`, `heartRate`, `sleepAnalysis` (HKCategoryType).
+- Anchor key namespace: `"hk.anchor.v1.<typeIdentifier>"`.
+- Outbox schema stays JSON on disk; adds `identityKey`, `nextAttemptAt`, `attempts`.
+- New DB columns nullable, defaults NULL, no RLS change (service role writes via edge function).
+- Serial queue prevents observer/foreground race without needing NSLock in each module.
+
+---
+
+Approve and I'll implement in this order: (1) migration + `wearable-status-update` endpoint + tests, (2) Swift modules + Xcode project entries + native tests, (3) JS deauthorization + guard test, (4) rollout docs in `docs/APPLE_HEALTH_NATIVE_AUTHORITY.md`.
