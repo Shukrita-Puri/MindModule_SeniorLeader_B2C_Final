@@ -2999,7 +2999,8 @@ async function evaluateNudgeTwo(
   // ── C) State-aware recalibrate (low morning + heavy afternoon) ──
   if (!ctx.isWeekend && ctx.morningCheckinOutcome && LOW_TIERS.includes(ctx.morningCheckinOutcome)) {
     const afternoonHighStakes = ctx.highStakesEvents.filter(e => {
-      const hour = new Date(e.start_time).getHours();
+      // Batch B follow-up: filter afternoon events in the user's tz.
+      const hour = eventHourInTimezone(e.start_time, ctx.timeZone);
       return hour >= 12;
     });
 
