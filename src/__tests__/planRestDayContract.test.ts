@@ -129,7 +129,8 @@ describe("Plan rest-day contract (frontend render branch)", () => {
     if (!planJson) return false;
     if (snap.status !== "ready") return false;
     const horizonModules = (planJson.horizonModules ?? []) as unknown[];
-    return horizonModules.length > 0 || isRestDayPlan(planJson);
+    const timeOfDayModules = (((planJson as any).timeOfDayPlan?.modules ?? []) as unknown[]);
+    return horizonModules.length > 0 || timeOfDayModules.length > 0 || isRestDayPlan(planJson);
   }
 
   it("hydration gate accepts a ready rest-day snapshot with empty horizonModules", () => {
@@ -142,6 +143,20 @@ describe("Plan rest-day contract (frontend render branch)", () => {
     expect(
       planSnapshotRenderable({ status: "ready", planJson: { horizonModules: [] } }),
     ).toBe(false);
+  });
+
+  it("ready snapshot with time-of-day modules remains renderable even if horizonModules are empty", () => {
+    expect(
+      planSnapshotRenderable({
+        status: "ready",
+        planJson: {
+          horizonModules: [],
+          timeOfDayPlan: {
+            modules: [{ contentId: "ikigai-purpose" }],
+          },
+        },
+      } as any),
+    ).toBe(true);
   });
 
   it("hydration gate rejects non-ready snapshot even if rest-day marker is set", () => {

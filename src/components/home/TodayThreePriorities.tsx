@@ -298,6 +298,40 @@ const stripCoachFromPlan = (plan: MasteryPlanResponse | null): MasteryPlanRespon
   return { ...plan, horizonModules: filtered };
 };
 
+const buildFallbackHorizonModules = (
+  planJson: Record<string, unknown>,
+): HorizonModule[] => {
+  const rawPriorityModules = Array.isArray((planJson as any).priorities)
+    ? ((planJson as any).priorities as PlanModule[])
+    : [];
+  const rawTimeOfDayModules = Array.isArray((planJson as any)?.timeOfDayPlan?.modules)
+    ? (((planJson as any).timeOfDayPlan.modules) as PlanModule[])
+    : [];
+  const modules = rawPriorityModules.length > 0 ? rawPriorityModules : rawTimeOfDayModules;
+  const period = ((planJson as any)?.timeOfDayPlan?.period ?? 'morning') as 'morning' | 'afternoon' | 'evening';
+  const label = ((planJson as any)?.timeOfDayPlan?.label ?? 'Today') as string;
+  const planBrief = ((planJson as any)?.timeOfDayPlan?.planBrief ?? '') as string;
+
+  return modules.map((practice, index) => ({
+    horizon: 'immediate',
+    timeLabel: index === 0 ? label : `${label} ${index + 1}`,
+    typeLabel: practice.type,
+    whyLine: practice.reasoning || planBrief,
+    recommendedAction: practice.reasoning || undefined,
+    practice,
+    practices: [practice],
+    slotKind: 'state-management',
+    isJit: false,
+    jitEventTitle: null,
+    jitMinutesUntil: null,
+    showNavyBorder: false,
+    showPulse: index === 0,
+    showPriorityPill: false,
+    priorityTag: practice.required ? 'high' : 'medium',
+    arcLabel: period === 'evening' && practice.type === 'integrate' ? 'Recover' : 'Steady',
+  }));
+};
+
 // Snapshot hydration prefers the top-level `horizon_modules` payload from the
 // reader because it is the canonical persisted projection. Older or drifted
 // `plan_json` blobs can miss `horizonModules` even when the snapshot row is
@@ -310,11 +344,14 @@ const normalizeSnapshotPlan = (
   const planJsonHorizonModules = Array.isArray((planJson as any).horizonModules)
     ? ((planJson as any).horizonModules as HorizonModule[])
     : [];
+  const fallbackHorizonModules = buildFallbackHorizonModules(planJson);
   return {
     ...(planJson as unknown as MasteryPlanResponse),
     horizonModules: snapshotHorizonModules.length > 0
       ? (snapshotHorizonModules as HorizonModule[])
-      : planJsonHorizonModules,
+      : planJsonHorizonModules.length > 0
+        ? planJsonHorizonModules
+        : fallbackHorizonModules,
   };
 };
 
