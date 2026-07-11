@@ -4938,6 +4938,18 @@ serve(async (req) => {
                   delivery_state: 'failed',
                 })
                 .eq('id', notificationLogId);
+              // Batch C - per-device attempt row (never blocks the send loop).
+              await recordDeliveryAttempt(supabase, {
+                notificationLogId,
+                userId: notif.userId,
+                rawToken: tokenInfo.token,
+                platform: tokenInfo.platform,
+                apnsEnvironment: apnsEnv,
+                apnsStatus: 0,
+                apnsReason: 'MalformedDeviceToken',
+                apnsId: null,
+                permanentFailure: true,
+              });
             }
             await supabase
               .from('notification_device_tokens')
@@ -5005,6 +5017,20 @@ serve(async (req) => {
                   delivery_state: result.ok ? 'accepted' : 'failed',
                 })
                 .eq('id', notificationLogId);
+              // Batch C - per-device attempt. Parent notification_log
+              // still gets a last-write for backward compatibility, but
+              // multi-device fan-out is now derivable from this table.
+              await recordDeliveryAttempt(supabase, {
+                notificationLogId,
+                userId: notif.userId,
+                rawToken: tokenInfo.token,
+                platform: tokenInfo.platform,
+                apnsEnvironment: apnsEnv,
+                apnsStatus: result.status,
+                apnsReason: result.reason,
+                apnsId: null,
+                permanentFailure: !!(result.status === 410 || (result.status === 400 && /baddevicetoken/i.test(result.reason || ''))),
+              });
             }
 
             // Auto-deactivate tokens APNs has rejected as permanently bad.
@@ -5052,6 +5078,17 @@ serve(async (req) => {
                   delivery_state: 'failed',
                 })
                 .eq('id', notificationLogId);
+              await recordDeliveryAttempt(supabase, {
+                notificationLogId,
+                userId: notif.userId,
+                rawToken: tokenInfo.token,
+                platform: tokenInfo.platform,
+                apnsEnvironment: apnsEnv,
+                apnsStatus: 0,
+                apnsReason: 'send_threw',
+                apnsId: null,
+                extra: { error: String(e) },
+              });
             }
           }
         }
