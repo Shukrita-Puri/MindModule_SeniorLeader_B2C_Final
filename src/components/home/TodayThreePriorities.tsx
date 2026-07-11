@@ -1343,6 +1343,8 @@ const TodayThreePriorities = ({
         planDate: todayForPlan,
         requestedWindow: periodForPlan,
         snapshotWindow: snap.mrsWindow,
+        sourceWindow: snap.sourceSelectedWindow,
+        crossWindowFallback: snap.sourceCrossWindowFallback,
         snapshotStatus: snap.status,
         hasPlanJson: !!planJson,
         snapshotHorizonModuleCount: snapshotHorizonModules.length,

@@ -38,6 +38,9 @@ export interface MasteryPlanSnapshot {
   horizonIso: string | null;
   deliveredAt: string | null;
   viewedAt: string | null;
+  sourceStrategy: string | null;
+  sourceSelectedWindow: MrsWindow | null;
+  sourceCrossWindowFallback: boolean;
 }
 
 const DEBUG =
@@ -133,6 +136,9 @@ export function useMasteryPlanSnapshot() {
         horizonIso: ((data as any).horizon_iso ?? null) as string | null,
         deliveredAt: ((data as any).delivered_at ?? null) as string | null,
         viewedAt: ((data as any).viewed_at ?? null) as string | null,
+        sourceStrategy: (source?.strategy ?? null) as string | null,
+        sourceSelectedWindow: (source?.selectedWindow ?? null) as MrsWindow | null,
+        sourceCrossWindowFallback: source?.crossWindowFallback === true,
       };
 
       dbg('snapshot loaded', {
@@ -145,8 +151,9 @@ export function useMasteryPlanSnapshot() {
         effectiveUserId,
         planDate,
         requestedWindow: mrsWindow,
-        sourceStrategy: source?.strategy ?? null,
-        selectedWindow: snapshot.mrsWindow,
+        sourceStrategy: snapshot.sourceStrategy,
+        selectedWindow: snapshot.sourceSelectedWindow ?? snapshot.mrsWindow,
+        crossWindowFallback: snapshot.sourceCrossWindowFallback,
         found: true,
         snapshotId: snapshot.id,
         status: snapshot.status,
