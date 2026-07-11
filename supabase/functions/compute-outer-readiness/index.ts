@@ -4703,6 +4703,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (/\b\d{1,3}\s*\/\s*100\b/.test(strippedBody)) return { valid: false, reason: 'body_restates_score_xx_100' };
             if (/\b(score\s+(of|is)|your\s+score|readiness\s+score)\b/i.test(strippedBody)) return { valid: false, reason: 'body_restates_score_phrase' };
             if (/\b\d{1,3}\s+out\s+of\s+100\b/i.test(strippedBody)) return { valid: false, reason: 'body_restates_score_out_of_100' };
+            // 2026-07-11 — tightened after "Readiness sits at 79" leaked. Cover
+            // conversational score restatements the earlier regexes missed:
+            //   "Readiness sits at 79", "score reads 79", "you're at 79",
+            //   "sitting at 79", "coming in at 79", "landing at 79".
+            if (/\breadiness\s+(sits\s+at|reads|is\s+at|at|stands\s+at|came\s+in\s+at)\s+\d{1,3}\b/i.test(strippedBody)) {
+              return { valid: false, reason: 'body_restates_readiness_sits_at' };
+            }
+            if (/\bscore\s+(sits\s+at|reads|came\s+in\s+at|stands\s+at)\s+\d{1,3}\b/i.test(strippedBody)) {
+              return { valid: false, reason: 'body_restates_score_reads' };
+            }
+            if (/\b(you(?:'re| are)\s+at|sitting\s+at|landing\s+at|coming\s+in\s+at)\s+\d{1,3}\b(?!\s*(?:am|pm|o'clock|min|hour|h\b|%))/i.test(strippedBody)) {
+              return { valid: false, reason: 'body_restates_conversational_score' };
+            }
             // Tier label restatement (e.g. "you're depleted today", "in peak today")
             if (/\b(you(?:'re|\sare)\s+(depleted|managing|strong|peak)|(?:in|at)\s+(depleted|managing|strong|peak)\s+(?:state|tier|today))\b/i.test(strippedBody)) {
               return { valid: false, reason: 'body_restates_tier_label' };
@@ -4776,6 +4789,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
 
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
+
+            // 2026-07-11 — Time-of-day framing gate. Prevents morning framing
+            // ("Anchor the first hour") landing in the evening and vice
+            // versa. `hour` is captured from the outer request scope.
+            {
+              const _tw: 'morning' | 'afternoon' | 'evening' =
+                hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+              const MORNING_PHRASES = /\b(first hour|start (?:of )?the day|morning block|front[- ]load(?:ing)? the morning|set the day|begin with|opening hours|open the day)\b/i;
+              const EVENING_PHRASES = /\b(close (?:out )?the day|protect the evening|tonight|wind down|winding down|tomorrow morning|before sleep|before bed)\b/i;
+              if (_tw === 'evening' && MORNING_PHRASES.test(strippedBody)) {
+                return { valid: false, reason: 'body_morning_framing_in_evening' };
+              }
+              if (_tw === 'morning' && EVENING_PHRASES.test(strippedBody)) {
+                return { valid: false, reason: 'body_evening_framing_in_morning' };
+              }
+            }
+
+            // 2026-07-11 — False-neutrality gate. When physiological /
+            // cognitive signals disagree (MASKED_HIGH or RECOVERY_UNDERWAY),
+            // the body must not claim the day is neutral or that nothing is
+            // standing out. `divergenceMode` is captured from the outer
+            // request scope.
+            if (divergenceMode && divergenceMode !== 'ALIGNED') {
+              const NEUTRAL_PHRASES = /\b(neutral day|no\s+(?:single\s+)?signal\s+dominat|evenly balanced|nothing\s+(?:is\s+)?(?:standing\s+out|dominant|clear))\b/i;
+              if (NEUTRAL_PHRASES.test(strippedBody)) {
+                return { valid: false, reason: 'body_false_neutrality_when_divergent' };
+              }
+            }
 
             // LeanOn/WatchFor validation
             const validateItems = (items: any[], label: string) => {
