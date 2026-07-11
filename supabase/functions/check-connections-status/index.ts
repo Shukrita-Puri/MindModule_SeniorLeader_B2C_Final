@@ -136,6 +136,7 @@ Deno.serve(async (req) => {
       .from("wearable_data")
       .select("id, updated_at, summary_date, source, source_provider, source_apps")
       .eq("user_id", userId)
+      .or("hrv.not.is.null,resting_heart_rate.not.is.null,total_sleep_minutes.not.is.null,sleep_score.not.is.null")
       .order("summary_date", { ascending: false })
       .limit(1)
       .maybeSingle();
