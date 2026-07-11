@@ -11,7 +11,7 @@ import { assert, assertStringIncludes } from "https://deno.land/std@0.224.0/asse
 const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 
 Deno.test("register-device-token deactivates other users' active rows for the same token", () => {
-  assertStringIncludes(src, "cross-user ownership transfer");
+  assertStringIncludes(src, "Cross-user ownership transfer");
   assertStringIncludes(src, "crossUserDeactivated");
   // The deactivation query must key on device_token and exclude the caller.
   assertStringIncludes(src, ".eq('device_token', normalizedToken)");
