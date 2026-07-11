@@ -20,8 +20,11 @@ Deno.test("test-push blocks the send flow on env mismatch", () => {
   // The env check must run BEFORE the APNs credentials read + JWT creation
   // + notification_log insert.
   const envIdx = src.indexOf("envCheck.ok");
-  const jwtIdx = src.indexOf("createApnsJwt(");
-  const logIdx = src.indexOf("notification_log");
+  // Use the CALL sites (after `serve(`) rather than the top-level function
+  // definition of createApnsJwt, so we're comparing runtime ordering.
+  const serveIdx = src.indexOf('serve(async (req)');
+  const jwtIdx = src.indexOf('createApnsJwt(apnsKey', serveIdx);
+  const logIdx = src.indexOf('notification_log', serveIdx);
   assert(envIdx > 0 && jwtIdx > envIdx, "env check must precede JWT creation");
   assert(envIdx > 0 && logIdx > envIdx, "env check must precede notification_log insert");
 });
@@ -33,30 +36,31 @@ Deno.test("shared apns-env validator refuses APP_ENV=production + non-prod APNS"
   assertStringIncludes(sharedSrc, "'production' ? 'api.push.apple.com'");
 });
 
-Deno.test("validateApnsEnvironment runtime behaviour", () => {
+Deno.test("validateApnsEnvironment runtime behaviour", async () => {
   const originalAppEnv = Deno.env.get("APP_ENV");
   const originalApnsEnv = Deno.env.get("APNS_ENVIRONMENT");
-  const originalBundle = Deno.env.get("APNS_BUNDLE_ID");
+  const { validateApnsEnvironment } = await import("../_shared/apns-env.ts");
   try {
     Deno.env.set("APP_ENV", "production");
     Deno.env.set("APNS_ENVIRONMENT", "development");
-    Deno.env.delete("APNS_BUNDLE_ID");
-    // Dynamic re-import so the helper re-reads env at call time (it does —
-    // the helper reads env inside the function body).
-    return import("../_shared/apns-env.ts").then(({ validateApnsEnvironment }) => {
-      const bad = validateApnsEnvironment();
-      assert(bad.ok === false, "expected mismatch to be rejected");
-      assertStringIncludes(bad.reason ?? "", "APNs environment mismatch");
-      Deno.env.set("APNS_ENVIRONMENT", "production");
-      const good = validateApnsEnvironment();
-      assert(good.ok === true, "prod + prod should be accepted");
-      assert(good.apnsHost === "api.push.apple.com");
-    });
+    const bad = validateApnsEnvironment();
+    assert(bad.ok === false, `expected mismatch to be rejected; got ${JSON.stringify(bad)}`);
+    assertStringIncludes(bad.reason ?? "", "APNs environment mismatch");
+
+    Deno.env.set("APNS_ENVIRONMENT", "production");
+    const good = validateApnsEnvironment();
+    assert(good.ok === true, `prod+prod should be accepted; got ${JSON.stringify(good)}`);
+    assert(good.apnsHost === "api.push.apple.com");
+
+    Deno.env.delete("APP_ENV");
+    Deno.env.set("APNS_ENVIRONMENT", "development");
+    const dev = validateApnsEnvironment();
+    assert(dev.ok === true, "non-prod APP_ENV allows any APNs env");
+    assert(dev.apnsHost === "api.sandbox.push.apple.com");
   } finally {
     if (originalAppEnv === undefined) Deno.env.delete("APP_ENV");
     else Deno.env.set("APP_ENV", originalAppEnv);
     if (originalApnsEnv === undefined) Deno.env.delete("APNS_ENVIRONMENT");
     else Deno.env.set("APNS_ENVIRONMENT", originalApnsEnv);
-    if (originalBundle !== undefined) Deno.env.set("APNS_BUNDLE_ID", originalBundle);
   }
 });
