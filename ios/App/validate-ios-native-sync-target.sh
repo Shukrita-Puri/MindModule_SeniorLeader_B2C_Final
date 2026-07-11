@@ -14,12 +14,19 @@ required_files=(
   "NativeBackgroundSyncPlugin.swift"
   "AppleCalendarBackgroundSyncBridge.swift"
   "NativeOutbox.swift"
+  "HealthKitSyncManager.swift"
+  "HealthKitAnchorStore.swift"
+  "HealthKitSampleNormalizer.swift"
+  "WearableStatusWriter.swift"
 )
 
 missing=0
 for file in "${required_files[@]}"; do
-  file_ref_count=$(grep -F "/* $file */ = {isa = PBXFileReference" "$PBXPROJ" | wc -l)
-  source_count=$(grep -F "/* $file in Sources */" "$PBXPROJ" | wc -l)
+  # grep returns non-zero when there are no matches; under `pipefail` that
+  # aborts the whole script before the missing-file diagnostic can print.
+  # Force the counts to succeed regardless of match state.
+  file_ref_count=$(grep -cF "/* $file */ = {isa = PBXFileReference" "$PBXPROJ" || true)
+  source_count=$(grep -cF "/* $file in Sources */" "$PBXPROJ" || true)
 
   if [[ "$file_ref_count" -lt 1 ]]; then
     echo "Missing PBXFileReference for $file"

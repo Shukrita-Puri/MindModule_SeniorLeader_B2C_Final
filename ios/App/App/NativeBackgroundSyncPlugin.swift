@@ -42,6 +42,11 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             if expiresAt > 0 {
                 try saveKeychain(key: tokenExpiryKey, value: String(Int(expiresAt)))
             }
+            // Forward the token to the in-memory provider used by the
+            // native-authoritative HealthKit writer (WearableStatusWriter).
+            // Keychain is authoritative for background bridges; the provider
+            // keeps a hot copy so foreground/observer wakes never miss it.
+            SupabaseAuthTokenProvider.shared.updateToken(token)
             NSLog("[NativeBackgroundSync] Auth token stored for background sync")
             call.resolve(["success": true])
         } catch {
@@ -52,6 +57,7 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func clearAuthToken(_ call: CAPPluginCall) {
         deleteKeychain(key: tokenKey)
         deleteKeychain(key: tokenExpiryKey)
+        SupabaseAuthTokenProvider.shared.updateToken(nil)
         NSLog("[NativeBackgroundSync] Auth token cleared")
         call.resolve(["success": true])
     }
