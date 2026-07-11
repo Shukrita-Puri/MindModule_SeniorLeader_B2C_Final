@@ -333,34 +333,20 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     const hasAnyData = data.dailySummaries.length > 0 || data.dailySamples.length > 0;
 
     if (!hasAnyData) {
-      console.log('[WearableSync] HealthKit accessible, no samples in 30-day window');
-      await persistWatchStatus({
-        watch_connection_status: 'connected',
-        watch_sync_status: 'sync_delayed',
-        watch_last_sync_at: startedAt,
-        watch_last_sample_at: null,
-        watch_last_error: 'native_healthkit_fallback_triggered',
-        watch_type: 'apple',
-      });
-      const nativeFallbackStarted = await forceNativeHealthSync();
-      if (nativeFallbackStarted) {
-        emitIntegrationEvent({
-          provider: 'apple-health',
-          event: 'sync_partial',
-          connectionState: 'sync_delayed',
-          syncState: 'sync_delayed',
-          errorCode: 'native_healthkit_fallback_triggered',
-        });
-        return {
-          success: true,
-          permissionGranted: true,
-          hasData: false,
-          dbPersisted: true,
-          connectionState: 'sync_delayed',
-          syncStatus: 'sync_delayed',
-          lastSyncAttemptAt: startedAt,
-          errorCode: 'native_healthkit_fallback_triggered',
-        };
+      console.log('[WearableSync] HealthKit accessible, no samples in 30-day window – handing off to native background sync');
+      // Fire the native background sync in the background. It has broader
+      // read capabilities (queryStatisticsCollection + anchored queries) and
+      // will POST samples through persist-wearable-data if it finds any.
+      // A successful native persist automatically clears watch_last_error and
+      // flips watch_sync_status to 'synced', so we do NOT persist a
+      // user-visible error here — the marker was only ever an internal
+      // handoff signal. Persist a benign `waiting_for_data` state instead
+      // so the UI shows "catching up" without sticky red-flag copy.
+      let nativeFallbackStarted = false;
+      try {
+        nativeFallbackStarted = await forceNativeHealthSync();
+      } catch (err) {
+        console.warn('[WearableSync] forceNativeHealthSync threw – continuing with waiting_for_data', err);
       }
 
       await persistWatchStatus({
@@ -368,14 +354,28 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
         watch_sync_status: 'waiting_for_data',
         watch_last_sync_at: startedAt,
         watch_last_sample_at: null,
+        // Explicitly clear any prior sticky error (including legacy
+        // `native_healthkit_fallback_triggered` records) — the JS read
+        // succeeded, so there is no user-facing error condition.
         watch_last_error: null,
         watch_type: 'apple',
       });
+
+      emitIntegrationEvent({
+        provider: 'apple-health',
+        event: nativeFallbackStarted ? 'sync_partial' : 'sync_success',
+        connectionState: 'connected',
+        syncState: 'waiting_for_data',
+        // Kept as an INTERNAL telemetry marker only — never persisted as
+        // `watch_last_error` and never surfaced to the UI.
+        errorCode: nativeFallbackStarted ? 'native_healthkit_fallback_triggered' : null,
+      });
+
       return {
         success: true,
         permissionGranted: true,
         hasData: false,
-        dbPersisted: true, // status was persisted even though no sample data
+        dbPersisted: true,
         connectionState: 'connected_but_waiting_for_data',
         syncStatus: 'waiting_for_data',
         lastSyncAttemptAt: startedAt,

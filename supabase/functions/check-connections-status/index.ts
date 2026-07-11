@@ -338,8 +338,19 @@ Deno.serve(async (req) => {
         lastSampleAt: watchIntegration?.watch_last_sample_at || (anyWearable?.summary_date ? new Date(`${anyWearable.summary_date}T00:00:00.000Z`).toISOString() : null),
         watchConnectedAt: watchIntegration?.watch_connected_at || null,
         disconnectedAt: watchIntegration?.watch_disconnected_at || null,
-        lastError: watchIntegration?.watch_last_error || null,
-        lastErrorAt: watchIntegration?.watch_last_error_at || null,
+        // `native_healthkit_fallback_triggered` was an internal handoff
+        // marker mistakenly persisted as `watch_last_error` by earlier app
+        // versions. It is not a user-facing failure — hide it so the UI
+        // doesn't render a sticky "last error" pill after a benign
+        // hand-off to the native background sync path.
+        lastError:
+          watchIntegration?.watch_last_error === "native_healthkit_fallback_triggered"
+            ? null
+            : (watchIntegration?.watch_last_error || null),
+        lastErrorAt:
+          watchIntegration?.watch_last_error === "native_healthkit_fallback_triggered"
+            ? null
+            : (watchIntegration?.watch_last_error_at || null),
         statusUpdatedAt: watchIntegration?.watch_status_updated_at || null,
         sourceProvider,
         ouraDetectedViaAppleHealth,
