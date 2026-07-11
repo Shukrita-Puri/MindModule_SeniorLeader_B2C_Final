@@ -3437,6 +3437,57 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_delivery_attempts: {
+        Row: {
+          apns_environment: string | null
+          apns_id: string | null
+          apns_reason: string | null
+          apns_status: number | null
+          attempt_number: number
+          created_at: string
+          device_token_id: string | null
+          extra: Json
+          id: string
+          notification_log_id: string
+          permanent_failure: boolean
+          platform: string
+          token_hash_prefix: string | null
+          user_id: string
+        }
+        Insert: {
+          apns_environment?: string | null
+          apns_id?: string | null
+          apns_reason?: string | null
+          apns_status?: number | null
+          attempt_number?: number
+          created_at?: string
+          device_token_id?: string | null
+          extra?: Json
+          id?: string
+          notification_log_id: string
+          permanent_failure?: boolean
+          platform: string
+          token_hash_prefix?: string | null
+          user_id: string
+        }
+        Update: {
+          apns_environment?: string | null
+          apns_id?: string | null
+          apns_reason?: string | null
+          apns_status?: number | null
+          attempt_number?: number
+          created_at?: string
+          device_token_id?: string | null
+          extra?: Json
+          id?: string
+          notification_log_id?: string
+          permanent_failure?: boolean
+          platform?: string
+          token_hash_prefix?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_device_tokens: {
         Row: {
           created_at: string
@@ -3464,6 +3515,45 @@ export type Database = {
           platform?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      notification_dispatch_claims: {
+        Row: {
+          created_at: string
+          dispatch_key: string
+          event_reference: string | null
+          id: string
+          local_date: string
+          notification_log_id: string | null
+          notification_type: string
+          slot: string | null
+          user_id: string
+          week_reference: string | null
+        }
+        Insert: {
+          created_at?: string
+          dispatch_key: string
+          event_reference?: string | null
+          id?: string
+          local_date: string
+          notification_log_id?: string | null
+          notification_type: string
+          slot?: string | null
+          user_id: string
+          week_reference?: string | null
+        }
+        Update: {
+          created_at?: string
+          dispatch_key?: string
+          event_reference?: string | null
+          id?: string
+          local_date?: string
+          notification_log_id?: string | null
+          notification_type?: string
+          slot?: string | null
+          user_id?: string
+          week_reference?: string | null
         }
         Relationships: []
       }
