@@ -5,7 +5,7 @@
 // sources (foreground / observer callback / BGTaskScheduler wake)
 // through a single-concurrency OperationQueue so no two syncs can
 // race and the anchor advance is always causally consistent with the
-// most recent successful outbox enqueue.
+// most recent successful persistence handoff.
 //
 // This class does NOT talk to the Supabase API for wearable data
 // samples — that path is owned by the existing bulk-persist pipeline
@@ -14,7 +14,8 @@
 //
 // Outcome classification is the only truth signal the rest of the app
 // receives:
-//   .synced              → real samples enqueued this run
+//   .synced              → real samples observed and handed to the
+//                          canonical native persistence path this run
 //   .waitingForData      → authorization OK, zero new samples
 //   .permissionRevoked   → HealthKit no longer authorized
 //   .readFailed(err)     → HealthKit reads threw
@@ -37,6 +38,7 @@ public final class HealthKitSyncManager {
     private let store = HKHealthStore()
     private let anchors = HealthKitAnchorStore.shared
     private let writer = WearableStatusWriter.shared
+    private let bridge = WearableSyncBridge.shared
 
     // Serial queue guarantees observer wakes cannot interleave with a
     // foreground run or a BG task. maxConcurrent = 1 + waitUntilFinished
@@ -137,12 +139,13 @@ public final class HealthKitSyncManager {
         var perMetricCounts: [String: Int] = [:]
         var latestSample: Date? = nil
         var readError: Error? = nil
+        var nextAnchors: [String: HKQueryAnchor] = [:]
         let syncQueue = DispatchQueue(label: "hk.sync.aggregate")
 
         for entry in quantityTypes {
             guard let hkType = HKObjectType.quantityType(forIdentifier: entry.id) else { continue }
             group.enter()
-            self.runAnchoredQuery(type: hkType, typeIdentifier: entry.id.rawValue) { samples, err in
+            self.runAnchoredQuery(type: hkType, typeIdentifier: entry.id.rawValue) { samples, newAnchor, err in
                 defer { group.leave() }
                 if let err = err { syncQueue.sync { readError = err }; return }
                 let normalized = HealthKitSampleNormalizer.normalizeQuantity(
@@ -158,20 +161,26 @@ public final class HealthKitSyncManager {
                             if latestSample == nil || d > latestSample! { latestSample = d }
                         }
                     }
+                    if let newAnchor = newAnchor {
+                        nextAnchors[entry.id.rawValue] = newAnchor
+                    }
                 }
-                self.enqueueSamplesForUpload(normalized)
             }
         }
 
         // Sleep: HKCategoryType, separate anchored read.
         if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
             group.enter()
-            self.runAnchoredQuery(type: sleepType, typeIdentifier: HKCategoryTypeIdentifier.sleepAnalysis.rawValue) { samples, err in
+            self.runAnchoredQuery(type: sleepType, typeIdentifier: HKCategoryTypeIdentifier.sleepAnalysis.rawValue) { samples, newAnchor, err in
                 defer { group.leave() }
                 if let err = err { syncQueue.sync { readError = err }; return }
                 let normalized = HealthKitSampleNormalizer.normalizeSleep((samples as? [HKCategorySample]) ?? [])
-                syncQueue.sync { perMetricCounts["sleep", default: 0] += normalized.count }
-                self.enqueueSamplesForUpload(normalized)
+                syncQueue.sync {
+                    perMetricCounts["sleep", default: 0] += normalized.count
+                    if let newAnchor = newAnchor {
+                        nextAnchors[HKCategoryTypeIdentifier.sleepAnalysis.rawValue] = newAnchor
+                    }
+                }
             }
         }
 
@@ -184,18 +193,26 @@ public final class HealthKitSyncManager {
             }
             let totalCount = perMetricCounts.values.reduce(0, +)
             if totalCount == 0 {
+                self.commitAnchors(nextAnchors)
                 self.writer.write(status: .waitingForData) { _ in }
                 completion(.waitingForData)
                 return
             }
-            // Success: write authoritative synced status. lastSampleAt lets the
-            // backend advance the truthful staleness timestamp.
-            self.writer.write(
-                status: .synced,
-                lastSampleAt: latestSample,
-                counts: perMetricCounts,
-            ) { _ in }
-            completion(.synced(counts: perMetricCounts, lastSampleAt: latestSample))
+            // Canonical persistence lives in WearableSyncBridge, which already
+            // shapes daily summaries exactly as persist-wearable-data expects.
+            // We intentionally reuse that path instead of uploading raw
+            // per-sample records from this manager.
+            self.bridge.forceFetchAndPersist {
+                self.commitAnchors(nextAnchors)
+                // Success: write authoritative synced status. lastSampleAt lets the
+                // backend advance the truthful staleness timestamp.
+                self.writer.write(
+                    status: .synced,
+                    lastSampleAt: latestSample,
+                    counts: perMetricCounts,
+                ) { _ in }
+                completion(.synced(counts: perMetricCounts, lastSampleAt: latestSample))
+            }
         }
     }
 
@@ -204,7 +221,7 @@ public final class HealthKitSyncManager {
     private func runAnchoredQuery(
         type: HKSampleType,
         typeIdentifier: String,
-        completion: @escaping ([HKSample]?, Error?) -> Void,
+        completion: @escaping ([HKSample]?, HKQueryAnchor?, Error?) -> Void,
     ) {
         let savedAnchor = anchors.load(for: typeIdentifier)
         // First-run fallback: bounded 30-day scan so a reinstall does not
@@ -219,34 +236,22 @@ public final class HealthKitSyncManager {
             anchor: savedAnchor,
             limit: HKObjectQueryNoLimit,
         ) { [weak self] _, samples, _, newAnchor, error in
-            guard let self = self else { completion(nil, error); return }
-            if let error = error { completion(nil, error); return }
-            // Two-phase: hand samples to caller BEFORE saving the new
-            // anchor. Anchor is persisted only if enqueue succeeds — done
-            // by callback in performSync via enqueueSamplesForUpload.
-            completion(samples ?? [], nil)
-            if let newAnchor = newAnchor { self.anchors.save(newAnchor, for: typeIdentifier) }
+            guard self != nil else { completion(nil, newAnchor, error); return }
+            if let error = error {
+                completion(nil, newAnchor, error)
+                return
+            }
+            // Two-phase: return the proposed new anchor to the caller, then
+            // persist it only after the canonical native upload handoff has run.
+            completion(samples ?? [], newAnchor, nil)
         }
         store.execute(query)
     }
 
-    // MARK: - Outbox handoff
-
-    private func enqueueSamplesForUpload(_ samples: [NormalizedSample]) {
-        guard !samples.isEmpty else { return }
-        // Reuse existing NativeOutbox — one payload envelope per batch,
-        // with per-sample identityKey preserved for backend dedupe. The
-        // existing NativeOutbox dedupes by envelope hash today; the
-        // backend persist-wearable-data endpoint is already idempotent
-        // per (user, metric, day), so double-uploads are safe.
-        let payload: [String: Any] = [
-            "provider": "apple-health-native",
-            "source": "HealthKitSyncManager",
-            "samples": samples.map { $0.payload },
-            "identityKeys": samples.map { $0.identityKey },
-            "capturedAt": ISO8601DateFormatter().string(from: Date()),
-        ]
-        _ = NativeOutbox.shared.enqueue(provider: .appleHealth, payload: payload)
+    private func commitAnchors(_ anchorsToSave: [String: HKQueryAnchor]) {
+        for (typeIdentifier, anchor) in anchorsToSave {
+            anchors.save(anchor, for: typeIdentifier)
+        }
     }
 
     // MARK: - Observers
