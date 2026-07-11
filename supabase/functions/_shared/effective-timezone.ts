@@ -90,13 +90,15 @@ export function localDayBoundsUtc(localDate: string, timeZone: string): {
   // 12:00 local anchors are DST-safe for identifying "this local day".
   const noonUtcGuess = new Date(`${localDate}T12:00:00Z`);
   const offsetMin = timezoneOffsetMinutes(timeZone, noonUtcGuess);
-  // local midnight (00:00) = UTC midnight - offset
+  // `timezoneOffsetMinutes` returns (actualUtc - localWallAsIfUtc), which
+  // is negative for zones east of UTC (e.g. Asia/Kolkata = -330). To
+  // convert a local wall-clock instant to real UTC we ADD that offset.
   const startUtcMs = Date.UTC(
     Number(localDate.slice(0, 4)),
     Number(localDate.slice(5, 7)) - 1,
     Number(localDate.slice(8, 10)),
     0, 0, 0, 0,
-  ) - offsetMin * 60_000;
+  ) + offsetMin * 60_000;
   const endUtcMs = startUtcMs + 24 * 60 * 60_000;
   return {
     startUtc: new Date(startUtcMs).toISOString(),
