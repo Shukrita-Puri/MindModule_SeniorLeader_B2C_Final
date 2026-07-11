@@ -204,6 +204,16 @@ Deno.serve(async (req) => {
       : watchIntegration?.watch_sync_status
       ?? (inferredAppleHistoricalConnection ? "sync_delayed" : "unknown");
 
+    // Central legacy-marker normalization. Coerces
+    // `sync_delayed` co-persisted alongside the legacy
+    // `native_healthkit_fallback_triggered` marker back to
+    // `waiting_for_data`, so the UI stops showing a delayed state
+    // with no reason. Real errors pass through unchanged.
+    const normalizedWatch = normalizeWatchStatus(watchIntegration ?? null, syncStatus);
+    if (!appleWatchQueryFailed && normalizedWatch.wasLegacyMarker) {
+      syncStatus = normalizedWatch.syncStatus ?? syncStatus;
+    }
+
     if (
       connectionStatus === "connected" &&
       syncStatus !== "waiting_for_data" &&
@@ -344,14 +354,8 @@ Deno.serve(async (req) => {
         // versions. It is not a user-facing failure — hide it so the UI
         // doesn't render a sticky "last error" pill after a benign
         // hand-off to the native background sync path.
-        lastError:
-          watchIntegration?.watch_last_error === "native_healthkit_fallback_triggered"
-            ? null
-            : (watchIntegration?.watch_last_error || null),
-        lastErrorAt:
-          watchIntegration?.watch_last_error === "native_healthkit_fallback_triggered"
-            ? null
-            : (watchIntegration?.watch_last_error_at || null),
+        lastError: normalizedWatch.lastError,
+        lastErrorAt: normalizedWatch.lastErrorAt,
         statusUpdatedAt: watchIntegration?.watch_status_updated_at || null,
         sourceProvider,
         ouraDetectedViaAppleHealth,
