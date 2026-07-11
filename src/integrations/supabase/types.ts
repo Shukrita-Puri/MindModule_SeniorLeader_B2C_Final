@@ -5389,6 +5389,8 @@ export type Database = {
           watch_last_error_at: string | null
           watch_last_sample_at: string | null
           watch_last_sync_at: string | null
+          watch_status_authoritative_at: string | null
+          watch_status_source: string | null
           watch_status_updated_at: string | null
           watch_sync_status: string | null
           watch_type: string | null
@@ -5406,6 +5408,8 @@ export type Database = {
           watch_last_error_at?: string | null
           watch_last_sample_at?: string | null
           watch_last_sync_at?: string | null
+          watch_status_authoritative_at?: string | null
+          watch_status_source?: string | null
           watch_status_updated_at?: string | null
           watch_sync_status?: string | null
           watch_type?: string | null
@@ -5423,6 +5427,8 @@ export type Database = {
           watch_last_error_at?: string | null
           watch_last_sample_at?: string | null
           watch_last_sync_at?: string | null
+          watch_status_authoritative_at?: string | null
+          watch_status_source?: string | null
           watch_status_updated_at?: string | null
           watch_sync_status?: string | null
           watch_type?: string | null
