@@ -48,10 +48,19 @@ Deno.test("trace tables grant backend access and user-scoped reads", () => {
 });
 
 Deno.test("APNs environment remains production/sandbox selectable", () => {
-  assert(SRC.includes("api.push.apple.com"));
-  assert(SRC.includes("api.sandbox.push.apple.com"));
-  assert(SRC.includes("APNS_ENVIRONMENT"));
-  assertEquals(/apnsEnv\s*===\s*'production'/.test(SRC), true);
+  // Batch A: the APP_ENV/APNS_ENVIRONMENT alignment lives in the shared
+  // validator (_shared/apns-env.ts) now. smart-nudges must import and
+  // apply it. Sandbox/production host selection still happens — the
+  // production-host string appears via the validator in the diagnostic
+  // probe path.
+  assert(SRC.includes("api.push.apple.com"), "production host referenced");
+  assert(SRC.includes("api.sandbox.push.apple.com"), "sandbox host referenced");
+  assert(SRC.includes("APNS_ENVIRONMENT"), "APNS_ENVIRONMENT read");
+  assert(
+    SRC.includes('validateApnsEnvironment') &&
+      SRC.includes('_shared/apns-env.ts'),
+    "smart-nudges must delegate env alignment to _shared/apns-env.ts",
+  );
 });
 
 Deno.test("smart-nudges reads canonical jit confidence and avoids legacy missing columns", () => {
