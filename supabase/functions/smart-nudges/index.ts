@@ -4856,6 +4856,40 @@ serve(async (req) => {
         },
       };
 
+      // Batch C — atomic dispatch-key claim. Two overlapping cron runs
+      // or an admin force-run racing the scheduler must collapse to a
+      // single logical send. The claim is inserted with a UNIQUE
+      // constraint; the loser trace-logs `duplicate_claim` and exits.
+      // Dry-run and Week-Ahead follow the same rule so admin probes
+      // cannot double-fire either.
+      const dispatchLocalDate = (() => {
+        try {
+          return localParts(userTimezone).localDate;
+        } catch {
+          return new Date().toISOString().slice(0, 10);
+        }
+      })();
+      const claim = await claimDispatch(supabase, {
+        userId: notif.userId,
+        notificationType: notif.type,
+        slot: notif.slot ?? null,
+        localDate: dispatchLocalDate,
+        eventReference: notif.eventReference ?? null,
+      });
+      if (!claim.claimed) {
+        trace(notif.userId, 'duplicate_claim', {
+          notificationType: notif.type,
+          variantId: notif.copy.variantId,
+          notificationLogId: claim.existingLogId,
+          metadata: {
+            dispatch_key: claim.dispatchKey,
+            reason: claim.reason ?? 'already_claimed',
+          },
+        });
+        console.log(`[smart-nudges] duplicate_claim skip user=${redactUserId(notif.userId)} type=${notif.type} slot=${notif.slot ?? '-'}`);
+        continue;
+      }
+
       const { data: logRow } = await supabase.from('notification_log').insert({
         user_id: notif.userId,
         notification_type: notif.type,
@@ -4871,6 +4905,11 @@ serve(async (req) => {
       }).select('id').single();
 
       const notificationLogId = logRow?.id;
+      if (notificationLogId && claim.claimId) {
+        // Best-effort: attach the log to the claim so losers observing
+        // the claim can point at the canonical send row.
+        await attachNotificationLogToClaim(supabase, claim.claimId, notificationLogId);
+      }
 
       if (!isDryRun && apnsJwt) {
         for (const tokenInfo of notif.tokens) {
