@@ -4,25 +4,27 @@ import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 /**
- * Batch A — Secure device-token unregister on logout.
+ * Batch A/B — Secure device-token unregister on logout.
  *
- * Deactivates (never deletes) `notification_device_tokens` rows so
- * smart-nudges immediately stops targeting this device for the caller.
+ * Deactivates (never deletes) exactly ONE `notification_device_tokens`
+ * row so smart-nudges immediately stops targeting the caller's CURRENT
+ * device — without touching that user's other active devices (iPad B,
+ * second iPhone, etc.).
  *
- * Payload (all optional):
- *   { device_token?: string }  // if provided, deactivate that specific
- *                              // token when it is owned by the caller.
- *                              // Otherwise deactivate ALL of the caller's
- *                              // active tokens (multi-device wipe on
- *                              // account sign-out — other devices will
- *                              // re-register on next resume via
- *                              // useDeviceTokenRegistration).
+ * Payload (required):
+ *   { device_token: string }  // the APNs token of the device that is
+ *                             // signing out. Backend deactivates only
+ *                             // the row matching (auth.user_id,
+ *                             // device_token, is_active=true).
+ *
+ * We NEVER wipe every token for a user here. That behaviour was a
+ * multi-device regression: signing out on iPhone A silently killed
+ * iPad B's push. Callers that legitimately want an account-wide wipe
+ * must call the admin cleanup path.
  *
  * Auth: real Auth0 JWT required. The caller can only touch their OWN
- * tokens. Impersonation headers are ignored (auth.ts already forbids
- * the impersonation path from doing writes on behalf of a target unless
- * the admin explicitly attaches x-impersonation-token; even then, only
- * the impersonated subject's rows can be modified).
+ * tokens (scoped by user_id AND device_token). Raw token is never
+ * logged — only the first 12 chars for correlation.
  */
 
 const corsHeaders = {
@@ -49,7 +51,22 @@ serve(async (req) => {
         deviceToken = raw.trim().toLowerCase();
       }
     } catch {
-      // empty body is fine
+      // fall through to the required-token guard below
+    }
+
+    if (!deviceToken) {
+      // Batch B multi-device safety: refuse to wipe every token for the
+      // user. The client MUST identify which device is signing out.
+      console.warn(
+        `[unregister-device-token] Rejected: missing device_token for ${redactUserId(userId)}`
+      );
+      return new Response(
+        JSON.stringify({
+          error: 'device_token is required',
+          hint: 'Send the APNs token of the device that is signing out.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     const supabase = createClient(
@@ -57,21 +74,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const query = supabase
+    const { error, count } = await supabase
       .from('notification_device_tokens')
       .update({ is_active: false, updated_at: new Date().toISOString() }, { count: 'exact' })
       .eq('user_id', userId)
-      .eq('is_active', true);
-
-    const { error, count } = deviceToken
-      ? await query.eq('device_token', deviceToken)
-      : await query;
+      .eq('is_active', true)
+      .eq('device_token', deviceToken);
 
     if (error) throw error;
 
     console.log(
       `[unregister-device-token] Deactivated ${count ?? 0} token(s) for ${redactUserId(userId)}` +
-      `${deviceToken ? ` (prefix=${deviceToken.substring(0, 12)})` : ' (all)'}`,
+      ` (prefix=${deviceToken.substring(0, 12)})`,
     );
 
     return new Response(

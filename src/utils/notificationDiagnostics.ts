@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 
 const TOKEN_META_KEY = 'mm_push_latest_token_meta_v1';
+const CURRENT_DEVICE_TOKEN_KEY = 'mm_push_current_device_token_v1';
 const LAST_LOCAL_SCHEDULE_KEY = 'mm_local_notification_last_schedule_v1';
 const LAST_LOCAL_DELIVERED_KEY = 'mm_local_notification_last_delivered_v1';
 const LAST_LOCAL_FAILURE_KEY = 'mm_local_notification_last_failure_v1';
@@ -48,6 +49,24 @@ export function rememberPushTokenMeta(meta: Omit<PushTokenMeta, 'updatedAt'>): v
 
 export function getRememberedPushTokenMeta(): PushTokenMeta | null {
   return readJson<PushTokenMeta>(TOKEN_META_KEY);
+}
+
+/**
+ * Full APNs device token for THIS device only. Stored so that logout
+ * can identify which token to deactivate server-side without touching
+ * the user's other devices (iPad B, second iPhone). Kept in
+ * localStorage on-device; never synced elsewhere.
+ */
+export function rememberCurrentDeviceToken(token: string): void {
+  try { localStorage.setItem(CURRENT_DEVICE_TOKEN_KEY, token); } catch { /* best-effort */ }
+}
+
+export function getCurrentDeviceToken(): string | null {
+  try { return localStorage.getItem(CURRENT_DEVICE_TOKEN_KEY); } catch { return null; }
+}
+
+export function clearCurrentDeviceToken(): void {
+  try { localStorage.removeItem(CURRENT_DEVICE_TOKEN_KEY); } catch { /* best-effort */ }
 }
 
 export async function getNotificationDiagnostics(): Promise<NotificationDiagnostics> {

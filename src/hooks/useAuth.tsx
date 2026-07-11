@@ -653,14 +653,26 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[useAuth] Skipping unregister-device-token: no access token');
         return;
       }
+      // Multi-device safety: pass THIS device's APNs token so the
+      // backend only deactivates the current device. Signing out on
+      // iPhone A must not disable iPad B. If we don't have a stored
+      // token (web, first-run before registration completed) we skip
+      // the call entirely rather than let the backend guess.
+      const { getCurrentDeviceToken, clearCurrentDeviceToken } = await import('@/utils/notificationDiagnostics');
+      const currentToken = getCurrentDeviceToken();
+      if (!currentToken) {
+        console.log('[useAuth] Skipping unregister-device-token: no device token on this device');
+        return;
+      }
       await Promise.race([
         fetch(getSupabaseFunctionUrl('unregister-device-token'), {
           method: 'POST',
           headers: getSupabaseFunctionHeaders(accessToken),
-          body: JSON.stringify({}),
+          body: JSON.stringify({ device_token: currentToken }),
         }),
         new Promise((resolve) => setTimeout(resolve, 2000)),
       ]);
+      clearCurrentDeviceToken();
       console.log('[useAuth] Device token unregister requested');
     } catch (err) {
       console.warn('[useAuth] Device token unregister failed (non-fatal):', err);

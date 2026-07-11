@@ -25,6 +25,10 @@ import {
   resolveEffectiveTimezone,
   timezoneOffsetMinutes,
 } from "../_shared/effective-timezone.ts";
+import {
+  COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
+  isCountableDeliveryState,
+} from "../_shared/countable-notification-states.ts";
 // Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
@@ -3944,7 +3948,11 @@ serve(async (req) => {
       // the product intent of 3 pushes/day. Suppression and dry-run rows
       // remain in notification_log for SQL auditing but no longer inflate
       // the cap or block legitimate sends.
-      const COUNTABLE_DELIVERY_STATES = ['pending', 'accepted', 'delivered', 'sent'] as const;
+      // Batch B: single source of truth for what counts toward the cap /
+      // 2h suppression / slot suppression. Excludes failed, dry_run,
+      // suppressed, validation_rejected, expired_before_delivery,
+      // configuration_failed, duplicate_claim, test_push.
+      const COUNTABLE_DELIVERY_STATES = SHARED_COUNTABLE_DELIVERY_STATES;
       const { data: todayLogs } = await supabase
         .from('notification_log')
         .select('notification_type, variant_id, sent_at, event_reference')
