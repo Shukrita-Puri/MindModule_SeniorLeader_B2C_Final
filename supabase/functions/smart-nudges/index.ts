@@ -3462,7 +3462,10 @@ async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: 
   if (!ctx.morningCheckinOutcome || !LOW_TIERS.includes(ctx.morningCheckinOutcome)) return null;
   if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 3 * 60 * 60 * 1000) return null;
 
-  const afternoonHighStakes = ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12);
+  // Batch B follow-up: classify high-stakes afternoon events in the user's tz.
+  const afternoonHighStakes = ctx.highStakesEvents.filter(
+    (e) => eventHourInTimezone(e.start_time, ctx.timeZone) >= 12,
+  );
   if (afternoonHighStakes.length >= 1) {
     const eventTitle = afternoonHighStakes[0].title || 'your next meeting';
     return {
