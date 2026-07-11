@@ -39,8 +39,12 @@ async function processItem(item: SyncQueueItem): Promise<{ ok: boolean; error?: 
     // orchestrator can remove it from the queue without racing native writes.
     emitIntegrationEvent({
       provider: 'apple-calendar',
-      event: 'sync_skipped',
-      meta: { reason: 'native_authoritative_deprecated', itemId: item.id },
+      event: 'sync_temporary_unavailable',
+      meta: {
+        reason: 'native_authoritative_deprecated',
+        itemId: item.id,
+        action: 'dropped_from_js_queue',
+      },
     });
     return { ok: true };
   }
