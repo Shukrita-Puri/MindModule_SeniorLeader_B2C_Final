@@ -1335,6 +1335,30 @@ const TodayThreePriorities = ({
       snap.status === 'ready' &&
       !!planJson &&
       (planHorizonModules.length > 0 || isRestDaySnapshot);
+    // Structured rejection diagnostics: a snapshot exists but cannot
+    // hydrate the Plan card. Surface the exact reason so a broken Plan
+    // generation branch is not silently masked by a live-fetch fallback.
+    if (snap && !planSnapshotRenderable) {
+      console.warn('[plan-card][snapshot-rejected]', {
+        planDate: todayForPlan,
+        requestedWindow: periodForPlan,
+        snapshotWindow: snap.mrsWindow,
+        snapshotStatus: snap.status,
+        hasPlanJson: !!planJson,
+        snapshotHorizonModuleCount: snapshotHorizonModules.length,
+        planJsonHorizonModuleCount: planHorizonModules.length,
+        isRestDaySnapshot,
+        windowMismatch: snap.mrsWindow !== periodForPlan,
+        reason:
+          snap.status !== 'ready'
+            ? 'snapshot_status_not_ready'
+            : !planJson
+              ? 'snapshot_missing_plan_json'
+              : planHorizonModules.length === 0 && !isRestDaySnapshot
+                ? 'snapshot_empty_horizon_modules_non_rest_day'
+                : 'unknown',
+      });
+    }
     console.info('[plan-card] hydrate-step', {
       step: 6,
       hasPlanJson: !!planJson,

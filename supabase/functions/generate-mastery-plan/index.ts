@@ -7699,6 +7699,31 @@ if (import.meta.main) Deno.serve(async (req) => {
           horizonModulesCount: horizonMods.length,
           timeOfDayModulesCount: timeOfDayModules.length,
         });
+        // Non-rest-day plan resolved to zero horizon modules — this is a
+        // silent bug class (a `ready`-equivalent UX with an empty slot
+        // payload). Log a structured warning so downstream telemetry can
+        // detect and attribute the exact reason path.
+        if (
+          !isRestDayPayload &&
+          !planIsAwaiting &&
+          horizonMods.length === 0
+        ) {
+          console.warn('[mastery-plan-snapshot][non-rest-day-empty-payload]', {
+            userId: redactUserId(userId!),
+            planDate,
+            window: currentPeriod,
+            resolvedStatus: snapshotStatus,
+            hasPayload,
+            planIsAwaiting,
+            isRestDayPayload,
+            planState: (planObj as any)?.planState ?? null,
+            planReason: (planObj as any)?.reason ?? null,
+            dayShape: (planObj as any)?.meta?.dayShape ?? null,
+            dayKind: (planObj as any)?.meta?.dayKind ?? (planObj as any)?.dayKind ?? null,
+            timeOfDayModulesCount: timeOfDayModules.length,
+            hasPlanJson: !!planObj,
+          });
+        }
         // F3 — awaiting rows are ALWAYS persisted so the reader can
         // return a truthful awaiting state. They land with status='awaiting'
         // and never shadow a ready row (see error-path guard below and the

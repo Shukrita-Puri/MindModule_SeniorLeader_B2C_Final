@@ -4170,37 +4170,67 @@ serve(async (req) => {
       // ══════════════════════════════════════════════════
       const qualified: QualifiedNudge[] = [];
 
+      // FAIL-OPEN CONTRACT
+      //
+      // The plan snapshot is the PREFERRED source when it is `ready`.
+      // When the snapshot is `empty` (persisted but no usable slots) or
+      // `missing` (not persisted), we must NOT hard-stop the evaluator
+      // — that would leave users with zero nudges whenever Plan is
+      // temporarily broken. Instead we log a structured warning and
+      // fall through to the legacy 3-nudge cascade so nudges keep
+      // shipping.
+      const slotPrefEnabled =
+        activeSlot === 'morning' ? (prefs?.morning_anchor_enabled ?? true) :
+        activeSlot === 'afternoon' ? (prefs?.pre_event_prep_enabled ?? true) :
+        (prefs?.evening_close_enabled ?? true);
+
       if (ctx.planSnapshotStatus === 'empty') {
-        trace(userId, 'no_qualified_nudge', {
+        console.warn('[smart-nudges][plan-empty-fallback]', {
+          userId,
+          date: todayStr,
+          window: briefWindow,
+          activeSlot,
+          reason: 'plan_snapshot_empty_falling_through_to_legacy_cascade',
+        });
+        trace(userId, 'plan_snapshot_empty_fallback', {
           ...traceBase,
           metadata: {
             reason: 'plan_snapshot_empty',
             active_slot: activeSlot,
             plan_slot_count: 0,
+            fallback: 'legacy_cascade',
           },
         });
-        continue;
+        // fall through to the legacy cascade below
       }
 
       if (ctx.planSnapshotStatus === 'ready') {
-        const slotPrefEnabled =
-          activeSlot === 'morning' ? (prefs?.morning_anchor_enabled ?? true) :
-          activeSlot === 'afternoon' ? (prefs?.pre_event_prep_enabled ?? true) :
-          (prefs?.evening_close_enabled ?? true);
-        if (slotPrefEnabled && !suppressedEffective) {
+        if (!slotPrefEnabled) {
+          // Slot preference is disabled for the ACTIVE slot only. Do
+          // NOT abort the whole user loop — other qualifying nudges,
+          // observability traces, and downstream evaluators must still
+          // run. Just skip the projected slot for this active window.
+          trace(userId, 'slot_projection_skipped', {
+            ...traceBase,
+            metadata: {
+              reason: 'slot_preference_disabled',
+              active_slot: activeSlot,
+              intentionally_skipped: true,
+            },
+          });
+        } else if (!suppressedEffective) {
           const projected = await projectPlanSlotToNudge(ctx, activeSlot, alreadySentTypes);
           if (projected) qualified.push(projected);
         }
-        if (!slotPrefEnabled) {
-          trace(userId, 'no_qualified_nudge', {
-            ...traceBase,
-            metadata: { reason: 'slot_preference_disabled', active_slot: activeSlot },
-          });
-          continue;
-        }
       }
 
-      if (ctx.planSnapshotStatus === 'missing') {
+      // Legacy 3-nudge cascade runs when the plan snapshot is missing OR
+      // empty (fail-open). When the snapshot is `ready` we skip it —
+      // the plan-driven projection above is the preferred path.
+      if (
+        ctx.planSnapshotStatus === 'missing' ||
+        ctx.planSnapshotStatus === 'empty'
+      ) {
       // Nudge 1: First Touch (exempt from signal gate + 2h suppression for JIT)
       if ((prefs?.morning_anchor_enabled ?? true)) {
         const nudge = await evaluateNudgeOne(ctx, alreadySentTypes, sentEventRefs, supabase);
