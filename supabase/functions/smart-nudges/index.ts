@@ -4883,7 +4883,7 @@ serve(async (req) => {
             reason: claim.reason ?? 'already_claimed',
           },
         });
-        console.log(`[smart-nudges] duplicate_claim skip user=${redactUserId(notif.userId)} type=${notif.type} slot=${notif.slot ?? '-'}`);
+        console.log(`[smart-nudges] duplicate_claim skip user=${redactUserId(notif.userId)} type=${notif.type} evt=${notif.eventReference ?? '-'}`);
         continue;
       }
 
