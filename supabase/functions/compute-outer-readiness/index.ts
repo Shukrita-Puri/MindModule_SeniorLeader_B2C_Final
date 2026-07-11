@@ -24,12 +24,13 @@ import {
 // missing signal evidence, and unanchored pattern references all trigger
 // the same retry-once-then-awaiting path as the other validator rejects.
 import { validateBrief } from "../_shared/brief-validators.ts";
-import {
-  decideBriefFallback,
-  capDeterministicBody,
-  buildDeterministicBrief,
-  type FallbackDecision,
-} from "../_shared/brief/deterministic-fallback.ts";
+// v6.5-no-deterministic-fallback (2026-07-11): the legacy deterministic
+// Brief path (`buildDeterministicBrief`, `decideBriefFallback`,
+// `capDeterministicBody`) has been removed from the render pipeline. When
+// both LLM attempts miss, the Brief becomes `awaiting` — never templated
+// prose. Do NOT re-import these symbols; a fresh deterministic system
+// (spec: "Deterministic Fallback Final") must pass validateBrief() before
+// shipping and is not implemented in this file.
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
