@@ -516,6 +516,13 @@ interface NudgeContext {
   dayName: string;
   isWeekend: boolean;
   briefWindow: BriefTimeWindow;
+  /**
+   * Batch B follow-up — IANA timezone used for ALL notification
+   * decisions in this ctx. Callers MUST use `eventHourInTimezone(evt,
+   * ctx.timeZone)` and `localDayBoundsUtc(date, ctx.timeZone)` rather
+   * than `new Date(evt).getHours()` or `${date}T00:00:00`.
+   */
+  timeZone: string;
   // Calendar
   todayEvents: CalendarEvent[];
   tomorrowEvents: CalendarEvent[];
