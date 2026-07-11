@@ -181,6 +181,29 @@ serve(async (req) => {
       `[get-mastery-plan-snapshot] planDate=${planDate} requestedWindow=${requestedWindow ?? 'none'} strategy=${strategy} found=${!!data} selectedWindow=${(data as any)?.mrs_window ?? 'n/a'} generatedAt=${(data as any)?.generated_at ?? 'n/a'}`,
     );
 
+    // Structured warning when a cross-window fallback is used. This must
+    // NOT be silent — it means the active window's plan was never
+    // generated (or was persisted with status != 'ready'), and downstream
+    // consumers (Executive Home, Smart Nudges) will be projecting from
+    // a DIFFERENT window than the caller asked for.
+    const selectedWindow = (data as any)?.mrs_window ?? null;
+    if (
+      requestedWindow &&
+      data &&
+      selectedWindow &&
+      selectedWindow !== requestedWindow &&
+      (strategy === 'latest_ready' || strategy === 'latest_awaiting')
+    ) {
+      console.warn('[get-mastery-plan-snapshot][cross-window-fallback]', {
+        planDate,
+        requestedWindow,
+        selectedWindow,
+        strategy,
+        selectedStatus: (data as any)?.status ?? null,
+        reason: 'active_window_snapshot_missing',
+      });
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -190,6 +213,11 @@ serve(async (req) => {
           requestedWindow,
           selectedWindow: (data as any)?.mrs_window ?? null,
           generatedAt: (data as any)?.generated_at ?? null,
+          crossWindowFallback:
+            !!requestedWindow &&
+            !!data &&
+            !!(data as any)?.mrs_window &&
+            (data as any).mrs_window !== requestedWindow,
         },
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
