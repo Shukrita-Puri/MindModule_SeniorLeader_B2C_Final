@@ -2,10 +2,13 @@
  * useMasteryPlanSnapshot — read-only access to the persisted day-of Plan
  * payload stored in `mastery_plan_snapshots` by `generate-mastery-plan`.
  *
- * Phase 3.6: diagnostic only. The hook does NOT trigger generation, does
- * NOT fall back to other windows, and is not yet the UI source of truth.
- * It exists so we can verify what the backend persisted before flipping
- * `/executive-home` to a snapshot-read-first model.
+ * Snapshot-first contract (post Phase 3.7): this hook IS the primary
+ * source of truth for the Plan card on `/executive-home`. It does not
+ * trigger generation and does not fall back to other windows client-side
+ * — the edge function `get-mastery-plan-snapshot` performs the
+ * current-window-first + latest-ready cross-window fallback and stamps
+ * `source.strategy` / `source.crossWindowFallback` on the response so
+ * the UI can distinguish an exact hit from a fallback hit.
  */
 
 import { useQuery } from '@tanstack/react-query';
