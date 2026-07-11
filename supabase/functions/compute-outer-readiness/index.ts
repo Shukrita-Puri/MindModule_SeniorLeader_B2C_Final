@@ -5422,7 +5422,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       deterministicPhrase: finalPhrase,
       deterministicBody: finalContext,
     });
-    const useDeterministicFallback = fallbackDecision.use;
+    // v6.5-no-deterministic-fallback: honour the prompt-version contract.
+    // Deterministic prose (`Readiness sits at N, no single signal dominating…`
+    // / `Channel the peak.` / `A neutral day is when compounding still moves`)
+    // is never emitted to users; LLM miss → awaiting. `fallbackDecision` is
+    // still computed so telemetry stays intact.
+    const useDeterministicFallback = false;
+    const fallbackDecisionRaw = fallbackDecision.use;
     if (useDeterministicFallback) {
       console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
         source: 'deterministic',
