@@ -488,6 +488,8 @@ export type Database = {
           refresh_token_enc: string | null
           refresh_token_iv: string | null
           retry_after_seconds: number | null
+          status_authoritative_at: string | null
+          status_source: string | null
           sync_status: string | null
           token_enc_v: number | null
           token_expires_at: string | null
@@ -520,6 +522,8 @@ export type Database = {
           refresh_token_enc?: string | null
           refresh_token_iv?: string | null
           retry_after_seconds?: number | null
+          status_authoritative_at?: string | null
+          status_source?: string | null
           sync_status?: string | null
           token_enc_v?: number | null
           token_expires_at?: string | null
@@ -552,6 +556,8 @@ export type Database = {
           refresh_token_enc?: string | null
           refresh_token_iv?: string | null
           retry_after_seconds?: number | null
+          status_authoritative_at?: string | null
+          status_source?: string | null
           sync_status?: string | null
           token_enc_v?: number | null
           token_expires_at?: string | null
