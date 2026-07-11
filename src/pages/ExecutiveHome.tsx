@@ -34,10 +34,10 @@ import PrivacyFooter from "@/components/home/PrivacyFooter";
 import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
-import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 import { RefreshCw } from "lucide-react";
 import { useExecutiveHomeCardsRefresh } from "@/hooks/useExecutiveHomeCardsRefresh";
 import { useMrsSnapshot } from "@/hooks/useMrsSnapshot";
+import { useCurrentBriefSnapshot } from "@/hooks/useCurrentBriefSnapshot";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
@@ -66,6 +66,7 @@ const ExecutiveHome = () => {
   const [briefCtaReady, setBriefCtaReady] = useState(false);
   const refreshCards = useExecutiveHomeCardsRefresh();
   const { data: mrsSnapshot } = useMrsSnapshot();
+  const { data: briefSnapshot } = useCurrentBriefSnapshot();
   const serverWeekAheadDecision = useWeekAheadServerDecision();
   const weekAhead = useWeekAheadMode(serverWeekAheadDecision);
 
@@ -176,13 +177,21 @@ const ExecutiveHome = () => {
     }
   }, []);
 
-  // Fetch outer readiness brief. This payload already echoes inner readiness,
-  // so the home hero must not start a second computeEnergyState/check-in chain.
-  const { data: outerBrief } = useOuterReadiness();
-  // MRS v3 — prefer the soft-guard displayed tier so chronic-load capping
-  // shows in the hero. Falls back to the raw inner tier when not present.
-  const heroEnergyTier = outerBrief?.innerReadinessTierDisplayed || outerBrief?.innerReadinessTier || 'default';
-  const heroDivergenceMode = outerBrief?.divergenceMode || null;
+  // Snapshot-only home: hero + brief tracking read from persisted MRS and
+  // Brief snapshots. No live `compute-outer-readiness` call is made here.
+  const heroEnergyTier =
+    mrsSnapshot?.tier ||
+    briefSnapshot?.innerReadinessTierDisplayed ||
+    briefSnapshot?.innerReadinessTier ||
+    'default';
+  useEffect(() => {
+    console.info('[exec-home][render] source=snapshot-only', {
+      hasMrsSnapshot: !!mrsSnapshot,
+      hasBriefSnapshot: !!briefSnapshot,
+      mrsStatus: mrsSnapshot?.status ?? null,
+      briefRenderable: briefSnapshot?.isRenderable ?? null,
+    });
+  }, [mrsSnapshot?.status, briefSnapshot?.briefId, mrsSnapshot, briefSnapshot]);
 
   // Track brief view once per persisted brief snapshot (keyed by briefId).
   // We ONLY track when:
@@ -193,16 +202,10 @@ const ExecutiveHome = () => {
   // row that HistoricalBriefOverlay can open.
   const trackedBriefIdRef = useRef<string | null>(null);
   useEffect(() => {
-    const briefId = outerBrief?.briefId;
-    const phrase = outerBrief?.phrase;
-    const body = outerBrief?.bodyText || outerBrief?.context;
-    const mode = (outerBrief as any)?.briefMode as
-      | 'cold-start' | 'baseline' | 'refined' | undefined;
-    const isAwaiting = mode
-      ? mode === 'cold-start'
-      : outerBrief?.awaitingSignals === true ||
-        outerBrief?.innerReadinessState === 'awaiting' ||
-        outerBrief?.innerReadinessScore == null;
+    const briefId = briefSnapshot?.briefId;
+    const phrase = briefSnapshot?.phrase;
+    const body = briefSnapshot?.bodyText;
+    const isAwaiting = !briefSnapshot?.hasRenderableCopy;
     if (
       !isAwaiting &&
       briefId &&
@@ -220,18 +223,17 @@ const ExecutiveHome = () => {
         briefId,
         phrase,
         body,
-        leanOn: outerBrief?.leanOn,
-        watchFor: outerBrief?.watchFor,
+        leanOn: briefSnapshot?.leanOn ?? undefined,
+        watchFor: briefSnapshot?.watchFor ?? undefined,
       });
     }
   }, [
-    outerBrief?.briefId,
-    outerBrief?.phrase,
-    outerBrief?.bodyText,
-    outerBrief?.context,
-    outerBrief?.leanOn,
-    outerBrief?.watchFor,
-    outerBrief?.awaitingSignals,
+    briefSnapshot?.briefId,
+    briefSnapshot?.phrase,
+    briefSnapshot?.bodyText,
+    briefSnapshot?.leanOn,
+    briefSnapshot?.watchFor,
+    briefSnapshot?.hasRenderableCopy,
   ]);
   
   const fullName = user?.name || user?.email || 'there';
@@ -249,8 +251,7 @@ const ExecutiveHome = () => {
   };
   
   const getSubheadline = () => {
-    if (!outerBrief) return "Let's make today count.";
-    return outerBrief.phrase || "Let's make today count.";
+    return briefSnapshot?.phrase || "Let's make today count.";
   };
 
   const lastUpdatedLabel = (() => {
