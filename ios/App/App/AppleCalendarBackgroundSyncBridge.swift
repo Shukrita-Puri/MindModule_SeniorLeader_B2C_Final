@@ -165,9 +165,11 @@ import Security
             "events": events,
             "source": "ios-background",
         ]
-        if !events.isEmpty {
-            NativeOutbox.shared.enqueue(provider: .appleCalendar, payload: payload)
-        }
+        // Always enqueue at least one authoritative payload once permission and
+        // auth are valid. The backend uses this write to stamp the durable
+        // Apple `calendar_connections` row, so "zero events in the current
+        // window" must still count as a successful native connection state.
+        NativeOutbox.shared.enqueue(provider: .appleCalendar, payload: payload)
         drainOutbox(token: token, trigger: trigger) {
             self.endSync(trigger: trigger)
             done()

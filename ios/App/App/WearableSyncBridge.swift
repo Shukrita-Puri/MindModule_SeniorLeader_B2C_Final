@@ -545,7 +545,9 @@ import Security
     }
 
     /// Aggregate sleep per local day (attribute to wake-up day).
-    /// Prefers per-stage rows; falls back to .asleepUnspecified umbrella when no per-stage data exists.
+    /// Prefers staged sleep rows when available; otherwise falls back to
+    /// umbrella sleep rows (`asleep` / `asleepUnspecified`) so devices that
+    /// do not emit stage breakdowns still produce total sleep minutes.
     private func querySleepDaily(
         type: HKCategoryType,
         start: Date,
@@ -569,6 +571,7 @@ import Security
 
             // Per-day buckets
             var perStage: [String: Int] = [:]   // deep+rem+core (excl awake)
+            var hasStageRows: [String: Bool] = [:]
             var asleepUmbrella: [String: Int] = [:]
             var deep: [String: Int] = [:]
             var rem: [String: Int] = [:]
@@ -588,23 +591,45 @@ import Security
                         if latestOura == nil || s.endDate > (latestOura ?? .distantPast) { latestOura = s.endDate }
                     }
                 }
-                switch value {
-                case .asleepDeep:
-                    deep[day, default: 0] += mins
-                    perStage[day, default: 0] += mins
-                case .asleepREM:
-                    rem[day, default: 0] += mins
-                    perStage[day, default: 0] += mins
-                case .asleepCore:
-                    perStage[day, default: 0] += mins
-                case .asleepUnspecified:
-                    asleepUmbrella[day, default: 0] += mins
-                case .inBed:
-                    inBed[day, default: 0] += mins
-                case .awake:
-                    break // excluded from sleep
-                @unknown default:
-                    break
+                if #available(iOS 16.0, *) {
+                    switch value {
+                    case .asleepDeep:
+                        hasStageRows[day] = true
+                        deep[day, default: 0] += mins
+                        perStage[day, default: 0] += mins
+                    case .asleepREM:
+                        hasStageRows[day] = true
+                        rem[day, default: 0] += mins
+                        perStage[day, default: 0] += mins
+                    case .asleepCore:
+                        hasStageRows[day] = true
+                        perStage[day, default: 0] += mins
+                    case .asleepUnspecified:
+                        if hasStageRows[day] != true {
+                            asleepUmbrella[day, default: 0] += mins
+                        }
+                    case .asleep:
+                        if hasStageRows[day] != true {
+                            asleepUmbrella[day, default: 0] += mins
+                        }
+                    case .inBed:
+                        inBed[day, default: 0] += mins
+                    case .awake:
+                        break // excluded from sleep
+                    @unknown default:
+                        break
+                    }
+                } else {
+                    switch value {
+                    case .asleep:
+                        asleepUmbrella[day, default: 0] += mins
+                    case .inBed:
+                        inBed[day, default: 0] += mins
+                    case .awake:
+                        break
+                    @unknown default:
+                        break
+                    }
                 }
             }
 

@@ -1052,8 +1052,10 @@ const ConnectedData = () => {
       const hoursSinceSample = aw.lastSampleAt
         ? (Date.now() - new Date(aw.lastSampleAt).getTime()) / (1000 * 60 * 60)
         : null;
+      const hasRecentSample = hoursSinceSample !== null && hoursSinceSample <= 24;
+      const hasHistoricalSample = !!aw.lastSampleAt || aw.hasHistoricalData === true;
       const awaitingData =
-        aw.syncStatus === 'waiting_for_data' ||
+        (aw.syncStatus === 'waiting_for_data' && !hasHistoricalSample) ||
         aw.syncStatus === 'watch_unavailable' ||
         aw.syncStatus === 'sync_delayed' ||
         (hoursSinceSample !== null && hoursSinceSample > 24);
@@ -1068,6 +1070,16 @@ const ConnectedData = () => {
             'No new data yet — wear your device overnight to refresh.',
             lastSampleNote,
           ].filter(Boolean).join(' · '),
+          showReconnect: false,
+        };
+      }
+
+      if (aw.syncStatus === 'waiting_for_data' && hasRecentSample) {
+        return {
+          isLinked: true,
+          isHealthyConnected: true,
+          statusLabel: 'Connected',
+          statusNote: [lastSyncNote, lastSampleNote].filter(Boolean).join(' · ') || undefined,
           showReconnect: false,
         };
       }
