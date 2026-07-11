@@ -1251,6 +1251,12 @@ async function buildNudgeContext(
     dayOfWeek,
     dayName: DAYS[dayOfWeek],
     isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+    // Batch B follow-up: `briefWindow` is used downstream in the
+    // plan-empty-fallback warning. Previously it lived only in this
+    // function's scope and referencing it at the top-level evaluator
+    // threw `ReferenceError: briefWindow is not defined`, surfacing as
+    // a 500 on every live tick that hit the fallback path.
+    briefWindow,
     todayEvents,
     tomorrowEvents,
     nonNoiseEvents,
