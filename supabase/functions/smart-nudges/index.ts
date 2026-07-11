@@ -19,6 +19,7 @@ import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
+import { validateApnsEnvironment } from "../_shared/apns-env.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
@@ -4625,9 +4626,26 @@ serve(async (req) => {
     const apnsKey = Deno.env.get('APNS_P8_KEY');
     const apnsKeyId = Deno.env.get('APNS_KEY_ID');
     const apnsTeamId = Deno.env.get('APNS_TEAM_ID');
-    const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'com.moonshot.mindmoduleapp';
-    const apnsEnv = Deno.env.get('APNS_ENVIRONMENT') || 'development';
-    const apnsHost = apnsEnv === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
+    // Batch A: validate APP_ENV/APNS_ENVIRONMENT alignment. If APP_ENV is
+    // production but APNs env is sandbox we hard-fail the send phase —
+    // we do NOT want to insert notification_log rows that later get
+    // marked failed and consume the daily cap.
+    const apnsEnvCheck = validateApnsEnvironment();
+    const apnsBundleId = apnsEnvCheck.bundleId;
+    const apnsEnv = apnsEnvCheck.apnsEnv;
+    const apnsHost = apnsEnvCheck.apnsHost;
+    if (!apnsEnvCheck.ok) {
+      console.error('[smart-nudges]', apnsEnvCheck.reason);
+      await finishRun('apns_env_mismatch');
+      return new Response(JSON.stringify({
+        error: 'apns_env_mismatch',
+        reason: apnsEnvCheck.reason,
+        app_env: apnsEnvCheck.appEnv,
+        apns_env: apnsEnvCheck.apnsEnv,
+        qualified: qualifiedCount,
+        shipped: 0,
+      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     const isDryRun = (!apnsKey || !apnsKeyId || !apnsTeamId) || forceDryRun;
 
     if (isDryRun) {
@@ -4653,6 +4671,17 @@ serve(async (req) => {
         apnsJwt = await createApnsJwt(apnsKey!, apnsKeyId!, apnsTeamId!);
       } catch (e) {
         console.error('[smart-nudges] Failed to create APNs JWT:', e);
+        // Batch A honesty: if JWT creation failed we cannot deliver ANY
+        // pushes this run. Fail the whole run cleanly so operators see it
+        // in `notification_evaluator_runs.top_level_error` — instead of
+        // silently dropping every notification while pretending it shipped.
+        await finishRun('apns_jwt_creation_failed');
+        return new Response(JSON.stringify({
+          error: 'apns_jwt_creation_failed',
+          reason: e instanceof Error ? e.message : String(e),
+          qualified: qualifiedCount,
+          shipped: 0,
+        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 
