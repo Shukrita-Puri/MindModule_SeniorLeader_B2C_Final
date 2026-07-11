@@ -14,6 +14,10 @@ required_files=(
   "NativeBackgroundSyncPlugin.swift"
   "AppleCalendarBackgroundSyncBridge.swift"
   "NativeOutbox.swift"
+  "HealthKitSyncManager.swift"
+  "HealthKitAnchorStore.swift"
+  "HealthKitSampleNormalizer.swift"
+  "WearableStatusWriter.swift"
 )
 
 missing=0
