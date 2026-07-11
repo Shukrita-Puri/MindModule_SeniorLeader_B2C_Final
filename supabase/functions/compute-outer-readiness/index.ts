@@ -3505,14 +3505,13 @@ serve(async (req) => {
             .eq('prompt_version', BRIEF_PROMPT_VERSION)
             .maybeSingle();
           if (snapshot) {
-            // LLM snapshots are the current write path (v6.5). Older rows may
-            // still carry `brief_source='deterministic'` from pre-v6.5 writes;
-            // they remain readable so we don't blank the dashboard on legacy
-            // cache hits. Awaiting/null snapshots are ignored so true
-            // cold-start rows never replay as live content.
-            const cacheableSource =
-              snapshot.brief_source === 'llm' ||
-              snapshot.brief_source === 'deterministic';
+            // v6.5 contract: only LLM snapshots may be replayed to users.
+            // Deterministic rows (legacy or accidentally written) contain
+            // banned copy patterns (score-restatement, "no single signal
+            // dominating", morning-anchoring in evening) and MUST NOT be
+            // served. Ignored deterministic rows fall through to a fresh
+            // LLM attempt; if that also misses, the Brief becomes awaiting.
+            const cacheableSource = snapshot.brief_source === 'llm';
             if (cacheableSource && snapshot.phrase && snapshot.body_text) {
               cachedSnapshot = snapshot as typeof cachedSnapshot;
             }
