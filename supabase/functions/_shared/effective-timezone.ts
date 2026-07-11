@@ -87,19 +87,33 @@ export function localDayBoundsUtc(localDate: string, timeZone: string): {
   startUtc: string;
   endUtc: string;
 } {
-  // 12:00 local anchors are DST-safe for identifying "this local day".
-  const noonUtcGuess = new Date(`${localDate}T12:00:00Z`);
-  const offsetMin = timezoneOffsetMinutes(timeZone, noonUtcGuess);
-  // `timezoneOffsetMinutes` returns (actualUtc - localWallAsIfUtc), which
-  // is negative for zones east of UTC (e.g. Asia/Kolkata = -330). To
-  // convert a local wall-clock instant to real UTC we ADD that offset.
-  const startUtcMs = Date.UTC(
-    Number(localDate.slice(0, 4)),
-    Number(localDate.slice(5, 7)) - 1,
-    Number(localDate.slice(8, 10)),
-    0, 0, 0, 0,
-  ) + offsetMin * 60_000;
-  const endUtcMs = startUtcMs + 24 * 60 * 60_000;
+  // `timezoneOffsetMinutes` returns (actualUtc − localWallAsIfUtc).
+  // For zones east of UTC (Asia/Kolkata = −330), west of UTC
+  // (America/New_York EDT = +240). To convert a local wall-clock
+  // instant to real UTC we ADD that offset.
+  //
+  // DST correctness requires a two-pass fix: the offset AT the
+  // resulting instant may differ from the offset at our initial guess.
+  // Two iterations converge for every IANA zone.
+  const y = Number(localDate.slice(0, 4));
+  const m = Number(localDate.slice(5, 7)) - 1;
+  const d = Number(localDate.slice(8, 10));
+  const startWallAsUtc = Date.UTC(y, m, d, 0, 0, 0, 0);
+  const off1 = timezoneOffsetMinutes(timeZone, new Date(startWallAsUtc));
+  const off2 = timezoneOffsetMinutes(
+    timeZone,
+    new Date(startWallAsUtc + off1 * 60_000),
+  );
+  const startUtcMs = startWallAsUtc + off2 * 60_000;
+  // End = next local midnight (repeat two-pass for DST-start days
+  // where the day is 23h and DST-end days where it is 25h).
+  const nextWallAsUtc = startWallAsUtc + 24 * 60 * 60_000;
+  const eOff1 = timezoneOffsetMinutes(timeZone, new Date(nextWallAsUtc));
+  const eOff2 = timezoneOffsetMinutes(
+    timeZone,
+    new Date(nextWallAsUtc + eOff1 * 60_000),
+  );
+  const endUtcMs = nextWallAsUtc + eOff2 * 60_000;
   return {
     startUtc: new Date(startUtcMs).toISOString(),
     endUtc: new Date(endUtcMs).toISOString(),
