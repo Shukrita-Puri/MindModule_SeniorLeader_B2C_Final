@@ -31,6 +31,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // granted (handled by JS layer); if not, observers fire harmlessly.
         WearableSyncBridge.shared.registerBackgroundObservers()
 
+        // Native-authoritative Apple Health path (HealthKitSyncManager owns the
+        // authoritative watch_sync_status writes via WearableStatusWriter).
+        // Seed the Supabase base URL for the native writer up-front — the JS
+        // layer pushes the auth token separately via NativeBackgroundSyncPlugin
+        // once Auth0 is hydrated. Both calls are idempotent.
+        SupabaseAuthTokenProvider.shared.updateSupabaseURL("https://iyilcpvercoywaweybpc.supabase.co")
+        HealthKitSyncManager.shared.bootstrap()
+
         // Activate travel-aware location monitoring if the user already
         // granted location authorization. The JS layer handles the in-app
         // permission prompt the first time; we never re-prompt natively.
