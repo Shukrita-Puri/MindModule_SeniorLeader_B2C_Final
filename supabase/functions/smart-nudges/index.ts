@@ -1279,6 +1279,7 @@ async function buildNudgeContext(
     // threw `ReferenceError: briefWindow is not defined`, surfacing as
     // a 500 on every live tick that hit the fallback path.
     briefWindow,
+    timeZone,
     todayEvents,
     tomorrowEvents,
     nonNoiseEvents,
