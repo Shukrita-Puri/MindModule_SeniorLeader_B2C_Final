@@ -23,13 +23,12 @@ import { validateApnsEnvironment } from "../_shared/apns-env.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
+  timezoneOffsetMinutes,
 } from "../_shared/effective-timezone.ts";
 import {
   COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
   isCountableDeliveryState,
 } from "../_shared/countable-notification-states.ts";
-  timezoneOffsetMinutes,
-} from "../_shared/effective-timezone.ts";
 // Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
