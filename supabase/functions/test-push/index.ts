@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { validateApnsEnvironment } from "../_shared/apns-env.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
@@ -68,13 +69,27 @@ serve(async (req) => {
     if (auth.errorResponse) return auth.errorResponse;
     const callerUserId = auth.userId;
 
+    // Batch A: refuse to send if APP_ENV=production but APNS_ENVIRONMENT
+    // is not production. Silent APNs sandbox fallback in prod produces
+    // 100% BadDeviceToken results and masks the real config error.
+    const envCheck = validateApnsEnvironment();
+    if (!envCheck.ok) {
+      console.error('[test-push]', envCheck.reason);
+      return new Response(JSON.stringify({
+        error: 'apns_env_mismatch',
+        reason: envCheck.reason,
+        app_env: envCheck.appEnv,
+        apns_env: envCheck.apnsEnv,
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // 1. Read APNs credentials
     const apnsKey = Deno.env.get("APNS_P8_KEY");
     const apnsKeyId = Deno.env.get("APNS_KEY_ID");
     const apnsTeamId = Deno.env.get("APNS_TEAM_ID");
-    const apnsBundleId = Deno.env.get("APNS_BUNDLE_ID") || "com.moonshot.mindmoduleapp";
-    const apnsEnv = Deno.env.get("APNS_ENVIRONMENT") || "development";
-    const apnsHost = apnsEnv === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
+    const apnsBundleId = envCheck.bundleId;
+    const apnsEnv = envCheck.apnsEnv;
+    const apnsHost = envCheck.apnsHost;
 
     if (!apnsKey || !apnsKeyId || !apnsTeamId) {
       const missing = [!apnsKey && "APNS_P8_KEY", !apnsKeyId && "APNS_KEY_ID", !apnsTeamId && "APNS_TEAM_ID"].filter(Boolean);
