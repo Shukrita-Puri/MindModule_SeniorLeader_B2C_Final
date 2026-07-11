@@ -104,6 +104,31 @@ async function persistWatchStatus(payload: PersistWatchStatusPayload): Promise<b
     return false;
   }
 
+  // Native-authoritative shadow write. The `wearable-status-update`
+  // endpoint applies a monotonic guard that lets the iOS
+  // HealthKitSyncManager remain the source of truth even when this
+  // opportunistic JS path fires. Rejected downgrades are silent by
+  // design — the response is telemetry-only.
+  if (payload.watch_sync_status) {
+    void fetch(
+      `https://${projectId}.supabase.co/functions/v1/wearable-status-update`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: payload.watch_sync_status,
+          source: 'js-opportunistic',
+          authoritativeAt: new Date().toISOString(),
+          errorCode: payload.watch_last_error ?? null,
+          lastSampleAt: payload.watch_last_sample_at ?? null,
+        }),
+      }
+    ).catch((err) => console.warn('[WearableSync] shadow status-update failed:', err));
+  }
+
   return true;
 }
 
