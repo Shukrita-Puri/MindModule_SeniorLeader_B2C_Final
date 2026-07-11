@@ -512,6 +512,7 @@ interface NudgeContext {
   dayOfWeek: number;
   dayName: string;
   isWeekend: boolean;
+  briefWindow: BriefTimeWindow;
   // Calendar
   todayEvents: CalendarEvent[];
   tomorrowEvents: CalendarEvent[];
