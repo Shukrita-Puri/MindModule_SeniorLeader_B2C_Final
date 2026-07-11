@@ -4239,7 +4239,7 @@ serve(async (req) => {
         console.warn('[smart-nudges][plan-empty-fallback]', {
           userId,
           date: todayStr,
-          window: briefWindow,
+          window: ctx.briefWindow,
           activeSlot,
           reason: 'plan_snapshot_empty_falling_through_to_legacy_cascade',
         });
