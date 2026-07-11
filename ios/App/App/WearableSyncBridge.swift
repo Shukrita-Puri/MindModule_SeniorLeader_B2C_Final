@@ -315,6 +315,21 @@ import Security
             // Attach per-day source attribution + resolved provider label.
             var samples: [[String: Any]] = []
             for (day, var entry) in dailySamples {
+                let hasPrimaryWearableMetric =
+                    entry["hrv"] != nil ||
+                    entry["resting_heart_rate"] != nil ||
+                    entry["total_sleep_minutes"] != nil ||
+                    entry["deep_sleep_minutes"] != nil ||
+                    entry["rem_sleep_minutes"] != nil ||
+                    entry["sleep_score"] != nil
+
+                // Do not persist standalone heart-only daily rows. They tend to
+                // look "empty" in product surfaces that focus on HRV/RHR/sleep,
+                // and they are not enough on their own to represent a complete
+                // wearable day. Heart metrics still merge into real days when
+                // any primary wearable metric is present.
+                guard hasPrimaryWearableMetric else { continue }
+
                 if let byMetric = sourcesPerDay[day] {
                     var sourceApps: [String: [String]] = [:]
                     for (metric, bundles) in byMetric { sourceApps[metric] = Array(bundles).sorted() }

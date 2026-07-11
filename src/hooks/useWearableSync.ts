@@ -67,6 +67,7 @@ export function useWearableSync(): WearableSyncState {
           .from('wearable_data')
           .select('hrv, updated_at, summary_date')
           .eq('user_id', user.id)
+          .or('hrv.not.is.null,resting_heart_rate.not.is.null,total_sleep_minutes.not.is.null,sleep_score.not.is.null')
           .order('summary_date', { ascending: false })
           .limit(1)
           .maybeSingle(),
