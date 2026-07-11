@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
-import { decideWrite, type CurrentRow } from "./index.ts";
+import { decideWrite, type CurrentRow } from "./decide-write.ts";
 
 const T0 = "2026-07-11T10:00:00.000Z";
 const T1 = "2026-07-11T10:05:00.000Z";
