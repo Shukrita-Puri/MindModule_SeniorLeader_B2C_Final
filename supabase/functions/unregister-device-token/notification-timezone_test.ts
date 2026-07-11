@@ -9,7 +9,7 @@ import {
   localDayBoundsUtc,
   isHourInDndWindow,
   localParts,
-} from "./effective-timezone.ts";
+} from "../_shared/effective-timezone.ts";
 
 // ── Asia/Kolkata local day differs from UTC ────────────────────────
 Deno.test("Asia/Kolkata: local day is +1 vs UTC just after 18:30 UTC", () => {
