@@ -32,6 +32,9 @@ import {
   COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
   isCountableDeliveryState,
 } from "../_shared/countable-notification-states.ts";
+// Batch C — atomic dispatch-key claim + per-device delivery attempts.
+import { claimDispatch, attachNotificationLogToClaim } from "../_shared/dispatch-key.ts";
+import { recordDeliveryAttempt } from "../_shared/delivery-attempts.ts";
 // Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
