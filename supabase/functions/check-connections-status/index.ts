@@ -6,6 +6,7 @@ import {
   isScopeEligibleForSync,
   type QuotaCooldownRow,
 } from "../_shared/rules/calendar-quota-scope.ts";
+import { normalizeWatchStatus } from "../_shared/rules/normalize-watch-status.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
