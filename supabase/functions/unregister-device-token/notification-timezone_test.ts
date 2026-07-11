@@ -74,14 +74,19 @@ Deno.test("localDayBoundsUtc: Asia/Kolkata 2026-07-11", () => {
 });
 
 Deno.test("localDayBoundsUtc: America/New_York DST spring-forward day (2026-03-08)", () => {
-  // On DST-start day, local day is only 23h long; our bounds always
-  // return a 24h UTC interval anchored on 12:00 local, which is what
-  // calendar queries want.
   const b = localDayBoundsUtc("2026-03-08", "America/New_York");
-  // Before spring-forward NY is UTC-5, so 00:00 local ≈ 05:00Z.
+  // 00:00 EST on 2026-03-08 = 05:00Z. Next local midnight is 00:00 EDT
+  // on 2026-03-09 = 04:00Z (23-hour local day).
   assertEquals(b.startUtc, "2026-03-08T05:00:00.000Z");
-  // 24h later.
-  assertEquals(b.endUtc,   "2026-03-09T05:00:00.000Z");
+  assertEquals(b.endUtc,   "2026-03-09T04:00:00.000Z");
+});
+
+Deno.test("localDayBoundsUtc: London BST fall-back day (2026-10-25) is 25 h", () => {
+  const b = localDayBoundsUtc("2026-10-25", "Europe/London");
+  // 00:00 BST = 23:00Z the previous day. Next local midnight is 00:00
+  // GMT = 00:00Z on 2026-10-26 (25-hour local day).
+  assertEquals(b.startUtc, "2026-10-24T23:00:00.000Z");
+  assertEquals(b.endUtc,   "2026-10-26T00:00:00.000Z");
 });
 
 // ── DND crossing midnight ──────────────────────────────────────────
