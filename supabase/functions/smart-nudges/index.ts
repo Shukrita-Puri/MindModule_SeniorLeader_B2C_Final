@@ -18,6 +18,8 @@ import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
+import { validateApnsEnvironment } from "../_shared/apns-env.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
@@ -3711,14 +3713,44 @@ serve(async (req) => {
     // global quiet-window + DND checks for that one user so we can trigger
     // the AI copy path on demand and verify Claude→Gemini are reachable in
     // production. All other guards (cooldowns, suppression, anchor presence,
-    // V8 validators) still run. Optional `?force_dry=1` skips APNs delivery.
+    // V8 validators) still run.
+    //
+    // Batch A hardening:
+    //   • The `force_user` path now REQUIRES a valid Auth0 admin JWT
+    //     (allow-listed email). Unauthenticated callers cannot trigger
+    //     APNs deliveries to arbitrary users.
+    //   • The evaluation loop is restricted to the forced user only —
+    //     an admin diagnostic run must NEVER notify unrelated users.
+    //   • Dry-run default is now `true`. Real APNs sending requires an
+    //     explicit `?force_dry=0` from an authenticated admin.
     const forceUserId =
       url.searchParams.get('force_user') ||
       url.searchParams.get('force_user_id') ||
       null;
-    const forceDryRun = url.searchParams.get('force_dry') === '1';
+    // Default TRUE unless the caller explicitly opts into a real send.
+    let forceDryRun = url.searchParams.get('force_dry') !== '0';
     if (forceUserId) {
-      console.log(`[smart-nudges][v8 test] force_user=${forceUserId} (bypassing window+DND, dry=${forceDryRun})`);
+      const guard = await requireAdmin(req);
+      if (guard.errorResponse) {
+        console.warn('[smart-nudges][force_user] admin gate rejected caller');
+        await finishRun('force_user_admin_gate_rejected');
+        return guard.errorResponse;
+      }
+      // Extra safety: real-send requires admin + explicit flag. If a caller
+      // ever passes force_dry=0 in a way the guard missed, we still refuse
+      // by requiring the admin identity to be present.
+      if (!forceDryRun && !guard.admin) forceDryRun = true;
+      await writeAdminAudit(guard.db, {
+        admin: guard.admin!,
+        action: 'smart_nudges.force_user',
+        targetUserId: forceUserId,
+        route: 'smart-nudges',
+        metadata: { dry_run: forceDryRun, evaluator_version: EVALUATOR_VERSION },
+      });
+      console.log(
+        `[smart-nudges][v8 test] force_user=${redactUserId(forceUserId)} ` +
+        `admin=${guard.admin!.adminEmail} dry_run=${forceDryRun}`,
+      );
     }
 
     // 1. Fetch all users with active device tokens
@@ -3761,7 +3793,12 @@ serve(async (req) => {
       userTokens.get(row.user_id)!.push({ token: row.device_token, platform: row.platform });
     }
 
-    const userIds = Array.from(userTokens.keys());
+    // Batch A: when an admin passes ?force_user, restrict the evaluation
+    // loop to just that user. Prevents a diagnostic run from fanning out
+    // pushes to unrelated users.
+    const userIds = forceUserId
+      ? (userTokens.has(forceUserId) ? [forceUserId] : [])
+      : Array.from(userTokens.keys());
     const activeUserSet = new Set(userIds);
     const { data: inactiveOnlyTokenUsers } = await supabase
       .from('notification_device_tokens')
@@ -4589,9 +4626,26 @@ serve(async (req) => {
     const apnsKey = Deno.env.get('APNS_P8_KEY');
     const apnsKeyId = Deno.env.get('APNS_KEY_ID');
     const apnsTeamId = Deno.env.get('APNS_TEAM_ID');
-    const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'com.moonshot.mindmoduleapp';
-    const apnsEnv = Deno.env.get('APNS_ENVIRONMENT') || 'development';
-    const apnsHost = apnsEnv === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
+    // Batch A: validate APP_ENV/APNS_ENVIRONMENT alignment. If APP_ENV is
+    // production but APNs env is sandbox we hard-fail the send phase —
+    // we do NOT want to insert notification_log rows that later get
+    // marked failed and consume the daily cap.
+    const apnsEnvCheck = validateApnsEnvironment();
+    const apnsBundleId = apnsEnvCheck.bundleId;
+    const apnsEnv = apnsEnvCheck.apnsEnv;
+    const apnsHost = apnsEnvCheck.apnsHost;
+    if (!apnsEnvCheck.ok) {
+      console.error('[smart-nudges]', apnsEnvCheck.reason);
+      await finishRun('apns_env_mismatch');
+      return new Response(JSON.stringify({
+        error: 'apns_env_mismatch',
+        reason: apnsEnvCheck.reason,
+        app_env: apnsEnvCheck.appEnv,
+        apns_env: apnsEnvCheck.apnsEnv,
+        qualified: qualifiedCount,
+        shipped: 0,
+      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     const isDryRun = (!apnsKey || !apnsKeyId || !apnsTeamId) || forceDryRun;
 
     if (isDryRun) {
@@ -4617,6 +4671,17 @@ serve(async (req) => {
         apnsJwt = await createApnsJwt(apnsKey!, apnsKeyId!, apnsTeamId!);
       } catch (e) {
         console.error('[smart-nudges] Failed to create APNs JWT:', e);
+        // Batch A honesty: if JWT creation failed we cannot deliver ANY
+        // pushes this run. Fail the whole run cleanly so operators see it
+        // in `notification_evaluator_runs.top_level_error` — instead of
+        // silently dropping every notification while pretending it shipped.
+        await finishRun('apns_jwt_creation_failed');
+        return new Response(JSON.stringify({
+          error: 'apns_jwt_creation_failed',
+          reason: e instanceof Error ? e.message : String(e),
+          qualified: qualifiedCount,
+          shipped: 0,
+        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 

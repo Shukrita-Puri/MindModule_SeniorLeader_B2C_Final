@@ -3,7 +3,8 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain, refreshNativeTokens, hasRecoverableNativeSession } from '@/utils/nativeAuth';
 import { activateLogoutGuard } from '@/utils/logoutGuard';
-import { clearTokenCache } from '@/services/authTokenService';
+import { clearTokenCache, getAuthToken } from '@/services/authTokenService';
+import { getSupabaseFunctionHeaders, getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
 import { clearAllLocalData } from '@/services/localDataStore';
 import { clearHealthKitPermission } from '@/services/wearableSyncService';
 import { clear as clearSyncQueue } from '@/services/syncQueue';
@@ -634,8 +635,41 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     clearByPrefixes(cacheKeyPrefixes);
   };
 
+  /**
+   * Batch A — Best-effort deactivation of this account's APNs device
+   * token(s) BEFORE local caches are wiped. We call this from every
+   * sign-out path so that once the user is logged out on this device,
+   * smart-nudges immediately stops targeting them. The call is
+   * timeboxed and swallowed on error so a network failure never blocks
+   * logout.
+   */
+  const revokeDeviceTokensBestEffort = async (): Promise<void> => {
+    try {
+      const accessToken = await Promise.race<string | null>([
+        getAuthToken(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+      ]);
+      if (!accessToken) {
+        console.log('[useAuth] Skipping unregister-device-token: no access token');
+        return;
+      }
+      await Promise.race([
+        fetch(getSupabaseFunctionUrl('unregister-device-token'), {
+          method: 'POST',
+          headers: getSupabaseFunctionHeaders(accessToken),
+          body: JSON.stringify({}),
+        }),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
+      console.log('[useAuth] Device token unregister requested');
+    } catch (err) {
+      console.warn('[useAuth] Device token unregister failed (non-fatal):', err);
+    }
+  };
+
   // Normal sign-out
   const signOut = async () => {
+    await revokeDeviceTokensBestEffort();
     cleanupLocalState();
 
     if (isNativeiOS()) {
@@ -668,6 +702,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Federated logout
   const signOutFederated = async () => {
+    await revokeDeviceTokensBestEffort();
     cleanupLocalState();
 
     if (isNativeiOS()) {

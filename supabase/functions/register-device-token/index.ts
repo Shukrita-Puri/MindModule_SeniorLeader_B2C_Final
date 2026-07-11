@@ -51,16 +51,40 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Single-active-token policy:
-    // 1. Deactivate every other token for this user on this platform (only one active per device class)
+    // Cross-user ownership transfer (Batch A / privacy):
+    // If this device_token was previously registered by a DIFFERENT user
+    // (e.g. two accounts on the same phone), deactivate the other user's
+    // row FIRST so smart-nudges cannot fan the previous owner's copy out
+    // to this device. Belt-and-suspenders: a partial unique index on
+    // (device_token) WHERE is_active enforces this at DB level.
+    const { error: crossUserDeactErr, count: crossUserDeactivated } = await supabase
+      .from('notification_device_tokens')
+      .update({ is_active: false, updated_at: new Date().toISOString() }, { count: 'exact' })
+      .eq('device_token', normalizedToken)
+      .neq('user_id', userId)
+      .eq('is_active', true);
+    if (crossUserDeactErr) {
+      console.error('[register-device-token] cross-user deactivate failed:', crossUserDeactErr.message);
+      throw crossUserDeactErr;
+    }
+    if ((crossUserDeactivated ?? 0) > 0) {
+      console.warn(
+        `[register-device-token] Transferred ownership of token prefix=${normalizedToken.substring(0, 12)} ` +
+        `from ${crossUserDeactivated} prior user(s) to ${redactUserId(userId)}`,
+      );
+    }
+
+    // Single-active-token per user+platform: deactivate other tokens this
+    // user still holds on this device class.
     await supabase
       .from('notification_device_tokens')
-      .update({ is_active: false })
+      .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('user_id', userId)
       .eq('platform', platform)
-      .neq('device_token', normalizedToken);
+      .neq('device_token', normalizedToken)
+      .eq('is_active', true);
 
-    // 2. Upsert the current token as the active one
+    // Upsert the current token as the active one for this user
     const { error } = await supabase
       .from('notification_device_tokens')
       .upsert(
