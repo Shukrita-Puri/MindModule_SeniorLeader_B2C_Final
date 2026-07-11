@@ -183,6 +183,40 @@ const CheckInDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
+      // Snapshot-only home: rebuild Executive Home snapshots server-side,
+      // then invalidate snapshot readers.
+      try {
+        const period = getCurrentTimeWindow();
+        console.info('[exec-home][refresh:start]', {
+          trigger: 'checkin_detail_save',
+          localDate: todayDate,
+          window: period,
+        });
+        const headers: Record<string, string> = {};
+        if (DEV_MODE) headers['x-dev-user-id'] = effectiveUserId ?? DEV_USER.id;
+        const t = await getAccessToken().catch(() => null);
+        if (t) headers.Authorization = `Bearer ${t}`;
+        await supabase.functions.invoke('build-executive-home-cards', {
+          headers,
+          body: {
+            mode: 'checkin_save',
+            userId: DEV_MODE ? (effectiveUserId ?? DEV_USER.id) : undefined,
+            localDate: todayDate,
+            window: period,
+          },
+        });
+      } catch (e) {
+        console.warn('[exec-home][refresh:error]', {
+          trigger: 'checkin_detail_save',
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
+      ]);
+
       navigate('/executive-home');
     } catch (e) {
       console.error('[CheckInDetail] Save error:', e);

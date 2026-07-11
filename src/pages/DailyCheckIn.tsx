@@ -327,6 +327,41 @@ const DailyCheckIn = () => {
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
+      // Snapshot-only home: after a check-in save, trigger the server-side
+      // rebuild of the 3 Executive Home snapshots, then invalidate the
+      // snapshot readers so /executive-home rehydrates from the new rows.
+      try {
+        const period = getCurrentTimeWindow();
+        console.info('[exec-home][refresh:start]', {
+          trigger: 'daily_checkin_save',
+          localDate: todayDate2,
+          window: period,
+        });
+        const headers: Record<string, string> = {};
+        if (DEV_MODE) headers['x-dev-user-id'] = effectiveUserId ?? DEV_USER.id;
+        const t = await getAuthToken().catch(() => null);
+        if (t) headers.Authorization = `Bearer ${t}`;
+        await supabase.functions.invoke('build-executive-home-cards', {
+          headers,
+          body: {
+            mode: 'checkin_save',
+            userId: DEV_MODE ? (effectiveUserId ?? DEV_USER.id) : undefined,
+            localDate: todayDate2,
+            window: period,
+          },
+        });
+      } catch (e) {
+        console.warn('[exec-home][refresh:error]', {
+          trigger: 'daily_checkin_save',
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
+      ]);
+
       // Route to the next step based on the user's check-in mode:
       // - Wearable + Self → straight to Today's Brief (wearable supplies body data)
       // - Self-Declared Only → continue to Body State Check-in
