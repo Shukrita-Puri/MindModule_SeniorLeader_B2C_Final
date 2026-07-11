@@ -3792,7 +3792,12 @@ serve(async (req) => {
       userTokens.get(row.user_id)!.push({ token: row.device_token, platform: row.platform });
     }
 
-    const userIds = Array.from(userTokens.keys());
+    // Batch A: when an admin passes ?force_user, restrict the evaluation
+    // loop to just that user. Prevents a diagnostic run from fanning out
+    // pushes to unrelated users.
+    const userIds = forceUserId
+      ? (userTokens.has(forceUserId) ? [forceUserId] : [])
+      : Array.from(userTokens.keys());
     const activeUserSet = new Set(userIds);
     const { data: inactiveOnlyTokenUsers } = await supabase
       .from('notification_device_tokens')
