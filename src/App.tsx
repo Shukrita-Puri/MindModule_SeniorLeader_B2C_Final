@@ -423,7 +423,7 @@ const router = createBrowserRouter([
           { path: "protect-goals", element: <Suspense fallback={<LoadingFallback />}><StageProtectGoals /></Suspense> },
           { path: "brief-prefs", element: <Suspense fallback={<LoadingFallback />}><StageBriefPrefs /></Suspense> },
           { path: "permissions", element: <Suspense fallback={<LoadingFallback />}><StagePermissions /></Suspense> },
-          { path: "connect", element: <Suspense fallback={<LoadingFallback />}><StageConnections /></Suspense> },
+          { path: "connect", element: <Navigate to="/onboarding/done" replace /> },
           { path: "done", element: <Suspense fallback={<LoadingFallback />}><StageDone /></Suspense> },
           { path: "*", element: <Navigate to="/onboarding/app-intro" replace /> },
         ],
