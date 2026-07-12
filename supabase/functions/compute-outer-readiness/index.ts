@@ -5279,8 +5279,66 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
           if (!llmBrief) {
             // v6.5 contract: LLM miss no longer renders deterministic prose.
-            // The response falls to `awaiting` (see briefIsAwaiting below).
+            // v6.6 update: attempt a spec-compliant deterministic brief as a
+            // last resort. It must pass validateBrief() before it is served;
+            // if it fails validation, the response falls to `awaiting`
+            // (see briefIsAwaiting below).
             console.log(`[compute-outer-readiness] [LLM] FALLBACK to awaiting | reason=${llmFallbackReason || 'unknown'} | models_tried=${llmAttempts.map(a => a.model).join(',')} | promptChars=${sysPromptLen + userPromptLen}`);
+
+            try {
+              const specParams: SpecDeterministicParams = {
+                bandValence: (bandValence as any) ?? null,
+                timeOfDay: getTimeOfDay(hour) as any,
+                hasWearable: !!wearableContext,
+                hrvDeviation: typeof hrvDeviation === 'number' ? hrvDeviation : null,
+                sleepDuration: typeof sleepDuration === 'number' ? sleepDuration : null,
+                sleepDeviation: typeof sleepDeviation === 'number' ? sleepDeviation : null,
+                sleepHardFloor: typeof sleepDuration === 'number' && sleepDuration < 360,
+                rhrDeviation: typeof rhrDeviation === 'number' ? rhrDeviation : null,
+                calendarLoad: (calendarLoad as any) ?? null,
+                todayHighStakes: Array.isArray(todayHighStakes) ? todayHighStakes : [],
+                nextHighStakesEvent: nextHighStakesEvent
+                  ? { title: nextHighStakesEvent.title, minutesUntil: nextHighStakesEvent.minutesUntil }
+                  : null,
+                hasBackToBack: !!hasBackToBack,
+                avgScore7d: typeof avgScore7d === 'number' ? avgScore7d : null,
+                scoreTrajectory7d: scoreTrajectory7d ?? null,
+                hrvEventCorrelation: hrvEventCorrelation ?? null,
+                checkInOutcome: checkInOutcome ?? null,
+                clarityLevel: typeof clarityLevel === 'number' ? clarityLevel : null,
+                confidenceLevel: typeof confidenceLevel === 'number' ? confidenceLevel : null,
+                tomorrowLoad: (tomorrowLoad as any) ?? null,
+                tomorrowHighStakesTitles: Array.isArray(tomorrowHighStakes) ? tomorrowHighStakes : [],
+              };
+
+              const built = buildSpecDeterministicBrief(specParams);
+              if (built) {
+                const detCtx: any = {
+                  signals: {
+                    highStakesEventInNext24h: nextHighStakesEvent
+                      ? { title: nextHighStakesEvent.title, minutesUntil: nextHighStakesEvent.minutesUntil }
+                      : null,
+                    emotionalDrainEventInNext4h: null,
+                  },
+                  behaviourFlags: [
+                    ...(briefBehaviourSnapshot?.flagsBrief ?? []),
+                    ...(briefBehaviourSnapshot?.flagsPlan ?? []),
+                  ],
+                  lexiconClusters: [],
+                  forbiddenWords: [],
+                  allowedPatternKeywords: [],
+                };
+                const detValidation = validateBrief(built.phrase, built.body, detCtx);
+                if (detValidation.ok) {
+                  deterministicBrief = built;
+                  console.log(`[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (v6.6-spec) | topSignal=${built.topSignal} | band=${specParams.bandValence} | phrase="${built.phrase}"`);
+                } else {
+                  console.warn(`[compute-outer-readiness] [DETERMINISTIC] rejected by validator: ${detValidation.reason} | topSignal=${built.topSignal} | band=${specParams.bandValence}`);
+                }
+              }
+            } catch (detErr) {
+              console.error('[compute-outer-readiness] [DETERMINISTIC] build error:', detErr);
+            }
           }
     }
 
