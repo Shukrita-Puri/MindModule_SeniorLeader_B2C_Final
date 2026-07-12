@@ -9,7 +9,6 @@ import outlookLogo from "@/assets/shared/microsoft-calendar-logo.png";
 import appleCalLogo from "@/assets/shared/apple-calendar-logo.png";
 import appleHealthLogo from "@/assets/shared/apple-health-logo.png";
 import ouraLogo from "@/assets/shared/oura-ring-logo.png";
-import whoopLogo from "@/assets/shared/whoop-logo.png";
 
 const CAL = [
   { id: "google", ...CALENDAR_PROVIDER_META.google, logo: googleCalLogo },
@@ -19,7 +18,6 @@ const CAL = [
 const WEAR = [
   { id: "apple-watch", name: WEARABLE_PROVIDER_META["apple-health"].name, note: WEARABLE_PROVIDER_META["apple-health"].note, logo: appleHealthLogo },
   { id: "oura", ...WEARABLE_PROVIDER_META.oura, logo: ouraLogo },
-  { id: "whoop", ...WEARABLE_PROVIDER_META.whoop, logo: whoopLogo },
 ];
 
 export default function StagePermissions() {
@@ -67,7 +65,7 @@ export default function StagePermissions() {
       setSaveError(msg);
       return;
     }
-    navigate("/onboarding/connect");
+    navigate("/onboarding/done");
   };
 
   const renderCard = (

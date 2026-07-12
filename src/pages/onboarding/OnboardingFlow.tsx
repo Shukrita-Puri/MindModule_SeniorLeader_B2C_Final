@@ -13,7 +13,6 @@ const V8_PATHS = new Set([
   '/onboarding/protect-goals',
   '/onboarding/brief-prefs',
   '/onboarding/permissions',
-  '/onboarding/connect',
   '/onboarding/done',
 ]);
 
@@ -48,8 +47,7 @@ export default function OnboardingFlow() {
     '/onboarding/protect-goals': 4,
     '/onboarding/brief-prefs': 5,
     '/onboarding/permissions': 6,
-    '/onboarding/connect': 7,
-    '/onboarding/done': 8,
+    '/onboarding/done': 7,
   };
   const currentStage = V8_STAGE_INDEX[location.pathname] ?? 1;
 
@@ -78,7 +76,6 @@ export default function OnboardingFlow() {
       '/onboarding/protect-goals': '/onboarding/cognitive-load',
       '/onboarding/brief-prefs': '/onboarding/protect-goals',
       '/onboarding/permissions': '/onboarding/brief-prefs',
-      '/onboarding/connect': '/onboarding/permissions',
     };
     navigate(backMap[location.pathname] ?? '/onboarding');
   };
