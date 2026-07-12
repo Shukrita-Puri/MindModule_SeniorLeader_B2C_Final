@@ -5470,7 +5470,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // must pass validateBrief() before shipping and is not implemented
     // here. Do NOT reintroduce buildDeterministicBrief / decideBriefFallback
     // / capDeterministicBody at this call site.
-    if (!cachedSnapshot && !llmBrief) {
+    if (!cachedSnapshot && !llmBrief && !deterministicBrief) {
       console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
         source: 'awaiting',
         reason: awaitingSignals
@@ -5484,7 +5484,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           : null,
         awaiting: true,
         snapshotPersisted: true,
-        blockedBy: 'v6.5-no-deterministic-fallback',
+        blockedBy: 'v6.6-deterministic-invalid-or-absent',
       }));
     }
 
@@ -5496,19 +5496,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // and inner-awaiting runs never emit Brief prose.
     const briefMustAwait = awaitingSignals || innerStateIsAwaiting;
     const briefIsAwaiting =
-      briefMustAwait || (!cachedSnapshot && !llmBrief);
+      briefMustAwait || (!cachedSnapshot && !llmBrief && !deterministicBrief);
     const briefSource: 'llm' | 'deterministic' | 'awaiting' = briefMustAwait
       ? 'awaiting'
       : cachedSnapshot
         ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
-        : (llmBrief ? 'llm' : 'awaiting');
+        : (llmBrief ? 'llm' : deterministicBrief ? 'deterministic' : 'awaiting');
     const responsePhrase = briefIsAwaiting
       ? null
-      : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);
+      : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? deterministicBrief?.phrase ?? finalPhrase);
     const rawResponseBody = briefIsAwaiting
       ? null
       : (cachedSnapshot?.body_text
           ?? llmBrief?.bodyText
+          ?? deterministicBrief?.body
           ?? finalContext);
     // Strip stray markdown emphasis the LLM occasionally emits (e.g.
     // "*Board Meeting *"). The client renderer still parses **bold** spans
