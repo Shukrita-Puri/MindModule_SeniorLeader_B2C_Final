@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ParchScreen, PrimaryCTA } from './ShellV8';
 import ConnectionsPanel from '@/components/connections/ConnectionsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from '@/utils/onboardingV8Validation';
-import type { CalendarProviderId } from '@/components/calendar/CalendarProviderPicker';
-import type { WearableProviderId } from '@/components/connections/WearableProviderPicker';
+import {
+  fetchCalendarProvidersState,
+  type CalendarProviderId,
+} from '@/components/calendar/CalendarProviderPicker';
+import {
+  fetchWearableProvidersState,
+  type WearableProviderId,
+} from '@/components/connections/WearableProviderPicker';
 
 // Backward-compat: legacy rows may have stored "outlook" instead of the
 // canonical "microsoft". sanitizePayload rewrites on write; this map covers
@@ -50,36 +56,75 @@ export default function StageConnections() {
     })();
   }, []);
 
-  const goNext = () => navigate('/onboarding/done');
+  const [hasCalendar, setHasCalendar] = useState(false);
+  const [hasWearable, setHasWearable] = useState(false);
+  const canContinue = hasCalendar && hasWearable;
+
+  const refreshStatuses = useCallback(async () => {
+    try {
+      const [cal, wear] = await Promise.all([
+        fetchCalendarProvidersState(),
+        fetchWearableProvidersState(),
+      ]);
+      const calProv = cal.providers;
+      setHasCalendar(
+        !!(calProv.google?.connected || calProv.microsoft?.connected || calProv.apple?.connected),
+      );
+      const wearProv = wear.providers;
+      setHasWearable(!!(wearProv['apple-watch']?.connected || wearProv.oura?.connected));
+    } catch (err) {
+      console.warn('[StageConnections] refresh statuses failed:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshStatuses();
+  }, [refreshStatuses]);
+
+  const goNext = () => {
+    if (!canContinue) return;
+    navigate('/onboarding/done');
+  };
+
+  // Filter Whoop off this screen; ensure Apple Watch + Oura still render when
+  // the user hadn't preselected any wearable (or only selected Whoop).
+  const wearOnlyFiltered: WearableProviderId[] = (() => {
+    const base = (wearOnly ?? (['apple-watch', 'oura'] as WearableProviderId[]))
+      .filter((w) => w !== 'whoop');
+    return base.length ? base : (['apple-watch', 'oura'] as WearableProviderId[]);
+  })();
 
   return (
     <ParchScreen
       step="Connect"
-      title="Now plug Mind Module in"
+      title="Mind Module, personalised based on your real data"
       footer={
-        <PrimaryCTA tone="coral" onClick={goNext}>
-          Continue →
-        </PrimaryCTA>
+        <div>
+          {!canContinue && (
+            <p
+              aria-live="polite"
+              className="text-[11px] text-[#7a7060] text-center mb-2"
+            >
+              Requires 1 calendar and 1 wearable
+            </p>
+          )}
+          <PrimaryCTA tone="coral" onClick={goNext} disabled={!canContinue}>
+            Continue →
+          </PrimaryCTA>
+        </div>
       }
     >
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-3">
-        Authorize the providers you just selected. You can also skip this step and connect later from
-        Profile → Connected Data.
+        Connect your day with one calendar and your body with one wearable to unlock bespoke insights
+        from day one. No generic advice — just recommendations built for you. You can connect more
+        later in Profile → Connected Data.
       </p>
       <ConnectionsPanel
         calendarOnly={calOnly}
-        wearableOnly={wearOnly}
+        wearableOnly={wearOnlyFiltered}
         redirectPath="/onboarding/connect"
+        onChanged={refreshStatuses}
       />
-      <div className="mt-4 text-center">
-        <button
-          type="button"
-          onClick={goNext}
-          className="text-[11px] text-[#7a7060] underline underline-offset-2"
-        >
-          Skip for now
-        </button>
-      </div>
     </ParchScreen>
   );
 }
