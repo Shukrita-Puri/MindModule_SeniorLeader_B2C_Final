@@ -2787,6 +2787,11 @@ serve(async (req) => {
 
     // ═══ LLM SYNTHESIS ═══
     let llmBrief: LlmBriefPackage | null = null;
+    // v6.6 — spec-compliant deterministic fallback (built AFTER all LLM
+    // attempts fail, only when real signals exist). Populated inside the
+    // LLM block where all in-scope variables are visible, read further
+    // down by the briefSource / responsePhrase / responseBody logic.
+    let deterministicBrief: SpecDeterministicResult | null = null;
     let llmFallbackReason: string | null = null;
     // Per-attempt diagnostic records persisted on every brief_snapshots write.
     // Replaces the prior hard-coded `llm_attempts: null`. Each record:
