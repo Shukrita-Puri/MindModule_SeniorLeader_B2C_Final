@@ -24,6 +24,11 @@ import {
 // missing signal evidence, and unanchored pattern references all trigger
 // the same retry-once-then-awaiting path as the other validator rejects.
 import { validateBrief } from "../_shared/brief-validators.ts";
+import {
+  buildSpecDeterministicBrief,
+  type SpecDeterministicParams,
+  type SpecDeterministicResult,
+} from "../_shared/brief/spec-deterministic-brief.ts";
 // v6.5-no-deterministic-fallback (2026-07-11): the legacy deterministic
 // Brief path (`buildDeterministicBrief`, `decideBriefFallback`,
 // `capDeterministicBody`) has been removed from the render pipeline. When
@@ -2782,6 +2787,11 @@ serve(async (req) => {
 
     // ═══ LLM SYNTHESIS ═══
     let llmBrief: LlmBriefPackage | null = null;
+    // v6.6 — spec-compliant deterministic fallback (built AFTER all LLM
+    // attempts fail, only when real signals exist). Populated inside the
+    // LLM block where all in-scope variables are visible, read further
+    // down by the briefSource / responsePhrase / responseBody logic.
+    let deterministicBrief: SpecDeterministicResult | null = null;
     let llmFallbackReason: string | null = null;
     // Per-attempt diagnostic records persisted on every brief_snapshots write.
     // Replaces the prior hard-coded `llm_attempts: null`. Each record:
@@ -5269,8 +5279,66 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
           if (!llmBrief) {
             // v6.5 contract: LLM miss no longer renders deterministic prose.
-            // The response falls to `awaiting` (see briefIsAwaiting below).
+            // v6.6 update: attempt a spec-compliant deterministic brief as a
+            // last resort. It must pass validateBrief() before it is served;
+            // if it fails validation, the response falls to `awaiting`
+            // (see briefIsAwaiting below).
             console.log(`[compute-outer-readiness] [LLM] FALLBACK to awaiting | reason=${llmFallbackReason || 'unknown'} | models_tried=${llmAttempts.map(a => a.model).join(',')} | promptChars=${sysPromptLen + userPromptLen}`);
+
+            try {
+              const specParams: SpecDeterministicParams = {
+                bandValence: (bandValence as any) ?? null,
+                timeOfDay: getTimeOfDay(hour) as any,
+                hasWearable: !!wearableContext,
+                hrvDeviation: typeof hrvDeviation === 'number' ? hrvDeviation : null,
+                sleepDuration: typeof sleepDuration === 'number' ? sleepDuration : null,
+                sleepDeviation: typeof sleepDeviation === 'number' ? sleepDeviation : null,
+                sleepHardFloor: typeof sleepDuration === 'number' && sleepDuration < 360,
+                rhrDeviation: typeof rhrDeviation === 'number' ? rhrDeviation : null,
+                calendarLoad: (calendarLoad as any) ?? null,
+                todayHighStakes: Array.isArray(todayHighStakes) ? todayHighStakes : [],
+                nextHighStakesEvent: nextHighStakesEvent
+                  ? { title: nextHighStakesEvent.title, minutesUntil: nextHighStakesEvent.minutesUntil }
+                  : null,
+                hasBackToBack: !!hasBackToBack,
+                avgScore7d: typeof avgScore7d === 'number' ? avgScore7d : null,
+                scoreTrajectory7d: scoreTrajectory7d ?? null,
+                hrvEventCorrelation: hrvEventCorrelation ?? null,
+                checkInOutcome: checkInOutcome ?? null,
+                clarityLevel: typeof clarityLevel === 'number' ? clarityLevel : null,
+                confidenceLevel: typeof confidenceLevel === 'number' ? confidenceLevel : null,
+                tomorrowLoad: (tomorrowLoad as any) ?? null,
+                tomorrowHighStakesTitles: Array.isArray(tomorrowHighStakes) ? tomorrowHighStakes : [],
+              };
+
+              const built = buildSpecDeterministicBrief(specParams);
+              if (built) {
+                const detCtx: any = {
+                  signals: {
+                    highStakesEventInNext24h: nextHighStakesEvent
+                      ? { title: nextHighStakesEvent.title, minutesUntil: nextHighStakesEvent.minutesUntil }
+                      : null,
+                    emotionalDrainEventInNext4h: null,
+                  },
+                  behaviourFlags: [
+                    ...(briefBehaviourSnapshot?.flagsBrief ?? []),
+                    ...(briefBehaviourSnapshot?.flagsPlan ?? []),
+                  ],
+                  lexiconClusters: [],
+                  forbiddenWords: [],
+                  allowedPatternKeywords: [],
+                };
+                const detValidation = validateBrief(built.phrase, built.body, detCtx);
+                if (detValidation.ok) {
+                  deterministicBrief = built;
+                  console.log(`[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (v6.6-spec) | topSignal=${built.topSignal} | band=${specParams.bandValence} | phrase="${built.phrase}"`);
+                } else {
+                  console.warn(`[compute-outer-readiness] [DETERMINISTIC] rejected by validator: ${detValidation.reason} | topSignal=${built.topSignal} | band=${specParams.bandValence}`);
+                }
+              }
+            } catch (detErr) {
+              console.error('[compute-outer-readiness] [DETERMINISTIC] build error:', detErr);
+            }
           }
     }
 
@@ -5402,7 +5470,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // must pass validateBrief() before shipping and is not implemented
     // here. Do NOT reintroduce buildDeterministicBrief / decideBriefFallback
     // / capDeterministicBody at this call site.
-    if (!cachedSnapshot && !llmBrief) {
+    if (!cachedSnapshot && !llmBrief && !deterministicBrief) {
       console.log('[compute-outer-readiness][brief-fallback]', JSON.stringify({
         source: 'awaiting',
         reason: awaitingSignals
@@ -5416,7 +5484,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           : null,
         awaiting: true,
         snapshotPersisted: true,
-        blockedBy: 'v6.5-no-deterministic-fallback',
+        blockedBy: 'v6.6-deterministic-invalid-or-absent',
       }));
     }
 
@@ -5428,19 +5496,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // and inner-awaiting runs never emit Brief prose.
     const briefMustAwait = awaitingSignals || innerStateIsAwaiting;
     const briefIsAwaiting =
-      briefMustAwait || (!cachedSnapshot && !llmBrief);
+      briefMustAwait || (!cachedSnapshot && !llmBrief && !deterministicBrief);
     const briefSource: 'llm' | 'deterministic' | 'awaiting' = briefMustAwait
       ? 'awaiting'
       : cachedSnapshot
         ? (cachedSnapshot.brief_source as 'llm' | 'deterministic' | 'awaiting')
-        : (llmBrief ? 'llm' : 'awaiting');
+        : (llmBrief ? 'llm' : deterministicBrief ? 'deterministic' : 'awaiting');
     const responsePhrase = briefIsAwaiting
       ? null
-      : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase);
+      : (cachedSnapshot?.phrase ?? llmBrief?.phrase ?? deterministicBrief?.phrase ?? finalPhrase);
     const rawResponseBody = briefIsAwaiting
       ? null
       : (cachedSnapshot?.body_text
           ?? llmBrief?.bodyText
+          ?? deterministicBrief?.body
           ?? finalContext);
     // Strip stray markdown emphasis the LLM occasionally emits (e.g.
     // "*Board Meeting *"). The client renderer still parses **bold** spans

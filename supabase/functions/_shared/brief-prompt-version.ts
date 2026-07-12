@@ -12,4 +12,4 @@
 // 'deterministic' rows that would have leaked banned phrases like
 // "Close strong." / "Steady the system ahead of the day ahead" /
 // "protecting the edge" via the COALESCE generated columns).
-export const BRIEF_PROMPT_VERSION = 'v6.5-no-deterministic-fallback';
+export const BRIEF_PROMPT_VERSION = 'v6.6-replacement-vocabulary';

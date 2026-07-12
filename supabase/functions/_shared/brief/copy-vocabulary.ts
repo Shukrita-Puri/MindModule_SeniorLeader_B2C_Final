@@ -100,6 +100,22 @@ export const HARD_CONSTRAINTS = `HARD CONSTRAINTS (no exceptions)
   Silence beats a generic line.`;
 
 /**
+ * v6.6 — REPLACEMENT VOCABULARY block. Surfaces approved executive substitutes
+ * for every hard-banned word list so the LLM knows what to reach for instead.
+ * This block is appended to the system prompt immediately after HARD_CONSTRAINTS.
+ */
+export const REPLACEMENT_VOCABULARY = `REPLACEMENT VOCABULARY (reach for these instead of the banned words above)
+When you need to describe state without using the banned words, use:
+- Instead of "strong" / "high"          → "sharp", "clear", "dialled in", "carrying edge"
+- Instead of "low" / "moderate"         → "stretched", "thin", "loaded", "behind"
+- Instead of "readiness"                → "state", "edge", "runway", "reserves in the tank"
+- Instead of "calm" / "relax" / "breathe" → "settle", "steady", "hold your line"
+- Instead of "recharge" / "restore" / "self-care" → "keep your edge", "pace yourself", "protect the next hour"
+- Instead of "HRV" / "cortisol" / "parasympathetic" / "sympathetic" → "recovery", "body signals", "your system", "reserves", "baseline"
+These are executive-register substitutes, not synonyms — pick the one that
+matches the actual state you are naming, not a blanket swap.`;
+
+/**
  * Canonical band-gate valence directive. Compiled with the band emitted by
  * compute-inner-readiness (band ∈ full|ready|holding|reserves|empty,
  * valence ∈ low|mid|high) so the Brief never contradicts the MRS read.
@@ -345,6 +361,8 @@ export function buildBriefSystemPrompt(opts?: { bandValence?: ReadinessValence |
     VOICE_NEVER_SOUND_LIKE,
     '',
     HARD_CONSTRAINTS,
+    '',
+    REPLACEMENT_VOCABULARY,
     ...(valenceBlock ? ['', valenceBlock] : []),
     '',
     MRS_CONSISTENCY_BLOCK,
