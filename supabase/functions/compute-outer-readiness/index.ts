@@ -24,6 +24,11 @@ import {
 // missing signal evidence, and unanchored pattern references all trigger
 // the same retry-once-then-awaiting path as the other validator rejects.
 import { validateBrief } from "../_shared/brief-validators.ts";
+import {
+  buildSpecDeterministicBrief,
+  type SpecDeterministicParams,
+  type SpecDeterministicResult,
+} from "../_shared/brief/spec-deterministic-brief.ts";
 // v6.5-no-deterministic-fallback (2026-07-11): the legacy deterministic
 // Brief path (`buildDeterministicBrief`, `decideBriefFallback`,
 // `capDeterministicBody`) has been removed from the render pipeline. When
