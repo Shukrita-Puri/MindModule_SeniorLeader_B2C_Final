@@ -6738,13 +6738,31 @@ function buildHorizonModules(
   const _dow = _localNow.getUTCDay(); // 0 Sun .. 6 Sat
   const _isWeekday = _dow >= 1 && _dow <= 5;
   const _hasAnyJit = !!preEventPlan;
-  // PTO / public-holiday detection delegated to canonical ceo-behaviour module.
-  const _isPtoOrHoliday = (req.calendarEvents || []).some((e: any) => {
-    const s = new Date(e.startTime).getTime();
-    const en = new Date(e.endTime || e.startTime).getTime();
-    const allDay = (en - s) >= 20 * 3600 * 1000;
-    return allDay && isPtoOrHolidayTitle(String(e.title || ''));
+  // PTO / public-holiday detection delegated to the canonical availability
+  // SSOT. Regional / FYI holidays that don't apply to the user MUST NOT
+  // collapse the plan to a single slot, and calendar work evidence MUST
+  // override any rest signal — both handled inside the classifier.
+  const _availability = classifyAvailability({
+    now: _localNow,
+    userHomeCountry: (req as any).userHomeCountry ?? (req as any).country ?? null,
+    userCurrentCountry: (req as any).userCurrentCountry ?? null,
+    explicitPto: (req as any).explicitPto === true,
+    calendarLoad: (req as any).calendarLoad ?? null,
+    events: (req.calendarEvents || []).map((e: any) => ({
+      title: String(e?.title || ''),
+      startTime: String(e?.startTime || e?.start_time || ''),
+      endTime: String(e?.endTime || e?.end_time || e?.startTime || ''),
+      isAllDay: e?.isAllDay === true || e?.is_all_day === true ||
+        ((new Date(e?.endTime || e?.startTime || 0).getTime() -
+          new Date(e?.startTime || 0).getTime()) >= 20 * 3600 * 1000),
+      isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+      attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+      source: e?.source ?? e?.calendarName ?? null,
+      calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+    })),
   });
+  const _isPtoOrHoliday = _availability.isRestDay &&
+    (_availability.state === 'PTO' || _availability.state === 'PUBLIC_HOLIDAY');
   let _minSlots = 1;
   if (!_hasAnyJit && _isWeekday && !_isPtoOrHoliday) _minSlots = 2;
   if (_hasAnyJit && !_isPtoOrHoliday) {
