@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadLeaderProfile, type LeaderProfileContext } from '../_shared/leader-profile-loader.ts';
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
