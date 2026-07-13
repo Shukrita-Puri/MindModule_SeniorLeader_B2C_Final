@@ -7136,7 +7136,16 @@ function isSlotCompleted(slot: HorizonModule, completedIds: Set<string>): boolea
  * calendar event list. Extracted so the fresh-generation path and the
  * ledger-evolution path share ONE definition and cannot drift.
  */
-export function deriveStructuralDayFlags(calendarEvents: any[] | null | undefined, calendarLoad?: string): {
+export function deriveStructuralDayFlags(
+  calendarEvents: any[] | null | undefined,
+  calendarLoad?: string,
+  opts?: {
+    now?: Date;
+    userHomeCountry?: string | null;
+    userCurrentCountry?: string | null;
+    explicitPto?: boolean;
+  },
+): {
   hasTravelDay: boolean;
   hasConferenceDay: boolean;
   hasOffsiteDay: boolean;
@@ -7147,7 +7156,36 @@ export function deriveStructuralDayFlags(calendarEvents: any[] | null | undefine
   const hasTravelDay = events.some((e: any) => /travel|flight|train|airport|hotel/i.test(titleOf(e)));
   const hasConferenceDay = events.some((e: any) => /conference|offsite|retreat|summit/i.test(titleOf(e)));
   const hasOffsiteDay = events.some((e: any) => /offsite|off-site/i.test(titleOf(e)));
-  const hasRestSignals = calendarLoad === 'low' && events.length === 0;
+  // Canonical Rest Day (SSOT): rest is a function of weekend / explicit PTO /
+  // applicable public holiday — never of empty calendars alone. Calendar
+  // work evidence overrides all three. See _shared/availability/*.
+  const availability = classifyAvailability({
+    now: opts?.now ?? new Date(),
+    userHomeCountry: opts?.userHomeCountry ?? null,
+    userCurrentCountry: opts?.userCurrentCountry ?? null,
+    explicitPto: opts?.explicitPto === true,
+    calendarLoad: (calendarLoad as any) ?? null,
+    events: events.map((e: any) => ({
+      title: String(e?.title || ''),
+      startTime: String(e?.startTime || e?.start_time || ''),
+      endTime: String(e?.endTime || e?.end_time || e?.startTime || ''),
+      isAllDay: e?.isAllDay === true || e?.is_all_day === true,
+      isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+      attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+      source: e?.source ?? e?.calendarName ?? null,
+      calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+    })),
+  });
+  const hasRestSignals = availability.isRestDay;
+  try {
+    console.info('[generate-mastery-plan][availability-classified]', {
+      state: availability.state,
+      isRestDay: availability.isRestDay,
+      reason: availability.reason,
+      meetingCount: availability.workEvidence.meetingCount,
+      holiday: availability.holiday,
+    });
+  } catch { /* logging is best-effort */ }
   return { hasTravelDay, hasConferenceDay, hasOffsiteDay, hasRestSignals };
 }
 
