@@ -110,6 +110,11 @@ import {
 // user sees until PR 2.
 import { selectJitCandidates, type SelectInputEvent } from '../_shared/jit/select-jit.ts';
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+// Phase 3 — Unified CoS Leader Profile reader. Single source of truth for
+// leader goals, voice rules, high-stakes priors and preferences. Missing
+// or in-progress profiles resolve to a null-safe shell so the Plan
+// continues to work exactly as before when the profile is unavailable.
+import { loadLeaderProfile, type LeaderProfileContext } from '../_shared/leader-profile-loader.ts';
 import {
   isGenericDomain,
   inferRoleFromDomain,
@@ -505,8 +510,16 @@ async function runJitV2Shadow(
     };
   });
 
+  // Phase 3 — leader profile goals take priority as the declared growth
+  // lane. Existing sources (request-level growthIntention, practice tag,
+  // coach growth_area) remain as fallback so plans still work when the
+  // CoS profile is missing/in_progress.
+  const leaderDeclaredGoals: string[] = Array.isArray(req?.leaderProfile?.goals?.declared)
+    ? (req.leaderProfile!.goals!.declared as string[]).filter(Boolean)
+    : [];
+  const fallbackGrowthIntentions = typeof req?.growthIntention === 'string' ? [req.growthIntention] : [];
   const goals = {
-    growthIntentions: typeof req?.growthIntention === 'string' ? [req.growthIntention] : [],
+    growthIntentions: leaderDeclaredGoals.length > 0 ? leaderDeclaredGoals : fallbackGrowthIntentions,
     practicePriorityTags: req?.practicePriorityTag ? [String(req.practicePriorityTag)] : [],
     coachGrowthAreas: (req?.coachInsights || [])
       .filter((i: any) => i?.type === 'growth_area')
@@ -710,6 +723,12 @@ interface PlanRequest {
   wearableContext: WearableContext;
   latestCheckinTimestamp?: string;
   componentScores?: any;
+  /**
+   * Phase 3 — CoS Leader Profile loaded once per request via
+   * `loadLeaderProfile`. Additive context; treat null fields as
+   * "use dynamic behaviour". Never gate on this being non-null.
+   */
+  leaderProfile?: LeaderProfileContext;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
@@ -5544,6 +5563,9 @@ async function applyV51Enrichment(
           // (no body/subjective divergence field on `req`). Left undefined
           // so the prompt drops it rather than fabricates a signal.
           vetoRisk: undefined,
+          // Phase 3 — Leader voice rules (null-safe; prompt omits the
+          // block when unavailable). Same rules injected into the Brief.
+          leaderVoiceRules: (req as any).leaderProfile?.voice?.cos_brief_rules ?? null,
         };
         jitJobs.push({ idx, input });
       }
@@ -7949,6 +7971,23 @@ if (import.meta.main) Deno.serve(async (req) => {
       });
     }
 
+    // Phase 3 — load the CoS Leader Profile once per request. Null-safe;
+    // downstream consumers treat missing/failed profiles as "use dynamic
+    // behaviour" and never fail on absence.
+    let leaderProfile: LeaderProfileContext | undefined;
+    try {
+      leaderProfile = await loadLeaderProfile(supabaseClient, userId!);
+      console.log('[generate-mastery-plan][leader-profile]', {
+        userId: redactUserId(userId!),
+        status: leaderProfile.meta.status,
+        declaredGoalsCount: leaderProfile.goals.declared.length,
+        archetype: leaderProfile.analysis.archetype,
+        hasVoiceRules: !!leaderProfile.voice.cos_brief_rules,
+      });
+    } catch (e) {
+      console.warn('[generate-mastery-plan][leader-profile] load failed:', e instanceof Error ? e.message : String(e));
+    }
+
     // Only timezoneOffset comes from client – all other signals are server-derived
     const planReq: PlanRequest = {
       userId,
@@ -7985,11 +8024,24 @@ if (import.meta.main) Deno.serve(async (req) => {
       pressureContextTag: '',
       hasCalendarConnection: false,
       wearableContext: { sleepScore: null, hrvMs: null, restingHR: null, hrvDeviation: null, sleepQuality: null, hasData: false },
+      leaderProfile,
     };
 
     // supabaseClient already created above for fingerprint
 
     const plan = await generateMasteryPlan(planReq, supabaseClient, outerReadinessCache);
+
+    // Phase 3 — leader-profile observability. Stamp declared goals,
+    // archetype and profile status onto the assembled plan payload so
+    // `mastery_plan_snapshots.plan_json` carries evidence the CoS
+    // profile was read this run. Purely additive; never gates the plan.
+    try {
+      if (plan && typeof plan === 'object' && leaderProfile) {
+        (plan as any).leaderGoals = leaderProfile.goals.declared;
+        (plan as any).leaderArchetype = leaderProfile.analysis.archetype;
+        (plan as any).leaderProfileStatus = leaderProfile.meta.status;
+      }
+    } catch (_e) { /* best-effort observability */ }
 
     // Server-authoritative Week-Ahead decision attached to the response
     // so the frontend never has to guess from day-of-week alone. Saturday
