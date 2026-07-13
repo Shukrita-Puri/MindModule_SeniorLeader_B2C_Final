@@ -1166,6 +1166,33 @@ serve(async (req) => {
       behaviorLogCount: behaviorLogs.length,
       hasCalendar,
       dataSourceNote,
+
+      // Phase 5 — additive Leader Profile context. Null-safe: fields are
+      // null when the CoS profile is missing/in_progress. Consumers use
+      // these to PRIORITISE declared high-stakes event types and to frame
+      // month-over-month summaries with the leader's archetype. Existing
+      // rendering paths are unchanged when the profile is absent.
+      leaderProfile: leaderProfile
+        ? {
+            status: leaderProfile.meta.status,
+            archetype: leaderProfile.analysis.archetype,
+            declaredHighStakes:
+              leaderProfile.priors.high_stakes_map?.declared_events ?? [],
+            inferredHighStakes:
+              leaderProfile.priors.high_stakes_map?.inferred_events ?? [],
+            cognitiveRisk: leaderProfile.priors.cognitive_risk_profile
+              ? {
+                  primary_risk:
+                    leaderProfile.priors.cognitive_risk_profile.primary_risk,
+                  risk_flags:
+                    leaderProfile.priors.cognitive_risk_profile.risk_flags,
+                  regulation_strengths:
+                    leaderProfile.priors.cognitive_risk_profile
+                      .regulation_strengths,
+                }
+              : null,
+          }
+        : null,
     };
 
     const totalFindings = mindRhythmPatterns?.all.length ?? 0;
