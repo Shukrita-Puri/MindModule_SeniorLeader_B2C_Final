@@ -4319,6 +4319,26 @@ serve(async (req) => {
       );
       const activeSlot = currentSlotForLocalHour(localHour);
 
+      // Phase 4 — Leader `weekend_signals` preference. Soft gate, applied
+      // only when the preference is explicitly set. `full` and null both
+      // preserve today's behaviour.
+      if (isWeekendDay && prefWeekendSignals === 'off') {
+        console.info(`[smart-nudges] weekend_signals=off, skipping user=${redactUserId(userId)}`);
+        trace(userId, 'leader_pref_weekend_off', {
+          ...traceBase,
+          metadata: { active_slot: activeSlot, weekend_signals: 'off' },
+        });
+        continue;
+      }
+      if (isWeekendDay && prefWeekendSignals === 'light' && activeSlot !== 'morning') {
+        console.info(`[smart-nudges] weekend_signals=light, skipping non-morning slot user=${redactUserId(userId)} slot=${activeSlot}`);
+        trace(userId, 'leader_pref_weekend_light_non_morning', {
+          ...traceBase,
+          metadata: { active_slot: activeSlot, weekend_signals: 'light' },
+        });
+        continue;
+      }
+
       // ══════════════════════════════════════════════════
       // ── MVP 3-Nudge Cascade: Nudge 1 → 2 → 3 ──
       // ══════════════════════════════════════════════════
