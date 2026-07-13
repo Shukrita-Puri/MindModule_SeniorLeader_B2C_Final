@@ -625,6 +625,12 @@ interface NudgeContext {
       landingDeliveryMode?: 'in_app_practice' | 'push_only' | 'standard';
     }>;
   } | null;
+  // Phase 4 — Leader voice rules + preferences from the CoS Leader
+  // Profile. Populated once per user tick after buildNudgeContext.
+  // Null when the profile is missing / in_progress / failed; the copy
+  // generator and preference gates must treat null as "system decides".
+  leaderVoiceRules?: string | null;
+  leaderResetModality?: 'movement' | 'stillness' | 'breath' | string | null;
 }
 
 interface NudgeCopy {
