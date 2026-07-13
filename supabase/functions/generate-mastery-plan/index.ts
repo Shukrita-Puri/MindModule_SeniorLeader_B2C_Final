@@ -110,6 +110,11 @@ import {
 // user sees until PR 2.
 import { selectJitCandidates, type SelectInputEvent } from '../_shared/jit/select-jit.ts';
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+// Phase 3 — Unified CoS Leader Profile reader. Single source of truth for
+// leader goals, voice rules, high-stakes priors and preferences. Missing
+// or in-progress profiles resolve to a null-safe shell so the Plan
+// continues to work exactly as before when the profile is unavailable.
+import { loadLeaderProfile, type LeaderProfileContext } from '../_shared/leader-profile-loader.ts';
 import {
   isGenericDomain,
   inferRoleFromDomain,
