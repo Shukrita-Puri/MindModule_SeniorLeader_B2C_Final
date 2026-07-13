@@ -4220,6 +4220,10 @@ serve(async (req) => {
           .eq('user_id', userId)
           .eq('notification_type', 'week_ahead_picker_invite')
           .gte('sent_at', weekStartUtcIso)
+          // Fix C: dry-run and other non-countable rows must never suppress
+          // a real Week-Ahead invite. Only rows that entered the delivery
+          // lifecycle count against the weekly cap.
+          .in('delivery_state', COUNTABLE_DELIVERY_STATES as unknown as string[])
           .limit(1);
 
         const weeklyAlreadySent = !!(weeklySent && weeklySent.length > 0);
@@ -4307,6 +4311,11 @@ serve(async (req) => {
         .select('sent_at')
         .eq('user_id', userId)
         .gte('sent_at', twoHoursAgoIso)
+        // Fix C: a diagnostic dry-run in the last 2h must not suppress a
+        // real production send. Only rows that actually entered the
+        // delivery lifecycle (pending / accepted / delivered / opened /
+        // action_completed) count as "recently notified".
+        .in('delivery_state', COUNTABLE_DELIVERY_STATES as unknown as string[])
         .order('sent_at', { ascending: false })
         .limit(1);
 
@@ -4679,6 +4688,15 @@ serve(async (req) => {
             .select('delivery_state, notification_type')
             .eq('user_id', userId)
             .eq('notification_type', family)
+            // Fix C: dry-run rows are evaluations, not delivery attempts.
+            // The repeated-expiry warning must reason about the last three
+            // real APNs attempts, not diagnostic probes.
+            .in('delivery_state', [
+              ...COUNTABLE_DELIVERY_STATES,
+              'expired_before_delivery',
+              'expired',
+              'failed',
+            ] as unknown as string[])
             .order('sent_at', { ascending: false })
             .limit(3);
           const qualificationWarnings: string[] = [];
