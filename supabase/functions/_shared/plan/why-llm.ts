@@ -481,6 +481,9 @@ function buildPrompt(inp: WhyLLMInput): string {
 
   return [
     `${CHIEF_OF_STAFF_PERSONA}`,
+    ...(inp.leaderVoiceRules && inp.leaderVoiceRules.trim().length > 0
+      ? [``, `=== LEADER VOICE ===`, inp.leaderVoiceRules.trim()]
+      : []),
     ``,
     `You are writing the one-line reason a specific practice has been placed in their plan today.`,
     ``,
