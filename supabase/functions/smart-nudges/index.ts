@@ -4139,6 +4139,10 @@ serve(async (req) => {
           clockTimezone,
         );
         ctx.pattern = await loadPatternSummary(supabase, userId);
+        // Phase 4 — hydrate leader voice + reset modality preference so
+        // the copy generator can append them to the LLM system prompt.
+        ctx.leaderVoiceRules = leaderProfile?.voice.cos_brief_rules ?? null;
+        ctx.leaderResetModality = prefResetModality;
 
         const inv = await evaluateWeekAheadPickerInvite(ctx, supabase, weeklyAlreadySent);
         if (inv) {
