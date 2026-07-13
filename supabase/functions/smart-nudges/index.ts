@@ -3956,6 +3956,28 @@ serve(async (req) => {
       const localMinute = parts.minute;
       const todayStr = parts.localDate;
       const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
+      const isWeekendDay = dayOfWeek === 0 || dayOfWeek === 6;
+
+      // Phase 4 — load the CoS Leader Profile once per user tick and
+      // capture preferences for downstream gates + trace metadata.
+      // Null-safe: missing/failed/in_progress profiles resolve to a
+      // shell with nulls and behaviour matches today's system.
+      let leaderProfile: LeaderProfileContext | null = null;
+      try {
+        leaderProfile = await loadLeaderProfile(supabase, userId);
+      } catch (e) {
+        console.warn('[smart-nudges][leader-profile] load failed:', e instanceof Error ? e.message : String(e));
+      }
+      const prefBriefTiming = leaderProfile?.preferences.brief_timing ?? null;
+      const prefResetModality = leaderProfile?.preferences.reset_modality ?? null;
+      const prefWeekendSignals = leaderProfile?.preferences.weekend_signals ?? null;
+      leaderPrefsByUser.set(userId, {
+        brief_timing: prefBriefTiming,
+        reset_modality: prefResetModality,
+        weekend_signals: prefWeekendSignals,
+        profile_status: leaderProfile?.meta.status ?? 'missing',
+      });
+
       const traceBase = {
         localDate: todayStr,
         localHour,
