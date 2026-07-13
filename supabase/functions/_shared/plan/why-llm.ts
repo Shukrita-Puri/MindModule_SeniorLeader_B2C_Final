@@ -92,6 +92,15 @@ export interface WhyLLMInput {
   recoveryNote?: 'rest' | 'light' | 'normal' | null;
   /** Body ↔ subjective divergence flag. Left null when not safely derivable. */
   vetoRisk?: boolean;
+
+  /**
+   * Phase 3 — Leader voice rules from the CoS Leader Profile
+   * (`cos_profile.communication_profile.cos_brief_rules`). Appended after
+   * the Chief-of-Staff persona block when non-null. Optional; the prompt
+   * omits the block entirely when null/undefined so the Why-line stays
+   * backward compatible for users without a synthesised profile.
+   */
+  leaderVoiceRules?: string | null;
 }
 
 interface GatewayToolArgs {
