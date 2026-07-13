@@ -602,6 +602,9 @@ interface NudgeContext {
     // next 4 h. Mirrors the canonical `travelLandingPlusHighStakes` rule so
     // the copy can pivot from pure decompression to "decompress then sharpen".
     landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
+    /** Canonical availability decision (SSOT). Populated when the classifier
+     *  ran successfully. When present, `ptoMode` is derived from this. */
+    availability?: AvailabilityResult;
   };
   // §17 Week-Ahead - hydrated inputs for evaluateWeekAheadMode. Computed once
   // in buildNudgeContext from today/tomorrow/14-day-lookback calendar data so
