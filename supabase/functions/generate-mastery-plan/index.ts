@@ -7968,6 +7968,23 @@ if (import.meta.main) Deno.serve(async (req) => {
       });
     }
 
+    // Phase 3 — load the CoS Leader Profile once per request. Null-safe;
+    // downstream consumers treat missing/failed profiles as "use dynamic
+    // behaviour" and never fail on absence.
+    let leaderProfile: LeaderProfileContext | undefined;
+    try {
+      leaderProfile = await loadLeaderProfile(supabaseClient, userId!);
+      console.log('[generate-mastery-plan][leader-profile]', {
+        userId: redactUserId(userId!),
+        status: leaderProfile.meta.status,
+        declaredGoalsCount: leaderProfile.goals.declared.length,
+        archetype: leaderProfile.analysis.archetype,
+        hasVoiceRules: !!leaderProfile.voice.cos_brief_rules,
+      });
+    } catch (e) {
+      console.warn('[generate-mastery-plan][leader-profile] load failed:', e instanceof Error ? e.message : String(e));
+    }
+
     // Only timezoneOffset comes from client – all other signals are server-derived
     const planReq: PlanRequest = {
       userId,
@@ -8004,6 +8021,7 @@ if (import.meta.main) Deno.serve(async (req) => {
       pressureContextTag: '',
       hasCalendarConnection: false,
       wearableContext: { sleepScore: null, hrvMs: null, restingHR: null, hrvDeviation: null, sleepQuality: null, hasData: false },
+      leaderProfile,
     };
 
     // supabaseClient already created above for fingerprint
