@@ -1,42 +1,55 @@
-# /onboarding/connect — copy + validation-gating update
+## Stage 1: Three frontend-only guards + diagnostic doc
 
-Scope: `src/pages/onboarding/stages/v8/StageConnections.tsx` only. No changes to picker components, auth/status logic, edge functions, or DB.
+Scope: view-layer defensive guards only. No server code, no DB, no scoring changes. Each change is additive and console-only for telemetry.
 
-## 1. Remove Whoop from this page
-- Always pass an explicit `wearableOnly` prop to `ConnectionsPanel` that excludes `'whoop'`.
-- Derive `wearOnly` as before from `onboarding_v8_responses.wearable_selections`, then filter out `'whoop'`. If the intersection is empty (user hadn't selected any, or only selected Whoop), fall back to `['apple-watch', 'oura']` so Apple Watch + Oura still render.
-- `calendarOnly` behaviour is unchanged.
+### 1. Bug 1 — Prefer MRS snapshot for Brief numeric score/tier
 
-## 2. Headline copy
-- Replace `title="Now plug Mind Module in"` with `title="Mind Module, personalised based on your real data"`.
+File: `src/components/home/DecisionReadinessBrief.tsx`
 
-## 3. Subheading copy
-- Replace the `<p>` under the title with:
-  "Connect your day with one calendar and your body with one wearable to unlock bespoke insights from day one. No generic advice — just recommendations built for you. You can connect more later in Profile → Connected Data."
+- Add `import { useMrsSnapshot } from '@/hooks/useMrsSnapshot'`.
+- At the site where `score` / `tier` are computed (currently `const` around L2154–2155, gated by `hasCurrentPeriodSignal`), convert to `let` and override with `mrsSnapshot.score` / `mrsSnapshot.tier` when:
+  - `mrsSnapshot.isRenderable === true`
+  - `typeof mrsSnapshot.score === 'number'`
+  - `mrsSnapshot.mrsWindow === currentPeriodLocal()` (already imported/used elsewhere; import if needed)
+- On override, emit `console.info('[decision-readiness-brief] mrs_override', { userId, briefScore, mrsScore, window })` wrapped in try/catch.
+- Narrative, pills, and all other consumers of `outerBrief` untouched.
 
-## 4. Mandatory-connection gating on Continue
-- Add local state `hasCalendar` / `hasWearable` (booleans).
-- On mount and whenever `ConnectionsPanel` fires `onChanged`, call both `fetchCalendarProvidersState()` (from `@/components/calendar/CalendarProviderPicker`) and `fetchWearableProvidersState()` (from `@/components/connections/WearableProviderPicker`) in parallel.
-  - `hasCalendar = providers.google.connected || providers.microsoft.connected || providers.apple.connected` (result may be `partial` or `ok` — treat any `connected: true` as satisfied; ignore `error` result).
-  - `hasWearable = providers['apple-watch'].connected || providers.oura.connected` (Whoop deliberately excluded).
-- `canContinue = hasCalendar && hasWearable`.
-- Both the footer `PrimaryCTA` and the inline "Skip for now" link:
-  - The `PrimaryCTA` is passed `disabled={!canContinue}` and only navigates when `canContinue` is true.
-  - Replace the "Skip for now" text link with helper text: `Requires 1 calendar and 1 wearable` shown when `!canContinue`. When `canContinue` is true, hide the helper text. (This removes the skip escape hatch, consistent with "must connect before proceeding".)
-- Add a small `aria-live="polite"` helper `<p>` above the CTA with the "Requires 1 calendar and 1 wearable" copy so screen readers announce the gate.
+Contract: `useMrsSnapshot` already returns `{ score, tier, mrsWindow, isRenderable, ... }` with the exact semantics needed (see `src/hooks/useMrsSnapshot.ts`) — no shape work required.
 
-## 5. Out of scope (untouched)
-- Picker components, their "Not authenticated" / "Status unavailable" / Retry states, OAuth flows, HealthKit bridge, `onboarding-v8-save`, `StageDone`, routing.
-- `PrimaryCTA` component itself (already supports a `disabled` prop; will verify during build and use existing styling for disabled state — no new component).
+### 2. Bug 2 — Suppress title-echo in "Why this matters"
 
-## Technical notes
-- Existing `PrimaryCTA` usage in other stages already passes `disabled`; if the prop is missing, wrap the CTA in a `<div aria-disabled>` and short-circuit `onClick` — no styling changes beyond opacity utility already used elsewhere.
-- The status fetch is cheap and already used elsewhere; running it on mount + `onChanged` mirrors `CalendarConnectionSettings`.
-- Whoop stays available on the Profile → Connected Data page (that page renders `ConnectionsPanel` without a `wearableOnly` filter). This edit does not touch it.
+File: `src/components/home/TodayThreePriorities.tsx`
 
-## Verification
-- Type-check the edited file.
-- Manually confirm on `/onboarding/connect`:
-  - Whoop row absent.
-  - New title + subheading render.
-  - Continue disabled until one calendar + Apple Watch/Oura both show Connected; helper text visible while disabled; helper text hidden and CTA active once both are connected.
+- Add module-scope helper `isEcho(why, title)` — trimmed, case-insensitive exact match, try/catch safe.
+- Collapsed block (currently L2453–2460 rendering `stripBriefMarkdown(hm.whyLine)`): replace with an IIFE that:
+  1. Uses `hm.whyLine` if it is NOT an echo of `module.title` or `hm.timeLabel`.
+  2. Else logs `console.info('[today-three-priorities] whyline_title_echo', { userId, moduleTitle, whyLine })`, then falls back to first non-echo of: `hm.stepRationale[0]` → `hm.recommendedAction` → `fallbackRecommendedAction(hm)`.
+- Expanded block (currently L2522–2528): same IIFE, but echo-check against `practice.title`, `module.title`, `hm.timeLabel`; fallback order: `hm.stepRationale[pIdx]` → `hm.recommendedAction` → `fallbackRecommendedAction(hm)`.
+- No changes to layout, headings, or the "Why this matters" label.
+
+### 3. Bug 3 — Diagnostic doc only (no runtime change)
+
+File: `.github/BUG_FIX_PROMPT.md` (new)
+
+- Contains the staged plan, the evening slot grouping diagnostic SQL against `mastery_plan_snapshots` (parameterised on `user_id`, `plan_date`, `mrs_window`), and the interpretation rule:
+  - Two modules titled "Evening Close" / "Evening Close 2" → server-side duplication.
+  - Single module with `practices.length === 2` → client-side flattening.
+
+### Verification (local)
+
+- `bun run build` clean.
+- Bug 1: on a page where Today gauge and Brief numeric disagreed, Brief now matches gauge; console shows `[decision-readiness-brief] mrs_override`.
+- Bug 2: on a slot whose `whyLine === title`, UI shows fallback sentence; console shows `[today-three-priorities] whyline_title_echo`.
+- Narrative, pills, tier copy, and pill ordering all visually identical to before.
+
+### Out of scope (Stage 2+)
+
+- Any change to `compute-outer-readiness`, `generate-mastery-plan`, or shared server modules.
+- Consolidating readiness score writers (Brief vs MRS snapshot) to a single source.
+- Server-side why-line repair.
+- Evening slot grouping fix — held until diagnostic result comes back.
+
+### Notes on user's prompt
+
+- The user's paste includes git/branch/PR steps and a `.github/BUG_FIX_PROMPT.md` doc. In this environment I don't run git/PR commands (git state is managed by the platform) — I'll make the file edits directly on the current branch. If you want three separate PRs, say so and I'll stage the changes accordingly.
+- All three changes are strictly frontend and null/echo-safe.

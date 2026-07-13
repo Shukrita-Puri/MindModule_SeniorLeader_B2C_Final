@@ -18,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { useCurrentBriefSnapshot } from '@/hooks/useCurrentBriefSnapshot';
+import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useAuth } from '@/hooks/useAuth';
 import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_BRIEF } from '@/components/onboarding/tourMockData';
@@ -2151,8 +2152,32 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // MRS v3 — the score and tier render off State 1 (wearable + calendar). They
   // are no longer gated on check-in; check-in only flips `readinessState` from
   // 'baseline' to 'refined' (and shifts the number within ±15 of baseline).
-  const score = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessScore ?? null) : null;
-  const tier = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessTier ?? 'default') : 'default';
+  let score = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessScore ?? null) : null;
+  let tier = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessTier ?? 'default') : 'default';
+
+  // Stage 1 guard — prefer the canonical MRS snapshot for the current window
+  // when it is renderable. Narrative/pills stay driven by `outerBrief`; this
+  // only aligns the numeric score/tier with the Today gauge so the two
+  // surfaces cannot disagree.
+  const { data: mrsSnapshot } = useMrsSnapshot();
+  const currentWindowLocal = currentPeriodLocal();
+  const shouldPreferMrsSnapshot =
+    !!mrsSnapshot?.isRenderable &&
+    typeof mrsSnapshot?.score === 'number' &&
+    mrsSnapshot?.mrsWindow === currentWindowLocal;
+  if (shouldPreferMrsSnapshot && mrsSnapshot) {
+    try {
+      // eslint-disable-next-line no-console
+      console.info('[decision-readiness-brief] mrs_override', {
+        userId: user?.id ?? (DEV_MODE ? DEV_USER.id : null),
+        briefScore: outerBrief?.innerReadinessScore ?? null,
+        mrsScore: mrsSnapshot.score,
+        window: mrsSnapshot.mrsWindow,
+      });
+    } catch {}
+    score = mrsSnapshot.score;
+    tier = mrsSnapshot.tier ?? tier;
+  }
   const hasCheckIn =
     ((outerBrief as any)?.hasCurrentPeriodCheckIn ?? false) ||
     (hasCurrentPeriodSignal && !!outerBrief?.checkInOutcome);
