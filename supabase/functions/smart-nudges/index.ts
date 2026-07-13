@@ -1769,7 +1769,7 @@ async function generateNudgeCopy(
     return null;
   }
 
-  const systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
+  let systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
 
 You write push notifications for a MENTAL-PERFORMANCE app. The user's job, every habit-building nudge, is to check in and do mental prep - never strategic prep, never deck prep.
 
