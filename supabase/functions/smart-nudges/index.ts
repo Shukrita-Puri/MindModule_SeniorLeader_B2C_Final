@@ -4220,6 +4220,10 @@ serve(async (req) => {
           .eq('user_id', userId)
           .eq('notification_type', 'week_ahead_picker_invite')
           .gte('sent_at', weekStartUtcIso)
+          // Fix C: dry-run and other non-countable rows must never suppress
+          // a real Week-Ahead invite. Only rows that entered the delivery
+          // lifecycle count against the weekly cap.
+          .in('delivery_state', COUNTABLE_DELIVERY_STATES as unknown as string[])
           .limit(1);
 
         const weeklyAlreadySent = !!(weeklySent && weeklySent.length > 0);
