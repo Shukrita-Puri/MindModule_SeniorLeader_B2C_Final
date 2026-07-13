@@ -1920,6 +1920,11 @@ serve(async (req) => {
     const platform = detectClientPlatform(req);
     const db = wrapDbWithCalendarPrimacy(createClient(supabaseUrl, supabaseKey), platform);
 
+    // Leader Profile (from onboarding CoS synthesis). Loaded ONCE, reused
+    // by system prompt, user prompt, and brief_snapshots payload. Never
+    // throws; returns a shell with nulls when the profile is missing/failed.
+    const leaderProfile: LeaderProfileContext = await loadLeaderProfile(db, userId);
+
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
     // Fetch tomorrow's calendar for any evening (≥18:00), not just late evening
     const lateEvening = isLateEvening(hour);
