@@ -4688,6 +4688,15 @@ serve(async (req) => {
             .select('delivery_state, notification_type')
             .eq('user_id', userId)
             .eq('notification_type', family)
+            // Fix C: dry-run rows are evaluations, not delivery attempts.
+            // The repeated-expiry warning must reason about the last three
+            // real APNs attempts, not diagnostic probes.
+            .in('delivery_state', [
+              ...COUNTABLE_DELIVERY_STATES,
+              'expired_before_delivery',
+              'expired',
+              'failed',
+            ] as unknown as string[])
             .order('sent_at', { ascending: false })
             .limit(3);
           const qualificationWarnings: string[] = [];
