@@ -4908,17 +4908,46 @@ serve(async (req) => {
         shipped: 0,
       }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const isDryRun = (!apnsKey || !apnsKeyId || !apnsTeamId) || forceDryRun;
+    const apnsCredsPresent = !!(apnsKey && apnsKeyId && apnsTeamId);
+    const deliveryMode: DeliveryMode = resolveDeliveryMode({
+      url,
+      apnsCredsPresent,
+      adminAuthFailed,
+    });
+    const isDryRun = deliveryMode.dryRun;
 
-    if (isDryRun) {
+    console.log(
+      `[smart-nudges] Execution mode: ${describeDeliveryMode(deliveryMode)} | reason=${deliveryMode.reason}`,
+    );
+    if (deliveryMode.reason === 'missing_apns_credentials') {
       const missing = [
         !apnsKey && 'APNS_P8_KEY',
         !apnsKeyId && 'APNS_KEY_ID',
         !apnsTeamId && 'APNS_TEAM_ID',
       ].filter(Boolean);
       console.warn(`[smart-nudges] DRY RUN – missing secrets: ${missing.join(', ')}`);
-    } else {
+    } else if (!isDryRun) {
       console.log(`[smart-nudges] APNs config: host=${apnsHost} topic=${apnsBundleId} env=${apnsEnv}`);
+    }
+
+    // Persist delivery mode on the run row so operators can audit scheduled
+    // executions after the fact without re-parsing logs.
+    if (runId) {
+      try {
+        await supabase
+          .from('notification_evaluator_runs')
+          .update({
+            metadata: {
+              client_platform: platform,
+              apns_environment: Deno.env.get('APNS_ENVIRONMENT') || 'development',
+              delivery_mode: describeDeliveryMode(deliveryMode),
+              delivery_reason: deliveryMode.reason,
+            },
+          })
+          .eq('id', runId);
+      } catch (e) {
+        console.warn('[smart-nudges] failed to persist delivery_mode on run row:', e);
+      }
     }
 
     let sendSuccess = 0;
