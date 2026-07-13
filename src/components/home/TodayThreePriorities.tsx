@@ -78,6 +78,19 @@ const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTit
   return `Strengthen your state for what's ahead`;
 };
 
+// Stage 1 guard — treat a "Why this matters" line that is an exact,
+// case-insensitive duplicate of the slot / practice / module title (or
+// the time label) as a title-echo and suppress it in favour of a
+// meaningful fallback.
+const isEcho = (why: string | null | undefined, title: string | null | undefined): boolean => {
+  if (!why || !title) return false;
+  try {
+    return String(why).trim().toLowerCase() === String(title).trim().toLowerCase();
+  } catch {
+    return false;
+  }
+};
+
 const isCardsAwaitingPayload = (payload: any): boolean => {
   if (!payload) return false;
   return payload.innerReadinessState === 'awaiting'
