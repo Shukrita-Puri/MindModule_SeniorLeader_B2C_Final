@@ -8031,6 +8031,18 @@ if (import.meta.main) Deno.serve(async (req) => {
 
     const plan = await generateMasteryPlan(planReq, supabaseClient, outerReadinessCache);
 
+    // Phase 3 — leader-profile observability. Stamp declared goals,
+    // archetype and profile status onto the assembled plan payload so
+    // `mastery_plan_snapshots.plan_json` carries evidence the CoS
+    // profile was read this run. Purely additive; never gates the plan.
+    try {
+      if (plan && typeof plan === 'object' && leaderProfile) {
+        (plan as any).leaderGoals = leaderProfile.goals.declared;
+        (plan as any).leaderArchetype = leaderProfile.analysis.archetype;
+        (plan as any).leaderProfileStatus = leaderProfile.meta.status;
+      }
+    } catch (_e) { /* best-effort observability */ }
+
     // Server-authoritative Week-Ahead decision attached to the response
     // so the frontend never has to guess from day-of-week alone. Saturday
     // returns active:false, Sunday returns active:true (see
