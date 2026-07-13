@@ -514,20 +514,21 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     weekdayRunNoMeetings >= HOLIDAY_WEEKDAY_RUN_MIN;
 
   // Canonical override: the availability classifier is the SSOT for whether
-  // today is a PTO/holiday day. If the classifier says WORKDAY (e.g. work
-  // evidence overrides), suppress ptoTodayAllDay regardless of title regex.
-  // If it says PTO/PUBLIC_HOLIDAY, promote to `true` even when the
-  // title-only heuristics missed it.
+  // today is a PTO/holiday day. Only PTO or an APPLICABLE PUBLIC_HOLIDAY
+  // sets the flag — every other state (WORKDAY, LIGHT_ROUTINE, REST_DAY)
+  // suppresses it, so foreign region-qualified holidays and empty weekdays
+  // never trip a false PTO signal. The legacy title/pattern derivations
+  // (`ptoTitleAllDay`, `halfDayPto`, `ptoByPattern`) are retained above
+  // for observability but no longer drive this flag.
   const availStateForPto = availability.state;
-  const legacyPtoInferred = ptoTitleAllDay || halfDayPto || ptoByPattern;
   const ptoTodayAllDayDerived: true | undefined =
-    availStateForPto === 'PTO' || availStateForPto === 'PUBLIC_HOLIDAY'
+    availStateForPto === 'PTO' ||
+    (availStateForPto === 'PUBLIC_HOLIDAY' && availability.holiday.applicable)
       ? true
-      : availStateForPto === 'WORKDAY'
-        ? undefined
-        : legacyPtoInferred
-          ? true
-          : undefined;
+      : undefined;
+  // Silence unused-var warnings — legacy derivations are computed for
+  // logs / future rollback observability only.
+  void ptoTitleAllDay; void halfDayPto; void ptoByPattern;
 
   // --- personalHolidayInferred --------------------------------------------
   // A. Personal-leaning title on today's all-day event (with conference guard).
@@ -543,21 +544,16 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
   // the run. Travel in the run is allowed (workcation / bleisure → personal).
   const personalHolidayByPattern = ptoByPattern;
 
-  // Same SSOT override for personalHolidayInferred: only fire when the
-  // classifier agrees today is genuinely off (PTO or an APPLICABLE public
-  // holiday). Regional / FYI holidays that don't apply to the user MUST
-  // NOT trip this signal — the classifier already handled that.
-  const legacyPersonalHolidayInferred =
-    personalHolidayTitle || personalHolidayByPattern;
+  // Same SSOT gate for personalHolidayInferred: only fire when the
+  // classifier agrees today is genuinely off. Regional / FYI holidays that
+  // don't apply to the user MUST NOT trip this signal — the classifier
+  // already handled that.
   const personalHolidayInferredDerived: true | undefined =
     availStateForPto === 'PTO' ||
     (availStateForPto === 'PUBLIC_HOLIDAY' && availability.holiday.applicable)
       ? true
-      : availStateForPto === 'WORKDAY'
-        ? undefined
-        : legacyPersonalHolidayInferred
-          ? true
-          : undefined;
+      : undefined;
+  void personalHolidayTitle; void personalHolidayByPattern;
 
   // --- ptoMeetingPresent ---------------------------------------------------
   // PTO day (any branch) + a confirmed timed meeting today that is not itself
