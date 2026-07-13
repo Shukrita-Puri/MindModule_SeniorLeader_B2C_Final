@@ -5066,7 +5066,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               let content: string;
               if (useGateway) {
                 content = await callLovableAIText({
-                  system: systemPrompt,
+                  system: systemPromptWithLeader,
                   messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
@@ -5075,7 +5075,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 });
               } else {
                 content = await callClaudeText({
-                  system: systemPrompt,
+                  system: systemPromptWithLeader,
                   messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
@@ -5110,7 +5110,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       let retryContent: string;
                       if (useGateway) {
                         retryContent = await callLovableAIText({
-                          system: systemPrompt,
+                          system: systemPromptWithLeader,
                           messages: [{ role: 'user', content: retryUserPrompt }],
                           model,
                           max_tokens: 380,
@@ -5119,7 +5119,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                         });
                       } else {
                         retryContent = await callClaudeText({
-                          system: systemPrompt,
+                          system: systemPromptWithLeader,
                           messages: [{ role: 'user', content: retryUserPrompt }],
                           model,
                           max_tokens: 380,
