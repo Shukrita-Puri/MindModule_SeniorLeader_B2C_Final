@@ -19,7 +19,11 @@ import {
   PTO_TITLE_RX,
   PERSONAL_HOLIDAY_TITLE_RX,
 } from "../ceo-behaviour/pto-holiday.ts";
-import { isApplicableHoliday, type RegionToken } from "./holiday-applicability.ts";
+import {
+  isApplicableHoliday,
+  isFyiHolidayCalendar,
+  type RegionToken,
+} from "./holiday-applicability.ts";
 
 export type AvailabilityState =
   | "WORKDAY"
@@ -83,7 +87,11 @@ function isTimedWorkMeeting(e: AvailabilityEvent): boolean {
 function looksLikeHolidayMarker(e: AvailabilityEvent): boolean {
   if (e.isAllDay !== true) return false;
   const title = e.title || "";
-  return PTO_TITLE_RX.test(title) || PERSONAL_HOLIDAY_TITLE_RX.test(title);
+  if (PTO_TITLE_RX.test(title) || PERSONAL_HOLIDAY_TITLE_RX.test(title)) return true;
+  // Any all-day event on an FYI holiday-subscription calendar (e.g.
+  // "Holidays in United Kingdom") is a holiday marker even when the title
+  // isn't a PTO regex match — e.g. "Christmas Day", "Independence Day".
+  return isFyiHolidayCalendar(e);
 }
 
 /**
