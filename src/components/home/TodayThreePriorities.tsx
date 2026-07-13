@@ -2463,16 +2463,48 @@ const TodayThreePriorities = ({
                           onChange={(next) => updateSlotTags(index, next)}
                         />
                       </div>
-                      {hm.whyLine && !slotCompleted && (
-                        <div className="mt-2 space-y-1">
-                          <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
-                            Why this matters
-                          </span>
-                          <p className="text-[12px] text-foreground/75 font-body leading-relaxed">
-                            {stripBriefMarkdown(hm.whyLine)}
-                          </p>
-                        </div>
-                      )}
+                      {!slotCompleted && (() => {
+                        const raw = hm.whyLine ?? '';
+                        const moduleTitle = module?.title ?? '';
+                        const timeLabel = hm.timeLabel ?? '';
+                        const rawGood =
+                          !!raw && !isEcho(raw, moduleTitle) && !isEcho(raw, timeLabel);
+                        let text: string | null = null;
+                        if (rawGood) {
+                          text = raw;
+                        } else {
+                          if (raw && (isEcho(raw, moduleTitle) || isEcho(raw, timeLabel))) {
+                            try {
+                              // eslint-disable-next-line no-console
+                              console.info('[today-three-priorities] whyline_title_echo', {
+                                userId: user?.id ?? null,
+                                moduleTitle,
+                                whyLine: raw,
+                              });
+                            } catch {}
+                          }
+                          const step0 = Array.isArray(hm.stepRationale) ? hm.stepRationale[0] : null;
+                          const rec = hm.recommendedAction ?? null;
+                          if (step0 && !isEcho(step0, moduleTitle) && !isEcho(step0, timeLabel)) {
+                            text = step0;
+                          } else if (rec && !isEcho(rec, moduleTitle) && !isEcho(rec, timeLabel)) {
+                            text = rec;
+                          } else {
+                            text = fallbackRecommendedAction(hm);
+                          }
+                        }
+                        if (!text) return null;
+                        return (
+                          <div className="mt-2 space-y-1">
+                            <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
+                              Why this matters
+                            </span>
+                            <p className="text-[12px] text-foreground/75 font-body leading-relaxed">
+                              {stripBriefMarkdown(text)}
+                            </p>
+                          </div>
+                        );
+                      })()}
                       {hasMultiple && !slotCompleted && (
                         <p className="text-[10px] text-muted-foreground/50 font-body mt-1">
                           {slotCompletedCount} of {slotPractices.length} done
@@ -2532,16 +2564,48 @@ const TodayThreePriorities = ({
                     />
                   </div>
 
-                  {hm.whyLine && (
-                    <div className="space-y-1">
-                      <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
-                        Why this matters
-                      </span>
-                      <p className="text-[13px] text-foreground/85 font-body leading-relaxed">
-                        {stripBriefMarkdown(hm.whyLine)}
-                      </p>
-                    </div>
-                  )}
+                  {(() => {
+                    const raw = hm.whyLine ?? '';
+                    const moduleTitle = module?.title ?? '';
+                    const timeLabel = hm.timeLabel ?? '';
+                    const rawGood =
+                      !!raw && !isEcho(raw, moduleTitle) && !isEcho(raw, timeLabel);
+                    let text: string | null = null;
+                    if (rawGood) {
+                      text = raw;
+                    } else {
+                      if (raw && (isEcho(raw, moduleTitle) || isEcho(raw, timeLabel))) {
+                        try {
+                          // eslint-disable-next-line no-console
+                          console.info('[today-three-priorities] whyline_title_echo', {
+                            userId: user?.id ?? null,
+                            moduleTitle,
+                            whyLine: raw,
+                          });
+                        } catch {}
+                      }
+                      const step0 = Array.isArray(hm.stepRationale) ? hm.stepRationale[0] : null;
+                      const rec = hm.recommendedAction ?? null;
+                      if (step0 && !isEcho(step0, moduleTitle) && !isEcho(step0, timeLabel)) {
+                        text = step0;
+                      } else if (rec && !isEcho(rec, moduleTitle) && !isEcho(rec, timeLabel)) {
+                        text = rec;
+                      } else {
+                        text = fallbackRecommendedAction(hm);
+                      }
+                    }
+                    if (!text) return null;
+                    return (
+                      <div className="space-y-1">
+                        <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
+                          Why this matters
+                        </span>
+                        <p className="text-[13px] text-foreground/85 font-body leading-relaxed">
+                          {stripBriefMarkdown(text)}
+                        </p>
+                      </div>
+                    );
+                  })()}
 
                   <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
                     {stripBriefMarkdown(hm.recommendedAction || fallbackRecommendedAction(hm))}
