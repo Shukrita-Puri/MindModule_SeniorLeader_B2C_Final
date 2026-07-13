@@ -5324,7 +5324,7 @@ serve(async (req) => {
     }
 
     console.log(
-      `[smart-nudges] summary qualified=${allNotifications.length} shipped=${shippedNotifications.length} suppressed_post_cta=${suppressedPostCta} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} dry_run=${isDryRun}`,
+      `[smart-nudges] summary qualified=${allNotifications.length} shipped=${shippedNotifications.length} suppressed_post_cta=${suppressedPostCta} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} mode=${describeDeliveryMode(deliveryMode)} reason=${deliveryMode.reason}`,
     );
 
     qualifiedCount = allNotifications.length;
@@ -5342,6 +5342,8 @@ serve(async (req) => {
       suppressed_post_cta: suppressedPostCta,
       apns_attempted: sendAttempted,
       dry_run: isDryRun,
+      delivery_mode: describeDeliveryMode(deliveryMode),
+      delivery_reason: deliveryMode.reason,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
       architecture: 'cos-mind-v8-meaning-forward',
