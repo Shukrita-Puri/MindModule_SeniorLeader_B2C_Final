@@ -359,6 +359,36 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
   };
   const checkIn = input.checkIn ?? {};
 
+  // --- Canonical Availability SSOT ----------------------------------------
+  // Compute the single-source availability decision up front so every
+  // downstream derivation (ptoTodayAllDay, personalHolidayInferred, rule
+  // context) reads from the same answer. See `_shared/availability/*`.
+  const availability: AvailabilityResult = classifyAvailability({
+    now: input.now,
+    userHomeCountry: input.userHomeCountry ?? null,
+    userCurrentCountry: input.userCurrentCountry ?? null,
+    explicitPto: input.explicitPto === true,
+    calendarLoad: input.calendarLoad ?? null,
+    events: input.events.map((e): AvailabilityEvent => ({
+      title: String(e.title || ''),
+      startTime: typeof e.startTime === 'string'
+        ? e.startTime
+        : (e.startTime instanceof Date ? e.startTime.toISOString() : ''),
+      endTime: typeof e.endTime === 'string'
+        ? e.endTime
+        : (e.endTime instanceof Date ? e.endTime.toISOString() : (
+            typeof e.startTime === 'string'
+              ? e.startTime
+              : (e.startTime instanceof Date ? e.startTime.toISOString() : '')
+          )),
+      isAllDay: e.isAllDay === true,
+      // Attendee/organiser data isn't on this shape today; the classifier's
+      // work-evidence check falls back to timed non-noise events with any
+      // signal of collaboration. When Brief input eventually surfaces
+      // attendees the classifier upgrades transparently.
+    })),
+  });
+
   // Pre-compute next-event slices.
   const futureEvents = input.events
     .map((e) => ({
