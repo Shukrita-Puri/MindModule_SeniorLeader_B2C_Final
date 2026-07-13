@@ -510,8 +510,16 @@ async function runJitV2Shadow(
     };
   });
 
+  // Phase 3 — leader profile goals take priority as the declared growth
+  // lane. Existing sources (request-level growthIntention, practice tag,
+  // coach growth_area) remain as fallback so plans still work when the
+  // CoS profile is missing/in_progress.
+  const leaderDeclaredGoals: string[] = Array.isArray(req?.leaderProfile?.goals?.declared)
+    ? (req.leaderProfile!.goals!.declared as string[]).filter(Boolean)
+    : [];
+  const fallbackGrowthIntentions = typeof req?.growthIntention === 'string' ? [req.growthIntention] : [];
   const goals = {
-    growthIntentions: typeof req?.growthIntention === 'string' ? [req.growthIntention] : [],
+    growthIntentions: leaderDeclaredGoals.length > 0 ? leaderDeclaredGoals : fallbackGrowthIntentions,
     practicePriorityTags: req?.practicePriorityTag ? [String(req.practicePriorityTag)] : [],
     coachGrowthAreas: (req?.coachInsights || [])
       .filter((i: any) => i?.type === 'growth_area')
