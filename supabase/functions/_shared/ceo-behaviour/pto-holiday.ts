@@ -51,6 +51,14 @@ export function isPersonalHolidayTitle(title: string | null | undefined): boolea
 }
 
 function ptoActive(ctx: RuleContext): boolean {
+  // SSOT override: when the availability classifier has already decided
+  // this is NOT a PTO/holiday rest day (e.g. foreign FYI holiday, or
+  // work-evidence override), suppress reduced-touch framing.
+  const availState = (ctx as unknown as { availability?: { state?: string; isRestDay?: boolean } })
+    .availability;
+  if (availState && typeof availState.isRestDay === 'boolean') {
+    return availState.state === 'PTO' || availState.state === 'PUBLIC_HOLIDAY';
+  }
   return (
     ctx.signals.ptoTodayAllDay === true ||
     ctx.holidayAllDayEventToday != null

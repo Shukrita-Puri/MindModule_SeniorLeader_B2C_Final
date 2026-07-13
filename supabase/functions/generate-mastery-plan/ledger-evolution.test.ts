@@ -70,10 +70,25 @@ Deno.test("deriveStructuralDayFlags detects conference/offsite terms", () => {
   assertEquals(flags.hasTravelDay, false);
 });
 
-Deno.test("deriveStructuralDayFlags flags rest when calendarLoad=low and no events", () => {
-  const flags = deriveStructuralDayFlags([], "low");
-  assertEquals(flags.hasRestSignals, true);
+Deno.test("deriveStructuralDayFlags: empty weekday is LIGHT_ROUTINE, not rest (SSOT)", () => {
+  // Canonical Rest Day SSOT: empty weekday calendars are workload signals
+  // only. They MUST NOT collapse the day to a rest day.
+  const monday = new Date("2026-07-13T09:00:00");
+  const flags = deriveStructuralDayFlags([], "low", { now: monday });
+  assertEquals(flags.hasRestSignals, false);
   assertEquals(flags.hasTravelDay, false);
+});
+
+Deno.test("deriveStructuralDayFlags: Saturday with no events flags rest", () => {
+  const saturday = new Date("2026-07-18T09:00:00");
+  const flags = deriveStructuralDayFlags([], "low", { now: saturday });
+  assertEquals(flags.hasRestSignals, true);
+});
+
+Deno.test("deriveStructuralDayFlags: explicitPto flags rest", () => {
+  const monday = new Date("2026-07-13T09:00:00");
+  const flags = deriveStructuralDayFlags([], "low", { now: monday, explicitPto: true });
+  assertEquals(flags.hasRestSignals, true);
 });
 
 Deno.test("mergeWithLedger: completed ledger slot stays sticky — allocator identity does NOT overwrite", () => {

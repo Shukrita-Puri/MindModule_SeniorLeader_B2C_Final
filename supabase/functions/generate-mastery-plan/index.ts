@@ -61,6 +61,7 @@ import { type RelationshipRole } from '../_shared/jit/relationship-taxonomy.ts';
 import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
 import { decideTravelFreshness } from '../_shared/travel/freshness.ts';
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
+import { classifyAvailability } from '../_shared/availability/availability-classifier.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 import { allocatePlanSlots } from '../_shared/jit/slot-allocator.ts';
@@ -6737,13 +6738,31 @@ function buildHorizonModules(
   const _dow = _localNow.getUTCDay(); // 0 Sun .. 6 Sat
   const _isWeekday = _dow >= 1 && _dow <= 5;
   const _hasAnyJit = !!preEventPlan;
-  // PTO / public-holiday detection delegated to canonical ceo-behaviour module.
-  const _isPtoOrHoliday = (req.calendarEvents || []).some((e: any) => {
-    const s = new Date(e.startTime).getTime();
-    const en = new Date(e.endTime || e.startTime).getTime();
-    const allDay = (en - s) >= 20 * 3600 * 1000;
-    return allDay && isPtoOrHolidayTitle(String(e.title || ''));
+  // PTO / public-holiday detection delegated to the canonical availability
+  // SSOT. Regional / FYI holidays that don't apply to the user MUST NOT
+  // collapse the plan to a single slot, and calendar work evidence MUST
+  // override any rest signal — both handled inside the classifier.
+  const _availability = classifyAvailability({
+    now: _localNow,
+    userHomeCountry: (req as any).userHomeCountry ?? (req as any).country ?? null,
+    userCurrentCountry: (req as any).userCurrentCountry ?? null,
+    explicitPto: (req as any).explicitPto === true,
+    calendarLoad: (req as any).calendarLoad ?? null,
+    events: (req.calendarEvents || []).map((e: any) => ({
+      title: String(e?.title || ''),
+      startTime: String(e?.startTime || e?.start_time || ''),
+      endTime: String(e?.endTime || e?.end_time || e?.startTime || ''),
+      isAllDay: e?.isAllDay === true || e?.is_all_day === true ||
+        ((new Date(e?.endTime || e?.startTime || 0).getTime() -
+          new Date(e?.startTime || 0).getTime()) >= 20 * 3600 * 1000),
+      isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+      attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+      source: e?.source ?? e?.calendarName ?? null,
+      calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+    })),
   });
+  const _isPtoOrHoliday = _availability.isRestDay &&
+    (_availability.state === 'PTO' || _availability.state === 'PUBLIC_HOLIDAY');
   let _minSlots = 1;
   if (!_hasAnyJit && _isWeekday && !_isPtoOrHoliday) _minSlots = 2;
   if (_hasAnyJit && !_isPtoOrHoliday) {
@@ -7135,7 +7154,16 @@ function isSlotCompleted(slot: HorizonModule, completedIds: Set<string>): boolea
  * calendar event list. Extracted so the fresh-generation path and the
  * ledger-evolution path share ONE definition and cannot drift.
  */
-export function deriveStructuralDayFlags(calendarEvents: any[] | null | undefined, calendarLoad?: string): {
+export function deriveStructuralDayFlags(
+  calendarEvents: any[] | null | undefined,
+  calendarLoad?: string,
+  opts?: {
+    now?: Date;
+    userHomeCountry?: string | null;
+    userCurrentCountry?: string | null;
+    explicitPto?: boolean;
+  },
+): {
   hasTravelDay: boolean;
   hasConferenceDay: boolean;
   hasOffsiteDay: boolean;
@@ -7146,7 +7174,36 @@ export function deriveStructuralDayFlags(calendarEvents: any[] | null | undefine
   const hasTravelDay = events.some((e: any) => /travel|flight|train|airport|hotel/i.test(titleOf(e)));
   const hasConferenceDay = events.some((e: any) => /conference|offsite|retreat|summit/i.test(titleOf(e)));
   const hasOffsiteDay = events.some((e: any) => /offsite|off-site/i.test(titleOf(e)));
-  const hasRestSignals = calendarLoad === 'low' && events.length === 0;
+  // Canonical Rest Day (SSOT): rest is a function of weekend / explicit PTO /
+  // applicable public holiday — never of empty calendars alone. Calendar
+  // work evidence overrides all three. See _shared/availability/*.
+  const availability = classifyAvailability({
+    now: opts?.now ?? new Date(),
+    userHomeCountry: opts?.userHomeCountry ?? null,
+    userCurrentCountry: opts?.userCurrentCountry ?? null,
+    explicitPto: opts?.explicitPto === true,
+    calendarLoad: (calendarLoad as any) ?? null,
+    events: events.map((e: any) => ({
+      title: String(e?.title || ''),
+      startTime: String(e?.startTime || e?.start_time || ''),
+      endTime: String(e?.endTime || e?.end_time || e?.startTime || ''),
+      isAllDay: e?.isAllDay === true || e?.is_all_day === true,
+      isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+      attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+      source: e?.source ?? e?.calendarName ?? null,
+      calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+    })),
+  });
+  const hasRestSignals = availability.isRestDay;
+  try {
+    console.info('[generate-mastery-plan][availability-classified]', {
+      state: availability.state,
+      isRestDay: availability.isRestDay,
+      reason: availability.reason,
+      meetingCount: availability.workEvidence.meetingCount,
+      holiday: availability.holiday,
+    });
+  } catch { /* logging is best-effort */ }
   return { hasTravelDay, hasConferenceDay, hasOffsiteDay, hasRestSignals };
 }
 
