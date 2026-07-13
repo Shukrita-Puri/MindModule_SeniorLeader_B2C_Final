@@ -37,6 +37,18 @@ function travelActive(ctx: RuleContext): boolean {
 }
 
 function ptoActive(ctx: RuleContext): boolean {
+  // SSOT override: when the availability classifier has already decided
+  // this is NOT a PTO/holiday rest day, ignore legacy title-based signals.
+  // Otherwise, promote genuine PTO/PUBLIC_HOLIDAY states. This keeps
+  // weekend framing off for e.g. Saturday-with-work-meetings (classifier
+  // says WORKDAY) and off for foreign-region holidays (classifier says
+  // LIGHT_ROUTINE / WORKDAY, not PUBLIC_HOLIDAY).
+  if (ctx.availability) {
+    return (
+      ctx.availability.state === 'PTO' ||
+      ctx.availability.state === 'PUBLIC_HOLIDAY'
+    );
+  }
   return (
     ctx.signals.ptoTodayAllDay === true ||
     ctx.holidayAllDayEventToday != null
