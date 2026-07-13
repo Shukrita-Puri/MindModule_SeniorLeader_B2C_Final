@@ -3747,6 +3747,38 @@ serve(async (req) => {
             return 'high';
           })();
           const systemPrompt = buildBriefSystemPrompt({ bandValence });
+          // === LEADER VOICE === (from onboarding CoS profile)
+          // Appended AFTER the shared persona/voice/constraint blocks so it
+          // reads as a distinct, auditable calibration layer. Empty when the
+          // leader profile is missing — the Brief must behave identically.
+          const leaderVoiceParts: string[] = [];
+          if (leaderProfile.voice.cos_brief_rules) {
+            leaderVoiceParts.push(
+              `=== LEADER-SPECIFIC VOICE RULES ===\n${leaderProfile.voice.cos_brief_rules}`,
+            );
+          }
+          if (leaderProfile.voice.brief_voice_note) {
+            leaderVoiceParts.push(`Voice calibration: ${leaderProfile.voice.brief_voice_note}`);
+          }
+          if (leaderProfile.voice.communication_what_lands?.length) {
+            leaderVoiceParts.push(
+              `Language that LANDS with this leader: ${leaderProfile.voice.communication_what_lands.join('; ')}`,
+            );
+          }
+          if (leaderProfile.voice.communication_what_wont_land?.length) {
+            leaderVoiceParts.push(
+              `Language that WON'T LAND: ${leaderProfile.voice.communication_what_wont_land.join('; ')}`,
+            );
+          }
+          if (leaderProfile.voice.communication_how_they_think) {
+            leaderVoiceParts.push(
+              `How this leader thinks: ${leaderProfile.voice.communication_how_they_think}`,
+            );
+          }
+          const leaderVoiceBlock = leaderVoiceParts.length > 0
+            ? `\n\n=== LEADER VOICE ===\n${leaderVoiceParts.join('\n\n')}`
+            : '';
+          const systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
           // Retain the legacy inline prompt only as a parked diff-bisection
           // literal during rollout. It is not part of the active prompt path.
           // Drift-protection: any new persona/voice/constraint change must
