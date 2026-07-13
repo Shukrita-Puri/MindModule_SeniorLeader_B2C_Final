@@ -715,6 +715,12 @@ interface PlanRequest {
   wearableContext: WearableContext;
   latestCheckinTimestamp?: string;
   componentScores?: any;
+  /**
+   * Phase 3 — CoS Leader Profile loaded once per request via
+   * `loadLeaderProfile`. Additive context; treat null fields as
+   * "use dynamic behaviour". Never gate on this being non-null.
+   */
+  leaderProfile?: LeaderProfileContext;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
