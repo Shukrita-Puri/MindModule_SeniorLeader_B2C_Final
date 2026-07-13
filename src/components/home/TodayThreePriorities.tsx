@@ -327,7 +327,16 @@ const buildFallbackHorizonModules = (
 
   return modules.map((practice, index) => ({
     horizon: 'immediate',
-    timeLabel: index === 0 ? label : `${label} ${index + 1}`,
+    // Bug 3 fix (mem://features/mastery-plan/today-three-priorities-logic):
+    // Server emits ONE period label (`timeOfDayPlan.label`, e.g. "Evening
+    // Close") with multiple distinct practices underneath. Previously this
+    // fallback stamped that label onto each synthesised HorizonModule and
+    // appended a numeric suffix ("Evening Close 2") for slot 2+, which the
+    // user saw as duplicate Horizon Modules. The period label is a
+    // day-header, not a per-slot label — the numbered slot bubbles
+    // (1/2/3) already disambiguate ordering. Use the label verbatim for
+    // every slot; practice identity is carried by the card body.
+    timeLabel: label,
     typeLabel: practice.type,
     whyLine: practice.reasoning || planBrief,
     recommendedAction: practice.reasoning || undefined,
