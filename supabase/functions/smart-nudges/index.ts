@@ -39,6 +39,13 @@ import { recordDeliveryAttempt } from "../_shared/delivery-attempts.ts";
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
 
+// Phase 4 — Unified CoS Leader Profile reader (null-safe). Provides
+// `preferences.{brief_timing, reset_modality, weekend_signals}` and
+// `voice.cos_brief_rules`. Missing/failed profiles resolve to a shell
+// with nulls; Smart Nudges must treat null values as "system decides"
+// and continue to work exactly as today when the profile is absent.
+import { loadLeaderProfile, type LeaderProfileContext } from "../_shared/leader-profile-loader.ts";
+
 // ── APNs Helper Functions ──
 
 /**
