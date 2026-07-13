@@ -504,8 +504,21 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     !todayShape.hasConference &&
     weekdayRunNoMeetings >= HOLIDAY_WEEKDAY_RUN_MIN;
 
-  const ptoTodayAllDayDerived =
-    ptoTitleAllDay || halfDayPto || ptoByPattern ? true : undefined;
+  // Canonical override: the availability classifier is the SSOT for whether
+  // today is a PTO/holiday day. If the classifier says WORKDAY (e.g. work
+  // evidence overrides), suppress ptoTodayAllDay regardless of title regex.
+  // If it says PTO/PUBLIC_HOLIDAY, promote to `true` even when the
+  // title-only heuristics missed it.
+  const availStateForPto = availability.state;
+  const legacyPtoInferred = ptoTitleAllDay || halfDayPto || ptoByPattern;
+  const ptoTodayAllDayDerived: true | undefined =
+    availStateForPto === 'PTO' || availStateForPto === 'PUBLIC_HOLIDAY'
+      ? true
+      : availStateForPto === 'WORKDAY'
+        ? undefined
+        : legacyPtoInferred
+          ? true
+          : undefined;
 
   // --- personalHolidayInferred --------------------------------------------
   // A. Personal-leaning title on today's all-day event (with conference guard).
@@ -521,8 +534,21 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
   // the run. Travel in the run is allowed (workcation / bleisure → personal).
   const personalHolidayByPattern = ptoByPattern;
 
-  const personalHolidayInferredDerived =
-    personalHolidayTitle || personalHolidayByPattern ? true : undefined;
+  // Same SSOT override for personalHolidayInferred: only fire when the
+  // classifier agrees today is genuinely off (PTO or an APPLICABLE public
+  // holiday). Regional / FYI holidays that don't apply to the user MUST
+  // NOT trip this signal — the classifier already handled that.
+  const legacyPersonalHolidayInferred =
+    personalHolidayTitle || personalHolidayByPattern;
+  const personalHolidayInferredDerived: true | undefined =
+    availStateForPto === 'PTO' ||
+    (availStateForPto === 'PUBLIC_HOLIDAY' && availability.holiday.applicable)
+      ? true
+      : availStateForPto === 'WORKDAY'
+        ? undefined
+        : legacyPersonalHolidayInferred
+          ? true
+          : undefined;
 
   // --- ptoMeetingPresent ---------------------------------------------------
   // PTO day (any branch) + a confirmed timed meeting today that is not itself
