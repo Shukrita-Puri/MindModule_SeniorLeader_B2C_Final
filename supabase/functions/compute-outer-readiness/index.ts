@@ -4161,6 +4161,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
           }
 
+          // === LEADER PROFILE === (from onboarding CoS synthesis)
+          // Additive block — only rendered when fields are present. Existing
+          // ONBOARDING block above is preserved.
+          {
+            const leaderParts: string[] = [];
+            if (leaderProfile.goals.declared.length > 0) {
+              leaderParts.push(`Leader goals: ${leaderProfile.goals.declared.join(', ')}`);
+            }
+            if (leaderProfile.priors.high_stakes_map?.declared_events?.length) {
+              leaderParts.push(
+                `Declared high-stakes events: ${leaderProfile.priors.high_stakes_map.declared_events.join(', ')}`,
+              );
+            }
+            if (leaderProfile.analysis.archetype) {
+              leaderParts.push(`Provisional archetype: ${leaderProfile.analysis.archetype}`);
+            }
+            if (leaderProfile.goals.cos_accountability_note) {
+              leaderParts.push(`CoS accountability note: ${leaderProfile.goals.cos_accountability_note}`);
+            }
+            if (leaderParts.length > 0) {
+              userPrompt += `\n\n=== LEADER PROFILE ===\n${leaderParts.join('\n')}`;
+            }
+          }
+
           // === TRIAGE SIGNALS === (top 5 for emphasis)
           if (selectedSignals.length > 0) {
             userPrompt += `\n\n=== KEY SIGNALS ===\n${selectedSignals.join('\n')}`;
