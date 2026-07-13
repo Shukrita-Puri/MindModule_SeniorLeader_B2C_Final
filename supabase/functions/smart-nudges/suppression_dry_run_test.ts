@@ -78,7 +78,7 @@ Deno.test('daily-cap / sentSlotsToday query filters on COUNTABLE_DELIVERY_STATES
 });
 
 Deno.test('week-ahead weekly cap query filters on COUNTABLE_DELIVERY_STATES', () => {
-  const block = extractQueryBlock("'week_ahead_picker_invite'");
+  const block = extractQueryBlock(".eq('notification_type', 'week_ahead_picker_invite')");
   assert(
     block.includes("COUNTABLE_DELIVERY_STATES"),
     "Weekly Week-Ahead invite lookup must filter delivery_state:\n" + block,
