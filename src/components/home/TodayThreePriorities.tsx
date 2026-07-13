@@ -2567,28 +2567,46 @@ const TodayThreePriorities = ({
                   {(() => {
                     const raw = hm.whyLine ?? '';
                     const moduleTitle = module?.title ?? '';
+                    const practiceTitle = module?.title ?? '';
                     const timeLabel = hm.timeLabel ?? '';
                     const rawGood =
-                      !!raw && !isEcho(raw, moduleTitle) && !isEcho(raw, timeLabel);
+                      !!raw &&
+                      !isEcho(raw, moduleTitle) &&
+                      !isEcho(raw, practiceTitle) &&
+                      !isEcho(raw, timeLabel);
                     let text: string | null = null;
                     if (rawGood) {
                       text = raw;
                     } else {
-                      if (raw && (isEcho(raw, moduleTitle) || isEcho(raw, timeLabel))) {
+                      if (
+                        raw &&
+                        (isEcho(raw, moduleTitle) || isEcho(raw, practiceTitle) || isEcho(raw, timeLabel))
+                      ) {
                         try {
                           // eslint-disable-next-line no-console
                           console.info('[today-three-priorities] whyline_title_echo', {
                             userId: user?.id ?? null,
                             moduleTitle,
+                            practiceTitle,
                             whyLine: raw,
                           });
                         } catch {}
                       }
                       const step0 = Array.isArray(hm.stepRationale) ? hm.stepRationale[0] : null;
                       const rec = hm.recommendedAction ?? null;
-                      if (step0 && !isEcho(step0, moduleTitle) && !isEcho(step0, timeLabel)) {
+                      if (
+                        step0 &&
+                        !isEcho(step0, moduleTitle) &&
+                        !isEcho(step0, practiceTitle) &&
+                        !isEcho(step0, timeLabel)
+                      ) {
                         text = step0;
-                      } else if (rec && !isEcho(rec, moduleTitle) && !isEcho(rec, timeLabel)) {
+                      } else if (
+                        rec &&
+                        !isEcho(rec, moduleTitle) &&
+                        !isEcho(rec, practiceTitle) &&
+                        !isEcho(rec, timeLabel)
+                      ) {
                         text = rec;
                       } else {
                         text = fallbackRecommendedAction(hm);
