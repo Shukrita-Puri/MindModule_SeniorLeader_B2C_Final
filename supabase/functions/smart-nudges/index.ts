@@ -27,6 +27,7 @@ import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudg
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
 import { validateApnsEnvironment } from "../_shared/apns-env.ts";
+import { resolveDeliveryMode, describeDeliveryMode, type DeliveryMode } from "./delivery-mode.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
