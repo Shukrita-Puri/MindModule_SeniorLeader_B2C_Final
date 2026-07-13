@@ -23,6 +23,11 @@ import {
   LONG_HAUL_MIN_HOURS,
 } from "./ceo-behaviour/travel.ts";
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
+import {
+  classifyAvailability,
+  type AvailabilityResult,
+  type AvailabilityEvent,
+} from "./availability/availability-classifier.ts";
 
 // --- Travel & Holiday detection v2 tuning constants (file-local SSOT). -----
 // Plan-approved values; bumping these is a deliberate behaviour change.
@@ -123,6 +128,17 @@ export interface SignalCoverageInput {
   morningWasCompressed?: boolean;
   /** Optional midday-recovery flag (consumer pre-computes from HR/HRV trend). */
   middayRecoveryDetected?: boolean;
+  /** User home country from profiles.country (nullable). Feeds the canonical
+   *  availability classifier so region-qualified holidays and FYI holiday
+   *  calendars are gated by geography, not just title regex. */
+  userHomeCountry?: string | null;
+  /** Reserved for future Travel SSOT — the country the user is physically in
+   *  today. When unset the classifier falls back to `userHomeCountry`. */
+  userCurrentCountry?: string | null;
+  /** User-approved PTO/annual-leave (from onboarding/UI). Optional. */
+  explicitPto?: boolean;
+  /** Workload hint from upstream calendar-load classifier. Optional. */
+  calendarLoad?: "low" | "medium" | "high" | string | null;
 }
 
 const HIGH_STAKES_LEVELS = new Set(["board", "external", "investor"]);
