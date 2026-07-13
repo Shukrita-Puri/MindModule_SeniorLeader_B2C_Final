@@ -6,6 +6,41 @@
 // behaviour" and never fail when the profile is absent.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Onboarding label → canonical gate keyword normalisers.
+// The onboarding surfaces save user-facing labels (e.g. "Reduce",
+// "Skip") which must be mapped to the canonical keywords the gates
+// downstream key off ('off' | 'light' | 'full'). Exported so every
+// consumer (nudges, brief, plan, insights) uses the same mapping.
+export function normaliseWeekendSignal(raw: string | null): 'full' | 'light' | 'off' | null {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().trim();
+  if (lower === 'skip' || lower === 'off' || lower === 'none') return 'off';
+  if (lower === 'reduce' || lower === 'light' || lower === 'minimal') return 'light';
+  if (lower === 'include' || lower === 'full' || lower === 'normal' || lower === 'yes' || lower === 'keep') return 'full';
+  return null; // unknown label → system decides
+}
+
+export function normaliseResetModality(raw: string | null): string | null {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().trim();
+  if (lower === 'sound' || lower === 'music' || lower === 'audio') return 'sound';
+  if (lower === 'movement' || lower === 'physical' || lower === 'body') return 'movement';
+  if (lower === 'stillness' || lower === 'quiet' || lower === 'silence') return 'stillness';
+  if (lower === 'breath' || lower === 'breathing' || lower === 'breathwork') return 'breath';
+  if (lower === 'guided') return 'guided';
+  if (lower === 'mindset') return 'mindset';
+  return raw.toLowerCase(); // pass through unknown as-is
+}
+
+export function normaliseBriefTiming(raw: string | null): 'morning' | 'afternoon' | 'evening' | null {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().trim();
+  if (lower === 'morning' || lower === 'am') return 'morning';
+  if (lower === 'afternoon' || lower === 'midday') return 'afternoon';
+  if (lower === 'evening' || lower === 'pm' || lower === 'night') return 'evening';
+  return null; // "use intelligence" or unknown → system decides
+}
+
 export interface LeaderProfileContext {
   voice: {
     cos_brief_rules: string | null;
