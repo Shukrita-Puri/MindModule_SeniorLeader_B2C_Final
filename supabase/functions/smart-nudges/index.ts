@@ -4226,6 +4226,10 @@ serve(async (req) => {
         // v7 - hydrate unified pattern store (causality_findings.signal_summary)
         ctx.pattern = await loadPatternSummary(supabase, userId);
       }
+      // Phase 4 — always hydrate leader voice + reset modality on ctx,
+      // even when reused from the week-ahead path above (idempotent set).
+      ctx.leaderVoiceRules = leaderProfile?.voice.cos_brief_rules ?? null;
+      ctx.leaderResetModality = prefResetModality;
 
       // MRS snapshot is read for escalation/freshness context only. Missing,
       // awaiting, or strong/light data must never suppress nudges.
