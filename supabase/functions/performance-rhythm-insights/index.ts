@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { loadLeaderProfile } from "../_shared/leader-profile-loader.ts";
 import {
   buildWearableDailySeries,
   computeWearableBaselines,
@@ -79,6 +80,11 @@ serve(async (req) => {
   try {
     const userId = await verifyAuth0JWT(req);
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+    // Phase 5 — Leader Profile enrichment. Null-safe; Insights renders as
+    // today when the profile is missing/in_progress. See
+    // supabase/functions/_shared/leader-profile-loader.ts.
+    const leaderProfile = await loadLeaderProfile(sb, userId).catch(() => null);
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now);
@@ -270,8 +276,19 @@ serve(async (req) => {
         if (v.count >= 2) corrs.push({ et, avg: v.scores.reduce((a, b) => a + b, 0) / v.count, count: v.count });
       });
       corrs.sort((a, b) => a.avg - b.avg);
-      const drain = corrs[0];
-      const lift = corrs[corrs.length - 1];
+      // Phase 5 — if the leader declared high-stakes event types in
+      // onboarding, prioritise them when surfacing drain/lift. Matching is
+      // substring against the canonical event-type key (e.g. "board" matches
+      // declared "board meeting"). Purely additive: falls back to the
+      // statistical top/bottom when there is no declared match.
+      const declaredHS: string[] = (leaderProfile?.priors.high_stakes_map?.declared_events ?? [])
+        .map((s) => String(s).toLowerCase());
+      const isDeclared = (et: string) =>
+        declaredHS.some((d) => d.includes(et) || et.includes(d));
+      const declaredDrain = corrs.find((c) => isDeclared(c.et));
+      const declaredLift = [...corrs].reverse().find((c) => isDeclared(c.et));
+      const drain = declaredDrain ?? corrs[0];
+      const lift = declaredLift ?? corrs[corrs.length - 1];
       if (drain && drain.avg < 50) {
         calendarInsight = `On days with ${drain.et.replace("_", " ")} events, your readiness averages ${Math.round(drain.avg)} – observed across ${drain.count} occurrences.`;
       } else if (lift && lift.avg > 65) {
@@ -1160,6 +1177,33 @@ serve(async (req) => {
       behaviorLogCount: behaviorLogs.length,
       hasCalendar,
       dataSourceNote,
+
+      // Phase 5 — additive Leader Profile context. Null-safe: fields are
+      // null when the CoS profile is missing/in_progress. Consumers use
+      // these to PRIORITISE declared high-stakes event types and to frame
+      // month-over-month summaries with the leader's archetype. Existing
+      // rendering paths are unchanged when the profile is absent.
+      leaderProfile: leaderProfile
+        ? {
+            status: leaderProfile.meta.status,
+            archetype: leaderProfile.analysis.archetype,
+            declaredHighStakes:
+              leaderProfile.priors.high_stakes_map?.declared_events ?? [],
+            inferredHighStakes:
+              leaderProfile.priors.high_stakes_map?.inferred_events ?? [],
+            cognitiveRisk: leaderProfile.priors.cognitive_risk_profile
+              ? {
+                  primary_risk:
+                    leaderProfile.priors.cognitive_risk_profile.primary_risk,
+                  risk_flags:
+                    leaderProfile.priors.cognitive_risk_profile.risk_flags,
+                  regulation_strengths:
+                    leaderProfile.priors.cognitive_risk_profile
+                      .regulation_strengths,
+                }
+              : null,
+          }
+        : null,
     };
 
     const totalFindings = mindRhythmPatterns?.all.length ?? 0;
