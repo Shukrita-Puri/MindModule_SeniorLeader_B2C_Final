@@ -4311,6 +4311,11 @@ serve(async (req) => {
         .select('sent_at')
         .eq('user_id', userId)
         .gte('sent_at', twoHoursAgoIso)
+        // Fix C: a diagnostic dry-run in the last 2h must not suppress a
+        // real production send. Only rows that actually entered the
+        // delivery lifecycle (pending / accepted / delivered / opened /
+        // action_completed) count as "recently notified".
+        .in('delivery_state', COUNTABLE_DELIVERY_STATES as unknown as string[])
         .order('sent_at', { ascending: false })
         .limit(1);
 
