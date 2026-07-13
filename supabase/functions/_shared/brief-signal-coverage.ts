@@ -907,11 +907,36 @@ export function buildRuleContext(
       | "backToBackHoursToday"
       | "historicalAppOpenRateLow"
       | "conferenceDayNumber"
+      | "availability"
     >
   > = {},
 ): RuleContext {
   const signals = buildSignalMatrix(input);
   const localHour = input.now.getHours();
+  // Re-derive availability here (cheap, deterministic) so it lands on the
+  // RuleContext even when the caller didn't pass it via extras. This is the
+  // shared thread every consumer (Brief, Plan, Nudges) reads from.
+  const availability = extras.availability ?? classifyAvailability({
+    now: input.now,
+    userHomeCountry: input.userHomeCountry ?? null,
+    userCurrentCountry: input.userCurrentCountry ?? null,
+    explicitPto: input.explicitPto === true,
+    calendarLoad: input.calendarLoad ?? null,
+    events: input.events.map((e): AvailabilityEvent => ({
+      title: String(e.title || ''),
+      startTime: typeof e.startTime === 'string'
+        ? e.startTime
+        : (e.startTime instanceof Date ? e.startTime.toISOString() : ''),
+      endTime: typeof e.endTime === 'string'
+        ? e.endTime
+        : (e.endTime instanceof Date ? e.endTime.toISOString() : (
+            typeof e.startTime === 'string'
+              ? e.startTime
+              : (e.startTime instanceof Date ? e.startTime.toISOString() : '')
+          )),
+      isAllDay: e.isAllDay === true,
+    })),
+  });
   return {
     signals,
     upcomingEvents: input.events
@@ -924,6 +949,7 @@ export function buildRuleContext(
       .filter((e) => e.minutesUntil >= 0)
       .sort((a, b) => a.minutesUntil - b.minutesUntil),
     localHour,
+    availability,
     ...extras,
   };
 }
