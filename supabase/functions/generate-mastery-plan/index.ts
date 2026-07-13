@@ -61,6 +61,7 @@ import { type RelationshipRole } from '../_shared/jit/relationship-taxonomy.ts';
 import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
 import { decideTravelFreshness } from '../_shared/travel/freshness.ts';
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
+import { classifyAvailability } from '../_shared/availability/availability-classifier.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 import { allocatePlanSlots } from '../_shared/jit/slot-allocator.ts';
