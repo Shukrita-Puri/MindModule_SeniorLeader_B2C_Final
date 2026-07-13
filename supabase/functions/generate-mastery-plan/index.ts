@@ -541,6 +541,19 @@ async function runJitV2Shadow(
 
   console.log(`[generate-mastery-plan][jit-v2-shadow] tier=${result.tier.tier} ageDays=${accountAgeDays} patternCount=${result.tier.patternCount} ranked=${result.ranked.length} excluded=${result.excluded.length} top=${result.ranked[0]?.title ?? 'none'}@${result.ranked[0]?.importance ?? 0}`);
 
+  // Phase 3 — one-shot goal-alignment summary. Diagnostic only.
+  try {
+    console.info('[plan][goal-alignment][summary]', {
+      userId,
+      source: leaderDeclaredGoals.length > 0 ? 'leader_profile' : 'fallback',
+      goals: goals.growthIntentions,
+      practicePriorityTags: goals.practicePriorityTags,
+      coachGrowthAreas: goals.coachGrowthAreas,
+      chosenModuleIds: result.ranked.slice(0, 5).map((c: any) => c.eventId ?? c.id ?? null),
+      chosenTitles: result.ranked.slice(0, 5).map((c: any) => c.title ?? null),
+    });
+  } catch { /* logging must never break plan generation */ }
+
   // Capture legacy top for parity (filteredEvents[0] is the legacy winner).
   const legacyTop = (filteredEvents && filteredEvents[0]) || null;
   const legacyTopId = legacyTop?.event?.id ?? null;
