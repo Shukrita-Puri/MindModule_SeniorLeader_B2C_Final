@@ -81,6 +81,15 @@ export interface SignalCoverageInput {
     stakesLevel?: string | null;
     status?: "confirmed" | "tentative" | "declined" | "cancelled";
     isWeekend?: boolean;
+    /** Work-evidence inputs for the Availability SSOT — optional. When
+     *  present, the canonical classifier can override PTO/holiday
+     *  framing on days with genuine work meetings (e.g. Saturday with
+     *  3 client calls → WORKDAY). Consumers that don't surface these
+     *  yet degrade to workload-only classification. */
+    isOrganizer?: boolean;
+    attendeesCount?: number;
+    source?: string | null;
+    calendarSummary?: string | null;
   }>;
   /** Optional trailing 4 days of events (1..4 days ago) used by the
    *  conference cluster's trailing-fatigue computation. Omit and trailing
