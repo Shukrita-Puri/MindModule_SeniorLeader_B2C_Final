@@ -4358,6 +4358,12 @@ serve(async (req) => {
       // preserve today's behaviour.
       if (isWeekendDay && prefWeekendSignals === 'off') {
         console.info(`[smart-nudges] weekend_signals=off, skipping user=${redactUserId(userId)}`);
+        console.info('[smart-nudges][weekend-gate]', {
+          userId: redactUserId(userId),
+          weekend_signals: prefWeekendSignals,
+          activeSlot,
+          decision: 'skipped_full',
+        });
         trace(userId, 'leader_pref_weekend_off', {
           ...traceBase,
           metadata: { active_slot: activeSlot, weekend_signals: 'off' },
@@ -4366,6 +4372,12 @@ serve(async (req) => {
       }
       if (isWeekendDay && prefWeekendSignals === 'light' && activeSlot !== 'morning') {
         console.info(`[smart-nudges] weekend_signals=light, skipping non-morning slot user=${redactUserId(userId)} slot=${activeSlot}`);
+        console.info('[smart-nudges][weekend-gate]', {
+          userId: redactUserId(userId),
+          weekend_signals: prefWeekendSignals,
+          activeSlot,
+          decision: 'skipped',
+        });
         trace(userId, 'leader_pref_weekend_light_non_morning', {
           ...traceBase,
           metadata: { active_slot: activeSlot, weekend_signals: 'light' },
