@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+// Canonical Availability SSOT. Every behavioural consumer (Planner, Brief,
+// Nudges) reads from this single classifier so "is the user actually working
+// today?" always has one authoritative answer.
+import {
+  classifyAvailability,
+  type AvailabilityResult,
+} from "../_shared/availability/availability-classifier.ts";
 // Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
 // reasoned over instead of re-evaluating rules against a fresh
 // SignalCoverageInput. Falls back to `evaluateForScope` only when no Brief
@@ -595,6 +602,9 @@ interface NudgeContext {
     // next 4 h. Mirrors the canonical `travelLandingPlusHighStakes` rule so
     // the copy can pivot from pure decompression to "decompress then sharpen".
     landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
+    /** Canonical availability decision (SSOT). Populated when the classifier
+     *  ran successfully. When present, `ptoMode` is derived from this. */
+    availability?: AvailabilityResult;
   };
   // §17 Week-Ahead - hydrated inputs for evaluateWeekAheadMode. Computed once
   // in buildNudgeContext from today/tomorrow/14-day-lookback calendar data so
@@ -1285,6 +1295,47 @@ async function buildNudgeContext(
     `[smart-nudges] planSlots status=${planSlotRead.status} count=${planSlotRead.slots?.length ?? 0} user=${userId} date=${todayStr} window=${briefWindow}`,
   );
 
+  // Canonical Availability SSOT — one classification per tick, shared by
+  // dayContext.ptoMode and weekAheadInputs.pto/holidayTodayAllDay below.
+  // Country is fetched best-effort so region-qualified holidays are gated
+  // by geography, not title regex; failure falls back to null (unqualified
+  // titles still apply → matches legacy behaviour).
+  let userHomeCountry: string | null = null;
+  try {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('country')
+      .eq('id', userId)
+      .maybeSingle();
+    userHomeCountry = (prof as { country?: string | null } | null)?.country ?? null;
+  } catch (_e) { /* best-effort — classifier degrades gracefully */ }
+  let nudgeAvailability: AvailabilityResult | undefined;
+  try {
+    nudgeAvailability = classifyAvailability({
+      now,
+      userHomeCountry,
+      userCurrentCountry: null,
+      events: (todayEvents || []).map((e: any) => ({
+        title: String(e?.title ?? ''),
+        startTime: String(e?.start_time ?? ''),
+        endTime: String(e?.end_time ?? e?.start_time ?? ''),
+        isAllDay: e?.is_all_day === true ||
+          ((new Date(e?.end_time ?? e?.start_time ?? 0).getTime() -
+            new Date(e?.start_time ?? 0).getTime()) >= 20 * 3600 * 1000),
+        isOrganizer: e?.is_organizer === true,
+        attendeesCount: Number(e?.attendees_count ?? 0) || 0,
+        source: e?.source ?? e?.calendar_name ?? null,
+        calendarSummary: e?.calendar_summary ?? null,
+      })),
+    });
+    console.log(
+      `[smart-nudges][availability] user=${userId} state=${nudgeAvailability.state} isRestDay=${nudgeAvailability.isRestDay} reason=${nudgeAvailability.reason} country=${userHomeCountry ?? 'null'}`,
+    );
+  } catch (avErr) {
+    console.warn('[smart-nudges][availability] classifier failed:',
+      avErr instanceof Error ? avErr.message : avErr);
+  }
+
   return {
     userId,
     todayStr,
@@ -1387,9 +1438,17 @@ async function buildNudgeContext(
         postTravel: postTravelToday,
         preFlight,
         inFlight,
-        // v5.3 - PTO / public-holiday "light touch": away-day or ooo today.
-        ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
+        // Canonical Availability SSOT — Nudges must not treat foreign
+        // regional holidays (e.g. "Bank Holiday (N Ireland)" for a
+        // GB-ENG user) or empty calendars as PTO, and must treat
+        // weekend-with-work-meetings as WORKDAY. Legacy `today.kind`
+        // detection retained above only for travel/signalToken plumbing.
+        ptoMode: nudgeAvailability
+          ? (nudgeAvailability.state === 'PTO' ||
+             nudgeAvailability.state === 'PUBLIC_HOLIDAY')
+          : (today.kind === 'away-day' || today.kind === 'ooo'),
         landingPlusHighStakes,
+        availability: nudgeAvailability,
       };
     })(),
     weekAheadInputs: (() => {
@@ -1399,8 +1458,19 @@ async function buildNudgeContext(
       // distinguish PTO (ooo) from public holidays (away-day) precisely, but
       // for week-ahead-mode both branches collapse to the same outcome
       // (active=true, lookahead=7). The distinction only shapes telemetry.
-      const ptoTodayAllDay = today.kind === 'ooo';
-      const holidayTodayAllDay = today.kind === 'away-day';
+      // Canonical override: consult the availability SSOT. When it says
+      // WORKDAY (empty weekday, or work-evidence override on a
+      // weekend/holiday), zero both PTO and holiday flags so the week-
+      // ahead evaluator does NOT fire post-PTO / post-holiday branches.
+      const ptoTodayAllDayLegacy = today.kind === 'ooo';
+      const holidayTodayAllDayLegacy = today.kind === 'away-day';
+      const availOverride = nudgeAvailability;
+      const ptoTodayAllDay = availOverride
+        ? availOverride.state === 'PTO'
+        : ptoTodayAllDayLegacy;
+      const holidayTodayAllDay = availOverride
+        ? availOverride.state === 'PUBLIC_HOLIDAY'
+        : holidayTodayAllDayLegacy;
       const ptoTomorrowAllDay = tomorrow.kind === 'ooo';
       const holidayTomorrowAllDay = tomorrow.kind === 'away-day';
       const tomorrowDow = (dayOfWeek + 1) % 7;
@@ -2132,6 +2202,10 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           dayOfWeek: ctx.dayOfWeek,
           backToBackHoursToday,
           historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
+          // Canonical Availability SSOT — feed the classifier result into
+          // the RuleContext so PTO/holiday and weekend rules read from the
+          // same authoritative decision the planner and Brief use.
+          availability: ctx.dayContext.availability,
         },
       );
       if (wiring?.promptBlock) {

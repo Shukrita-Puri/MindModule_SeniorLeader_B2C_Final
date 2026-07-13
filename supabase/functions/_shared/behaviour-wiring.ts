@@ -45,6 +45,7 @@ export type RuleContextExtras = Partial<
     | "backToBackHoursToday"
     | "historicalAppOpenRateLow"
     | "conferenceDayNumber"
+    | "availability"
   >
 >;
 

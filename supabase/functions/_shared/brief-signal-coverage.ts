@@ -23,6 +23,11 @@ import {
   LONG_HAUL_MIN_HOURS,
 } from "./ceo-behaviour/travel.ts";
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
+import {
+  classifyAvailability,
+  type AvailabilityResult,
+  type AvailabilityEvent,
+} from "./availability/availability-classifier.ts";
 
 // --- Travel & Holiday detection v2 tuning constants (file-local SSOT). -----
 // Plan-approved values; bumping these is a deliberate behaviour change.
@@ -76,6 +81,15 @@ export interface SignalCoverageInput {
     stakesLevel?: string | null;
     status?: "confirmed" | "tentative" | "declined" | "cancelled";
     isWeekend?: boolean;
+    /** Work-evidence inputs for the Availability SSOT — optional. When
+     *  present, the canonical classifier can override PTO/holiday
+     *  framing on days with genuine work meetings (e.g. Saturday with
+     *  3 client calls → WORKDAY). Consumers that don't surface these
+     *  yet degrade to workload-only classification. */
+    isOrganizer?: boolean;
+    attendeesCount?: number;
+    source?: string | null;
+    calendarSummary?: string | null;
   }>;
   /** Optional trailing 4 days of events (1..4 days ago) used by the
    *  conference cluster's trailing-fatigue computation. Omit and trailing
@@ -123,6 +137,17 @@ export interface SignalCoverageInput {
   morningWasCompressed?: boolean;
   /** Optional midday-recovery flag (consumer pre-computes from HR/HRV trend). */
   middayRecoveryDetected?: boolean;
+  /** User home country from profiles.country (nullable). Feeds the canonical
+   *  availability classifier so region-qualified holidays and FYI holiday
+   *  calendars are gated by geography, not just title regex. */
+  userHomeCountry?: string | null;
+  /** Reserved for future Travel SSOT — the country the user is physically in
+   *  today. When unset the classifier falls back to `userHomeCountry`. */
+  userCurrentCountry?: string | null;
+  /** User-approved PTO/annual-leave (from onboarding/UI). Optional. */
+  explicitPto?: boolean;
+  /** Workload hint from upstream calendar-load classifier. Optional. */
+  calendarLoad?: "low" | "medium" | "high" | string | null;
 }
 
 const HIGH_STAKES_LEVELS = new Set(["board", "external", "investor"]);
@@ -343,6 +368,36 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
   };
   const checkIn = input.checkIn ?? {};
 
+  // --- Canonical Availability SSOT ----------------------------------------
+  // Compute the single-source availability decision up front so every
+  // downstream derivation (ptoTodayAllDay, personalHolidayInferred, rule
+  // context) reads from the same answer. See `_shared/availability/*`.
+  const availability: AvailabilityResult = classifyAvailability({
+    now: input.now,
+    userHomeCountry: input.userHomeCountry ?? null,
+    userCurrentCountry: input.userCurrentCountry ?? null,
+    explicitPto: input.explicitPto === true,
+    calendarLoad: input.calendarLoad ?? null,
+    events: input.events.map((e): AvailabilityEvent => ({
+      title: String(e.title || ''),
+      startTime: typeof e.startTime === 'string'
+        ? e.startTime
+        : (e.startTime instanceof Date ? e.startTime.toISOString() : ''),
+      endTime: typeof e.endTime === 'string'
+        ? e.endTime
+        : (e.endTime instanceof Date ? e.endTime.toISOString() : (
+            typeof e.startTime === 'string'
+              ? e.startTime
+              : (e.startTime instanceof Date ? e.startTime.toISOString() : '')
+          )),
+      isAllDay: e.isAllDay === true,
+      isOrganizer: (e as any).isOrganizer === true,
+      attendeesCount: Number((e as any).attendeesCount ?? 0) || 0,
+      source: (e as any).source ?? null,
+      calendarSummary: (e as any).calendarSummary ?? null,
+    })),
+  });
+
   // Pre-compute next-event slices.
   const futureEvents = input.events
     .map((e) => ({
@@ -458,8 +513,32 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     !todayShape.hasConference &&
     weekdayRunNoMeetings >= HOLIDAY_WEEKDAY_RUN_MIN;
 
-  const ptoTodayAllDayDerived =
-    ptoTitleAllDay || halfDayPto || ptoByPattern ? true : undefined;
+  // Canonical override matrix:
+  //   1. Classifier says PTO or applicable PUBLIC_HOLIDAY  → true (SSOT)
+  //   2. Classifier says WORKDAY                            → undefined
+  //      (work-evidence override — e.g. Sat with 3 client meetings)
+  //   3. Classifier detected a holiday but decided it does NOT apply to
+  //      the user (foreign region / foreign FYI feed)       → undefined
+  //      (this is exactly the "Bank Holiday (N Ireland)" case we're
+  //      fixing — the title regex WOULD trip legacy inference, but the
+  //      SSOT already rejected it, so we suppress)
+  //   4. Otherwise (LIGHT_ROUTINE / REST_DAY with no holiday hint)      →
+  //      fall through to legacy title/pattern-based inference. This
+  //      preserves the 4-weekday zero-meeting pattern, half-day PTO,
+  //      and unqualified-title branches that Brief has always fired.
+  const availStateForPto = availability.state;
+  const legacyPtoInferred = ptoTitleAllDay || halfDayPto || ptoByPattern;
+  const holidayRejectedByRegion =
+    availability.holiday.detected && !availability.holiday.applicable;
+  const ptoTodayAllDayDerived: true | undefined =
+    availStateForPto === 'PTO' ||
+    (availStateForPto === 'PUBLIC_HOLIDAY' && availability.holiday.applicable)
+      ? true
+      : availStateForPto === 'WORKDAY' || holidayRejectedByRegion
+        ? undefined
+        : legacyPtoInferred
+          ? true
+          : undefined;
 
   // --- personalHolidayInferred --------------------------------------------
   // A. Personal-leaning title on today's all-day event (with conference guard).
@@ -475,8 +554,20 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
   // the run. Travel in the run is allowed (workcation / bleisure → personal).
   const personalHolidayByPattern = ptoByPattern;
 
-  const personalHolidayInferredDerived =
-    personalHolidayTitle || personalHolidayByPattern ? true : undefined;
+  // personalHolidayInferred is a NARROWER signal than ptoTodayAllDay — it
+  // only fires for personal-leaning titles ("Vacation", "Annual Leave") and
+  // pattern-based runs. Plain "PTO" / "OOO" must NOT trip it. Applying the
+  // classifier here would over-fire, so we keep the legacy narrow
+  // derivation and only apply the SSOT to SUPPRESS it (WORKDAY override or
+  // region-rejected holiday).
+  const legacyPersonalHolidayInferred =
+    personalHolidayTitle || personalHolidayByPattern;
+  const personalHolidayInferredDerived: true | undefined =
+    availStateForPto === 'WORKDAY' || holidayRejectedByRegion
+      ? undefined
+      : legacyPersonalHolidayInferred
+        ? true
+        : undefined;
 
   // --- ptoMeetingPresent ---------------------------------------------------
   // PTO day (any branch) + a confirmed timed meeting today that is not itself
@@ -835,11 +926,40 @@ export function buildRuleContext(
       | "backToBackHoursToday"
       | "historicalAppOpenRateLow"
       | "conferenceDayNumber"
+      | "availability"
     >
   > = {},
 ): RuleContext {
   const signals = buildSignalMatrix(input);
   const localHour = input.now.getHours();
+  // Re-derive availability here (cheap, deterministic) so it lands on the
+  // RuleContext even when the caller didn't pass it via extras. This is the
+  // shared thread every consumer (Brief, Plan, Nudges) reads from.
+  const availability = extras.availability ?? classifyAvailability({
+    now: input.now,
+    userHomeCountry: input.userHomeCountry ?? null,
+    userCurrentCountry: input.userCurrentCountry ?? null,
+    explicitPto: input.explicitPto === true,
+    calendarLoad: input.calendarLoad ?? null,
+    events: input.events.map((e): AvailabilityEvent => ({
+      title: String(e.title || ''),
+      startTime: typeof e.startTime === 'string'
+        ? e.startTime
+        : (e.startTime instanceof Date ? e.startTime.toISOString() : ''),
+      endTime: typeof e.endTime === 'string'
+        ? e.endTime
+        : (e.endTime instanceof Date ? e.endTime.toISOString() : (
+            typeof e.startTime === 'string'
+              ? e.startTime
+              : (e.startTime instanceof Date ? e.startTime.toISOString() : '')
+          )),
+      isAllDay: e.isAllDay === true,
+      isOrganizer: (e as any).isOrganizer === true,
+      attendeesCount: Number((e as any).attendeesCount ?? 0) || 0,
+      source: (e as any).source ?? null,
+      calendarSummary: (e as any).calendarSummary ?? null,
+    })),
+  });
   return {
     signals,
     upcomingEvents: input.events
@@ -852,6 +972,7 @@ export function buildRuleContext(
       .filter((e) => e.minutesUntil >= 0)
       .sort((a, b) => a.minutesUntil - b.minutesUntil),
     localHour,
+    availability,
     ...extras,
   };
 }
