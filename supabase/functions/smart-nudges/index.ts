@@ -44,7 +44,13 @@ import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
 // `voice.cos_brief_rules`. Missing/failed profiles resolve to a shell
 // with nulls; Smart Nudges must treat null values as "system decides"
 // and continue to work exactly as today when the profile is absent.
-import { loadLeaderProfile, type LeaderProfileContext } from "../_shared/leader-profile-loader.ts";
+import {
+  loadLeaderProfile,
+  normaliseBriefTiming,
+  normaliseResetModality,
+  normaliseWeekendSignal,
+  type LeaderProfileContext,
+} from "../_shared/leader-profile-loader.ts";
 
 // ── APNs Helper Functions ──
 
@@ -3612,9 +3618,12 @@ serve(async (req) => {
   // notification_evaluator_traces.metadata.leaderPreferences without
   // having to touch each individual callsite.
   const leaderPrefsByUser = new Map<string, {
-    brief_timing: string | null;
+    brief_timing_raw: string | null;
+    brief_timing: 'morning' | 'afternoon' | 'evening' | null;
+    reset_modality_raw: string | null;
     reset_modality: string | null;
-    weekend_signals: string | null;
+    weekend_signals_raw: string | null;
+    weekend_signals: 'full' | 'light' | 'off' | null;
     profile_status: string;
   }>();
 
@@ -3979,12 +3988,18 @@ serve(async (req) => {
       } catch (e) {
         console.warn('[smart-nudges][leader-profile] load failed:', e instanceof Error ? e.message : String(e));
       }
-      const prefBriefTiming = leaderProfile?.preferences.brief_timing ?? null;
-      const prefResetModality = leaderProfile?.preferences.reset_modality ?? null;
-      const prefWeekendSignals = leaderProfile?.preferences.weekend_signals ?? null;
+      const rawBriefTiming = leaderProfile?.preferences.brief_timing ?? null;
+      const rawResetModality = leaderProfile?.preferences.reset_modality ?? null;
+      const rawWeekendSignals = leaderProfile?.preferences.weekend_signals ?? null;
+      const prefBriefTiming = normaliseBriefTiming(rawBriefTiming);
+      const prefResetModality = normaliseResetModality(rawResetModality);
+      const prefWeekendSignals = normaliseWeekendSignal(rawWeekendSignals);
       leaderPrefsByUser.set(userId, {
+        brief_timing_raw: rawBriefTiming,
         brief_timing: prefBriefTiming,
+        reset_modality_raw: rawResetModality,
         reset_modality: prefResetModality,
+        weekend_signals_raw: rawWeekendSignals,
         weekend_signals: prefWeekendSignals,
         profile_status: leaderProfile?.meta.status ?? 'missing',
       });
