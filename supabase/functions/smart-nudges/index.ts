@@ -3596,7 +3596,23 @@ serve(async (req) => {
   let apnsFailedCount = 0;
   const traceRows: Array<Record<string, unknown>> = [];
 
+  // Phase 4 — per-user leader preferences captured at loop entry so
+  // every downstream trace() call automatically carries them onto
+  // notification_evaluator_traces.metadata.leaderPreferences without
+  // having to touch each individual callsite.
+  const leaderPrefsByUser = new Map<string, {
+    brief_timing: string | null;
+    reset_modality: string | null;
+    weekend_signals: string | null;
+    profile_status: string;
+  }>();
+
   const trace = (userId: string, outcome: NotificationTraceOutcome, details: TraceDetails = {}) => {
+    const leaderPrefs = leaderPrefsByUser.get(userId);
+    const mergedMetadata: Record<string, unknown> = {
+      ...(leaderPrefs ? { leaderPreferences: leaderPrefs } : {}),
+      ...(details.metadata ?? {}),
+    };
     traceRows.push({
       run_id: runId,
       evaluator: 'smart-nudges',
@@ -3612,7 +3628,7 @@ serve(async (req) => {
       apns_status: details.apnsStatus ?? null,
       apns_reason: details.apnsReason ?? null,
       token_prefix: details.tokenPrefix ?? null,
-      metadata: details.metadata ?? {},
+      metadata: mergedMetadata,
     });
   };
 
