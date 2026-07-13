@@ -94,7 +94,19 @@ export function goalAlignment(eventBucket: string | null, goals: UserGoals | nul
     if (buckets && buckets.includes(eventBucket)) hits += 1;
   }
   if (hits === 0) return 0;
-  if (hits === 1) return 8;
-  if (hits === 2) return 12;
-  return 15;
+  const score = hits === 1 ? 8 : hits === 2 ? 12 : 15;
+  // Phase 3 — diagnostic trace only. Fires only when the goal alignment
+  // actually contributes (hits > 0). Behaviour unchanged.
+  try {
+    console.info('[plan][goal-alignment]', {
+      eventBucket,
+      tags,
+      hits,
+      score,
+      growthIntentions: goals.growthIntentions ?? [],
+      practicePriorityTags: goals.practicePriorityTags ?? [],
+      coachGrowthAreas: goals.coachGrowthAreas ?? [],
+    });
+  } catch { /* logging must never break scoring */ }
+  return score;
 }
