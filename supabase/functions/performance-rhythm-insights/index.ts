@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { loadLeaderProfile } from "../_shared/leader-profile-loader.ts";
 import {
   buildWearableDailySeries,
   computeWearableBaselines,
@@ -79,6 +80,11 @@ serve(async (req) => {
   try {
     const userId = await verifyAuth0JWT(req);
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+    // Phase 5 — Leader Profile enrichment. Null-safe; Insights renders as
+    // today when the profile is missing/in_progress. See
+    // supabase/functions/_shared/leader-profile-loader.ts.
+    const leaderProfile = await loadLeaderProfile(sb, userId).catch(() => null);
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now);
