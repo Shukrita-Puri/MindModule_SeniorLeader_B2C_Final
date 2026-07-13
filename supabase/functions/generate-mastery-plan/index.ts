@@ -5563,6 +5563,9 @@ async function applyV51Enrichment(
           // (no body/subjective divergence field on `req`). Left undefined
           // so the prompt drops it rather than fabricates a signal.
           vetoRisk: undefined,
+          // Phase 3 — Leader voice rules (null-safe; prompt omits the
+          // block when unavailable). Same rules injected into the Brief.
+          leaderVoiceRules: (req as any).leaderProfile?.voice?.cos_brief_rules ?? null,
         };
         jitJobs.push({ idx, input });
       }
