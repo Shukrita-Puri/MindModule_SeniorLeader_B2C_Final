@@ -276,8 +276,19 @@ serve(async (req) => {
         if (v.count >= 2) corrs.push({ et, avg: v.scores.reduce((a, b) => a + b, 0) / v.count, count: v.count });
       });
       corrs.sort((a, b) => a.avg - b.avg);
-      const drain = corrs[0];
-      const lift = corrs[corrs.length - 1];
+      // Phase 5 — if the leader declared high-stakes event types in
+      // onboarding, prioritise them when surfacing drain/lift. Matching is
+      // substring against the canonical event-type key (e.g. "board" matches
+      // declared "board meeting"). Purely additive: falls back to the
+      // statistical top/bottom when there is no declared match.
+      const declaredHS: string[] = (leaderProfile?.priors.high_stakes_map?.declared_events ?? [])
+        .map((s) => String(s).toLowerCase());
+      const isDeclared = (et: string) =>
+        declaredHS.some((d) => d.includes(et) || et.includes(d));
+      const declaredDrain = corrs.find((c) => isDeclared(c.et));
+      const declaredLift = [...corrs].reverse().find((c) => isDeclared(c.et));
+      const drain = declaredDrain ?? corrs[0];
+      const lift = declaredLift ?? corrs[corrs.length - 1];
       if (drain && drain.avg < 50) {
         calendarInsight = `On days with ${drain.et.replace("_", " ")} events, your readiness averages ${Math.round(drain.avg)} – observed across ${drain.count} occurrences.`;
       } else if (lift && lift.avg > 65) {
