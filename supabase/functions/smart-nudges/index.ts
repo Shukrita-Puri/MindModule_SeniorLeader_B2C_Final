@@ -1861,6 +1861,17 @@ Hard rules:
 - Truncate any event title longer than 20 characters to its first 3 words.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
+  // Phase 4 — append leader voice rules + reset-modality preference to
+  // the system prompt when the CoS Leader Profile is available. Both
+  // blocks are strictly additive; the LLM prompt is unchanged for users
+  // without a synthesised profile.
+  if (ctx.leaderVoiceRules && ctx.leaderVoiceRules.trim().length > 0) {
+    systemPrompt += `\n\n=== LEADER VOICE ===\n${ctx.leaderVoiceRules.trim()}`;
+  }
+  if (ctx.leaderResetModality) {
+    systemPrompt += `\n\nThe leader prefers ${ctx.leaderResetModality}-based reset protocols. When the CTA references a reset, prefer language consistent with that modality (but never invent a new CTA verb — stay within the allowed list above).`;
+  }
+
   let userPrompt = '';
   const wearableLines = buildWearableLines(ctx);
   const wearablePriorityLines = buildWearablePriorityLines(ctx);
