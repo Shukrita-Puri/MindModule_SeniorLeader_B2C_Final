@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadLeaderProfile, type LeaderProfileContext } from '../_shared/leader-profile-loader.ts';
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
@@ -1919,6 +1920,11 @@ serve(async (req) => {
     const platform = detectClientPlatform(req);
     const db = wrapDbWithCalendarPrimacy(createClient(supabaseUrl, supabaseKey), platform);
 
+    // Leader Profile (from onboarding CoS synthesis). Loaded ONCE, reused
+    // by system prompt, user prompt, and brief_snapshots payload. Never
+    // throws; returns a shell with nulls when the profile is missing/failed.
+    const leaderProfile: LeaderProfileContext = await loadLeaderProfile(db, userId);
+
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
     // Fetch tomorrow's calendar for any evening (≥18:00), not just late evening
     const lateEvening = isLateEvening(hour);
@@ -3741,6 +3747,38 @@ serve(async (req) => {
             return 'high';
           })();
           const systemPrompt = buildBriefSystemPrompt({ bandValence });
+          // === LEADER VOICE === (from onboarding CoS profile)
+          // Appended AFTER the shared persona/voice/constraint blocks so it
+          // reads as a distinct, auditable calibration layer. Empty when the
+          // leader profile is missing — the Brief must behave identically.
+          const leaderVoiceParts: string[] = [];
+          if (leaderProfile.voice.cos_brief_rules) {
+            leaderVoiceParts.push(
+              `=== LEADER-SPECIFIC VOICE RULES ===\n${leaderProfile.voice.cos_brief_rules}`,
+            );
+          }
+          if (leaderProfile.voice.brief_voice_note) {
+            leaderVoiceParts.push(`Voice calibration: ${leaderProfile.voice.brief_voice_note}`);
+          }
+          if (leaderProfile.voice.communication_what_lands?.length) {
+            leaderVoiceParts.push(
+              `Language that LANDS with this leader: ${leaderProfile.voice.communication_what_lands.join('; ')}`,
+            );
+          }
+          if (leaderProfile.voice.communication_what_wont_land?.length) {
+            leaderVoiceParts.push(
+              `Language that WON'T LAND: ${leaderProfile.voice.communication_what_wont_land.join('; ')}`,
+            );
+          }
+          if (leaderProfile.voice.communication_how_they_think) {
+            leaderVoiceParts.push(
+              `How this leader thinks: ${leaderProfile.voice.communication_how_they_think}`,
+            );
+          }
+          const leaderVoiceBlock = leaderVoiceParts.length > 0
+            ? `\n\n=== LEADER VOICE ===\n${leaderVoiceParts.join('\n\n')}`
+            : '';
+          const systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
           // Retain the legacy inline prompt only as a parked diff-bisection
           // literal during rollout. It is not part of the active prompt path.
           // Drift-protection: any new persona/voice/constraint change must
@@ -4120,6 +4158,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
             if (onboardingParts.length > 0) {
               userPrompt += `\n\n=== ONBOARDING ===\n${onboardingParts.join('\n')}`;
+            }
+          }
+
+          // === LEADER PROFILE === (from onboarding CoS synthesis)
+          // Additive block — only rendered when fields are present. Existing
+          // ONBOARDING block above is preserved.
+          {
+            const leaderParts: string[] = [];
+            if (leaderProfile.goals.declared.length > 0) {
+              leaderParts.push(`Leader goals: ${leaderProfile.goals.declared.join(', ')}`);
+            }
+            if (leaderProfile.priors.high_stakes_map?.declared_events?.length) {
+              leaderParts.push(
+                `Declared high-stakes events: ${leaderProfile.priors.high_stakes_map.declared_events.join(', ')}`,
+              );
+            }
+            if (leaderProfile.analysis.archetype) {
+              leaderParts.push(`Provisional archetype: ${leaderProfile.analysis.archetype}`);
+            }
+            if (leaderProfile.goals.cos_accountability_note) {
+              leaderParts.push(`CoS accountability note: ${leaderProfile.goals.cos_accountability_note}`);
+            }
+            if (leaderParts.length > 0) {
+              userPrompt += `\n\n=== LEADER PROFILE ===\n${leaderParts.join('\n')}`;
             }
           }
 
@@ -5028,7 +5090,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               let content: string;
               if (useGateway) {
                 content = await callLovableAIText({
-                  system: systemPrompt,
+                  system: systemPromptWithLeader,
                   messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
@@ -5037,7 +5099,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 });
               } else {
                 content = await callClaudeText({
-                  system: systemPrompt,
+                  system: systemPromptWithLeader,
                   messages: [{ role: 'user', content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
@@ -5072,7 +5134,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       let retryContent: string;
                       if (useGateway) {
                         retryContent = await callLovableAIText({
-                          system: systemPrompt,
+                          system: systemPromptWithLeader,
                           messages: [{ role: 'user', content: retryUserPrompt }],
                           model,
                           max_tokens: 380,
@@ -5081,7 +5143,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                         });
                       } else {
                         retryContent = await callClaudeText({
-                          system: systemPrompt,
+                          system: systemPromptWithLeader,
                           messages: [{ role: 'user', content: retryUserPrompt }],
                           model,
                           max_tokens: 380,
@@ -6802,6 +6864,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 promptBlockPlan: briefBehaviourSnapshot.promptBlockPlan,
               } : null,
               window_context: briefWindowContext ?? null,
+              // Leader Profile summary — persisted so Plan / Nudges / Insights
+              // that load the brief snapshot see the exact CoS context the
+              // Brief reasoned over. Never contains full cos_profile — only
+              // the fields consumed downstream.
+              leaderProfile: {
+                goals: leaderProfile.goals,
+                voice: {
+                  cos_brief_rules: leaderProfile.voice.cos_brief_rules,
+                  brief_voice_note: leaderProfile.voice.brief_voice_note,
+                },
+                archetype: leaderProfile.analysis.archetype,
+                preferences: leaderProfile.preferences,
+                meta: leaderProfile.meta,
+              },
             },
             // Structured wearable snapshot — full set of readings + baselines + deviations
             // captured at brief generation time. Past briefs and Insights read this directly
