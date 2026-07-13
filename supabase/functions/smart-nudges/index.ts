@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+// Canonical Availability SSOT. Every behavioural consumer (Planner, Brief,
+// Nudges) reads from this single classifier so "is the user actually working
+// today?" always has one authoritative answer.
+import {
+  classifyAvailability,
+  type AvailabilityResult,
+} from "../_shared/availability/availability-classifier.ts";
 // Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
 // reasoned over instead of re-evaluating rules against a fresh
 // SignalCoverageInput. Falls back to `evaluateForScope` only when no Brief
