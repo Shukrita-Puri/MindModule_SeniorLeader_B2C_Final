@@ -3889,35 +3889,39 @@ serve(async (req) => {
     //     APNs deliveries to arbitrary users.
     //   • The evaluation loop is restricted to the forced user only —
     //     an admin diagnostic run must NEVER notify unrelated users.
-    //   • Dry-run default is now `true`. Real APNs sending requires an
-    //     explicit `?force_dry=0` from an authenticated admin.
+    //   • Delivery contract (Fix B): production delivery is the default.
+    //     Dry-run is only entered when APNs credentials are missing, the
+    //     caller explicitly passes `?force_dry=1|true|yes`, or an admin
+    //     diagnostic is attempted without valid admin auth. See
+    //     ./delivery-mode.ts for the canonical resolver.
     const forceUserId =
       url.searchParams.get('force_user') ||
       url.searchParams.get('force_user_id') ||
       null;
-    // Default TRUE unless the caller explicitly opts into a real send.
-    let forceDryRun = url.searchParams.get('force_dry') !== '0';
+    let adminAuthFailed = false;
     if (forceUserId) {
       const guard = await requireAdmin(req);
       if (guard.errorResponse) {
         console.warn('[smart-nudges][force_user] admin gate rejected caller');
+        adminAuthFailed = true;
         await finishRun('force_user_admin_gate_rejected');
         return guard.errorResponse;
       }
-      // Extra safety: real-send requires admin + explicit flag. If a caller
-      // ever passes force_dry=0 in a way the guard missed, we still refuse
-      // by requiring the admin identity to be present.
-      if (!forceDryRun && !guard.admin) forceDryRun = true;
       await writeAdminAudit(guard.db, {
         admin: guard.admin!,
         action: 'smart_nudges.force_user',
         targetUserId: forceUserId,
         route: 'smart-nudges',
-        metadata: { dry_run: forceDryRun, evaluator_version: EVALUATOR_VERSION },
+        metadata: {
+          evaluator_version: EVALUATOR_VERSION,
+          // Delivery mode is resolved later once APNs cred presence is known;
+          // the audit only captures the intent flag surface here.
+          force_dry_param: url.searchParams.get('force_dry') ?? null,
+        },
       });
       console.log(
         `[smart-nudges][v8 test] force_user=${redactUserId(forceUserId)} ` +
-        `admin=${guard.admin!.adminEmail} dry_run=${forceDryRun}`,
+        `admin=${guard.admin!.adminEmail} force_dry_param=${url.searchParams.get('force_dry') ?? 'unset'}`,
       );
     }
 
