@@ -1397,9 +1397,17 @@ async function buildNudgeContext(
         postTravel: postTravelToday,
         preFlight,
         inFlight,
-        // v5.3 - PTO / public-holiday "light touch": away-day or ooo today.
-        ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
+        // Canonical Availability SSOT — Nudges must not treat foreign
+        // regional holidays (e.g. "Bank Holiday (N Ireland)" for a
+        // GB-ENG user) or empty calendars as PTO, and must treat
+        // weekend-with-work-meetings as WORKDAY. Legacy `today.kind`
+        // detection retained above only for travel/signalToken plumbing.
+        ptoMode: nudgeAvailability
+          ? (nudgeAvailability.state === 'PTO' ||
+             nudgeAvailability.state === 'PUBLIC_HOLIDAY')
+          : (today.kind === 'away-day' || today.kind === 'ooo'),
         landingPlusHighStakes,
+        availability: nudgeAvailability,
       };
     })(),
     weekAheadInputs: (() => {
@@ -1409,8 +1417,19 @@ async function buildNudgeContext(
       // distinguish PTO (ooo) from public holidays (away-day) precisely, but
       // for week-ahead-mode both branches collapse to the same outcome
       // (active=true, lookahead=7). The distinction only shapes telemetry.
-      const ptoTodayAllDay = today.kind === 'ooo';
-      const holidayTodayAllDay = today.kind === 'away-day';
+      // Canonical override: consult the availability SSOT. When it says
+      // WORKDAY (empty weekday, or work-evidence override on a
+      // weekend/holiday), zero both PTO and holiday flags so the week-
+      // ahead evaluator does NOT fire post-PTO / post-holiday branches.
+      const ptoTodayAllDayLegacy = today.kind === 'ooo';
+      const holidayTodayAllDayLegacy = today.kind === 'away-day';
+      const availOverride = nudgeAvailability;
+      const ptoTodayAllDay = availOverride
+        ? availOverride.state === 'PTO'
+        : ptoTodayAllDayLegacy;
+      const holidayTodayAllDay = availOverride
+        ? availOverride.state === 'PUBLIC_HOLIDAY'
+        : holidayTodayAllDayLegacy;
       const ptoTomorrowAllDay = tomorrow.kind === 'ooo';
       const holidayTomorrowAllDay = tomorrow.kind === 'away-day';
       const tomorrowDow = (dayOfWeek + 1) % 7;
