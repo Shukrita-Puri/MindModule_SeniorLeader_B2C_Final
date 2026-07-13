@@ -554,18 +554,20 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
   // the run. Travel in the run is allowed (workcation / bleisure → personal).
   const personalHolidayByPattern = ptoByPattern;
 
-  // personalHolidayInferred follows the same 4-branch matrix.
+  // personalHolidayInferred is a NARROWER signal than ptoTodayAllDay — it
+  // only fires for personal-leaning titles ("Vacation", "Annual Leave") and
+  // pattern-based runs. Plain "PTO" / "OOO" must NOT trip it. Applying the
+  // classifier here would over-fire, so we keep the legacy narrow
+  // derivation and only apply the SSOT to SUPPRESS it (WORKDAY override or
+  // region-rejected holiday).
   const legacyPersonalHolidayInferred =
     personalHolidayTitle || personalHolidayByPattern;
   const personalHolidayInferredDerived: true | undefined =
-    availStateForPto === 'PTO' ||
-    (availStateForPto === 'PUBLIC_HOLIDAY' && availability.holiday.applicable)
-      ? true
-      : availStateForPto === 'WORKDAY' || holidayRejectedByRegion
-        ? undefined
-        : legacyPersonalHolidayInferred
-          ? true
-          : undefined;
+    availStateForPto === 'WORKDAY' || holidayRejectedByRegion
+      ? undefined
+      : legacyPersonalHolidayInferred
+        ? true
+        : undefined;
 
   // --- ptoMeetingPresent ---------------------------------------------------
   // PTO day (any branch) + a confirmed timed meeting today that is not itself
