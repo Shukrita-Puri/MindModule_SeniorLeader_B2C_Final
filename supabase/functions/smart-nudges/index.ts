@@ -1295,6 +1295,47 @@ async function buildNudgeContext(
     `[smart-nudges] planSlots status=${planSlotRead.status} count=${planSlotRead.slots?.length ?? 0} user=${userId} date=${todayStr} window=${briefWindow}`,
   );
 
+  // Canonical Availability SSOT — one classification per tick, shared by
+  // dayContext.ptoMode and weekAheadInputs.pto/holidayTodayAllDay below.
+  // Country is fetched best-effort so region-qualified holidays are gated
+  // by geography, not title regex; failure falls back to null (unqualified
+  // titles still apply → matches legacy behaviour).
+  let userHomeCountry: string | null = null;
+  try {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('country')
+      .eq('id', userId)
+      .maybeSingle();
+    userHomeCountry = (prof as { country?: string | null } | null)?.country ?? null;
+  } catch (_e) { /* best-effort — classifier degrades gracefully */ }
+  let nudgeAvailability: AvailabilityResult | undefined;
+  try {
+    nudgeAvailability = classifyAvailability({
+      now,
+      userHomeCountry,
+      userCurrentCountry: null,
+      events: (todayEvents || []).map((e: any) => ({
+        title: String(e?.title ?? ''),
+        startTime: String(e?.start_time ?? ''),
+        endTime: String(e?.end_time ?? e?.start_time ?? ''),
+        isAllDay: e?.is_all_day === true ||
+          ((new Date(e?.end_time ?? e?.start_time ?? 0).getTime() -
+            new Date(e?.start_time ?? 0).getTime()) >= 20 * 3600 * 1000),
+        isOrganizer: e?.is_organizer === true,
+        attendeesCount: Number(e?.attendees_count ?? 0) || 0,
+        source: e?.source ?? e?.calendar_name ?? null,
+        calendarSummary: e?.calendar_summary ?? null,
+      })),
+    });
+    console.log(
+      `[smart-nudges][availability] user=${userId} state=${nudgeAvailability.state} isRestDay=${nudgeAvailability.isRestDay} reason=${nudgeAvailability.reason} country=${userHomeCountry ?? 'null'}`,
+    );
+  } catch (avErr) {
+    console.warn('[smart-nudges][availability] classifier failed:',
+      avErr instanceof Error ? avErr.message : avErr);
+  }
+
   return {
     userId,
     todayStr,
