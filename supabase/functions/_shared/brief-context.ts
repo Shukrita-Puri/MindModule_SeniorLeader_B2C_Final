@@ -415,4 +415,25 @@ export interface RuleContext {
   crisisEvent?: { title: string; minutesUntil: number } | null;
   /** Time since last completed practice — for timeSinceLastRecovery stub (Batch 3). */
   minutesSinceLastPractice?: number | null;
+  /**
+   * Canonical availability decision. When present, rules MUST prefer this
+   * over legacy `signals.ptoTodayAllDay` / `holidayAllDayEventToday`. The
+   * classifier lives at `_shared/availability/availability-classifier.ts`
+   * and is the single source of truth for "is the user actually working
+   * today?". Legacy fields are retained for backward compatibility with
+   * consumers that have not yet migrated. Populated automatically by
+   * `buildRuleContext` when country / event data is available.
+   */
+  availability?: {
+    state: 'WORKDAY' | 'LIGHT_ROUTINE' | 'REST_DAY' | 'PTO' | 'PUBLIC_HOLIDAY';
+    isRestDay: boolean;
+    workEvidence: { meetingCount: number; hasWorkMeetings: boolean };
+    holiday: {
+      detected: boolean;
+      applicable: boolean;
+      title?: string;
+      scope?: string;
+    };
+    reason: string;
+  };
 }
