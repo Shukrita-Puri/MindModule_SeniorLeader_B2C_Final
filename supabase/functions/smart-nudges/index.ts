@@ -39,6 +39,13 @@ import { recordDeliveryAttempt } from "../_shared/delivery-attempts.ts";
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
 
+// Phase 4 — Unified CoS Leader Profile reader (null-safe). Provides
+// `preferences.{brief_timing, reset_modality, weekend_signals}` and
+// `voice.cos_brief_rules`. Missing/failed profiles resolve to a shell
+// with nulls; Smart Nudges must treat null values as "system decides"
+// and continue to work exactly as today when the profile is absent.
+import { loadLeaderProfile, type LeaderProfileContext } from "../_shared/leader-profile-loader.ts";
+
 // ── APNs Helper Functions ──
 
 /**
@@ -618,6 +625,12 @@ interface NudgeContext {
       landingDeliveryMode?: 'in_app_practice' | 'push_only' | 'standard';
     }>;
   } | null;
+  // Phase 4 — Leader voice rules + preferences from the CoS Leader
+  // Profile. Populated once per user tick after buildNudgeContext.
+  // Null when the profile is missing / in_progress / failed; the copy
+  // generator and preference gates must treat null as "system decides".
+  leaderVoiceRules?: string | null;
+  leaderResetModality?: 'movement' | 'stillness' | 'breath' | string | null;
 }
 
 interface NudgeCopy {
@@ -1756,7 +1769,7 @@ async function generateNudgeCopy(
     return null;
   }
 
-  const systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
+  let systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
 
 You write push notifications for a MENTAL-PERFORMANCE app. The user's job, every habit-building nudge, is to check in and do mental prep - never strategic prep, never deck prep.
 
@@ -1847,6 +1860,17 @@ Hard rules:
 - Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness", "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline", "set the tone", "loaded day", "come back", and every banned CTA verb listed above.
 - Truncate any event title longer than 20 characters to its first 3 words.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
+
+  // Phase 4 — append leader voice rules + reset-modality preference to
+  // the system prompt when the CoS Leader Profile is available. Both
+  // blocks are strictly additive; the LLM prompt is unchanged for users
+  // without a synthesised profile.
+  if (ctx.leaderVoiceRules && ctx.leaderVoiceRules.trim().length > 0) {
+    systemPrompt += `\n\n=== LEADER VOICE ===\n${ctx.leaderVoiceRules.trim()}`;
+  }
+  if (ctx.leaderResetModality) {
+    systemPrompt += `\n\nThe leader prefers ${ctx.leaderResetModality}-based reset protocols. When the CTA references a reset, prefer language consistent with that modality (but never invent a new CTA verb — stay within the allowed list above).`;
+  }
 
   let userPrompt = '';
   const wearableLines = buildWearableLines(ctx);
@@ -3583,7 +3607,23 @@ serve(async (req) => {
   let apnsFailedCount = 0;
   const traceRows: Array<Record<string, unknown>> = [];
 
+  // Phase 4 — per-user leader preferences captured at loop entry so
+  // every downstream trace() call automatically carries them onto
+  // notification_evaluator_traces.metadata.leaderPreferences without
+  // having to touch each individual callsite.
+  const leaderPrefsByUser = new Map<string, {
+    brief_timing: string | null;
+    reset_modality: string | null;
+    weekend_signals: string | null;
+    profile_status: string;
+  }>();
+
   const trace = (userId: string, outcome: NotificationTraceOutcome, details: TraceDetails = {}) => {
+    const leaderPrefs = leaderPrefsByUser.get(userId);
+    const mergedMetadata: Record<string, unknown> = {
+      ...(leaderPrefs ? { leaderPreferences: leaderPrefs } : {}),
+      ...(details.metadata ?? {}),
+    };
     traceRows.push({
       run_id: runId,
       evaluator: 'smart-nudges',
@@ -3599,7 +3639,7 @@ serve(async (req) => {
       apns_status: details.apnsStatus ?? null,
       apns_reason: details.apnsReason ?? null,
       token_prefix: details.tokenPrefix ?? null,
-      metadata: details.metadata ?? {},
+      metadata: mergedMetadata,
     });
   };
 
@@ -3927,6 +3967,28 @@ serve(async (req) => {
       const localMinute = parts.minute;
       const todayStr = parts.localDate;
       const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
+      const isWeekendDay = dayOfWeek === 0 || dayOfWeek === 6;
+
+      // Phase 4 — load the CoS Leader Profile once per user tick and
+      // capture preferences for downstream gates + trace metadata.
+      // Null-safe: missing/failed/in_progress profiles resolve to a
+      // shell with nulls and behaviour matches today's system.
+      let leaderProfile: LeaderProfileContext | null = null;
+      try {
+        leaderProfile = await loadLeaderProfile(supabase, userId);
+      } catch (e) {
+        console.warn('[smart-nudges][leader-profile] load failed:', e instanceof Error ? e.message : String(e));
+      }
+      const prefBriefTiming = leaderProfile?.preferences.brief_timing ?? null;
+      const prefResetModality = leaderProfile?.preferences.reset_modality ?? null;
+      const prefWeekendSignals = leaderProfile?.preferences.weekend_signals ?? null;
+      leaderPrefsByUser.set(userId, {
+        brief_timing: prefBriefTiming,
+        reset_modality: prefResetModality,
+        weekend_signals: prefWeekendSignals,
+        profile_status: leaderProfile?.meta.status ?? 'missing',
+      });
+
       const traceBase = {
         localDate: todayStr,
         localHour,
@@ -4088,6 +4150,10 @@ serve(async (req) => {
           clockTimezone,
         );
         ctx.pattern = await loadPatternSummary(supabase, userId);
+        // Phase 4 — hydrate leader voice + reset modality preference so
+        // the copy generator can append them to the LLM system prompt.
+        ctx.leaderVoiceRules = leaderProfile?.voice.cos_brief_rules ?? null;
+        ctx.leaderResetModality = prefResetModality;
 
         const inv = await evaluateWeekAheadPickerInvite(ctx, supabase, weeklyAlreadySent);
         if (inv) {
@@ -4171,6 +4237,10 @@ serve(async (req) => {
         // v7 - hydrate unified pattern store (causality_findings.signal_summary)
         ctx.pattern = await loadPatternSummary(supabase, userId);
       }
+      // Phase 4 — always hydrate leader voice + reset modality on ctx,
+      // even when reused from the week-ahead path above (idempotent set).
+      ctx.leaderVoiceRules = leaderProfile?.voice.cos_brief_rules ?? null;
+      ctx.leaderResetModality = prefResetModality;
 
       // MRS snapshot is read for escalation/freshness context only. Missing,
       // awaiting, or strong/light data must never suppress nudges.
@@ -4267,6 +4337,26 @@ serve(async (req) => {
           .filter((s): s is 'morning' | 'afternoon' | 'evening' => s !== null),
       );
       const activeSlot = currentSlotForLocalHour(localHour);
+
+      // Phase 4 — Leader `weekend_signals` preference. Soft gate, applied
+      // only when the preference is explicitly set. `full` and null both
+      // preserve today's behaviour.
+      if (isWeekendDay && prefWeekendSignals === 'off') {
+        console.info(`[smart-nudges] weekend_signals=off, skipping user=${redactUserId(userId)}`);
+        trace(userId, 'leader_pref_weekend_off', {
+          ...traceBase,
+          metadata: { active_slot: activeSlot, weekend_signals: 'off' },
+        });
+        continue;
+      }
+      if (isWeekendDay && prefWeekendSignals === 'light' && activeSlot !== 'morning') {
+        console.info(`[smart-nudges] weekend_signals=light, skipping non-morning slot user=${redactUserId(userId)} slot=${activeSlot}`);
+        trace(userId, 'leader_pref_weekend_light_non_morning', {
+          ...traceBase,
+          metadata: { active_slot: activeSlot, weekend_signals: 'light' },
+        });
+        continue;
+      }
 
       // ══════════════════════════════════════════════════
       // ── MVP 3-Nudge Cascade: Nudge 1 → 2 → 3 ──
