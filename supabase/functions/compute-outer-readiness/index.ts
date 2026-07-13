@@ -6864,6 +6864,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 promptBlockPlan: briefBehaviourSnapshot.promptBlockPlan,
               } : null,
               window_context: briefWindowContext ?? null,
+              // Leader Profile summary — persisted so Plan / Nudges / Insights
+              // that load the brief snapshot see the exact CoS context the
+              // Brief reasoned over. Never contains full cos_profile — only
+              // the fields consumed downstream.
+              leaderProfile: {
+                goals: leaderProfile.goals,
+                voice: {
+                  cos_brief_rules: leaderProfile.voice.cos_brief_rules,
+                  brief_voice_note: leaderProfile.voice.brief_voice_note,
+                },
+                archetype: leaderProfile.analysis.archetype,
+                preferences: leaderProfile.preferences,
+                meta: leaderProfile.meta,
+              },
             },
             // Structured wearable snapshot — full set of readings + baselines + deviations
             // captured at brief generation time. Past briefs and Insights read this directly
