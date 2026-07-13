@@ -37,8 +37,11 @@ export function parseHolidayRegionFromTitle(
   // Parenthesised qualifiers first.
   if (/\(n\.?\s*ireland\)|\bnorthern ireland\b/.test(t)) return "GB-NIR";
   if (/\(scotland\)|\bscotland\b/.test(t)) return "GB-SCT";
+  // England & Wales umbrella must be checked before the plain Wales / England
+  // matchers so "(England & Wales)" doesn't get classified as Wales only.
+  if (/\(england\s*&\s*wales\)|\bengland\s*&\s*wales\b/.test(t)) return "GB-ENG";
   if (/\(wales\)|\bwales\b/.test(t)) return "GB-WLS";
-  if (/\(england(?:\s*&\s*wales)?\)|\bengland\b/.test(t)) return "GB-ENG";
+  if (/\(england\)|\bengland\b/.test(t)) return "GB-ENG";
   if (/\(uk\)|\bunited kingdom\b/.test(t)) return "GB";
   if (/\(us\)|\bunited states\b|\bu\.s\.\b/.test(t) || /^us\s/i.test(title))
     return "US";
