@@ -391,10 +391,10 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
               : (e.startTime instanceof Date ? e.startTime.toISOString() : '')
           )),
       isAllDay: e.isAllDay === true,
-      // Attendee/organiser data isn't on this shape today; the classifier's
-      // work-evidence check falls back to timed non-noise events with any
-      // signal of collaboration. When Brief input eventually surfaces
-      // attendees the classifier upgrades transparently.
+      isOrganizer: (e as any).isOrganizer === true,
+      attendeesCount: Number((e as any).attendeesCount ?? 0) || 0,
+      source: (e as any).source ?? null,
+      calendarSummary: (e as any).calendarSummary ?? null,
     })),
   });
 
@@ -944,6 +944,10 @@ export function buildRuleContext(
               : (e.startTime instanceof Date ? e.startTime.toISOString() : '')
           )),
       isAllDay: e.isAllDay === true,
+      isOrganizer: (e as any).isOrganizer === true,
+      attendeesCount: Number((e as any).attendeesCount ?? 0) || 0,
+      source: (e as any).source ?? null,
+      calendarSummary: (e as any).calendarSummary ?? null,
     })),
   });
   return {
