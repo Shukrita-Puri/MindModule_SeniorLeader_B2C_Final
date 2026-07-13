@@ -27,6 +27,7 @@ import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudg
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
 import { validateApnsEnvironment } from "../_shared/apns-env.ts";
+import { resolveDeliveryMode, describeDeliveryMode, type DeliveryMode } from "./delivery-mode.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
@@ -3888,35 +3889,39 @@ serve(async (req) => {
     //     APNs deliveries to arbitrary users.
     //   • The evaluation loop is restricted to the forced user only —
     //     an admin diagnostic run must NEVER notify unrelated users.
-    //   • Dry-run default is now `true`. Real APNs sending requires an
-    //     explicit `?force_dry=0` from an authenticated admin.
+    //   • Delivery contract (Fix B): production delivery is the default.
+    //     Dry-run is only entered when APNs credentials are missing, the
+    //     caller explicitly passes `?force_dry=1|true|yes`, or an admin
+    //     diagnostic is attempted without valid admin auth. See
+    //     ./delivery-mode.ts for the canonical resolver.
     const forceUserId =
       url.searchParams.get('force_user') ||
       url.searchParams.get('force_user_id') ||
       null;
-    // Default TRUE unless the caller explicitly opts into a real send.
-    let forceDryRun = url.searchParams.get('force_dry') !== '0';
+    let adminAuthFailed = false;
     if (forceUserId) {
       const guard = await requireAdmin(req);
       if (guard.errorResponse) {
         console.warn('[smart-nudges][force_user] admin gate rejected caller');
+        adminAuthFailed = true;
         await finishRun('force_user_admin_gate_rejected');
         return guard.errorResponse;
       }
-      // Extra safety: real-send requires admin + explicit flag. If a caller
-      // ever passes force_dry=0 in a way the guard missed, we still refuse
-      // by requiring the admin identity to be present.
-      if (!forceDryRun && !guard.admin) forceDryRun = true;
       await writeAdminAudit(guard.db, {
         admin: guard.admin!,
         action: 'smart_nudges.force_user',
         targetUserId: forceUserId,
         route: 'smart-nudges',
-        metadata: { dry_run: forceDryRun, evaluator_version: EVALUATOR_VERSION },
+        metadata: {
+          evaluator_version: EVALUATOR_VERSION,
+          // Delivery mode is resolved later once APNs cred presence is known;
+          // the audit only captures the intent flag surface here.
+          force_dry_param: url.searchParams.get('force_dry') ?? null,
+        },
       });
       console.log(
         `[smart-nudges][v8 test] force_user=${redactUserId(forceUserId)} ` +
-        `admin=${guard.admin!.adminEmail} dry_run=${forceDryRun}`,
+        `admin=${guard.admin!.adminEmail} force_dry_param=${url.searchParams.get('force_dry') ?? 'unset'}`,
       );
     }
 
@@ -4903,17 +4908,46 @@ serve(async (req) => {
         shipped: 0,
       }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const isDryRun = (!apnsKey || !apnsKeyId || !apnsTeamId) || forceDryRun;
+    const apnsCredsPresent = !!(apnsKey && apnsKeyId && apnsTeamId);
+    const deliveryMode: DeliveryMode = resolveDeliveryMode({
+      url,
+      apnsCredsPresent,
+      adminAuthFailed,
+    });
+    const isDryRun = deliveryMode.dryRun;
 
-    if (isDryRun) {
+    console.log(
+      `[smart-nudges] Execution mode: ${describeDeliveryMode(deliveryMode)} | reason=${deliveryMode.reason}`,
+    );
+    if (deliveryMode.reason === 'missing_apns_credentials') {
       const missing = [
         !apnsKey && 'APNS_P8_KEY',
         !apnsKeyId && 'APNS_KEY_ID',
         !apnsTeamId && 'APNS_TEAM_ID',
       ].filter(Boolean);
       console.warn(`[smart-nudges] DRY RUN – missing secrets: ${missing.join(', ')}`);
-    } else {
+    } else if (!isDryRun) {
       console.log(`[smart-nudges] APNs config: host=${apnsHost} topic=${apnsBundleId} env=${apnsEnv}`);
+    }
+
+    // Persist delivery mode on the run row so operators can audit scheduled
+    // executions after the fact without re-parsing logs.
+    if (runId) {
+      try {
+        await supabase
+          .from('notification_evaluator_runs')
+          .update({
+            metadata: {
+              client_platform: platform,
+              apns_environment: Deno.env.get('APNS_ENVIRONMENT') || 'development',
+              delivery_mode: describeDeliveryMode(deliveryMode),
+              delivery_reason: deliveryMode.reason,
+            },
+          })
+          .eq('id', runId);
+      } catch (e) {
+        console.warn('[smart-nudges] failed to persist delivery_mode on run row:', e);
+      }
     }
 
     let sendSuccess = 0;
@@ -5290,7 +5324,7 @@ serve(async (req) => {
     }
 
     console.log(
-      `[smart-nudges] summary qualified=${allNotifications.length} shipped=${shippedNotifications.length} suppressed_post_cta=${suppressedPostCta} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} dry_run=${isDryRun}`,
+      `[smart-nudges] summary qualified=${allNotifications.length} shipped=${shippedNotifications.length} suppressed_post_cta=${suppressedPostCta} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} mode=${describeDeliveryMode(deliveryMode)} reason=${deliveryMode.reason}`,
     );
 
     qualifiedCount = allNotifications.length;
@@ -5308,6 +5342,8 @@ serve(async (req) => {
       suppressed_post_cta: suppressedPostCta,
       apns_attempted: sendAttempted,
       dry_run: isDryRun,
+      delivery_mode: describeDeliveryMode(deliveryMode),
+      delivery_reason: deliveryMode.reason,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
       architecture: 'cos-mind-v8-meaning-forward',
