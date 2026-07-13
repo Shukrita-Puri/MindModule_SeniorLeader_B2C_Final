@@ -2202,6 +2202,10 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           dayOfWeek: ctx.dayOfWeek,
           backToBackHoursToday,
           historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
+          // Canonical Availability SSOT — feed the classifier result into
+          // the RuleContext so PTO/holiday and weekend rules read from the
+          // same authoritative decision the planner and Brief use.
+          availability: ctx.dayContext.availability,
         },
       );
       if (wiring?.promptBlock) {
