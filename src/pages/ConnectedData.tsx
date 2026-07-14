@@ -35,6 +35,7 @@ import {
 } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 import { forceNativeCalendarSync } from '@/utils/nativeBackgroundSync';
+import { appleCalendarSyncSuccessMessage } from '@/utils/appleCalendarSyncMessages';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import {
   isQaDebugEnabled,
@@ -747,10 +748,10 @@ const ConnectedData = () => {
       const result = await syncAppleCalendarToBackend({ reason: 'connect' });
       console.log('[ConnectedData] Apple Calendar initial sync result:', JSON.stringify(result));
       if (result.success) {
-        // Belt-and-braces: also trigger a native fetch so the iOS background
-        // observer is primed and the next event change is picked up instantly.
-        void forceNativeCalendarSync();
-        toast.success(`Apple Calendar connected — synced ${result.eventCount ?? 0} events`);
+        // Note: syncAppleCalendarToBackend already delegated to the native
+        // bridge — do NOT invoke forceNativeCalendarSync again here or we
+        // trigger a duplicate sync + a second (parallel) drain.
+        toast.success(appleCalendarSyncSuccessMessage('connect', result.eventCount));
         setStatus(prev => prev
           ? withAppleCalendarProvider(prev, { connected: true, lastSync: new Date().toISOString() })
           : prev);
@@ -761,7 +762,9 @@ const ConnectedData = () => {
       } else {
         setAppleCalendarSyncFailed(true);
         toast.warning(result.error || 'Apple Calendar is connected. Sync will retry when the app is active.');
-        void forceNativeCalendarSync();
+        // Fire-and-forget retry — swallow errors here since we already
+        // surfaced a warning toast.
+        forceNativeCalendarSync().catch(() => {});
         await fetchStatus();
       }
     } catch (err) {
@@ -781,7 +784,7 @@ const ConnectedData = () => {
       const result = await syncAppleCalendarToBackend({ reason: 'manual_sync_now' });
       console.log('[ConnectedData] Apple Calendar manual sync result:', JSON.stringify(result));
       if (result.success) {
-        toast.success(`Synced ${result.eventCount ?? 0} events`);
+        toast.success(appleCalendarSyncSuccessMessage('manual', result.eventCount));
         setStatus(prev => prev
           ? withAppleCalendarProvider(prev, { connected: true, lastSync: new Date().toISOString() })
           : prev);
