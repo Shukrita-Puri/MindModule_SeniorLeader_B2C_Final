@@ -48,10 +48,16 @@ serve(async (req) => {
     const manualOverride = req.headers.get("x-week-ahead-override") === "1";
 
     const localNow = new Date(Date.now() - offsetMinutes * 60_000);
+    const dow = localNow.getUTCDay();
     const decision = evaluateWeekAheadMode({
-      dayOfWeek: localNow.getUTCDay(),
+      dayOfWeek: dow,
       localHour: localNow.getUTCHours(),
       manualOverride,
+      // Conservative default: only Sat/Sun count as off. This endpoint
+      // does not have calendar visibility, so PTO / applicable holiday
+      // last-day branches never fire from here — they must be resolved
+      // by smart-nudges, which owns the SSOT lookup.
+      todayIsOffDay: dow === 0 || dow === 6,
     });
 
     return new Response(

@@ -20,3 +20,5 @@ Wired into `deriveStructuralDayFlags` and `_isPtoOrHoliday` in `generate-mastery
 `userCurrentCountry` seam is reserved for a future Travel SSOT — falls back to `userHomeCountry`. Consumers do not need changes when travel context is added.
 
 Tests: `_shared/availability/availability-classifier.test.ts` covers the 13 scenarios from the ticket (empty weekday, foreign holiday, applicable holiday, PTO, Saturday, timed "Holiday Lunch", planner boundary, override cases, travel-flavoured cases).
+
+`classifyDay(input)` is a thin adapter around `classifyAvailability` returning `{ state, isOffDay, reason }`. `isOffDay ⇔ state ∈ { PTO, PUBLIC_HOLIDAY, REST_DAY }`. Empty calendar days are NEVER off-days. This is the SINGLE function consumers must use to classify past/future dates (e.g. smart-nudges 14-day lookback). Any code deciding "is this day off?" from raw event rows / `events.length === 0` is a bug — route it through `classifyDay`.
