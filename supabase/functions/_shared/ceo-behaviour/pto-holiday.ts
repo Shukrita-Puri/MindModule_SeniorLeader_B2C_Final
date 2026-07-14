@@ -18,18 +18,19 @@
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
+import {
+  PTO_TITLE_RX as _PTO_TITLE_RX,
+  PERSONAL_HOLIDAY_TITLE_RX as _PERSONAL_HOLIDAY_TITLE_RX,
+} from "../availability/availability-classifier.ts";
 
 /**
- * Canonical PTO / public-holiday title regex. Single source of truth for
- * detecting whether a calendar event title represents an off-day marker
- * (OOO / PTO / Vacation / Holiday / Out of Office).
- *
- * Consumers (brief-signal-coverage, generate-mastery-plan, smart-nudges)
- * MUST import this rather than re-declaring local PTO/holiday regexes.
- * Mirrors the detection rule documented in the module header.
+ * @deprecated Import `PTO_TITLE_RX` from
+ * `_shared/availability/availability-classifier.ts` — that file is now the
+ * single source of truth for availability primitives. This re-export is a
+ * back-compat shim; the CI-gated shim-import guard will fail the build if
+ * a new file imports the regex from here.
  */
-export const PTO_TITLE_RX =
-  /\b(ooo|out\s*of\s*office|pto|vacation|annual\s+leave|on\s+leave|holiday|public\s+holiday|bank\s+holiday|national\s+holiday)\b/i;
+export const PTO_TITLE_RX = _PTO_TITLE_RX;
 
 /** Convenience predicate over the canonical PTO/holiday regex. */
 export function isPtoOrHolidayTitle(title: string | null | undefined): boolean {
@@ -37,14 +38,26 @@ export function isPtoOrHolidayTitle(title: string | null | undefined): boolean {
 }
 
 /**
- * Personal-leaning subset of {@link PTO_TITLE_RX}: vacation / annual leave /
- * on leave / public|bank|national holiday / plain "holiday". Excludes
- * OOO|PTO|out of office which often still imply a work-arc. Single source of
- * truth for `personalHolidayInferred` detection — imported by
- * brief-signal-coverage AND the plan generator's post-holiday selector.
+ * @deprecated Import `PERSONAL_HOLIDAY_TITLE_RX` from
+ * `_shared/availability/availability-classifier.ts` (SSOT). This is a
+ * back-compat re-export.
  */
-export const PERSONAL_HOLIDAY_TITLE_RX =
-  /\b(vacation|annual\s+leave|on\s+leave|public\s+holiday|bank\s+holiday|national\s+holiday|holiday)\b/i;
+export const PERSONAL_HOLIDAY_TITLE_RX = _PERSONAL_HOLIDAY_TITLE_RX;
+
+const _shimG = globalThis as unknown as { __availShimWarned_ceoPtoHoliday?: boolean };
+if (!_shimG.__availShimWarned_ceoPtoHoliday) {
+  _shimG.__availShimWarned_ceoPtoHoliday = true;
+  // Only warn when a caller actually reaches for the deprecated regex
+  // exports (via module load). Predicates isPtoOrHolidayTitle /
+  // isPersonalHolidayTitle remain the recommended surface here.
+  // The warn is idempotent per runtime.
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[availability-shim] PTO_TITLE_RX / PERSONAL_HOLIDAY_TITLE_RX on " +
+      "ceo-behaviour/pto-holiday.ts are deprecated; import from " +
+      "_shared/availability/availability-classifier.ts",
+  );
+}
 
 export function isPersonalHolidayTitle(title: string | null | undefined): boolean {
   return !!title && PERSONAL_HOLIDAY_TITLE_RX.test(title);
