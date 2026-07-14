@@ -61,6 +61,7 @@ Deno.test("last day of PTO triggers", () => {
     localHour: 18,
     ptoTodayAllDay: true,
     ptoTomorrowAllDay: false,
+    todayIsOffDay: true,
   });
   assertEquals(d.active, true);
   assertEquals(d.reason, "last_day_pto");
@@ -72,9 +73,48 @@ Deno.test("last day of long weekend triggers", () => {
     localHour: 19,
     consecutiveOffDaysBefore: 3,
     tomorrowIsWorkday: true,
+    todayIsOffDay: true,
   });
   assertEquals(d.active, true);
   assertEquals(d.reason, "last_day_long_weekend");
+});
+
+Deno.test("Tuesday with lookback but today is workday → inactive", () => {
+  // Regression: shukrita@mindmodule.me, Tue 14 Jul 2026 fired
+  // last_day_long_weekend because the lookback inflated
+  // consecutiveOffDaysBefore and today was not gated as an off-day.
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 2,
+    localHour: 16,
+    consecutiveOffDaysBefore: 3,
+    tomorrowIsWorkday: true,
+    todayIsOffDay: false,
+  });
+  assertEquals(d.active, false);
+  assertEquals(d.reason, null);
+});
+
+Deno.test("Monday after plain weekend → inactive (weekend != long weekend)", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 1,
+    localHour: 17,
+    consecutiveOffDaysBefore: 2,
+    tomorrowIsWorkday: true,
+    todayIsOffDay: false, // Mon itself is a workday
+  });
+  assertEquals(d.active, false);
+});
+
+Deno.test("last_day_pto requires todayIsOffDay to be true", () => {
+  // If today isn't classified as off, PTO flags alone must not fire.
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 2,
+    localHour: 18,
+    ptoTodayAllDay: true,
+    ptoTomorrowAllDay: false,
+    todayIsOffDay: false,
+  });
+  assertEquals(d.active, false);
 });
 
 Deno.test("manualOverride forces active", () => {
