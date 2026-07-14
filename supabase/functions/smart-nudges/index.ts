@@ -1641,6 +1641,13 @@ async function buildNudgeContext(
         consecutiveOffDaysBefore,
         travelDay,
         fullWorkingWeekend,
+        // SSOT-derived: today itself must be an off-day for any last_day_*
+        // branch to fire. Never trust workload proxies here.
+        todayIsOffDay: nudgeAvailability
+          ? (nudgeAvailability.state === 'PTO' ||
+             nudgeAvailability.state === 'PUBLIC_HOLIDAY' ||
+             nudgeAvailability.state === 'REST_DAY')
+          : (dayOfWeek === 0 || dayOfWeek === 6),
       };
     })(),
     badgeCount: (() => {
