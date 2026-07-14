@@ -57,6 +57,9 @@ export interface SpecDeterministicParams {
   clarityLevel: number | null;
   confidenceLevel: number | null;
 
+  // CEO behaviour — SAME flags the LLM context already receives
+  behaviourFlags?: Array<{ anchorEvent?: string | null } | string> | null;
+
   // Tomorrow — SAME variables as === TOMORROW === block (evening only)
   tomorrowLoad: string | null;
   tomorrowHighStakesTitles: string[];
@@ -153,42 +156,63 @@ const WORK_DIRECTIVES: Record<BandKey, Record<TopSignal, string>> = {
 // TOP SIGNAL PICKER — mirrors the LLM's PRIORITY_ORDER
 // ──────────────────────────────────────────────────────────
 
-function pickTopSignal(p: SpecDeterministicParams): TopSignal {
-  // 1. HR-event correlation (pattern + event)
-  if (p.hrvEventCorrelation) return 'hr_event_correlation';
+function anchorEventFromFlag(flag: { anchorEvent?: string | null } | string | null | undefined): string | null {
+  if (!flag) return null;
+  if (typeof flag === 'string') return null;
+  return typeof flag.anchorEvent === 'string' && flag.anchorEvent.trim().length > 0
+    ? flag.anchorEvent.trim()
+    : null;
+}
 
-  // 2. Wearable × calendar divergence (body down + demand up)
+export function pickTopSignal(p: SpecDeterministicParams): TopSignal {
+  const hasCalendar = (p.todayHighStakes?.length ?? 0) > 0;
+
+  // 1. CEO behaviour flag → if today's anchored event also has a measured
+  // HRV pattern, lead with correlation; otherwise treat it as a structural
+  // calendar-demand read. This keeps the deterministic path aligned with
+  // the same event-aware priority order the LLM context sees.
+  const topFlag = Array.isArray(p.behaviourFlags) && p.behaviourFlags.length > 0 ? p.behaviourFlags[0] : null;
+  const anchorEvent = anchorEventFromFlag(topFlag);
+  if (anchorEvent && p.todayHighStakes.some((title) => title === anchorEvent)) {
+    if (p.hrvEventCorrelation) return 'hr_event_correlation';
+    return 'calendar_heavy';
+  }
+
+  // 2. HR-event correlation (pattern + today's event)
+  if (p.hrvEventCorrelation && hasCalendar) return 'hr_event_correlation';
+
+  // 3. Wearable × calendar divergence (body down + demand up)
   const bodyDown = (p.hrvDeviation != null && p.hrvDeviation <= -10) ||
                    p.sleepHardFloor ||
                    (p.sleepDeviation != null && p.sleepDeviation <= -10);
   const demandHigh = p.calendarLoad === 'high' || (p.todayHighStakes?.length ?? 0) >= 2;
   if (p.hasWearable && bodyDown && demandHigh) return 'wearable_x_calendar';
 
-  // 3. Imminent high-stakes (< 90 min)
+  // 4. Imminent high-stakes (< 90 min)
   if (p.nextHighStakesEvent && p.nextHighStakesEvent.minutesUntil >= 0 && p.nextHighStakesEvent.minutesUntil < 90) {
     return 'imminent_high_stakes';
   }
 
-  // 4. Calendar load
+  // 5. Calendar load
   if (demandHigh || p.hasBackToBack) return 'calendar_heavy';
 
-  // 5. Sleep deficit
+  // 6. Sleep deficit
   if (p.sleepHardFloor || (p.sleepDeviation != null && p.sleepDeviation <= -10)) return 'sleep_deficit';
 
-  // 6. HRV deficit
+  // 7. HRV deficit
   if (p.hrvDeviation != null && p.hrvDeviation <= -8) return 'hrv_deficit';
 
-  // 7. Check-in signal
+  // 8. Check-in signal
   if ((p.clarityLevel != null && p.clarityLevel <= 2) ||
       (p.confidenceLevel != null && p.confidenceLevel <= 2) ||
       (p.checkInOutcome ? /low|struggl|foggy|scattered|drained/i.test(p.checkInOutcome) : false)) {
     return 'checkin_signal';
   }
 
-  // 8. Declining trajectory
+  // 9. Declining trajectory
   if (p.scoreTrajectory7d === 'declining') return 'declining_trajectory';
 
-  // 9. Tomorrow heavy (evening only)
+  // 10. Tomorrow heavy (evening only)
   if (p.timeOfDay === 'evening' && (p.tomorrowLoad === 'high' || (p.tomorrowHighStakesTitles?.length ?? 0) > 0)) {
     return 'tomorrow_heavy';
   }
@@ -246,7 +270,7 @@ function buildEvidence(signal: TopSignal, p: SpecDeterministicParams): string {
       return `The mind's runway has been trending down this week${p.avgScore7d != null ? `, 7-day avg ${p.avgScore7d}` : ''}.`;
 
     case 'tomorrow_heavy':
-      return `${p.tomorrowHighStakesTitles[0] ? `'${p.tomorrowHighStakesTitles[0]}' anchors tomorrow` : `Tomorrow reads heavy`}.`;
+      return `${p.tomorrowHighStakesTitles[0] ? `Tomorrow opens with '${p.tomorrowHighStakesTitles[0]}'` : `Tomorrow reads heavy`}.`;
 
     case 'baseline_quiet':
       return `Signals are quiet this ${p.timeOfDay} — nothing sharp is pulling on you.`;
@@ -291,3 +315,8 @@ export function buildSpecDeterministicBrief(p: SpecDeterministicParams): SpecDet
 
   return { phrase, body, topSignal };
 }
+
+export const __specDeterministicInternals = {
+  pickTopSignal,
+  buildEvidence,
+};

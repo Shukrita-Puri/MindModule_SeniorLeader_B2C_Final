@@ -2634,6 +2634,7 @@ export function derivePlanWindowSignals(
   bodyLoadElevated: boolean;
   decisionLeakageRisk: boolean;
   recoveryNote: 'rest' | 'light' | 'normal' | null;
+  vetoRisk: boolean;
 } | null {
   const w = req.wearableContext;
   const hasWearable = !!w?.hasData;
@@ -2681,6 +2682,26 @@ export function derivePlanWindowSignals(
     if (deepDeficit || lowSleep) recoveryNote = 'rest';
   }
 
+  // Morning veto risk — conservative proxy for the shared rule-map shape:
+  // body markers suggest strain, confidence remains high, and a meaningful
+  // event sits inside the next 24h. We only emit it in the morning window.
+  const bodyUnderLoad =
+    (typeof hrvDeviationPct === 'number' && hrvDeviationPct <= -10) ||
+    (typeof w?.sleepScore === 'number' && w.sleepScore < 60);
+  const confidenceHigh = typeof req.confidenceLevel === 'number' && req.confidenceLevel >= 4;
+  const nowMs = Date.now();
+  const next24hMs = nowMs + DAY_OF_HORIZON_MS;
+  const highStakesEventInNext24h = (req.calendarEvents || []).some((event) => {
+    const startMs = new Date(event.startTime).getTime();
+    if (!Number.isFinite(startMs) || startMs < nowMs || startMs > next24hMs) return false;
+    return isHighStakesTitle(event.title) || event.isOrganizer === true || (event.attendeesCount ?? 0) > 5;
+  });
+  const vetoRisk =
+    timeOfDay === 'morning' &&
+    bodyUnderLoad &&
+    confidenceHigh &&
+    highStakesEventInNext24h;
+
   // If literally nothing usable, return null so the selector short-circuits.
   const anyPresent =
     sleepQuality !== null ||
@@ -2688,7 +2709,8 @@ export function derivePlanWindowSignals(
     currentHrVsRestingPct !== null ||
     bodyLoadElevated ||
     decisionLeakageRisk ||
-    recoveryNote !== null;
+    recoveryNote !== null ||
+    vetoRisk;
   if (!anyPresent) return null;
 
   return {
@@ -2698,6 +2720,7 @@ export function derivePlanWindowSignals(
     bodyLoadElevated,
     decisionLeakageRisk,
     recoveryNote,
+    vetoRisk,
   };
 }
 
@@ -5697,10 +5720,7 @@ async function applyV51Enrichment(
           decisionLeakageRisk: whyWindowSignals?.decisionLeakageRisk === true ? true : undefined,
           bodyLoadElevated: whyWindowSignals?.bodyLoadElevated === true ? true : undefined,
           recoveryNote: whyWindowSignals?.recoveryNote ?? null,
-          // vetoRisk is not safely derivable from the current PlanRequest
-          // (no body/subjective divergence field on `req`). Left undefined
-          // so the prompt drops it rather than fabricates a signal.
-          vetoRisk: undefined,
+          vetoRisk: whyWindowSignals?.vetoRisk === true ? true : undefined,
           // Phase 3 — Leader voice rules (null-safe; prompt omits the
           // block when unavailable). Same rules injected into the Brief.
           leaderVoiceRules: (req as any).leaderProfile?.voice?.cos_brief_rules ?? null,
@@ -6177,10 +6197,16 @@ function buildHorizonModules(
     intentOverride: ReturnType<typeof deriveSlotIntent> | null = null,
   ): any[] => {
     const intent = intentOverride ?? deriveSlotIntent({
-      stateAction: slotContract.arcLabel === 'During' ? 'Build capacity' : slotContract.arcLabel === 'Recover' ? 'Recover' : 'Steady the system',
-      anchorCategory: null,
+      stateAction: slotContract.stateAction ?? (slotContract.arcLabel === 'During'
+        ? 'Build capacity'
+        : slotContract.arcLabel === 'Recover'
+        ? 'Recover'
+        : 'Steady the system'),
+      ceoVerb: slotContract.ceoVerb ?? null,
+      anchorCategory: slotContract.anchorCategory ?? null,
       anchorPhase: slotContract.jitPhase ?? null,
       combo,
+      practicePriorityTag: slotContract.practicePriorityTag ?? (req as any).practicePriorityTag ?? null,
     });
     const selected: any[] = [];
     const consumed = new Set(excludeIds);
@@ -6412,6 +6438,7 @@ function buildHorizonModules(
       arcLabel: 'Prepare',
       jitPhase: jitPhase.phase,
       jitEventTitle,
+      anchorCategory: topEventCat,
       dayShape: 'mixed_day',
       allocationReason: 'jit_phase_allocation',
     });
@@ -6564,6 +6591,7 @@ function buildHorizonModules(
       arcLabel: slot2Candidate.phase === 'during' ? 'During' : slot2Candidate.phase === 'post' ? 'Recover' : 'Prepare',
       jitPhase: slot2Candidate.phase,
       jitEventTitle: slot2JitEventTitle,
+      anchorCategory: (slot2Candidate.categoryId as EventCategoryId | null) ?? null,
       dayShape: 'mixed_day',
       allocationReason: 'ranked_jit_candidate',
     });
@@ -6702,6 +6730,7 @@ function buildHorizonModules(
       arcLabel: slot3Candidate.phase === 'during' ? 'During' : slot3Candidate.phase === 'post' ? 'Recover' : 'Recover',
       jitPhase: slot3JitPhase,
       jitEventTitle: slot3JitEventTitle,
+      anchorCategory: (slot3Candidate.categoryId as EventCategoryId | null) ?? null,
       dayShape: 'mixed_day',
       allocationReason: 'ranked_jit_candidate',
     });

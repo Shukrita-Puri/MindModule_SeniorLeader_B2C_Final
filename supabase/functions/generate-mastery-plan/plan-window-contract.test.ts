@@ -68,3 +68,21 @@ Deno.test("F4 — non-rest-day empty horizon projection is server-filled before 
   assertStringIncludes(SRC, "finalHorizonModules = buildSnapshotFallbackHorizonModules(todModules, {");
   assertStringIncludes(SRC, "[generate-mastery-plan][snapshot-projection-fallback]");
 });
+
+Deno.test("F5 — Plan window signals derive and forward vetoRisk", () => {
+  assertStringIncludes(SRC, "vetoRisk: boolean;");
+  assertStringIncludes(
+    SRC,
+    "const vetoRisk =\n    timeOfDay === 'morning' &&",
+  );
+  assertStringIncludes(SRC, "vetoRisk;");
+  assertStringIncludes(SRC, "vetoRisk: whyWindowSignals?.vetoRisk === true ? true : undefined,");
+});
+
+Deno.test("F6 — practice selection preserves resolved anchor-category intent hints", () => {
+  assertStringIncludes(SRC, "stateAction: slotContract.stateAction ?? (slotContract.arcLabel === 'During'");
+  assertStringIncludes(SRC, "anchorCategory: slotContract.anchorCategory ?? null,");
+  assertStringIncludes(SRC, "anchorCategory: topEventCat,");
+  assertStringIncludes(SRC, "anchorCategory: (slot2Candidate.categoryId as EventCategoryId | null) ?? null,");
+  assertStringIncludes(SRC, "anchorCategory: (slot3Candidate.categoryId as EventCategoryId | null) ?? null,");
+});

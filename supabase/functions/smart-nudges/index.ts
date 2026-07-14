@@ -379,6 +379,27 @@ function periodCollapseId(slot: NudgeSlot, localDate: string): string {
   return `smart-nudge-${slot}-${localDate}`;
 }
 
+function slotFromNotificationLogRow(
+  row: { notification_type?: string | null; payload?: unknown },
+): NudgeSlot | null {
+  const payload = row?.payload && typeof row.payload === 'object'
+    ? row.payload as Record<string, unknown>
+    : null;
+  const metadata = payload?.metadata && typeof payload.metadata === 'object'
+    ? payload.metadata as Record<string, unknown>
+    : null;
+  const explicitSlot = metadata?.delivery_slot ?? payload?.slot;
+  if (explicitSlot === 'morning' || explicitSlot === 'afternoon' || explicitSlot === 'evening') {
+    return explicitSlot;
+  }
+
+  const type = String(row?.notification_type ?? '');
+  if (type === 'nudge_one' || type.startsWith('nudge_one')) return 'morning';
+  if (type === 'nudge_two' || type.startsWith('nudge_two')) return 'afternoon';
+  if (type === 'nudge_three' || type === 'evening_close' || type.startsWith('nudge_three')) return 'evening';
+  return null;
+}
+
 function normalizeNotificationCopy(copy: NudgeCopy): NudgeCopy {
   return {
     ...copy,
@@ -4167,7 +4188,7 @@ serve(async (req) => {
       const COUNTABLE_DELIVERY_STATES = SHARED_COUNTABLE_DELIVERY_STATES;
       const { data: todayLogs } = await supabase
         .from('notification_log')
-        .select('notification_type, variant_id, sent_at, event_reference')
+        .select('notification_type, variant_id, sent_at, event_reference, payload')
         .eq('user_id', userId)
         .gte('sent_at', todayStartUtc)
         .lt('sent_at', todayEndUtc)
@@ -4428,15 +4449,9 @@ serve(async (req) => {
       // (morning / afternoon / evening) gets at most ONE nudge. Travel
       // pre-flight rides morning, in-flight rides afternoon - see the
       // slot assignments in evaluateNudgeOne / Two / Three.
-      const slotForType = (t: string): 'morning' | 'afternoon' | 'evening' | null => {
-        if (t === 'nudge_one' || t.startsWith('nudge_one')) return 'morning';
-        if (t === 'nudge_two' || t.startsWith('nudge_two')) return 'afternoon';
-        if (t === 'nudge_three' || t === 'evening_close' || t.startsWith('nudge_three')) return 'evening';
-        return null;
-      };
       const sentSlotsToday = new Set<'morning' | 'afternoon' | 'evening'>(
         (todayLogs || [])
-          .map((l) => slotForType(String(l.notification_type)))
+          .map((l) => slotFromNotificationLogRow(l))
           .filter((s): s is 'morning' | 'afternoon' | 'evening' => s !== null),
       );
       const activeSlot = currentSlotForLocalHour(localHour);
@@ -5058,6 +5073,7 @@ serve(async (req) => {
         title: MIND_MODULE_TITLE,
         subtitle: notif.subtitle,
         body: notif.copy.body,
+        slot: notif.slot,
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
@@ -5086,6 +5102,7 @@ serve(async (req) => {
           ai_provider_used: notif.copy.aiProvider ?? 'static',
           // v1.1 - new telemetry fields.
           delivery_skip_reason: null,
+          delivery_slot: notif.slot,
           headline_variant: notif.headlineVariant,
           cta_bucket: notif.ctaBucket,
           requires_app_open: notif.requiresAppOpen,

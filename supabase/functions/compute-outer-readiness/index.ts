@@ -5369,6 +5369,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 checkInOutcome: checkInOutcome ?? null,
                 clarityLevel: typeof clarityLevel === 'number' ? clarityLevel : null,
                 confidenceLevel: typeof confidenceLevel === 'number' ? confidenceLevel : null,
+                behaviourFlags: [
+                  ...(briefBehaviourSnapshot?.flagsBrief ?? []),
+                  ...(briefBehaviourSnapshot?.flagsPlan ?? []),
+                ],
                 tomorrowLoad: (tomorrowLoad as any) ?? null,
                 tomorrowHighStakesTitles: Array.isArray(tomorrowHighStakes) ? tomorrowHighStakes : [],
               };

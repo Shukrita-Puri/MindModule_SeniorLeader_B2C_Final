@@ -207,6 +207,10 @@ export interface SelectionSlotContract {
   arcLabel?: "Prepare" | "During" | "Recover" | "Steady" | null;
   jitPhase?: "pre" | "during" | "post" | null;
   jitEventTitle?: string | null;
+  stateAction?: string | null;
+  ceoVerb?: string | null;
+  anchorCategory?: EventCategoryId | null;
+  practicePriorityTag?: string | null;
   dayShape?: "light_routine" | "dominant_structural_event" | "mixed_day" | "rest_day" | null;
   allocationReason?: string | null;
 }

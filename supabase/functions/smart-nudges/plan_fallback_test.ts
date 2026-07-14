@@ -72,9 +72,36 @@ Deno.test("plan-driven projection remains preferred when slot pref is enabled", 
   // `projectPlanSlotToNudge` — the fail-open is a fallback, not a
   // replacement.
   assert(
-    /planSnapshotStatus === 'ready'[\s\S]{0,600}projectPlanSlotToNudge\(ctx, activeSlot/.test(
+    /planSnapshotStatus === 'ready'[\s\S]*projectPlanSlotToNudge\(ctx, activeSlot/.test(
       SRC,
     ),
     "ready plan snapshot must still drive projected-slot nudge",
+  );
+});
+
+Deno.test("slot-cap reconstruction prefers persisted delivery slot over family-name inference", () => {
+  assert(
+    SRC.includes("function slotFromNotificationLogRow("),
+    "expected dedicated notification_log slot reader",
+  );
+  assert(
+    SRC.includes(".select('notification_type, variant_id, sent_at, event_reference, payload')"),
+    "today log query must hydrate payload so slot-cap can read persisted slot",
+  );
+  assert(
+    SRC.includes("const explicitSlot = metadata?.delivery_slot ?? payload?.slot;"),
+    "slot reader must prefer persisted payload slot metadata",
+  );
+  assert(
+    SRC.includes(".map((l) => slotFromNotificationLogRow(l))"),
+    "sentSlotsToday must derive from the slot reader, not hardcoded type mapping alone",
+  );
+  assert(
+    SRC.includes("slot: notif.slot,"),
+    "notification payload must persist the actual delivery slot for future runs",
+  );
+  assert(
+    SRC.includes("delivery_slot: notif.slot,"),
+    "notification payload metadata must also persist the actual delivery slot",
   );
 });
