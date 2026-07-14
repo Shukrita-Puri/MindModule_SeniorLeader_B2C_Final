@@ -23,13 +23,16 @@ type PlanLike = {
   horizonModules?: unknown[];
   meta?: { restDay?: boolean; dayShape?: string };
   restDay?: boolean;
+  timeOfDayPlan?: {
+    modules?: unknown[];
+  };
 } | null;
 
 function isRestDayPlan(plan: PlanLike): boolean {
   return (
-    (plan as any)?.meta?.restDay === true ||
-    (plan as any)?.meta?.dayShape === "rest_day" ||
-    (plan as any)?.restDay === true
+    plan?.meta?.restDay === true ||
+    plan?.meta?.dayShape === "rest_day" ||
+    plan?.restDay === true
   );
 }
 
@@ -129,7 +132,7 @@ describe("Plan rest-day contract (frontend render branch)", () => {
     if (!planJson) return false;
     if (snap.status !== "ready") return false;
     const horizonModules = (planJson.horizonModules ?? []) as unknown[];
-    const timeOfDayModules = (((planJson as any).timeOfDayPlan?.modules ?? []) as unknown[]);
+    const timeOfDayModules = (planJson.timeOfDayPlan?.modules ?? []) as unknown[];
     return horizonModules.length > 0 || timeOfDayModules.length > 0 || isRestDayPlan(planJson);
   }
 
@@ -155,7 +158,7 @@ describe("Plan rest-day contract (frontend render branch)", () => {
             modules: [{ contentId: "ikigai-purpose" }],
           },
         },
-      } as any),
+      }),
     ).toBe(true);
   });
 

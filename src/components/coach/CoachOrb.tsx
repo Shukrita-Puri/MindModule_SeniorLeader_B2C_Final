@@ -10,6 +10,25 @@ interface CoachOrbProps {
   className?: string;
 }
 
+interface CoachOrbScene {
+  renderer: THREE.WebGLRenderer;
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  sphere: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>;
+  geometry: THREE.SphereGeometry;
+  material: THREE.MeshStandardMaterial;
+  originalPositions: Float32Array;
+  orangeLight: THREE.PointLight;
+  blueLight: THREE.PointLight;
+  topLight: THREE.PointLight;
+  hovered: boolean;
+  currentRotSpeedY: number;
+  currentRotSpeedX: number;
+  currentDisplacement: number;
+  currentOrangeIntensity: number;
+  currentBlueIntensity: number;
+}
+
 const SIZE_MAP: Record<OrbSize, number> = {
   sm: 48,
   md: 96,
@@ -19,7 +38,7 @@ const SIZE_MAP: Record<OrbSize, number> = {
 const CoachOrb = ({ size = 'lg', state = 'idle', className }: CoachOrbProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const sceneRef = useRef<any>(null);
+  const sceneRef = useRef<CoachOrbScene | null>(null);
   const frameRef = useRef<number>(0);
   const [webglAvailable, setWebglAvailable] = useState(true);
   const isSmall = size === 'sm';

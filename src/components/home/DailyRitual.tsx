@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import { Button } from '@/components/ui/button';
@@ -169,61 +169,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
 
   // Carousel useEffects removed – vertical list layout
 
-  useEffect(() => {
-    loadPlan();
-    
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && plan) {
-        checkRitualCompletion();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    
-    // Relaxed polling as fallback (60s instead of 15s) – only when plan is loaded
-    const interval = setInterval(() => { if (plan) checkRitualCompletion(); }, 60000);
-    
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [user?.id]);
-
-  // Re-check completion whenever plan loads/changes – this is the canonical trigger
-  useEffect(() => {
-    if (plan) {
-      checkRitualCompletion();
-    }
-  }, [plan]);
-
-  // When the Brief contract transitions from awaiting → ready (user just
-  // submitted a check-in or wearable arrived), reload the plan once so the
-  // suppression empty state is replaced with the freshly generated plan.
-  useEffect(() => {
-    const mode = (outerReadinessData as any)?.briefMode as
-      | 'cold-start' | 'baseline' | 'refined' | undefined;
-    const stillCold = mode
-      ? mode === 'cold-start'
-      : outerReadinessData?.awaitingSignals === true;
-    if (awaitingSignals && !stillCold) {
-      loadPlan();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outerReadinessData?.awaitingSignals, (outerReadinessData as any)?.briefMode]);
-
-  // Detect newly completed practices
-  useEffect(() => {
-    const prevIds = prevCompletedIdsRef.current;
-    const newlyCompletedIds = completedPracticeIds.filter(id => !prevIds.includes(id));
-    if (newlyCompletedIds.length > 0 && prevIds.length > 0) {
-      const modules = plan?.timeOfDayPlan?.modules || [];
-      const newModule = modules.find(m => newlyCompletedIds.includes(m.contentId));
-      const isRitualComplete = ritualStatus.status === 'completed';
-      if (newModule) triggerCelebration(newModule.title, isRitualComplete);
-    }
-    prevCompletedIdsRef.current = completedPracticeIds;
-  }, [completedPracticeIds, ritualStatus.status, plan]);
-
-  const checkRitualCompletion = async () => {
+  const checkRitualCompletion = useCallback(async () => {
     if (!user?.id) return;
     // Guard: only compute when plan is loaded so we have authoritative module IDs
     if (!plan) return;
@@ -257,9 +203,9 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     } else if (effectiveCompletedCount > 0) status = 'partial';
 
     setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount });
-  };
+  }, [plan, user?.id]);
 
-  const loadPlan = async () => {
+  const loadPlan = useCallback(async () => {
     setLoading(true);
     try {
       const currentPeriod = getCurrentTimeWindow();
@@ -279,8 +225,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       // wearable today), suppress plan generation entirely. This is a
       // pure UI/network suppression — server-side gate in
       // generate-mastery-plan enforces the same contract for any caller.
-      const mode = (outerReadinessData as any)?.briefMode as
-        | 'cold-start' | 'baseline' | 'refined' | undefined;
+      const mode = outerReadinessData?.briefMode;
       const briefAwaiting = mode
         ? mode === 'cold-start'
         : outerReadinessData?.awaitingSignals === true;
@@ -428,7 +373,62 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       console.error('Error loading plan:', error);
     }
     setLoading(false);
-  };
+  }, [outerReadinessData, onJitPriorityChange, onPreEventPlanReady, user]);
+
+  useEffect(() => {
+    loadPlan();
+  }, [loadPlan]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && plan) {
+        checkRitualCompletion();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    
+    // Relaxed polling as fallback (60s instead of 15s) – only when plan is loaded
+    const interval = setInterval(() => { if (plan) void checkRitualCompletion(); }, 60000);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [checkRitualCompletion, plan]);
+
+  // Re-check completion whenever plan loads/changes – this is the canonical trigger
+  useEffect(() => {
+    if (plan) {
+      void checkRitualCompletion();
+    }
+  }, [checkRitualCompletion, plan]);
+
+  // When the Brief contract transitions from awaiting → ready (user just
+  // submitted a check-in or wearable arrived), reload the plan once so the
+  // suppression empty state is replaced with the freshly generated plan.
+  useEffect(() => {
+    const mode = outerReadinessData?.briefMode;
+    const stillCold = mode
+      ? mode === 'cold-start'
+      : outerReadinessData?.awaitingSignals === true;
+    if (awaitingSignals && !stillCold) {
+      void loadPlan();
+    }
+  }, [awaitingSignals, loadPlan, outerReadinessData?.awaitingSignals, outerReadinessData?.briefMode]);
+
+  // Detect newly completed practices
+  useEffect(() => {
+    const prevIds = prevCompletedIdsRef.current;
+    const newlyCompletedIds = completedPracticeIds.filter(id => !prevIds.includes(id));
+    if (newlyCompletedIds.length > 0 && prevIds.length > 0) {
+      const modules = plan?.timeOfDayPlan?.modules || [];
+      const newModule = modules.find(m => newlyCompletedIds.includes(m.contentId));
+      const isRitualComplete = ritualStatus.status === 'completed';
+      if (newModule) triggerCelebration(newModule.title, isRitualComplete);
+    }
+    prevCompletedIdsRef.current = completedPracticeIds;
+  }, [completedPracticeIds, ritualStatus.status, plan]);
+
 
   const navigateToPractice = async (module: PlanModule) => {
     const modules = plan?.timeOfDayPlan?.modules || [];

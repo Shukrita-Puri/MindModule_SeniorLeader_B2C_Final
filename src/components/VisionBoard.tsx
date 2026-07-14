@@ -11,6 +11,8 @@ interface VisionItem {
   position: { x: number; y: number };
 }
 
+type VisionCategory = VisionItem["category"];
+
 const VisionBoard = () => {
   const [items, setItems] = useState<VisionItem[]>([
     {
@@ -41,14 +43,14 @@ const VisionBoard = () => {
     { id: "lifestyle", name: "Lifestyle", color: "bg-yellow-100 text-yellow-800", border: "border-yellow-300" }
   ];
 
-  const addTextItem = (category: string) => {
+  const addTextItem = (category: VisionCategory) => {
     const text = prompt(`Add a ${category} goal:`);
     if (text) {
       const newItem: VisionItem = {
         id: Date.now().toString(),
         type: "text",
         content: text,
-        category: category as any,
+        category,
         position: { x: Math.random() * 250 + 50, y: Math.random() * 150 + 50 }
       };
       setItems(prev => [...prev, newItem]);
