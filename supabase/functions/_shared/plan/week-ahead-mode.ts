@@ -37,6 +37,14 @@ export interface WeekAheadInput {
   tomorrowIsWorkday?: boolean;
   /** Number of consecutive off-days that have just preceded today. */
   consecutiveOffDaysBefore?: number;
+  /**
+   * SSOT-derived flag: today itself is an off-day (PTO, applicable public
+   * holiday, or weekend). MANDATORY for any `last_day_*` branch — the "last
+   * day" of a break must be inside the break, not the first working day
+   * after it. When omitted, we derive a conservative fallback from the
+   * PTO/holiday/weekend inputs already on this bag.
+   */
+  todayIsOffDay?: boolean;
   /** Manual entry via deep link (?mode=week-ahead). Forces active=true. */
   manualOverride?: boolean;
 }
@@ -63,20 +71,33 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
   // A working weekend reverts to weekday cadence.
   if (input.fullWorkingWeekend) return inactive();
 
+  // Conservative fallback: if caller didn't pass `todayIsOffDay`, derive it
+  // from the same PTO/holiday/weekend inputs already on the bag. Empty
+  // calendar days are NEVER off-days here — only positive evidence counts.
+  const isWeekend = input.dayOfWeek === 0 || input.dayOfWeek === 6;
+  const todayIsOffDay = input.todayIsOffDay ??
+    (input.ptoTodayAllDay === true ||
+     input.holidayAllDayEventToday === true ||
+     isWeekend);
+
   // Last day of a PTO block (today off, tomorrow back on).
-  if (input.ptoTodayAllDay && input.ptoTomorrowAllDay === false) {
+  if (input.ptoTodayAllDay && input.ptoTomorrowAllDay === false && todayIsOffDay) {
     return { active: true, reason: "last_day_pto", lookbackDays: 7, lookaheadDays: 7 };
   }
 
   // Last day of a public holiday block.
-  if (input.holidayAllDayEventToday && input.tomorrowIsWorkday) {
+  if (input.holidayAllDayEventToday && input.tomorrowIsWorkday && todayIsOffDay) {
     return { active: true, reason: "last_day_holiday", lookbackDays: 7, lookaheadDays: 7 };
   }
 
-  // End-of-long-weekend (≥2 consecutive off days behind us, tomorrow is work).
+  // End-of-long-weekend (≥2 consecutive off days behind us, tomorrow is
+  // work, AND today itself is still inside the break). Firing this branch
+  // on the first workday after a break is out of contract — the last day
+  // of the break is the last off-day, not the first on-day.
   if (
     (input.consecutiveOffDaysBefore ?? 0) >= 2 &&
-    input.tomorrowIsWorkday
+    input.tomorrowIsWorkday &&
+    todayIsOffDay
   ) {
     return { active: true, reason: "last_day_long_weekend", lookbackDays: 7, lookaheadDays: 7 };
   }
