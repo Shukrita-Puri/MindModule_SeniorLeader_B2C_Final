@@ -24,7 +24,7 @@ export function validatePhrase(phrase: string): ValidationResult {
 
   const words = trimmed.split(/\s+/);
   if (words.length >= 6) return { ok: false, reason: `phrase too long (${words.length} words, hard reject ≥6)` };
-  if (words.length === 4) return { ok: false, reason: "phrase is 4 words — soft reject, retry with stricter instruction" };
+  if (words.length === 5) return { ok: false, reason: "phrase is 5 words — soft reject, retry with stricter instruction" };
 
   const firstLower = words[0].toLowerCase().replace(/[^a-z]/g, "");
   if (PHRASE_FORBIDDEN_STARTERS.includes(firstLower)) {
@@ -60,11 +60,13 @@ const STATE_QUALITY_WORDS_RE = /\b(recovery|sleep|rested|fatigued|sharp|foggy|dr
 // We can't reliably tag each beat by prose parsing, but we CAN enforce the
 // structural fingerprint the four beats leave behind, without over-fitting to
 // any specific phrasing:
-//   • Body is 1–3 sentences and 35–70 words (band around the 45–60 target).
+//   • Body is 1–3 sentences and 25–60 words (band around the 45–60 target,
+//     with a lower floor to avoid rejecting concise but grounded bodies).
 //   • Body contains at least one work-directive verb (beat c).
-//   • Body ends with a short closing clause introduced by a coordinator
-//     ("and", "so", "then", or an em-dash) inside the final sentence,
-//     with 2–12 words after that coordinator (beat d).
+//   • Body ends with either a short closing clause introduced by a coordinator
+//     ("and", "so", "then", "but", "while", "before", "after", "until",
+//     ";", or an em-dash) OR a final directive sentence carrying a short
+//     2–12 word protective close (beat d).
 // Evidence (beat a) is already gated by validateBody via NUMBER_OR_TIME_RE /
 // named event / calendarEmpty. The Read (beat b) has no reliable structural
 // signature, so it is intentionally left to prompt discipline.
@@ -95,10 +97,10 @@ const WORK_DIRECTIVE_TOKENS = [
   "skip", "cut", "push", "use", "spend", "shape", "back", "close",
   "guard", "narrow", "focus", "prioritise", "prioritize", "own",
   "ship", "drive", "defer", "stay", "walk in", "lean on", "carry",
-  "shut", "make", "take",
+  "shut", "make", "take", "deploy", "lean", "anchor", "ground", "signal",
 ];
 
-const CLOSING_CONNECTOR_RE = /\b(and|so|then)\b|—/gi;
+const CLOSING_CONNECTOR_RE = /\b(and|so|then|but|while|before|after|until)\b|[;—]/gi;
 
 function splitSentences(text: string): string[] {
   return text
@@ -125,13 +127,13 @@ export function validateBodyFourBeatStructure(body: string): ValidationResult {
   }
 
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-  if (wordCount < 35) {
+  if (wordCount < 25) {
     return {
       ok: false,
       reason: `body too short (${wordCount} words) — cannot carry four beats`,
     };
   }
-  if (wordCount > 70) {
+  if (wordCount > 60) {
     return {
       ok: false,
       reason: `body too long (${wordCount} words) — exceeds 60-word ceiling`,
@@ -153,31 +155,43 @@ export function validateBodyFourBeatStructure(body: string): ValidationResult {
     };
   }
 
-  // (d) SELF-REGULATION closing clause — short tail after the last coordinator
-  // inside the final sentence. Reads as the exhale at the end of (c).
+  // (d) SELF-REGULATION closing clause — accept either:
+  //   1) a short tail after the last coordinator inside the final sentence, or
+  //   2) a short final sentence that is itself a directive close.
   const lastSentence = sentences[sentences.length - 1];
   const connectors = [...lastSentence.matchAll(CLOSING_CONNECTOR_RE)];
-  if (connectors.length === 0) {
-    return {
-      ok: false,
-      reason:
-        "body missing SELF-REGULATION closing clause (no 'and/so/then/—' coordinator in final sentence)",
-    };
+  let closingWords = 0;
+  if (connectors.length > 0) {
+    const lastConn = connectors[connectors.length - 1];
+    const connIdx = lastConn.index ?? 0;
+    const tail = lastSentence
+      .slice(connIdx + lastConn[0].length)
+      .replace(/[.!?]+$/g, "")
+      .trim();
+    closingWords = tail.split(/\s+/).filter(Boolean).length;
+  } else {
+    closingWords = lastSentence.replace(/[.!?]+$/g, "").trim().split(/\s+/).filter(Boolean).length;
+    const startsWithDirective = WORK_DIRECTIVE_TOKENS.some((tok) => {
+      const pattern = tok.includes(" ")
+        ? `^${tok.replace(/\s+/g, "\\s+")}\\b`
+        : `^${tok}\\b`;
+      return new RegExp(pattern, "i").test(lastSentence.trim().toLowerCase());
+    });
+    if (!startsWithDirective) {
+      return {
+        ok: false,
+        reason:
+          "body missing SELF-REGULATION closing clause (final sentence needs a connector or a directive-led protective close)",
+      };
+    }
   }
-  const lastConn = connectors[connectors.length - 1];
-  const connIdx = lastConn.index ?? 0;
-  const tail = lastSentence
-    .slice(connIdx + lastConn[0].length)
-    .replace(/[.!?]+$/g, "")
-    .trim();
-  const tailWords = tail.split(/\s+/).filter(Boolean).length;
-  if (tailWords < 2) {
+  if (closingWords < 2) {
     return { ok: false, reason: "body SELF-REGULATION closing clause too short" };
   }
-  if (tailWords > 12) {
+  if (closingWords > 12) {
     return {
       ok: false,
-      reason: `body SELF-REGULATION closing clause too long (${tailWords} words) — should be a short exhale, not a new beat`,
+      reason: `body SELF-REGULATION closing clause too long (${closingWords} words) — should be a short exhale, not a new beat`,
     };
   }
 

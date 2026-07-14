@@ -5027,7 +5027,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // §2.18 stricter retry instruction appended on soft-reject (legacy
           // generic fallback). Used only if the targeted retry below is
           // unavailable for the given rule.
-          const STRICT_PHRASE_RETRY = `\n\nSTRICT RETRY: Phrase MUST be 2–3 words. 4 words only if the 4th word is load-bearing. Reject any 5+ word phrase. Do not start with "you", "your", or "the".`;
+          const STRICT_PHRASE_RETRY = `\n\nSTRICT RETRY: Phrase MUST be 2–4 words. 5 words only if unavoidable and genuinely load-bearing; never 6+. Do not start with "you", "your", or "the".`;
+          const FOUR_BEAT_RETRY_GUIDANCE = `\n\nRETRY BODY GUIDANCE: Structure your body as: [evidence clause] + [judgment clause] + [work-direction clause] + [closing protective clause]. Each beat can be a phrase, not a full sentence.`;
 
           // v6.4 — corrective retry: feed the SPECIFIC validator rule that
           // failed on attempt 1 into the retry prompt instead of a generic
@@ -5044,7 +5045,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } else if (/coaching_imperative/i.test(r)) {
               cause = `your phrase used a coaching imperative ("try", "consider", "should", "you need"). Make it a direct call, not advice.`;
             } else if (/phrase_hard_reject|phrase_soft_reject/i.test(r)) {
-              cause = `your phrase length was wrong. MUST be 2–3 words; 4 only if the 4th is load-bearing; never 5+.`;
+              cause = `your phrase length was wrong. MUST be 2–4 words; 5 only if unavoidable and genuinely load-bearing; never 6+.`;
             } else if (/phrase_generic_motivational/i.test(r)) {
               cause = `your phrase used a generic motivational word (e.g. "potential", "strength", "transform"). Anchor to today's evidence.`;
             } else if (/wellness/i.test(r) || wordBan) {
@@ -5053,6 +5054,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               cause = `you used the word "readiness". Name the state in plain executive English instead.`;
             } else if (/em_dash/i.test(r)) {
               cause = `you used an em dash (—) inside the phrase or body. Use a comma or period instead.`;
+            } else if (/WORK DIRECTIVE/i.test(r)) {
+              cause = `your body was missing a clear work-facing directive beat. Add an explicit executive action such as protect, anchor, narrow, lead, hold, deploy, or ground.`;
+            } else if (/SELF-REGULATION/i.test(r)) {
+              cause = `your body was missing a short protective close. End with a brief 2–12 word closing clause, either after a connector or as a final directive-led sentence.`;
             } else if (/restates_one_line_read/i.test(r)) {
               cause = `your body echoed one of the canned one-line state reads. Reach a fresh judgement, do not restate the band line.`;
             } else if (/omits_material_travel_context/i.test(r)) {
@@ -5060,7 +5065,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } else if (/omits_material_work_context/i.test(r)) {
               cause = `your body omitted the material named work event. Name it.`;
             } else if (/missing_signal_evidence/i.test(r) || /lexicon/i.test(r)) {
-              cause = `your body was missing a triangulated signal anchor — a number with a unit or a named calendar event.`;
+              cause = `your body was missing a grounded signal anchor — use a number with a unit, a named calendar event, or plain-language state evidence tied to real signals.`;
             } else if (/phrase_missing|body_missing/i.test(r)) {
               cause = `you returned null or empty for a required field. Both phrase and body must be present.`;
             } else if (/band_gate/i.test(r)) {
@@ -5082,8 +5087,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const priorReject = llmAttemptRecords.length > 0
               ? llmAttemptRecords[llmAttemptRecords.length - 1]
               : null;
-            const attemptUserPrompt = (priorReject && priorReject.outcome === 'validator_reject' && typeof priorReject.validatorRule === 'string')
-              ? userPrompt + correctiveRetryInstruction(priorReject.validatorRule as string)
+            const priorRule = priorReject && typeof priorReject.validatorRule === 'string'
+              ? String(priorReject.validatorRule)
+              : null;
+            const shouldUseRetryGuidance = !!priorReject &&
+              (priorReject.outcome === 'validator_reject' || priorReject.outcome === 'atomic_validator_reject');
+            const attemptUserPrompt = shouldUseRetryGuidance
+              ? userPrompt +
+                (priorRule ? correctiveRetryInstruction(priorRule) : '') +
+                FOUR_BEAT_RETRY_GUIDANCE
               : userPrompt;
 
             try {
@@ -5120,7 +5132,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
                   let normalized = normalizeLlmBrief(parsed);
 
-                  // §2.18 Soft-reject on 4-word phrase: retry ONCE with stricter prompt (same model)
+                  // §2.18 Soft-reject on 5-word phrase: retry ONCE with stricter prompt (same model)
                   if (!normalized.brief && normalized.softReject) {
                     console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} soft-reject (${normalized.reason}), retrying with STRICT_PHRASE_RETRY`);
                     const retryController = new AbortController();
@@ -5130,7 +5142,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       // generic STRICT_PHRASE_RETRY only for the 4-word
                       // phrase soft-reject path that historically used it.
                       const targeted = correctiveRetryInstruction(normalized.reason);
-                      const retryUserPrompt = userPrompt + (targeted || STRICT_PHRASE_RETRY);
+                      const retryUserPrompt = userPrompt + FOUR_BEAT_RETRY_GUIDANCE + (targeted || STRICT_PHRASE_RETRY);
                       let retryContent: string;
                       if (useGateway) {
                         retryContent = await callLovableAIText({

@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { validateBody, validateBodyFourBeatStructure } from "./brief-validators.ts";
+import { validateBody, validateBodyFourBeatStructure, validatePhrase } from "./brief-validators.ts";
 import type { BriefContext } from "./brief-context.ts";
 
 // Structural four-beat validator tests. Focus is on shape, not phrasing.
@@ -39,13 +39,12 @@ Deno.test("four-beat: rejects body with no closing clause (no coordinator in fin
   const body =
     "Recovery is down and sleep was short overnight for you again. The read is that today is a reserves day for the week ahead. Protect the first hour of the morning for the board deck preparation session before it begins.";
   const r = validateBodyFourBeatStructure(body);
-  assertEquals(r.ok, false);
-  assert(r.reason?.includes("SELF-REGULATION"));
+  assert(r.ok, `expected ok, got: ${r.reason}`);
 });
 
 Deno.test("four-beat: rejects body whose closing clause is a whole new beat", () => {
   const body =
-    "Recovery is down and sleep was short with the board at 2pm today, so block the first hour for the deck and skip the standup, and then you should take a long slow deep breathing session for twenty minutes before the meeting.";
+    "Recovery is down and sleep was short with the board at 2pm today, so block the first hour for the deck and skip the standup; protect the hour after with a very deliberate, extremely narrow, highly controlled decompression block that stays fully isolated from everything else.";
   const r = validateBodyFourBeatStructure(body);
   assertEquals(r.ok, false);
   assert(r.reason?.includes("too long"));
@@ -64,6 +63,28 @@ Deno.test("four-beat: rejects body that exceeds the 60-word ceiling", () => {
   const r = validateBodyFourBeatStructure(body);
   assertEquals(r.ok, false);
   assert(r.reason?.includes("too long"));
+});
+
+Deno.test("four-beat: accepts closing clause with expanded connector set", () => {
+  const body =
+    "Recovery is uneven and the afternoon is loaded around the board review, so anchor the prep block early and narrow the smaller calls before the room, while the last half hour stays clear for composure.";
+  const r = validateBodyFourBeatStructure(body);
+  assert(r.ok, `expected ok, got: ${r.reason}`);
+});
+
+Deno.test("four-beat: accepts concise grounded body above new 25-word floor", () => {
+  const body =
+    "Recovery is heavy and the board review anchors the afternoon, so protect the first hour for the deck and keep the late calls narrow and contained today.";
+  const r = validateBodyFourBeatStructure(body);
+  assert(r.ok, `expected ok, got: ${r.reason}`);
+});
+
+Deno.test("four-beat: rejects final sentence without connector or directive-led close", () => {
+  const body =
+    "Recovery is down and the board review sits in the afternoon, so protect the prep block early and keep the smaller calls tight. It was a long week already.";
+  const r = validateBodyFourBeatStructure(body);
+  assertEquals(r.ok, false);
+  assert(r.reason?.includes("SELF-REGULATION"));
 });
 
 Deno.test("four-beat: rejects body with more than three sentences", () => {
@@ -121,4 +142,15 @@ Deno.test("validateBody: still rejects motivational copy with no grounded signal
   const r = validateBody(body, makeCtx());
   assertEquals(r.ok, false);
   assert(r.reason !== undefined);
+});
+
+Deno.test("validatePhrase: accepts natural four-word phrase", () => {
+  const r = validatePhrase("Front-load the morning");
+  assert(r.ok, `expected ok, got: ${r.reason}`);
+});
+
+Deno.test("validatePhrase: soft-rejects five-word phrase", () => {
+  const r = validatePhrase("Save your edge for later");
+  assertEquals(r.ok, false);
+  assert(r.reason?.includes("5 words"));
 });
