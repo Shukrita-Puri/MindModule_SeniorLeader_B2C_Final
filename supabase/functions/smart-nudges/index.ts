@@ -7,6 +7,7 @@ import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 // today?" always has one authoritative answer.
 import {
   classifyAvailability,
+  classifyDay,
   type AvailabilityResult,
 } from "../_shared/availability/availability-classifier.ts";
 // Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
