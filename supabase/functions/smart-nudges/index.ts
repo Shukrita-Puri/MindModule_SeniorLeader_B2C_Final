@@ -3453,6 +3453,7 @@ async function evaluateWeekAheadPickerInvite(
     consecutiveOffDaysBefore: 0,
     travelDay: ctx.dayContext.kind === 'travel-day',
     fullWorkingWeekend: false,
+    todayIsOffDay: !!ctx.dayContext.ptoMode || ctx.dayOfWeek === 0 || ctx.dayOfWeek === 6,
   };
   const wam = evaluateWeekAheadMode({
     dayOfWeek: ctx.dayOfWeek,
@@ -3464,6 +3465,7 @@ async function evaluateWeekAheadPickerInvite(
     holidayAllDayEventToday: wai.holidayTodayAllDay,
     tomorrowIsWorkday: wai.tomorrowIsWorkday,
     consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
+    todayIsOffDay: wai.todayIsOffDay,
     manualOverride: false,
   });
 
