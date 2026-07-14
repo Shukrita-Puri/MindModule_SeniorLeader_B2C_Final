@@ -7,6 +7,7 @@ import {
   anchorTokens,
   tierToStateBand,
   arcPositionFromPhase,
+  isTitleEcho,
   type StateBand,
 } from "./why-llm.ts";
 import type { SlotAnchor } from "./title-prefixes.ts";
@@ -30,6 +31,16 @@ Deno.test("validator — band=null + no anchor token + no state token → reject
     slotAnchor: anchorA,
   });
   assertEquals(r, { ok: false, reason: "generic" });
+});
+
+Deno.test("validator — exact title echo is rejected before grounding", () => {
+  const r = validateWhyLine({
+    text: "Steady the system",
+    stateBand: "steady" as StateBand,
+    slotAnchor: anchorA,
+    echoTexts: ["Steady the system", "Box Breathing"],
+  });
+  assertEquals(r, { ok: false, reason: "title_echo" });
 });
 
 Deno.test("validator — firing + 'recover' verb → reject 'valence_firing_recovery'", () => {
@@ -125,6 +136,11 @@ Deno.test("validator — empty text → reject 'empty'", () => {
     validateWhyLine({ text: "   ", stateBand: null, slotAnchor: null }),
     { ok: false, reason: "empty" },
   );
+});
+
+Deno.test("isTitleEcho — normalises casing/whitespace and ignores blanks", () => {
+  assertEquals(isTitleEcho("  Steady the system ", ["steady the system"]), true);
+  assertEquals(isTitleEcho("Protect the board call", ["", null, undefined]), false);
 });
 
 // ────────────────────────────────────────────────────────────────────────

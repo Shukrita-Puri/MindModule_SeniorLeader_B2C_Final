@@ -5033,6 +5033,10 @@ type CeoRealityTag =
   | 'post_peak_hangover'
   | 'personal_friction'
   | 'board_outcome'
+  | 'conference_day_speaking'
+  | 'decision_density'
+  | 'deep_work_protection'
+  | 'back_to_back'
   | 'public_holiday'
   | 'personal_pto';
 
@@ -5051,6 +5055,11 @@ const CEO_RULE_TO_TAG: Record<string, CeoRealityTag> = {
   vetoRisk: 'veto_risk',
   postPeakHangover: 'post_peak_hangover',
   boardLevelOutcome: 'board_outcome',
+  conferenceDayWithSpeaking: 'conference_day_speaking',
+  dropInSpeakingHighStakes: 'conference_day_speaking',
+  decisionDensity: 'decision_density',
+  deepWorkProtection: 'deep_work_protection',
+  backToBackLoadOverride: 'back_to_back',
   decisionLeakageGuard: 'decision_leakage',
   decisionLeakageGuardPlan: 'decision_leakage',
   personalFrictionInference: 'personal_friction',
@@ -5149,6 +5158,18 @@ function strategicAnchorClause(
   // unrelated slots ("Ground Shukrita feedback" reading "…board-level call").
   if (ceo.includes('board_outcome') && slotAnchorCategoryId === 'A') {
     return 'Today protects Executive Presence for a board-level call.';
+  }
+  if (ceo.includes('conference_day_speaking')) {
+    return 'Conference speaking load is live — protect stage presence before you spend it.';
+  }
+  if (ceo.includes('decision_density')) {
+    return 'High-weight decisions are stacking — clear the noise before the cluster starts.';
+  }
+  if (ceo.includes('deep_work_protection')) {
+    return 'A strategic focus block needs protection from reactive spillover.';
+  }
+  if (ceo.includes('back_to_back')) {
+    return 'The day is compressed — preserve bandwidth between meetings.';
   }
   if (ceo.includes('veto_risk')) return 'You feel sharp; the body reads otherwise.';
   if (ceo.includes('personal_friction')) return 'Internal Buffer is compressed.';
@@ -5481,6 +5502,11 @@ async function applyV51Enrichment(
       text: fallbackWhyLine,
       stateBand: detBand,
       slotAnchor: detSlotAnchor,
+      echoTexts: [
+        hm.timeLabel ?? null,
+        hm.practice?.title ?? null,
+        hm.recommendedAction ?? null,
+      ],
     });
     if (!detVerdict.ok && (detVerdict.reason === 'valence_firing_recovery' || detVerdict.reason === 'valence_depleted_push')) {
       console.log(
@@ -5673,6 +5699,11 @@ async function applyV51Enrichment(
         text,
         stateBand: bandUsed,
         slotAnchor,
+        echoTexts: [
+          modules[job.idx]?.timeLabel ?? null,
+          inp.practiceTitle ?? null,
+          modules[job.idx]?.recommendedAction ?? null,
+        ],
         priorAccepted: accepted.map((a) => ({ text: a.text, slotAnchor: a.slotAnchor, arcPosition: a.arcPosition })),
         sameDayAccepted: todaysOtherWhyLines.map((line) => ({ text: line })),
         arcPosition,
@@ -7268,9 +7299,9 @@ export function mergeWithLedger(
   completedIds: Set<string>,
   calendarEventIds: Set<string>,
   calendarEventTitles: Set<string>,
-  userEdits?: PlanLedger['userEdits'],
-  calendarEventTitleById?: Map<string, string>,
-  allocatorContext?: LedgerAllocatorContext,
+  userEdits: PlanLedger['userEdits'] | undefined,
+  calendarEventTitleById: Map<string, string> | undefined,
+  allocatorContext: LedgerAllocatorContext,
 ): {
   modules: HorizonModule[];
   source: 'fresh' | 'ledger-evolution' | 'bonus-round';
@@ -7487,41 +7518,13 @@ export function mergeWithLedger(
     slotOrigins.push('refreshed');
   }
 
-  // Sprint 2 (Phase 3): allocator now receives the REAL current-window
-  // context (real ranked candidates + real day-shape flags + current nowMs)
-  // — the same inputs used by the fresh-generation path. This fixes the
-  // afternoon/evening degradation where the ledger-evolution path was
-  // fabricating score:0 pseudo-candidates with hardcoded structural flags.
-  //
-  // Fallback: if a caller did not pass an allocatorContext (older test
-  // path only), fall back to the legacy pseudo-candidate reconstruction
-  // so we never hard-crash.
-  const effectiveAllocatorContext: LedgerAllocatorContext = allocatorContext ?? {
-    nowMs: Date.now(),
-    rankedCandidates: freshModules.map((m, idx) => ({
-      eventId: String(m.anchorEventId || m.jitEventTitle || idx),
-      title: m.jitEventTitle || m.timeLabel || '',
-      categoryId: (m.anchorCategoryId as any) ?? null,
-      phase: (m.jitPhase as any) ?? null,
-      comboKey: null as any,
-      score: 0,
-      importance: 0,
-      components: null as any,
-      event: { id: String(m.anchorEventId || idx), title: m.jitEventTitle || m.timeLabel || '', start_time: '', end_time: '' },
-    })) as any,
-    hasTravelDay: false,
-    hasConferenceDay: false,
-    hasOffsiteDay: false,
-    hasRestSignals: false,
-  };
-
   const allocation = allocatePlanSlots({
-    nowMs: effectiveAllocatorContext.nowMs,
-    rankedCandidates: effectiveAllocatorContext.rankedCandidates,
-    hasTravelDay: effectiveAllocatorContext.hasTravelDay,
-    hasConferenceDay: effectiveAllocatorContext.hasConferenceDay,
-    hasOffsiteDay: effectiveAllocatorContext.hasOffsiteDay,
-    hasRestSignals: effectiveAllocatorContext.hasRestSignals,
+    nowMs: allocatorContext.nowMs,
+    rankedCandidates: allocatorContext.rankedCandidates,
+    hasTravelDay: allocatorContext.hasTravelDay,
+    hasConferenceDay: allocatorContext.hasConferenceDay,
+    hasOffsiteDay: allocatorContext.hasOffsiteDay,
+    hasRestSignals: allocatorContext.hasRestSignals,
   });
 
   // Sprint 2 (Phase 3): allocator identity STILL wins (Sprint 1 rule) — but
@@ -7568,16 +7571,15 @@ export function mergeWithLedger(
   });
   try {
     console.info('[generate-mastery-plan][ledger-evolution-context]', {
-      hasTravelDay: effectiveAllocatorContext.hasTravelDay,
-      hasConferenceDay: effectiveAllocatorContext.hasConferenceDay,
-      hasOffsiteDay: effectiveAllocatorContext.hasOffsiteDay,
-      hasRestSignals: effectiveAllocatorContext.hasRestSignals,
-      rankedCandidateCount: effectiveAllocatorContext.rankedCandidates.length,
+      hasTravelDay: allocatorContext.hasTravelDay,
+      hasConferenceDay: allocatorContext.hasConferenceDay,
+      hasOffsiteDay: allocatorContext.hasOffsiteDay,
+      hasRestSignals: allocatorContext.hasRestSignals,
+      rankedCandidateCount: allocatorContext.rankedCandidates.length,
       dayShape: allocation.dayShape,
       mode: allocation.mode,
       carriedSlotCount,
       refreshedSlotCount,
-      usedFallbackContext: !allocatorContext,
     });
     console.info('[generate-mastery-plan][slot-allocation-final]', {
       source: 'ledger-evolution',

@@ -431,3 +431,13 @@ Deno.test("Phase 7 — 'focus' stateAction still routes to focus/flow (existing 
   });
   assertEquals(intent.intentLabel, "focus/flow-mastery");
 });
+
+Deno.test("Phase 7 — Cat-A pre anchor reaches pre-decision-clarity without combo/text hacks", () => {
+  const intent = deriveSlotIntent({
+    stateAction: "Steady the system",
+    anchorCategory: "A",
+    anchorPhase: "pre",
+  });
+  assertEquals(intent.intentLabel, "pre-decision-clarity");
+  assertEquals(intent.combo, "mindset.pause");
+});

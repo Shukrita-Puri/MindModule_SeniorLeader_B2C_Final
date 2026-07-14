@@ -93,6 +93,7 @@ export function deriveSlotIntent(inp: SlotIntentInput): SlotIntent {
     action.includes("reactive") ||
     action.includes("decision fatigue") ||
     action.includes("pre-decision") ||
+    (inp.anchorCategory === "A" && inp.anchorPhase === "pre") ||
     verb === "clarify" ||
     verb === "detach" ||
     tag === "decision_fatigue" ||

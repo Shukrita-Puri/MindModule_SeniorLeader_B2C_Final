@@ -52,6 +52,7 @@ import { getLocalDataSummary } from '@/services/localDataStore';
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 import { markExecutiveCardDelivery } from '@/utils/engagementTracking';
 import { getInvokeTransportDiagnostics, normalizeInvokeOptions } from '@/lib/functionInvokeTransport';
+import { isWhyLineEcho } from '@/components/home/whyLineEcho';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -82,14 +83,7 @@ const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTit
 // case-insensitive duplicate of the slot / practice / module title (or
 // the time label) as a title-echo and suppress it in favour of a
 // meaningful fallback.
-const isEcho = (why: string | null | undefined, title: string | null | undefined): boolean => {
-  if (!why || !title) return false;
-  try {
-    return String(why).trim().toLowerCase() === String(title).trim().toLowerCase();
-  } catch {
-    return false;
-  }
-};
+const isEcho = isWhyLineEcho;
 
 const isCardsAwaitingPayload = (payload: any): boolean => {
   if (!payload) return false;

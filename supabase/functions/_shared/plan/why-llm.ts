@@ -224,6 +224,7 @@ const MAX_WHY_LINE_WORDS = 35;
 
 export type ValidatorReject =
   | "generic"
+  | "title_echo"
   | "valence_firing_recovery"
   | "valence_depleted_push"
   | "jaccard_dup"
@@ -234,6 +235,8 @@ export interface ValidateWhyLineInput {
   text: string | null | undefined;
   stateBand: StateBand | null;
   slotAnchor: SlotAnchor | null;
+  /** Slot/practice labels the why-line must not simply repeat verbatim. */
+  echoTexts?: Array<string | null | undefined>;
   /** Previously accepted lines in this generation pass, used for dedupe gating. */
   priorAccepted?: { text: string; slotAnchor: SlotAnchor | null; arcPosition: ArcPosition | null }[];
   /** Earlier why-lines already emitted today, used for same-day repetition checks. */
@@ -245,6 +248,24 @@ export interface ValidateWhyLineInput {
 export type ValidateWhyLineResult =
   | { ok: true; anchorTokensUsed: boolean }
   | { ok: false; reason: ValidatorReject };
+
+function normaliseEchoText(value: string | null | undefined): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+export function isTitleEcho(
+  text: string | null | undefined,
+  echoTexts: Array<string | null | undefined> | null | undefined,
+): boolean {
+  const candidate = normaliseEchoText(text);
+  if (!candidate || !Array.isArray(echoTexts) || echoTexts.length === 0) return false;
+  return echoTexts.some((value) => {
+    const normalized = normaliseEchoText(value);
+    return normalized.length > 0 && normalized === candidate;
+  });
+}
 
 /**
  * Asymmetric, deliberately forgiving validator. Rejects only on clear
@@ -262,6 +283,10 @@ export function validateWhyLine(inp: ValidateWhyLineInput): ValidateWhyLineResul
   const wordCount = raw.split(/\s+/).filter(Boolean).length;
   if (wordCount > MAX_WHY_LINE_WORDS) {
     return { ok: false, reason: "too_long" };
+  }
+
+  if (isTitleEcho(raw, inp.echoTexts)) {
+    return { ok: false, reason: "title_echo" };
   }
 
   // 1. Anchor / state grounding (asymmetric — either anchor OR state grounds).
