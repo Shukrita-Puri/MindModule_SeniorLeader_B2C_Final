@@ -4418,6 +4418,28 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.warn('[generate-mastery-plan][rest-day-check-failed]', restErr?.message ?? String(restErr));
   }
 
+  // Contract hardening: the server, not the client, owns the canonical
+  // horizon-module projection. If a non-rest-day request resolved
+  // time-of-day modules but allocator / dedupe / merge collapsed the slot
+  // projection to zero, synthesize a state-management fallback so
+  // persisted snapshots and downstream readers never see
+  // `timeOfDayPlan.modules > 0` with `horizonModules = []`.
+  if (!planIsRestDay && finalHorizonModules.length === 0 && todModules.length > 0) {
+    finalHorizonModules = buildSnapshotFallbackHorizonModules(todModules, {
+      period: timeOfDay as 'morning' | 'afternoon' | 'evening',
+      label: periodLabels[timeOfDay],
+      planBrief: planBrief || null,
+    });
+    console.warn('[generate-mastery-plan][snapshot-projection-fallback]', {
+      userId: redactUserId(req.userId),
+      date: today,
+      window: timeOfDay,
+      fallbackCount: finalHorizonModules.length,
+      timeOfDayModulesCount: todModules.length,
+      dayShape: planDayShape,
+    });
+  }
+
   // Persist the (possibly evolved) ledger onto the current period row so the
   // very next regeneration sees it. Service role bypasses the ledger guard.
   try {
@@ -4657,6 +4679,37 @@ interface HorizonModule {
     candidateCount: number;
     multiPhaseEligible: boolean;
   };
+}
+
+function buildSnapshotFallbackHorizonModules(
+  modules: any[],
+  opts: {
+    period: 'morning' | 'afternoon' | 'evening';
+    label: string;
+    planBrief?: string | null;
+  },
+): HorizonModule[] {
+  const planBrief = typeof opts.planBrief === 'string' ? opts.planBrief : '';
+  return modules.map((practice, index) => ({
+    horizon: 'immediate',
+    timeLabel: opts.label,
+    typeLabel: typeof practice?.type === 'string' ? practice.type : 'align',
+    whyLine: practice?.reasoning || planBrief || 'This move keeps the day on track.',
+    recommendedAction: practice?.reasoning || planBrief || 'This move keeps the day on track.',
+    practice,
+    practices: [practice],
+    slotKind: 'state-management',
+    isJit: false,
+    jitEventTitle: null,
+    jitMinutesUntil: null,
+    showNavyBorder: false,
+    showPulse: index === 0,
+    showPriorityPill: false,
+    arcLabel: opts.period === 'evening' && practice?.type === 'integrate' ? 'Recover' : 'Steady',
+    mode: 'state',
+    slotRole: 'state_anchor',
+    allocationReason: 'snapshot_projection_fallback',
+  }));
 }
 
 function determineAllocationPattern(
