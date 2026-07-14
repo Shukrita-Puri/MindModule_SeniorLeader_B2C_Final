@@ -4348,6 +4348,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // ledger row but are not resurfaced as fresh priorities.
   let planDayShape: 'light_routine' | 'dominant_structural_event' | 'mixed_day' | 'rest_day' | null = null;
   let planIsRestDay = false;
+  // Observability — surface the canonical classifier's already-computed
+  // state/reason so Plan snapshots record WHY a day was flagged rest/PTO/
+  // holiday. Read-only; does not affect plan behavior.
+  let planAvailabilityMeta: {
+    state: string;
+    reason: string;
+    isRestDay: boolean;
+    meetingCount: number;
+    holiday: { detected: boolean; applicable: boolean; title?: string; scope?: string };
+  } | null = null;
   try {
     const outerAllocation = allocatePlanSlots({
       nowMs: Date.now(),
@@ -4356,6 +4366,40 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     });
     planDayShape = outerAllocation.dayShape;
     planIsRestDay = outerAllocation.dayShape === 'rest_day';
+    try {
+      const _events = Array.isArray(req.calendarEvents) ? req.calendarEvents : [];
+      const _avail = classifyAvailability({
+        now: new Date(),
+        userHomeCountry: (req as any).userHomeCountry ?? null,
+        userCurrentCountry: (req as any).userCurrentCountry ?? null,
+        explicitPto: (req as any).explicitPto === true,
+        calendarLoad: ((req as any).calendarLoad as any) ?? null,
+        events: _events.map((e: any) => ({
+          title: String(e?.title || ''),
+          startTime: String(e?.startTime || e?.start_time || ''),
+          endTime: String(e?.endTime || e?.end_time || e?.startTime || ''),
+          isAllDay: e?.isAllDay === true || e?.is_all_day === true,
+          isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+          attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+          source: e?.source ?? e?.calendarName ?? null,
+          calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+        })),
+      });
+      planAvailabilityMeta = {
+        state: _avail.state,
+        reason: _avail.reason,
+        isRestDay: _avail.isRestDay,
+        meetingCount: _avail.workEvidence.meetingCount,
+        holiday: {
+          detected: _avail.holiday.detected,
+          applicable: _avail.holiday.applicable,
+          title: _avail.holiday.title,
+          scope: _avail.holiday.scope,
+        },
+      };
+    } catch (availErr: any) {
+      console.warn('[generate-mastery-plan][availability-meta-failed]', availErr?.message ?? String(availErr));
+    }
     if (planIsRestDay) {
       const slotCountBefore = finalHorizonModules.length;
       finalHorizonModules = [];
@@ -4428,6 +4472,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       // "check in to build your plan" prompt.
       dayShape: planDayShape,
       restDay: planIsRestDay,
+      availability: planAvailabilityMeta,
       calendarContext: calendarContext.todayMeetingCount > 0 || calendarContext.upcomingMeetingCount > 0
         ? { todayLoad: calendarContext.todayLoad, upcomingLoad: calendarContext.upcomingLoad, todayMeetingCount: calendarContext.todayMeetingCount, todayMeetingHours: calendarContext.todayMeetingHours }
         : undefined
