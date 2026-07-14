@@ -234,3 +234,26 @@ export function classifyAvailability(
 export function classifyHasRestSignals(input: AvailabilityInput): boolean {
   return classifyAvailability(input).isRestDay;
 }
+
+/**
+ * Thin adapter around `classifyAvailability` for consumers that need to
+ * classify an ARBITRARY calendar day (not just "now") — e.g. the
+ * smart-nudges 14-day lookback that decides whether each preceding day
+ * was an off-day.
+ *
+ * Returns `{ state, isOffDay }` where `isOffDay` is the canonical
+ * definition used across Brief / Plan / Nudges:
+ *   OFF ⇔ state ∈ { PTO, PUBLIC_HOLIDAY (applicable), REST_DAY (weekend) }
+ * WORKDAY and LIGHT_ROUTINE are NEVER off-days, even when the calendar
+ * is empty. Empty calendar ≠ off-day.
+ */
+export function classifyDay(
+  input: AvailabilityInput,
+): { state: AvailabilityState; isOffDay: boolean; reason: string } {
+  const r = classifyAvailability(input);
+  const isOffDay =
+    r.state === "PTO" ||
+    r.state === "PUBLIC_HOLIDAY" ||
+    r.state === "REST_DAY";
+  return { state: r.state, isOffDay, reason: r.reason };
+}
