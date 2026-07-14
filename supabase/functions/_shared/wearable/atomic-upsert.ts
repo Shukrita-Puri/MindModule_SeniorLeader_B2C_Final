@@ -27,6 +27,7 @@ import {
   type WearableMergeContext,
   type ReconciliationRecord,
 } from "./canonical.ts";
+import { redactUserId } from "../identity/redact-user-id.ts";
 
 /** Columns required for a lossless canonical merge round-trip. */
 export const WEARABLE_MERGE_COLUMNS =
@@ -42,6 +43,14 @@ export interface AtomicUpsertOptions {
   maxAttempts?: number;
   /** When set (not undefined), force this raw_data onto the merged row. */
   overrideRawData?: unknown;
+  /** Injectable sleep for tests. Defaults to setTimeout. */
+  sleep?: (ms: number) => Promise<void>;
+  /** Injectable RNG for tests (0..1). Used for full-jitter backoff. */
+  random?: () => number;
+  /** Initial backoff delay in ms (default 20). */
+  initialBackoffMs?: number;
+  /** Maximum backoff delay in ms (default 500). */
+  maxBackoffMs?: number;
 }
 
 export interface AtomicUpsertResult {
@@ -57,6 +66,16 @@ export interface AtomicUpsertResult {
 // deno-lint-ignore no-explicit-any
 export type WearableDbClient = any;
 
+/** Default retry budget. Raised from 5 → 12 to survive bursts of concurrent
+ *  HealthKit + Oura writers on the same (user_id, summary_date). */
+export const DEFAULT_ATOMIC_UPSERT_MAX_ATTEMPTS = 12;
+
+const DEFAULT_INITIAL_BACKOFF_MS = 20;
+const DEFAULT_MAX_BACKOFF_MS = 500;
+
+const defaultSleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export async function atomicMergeUpsertWearable(
   db: WearableDbClient,
   userId: string,
@@ -64,7 +83,23 @@ export async function atomicMergeUpsertWearable(
   incomingRow: Record<string, unknown>,
   opts: AtomicUpsertOptions,
 ): Promise<AtomicUpsertResult> {
-  const maxAttempts = Math.max(1, opts.maxAttempts ?? 5);
+  const maxAttempts = Math.max(
+    1,
+    opts.maxAttempts ?? DEFAULT_ATOMIC_UPSERT_MAX_ATTEMPTS,
+  );
+  const sleep = opts.sleep ?? defaultSleep;
+  const random = opts.random ?? Math.random;
+  const initialBackoff = Math.max(1, opts.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS);
+  const maxBackoff = Math.max(initialBackoff, opts.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS);
+  const redactedUser = redactUserId(userId);
+
+  // Full-jitter: delay = random(0, min(cap, base * 2^conflicts))
+  const backoffDelay = (conflictOrdinal: number): number => {
+    const exp = Math.min(maxBackoff, initialBackoff * Math.pow(2, conflictOrdinal));
+    return Math.floor(random() * exp);
+  };
+
+  let conflicts = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const { data: existing, error: readErr } = await db
@@ -97,12 +132,24 @@ export async function atomicMergeUpsertWearable(
 
     if (!existing) {
       const { error: insErr } = await db.from("wearable_data").insert(merged);
-      if (!insErr) return { ok: true, attempts: attempt, wasUpdate: false };
-      // Unique-violation: a concurrent writer inserted first. Retry as update.
+      if (!insErr) {
+        if (conflicts > 0) {
+          console.log(
+            `[atomic-upsert] recovered user=${redactedUser} date=${summaryDate} attempt=${attempt} conflicts=${conflicts} path=insert`,
+          );
+        }
+        return { ok: true, attempts: attempt, wasUpdate: false };
+      }
       const code = (insErr as { code?: string } | null)?.code;
       if (code !== "23505") {
         return { ok: false, attempts: attempt, error: insErr };
       }
+      // Concurrent writer inserted first — backoff, re-read, retry as update.
+      conflicts += 1;
+      console.log(
+        `[atomic-upsert] conflict user=${redactedUser} date=${summaryDate} attempt=${attempt} type=duplicate_insert`,
+      );
+      if (attempt < maxAttempts) await sleep(backoffDelay(conflicts));
       continue;
     }
 
@@ -118,11 +165,24 @@ export async function atomicMergeUpsertWearable(
     const { data: updated, error: updErr } = await update.select("summary_date");
     if (updErr) return { ok: false, attempts: attempt, error: updErr };
     if (Array.isArray(updated) && updated.length > 0) {
+      if (conflicts > 0) {
+        console.log(
+          `[atomic-upsert] recovered user=${redactedUser} date=${summaryDate} attempt=${attempt} conflicts=${conflicts} path=update`,
+        );
+      }
       return { ok: true, attempts: attempt, wasUpdate: true };
     }
-    // CAS miss: another writer moved updated_at. Loop and re-merge.
+    // CAS miss: another writer committed first. Backoff (jittered) + re-read.
+    conflicts += 1;
+    console.log(
+      `[atomic-upsert] conflict user=${redactedUser} date=${summaryDate} attempt=${attempt} type=cas_miss`,
+    );
+    if (attempt < maxAttempts) await sleep(backoffDelay(conflicts));
   }
 
+  console.error(
+    `[atomic-upsert] exhausted user=${redactedUser} date=${summaryDate} attempts=${maxAttempts} conflicts=${conflicts}`,
+  );
   return {
     ok: false,
     attempts: maxAttempts,
