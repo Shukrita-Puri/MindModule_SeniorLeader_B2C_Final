@@ -406,18 +406,64 @@ import Security
         drainOutbox(token: token, done: done)
     }
 
-    private func drainOutbox(token: String, done: @escaping () -> Void) {
-        let items = NativeOutbox.shared.peek(provider: .appleHealth)
-        if items.isEmpty { done(); return }
+    /// Serialised FIFO outbox drain.
+    ///
+    /// Rationale (see docs / concurrency review): parallel POSTs from a single
+    /// device created a write-storm on the server-side `atomicMergeUpsertWearable`
+    /// CAS loop for the same (user_id, summary_date). We now upload strictly
+    /// one payload at a time, remove the outbox item only on confirmed 2xx,
+    /// keep failures in the outbox for the next drain, and hold a single-flight
+    /// gate so overlapping observer / background-fetch fires cannot start two
+    /// concurrent drains.
+    private static let drainLock = NSLock()
+    private static var drainInFlight = false
+    private static let drainQueue = DispatchQueue(label: "mindmodule.wearable.outbox.drain")
 
-        let group = DispatchGroup()
-        for item in items {
-            group.enter()
-            postOutboxItem(item, token: token) {
-                group.leave()
-            }
+    private func drainOutbox(token: String, done: @escaping () -> Void) {
+        WearableSyncBridge.drainLock.lock()
+        if WearableSyncBridge.drainInFlight {
+            WearableSyncBridge.drainLock.unlock()
+            NSLog("[WearableSyncBridge] drainOutbox: another drain in-flight — skipping")
+            done()
+            return
         }
-        group.notify(queue: .global(qos: .background)) { done() }
+        WearableSyncBridge.drainInFlight = true
+        WearableSyncBridge.drainLock.unlock()
+
+        let finish: () -> Void = {
+            WearableSyncBridge.drainLock.lock()
+            WearableSyncBridge.drainInFlight = false
+            WearableSyncBridge.drainLock.unlock()
+            done()
+        }
+
+        WearableSyncBridge.drainQueue.async {
+            let items = NativeOutbox.shared.peek(provider: .appleHealth)
+            NSLog("[WearableSyncBridge] drainOutbox start: depth=\(items.count)")
+            if items.isEmpty { finish(); return }
+            self.drainNext(items, index: 0, token: token, done: finish)
+        }
+    }
+
+    /// Recursive serial pump: post item[i], then advance to i+1 only after the
+    /// callback has fired. Guarantees strict FIFO one-at-a-time semantics
+    /// without spawning parallel URLSession tasks.
+    private func drainNext(
+        _ items: [NativeOutbox.Item],
+        index: Int,
+        token: String,
+        done: @escaping () -> Void
+    ) {
+        if index >= items.count {
+            let remaining = NativeOutbox.shared.depth(provider: .appleHealth)
+            NSLog("[WearableSyncBridge] drainOutbox done: remaining=\(remaining)")
+            done()
+            return
+        }
+        let item = items[index]
+        postOutboxItem(item, token: token) {
+            self.drainNext(items, index: index + 1, token: token, done: done)
+        }
     }
 
     private func postOutboxItem(_ item: NativeOutbox.Item, token: String, done: @escaping () -> Void) {
