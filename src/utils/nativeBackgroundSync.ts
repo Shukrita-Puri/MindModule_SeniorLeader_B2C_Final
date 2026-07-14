@@ -95,14 +95,15 @@ export async function forceNativeHealthSync(): Promise<boolean> {
  * Force a native Apple Calendar fetch + POST. Used after a permission grant
  * or manual reconnect so the UI reflects the new connection state without
  * waiting for the next background-fetch slot.
+ *
+ * Rejects when the native bridge itself fails. Callers that want fire-and-
+ * forget semantics must attach `.catch(() => {})` explicitly — silently
+ * swallowing failures here caused the UI to render `Synced 0 events` after a
+ * failed native invocation.
  */
 export async function forceNativeCalendarSync(): Promise<void> {
   if (!isNativeIos()) return;
-  try {
-    await NativeBackgroundSync.forceCalendarSync();
-  } catch (err) {
-    console.warn('[NativeBackgroundSync] forceCalendarSync failed:', err);
-  }
+  await NativeBackgroundSync.forceCalendarSync();
 }
 
 export async function getNativeSyncDiagnostics(): Promise<NativeOutboxDiagnostics | null> {
