@@ -13,17 +13,170 @@
  * Meeting counts and empty calendars are workload signals — they NEVER
  * decide whether the user is working. See docs section "Canonical Override
  * Principle" in the ticket for the precedence rules.
+ *
+ * SINGLE-FILE SSOT: this file OWNS the title regexes (PTO_TITLE_RX,
+ * PERSONAL_HOLIDAY_TITLE_RX), the region-token type and helpers
+ * (RegionToken, parseHolidayRegionFromTitle, isFyiHolidayCalendar,
+ * matchesUserCountry, isApplicableHoliday), the classifier core, and the
+ * classifyDay adapter. `holiday-applicability.ts` and the regex exports on
+ * `ceo-behaviour/pto-holiday.ts` are @deprecated re-export shims kept for
+ * one release; do NOT import from them.
+ *
+ * Size ceiling: keep this file under ~500 lines. If new rules push past
+ * that, split internals into an `availability/` sub-folder
+ * (regex.ts / regions.ts / classifier-core.ts) and keep this file as the
+ * public re-export barrel so consumers keep ONE import path.
  */
 
-import {
-  PTO_TITLE_RX,
-  PERSONAL_HOLIDAY_TITLE_RX,
-} from "../ceo-behaviour/pto-holiday.ts";
-import {
-  isApplicableHoliday,
-  isFyiHolidayCalendar,
-  type RegionToken,
-} from "./holiday-applicability.ts";
+// ────────────────────────────────────────────────────────────────────────
+// Title regexes — canonical PTO / public-holiday markers.
+// Moved here from ceo-behaviour/pto-holiday.ts so availability primitives
+// live in one place. That file now re-exports these for back-compat.
+// ────────────────────────────────────────────────────────────────────────
+
+/**
+ * Canonical PTO / public-holiday title regex. Detects whether a calendar
+ * event title represents an off-day marker (OOO / PTO / Vacation /
+ * Holiday / Out of Office / Bank Holiday / etc.).
+ *
+ * Consumers MUST import this from `availability-classifier.ts`.
+ */
+export const PTO_TITLE_RX =
+  /\b(ooo|out\s*of\s*office|pto|vacation|annual\s+leave|on\s+leave|holiday|public\s+holiday|bank\s+holiday|national\s+holiday)\b/i;
+
+/**
+ * Personal-leaning subset of {@link PTO_TITLE_RX}: vacation / annual leave /
+ * on leave / public|bank|national holiday / plain "holiday". Excludes
+ * OOO|PTO|out of office which often still imply a work-arc.
+ */
+export const PERSONAL_HOLIDAY_TITLE_RX =
+  /\b(vacation|annual\s+leave|on\s+leave|public\s+holiday|bank\s+holiday|national\s+holiday|holiday)\b/i;
+
+// ────────────────────────────────────────────────────────────────────────
+// Region tokens + holiday applicability helpers.
+// Moved here verbatim from holiday-applicability.ts.
+// ────────────────────────────────────────────────────────────────────────
+
+/** Region tokens the classifier understands. Extend as needed. */
+export type RegionToken =
+  | "GB"        // United Kingdom umbrella
+  | "GB-ENG"    // England
+  | "GB-WLS"    // Wales
+  | "GB-SCT"    // Scotland
+  | "GB-NIR"    // Northern Ireland
+  | "US"        // United States
+  | "IE"        // Ireland
+  | "UNKNOWN";
+
+/**
+ * Parse a region qualifier from a holiday title.
+ *   "Bank Holiday (N Ireland)"       -> "GB-NIR"
+ *   "Bank Holiday (Scotland)"        -> "GB-SCT"
+ *   "Bank Holiday (England & Wales)" -> "GB-ENG"
+ *   "US Independence Day"            -> "US"
+ * Returns UNKNOWN when no explicit qualifier is present.
+ */
+export function parseHolidayRegionFromTitle(
+  title: string | null | undefined,
+): RegionToken {
+  if (!title) return "UNKNOWN";
+  const t = title.toLowerCase();
+  if (/\(n\.?\s*ireland\)|\bnorthern ireland\b/.test(t)) return "GB-NIR";
+  if (/\(scotland\)|\bscotland\b/.test(t)) return "GB-SCT";
+  // England & Wales umbrella must be checked before plain Wales/England.
+  if (/\(england\s*&\s*wales\)|\bengland\s*&\s*wales\b/.test(t)) return "GB-ENG";
+  if (/\(wales\)|\bwales\b/.test(t)) return "GB-WLS";
+  if (/\(england\)|\bengland\b/.test(t)) return "GB-ENG";
+  if (/\(uk\)|\bunited kingdom\b/.test(t)) return "GB";
+  if (/\(us\)|\bunited states\b|\bu\.s\.\b/.test(t) || /^us\s/i.test(title))
+    return "US";
+  if (/\(ireland\)|\brepublic of ireland\b/.test(t)) return "IE";
+  return "UNKNOWN";
+}
+
+/**
+ * Detect an FYI subscription calendar (Google/Apple "Holidays in <Country>").
+ */
+export function isFyiHolidayCalendar(event: {
+  source?: string | null;
+  calendarSummary?: string | null;
+}): boolean {
+  const s = `${event.source ?? ""} ${event.calendarSummary ?? ""}`.toLowerCase();
+  return /holidays?\s+in\s+/.test(s) || /\bpublic holidays\b/.test(s);
+}
+
+/**
+ * Determine whether a subscription/title region matches the user's country.
+ * Handles GB umbrella <-> GB-* subdivisions.
+ */
+export function matchesUserCountry(
+  region: RegionToken,
+  userCountry: string | null | undefined,
+): boolean {
+  if (!userCountry) return false;
+  const u = userCountry.toUpperCase();
+  if (region === "UNKNOWN") return false;
+  if (region === u) return true;
+  if (region === "GB" && u.startsWith("GB")) return true;
+  if (u === "GB" && region.startsWith("GB")) return true;
+  return false;
+}
+
+/**
+ * Decide whether a holiday-like event is applicable to the user.
+ *   - Non-all-day events NEVER count.
+ *   - FYI subscription calendars: applicable only if the feed's country
+ *     matches the user; otherwise informational.
+ *   - Region-qualified titles: applicable only when the region matches.
+ *   - Unqualified titles from a non-FYI calendar: applicable.
+ */
+export function isApplicableHoliday(
+  event: {
+    title: string;
+    isAllDay?: boolean;
+    source?: string | null;
+    calendarSummary?: string | null;
+  },
+  userCountry: string | null | undefined,
+): { applicable: boolean; region: RegionToken; reason: string } {
+  if (!event.isAllDay) {
+    return { applicable: false, region: "UNKNOWN", reason: "not_all_day" };
+  }
+  const titleRegion = parseHolidayRegionFromTitle(event.title);
+  const fyi = isFyiHolidayCalendar(event);
+
+  if (fyi) {
+    const summary =
+      `${event.source ?? ""} ${event.calendarSummary ?? ""}`.toLowerCase();
+    const feedRegion: RegionToken =
+      /united kingdom|\buk\b/.test(summary)
+        ? "GB"
+        : /united states|\bus\b/.test(summary)
+        ? "US"
+        : /ireland/.test(summary)
+        ? "IE"
+        : titleRegion;
+    const match =
+      matchesUserCountry(feedRegion, userCountry) ||
+      matchesUserCountry(titleRegion, userCountry);
+    return {
+      applicable: match,
+      region: feedRegion === "UNKNOWN" ? titleRegion : feedRegion,
+      reason: match ? "fyi_matches_user_country" : "fyi_foreign_country",
+    };
+  }
+
+  if (titleRegion !== "UNKNOWN") {
+    const match = matchesUserCountry(titleRegion, userCountry);
+    return {
+      applicable: match,
+      region: titleRegion,
+      reason: match ? "region_matches_user_country" : "region_foreign",
+    };
+  }
+
+  return { applicable: true, region: "UNKNOWN", reason: "unqualified_all_day" };
+}
 
 export type AvailabilityState =
   | "WORKDAY"
