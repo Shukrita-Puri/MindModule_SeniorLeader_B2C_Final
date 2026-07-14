@@ -642,6 +642,8 @@ interface NudgeContext {
     consecutiveOffDaysBefore: number;
     travelDay: boolean;
     fullWorkingWeekend: boolean;
+    /** SSOT-derived: today is a PTO / applicable holiday / weekend day. */
+    todayIsOffDay: boolean;
   };
   // v5.3 - Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
