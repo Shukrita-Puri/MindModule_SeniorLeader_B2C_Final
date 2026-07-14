@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
-import { saveV8 } from "@/utils/onboardingV8";
+import { loadV8Row, saveV8 } from "@/utils/onboardingV8";
 import { GOAL_IDS, MAX_GOALS } from "@/utils/onboardingV8Validation";
 
 const GOALS = [
@@ -23,6 +23,23 @@ export default function StageProtectGoals() {
   const [showLimit, setShowLimit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadV8Row<{ goals?: string[] }>().then((res) => {
+      if (cancelled) return;
+      if (res.ok && Array.isArray(res.data?.goals)) {
+        setSelected(new Set(res.data.goals.filter((goal) => ALLOWED_GOAL_IDS.has(goal))));
+      }
+      setIsHydrated(true);
+    }).catch(() => {
+      if (!cancelled) setIsHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const next = async () => {
     if (saving) return;
     if (selected.size === 0 || selected.size > MAX) return;
@@ -63,7 +80,7 @@ export default function StageProtectGoals() {
       step="Step 2 of 3"
       title="What should Mind Module protect?"
       footer={
-        <PrimaryCTA disabled={selected.size === 0 || saving} onClick={next}>
+        <PrimaryCTA disabled={selected.size === 0 || saving || !isHydrated} onClick={next}>
           {saving ? "Saving…" : "Continue →"}
         </PrimaryCTA>
       }

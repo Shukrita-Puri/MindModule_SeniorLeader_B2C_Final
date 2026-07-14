@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA, SkipLink } from "./ShellV8";
-import { makeDebouncedSaver, saveV8 } from "@/utils/onboardingV8";
+import { loadV8Row, makeDebouncedSaver, saveV8 } from "@/utils/onboardingV8";
 import {
   isHttpUrl,
   isLinkedInUrl,
@@ -59,7 +59,36 @@ export default function StageLeadershipContext() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const [scrape, setScrape] = useState<ScrapeState>({ status: "idle" });
+  const [isHydrated, setIsHydrated] = useState(false);
   const debouncedSave = useMemo(() => makeDebouncedSaver(700), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadV8Row<{
+      linkedin_url?: string | null;
+      writing_urls?: string[];
+      freetext_context?: string | null;
+    }>().then((res) => {
+      if (cancelled) return;
+      if (res.ok && res.data) {
+        const linkedin = res.data.linkedin_url ?? "";
+        const writing = Array.isArray(res.data.writing_urls) ? res.data.writing_urls.join("\n") : "";
+        const notes = res.data.freetext_context ?? "";
+        setValues({ linkedin, writing, notes });
+        setSelected({
+          linkedin: Boolean(linkedin),
+          writing: Boolean(writing),
+          notes: Boolean(notes),
+        });
+      }
+      setIsHydrated(true);
+    }).catch(() => {
+      if (!cancelled) setIsHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Compute validation each render (cheap).
   const writingArr = parseWritingUrlsInput(values.writing);
@@ -72,6 +101,7 @@ export default function StageLeadershipContext() {
 
   // Debounced autosave whenever text values change — only persist sanitized values.
   useEffect(() => {
+    if (!isHydrated) return;
     debouncedSave({
       linkedin_url:
         selected.linkedin && values.linkedin.trim() && isLinkedInUrl(values.linkedin)
@@ -83,7 +113,7 @@ export default function StageLeadershipContext() {
         : null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values, selected]);
+  }, [debouncedSave, isHydrated, values, selected]);
 
   const canContinue = linkedinValid && !writingInvalid && !writingOverLimit;
 
@@ -200,7 +230,7 @@ export default function StageLeadershipContext() {
       title="Help Mind Module understand your Leadership Context"
       footer={
         <>
-          <PrimaryCTA onClick={next} disabled={saving || !canContinue}>
+          <PrimaryCTA onClick={next} disabled={saving || !canContinue || !isHydrated}>
             {saving ? "Saving…" : "Continue →"}
           </PrimaryCTA>
           <SkipLink onClick={skip}>Skip — Mind Module will learn from behaviour</SkipLink>

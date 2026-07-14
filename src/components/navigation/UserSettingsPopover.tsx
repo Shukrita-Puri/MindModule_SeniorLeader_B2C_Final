@@ -39,7 +39,7 @@ const UserSettingsPopover = () => {
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
     ...(!PAYMENT_PAGE_SUPPRESSED && !isValidBeta(user) ? [
-      { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment?source=profile-upgrade', source: 'profile_upgrade' },
+      { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/upgrade?source=profile-upgrade', source: 'profile_upgrade' },
     ] : []),
     { icon: Share2, label: 'Refer to Friends', path: '/refer' },
   ];

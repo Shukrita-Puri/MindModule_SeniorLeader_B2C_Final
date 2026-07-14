@@ -8,7 +8,7 @@ import DelayedFallback from "@/components/ui/delayed-fallback";
 import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
 // Routes that completed users can still access (e.g. upgrade flow)
-const ONBOARDING_WHITELIST = PAYMENT_PAGE_SUPPRESSED ? [] : ['/onboarding/payment'];
+const ONBOARDING_WHITELIST = PAYMENT_PAGE_SUPPRESSED ? [] : ['/upgrade', '/onboarding/payment'];
 
 /**
  * Check if onboarding is complete by querying DB progress.

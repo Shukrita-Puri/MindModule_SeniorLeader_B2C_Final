@@ -10,6 +10,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { sanitizePayload, validateForCompletion } from "../_shared/onboardingV8Validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const {
+      onboarding_version,
       mental_fitness_baseline,
       component_scores,
       user_archetype,
@@ -66,6 +68,55 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Failed to check profile", detail: fetchErr.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (onboarding_version === "v8") {
+      const { data: v8Row, error: v8FetchError } = await supabaseAdmin
+        .from("onboarding_v8_responses")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (v8FetchError) {
+        console.error("[complete-onboarding] v8 fetch error:", v8FetchError);
+        return new Response(
+          JSON.stringify({ error: "Failed to load onboarding_v8_responses", detail: v8FetchError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!v8Row) {
+        return new Response(
+          JSON.stringify({ error: "missing_v8_row" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const sanitized = sanitizePayload(v8Row as Record<string, unknown>);
+      const validationErrors = validateForCompletion(sanitized);
+      if (validationErrors.length > 0) {
+        return new Response(
+          JSON.stringify({ error: "validation_failed", errors: validationErrors }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const completedAt = existing?.onboarding_completed_at ?? new Date().toISOString();
+      const { error: v8UpdateError } = await supabaseAdmin
+        .from("onboarding_v8_responses")
+        .update({
+          completed_at: v8Row.completed_at ?? completedAt,
+          step_status: {
+            ...((v8Row.step_status as Record<string, unknown> | null) ?? {}),
+            connect: "completed",
+          },
+        })
+        .eq("user_id", userId);
+      if (v8UpdateError) {
+        console.error("[complete-onboarding] v8 update error:", v8UpdateError);
+        return new Response(
+          JSON.stringify({ error: "Failed to update onboarding_v8_responses", detail: v8UpdateError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Build update payload – always persist results data

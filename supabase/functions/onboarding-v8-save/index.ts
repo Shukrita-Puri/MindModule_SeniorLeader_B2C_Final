@@ -27,6 +27,7 @@ const VALID_STEPS: StepKey[] = [
   "protect_goals",
   "brief_prefs",
   "permissions",
+  "connect",
 ];
 
 Deno.serve(async (req) => {
@@ -79,7 +80,7 @@ Deno.serve(async (req) => {
       // Build step_status merge if provided (only canonical step keys allowed).
       let stepStatusMerge: Record<string, string> | null = null;
       if (typeof step === "string" && (VALID_STEPS as string[]).includes(step)) {
-        stepStatusMerge = { [step]: new Date().toISOString() };
+        stepStatusMerge = { [step]: "completed" };
       }
 
       // Fetch existing row to merge step_status (jsonb)
@@ -146,23 +147,6 @@ Deno.serve(async (req) => {
       if (error) {
         console.error("[onboarding-v8-save] MARK_COMPLETE error:", error);
         return json(500, { error: "complete_failed" });
-      }
-
-      const { data: profile } = await db
-        .from("profiles")
-        .select("onboarding_completed_at")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (!profile?.onboarding_completed_at) {
-        const { error: profileErr } = await db
-          .from("profiles")
-          .update({ onboarding_completed_at: completedAt, updated_at: completedAt })
-          .eq("id", userId);
-        if (profileErr) {
-          console.error("[onboarding-v8-save] profile completion update error:", profileErr);
-          return json(500, { error: "profile_complete_failed" });
-        }
       }
 
       return json(200, { ok: true, data });

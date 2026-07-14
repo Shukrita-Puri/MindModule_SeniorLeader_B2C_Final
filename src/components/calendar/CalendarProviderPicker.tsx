@@ -293,8 +293,8 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
 
 interface CalendarProviderPickerProps {
   redirectPath: string;
-  /** Hide the Apple row entirely (e.g. desktop-only contexts). */
-  hideApple?: boolean;
+  /** When provided, only render these calendars. */
+  only?: CalendarProviderId[];
   /** Optional callback fired whenever a provider state change is initiated. */
   onChanged?: () => void;
 }
@@ -304,7 +304,7 @@ interface CalendarProviderPickerProps {
  * iOS), Google Calendar, and Microsoft Outlook through a single consistent UI.
  * Reads state from the multi-provider check-connections-status endpoint.
  */
-export default function CalendarProviderPicker({ redirectPath, hideApple, onChanged }: CalendarProviderPickerProps) {
+export default function CalendarProviderPicker({ redirectPath, only, onChanged }: CalendarProviderPickerProps) {
   const [state, setState] = useState<CalendarProvidersState>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -324,6 +324,8 @@ export default function CalendarProviderPicker({ redirectPath, hideApple, onChan
     // Small delay before refreshing to allow backend writes to settle.
     setTimeout(() => { refresh(); }, 400);
   }, [onChanged, refresh]);
+
+  const show = (id: CalendarProviderId) => !only || only.includes(id);
 
   return (
     <div className="space-y-3">
@@ -353,25 +355,29 @@ export default function CalendarProviderPicker({ redirectPath, hideApple, onChan
           </Button>
         </div>
       )}
-      <ProviderRow
-        provider="google"
-        label="Google Calendar"
-        iconSrc={googleCalendarLogo}
-        status={state.google}
-        redirectPath={redirectPath}
-        onChanged={handleChanged}
-        disabled={loading}
-      />
-      <ProviderRow
-        provider="microsoft"
-        label="Microsoft Outlook"
-        iconSrc={microsoftCalendarLogo}
-        status={state.microsoft}
-        redirectPath={redirectPath}
-        onChanged={handleChanged}
-        disabled={loading}
-      />
-      {!hideApple && (
+      {show('google') && (
+        <ProviderRow
+          provider="google"
+          label="Google Calendar"
+          iconSrc={googleCalendarLogo}
+          status={state.google}
+          redirectPath={redirectPath}
+          onChanged={handleChanged}
+          disabled={loading}
+        />
+      )}
+      {show('microsoft') && (
+        <ProviderRow
+          provider="microsoft"
+          label="Microsoft Outlook"
+          iconSrc={microsoftCalendarLogo}
+          status={state.microsoft}
+          redirectPath={redirectPath}
+          onChanged={handleChanged}
+          disabled={loading}
+        />
+      )}
+      {show('apple') && (
         <ProviderRow
           provider="apple"
           label="Apple Calendar"

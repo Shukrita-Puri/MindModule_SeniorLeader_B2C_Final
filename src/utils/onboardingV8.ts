@@ -18,7 +18,12 @@ export type V8Fields = Partial<{
 
 export type EdgeValidationError = { field: string; message: string };
 
-async function postEdge<T = any>(
+type EdgeJson = {
+  error?: string;
+  errors?: EdgeValidationError[];
+};
+
+async function postEdge<T = Record<string, unknown>>(
   fn: string,
   body: unknown,
 ): Promise<{ ok: boolean; data?: T; error?: string; validationErrors?: EdgeValidationError[] }> {
@@ -31,10 +36,10 @@ async function postEdge<T = any>(
       headers,
       body: JSON.stringify(body ?? {}),
     });
-    const json = await res.json().catch(() => null);
+    const json = (await res.json().catch(() => null)) as EdgeJson | null;
     if (!res.ok) {
-      const errs = Array.isArray((json as any)?.errors) ? ((json as any).errors as EdgeValidationError[]) : undefined;
-      return { ok: false, error: (json as any)?.error ?? `http_${res.status}`, validationErrors: errs };
+      const errs = Array.isArray(json?.errors) ? json.errors : undefined;
+      return { ok: false, error: json?.error ?? `http_${res.status}`, validationErrors: errs };
     }
     return { ok: true, data: json as T };
   } catch (e) {
@@ -48,9 +53,13 @@ export async function saveV8(fields: V8Fields, step?: string) {
   return postEdge("onboarding-v8-save", { action: "UPSERT", fields, step });
 }
 
+export async function loadV8Row<T = Record<string, unknown>>() {
+  return postEdge<T>("onboarding-v8-save", { action: "GET" });
+}
+
 /** Mark the v8 onboarding as complete (sets completed_at). */
 export async function markV8Complete() {
-  return postEdge("onboarding-v8-save", { action: "MARK_COMPLETE" });
+  return postEdge("complete-onboarding", { onboarding_version: "v8" });
 }
 
 /** Trigger Firecrawl + Gemini synthesis. Idempotent unless `force`. */

@@ -4,7 +4,6 @@ import mmLogoCircle from "@/assets/brand/mm-logo-circle.png";
 import heroIllustration from "@/assets/onboarding/usp-sky-light.jpeg";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
 import {
   getRedirectUri,
@@ -93,7 +92,7 @@ const Auth0Front = () => {
     }
 
     if (!hasValidAccess(user)) {
-      navigate('/onboarding/payment', { replace: true });
+      navigate('/upgrade', { replace: true });
     }
   }, [loading, isAuthenticated, user, navigate, logoutGuardActive]);
 
@@ -115,12 +114,10 @@ const Auth0Front = () => {
       return;
     }
     if (isAuthenticated && user?.onboarding_completed_at && !hasValidAccess(user)) {
-      navigate(PAYMENT_PAGE_SUPPRESSED ? CANONICAL_HOME : '/onboarding/payment');
+      navigate(PAYMENT_PAGE_SUPPRESSED ? CANONICAL_HOME : '/upgrade');
       return;
     }
 
-    // Fresh signup/login — clear any onboarding stub so new users start clean.
-    clearSession();
     resetStaleNativeAuth();
 
     const result = await nativeLogin({ returnTo: CANONICAL_HOME, connection });
@@ -162,7 +159,7 @@ const FrontLoading = () => (
 const FrontContent = ({ onProvider, isAuthenticated, user }: {
   onProvider: (connection: string | undefined) => Promise<void>;
   isAuthenticated: boolean;
-  user: any;
+  user: unknown;
 }) => {
   const navigate = useNavigate();
   const [busy, setBusy] = useState<Provider | null>(null);

@@ -29,8 +29,8 @@ export default function StageDone() {
       if (res.error === "validation_failed") {
         const fields = (res.validationErrors ?? []).map((e) => e.field);
         if (fields.includes("calendar_selections") || fields.includes("wearable_selections")) {
-          setError("Connect at least one calendar and one wearable to finish.");
-          setTimeout(() => navigate("/onboarding/permissions"), 1200);
+          setError("Finish your selected connections before entering the app.");
+          setTimeout(() => navigate("/onboarding/connect"), 1200);
           return;
         }
         if (fields.includes("goals")) {

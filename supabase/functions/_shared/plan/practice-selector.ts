@@ -27,6 +27,13 @@ import {
 
 export type MetaSkill = "meta-clarity" | "meta-recalibration" | "meta-renewal";
 export type RecalibrateCategory = "pause" | "power-up" | "presence";
+export type LeaderGoalId = "prepare" | "patterns" | "sustain";
+
+export interface GoalAlignmentResult {
+  score: number;
+  matchedGoals: LeaderGoalId[];
+  reasons: string[];
+}
 
 /**
  * Intent derived from the slot's resolved verb/anchor. The selector scores
@@ -207,6 +214,7 @@ export interface PracticeSelectionContext {
   recentPracticeDays?: Record<string, number>;
   stateSignalTags?: string[];
   mrsScore?: number | null;
+  leaderGoals?: string[] | null;
   /**
    * Sprint D — coarse window-time physiology/state signals used ONLY as
    * small additive scoring boosts inside `selectPracticeForSlot`. Must
@@ -226,11 +234,63 @@ export interface PracticeSelectionContext {
   } | null;
 }
 
+function normaliseLeaderGoal(value: string): LeaderGoalId | null {
+  if (value === "prepare" || value === "patterns" || value === "sustain") return value;
+  return null;
+}
+
+export function scoreLeaderGoalAlignment(c: ScorableContent, rawGoals: string[] | null | undefined): GoalAlignmentResult {
+  const tags = c.structuredTags;
+  const goals = Array.isArray(rawGoals)
+    ? rawGoals.map((value) => normaliseLeaderGoal(String(value).toLowerCase().trim())).filter(Boolean) as LeaderGoalId[]
+    : [];
+  if (goals.length === 0) {
+    return { score: 0, matchedGoals: [], reasons: [] };
+  }
+
+  const goalTags = arr(tags?.goalTags);
+  const contextTags = arr(tags?.contextTags);
+  const loadHelp = arr(tags?.cognitiveLoadHelp);
+  const subtypes = arr(tags?.masterySubtypes);
+  const pillar = String(tags?.pillar ?? "").toLowerCase();
+  const metaSkills = (c.metaSkillTags ?? []).map((value) => String(value).toLowerCase());
+  const category = String(c.category ?? "").toLowerCase();
+
+  const matchedGoals = new Set<LeaderGoalId>();
+  const reasons: string[] = [];
+
+  const matches = {
+    prepare:
+      goalTags.some((goal) => ["decision_readiness", "focus", "mental_clarity", "confidence", "presence"].includes(goal)) ||
+      contextTags.some((tag) => ["pre-meeting", "leadership_moment", "high_pressure", "difficult_conversation"].includes(tag)) ||
+      loadHelp.includes("supports_decision"),
+    patterns:
+      goalTags.some((goal) => ["perspective", "mental_clarity", "focus"].includes(goal)) ||
+      subtypes.some((subtype) => ["grounding", "composure"].includes(subtype)) ||
+      metaSkills.includes("meta-clarity"),
+    sustain:
+      pillar === "renewal" ||
+      category === "pause" ||
+      goalTags.some((goal) => ["resilience", "recovery", "stress_reduction", "deep_reset"].includes(goal)) ||
+      contextTags.some((tag) => ["post-performance", "post-stress", "evening_winddown", "rest"].includes(tag)),
+  } satisfies Record<LeaderGoalId, boolean>;
+
+  for (const goal of goals) {
+    if (!matches[goal]) continue;
+    matchedGoals.add(goal);
+    reasons.push(`matched_${goal}`);
+  }
+
+  const score = matchedGoals.size === 0 ? 0 : matchedGoals.size === 1 ? 9 : 14;
+  return { score, matchedGoals: Array.from(matchedGoals), reasons };
+}
+
 export interface IntentScoreBreakdown {
   metaSkill: number;
   recalibrateCategory: number;
   structuredTags: number;
   combo: number;
+  leaderGoals: GoalAlignmentResult;
   total: number;
 }
 
@@ -338,6 +398,7 @@ function scoreStructuredTags(c: ScorableContent, intent: SlotIntent): number {
 export function scoreContentAgainstIntent(
   c: ScorableContent,
   intent: SlotIntent,
+  leaderGoals?: string[] | null,
 ): IntentScoreBreakdown {
   const tags = (c.metaSkillTags || []) as MetaSkill[];
 
@@ -379,8 +440,9 @@ export function scoreContentAgainstIntent(
     if (c.protocol_type === proto) combo = 4;
   }
 
-  const total = metaSkill + recalibrateCategory + structuredTags + combo;
-  return { metaSkill, recalibrateCategory, structuredTags, combo, total };
+  const leaderGoalAlignment = scoreLeaderGoalAlignment(c, leaderGoals);
+  const total = metaSkill + recalibrateCategory + structuredTags + combo + leaderGoalAlignment.score;
+  return { metaSkill, recalibrateCategory, structuredTags, combo, leaderGoals: leaderGoalAlignment, total };
 }
 
 /**
@@ -389,9 +451,10 @@ export function scoreContentAgainstIntent(
 export function rankByIntent<T extends ScorableContent>(
   pool: T[],
   intent: SlotIntent,
+  leaderGoals?: string[] | null,
 ): Array<T & { intentScore: number }> {
   return pool
-    .map((c) => ({ ...c, intentScore: scoreContentAgainstIntent(c, intent).total }))
+    .map((c) => ({ ...c, intentScore: scoreContentAgainstIntent(c, intent, leaderGoals).total }))
     .sort((a, b) => b.intentScore - a.intentScore);
 }
 
@@ -540,7 +603,7 @@ export function selectPracticeForSlot<T extends ScorableContent>(
 
   const scored = protocolCandidates
     .map((c) => {
-      let score = scoreContentAgainstIntent(c, intent).total;
+      let score = scoreContentAgainstIntent(c, intent, ctx.leaderGoals).total;
       if (ctx.recentPracticeDays?.[c.id] !== undefined) score -= recencyPenalty(ctx.recentPracticeDays[c.id]);
       if (slot.mode === "state" && ctx.mrsScore != null) score += Math.max(0, 10 - Math.abs(ctx.mrsScore - 50) / 5);
       if (slot.mode === "jit+state") score += 3;

@@ -87,7 +87,7 @@ describe('fetchCalendarProvidersState', () => {
 describe('<CalendarProviderPicker /> — UI states', () => {
   it('renders an error banner with Retry when the status fetch fails, and does NOT show "Not connected"', async () => {
     invoke.mockResolvedValue({ data: null, error: { message: 'boom' } });
-    render(<CalendarProviderPicker redirectPath="/settings" hideApple />);
+    render(<CalendarProviderPicker redirectPath="/settings" only={['google', 'microsoft']} />);
 
     const banner = await screen.findByTestId('calendar-provider-error');
     expect(banner).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe('<CalendarProviderPicker /> — UI states', () => {
       },
       error: null,
     });
-    render(<CalendarProviderPicker redirectPath="/settings" hideApple />);
+    render(<CalendarProviderPicker redirectPath="/settings" only={['google', 'microsoft']} />);
     await waitFor(() => {
       expect(screen.queryByTestId('calendar-provider-error')).not.toBeInTheDocument();
     });

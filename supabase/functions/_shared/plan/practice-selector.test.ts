@@ -5,6 +5,7 @@ import {
   rankByIntent,
   selectPracticeForSlot,
   findAlternate,
+  scoreLeaderGoalAlignment,
   type ScorableContent,
 } from "./practice-selector.ts";
 
@@ -202,6 +203,36 @@ Deno.test("findAlternate prefers same intent outcome with secondary mastery cate
   );
   assert(alt);
   assertEquals(alt?.id, "vagus-wind-down");
+});
+
+Deno.test("leader goal alignment boosts prepare-oriented practices", () => {
+  const prepareFirst = scoreLeaderGoalAlignment(trataka, ["prepare"]);
+  const sustainFirst = scoreLeaderGoalAlignment(vagusWindDown, ["sustain"]);
+  assert(prepareFirst.score > 0);
+  assertEquals(prepareFirst.matchedGoals, ["prepare"]);
+  assert(sustainFirst.score > 0);
+  assertEquals(sustainFirst.matchedGoals, ["sustain"]);
+});
+
+Deno.test("unknown leader goals are ignored safely", () => {
+  const result = scoreLeaderGoalAlignment(trataka, ["unknown-goal"]);
+  assertEquals(result.score, 0);
+  assertEquals(result.matchedGoals.length, 0);
+});
+
+Deno.test("ineligible module is not selected just because leader goal matches", () => {
+  const intent = deriveSlotIntent({ stateAction: "Build capacity", anchorCategory: null, anchorPhase: null });
+  const res = selectPracticeForSlot(
+    [
+      { ...vagusWindDown, id: "wrong-protocol", protocol_type: "mindset" },
+      { ...boxBreathing2, id: "right-protocol", protocol_type: "somatic" },
+    ],
+    { mode: "jit+state", slotRole: "dominant_demand", jitPhase: "pre", arcLabel: "Prepare" },
+    intent,
+    new Set(),
+    { leaderGoals: ["sustain"] },
+  );
+  assertEquals(res.selected[0].id, "right-protocol");
 });
 
 // ═══════════════════════════════════════════════════════════════════════

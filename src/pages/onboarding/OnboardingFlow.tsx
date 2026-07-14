@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
-import { initializeSession, updateSession } from "@/utils/onboardingStorage";
 
 // v8 onboarding flow paths — these screens are full-bleed (fixed inset-0)
 // and own their own main content. The shell only provides the shared back
@@ -13,6 +12,7 @@ const V8_PATHS = new Set([
   '/onboarding/protect-goals',
   '/onboarding/brief-prefs',
   '/onboarding/permissions',
+  '/onboarding/connect',
   '/onboarding/done',
 ]);
 
@@ -22,38 +22,12 @@ export default function OnboardingFlow() {
   const gateChecked = useRef<string | null>(null);
 
   useEffect(() => {
-    const initOnboarding = async () => {
-      const sessionId = initializeSession();
-      console.log("Onboarding session initialized:", sessionId);
-
-      // /onboarding itself redirects to the V8 app-intro route in App.tsx.
-    };
-    
-    initOnboarding();
-  }, []);
-
-  useEffect(() => {
     if (gateChecked.current === location.pathname) return;
     gateChecked.current = location.pathname;
     if (!V8_PATHS.has(location.pathname)) {
       navigate('/onboarding/app-intro', { replace: true });
     }
   }, [location.pathname, navigate]);
-
-  const V8_STAGE_INDEX: Record<string, number> = {
-    '/onboarding/app-intro': 1,
-    '/onboarding/leadership-context': 2,
-    '/onboarding/cognitive-load': 3,
-    '/onboarding/protect-goals': 4,
-    '/onboarding/brief-prefs': 5,
-    '/onboarding/permissions': 6,
-    '/onboarding/done': 7,
-  };
-  const currentStage = V8_STAGE_INDEX[location.pathname] ?? 1;
-
-  useEffect(() => {
-    updateSession({ currentStage });
-  }, [currentStage]);
 
   const isV8 = V8_PATHS.has(location.pathname);
   const isV8Done = location.pathname === '/onboarding/done';
@@ -76,6 +50,8 @@ export default function OnboardingFlow() {
       '/onboarding/protect-goals': '/onboarding/cognitive-load',
       '/onboarding/brief-prefs': '/onboarding/protect-goals',
       '/onboarding/permissions': '/onboarding/brief-prefs',
+      '/onboarding/connect': '/onboarding/permissions',
+      '/onboarding/done': '/onboarding/connect',
     };
     navigate(backMap[location.pathname] ?? '/onboarding');
   };

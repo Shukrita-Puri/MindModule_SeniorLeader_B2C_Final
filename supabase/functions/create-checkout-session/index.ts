@@ -180,8 +180,8 @@ Deno.serve(async (req) => {
           optional: true,
         },
       ],
-      success_url: `${frontendUrl}/onboarding/context-connection?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/onboarding/payment`,
+      success_url: `${frontendUrl}/upgrade?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/upgrade`,
       metadata: sessionMetadata,
     });
 

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
-import { saveV8 } from "@/utils/onboardingV8";
+import { loadV8Row, saveV8 } from "@/utils/onboardingV8";
 import { STAKES_CHIPS, LOAD_CHIPS, BURDEN_CHIPS } from "@/utils/onboardingV8Validation";
 
 const GROUPS: { key: "stakes" | "load" | "burden"; title: string; chips: string[] }[] = [
@@ -42,11 +42,37 @@ export default function StageCognitiveLoad() {
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadV8Row<{
+      stakes_chips?: string[];
+      load_chips?: string[];
+      burden_chips?: string[];
+    }>().then((res) => {
+      if (cancelled) return;
+      if (res.ok && res.data) {
+        setSelected({
+          stakes: new Set(res.data.stakes_chips ?? []),
+          load: new Set(res.data.load_chips ?? []),
+          burden: new Set(res.data.burden_chips ?? []),
+        });
+      }
+      setIsHydrated(true);
+    }).catch(() => {
+      if (!cancelled) setIsHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggle = (group: "stakes" | "load" | "burden", c: string) => {
     setSelected((prev) => {
       const n = new Set(prev[group]);
-      n.has(c) ? n.delete(c) : n.add(c);
+      if (n.has(c)) n.delete(c);
+      else n.add(c);
       return { ...prev, [group]: n };
     });
   };
@@ -80,7 +106,7 @@ export default function StageCognitiveLoad() {
     <ParchScreen
       step="Step 1 of 3 · continued"
       title="What creates cognitive load for you?"
-      footer={<PrimaryCTA onClick={next} disabled={saving}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>}
+      footer={<PrimaryCTA onClick={next} disabled={saving || !isHydrated}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>}
     >
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-4">
         Select all that apply — to help Mind Module understand your environment and prepare for those most relevant to you.

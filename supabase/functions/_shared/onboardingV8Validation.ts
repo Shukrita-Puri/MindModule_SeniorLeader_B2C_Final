@@ -84,7 +84,8 @@ export type StepKey =
   | "cognitive_load"
   | "protect_goals"
   | "brief_prefs"
-  | "permissions";
+  | "permissions"
+  | "connect";
 
 export type ValidationError = { field: string; message: string };
 
@@ -215,6 +216,8 @@ export function validateStep(step: StepKey, p: V8Payload): ValidationError[] {
       if (wear.length < 1) errs.push({ field: "wearable_selections", message: "Choose at least 1 wearable" });
       break;
     }
+    case "connect":
+      break;
   }
   return errs;
 }

@@ -8,6 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "generate:assets": "capacitor-assets generate --ios",
     "validate:ios-native-sync": "bash ./ios/App/validate-ios-native-sync-target.sh"

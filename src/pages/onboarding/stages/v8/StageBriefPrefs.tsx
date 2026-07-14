@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
-import { saveV8 } from "@/utils/onboardingV8";
+import { loadV8Row, saveV8 } from "@/utils/onboardingV8";
 import { BRIEF_TIMING, RESET_MODALITY, WEEKEND_SIGNALS } from "@/utils/onboardingV8Validation";
 
 type Row = { key: string; label: string; note: string; options: string[]; hint?: string };
@@ -37,6 +37,31 @@ export default function StageBriefPrefs() {
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadV8Row<{
+      brief_timing?: string | null;
+      reset_modality?: string | null;
+      weekend_signals?: string | null;
+    }>().then((res) => {
+      if (cancelled) return;
+      if (res.ok && res.data) {
+        setPrefs({
+          timing: res.data.brief_timing ?? "Use intelligence",
+          reset: res.data.reset_modality ?? "Use intelligence",
+          weekends: res.data.weekend_signals ?? "Reduce",
+        });
+      }
+      setIsHydrated(true);
+    }).catch(() => {
+      if (!cancelled) setIsHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const next = async () => {
     if (saving) return;
@@ -85,7 +110,7 @@ export default function StageBriefPrefs() {
               {saveError}
             </div>
           )}
-          <PrimaryCTA onClick={next} disabled={saving}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>
+          <PrimaryCTA onClick={next} disabled={saving || !isHydrated}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>
         </div>
       }
     >

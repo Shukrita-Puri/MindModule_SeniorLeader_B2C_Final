@@ -6120,6 +6120,7 @@ function buildHorizonModules(
       recentPracticeDays: recencyMap,
       mrsScore: (req as any).mrsScore ?? null,
       windowSignals,
+      leaderGoals: (req as any).leaderProfile?.goals?.declared ?? [],
     });
     const head = firstPick.selected[0] ?? null;
     if (!head) return [];
@@ -6915,7 +6916,7 @@ function buildHorizonModules(
         if (!isNewUser && c.isFoundational) score -= 5;
         // Slot-intent binding (meta_skill + Recalibrate category + combo).
         // This is the fix for "Sharpen focus slot selecting meta-renewal".
-        const intentScore = scoreContentAgainstIntent(c, slotIntent);
+        const intentScore = scoreContentAgainstIntent(c, slotIntent, (req as any).leaderProfile?.goals?.declared ?? []);
         score += intentScore.total;
         // Phase L — 7-day recency penalty so the filler rotates across the
         // catalog instead of re-suggesting the same module daily.
@@ -8155,6 +8156,25 @@ if (import.meta.main) Deno.serve(async (req) => {
         (plan as any).leaderGoals = leaderProfile.goals.declared;
         (plan as any).leaderArchetype = leaderProfile.analysis.archetype;
         (plan as any).leaderProfileStatus = leaderProfile.meta.status;
+        const validGoalIds = leaderProfile.goals.declared.filter((goal) =>
+          ['prepare', 'patterns', 'sustain'].includes(String(goal).toLowerCase()),
+        );
+        const chosenModuleIds = [
+          ...(((plan as any).priorities ?? []) as any[]).map((item: any) =>
+            item?.content?.id ?? item?.practice?.contentId ?? item?.contentId ?? item?.id ?? null,
+          ),
+          ...(((plan as any).horizonModules ?? []) as any[]).map((item: any) =>
+            item?.content?.id ?? item?.practice?.contentId ?? item?.contentId ?? item?.id ?? null,
+          ),
+        ].filter((value, index, arr) => typeof value === 'string' && arr.indexOf(value) === index);
+        console.info('[plan][goal-alignment][summary]', {
+          userId: redactUserId(userId!),
+          source: leaderProfile.meta.status === 'ready' && validGoalIds.length > 0 ? 'leader_profile' : 'fallback',
+          goals: validGoalIds,
+          chosenModuleIds,
+          matchedGoals: validGoalIds,
+          goalAlignmentApplied: validGoalIds.length > 0,
+        });
       }
     } catch (_e) { /* best-effort observability */ }
 

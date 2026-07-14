@@ -34,8 +34,6 @@ export default function ConnectionsPanel({
   const resolvedRedirect = redirectPath
     ?? (typeof window !== 'undefined' ? window.location.pathname : '/connected-data');
 
-  const showApple = !calendarOnly || calendarOnly.includes('apple');
-
   return (
     <div className="space-y-5">
       <section>
@@ -44,7 +42,7 @@ export default function ConnectionsPanel({
         </div>
         <CalendarProviderPicker
           redirectPath={resolvedRedirect}
-          hideApple={!showApple}
+          only={calendarOnly}
           onChanged={handleChanged}
         />
       </section>

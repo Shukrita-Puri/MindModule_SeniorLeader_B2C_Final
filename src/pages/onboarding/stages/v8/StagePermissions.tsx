@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
-import { saveV8 } from "@/utils/onboardingV8";
+import { loadV8Row, saveV8 } from "@/utils/onboardingV8";
 import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from "@/utils/onboardingV8Validation";
 import { CALENDAR_PROVIDER_META, WEARABLE_PROVIDER_META } from "@/utils/providerMetadata";
 import googleCalLogo from "@/assets/shared/google-calendar-logo.avif";
@@ -27,10 +27,34 @@ export default function StagePermissions() {
   const [warn, setWarn] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadV8Row<{
+      calendar_selections?: string[];
+      wearable_selections?: string[];
+    }>().then((res) => {
+      if (cancelled) return;
+      if (res.ok && res.data) {
+        const calAllowed = new Set<string>(CALENDAR_PROVIDERS);
+        const wearAllowed = new Set<string>(WEARABLE_PROVIDERS);
+        setCal(new Set((res.data.calendar_selections ?? []).filter((item) => calAllowed.has(item))));
+        setWear(new Set((res.data.wearable_selections ?? []).filter((item) => wearAllowed.has(item))));
+      }
+      setIsHydrated(true);
+    }).catch(() => {
+      if (!cancelled) setIsHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, id: string) => {
     const n = new Set(set);
-    n.has(id) ? n.delete(id) : n.add(id);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
     setter(n);
     setWarn(false);
   };
@@ -65,7 +89,7 @@ export default function StagePermissions() {
       setSaveError(msg);
       return;
     }
-    navigate("/onboarding/done");
+    navigate("/onboarding/connect");
   };
 
   const renderCard = (
@@ -116,8 +140,8 @@ export default function StagePermissions() {
       step="Connections"
       title="Give Mind Module the daily context it needs"
       footer={
-        <PrimaryCTA tone="coral" onClick={tryContinue} disabled={saving}>
-          {saving ? "Saving…" : "Mind Module is ready — let's go →"}
+        <PrimaryCTA tone="coral" onClick={tryContinue} disabled={saving || !isHydrated}>
+          {saving ? "Saving…" : !isHydrated ? "Loading…" : "Continue →"}
         </PrimaryCTA>
       }
     >

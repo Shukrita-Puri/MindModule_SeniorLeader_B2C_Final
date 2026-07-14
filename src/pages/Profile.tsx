@@ -54,7 +54,7 @@ const Profile = () => {
   const isPendingCancellation = !!user?.subscription_cancel_at && !isCanceled;
   const hasStripeAccount = !!user?.stripe_customer_id;
   const isBetaUser = isValidBeta(user);
-  const profileUpgradePath = '/onboarding/payment?source=profile-upgrade';
+  const profileUpgradePath = '/upgrade?source=profile-upgrade';
 
   const statusLabel = isBetaUser ? 'Beta' : isCanceled ? 'Canceled' : isPaying ? 'Paid' : isTrialing ? 'Trial' : 'Free';
 

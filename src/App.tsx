@@ -85,6 +85,7 @@ const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutco
 // Onboarding pages
 const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
 const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro"));
+const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
 // v8 onboarding flow (replaces legacy questionnaire for new users)
@@ -391,6 +392,10 @@ const router = createBrowserRouter([
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><PlayerErrorBoundary returnPath="/recalibrate"><MicroPracticePlayerCards /></PlayerErrorBoundary></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
+        path: "upgrade",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Stage6Payment /></ProtectedRoute></Suspense>,
+      },
+      {
         path: "privacy",
         element: <Suspense fallback={<LoadingFallback />}><Privacy /></Suspense>,
       },
@@ -415,7 +420,7 @@ const router = createBrowserRouter([
           { path: "growth-intention", element: <Navigate to="/onboarding/app-intro" replace /> },
           { path: "signup-step", element: <Navigate to="/onboarding/app-intro" replace /> },
           { path: "results", element: <Navigate to="/onboarding/app-intro" replace /> },
-          { path: "payment", element: <Navigate to="/onboarding/app-intro" replace /> },
+          { path: "payment", element: <Navigate to="/upgrade" replace /> },
           { path: "app-intro", element: <Suspense fallback={<LoadingFallback />}><StageUSPIntro /></Suspense> },
           { path: "context-connection", element: <Navigate to="/onboarding/app-intro" replace /> },
           { path: "leadership-context", element: <Suspense fallback={<LoadingFallback />}><StageLeadershipContext /></Suspense> },
@@ -423,7 +428,7 @@ const router = createBrowserRouter([
           { path: "protect-goals", element: <Suspense fallback={<LoadingFallback />}><StageProtectGoals /></Suspense> },
           { path: "brief-prefs", element: <Suspense fallback={<LoadingFallback />}><StageBriefPrefs /></Suspense> },
           { path: "permissions", element: <Suspense fallback={<LoadingFallback />}><StagePermissions /></Suspense> },
-          { path: "connect", element: <Navigate to="/onboarding/done" replace /> },
+          { path: "connect", element: <Suspense fallback={<LoadingFallback />}><StageConnections /></Suspense> },
           { path: "done", element: <Suspense fallback={<LoadingFallback />}><StageDone /></Suspense> },
           { path: "*", element: <Navigate to="/onboarding/app-intro" replace /> },
         ],

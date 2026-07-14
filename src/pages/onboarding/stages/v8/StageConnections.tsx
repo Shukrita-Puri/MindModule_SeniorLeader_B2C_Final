@@ -1,98 +1,121 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ParchScreen, PrimaryCTA } from './ShellV8';
+import { ParchScreen, PrimaryCTA, SkipLink } from './ShellV8';
 import ConnectionsPanel from '@/components/connections/ConnectionsPanel';
-import { supabase } from '@/integrations/supabase/client';
-import { getAuthToken } from '@/services/authTokenService';
-import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from '@/utils/onboardingV8Validation';
-import {
-  fetchCalendarProvidersState,
-  type CalendarProviderId,
-} from '@/components/calendar/CalendarProviderPicker';
-import {
-  fetchWearableProvidersState,
-  type WearableProviderId,
-} from '@/components/connections/WearableProviderPicker';
+import { loadV8Row, saveV8 } from '@/utils/onboardingV8';
+import type { CalendarProviderId, CalendarProvidersFetchResult } from '@/components/calendar/CalendarProviderPicker';
+import { fetchCalendarProvidersState } from '@/components/calendar/CalendarProviderPicker';
+import type { WearableProviderId, WearableProvidersFetchResult } from '@/components/connections/WearableProviderPicker';
+import { fetchWearableProvidersState } from '@/components/connections/WearableProviderPicker';
 
-// Backward-compat: legacy rows may have stored "outlook" instead of the
-// canonical "microsoft". sanitizePayload rewrites on write; this map covers
-// reads of pre-existing rows.
 const CAL_LEGACY: Record<string, CalendarProviderId> = { outlook: 'microsoft' };
-const CAL_ALLOWED = new Set<string>(CALENDAR_PROVIDERS);
-const WEAR_ALLOWED = new Set<string>(WEARABLE_PROVIDERS);
 
-/**
- * Post-onboarding Connections step. Renders the shared ConnectionsPanel
- * filtered to whatever the user picked on StagePermissions, so they can
- * actually OAuth / grant HealthKit before reaching StageDone. Skipping is
- * permitted — the selections themselves are still persisted from the
- * previous step.
- */
+function isProviderConnected(
+  provider: CalendarProviderId | WearableProviderId,
+  calendarResult: CalendarProvidersFetchResult | null,
+  wearableResult: WearableProvidersFetchResult | null,
+) {
+  if (provider === 'google') return calendarResult?.providers.google?.connected === true;
+  if (provider === 'microsoft') return calendarResult?.providers.microsoft?.connected === true;
+  if (provider === 'apple') return calendarResult?.providers.apple?.connected === true;
+  if (provider === 'apple-watch') return wearableResult?.providers.appleWatch?.connected === true;
+  if (provider === 'oura') return wearableResult?.providers.oura?.connected === true;
+  return wearableResult?.providers.whoop?.connected === true;
+}
+
 export default function StageConnections() {
   const navigate = useNavigate();
-  const [calOnly, setCalOnly] = useState<CalendarProviderId[] | undefined>(undefined);
-  const [wearOnly, setWearOnly] = useState<WearableProviderId[] | undefined>(undefined);
+  const [calOnly, setCalOnly] = useState<CalendarProviderId[]>([]);
+  const [wearOnly, setWearOnly] = useState<WearableProviderId[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [calendarState, setCalendarState] = useState<CalendarProvidersFetchResult | null>(null);
+  const [wearableState, setWearableState] = useState<WearableProvidersFetchResult | null>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const token = await getAuthToken();
-        if (!token) return;
-        // Reuse the typed client; RLS scopes the row to the caller.
-        const { data } = await supabase
-          .from('onboarding_v8_responses')
-          .select('calendar_selections, wearable_selections')
-          .maybeSingle();
-        const cal = (data?.calendar_selections ?? [])
-          .map((s: string) => CAL_LEGACY[s] ?? s)
-          .filter((s: string) => CAL_ALLOWED.has(s)) as CalendarProviderId[];
-        const wear = (data?.wearable_selections ?? [])
-          .filter((s: string) => WEAR_ALLOWED.has(s)) as WearableProviderId[];
-        if (cal.length) setCalOnly(cal);
-        if (wear.length) setWearOnly(wear);
-      } catch (err) {
-        console.warn('[StageConnections] load selections failed:', err);
-      }
-    })();
+    let cancelled = false;
+    void loadV8Row<{
+      calendar_selections?: string[];
+      wearable_selections?: string[];
+    }>().then((res) => {
+      if (cancelled) return;
+      const calendarSelections = (res.data?.calendar_selections ?? [])
+        .map((value) => CAL_LEGACY[value] ?? value)
+        .filter((value): value is CalendarProviderId => ['google', 'microsoft', 'apple'].includes(value));
+      const wearableSelections = (res.data?.wearable_selections ?? [])
+        .filter((value): value is WearableProviderId => ['apple-watch', 'oura', 'whoop'].includes(value));
+      setCalOnly(calendarSelections);
+      setWearOnly(wearableSelections.filter((value) => value !== 'whoop'));
+      setHydrated(true);
+    }).catch(() => {
+      if (!cancelled) setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const [hasCalendar, setHasCalendar] = useState(false);
-  const [hasWearable, setHasWearable] = useState(false);
-  const canContinue = hasCalendar && hasWearable;
 
   const refreshStatuses = useCallback(async () => {
-    try {
-      const [cal, wear] = await Promise.all([
-        fetchCalendarProvidersState(),
-        fetchWearableProvidersState(),
-      ]);
-      const calProv = cal.providers;
-      setHasCalendar(
-        !!(calProv.google?.connected || calProv.microsoft?.connected || calProv.apple?.connected),
-      );
-      const wearProv = wear.providers;
-      setHasWearable(!!(wearProv['apple-watch']?.connected || wearProv.oura?.connected));
-    } catch (err) {
-      console.warn('[StageConnections] refresh statuses failed:', err);
-    }
+    const [calendar, wearable] = await Promise.all([
+      fetchCalendarProvidersState(),
+      fetchWearableProvidersState(),
+    ]);
+    setCalendarState(calendar);
+    setWearableState(wearable);
   }, []);
 
   useEffect(() => {
-    refreshStatuses();
-  }, [refreshStatuses]);
+    if (!hydrated) return;
+    void refreshStatuses();
+  }, [hydrated, refreshStatuses]);
 
-  const goNext = () => {
-    if (!canContinue) return;
-    navigate('/onboarding/done');
+  const selectedCalendars = calOnly;
+  const selectedWearables = useMemo(
+    () => (wearOnly.length > 0 ? wearOnly : []),
+    [wearOnly],
+  );
+
+  const selectedProviders = useMemo(
+    () => [...selectedCalendars, ...selectedWearables],
+    [selectedCalendars, selectedWearables],
+  );
+
+  const connectedSelectedProviders = selectedProviders.filter((provider) =>
+    isProviderConnected(provider, calendarState, wearableState),
+  );
+  const canContinue = hydrated && selectedProviders.every((provider) =>
+    isProviderConnected(provider, calendarState, wearableState),
+  );
+  const canSkip = hydrated && selectedProviders.length > 0;
+
+  const persistConnectStep = async () => {
+    const result = await saveV8({}, 'connect');
+    if (!result.ok) {
+      throw new Error(result.error ?? 'connect_save_failed');
+    }
   };
 
-  // Filter Whoop off this screen; ensure Apple Watch + Oura still render when
-  // the user hadn't preselected any wearable (or only selected Whoop).
-  const wearOnlyFiltered: WearableProviderId[] = (() => {
-    const base = (wearOnly ?? (['apple-watch', 'oura'] as WearableProviderId[]))
-      .filter((w) => w !== 'whoop');
-    return base.length ? base : (['apple-watch', 'oura'] as WearableProviderId[]);
-  })();
+  const goNext = async () => {
+    if (saving || !canContinue) return;
+    setSaving(true);
+    try {
+      await persistConnectStep();
+      navigate('/onboarding/done');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const skip = async () => {
+    if (saving || !canSkip) return;
+    setSaving(true);
+    try {
+      await persistConnectStep();
+      navigate('/onboarding/done');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <ParchScreen
@@ -101,27 +124,25 @@ export default function StageConnections() {
       footer={
         <div>
           {!canContinue && (
-            <p
-              aria-live="polite"
-              className="text-[11px] text-[#7a7060] text-center mb-2"
-            >
-              Requires 1 calendar and 1 wearable
+            <p aria-live="polite" className="text-[11px] text-[#7a7060] text-center mb-2">
+              {selectedProviders.length === 0
+                ? 'Choose providers on the previous step first.'
+                : `Connected ${connectedSelectedProviders.length} of ${selectedProviders.length} selected providers.`}
             </p>
           )}
-          <PrimaryCTA tone="coral" onClick={goNext} disabled={!canContinue}>
-            Continue →
+          <PrimaryCTA tone="coral" onClick={goNext} disabled={saving || !canContinue}>
+            {saving ? 'Saving…' : 'Continue →'}
           </PrimaryCTA>
+          <SkipLink onClick={skip}>Continue later</SkipLink>
         </div>
       }
     >
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-3">
-        Connect your day with one calendar and your body with one wearable to unlock bespoke insights
-        from day one. No generic advice — just recommendations built for you. You can connect more
-        later in Profile → Connected Data.
+        Connect only the providers you selected. A provider you did not choose will not block onboarding, and any selected provider can be connected later from Profile → Connected Data.
       </p>
       <ConnectionsPanel
-        calendarOnly={calOnly}
-        wearableOnly={wearOnlyFiltered}
+        calendarOnly={selectedCalendars}
+        wearableOnly={selectedWearables}
         redirectPath="/onboarding/connect"
         onChanged={refreshStatuses}
       />
