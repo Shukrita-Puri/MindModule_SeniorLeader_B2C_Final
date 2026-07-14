@@ -44,21 +44,6 @@ export function isPtoOrHolidayTitle(title: string | null | undefined): boolean {
  */
 export const PERSONAL_HOLIDAY_TITLE_RX = _PERSONAL_HOLIDAY_TITLE_RX;
 
-const _shimG = globalThis as unknown as { __availShimWarned_ceoPtoHoliday?: boolean };
-if (!_shimG.__availShimWarned_ceoPtoHoliday) {
-  _shimG.__availShimWarned_ceoPtoHoliday = true;
-  // Only warn when a caller actually reaches for the deprecated regex
-  // exports (via module load). Predicates isPtoOrHolidayTitle /
-  // isPersonalHolidayTitle remain the recommended surface here.
-  // The warn is idempotent per runtime.
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[availability-shim] PTO_TITLE_RX / PERSONAL_HOLIDAY_TITLE_RX on " +
-      "ceo-behaviour/pto-holiday.ts are deprecated; import from " +
-      "_shared/availability/availability-classifier.ts",
-  );
-}
-
 export function isPersonalHolidayTitle(title: string | null | undefined): boolean {
   return !!title && PERSONAL_HOLIDAY_TITLE_RX.test(title);
 }
