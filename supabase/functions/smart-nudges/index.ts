@@ -3497,6 +3497,7 @@ async function evaluateWeekAheadPickerInvite(
         consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
         travelDay: wai.travelDay,
         fullWorkingWeekend: wai.fullWorkingWeekend,
+        todayIsOffDay: wai.todayIsOffDay,
       })} ` +
       `suppressors=${JSON.stringify({ pickerOpenedToday })}`,
     );
