@@ -34,3 +34,26 @@ Tests: `_shared/availability/availability-classifier.test.ts` covers the 13 scen
 - **C1 (HIGH — fast-follow PR)** — `supabase/functions/build-executive-home-cards/day-type.ts` currently reimplements PTO / weekend / holiday / consecutive-off-days detection instead of calling `classifyDay`. It does NOT plumb `userHomeCountry`, so regional / FYI-foreign holidays are misclassified — the same input-shape bug already fixed in smart-nudges. Since `day-type.ts` output drives `allowedWindows` (window suppression) and `weekAheadReason` routing, this is plausibly affecting home-card selection for GB-ENG users on regional-holiday and post-long-weekend days today. Replace bespoke helpers with `classifyDay`; plumb `userHomeCountry` through `resolveDayTypeAndCadence`; add a regression fixture.
 - **C2 (MEDIUM)** — `supabase/functions/_shared/events/event-classifier.ts` defines a local `AWAY_KEYWORDS` vocabulary. Route through `PTO_TITLE_RX` (or a documented superset regex) to eliminate drift.
 - Delete the two shim files after one green release with zero CI failures and zero shim `console.warn` hits in production logs.
+
+## Validation — 2026-07-14
+
+End-to-end validation after breadcrumb pass (Option B: discoverability
+comment + `README.md` added under `_shared/ceo-behaviour/`; physical
+location of the SSOT unchanged).
+
+| Stage | Command | Result |
+| --- | --- | --- |
+| Vitest shim-import guard | `npx vitest run src/__tests__/availabilitySsotShimImports.test.ts` | ✅ 2/2 |
+| Deno SSOT tests | `deno test --no-check availability-classifier.test.ts availability-classifier-consolidation.test.ts availability-cross-surface.test.ts` | ✅ 31/31 |
+| Grep — deprecated shim path | `rg "from .*availability/holiday-applicability" .` | Only the guard test's error string; zero real imports |
+| Grep — regex symbols | `rg "PTO_TITLE_RX\|PERSONAL_HOLIDAY_TITLE_RX" .` | Only SSOT, its tests, the two shim files, docs/comments |
+| Grep — applicability helpers | `rg "isApplicableHoliday\|parseHolidayRegionFromTitle\|isFyiHolidayCalendar\|matchesUserCountry" .` | Only SSOT, its tests, and the shim re-export |
+| Consumer wiring — Brief | `brief-signal-coverage.ts` imports `classifyAvailability` from the SSOT (lines 27–30, 375, 938) | ✅ |
+| Consumer wiring — Plan | `generate-mastery-plan/index.ts:64` imports `classifyAvailability` from the SSOT; used in `deriveStructuralDayFlags` / `_isPtoOrHoliday` (lines 4394, 6904, 7339) | ✅ |
+| Consumer wiring — Nudges | `smart-nudges/index.ts:9–12` imports both `classifyAvailability` and `classifyDay` from the SSOT; used at lines 1339, 1610 | ✅ |
+| Consumer wiring — ceo-behaviour | `pto-holiday.ts:22–24` re-exports SSOT regexes as `@deprecated` shims; predicates stay local | ✅ |
+| Follow-ups still tracked | C1 (`build-executive-home-cards/day-type.ts`, HIGH) and C2 (`event-classifier.ts`, MEDIUM) present in this file | ✅ |
+
+No parallel availability inference (no `events.length === 0` or
+`calendarLoad === 'low'` off-day heuristics) found outside the SSOT in
+any of the four consumers.

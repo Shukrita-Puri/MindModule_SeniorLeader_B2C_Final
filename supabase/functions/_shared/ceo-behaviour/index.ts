@@ -1,4 +1,15 @@
 /**
+ * External primitives this cluster depends on:
+ *  - Availability SSOT: ../availability/availability-classifier.ts
+ *      (classifyAvailability, classifyDay, PTO_TITLE_RX,
+ *       PERSONAL_HOLIDAY_TITLE_RX, isApplicableHoliday, RegionToken)
+ *  - Event taxonomy:    ../events/event-categories.ts
+ *  - Protocol combos:   ../protocols/protocol-combos.ts
+ *
+ * Behaviour rules CONSUME availability decisions; they never re-derive
+ * PTO / holiday / weekend / rest-day state locally. Anything that needs
+ * to answer "is today off?" must call classifyDay().
+ *
  * Barrel for the CEO behaviour cluster files.
  *
  * Add a new behaviour by:
