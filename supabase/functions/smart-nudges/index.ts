@@ -1569,25 +1569,56 @@ async function buildNudgeContext(
       // implemented today - see WEEK_AHEAD_TRIGGER_VERIFICATION.sql
       // header for cross-reference.
       // ────────────────────────────────────────────────────────────────────
-      const byDate = new Map<string, Array<{ title?: string | null }>>();
+      // Canonical Availability SSOT lookback. We bucket each event under its
+      // UTC calendar day (matching the DST caveat above) and hand the day's
+      // events to `classifyDay`, which uses the SAME rules as the "today"
+      // branch: foreign-region public holidays are filtered by
+      // `userHomeCountry`, empty calendars are NEVER off-days, and only
+      // PTO / applicable PUBLIC_HOLIDAY / REST_DAY count as off. This
+      // guarantees that Brief, Plan, and Nudges agree on what "last day of
+      // the break" means — see mem://architecture/availability-ssot.md.
+      const byDate = new Map<string, any[]>();
       for (const e of lookbackEvents) {
         const d = (e.start_time || '').slice(0, 10);
         if (!d) continue;
         const arr = byDate.get(d) || [];
-        arr.push({ title: e.title });
+        arr.push(e);
         byDate.set(d, arr);
       }
+      const toAvailEvents = (rows: any[]) => rows.map((e: any) => ({
+        title: String(e?.title ?? ''),
+        startTime: String(e?.start_time ?? ''),
+        endTime: String(e?.end_time ?? e?.start_time ?? ''),
+        isAllDay: e?.is_all_day === true ||
+          ((new Date(e?.end_time ?? e?.start_time ?? 0).getTime() -
+            new Date(e?.start_time ?? 0).getTime()) >= 20 * 3600 * 1000),
+        isOrganizer: e?.is_organizer === true,
+        attendeesCount: Number(e?.attendees_count ?? 0) || 0,
+        source: e?.source ?? e?.calendar_name ?? null,
+        calendarSummary: e?.calendar_summary ?? null,
+      }));
       let consecutiveOffDaysBefore = 0;
       const cursor = new Date(`${todayStr}T00:00:00`);
       for (let i = 0; i < 14; i++) {
         cursor.setDate(cursor.getDate() - 1);
         const dStr = cursor.toISOString().split('T')[0];
-        const dDow = cursor.getDay();
         const events = byDate.get(dStr) || [];
-        const kind = detectDayKindFromEvents(events).kind;
-        const isWeekend = dDow === 0 || dDow === 6;
-        const offDay = kind === 'ooo' || kind === 'away-day' || isWeekend || events.length === 0;
-        if (offDay) consecutiveOffDaysBefore++;
+        let isOff = false;
+        try {
+          const r = classifyDay({
+            now: new Date(`${dStr}T12:00:00Z`),
+            userHomeCountry,
+            userCurrentCountry: null,
+            events: toAvailEvents(events),
+          });
+          isOff = r.isOffDay;
+        } catch (_e) {
+          // Fallback: weekend-only. Empty calendars intentionally do NOT
+          // count — see canonical rules above.
+          const dDow = cursor.getDay();
+          isOff = dDow === 0 || dDow === 6;
+        }
+        if (isOff) consecutiveOffDaysBefore++;
         else break;
       }
       const travelDay = today.kind === 'travel-day';
