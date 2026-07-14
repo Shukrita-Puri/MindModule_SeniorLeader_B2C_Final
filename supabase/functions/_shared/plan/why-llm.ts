@@ -251,8 +251,14 @@ export type ValidateWhyLineResult =
 
 function normaliseEchoText(value: string | null | undefined): string {
   return String(value || "")
-    .trim()
-    .toLowerCase();
+    // Normalise the "exact echo" comparison so trivial LLM formatting
+    // changes ("Box Breathing.", "**Box Breathing**") still count as the
+    // same title and fall through to deterministic repair.
+    .replace(/[*_`~]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function isTitleEcho(

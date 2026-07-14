@@ -143,6 +143,11 @@ Deno.test("isTitleEcho — normalises casing/whitespace and ignores blanks", () 
   assertEquals(isTitleEcho("Protect the board call", ["", null, undefined]), false);
 });
 
+Deno.test("isTitleEcho — ignores markdown and punctuation-only variance", () => {
+  assertEquals(isTitleEcho("**Box Breathing**", ["Box Breathing"]), true);
+  assertEquals(isTitleEcho("Prepare ahead of Q2 Board Meeting.", ["Prepare ahead of Q2 Board Meeting"]), true);
+});
+
 // ────────────────────────────────────────────────────────────────────────
 // Sprint 6 (Phase 8) — widened state synonyms, tightened valence, length cap
 // ────────────────────────────────────────────────────────────────────────
