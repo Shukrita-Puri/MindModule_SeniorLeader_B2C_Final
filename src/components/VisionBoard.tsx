@@ -35,7 +35,7 @@ const VisionBoard = () => {
   const [editText, setEditText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const categories = [
+  const categories: Array<{ id: VisionCategory; name: string; color: string; border: string }> = [
     { id: "mindset", name: "Mindset", color: "bg-purple-100 text-purple-800", border: "border-purple-300" },
     { id: "career", name: "Career", color: "bg-blue-100 text-blue-800", border: "border-blue-300" },
     { id: "relationships", name: "Relationships", color: "bg-pink-100 text-pink-800", border: "border-pink-300" },
