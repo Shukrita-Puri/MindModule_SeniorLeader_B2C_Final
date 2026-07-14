@@ -1,69 +1,82 @@
 
-# Smart Nudges + Plan Audit — Status vs. July 10 Report
+# Staged Smart Nudges + Plan Pipeline Rollout
 
-Verified against current `supabase/functions/smart-nudges/index.ts` (5,390 lines) and live `mastery_plan_snapshots` / `notification_log` rows.
+Every stage is gated: implement → verify with real evidence → report → wait for go-ahead. No stage batching. Stage 1 has the widest blast radius (Plan card + all 3 nudges + Insights), so Stage 0 is a mandatory diagnostic before any code change.
 
-## Already fixed (no action needed)
+## Stage 0 — Diagnostic only (no code changes)
 
-| Audit item | Where | Evidence |
-|---|---|---|
-| Blocker 1: `planSnapshotStatus === 'empty'` skipped user with `continue` | L4495–4513 | Now logs `[smart-nudges][plan-empty-fallback]` + trace `plan_snapshot_empty_fallback` and **falls through** to legacy cascade (guard at L4538–4541 matches `missing` OR `empty`). |
-| Blocker 4 / Fix 3: disabled slot pref aborted whole user | L4515–4533 | Now writes trace `slot_projection_skipped` with `intentionally_skipped: true` and continues to legacy cascade / other evaluators. No `continue` on the user loop. |
-| Plan-projected CTA routed to `/executive-home` instead of `/daily-check-in` | L3327 | `projectPlanSlotToNudge` returns `deepLinkRoute: '/daily-check-in'`. |
-| Plan-projected copy reused Plan why-line (weak push copy) | L3284–3320 | `projectPlanSlotToNudge` now calls `generateNudgeCopy` (Claude → Gemini → validated static fallback) with JIT/state variants. |
-| Fix B: implicit dry-run default | prior fix | Production Delivery is default; `force_dry` explicit. |
-| Fix C: dry-run rows counted in suppression | prior fix | All 4 suppression queries filtered by `COUNTABLE_DELIVERY_STATES`. |
+Run the widened `mastery_plan_snapshots` query across morning/afternoon/evening for the last 3 days via `supabase--read_query`:
 
-## Still relevant — HIGH priority
-
-### 1. **Root cause: Plan pipeline is producing empty `horizon_modules`** (P0)
-Live DB shows 17 of last 20 plan snapshots with `slots = 0`:
-
-```
-2026-07-14 morning     ready   slots=1
-2026-07-13 evening     ready   slots=2, 0, 0, 0
-2026-07-13 afternoon   ready   slots=0, 0, 0
-2026-07-13 morning     ready   slots=1, 0, 0, 0
-2026-07-12 *           ready   slots=0 (all)
+```sql
+SELECT user_id, plan_date, mrs_window,
+       jsonb_array_length(COALESCE(horizon_modules, '[]'::jsonb)) AS hm_count,
+       jsonb_array_length(COALESCE(plan_json->'horizonModules', '[]'::jsonb)) AS pj_hm_count,
+       jsonb_array_length(COALESCE(plan_json->'timeOfDayPlan'->'modules', '[]'::jsonb)) AS pj_tod_count,
+       generated_at
+FROM mastery_plan_snapshots
+WHERE plan_date >= CURRENT_DATE - INTERVAL '3 days'
+ORDER BY plan_date DESC, mrs_window, generated_at DESC
+LIMIT 60;
 ```
 
-Nudges now fail-open to the legacy cascade, but **the Plan card itself is empty for most users, most windows**. Recent nudge deliveries (last 2 days): 3 `accepted`, 27 `dry_run`, only `nudge_three` + `nudge_one` + `week_ahead` — no `nudge_two` at all. This confirms the Plan pipeline (audit Parts A/D/D1: merge-precedence, stakes-floor, full-arc gate) still needs fixing.
+Classify each window as:
+- **Shape A** (already-diagnosed): `hm_count=0`, `pj_hm_count=0`, `pj_tod_count>0` — practices computed but not projected to `horizon_modules`.
+- **Shape B** (new defect): `pj_tod_count=0` — server not even computing practices.
 
-### 2. **`sentSlotsToday` mapping still keyed on notification_type family, not delivered slot** (P1)
-`smart-nudges/index.ts` L4431–4441:
-```ts
-const slotForType = (t: string) => {
-  if (t.startsWith('nudge_one'))   return 'morning';
-  if (t.startsWith('nudge_two'))   return 'afternoon';
-  if (t.startsWith('nudge_three')) return 'evening';
-};
-```
-A travel pre-flight nudge or JIT variant tagged `nudge_one_*` while the user is actually in the afternoon window would still occupy the "morning" slot bucket. Should key on the actual `slot` returned by the evaluator (already present on `QualifiedNudge.slot`).
+Report per-window shape. If any window is Shape B, STOP and flag for separate root-cause investigation before Stage 1.
 
-## Still relevant — MEDIUM
+**Deliverable:** table of shapes by window + go/no-go for Stage 1.
 
-| # | Audit item | Status | Note |
-|---|---|---|---|
-| 3 | `travel-notifications` re-derives Pre/During/Post phases instead of reading Plan full-arc | Still open | Nudges and Plan card can disagree on travel days. |
-| 4 | Quiet-window / DND evaluated in `effectiveTimezone` only, not `circadianTimezone` | Still open | Pre-dawn pushes possible ~2 days post long-haul. |
-| 5 | `meetingPrepCliff` from `_shared/ceo-behaviour/back-to-back.ts` not imported by `evaluateNudgeTwo` | Still open | Duplicated cliff detection; drift risk. |
-| 6 | Sync-your-wearable nudge when MRS is `awaiting` for 24h+ | Not implemented | Users with disconnected wearables get no nudge and no signal to reconnect. |
+## Stage 1 — Fix `horizon_modules` persistence gap (P0)
 
-## Still relevant — LOW
+Only if Stage 0 confirms Shape A (uniform).
 
-| # | Audit item | Status |
-|---|---|---|
-| 7 | Monthly Insights nudge on second-last day of month | Not implemented |
-| 8 | Onboarding cos_profile prefs (goals, archetype, communication style) fed into copy generation | Not implemented |
-| 9 | First-sentence-is-meaning-not-metric for static fallbacks | Partial — LLM path clean; static fallbacks sometimes lead with a metric |
+Trace `supabase/functions/generate-mastery-plan/index.ts` from `buildHorizonModules(...)` to the final upsert. Locate (by content, not line number) where projected modules are dropped or overwritten before write. Suspects per prior root-cause report: `finalHorizonModules` persistence, ledger merge, enrichment pass.
 
-## Recommended next actions (in order)
+Fix at the narrowest point that closes the gap.
 
-1. **Fix the Plan pipeline** so `horizon_modules` populates for morning/afternoon/evening. This is the single change that unblocks 3 nudges/day for the plan-driven path AND fixes the empty Plan card. Requires re-running audit Parts A / D / D1 against `generate-mastery-plan`.
-2. **Rekey `sentSlotsToday`** on `QualifiedNudge.slot` (already available) instead of parsing `notification_type` prefixes.
-3. Wire `travel-notifications` to consume Plan `horizon_modules` full-arc entries.
-4. Add a `sync_wearable` nudge type when `readinessState === 'awaiting'` for ≥24h and no active wearable connection.
-5. Evaluate quiet-window in `circadianTimezone` when `isAway` and days-since-arrival ≤ 2.
-6. Replace inline back-to-back detection in `evaluateNudgeTwo` with `meetingPrepCliff` from `_shared/ceo-behaviour/back-to-back.ts`.
+**Do NOT touch:** `allocatePlanSlots`, `mergeWithLedger` allocator-context handling, why-line LLM, practice-selector scoring, `_shared/plan/*`, any nudges code.
 
-No code changes made in this audit — findings only. Ready to implement any subset on approval.
+**Verification (must be real, not synthetic):**
+1. Re-run Stage 0 query for a test user after forcing regeneration in all three windows → `hm_count > 0`.
+2. Plan card renders real priorities (not rest-day fallback) in all three windows.
+3. 24h of `notification_log` shows `nudge_two` reappearing.
+4. At least one real day across a sample of users holds the fix.
+
+**Rollback:** single-PR revert. No schema.
+
+## Stage 2 — Rekey `sentSlotsToday` on `QualifiedNudge.slot` (P1)
+
+Only after Stage 1 verified stable. `smart-nudges/index.ts` ~L4431–4441: replace `slotForType()` string-prefix inference with the existing `slot` field on `QualifiedNudge`.
+
+**Do NOT touch:** notification_type taxonomy, delivery, suppression windows, caps.
+
+**Verification:** query recent `notification_log`/traces; confirm a `nudge_one_*`-tagged nudge that actually fired in the afternoon now occupies the afternoon bucket.
+
+## Stage 3 — Medium priority (one at a time)
+
+- **3a.** Wire `travel-notifications` to read Plan `horizon_modules` full-arc entries instead of re-deriving Pre/During/Post. Gated on Stage 1.
+- **3b.** Quiet-window/DND in `circadianTimezone` when `isAway` && days-since-arrival ≤ 2 — conditional only, don't change default path.
+- **3c.** Replace inline back-to-back logic in `evaluateNudgeTwo` with `meetingPrepCliff` from `_shared/ceo-behaviour/back-to-back.ts`; verify parity on known cases before deleting inline version.
+
+Each with its own verification + go/no-go.
+
+## Stage 4 — Low priority additive
+
+- **4a.** `sync_wearable` nudge for `readinessState==='awaiting'` ≥24h + no wearable connection; respects daily cap (3) and per-tick (1).
+- **4b.** Monthly Insights nudge on second-last day of month; respects caps.
+- **4c.** cos_profile prefs into nudge copy — first check existing `leaderProfile`/`leaderVoiceRules` wiring; only add what's genuinely missing.
+- **4d.** Static-fallback templates: reorder any that lead with a bare metric to lead with meaning.
+
+## Reporting contract (every stage)
+
+1. Files changed + brief description.
+2. Verification evidence (query result / log excerpt / before-after) — not "deployed".
+3. Confirmation the "do NOT touch" list held.
+4. Explicit go/no-go for the next stage.
+
+Stop immediately on any unclean verification; do not chain stages.
+
+---
+
+**Starting point on approval:** Stage 0 only — run the diagnostic query and report shape classification per window. No code edits.
