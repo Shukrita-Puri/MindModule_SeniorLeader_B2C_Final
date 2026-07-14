@@ -44,6 +44,8 @@ export function validatePhrase(phrase: string): ValidationResult {
 }
 
 const NUMBER_OR_TIME_RE = /(\d+\s*(?:%|bpm|h(?:rs?)?|min|ms|\/\d+)|\d{1,2}:\d{2}|\b\d{1,2}\s*(?:am|pm)\b)/i;
+const LEGACY_DATA_REF_RE = /\b(HRV|RHR|HR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure|sharpness|energy)\b/i;
+const STATE_QUALITY_WORDS_RE = /\b(recovery|sleep|rested|fatigued|sharp|foggy|drained|steady|compressed|elevated|shifted|heavy|light|loaded)\b/i;
 
 // -----------------------------------------------------------------------------
 // §5.2a Four-beat structural validator.
@@ -195,12 +197,21 @@ export function validateBody(body: string, ctx: BriefContext): ValidationResult 
   if (!cluster) return { ok: false, reason: "body does not include any Elastic Lexicon cluster concept" };
 
   // Signal Evidence: a number/unit OR a named event from signals.
+  //
+  // Keep this aligned with the live validator in compute-outer-readiness:
+  // calendar-empty days may pass on approved baseline lexicon, and natural
+  // state-quality prose ("recovery was short", "the afternoon is heavy")
+  // counts as grounded evidence when the prompt is fed real signals.
   const anchorTitles = ctx.behaviourFlags.map((f) => f.anchorEvent).filter(Boolean) as string[];
   const hasNamedEvent = anchorTitles.some((t) => trimmed.toLowerCase().includes(t.toLowerCase()));
   const hasNumber = NUMBER_OR_TIME_RE.test(trimmed);
   const calendarEmpty = !ctx.signals.highStakesEventInNext24h && !ctx.signals.emotionalDrainEventInNext4h;
-  if (!hasNamedEvent && !hasNumber && !calendarEmpty) {
-    return { ok: false, reason: "body missing Signal Evidence (no number-with-unit and no named event)" };
+  if (!hasNamedEvent && !hasNumber) {
+    const hasLegacyDataRef = LEGACY_DATA_REF_RE.test(trimmed);
+    const hasStateQuality = STATE_QUALITY_WORDS_RE.test(trimmed);
+    if (!hasLegacyDataRef && !hasStateQuality) {
+      return { ok: false, reason: "body missing Signal Evidence (no number-with-unit, named event, or grounded state-quality signal)" };
+    }
   }
 
   // §2.19.1 pattern-reference relevance gate.

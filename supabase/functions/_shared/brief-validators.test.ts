@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { validateBodyFourBeatStructure } from "./brief-validators.ts";
+import { validateBody, validateBodyFourBeatStructure } from "./brief-validators.ts";
+import type { BriefContext } from "./brief-context.ts";
 
 // Structural four-beat validator tests. Focus is on shape, not phrasing.
 // Valid examples are drawn from BODY_FOUR_BEAT_CONTRACT worked examples;
@@ -71,4 +72,53 @@ Deno.test("four-beat: rejects body with more than three sentences", () => {
   const r = validateBodyFourBeatStructure(body);
   assertEquals(r.ok, false);
   assert(r.reason?.includes("sentences"));
+});
+
+function makeCtx(overrides: Partial<BriefContext["signals"]> = {}): BriefContext {
+  return {
+    signals: {
+      hrvDeviationPct: null,
+      hrvUnusual: false,
+      sleepHours: null,
+      sleepDeviationPct: null,
+      sleepBelow6h: false,
+      rhrDeviationPct: null,
+      hrElevatedProxy: false,
+      emotionalSelfDeclared: null,
+      mentalSharpness: null,
+      confidence: null,
+      timezoneOffsetMinutes: null,
+      timezoneShift48hHours: null,
+      travelDay: false,
+      yesterdayScore: null,
+      todayScore: null,
+      postPeakWindow: false,
+      isHighVisibilityToday: false,
+      emotionalDrainEventInNext4h: null,
+      highStakesEventInNext24h: null,
+      morningWasCompressed: false,
+      middayRecoveryDetected: false,
+      clarityDropFromTrailingAvg: null,
+      ...overrides,
+    },
+    behaviourFlags: [],
+    lexiconClusters: ["cognition"],
+    forbiddenWords: [],
+    allowedPatternKeywords: [],
+  };
+}
+
+Deno.test("validateBody: state-quality prose passes without raw number or named event", () => {
+  const body =
+    "Sleep was short and the body is carrying heavy load into the board run, so protect the first hour for the deck only and keep the smaller calls around it tight so your composure holds in the room.";
+  const r = validateBody(body, makeCtx());
+  assert(r.ok, `expected ok, got: ${r.reason}`);
+});
+
+Deno.test("validateBody: still rejects motivational copy with no grounded signal", () => {
+  const body =
+    "Move with intention and own the room, so keep the day pointed in the right direction.";
+  const r = validateBody(body, makeCtx());
+  assertEquals(r.ok, false);
+  assert(r.reason !== undefined);
 });
