@@ -55,7 +55,7 @@ export async function getResumeRoute(): Promise<string> {
 }
 
 export async function validateStageAccess(targetPath: string): Promise<string | null> {
-  if (targetPath === "/upgrade" || (!PAYMENT_PAGE_SUPPRESSED && targetPath === "/onboarding/payment")) {
+  if (targetPath === "/upgrade") {
     return null;
   }
 

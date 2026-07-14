@@ -149,7 +149,7 @@ serve(async (req) => {
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
         const statePayload = JSON.stringify({
           userId: authenticatedUserId,
-          redirectPath: (body.redirectPath as string) || '/onboarding/context-connection',
+          redirectPath: (body.redirectPath as string) || '/connected-data',
         });
         const encodedState = btoa(statePayload);
         authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&include_granted_scopes=true&state=${encodeURIComponent(encodedState)}`;
@@ -164,7 +164,7 @@ serve(async (req) => {
         const scope = 'offline_access openid profile email Calendars.Read';
         const statePayload = JSON.stringify({
           userId: authenticatedUserId,
-          redirectPath: (body.redirectPath as string) || '/onboarding/context-connection',
+          redirectPath: (body.redirectPath as string) || '/connected-data',
           provider: 'microsoft',
         });
         const encodedState = btoa(statePayload);
@@ -219,7 +219,7 @@ serve(async (req) => {
       }
 
       let validUserId: string;
-      let redirectPath = '/onboarding/context-connection';
+      let redirectPath = '/connected-data';
       let stateProvider: string | null = null;
 
       try {

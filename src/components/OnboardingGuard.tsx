@@ -7,8 +7,8 @@ import { fetchOnboardingProgressSnapshot, isOnboardingCompleteSnapshot } from "@
 import DelayedFallback from "@/components/ui/delayed-fallback";
 import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
-// Routes that completed users can still access (e.g. upgrade flow)
-const ONBOARDING_WHITELIST = PAYMENT_PAGE_SUPPRESSED ? [] : ['/upgrade', '/onboarding/payment'];
+// Routes that completed users can still access outside the onboarding flow.
+const ONBOARDING_WHITELIST = PAYMENT_PAGE_SUPPRESSED ? [] : ['/upgrade'];
 
 /**
  * Check if onboarding is complete by querying DB progress.
@@ -109,7 +109,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
 /**
  * Wraps the /onboarding route to prevent completed users from re-accessing it.
  * Blocks ALL onboarding subroutes for completed users, not just the root.
- * Exception: whitelisted routes (e.g. /onboarding/payment for upgrade flow).
+ * Exception: whitelisted routes (e.g. /upgrade for upgrade flow).
  */
 export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, isAuthenticated, refreshProfile } = useAuth();

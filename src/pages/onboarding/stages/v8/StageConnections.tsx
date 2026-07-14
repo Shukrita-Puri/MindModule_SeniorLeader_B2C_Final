@@ -45,7 +45,7 @@ export default function StageConnections() {
       const wearableSelections = (res.data?.wearable_selections ?? [])
         .filter((value): value is WearableProviderId => ['apple-watch', 'oura', 'whoop'].includes(value));
       setCalOnly(calendarSelections);
-      setWearOnly(wearableSelections.filter((value) => value !== 'whoop'));
+      setWearOnly(wearableSelections);
       setHydrated(true);
     }).catch(() => {
       if (!cancelled) setHydrated(true);
@@ -79,11 +79,15 @@ export default function StageConnections() {
     () => [...selectedCalendars, ...selectedWearables],
     [selectedCalendars, selectedWearables],
   );
+  const requiredConnectedProviders = useMemo(
+    () => selectedProviders.filter((provider) => provider !== 'whoop'),
+    [selectedProviders],
+  );
 
   const connectedSelectedProviders = selectedProviders.filter((provider) =>
     isProviderConnected(provider, calendarState, wearableState),
   );
-  const canContinue = hydrated && selectedProviders.every((provider) =>
+  const canContinue = hydrated && requiredConnectedProviders.every((provider) =>
     isProviderConnected(provider, calendarState, wearableState),
   );
   const canSkip = hydrated && selectedProviders.length > 0;
@@ -127,7 +131,7 @@ export default function StageConnections() {
             <p aria-live="polite" className="text-[11px] text-[#7a7060] text-center mb-2">
               {selectedProviders.length === 0
                 ? 'Choose providers on the previous step first.'
-                : `Connected ${connectedSelectedProviders.length} of ${selectedProviders.length} selected providers.`}
+                : `Connected ${connectedSelectedProviders.length} of ${requiredConnectedProviders.length || selectedProviders.length} required providers.`}
             </p>
           )}
           <PrimaryCTA tone="coral" onClick={goNext} disabled={saving || !canContinue}>
@@ -140,6 +144,11 @@ export default function StageConnections() {
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-3">
         Connect only the providers you selected. A provider you did not choose will not block onboarding, and any selected provider can be connected later from Profile → Connected Data.
       </p>
+      {selectedWearables.includes('whoop') && (
+        <p className="text-[11px] text-[#7a7060] leading-[1.55] mb-3">
+          Whoop is still coming soon, so it will not block onboarding completion today.
+        </p>
+      )}
       <ConnectionsPanel
         calendarOnly={selectedCalendars}
         wearableOnly={selectedWearables}
