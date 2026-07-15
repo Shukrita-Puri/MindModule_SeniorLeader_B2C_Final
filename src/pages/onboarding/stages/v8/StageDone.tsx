@@ -38,6 +38,21 @@ export default function StageDone() {
           setTimeout(() => navigate("/onboarding/protect-goals"), 1200);
           return;
         }
+        if (fields.includes("weekend_signals") || fields.includes("brief_timing") || fields.includes("reset_modality")) {
+          setError("Finish your brief preferences before entering the app.");
+          setTimeout(() => navigate("/onboarding/brief-prefs"), 1200);
+          return;
+        }
+        if (fields.includes("stakes_chips") || fields.includes("load_chips") || fields.includes("burden_chips")) {
+          setError("Finish your cognitive load step before entering the app.");
+          setTimeout(() => navigate("/onboarding/cognitive-load"), 1200);
+          return;
+        }
+        if (fields.includes("linkedin_url") || fields.includes("freetext_context") || fields.includes("writing_urls")) {
+          setError("Finish your leadership context step before entering the app.");
+          setTimeout(() => navigate("/onboarding/leadership-context"), 1200);
+          return;
+        }
         setError("Some onboarding info is missing — please complete the previous steps.");
         return;
       }

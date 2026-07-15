@@ -111,7 +111,9 @@ function deriveStepStatusFromFields(row: RawV8Row | null): Record<OnboardingV8St
   const status = normalizeStepStatus(row);
   if ((row?.goals?.length ?? 0) > 0) status.protect_goals = "completed";
   if ((row?.calendar_selections?.length ?? 0) > 0 && (row?.wearable_selections?.length ?? 0) > 0) status.permissions = "completed";
-  if (row?.weekend_signals !== undefined) status.brief_prefs = "completed";
+  if (row?.weekend_signals != null && String(row.weekend_signals).length > 0) {
+    status.brief_prefs = "completed";
+  }
   return status;
 }
 
