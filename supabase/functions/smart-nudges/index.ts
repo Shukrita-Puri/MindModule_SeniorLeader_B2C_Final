@@ -1483,15 +1483,16 @@ async function buildNudgeContext(
       const today = detectDayKindFromEvents(todayEvents);
       const tomorrow = detectDayKindFromEvents(tomorrowEvents);
       // Map kind → PTO vs holiday signals. The shared classifier doesn't
-      // distinguish PTO (ooo) from public holidays (away-day) precisely, but
-      // for week-ahead-mode both branches collapse to the same outcome
-      // (active=true, lookahead=7). The distinction only shapes telemetry.
+      // distinguish PTO from public holidays from a bare title. C2 (Path B):
+      // legacy 'ooo' kind is gone; a single 'away-day' covers both. Week-
+      // ahead-mode collapses both to the same outcome (active=true,
+      // lookahead=7); the distinction only shapes telemetry.
       // Canonical override: consult the availability SSOT. When it says
       // WORKDAY (empty weekday, or work-evidence override on a
       // weekend/holiday), zero both PTO and holiday flags so the week-
       // ahead evaluator does NOT fire post-PTO / post-holiday branches.
-      const ptoTodayAllDayLegacy = today.kind === 'ooo';
-      const holidayTodayAllDayLegacy = today.kind === 'away-day';
+      const ptoTodayAllDayLegacy = today.kind === 'away-day';
+      const holidayTodayAllDayLegacy = false;
       const availOverride = nudgeAvailability;
       const ptoTodayAllDay = availOverride
         ? availOverride.state === 'PTO'
@@ -1499,8 +1500,8 @@ async function buildNudgeContext(
       const holidayTodayAllDay = availOverride
         ? availOverride.state === 'PUBLIC_HOLIDAY'
         : holidayTodayAllDayLegacy;
-      const ptoTomorrowAllDay = tomorrow.kind === 'ooo';
-      const holidayTomorrowAllDay = tomorrow.kind === 'away-day';
+      const ptoTomorrowAllDay = tomorrow.kind === 'away-day';
+      const holidayTomorrowAllDay = false;
       const tomorrowDow = (dayOfWeek + 1) % 7;
       const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
       const tomorrowIsWorkday =
