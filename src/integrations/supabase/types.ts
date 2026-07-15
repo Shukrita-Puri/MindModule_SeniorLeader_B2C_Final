@@ -4240,6 +4240,7 @@ export type Database = {
           biggest_pressure: string | null
           component_scores: Json | null
           confirmed_priorities: string[] | null
+          country: string | null
           created_at: string | null
           current_streak: number | null
           current_timezone: string | null
@@ -4315,6 +4316,7 @@ export type Database = {
           biggest_pressure?: string | null
           component_scores?: Json | null
           confirmed_priorities?: string[] | null
+          country?: string | null
           created_at?: string | null
           current_streak?: number | null
           current_timezone?: string | null
@@ -4390,6 +4392,7 @@ export type Database = {
           biggest_pressure?: string | null
           component_scores?: Json | null
           confirmed_priorities?: string[] | null
+          country?: string | null
           created_at?: string | null
           current_streak?: number | null
           current_timezone?: string | null
@@ -5923,6 +5926,7 @@ export type Database = {
           event_metadata: Json | null
           external_id: string | null
           id: string | null
+          is_all_day: boolean | null
           is_organizer: boolean | null
           is_recurring: boolean | null
           provider: string | null
@@ -5937,6 +5941,7 @@ export type Database = {
           event_metadata?: Json | null
           external_id?: string | null
           id?: string | null
+          is_all_day?: boolean | null
           is_organizer?: boolean | null
           is_recurring?: boolean | null
           provider?: string | null
@@ -5951,6 +5956,7 @@ export type Database = {
           event_metadata?: Json | null
           external_id?: string | null
           id?: string | null
+          is_all_day?: boolean | null
           is_organizer?: boolean | null
           is_recurring?: boolean | null
           provider?: string | null
