@@ -163,4 +163,39 @@ describe("availability SSOT — shim-import guard", () => {
       expect(rx.test(ssot), `SSOT missing export: ${sym}`).toBe(true);
     }
   });
+
+  // C2 guard (Path B, pre-launch): the previous `AWAY_KEYWORDS`,
+  // `OOO_KEYWORDS`, and `TRAVEL_KEYWORDS` string arrays in
+  // `_shared/events/event-classifier.ts` duplicated the SSOT vocabulary and
+  // drifted (e.g. informal "day off" / "away" matched C2 but not the SSOT).
+  // They have been deleted; `detectDayKindFromEvents` now delegates title
+  // classification to `isPtoOrHolidayTitle` + `isTravelTitle`. This guard
+  // prevents a re-introduction under `supabase/functions/` outside the
+  // canonical vocabularies (SSOT + `_shared/events/event-subtypes.ts`
+  // where keyword-per-subtype is the intended, structurally-scoped model).
+  it("no parallel PTO / travel / OOO keyword arrays under supabase/functions/", () => {
+    const FORBIDDEN_NAMES = ["AWAY_KEYWORDS", "OOO_KEYWORDS", "TRAVEL_KEYWORDS"];
+    const allowed = new Set(
+      [
+        // The SSOT itself and the classifier catalog own their vocabularies.
+        "supabase/functions/_shared/availability/availability-classifier.ts",
+        "supabase/functions/_shared/events/event-subtypes.ts",
+        // This test file references the names in string form.
+        "src/__tests__/availabilitySsotShimImports.test.ts",
+      ].map((p) => p.split("/").join(sep)),
+    );
+    const violations: string[] = [];
+    for (const f of files) {
+      const rel = relative(REPO_ROOT, f);
+      if (allowed.has(rel)) continue;
+      const src = readFileSync(f, "utf8");
+      for (const name of FORBIDDEN_NAMES) {
+        const rx = new RegExp(`\\b(?:const|let|var)\\s+${name}\\b`);
+        if (rx.test(src)) {
+          violations.push(`${rel} declares forbidden \`${name}\` — route through the SSOT`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
 });
