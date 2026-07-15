@@ -4018,6 +4018,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           userPrompt += `\nConsecutive low days: ${consecutiveLowDaysForPrompt}`;
           if (stateShiftToday) userPrompt += ` · State shift today: yes · Direction: ${stateShiftDirection}`;
 
+          userPrompt += `\n\n=== DATA AVAILABILITY CONTRACT ===`;
+          if (hasWearable) {
+            userPrompt += `\nWearable signals are present. You may reference ONLY the wearable fields explicitly printed in the WEARABLE section below.`;
+          } else {
+            userPrompt += `\nNo wearable signal exists for this brief. Do NOT mention HRV, RHR, heart rate, sleep, baseline, recovery metrics, or imply that the body is recovered / rested / under-recovered from wearable evidence.`;
+          }
+          if (checkInOutcome || mentalSharpnessLevel != null || clarityLevel != null || confidenceLevel != null) {
+            userPrompt += `\nCurrent-period check-in is present. You may reference ONLY the check-in fields explicitly printed in the READINESS section above.`;
+          } else {
+            userPrompt += `\nNo current-period check-in exists for this brief. Do NOT mention mental energy, clarity, confidence, sharpness, felt state, self-declared state, or the check-in.`;
+          }
+          userPrompt += `\nIf a source is absent, pivot to the sources that are present. Never fabricate missing evidence.`;
+
           // === WEARABLE ===
           if (hasWearable) {
             userPrompt += `\n\n=== WEARABLE ===`;
@@ -5028,7 +5041,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // generic fallback). Used only if the targeted retry below is
           // unavailable for the given rule.
           const STRICT_PHRASE_RETRY = `\n\nSTRICT RETRY: Phrase MUST be 2–4 words. 5 words only if unavoidable and genuinely load-bearing; never 6+. Do not start with "you", "your", or "the".`;
-          const FOUR_BEAT_RETRY_GUIDANCE = `\n\nRETRY BODY GUIDANCE: Structure your body as: [evidence clause] + [judgment clause] + [work-direction clause] + [closing protective clause]. Each beat can be a phrase, not a full sentence.`;
+          const FOUR_BEAT_RETRY_GUIDANCE = `\n\nRETRY BODY GUIDANCE: Structure your body as: [evidence clause] + [judgment clause] + [work-direction clause] + [closing protective clause]. Each beat can be a phrase, not a full sentence. The work-direction clause must contain a concrete work move tied to today's real demand, such as the board prep, the next call, the review block, the investor room, or the first decision window.`;
 
           // v6.4 — corrective retry: feed the SPECIFIC validator rule that
           // failed on attempt 1 into the retry prompt instead of a generic
@@ -5207,10 +5220,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   // Brief — never deterministic fallback prose.
                   const atomicCtx: any = {
                     signals: {
+                      hrvDeviationPct: hrvDeviation ?? null,
+                      hrvUnusual: !!hrvUnusual,
+                      sleepHours: sleepDuration != null ? sleepDuration / 60 : null,
+                      sleepDeviationPct: sleepDeviation ?? null,
+                      sleepBelow6h: !!sleepHardFloor,
+                      rhrDeviationPct: rhrDeviation ?? null,
+                      hrElevatedProxy: (wearableContext as any)?.hrElevated === true,
+                      emotionalSelfDeclared: checkInOutcome ?? null,
+                      mentalSharpness: mentalSharpnessLevel ?? null,
+                      confidence: confidenceLevel ?? null,
+                      timezoneOffsetMinutes: null,
+                      timezoneShift48hHours: null,
+                      travelDay: false,
+                      yesterdayScore: yesterdayScore ?? null,
+                      todayScore: innerReadinessScore ?? null,
+                      postPeakWindow: false,
+                      isHighVisibilityToday: false,
                       highStakesEventInNext24h: nextHighStakesEvent
                         ? { title: nextHighStakesEvent.title, minutesUntil: nextHighStakesEvent.minutesUntil }
                         : null,
                       emotionalDrainEventInNext4h: null,
+                      morningWasCompressed: false,
+                      middayRecoveryDetected: false,
+                      clarityDropFromTrailingAvg: null,
                     },
                     behaviourFlags: [
                       ...(briefBehaviourSnapshot?.flagsBrief ?? []),

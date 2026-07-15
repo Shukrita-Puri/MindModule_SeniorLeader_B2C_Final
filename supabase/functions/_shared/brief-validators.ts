@@ -100,7 +100,19 @@ const WORK_DIRECTIVE_TOKENS = [
   "shut", "make", "take", "deploy", "lean", "anchor", "ground", "signal",
 ];
 
+const WORK_CONTEXT_TOKENS = [
+  "board", "meeting", "meetings", "call", "calls", "review", "room",
+  "agenda", "deck", "prep", "brief", "decision", "decisions", "calendar",
+  "investor", "town hall", "stakeholder", "presentation", "team", "1:1",
+  "block", "window", "afternoon", "morning", "handoff", "strategy",
+  "interview", "negotiation", "client", "work", "priority", "priorities",
+];
+
 const CLOSING_CONNECTOR_RE = /\b(and|so|then|but|while|before|after|until)\b|[;—]/gi;
+
+const WEARABLE_REFERENCE_RE = /\b(HRV|RHR|resting heart rate|heart rate|ms\b|bpm\b|baseline)\b|(?:sleep\s+\d)|(?:\d+(?:\.\d+)?\s*h(?:ours?)?\b)|(?:\d+(?:\.\d+)?\s*hrs?\b)/i;
+const BODY_RECOVERY_ASSERTION_RE = /\b(body|physiology|system)\s+(?:is|looks|reads|stays|feels)?\s*(?:recovered|rested|ready|under-recovered|loaded|strained)\b/i;
+const CHECKIN_REFERENCE_RE = /\b(check-?in|mental energy|felt state|self-declared|clarity|confidence|sharpness|mentally sharp|you reported|you said)\b/i;
 
 function splitSentences(text: string): string[] {
   return text
@@ -155,6 +167,20 @@ export function validateBodyFourBeatStructure(body: string): ValidationResult {
     };
   }
 
+  // Directive must be work-shaped, not a generic wellness/protective line.
+  const hasWorkContext = WORK_CONTEXT_TOKENS.some((tok) => {
+    const pattern = tok.includes(" ")
+      ? `\\b${tok.replace(/\s+/g, "\\s+")}\\b`
+      : `\\b${tok}\\b`;
+    return new RegExp(pattern, "i").test(lower);
+  });
+  if (!hasWorkContext) {
+    return {
+      ok: false,
+      reason: "body missing WORK DIRECTIVE beat (directive is not tied to a work context)",
+    };
+  }
+
   // (d) SELF-REGULATION closing clause — accept either:
   //   1) a short tail after the last coordinator inside the final sentence, or
   //   2) a short final sentence that is itself a directive close.
@@ -198,6 +224,43 @@ export function validateBodyFourBeatStructure(body: string): ValidationResult {
   return { ok: true };
 }
 
+function validateBodyDataAvailability(body: string, ctx: BriefContext): ValidationResult {
+  const hasWearableSignal =
+    ctx.signals.hrvDeviationPct != null ||
+    ctx.signals.sleepHours != null ||
+    ctx.signals.sleepDeviationPct != null ||
+    ctx.signals.rhrDeviationPct != null ||
+    ctx.signals.hrElevatedProxy === true;
+  const hasCheckInSignal =
+    ctx.signals.emotionalSelfDeclared != null ||
+    ctx.signals.mentalSharpness != null ||
+    ctx.signals.confidence != null;
+
+  if (!hasWearableSignal) {
+    if (WEARABLE_REFERENCE_RE.test(body)) {
+      return {
+        ok: false,
+        reason: "body references wearable evidence when no wearable signal exists",
+      };
+    }
+    if (BODY_RECOVERY_ASSERTION_RE.test(body)) {
+      return {
+        ok: false,
+        reason: "body asserts physiological recovery when wearable signal is missing",
+      };
+    }
+  }
+
+  if (!hasCheckInSignal && CHECKIN_REFERENCE_RE.test(body)) {
+    return {
+      ok: false,
+      reason: "body references check-in evidence when no current check-in exists",
+    };
+  }
+
+  return { ok: true };
+}
+
 /** §5.2 Body validator. Requires lexicon cluster + named context + relevance-gated pattern. */
 export function validateBody(body: string, ctx: BriefContext): ValidationResult {
   const trimmed = body.trim();
@@ -234,6 +297,9 @@ export function validateBody(body: string, ctx: BriefContext): ValidationResult 
       return { ok: false, reason: "pattern reference present without today-signal or today-context anchor" };
     }
   }
+
+  const availability = validateBodyDataAvailability(trimmed, ctx);
+  if (!availability.ok) return availability;
 
   // §5.2a Four-beat structural gate — must run AFTER lexicon/evidence gates
   // so callers see the more specific reason first when both would fail.

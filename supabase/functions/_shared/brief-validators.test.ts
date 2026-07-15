@@ -35,6 +35,14 @@ Deno.test("four-beat: rejects body with no work-directive verb", () => {
   assert(r.reason?.includes("WORK DIRECTIVE"));
 });
 
+Deno.test("four-beat: rejects generic protective close with no work context", () => {
+  const body =
+    "Recovery is uneven and the day is carrying pressure, so protect your energy carefully and keep your edge intact so the rest of today stays contained.";
+  const r = validateBodyFourBeatStructure(body);
+  assertEquals(r.ok, false);
+  assert(r.reason?.includes("work context"));
+});
+
 Deno.test("four-beat: rejects body with no closing clause (no coordinator in final sentence)", () => {
   const body =
     "Recovery is down and sleep was short overnight for you again. The read is that today is a reserves day for the week ahead. Protect the first hour of the morning for the board deck preparation session before it begins.";
@@ -142,6 +150,39 @@ Deno.test("validateBody: still rejects motivational copy with no grounded signal
   const r = validateBody(body, makeCtx());
   assertEquals(r.ok, false);
   assert(r.reason !== undefined);
+});
+
+Deno.test("validateBody: rejects wearable references when no wearable signal exists", () => {
+  const body =
+    "Sleep was short and HRV is down, so protect the board prep block and keep the smaller calls narrow so the room gets your best attention.";
+  const r = validateBody(body, makeCtx());
+  assertEquals(r.ok, false);
+  assert(r.reason?.includes("wearable evidence"));
+});
+
+Deno.test("validateBody: rejects check-in references when no current check-in exists", () => {
+  const body =
+    "Clarity has dipped and the investor review anchors the afternoon, so protect the prep block early and keep strategic composure intact in the room.";
+  const r = validateBody(
+    body,
+    makeCtx({
+      highStakesEventInNext24h: { title: "Investor Review", minutesUntil: 120 },
+    }),
+  );
+  assertEquals(r.ok, false);
+  assert(r.reason?.includes("check-in evidence"));
+});
+
+Deno.test("validateBody: allows work-shaped directive without wearable or check-in when grounded in calendar", () => {
+  const body =
+    "The board review anchors the afternoon and the day is compact, so protect the first prep block and keep the smaller calls narrow so strategic composure holds in the room.";
+  const r = validateBody(
+    body,
+    makeCtx({
+      highStakesEventInNext24h: { title: "Board Review", minutesUntil: 180 },
+    }),
+  );
+  assert(r.ok, `expected ok, got: ${r.reason}`);
 });
 
 Deno.test("validatePhrase: accepts natural four-word phrase", () => {
