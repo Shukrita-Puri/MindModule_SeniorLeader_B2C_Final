@@ -435,28 +435,38 @@ function preferEvent<T extends DedupableEvent>(candidate: T, current: T, rank: R
 
 // ── Day-kind detection ───────────────────────────────────────────────
 
-const TRAVEL_KEYWORDS = ['flight','airport','boarding','departure','arrival','layover','transit','train','red-eye','redeye'];
-const AWAY_KEYWORDS = ['annual leave','holiday','vacation','pto','away','day off'];
-const OOO_KEYWORDS = ['out of office','ooo'];
+// C2 consolidation (Path B, pre-launch): title-based day-kind detection now
+// delegates to the canonical SSOTs so there is exactly one keyword vocabulary
+// per concern:
+//   • Travel titles  → `isTravelTitle` from `../ceo-behaviour/travel.ts`
+//                      (TRAVEL_TITLE_RX is the SSOT for travel titles).
+//   • PTO / holiday  → `isPtoOrHolidayTitle` from `../ceo-behaviour/pto-holiday.ts`
+//                      (re-export of `PTO_TITLE_RX` in `_shared/availability/`).
+//
+// Legacy `'ooo'` return kind has been folded into `'away-day'` — every prior
+// OOO title ("Out of office", "OOO") is already matched by the canonical
+// PTO regex, and downstream consumers (Smart Nudges) treated both as the
+// same PTO branch. Collapsing removes a false distinction that could drift.
+//
+// Note: this function is title-only and does NOT consult `isAllDay`. For
+// authoritative today-availability, Smart Nudges consults the SSOT
+// (`classifyAvailability`) which reads structural event data and overrides
+// this legacy detector. This detector remains for cheap title-only calls
+// (yesterday / tomorrow classification, travel signal token plumbing).
+import { isTravelTitle } from "../ceo-behaviour/travel.ts";
+import { isPtoOrHolidayTitle } from "../ceo-behaviour/pto-holiday.ts";
 
 export function detectDayKindFromEvents(
   events: Array<{ title?: string | null }>,
-): { kind: 'normal' | 'travel-day' | 'away-day' | 'ooo'; signalToken?: string } {
+): { kind: 'normal' | 'travel-day' | 'away-day'; signalToken?: string } {
   for (const e of events) {
-    const lower = (e.title || '').toLowerCase();
-    if (!lower) continue;
-    for (const kw of TRAVEL_KEYWORDS) {
-      if (lower.includes(kw)) return { kind: 'travel-day', signalToken: 'travel' };
+    if (isTravelTitle(e.title ?? null)) {
+      return { kind: 'travel-day', signalToken: 'travel' };
     }
   }
   for (const e of events) {
-    const lower = (e.title || '').toLowerCase();
-    if (!lower) continue;
-    for (const kw of OOO_KEYWORDS) {
-      if (lower.includes(kw)) return { kind: 'ooo', signalToken: 'out of office' };
-    }
-    for (const kw of AWAY_KEYWORDS) {
-      if (lower.includes(kw)) return { kind: 'away-day', signalToken: kw };
+    if (isPtoOrHolidayTitle(e.title ?? null)) {
+      return { kind: 'away-day', signalToken: (e.title || 'away').toLowerCase() };
     }
   }
   return { kind: 'normal' };

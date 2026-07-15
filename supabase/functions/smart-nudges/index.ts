@@ -608,9 +608,12 @@ interface NudgeContext {
   hrvDeltaPctFromSnapshot: number | null;
   // v7 - Unified pattern store (cross-event historical correlations)
   pattern: PatternSummary | null;
-  // V8 - Day-shape awareness (copy only). Travel/away-day/ooo and post-travel.
+  // V8 - Day-shape awareness (copy only). Travel/away-day and post-travel.
+  // C2 (Path B, pre-launch): legacy 'ooo' kind folded into 'away-day' — the
+  // canonical PTO SSOT (PTO_TITLE_RX) already matches OOO titles, and both
+  // branches produced identical downstream behaviour.
   dayContext: {
-    kind: 'normal' | 'travel-day' | 'away-day' | 'ooo';
+    kind: 'normal' | 'travel-day' | 'away-day';
     signalToken?: string;
     postTravel: boolean;
     // v5.3 - Travel arc sub-flags (derived from today's calendar). Each
@@ -1471,7 +1474,7 @@ async function buildNudgeContext(
         ptoMode: nudgeAvailability
           ? (nudgeAvailability.state === 'PTO' ||
              nudgeAvailability.state === 'PUBLIC_HOLIDAY')
-          : (today.kind === 'away-day' || today.kind === 'ooo'),
+          : (today.kind === 'away-day'),
         landingPlusHighStakes,
         availability: nudgeAvailability,
       };
@@ -1480,15 +1483,16 @@ async function buildNudgeContext(
       const today = detectDayKindFromEvents(todayEvents);
       const tomorrow = detectDayKindFromEvents(tomorrowEvents);
       // Map kind → PTO vs holiday signals. The shared classifier doesn't
-      // distinguish PTO (ooo) from public holidays (away-day) precisely, but
-      // for week-ahead-mode both branches collapse to the same outcome
-      // (active=true, lookahead=7). The distinction only shapes telemetry.
+      // distinguish PTO from public holidays from a bare title. C2 (Path B):
+      // legacy 'ooo' kind is gone; a single 'away-day' covers both. Week-
+      // ahead-mode collapses both to the same outcome (active=true,
+      // lookahead=7); the distinction only shapes telemetry.
       // Canonical override: consult the availability SSOT. When it says
       // WORKDAY (empty weekday, or work-evidence override on a
       // weekend/holiday), zero both PTO and holiday flags so the week-
       // ahead evaluator does NOT fire post-PTO / post-holiday branches.
-      const ptoTodayAllDayLegacy = today.kind === 'ooo';
-      const holidayTodayAllDayLegacy = today.kind === 'away-day';
+      const ptoTodayAllDayLegacy = today.kind === 'away-day';
+      const holidayTodayAllDayLegacy = false;
       const availOverride = nudgeAvailability;
       const ptoTodayAllDay = availOverride
         ? availOverride.state === 'PTO'
@@ -1496,8 +1500,8 @@ async function buildNudgeContext(
       const holidayTodayAllDay = availOverride
         ? availOverride.state === 'PUBLIC_HOLIDAY'
         : holidayTodayAllDayLegacy;
-      const ptoTomorrowAllDay = tomorrow.kind === 'ooo';
-      const holidayTomorrowAllDay = tomorrow.kind === 'away-day';
+      const ptoTomorrowAllDay = tomorrow.kind === 'away-day';
+      const holidayTomorrowAllDay = false;
       const tomorrowDow = (dayOfWeek + 1) % 7;
       const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
       const tomorrowIsWorkday =
@@ -1719,8 +1723,6 @@ function buildDayShapeLine(ctx: NudgeContext): string {
     );
   } else if (dc.kind === 'away-day') {
     parts.push('Today shape: away-day - acknowledge the day away.');
-  } else if (dc.kind === 'ooo') {
-    parts.push('Today shape: out of office - acknowledge it.');
   }
   if (dc.postTravel) {
     // Post-travel recovery goal also sourced from canonical G.post phase.
@@ -2465,8 +2467,10 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // v8 - Meaning-first sentence + named context + qualified mind-prep CTA.
   const dc = ctx.dayContext;
 
-  // V8 - Out-of-office / away-day morning (weekday or weekend, no meeting needed)
-  if (dc.kind === 'ooo' || dc.kind === 'away-day') {
+  // V8 - Away-day morning (weekday or weekend, no meeting needed). C2 (Path B):
+  // legacy 'ooo' kind folded into 'away-day' — canonical PTO regex already
+  // matches OOO titles.
+  if (dc.kind === 'away-day') {
     return {
       title: 'Day away',
       body: `On your day away - a short reset before you switch off. Check in to set your intention.`,
