@@ -1723,8 +1723,6 @@ function buildDayShapeLine(ctx: NudgeContext): string {
     );
   } else if (dc.kind === 'away-day') {
     parts.push('Today shape: away-day - acknowledge the day away.');
-  } else if (dc.kind === 'ooo') {
-    parts.push('Today shape: out of office - acknowledge it.');
   }
   if (dc.postTravel) {
     // Post-travel recovery goal also sourced from canonical G.post phase.
