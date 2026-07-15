@@ -302,7 +302,34 @@ const stripCoachFromPlan = (plan: MasteryPlanResponse | null): MasteryPlanRespon
       return { ...hm, practice: kept[0], practices: kept };
     })
     .filter(Boolean) as HorizonModule[];
-  return { ...plan, horizonModules: filtered };
+  const isRestDayPlan =
+    (plan as any)?.meta?.restDay === true ||
+    (plan as any)?.meta?.dayShape === 'rest_day' ||
+    (plan as any)?.restDay === true;
+  if (isRestDayPlan || filtered.length >= 3) {
+    return { ...plan, horizonModules: filtered };
+  }
+
+  const fallback = buildFallbackHorizonModules(plan as unknown as Record<string, unknown>);
+  const usedPracticeIds = new Set<string>(
+    filtered
+      .flatMap((hm) => hm.practices || [hm.practice])
+      .map((p: any) => String(p?.contentId || ''))
+      .filter(Boolean),
+  );
+  const toppedUp = filtered.slice();
+  for (const fm of fallback) {
+    const practiceId = String(fm?.practice?.contentId || '');
+    if (practiceId && usedPracticeIds.has(practiceId)) continue;
+    toppedUp.push(fm);
+    if (practiceId) usedPracticeIds.add(practiceId);
+    if (toppedUp.length >= 3) break;
+  }
+  for (const fm of fallback) {
+    if (toppedUp.length >= 3) break;
+    toppedUp.push(fm);
+  }
+  return { ...plan, horizonModules: toppedUp.slice(0, 3) };
 };
 
 const buildFallbackHorizonModules = (
@@ -1915,27 +1942,7 @@ const TodayThreePriorities = ({
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
   const dataReady = !loading && horizonModules && horizonModules.length > 0;
-  const sortedHorizonModules = (horizonModules || [])
-    .map((hm, index) => ({ hm, index }))
-    .sort((a, b) => {
-      const rank = (tag: any) => (tag === 'high' ? 0 : tag === 'low' ? 2 : 1);
-      const r = rank((a.hm as any).priorityTag) - rank((b.hm as any).priorityTag);
-      return r !== 0 ? r : a.index - b.index;
-    });
-  const hasNonLowIncomplete = sortedHorizonModules.some(({ hm }) => {
-    const slotPractices = hm.practices || [hm.practice];
-    const slotCompleted = slotPractices.every((p) => completedPracticeIds.includes(p.contentId));
-    const slotCancelled = hm.isCancelled === true;
-    return !slotCompleted && !slotCancelled && hm.priorityTag !== 'low';
-  });
-  const visibleHorizonModules = sortedHorizonModules.filter(({ hm }) => {
-    const slotPractices = hm.practices || [hm.practice];
-    const slotCompleted = slotPractices.every((p) => completedPracticeIds.includes(p.contentId));
-    const slotCancelled = hm.isCancelled === true;
-    if (slotCompleted || slotCancelled) return true;
-    if (hm.priorityTag === 'low' && hasNonLowIncomplete) return false;
-    return true;
-  });
+  const visibleHorizonModules = (horizonModules || []).map((hm, index) => ({ hm, index }));
   // Cached-render-and-silent-verification: if a valid cached plan was
   // present at mount, we never re-show the scripted loader during a
   // background refresh — even if `loading` flips true transiently.

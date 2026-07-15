@@ -59,14 +59,15 @@ Deno.test("F3 — legacy hardcoded 'status: ready' upsert is gone", () => {
   );
 });
 
-Deno.test("F4 — non-rest-day empty horizon projection is server-filled before persistence", () => {
+Deno.test("F4 — non-rest-day partial horizon projection is server-filled before persistence", () => {
   assertStringIncludes(SRC, "function buildSnapshotFallbackHorizonModules(");
+  assertStringIncludes(SRC, "function topUpHorizonModulesToThree(");
   assertStringIncludes(
     SRC,
-    "if (!planIsRestDay && finalHorizonModules.length === 0 && todModules.length > 0)",
+    "if (!planIsRestDay && finalHorizonModules.length < 3 && todModules.length > 0)",
   );
-  assertStringIncludes(SRC, "finalHorizonModules = buildSnapshotFallbackHorizonModules(todModules, {");
-  assertStringIncludes(SRC, "[generate-mastery-plan][snapshot-projection-fallback]");
+  assertStringIncludes(SRC, "finalHorizonModules = topUpHorizonModulesToThree(finalHorizonModules, todModules, {");
+  assertStringIncludes(SRC, "[generate-mastery-plan][snapshot-projection-topup]");
 });
 
 Deno.test("F5 — Plan window signals derive and forward vetoRisk", () => {

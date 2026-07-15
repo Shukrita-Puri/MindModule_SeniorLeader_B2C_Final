@@ -4444,19 +4444,21 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // Contract hardening: the server, not the client, owns the canonical
   // horizon-module projection. If a non-rest-day request resolved
   // time-of-day modules but allocator / dedupe / merge collapsed the slot
-  // projection to zero, synthesize a state-management fallback so
-  // persisted snapshots and downstream readers never see
-  // `timeOfDayPlan.modules > 0` with `horizonModules = []`.
-  if (!planIsRestDay && finalHorizonModules.length === 0 && todModules.length > 0) {
-    finalHorizonModules = buildSnapshotFallbackHorizonModules(todModules, {
+  // projection below 3, top it back up with state-management fallbacks so
+  // persisted snapshots and downstream readers never see partial 1-slot or
+  // 2-slot plans on a normal day.
+  if (!planIsRestDay && finalHorizonModules.length < 3 && todModules.length > 0) {
+    const beforeCount = finalHorizonModules.length;
+    finalHorizonModules = topUpHorizonModulesToThree(finalHorizonModules, todModules, {
       period: timeOfDay as 'morning' | 'afternoon' | 'evening',
       label: periodLabels[timeOfDay],
       planBrief: planBrief || null,
     });
-    console.warn('[generate-mastery-plan][snapshot-projection-fallback]', {
+    console.warn('[generate-mastery-plan][snapshot-projection-topup]', {
       userId: redactUserId(req.userId),
       date: today,
       window: timeOfDay,
+      beforeCount,
       fallbackCount: finalHorizonModules.length,
       timeOfDayModulesCount: todModules.length,
       dayShape: planDayShape,
@@ -4733,6 +4735,41 @@ function buildSnapshotFallbackHorizonModules(
     slotRole: 'state_anchor',
     allocationReason: 'snapshot_projection_fallback',
   }));
+}
+
+function topUpHorizonModulesToThree(
+  current: HorizonModule[],
+  modules: any[],
+  opts: {
+    period: 'morning' | 'afternoon' | 'evening';
+    label: string;
+    planBrief?: string | null;
+  },
+): HorizonModule[] {
+  const out = Array.isArray(current) ? current.slice(0, 3) : [];
+  if (out.length >= 3) return out.slice(0, 3);
+
+  const fallback = buildSnapshotFallbackHorizonModules(modules, opts);
+  const usedPracticeIds = new Set<string>(
+    out.flatMap((hm) => hm.practices || [hm.practice])
+      .map((p: any) => String(p?.contentId || ''))
+      .filter(Boolean),
+  );
+
+  for (const fm of fallback) {
+    const practiceId = String(fm?.practice?.contentId || '');
+    if (practiceId && usedPracticeIds.has(practiceId)) continue;
+    out.push(fm);
+    if (practiceId) usedPracticeIds.add(practiceId);
+    if (out.length >= 3) break;
+  }
+
+  for (const fm of fallback) {
+    if (out.length >= 3) break;
+    out.push(fm);
+  }
+
+  return out.slice(0, 3);
 }
 
 function determineAllocationPattern(

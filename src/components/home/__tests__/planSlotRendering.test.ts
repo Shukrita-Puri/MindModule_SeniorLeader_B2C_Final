@@ -1,9 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   shouldRenderArcBadge,
   isRestDayPlanShape,
   buildSlotDebugPayload,
 } from '../TodayThreePriorities';
+
+const SRC = readFileSync(
+  join(process.cwd(), 'src/components/home/TodayThreePriorities.tsx'),
+  'utf8',
+);
 
 describe('Sprint F — Plan slot rendering contract', () => {
   describe('shouldRenderArcBadge', () => {
@@ -150,6 +157,24 @@ describe('Sprint F — Plan slot rendering contract', () => {
       const called = spy.mock.calls.some((c) => String(c[0]).includes('[Plan][slot-debug]'));
       spy.mockRestore();
       expect(called).toBe(true);
+    });
+  });
+
+  describe('render order contract', () => {
+    it('renders horizon modules in server slot order without priority re-sorting', () => {
+      expect(SRC).toContain(
+        "const visibleHorizonModules = (horizonModules || []).map((hm, index) => ({ hm, index }));",
+      );
+    });
+
+    it('does not hide low-priority incomplete slots on the client', () => {
+      expect(SRC).not.toContain("if (hm.priorityTag === 'low' && hasNonLowIncomplete) return false;");
+    });
+
+    it('tops back up to 3 after coach-only slots are stripped', () => {
+      expect(SRC).toContain("if (isRestDayPlan || filtered.length >= 3) {");
+      expect(SRC).toContain("const fallback = buildFallbackHorizonModules(plan as unknown as Record<string, unknown>);");
+      expect(SRC).toContain("return { ...plan, horizonModules: toppedUp.slice(0, 3) };");
     });
   });
 });
