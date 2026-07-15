@@ -853,11 +853,14 @@ const TodayThreePriorities = ({
     forceRefresh: boolean;
     slotReplacements?: Record<string, { eventId: string }>;
   }) => {
+    const currentWindow = getCurrentTimeWindow();
     const body: any = {
       timezoneOffset: new Date().getTimezoneOffset(),
       forceRefresh: opts.forceRefresh,
       localDate: opts.localDate,
       todayCheckinId: opts.todayCheckinId,
+      timeWindow: currentWindow,
+      strictBriefHandshake: true,
       mrsReadinessState:
         mrsSnapshot?.readinessState ??
         (outerReadinessData as any)?.innerReadinessState ?? null,

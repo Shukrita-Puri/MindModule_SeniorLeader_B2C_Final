@@ -176,5 +176,11 @@ describe('Sprint F — Plan slot rendering contract', () => {
       expect(SRC).toContain("const fallback = buildFallbackHorizonModules(plan as unknown as Record<string, unknown>);");
       expect(SRC).toContain("return { ...plan, horizonModules: toppedUp.slice(0, 3) };");
     });
+
+    it('sends strict Brief handshake + explicit timeWindow on home Plan generation', () => {
+      expect(SRC).toContain('const currentWindow = getCurrentTimeWindow();');
+      expect(SRC).toContain('timeWindow: currentWindow,');
+      expect(SRC).toContain('strictBriefHandshake: true,');
+    });
   });
 });
