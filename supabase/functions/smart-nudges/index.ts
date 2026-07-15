@@ -1474,7 +1474,7 @@ async function buildNudgeContext(
         ptoMode: nudgeAvailability
           ? (nudgeAvailability.state === 'PTO' ||
              nudgeAvailability.state === 'PUBLIC_HOLIDAY')
-          : (today.kind === 'away-day' || today.kind === 'ooo'),
+          : (today.kind === 'away-day'),
         landingPlusHighStakes,
         availability: nudgeAvailability,
       };
