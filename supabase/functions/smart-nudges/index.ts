@@ -608,9 +608,12 @@ interface NudgeContext {
   hrvDeltaPctFromSnapshot: number | null;
   // v7 - Unified pattern store (cross-event historical correlations)
   pattern: PatternSummary | null;
-  // V8 - Day-shape awareness (copy only). Travel/away-day/ooo and post-travel.
+  // V8 - Day-shape awareness (copy only). Travel/away-day and post-travel.
+  // C2 (Path B, pre-launch): legacy 'ooo' kind folded into 'away-day' — the
+  // canonical PTO SSOT (PTO_TITLE_RX) already matches OOO titles, and both
+  // branches produced identical downstream behaviour.
   dayContext: {
-    kind: 'normal' | 'travel-day' | 'away-day' | 'ooo';
+    kind: 'normal' | 'travel-day' | 'away-day';
     signalToken?: string;
     postTravel: boolean;
     // v5.3 - Travel arc sub-flags (derived from today's calendar). Each
