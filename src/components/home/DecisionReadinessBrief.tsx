@@ -2201,10 +2201,14 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       : typeof eligibility?.eligible === 'boolean'
         ? eligibility.eligible
         : !!(wsForGate?.isConnected && wsForGate?.hasTodayData && !wsForGate?.isStale);
+  const canonicalReadinessState =
+    shouldPreferMrsSnapshot && mrsSnapshot?.readinessState
+      ? mrsSnapshot.readinessState
+      : (outerBrief as any)?.innerReadinessState;
   const rawReadinessState: 'baseline' | 'refined' | 'awaiting' =
-    (outerBrief as any)?.innerReadinessState === 'refined'
+    canonicalReadinessState === 'refined'
       ? 'refined'
-      : (outerBrief as any)?.innerReadinessState === 'awaiting' || score == null
+      : canonicalReadinessState === 'awaiting' || score == null
         ? 'awaiting'
         : 'baseline';
   const readinessState: 'baseline' | 'refined' | 'awaiting' =

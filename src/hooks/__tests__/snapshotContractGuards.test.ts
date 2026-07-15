@@ -79,4 +79,11 @@ describe('snapshot contract guards', () => {
   it('brief merge re-sanitizes chosen pills before render', () => {
     expect(BRIEF_SRC).toContain('const chosenPills = sanitizeSignalPillsForCheckInFreshness(');
   });
+
+  it('brief readiness label follows the same MRS snapshot state that owns the score', () => {
+    expect(BRIEF_SRC).toContain('const canonicalReadinessState =');
+    expect(BRIEF_SRC).toContain('shouldPreferMrsSnapshot && mrsSnapshot?.readinessState');
+    expect(BRIEF_SRC).toContain("canonicalReadinessState === 'refined'");
+    expect(BRIEF_SRC).toContain("canonicalReadinessState === 'awaiting' || score == null");
+  });
 });
