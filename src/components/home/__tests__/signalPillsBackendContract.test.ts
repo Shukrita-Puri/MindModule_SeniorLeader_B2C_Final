@@ -65,4 +65,9 @@ describe('compute-outer-readiness signalPillsPayload · Sprint B contributors', 
   it('contributedByCheckIn is set only when wearable + check-in are both fresh', () => {
     expect(SRC).toContain('wearableFreshForGate && checkInFreshForGate && hasCheckinSrc');
   });
+
+  it('treats only same-day wearable data as fresh for pill scoring', () => {
+    expect(SRC).toContain('const wearableFreshForGate = hasTodayWearableData === true;');
+    expect(SRC).not.toContain('const wearableFreshForGate = hasWearableData === true;');
+  });
 });
