@@ -4148,6 +4148,10 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       {
         nowMs: Date.now(),
         rankedCandidates: jitRankedCandidates,
+        currentPeriod: timeOfDay,
+        ledgerGeneratedPeriod: (ledger?.generatedPeriod === 'morning' || ledger?.generatedPeriod === 'afternoon' || ledger?.generatedPeriod === 'evening')
+          ? ledger.generatedPeriod
+          : null,
         ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad),
       },
     );
@@ -6317,13 +6321,26 @@ function buildHorizonModules(
     const localNow = new Date(Date.now() - tzOffset * 60000);
     const dow = localNow.getUTCDay(); // 0 Sun .. 6 Sat
     const isWeekend = dow === 0 || dow === 6;
+    const isBeforeEveningWindow = timeOfDay === 'morning' || timeOfDay === 'afternoon';
+    const allowThirdSlotEveningClose =
+      slotIndex === 2 &&
+      isBeforeEveningWindow &&
+      !isWeekend &&
+      !isPersonalHolidayToday &&
+      !wasPersonalHolidayYesterday;
 
     // Sort candidate event lists by stakes, then pick the first one that
-    // is not already saturating its category's slot cap. Slot 3 prefers
-    // tomorrow's events; slots 1–2 prefer today's.
+    // is not already saturating its category's slot cap. Slot 3 only flips
+    // to tomorrow-first once the user is actually in the evening or a
+    // week-ahead / post-holiday mode. Earlier windows must stay grounded
+    // in today's remaining arc first.
     const todaySorted = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a));
     const tomorrowSorted = [...tomorrowEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a));
-    const candidateList = slotIndex === 2
+    const slot3PrefersTomorrow =
+      slotIndex === 2 &&
+      !allowThirdSlotEveningClose &&
+      (timeOfDay === 'evening' || dow === 0 || isPersonalHolidayToday || wasPersonalHolidayYesterday);
+    const candidateList = slot3PrefersTomorrow
       ? [...tomorrowSorted, ...todaySorted]
       : [...todaySorted, ...tomorrowSorted];
     const anchorEvent = pickAnchorEvent(candidateList);
@@ -6399,6 +6416,8 @@ function buildHorizonModules(
         anchor = (upcomingWeekLeadEvent.title
           ? truncateTitle(upcomingWeekLeadEvent.title)
           : null) || "this week's lead event";
+      } else if (allowThirdSlotEveningClose) {
+        anchor = 'this evening';
       } else if (isWeekend && dow === 0) anchor = "Monday's load";
       else if (isWeekend) anchor = "next week\u2019s load";
       else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
@@ -6418,6 +6437,7 @@ function buildHorizonModules(
     // signal — distinct event, high load, wearable deficit, or
     // (slot 3 only) tomorrow's calendar. Otherwise drop the slot.
     if (slotIndex >= 1 && !anchorEvent && !highLoad && !hrvDeficit && !sleepDeficit
+        && !allowThirdSlotEveningClose
         && !(slotIndex === 2 && tomorrowEvents.length > 0)
         && !(slotIndex === 2 && dow === 0)
         && !(slotIndex === 2 && (isPersonalHolidayToday || wasPersonalHolidayYesterday) && !!upcomingWeekLeadEvent)) {
@@ -7410,6 +7430,8 @@ export interface LedgerAllocatorContext {
   hasConferenceDay: boolean;
   hasOffsiteDay: boolean;
   hasRestSignals: boolean;
+  currentPeriod?: 'morning' | 'afternoon' | 'evening' | null;
+  ledgerGeneratedPeriod?: 'morning' | 'afternoon' | 'evening' | null;
 }
 
 export function mergeWithLedger(
@@ -7462,6 +7484,12 @@ export function mergeWithLedger(
   let carriedSlots = 0;
   let anchoredSlots = 0;
   const usedFreshIndexes = new Set<number>();
+  const currentPeriod = allocatorContext.currentPeriod ?? null;
+  const ledgerGeneratedPeriod = allocatorContext.ledgerGeneratedPeriod ?? null;
+  const periodShifted =
+    !!currentPeriod &&
+    !!ledgerGeneratedPeriod &&
+    currentPeriod !== ledgerGeneratedPeriod;
   // Sprint 2 (Phase 3): track per-slot origin so the allocator identity
   // override only touches slots that are eligible for a context refresh
   // (unfinished/current/future). Sticky slots — completed, user-anchored,
@@ -7495,6 +7523,22 @@ export function mergeWithLedger(
       const a = t.toLowerCase(); const b = title.toLowerCase();
       if (a.includes(b) || b.includes(a)) return v;
     }
+    return null;
+  };
+  const findRefreshCandidateForLedgerSlot = (
+    ledgerSlot: HorizonModule,
+    slotIndex: number,
+  ): { slot: HorizonModule; idx: number } | null => {
+    const exactIdx = freshModules.findIndex((_, i) =>
+      !usedFreshIndexes.has(i) && i === slotIndex,
+    );
+    if (exactIdx >= 0) return { slot: freshModules[exactIdx], idx: exactIdx };
+    const sameHorizonIdx = freshModules.findIndex((m, i) =>
+      !usedFreshIndexes.has(i) && m.horizon === ledgerSlot.horizon,
+    );
+    if (sameHorizonIdx >= 0) return { slot: freshModules[sameHorizonIdx], idx: sameHorizonIdx };
+    const fallbackIdx = freshModules.findIndex((_, i) => !usedFreshIndexes.has(i));
+    if (fallbackIdx >= 0) return { slot: freshModules[fallbackIdx], idx: fallbackIdx };
     return null;
   };
 
@@ -7594,6 +7638,28 @@ export function mergeWithLedger(
     // Rule 3b: Anchor stability — non-cancelled, non-completed ledger slot.
     // Keep its content as-is so replacing one priority never reshuffles the
     // others. Only cancelled slots ever get recomputed from fresh.
+    //
+    // Period-shift exception: unfinished state slots must be allowed to
+    // refresh when the day advances from morning to afternoon/evening, so
+    // stale "this morning" anchors and duplicate carried slots do not leak
+    // into later windows.
+    if (!slotCancelled && !ledgerSlot.isJit && periodShifted) {
+      const replacement = findRefreshCandidateForLedgerSlot(ledgerSlot, slotIndex);
+      if (replacement) {
+        usedFreshIndexes.add(replacement.idx);
+        out.push({
+          ...replacement.slot,
+          isCancelled: false,
+          cancelReason: null,
+          replacementEventIds: ledgerSlot.replacementEventIds || [],
+          priorityTag: ledgerSlot.priorityTag ?? null,
+          relationshipTag: ledgerSlot.relationshipTag ?? null,
+          customTags: ledgerSlot.customTags || [],
+        });
+        slotOrigins.push('refreshed');
+        continue;
+      }
+    }
     if (!slotCancelled) {
       out.push({ ...ledgerSlot });
       carriedSlots++;

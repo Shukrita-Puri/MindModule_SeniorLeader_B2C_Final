@@ -238,3 +238,62 @@ Deno.test("mergeWithLedger: same context morning→afternoon keeps stable alloca
     (afternoon.modules[0] as any).mode,
   );
 });
+
+Deno.test("mergeWithLedger: unfinished state slots refresh when ledger period is stale", () => {
+  const ledger: any[] = [
+    {
+      horizon: "immediate",
+      isJit: false,
+      timeLabel: "Steady the system ahead of this morning",
+      practice: { contentId: "ledger_1" },
+      practices: [{ contentId: "ledger_1" }],
+    },
+    {
+      horizon: "tactical",
+      isJit: false,
+      timeLabel: "Steady the system ahead of this morning",
+      practice: { contentId: "ledger_2" },
+      practices: [{ contentId: "ledger_2" }],
+    },
+  ];
+  const fresh: any[] = [
+    {
+      horizon: "immediate",
+      isJit: false,
+      timeLabel: "Steady the system ahead of this afternoon",
+      practice: { contentId: "fresh_1" },
+      practices: [{ contentId: "fresh_1" }],
+    },
+    {
+      horizon: "tactical",
+      isJit: false,
+      timeLabel: "Build capacity ahead of this evening",
+      practice: { contentId: "fresh_2" },
+      practices: [{ contentId: "fresh_2" }],
+    },
+  ];
+  const context: LedgerAllocatorContext = {
+    nowMs: NOW,
+    rankedCandidates: [],
+    hasTravelDay: false,
+    hasConferenceDay: false,
+    hasOffsiteDay: false,
+    hasRestSignals: false,
+    currentPeriod: "afternoon",
+    ledgerGeneratedPeriod: "morning",
+  };
+  const result = mergeWithLedger(
+    fresh,
+    ledger,
+    new Set(),
+    new Set(),
+    new Set(),
+    undefined,
+    undefined,
+    context,
+  );
+  assertEquals(result.modules[0].practice.contentId, "fresh_1");
+  assertEquals(result.modules[0].timeLabel, "Steady the system ahead of this afternoon");
+  assertEquals(result.modules[1].practice.contentId, "fresh_2");
+  assertEquals(result.modules[1].timeLabel, "Build capacity ahead of this evening");
+});

@@ -87,3 +87,13 @@ Deno.test("F6 — practice selection preserves resolved anchor-category intent h
   assertStringIncludes(SRC, "anchorCategory: (slot2Candidate.categoryId as EventCategoryId | null) ?? null,");
   assertStringIncludes(SRC, "anchorCategory: (slot3Candidate.categoryId as EventCategoryId | null) ?? null,");
 });
+
+Deno.test("F7 — slot 3 stays on today's arc before evening and ledger state slots refresh across periods", () => {
+  assertStringIncludes(SRC, "const allowThirdSlotEveningClose =");
+  assertStringIncludes(SRC, "const slot3PrefersTomorrow =");
+  assertStringIncludes(SRC, "!allowThirdSlotEveningClose &&");
+  assertStringIncludes(SRC, "anchor = 'this evening';");
+  assertStringIncludes(SRC, "ledgerGeneratedPeriod?: 'morning' | 'afternoon' | 'evening' | null;");
+  assertStringIncludes(SRC, "const periodShifted =");
+  assertStringIncludes(SRC, "if (!slotCancelled && !ledgerSlot.isJit && periodShifted)");
+});
