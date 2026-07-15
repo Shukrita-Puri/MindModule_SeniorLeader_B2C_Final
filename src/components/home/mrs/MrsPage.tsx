@@ -196,6 +196,7 @@ const MrsPage = () => {
         {/* Half-dial weekly delta */}
         <div className="mt-6">
           <WeeklyDeltaDial
+            currentScore={score}
             delta={weekly.data?.delta ?? null}
             mode={weekly.data?.mode ?? 'baseline'}
             reason={weekly.data?.reason ?? null}

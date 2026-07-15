@@ -1,237 +1,94 @@
 interface WeeklyDeltaDialProps {
+  currentScore: number | null;
   delta: number | null;
   mode: 'baseline' | 'refined';
   reason?: 'composition_mismatch' | 'not_enough_history' | 'awaiting_signals' | null;
 }
 
 /**
- * Premium glass half-dial showing week-on-week MRS delta.
- * - Arc fills proportional to |delta| (capped at 20 pts → full arc).
- * - Center label: signed pts.
- * - Color encodes direction (green up / red down / neutral flat).
+ * Numeric week-on-week summary for the MRS card.
+ * Replaces the unreliable dial/chart with a simple score + progress panel.
  */
-const WeeklyDeltaDial = ({ delta, mode, reason = null }: WeeklyDeltaDialProps) => {
-  // SVG geometry
-  const W = 320;
-  const H = 200;
-  const CX = W / 2;
-  const CY = 150;
-  const R = 120;
-  const STROKE = 18;
-
-  // Direction → color
-  let colorVar = 'hsl(var(--tier-neutral))';
-  if (delta !== null) {
-    if (delta > 1) colorVar = 'hsl(var(--tier-strong))';
-    else if (delta < -1) colorVar = 'hsl(var(--tier-low))';
-  }
-
-  // Top half of circle: π (left) → 2π (right). Midpoint = 1.5π (top).
-  const A_LEFT = Math.PI;
-  const A_RIGHT = 2 * Math.PI;
-  const A_MID = 1.5 * Math.PI;
-  // Small angular gap around the top so left/right halves are visually separate
-  const GAP = 0.09; // ~5°
-  const A_MID_L = A_MID - GAP;
-  const A_MID_R = A_MID + GAP;
-
-  const toXY = (a: number) => [CX + R * Math.cos(a), CY + R * Math.sin(a)];
-  const arcPath = (a1: number, a2: number) => {
-    const [x1, y1] = toXY(a1);
-    const [x2, y2] = toXY(a2);
-    const large = Math.abs(a2 - a1) > Math.PI ? 1 : 0;
-    const sweep = a2 > a1 ? 1 : 0;
-    return `M ${x1} ${y1} A ${R} ${R} 0 ${large} ${sweep} ${x2} ${y2}`;
-  };
-
-  // Fill: from MID toward LEFT (negative) or toward RIGHT (positive)
-  const magNorm = delta === null ? 0 : Math.min(1, Math.abs(delta) / 20);
-  const halfSweep = (A_RIGHT - A_LEFT) / 2; // π/2
-  let fillStart = A_MID;
-  let fillEnd = A_MID;
-  if (delta !== null && delta > 1) {
-    fillEnd = A_MID + halfSweep * magNorm;
-  } else if (delta !== null && delta < -1) {
-    fillStart = A_MID - halfSweep * magNorm;
-  }
-  const showFill = delta !== null && magNorm > 0;
-
-  // Badge position: tip of the fill (or top center if neutral/null)
-  let badgeAngle = A_MID;
-  if (delta !== null && delta > 1) badgeAngle = fillEnd;
-  else if (delta !== null && delta < -1) badgeAngle = fillStart;
-  const [bx, by] = toXY(badgeAngle);
-
-  const sign = delta === null ? '' : delta > 0 ? '+' : delta < 0 ? '−' : '';
-  const magnitude = delta === null ? '—' : Math.abs(delta).toString();
-  const suppressedLabel =
-    reason === 'composition_mismatch'
-      ? 'not enough to compare yet'
-      : reason === 'awaiting_signals'
-        ? 'awaiting fresh signals'
-        : 'not enough to compare yet';
-
-  // Curved label path (slightly below the arc, same center)
-  const LR = R + 22;
-  const labelPathD = `M ${CX - LR} ${CY} A ${LR} ${LR} 0 0 0 ${CX + LR} ${CY}`;
+const WeeklyDeltaDial = ({
+  currentScore,
+  delta,
+  mode,
+  reason = null,
+}: WeeklyDeltaDialProps) => {
+  const scoreLabel = typeof currentScore === 'number' ? String(currentScore) : '—';
+  const progressLabel =
+    delta == null || reason !== null
+      ? '—'
+      : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)}`;
+  const progressTone =
+    delta == null || reason !== null
+      ? 'text-muted-foreground/70'
+      : delta > 1
+        ? 'text-[hsl(var(--tier-strong))]'
+        : delta < -1
+          ? 'text-[hsl(var(--tier-low))]'
+          : 'text-foreground/80';
+  const statusText =
+    delta == null || reason !== null
+      ? reason === 'awaiting_signals'
+        ? 'Awaiting fresh signals'
+        : 'Building your trend'
+      : delta > 1
+        ? 'Trending up'
+        : delta < -1
+          ? 'Trending down'
+          : 'Holding steady';
+  const supportingText =
+    delta == null || reason !== null
+      ? 'Week over week comparison will appear once enough matching history exists.'
+      : `Compared with last week using your ${mode} read.`;
 
   return (
-    <div className="w-full" aria-label="Weekly readiness change">
-      <div className="flex items-baseline justify-between mb-2 px-1">
-        <span className="text-eyebrow text-muted-foreground">Week over week</span>
-        <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-          {mode}
-        </span>
+    <div
+      className="rounded-[24px] border border-border/60 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(var(--card)/0.96)_100%)] px-5 py-5 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]"
+      aria-label="Weekly readiness summary"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Week over week
+          </p>
+          <p className="mt-2 text-[18px] font-semibold leading-tight text-foreground">
+            {statusText}
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+            {supportingText}
+          </p>
+        </div>
+
+        <div className="flex min-h-[92px] min-w-[92px] flex-col items-center justify-center rounded-[22px] border border-[hsl(var(--tier-strong)/0.18)] bg-[linear-gradient(180deg,hsl(var(--tier-strong)/0.12)_0%,hsl(var(--sky)/0.10)_100%)] px-4 py-3">
+          <span className="text-[34px] font-semibold leading-none text-foreground tabular-nums">
+            {scoreLabel}
+          </span>
+          <span className="mt-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Score
+          </span>
+        </div>
       </div>
 
-      <div className="flex flex-col items-center">
-        <svg
-          width="100%"
-          viewBox={`0 0 ${W} ${H}`}
-          className="max-w-[320px] overflow-visible"
-          aria-hidden
-        >
-          <defs>
-            {/* Glass track gradient */}
-            <linearGradient id="weekly-track" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="hsl(0 0% 100%)" stopOpacity="0.55" />
-              <stop offset="100%" stopColor="hsl(0 0% 100%)" stopOpacity="0.05" />
-            </linearGradient>
-            {/* Color fill gradient */}
-            <linearGradient id="weekly-fill" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={colorVar} stopOpacity="0.55" />
-              <stop offset="100%" stopColor={colorVar} stopOpacity="0.95" />
-            </linearGradient>
-            {/* Soft inner shadow filter for glass effect */}
-            <filter id="weekly-inner" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
-              <feOffset in="blur" dy="1" result="off" />
-              <feComposite in="off" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="inner" />
-              <feColorMatrix in="inner" type="matrix"
-                values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0" />
-            </filter>
-          {/* Curved label path (for LOWER / HIGHER) */}
-          <path id="weekly-label-arc" d={labelPathD} fill="none" />
-          </defs>
+      <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border/60 pt-4">
+        <div className="rounded-[18px] bg-muted/45 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            Read
+          </p>
+          <p className="mt-1 text-[22px] font-semibold text-foreground capitalize tabular-nums">
+            {mode}
+          </p>
+        </div>
 
-          {/* Track — split into two halves with a gap at the top center */}
-          {[
-            [A_LEFT, A_MID_L],
-            [A_MID_R, A_RIGHT],
-          ].map(([a1, a2], i) => (
-            <g key={i}>
-              <path
-                d={arcPath(a1, a2)}
-                fill="none"
-                stroke="url(#weekly-track)"
-                strokeWidth={STROKE}
-                strokeLinecap="round"
-              />
-              <path
-                d={arcPath(a1, a2)}
-                fill="none"
-                stroke="hsl(0 0% 100% / 0.55)"
-                strokeWidth={1}
-              />
-              <path
-                d={arcPath(a1, a2)}
-                fill="none"
-                stroke="hsl(var(--foreground) / 0.06)"
-                strokeWidth={STROKE}
-                strokeLinecap="round"
-                filter="url(#weekly-inner)"
-              />
-            </g>
-          ))}
-
-          {/* CURRENT label — top center, above the dial gap */}
-          <text
-            x={CX}
-            y={CY - R - 10}
-            textAnchor="middle"
-            fontSize="9"
-            letterSpacing="2"
-            fontWeight={600}
-            fill="hsl(var(--muted-foreground) / 0.9)"
-          >
-            CURRENT
-          </text>
-
-          {/* Colored fill */}
-          {showFill && (
-            <path
-              d={arcPath(fillStart, fillEnd)}
-              fill="none"
-              stroke="url(#weekly-fill)"
-              strokeWidth={STROKE}
-              strokeLinecap="round"
-              style={{ transition: 'd 600ms cubic-bezier(0.22, 1, 0.36, 1)' }}
-            />
-          )}
-
-          <text
-            fontSize="9"
-            letterSpacing="2"
-            fill="hsl(var(--muted-foreground) / 0.85)"
-            fontWeight={600}
-          >
-            <textPath href="#weekly-label-arc" startOffset="6%">LOWER</textPath>
-          </text>
-          <text
-            fontSize="9"
-            letterSpacing="2"
-            fill="hsl(var(--muted-foreground) / 0.85)"
-            fontWeight={600}
-          >
-            <textPath href="#weekly-label-arc" startOffset="86%">HIGHER</textPath>
-          </text>
-
-          {/* Floating glass badge at fill tip */}
-          <g style={{ transition: 'transform 600ms cubic-bezier(0.22,1,0.36,1)' }}>
-            <circle
-              cx={bx}
-              cy={by}
-              r={26}
-              fill="hsl(0 0% 100% / 0.85)"
-              stroke="hsl(0 0% 100% / 0.7)"
-              strokeWidth={1}
-              style={{ filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.12))' }}
-            />
-            <circle
-              cx={bx}
-              cy={by - 6}
-              r={22}
-              fill="hsl(0 0% 100% / 0.35)"
-            />
-            <text
-              x={bx}
-              y={by + 2}
-              textAnchor="middle"
-              fontSize="20"
-              fontWeight={500}
-              className="tabular-nums"
-              fill={colorVar}
-            >
-              {sign}
-              {magnitude}
-            </text>
-            <text
-              x={bx}
-              y={by + 14}
-              textAnchor="middle"
-              fontSize="7"
-              letterSpacing="1.5"
-              fill="hsl(var(--muted-foreground))"
-              fontWeight={600}
-            >
-              PTS
-            </text>
-          </g>
-        </svg>
-
-        <p className="mt-2 text-[11px] text-muted-foreground/85">
-          {delta === null ? suppressedLabel : `vs last week · ${mode}`}
-        </p>
+        <div className="rounded-[18px] bg-muted/45 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            Progress
+          </p>
+          <p className={`mt-1 text-[22px] font-semibold tabular-nums ${progressTone}`}>
+            {progressLabel}
+          </p>
+        </div>
       </div>
     </div>
   );
