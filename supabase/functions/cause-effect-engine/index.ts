@@ -58,7 +58,7 @@ const MIN_DELTA_PCT_STRONG = 15;
 const MIN_TIER_DELTA_EMERGING = 0.5;
 const MIN_TIER_DELTA_STRONG = 1.0;
 const RECOVERY_TOLERANCE_PCT = 5;
-const RECOVERY_LOOKAHEAD_DAYS = 4;
+const RECOVERY_LOOKAHEAD_DAYS = 7;
 
 /**
  * Bump this when scoring/classification logic changes so that any cached

@@ -74,15 +74,17 @@ const InnerReadinessDial = () => {
   const [snapshots, setSnapshots] = useState<Array<{ local_date: string; score: number | null; tier: string | null }>>([]);
   const [showFirstReadingNotice, setShowFirstReadingNotice] = useState(false);
   const [expanded, setExpanded] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.sessionStorage.getItem('insights.trajectory.expanded') === '1';
+    if (typeof window === 'undefined') return true;
+    return window.sessionStorage.getItem('insights.trajectory.expanded') !== '0';
   });
   const [range, setRange] = useState<7 | 30 | 180>(7);
   const todayScoreForTrend =
     typeof outer?.innerReadinessScore === 'number' ? Math.round(outer.innerReadinessScore) : null;
   const trend = useMrsTrend(todayScoreForTrend, range);
   const readinessState = outer?.innerReadinessState ?? null;
-  const isAwaiting = todayScoreForTrend == null || readinessState === 'awaiting';
+  const hasTodayScore = todayScoreForTrend != null;
+  const isEarlyRead = hasTodayScore && readinessState === 'awaiting';
+  const isAwaiting = !hasTodayScore || readinessState === 'awaiting';
   const localDayKey = format(new Date(), 'yyyy-MM-dd');
 
   const toggleExpanded = () => {
@@ -240,7 +242,11 @@ const InnerReadinessDial = () => {
             </text>
           </svg>
           <div className="text-center -mt-2 text-[11px] tracking-[0.18em] uppercase" style={{ color: todayTier ? tierColor[todayTier] : 'hsl(var(--muted-foreground))' }}>
-            {isAwaiting ? 'EARLY READ' : (todayTier ? tierLabel[todayTier] : 'Awaiting check-in')}
+            {!hasTodayScore
+              ? 'Awaiting data'
+              : isEarlyRead
+                ? 'EARLY READ'
+                : (todayTier ? tierLabel[todayTier] : 'Awaiting check-in')}
           </div>
         </div>
         <div className="flex-1">

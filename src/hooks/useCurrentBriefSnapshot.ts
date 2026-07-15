@@ -53,6 +53,12 @@ export interface CurrentBriefSnapshot {
   wearableSnapshot: Record<string, unknown> | null;
   checkinSnapshot: Record<string, unknown> | null;
   checkInOutcome: string | null;
+  clarityLevel: number | null;
+  confidenceLevel: number | null;
+  mentalSharpnessLevel: number | null;
+  emotionLevel: number | null;
+  pressureLevel: number | null;
+  regulationLevel: number | null;
   // ── Pulled from payload_json ──
   behaviourSnapshot: Record<string, unknown> | null;
   sourceProvenance: Record<string, unknown> | null;
@@ -89,6 +95,81 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 }
 function asArray(v: unknown): unknown[] | null {
   return Array.isArray(v) ? v : null;
+}
+function asFiniteNumber(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+function readSnapshotString(
+  snapshot: Record<string, unknown> | null,
+  keys: string[],
+): string | null {
+  if (!snapshot) return null;
+  for (const key of keys) {
+    const value = snapshot[key];
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
+    }
+  }
+  return null;
+}
+function readSnapshotNumber(
+  snapshot: Record<string, unknown> | null,
+  keys: string[],
+): number | null {
+  if (!snapshot) return null;
+  for (const key of keys) {
+    const value = asFiniteNumber(snapshot[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+const CHECKIN_ONLY_CONTRIBUTOR_KEYS = new Set([
+  'clarityLevel',
+  'confidenceLevel',
+  'mentalSharpnessLevel',
+  'emotionLevel',
+  'pressureLevel',
+  'regulationLevel',
+]);
+
+export function sanitizeSignalPillsForCheckInFreshness(
+  signalPills: unknown[] | null,
+  hasCurrentCheckIn: boolean,
+): unknown[] | null {
+  if (!Array.isArray(signalPills)) return null;
+  if (hasCurrentCheckIn) return signalPills;
+
+  return signalPills.map((pill) => {
+    if (!pill || typeof pill !== 'object' || Array.isArray(pill)) return pill;
+
+    const typedPill = pill as Record<string, unknown>;
+    const contributors =
+      typedPill.contributors &&
+      typeof typedPill.contributors === 'object' &&
+      !Array.isArray(typedPill.contributors)
+        ? { ...(typedPill.contributors as Record<string, unknown>) }
+        : null;
+
+    if (contributors) {
+      for (const key of CHECKIN_ONLY_CONTRIBUTOR_KEYS) {
+        delete contributors[key];
+      }
+    }
+
+    return {
+      ...typedPill,
+      contributors: contributors ?? typedPill.contributors,
+      contributedByCheckIn: false,
+    };
+  });
 }
 
 export function useCurrentBriefSnapshot() {
@@ -166,6 +247,35 @@ export function useCurrentBriefSnapshot() {
       const payload = asRecord(row.payload_json);
       const checkin = asRecord(row.checkin_snapshot);
       const wearable = asRecord(row.wearable_snapshot);
+      const checkInOutcome = readSnapshotString(checkin, [
+        'checkInOutcome',
+        'check_in_outcome',
+        'outcome',
+      ]);
+      const clarityLevel = readSnapshotNumber(checkin, [
+        'clarityLevel',
+        'clarity_level',
+      ]);
+      const confidenceLevel = readSnapshotNumber(checkin, [
+        'confidenceLevel',
+        'confidence_level',
+      ]);
+      const mentalSharpnessLevel = readSnapshotNumber(checkin, [
+        'mentalSharpnessLevel',
+        'mental_sharpness_level',
+      ]);
+      const emotionLevel = readSnapshotNumber(checkin, [
+        'emotionLevel',
+        'emotion_level',
+      ]);
+      const pressureLevel = readSnapshotNumber(checkin, [
+        'pressureLevel',
+        'pressure_level',
+      ]);
+      const regulationLevel = readSnapshotNumber(checkin, [
+        'regulationLevel',
+        'regulation_level',
+      ]);
       const phrase = (row.phrase ?? null) as string | null;
       const bodyText = (row.body_text ?? null) as string | null;
       const state =
@@ -238,10 +348,19 @@ export function useCurrentBriefSnapshot() {
             : isAwaitingRow
               ? 'awaiting'
               : null,
-        signalPills: asArray(row.signal_pills),
+        signalPills: sanitizeSignalPillsForCheckInFreshness(
+          asArray(row.signal_pills),
+          !!checkInOutcome,
+        ),
         wearableSnapshot: wearable,
         checkinSnapshot: checkin,
-        checkInOutcome: (checkin?.checkInOutcome ?? null) as string | null,
+        checkInOutcome,
+        clarityLevel,
+        confidenceLevel,
+        mentalSharpnessLevel,
+        emotionLevel,
+        pressureLevel,
+        regulationLevel,
         behaviourSnapshot: asRecord(payload?.behaviour_snapshot),
         sourceProvenance: asRecord(payload?.source_provenance),
         hasRenderableCopy,

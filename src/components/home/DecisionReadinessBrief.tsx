@@ -17,7 +17,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
-import { useCurrentBriefSnapshot } from '@/hooks/useCurrentBriefSnapshot';
+import {
+  sanitizeSignalPillsForCheckInFreshness,
+  useCurrentBriefSnapshot,
+} from '@/hooks/useCurrentBriefSnapshot';
 import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useAuth } from '@/hooks/useAuth';
 import { useTourMock } from '@/components/onboarding/useTourMock';
@@ -1931,7 +1934,12 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         const liveTotal =
           livePerPill.decision_readiness + livePerPill.physical_reserves + livePerPill.resilience_capacity;
         const preferLivePills = Array.isArray(livePills) && liveTotal > snapTotal;
-        const chosenPills = preferLivePills ? livePills : (snapPills ?? livePills ?? null);
+        const chosenCheckInOutcome = snap.checkInOutcome ?? base.checkInOutcome ?? null;
+        const chosenPillsRaw = preferLivePills ? livePills : (snapPills ?? livePills ?? null);
+        const chosenPills = sanitizeSignalPillsForCheckInFreshness(
+          Array.isArray(chosenPillsRaw) ? chosenPillsRaw : null,
+          !!chosenCheckInOutcome,
+        );
         try {
           const chosenArr = Array.isArray(chosenPills) ? (chosenPills as any[]) : [];
           // eslint-disable-next-line no-console
@@ -2018,7 +2026,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           innerReadinessState:
             snap.innerReadinessState ?? base.innerReadinessState ?? null,
           signalPills: chosenPills,
-          checkInOutcome: snap.checkInOutcome ?? base.checkInOutcome ?? null,
+          checkInOutcome: chosenCheckInOutcome,
           sourceProvenance: snap.sourceProvenance ?? base.sourceProvenance ?? null,
           behaviourSnapshot: snap.behaviourSnapshot ?? base.behaviourSnapshot ?? null,
           // Snapshot exists for the current window with either copy or a

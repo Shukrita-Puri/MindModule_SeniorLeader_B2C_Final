@@ -438,6 +438,7 @@ const CategoryBar = ({
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errored, setErrored] = useState(false);
   const [activeTrend, setActiveTrend] = useState<'clarity' | 'emotion' | 'pressure' | 'regulation'>('clarity');
   const isMobile = useIsMobile();
 
@@ -447,6 +448,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
   const fetchData = async () => {
     setLoading(true);
+    setErrored(false);
 
     try {
       if (DEV_MODE) {
@@ -1096,6 +1098,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
       const accessToken = await getAuthToken();
       if (!accessToken) {
         console.warn('[PerformanceRhythmCard] No auth token available');
+        setErrored(true);
         setLoading(false);
         return;
       }
@@ -1104,9 +1107,12 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
       });
       if (!error && result) {
         setData(result as PerformanceRhythmData);
+      } else {
+        setErrored(true);
       }
     } catch (err) {
       console.error('[PerformanceRhythmCard] Error:', err);
+      setErrored(true);
     } finally {
       setLoading(false);
     }
@@ -1162,6 +1168,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : errored ? (
+          <div className="flex items-start gap-2 py-4 text-sm text-muted-foreground">
+            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>Couldn&rsquo;t load this card. Try refreshing.</span>
           </div>
         ) : !data ? (
           <p className="text-sm text-muted-foreground text-center py-6">Unable to load rhythm data.</p>

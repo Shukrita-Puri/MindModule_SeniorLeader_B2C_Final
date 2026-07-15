@@ -61,6 +61,22 @@ function asFiniteNumber(v: unknown): number | null {
   return null;
 }
 
+type SignalPillMetadata = {
+  isScoreBearing?: boolean;
+  freshness?: 'fresh' | 'stale' | 'missing' | 'non_score_bearing' | null;
+};
+
+export function hasFreshScoreBearingSignal(signalPills: unknown[] | null): boolean {
+  if (!Array.isArray(signalPills) || signalPills.length === 0) return false;
+
+  return signalPills.some((pill) => {
+    if (!pill || typeof pill !== 'object' || Array.isArray(pill)) return false;
+    const typedPill = pill as SignalPillMetadata;
+    if (typedPill.isScoreBearing !== true) return false;
+    return typedPill.freshness == null || typedPill.freshness === 'fresh';
+  });
+}
+
 export function useMrsSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
@@ -118,6 +134,8 @@ export function useMrsSnapshot() {
         null;
 
       const hasScore = score !== null;
+      const signalPills = asArray(row.signal_pills);
+      const hasFreshSignal = hasFreshScoreBearingSignal(signalPills);
       const status: MrsSnapshotStatus = hasScore
         ? 'ready'
         : readinessState === 'awaiting'
@@ -136,6 +154,7 @@ export function useMrsSnapshot() {
         readinessState,
         tier,
         hasScore,
+        hasFreshSignal,
       });
 
       return {
@@ -148,12 +167,12 @@ export function useMrsSnapshot() {
         refinedContribution: asFiniteNumber(row.refined_contribution),
         mrsWindow: (row.mrs_window as MrsWindow) ?? mrsWindow,
         weightProvenance: asRecord(row.weight_provenance),
-        signalPills: asArray(row.signal_pills),
+        signalPills,
         divergenceFlag:
           (row.supply_demand_gap_flag as string | null) ?? null,
         updatedAt: (row.updated_at as string | null) ?? null,
         status,
-        isRenderable: hasScore,
+        isRenderable: hasScore && readinessState !== 'awaiting' && hasFreshSignal,
       };
 
     },

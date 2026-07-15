@@ -70,11 +70,18 @@ interface Coverage {
   wearableDayCount?: number;
   eventCount?: number;
 }
+interface DiagnosticsCounts {
+  hrvDays?: number;
+  hrSamplesDays?: number;
+}
 interface CausalityPayload {
   coverage: Coverage;
   stressMatrix?: StressMatrix;
   burnoutMatrix?: BurnoutMatrix;
   recoveryByEvent?: RecoveryByEvent | null;
+  diagnostics?: {
+    counts?: DiagnosticsCounts;
+  };
   version?: number;
   cached?: boolean;
 }
@@ -436,6 +443,9 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
       <div className={cn('rounded-md px-2.5 py-2 text-[11px] font-medium', bannerStyle)}>
         {bannerCopy}
       </div>
+      <p className="text-[11px] leading-snug text-muted-foreground/80">
+        Each column is a past week, not a forecast. Higher intensity means that week sat deeper in your own HRV strain range versus your personal baseline.
+      </p>
     </div>
   );
 }
@@ -642,12 +652,14 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
   const tabStates = useMemo(() => {
     const checkinCount = cov?.checkinCount ?? 0;
     const wearableDays = cov?.wearableDayCount ?? 0;
+    const hrvDays = data?.diagnostics?.counts?.hrvDays ?? wearableDays;
+    const hrSamplesDays = data?.diagnostics?.counts?.hrSamplesDays ?? wearableDays;
     const eventCount = cov?.eventCount ?? 0;
     const bestRecoveryN = Math.max(0, ...(data?.recoveryByEvent?.entries ?? []).map((entry) => entry.n));
 
     return {
       stress: {
-        unlocked: Boolean(cov?.hasCalendar && cov?.hasWearable && checkinCount >= 7 && wearableDays >= 5),
+        unlocked: Boolean(cov?.hasCalendar && cov?.hasWearable && checkinCount >= 7 && hrSamplesDays >= 5),
         title: 'Stress Load',
         message:
           !cov?.hasCalendar
@@ -656,24 +668,24 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               ? 'Stress Load needs a wearable with heart-rate samples.'
               : checkinCount < 7
                 ? `Stress Load follows the existing causality gate — ${7 - checkinCount} more check-in${7 - checkinCount === 1 ? '' : 's'} needed.`
-                : wearableDays < 5
-                  ? `Stress Load needs at least 5 wearable days — ${wearableDays} so far.`
+                : hrSamplesDays < 5
+                  ? `Stress Load needs at least 5 days with intraday heart-rate samples — ${hrSamplesDays} so far.`
                   : eventCount === 0
                     ? 'Stress Load needs calendar events in the current window.'
                     : 'Stress Load is still building.',
         progress: cov?.hasWearable
-          ? { current: Math.min(wearableDays, 5), target: 5 }
+          ? { current: Math.min(hrSamplesDays, 5), target: 5 }
           : undefined,
       },
       burnout: {
-        unlocked: Boolean(cov?.hasWearable && wearableDays >= 7),
+        unlocked: Boolean(cov?.hasWearable && hrvDays >= 7),
         title: 'Burnout Risk',
         message:
           !cov?.hasWearable
-            ? 'Burnout Risk needs at least 7 days of wearable history.'
-            : `Burnout Risk needs at least 7 days of wearable history — ${wearableDays} so far.`,
+            ? 'Burnout Risk needs at least 7 HRV days from your wearable.'
+            : `Burnout Risk needs at least 7 HRV days — ${hrvDays} so far.`,
         progress: cov?.hasWearable
-          ? { current: Math.min(wearableDays, 7), target: 7 }
+          ? { current: Math.min(hrvDays, 7), target: 7 }
           : undefined,
       },
       recovery: {

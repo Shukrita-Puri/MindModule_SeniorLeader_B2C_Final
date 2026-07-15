@@ -35,7 +35,7 @@ describe('InnerReadinessDial', () => {
     const { default: InnerReadinessDial } = await import('./InnerReadinessDial');
     render(<InnerReadinessDial />);
 
-    expect(screen.getByText('EARLY READ')).toBeInTheDocument();
+    expect(screen.getByText('Awaiting data')).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(
       screen.getByText('No recent wearable data — sync in Connected Data, or check in to take a self-assessment.'),

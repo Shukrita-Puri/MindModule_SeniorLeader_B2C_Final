@@ -95,6 +95,10 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
   const totalPractices = data?.totalPractices ?? 0;
   const bestWindow = data?.box2?.best;
   const stage = data?.stage ?? 'day_1_6';
+  const measurableShiftRows = useMemo(
+    () => (data?.box3?.dims ?? []).filter((dim) => dim.n >= 2),
+    [data?.box3?.dims],
+  );
 
   const planRows = useMemo(() => practices.filter((practice) => !!practice.planBadge), [practices]);
   const standaloneRows = useMemo(() => practices.filter((practice) => !practice.planBadge), [practices]);
@@ -158,6 +162,19 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
           </div>
         )}
       </div>
+
+      {measurableShiftRows.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <div className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+            What&apos;s measurably shifting
+          </div>
+          <div className="divide-y divide-border/50 rounded-md border border-border/50 overflow-hidden bg-card/40">
+            {measurableShiftRows.map((dim) => (
+              <PhysiologyRow key={dim.label} dim={dim} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {totalPractices > 0 && totalPractices < 3 && (
         <p className="mt-2 text-[11px] text-muted-foreground">
@@ -226,6 +243,48 @@ function bestWindowLabel(window: 'morning' | 'afternoon' | 'evening') {
   if (window === 'morning') return 'AM';
   if (window === 'afternoon') return 'afternoon';
   return 'evening';
+}
+
+function PhysiologyRow({ dim }: { dim: Box3Dim }) {
+  const confidence = dim.n >= 5 ? 'strong' : 'emerging';
+  const liftPositive = dim.inverse ? dim.lift < 0 : dim.lift > 0;
+  const liftLabel = `${dim.lift > 0 ? '+' : ''}${dim.lift.toFixed(0)}%`;
+
+  return (
+    <div className="px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-foreground">{dim.label}</div>
+          <div className="text-[11px] text-muted-foreground">
+            Before {formatPhysiologyValue(dim.before)} to after {formatPhysiologyValue(dim.after)}
+          </div>
+        </div>
+        <span
+          className={cn(
+            'text-[10px] rounded-full px-2 py-0.5 whitespace-nowrap',
+            confidence === 'strong'
+              ? 'bg-foreground text-background'
+              : 'bg-muted text-muted-foreground',
+          )}
+        >
+          n={dim.n} {confidence}
+        </span>
+      </div>
+      <div
+        className={cn(
+          'mt-2 text-xs font-medium tabular-nums',
+          liftPositive ? 'text-emerald-700' : 'text-amber-700',
+        )}
+      >
+        {liftPositive ? 'Improving' : 'Monitoring'} {liftLabel} vs pre-practice baseline
+      </div>
+    </div>
+  );
+}
+
+function formatPhysiologyValue(value: number) {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 export default PracticeEffectiveness;
