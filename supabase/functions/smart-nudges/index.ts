@@ -2467,8 +2467,10 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // v8 - Meaning-first sentence + named context + qualified mind-prep CTA.
   const dc = ctx.dayContext;
 
-  // V8 - Out-of-office / away-day morning (weekday or weekend, no meeting needed)
-  if (dc.kind === 'ooo' || dc.kind === 'away-day') {
+  // V8 - Away-day morning (weekday or weekend, no meeting needed). C2 (Path B):
+  // legacy 'ooo' kind folded into 'away-day' — canonical PTO regex already
+  // matches OOO titles.
+  if (dc.kind === 'away-day') {
     return {
       title: 'Day away',
       body: `On your day away - a short reset before you switch off. Check in to set your intention.`,
