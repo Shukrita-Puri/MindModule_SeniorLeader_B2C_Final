@@ -21,6 +21,7 @@ import {
 import { resolveDayTypeAndCadence, type DayTypeDecision } from "./day-type.ts";
 
 type BuildMode = "scheduled" | "manual_refresh" | "manual_replay" | "backfill" | "dry_run";
+type BuildModeInput = BuildMode | "checkin_save";
 const JOB_KEY = "executive_home_cards";
 
 const corsHeaders = {
@@ -44,6 +45,20 @@ function getWindow(hour: number): TimeWindow {
 
 function isForceMode(mode: BuildMode) {
   return mode === "manual_refresh" || mode === "manual_replay" || mode === "backfill" || mode === "dry_run";
+}
+
+function normalizeBuildMode(mode: unknown): BuildMode | null {
+  if (mode === "checkin_save") return "manual_refresh";
+  if (
+    mode === "scheduled" ||
+    mode === "manual_refresh" ||
+    mode === "manual_replay" ||
+    mode === "backfill" ||
+    mode === "dry_run"
+  ) {
+    return mode;
+  }
+  return null;
 }
 
 function scoreFromPattern(patternSignals: any): number | null {
@@ -985,8 +1000,9 @@ Deno.serve(async (req) => {
     const apiKeyHeader = req.headers.get("apikey") ?? "";
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const body = await req.json().catch(() => ({}));
-    const mode = (body.mode ?? "scheduled") as BuildMode;
-    if (!["scheduled", "manual_refresh", "manual_replay", "backfill", "dry_run"].includes(mode)) {
+    const requestedMode = (body.mode ?? "scheduled") as BuildModeInput;
+    const mode = normalizeBuildMode(requestedMode);
+    if (!mode) {
       return json({ error: "invalid_mode" }, 400);
     }
 
