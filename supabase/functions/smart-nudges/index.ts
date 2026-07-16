@@ -3741,6 +3741,61 @@ async function evaluatePatternAlert(ctx: NudgeContext, alreadySentTypes: Set<str
   if (!MVP_POST_LAUNCH) return null;
   if (alreadySentTypes.has('pattern_alert')) return null;
   if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 4 * 60 * 60 * 1000) return null;
+
+  const prettifyPatternLabel = (label: string) =>
+    label
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (m) => m.toUpperCase());
+
+  const topEventPattern = [...(ctx.pattern?.event_to_hrv ?? [])]
+    .filter((item) => (item.hrvDeltaPct < 0 || item.rhrElevated) && item.n >= 3)
+    .sort((a, b) => {
+      const confidenceWeight = (value: 'strong' | 'emerging') => value === 'strong' ? 1 : 0;
+      return (
+        confidenceWeight(b.confidence) - confidenceWeight(a.confidence) ||
+        Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct) ||
+        b.n - a.n
+      );
+    })[0] ?? null;
+
+  if (topEventPattern) {
+    const eventLabel = prettifyPatternLabel(topEventPattern.event_type);
+    const magnitude = Math.abs(Math.round(topEventPattern.hrvDeltaPct));
+    return {
+      type: 'pattern_alert',
+      copy: {
+        title: 'Your pattern is ready',
+        body: `${eventLabel} is showing up in your data - about ${magnitude}% lower HRV when it hits. See what it is costing you.`,
+        variantId: 'FB-PATTERN',
+      },
+      deepLinkRoute: '/insights/performance-causality',
+      priority: topEventPattern.confidence === 'strong' ? 3 : 2,
+      anchorKind: 'state',
+      slot: 'morning',
+      signalStrength: topEventPattern.confidence === 'strong' ? 2 : 1,
+    };
+  }
+
+  const consecutiveLoad = ctx.pattern?.consecutive_load;
+  if (consecutiveLoad && consecutiveLoad.tailDeltaPct < 0 && consecutiveLoad.n >= 3) {
+    const magnitude = Math.abs(Math.round(consecutiveLoad.tailDeltaPct));
+    return {
+      type: 'pattern_alert',
+      copy: {
+        title: 'Your pattern is ready',
+        body: `Consecutive high-load days are showing up in your data - about ${magnitude}% lower recovery at the tail. See what it is costing you.`,
+        variantId: 'FB-PATTERN',
+      },
+      deepLinkRoute: '/insights/performance-causality',
+      priority: consecutiveLoad.confidence === 'strong' ? 3 : 2,
+      anchorKind: 'state',
+      slot: 'morning',
+      signalStrength: consecutiveLoad.confidence === 'strong' ? 2 : 1,
+    };
+  }
+
   return null;
 }
 

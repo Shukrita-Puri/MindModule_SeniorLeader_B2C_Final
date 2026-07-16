@@ -13,7 +13,8 @@ import { getAuthToken } from '@/services/authTokenService';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import { cn } from '@/lib/utils';
 
-type Stage = 'day_1_6' | 'day_7_29' | 'day_30_plus';
+type Stage = 'early' | 'building' | 'deepening';
+type LegacyStage = 'day_1_6' | 'day_7_29' | 'day_30_plus';
 
 interface Box1Practice {
   contentId: string;
@@ -45,7 +46,7 @@ interface Box3Dim {
 
 interface ImpactPayload {
   totalPractices: number;
-  stage: Stage;
+  stage: Stage | LegacyStage;
   windowDays: number;
   box1: { practices: Box1Practice[] };
   box2: Box2Data;
@@ -57,10 +58,26 @@ interface PracticeEffectivenessProps {
 }
 
 const STATUS_LABEL: Record<Stage, string> = {
-  day_1_6: 'Baseline',
-  day_7_29: 'Building',
-  day_30_plus: 'Deepening',
+  early: 'Baseline',
+  building: 'Building',
+  deepening: 'Deepening',
 };
+
+function normalizeStage(stage: Stage | LegacyStage | null | undefined): Stage {
+  switch (stage) {
+    case 'early':
+    case 'building':
+    case 'deepening':
+      return stage;
+    case 'day_7_29':
+      return 'building';
+    case 'day_30_plus':
+      return 'deepening';
+    case 'day_1_6':
+    default:
+      return 'early';
+  }
+}
 
 const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
   const [data, setData] = useState<ImpactPayload | null>(null);
@@ -94,7 +111,7 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
   const practices = data?.box1?.practices ?? [];
   const totalPractices = data?.totalPractices ?? 0;
   const bestWindow = data?.box2?.best;
-  const stage = data?.stage ?? 'day_1_6';
+  const stage = normalizeStage(data?.stage);
   const measurableShiftRows = useMemo(
     () => (data?.box3?.dims ?? []).filter((dim) => dim.n >= 2),
     [data?.box3?.dims],

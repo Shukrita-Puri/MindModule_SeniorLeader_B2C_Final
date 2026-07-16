@@ -103,6 +103,7 @@ const PLACEHOLDER_RX = /(\{[^}]+\}|\b(?:N|--)\b|\?\?|\bundefined\b|\bnull\b|NaN%
 const VALID_DEEP_LINKS = new Set([
   "/daily-check-in",
   "/executive-home",
+  "/insights/performance-causality",
 ]);
 
 function bodyContainsForbidden(body: string): string | null {

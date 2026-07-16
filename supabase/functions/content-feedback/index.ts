@@ -428,7 +428,7 @@ serve(async (req) => {
 
         // ── Stage ───────────────────────────────────────────────
         const stage =
-          totalPractices < 3 ? 'day_1_6' : totalPractices < 10 ? 'day_7_29' : 'day_30_plus';
+          totalPractices < 3 ? 'early' : totalPractices < 10 ? 'building' : 'deepening';
 
         return new Response(
           JSON.stringify({

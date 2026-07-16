@@ -1182,9 +1182,9 @@ serve(async (req) => {
       dimsBuilt.some((d) => d.trajectory === "escalating") ? "escalating" :
       dimsBuilt.every((d) => d.trajectory === "improving") ? "improving" : "stable";
     const bannerCopy =
-      cardTrajectory === "escalating" ? "Risk trajectory: escalating" :
-      cardTrajectory === "improving"  ? "Risk trajectory: improving"  :
-                                        "Risk trajectory: stable";
+      cardTrajectory === "escalating" ? "Risk trajectory: escalating - load is building" :
+      cardTrajectory === "improving"  ? "Risk trajectory: improving - recovery is gaining"  :
+                                        "Risk trajectory: stable - holding consistent";
 
     const burnoutMatrix: BurnoutMatrix = {
       weeks: WEEK_LABELS,
