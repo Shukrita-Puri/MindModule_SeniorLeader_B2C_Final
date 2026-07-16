@@ -23,7 +23,6 @@ const HomeSwipeShell = ({ pages, initialIndex = 0 }: HomeSwipeShellProps) => {
     if (!scroller || !el) return;
     scroller.scrollTo({ left: el.offsetLeft, behavior: 'auto' });
     setActive(initialIndex);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, initialIndex]);
 
   useEffect(() => {
@@ -81,6 +80,7 @@ const HomeSwipeShell = ({ pages, initialIndex = 0 }: HomeSwipeShellProps) => {
           <button
             key={p.id}
             type="button"
+            data-tour={`tab-${p.id}`}
             onClick={() => goTo(i)}
             aria-label={`Go to ${p.label}`}
             className={cn(

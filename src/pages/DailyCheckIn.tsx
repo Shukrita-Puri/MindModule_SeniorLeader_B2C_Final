@@ -431,7 +431,7 @@ const DailyCheckIn = () => {
       <div className="flex flex-col max-w-lg mx-auto w-full pt-2 pb-4">
 
         {/* Glass card wrapper (matches Brief card) — edge-to-edge on mobile */}
-        <div className="relative overflow-hidden rounded-t-2xl md:rounded-2xl p-5 flex flex-col
+        <div data-tour="check-in-card" className="relative overflow-hidden rounded-t-2xl md:rounded-2xl p-5 flex flex-col
           bg-white
           border border-[#cfc7b8]
           shadow-[0_1px_2px_rgba(0,0,0,0.04)]">

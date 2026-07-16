@@ -60,6 +60,7 @@ const FloatingPillNav = () => {
           return (
             <button
               key={tab.path}
+              data-tour={tab.path === '/recalibrate' ? 'bottom-nav-reset' : tab.path === '/insights' ? 'bottom-nav-insights' : 'bottom-nav-today'}
               onClick={() => navigate(tab.path)}
               className={`relative flex min-w-[64px] flex-col items-center gap-0.5 rounded-full px-3 py-1.5 transition-all duration-200 ${
                 isActive

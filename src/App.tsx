@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   createBrowserRouter,
   Navigate,
@@ -256,17 +256,6 @@ const Layout = () => {
   const { pathname } = useLocation();
   const showPillNav = PILL_NAV_VISIBLE_ROUTES.some((route) => matchesRoutePrefix(pathname, route));
 
-  // Hide floating nav elements during the onboarding tour
-  const [tourActive, setTourActive] = useState(() => sessionStorage.getItem('first_session_guide_active') === '1');
-  useEffect(() => {
-    const check = () => setTourActive(sessionStorage.getItem('first_session_guide_active') === '1');
-    // Listen for storage changes from the tour component
-    window.addEventListener('storage', check);
-    // Also poll briefly since sessionStorage events don't fire in same tab
-    const interval = setInterval(check, 500);
-    return () => { window.removeEventListener('storage', check); clearInterval(interval); };
-  }, []);
-
   return (
     <AuthProvider>
       <ImpersonationProvider>
@@ -276,7 +265,7 @@ const Layout = () => {
         <AppleCalendarWatcher />
         <PushNotificationProvider />
         <PushNotificationActionHandler />
-        {showPillNav && !tourActive && <FloatingPillNav />}
+        {showPillNav && <FloatingPillNav />}
         <Outlet />
       </ImpersonationProvider>
     </AuthProvider>

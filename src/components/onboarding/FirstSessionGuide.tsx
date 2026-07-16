@@ -1,10 +1,7 @@
 /**
  * First Session Spotlight Walkthrough
  *
- * A 3-step guided demo that highlights real UI elements on the actual pages.
- * Step 1: Check-in carousel on /daily-check-in
- * Step 2: Today State card on /executive-home
- * Step 3: Daily Plan on /plan
+ * A guided demo that highlights real UI elements on the actual pages.
  *
  * Key behaviours:
  * - Two-pass tooltip: hidden mount → measure height → compute position → reveal.
@@ -43,17 +40,31 @@ interface GuideStep {
   spotlightPad?: number;
   spotlightCircle?: boolean;
   tooltipPosition?: 'above' | 'below' | 'auto';
-  activateTab?: 'state' | 'compass' | 'action';
+  activateTab?: 'mrs' | 'brief' | 'plan';
   openSidebar?: boolean;
 }
 
 const STEPS: GuideStep[] = [
   {
-    targetSelector: '[data-tour="check-in-carousel"]',
+    targetSelector: '[data-tour="check-in-card"]',
     title: 'Performance Readiness Assessment',
     body: "One tap. The system reads your sharpness, clarity, and confidence.",
     page: 'check-in',
     phaseLabel: 'YOUR DAILY LOOP',
+    scrollBlock: 'start',
+    tooltipPosition: 'below',
+    spotlightPad: 8,
+  },
+  {
+    targetSelector: '[data-tour="mrs-page"]',
+    title: 'Mental Readiness Score',
+    body: 'Your live state translated into a score you can act on before the day starts acting on you.',
+    page: 'home',
+    phaseLabel: 'YOUR DAILY LOOP',
+    scrollBlock: 'start',
+    tooltipPosition: 'below',
+    activateTab: 'mrs',
+    spotlightPad: 8,
   },
   {
     targetSelector: '[data-tour="today-state"]',
@@ -63,7 +74,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
     tooltipPosition: 'below',
-    activateTab: 'state',
+    activateTab: 'brief',
     spotlightPad: 8,
   },
   {
@@ -74,29 +85,26 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'center',
     tooltipPosition: 'above',
-    activateTab: 'action',
     spotlightPad: 8,
   },
   {
-    targetSelector: '[data-tour="sidebar-suite-4"]',
+    targetSelector: '[data-tour="bottom-nav-reset"]',
     title: 'Reset on demand',
     body:
       'A library of short Pause, Flow, and Reenergise mindset and somatic protocols. Open the Reset button before a high-stakes moment to prepare — or after one to prevent stress carrying into the next.',
     page: 'home',
     phaseLabel: 'EXPLORE WHEN YOU NEED',
     tooltipPosition: 'auto',
-    openSidebar: true,
     spotlightPad: 6,
   },
   {
-    targetSelector: '[data-tour="sidebar-suite-3"]',
+    targetSelector: '[data-tour="bottom-nav-insights"]',
     title: 'See the patterns forming',
     body:
       'Open the Insight button to see how your progress and patterns forming through the week and month — you can see the exact moments that could cause stress, burnout or clarity drain and prevent it from happening.',
     page: 'home',
     phaseLabel: 'EXPLORE WHEN YOU NEED',
     tooltipPosition: 'auto',
-    openSidebar: true,
     spotlightPad: 6,
   },
 ];
@@ -523,7 +531,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
             Let's show you around.
           </h2>
           <p className="text-sm text-white/60 font-body leading-relaxed mb-8">
-            A quick 5-step tour of how Mind Module works — starting with your daily check-in.
+            A quick {STEPS.length}-step tour of how Mind Module works — starting with your daily check-in.
           </p>
           <button
             onClick={dismissIntroAndStart}
@@ -727,7 +735,6 @@ function getPagePath(page: string): string {
 
 function useSidebarSafe() {
   try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     return useSidebar();
   } catch {
     return null;

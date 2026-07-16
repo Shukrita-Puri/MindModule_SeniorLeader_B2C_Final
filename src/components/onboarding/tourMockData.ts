@@ -45,6 +45,16 @@ export const MOCK_BRIEF: OuterReadinessData = {
   remainingMeetings: 3,
 };
 
+export const MOCK_MRS = {
+  score: 78,
+  tier: 'peak',
+  readinessState: 'refined' as const,
+  oneLiner: 'High-control window',
+  stateLabel: 'Refined by check-in',
+  stateSubtitle: 'Wearable, calendar, and check-in aligned',
+  weeklyDelta: 6,
+};
+
 /**
  * Mock plan in the same shape `TodayThreePriorities` already renders. We
  * deliberately reuse common sanctuary content ids so thumbnails and the

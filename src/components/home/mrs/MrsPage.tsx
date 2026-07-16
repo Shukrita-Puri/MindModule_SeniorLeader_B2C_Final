@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useOuterReadiness } from '@/hooks/useOuterReadiness';
+import { useOuterReadiness, type OuterReadinessData } from '@/hooks/useOuterReadiness';
 import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useWeeklyMrsDelta } from '@/hooks/useWeeklyMrsDelta';
 import MrsGauge, { tierColorVar } from './MrsGauge';
@@ -12,31 +12,43 @@ import {
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
+import { useTourMock } from '@/components/onboarding/useTourMock';
+import { MOCK_MRS } from '@/components/onboarding/tourMockData';
+
+type MrsOuterReadiness = OuterReadinessData & {
+  readinessEligibility?: {
+    stageOneSignal?: boolean;
+    eligible?: boolean;
+  } | null;
+};
 
 const MrsPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: outerBrief, refetch, isFetching } = useOuterReadiness();
+  const mrsBrief = outerBrief as MrsOuterReadiness | null | undefined;
+  const { shouldRenderMock: showTourMockMrs } = useTourMock();
   // Phase 3.9 — snapshot-read-first. Render from current-window
   // `daily_context_snapshot` when present; otherwise fall through to
   // the live `useOuterReadiness` payload (unchanged).
   const { data: mrsSnapshot } = useMrsSnapshot();
   const snapshotRenderable = !!mrsSnapshot?.isRenderable;
 
-  const score = snapshotRenderable
+  const liveScore = snapshotRenderable
     ? mrsSnapshot!.score
     : (outerBrief?.innerReadinessScore ?? null);
-  const tier = snapshotRenderable
+  const liveTier = snapshotRenderable
     ? mrsSnapshot!.tier
     : (outerBrief?.innerReadinessTierDisplayed ||
        outerBrief?.innerReadinessTier ||
        null);
+  const score = showTourMockMrs ? MOCK_MRS.score : liveScore;
+  const tier = showTourMockMrs ? MOCK_MRS.tier : liveTier;
   const weekly = useWeeklyMrsDelta();
 
   const hasScore = typeof score === 'number';
   // Phase 1 — distinguish transient compute/auth failures from true awaiting.
-  const engineStatus = (outerBrief as any)?.engineStatus as
-    | 'ready' | 'awaiting' | 'auth-failure' | 'session-failure' | 'inner-failure' | 'outer-failure' | 'stale' | 'unknown-error' | undefined;
+  const engineStatus = mrsBrief?.engineStatus;
   const isFailureState =
     engineStatus === 'auth-failure' ||
     engineStatus === 'session-failure' ||
@@ -48,15 +60,15 @@ const MrsPage = () => {
   const showFailureBlock = isFailureState && !snapshotRenderable;
   // Prefer the backend's explicit readiness contract. Stage 1 can be wearable
   // or calendar driven; check-in only upgrades baseline to refined.
-  const ws = (outerBrief as any)?.wearableStatus;
-  const eligibility = (outerBrief as any)?.readinessEligibility ?? null;
+  const ws = mrsBrief?.wearableStatus;
+  const eligibility = mrsBrief?.readinessEligibility ?? null;
   // When a current-window snapshot is renderable, the snapshot is the
   // authoritative source for MRS card display. A numeric score implies
   // at minimum a Stage 1 signal was available at compute time.
   const stageOneSignalAvailable = snapshotRenderable
     ? true
-    : typeof (outerBrief as any)?.hasCurrentPeriodSignal === 'boolean'
-      ? (outerBrief as any).hasCurrentPeriodSignal
+    : typeof mrsBrief?.hasCurrentPeriodSignal === 'boolean'
+      ? mrsBrief.hasCurrentPeriodSignal
       : typeof eligibility?.stageOneSignal === 'boolean'
         ? eligibility.stageOneSignal
       : typeof eligibility?.eligible === 'boolean'
@@ -64,14 +76,16 @@ const MrsPage = () => {
         : !!(ws?.isConnected && ws?.hasTodayData && !ws?.isStale);
   const rawState =
     (snapshotRenderable && mrsSnapshot!.readinessState === 'refined') ||
-    (outerBrief as any)?.innerReadinessState === 'refined' ||
+    mrsBrief?.innerReadinessState === 'refined' ||
     weekly.data?.mode === 'refined'
       ? 'refined'
       : (snapshotRenderable && mrsSnapshot!.readinessState === 'awaiting') ||
-        (outerBrief as any)?.innerReadinessState === 'awaiting'
+        mrsBrief?.innerReadinessState === 'awaiting'
         ? 'awaiting'
         : 'baseline';
-  const readinessState: 'baseline' | 'refined' | 'awaiting' = snapshotRenderable
+  const readinessState: 'baseline' | 'refined' | 'awaiting' = showTourMockMrs
+    ? MOCK_MRS.readinessState
+    : snapshotRenderable
     ? (mrsSnapshot!.readinessState === 'refined' ? 'refined' : 'baseline')
     : rawState === 'refined' && !stageOneSignalAvailable
       ? 'baseline'
@@ -84,11 +98,14 @@ const MrsPage = () => {
     : getReadinessAwaitingCopy(outerBrief ?? undefined);
 
   const tierColor = tierColorVar(tier);
-  const oneLiner = getReadinessOneLiner(score);
-  const stateLabel = getReadinessStateLabel(readinessState, stageOneSignalAvailable);
+  const oneLiner = showTourMockMrs ? MOCK_MRS.oneLiner : getReadinessOneLiner(score);
+  const stateLabel = showTourMockMrs
+    ? { label: MOCK_MRS.stateLabel, subtitle: MOCK_MRS.stateSubtitle }
+    : getReadinessStateLabel(readinessState, stageOneSignalAvailable);
 
   return (
     <section
+      data-tour="mrs-page"
       aria-label="Mental Readiness Score"
       className="w-full h-full overflow-y-auto px-2 md:px-6 pt-0 pb-12"
     >
@@ -197,9 +214,9 @@ const MrsPage = () => {
         <div className="mt-6">
           <WeeklyDeltaDial
             currentScore={score}
-            delta={weekly.data?.delta ?? null}
-            mode={weekly.data?.mode ?? 'baseline'}
-            reason={weekly.data?.reason ?? null}
+            delta={showTourMockMrs ? MOCK_MRS.weeklyDelta : (weekly.data?.delta ?? null)}
+            mode={showTourMockMrs ? 'refined' : (weekly.data?.mode ?? 'baseline')}
+            reason={showTourMockMrs ? 'Tour sample' : (weekly.data?.reason ?? null)}
           />
         </div>
       </div>
