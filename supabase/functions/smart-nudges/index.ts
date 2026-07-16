@@ -952,6 +952,84 @@ function buildSharedEventFrameLine(
   return frame ? `- Shared event frame: ${frame}` : '';
 }
 
+function resolveMorningAnchorWindow(
+  ctx: Pick<NudgeContext, 'firstNonNoiseEvent' | 'timeZone' | 'dayOfWeek'>,
+): { morningStart: number; morningEnd: number } {
+  let morningStart = GLOBAL_EARLIEST_LOCAL;
+  let morningEnd = 9.5;
+
+  if (ctx.firstNonNoiseEvent) {
+    const eventHour = eventHourInTimezone(ctx.firstNonNoiseEvent.start_time, ctx.timeZone);
+    const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
+    const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
+    const leadHours = isVirtual ? 1.0 : 1.5;
+    const idealStart = eventHour - leadHours;
+    morningStart = Math.max(GLOBAL_EARLIEST_LOCAL, Math.min(idealStart, 10.0));
+    morningEnd = Math.max(morningStart + 1.0, eventHour - 0.25);
+  }
+
+  if (ctx.dayOfWeek === 6) {
+    morningStart = Math.max(morningStart, 9.0);
+    morningEnd = Math.max(morningEnd, 11.0);
+  }
+
+  if (ctx.dayOfWeek === 0 || (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent)) {
+    morningStart = 9.0;
+    morningEnd = 10.5;
+  }
+
+  return { morningStart, morningEnd };
+}
+
+function isWithinMorningAnchorWindow(
+  ctx: Pick<NudgeContext, 'localTime' | 'firstNonNoiseEvent' | 'timeZone' | 'dayOfWeek'>,
+): boolean {
+  const { morningStart, morningEnd } = resolveMorningAnchorWindow(ctx);
+  return ctx.localTime >= morningStart && ctx.localTime < morningEnd;
+}
+
+async function shouldAllowProjectedMorningJit(
+  ctx: NudgeContext,
+  slotEventTitle: string,
+  matchingJit: NudgeContext['jitEvents'][number] | null,
+  minutesUntil: number | null,
+  sentEventRefs: Set<string>,
+  supabase: ReturnType<typeof createClient>,
+): Promise<boolean> {
+  if (!matchingJit) return false;
+  if (matchingJit.confidenceBand === 'none') return false;
+  if (sentEventRefs.has(matchingJit.externalId)) return false;
+  if (suppressJitForNotificationOnlyCategory(slotEventTitle)) return false;
+  if (minutesUntil === null || minutesUntil < 30 || minutesUntil > 180) return false;
+
+  const { data: jitPlan } = await supabase
+    .from('jit_event_context')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .eq('id', matchingJit.eventId)
+    .eq('dismissed_by_user', false)
+    .limit(1);
+  if (!jitPlan || jitPlan.length === 0) return false;
+
+  const { data: ledgerRows } = await supabase
+    .from('daily_ritual_completions')
+    .select('plan_ledger')
+    .eq('user_id', ctx.userId)
+    .eq('ritual_date', ctx.todayStr);
+  const ledger = (ledgerRows || []).flatMap((r: any) => (r.plan_ledger as any[]) || []);
+  const evtBucket = slotEventTitle.toLowerCase();
+  const prepDone = ledger.some((p: any) => {
+    const status = String(p?.status || '').toLowerCase();
+    const ref = String(p?.event_reference || '').toLowerCase();
+    const title = String(p?.title || '').toLowerCase();
+    return status === 'completed' && (
+      ref === matchingJit.externalId.toLowerCase() ||
+      (evtBucket && (ref.includes(evtBucket) || title.includes(evtBucket)))
+    );
+  });
+  return !prepDone;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── buildNudgeContext() – Central Signal Assembly ──
 // ══════════════════════════════════════════════════════════════
@@ -2958,38 +3036,7 @@ async function evaluateNudgeOne(
   // v5 - calendar-anchored morning timing
   // Hard floor: 08:00 local. If a first meeting exists, we anchor 60–90 min
   // before but never earlier than 08:00. If no first meeting, 08:00–09:30.
-  let morningStart = GLOBAL_EARLIEST_LOCAL;
-  let morningEnd = 9.5;
-
-  if (ctx.firstNonNoiseEvent) {
-    // Batch B follow-up: classify the first meeting in the USER's
-    // timezone. `.getHours()` returned server-local (UTC on edge
-    // functions), so a 09:00 IST meeting was seen as 03:30 UTC and the
-    // morning anchor slid to 02:00 IST.
-    const eventHour = eventHourInTimezone(ctx.firstNonNoiseEvent.start_time, ctx.timeZone);
-    const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
-    const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
-    // 60 min before virtual, 90 min before in-person
-    const leadHours = isVirtual ? 1.0 : 1.5;
-    const idealStart = eventHour - leadHours;
-    morningStart = Math.max(GLOBAL_EARLIEST_LOCAL, Math.min(idealStart, 10.0));
-    morningEnd = Math.max(morningStart + 1.0, eventHour - 0.25); // close window 15 min before meeting
-  }
-
-  // Saturday: when a meeting exists, push start later (slower entry)
-  if (ctx.dayOfWeek === 6) {
-    morningStart = Math.max(morningStart, 9.0);
-    morningEnd = Math.max(morningEnd, 11.0);
-  }
-
-  // V8 - Sunday AM, or Saturday AM with no meeting: 09:00–10:30 local recovery window
-  // (users may sleep in on weekends).
-  if (ctx.dayOfWeek === 0 || (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent)) {
-    morningStart = 9.0;
-    morningEnd = 10.5;
-  }
-
-  if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
+  if (!isWithinMorningAnchorWindow(ctx)) return null;
 
   // Don't fire if first event is < 30 min away (we already missed the window)
   if (ctx.firstNonNoiseEvent) {
@@ -3326,6 +3373,8 @@ async function projectPlanSlotToNudge(
   ctx: NudgeContext,
   activeSlot: NudgeSlot,
   alreadySentTypes: Set<string>,
+  sentEventRefs: Set<string>,
+  supabase: ReturnType<typeof createClient>,
 ): Promise<QualifiedNudge | null> {
   const slot = (ctx.planSlots ?? []).find((s) => s.slot === activeSlot);
   if (!slot) return null;
@@ -3353,6 +3402,23 @@ async function projectPlanSlotToNudge(
     slot.mode === 'jit' || slot.mode === 'jit+state' || slot.mode === 'full_arc' ? 'jit' : 'state';
   let eventReference = matchingJit?.externalId ?? matchingCalendar?.external_id ?? undefined;
 
+  if (activeSlot === 'morning' && anchorKind === 'jit') {
+    const allowMorningJit = slotEventTitle
+      ? await shouldAllowProjectedMorningJit(
+          ctx,
+          slotEventTitle,
+          matchingJit,
+          minutesUntil,
+          sentEventRefs,
+          supabase,
+        )
+      : false;
+    if (!allowMorningJit) {
+      anchorKind = 'state';
+      eventReference = undefined;
+    }
+  }
+
   if (anchorKind === 'jit' && slotEventTitle && minutesUntil !== null && minutesUntil >= 0) {
     const aiType = activeSlot === 'morning' ? 'nudge_one_jit' : activeSlot === 'afternoon' ? 'nudge_two_jit' : 'nudge_three';
     const fallback =
@@ -3370,6 +3436,14 @@ async function projectPlanSlotToNudge(
 
   if (!copy) {
     anchorKind = 'state';
+    if (activeSlot === 'morning') {
+      if (ctx.morningCheckinOutcome !== null) return null;
+      if (!isWithinMorningAnchorWindow(ctx)) return null;
+      if (ctx.firstNonNoiseEvent) {
+        const minutesUntilFirst = (new Date(ctx.firstNonNoiseEvent.start_time).getTime() - Date.now()) / 60000;
+        if (minutesUntilFirst < 30) return null;
+      }
+    }
     const aiType =
       activeSlot === 'morning' ? 'nudge_one_morning' :
       activeSlot === 'afternoon' ? 'nudge_two_recalibrate' :
@@ -3391,7 +3465,10 @@ async function projectPlanSlotToNudge(
   return {
     type: nudgeType,
     copy,
-    deepLinkRoute: '/daily-check-in',
+    deepLinkRoute:
+      activeSlot === 'morning' && anchorKind === 'jit' && ctx.morningCheckinOutcome !== null
+        ? '/executive-home'
+        : '/daily-check-in',
     eventReference,
     priority: activeSlot === 'morning' ? 0 : activeSlot === 'afternoon' ? 1 : 2,
     anchorKind,
@@ -4591,7 +4668,13 @@ serve(async (req) => {
             },
           });
         } else if (!suppressedEffective) {
-          const projected = await projectPlanSlotToNudge(ctx, activeSlot, alreadySentTypes);
+          const projected = await projectPlanSlotToNudge(
+            ctx,
+            activeSlot,
+            alreadySentTypes,
+            sentEventRefs,
+            supabase,
+          );
           if (projected) qualified.push(projected);
         }
       }

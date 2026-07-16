@@ -72,7 +72,7 @@ Deno.test("plan-driven projection remains preferred when slot pref is enabled", 
   // `projectPlanSlotToNudge` — the fail-open is a fallback, not a
   // replacement.
   assert(
-    /planSnapshotStatus === 'ready'[\s\S]*projectPlanSlotToNudge\(ctx, activeSlot/.test(
+    /planSnapshotStatus === 'ready'[\s\S]*projectPlanSlotToNudge\(\s*ctx,\s*activeSlot,\s*alreadySentTypes,\s*sentEventRefs,\s*supabase,?\s*\)/.test(
       SRC,
     ),
     "ready plan snapshot must still drive projected-slot nudge",

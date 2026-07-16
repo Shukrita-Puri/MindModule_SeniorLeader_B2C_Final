@@ -55,7 +55,7 @@ Deno.test("smart-nudges traces required skip and APNs outcomes", () => {
 
 Deno.test("week-ahead copy satisfies the v8 CTA contract instead of post-CTA suppression", () => {
   assert(!SRC.includes("Pick this week's 10 priorities before Monday lands."));
-  assert(SRC.includes("10 priority choices can shape the week before Monday lands — log in to prep your mind."));
+  assert(SRC.includes("10 priority choices can shape the week before Monday lands - log in to prep your mind."));
 });
 
 Deno.test("trace tables grant backend access and user-scoped reads", () => {
