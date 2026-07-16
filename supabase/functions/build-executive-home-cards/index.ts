@@ -1,8 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
+import { classifyDay } from "../_shared/availability/availability-classifier.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
-import { isPtoOrHolidayTitle } from "../_shared/ceo-behaviour/pto-holiday.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import {
   localParts,
@@ -130,15 +130,15 @@ async function countTodayEvents(db: any, userId: string, localDate: string) {
 
 // Fetch merged (deduped) event slices for today + tomorrow, plus a small
 // 2-day lookback used to hydrate `consecutiveOffDaysBefore` for the day-type
-// resolver. A day is considered "off" when it is either a weekend day (Sat/Sun)
-// OR contains an all-day PTO/holiday event (per the canonical
-// `isPtoOrHolidayTitle` detector). The lookback stops at the first working
-// day so a mid-week holiday doesn't inflate the count.
+// resolver. Lookback "off day" classification is delegated to the canonical
+// availability SSOT via `classifyDay`, so foreign FYI/regional holidays and
+// empty weekdays cannot silently count as off-days here.
 async function loadDayTypeEventSlices(
   db: any,
   userId: string,
   localDate: string,
   effectiveTimezone: string,
+  userHomeCountry?: string | null,
 ): Promise<{ todayEvents: any[]; tomorrowEvents: any[]; consecutiveOffDaysBefore: number }> {
   const start = `${localDate}T00:00:00`;
   const end = `${localDate}T23:59:59`;
@@ -178,36 +178,29 @@ async function loadDayTypeEventSlices(
       .gte("start_time", `${y2}T00:00:00`)
       .lte("start_time", `${y1}T23:59:59`),
   ]);
-
-  // Weekday lookup in the user's local timezone (0=Sun … 6=Sat).
-  const weekdayLocal = (isoDate: string): number => {
-    const short = new Intl.DateTimeFormat("en-US", {
-      timeZone: effectiveTimezone,
-      weekday: "short",
-    })
-      .format(new Date(`${isoDate}T12:00:00Z`))
-      .toLowerCase()
-      .slice(0, 3);
-    return short === "sun" ? 0
-      : short === "mon" ? 1
-      : short === "tue" ? 2
-      : short === "wed" ? 3
-      : short === "thu" ? 4
-      : short === "fri" ? 5
-      : 6;
-  };
-
   const lookbackEvents = mergeCalendarEvents((lookbackRes.data || []) as any[], "unknown") as any[];
-  const hasAllDayPtoOn = (isoDate: string) =>
-    lookbackEvents.some((e: any) =>
-      e.is_all_day === true &&
-      isPtoOrHolidayTitle(e.title ?? "") &&
+  const isOffDay = (isoDate: string) => {
+    const rows = lookbackEvents.filter((e: any) =>
       typeof e.start_time === "string" &&
       e.start_time.slice(0, 10) === isoDate,
     );
-  const isOffDay = (isoDate: string) => {
-    const dow = weekdayLocal(isoDate);
-    return dow === 0 || dow === 6 || hasAllDayPtoOn(isoDate);
+    const localDay = new Date(`${isoDate}T12:00:00Z`);
+    const r = classifyDay({
+      now: localDay,
+      userHomeCountry: userHomeCountry ?? null,
+      userCurrentCountry: null,
+      events: rows.map((e: any) => ({
+        title: String(e?.title ?? ""),
+        startTime: String(e?.start_time ?? ""),
+        endTime: String(e?.end_time ?? e?.start_time ?? ""),
+        isAllDay: e?.is_all_day === true,
+        isOrganizer: e?.is_organizer === true,
+        attendeesCount: Number(e?.attendees_count ?? 0) || 0,
+        source: e?.source ?? e?.calendar_name ?? null,
+        calendarSummary: e?.calendar_summary ?? null,
+      })),
+    });
+    return r.isOffDay;
   };
 
   let consecutive = 0;
@@ -534,10 +527,18 @@ async function buildForUser(db: any, args: {
   // ---------------------------------------------------------------------------
   let dayTypeDecision: DayTypeDecision | null = null;
   try {
-    const slices = await loadDayTypeEventSlices(db, userId, localDate, effectiveTimezone);
+    const slices = await loadDayTypeEventSlices(
+      db,
+      userId,
+      localDate,
+      effectiveTimezone,
+      profile?.country ?? null,
+    );
     dayTypeDecision = resolveDayTypeAndCadence({
       effectiveTimezone,
       now: new Date(),
+      userHomeCountry: profile?.country ?? null,
+      userCurrentCountry: null,
       todayEvents: slices.todayEvents as any,
       tomorrowEvents: slices.tomorrowEvents as any,
       travel: travel ?? null,

@@ -21,7 +21,11 @@
 // -----------------------------------------------------------------------------
 
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
-import { isPtoOrHolidayTitle } from "../_shared/ceo-behaviour/pto-holiday.ts";
+import {
+  classifyAvailability,
+  classifyDay,
+  type AvailabilityEvent,
+} from "../_shared/availability/availability-classifier.ts";
 import {
   evaluateWeekAheadMode,
   isSaturdayRecoveryDay,
@@ -59,6 +63,9 @@ export interface DayTypeEventLite {
 export interface DayTypeInput {
   effectiveTimezone: string;
   now: Date;
+  userHomeCountry?: string | null;
+  userCurrentCountry?: string | null;
+  explicitPto?: boolean;
   /** Merged today-events (already de-duped by mergeCalendarEvents). */
   todayEvents: DayTypeEventLite[];
   /** Merged tomorrow-events (for last-day-PTO / last-day-holiday). */
@@ -90,16 +97,19 @@ export interface DayTypeDecision {
 
 const ALL_WINDOWS: TimeWindow[] = ["morning", "afternoon", "evening"];
 
-function isPtoAllDayToday(events: DayTypeEventLite[]): boolean {
-  return events.some(
-    (e) => e.is_all_day === true && isPtoOrHolidayTitle(e.title ?? ""),
-  );
+function toAvailabilityEvents(events: DayTypeEventLite[]): AvailabilityEvent[] {
+  return events.map((e) => ({
+    title: String(e.title ?? ""),
+    startTime: String(e.start_time ?? ""),
+    endTime: String(e.end_time ?? e.start_time ?? ""),
+    isAllDay: e.is_all_day === true,
+    attendeesCount: Number(e.attendees_count ?? 0) || 0,
+  }));
 }
 
 function hasRealMeeting(events: DayTypeEventLite[]): boolean {
   return events.some((e) => {
     if (e.is_all_day === true) return false;
-    if (isPtoOrHolidayTitle(e.title ?? "")) return false;
     if (isTravelTitle(e.title ?? "")) return false;
     // Attendee count is a soft signal; the presence of a non-all-day, non-PTO
     // event is enough to count as "a meeting slipped in".
@@ -117,7 +127,6 @@ function realMeetingMinutes(events: DayTypeEventLite[]): number {
   let mins = 0;
   for (const e of events) {
     if (e.is_all_day === true) continue;
-    if (isPtoOrHolidayTitle(e.title ?? "")) continue;
     if (isTravelTitle(e.title ?? "")) continue;
     const start = Date.parse(e.start_time);
     const end = Date.parse(e.end_time);
@@ -125,12 +134,6 @@ function realMeetingMinutes(events: DayTypeEventLite[]): number {
     mins += Math.round((end - start) / 60000);
   }
   return mins;
-}
-
-function isPtoAllDayTomorrow(events: DayTypeEventLite[]): boolean {
-  return events.some(
-    (e) => e.is_all_day === true && isPtoOrHolidayTitle(e.title ?? ""),
-  );
 }
 
 function isTravelActive(
@@ -149,6 +152,9 @@ function isTravelActive(
  */
 export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   const local = localParts(input.effectiveTimezone, input.now);
+  const localDayDate = new Date(`${local.localDate}T12:00:00Z`);
+  const tomorrowLocalDayDate = new Date(`${local.localDate}T12:00:00Z`);
+  tomorrowLocalDayDate.setUTCDate(tomorrowLocalDayDate.getUTCDate() + 1);
   const weekdayShort = new Intl.DateTimeFormat("en-US", {
     timeZone: input.effectiveTimezone,
     weekday: "short",
@@ -166,10 +172,25 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     : 6;
 
   const travelDay = isTravelActive(input.travel, input.todayEvents);
-  const ptoToday = isPtoAllDayToday(input.todayEvents);
+  const todayAvailability = classifyAvailability({
+    now: localDayDate,
+    userHomeCountry: input.userHomeCountry ?? null,
+    userCurrentCountry: input.userCurrentCountry ?? null,
+    explicitPto: input.explicitPto === true,
+    events: toAvailabilityEvents(input.todayEvents),
+  });
+  const tomorrowAvailability = classifyDay({
+    now: tomorrowLocalDayDate,
+    userHomeCountry: input.userHomeCountry ?? null,
+    userCurrentCountry: input.userCurrentCountry ?? null,
+    events: toAvailabilityEvents(input.tomorrowEvents),
+  });
+  const ptoToday =
+    todayAvailability.state === "PTO" || todayAvailability.state === "PUBLIC_HOLIDAY";
   const meetingToday = hasRealMeeting(input.todayEvents);
   const meetingMinutesToday = realMeetingMinutes(input.todayEvents);
-  const ptoTomorrow = isPtoAllDayTomorrow(input.tomorrowEvents);
+  const ptoTomorrow =
+    tomorrowAvailability.state === "PTO" || tomorrowAvailability.state === "PUBLIC_HOLIDAY";
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
   // Week-ahead evaluator owns the "last day of block" decisions. We only need
@@ -181,11 +202,8 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     travelDay,
     ptoTodayAllDay: ptoToday,
     ptoTomorrowAllDay: ptoTomorrow,
-    holidayAllDayEventToday: ptoToday, // canonical detector treats them together
-    tomorrowIsWorkday:
-      // If tomorrow is Sat/Sun and no explicit workday signal, treat as off.
-      // Otherwise, workday unless PTO/holiday covers it.
-      !(dayOfWeek === 5 || dayOfWeek === 6) && !ptoTomorrow,
+    holidayAllDayEventToday: todayAvailability.state === "PUBLIC_HOLIDAY",
+    tomorrowIsWorkday: !tomorrowAvailability.isOffDay,
     consecutiveOffDaysBefore: input.consecutiveOffDaysBefore ?? 0,
   });
 
@@ -231,7 +249,7 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
         dayType: "pto_with_meeting",
         allowedWindows: new Set<TimeWindow>(["morning", "afternoon"]),
         weekAheadReason: null,
-        evidence: ["pto_all_day", "meeting_slipped_in"],
+        evidence: [`availability=${todayAvailability.state.toLowerCase()}`, "meeting_slipped_in"],
       };
     }
     return {
@@ -240,7 +258,7 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
       // afternoon/evening notifications". Orchestrator centralises that here.
       allowedWindows: new Set<TimeWindow>(["morning"]),
       weekAheadReason: null,
-      evidence: ["pto_all_day"],
+      evidence: [`availability=${todayAvailability.state.toLowerCase()}`],
     };
   }
 
