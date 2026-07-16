@@ -1090,7 +1090,8 @@ async function buildNudgeContext(
   })();
   const { data: lookbackEventsRaw } = await supabase
     .from('primary_calendar_events')
-    .select('title, start_time, end_time, is_organizer, attendees_count, is_all_day, calendar_summary')
+    // calendar_summary column does not exist on calendar_events / views; consumers tolerate null.
+    .select('title, start_time, end_time, is_organizer, attendees_count, is_all_day')
     .eq('user_id', userId)
     .gte('start_time', `${lookbackStartStr}T00:00:00`)
     .lte('start_time', `${todayStr}T00:00:00`);
