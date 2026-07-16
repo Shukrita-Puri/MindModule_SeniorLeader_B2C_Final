@@ -18,6 +18,34 @@ public class LocationBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "currentAuthorizationString", returnType: CAPPluginReturnPromise),
     ]
 
+    private var timezoneObserver: NSObjectProtocol?
+
+    override public func load() {
+        super.load()
+        if timezoneObserver == nil {
+            timezoneObserver = NotificationCenter.default.addObserver(
+                forName: .mindModuleTimezoneChanged,
+                object: nil,
+                queue: .main
+            ) { [weak self] note in
+                guard let self = self else { return }
+                let timezone = note.userInfo?["timezone"] as? String ?? TimeZone.current.identifier
+                let at = note.userInfo?["at"] as? Double ?? (Date().timeIntervalSince1970 * 1000)
+                NSLog("[LocationBridgePlugin] Timezone changed — notifying JS (\(timezone))")
+                self.notifyListeners("timezoneChanged", data: [
+                    "timezone": timezone,
+                    "at": at
+                ])
+            }
+        }
+    }
+
+    deinit {
+        if let observer = timezoneObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
     @objc func startIfAuthorized(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             LocationBridge.shared.startIfAuthorized()

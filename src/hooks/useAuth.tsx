@@ -511,6 +511,14 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!authResolved || !effectiveAuthenticated) return;
     let cancelled = false;
 
+    type NativeListenerHandle = { remove: () => Promise<void> };
+    type LocationBridgeListenerPlugin = {
+      addListener(
+        eventName: 'timezoneChanged',
+        listener: (data: { timezone?: string; at?: number }) => void,
+      ): Promise<NativeListenerHandle>;
+    };
+
     const maybeRefreshTimezone = async () => {
       if (cancelled || timezoneSyncInFlightRef.current || syncingRef.current) return;
       const snapshot = getCurrentTimezoneSnapshot();
@@ -539,15 +547,23 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     document.addEventListener('visibilitychange', onVisibilityOrFocus);
 
     let appListener: { remove: () => void } | null = null;
+    let nativeTimezoneListener: NativeListenerHandle | null = null;
     (async () => {
       try {
         const { App } = await import('@capacitor/app');
+        const { Capacitor, registerPlugin } = await import('@capacitor/core');
         if (cancelled) return;
         appListener = await App.addListener('appStateChange', (state) => {
           if (state.isActive) {
             void maybeRefreshTimezone();
           }
         });
+        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+          const LocationBridge = registerPlugin<LocationBridgeListenerPlugin>('LocationBridge');
+          nativeTimezoneListener = await LocationBridge.addListener('timezoneChanged', () => {
+            void maybeRefreshTimezone();
+          });
+        }
       } catch (err) {
         console.warn('[useAuth] Native timezone listener setup skipped:', err);
       }
@@ -564,6 +580,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       document.removeEventListener('visibilitychange', onVisibilityOrFocus);
       window.clearInterval(intervalId);
       appListener?.remove();
+      void nativeTimezoneListener?.remove();
     };
   }, [authResolved, effectiveAuthenticated]);
 

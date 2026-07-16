@@ -24,6 +24,10 @@ import Foundation
 import CoreLocation
 import UIKit
 
+extension Notification.Name {
+    static let mindModuleTimezoneChanged = Notification.Name("MindModuleTimezoneChanged")
+}
+
 @objc public class LocationBridge: NSObject, CLLocationManagerDelegate {
 
     public static let shared = LocationBridge()
@@ -130,6 +134,14 @@ import UIKit
     @objc private func onTimezoneChanged() {
         let tz = TimeZone.current.identifier
         NSLog("[LocationBridge] System timezone changed → \(tz)")
+        NotificationCenter.default.post(
+            name: .mindModuleTimezoneChanged,
+            object: nil,
+            userInfo: [
+                "timezone": tz,
+                "at": Date().timeIntervalSince1970 * 1000
+            ]
+        )
         // Force-send the latest known location (if any) with the new TZ.
         // If we don't have one yet, send a TZ-only ping so the server can
         // still update travel_state.last_known_timezone.
