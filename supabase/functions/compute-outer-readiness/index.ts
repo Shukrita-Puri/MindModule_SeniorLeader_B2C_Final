@@ -90,6 +90,10 @@ import {
   type PillTier as PqPillTier,
   type CoherenceAdjustment,
 } from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
+import {
+  derivePills,
+  finalizePills,
+} from "../_shared/signal-pills/derive-pills.ts";
 
 // CORS headers are now per-request via getCorsHeaders(req) so the origin
 // allowlist can be enforced. See _shared/cors.ts.
@@ -5869,376 +5873,51 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         const typicalLoadForDow: 'low' | 'medium' | 'high' | null =
           composedPatternSignals?.dow_historical_pattern?.typical_load_for_dow ?? null;
 
-        // ── Build structured signal_pills payload (server-side mirror of the
-        // client pillar engine in DecisionReadinessBrief.tsx). We persist the
-        // resolved tier ('green' | 'amber' | 'red' | 'neutral') for each of the
-        // three executive pills along with the contributing raw signals, so
-        // Insights/correlation jobs and the past-brief side panel can read a
-        // single canonical record without re-deriving anything.
-        // Logic intentionally uses the same veto thresholds as the client.
-        type PillTier = 'green' | 'amber' | 'red' | 'neutral';
-        const stateRank: Record<PillTier, number> = { neutral: 0, green: 1, amber: 2, red: 3 };
-        const stateMaxLocal = (a: PillTier, b: PillTier): PillTier =>
-          stateRank[a] >= stateRank[b] ? a : b;
-
-        // ── Inline supplyDemandGap (mirror of the response-level closure) ──
-        // Caps Cognitive GREEN → AMBER per Signal Pills v3.
-        const supplyDemandGapPill = (() => {
-          const demandHigh = calendarLoad === 'high' || calendarPressure === 'high';
-          const bodyDown =
-            (typeof (wearableContext as any)?.hrvDeviation === 'number' && (wearableContext as any).hrvDeviation <= -10)
-            || !!wearableContext?.poorSleep
-            || !!wearableContext?.hrvElevated;
-          return demandHigh && bodyDown;
-        })();
-        const regulationRiskPill =
-          (regulationLevel != null && regulationLevel <= 2)
-          || (pressureLevel != null && pressureLevel >= 4);
-
-        // Calendar fragmentation score kept for contributor surfacing.
-        const fragmentationScore = calendarResult.fragmentationScore ?? 0;
-
-        // ── Signal Pills v3: Cognitive (HRV 40% + Sleep 40% + Clarity 20%) ──
-        // Tier composition uses any-worst-wins on the three contributing
-        // bands. SUPPLY_DEMAND_GAP caps a final GREEN → AMBER.
-        const cogTiers: PillTier[] = [];
-        if (hrvValue != null) {
-          if (hrvDeviation != null) {
-            cogTiers.push(hrvDeviation <= -20 ? 'red' : hrvDeviation < -8 ? 'amber' : 'green');
-          } else {
-            cogTiers.push(hrvValue < 20 ? 'red' : hrvValue < 40 ? 'amber' : 'green');
-          }
-        }
-        if (sleepDuration != null || sleepScoreVal != null) {
-          if (sleepDuration != null && sleepDuration < 360) cogTiers.push('red');
-          else if (sleepScoreVal != null && sleepScoreVal < 60) cogTiers.push('red');
-          else if (sleepScoreVal != null && sleepScoreVal < 70) cogTiers.push('amber');
-          else if (sleepDuration != null && sleepDuration < 420) cogTiers.push('amber');
-          else cogTiers.push('green');
-        }
-        if (clarityLevel != null) {
-          cogTiers.push(clarityLevel <= 2 ? 'red' : clarityLevel === 3 ? 'amber' : 'green');
-        }
-        let cognitiveTier: PillTier = cogTiers.length === 0
-          ? 'neutral'
-          : cogTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
-        // Divergence cap: GREEN → AMBER when supply ≠ demand.
-        if (cognitiveTier === 'green' && supplyDemandGapPill) cognitiveTier = 'amber';
-
-        // ── Signal Pills v3: Physiology (RHR + HR-elevated proxy ONLY) ──
-        // Sleep moved to Cognitive — lack of sleep impacts the mind more
-        // than the body for wearable-equipped CEOs. RHR / HR remain.
-        const physTiers: PillTier[] = [];
-        if (rhrValue != null) {
-          if (rhrDeviation != null) {
-            physTiers.push(rhrDeviation > 20 ? 'red' : rhrDeviation > 10 ? 'amber' : 'green');
-          } else {
-            physTiers.push(rhrValue > 90 ? 'red' : rhrValue > 80 ? 'amber' : 'green');
-          }
-        }
-        if (hrValue != null && hrDeviation != null) {
-          physTiers.push(hrDeviation > 20 ? 'red' : hrDeviation > 10 ? 'amber' : 'green');
-        } else if (rhrDeviation != null) {
-          physTiers.push(rhrDeviation > 25 ? 'red' : rhrDeviation > 15 ? 'amber' : 'green');
-        }
-        // RHR 3-day trend: rising = sympathetic load tell.
-        if (rhr3dTrend === 'rising') physTiers.push('amber');
-        else if (rhr3dTrend === 'declining') physTiers.push('green');
-        if (sustainedDeficitFlag) physTiers.push('red');
-        const physicalTier: PillTier = physTiers.length === 0
-          ? 'neutral'
-          : physTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
-
-        // MRS v2 §3.5 — Resilience Capacity (wearable-pattern only).
-        // Coach feature is suppressed; check-in fields are gone. Inputs are
-        // strictly:
-        //   1. consecutive_high_load_days  (calendar pattern)
-        //   2. sustained_deficit_flag      (HRV under baseline 2+ days)
-        //   3. hrv_low_high_demand_cooccurrence_7d (HRV × calendar correlation)
-        //   4. dow_historical_pattern.typical_load_for_dow (framing context)
-        //   5. profiles.protection_goals    (framing only — bias to amber on
-        //                                    demand-heavy days, never red)
-        // Any confidence_level / energy_balance / coach_pattern signal is
-        // intentionally NOT consumed here.
-        // ── Signal Pills v3: Resilience (sleepEfficiency anchor + Mind overlay) ──
-        // State-1 wearable anchor lets this pill render even with no check-in.
-        // State-2 overlay refines once emotion/regulation/pressure arrive.
-        const resTiers: PillTier[] = [];
-        const sleepEffPill = wearableContext?.sleepEfficiency ?? null;
-        if (sleepEffPill != null) {
-          resTiers.push(sleepEffPill >= 85 ? 'green' : sleepEffPill >= 70 ? 'amber' : 'red');
-        }
-        // Check-in overlay (State 2).
-        if (emotionLevel != null) {
-          resTiers.push(emotionLevel <= 2 ? 'amber' : 'green');
-        }
-        if (regulationLevel != null) {
-          resTiers.push(regulationLevel <= 2 ? 'amber' : 'green');
-        }
-        if (pressureLevel != null) {
-          // Inverted: high pressure_level = under load.
-          resTiers.push(pressureLevel >= 4 ? 'amber' : 'green');
-        }
-        // Historical capacity erosion (kept as a calendar-pattern signal).
-        if (sustainedDeficitFlag) resTiers.push('red');
-        if (cooccurrence7d.cooccurrence_count >= 3) resTiers.push('red');
-        else if (cooccurrence7d.cooccurrence_count === 2) resTiers.push('amber');
-        const _hasStakesEarly = (calendarResult.highStakesEvents?.length ?? 0) > 0;
-        if (protectionGoals.length > 0 && (calendarPressure === 'high' || _hasStakesEarly)) {
-          resTiers.push('amber');
-        }
-        let resilienceTier: PillTier = resTiers.length === 0
-          ? 'neutral'
-          : resTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
-        // REGULATION_RISK floor — never below AMBER when regulation/pressure flag fires.
-        if (regulationRiskPill && resilienceTier === 'green') resilienceTier = 'amber';
-
-        // Human-readable short label per pill+tier. Mirrors the executive
-        // vocabulary used across the dashboard (Active Calm; no wellness tropes).
-        // These are stored alongside the tier so Insights / past-brief panels
-        // can render a single canonical phrase without re-deriving copy.
-        const PILL_TIER_LABELS: Record<'decision_readiness' | 'physical_reserves' | 'resilience_capacity', Record<PillTier, string>> = {
-          decision_readiness: {
-            green: 'Mind Sharp',
-            amber: 'Mind Mixed',
-            red: 'Mind Foggy',
-            neutral: 'Mind Unread',
-          },
-          physical_reserves: {
-            green: 'Body Steady',
-            amber: 'Body Strained',
-            red: 'Body Depleted',
-            neutral: 'Body Unread',
-          },
-          resilience_capacity: {
-            green: 'Reserve Strong',
-            amber: 'Reserve Thin',
-            red: 'Reserve Spent',
-            neutral: 'Reserve Unread',
-          },
-        };
-
-        // MRS v2 §3.6 — cold-start labelling. All three pills depend (directly
-        // or via demand×physiology cross-signals) on the wearable baseline, so
-        // the same `wearableDaysConnected` window gates every label.
-        const pillColdStart = coldStartLabel(wearableDaysConnected);
-
-        const signalPillsPayload = [
-          {
-            key: 'decision_readiness',
-            label: 'Decision Readiness',
-            tier: cognitiveTier,
-            tierLabel: PILL_TIER_LABELS.decision_readiness[cognitiveTier],
-            coldStartLabel: pillColdStart,
-            contributors: {
-              // MRS v3 — Decision Readiness owns HRV, sleep duration, sleep score, clarity.
-              // Calendar load, fragmentation, gap counts intentionally excluded
-              // (Resilience Capacity owns calendar/pressure framing).
-              hrvValue,
-              sleepDuration,
-              sleepScore: sleepScoreVal,
-              // Sprint B — persist raw clarity so the tooltip can render the
-              // check-in contributor row even when the qualifier pipeline
-              // hasn't attached a Δ3d/vsDow enrichment yet.
-              clarityLevel,
-            },
-          },
-          {
-            key: 'physical_reserves',
-            label: 'Physical Reserves',
-            tier: physicalTier,
-            tierLabel: PILL_TIER_LABELS.physical_reserves[physicalTier],
-            coldStartLabel: pillColdStart,
-            contributors: {
-              // MRS v3 — Physical Reserves owns RHR, HR, and the RHR 3-day trend.
-              // Sleep belongs to Decision Readiness; sustained deficit belongs
-              // to Resilience Capacity (deferred consequence, not raw reserve).
-              // Display contract (W1): sleep is intentionally NOT surfaced here
-              // — it lives under Decision Readiness only. Physical Reserves
-              // contributors are strictly RHR + HR.
-              rhrValue,
-              hrValue,
-            },
-          },
-          {
-            key: 'resilience_capacity',
-            label: 'Resilience Capacity',
-            tier: resilienceTier,
-            tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
-            coldStartLabel: pillColdStart,
-            contributors: {
-              // MRS v3 — Resilience Capacity owns deferred-consequence signals,
-              // emotion/regulation/pressure (attached as qualifiers below),
-              // sleep efficiency, sustained deficit, HRV×high-demand co-occurrence,
-              // and the protection-goals framing. Raw calendarLoad/calendarPressure
-              // are intentionally NOT surfaced as contributors — they live in
-              // the Brief body, not as standalone pill rows.
-              // Sprint B — persist raw check-in dims + sleepEfficiency so the
-              // tooltip can honestly render the contributor rows without
-              // waiting on the qualifier enrichment step.
-              sleepEfficiency: sleepEffPill,
-              emotionLevel,
-              regulationLevel,
-              pressureLevel,
-              sustainedDeficit: sustainedDeficitFlag,
-              hrvHighDemandCooccurrence7d: cooccurrence7d,
-              protectionGoalsCount: protectionGoals.length,
-            },
-          },
-        ];
-
-        // ── MRS V4 — per-pill source-of-truth metadata ─────────────────
-        // Annotate every pill with the contract the frontend uses to decide
-        // whether the pill is score-bearing, what data sources informed it,
-        // and why (when applicable) it has been suppressed. When the global
-        // wearable-freshness gate is OFF, no pill can be score-bearing and
-        // every tier is force-collapsed to 'neutral' so a check-in alone can
-        // never produce a refined-coloured pill.
-        const decisionSources: Array<'wearable' | 'checkin' | 'pattern'> = [];
-        if (hrvValue != null || sleepDuration != null || sleepScoreVal != null) decisionSources.push('wearable');
-        if (clarityLevel != null) decisionSources.push('checkin');
-        const physicalSources: Array<'wearable' | 'checkin' | 'pattern'> = [];
-        if (rhrValue != null || hrValue != null) physicalSources.push('wearable');
-        if (rhr3dTrend === 'rising' || rhr3dTrend === 'declining' || sustainedDeficitFlag) physicalSources.push('pattern');
-        const resilienceSources: Array<'wearable' | 'checkin' | 'pattern'> = [];
-        if (sleepEffPill != null) resilienceSources.push('wearable');
-        if (emotionLevel != null || regulationLevel != null || pressureLevel != null) resilienceSources.push('checkin');
-        if (sustainedDeficitFlag || (cooccurrence7d?.cooccurrence_count ?? 0) > 0) resilienceSources.push('pattern');
-        const pillSourceMap: Record<string, Array<'wearable' | 'checkin' | 'pattern'>> = {
-          decision_readiness: decisionSources,
-          physical_reserves: physicalSources,
-          resilience_capacity: resilienceSources,
-        };
-        const PILL_NEUTRAL_LABELS: Record<string, string> = {
-          decision_readiness: 'Mind Unread',
-          physical_reserves: 'Body Unread',
-          resilience_capacity: 'Reserve Unread',
-        };
-        // Per-pill annotation + V4 invariant. Frontend MUST treat these
-        // fields as the source of truth — see the assertion block below
-        // for the rules this normalisation guarantees.
-        const DETAIL_AWAITING =
-          'Sync your wearable and then complete a quick check-in to sharpen the picture.';
-        const DETAIL_EARLY_READ =
-          'Wearable read only. Complete a check-in to refine this pill.';
-        for (const p of signalPillsPayload) {
-          const sources = pillSourceMap[p.key] ?? [];
-          const hasWearableSrc = sources.includes('wearable') || sources.includes('pattern');
-          const hasCheckinSrc = sources.includes('checkin');
-          const contributedByCheckIn =
-            wearableFreshForGate && checkInFreshForGate && hasCheckinSrc;
-          let isScoreBearing =
-            wearableFreshForGate && (hasWearableSrc || (hasCheckinSrc && checkInFreshForGate));
-          let hiddenReason: 'no_fresh_wearable' | 'no_checkin' | null = null;
-          let detail: string | null = null;
-          // V4 gate: pills are only score-bearing when wearable is fresh.
-          // A check-in alone must NEVER produce a coloured / refined pill.
-          if (!wearableFreshForGate) {
-            hiddenReason = 'no_fresh_wearable';
-            isScoreBearing = false;
-            (p as any).tier = 'neutral';
-            (p as any).tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
-            detail = DETAIL_AWAITING;
-          } else if (!hasWearableSrc && !hasCheckinSrc) {
-            hiddenReason = 'no_fresh_wearable';
-            isScoreBearing = false;
-            (p as any).tier = 'neutral';
-            (p as any).tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
-            detail = DETAIL_AWAITING;
-          } else if (!checkInFreshForGate && !hasWearableSrc && hasCheckinSrc) {
-            // Pill only has check-in inputs but no check-in today.
-            hiddenReason = 'no_checkin';
-            isScoreBearing = false;
-            (p as any).tier = 'neutral';
-            (p as any).tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
-            detail = DETAIL_EARLY_READ;
-          } else if (!checkInFreshForGate) {
-            detail = DETAIL_EARLY_READ;
-          }
-          // Freshness enum (spec): fresh | stale | missing | non_score_bearing
-          let freshnessStr: 'fresh' | 'stale' | 'missing' | 'non_score_bearing';
-          if (isScoreBearing) {
-            freshnessStr = 'fresh';
-          } else if (!hasWearable) {
-            freshnessStr = 'missing';
-          } else if (!wearableFreshForGate) {
-            freshnessStr = 'stale';
-          } else {
-            freshnessStr = 'non_score_bearing';
-          }
-          (p as any).sourceTypes = sources;
-          (p as any).isScoreBearing = isScoreBearing;
-          (p as any).freshness = freshnessStr;
-          (p as any).hiddenReason = hiddenReason;
-          (p as any).detail = detail;
-          (p as any).contributedByCheckIn = contributedByCheckIn;
-        }
-
-        // ── V4 invariant assertion (defensive normalisation) ──────────
-        // Guarantees the rules described in the QA spec hold regardless
-        // of future contributor additions. Any violation is force-corrected
-        // and warned (dev-only); production never emits broken pills.
-        for (const p of signalPillsPayload as Array<any>) {
-          if (!wearableFreshForGate) {
-            if (p.isScoreBearing || p.tier !== 'neutral' || p.contributedByCheckIn) {
-              console.warn('[signal-pills-v4] invariant: forcing neutral/non-score-bearing for', p.key);
-              p.isScoreBearing = false;
-              p.contributedByCheckIn = false;
-              p.tier = 'neutral';
-              p.tierLabel = PILL_NEUTRAL_LABELS[p.key] ?? p.tierLabel;
-              p.hiddenReason = p.hiddenReason ?? 'no_fresh_wearable';
-              p.freshness = hasWearable ? 'stale' : 'missing';
-            }
-          } else if (!checkInFreshForGate && p.contributedByCheckIn) {
-            console.warn('[signal-pills-v4] invariant: clearing contributedByCheckIn for', p.key);
-            p.contributedByCheckIn = false;
-          }
-        }
-
-        // ── Physical Reserves displayable-contributor gate ──────────────
-        // The visible tier label ("Body Steady" / "Body Strained" / etc.)
-        // must reflect the same evidence the expanded panel can render.
-        // Displayable contributors for physical_reserves are strictly:
-        //   sleepDuration, sleepScore, rhrValue, hrValue.
-        // If none of these are present, no matter what the derived tier is
-        // (RHR-deviation-only path, RHR 3-day trend, sustained-deficit
-        // flag, or a legacy signal_pills row rehydrated from an older
-        // schema), force the pill to neutral so the header cannot claim
-        // "Body Steady" while the tooltip lists only "No data available"
-        // rows.
-        for (const p of signalPillsPayload as Array<any>) {
-          if (p.key !== 'physical_reserves') continue;
-          const c = (p.contributors ?? {}) as Record<string, unknown>;
-          const isNum = (v: unknown): v is number =>
-            typeof v === 'number' && Number.isFinite(v);
-          // W1: Physical Reserves owns RHR + HR only. Sleep fields are
-          // no longer emitted for this pill — see contributors block above.
-          const displayableCount =
-            (isNum(c.rhrValue) ? 1 : 0) + (isNum(c.hrValue) ? 1 : 0);
-          const suppressedKeys = Object.keys(c).filter(
-            (k) => k !== 'rhrValue' && k !== 'hrValue',
-          );
-          console.log('[signal-pills-v4][physical_reserves] displayable audit', {
-            tier: p.tier,
-            tierLabel: p.tierLabel,
-            contributorKeys: Object.keys(c),
-            suppressedOrLegacyKeys: suppressedKeys,
-            displayableCount,
-          });
-          if (displayableCount === 0 && p.tier !== 'neutral') {
-            console.warn(
-              '[signal-pills-v4][physical_reserves] forcing neutral — no displayable contributors',
-              { previousTier: p.tier, previousTierLabel: p.tierLabel },
-            );
-            p.tier = 'neutral';
-            p.tierLabel = PILL_NEUTRAL_LABELS.physical_reserves ?? 'Body Unread';
-            p.isScoreBearing = false;
-            p.contributedByCheckIn = false;
-            p.hiddenReason = p.hiddenReason ?? 'no_fresh_wearable';
-            p.detail = 'Body detail not available for this reading.';
-            p.freshness = hasWearable ? 'stale' : 'missing';
-          }
-        }
+        // ── Signal Pills — extracted derivation (Turn A1, mechanical) ──
+        // The tier math, payload construction, source/freshness metadata,
+        // V4 invariants, and Physical-Reserves displayable gate now live in
+        // `../_shared/signal-pills/derive-pills.ts`. Behaviour and thresholds
+        // are unchanged; the block below is a call site plus the DB fetch
+        // for qualifier history rows (which must remain here because it is
+        // async I/O). See `derive-pills.ts` header for the extraction notes.
+        // Turn A2 will hoist this call above Brief generation; Turn B adds
+        // AssessmentContext. Do NOT re-inline this block.
+        const _pillDerivation = derivePills({
+          hrvValue,
+          hrvDeviation,
+          sleepDuration,
+          sleepScoreVal,
+          rhrValue,
+          rhrDeviation,
+          hrValue,
+          hrDeviation,
+          sleepEfficiency: wearableContext?.sleepEfficiency ?? null,
+          wearableContextHrvDeviation:
+            typeof (wearableContext as any)?.hrvDeviation === 'number'
+              ? (wearableContext as any).hrvDeviation
+              : null,
+          wearableContextPoorSleep: !!wearableContext?.poorSleep,
+          wearableContextHrvElevated: !!wearableContext?.hrvElevated,
+          clarityLevel,
+          emotionLevel,
+          regulationLevel,
+          pressureLevel,
+          calendarLoad,
+          calendarPressure,
+          highStakesEventsCount: calendarResult.highStakesEvents?.length ?? 0,
+          rhr3dTrend,
+          sustainedDeficitFlag,
+          cooccurrence7d,
+          protectionGoals,
+          wearableFreshForGate,
+          checkInFreshForGate,
+          hasWearable,
+          wearableDaysConnected,
+        });
+        const cognitiveTier = _pillDerivation.cognitiveTier;
+        const physicalTier = _pillDerivation.physicalTier;
+        const resilienceTier = _pillDerivation.resilienceTier;
+        const signalPillsPayload = _pillDerivation.pills;
 
         // F3.1 — Hoist the base pill payload immediately so a downstream throw
         // in qualifier/coherence enrichment can no longer null the entire
@@ -6247,13 +5926,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         echoedSignalPills = signalPillsPayload;
 
         // ── Signal Pills v3: bracketed qualifiers + coherence guard ──
-        // Qualifiers are display-only enrichment (delta3d / vsDow / peakStreak
-        // for Mind dims; delta3d / vsBaselinePct for wearable). Tiers above
-        // are already final — qualifiers never re-tier.
-        // Coherence guard is dev-only: if MRS tier disagrees with pill mix
-        // we auto-correct and log a warning when APP_ENV !== 'production'.
-        let pillQualifiersPayload: ReturnType<typeof getPillQualifiers> | null = null;
-        let coherenceWarning: string | null = null;
+        // Qualifiers are display-only enrichment; coherence guard reconciles
+        // pill tiers against the outer MRS tier. Both phases are pure post-
+        // processing over history rows fetched below and delegated to
+        // `finalizePills()` in the extracted module.
         try {
           const fourteenAgo = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
           const [ciHistRes, wHistRes] = await Promise.all([
@@ -6270,81 +5946,27 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .order('summary_date', { ascending: false })
               .limit(14),
           ]);
-          pillQualifiersPayload = getPillQualifiers(
-            (ciHistRes.data || []) as PqCheckinRow[],
-            (wHistRes.data || []) as PqWearableRow[],
-            {
+
+          const _finalized = finalizePills({
+            pills: signalPillsPayload,
+            safeTier: safeTier as PqPillTier,
+            cognitiveTier,
+            physicalTier,
+            resilienceTier,
+            checkinHistory14d: (ciHistRes.data || []) as PqCheckinRow[],
+            wearableHistory14d: (wHistRes.data || []) as PqWearableRow[],
+            baselines: {
               hrv: typeof hrvBaseline === 'number' ? hrvBaseline : null,
               rhr: typeof rhrBaseline === 'number' ? rhrBaseline : null,
               sleep: typeof sleepBaseline === 'number' ? sleepBaseline : null,
-            }
-          );
+            },
+            hrv3dTrend,
+            rhr3dTrend,
+          });
 
-          const coherenceResult = assertPillCoherence(safeTier, [
-            { key: 'decision_readiness', tier: cognitiveTier as PqPillTier },
-            { key: 'physical_reserves',  tier: physicalTier  as PqPillTier },
-            { key: 'resilience_capacity', tier: resilienceTier as PqPillTier },
-          ]);
-          const { pills: coherentPills, warning } = coherenceResult;
-          echoedPillCoherence = {
-            inSync: coherenceResult.inSync,
-            adjustments: coherenceResult.adjustments,
-          };
-          if (warning) {
-            coherenceWarning = warning;
-            // Apply silent auto-correction in all envs; surface the warning
-            // only on non-prod so QA can spot drift before it ships.
-            for (const cp of coherentPills) {
-              const p = signalPillsPayload.find((x: any) => x.key === cp.key);
-              if (p && p.tier !== cp.tier) {
-                p.tier = cp.tier;
-                p.tierLabel = (PILL_TIER_LABELS as any)[cp.key]?.[cp.tier] ?? p.tierLabel;
-              }
-            }
-            if ((Deno.env.get('APP_ENV') ?? 'development') !== 'production') {
-              console.warn('[signal-pills-v3]', warning);
-            }
-          }
-
-          // Attach qualifiers to each pill (additive, optional).
-          const q = pillQualifiersPayload;
-          for (const p of signalPillsPayload) {
-            if (p.key === 'decision_readiness') {
-              // Fold the deterministic 3-day trend % into the HRV qualifier so
-              // the client can render it inline ("(Declining 3-day trend by -29%)")
-              // instead of exposing a raw hrv_3day_trend contributor row.
-              (p as any).qualifiers = {
-                hrv: { ...q.hrv, trend3d: hrv3dTrend ?? null },
-                sleep: q.sleep,
-                clarity: q.clarity,
-              };
-            } else if (p.key === 'physical_reserves') {
-              (p as any).qualifiers = {
-                rhr: { ...q.rhr, trend3d: rhr3dTrend ?? null },
-              };
-            } else if (p.key === 'resilience_capacity') {
-              // Surface sleep_efficiency both as a contributor (so the row is
-              // visible per spec) AND as a qualifier carrier for its delta7d
-              // pattern. Latest value comes from the most recent wearable row.
-              const latestSleepEff = (wHistRes.data?.[0] as any)?.sleep_efficiency;
-              if (typeof latestSleepEff === 'number') {
-                (p as any).contributors.sleepEfficiency = latestSleepEff;
-              }
-              (p as any).qualifiers = {
-                emotion: q.emotion,
-                regulation: q.regulation,
-                pressure: q.pressure,
-                sleep_efficiency: q.sleep_efficiency,
-              };
-            }
-          }
-
-          // Hoist for response echo (additive, optional fields).
-          // Note: echoedSignalPills is already set above (F3.1); the in-place
-          // mutations above (tier auto-correction, qualifier attachment) are
-          // visible because `signalPillsPayload` is the same reference.
-          echoedPillQualifiers = pillQualifiersPayload;
-          echoedCoherenceWarning = coherenceWarning;
+          echoedPillCoherence = _finalized.coherence;
+          echoedPillQualifiers = _finalized.qualifiers;
+          echoedCoherenceWarning = _finalized.coherenceWarning;
         } catch (qErr) {
           // F3.2 — Promote to error so the failure surfaces in edge logs and
           // we can correlate "no qualifiers" with "no enrichment ran". The
