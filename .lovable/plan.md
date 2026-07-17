@@ -1,27 +1,24 @@
-## Onboarding app-intro layout fix
+## Fix: onboarding hero mockup is cropped
 
-### Current state
-`src/pages/onboarding/stages/StageUSPIntro.tsx` renders the onboarding carousel with:
-- A fixed-height hero at `h-[55vh]`.
-- The remaining title/body/pagination/CTA squeezed into the leftover `~45vh`, making the text feel cramped on smaller screens.
-- The engraved phone-mockup images are positioned with `object-position: center 22%`, but the bottom text area still occupies less than half the viewport.
+### Diagnosis
+`StageUSPIntro.tsx` renders the phone mockup with `object-cover` inside a `42vh` hero. Because the generated images are tall portraits (phone + card content), `object-cover` scales them up to fill the width and crops the top/bottom — which is why the Brief/Plan card content is hidden. `objectPosition: "center 6%"` only shifts the crop, it doesn't reveal the hidden pixels.
 
-### Goal
-1. Move the hero images higher within the hero container.
-2. Give the bottom content block (title, body, pagination, CTA) a full half of the screen instead of the current ~quarter feel.
-3. Apply the fix consistently to the first two slides (the phone-mockup Brief / Plan visuals) and keep the layout consistent across all four slides.
+### Change (slides 1 & 2 only, presentation-only)
+In `src/pages/onboarding/stages/StageUSPIntro.tsx`:
 
-### Proposed changes
-1. **Reduce hero height** from `55vh` to `48vh` so the bottom block naturally sits at ~50% of the viewport.
-2. **Anchor the hero image higher** for the phone-mockup slides by changing `object-position` from `center 22%` to `top center` (or `center 10%` if `top` crops the phone bezel). This raises the Brief / Plan card content into clear view without adding a blur overlay.
-3. **Keep the bottom block from being compressed** by leaving the title/body area as `flex-1` and ensuring pagination + footer use their existing `shrink-0` classes.
-4. **Preserve the existing carousel behavior** (back-button absorption, slide state, CTA routing) and do not change slide copy or assets.
+1. Increase hero height from `h-[42vh]` to `h-[48vh]` so the mockup has vertical room without squeezing the bottom text block (bottom half still holds title + body + dots + CTA comfortably).
+2. For slides 1 & 2 (the phone mockups), switch the image to `object-contain` with `object-position: top`, so the entire phone — including the Brief score / Plan priority card — is visible, Granola-style, peeking up from the bottom of the hero.
+3. Slides 3 & 4 (sunrise engraving) keep `object-cover` / `center` — they're landscape and already display correctly.
 
-### Verification
-- Load `/onboarding/app-intro` in the mobile preview.
-- Confirm on slide 1 that the phone mockup and “Performance Readiness Brief” text are visible in the top half.
-- Confirm that “Stay Mentally Ahead”, the body copy, pagination dots, and the Continue button occupy the full bottom half without feeling squeezed.
-- Swipe/click to slide 2 and confirm the same proportions for the Plan mockup.
+### Technical detail
+```tsx
+className="absolute inset-0 w-full h-full"
+style={{
+  filter: "grayscale(1) contrast(1.05)",
+  objectFit: idx < 2 ? "contain" : "cover",
+  objectPosition: idx < 2 ? "center top" : "center",
+}}
+```
+And hero wrapper: `h-[48vh]`.
 
-### Files to change
-- `src/pages/onboarding/stages/StageUSPIntro.tsx` only.
+No image regeneration, no logic changes, no other files touched.
