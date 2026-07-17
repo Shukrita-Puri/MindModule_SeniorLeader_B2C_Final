@@ -14,6 +14,291 @@ export interface ValidationResult {
   reason?: string;
 }
 
+// ---------------------------------------------------------------------------
+// W3: Shared pill-context type + canonical divergence phrases.
+//
+// The Brief pipeline builds the final signal_pills payload AFTER the LLM
+// response is validated (compute-outer-readiness/index.ts §"Build structured
+// signal_pills payload"). To keep this validator usable at every entry point
+// (pre-LLM optimistic, LLM primary, retry, deterministic fallback, and the
+// persistence-time coherence recheck), it takes an EXPLICIT pillContext
+// argument rather than reading it from a global. Callers pass whichever
+// snapshot is authoritative for their call site.
+//
+// `divergenceMarkers` covers the phrasings a human coach would use to make
+// the check-in-vs-objective gap explicit ("despite", "at odds with", "your
+// check-in reads … but the wearable …"). If a body contains one of these
+// phrases, we accept a pill/felt-state contradiction as INTENTIONAL
+// divergence framing. Otherwise we reject.
+// ---------------------------------------------------------------------------
+
+export type PillTier = "green" | "amber" | "red" | "neutral";
+
+export interface PillContext {
+  decisionReadiness: PillTier;
+  physicalReserves: PillTier;
+  resilienceCapacity?: PillTier;
+  /**
+   * Structural divergence descriptor. When present, the pill validator
+   * accepts phrasings that would otherwise be flagged as contradicting the
+   * pill tier — because the copy is intentionally describing a real gap
+   * between self-reported felt state and the objective evidence.
+   */
+  divergence?: {
+    exists: boolean;
+    dimension?: "decision_readiness" | "physical_reserves" | "resilience_capacity";
+    checkinDirection?: "positive" | "negative";
+    objectiveDirection?: "positive" | "negative";
+  } | null;
+}
+
+export interface ExtendedValidateOptions {
+  /**
+   * The actual MRS presented in the header. When set, the score-restatement
+   * validator rejects any numeric restatement of this value (or a nearby
+   * one) inside the body. Leave `null` on entry points where the header
+   * score is not yet finalized — the phrasing-only patterns are still
+   * caught by DEFAULT_SCORE_RESTATEMENT_PATTERNS.
+   */
+  mrsScore?: number | null;
+  pillContext?: PillContext | null;
+}
+
+// ---------------------------------------------------------------------------
+// Score-restatement validator (§3–§4 of the W3 spec).
+//
+// The MRS is a header-owned artefact. The Brief body must NEVER restate it
+// numerically, whether by echoing the exact score, a nearby integer, a
+// typical-DOW score, or a conversational phrasing like "the score's at 70".
+//
+// We must NOT reject legitimate numeric evidence: HRV/RHR readings, sleep
+// scores/durations, percentages, times of day, meeting counts. Those are
+// always tied to a unit or a clock format.
+//
+// Approach: identify "readiness-score-shaped" phrases first (score / MRS /
+// readiness + a copular verb + a two-digit number OR a "N/100"/"N out of
+// 100" tail). Then reject.  For the pure-integer restatement of the actual
+// MRS, only reject when the number appears in a context that is NOT already
+// consumed by a whitelist (HRV Xms, X bpm, X%, HH:mm, sleep score X labels,
+// N calls/meetings). This second layer only runs when `mrsScore` is
+// provided.
+// ---------------------------------------------------------------------------
+
+/**
+ * Conversational score-restatement patterns. Every regex here is
+ * intentionally anchored to a "score / readiness / MRS" head noun (or the
+ * "N/100" / "N out of 100" tail) so that raw numeric evidence — HRV, RHR,
+ * sleep score, percentages, times, counts — never trips it.
+ *
+ * Exported for test coverage and for consumers that want to check a single
+ * line without pulling in the rest of the validator surface.
+ */
+export const SCORE_RESTATEMENT_PATTERNS: RegExp[] = [
+  // "61/100", "61 / 100"
+  /\b\d{1,3}\s*\/\s*100\b/i,
+  // "61 out of 100"
+  /\b\d{1,3}\s+out\s+of\s+100\b/i,
+  // "score of 61", "readiness score of 61"
+  /\b(?:readiness\s+)?score\s+of\s+\d{1,3}\b/i,
+  // "score is 61", "score is at 61", "score sits at 61", "score stands at 61",
+  // "score reads at 61", "score came in at 61", "score's at 61". The verb
+  // group is REQUIRED (not optional) so "sleep score 61" cannot trip this.
+  /\bscore(?:'s|\s+(?:is|sits|stands|reads|came\s+in|lands))\s+(?:at\s+)?\d{1,3}\b/i,
+  // "readiness score of 61" — anchored on the readiness prefix so "sleep
+  // score of 61" does not accidentally trip.
+  /\breadiness\s+score\s+of\s+\d{1,3}\b/i,
+  // "the score's at 61" / "the score is at 61" (definite-article variant that
+  // may not match the noun-anchored form above when a modifier intrudes)
+  /\bthe\s+score(?:'s|\s+is|\s+sits|\s+stands|\s+reads)\s+(?:at\s+)?\d{1,3}\b/i,
+  // "readiness is 61", "readiness sits at 61", "readiness stands/reads at 61"
+  /\breadiness(?:\s+score)?\s+(?:is|sits|stands|reads|came\s+in|lands)\s+(?:at\s+)?\d{1,3}\b/i,
+  // "readiness score 61" (no verb — pure label + number)
+  /\breadiness\s+score\s+\d{1,3}\b/i,
+  // "you're at 61", "you are at 61" — colloquial header restatement.
+  // Bounded by end-of-clause so "you're at 3pm" and similar time refs
+  // cannot trip it (times use HH:mm or am/pm and won't match \d{1,3}
+  // in this exact position without the readiness anchor being nearby).
+  /\byou(?:'re|\s+are)\s+at\s+\d{1,3}\b(?!\s*(?:%|bpm|ms|am|pm|:))/i,
+  // "MRS is 61" / "MRS 61"
+  /\bMRS\s+(?:is\s+)?\d{1,3}\b/i,
+];
+
+// Whitelist matcher: does the number-in-question sit inside a legitimate
+// numeric evidence pattern? Used only when we consider rejecting a raw
+// integer restatement of the actual MRS.
+const LEGITIMATE_NUMBER_PATTERNS: RegExp[] = [
+  /\b\d{1,3}\s*(?:%|bpm|ms)\b/i,
+  /\b\d{1,3}(?:\.\d+)?\s*h(?:rs?|ours?)?\b/i,
+  /\b\d{1,3}\s*min(?:s|utes?)?\b/i,
+  /\b\d{1,2}:\d{2}\b/,
+  /\b\d{1,2}\s*(?:am|pm)\b/i,
+  /\b(?:sleep\s+score|hrv|rhr|heart\s+rate)\s*:?\s*\d{1,3}\b/i,
+  /\b\d{1,3}\s+(?:meeting|meetings|call|calls|day|days|hour|hours|min|mins|minute|minutes)\b/i,
+];
+
+/**
+ * Reject conversational or numeric restatements of the MRS in Brief body.
+ * `mrsScore` is optional; the phrase-form checks are always applied.
+ */
+export function validateNoScoreRestatement(
+  body: string,
+  opts: { mrsScore?: number | null } = {},
+): ValidationResult {
+  const text = body || "";
+  if (!text.trim()) return { ok: true };
+
+  for (const rx of SCORE_RESTATEMENT_PATTERNS) {
+    if (rx.test(text)) {
+      return {
+        ok: false,
+        reason: `body numerically restates readiness score (matched pattern ${rx.source})`,
+      };
+    }
+  }
+
+  // Optional strict check: reject the exact MRS integer when it appears
+  // outside a legitimate numeric-evidence phrase. Only runs when a score
+  // is supplied so we do not throttle legitimate stray integers in
+  // callers that don't yet plumb the score.
+  if (typeof opts.mrsScore === "number" && Number.isFinite(opts.mrsScore)) {
+    const score = Math.round(opts.mrsScore);
+    const bareNumberRe = new RegExp(`(?<![.\\d])\\b${score}\\b(?!\\s*(?:%|bpm|ms|am|pm|:|/\\d|hrs?|hours?|min))`, "gi");
+    for (const match of text.matchAll(bareNumberRe)) {
+      const idx = match.index ?? 0;
+      // Widen a 24-char window around the match and re-test whitelist.
+      const start = Math.max(0, idx - 24);
+      const end = Math.min(text.length, idx + (match[0]?.length ?? 0) + 24);
+      const window = text.slice(start, end);
+      const legitimate = LEGITIMATE_NUMBER_PATTERNS.some((rx) => rx.test(window));
+      if (!legitimate) {
+        return {
+          ok: false,
+          reason: `body restates the MRS numerically (bare ${score} outside legitimate numeric evidence)`,
+        };
+      }
+    }
+  }
+
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Pill/body consistency validator (§5 of the W3 spec).
+//
+// The final signal_pills payload is the source of truth for the header
+// tiers. The Brief body must not contradict those tiers unless it EXPLICITLY
+// frames the phrase as a check-in-vs-objective divergence. Divergence
+// framing is detected structurally via `pillContext.divergence.exists` (the
+// preferred path — the caller derived the gap) OR textually via a small set
+// of unambiguous connective phrases that a human coach uses to signal the
+// gap.
+// ---------------------------------------------------------------------------
+
+const DIVERGENCE_MARKERS: RegExp[] = [
+  /\bdespite\b/i,
+  /\bat\s+odds\s+with\b/i,
+  /\beven\s+though\b/i,
+  /\bcheck-?in\s+(?:says|reads|reports|shows)\b/i,
+  /\bself-?reported\b/i,
+  /\bfelt\s+state\s+(?:is|reads|says|reports)\b/i,
+  /\bbut\s+(?:the\s+)?(?:wearable|hrv|rhr|body|check-?in)\b/i,
+  /\b(?:wearable|hrv|rhr|body|check-?in)\s+(?:says|reads|reports|disagrees|diverges)\b/i,
+];
+
+function hasDivergenceMarker(body: string): boolean {
+  return DIVERGENCE_MARKERS.some((rx) => rx.test(body));
+}
+
+// Phrase groups — each keyed to a specific contradiction. These are
+// deliberately anchored to identifiable felt-state / recovery-assertion
+// verbs, not raw adjectives, so they cannot accidentally trip on generic
+// grounded prose.
+const MIND_DEPLETED_PHRASES: RegExp[] = [
+  /\b(?:mentally|mind\s+is|head\s+is)\s+(?:spent|foggy|drained|clouded|blank|off)\b/i,
+  /\b(?:cognitively|mentally)\s+(?:depleted|blunted|dull)\b/i,
+  /\bmind\s+feels\s+(?:spent|foggy|drained|clouded|blank)\b/i,
+];
+const MIND_SHARP_PHRASES: RegExp[] = [
+  /\b(?:mentally\s+)?sharp\b/i,
+  /\bmind\s+is\s+(?:clear|sharp)\b/i,
+  /\b(?:high[- ]decision[- ]power|clear[- ]headed)\b/i,
+  /\bcognitive\s+edge\b/i,
+];
+const BODY_DEPLETED_PHRASES: RegExp[] = [
+  /\bbody\s+is\s+(?:strained|depleted|drained|spent|off)\b/i,
+  /\bphysically\s+(?:depleted|drained|spent)\b/i,
+];
+const BODY_RECOVERED_PHRASES: RegExp[] = [
+  /\bbody\s+(?:is|feels|looks|reads)\s+(?:rested|recovered|ready|steady|fresh)\b/i,
+  /\bphysically\s+(?:rested|recovered|ready|fresh)\b/i,
+];
+
+function matchesAny(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((rx) => rx.test(text));
+}
+
+export function validatePillBodyConsistency(
+  body: string,
+  pill: PillContext | null | undefined,
+): ValidationResult {
+  if (!pill) return { ok: true };
+  const text = body || "";
+  if (!text.trim()) return { ok: true };
+
+  const divergenceOk = pill.divergence?.exists === true || hasDivergenceMarker(text);
+
+  // Decision Readiness rules.
+  if (pill.decisionReadiness === "green") {
+    if (matchesAny(text, MIND_DEPLETED_PHRASES) && !divergenceOk) {
+      return {
+        ok: false,
+        reason: "body describes cognitive depletion while Decision Readiness pill is Green with no divergence framing",
+      };
+    }
+  } else if (pill.decisionReadiness === "red") {
+    if (matchesAny(text, MIND_SHARP_PHRASES) && !divergenceOk) {
+      return {
+        ok: false,
+        reason: "body describes mind as sharp/clear while Decision Readiness pill is Red with no divergence framing",
+      };
+    }
+  } else if (pill.decisionReadiness === "neutral") {
+    // Unread pill: reject confident assertions in either direction.
+    if (matchesAny(text, MIND_SHARP_PHRASES) || matchesAny(text, MIND_DEPLETED_PHRASES)) {
+      return {
+        ok: false,
+        reason: "body asserts a confident cognitive state while Decision Readiness pill is Unread",
+      };
+    }
+  }
+
+  // Physical Reserves rules.
+  if (pill.physicalReserves === "green") {
+    if (matchesAny(text, BODY_DEPLETED_PHRASES) && !divergenceOk) {
+      return {
+        ok: false,
+        reason: "body describes physical depletion while Physical Reserves pill is Green with no divergence framing",
+      };
+    }
+  } else if (pill.physicalReserves === "red") {
+    if (matchesAny(text, BODY_RECOVERED_PHRASES) && !divergenceOk) {
+      return {
+        ok: false,
+        reason: "body describes body as rested/recovered while Physical Reserves pill is Red with no divergence framing",
+      };
+    }
+  } else if (pill.physicalReserves === "neutral") {
+    if (matchesAny(text, BODY_DEPLETED_PHRASES) || matchesAny(text, BODY_RECOVERED_PHRASES)) {
+      return {
+        ok: false,
+        reason: "body asserts a confident physical state while Physical Reserves pill is Unread",
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 const PHRASE_FORBIDDEN_STARTERS = ["you", "your", "the"];
 const COACHING_IMPERATIVES = ["try", "consider", "should", "you should", "you need"];
 
@@ -262,7 +547,11 @@ function validateBodyDataAvailability(body: string, ctx: BriefContext): Validati
 }
 
 /** §5.2 Body validator. Requires lexicon cluster + named context + relevance-gated pattern. */
-export function validateBody(body: string, ctx: BriefContext): ValidationResult {
+export function validateBody(
+  body: string,
+  ctx: BriefContext,
+  opts?: ExtendedValidateOptions,
+): ValidationResult {
   const trimmed = body.trim();
   if (!trimmed) return { ok: false, reason: "empty body" };
 
@@ -306,6 +595,19 @@ export function validateBody(body: string, ctx: BriefContext): ValidationResult 
   const structure = validateBodyFourBeatStructure(trimmed);
   if (!structure.ok) return structure;
 
+  // W3 §3 — score-restatement guard. Always runs; the numeric-strict path
+  // engages only when `opts.mrsScore` is supplied.
+  const score = validateNoScoreRestatement(trimmed, { mrsScore: opts?.mrsScore ?? null });
+  if (!score.ok) return score;
+
+  // W3 §5 — pill/body consistency. Only runs when caller supplies pill
+  // context; entry points that don't yet have finalized pills skip it and
+  // rely on the persistence-time revalidation to catch drift.
+  if (opts?.pillContext) {
+    const pill = validatePillBodyConsistency(trimmed, opts.pillContext);
+    if (!pill.ok) return pill;
+  }
+
   return { ok: true };
 }
 
@@ -314,10 +616,11 @@ export function validateBrief(
   phrase: string,
   body: string,
   ctx: BriefContext,
+  opts?: ExtendedValidateOptions,
 ): ValidationResult {
   const p = validatePhrase(phrase);
   if (!p.ok) return p;
-  const b = validateBody(body, ctx);
+  const b = validateBody(body, ctx, opts);
   if (!b.ok) return b;
   return { ok: true };
 }
