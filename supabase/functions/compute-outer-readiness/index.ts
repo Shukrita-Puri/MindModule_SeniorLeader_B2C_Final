@@ -24,7 +24,11 @@ import {
 // `normalizeLlmBrief` gate so forbidden words, missing lexicon cluster,
 // missing signal evidence, and unanchored pattern references all trigger
 // the same retry-once-then-awaiting path as the other validator rejects.
-import { validateBrief } from "../_shared/brief-validators.ts";
+import {
+  validateBrief,
+  validateNoScoreRestatement,
+  validatePillBodyConsistency,
+} from "../_shared/brief-validators.ts";
 import {
   buildSpecDeterministicBrief,
   type SpecDeterministicParams,
@@ -4126,7 +4130,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (coachSessionImpactDelta != null) userPrompt += ` · Coach impact delta: ${coachSessionImpactDelta > 0 ? '+' : ''}${coachSessionImpactDelta} pts`;
 
             if (checkInCountTotal >= 7) {
-              if (typicalDOWOutcome) userPrompt += `\nTypical ${dayName} outcome: ${typicalDOWOutcome}${typicalDOWScore != null ? ' · Score: ' + typicalDOWScore : ''}`;
+              // W3: `Score: N` intentionally removed from the LLM-facing
+              // typical-DOW block. The qualitative `Score vs typical …`
+              // line (better / worse / consistent / unavailable) upstream
+              // is the only comparison the body may express. Leaking the
+              // raw integer here caused occasional numeric-score-restatement
+              // in bodies ("the score's at 70") that then had to be caught
+              // by validateNoScoreRestatement — remove the temptation at
+              // the source.
+              if (typicalDOWOutcome) userPrompt += `\nTypical ${dayName} outcome: ${typicalDOWOutcome}`;
               if (frictionTrend) userPrompt += `\nFriction trend (30d): ${frictionTrend}`;
               if (hrvEventCorrelation) userPrompt += `\nHRV correlation: ${hrvEventCorrelation}`;
               if (mostEffectivePractice) userPrompt += `\nMost effective practice: ${mostEffectivePractice}`;
@@ -5256,11 +5268,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     forbiddenWords: [],
                     allowedPatternKeywords: [],
                   };
-                  const atomic = validateBrief(
-                    normalized.brief.phrase,
-                    normalized.brief.bodyText,
-                    atomicCtx,
-                  );
+                   // W3 §4: pass the actual MRS into the shared validator
+                   // so numeric restatement of the header score is rejected
+                   // at the LLM entry point (before repair/retry). Pill
+                   // context is not yet finalized here — the persistence-
+                   // time revalidation below re-runs the pill/body gate
+                   // once tiers are known.
+                   const atomic = validateBrief(
+                     normalized.brief.phrase,
+                     normalized.brief.bodyText,
+                     atomicCtx,
+                     { mrsScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null },
+                   );
                   if (!atomic.ok) {
                     const reason = atomic.reason || 'atomic_reject';
                     llmFallbackReason = `attempt${attempt}_atomic_${reason}`;
@@ -5442,7 +5461,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   forbiddenWords: [],
                   allowedPatternKeywords: [],
                 };
-                const detValidation = validateBrief(built.phrase, built.body, detCtx);
+                // W3: deterministic fallback runs through the SAME
+                // validator with the same numeric-restatement guard.
+                const detValidation = validateBrief(built.phrase, built.body, detCtx, {
+                  mrsScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null,
+                });
                 if (detValidation.ok) {
                   deterministicBrief = built;
                   console.log(`[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (v6.6-spec) | topSignal=${built.topSignal} | band=${specParams.bandValence} | phrase="${built.phrase}"`);
@@ -6705,6 +6728,65 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         let persistLeanOnSource: string | null = suppressBriefCopy ? null : finalLeanOnSource;
         let persistWatchForSource: string | null = suppressBriefCopy ? null : finalWatchForSource;
         let effectiveBriefSource: 'llm' | 'deterministic' | 'awaiting' = briefSource;
+
+        // ── W3 §8: persistence-time coherence revalidation ─────────────
+        // signalPillsPayload has already been finalized (including the
+        // coherence auto-correction pass) and is the same reference that
+        // the response echo and DB write use. Revalidate the body against
+        // the FINAL pill tiers and the FINAL MRS. If a body slipped past
+        // the LLM validator with a numeric restatement, OR if a
+        // coherence adjustment silently reconciled pills to a tier the
+        // body now contradicts, we null the copy and downgrade to
+        // awaiting rather than persisting a self-contradictory brief.
+        if (persistBody && persistPhrase) {
+          try {
+            const drPill = (signalPillsPayload as any[]).find((p) => p?.key === 'decision_readiness');
+            const prPill = (signalPillsPayload as any[]).find((p) => p?.key === 'physical_reserves');
+            const rcPill = (signalPillsPayload as any[]).find((p) => p?.key === 'resilience_capacity');
+            const finalPillContext = {
+              decisionReadiness: (drPill?.tier ?? 'neutral') as 'green' | 'amber' | 'red' | 'neutral',
+              physicalReserves: (prPill?.tier ?? 'neutral') as 'green' | 'amber' | 'red' | 'neutral',
+              resilienceCapacity: (rcPill?.tier ?? 'neutral') as 'green' | 'amber' | 'red' | 'neutral',
+              divergence: null,
+            };
+            const finalMrsForCheck: number | null = typeof canonicalInnerScore === 'number'
+              ? canonicalInnerScore
+              : (typeof innerReadinessScore === 'number' ? innerReadinessScore : null);
+            const numericGuard = validateNoScoreRestatement(persistBody, {
+              mrsScore: finalMrsForCheck,
+            });
+            const pillGuard = validatePillBodyConsistency(persistBody, finalPillContext);
+            if (!numericGuard.ok || !pillGuard.ok) {
+              console.warn('[compute-outer-readiness][w3-persist-revalidate] rejecting persisted brief copy', {
+                userId,
+                localDate: userLocalDate,
+                window: getTimeOfDay(hour),
+                numericGuard: numericGuard.ok ? null : numericGuard.reason,
+                pillGuard: pillGuard.ok ? null : pillGuard.reason,
+                briefSource,
+                finalMrs: finalMrsForCheck,
+                finalPillContext,
+                phrasePreview: (persistPhrase || '').slice(0, 60),
+                bodyPreview: (persistBody || '').slice(0, 120),
+              });
+              // Null the copy and downgrade to awaiting so the row stays
+              // consistent (score + pills preserved; contradictory body
+              // dropped). Downstream overwrite-protection still runs.
+              persistPhrase = null;
+              persistBody = null;
+              persistLeanOn = null;
+              persistWatchFor = null;
+              persistLeanOnSource = null;
+              persistWatchForSource = null;
+              effectiveBriefSource = 'awaiting';
+            }
+          } catch (revalErr) {
+            console.error(
+              '[compute-outer-readiness][w3-persist-revalidate] guard threw — allowing copy to persist:',
+              revalErr instanceof Error ? revalErr.message : revalErr,
+            );
+          }
+        }
 
         // ── Overwrite protection ──────────────────────────────────────
         // Read the existing current-window row FIRST. If it already has
