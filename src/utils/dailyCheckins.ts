@@ -379,7 +379,12 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
           state_tags: checkinData.state_tags,
           data_sources: checkinData.data_sources as import('@/integrations/supabase/types').Json,
           clarity_level: checkinData.clarity_level,
-          confidence_level: checkinData.confidence_level,
+          // W4: only persist confidence when explicitly provided —
+          // never copy clarity into confidence.
+          ...(checkinData.confidence_level != null ? { confidence_level: checkinData.confidence_level } : {}),
+          ...(checkinData.emotion_level != null ? { emotion_level: checkinData.emotion_level } : {}),
+          ...(checkinData.pressure_level != null ? { pressure_level: checkinData.pressure_level } : {}),
+          ...(checkinData.regulation_level != null ? { regulation_level: checkinData.regulation_level } : {}),
         })
         .select()
         .maybeSingle();
