@@ -25,6 +25,7 @@ import { clear as clearPersistent, cacheKeys, localISODate } from "@/utils/persi
 import { clearEnergyStateCache } from "@/utils/energyStateEngine";
 import { clearOuterReadinessCache } from "@/hooks/useOuterReadiness";
 import { useCheckInMode } from "@/hooks/useCheckInMode";
+import { recordCheckinCompleted } from "@/services/appReview";
 
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
