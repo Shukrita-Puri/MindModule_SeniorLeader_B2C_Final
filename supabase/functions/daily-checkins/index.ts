@@ -236,21 +236,65 @@ serve(async (req) => {
         // Default time_window if not provided (backward compatibility)
         const timeWindow = cd.time_window || 'morning';
 
+        // W4 — server-side validation for slider dimensions. Values must be
+        // integers within 1..5 when present. `null`/`undefined` remain allowed
+        // to preserve the nullable contract for pre-existing consumers.
+        const validateLevel = (name: string, value: unknown): number | null | undefined => {
+          if (value === null || value === undefined) return value as null | undefined;
+          if (typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new Response(JSON.stringify({ error: `Invalid ${name}: not a number` }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          const n = Math.round(value);
+          if (n < 1 || n > 5) {
+            throw new Response(JSON.stringify({ error: `Invalid ${name}: out of range 1..5` }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          return n;
+        };
+
+        let clarityLevel: number | null | undefined;
+        let confidenceLevel: number | null | undefined;
+        let emotionLevel: number | null | undefined;
+        let pressureLevel: number | null | undefined;
+        let regulationLevel: number | null | undefined;
+        try {
+          clarityLevel = validateLevel('clarity_level', cd.clarity_level);
+          confidenceLevel = validateLevel('confidence_level', cd.confidence_level);
+          emotionLevel = validateLevel('emotion_level', (cd as Record<string, unknown>).emotion_level);
+          pressureLevel = validateLevel('pressure_level', (cd as Record<string, unknown>).pressure_level);
+          regulationLevel = validateLevel('regulation_level', (cd as Record<string, unknown>).regulation_level);
+        } catch (validationResponse) {
+          if (validationResponse instanceof Response) return validationResponse;
+          throw validationResponse;
+        }
+
+        const insertRow: Record<string, unknown> = {
+          user_id: userId,
+          checkin_date: cd.checkin_date,
+          time_window: timeWindow,
+          outcome: cd.outcome,
+          energy_balance: cd.energy_balance,
+          clarity_level: clarityLevel,
+          state_tags: cd.state_tags,
+          skipped: cd.skipped || false,
+          timestamp: cd.timestamp,
+          data_sources: cd.data_sources || {},
+        };
+        // Only persist confidence_level when explicitly provided — never
+        // copy clarity into confidence (W4 acceptance criterion).
+        if (confidenceLevel !== undefined) insertRow.confidence_level = confidenceLevel;
+        if (emotionLevel !== undefined) insertRow.emotion_level = emotionLevel;
+        if (pressureLevel !== undefined) insertRow.pressure_level = pressureLevel;
+        if (regulationLevel !== undefined) insertRow.regulation_level = regulationLevel;
+
         const { data, error } = await supabase
           .from('daily_checkins')
-          .insert({
-            user_id: userId,
-            checkin_date: cd.checkin_date,
-            time_window: timeWindow,
-            outcome: cd.outcome,
-            energy_balance: cd.energy_balance,
-            clarity_level: cd.clarity_level,
-            confidence_level: cd.confidence_level,
-            state_tags: cd.state_tags,
-            skipped: cd.skipped || false,
-            timestamp: cd.timestamp,
-            data_sources: cd.data_sources || {}
-          })
+          .insert(insertRow)
           .select()
           .single();
 
