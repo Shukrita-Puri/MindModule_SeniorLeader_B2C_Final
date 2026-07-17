@@ -256,13 +256,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const computePosition = useCallback(() => {
     const idx = currentStepRef.current;
     const s = STEPS[idx];
-    if (!s || s.targetSelector === 'fullscreen') {
+    const selector = s ? effectiveSelector(s) : '';
+    if (!s || selector === 'fullscreen') {
       setSpotRect(null);
       setTooltipPos(null);
       return true;
     }
 
-    const el = document.querySelector(s.targetSelector) as HTMLElement | null;
+    const el = document.querySelector(selector) as HTMLElement | null;
     if (!el) return false;
 
     const rect = el.getBoundingClientRect();
@@ -321,7 +322,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const highlightElement = useCallback(() => {
     const idx = currentStepRef.current;
     const s = STEPS[idx];
-    if (!s || s.targetSelector === 'fullscreen') {
+    const selector = s ? effectiveSelector(s) : '';
+    if (!s || selector === 'fullscreen') {
       setSpotRect(null);
       setTooltipPos(null);
       setFallbackMode(false);
@@ -330,11 +332,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       return;
     }
 
-    const el = document.querySelector(s.targetSelector);
+    const el = document.querySelector(selector);
     if (!isElementVisible(el)) {
       retryCountRef.current++;
       if (retryCountRef.current >= MAX_RETRIES) {
-        console.warn(`[FirstSessionGuide] Target "${s.targetSelector}" not found after ${MAX_RETRIES} retries – falling back`);
+        console.warn(`[FirstSessionGuide] Target "${selector}" not found after ${MAX_RETRIES} retries – falling back`);
         retryCountRef.current = 0;
         enableFallback('We could not spotlight this area right now, but you can keep moving through the tour.');
         return;
@@ -423,13 +425,15 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       const tabBtn = document.querySelector(`[data-tour="tab-${s.activateTab}"]`) as HTMLElement | null;
       if (tabBtn) tabBtn.click();
     }
-    if (s.openSidebar) {
+    const wantSidebar = effectiveOpenSidebar(s);
+    const selector = effectiveSelector(s);
+    if (wantSidebar) {
       setSidebar(true);
       // Give the sheet/sidebar a tick to mount its anchors before polling.
-      waitForTargetThenCb(s.targetSelector, cb);
+      waitForTargetThenCb(selector, cb);
       return;
     }
-    if (!s.openSidebar && sidebarCtx) {
+    if (!wantSidebar && sidebarCtx) {
       // Steps that don't need the sidebar should never inherit it from the
       // previous step — close it so the spotlight has a clean canvas.
       setSidebar(false);
