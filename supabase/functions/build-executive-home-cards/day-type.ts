@@ -58,6 +58,14 @@ export interface DayTypeEventLite {
   end_time: string;
   is_all_day?: boolean | null;
   attendees_count?: number | null;
+  /**
+   * Optional calendar-feed metadata. Plumbed through to the Availability SSOT
+   * so FYI holiday subscriptions ("Holidays in United Kingdom") can be
+   * matched by feed country when title lacks a region qualifier
+   * (e.g. "Christmas Day"). Absent = treated as unqualified.
+   */
+  source?: string | null;
+  calendar_summary?: string | null;
 }
 
 export interface DayTypeInput {
@@ -104,6 +112,8 @@ function toAvailabilityEvents(events: DayTypeEventLite[]): AvailabilityEvent[] {
     endTime: String(e.end_time ?? e.start_time ?? ""),
     isAllDay: e.is_all_day === true,
     attendeesCount: Number(e.attendees_count ?? 0) || 0,
+    source: e.source ?? null,
+    calendarSummary: e.calendar_summary ?? null,
   }));
 }
 
