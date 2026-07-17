@@ -14,7 +14,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verifyAuth0JWT, isProductionEnv } from "./auth.ts";
+import { isProductionEnv, verifyAuth0JWT } from "./auth.ts";
 import { redactUserId } from "./identity/redact-user-id.ts";
 
 export const ADMIN_EMAIL_ALLOWLIST: readonly string[] = [
@@ -30,7 +30,7 @@ export interface AdminIdentity {
 export interface AdminGuardResult {
   admin?: AdminIdentity;
   /** Service-role client — safe to use ONLY after `admin` is set. */
-  db: ReturnType<typeof createClient>;
+  db: ReturnType<typeof getServiceClient>;
   errorResponse?: Response;
 }
 
@@ -130,7 +130,7 @@ export async function requireAdmin(req: Request): Promise<AdminGuardResult> {
  * primary work is not blocked by a logging outage.
  */
 export async function writeAdminAudit(
-  db: ReturnType<typeof createClient>,
+  db: ReturnType<typeof getServiceClient>,
   params: {
     admin: AdminIdentity;
     action: string;
@@ -148,7 +148,7 @@ export async function writeAdminAudit(
       route: params.route ?? null,
       ...(params.metadata ?? {}),
     };
-    const { error } = await db.from("audit_logs").insert({
+    const { error } = await (db as any).from("audit_logs").insert({
       actor: params.admin.adminSub,
       action: params.action,
       table_name: "admin_console",

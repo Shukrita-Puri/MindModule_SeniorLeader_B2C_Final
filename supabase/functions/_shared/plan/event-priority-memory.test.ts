@@ -2,6 +2,8 @@ import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
   applyEventPriorityMemory,
   indexPriorityMemory,
+  normalizeEventTitleMemoryKey,
+  TITLE_SPECIFIC_MEMORY_CATEGORY,
 } from "./event-priority-memory.ts";
 
 const now = new Date("2026-06-07T12:00:00Z");
@@ -59,4 +61,23 @@ Deno.test("post_plan_feedback priority signal is read identically", () => {
   assertEquals(r.delta, 10);
   assertEquals(r.hardDemote, false);
   assertEquals(r.reasons.includes("prior priority ×1"), true);
+});
+
+Deno.test("title-specific never signal hard-demotes exact title key", () => {
+  const titleKey = normalizeEventTitleMemoryKey("Chief AI Thursday — Prep/Readout!");
+  assertEquals(titleKey, "chief_ai_thursday_prep_readout");
+  const idx = indexPriorityMemory([
+    {
+      event_category: TITLE_SPECIFIC_MEMORY_CATEGORY,
+      event_type_key: titleKey,
+      signal: "never",
+      occurred_at: daysAgo(1),
+    },
+  ]);
+  const r = applyEventPriorityMemory(idx, {
+    eventCategory: TITLE_SPECIFIC_MEMORY_CATEGORY,
+    eventTypeKey: normalizeEventTitleMemoryKey("Chief AI Thursday Prep Readout"),
+    now,
+  });
+  assertEquals(r.hardDemote, true);
 });

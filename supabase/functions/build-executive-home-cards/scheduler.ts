@@ -45,6 +45,18 @@ export interface ExecutiveHomeCronConfig {
   };
 }
 
+type RawExecutiveHomeCronConfig = Partial<ExecutiveHomeCronConfig> & {
+  job_key?: string | null;
+  job_name?: string | null;
+  function_name?: string | null;
+  cron_expression?: string | null;
+  dispatcher_interval_minutes?: number | null;
+  max_users_per_run?: number | null;
+  retry_attempts?: number | null;
+  retry_delay_seconds?: number | null;
+  config_json?: Record<string, unknown> | null;
+};
+
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const DEFAULT_WINDOWS: ExecutiveHomeWindowConfig = {
   morning: "05:00",
@@ -88,7 +100,9 @@ export function parseClock(value: string): number | null {
   return hour * 60 + minute;
 }
 
-export function validateWindowConfig(windows: ExecutiveHomeWindowConfig): string[] {
+export function validateWindowConfig(
+  windows: ExecutiveHomeWindowConfig,
+): string[] {
   const errors: string[] = [];
   const morning = parseClock(windows.morning);
   const afternoon = parseClock(windows.afternoon);
@@ -100,71 +114,106 @@ export function validateWindowConfig(windows: ExecutiveHomeWindowConfig): string
   if (errors.length > 0) return errors;
 
   if (!(morning! < afternoon! && afternoon! < evening!)) {
-    errors.push("Morning, afternoon, and evening must be strictly increasing and non-overlapping.");
+    errors.push(
+      "Morning, afternoon, and evening must be strictly increasing and non-overlapping.",
+    );
   }
   return errors;
 }
 
 export function mergeExecutiveHomeCronConfig(
-  raw: Partial<ExecutiveHomeCronConfig & { config_json?: Record<string, unknown> }> | null | undefined,
+  raw: RawExecutiveHomeCronConfig | null | undefined,
 ): ExecutiveHomeCronConfig {
   const base = defaultExecutiveHomeCronConfig();
-  const rawJson = (raw?.config_json ?? (raw as any)?.configJson ?? {}) as Record<string, unknown>;
-  const rawWindows = (rawJson.windows ?? {}) as Partial<ExecutiveHomeWindowConfig>;
+  const rawJson =
+    (raw?.config_json ?? (raw as any)?.configJson ?? {}) as Record<
+      string,
+      unknown
+    >;
+  const rawWindows = (rawJson.windows ?? {}) as Partial<
+    ExecutiveHomeWindowConfig
+  >;
 
   return {
-    jobKey: typeof raw?.jobKey === "string" ? raw.jobKey : typeof raw?.job_key === "string" ? raw.job_key : base.jobKey,
-    jobName: typeof raw?.jobName === "string" ? raw.jobName : typeof raw?.job_name === "string" ? raw.job_name : base.jobName,
-    functionName: typeof raw?.functionName === "string" ? raw.functionName : typeof raw?.function_name === "string" ? raw.function_name : base.functionName,
+    jobKey: typeof raw?.jobKey === "string"
+      ? raw.jobKey
+      : typeof raw?.job_key === "string"
+      ? raw.job_key
+      : base.jobKey,
+    jobName: typeof raw?.jobName === "string"
+      ? raw.jobName
+      : typeof raw?.job_name === "string"
+      ? raw.job_name
+      : base.jobName,
+    functionName: typeof raw?.functionName === "string"
+      ? raw.functionName
+      : typeof raw?.function_name === "string"
+      ? raw.function_name
+      : base.functionName,
     enabled: typeof raw?.enabled === "boolean" ? raw.enabled : base.enabled,
     scheduleMode: "dispatcher",
     cronExpression: typeof raw?.cronExpression === "string"
       ? raw.cronExpression
       : typeof raw?.cron_expression === "string"
-        ? raw.cron_expression
-        : base.cronExpression,
+      ? raw.cron_expression
+      : base.cronExpression,
     dispatcherIntervalMinutes:
       typeof raw?.dispatcherIntervalMinutes === "number"
         ? raw.dispatcherIntervalMinutes
         : typeof raw?.dispatcher_interval_minutes === "number"
-          ? raw.dispatcher_interval_minutes
-          : base.dispatcherIntervalMinutes,
+        ? raw.dispatcher_interval_minutes
+        : base.dispatcherIntervalMinutes,
     timezoneMode: "user_timezone",
-    maxUsersPerRun:
-      typeof raw?.maxUsersPerRun === "number"
-        ? raw.maxUsersPerRun
-        : typeof raw?.max_users_per_run === "number"
-          ? raw.max_users_per_run
-          : base.maxUsersPerRun,
-    retryAttempts:
-      typeof raw?.retryAttempts === "number"
-        ? raw.retryAttempts
-        : typeof raw?.retry_attempts === "number"
-          ? raw.retry_attempts
-          : base.retryAttempts,
-    retryDelaySeconds:
-      typeof raw?.retryDelaySeconds === "number"
-        ? raw.retryDelaySeconds
-        : typeof raw?.retry_delay_seconds === "number"
-          ? raw.retry_delay_seconds
-          : base.retryDelaySeconds,
+    maxUsersPerRun: typeof raw?.maxUsersPerRun === "number"
+      ? raw.maxUsersPerRun
+      : typeof raw?.max_users_per_run === "number"
+      ? raw.max_users_per_run
+      : base.maxUsersPerRun,
+    retryAttempts: typeof raw?.retryAttempts === "number"
+      ? raw.retryAttempts
+      : typeof raw?.retry_attempts === "number"
+      ? raw.retry_attempts
+      : base.retryAttempts,
+    retryDelaySeconds: typeof raw?.retryDelaySeconds === "number"
+      ? raw.retryDelaySeconds
+      : typeof raw?.retry_delay_seconds === "number"
+      ? raw.retry_delay_seconds
+      : base.retryDelaySeconds,
     configJson: {
       windows: {
-        morning: typeof rawWindows.morning === "string" ? rawWindows.morning : base.configJson.windows.morning,
-        afternoon: typeof rawWindows.afternoon === "string" ? rawWindows.afternoon : base.configJson.windows.afternoon,
-        evening: typeof rawWindows.evening === "string" ? rawWindows.evening : base.configJson.windows.evening,
+        morning: typeof rawWindows.morning === "string"
+          ? rawWindows.morning
+          : base.configJson.windows.morning,
+        afternoon: typeof rawWindows.afternoon === "string"
+          ? rawWindows.afternoon
+          : base.configJson.windows.afternoon,
+        evening: typeof rawWindows.evening === "string"
+          ? rawWindows.evening
+          : base.configJson.windows.evening,
       },
       allowedDays: Array.isArray(rawJson.allowedDays)
-        ? rawJson.allowedDays.filter((day): day is string => typeof day === "string")
+        ? rawJson.allowedDays.filter((day): day is string =>
+          typeof day === "string"
+        )
         : base.configJson.allowedDays,
-      runOnWeekends: typeof rawJson.runOnWeekends === "boolean" ? rawJson.runOnWeekends : base.configJson.runOnWeekends,
-      respectTravelTimezone: typeof rawJson.respectTravelTimezone === "boolean" ? rawJson.respectTravelTimezone : base.configJson.respectTravelTimezone,
-      skipIfAlreadyBuilt: typeof rawJson.skipIfAlreadyBuilt === "boolean" ? rawJson.skipIfAlreadyBuilt : base.configJson.skipIfAlreadyBuilt,
+      runOnWeekends: typeof rawJson.runOnWeekends === "boolean"
+        ? rawJson.runOnWeekends
+        : base.configJson.runOnWeekends,
+      respectTravelTimezone: typeof rawJson.respectTravelTimezone === "boolean"
+        ? rawJson.respectTravelTimezone
+        : base.configJson.respectTravelTimezone,
+      skipIfAlreadyBuilt: typeof rawJson.skipIfAlreadyBuilt === "boolean"
+        ? rawJson.skipIfAlreadyBuilt
+        : base.configJson.skipIfAlreadyBuilt,
       buildSequence: Array.isArray(rawJson.buildSequence)
-        ? rawJson.buildSequence.filter((item): item is string => typeof item === "string")
+        ? rawJson.buildSequence.filter((item): item is string =>
+          typeof item === "string"
+        )
         : base.configJson.buildSequence,
       mode: "scheduled",
-      dryRun: typeof rawJson.dryRun === "boolean" ? rawJson.dryRun : Boolean(base.configJson.dryRun),
+      dryRun: typeof rawJson.dryRun === "boolean"
+        ? rawJson.dryRun
+        : Boolean(base.configJson.dryRun),
     },
   };
 }
@@ -183,14 +232,20 @@ export function resolveDueWindow(
 
   const isWeekend = weekdayIndex === "sat" || weekdayIndex === "sun";
   if (!config.configJson.runOnWeekends && isWeekend) return null;
-  if (config.configJson.allowedDays.length > 0 && !config.configJson.allowedDays.includes(weekdayIndex)) return null;
+  if (
+    config.configJson.allowedDays.length > 0 &&
+    !config.configJson.allowedDays.includes(weekdayIndex)
+  ) return null;
 
   const localMinutes = local.hour * 60 + local.minute;
   const windows: TimeWindow[] = ["morning", "afternoon", "evening"];
   for (const window of windows) {
     const scheduledMinutes = parseClock(config.configJson.windows[window]);
     if (scheduledMinutes === null) continue;
-    if (localMinutes >= scheduledMinutes && localMinutes < scheduledMinutes + config.dispatcherIntervalMinutes) {
+    if (
+      localMinutes >= scheduledMinutes &&
+      localMinutes < scheduledMinutes + config.dispatcherIntervalMinutes
+    ) {
       return window;
     }
   }

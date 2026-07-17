@@ -20,9 +20,9 @@ import type { EventCategoryId } from "../events/event-categories.ts";
 import type { Phase } from "../events/event-phase-map.ts";
 import {
   COMBO_TO_PRACTICE_TYPE,
-  PRACTICE_TYPE_TO_COMBO,
   type ComboKey,
   type LegacyPracticeType,
+  PRACTICE_TYPE_TO_COMBO,
 } from "../protocols/protocol-combos.ts";
 
 export type MetaSkill = "meta-clarity" | "meta-recalibration" | "meta-renewal";
@@ -40,9 +40,9 @@ export interface GoalAlignmentResult {
  * each content row by how well its metadata matches this intent.
  */
 export interface SlotIntent {
-  metaSkills: MetaSkill[];        // preferred meta_skill values, order = priority
+  metaSkills: MetaSkill[]; // preferred meta_skill values, order = priority
   recalibrateCategories: RecalibrateCategory[]; // preferred Recalibrate `category` values
-  combo: ComboKey | null;         // §4 protocol combo for the slot, when known
+  combo: ComboKey | null; // §4 protocol combo for the slot, when known
   /** Human-readable label for telemetry / tests. */
   intentLabel: string;
 }
@@ -86,8 +86,7 @@ export function deriveSlotIntent(inp: SlotIntentInput): SlotIntent {
   // has already resolved to a Cat-A "pre" clarity moment). This
   // makes the branch reachable independent of an event anchor.
   // ────────────────────────────────────────────────────────────────
-  const wantsPreDecisionPause =
-    action.includes("clarify") ||
+  const wantsPreDecisionPause = action.includes("clarify") ||
     action.includes("clarity") ||
     action.includes("detach") ||
     action.includes("reactive") ||
@@ -179,7 +178,7 @@ export function deriveSlotIntent(inp: SlotIntentInput): SlotIntent {
 export interface ScorableContent {
   id: string;
   content_type?: string | null;
-  category?: string | null;          // Recalibrate category
+  category?: string | null; // Recalibrate category
   sub_type?: string | null;
   protocol_type?: string | null;
   structuredTags?: {
@@ -198,12 +197,27 @@ export interface ScorableContent {
   metaSkillTags?: string[] | null;
   stateSignalTags?: string[] | null;
   isFoundational?: boolean | null;
-  masteryCategory?: { primary?: string | null; secondary?: string[] | null } | null;
+  masteryCategory?:
+    | { primary?: string | null; secondary?: string[] | null }
+    | null;
 }
 
 export interface SelectionSlotContract {
   mode?: "jit" | "state" | "jit+state" | "full_arc" | null;
-  slotRole?: "start_of_day" | "dominant_demand" | "recovery" | "pre" | "during" | "post" | "state_anchor" | null;
+  slotRole?:
+    | "start_of_day"
+    | "dominant_demand"
+    | "recovery"
+    | "current_priority"
+    | "remaining_demand"
+    | "close_of_day"
+    | "protect_tonight"
+    | "tomorrow_prep"
+    | "pre"
+    | "during"
+    | "post"
+    | "state_anchor"
+    | null;
   arcLabel?: "Prepare" | "During" | "Recover" | "Steady" | null;
   jitPhase?: "pre" | "during" | "post" | null;
   jitEventTitle?: string | null;
@@ -211,7 +225,17 @@ export interface SelectionSlotContract {
   ceoVerb?: string | null;
   anchorCategory?: EventCategoryId | null;
   practicePriorityTag?: string | null;
-  dayShape?: "light_routine" | "dominant_structural_event" | "mixed_day" | "rest_day" | null;
+  dayShape?:
+    | "light_routine"
+    | "dominant_structural_event"
+    | "mixed_day"
+    | "rest_day"
+    | "saturday"
+    | "holiday_pto"
+    | "week_ahead"
+    | "travel_day"
+    | "conference_day"
+    | null;
   allocationReason?: string | null;
 }
 
@@ -220,6 +244,8 @@ export interface PracticeSelectionContext {
   stateSignalTags?: string[];
   mrsScore?: number | null;
   leaderGoals?: string[] | null;
+  preferredPracticeWindows?: Array<"morning" | "afternoon" | "evening"> | null;
+  currentWindow?: "morning" | "afternoon" | "evening" | null;
   /**
    * Sprint D — coarse window-time physiology/state signals used ONLY as
    * small additive scoring boosts inside `selectPracticeForSlot`. Must
@@ -230,24 +256,56 @@ export interface PracticeSelectionContext {
    * behaviour snapshot, current time window).
    */
   windowSignals?: {
-    sleepQuality?: 'poor' | 'fair' | 'good' | 'peak' | null;
+    sleepQuality?: "poor" | "fair" | "good" | "peak" | null;
     hrvDeviationPct?: number | null;
     currentHrVsRestingPct?: number | null;
     bodyLoadElevated?: boolean;
     decisionLeakageRisk?: boolean;
-    recoveryNote?: 'rest' | 'light' | 'normal' | null;
+    recoveryNote?: "rest" | "light" | "normal" | null;
   } | null;
 }
 
+function arrLower(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item).toLowerCase().trim()).filter(Boolean);
+}
+
+function practiceWindowPreferenceBoost(
+  c: ScorableContent,
+  ctx: PracticeSelectionContext,
+): number {
+  const current = ctx.currentWindow ?? null;
+  if (!current || !ctx.preferredPracticeWindows?.includes(current)) return 0;
+
+  const anyContent = c as any;
+  const declared = [
+    ...arrLower(anyContent.preferredWindows),
+    ...arrLower(anyContent.preferred_windows),
+    ...arrLower(anyContent.timeWindows),
+    ...arrLower(anyContent.time_windows),
+    ...arrLower(anyContent.structuredTags?.preferredWindows),
+    ...arrLower(anyContent.structuredTags?.practiceWindows),
+  ];
+  if (declared.length === 0) return 0;
+  return declared.includes(current) ? 4 : -2;
+}
+
 function normaliseLeaderGoal(value: string): LeaderGoalId | null {
-  if (value === "prepare" || value === "patterns" || value === "sustain") return value;
+  if (value === "prepare" || value === "patterns" || value === "sustain") {
+    return value;
+  }
   return null;
 }
 
-export function scoreLeaderGoalAlignment(c: ScorableContent, rawGoals: string[] | null | undefined): GoalAlignmentResult {
+export function scoreLeaderGoalAlignment(
+  c: ScorableContent,
+  rawGoals: string[] | null | undefined,
+): GoalAlignmentResult {
   const tags = c.structuredTags;
   const goals = Array.isArray(rawGoals)
-    ? rawGoals.map((value) => normaliseLeaderGoal(String(value).toLowerCase().trim())).filter(Boolean) as LeaderGoalId[]
+    ? rawGoals.map((value) =>
+      normaliseLeaderGoal(String(value).toLowerCase().trim())
+    ).filter(Boolean) as LeaderGoalId[]
     : [];
   if (goals.length === 0) {
     return { score: 0, matchedGoals: [], reasons: [] };
@@ -258,26 +316,52 @@ export function scoreLeaderGoalAlignment(c: ScorableContent, rawGoals: string[] 
   const loadHelp = arr(tags?.cognitiveLoadHelp);
   const subtypes = arr(tags?.masterySubtypes);
   const pillar = String(tags?.pillar ?? "").toLowerCase();
-  const metaSkills = (c.metaSkillTags ?? []).map((value) => String(value).toLowerCase());
+  const metaSkills = (c.metaSkillTags ?? []).map((value) =>
+    String(value).toLowerCase()
+  );
   const category = String(c.category ?? "").toLowerCase();
 
   const matchedGoals = new Set<LeaderGoalId>();
   const reasons: string[] = [];
 
   const matches = {
-    prepare:
-      goalTags.some((goal) => ["decision_readiness", "focus", "mental_clarity", "confidence", "presence"].includes(goal)) ||
-      contextTags.some((tag) => ["pre-meeting", "leadership_moment", "high_pressure", "difficult_conversation"].includes(tag)) ||
+    prepare: goalTags.some((goal) =>
+      [
+        "decision_readiness",
+        "focus",
+        "mental_clarity",
+        "confidence",
+        "presence",
+      ].includes(goal)
+    ) ||
+      contextTags.some((tag) =>
+        [
+          "pre-meeting",
+          "leadership_moment",
+          "high_pressure",
+          "difficult_conversation",
+        ].includes(tag)
+      ) ||
       loadHelp.includes("supports_decision"),
     patterns:
-      goalTags.some((goal) => ["perspective", "mental_clarity", "focus"].includes(goal)) ||
-      subtypes.some((subtype) => ["grounding", "composure"].includes(subtype)) ||
+      goalTags.some((goal) =>
+        ["perspective", "mental_clarity", "focus"].includes(goal)
+      ) ||
+      subtypes.some((subtype) =>
+        ["grounding", "composure"].includes(subtype)
+      ) ||
       metaSkills.includes("meta-clarity"),
-    sustain:
-      pillar === "renewal" ||
+    sustain: pillar === "renewal" ||
       category === "pause" ||
-      goalTags.some((goal) => ["resilience", "recovery", "stress_reduction", "deep_reset"].includes(goal)) ||
-      contextTags.some((tag) => ["post-performance", "post-stress", "evening_winddown", "rest"].includes(tag)),
+      goalTags.some((goal) =>
+        ["resilience", "recovery", "stress_reduction", "deep_reset"].includes(
+          goal,
+        )
+      ) ||
+      contextTags.some((tag) =>
+        ["post-performance", "post-stress", "evening_winddown", "rest"]
+          .includes(tag)
+      ),
   } satisfies Record<LeaderGoalId, boolean>;
 
   for (const goal of goals) {
@@ -326,66 +410,196 @@ function scoreStructuredTags(c: ScorableContent, intent: SlotIntent): number {
       // signals in scoreContentAgainstIntent.
       let score = 0;
       if (pillar === "pause") score += 7;
-      if (subtypes.some((s) => ["grounding", "composure", "deep-calm"].includes(s))) score += 5;
-      if (goals.some((g) => [
-        "mental_clarity", "perspective", "decision_readiness",
-        "emotional_regulation", "composure", "overwhelm_reduction",
-        "focus",
-      ].includes(g))) score += 6;
-      if (context.some((t) => [
-        "high_pressure", "overwhelm", "information_overload",
-        "crisis_mode", "difficult_conversation", "pre-meeting",
-        "leadership_moment", "multitasking_chaos",
-      ].includes(t))) score += 4;
-      if (loadHelp.includes("supports_decision") || loadHelp.includes("lowers_cognitive_load")) score += 3;
+      if (
+        subtypes.some((s) =>
+          ["grounding", "composure", "deep-calm"].includes(s)
+        )
+      ) score += 5;
+      if (
+        goals.some((g) =>
+          [
+            "mental_clarity",
+            "perspective",
+            "decision_readiness",
+            "emotional_regulation",
+            "composure",
+            "overwhelm_reduction",
+            "focus",
+          ].includes(g)
+        )
+      ) score += 6;
+      if (
+        context.some((t) =>
+          [
+            "high_pressure",
+            "overwhelm",
+            "information_overload",
+            "crisis_mode",
+            "difficult_conversation",
+            "pre-meeting",
+            "leadership_moment",
+            "multitasking_chaos",
+          ].includes(t)
+        )
+      ) score += 4;
+      if (
+        loadHelp.includes("supports_decision") ||
+        loadHelp.includes("lowers_cognitive_load")
+      ) score += 3;
       if (direction === "stabilize" || direction === "clarify") score += 2;
       // Guardrail: penalise pure renewal content that has no clarity
       // signal — same shape as focus/flow-mastery's Ikigai guard.
-      if (pillar === "renewal" && !goals.some((g) => [
-        "mental_clarity", "perspective", "decision_readiness", "composure",
-      ].includes(g))) score -= 8;
+      if (
+        pillar === "renewal" && !goals.some((g) =>
+          [
+            "mental_clarity",
+            "perspective",
+            "decision_readiness",
+            "composure",
+          ].includes(g)
+        )
+      ) score -= 8;
       return score;
     }
     case "focus/flow-mastery": {
       let score = 0;
       if (pillar === "flow") score += 8;
-      if (subtypes.some((s) => ["optimize", "maintain-peak", "activate"].includes(s))) score += 5;
-      if (goals.some((g) => ["focus", "mental_clarity", "decision_readiness", "sustained_attention", "concentration", "flow"].includes(g))) score += 7;
-      if (loadHelp.some((h) => ["improves_concentration", "supports_decision", "deep_focus", "creative_thinking"].includes(h))) score += 4;
+      if (
+        subtypes.some((s) =>
+          ["optimize", "maintain-peak", "activate"].includes(s)
+        )
+      ) score += 5;
+      if (
+        goals.some((g) =>
+          [
+            "focus",
+            "mental_clarity",
+            "decision_readiness",
+            "sustained_attention",
+            "concentration",
+            "flow",
+          ].includes(g)
+        )
+      ) score += 7;
+      if (
+        loadHelp.some((h) =>
+          [
+            "improves_concentration",
+            "supports_decision",
+            "deep_focus",
+            "creative_thinking",
+          ].includes(h)
+        )
+      ) score += 4;
       if (direction === "clarify" || direction === "stabilize") score += 2;
-      if (pillar === "renewal" && !goals.some((g) => ["focus", "mental_clarity", "decision_readiness"].includes(g))) score -= 8;
+      if (
+        pillar === "renewal" &&
+        !goals.some((g) =>
+          ["focus", "mental_clarity", "decision_readiness"].includes(g)
+        )
+      ) score -= 8;
       return score;
     }
     case "recovery/renewal": {
       let score = 0;
       if (pillar === "renewal" || pillar === "pause") score += 7;
-      if (subtypes.some((s) => ["recharge", "restore", "refresh", "deep-calm", "grounding"].includes(s))) score += 5;
-      if (goals.some((g) => ["resilience", "recovery", "stress_reduction", "deep_reset", "calming", "sleep_preparation", "acceptance"].includes(g))) score += 6;
-      if (context.some((t) => ["post-stress", "post-meeting", "evening_winddown", "bedtime", "rest", "post-performance"].includes(t))) score += 4;
+      if (
+        subtypes.some((s) =>
+          ["recharge", "restore", "refresh", "deep-calm", "grounding"].includes(
+            s,
+          )
+        )
+      ) score += 5;
+      if (
+        goals.some((g) =>
+          [
+            "resilience",
+            "recovery",
+            "stress_reduction",
+            "deep_reset",
+            "calming",
+            "sleep_preparation",
+            "acceptance",
+          ].includes(g)
+        )
+      ) score += 6;
+      if (
+        context.some((t) =>
+          [
+            "post-stress",
+            "post-meeting",
+            "evening_winddown",
+            "bedtime",
+            "rest",
+            "post-performance",
+          ].includes(t)
+        )
+      ) score += 4;
       if (direction === "downshift" || direction === "stabilize") score += 3;
       return score;
     }
     case "circadian": {
       let score = 0;
       if (pillar === "pause" || pillar === "renewal") score += 6;
-      if (context.some((t) => ["evening_winddown", "bedtime", "morning_ritual", "rest"].includes(t))) score += 6;
+      if (
+        context.some((t) =>
+          ["evening_winddown", "bedtime", "morning_ritual", "rest"].includes(t)
+        )
+      ) score += 6;
       if (direction === "downshift" || direction === "stabilize") score += 3;
       return score;
     }
     case "activation/presence": {
       let score = 0;
       if (pillar === "flow" || pillar === "renewal") score += 5;
-      if (subtypes.some((s) => ["activate", "optimize", "maintain-peak", "recharge"].includes(s))) score += 5;
-      if (goals.some((g) => ["energize", "confidence", "courage", "focus", "mental_clarity", "presence"].includes(g))) score += 6;
-      if (direction === "uplift" || direction === "activate" || direction === "motivate" || direction === "clarify") score += 5;
+      if (
+        subtypes.some((s) =>
+          ["activate", "optimize", "maintain-peak", "recharge"].includes(s)
+        )
+      ) score += 5;
+      if (
+        goals.some((g) =>
+          [
+            "energize",
+            "confidence",
+            "courage",
+            "focus",
+            "mental_clarity",
+            "presence",
+          ].includes(g)
+        )
+      ) score += 6;
+      if (
+        direction === "uplift" || direction === "activate" ||
+        direction === "motivate" || direction === "clarify"
+      ) score += 5;
       return score;
     }
     default: {
       let score = 0;
       if (pillar === "pause") score += 7;
-      if (subtypes.some((s) => ["deep-calm", "grounding", "composure"].includes(s))) score += 6;
-      if (goals.some((g) => ["grounding", "breathing_regulation", "composure", "emotional_regulation", "presence", "centering", "calming"].includes(g))) score += 6;
-      if (loadHelp.includes("lowers_cognitive_load") || loadHelp.includes("supports_decision")) score += 3;
+      if (
+        subtypes.some((s) =>
+          ["deep-calm", "grounding", "composure"].includes(s)
+        )
+      ) score += 6;
+      if (
+        goals.some((g) =>
+          [
+            "grounding",
+            "breathing_regulation",
+            "composure",
+            "emotional_regulation",
+            "presence",
+            "centering",
+            "calming",
+          ].includes(g)
+        )
+      ) score += 6;
+      if (
+        loadHelp.includes("lowers_cognitive_load") ||
+        loadHelp.includes("supports_decision")
+      ) score += 3;
       if (direction === "downshift" || direction === "stabilize") score += 3;
       return score;
     }
@@ -419,7 +633,10 @@ export function scoreContentAgainstIntent(
   // Hard negative when the content's ONLY meta_skill is one the intent
   // explicitly does not want — prevents `meta-renewal` Ikigai winning a
   // focus slot just because state-signal scored +15.
-  if (metaSkill === 0 && tags.length > 0 && !tags.some((t) => intent.metaSkills.includes(t))) {
+  if (
+    metaSkill === 0 && tags.length > 0 &&
+    !tags.some((t) => intent.metaSkills.includes(t))
+  ) {
     metaSkill = -12;
   }
 
@@ -429,6 +646,9 @@ export function scoreContentAgainstIntent(
   const idx = intent.recalibrateCategories.indexOf(cat);
   if (idx === 0) recalibrateCategory = 8;
   else if (idx > 0) recalibrateCategory = 4;
+  if (intent.intentLabel === "activation/presence" && cat === "power-up") {
+    recalibrateCategory += 12;
+  }
 
   // Recalibrate v2 structured tags — sourced from the frontend
   // `src/data/practicesAndSoundscapes.ts` catalog and mirrored into
@@ -446,8 +666,16 @@ export function scoreContentAgainstIntent(
   }
 
   const leaderGoalAlignment = scoreLeaderGoalAlignment(c, leaderGoals);
-  const total = metaSkill + recalibrateCategory + structuredTags + combo + leaderGoalAlignment.score;
-  return { metaSkill, recalibrateCategory, structuredTags, combo, leaderGoals: leaderGoalAlignment, total };
+  const total = metaSkill + recalibrateCategory + structuredTags + combo +
+    leaderGoalAlignment.score;
+  return {
+    metaSkill,
+    recalibrateCategory,
+    structuredTags,
+    combo,
+    leaderGoals: leaderGoalAlignment,
+    total,
+  };
 }
 
 /**
@@ -459,11 +687,17 @@ export function rankByIntent<T extends ScorableContent>(
   leaderGoals?: string[] | null,
 ): Array<T & { intentScore: number }> {
   return pool
-    .map((c) => ({ ...c, intentScore: scoreContentAgainstIntent(c, intent, leaderGoals).total }))
+    .map((c) => ({
+      ...c,
+      intentScore: scoreContentAgainstIntent(c, intent, leaderGoals).total,
+    }))
     .sort((a, b) => b.intentScore - a.intentScore);
 }
 
-export function buildComboTarget(slot: SelectionSlotContract, intent: SlotIntent): ComboKey | null {
+export function buildComboTarget(
+  slot: SelectionSlotContract,
+  intent: SlotIntent,
+): ComboKey | null {
   if (slot.mode === "state") return intent.combo ?? null;
   if (slot.mode === "full_arc") {
     if (slot.jitPhase === "during") return "somatic.flow";
@@ -491,25 +725,30 @@ function recencyPenalty(daysAgo: number | undefined): number {
 function windowSignalBoost(
   c: ScorableContent,
   intent: SlotIntent,
-  ws: NonNullable<PracticeSelectionContext['windowSignals']> | undefined | null,
+  ws: NonNullable<PracticeSelectionContext["windowSignals"]> | undefined | null,
 ): number {
   if (!ws) return 0;
-  const proto = (c.protocol_type || '').toLowerCase();
-  const pillar = (c.structuredTags?.pillar || '').toLowerCase();
-  const goals = (c.structuredTags?.goalTags || []).map((g) => String(g).toLowerCase());
-  const subtypes = (c.structuredTags?.masterySubtypes || []).map((s) => String(s).toLowerCase());
+  const proto = (c.protocol_type || "").toLowerCase();
+  const pillar = (c.structuredTags?.pillar || "").toLowerCase();
+  const goals = (c.structuredTags?.goalTags || []).map((g) =>
+    String(g).toLowerCase()
+  );
+  const subtypes = (c.structuredTags?.masterySubtypes || []).map((s) =>
+    String(s).toLowerCase()
+  );
 
   let boost = 0;
 
   // Poor sleep → boost somatic practices (+6).
-  if (ws.sleepQuality === 'poor' && proto === 'somatic') boost += 6;
+  if (ws.sleepQuality === "poor" && proto === "somatic") boost += 6;
 
   // HR elevated vs resting → boost somatic regulation / pause (+4).
   if (
-    typeof ws.currentHrVsRestingPct === 'number' &&
+    typeof ws.currentHrVsRestingPct === "number" &&
     ws.currentHrVsRestingPct >= 10 &&
-    proto === 'somatic' &&
-    (pillar === 'pause' || subtypes.some((s) => ['grounding', 'composure', 'deep-calm'].includes(s)))
+    proto === "somatic" &&
+    (pillar === "pause" ||
+      subtypes.some((s) => ["grounding", "composure", "deep-calm"].includes(s)))
   ) {
     boost += 4;
   }
@@ -517,8 +756,8 @@ function windowSignalBoost(
   // Decision leakage risk → boost mindset.pause / pre-decision-clarity (+5).
   if (
     ws.decisionLeakageRisk === true &&
-    (intent.intentLabel === 'pre-decision-clarity' ||
-      (proto === 'mindset' && pillar === 'pause'))
+    (intent.intentLabel === "pre-decision-clarity" ||
+      (proto === "mindset" && pillar === "pause"))
   ) {
     boost += 5;
   }
@@ -526,20 +765,22 @@ function windowSignalBoost(
   // Evening body load → boost recovery / renewal (+4).
   if (
     ws.bodyLoadElevated === true &&
-    (pillar === 'renewal' ||
-      goals.some((g) => ['recovery', 'resilience', 'deep_reset', 'stress_reduction'].includes(g)))
+    (pillar === "renewal" ||
+      goals.some((g) =>
+        ["recovery", "resilience", "deep_reset", "stress_reduction"].includes(g)
+      ))
   ) {
     boost += 4;
   }
 
   // Good/peak sleep + stable HRV → boost mindset / flow (+3).
   if (
-    (ws.sleepQuality === 'good' || ws.sleepQuality === 'peak') &&
-    typeof ws.hrvDeviationPct === 'number' &&
+    (ws.sleepQuality === "good" || ws.sleepQuality === "peak") &&
+    typeof ws.hrvDeviationPct === "number" &&
     ws.hrvDeviationPct > -5 &&
-    (pillar === 'flow' ||
-      proto === 'mindset' ||
-      goals.some((g) => ['focus', 'flow', 'sustained_attention'].includes(g)))
+    (pillar === "flow" ||
+      proto === "mindset" ||
+      goals.some((g) => ["focus", "flow", "sustained_attention"].includes(g)))
   ) {
     boost += 3;
   }
@@ -547,10 +788,15 @@ function windowSignalBoost(
   return boost;
 }
 
-function masterySecondaryBoost(c: ScorableContent, targetType: LegacyPracticeType | null): number {
+function masterySecondaryBoost(
+  c: ScorableContent,
+  targetType: LegacyPracticeType | null,
+): number {
   const secondary = c.masteryCategory?.secondary ?? [];
   if (!targetType || secondary.length === 0) return 0;
-  return secondary.some((s) => String(s).toLowerCase().includes(targetType)) ? 6 : 0;
+  return secondary.some((s) => String(s).toLowerCase().includes(targetType))
+    ? 6
+    : 0;
 }
 
 export function findAlternate<T extends ScorableContent>(
@@ -564,13 +810,24 @@ export function findAlternate<T extends ScorableContent>(
     .filter((c) => c.id !== current.id && !excludeIds.has(c.id))
     .map((c) => {
       let score = scoreContentAgainstIntent(c, intent).total;
-      if (targetType && c.protocol_type === PRACTICE_TYPE_TO_COMBO[targetType].protocol) score += 4;
-      if (targetType && c.sub_type && c.sub_type === current.sub_type) score += 6;
-      if (targetType && c.content_type && c.content_type === current.content_type) score += 2;
+      if (
+        targetType &&
+        c.protocol_type === PRACTICE_TYPE_TO_COMBO[targetType].protocol
+      ) score += 4;
+      if (targetType && c.sub_type && c.sub_type === current.sub_type) {
+        score += 6;
+      }
+      if (
+        targetType && c.content_type && c.content_type === current.content_type
+      ) score += 2;
       score += masterySecondaryBoost(c, targetType);
-      const commonState = (c.stateSignalTags || []).filter((t) => (current.stateSignalTags || []).includes(t)).length;
+      const commonState = (c.stateSignalTags || []).filter((t) =>
+        (current.stateSignalTags || []).includes(t)
+      ).length;
       score += commonState * 2;
-      const commonMeta = (c.metaSkillTags || []).filter((t) => (current.metaSkillTags || []).includes(t)).length;
+      const commonMeta = (c.metaSkillTags || []).filter((t) =>
+        (current.metaSkillTags || []).includes(t)
+      ).length;
       score += commonMeta * 3;
       return { c, score };
     })
@@ -589,12 +846,14 @@ export function selectPracticeForSlot<T extends ScorableContent>(
   let candidates = (pool || []).filter((c) => !excludeIds.has(c.id));
   const protocolFiltered = combo
     ? candidates.filter((c) => {
-        const targetType = COMBO_TO_PRACTICE_TYPE[combo];
-        const expectedProtocol = PRACTICE_TYPE_TO_COMBO[targetType].protocol;
-        return c.protocol_type === expectedProtocol;
-      })
+      const targetType = COMBO_TO_PRACTICE_TYPE[combo];
+      const expectedProtocol = PRACTICE_TYPE_TO_COMBO[targetType].protocol;
+      return c.protocol_type === expectedProtocol;
+    })
     : [];
-  const protocolCandidates = protocolFiltered.length > 0 ? protocolFiltered : candidates;
+  const protocolCandidates = protocolFiltered.length > 0
+    ? protocolFiltered
+    : candidates;
   const usedProtocolFallback = protocolFiltered.length === 0 && !!combo;
   if (usedProtocolFallback) {
     console.log("[practice-selector] protocol fallback", {
@@ -609,12 +868,17 @@ export function selectPracticeForSlot<T extends ScorableContent>(
   const scored = protocolCandidates
     .map((c) => {
       let score = scoreContentAgainstIntent(c, intent, ctx.leaderGoals).total;
-      if (ctx.recentPracticeDays?.[c.id] !== undefined) score -= recencyPenalty(ctx.recentPracticeDays[c.id]);
-      if (slot.mode === "state" && ctx.mrsScore != null) score += Math.max(0, 10 - Math.abs(ctx.mrsScore - 50) / 5);
+      if (ctx.recentPracticeDays?.[c.id] !== undefined) {
+        score -= recencyPenalty(ctx.recentPracticeDays[c.id]);
+      }
+      if (slot.mode === "state" && ctx.mrsScore != null) {
+        score += Math.max(0, 10 - Math.abs(ctx.mrsScore - 50) / 5);
+      }
       if (slot.mode === "jit+state") score += 3;
       if (slot.mode === "full_arc" && slot.jitPhase === "during") score += 4;
       if (slot.mode === "full_arc" && slot.jitPhase === "post") score += 4;
       score += windowSignalBoost(c, intent, ctx.windowSignals);
+      score += practiceWindowPreferenceBoost(c, ctx);
       return { c, score };
     })
     .sort((a, b) => b.score - a.score);

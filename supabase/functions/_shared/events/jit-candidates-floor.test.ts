@@ -161,3 +161,16 @@ Deno.test("getJitCandidateDropReason: personal category without stakes → dropp
   };
   assertEquals(getJitCandidateDropReason(fake, ev), "personal_category_without_explicit_stakes");
 });
+
+Deno.test("getJitCandidateDropReason: admin/compliance noise drops before numeric floor", () => {
+  const ev = evt("R&D Tax claim review");
+  const fake = {
+    eventId: "tax", title: "R&D Tax claim review", phase: "pre" as const,
+    categoryId: "D" as any, comboKey: "somatic.pause" as any,
+    severity: "high" as const, leadTimeMin: 30, demandProfile: { cog: 3, emo: 2, ene: 1, cir: 0 },
+    windowStartMs: NOW, windowEndMs: NOW + 60_000, eligible: true,
+    minutesUntilWindow: 0, score: MIN_CANDIDATE_SCORE + 20,
+    components: { base: 15, category: 15, severity: 15, demand: 10, proximity: 0, skipPenalty: 0, memory: 0 },
+  };
+  assertEquals(getJitCandidateDropReason(fake, ev), "admin_compliance_noise");
+});

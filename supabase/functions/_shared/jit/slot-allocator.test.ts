@@ -62,13 +62,13 @@ Deno.test("allocator — Cat A solo event fan does NOT invent a During slot", ()
   assertEquals(alloc.slots[0].slotRole, "pre");
   assertEquals(alloc.slots[0].arcLabel, "Prepare");
 
-  // Slot 1 → NO During available for Cat A → state fallback.
+  // Slot 1 → explicit board-protect state, not a fabricated During.
   assertEquals(alloc.slots[1].jitPhase, null, "Cat A must not fabricate During");
   assertEquals(alloc.slots[1].jitEventTitle, null);
   assertEquals(alloc.slots[1].jitEventId, null);
   assertEquals(alloc.slots[1].slotRole, "state_anchor");
   assertEquals(alloc.slots[1].arcLabel, "Steady");
-  assertEquals(alloc.slots[1].allocationReason, "state_fallback_phase_unavailable");
+  assertEquals(alloc.slots[1].allocationReason, "board_protect_state");
 
   // Slot 2 → post
   assertEquals(alloc.slots[2].jitPhase, "post");
@@ -156,6 +156,107 @@ Deno.test("allocator — rest_day returns ZERO slots and the rest-day marker", (
   assertEquals(alloc.restDay, true);
   assertEquals(alloc.allocationReason, "rest_day_no_priorities");
   assertEquals(alloc.slots.length, 0, "rest_day must NOT fabricate 3 state_anchor slots");
+});
+
+Deno.test("allocator — Saturday recovery day returns one state slot", () => {
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    dayOfWeek: 6,
+    isFullWorkingWeekend: false,
+  });
+  assertEquals(alloc.dayShape, "saturday");
+  assertEquals(alloc.mode, "state");
+  assertEquals(alloc.slots.length, 1);
+  assertEquals(alloc.slots[0].allocationReason, "saturday_habit_only");
+});
+
+Deno.test("allocator — PTO/holiday day returns one state slot", () => {
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    isPtoOrHoliday: true,
+  });
+  assertEquals(alloc.dayShape, "holiday_pto");
+  assertEquals(alloc.mode, "state");
+  assertEquals(alloc.slots.length, 1);
+  assertEquals(alloc.slots[0].allocationReason, "holiday_morning_habit");
+});
+
+Deno.test("allocator — Week-Ahead day returns one planning slot", () => {
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    isWeekAhead: true,
+  });
+  assertEquals(alloc.dayShape, "week_ahead");
+  assertEquals(alloc.mode, "state");
+  assertEquals(alloc.slots.length, 1);
+  assertEquals(alloc.slots[0].allocationReason, "week_ahead_planning");
+});
+
+Deno.test("allocator — travel day uses named full arc", () => {
+  const ranked = [
+    cand("trip-1", "Flight to NYC", "pre", "G", 70),
+    cand("trip-1", "Flight to NYC", "during", "G", 80),
+    cand("trip-1", "Flight to NYC", "post", "G", 75),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    hasTravelDay: true,
+  });
+  assertEquals(alloc.dayShape, "travel_day");
+  assertEquals(alloc.mode, "full_arc");
+  assertEquals(alloc.slots.map((s) => s.jitPhase), ["pre", "during", "post"]);
+});
+
+Deno.test("allocator — conference day uses named full arc", () => {
+  const ranked = [
+    cand("conf-1", "Annual Summit", "pre", "F", 70),
+    cand("conf-1", "Annual Summit", "during", "F", 80),
+    cand("conf-1", "Annual Summit", "post", "F", 75),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    hasConferenceDay: true,
+  });
+  assertEquals(alloc.dayShape, "conference_day");
+  assertEquals(alloc.mode, "full_arc");
+  assertEquals(alloc.slots.map((s) => s.jitPhase), ["pre", "during", "post"]);
+});
+
+Deno.test("allocator — afternoon and evening windows use window-aware state roles", () => {
+  const afternoon = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    mrsWindow: "afternoon",
+  });
+  assertEquals(afternoon.slots.map((s) => s.slotRole), ["current_priority", "remaining_demand", "close_of_day"]);
+
+  const evening = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    mrsWindow: "evening",
+  });
+  assertEquals(evening.slots.map((s) => s.slotRole), ["current_priority", "protect_tonight", "tomorrow_prep"]);
+});
+
+Deno.test("allocator — forced drain category elevates non-structural event to arc", () => {
+  const ranked = [
+    cand("pitch-1", "Investor Pitch", "pre", "B", 80),
+    cand("pitch-1", "Investor Pitch", "post", "B", 70),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    forceArcCategoryIds: ["B" as any],
+  });
+  assertEquals(alloc.dayShape, "dominant_structural_event");
+  assertEquals(alloc.mode, "full_arc");
+  assertEquals(alloc.slots[0].jitPhase, "pre");
+  assertEquals(alloc.slots[2].jitPhase, "post");
 });
 
 Deno.test("allocator — non-rest empty-calendar day still returns 3 state fallback slots (not the rest-day path)", () => {

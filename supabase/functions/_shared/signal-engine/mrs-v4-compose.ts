@@ -43,16 +43,18 @@ export interface RedistributeResult {
 /**
  * §8.3 — per-cycle, per-sub-component weight redistribution.
  *
- * Demand sub-components are the always-on reservoir. When some unavailable
- * weight needs a home and no Demand sub-component is available, it falls
- * back to whichever non-Demand sub-components ARE available, distributed
- * pro-rata to their target weights.
+ * Demand sub-components are the always-on reservoir. Pattern components are
+ * audit/context only for MRS v4: they cannot unlock a baseline and never carry
+ * score-bearing weight. When some unavailable weight needs a home and no
+ * Demand sub-component is available, it falls back to whichever non-pattern
+ * sub-components ARE available, distributed pro-rata to their target weights.
  */
 export function redistribute(window: Window, subs: SubScore[]): RedistributeResult {
   const cells = MRS_V4_WEIGHTS[window];
   const byId = new Map(subs.map((s) => [s.id, s]));
 
-  const earnedCells = cells.filter((c) => byId.get(c.id)?.available === true);
+  const scoreBearingCells = cells.filter((c) => c.pillar !== 'pattern');
+  const earnedCells = scoreBearingCells.filter((c) => byId.get(c.id)?.available === true);
   const earnedWeight = earnedCells.reduce((s, c) => s + c.weight, 0);
   const unearnedWeight = Math.max(0, 100 - earnedWeight);
 
@@ -76,8 +78,9 @@ export function redistribute(window: Window, subs: SubScore[]): RedistributeResu
     }
   }
 
-  // MRS awaits only when zero earned score-bearing signals exist. Calendar/
-  // demand/pattern signals can produce a baseline via redistribution.
+  // MRS awaits only when zero earned immediate signals exist. Calendar/demand
+  // and wearable/physiological signals can produce a baseline via
+  // redistribution; patterns cannot form or contribute to MRS.
   const awaitingSignals = earnedCells.length === 0;
 
   return {

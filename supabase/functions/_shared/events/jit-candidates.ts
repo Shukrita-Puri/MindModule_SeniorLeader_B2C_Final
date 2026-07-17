@@ -23,8 +23,7 @@ export interface RankableEventInput {
   skipPenalty?: number | null;
   /**
    * Optional learning-loop delta from `applyEventPriorityMemory` (Week-Ahead
-   * picker + weekday Plan once `WEEK_AHEAD_MEMORY_BOOST` is on). Already
-   * clamped to [-50, +30] by the helper.
+   * picker + weekday Plan memory). Already clamped to [-50, +30] by the helper.
    */
   memoryDelta?: number | null;
   /**
@@ -74,6 +73,12 @@ const CATEGORY_WEIGHT: Record<EventCategoryId, number> = {
 };
 
 const SEVERITY_WEIGHT = { high: 15, medium: 8, low: 3 } as const;
+const MAX_JIT_HORIZON_MS = 24 * 60 * 60_000;
+const STALE_PHASE_GRACE_MS: Record<Phase, number> = {
+  pre: 30 * 60_000,
+  during: 30 * 60_000,
+  post: 2 * 60 * 60_000,
+};
 
 function demandWeight(phase: Phase, d: DemandProfile | null): number {
   if (!d) return 0;
@@ -166,6 +171,8 @@ export function rankJitCandidates(
       // post: anchor = end, fromMin positive; window after end.
       const winStart = phase === 'during' ? startMs : anchorMs + fromMin * 60_000;
       const winEnd   = phase === 'during' ? endMs   : anchorMs + toMin   * 60_000;
+      if (winStart - nowMs > MAX_JIT_HORIZON_MS) continue;
+      if (winEnd < nowMs - STALE_PHASE_GRACE_MS[phase]) continue;
       const severity = (ph.severityHint || 'medium') as 'high'|'medium'|'low';
       const sevW = SEVERITY_WEIGHT[severity];
       const demW = demandWeight(phase, enriched.demandProfile);
@@ -255,6 +262,22 @@ const STRONG_STAKES = new Set(['board', 'external', 'investor', 'critical', 'hig
 // severity, demand or memory signal like any other interpersonal item.
 const STRUCTURAL_CATEGORIES = new Set(['A', 'C', 'F', 'G']);
 const PERSONAL_CATEGORY = 'H';
+const ADMIN_COMPLIANCE_NOISE_KEYWORDS = [
+  'r&d tax',
+  'r & d tax',
+  'tax claim',
+  'vat',
+  'compliance review',
+  'legal admin',
+  'procurement review',
+  'finance ops',
+  'audit prep',
+  'hr admin',
+  'payroll',
+  'expense review',
+  'invoice',
+  'regulatory filing',
+];
 
 /**
  * Returns a short string reason if the candidate should be dropped, or
@@ -276,6 +299,11 @@ export function getJitCandidateDropReason(
   // Explicit strong signals are always enough on their own.
   if (hasStrongStakes) return null;
   if (hasPositiveMemory) return null;
+
+  const titleLower = String(c.title || '').toLowerCase();
+  if (ADMIN_COMPLIANCE_NOISE_KEYWORDS.some((kw) => titleLower.includes(kw))) {
+    return 'admin_compliance_noise';
+  }
 
   // Personal-category items must have an explicit user/stakes signal —
   // routine personal errands should never anchor an executive Plan slot.

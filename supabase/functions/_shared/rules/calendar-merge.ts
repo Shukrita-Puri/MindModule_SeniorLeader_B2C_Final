@@ -1,4 +1,4 @@
-export type CalendarProviderName = 'apple' | 'google' | 'microsoft' | string;
+export type CalendarProviderName = "apple" | "google" | "microsoft" | string;
 
 export interface MergeAttendee {
   displayName?: string | null;
@@ -92,58 +92,68 @@ export interface MergedCalendarEvent extends CalendarMergeInput {
   isSuppressedMirror: boolean;
 }
 
-const PLATFORM_PROVIDER_PRECEDENCE: Record<'ios' | 'web' | 'unknown', string[]> = {
-  ios: ['apple', 'google', 'microsoft'],
-  web: ['google', 'microsoft', 'apple'],
-  unknown: ['apple', 'google', 'microsoft'],
+const PLATFORM_PROVIDER_PRECEDENCE: Record<
+  "ios" | "web" | "unknown",
+  string[]
+> = {
+  ios: ["apple", "google", "microsoft"],
+  web: ["google", "microsoft", "apple"],
+  unknown: ["apple", "google", "microsoft"],
 };
 
-const BUSY_TITLE_RX = /^(busy|occupied|blocked|hold|placeholder|tentative|no meetings?|do not book|dnb|buffer)$/i;
+const BUSY_TITLE_RX =
+  /^(busy|occupied|blocked|hold|placeholder|tentative|no meetings?|do not book|dnb|buffer)$/i;
 const PROVIDER_NOISE_RX = /^(accepted|tentative|declined|fwd?|fw)\s*[:\-]\s*/i;
-const TRAILING_TZ_RX = /\s*(?:\(|\[)?(?:gmt[+-]?\d{0,2}|utc|bst|cet|cest|est|edt|pst|pdt|ist|jst)(?:\)|\])?\s*$/i;
+const TRAILING_TZ_RX =
+  /\s*(?:\(|\[)?(?:gmt[+-]?\d{0,2}|utc|bst|cet|cest|est|edt|pst|pdt|ist|jst)(?:\)|\])?\s*$/i;
 
 function toMs(v: unknown): number | null {
-  if (v == null || v === '') return null;
-  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v.getTime() : null;
+  if (v == null || v === "") return null;
+  if (v instanceof Date) {
+    return Number.isFinite(v.getTime()) ? v.getTime() : null;
+  }
   const ms = new Date(v as string).getTime();
   return Number.isFinite(ms) ? ms : null;
 }
 
 function str(v: unknown): string | null {
-  if (typeof v !== 'string') return null;
+  if (typeof v !== "string") return null;
   const s = v.trim();
   return s ? s : null;
 }
 
 function lower(v: unknown): string {
-  return typeof v === 'string' ? v.toLowerCase() : '';
+  return typeof v === "string" ? v.toLowerCase() : "";
 }
 
 function normalizeWhitespace(s: string): string {
-  return s.replace(/\s+/g, ' ').trim();
+  return s.replace(/\s+/g, " ").trim();
 }
 
 function stripBracketNoise(s: string): string {
   return s
-    .replace(/\[(external|ext|calendar|invite|meeting)\]/gi, ' ')
-    .replace(/\((external|ext|calendar|invite|meeting)\)/gi, ' ');
+    .replace(/\[(external|ext|calendar|invite|meeting)\]/gi, " ")
+    .replace(/\((external|ext|calendar|invite|meeting)\)/gi, " ");
 }
 
 export function normalizeForClassify(title: string | null | undefined): string {
-  let out = (title || '').toLowerCase().trim();
-  if (!out) return '';
+  let out = (title || "").toLowerCase().trim();
+  if (!out) return "";
   out = out
-    .replace(/\p{Extended_Pictographic}/gu, ' ')
-    .replace(PROVIDER_NOISE_RX, '')
-    .replace(/^\s*\[external\]\s*/i, '')
-    .replace(/^\s*[\[(]?(accepted|tentative|declined)[\])]?[:\-]\s*/i, '')
-    .replace(/^\s*(re|fwd?|fw)\s*[:\-]\s*/i, '')
-    .replace(TRAILING_TZ_RX, '')
-    .replace(/\s*[-–—]\s*(?:gmt[+-]?\d{0,2}|utc|bst|cet|cest|est|edt|pst|pdt|ist|jst)\s*$/i, '')
-    .replace(/[.,:;!?'"`~_\\/|]+/g, ' ')
-    .replace(/[\(\)\[\]{}<>]+/g, ' ')
-    .replace(/\s*-\s*/g, ' ')
-    .replace(/\s+/g, ' ');
+    .replace(/\p{Extended_Pictographic}/gu, " ")
+    .replace(PROVIDER_NOISE_RX, "")
+    .replace(/^\s*\[external\]\s*/i, "")
+    .replace(/^\s*[\[(]?(accepted|tentative|declined)[\])]?[:\-]\s*/i, "")
+    .replace(/^\s*(re|fwd?|fw)\s*[:\-]\s*/i, "")
+    .replace(TRAILING_TZ_RX, "")
+    .replace(
+      /\s*[-–—]\s*(?:gmt[+-]?\d{0,2}|utc|bst|cet|cest|est|edt|pst|pdt|ist|jst)\s*$/i,
+      "",
+    )
+    .replace(/[.,:;!?'"`~_\\/|]+/g, " ")
+    .replace(/[\(\)\[\]{}<>]+/g, " ")
+    .replace(/\s*-\s*/g, " ")
+    .replace(/\s+/g, " ");
   out = stripBracketNoise(out);
   return normalizeWhitespace(out);
 }
@@ -185,10 +195,14 @@ export function computeIdentityKey(input: CalendarMergeInput): string | null {
 function isBusyTitle(title: string | null | undefined): boolean {
   const t = normalizeForClassify(title);
   if (!t) return true;
-  return BUSY_TITLE_RX.test(t) || /\bbusy\b/.test(t) || /\bout of office\b/.test(t);
+  return BUSY_TITLE_RX.test(t) || /\bbusy\b/.test(t) ||
+    /\bout of office\b/.test(t);
 }
 
-function providerRank(provider: string | null | undefined, platform: 'ios' | 'web' | 'unknown'): number {
+function providerRank(
+  provider: string | null | undefined,
+  platform: "ios" | "web" | "unknown",
+): number {
   const list = PLATFORM_PROVIDER_PRECEDENCE[platform];
   const idx = list.indexOf(lower(provider));
   return idx === -1 ? 99 : idx;
@@ -196,7 +210,7 @@ function providerRank(provider: string | null | undefined, platform: 'ios' | 'we
 
 function pickFirstString(...values: unknown[]): string | null {
   for (const v of values) {
-    if (typeof v === 'string' && v.trim()) return v.trim();
+    if (typeof v === "string" && v.trim()) return v.trim();
   }
   return null;
 }
@@ -205,53 +219,65 @@ function normalizedProvider(raw: CalendarMergeInput): string | null {
   return str(raw.provider) ?? str(raw.source) ?? null;
 }
 
-function readEventMetadata(raw: CalendarMergeInput): Record<string, unknown> | null {
-  const meta = (raw.event_metadata ?? raw.eventMetadata) as Record<string, unknown> | null | undefined;
-  return meta && typeof meta === 'object' ? meta : null;
+function readEventMetadata(
+  raw: CalendarMergeInput,
+): Record<string, unknown> | null {
+  const meta = (raw.event_metadata ?? raw.eventMetadata) as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  return meta && typeof meta === "object" ? meta : null;
 }
 
-function extractAttendeeEmail(attendee: MergeAttendee | string | null | undefined): string | null {
+function extractAttendeeEmail(
+  attendee: MergeAttendee | string | null | undefined,
+): string | null {
   if (!attendee) return null;
-  if (typeof attendee === 'string') {
+  if (typeof attendee === "string") {
     const trimmed = attendee.trim().toLowerCase();
-    return trimmed.includes('@') ? trimmed.replace(/^mailto:/, '') : null;
+    return trimmed.includes("@") ? trimmed.replace(/^mailto:/, "") : null;
   }
   const email = str(attendee.email);
-  return email ? email.toLowerCase().replace(/^mailto:/, '') : null;
+  return email ? email.toLowerCase().replace(/^mailto:/, "") : null;
 }
 
-function attendeeKey(attendee: MergeAttendee | string | null | undefined): string | null {
+function attendeeKey(
+  attendee: MergeAttendee | string | null | undefined,
+): string | null {
   if (!attendee) return null;
-  if (typeof attendee === 'string') {
+  if (typeof attendee === "string") {
     return normalizeForClassify(attendee) || attendee.toLowerCase().trim();
   }
   return (
     extractAttendeeEmail(attendee) ??
-    normalizeForClassify(attendee.displayName) ??
-    null
+      normalizeForClassify(attendee.displayName) ??
+      null
   );
 }
 
 function readAttendees(raw: CalendarMergeInput): MergedCalendarAttendee[] {
   const meta = readEventMetadata(raw);
-  const attendeeSignals = Array.isArray((meta as any)?.attendeeSignals?.attendees)
-    ? ((meta as any).attendeeSignals.attendees as Array<Record<string, unknown>>)
-    : [];
+  const attendeeSignals =
+    Array.isArray((meta as any)?.attendeeSignals?.attendees)
+      ? ((meta as any).attendeeSignals.attendees as Array<
+        Record<string, unknown>
+      >)
+      : [];
   const sourceAttendees = Array.isArray(raw.attendees) ? raw.attendees : [];
   const combined = [...sourceAttendees, ...attendeeSignals];
   const out = new Map<string, MergedCalendarAttendee>();
   for (const attendee of combined) {
     const email = extractAttendeeEmail(attendee as MergeAttendee);
-    const displayName = typeof attendee === 'string'
+    const displayName = typeof attendee === "string"
       ? normalizeForClassify(attendee) || (attendee as string).trim()
       : pickFirstString((attendee as MergeAttendee).displayName, email);
-    const responseStatus = typeof attendee === 'string'
+    const responseStatus = typeof attendee === "string"
       ? null
       : str((attendee as MergeAttendee).responseStatus) ?? null;
-    const isOrganizer = typeof attendee === 'string'
+    const isOrganizer = typeof attendee === "string"
       ? false
       : (attendee as MergeAttendee).isOrganizer === true;
-    const isSelf = typeof attendee === 'string'
+    const isSelf = typeof attendee === "string"
       ? false
       : (attendee as MergeAttendee).isSelf === true;
     const key = attendeeKey(attendee as MergeAttendee);
@@ -276,10 +302,13 @@ function readAttendees(raw: CalendarMergeInput): MergedCalendarAttendee[] {
   return Array.from(out.values());
 }
 
-function readOrganizer(raw: CalendarMergeInput): MergedCalendarOrganizer | null {
+function readOrganizer(
+  raw: CalendarMergeInput,
+): MergedCalendarOrganizer | null {
   const organizer = raw.organizer;
   const meta = readEventMetadata(raw);
-  const org = (meta as any)?.organizer ?? (meta as any)?.attendeeSignals?.organizer ?? null;
+  const org = (meta as any)?.organizer ??
+    (meta as any)?.attendeeSignals?.organizer ?? null;
   const displayName = pickFirstString(
     organizer?.displayName,
     org?.displayName,
@@ -291,7 +320,8 @@ function readOrganizer(raw: CalendarMergeInput): MergedCalendarOrganizer | null 
     org?.email,
     org?.emailAddress?.address,
   );
-  const isSelf = organizer?.isSelf === true || org?.self === true || org?.isCurrentUser === true;
+  const isSelf = organizer?.isSelf === true || org?.self === true ||
+    org?.isCurrentUser === true;
   if (!displayName && !email && !isSelf) return null;
   return {
     displayName,
@@ -300,7 +330,9 @@ function readOrganizer(raw: CalendarMergeInput): MergedCalendarOrganizer | null 
   };
 }
 
-function readStatusCandidates(raw: CalendarMergeInput): Array<{ status: string; updatedAtMs: number | null; source: string }> {
+function readStatusCandidates(
+  raw: CalendarMergeInput,
+): Array<{ status: string; updatedAtMs: number | null; source: string }> {
   const meta = readEventMetadata(raw);
   const candidates = [
     raw.status,
@@ -309,42 +341,60 @@ function readStatusCandidates(raw: CalendarMergeInput): Array<{ status: string; 
     (meta as any)?.showAs,
     (meta as any)?.responseStatus,
   ];
-  const attendeeStatuses = Array.isArray((meta as any)?.attendeeSignals?.attendees)
-    ? ((meta as any).attendeeSignals.attendees as Array<Record<string, unknown>>)
+  const attendeeStatuses =
+    Array.isArray((meta as any)?.attendeeSignals?.attendees)
+      ? ((meta as any).attendeeSignals.attendees as Array<
+        Record<string, unknown>
+      >)
         .map((attendee) => str(attendee.responseStatus))
         .filter((status): status is string => Boolean(status))
-    : [];
-  const updatedAt = toMs(raw.updatedAt ?? raw.updated_at ?? (meta as any)?.updatedAt ?? (meta as any)?.lastModified);
+      : [];
+  const updatedAt = toMs(
+    raw.updatedAt ?? raw.updated_at ?? (meta as any)?.updatedAt ??
+      (meta as any)?.lastModified,
+  );
   return [...candidates, ...attendeeStatuses]
     .map((status, i) => {
       const s = lower(status);
       if (!s) return null;
       return { status: s, updatedAtMs: updatedAt, source: `candidate_${i}` };
     })
-    .filter((v): v is { status: string; updatedAtMs: number | null; source: string } => v != null);
+    .filter((
+      v,
+    ): v is { status: string; updatedAtMs: number | null; source: string } =>
+      v != null
+    );
 }
 
 function statusRank(status: string): number {
   switch (status) {
-    case 'cancelled':
-    case 'canceled':
+    case "cancelled":
+    case "canceled":
       return 4;
-    case 'declined':
+    case "declined":
       return 3;
-    case 'tentative':
+    case "tentative":
       return 2;
-    case 'busy':
+    case "busy":
       return 2;
-    case 'confirmed':
+    case "confirmed":
       return 1;
     default:
       return 0;
   }
 }
 
-function resolveStatus(rows: CalendarMergeInput[]): { status: string | null; suppressed: boolean; statusUpdatedAt: string | null } {
+function resolveStatus(
+  rows: CalendarMergeInput[],
+): {
+  status: string | null;
+  suppressed: boolean;
+  statusUpdatedAt: string | null;
+} {
   const statuses = rows.flatMap((row) => readStatusCandidates(row));
-  if (!statuses.length) return { status: null, suppressed: false, statusUpdatedAt: null };
+  if (!statuses.length) {
+    return { status: null, suppressed: false, statusUpdatedAt: null };
+  }
 
   statuses.sort((a, b) => {
     const aMs = a.updatedAtMs ?? 0;
@@ -354,11 +404,13 @@ function resolveStatus(rows: CalendarMergeInput[]): { status: string | null; sup
   });
 
   const top = statuses[0];
-  const suppressed = ['cancelled', 'canceled', 'declined'].includes(top.status);
+  const suppressed = ["cancelled", "canceled", "declined"].includes(top.status);
   return {
     status: top.status,
     suppressed,
-    statusUpdatedAt: top.updatedAtMs ? new Date(top.updatedAtMs).toISOString() : null,
+    statusUpdatedAt: top.updatedAtMs
+      ? new Date(top.updatedAtMs).toISOString()
+      : null,
   };
 }
 
@@ -370,13 +422,16 @@ function attendeeKeys(row: CalendarMergeInput): Set<string> {
   }
   const organizer = readOrganizer(row);
   const orgKey = organizer?.email ?? organizer?.displayName;
-  if (orgKey) keys.add(normalizeForClassify(orgKey) || orgKey.toLowerCase().trim());
+  if (orgKey) {
+    keys.add(normalizeForClassify(orgKey) || orgKey.toLowerCase().trim());
+  }
   return keys;
 }
 
 function hasPeopleSignals(row: CalendarMergeInput): boolean {
   const attendees = readAttendees(row);
-  return attendees.length > 0 || readOrganizer(row) != null || (row.attendeesCount ?? row.attendees_count ?? 0) > 0;
+  return attendees.length > 0 || readOrganizer(row) != null ||
+    (row.attendeesCount ?? row.attendees_count ?? 0) > 0;
 }
 
 function looksGenericBusy(row: CalendarMergeInput): boolean {
@@ -399,7 +454,9 @@ function durationMinutes(row: CalendarMergeInput): number | null {
 }
 
 function providerSourceKey(row: CalendarMergeInput): string | null {
-  return normalizedProvider(row) ?? str(row.sourceCalendar) ?? str(row.source_calendar) ?? str(row.calendar_id) ?? str(row.sourceCalendarId) ?? null;
+  return normalizedProvider(row) ?? str(row.sourceCalendar) ??
+    str(row.source_calendar) ?? str(row.calendar_id) ??
+    str(row.sourceCalendarId) ?? null;
 }
 
 function providerEventIdFor(row: CalendarMergeInput): string | null {
@@ -410,7 +467,9 @@ function rawEventIdFor(row: CalendarMergeInput): string | null {
   return str(row.id) ?? str(row.external_id) ?? null;
 }
 
-function mergeMetadata(rows: CalendarMergeInput[]): Record<string, unknown> | null {
+function mergeMetadata(
+  rows: CalendarMergeInput[],
+): Record<string, unknown> | null {
   const merged: Record<string, unknown> = {};
   let saw = false;
   for (const row of rows) {
@@ -435,7 +494,10 @@ interface CanonicalGroup {
   peopleKeys: Set<string>;
 }
 
-function canMergeIntoGroup(row: CalendarMergeInput, group: CanonicalGroup): boolean {
+function canMergeIntoGroup(
+  row: CalendarMergeInput,
+  group: CanonicalGroup,
+): boolean {
   const rowTitle = normalizeForClassify(row.title);
   if (!rowTitle) return false;
   if (rowTitle !== group.normalizedTitle) return false;
@@ -473,42 +535,56 @@ function canMergeIntoGroup(row: CalendarMergeInput, group: CanonicalGroup): bool
   return true;
 }
 
-function chooseRepresentative(rows: CalendarMergeInput[], platform: 'ios' | 'web' | 'unknown'): CalendarMergeInput {
+function chooseRepresentative(
+  rows: CalendarMergeInput[],
+  platform: "ios" | "web" | "unknown",
+): CalendarMergeInput {
   const ranked = [...rows].sort((a, b) => {
-    const aScore =
-      (a.isOrganizer ?? a.is_organizer ? 10 : 0) +
+    const aScore = (a.isOrganizer ?? a.is_organizer ? 10 : 0) +
       ((a.attendeesCount ?? a.attendees_count ?? 0) > 0 ? 4 : 0) +
-      ((readEventMetadata(a) ? Object.keys(readEventMetadata(a)!).length : 0) / 10) +
+      ((readEventMetadata(a) ? Object.keys(readEventMetadata(a)!).length : 0) /
+        10) +
       (looksGenericBusy(a) ? -8 : 0) +
       (providerRank(providerSourceKey(a), platform) === 0 ? 1 : 0);
-    const bScore =
-      (b.isOrganizer ?? b.is_organizer ? 10 : 0) +
+    const bScore = (b.isOrganizer ?? b.is_organizer ? 10 : 0) +
       ((b.attendeesCount ?? b.attendees_count ?? 0) > 0 ? 4 : 0) +
-      ((readEventMetadata(b) ? Object.keys(readEventMetadata(b)!).length : 0) / 10) +
+      ((readEventMetadata(b) ? Object.keys(readEventMetadata(b)!).length : 0) /
+        10) +
       (looksGenericBusy(b) ? -8 : 0) +
       (providerRank(providerSourceKey(b), platform) === 0 ? 1 : 0);
     if (bScore !== aScore) return bScore - aScore;
     const bCreated = toMs(b.createdAt ?? b.created_at) ?? 0;
     const aCreated = toMs(a.createdAt ?? a.created_at) ?? 0;
     if (aCreated !== bCreated) return aCreated - bCreated;
-    return providerRank(providerSourceKey(a), platform) - providerRank(providerSourceKey(b), platform);
+    return providerRank(providerSourceKey(a), platform) -
+      providerRank(providerSourceKey(b), platform);
   });
   return ranked[0];
 }
 
-function buildCanonicalEvent(group: CanonicalGroup, platform: 'ios' | 'web' | 'unknown'): MergedCalendarEvent {
+function buildCanonicalEvent(
+  group: CanonicalGroup,
+  platform: "ios" | "web" | "unknown",
+): MergedCalendarEvent {
   const rows = group.rows;
   const representative = chooseRepresentative(rows, platform);
-  const start = Math.min(...rows.map((row) => startMsFor(row) ?? group.startMs));
-  const end = Math.max(...rows.map((row) => endMsFor(row) ?? (start + group.durationMin * 60000)));
+  const start = Math.min(
+    ...rows.map((row) => startMsFor(row) ?? group.startMs),
+  );
+  const end = Math.max(
+    ...rows.map((row) => endMsFor(row) ?? (start + group.durationMin * 60000)),
+  );
   const allAttendees = new Map<string, MergedCalendarAttendee>();
   for (const row of rows) {
     for (const attendee of readAttendees(row)) {
-      const key = normalizeForClassify(attendee.email ?? attendee.displayName) || attendee.email || attendee.displayName || '';
+      const key =
+        normalizeForClassify(attendee.email ?? attendee.displayName) ||
+        attendee.email || attendee.displayName || "";
       if (!key) continue;
       const existing = allAttendees.get(key);
       if (existing) {
-        existing.responseStatus = existing.responseStatus ?? attendee.responseStatus;
+        existing.responseStatus = existing.responseStatus ??
+          attendee.responseStatus;
         existing.isOrganizer = existing.isOrganizer || attendee.isOrganizer;
         existing.isSelf = existing.isSelf || attendee.isSelf;
         continue;
@@ -519,12 +595,24 @@ function buildCanonicalEvent(group: CanonicalGroup, platform: 'ios' | 'web' | 'u
 
   const mergedMeta = mergeMetadata(rows);
   const statusResolution = resolveStatus(rows);
-  const sourceCalendars = Array.from(new Set(rows.map((row) => providerSourceKey(row)).filter((v): v is string => Boolean(v))));
+  const sourceCalendars = Array.from(
+    new Set(
+      rows.map((row) => providerSourceKey(row)).filter((v): v is string =>
+        Boolean(v)
+      ),
+    ),
+  );
   const providerEventIds: Record<string, string[]> = {};
-  const rawEventIds = Array.from(new Set(rows.map((row) => rawEventIdFor(row)).filter((v): v is string => Boolean(v))));
+  const rawEventIds = Array.from(
+    new Set(
+      rows.map((row) => rawEventIdFor(row)).filter((v): v is string =>
+        Boolean(v)
+      ),
+    ),
+  );
 
   for (const row of rows) {
-    const provider = providerSourceKey(row) ?? 'unknown';
+    const provider = providerSourceKey(row) ?? "unknown";
     const eventId = providerEventIdFor(row);
     if (!eventId) continue;
     const bucket = providerEventIds[provider] ?? [];
@@ -532,19 +620,28 @@ function buildCanonicalEvent(group: CanonicalGroup, platform: 'ios' | 'web' | 'u
     providerEventIds[provider] = bucket;
   }
 
-  const identityKey = `${group.normalizedTitle}|${Math.round(group.startMs / 300000) * 300000}|${Math.round(group.durationMin / 10)}`;
-  const organizer = readOrganizer(representative) ?? readOrganizer(rows.find((row) => readOrganizer(row) != null) ?? representative);
+  const identityKey = `${group.normalizedTitle}|${
+    Math.round(group.startMs / 300000) * 300000
+  }|${Math.round(group.durationMin / 10)}`;
+  const organizer = readOrganizer(representative) ??
+    readOrganizer(
+      rows.find((row) => readOrganizer(row) != null) ?? representative,
+    );
   const chosenLocation = pickFirstString(
     representative.location,
     ...rows.map((row) => row.location).filter((v): v is string => Boolean(v)),
-    ...(rows.map((row) => (readEventMetadata(row) as any)?.location).filter(Boolean) as string[]),
+    ...(rows.map((row) => (readEventMetadata(row) as any)?.location).filter(
+      Boolean,
+    ) as string[]),
   );
   const chosenDescription = pickFirstString(
     representative.description,
     representative.body,
     ...rows.map((row) => row.description),
     ...rows.map((row) => row.body),
-    ...(rows.map((row) => (readEventMetadata(row) as any)?.description).filter(Boolean) as string[]),
+    ...(rows.map((row) => (readEventMetadata(row) as any)?.description).filter(
+      Boolean,
+    ) as string[]),
   );
   const conferenceUrl = pickFirstString(
     representative.conferenceUrl,
@@ -570,8 +667,12 @@ function buildCanonicalEvent(group: CanonicalGroup, platform: 'ios' | 'web' | 'u
     attendees: Array.from(allAttendees.values()),
     organizer: organizer ?? null,
     attendeesCount: Array.from(allAttendees.values()).length || null,
-    isOrganizer: rows.some((row) => row.isOrganizer === true || row.is_organizer === true),
-    isRecurring: rows.some((row) => row.isRecurring === true || row.is_recurring === true),
+    isOrganizer: rows.some((row) =>
+      row.isOrganizer === true || row.is_organizer === true
+    ),
+    isRecurring: rows.some((row) =>
+      row.isRecurring === true || row.is_recurring === true
+    ),
     status: statusResolution.status,
     statusUpdatedAt: statusResolution.statusUpdatedAt,
     location: chosenLocation,
@@ -588,7 +689,10 @@ function buildCanonicalEvent(group: CanonicalGroup, platform: 'ios' | 'web' | 'u
   return merged;
 }
 
-function mergeClusters(events: CalendarMergeInput[], platform: 'ios' | 'web' | 'unknown'): MergedCalendarEvent[] {
+function mergeClusters(
+  events: CalendarMergeInput[],
+  platform: "ios" | "web" | "unknown",
+): MergedCalendarEvent[] {
   const clusters: CanonicalGroup[] = [];
   for (const row of events) {
     const start = startMsFor(row);
@@ -611,11 +715,17 @@ function mergeClusters(events: CalendarMergeInput[], platform: 'ios' | 'web' | '
       cluster.rows.push(row);
       const clusterStart = Math.min(cluster.startMs, start);
       const clusterEnd = Math.max(
-        cluster.rows.reduce((max, current) => Math.max(max, endMsFor(current) ?? end), end),
+        cluster.rows.reduce(
+          (max, current) => Math.max(max, endMsFor(current) ?? end),
+          end,
+        ),
         end,
       );
       cluster.startMs = clusterStart;
-      cluster.durationMin = Math.max(cluster.durationMin, Math.round((clusterEnd - clusterStart) / 60000));
+      cluster.durationMin = Math.max(
+        cluster.durationMin,
+        Math.round((clusterEnd - clusterStart) / 60000),
+      );
       for (const key of attendeeKeys(row)) cluster.peopleKeys.add(key);
       cluster.representative = chooseRepresentative(cluster.rows, platform);
       merged = true;
@@ -624,16 +734,20 @@ function mergeClusters(events: CalendarMergeInput[], platform: 'ios' | 'web' | '
     if (!merged) clusters.push(prepared);
   }
 
-  const mergedEvents = clusters.map((cluster) => buildCanonicalEvent(cluster, platform));
+  const mergedEvents = clusters.map((cluster) =>
+    buildCanonicalEvent(cluster, platform)
+  );
   const titledEvents = mergedEvents.filter((event) => !looksGenericBusy(event));
   return mergedEvents.filter((event) => {
     if (!event.isBusyBlock) return true;
     if (titledEvents.length === 0) return true;
-    const start = new Date(event.startTime).getTime();
-    const end = new Date(event.endTime).getTime();
+    const start = toMs(event.startTime);
+    const end = toMs(event.endTime);
+    if (start == null || end == null) return true;
     const overlaps = titledEvents.some((other) => {
-      const otherStart = new Date(other.startTime).getTime();
-      const otherEnd = new Date(other.endTime).getTime();
+      const otherStart = toMs(other.startTime);
+      const otherEnd = toMs(other.endTime);
+      if (otherStart == null || otherEnd == null) return false;
       return start < otherEnd && otherStart < end;
     });
     return !overlaps;
@@ -647,11 +761,14 @@ function mergeClusters(events: CalendarMergeInput[], platform: 'ios' | 'web' | '
 
 export function mergeCalendarEvents<T extends CalendarMergeInput>(
   events: T[],
-  platform: 'ios' | 'web' | 'unknown' = 'web',
+  platform: "ios" | "web" | "unknown" = "web",
 ): Array<T & MergedCalendarEvent> {
   if (!Array.isArray(events) || events.length === 0) return [];
   const prepared = events
-    .filter((event) => event && (event.startTime ?? event.start_time) && (event.endTime ?? event.end_time))
+    .filter((event) =>
+      event && (event.startTime ?? event.start_time) &&
+      (event.endTime ?? event.end_time)
+    )
     .map((event) => ({
       ...event,
       startTime: event.startTime ?? event.start_time,
@@ -665,7 +782,7 @@ export function mergeCalendarEvents<T extends CalendarMergeInput>(
   const merged = mergeClusters(prepared, platform);
   return merged
     .filter((event) => !event.isSuppressedMirror)
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    .sort((a, b) => (toMs(a.startTime) ?? 0) - (toMs(b.startTime) ?? 0))
     .map((event) => event as T & MergedCalendarEvent);
 }
 
@@ -696,12 +813,21 @@ export function logMergeStats(
     // mergeCalendarEvents already filtered isSuppressedMirror, so reconstruct
     // a proxy: anything where mergedFromCount > 1 implies at least one mirror
     // was collapsed in.
-    const multiSourceMerges = merged.filter((e) => (e.mergedFromCount ?? 1) > 1).length;
-    if (collapsed === 0 && sources.length < 2 && softHolds === 0 && multiSourceMerges === 0) {
+    const multiSourceMerges = merged.filter((e) =>
+      (e.mergedFromCount ?? 1) > 1
+    ).length;
+    if (
+      collapsed === 0 && sources.length < 2 && softHolds === 0 &&
+      multiSourceMerges === 0
+    ) {
       return;
     }
     console.log(
-      `[calendar-merge] surface=${surface} user=${opts?.userId ?? "?"} raw=${rawCount} merged=${mergedCount} collapsed=${collapsed} sources=${JSON.stringify(sources)} multiSourceMerges=${multiSourceMerges} softHolds=${softHolds}`,
+      `[calendar-merge] surface=${surface} user=${
+        opts?.userId ?? "?"
+      } raw=${rawCount} merged=${mergedCount} collapsed=${collapsed} sources=${
+        JSON.stringify(sources)
+      } multiSourceMerges=${multiSourceMerges} softHolds=${softHolds}`,
     );
   } catch (_) {
     // Never let observability break a hot path.

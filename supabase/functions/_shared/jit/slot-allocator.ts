@@ -3,12 +3,26 @@ import type { Phase } from "../events/event-phase-map.ts";
 import { EVENT_PHASE_MAP } from "../events/event-phase-map.ts";
 import type { EventCategoryId } from "../events/event-categories.ts";
 
-export type DayShape = "light_routine" | "dominant_structural_event" | "mixed_day" | "rest_day";
+export type DayShape =
+  | "light_routine"
+  | "dominant_structural_event"
+  | "mixed_day"
+  | "rest_day"
+  | "saturday"
+  | "holiday_pto"
+  | "week_ahead"
+  | "travel_day"
+  | "conference_day";
 export type SlotMode = "jit" | "state" | "jit+state" | "full_arc";
 export type SlotRole =
   | "start_of_day"
   | "dominant_demand"
   | "recovery"
+  | "current_priority"
+  | "remaining_demand"
+  | "close_of_day"
+  | "protect_tonight"
+  | "tomorrow_prep"
   | "pre"
   | "during"
   | "post"
@@ -21,6 +35,16 @@ export interface SlotAllocationInput {
   hasConferenceDay?: boolean;
   hasOffsiteDay?: boolean;
   hasRestSignals?: boolean;
+  /** 0=Sunday, 6=Saturday in the user's local timezone. */
+  dayOfWeek?: number;
+  /** True when the day should show the Week-Ahead planning surface. */
+  isWeekAhead?: boolean;
+  /** PTO/public holiday day that is not being handled as Week-Ahead. */
+  isPtoOrHoliday?: boolean;
+  /** Weekend work evidence strong enough to use normal workday cadence. */
+  isFullWorkingWeekend?: boolean;
+  mrsWindow?: "morning" | "afternoon" | "evening";
+  forceArcCategoryIds?: EventCategoryId[];
 }
 
 export interface SlotAllocation {
@@ -77,6 +101,27 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
   const hasThirdCandidate = !!third;
   const structuralSignals = [input.hasTravelDay, input.hasConferenceDay, input.hasOffsiteDay].filter(Boolean).length;
   const restSignals = input.hasRestSignals === true;
+  const forceArcCategoryIds = new Set(input.forceArcCategoryIds ?? []);
+
+  if (input.isWeekAhead) {
+    return buildSingleStateSlotResult("week_ahead", "week_ahead_planning", ranked.length);
+  }
+
+  if (input.dayOfWeek === 6 && !input.isFullWorkingWeekend) {
+    return buildSingleStateSlotResult("saturday", "saturday_habit_only", ranked.length);
+  }
+
+  if (input.isPtoOrHoliday) {
+    return buildSingleStateSlotResult("holiday_pto", "holiday_morning_habit", ranked.length);
+  }
+
+  if (input.hasTravelDay && (!top || top.categoryId === "G")) {
+    return buildNamedFullArcResult("travel_day", "travel_day_full_arc", ranked, "G");
+  }
+
+  if (input.hasConferenceDay && (!top || top.categoryId === "F")) {
+    return buildNamedFullArcResult("conference_day", "conference_day_full_arc", ranked, "F");
+  }
 
   // Same-event fan detection (Sprint 1 fix): if the top candidate has no
   // sibling from a *different* event, it still qualifies as a dominant
@@ -90,7 +135,7 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     !!top && !!topEventId && !differentEventCandidate && ranked.length > 1;
 
   const topIsStructural =
-    !!top && (top.categoryId === "A" || top.categoryId === "C" || top.categoryId === "F" || top.categoryId === "G");
+    !!top && (top.categoryId === "A" || top.categoryId === "C" || top.categoryId === "F" || top.categoryId === "G" || forceArcCategoryIds.has(top.categoryId));
   const dominantStructuralEvent =
     topIsStructural && (!hasSecondCandidate || sameEventFan || !differentEventCandidate);
   const dayShape: DayShape = restSignals
@@ -157,19 +202,25 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     phaseCandidates?.[want] ?? null;
 
   const slots: SlotAllocation["slots"] = dominantStructuralEvent
-    ? [
-        makeSlot(0, dayShape, mode, pickForDominant("pre") ?? top, "start_of_day", "pre"),
-        makeSlot(1, dayShape, mode, pickForDominant("during"), "dominant_demand", "during"),
-        makeSlot(2, dayShape, mode, pickForDominant("post") ?? top, "recovery", "post"),
-      ]
+    ? top?.categoryId === "A"
+      ? [
+          makeSlot(0, dayShape, mode, pickForDominant("pre") ?? top, windowRole(input.mrsWindow, 0), "pre"),
+          makeBoardProtectSlot(1),
+          makeSlot(2, dayShape, mode, pickForDominant("post") ?? top, windowRole(input.mrsWindow, 2), "post"),
+        ]
+      : [
+          makeSlot(0, dayShape, mode, pickForDominant("pre") ?? top, windowRole(input.mrsWindow, 0), "pre"),
+          makeSlot(1, dayShape, mode, pickForDominant("during"), windowRole(input.mrsWindow, 1), "during"),
+          makeSlot(2, dayShape, mode, pickForDominant("post") ?? top, windowRole(input.mrsWindow, 2), "post"),
+        ]
     : [
         // Sprint 3 (Phase 5): non-dominant days must NOT recycle the
         // single top candidate across all three slots. If only one
         // meaningful candidate cleared the floor, slots 1 & 2 fall back
         // to state anchors instead of re-anchoring the same event.
-        makeSlot(0, dayShape, mode, top, "start_of_day"),
-        makeSlot(1, dayShape, mode, second, "dominant_demand"),
-        makeSlot(2, dayShape, mode, third, "recovery"),
+        makeSlot(0, dayShape, mode, top, windowRole(input.mrsWindow, 0)),
+        makeSlot(1, dayShape, mode, second, windowRole(input.mrsWindow, 1)),
+        makeSlot(2, dayShape, mode, third, windowRole(input.mrsWindow, 2)),
       ];
 
   return {
@@ -183,6 +234,96 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
       multiPhaseEligible: !!top && (top.categoryId === "A" || top.categoryId === "D" || top.categoryId === "F" || top.categoryId === "G"),
       sameEventFan,
       dominantEventPhases,
+    },
+  };
+}
+
+function windowRole(
+  mrsWindow: SlotAllocationInput["mrsWindow"],
+  index: 0 | 1 | 2,
+): SlotRole {
+  if (mrsWindow === "afternoon") {
+    return index === 0 ? "current_priority" : index === 1 ? "remaining_demand" : "close_of_day";
+  }
+  if (mrsWindow === "evening") {
+    return index === 0 ? "current_priority" : index === 1 ? "protect_tonight" : "tomorrow_prep";
+  }
+  return index === 0 ? "start_of_day" : index === 1 ? "dominant_demand" : "recovery";
+}
+
+function makeBoardProtectSlot(index: 1): SlotAllocation["slots"][number] {
+  return {
+    index,
+    slotRole: "state_anchor",
+    arcLabel: "Steady",
+    jitPhase: null,
+    jitEventTitle: null,
+    jitEventId: null,
+    jitCategoryId: null,
+    allocationReason: "board_protect_state",
+  };
+}
+
+function buildSingleStateSlotResult(
+  dayShape: Extract<DayShape, "saturday" | "holiday_pto" | "week_ahead">,
+  allocationReason: string,
+  candidateCount: number,
+): SlotAllocation {
+  return {
+    dayShape,
+    mode: "state",
+    allocationReason,
+    slots: [
+      {
+        index: 0,
+        slotRole: "state_anchor",
+        arcLabel: "Steady",
+        jitPhase: null,
+        jitEventTitle: null,
+        jitEventId: null,
+        jitCategoryId: null,
+        allocationReason,
+      },
+    ],
+    debug: {
+      dayShape,
+      mode: "state",
+      candidateCount,
+      multiPhaseEligible: false,
+      sameEventFan: false,
+    },
+  };
+}
+
+function buildNamedFullArcResult(
+  dayShape: Extract<DayShape, "travel_day" | "conference_day">,
+  allocationReason: string,
+  ranked: RankedJitCandidate[],
+  categoryId: EventCategoryId,
+): SlotAllocation {
+  const phaseCandidates: Partial<Record<Phase, RankedJitCandidate>> = {};
+  for (const c of ranked) {
+    if (c.categoryId !== categoryId) continue;
+    if (!phaseCandidates[c.phase] || phaseCandidates[c.phase]!.score < c.score) {
+      phaseCandidates[c.phase] = c;
+    }
+  }
+  return {
+    dayShape,
+    mode: "full_arc",
+    allocationReason,
+    slots: [
+      makeSlot(0, dayShape, "full_arc", phaseCandidates.pre ?? null, "pre", "pre"),
+      makeSlot(1, dayShape, "full_arc", phaseCandidates.during ?? null, "during", "during"),
+      makeSlot(2, dayShape, "full_arc", phaseCandidates.post ?? null, "post", "post"),
+    ],
+    debug: {
+      dayShape,
+      mode: "full_arc",
+      candidateCount: ranked.length,
+      multiPhaseEligible: true,
+      sameEventFan: ranked.length > 1 && new Set(ranked.map((c) => c.eventId).filter(Boolean)).size === 1,
+      dominantEventPhases: (["pre", "during", "post"] as const).filter((p) => !!phaseCandidates[p]),
     },
   };
 }

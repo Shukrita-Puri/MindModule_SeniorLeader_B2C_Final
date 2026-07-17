@@ -28,6 +28,18 @@ export interface PriorityMemoryIndex {
   rowsByKey: Map<string, PriorityMemoryRow[]>;
 }
 
+export const TITLE_SPECIFIC_MEMORY_CATEGORY = "title_specific";
+
+export function normalizeEventTitleMemoryKey(title: string | null | undefined): string {
+  const tokens = String(title || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5);
+  return tokens.join("_") || "untitled";
+}
+
 const KEY = (category: string, typeKey: string) =>
   `${(category || "").toLowerCase()}::${(typeKey || "").toLowerCase()}`;
 

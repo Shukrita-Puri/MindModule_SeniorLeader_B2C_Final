@@ -63,7 +63,7 @@ export function buildRecommendedActionCopy(input: PlanRecommendedActionInput): s
     switch (input.primaryType) {
       case "regulate": return `Settle your nervous system before ${event}`;
       case "align": return `Sharpen your thinking before ${event}`;
-      case "prepare": return `Enter optimal flow state ahead of ${event}`;
+      case "prepare": return `Enter optimal flow state before ${event}`;
       case "integrate": return `Land cleanly after ${event}`;
     }
   }

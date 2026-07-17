@@ -12,7 +12,7 @@
 
 ### v6.3 Changes Summary (2026-06-01)
 
-- **MRS v3 (two-state score) is now canonical.** The legacy single-state "inner readiness" model in §4 is superseded by `readiness_score_baseline` (always-on, wearable + calendar + patterns) and `readiness_score_refined` (baseline blended with the 4 Mind dimensions, hard-capped at ±15). The brief reads `refined` when present, otherwise `baseline`. Full contract: `docs/MRS_V3_SPECIFICATION.md`.
+- **MRS v3 (two-state score) is now canonical.** The legacy single-state "inner readiness" model in §4 is superseded by `readiness_score_baseline` (always-on, wearable and/or calendar demand; pattern data is context only) and `readiness_score_refined` (baseline blended with the 4 Mind dimensions, hard-capped at ±15). The brief reads `refined` when present, otherwise `baseline`. Full contract: `docs/MRS_V3_SPECIFICATION.md`.
 - **4 Mind dimensions replace the legacy check-in inputs.** `clarity`, `emotion`, `pressure` (inverted), `regulation` (1–5 each) replace `outcome`, `mentalSharpness`, `confidence` in every downstream contract — pill composition, brief `input_signature`, validators, C×C modifier wiring. Old fields persist in `daily_checkins` for back-compat reads only.
 - **Signal Pills v3** — pill vocabulary is now MRS v3 tier-driven (e.g. "Mind Sharp", "Body Steady", "Reserve Thin"). Legacy state words (`STRAINED`, `DEPLETED`, `MASKED LOAD`, `RECOVERING`, etc. — §7.1–7.3) are deprecated; the visible tier word comes from the server-built `signalPills[].tierLabel`, not from local taxonomy. Each pill carries a small `(Baseline)` / `(Refined)` badge sourced from `pill.readinessState`.
 - **Bracketed qualifier contract** — pills surface `value (qualifier)` brackets sourced from the shared `checkin-pattern-aggregator` (`_shared/signal-engine/checkin-pattern-aggregator.ts`). The same module powers Insights "Performance Patterns", so per-dim streak / DoW / delta numbers MUST be identical across both surfaces. Tier is moment-only — brackets are display-only perspective and never re-tier.
@@ -231,7 +231,7 @@ The **Performance Readiness Brief** answers three questions for a senior leader,
 
 | State | Field | Inputs | When written | Where the brief uses it |
 |---|---|---|---|---|
-| **State 1** | `readiness_score_baseline` (0–100) | Physiological composite (HRV 50% / Sleep 35% / RHR 15%) + calendar demand (30%) + pattern signals (20%) + CEO `fired_rules` | Every 15 min cron + on any wearable / calendar refresh | Pre-population, pill base tier, nudges, JIT scoring |
+| **State 1** | `readiness_score_baseline` (0–100) | Immediate physiological signals + calendar demand. Pattern signals may frame downstream context, but do not form or contribute to MRS. | Every 15 min cron + on any wearable / calendar refresh | Pre-population, pill base tier, nudges, JIT scoring |
 | **State 2** | `readiness_score_refined` (`baseline ± 15`) | Baseline (70%) blended with weighted 4 Mind dims (30%) | On Mind Check-in submission | The score the user sees on Executive Home after check-in |
 
 `readiness_state ∈ {'baseline','refined'}`. The brief reads `refined` when present, else `baseline`. `refined_contribution = refined − baseline` is a signed integer in `[-15, +15]` (0 when state = `baseline`). The ±15 hard cap is non-negotiable — subjective state can sharpen physiology + demand but never overpower them.

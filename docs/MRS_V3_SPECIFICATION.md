@@ -130,14 +130,14 @@ A measured, severely-deficient night caps the Physiological pillar at the Mixed-
 | `todayRealizedDemand` — NEW | `todayCompletedCount`, `todayHadHighStakes`, `todayHadConflict` (evening-context) | n/a | n/a | 18 pts (60%) |
 | `tomorrowOpeningDemand` — NEW | `tomorrowMeetingCount`, `tomorrowFirstHighStakes`, `tomorrowIsHeavy` (evening-context) | n/a | n/a | 12 pts (40%) |
 
-### 3.4 Pattern pillar — internal decomposition
+### 3.4 Pattern pillar — context only
 
 | Sub-component | Source | Morning (of 20%) | Afternoon/Evening |
 |---|---|---|---|
-| `patternEngineComposite` | `pattern-engine.ts` (retained from v3 §3.4/§3.5, unchanged internally) | 14 pts (70%) | 20 pts (100%) |
-| `yesterdayCarryover` — NEW | `yesterdayLoadScore` / `yesterdayHadHighStakes` / `yesterdayHadConflict` (morning-context) | 6 pts (30%) | n/a (decayed) |
+| `patternEngineComposite` | `pattern-engine.ts` (retained for Brief/Plan/JIT context) | 0 MRS pts | 0 MRS pts |
+| `yesterdayCarryover` | `yesterdayLoadScore` / `yesterdayHadHighStakes` / `yesterdayHadConflict` (morning-context) | 0 MRS pts | n/a |
 
-`yesterdayCarryover` is only active during the morning window (05:00–11:59) and decays to zero — its 6pt weight folds back into `patternEngineComposite` — once the afternoon window begins.
+Pattern components are no longer score-bearing for MRS. They may be retained in provenance and downstream framing, but cannot unlock a baseline and never carry final MRS weight.
 
 ### 3.5 Worked example — fully calibrated user, afternoon window
 
@@ -241,16 +241,16 @@ v4 instead evaluates **each sub-component from §3.2–3.4 independently, every 
 | `rhrTrend` | Physiological | ≥3 days RHR history |
 | `intradayHrDeviation` | Physiological (PM) | Continuous HR stream today + `rhr_baseline_3d` (≥3 days RHR) |
 | `eveningPhysioRead` | Physiological (Eve) | Latest HRV/RHR reading today + same baseline reqs as `intradayHrDeviation` |
-| `patternEngineComposite` | Pattern | Per pattern-engine's own internal requirements (≥7d HRV for most signals, longer for `dow_historical_pattern`) — retained from v3 §3.4/§7.3 |
-| `yesterdayCarryover` | Pattern (AM) | Yesterday's calendar data (available from day 2 of calendar connection) |
+| `patternEngineComposite` | Pattern context | Context/provenance only; not score-bearing for MRS |
+| `yesterdayCarryover` | Pattern context (AM) | Context/provenance only; not score-bearing for MRS |
 
 ### 8.3 Redistribution rule
 
-1. Sum the target weight (out of 100) of every sub-component in the current window's formula whose requirement (§8.2) is currently met → `earnedWeight`.
+1. Sum the target weight (out of 100) of every non-pattern sub-component in the current window's formula whose requirement (§8.2) is currently met → `earnedWeight`. Pattern components are context only and never earn MRS weight.
 2. `unearnedWeight = 100 − earnedWeight`.
 3. Reassign `unearnedWeight` to the **Demand pillar's sub-components** for the current window, distributed proportionally to their own target shares (§3.3). Demand's sub-components have no data requirements beyond "calendar connected" and are therefore the always-available reservoir.
-4. If Demand itself has zero available sub-components (no calendar connected at all), `unearnedWeight` redistributes pro-rata to whichever other sub-components ARE available.
-5. If nothing is available anywhere (no wearable, no calendar, no check-in today) → `awaitingSignals = true`, v3 §8.3 row 1 applies verbatim (`-- NOT YET ASSESSED`).
+4. If Demand itself has zero available sub-components (no calendar connected at all), `unearnedWeight` redistributes pro-rata to whichever immediate physiological sub-components ARE available.
+5. If no immediate wearable or calendar signals are available (even if pattern context exists) → `awaitingSignals = true`, v3 §8.3 row 1 applies verbatim (`-- NOT YET ASSESSED`).
 6. Compute `baseline = Σ(sub_score_i × final_weight_i) / 100`.
 
 This rule is re-evaluated from scratch every cron cycle — it is not a one-time account-age classification.
@@ -259,9 +259,9 @@ This rule is re-evaluated from scratch every cron cycle — it is not a one-time
 
 **Day 1, new account.** Calendar connected, wearable connected but zero history. Morning window. Available: `todayFullDayDemand` (30). Everything else unavailable. `earnedWeight = 30`, `unearnedWeight = 70` flows entirely to `todayFullDayDemand` → final weight 100. **Day-1 score is 100% driven by today's calendar load — which varies by day of week and time of day from the very first day.** Directly satisfies §0.2.
 
-**Day 4.** `rhrTrend` now available (≥3d RHR), `yesterdayCarryover` now available. `hrvMorningDeviation`, `sleepDeviation`, `patternEngineComposite` still unavailable. `earnedWeight = 30 + 7.5 + 6 = 43.5`. `unearnedWeight = 56.5` flows to `todayFullDayDemand` → final weight 86.5.
+**Day 4.** `rhrTrend` now available (≥3d RHR), and `yesterdayCarryover` may exist as context. `hrvMorningDeviation`, `sleepDeviation`, and pattern components are not score-bearing. `earnedWeight = 30 + 7.5 = 37.5`. `unearnedWeight = 62.5` flows to `todayFullDayDemand` → final weight 92.5.
 
-**Day 30, afternoon, fully calibrated.** All sub-components available — no redistribution, matches §3.5 exactly (50/30/20).
+**Day 30, afternoon, fully calibrated.** All immediate physiological and demand sub-components available. Pattern weight remains non-scoring and redistributes to demand; final score remains based on immediate wearable/calendar data only.
 
 **Wearable dies at 2pm.** Morning sub-components (computed this morning from last night's data) remain valid → available. `intradayHrDeviation` unavailable → its 20pts flow to Demand's `remainingDayDemand` / `realizedSoFarCost` pro-rata (70:30) → +14 and +6. Score keeps moving, leans more on calendar — does not freeze, does not drop to neutral.
 
@@ -478,7 +478,7 @@ Brief copy phrasing is gated on tier, never on raw score. Phrase Validation Stan
 ## 7. Cold-start behaviour (retained from MRS v2 §3.6 + extended for check-ins)
 
 ### 7.1 Wearable cold start
-- `< 7 days` of wearable data → pill label `"establishing baseline"`; physiological composite weight reduced from 50% → 25%, redistributed pro-rata to demand (45%) and patterns (30%).
+- `< 7 days` of wearable data → pill label `"establishing baseline"`; unavailable physiological weight redistributes to immediate demand when calendar demand is available. Pattern context does not receive or contribute MRS weight.
 - `7–13 days` → pill label `"early reading"`; full 50/30/20 weights applied but `sustained_deficit_flag` suppressed.
 - `≥ 14 days` → fully calibrated; no label.
 

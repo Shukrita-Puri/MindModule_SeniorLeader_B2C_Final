@@ -61,16 +61,6 @@ function normalizeBuildMode(mode: unknown): BuildMode | null {
   return null;
 }
 
-function scoreFromPattern(patternSignals: any): number | null {
-  if (!patternSignals || typeof patternSignals !== "object") return null;
-  if ((patternSignals.consecutive_high_load_days ?? 0) >= 3) return 20;
-  const trend = patternSignals.hrv_3day_trend;
-  if (trend === "declining") return 30;
-  if (trend === "improving") return 70;
-  if (trend === "stable") return 50;
-  return null;
-}
-
 function weightProvenanceIndicatesAwaiting(weightProvenance: any): boolean {
   if (weightProvenance?.awaiting_signals === true) return true;
   if (weightProvenance && Object.prototype.hasOwnProperty.call(weightProvenance, "earned")) {
@@ -649,7 +639,6 @@ async function buildForUser(db: any, args: {
         : null;
 
     const demandScore = eventCount > 0 ? context.calendarDemandScore : null;
-    const patternScore = scoreFromPattern(context.patternSignals);
     const mrsSubScores = buildMrsV4SubScores(window, {
       hrvValue: hasFreshWearable ? latest?.hrv ?? null : null,
       hrvDeviationPct,
@@ -662,7 +651,7 @@ async function buildForUser(db: any, args: {
       realizedSoFarCost: demandScore,
       todayRealizedDemand: demandScore,
       tomorrowOpeningDemand: demandScore,
-      patternScore,
+      patternScore: null,
       yesterdayCarryoverDemand: null,
     });
 

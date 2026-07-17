@@ -20,6 +20,10 @@ import { authenticateRequest } from "../_shared/auth.ts";
 import {
   coarseEventType,
 } from "../_shared/events/event-classifier.ts";
+import {
+  normalizeEventTitleMemoryKey,
+  TITLE_SPECIFIC_MEMORY_CATEGORY,
+} from "../_shared/plan/event-priority-memory.ts";
 import { normalizeEventTypeKey } from "../_shared/plan/week-ahead-mode.ts";
 import { routeCustomTag } from "../_shared/jit/custom-tag-router.ts";
 
@@ -166,6 +170,35 @@ serve(async (req) => {
       }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (signal === "never") {
+      const titleKey = normalizeEventTitleMemoryKey(resolvedTitle);
+      const { error: titleErr } = await supabase
+        .from("event_priority_memory")
+        .insert({
+          user_id: userId,
+          event_category: TITLE_SPECIFIC_MEMORY_CATEGORY,
+          event_type_key: titleKey,
+          signal,
+          source,
+          event_id: eventId,
+          meta: {
+            ...meta,
+            titleSpecific: true,
+            originalCategory: category,
+            originalTypeKey: typeKey,
+            resolvedTitle,
+          },
+        });
+      if (titleErr) {
+        console.warn("[record-event-priority-signal] title-specific memory insert failed", {
+          code: (titleErr as any)?.code,
+          message: titleErr.message,
+          signal,
+          source,
+        });
+      }
     }
 
     const upsertDerived = async (patch: Record<string, unknown>) => {

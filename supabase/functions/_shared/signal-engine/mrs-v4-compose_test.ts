@@ -56,20 +56,20 @@ Deno.test('day-1: only calendar available → baseline numeric, awaiting=false',
   assert(r.baseline != null);
 });
 
-// Afternoon pattern-only sub → baseline unlocked.
-Deno.test('afternoon: pattern-only sub available → baseline numeric', () => {
+// Pattern-only inputs cannot form MRS; MRS is immediate/topical.
+Deno.test('afternoon: pattern-only sub available → awaiting signals', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
     id: c.id,
     score: c.id === 'patternEngineComposite' ? 55 : 0,
     available: c.id === 'patternEngineComposite',
   }));
   const r = composeBaselineV4('afternoon', subs);
-  assertEquals(r.awaitingSignals, false);
-  assert(r.baseline != null);
+  assertEquals(r.awaitingSignals, true);
+  assertEquals(r.baseline, null);
 });
 
-// Afternoon demand + pattern → baseline unlocked.
-Deno.test('afternoon: demand+pattern available → baseline numeric', () => {
+// Pattern may be present as context, but only immediate demand earns MRS.
+Deno.test('afternoon: demand+pattern available → baseline numeric from demand only', () => {
   const earnedIds = new Set(['remainingDayDemand', 'realizedSoFarCost', 'patternEngineComposite']);
   const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
     id: c.id,
@@ -78,7 +78,8 @@ Deno.test('afternoon: demand+pattern available → baseline numeric', () => {
   }));
   const r = composeBaselineV4('afternoon', subs);
   assertEquals(r.awaitingSignals, false);
-  assert(r.baseline != null);
+  assertEquals(r.baseline, 55);
+  assertEquals(r.weightProvenance.earned.some((c) => c.id === 'patternEngineComposite'), false);
 });
 
 // Day 1 with a single wearable sub + demand is a valid early read.
@@ -96,42 +97,44 @@ Deno.test('§4.15 day-1: single wearable sub + demand → baseline available', (
   assert(result.baseline != null);
 });
 
-// §8.4 Day 4 — rhrTrend + yesterdayCarryover join.
-Deno.test('§8.4 day-4: rhrTrend + yesterdayCarryover earned, others flow to demand', () => {
+// §8.4 Day 4 — rhrTrend joins; yesterdayCarryover is pattern context only.
+Deno.test('§8.4 day-4: rhrTrend earned, yesterdayCarryover ignored, others flow to demand', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => {
     const earned = c.id === 'todayFullDayDemand' || c.id === 'rhrTrend' || c.id === 'yesterdayCarryover';
     return { id: c.id, score: 50, available: earned };
   });
   const r = redistribute('morning', subs);
-  assertEquals(r.earnedWeight, 43.5);
-  // todayFullDayDemand should have absorbed 56.5 (it's the sole demand reservoir).
-  assertEquals(Math.round(r.finalWeights.todayFullDayDemand), 87); // 30 + 56.5 = 86.5 → rounded
+  assertEquals(r.earnedWeight, 37.5);
+  // todayFullDayDemand should have absorbed 62.5 (it's the sole demand reservoir).
+  assertEquals(Math.round(r.finalWeights.todayFullDayDemand), 93); // 30 + 62.5 = 92.5 → rounded
+  assertEquals(r.finalWeights.yesterdayCarryover, 0);
 });
 
-// §8.4 day-30 — everything available, no redistribution.
-Deno.test('§8.4 day-30 afternoon: fully calibrated, weights match target', () => {
+// §8.4 day-30 — all immediate signals available; pattern remains non-scoring.
+Deno.test('§8.4 day-30 afternoon: immediate weights redistribute pattern weight', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
     id: c.id, score: 55, available: true,
   }));
   const r = redistribute('afternoon', subs);
-  assertEquals(r.earnedWeight, 100);
-  for (const c of MRS_V4_WEIGHTS.afternoon) {
-    assertEquals(r.finalWeights[c.id], c.weight);
-  }
+  assertEquals(r.earnedWeight, 80);
+  assertEquals(r.finalWeights.patternEngineComposite, 0);
+  assertEquals(Math.round(r.finalWeights.remainingDayDemand), 35); // 21 + 20*(21/30)
+  assertEquals(Math.round(r.finalWeights.realizedSoFarCost), 15); // 9 + 20*(9/30)
 });
 
-// §8.4 wearable-dies-at-2pm — intradayHrDeviation unavailable, flows to demand.
-Deno.test('§8.4 wearable dies at 2pm: intradayHrDeviation flows to demand 70:30', () => {
+// §8.4 wearable-dies-at-2pm — intradayHrDeviation and pattern weight flow to demand.
+Deno.test('§8.4 wearable dies at 2pm: missing immediate + pattern weight flows to demand 70:30', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
     id: c.id, score: 55,
     available: c.id !== 'intradayHrDeviation',
   }));
   const r = redistribute('afternoon', subs);
-  assertEquals(r.earnedWeight, 80);
-  // 20 pts → demand reservoir (remainingDayDemand 21, realizedSoFarCost 9, total 30).
-  // pro-rata: remainingDay gets 20 * 21/30 = 14, realized gets 20 * 9/30 = 6.
-  assertEquals(Math.round(r.finalWeights.remainingDayDemand), 35); // 21+14
-  assertEquals(Math.round(r.finalWeights.realizedSoFarCost), 15);   // 9+6
+  assertEquals(r.earnedWeight, 60);
+  // 40 pts → demand reservoir (remainingDayDemand 21, realizedSoFarCost 9, total 30).
+  // pro-rata: remainingDay gets 40 * 21/30 = 28, realized gets 40 * 9/30 = 12.
+  assertEquals(Math.round(r.finalWeights.remainingDayDemand), 49); // 21+28
+  assertEquals(Math.round(r.finalWeights.realizedSoFarCost), 21); // 9+12
+  assertEquals(r.finalWeights.patternEngineComposite, 0);
 });
 
 // awaitingSignals — nothing available anywhere.

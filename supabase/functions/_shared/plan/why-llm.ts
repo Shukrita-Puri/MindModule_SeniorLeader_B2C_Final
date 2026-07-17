@@ -29,7 +29,12 @@ const MODEL = "google/gemini-3-flash-preview";
 const WHY_LLM_TIMEOUT_MS = 10_000;
 
 /** Canonical state-band union — same vocabulary the Brief uses. */
-export type StateBand = "firing" | "sharp" | "steady" | "stretched" | "depleted";
+export type StateBand =
+  | "firing"
+  | "sharp"
+  | "steady"
+  | "stretched"
+  | "depleted";
 
 /** Arc position derived from `jitPhase`. */
 export type ArcPosition = "prepare" | "during" | "recover" | "standalone";
@@ -80,6 +85,14 @@ export interface WhyLLMInput {
   timezoneOffsetMinutes?: number;
   /** Event start in epoch ms — used to render the "When" phrase. */
   eventStartMs?: number | null;
+  /** User-visible Decision Readiness pill label from the same request state. */
+  decisionReadinessPill?: string | null;
+  /** User-visible Physical Reserves pill label from the same request state. */
+  physicalReservesPill?: string | null;
+  /** Allocator role for this slot, e.g. pre/current_priority/protect_tonight. */
+  slotRole?: string | null;
+  /** Allocator day-shape for this plan, e.g. mixed_day/week_ahead/travel_day. */
+  dayShape?: string | null;
 
   // ── Sprint E — window signals (reused from Sprint D derivation). Only
   // added to the prompt when explicitly true / non-null. Missing / false
@@ -89,7 +102,7 @@ export interface WhyLLMInput {
   /** Evening: sustained HRV depression → body load elevated. */
   bodyLoadElevated?: boolean;
   /** Evening: genuine recovery signal ('rest' most common; others rare). */
-  recoveryNote?: 'rest' | 'light' | 'normal' | null;
+  recoveryNote?: "rest" | "light" | "normal" | null;
   /** Body ↔ subjective divergence flag. Left null when not safely derivable. */
   vetoRisk?: boolean;
 
@@ -126,16 +139,26 @@ interface GatewayResponse {
  * union. Returns null when the tier is missing or unrecognised so the
  * prompt/validator can degrade gracefully (no fabricated band).
  */
-export function tierToStateBand(tier: string | null | undefined): StateBand | null {
+export function tierToStateBand(
+  tier: string | null | undefined,
+): StateBand | null {
   switch ((tier || "").toLowerCase()) {
-    case "peak": return "firing";
-    case "strong": return "sharp";
-    case "managing": return "steady";
-    case "depleted": return "depleted";
+    case "peak":
+      return "firing";
+    case "strong":
+      return "sharp";
+    case "managing":
+      return "steady";
+    case "depleted":
+      return "depleted";
     // Forward-compat: accept canonical band names directly.
-    case "firing": case "sharp": case "steady": case "stretched":
+    case "firing":
+    case "sharp":
+    case "steady":
+    case "stretched":
       return (tier as StateBand);
-    default: return null;
+    default:
+      return null;
   }
 }
 
@@ -170,9 +193,27 @@ const EVENT_TYPE_ALIASES: Record<EventCategoryId, string[]> = {
 };
 
 const ANCHOR_STOPWORDS = new Set([
-  "the", "a", "an", "and", "or", "with", "for", "of", "to",
-  "in", "on", "at", "your", "my", "this", "that", "into",
-  "from", "by", "as", "is",
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "with",
+  "for",
+  "of",
+  "to",
+  "in",
+  "on",
+  "at",
+  "your",
+  "my",
+  "this",
+  "that",
+  "into",
+  "from",
+  "by",
+  "as",
+  "is",
 ]);
 
 /**
@@ -181,7 +222,10 @@ const ANCHOR_STOPWORDS = new Set([
  * + self-regulation focus words so phrasing like "conversation" / "session"
  * still grounds against a literal "1:1 with Sarah".
  */
-export function anchorTokens(title: string, categoryId: EventCategoryId | null): Set<string> {
+export function anchorTokens(
+  title: string,
+  categoryId: EventCategoryId | null,
+): Set<string> {
   const out = new Set<string>();
   const raw = String(title || "")
     .toLowerCase()
@@ -204,15 +248,21 @@ export function anchorTokens(title: string, categoryId: EventCategoryId | null):
 }
 
 const STATE_TOKEN_REGEX: Record<StateBand, RegExp> = {
-  firing: /\b(sharp|firing|clear|edge|locked in|on form|dialed in|in flow|switched on)\b/i,
-  sharp: /\b(sharp|firing|clear|edge|locked in|on form|dialed in|in flow|switched on)\b/i,
+  firing:
+    /\b(sharp|firing|clear|edge|locked in|on form|dialed in|in flow|switched on)\b/i,
+  sharp:
+    /\b(sharp|firing|clear|edge|locked in|on form|dialed in|in flow|switched on)\b/i,
   steady: /\b(steady|holding|on track|even|calm|settled|on pace|in rhythm)\b/i,
-  stretched: /\b(low|running low|reserves|stretched|tired|drained|behind|thin|running on fumes|worn|heavy|foggy)\b/i,
-  depleted: /\b(low|running low|reserves|stretched|tired|drained|behind|thin|running on fumes|worn|heavy|foggy)\b/i,
+  stretched:
+    /\b(low|running low|reserves|stretched|tired|drained|behind|thin|running on fumes|worn|heavy|foggy)\b/i,
+  depleted:
+    /\b(low|running low|reserves|stretched|tired|drained|behind|thin|running on fumes|worn|heavy|foggy)\b/i,
 };
 
-const VALENCE_REJECT_FIRING = /\b(recover|recovery|recharge|wind down|come down|refill|rest up|unwind|ease off|ramp down)\b/i;
-const VALENCE_REJECT_DEPLETED = /\b(push|sprint|spend the edge|go harder|lean in|grind|power through|dig in)\b/i;
+const VALENCE_REJECT_FIRING =
+  /\b(recover|recovery|recharge|wind down|come down|refill|rest up|unwind|ease off|ramp down)\b/i;
+const VALENCE_REJECT_DEPLETED =
+  /\b(push|sprint|spend the edge|go harder|lean in|grind|power through|dig in)\b/i;
 
 /**
  * Soft word-count ceiling for the Why-line. The prompt asks for one
@@ -238,7 +288,11 @@ export interface ValidateWhyLineInput {
   /** Slot/practice labels the why-line must not simply repeat verbatim. */
   echoTexts?: Array<string | null | undefined>;
   /** Previously accepted lines in this generation pass, used for dedupe gating. */
-  priorAccepted?: { text: string; slotAnchor: SlotAnchor | null; arcPosition: ArcPosition | null }[];
+  priorAccepted?: {
+    text: string;
+    slotAnchor: SlotAnchor | null;
+    arcPosition: ArcPosition | null;
+  }[];
   /** Earlier why-lines already emitted today, used for same-day repetition checks. */
   sameDayAccepted?: { text: string }[];
   /** Arc position of the candidate (used for dedupe gating). */
@@ -266,7 +320,9 @@ export function isTitleEcho(
   echoTexts: Array<string | null | undefined> | null | undefined,
 ): boolean {
   const candidate = normaliseEchoText(text);
-  if (!candidate || !Array.isArray(echoTexts) || echoTexts.length === 0) return false;
+  if (!candidate || !Array.isArray(echoTexts) || echoTexts.length === 0) {
+    return false;
+  }
   return echoTexts.some((value) => {
     const normalized = normaliseEchoText(value);
     return normalized.length > 0 && normalized === candidate;
@@ -279,7 +335,9 @@ export function isTitleEcho(
  * monitoring. Fail-closed cases hand off to the deterministic repair path
  * already living in `generate-mastery-plan`.
  */
-export function validateWhyLine(inp: ValidateWhyLineInput): ValidateWhyLineResult {
+export function validateWhyLine(
+  inp: ValidateWhyLineInput,
+): ValidateWhyLineResult {
   const raw = (inp.text || "").trim();
   if (!raw) return { ok: false, reason: "empty" };
   const lower = raw.toLowerCase();
@@ -299,7 +357,8 @@ export function validateWhyLine(inp: ValidateWhyLineInput): ValidateWhyLineResul
   const anchorSet = inp.slotAnchor?.eventTitle
     ? anchorTokens(inp.slotAnchor.eventTitle, inp.slotAnchor.categoryId ?? null)
     : new Set<string>();
-  const hasAnchor = anchorSet.size > 0 && [...anchorSet].some((tok) => lower.includes(tok));
+  const hasAnchor = anchorSet.size > 0 &&
+    [...anchorSet].some((tok) => lower.includes(tok));
   let hasState = false;
   if (inp.stateBand) {
     const re = STATE_TOKEN_REGEX[inp.stateBand];
@@ -327,9 +386,13 @@ export function validateWhyLine(inp: ValidateWhyLineInput): ValidateWhyLineResul
     const ownArc = inp.arcPosition ?? null;
     if (ownEvt) {
       for (const prior of inp.priorAccepted) {
-        const priorEvt = (prior.slotAnchor?.eventTitle || "").toLowerCase().trim();
+        const priorEvt = (prior.slotAnchor?.eventTitle || "").toLowerCase()
+          .trim();
         const priorArc = prior.arcPosition ?? null;
-        if (priorEvt === ownEvt && priorArc === ownArc && jaccard(prior.text, raw) > 0.85) {
+        if (
+          priorEvt === ownEvt && priorArc === ownArc &&
+          jaccard(prior.text, raw) > 0.85
+        ) {
           return { ok: false, reason: "jaccard_dup" };
         }
       }
@@ -363,24 +426,36 @@ function buildBandDirective(band: StateBand): string {
 
 function arcDirectiveFor(arc: ArcPosition): string {
   switch (arc) {
-    case "prepare": return `Arc: PREPARE — frame this as setting up for the event ahead.`;
-    case "during": return `Arc: DURING — frame this as holding steady through the event.`;
-    case "recover": return `Arc: RECOVER — frame this as closing cleanly after the event so the charge doesn't carry.`;
-    case "standalone": return `Arc: STANDALONE — no specific event arc; justify by the day's state and what this protects or builds.`;
+    case "prepare":
+      return `Arc: PREPARE — frame this as setting up for the event ahead.`;
+    case "during":
+      return `Arc: DURING — frame this as holding steady through the event.`;
+    case "recover":
+      return `Arc: RECOVER — frame this as closing cleanly after the event so the charge doesn't carry.`;
+    case "standalone":
+      return `Arc: STANDALONE — no specific event arc; justify by the day's state and what this protects or builds.`;
   }
 }
 
 function pickRelevantSignalPhrases(inp: WhyLLMInput): string[] {
   const out: string[] = [];
-  if (inp.sleepScore !== null && inp.sleepScore < 65) out.push(`sleep ran short (${inp.sleepScore}/100)`);
+  if (inp.sleepScore !== null && inp.sleepScore < 65) {
+    out.push(`sleep ran short (${inp.sleepScore}/100)`);
+  }
   if (inp.hrvDeltaPct !== null && Math.abs(inp.hrvDeltaPct) >= 10) {
-    out.push(inp.hrvDeltaPct < 0
-      ? `recovery is down ~${Math.abs(inp.hrvDeltaPct)}%`
-      : `recovery is running ~${inp.hrvDeltaPct}% above baseline`);
+    out.push(
+      inp.hrvDeltaPct < 0
+        ? `recovery is down ~${Math.abs(inp.hrvDeltaPct)}%`
+        : `recovery is running ~${inp.hrvDeltaPct}% above baseline`,
+    );
   }
   if (inp.rhrTrend === "elevated") out.push(`resting HR is elevated`);
-  if (inp.mindState !== null && inp.mindState <= 2) out.push(`clarity is reading low`);
-  if (inp.bodyState !== null && inp.bodyState <= 2) out.push(`body energy is reading low`);
+  if (inp.mindState !== null && inp.mindState <= 2) {
+    out.push(`clarity is reading low`);
+  }
+  if (inp.bodyState !== null && inp.bodyState <= 2) {
+    out.push(`body energy is reading low`);
+  }
   if (inp.travelDebtActive) out.push(`travel debt is active`);
   if (inp.patternSummary) out.push(inp.patternSummary);
   if (!out.length) out.push(`no single dominant signal`);
@@ -426,14 +501,24 @@ function buildPrompt(inp: WhyLLMInput): string {
   const preventsBuilds = (ph?.preventsBuilds || []).join("; ");
 
   const signals: string[] = [];
-  if (inp.hrvDeltaPct !== null) signals.push(`- HRV vs baseline: ${inp.hrvDeltaPct}%`);
-  if (inp.sleepScore !== null) signals.push(`- Sleep score last night: ${inp.sleepScore}/100`);
+  if (inp.hrvDeltaPct !== null) {
+    signals.push(`- HRV vs baseline: ${inp.hrvDeltaPct}%`);
+  }
+  if (inp.sleepScore !== null) {
+    signals.push(`- Sleep score last night: ${inp.sleepScore}/100`);
+  }
   if (inp.rhrTrend) signals.push(`- RHR trend: ${inp.rhrTrend}`);
-  if (inp.travelDebtActive !== null) signals.push(`- Travel debt active: ${inp.travelDebtActive}`);
+  if (inp.travelDebtActive !== null) {
+    signals.push(`- Travel debt active: ${inp.travelDebtActive}`);
+  }
   if (inp.stressLoad) signals.push(`- Stress load: ${inp.stressLoad}`);
   if (inp.burnoutRisk) signals.push(`- Burnout risk: ${inp.burnoutRisk}`);
-  if (inp.mindState !== null) signals.push(`- Self-declared mind state: ${inp.mindState}/5`);
-  if (inp.bodyState !== null) signals.push(`- Self-declared body state: ${inp.bodyState}/5`);
+  if (inp.mindState !== null) {
+    signals.push(`- Self-declared mind state: ${inp.mindState}/5`);
+  }
+  if (inp.bodyState !== null) {
+    signals.push(`- Self-declared body state: ${inp.bodyState}/5`);
+  }
   if (inp.patternSummary) signals.push(`- Pattern data: ${inp.patternSummary}`);
 
   const strategic = inp.growthIntention
@@ -462,30 +547,38 @@ function buildPrompt(inp: WhyLLMInput): string {
   const evtTitle = inp.slotAnchor?.eventTitle || inp.eventName || "";
   const evtCatId = inp.slotAnchor?.categoryId || inp.category || null;
   const evtCatLabel = evtCatId
-    ? `${evtCatId} — ${EVENT_CATEGORIES[evtCatId as EventCategoryId]?.name ?? ""}`
+    ? `${evtCatId} — ${
+      EVENT_CATEGORIES[evtCatId as EventCategoryId]?.name ?? ""
+    }`
     : categoryLabel;
   const whenPhrase = (inp.eventStartMs && Number.isFinite(inp.eventStartMs))
     ? relativeEventPhrase({
-        startMs: inp.eventStartMs!,
-        nowMs: Date.now(),
-        timezoneOffsetMinutes: inp.timezoneOffsetMinutes ?? 0,
-      })
-    : (inp.minutesUntilStart !== null ? formatMinutesUntil(inp.minutesUntilStart) : "unknown");
+      startMs: inp.eventStartMs!,
+      nowMs: Date.now(),
+      timezoneOffsetMinutes: inp.timezoneOffsetMinutes ?? 0,
+    })
+    : (inp.minutesUntilStart !== null
+      ? formatMinutesUntil(inp.minutesUntilStart)
+      : "unknown");
 
   const hasAnchor = !!(evtTitle && evtTitle.trim());
   const eventBlock = hasAnchor
     ? [
-        `=== THE EVENT ===`,
-        `Event: ${evtTitle}`,
-        `Category: ${evtCatLabel}`,
-        `When: ${whenPhrase}`,
-        `Why it's a moment: ${preventsBuilds || selfReg || "high-leverage moment for this leader"}`,
-      ].join("\n")
+      `=== THE EVENT ===`,
+      `Event: ${evtTitle}`,
+      `Category: ${evtCatLabel}`,
+      `When: ${whenPhrase}`,
+      `Why it's a moment: ${
+        preventsBuilds || selfReg || "high-leverage moment for this leader"
+      }`,
+    ].join("\n")
     : `=== ELSE (no event anchor) ===\nState-management practice — justify by the day's state, not a calendar moment.`;
 
   const stateBlock = [
     `=== STATE ===`,
-    band ? `Band: ${band}  (match; do not name)` : `Band: unknown  (do not invent a band)`,
+    band
+      ? `Band: ${band}  (match; do not name)`
+      : `Band: unknown  (do not invent a band)`,
     `Most relevant signal: ${signalPhrase}`,
     ...buildWindowSignalLines(inp),
   ].join("\n");
@@ -497,18 +590,38 @@ function buildPrompt(inp: WhyLLMInput): string {
     `Arc position: ${arc}`,
   ].join("\n");
 
+  const slotContextLines = [
+    `=== SLOT CONTEXT ===`,
+    inp.slotRole ? `Slot role: ${inp.slotRole}` : null,
+    inp.dayShape ? `Day shape: ${inp.dayShape}` : null,
+    inp.decisionReadinessPill
+      ? `Decision Readiness pill: ${inp.decisionReadinessPill}`
+      : null,
+    inp.physicalReservesPill
+      ? `Physical Reserves pill: ${inp.physicalReservesPill}`
+      : null,
+    `Consistency rule: do not contradict these pill labels. If Decision Readiness is Mind Sharp, do not describe the mind as taxed, foggy, overloaded, or cognitively depleted unless you explicitly frame a body/mind divergence. If Physical Reserves is Body Steady, do not describe physical depletion or recovery debt. Name what the practice protects or prepares, not just the meeting title.`,
+  ].filter(Boolean).join("\n");
+
   const signalsAvailable = signals.length
-    ? `Available signals (reference whichever are most relevant — do not mention null fields):\n${signals.join("\n")}`
+    ? `Available signals (reference whichever are most relevant — do not mention null fields):\n${
+      signals.join("\n")
+    }`
     : `Available signals: none — reference the event itself and the day's state.`;
   const relevantSignalsBlock = signalPhrases.length
     ? `Most relevant signals:\n${signalPhrases.map((s) => `- ${s}`).join("\n")}`
     : `Most relevant signals: none`;
   const briefEchoBlock = (inp.briefEcho || "").trim()
-    ? `\nBrief echo (use only if it directly sharpens the why-line; never copy verbatim):\n${inp.briefEcho!.trim()}`
+    ? `\nBrief echo (use only if it directly sharpens the why-line; never copy verbatim):\n${
+      inp.briefEcho!.trim()
+    }`
     : "";
-  const repetitionGuardBlock = inp.todaysOtherWhyLines && inp.todaysOtherWhyLines.length
-    ? `\nToday's other why-lines (do not repeat their core message):\n${inp.todaysOtherWhyLines.map((line) => `- ${line}`).join("\n")}`
-    : "";
+  const repetitionGuardBlock =
+    inp.todaysOtherWhyLines && inp.todaysOtherWhyLines.length
+      ? `\nToday's other why-lines (do not repeat their core message):\n${
+        inp.todaysOtherWhyLines.map((line) => `- ${line}`).join("\n")
+      }`
+      : "";
 
   return [
     `${CHIEF_OF_STAFF_PERSONA}`,
@@ -550,6 +663,8 @@ function buildPrompt(inp: WhyLLMInput): string {
     ``,
     practiceBlock,
     ``,
+    slotContextLines,
+    ``,
     eventBlock,
     ``,
     relevantSignalsBlock,
@@ -557,7 +672,9 @@ function buildPrompt(inp: WhyLLMInput): string {
     repetitionGuardBlock,
     signalsAvailable,
     strategic,
-    sharedAdvisory ? `\n${sharedAdvisory}\nWhen the active behaviours above name this exact event, prefer aligning the statement to that anchor — do not echo any copyHint verbatim.` : ``,
+    sharedAdvisory
+      ? `\n${sharedAdvisory}\nWhen the active behaviours above name this exact event, prefer aligning the statement to that anchor — do not echo any copyHint verbatim.`
+      : ``,
     ``,
     `OUTPUT — plain text, one sentence. No markdown, no asterisks, no preamble. Return only the why-line string.`,
   ].join("\n");
@@ -575,7 +692,9 @@ export function trimToWords(s: string, max = 25): string {
  * Calls Lovable AI Gateway. Returns trimmed statement or null on failure /
  * missing key / too-short response. Caller decides fallback path.
  */
-export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | null> {
+export async function generateWhyStatement(
+  inp: WhyLLMInput,
+): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
   const controller = new AbortController();
@@ -590,7 +709,11 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
         parameters: {
           type: "object",
           properties: {
-            statement: { type: "string", description: "One sentence. Chief-of-staff voice. Grounds in event + state." },
+            statement: {
+              type: "string",
+              description:
+                "One sentence. Chief-of-staff voice. Grounds in event + state.",
+            },
             role: { type: "string", enum: ["PREVENT", "PREPARE"] },
           },
           required: ["statement", "role"],
@@ -613,20 +736,33 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
       signal: controller.signal,
     });
     if (!resp.ok) {
-      console.warn("[why-llm] gateway error", resp.status, await resp.text().catch(() => ""));
+      console.warn(
+        "[why-llm] gateway error",
+        resp.status,
+        await resp.text().catch(() => ""),
+      );
       return null;
     }
     const data = await resp.json() as GatewayResponse;
-    const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function
+      ?.arguments;
     let statement: string | null = null;
     if (typeof args === "string") {
-      try { statement = JSON.parse(args)?.statement ?? null; } catch { statement = null; }
+      try {
+        statement = JSON.parse(args)?.statement ?? null;
+      } catch {
+        statement = null;
+      }
     } else if (args && typeof args === "object") {
-      statement = "statement" in args && typeof args.statement === "string" ? args.statement : null;
+      statement = "statement" in args && typeof args.statement === "string"
+        ? args.statement
+        : null;
     }
     if (!statement) {
       const direct = data?.choices?.[0]?.message?.content;
-      if (typeof direct === "string" && direct.trim()) statement = direct.trim();
+      if (typeof direct === "string" && direct.trim()) {
+        statement = direct.trim();
+      }
     }
     if (!statement) return null;
     const trimmed = trimToWords(statement, 30);

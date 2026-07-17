@@ -7,7 +7,7 @@ Companion to `ONBOARDING_MASTER_SSOT.md`. **Legacy questionnaire onboarding is d
 ## 0. Delete legacy first
 
 Remove the legacy routes/stages and stop referencing them anywhere:
-`/onboarding/identity|emotional-awareness|stress-response|recovery-patterns|mental-clarity|growth-intention|signup-step|results|payment|context-connection`, the legacy `Stage1..Stage8*` components, the pre-auth questionnaire `localStorage` bridge, and legacy scoring. `generate-onboarding-insight` legacy q1–q4 scoring is unused. `complete-onboarding` stays only to set `profiles.onboarding_completed_at`. **MRS baseline no longer sourced from onboarding** (MRS builds from live data).
+`/onboarding/identity|emotional-awareness|stress-response|recovery-patterns|mental-clarity|growth-intention|signup-step|results|payment|context-connection`, the legacy `Stage1..Stage8*` components, the pre-auth questionnaire `localStorage` bridge, and legacy scoring. `generate-onboarding-insight` legacy q1–q4 scoring is unused. `complete-onboarding` stays only to set `profiles.onboarding_completed_at`. **MRS baseline no longer sourced from onboarding** (MRS builds from live wearable and/or calendar demand signals; patterns are context only).
 
 ---
 

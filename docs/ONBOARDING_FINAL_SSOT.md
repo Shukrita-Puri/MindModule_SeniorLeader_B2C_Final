@@ -15,7 +15,7 @@
 **All legacy questionnaire onboarding is removed.** Delete/retire the legacy routes and stages — they do nothing and are not referenced:
 `/onboarding/identity`, `/emotional-awareness`, `/stress-response`, `/recovery-patterns`, `/mental-clarity`, `/growth-intention`, `/signup-step`, `/results`, `/payment`, `/context-connection`, and the legacy `Stage1..Stage8` components, the pre-auth questionnaire `localStorage` bridge, and the legacy scoring path. Consequences:
 - **`generate-onboarding-insight` legacy scoring** (q1–q4 → baseline/archetype) is legacy — not used by V8.
-- **MRS baseline no longer comes from onboarding** (see §5). It was a legacy artifact; MRS now builds its baseline from the user's live wearable/calendar/pattern data.
+- **MRS baseline no longer comes from onboarding** (see §5). It was a legacy artifact; MRS now builds its baseline from live wearable and/or calendar demand signals. Pattern data may frame downstream context, but it cannot form or contribute to MRS.
 - `complete-onboarding` is retained **only** to set the durable completion flag `profiles.onboarding_completed_at` (idempotent — only if NULL). It no longer needs to persist legacy baseline/component/archetype fields.
 
 ---
