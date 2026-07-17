@@ -740,6 +740,12 @@ interface ComputeRequest {
     score: number;       // 0..100
     available: boolean;
   }>;
+  /**
+   * Optional same-window State 1 anchor. When a user re-checks in inside the
+   * same MRS window, callers can pin the baseline and recompute only the Mind
+   * refinement so live wearable/calendar churn does not make the score jump.
+   */
+  baselineAnchorScore?: number | null;
   /** Anchor for INTRADAY_DECLINE (§6 flag 2). Null on the morning compute. */
   morningBaselineScore?: number | null;
   /** §3.2a measured-low sleep cap inputs (absence-vs-deficit guard inside composer). */
@@ -944,10 +950,26 @@ serve(async (req) => {
       subsForCompose,
       body.sleepDeficitMeasurement ?? { available: false },
     );
-    score = v4.baseline;
-    mrsV4Provenance = v4.weightProvenance;
+    const baselineAnchorScore = coerceFiniteNumber(body.baselineAnchorScore);
+    const normalizedAnchorScore = baselineAnchorScore == null
+      ? null
+      : Math.max(0, Math.min(100, Math.round(baselineAnchorScore)));
+    score = normalizedAnchorScore ?? v4.baseline;
+    mrsV4Provenance = normalizedAnchorScore == null
+      ? v4.weightProvenance
+      : {
+          ...(v4.weightProvenance && typeof v4.weightProvenance === 'object'
+            ? v4.weightProvenance as Record<string, unknown>
+            : {}),
+          baseline_anchor: {
+            source: 'daily_context_snapshot',
+            score: normalizedAnchorScore,
+            live_score: v4.baseline,
+            reason: 'same_window_checkin_stability',
+          },
+        };
     mrsV4Window = body.mrsWindow;
-    mrsV4AwaitingSignals = v4.awaitingSignals;
+    mrsV4AwaitingSignals = normalizedAnchorScore == null ? v4.awaitingSignals : false;
     // Circadian + patternScore are intentionally NOT folded into the score.
     // They remain available downstream for framing only (see §4 spec).
 

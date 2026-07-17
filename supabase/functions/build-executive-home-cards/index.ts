@@ -581,12 +581,47 @@ async function buildForUser(db: any, args: {
   let briefStatus = "pending";
   let planStatus = "pending";
   try {
-    const [context, eventCount, wearable, checkin] = await Promise.all([
+    const [context, eventCount, wearable, checkin, existingMrsSnapshot] = await Promise.all([
       composeDailyContext(db, userId, localDate, { dryRun: true, timezone: effectiveTimezone, mrsWindow: window }),
       countTodayEvents(db, userId, localDate),
       latestWearable(db, userId),
       latestCheckin(db, userId, localDate, window),
+      db
+        .from("daily_context_snapshot")
+        .select("readiness_score_baseline, readiness_state")
+        .eq("user_id", userId)
+        .eq("local_date", localDate)
+        .eq("mrs_window", window)
+        .maybeSingle()
+        .then((res: { data: unknown; error: { message: string } | null }) => {
+          const { data, error } = res;
+          if (error) {
+            console.warn("[build-executive-home-cards] existing MRS snapshot read failed", {
+              userId,
+              localDate,
+              window,
+              error: error.message,
+            });
+            return null;
+          }
+          return data as { readiness_score_baseline?: number | null; readiness_state?: string | null } | null;
+        }),
     ]);
+    const baselineAnchorScore =
+      checkin &&
+      existingMrsSnapshot?.readiness_state !== "awaiting" &&
+      typeof existingMrsSnapshot?.readiness_score_baseline === "number" &&
+      Number.isFinite(existingMrsSnapshot.readiness_score_baseline)
+        ? Math.max(0, Math.min(100, Math.round(existingMrsSnapshot.readiness_score_baseline)))
+        : null;
+    if (baselineAnchorScore != null) {
+      console.info("[build-executive-home-cards] using same-window MRS baseline anchor", {
+        userId,
+        localDate,
+        window,
+        baselineAnchorScore,
+      });
+    }
 
     const latest = wearable.latest;
     const hasFreshWearable = !!latest && latest.summary_date === localDate;
@@ -665,6 +700,7 @@ async function buildForUser(db: any, args: {
       patternSignals: context.patternSignals,
       mrsWindow: window,
       mrsSubScores,
+      baselineAnchorScore,
       sleepDeficitMeasurement: {
         available: hasFreshWearable && (latest?.sleep_score != null || sleepHours != null),
         sleepTotalMinutes: sleepHours != null ? Math.round(sleepHours * 60) : null,
