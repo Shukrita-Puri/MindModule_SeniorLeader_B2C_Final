@@ -11,8 +11,11 @@
  * Contract: every contributor key is rendered via a human label map. Pattern
  * data (3-day trends, vs-baseline %, peak streaks, low-day streaks) is shown
  * inline in muted grey italic brackets next to its metric — never as a
- * separate backend-style row. The amber tier-reason sentence is intentionally
- * NOT rendered here; it collides with the pill header in the glass box.
+ * separate backend-style row. The pill chip above the expanded panel already
+ * owns label + tier display, so the panel itself no longer repeats them.
+ * Sleep duration / sleep score belong ONLY to Decision Readiness; Physical
+ * Reserves expects RHR + HR. Mind dimensions render as exactly one row per
+ * dim, merging the raw value and the pattern qualifier.
  */
 
 type PillTier = 'green' | 'amber' | 'red' | 'neutral';
@@ -87,8 +90,6 @@ const EXPECTED_CONTRIBUTORS: Record<PillTooltipPill['key'], Array<{ key: string;
     { key: 'clarityLevel', label: 'Clarity', missing: 'No check-in yet' },
   ],
   physical_reserves: [
-    { key: 'sleepDuration', label: 'Sleep Duration', missing: 'No sleep duration available' },
-    { key: 'sleepScore', label: 'Sleep Score', missing: 'No sleep score available' },
     { key: 'rhrValue', label: 'RHR', missing: 'No RHR data available' },
     { key: 'hrValue', label: 'HR', missing: 'No HR data available' },
   ],
@@ -116,6 +117,45 @@ const SUPPRESS = new Set<string>([
   'hrv_3day_trend',  // surfaced inline via qualifiers
   'rhr_3day_trend',  // surfaced inline via qualifiers
 ]);
+
+/**
+ * Per-pill contributor keys the tooltip will render. Any contributor key
+ * echoed by the server outside this whitelist for a given pill is ignored
+ * so legacy snapshots (e.g. old `sleepDuration` on `physical_reserves`)
+ * cannot leak sleep rows into Physical Reserves.
+ */
+const ALLOWED_CONTRIBUTORS: Record<PillTooltipPill['key'], Set<string>> = {
+  decision_readiness: new Set([
+    'hrvValue',
+    'sleepDuration',
+    'sleepScore',
+    'clarityLevel',
+  ]),
+  physical_reserves: new Set(['rhrValue', 'hrValue']),
+  resilience_capacity: new Set([
+    'sleepEfficiency',
+    'sleep_efficiency',
+    'emotionLevel',
+    'regulationLevel',
+    'pressureLevel',
+    'sustainedDeficit',
+    'sustained_deficit_flag',
+    'hrvHighDemandCooccurrence7d',
+    'hrv_low_high_demand_cooccurrence_7d',
+    'protectionGoalsCount',
+  ]),
+};
+
+/** Canonical mind-dim identity: qualifier key ↔ contributor key. */
+const MIND_DIMS = [
+  { dim: 'clarity',    contribKey: 'clarityLevel'    },
+  { dim: 'emotion',    contribKey: 'emotionLevel'    },
+  { dim: 'regulation', contribKey: 'regulationLevel' },
+  { dim: 'pressure',   contribKey: 'pressureLevel'  },
+] as const;
+const MIND_CONTRIB_TO_DIM: Record<string, string> = Object.fromEntries(
+  MIND_DIMS.map((m) => [m.contribKey, m.dim]),
+);
 
 function num(v: unknown, suffix = ''): string | null {
   if (typeof v !== 'number' || Number.isNaN(v)) return null;
@@ -170,8 +210,10 @@ function signed(n: number): string {
 
 /* ── Qualifier formatting (inline, grey italic, in brackets) ─────────── */
 
-// Each qualifier dim returns a per-contributor-key map of inline strings.
-// The contributor row picks up the string by its own key.
+// Each qualifier dim returns a per-mind-dim / per-contributor-key map of
+// inline strings. The renderer joins the string to whichever row owns it.
+// Mind dim qualifiers are keyed by dim name ("clarity", "emotion", …) so
+// they can be merged into the raw contributor row when it exists.
 function formatQualifiers(
   q: Record<string, unknown> | undefined
 ): Map<string, string> {
@@ -181,13 +223,13 @@ function formatQualifiers(
   const hrv = q.hrv as any;
   if (hrv) {
     const parts: string[] = [];
-    if (typeof hrv.trend3d === 'number') {
-      const dir = hrv.trend3d < 0 ? 'Declining' : 'Improving';
-      parts.push(`${dir} 3-day trend by ${signed(hrv.trend3d)}%`);
-    } else if (typeof hrv.delta3d === 'number') {
-      parts.push(`Δ3d ${signed(hrv.delta3d)}`);
+    // Prefer the ms-scale delta3d if present; the % trend3d is a fallback.
+    if (typeof hrv.delta3d === 'number' && Math.abs(hrv.delta3d) >= 3) {
+      parts.push(`${signed(Math.round(hrv.delta3d))}ms on 3-day avg`);
+    } else if (typeof hrv.trend3d === 'number' && Math.abs(hrv.trend3d) >= 3) {
+      parts.push(`${signed(Math.round(hrv.trend3d))}% on 3-day avg`);
     }
-    if (typeof hrv.vsBaselinePct === 'number') {
+    if (typeof hrv.vsBaselinePct === 'number' && Math.abs(hrv.vsBaselinePct) >= 5) {
       parts.push(`${signed(hrv.vsBaselinePct)}% vs baseline`);
     }
     if (typeof hrv.streakLowDays === 'number' && hrv.streakLowDays >= 2) {
@@ -198,22 +240,26 @@ function formatQualifiers(
 
   const sleep = q.sleep as any;
   if (sleep) {
-    if (typeof sleep.durationDelta7d === 'number') {
-      out.set('sleepDuration', `${signed(Math.round(sleep.durationDelta7d))}min vs 7-day avg`);
+    if (typeof sleep.durationDelta7d === 'number' && Math.abs(sleep.durationDelta7d) >= 15) {
+      const mins = Math.abs(Math.round(sleep.durationDelta7d));
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      const amt = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+      const sign = sleep.durationDelta7d >= 0 ? '+' : '-';
+      out.set('sleepDuration', `${sign}${amt} vs 7-day avg`);
     }
-    if (typeof sleep.scoreVsBaseline === 'number') {
-      out.set('sleepScore', `${signed(sleep.scoreVsBaseline)} vs baseline`);
+    if (typeof sleep.scoreVsBaseline === 'number' && Math.abs(sleep.scoreVsBaseline) >= 3) {
+      out.set('sleepScore', `${signed(sleep.scoreVsBaseline)}pts vs sleep quality baseline`);
     }
   }
 
   const rhr = q.rhr as any;
   if (rhr) {
     const parts: string[] = [];
-    if (typeof rhr.trend3d === 'number') {
-      const dir = rhr.trend3d > 0 ? 'Rising' : 'Falling';
-      parts.push(`${dir} 3-day trend by ${signed(rhr.trend3d)}%`);
+    if (typeof rhr.trend3d === 'number' && Math.abs(rhr.trend3d) >= 3) {
+      parts.push(`${signed(Math.round(rhr.trend3d))}% on 3-day trend`);
     }
-    if (typeof rhr.vsBaselinePct === 'number') {
+    if (typeof rhr.vsBaselinePct === 'number' && Math.abs(rhr.vsBaselinePct) >= 5) {
       parts.push(`${signed(rhr.vsBaselinePct)}% vs baseline`);
     }
     if (parts.length) out.set('rhrValue', parts.join(' · '));
@@ -222,8 +268,12 @@ function formatQualifiers(
   const se = q.sleep_efficiency as any;
   if (se) {
     const parts: string[] = [];
-    if (typeof se.delta7d === 'number') parts.push(`${signed(Math.round(se.delta7d))}pts vs 7-day avg`);
-    if (typeof se.streakLowDays === 'number' && se.streakLowDays >= 2) parts.push(`${se.streakLowDays}-day low streak`);
+    if (typeof se.delta7d === 'number' && Math.abs(se.delta7d) >= 3) {
+      parts.push(`${signed(Math.round(se.delta7d))}pts vs 7-day avg`);
+    }
+    if (typeof se.streakLowDays === 'number' && se.streakLowDays >= 2) {
+      parts.push(`${se.streakLowDays} nights below optimal`);
+    }
     if (parts.length) {
       const s = parts.join(' · ');
       out.set('sleepEfficiency', s);
@@ -231,45 +281,37 @@ function formatQualifiers(
     }
   }
 
-  // Mind dims become their own contributor rows so Resilience Capacity can
-  // surface emotion/regulation/pressure with inline pattern qualifiers.
+  // Mind dims are keyed by dim name so the row builder can attach the
+  // qualifier to either the raw contributor row (when present) OR a single
+  // qualifier-only row — never both.
   for (const dim of ['clarity', 'emotion', 'regulation', 'pressure'] as const) {
     const m = q[dim] as any;
     if (!m) continue;
     const parts: string[] = [];
-    if (typeof m.delta3d === 'number' && m.delta3d !== 0) parts.push(`Δ3d ${signed(m.delta3d)}`);
-    if (typeof m.vsDow === 'number' && m.vsDow !== 0) parts.push(`${signed(m.vsDow)} vs same weekday`);
-    if (typeof m.peakStreak === 'number' && m.peakStreak >= 2) parts.push(`${m.peakStreak}-day peak streak`);
+    if (typeof m.delta3d === 'number' && Math.abs(m.delta3d) >= 0.3) {
+      parts.push(`${signed(Number(m.delta3d.toFixed(1)))}pt on 3-day avg`);
+    }
+    if (typeof m.vsDow === 'number' && Math.abs(m.vsDow) >= 0.3) {
+      parts.push(`${signed(Number(m.vsDow.toFixed(1)))}pt vs same weekday`);
+    }
+    if (typeof m.peakStreak === 'number' && m.peakStreak >= 2) {
+      parts.push(`${m.peakStreak}-day peak streak`);
+    }
     if (parts.length) out.set(`__mind_${dim}`, parts.join(' · '));
   }
 
   return out;
 }
 
-// Synthesise pseudo-contributor rows from Mind qualifiers so emotion /
-// regulation / pressure appear under Resilience Capacity without needing
-// the server to echo a redundant raw value.
-function mindRowsFromQualifiers(
-  q: Record<string, unknown> | undefined,
-  pillKey: PillTooltipPill['key']
-): Array<{ key: string; label: string; value?: string }> {
-  if (!q) return [];
-  const dims =
-    pillKey === 'resilience_capacity'
-      ? (['emotion', 'regulation', 'pressure'] as const)
-      : pillKey === 'decision_readiness'
-        ? (['clarity'] as const)
-        : ([] as const);
-  const rows: Array<{ key: string; label: string; value?: string }> = [];
-  for (const dim of dims) {
-    const m = (q as any)[dim];
-    if (!m) continue;
-    rows.push({
-      key: `__mind_${dim}`,
-      label: titleCase(dim),
-    });
-  }
-  return rows;
+/**
+ * Which mind dims a given pill is allowed to render, in display order.
+ * Decision Readiness owns Clarity; Resilience Capacity owns Emotion /
+ * Regulation / Pressure. Physical Reserves does not surface mind dims.
+ */
+function mindDimsForPill(pillKey: PillTooltipPill['key']): readonly string[] {
+  if (pillKey === 'decision_readiness') return ['clarity'];
+  if (pillKey === 'resilience_capacity') return ['emotion', 'regulation', 'pressure'];
+  return [];
 }
 
 export default function PillDetailContent({
@@ -292,12 +334,20 @@ export default function PillDetailContent({
   const seenRows = new Set<string>();
   const contributorKeysPresent: string[] = [];
   const contributorKeysSuppressed: string[] = [];
+  const allowed = ALLOWED_CONTRIBUTORS[pill.key];
 
   // 1) Real contributors echoed by the server — humanised, suppressed if legacy.
   for (const [k, raw] of Object.entries(pill.contributors ?? {})) {
     if (raw == null) continue;
     contributorKeysPresent.push(k);
     if (SUPPRESS.has(k)) {
+      contributorKeysSuppressed.push(k);
+      continue;
+    }
+    // Legacy snapshot guard: e.g. old `physical_reserves` payloads that
+    // still ship `sleepDuration`/`sleepScore` must not render sleep rows
+    // under Physical Reserves.
+    if (allowed && !allowed.has(k)) {
       contributorKeysSuppressed.push(k);
       continue;
     }
@@ -313,17 +363,34 @@ export default function PillDetailContent({
       const safe = formatDisplayValue(raw);
       value = safe && !isUnsafeObjectText(safe) ? safe : undefined;
     }
-    // Drop the entire row if we have no readable value AND no qualifier to show.
-    const qualifier = qualifierMap.get(k);
+    // If this contributor is a mind-dim raw value, merge the qualifier
+    // keyed by its canonical dim name (e.g. `__mind_clarity`) into the
+    // same row. Also mark the dim key as "seen" so the qualifier-only
+    // pass below cannot emit a second row.
+    const dim = MIND_CONTRIB_TO_DIM[k];
+    const qualifier = dim
+      ? qualifierMap.get(`__mind_${dim}`)
+      : qualifierMap.get(k);
     if (value == null && !qualifier) continue;
     rows.push({ key: k, label, value, qualifier });
     seenRows.add(k);
+    if (dim) seenRows.add(`__mind_${dim}`);
   }
 
-  // 2) Synthesised mind rows (Clarity for DR; Emotion/Regulation/Pressure for RC).
-  for (const mr of mindRowsFromQualifiers(pill.qualifiers, pill.key)) {
-    rows.push({ ...mr, qualifier: qualifierMap.get(mr.key) });
-    seenRows.add(mr.key);
+  // 2) Qualifier-only mind rows. For each dim owned by this pill: if we
+  // did NOT already emit a raw contributor row and a qualifier string
+  // exists, render exactly one qualifier-only row. Mark BOTH the dim key
+  // and the raw contributor key as seen so the expected-missing pass
+  // does not add a "No check-in yet" duplicate.
+  for (const dim of mindDimsForPill(pill.key)) {
+    const qKey = `__mind_${dim}`;
+    if (seenRows.has(qKey)) continue;
+    const q = qualifierMap.get(qKey);
+    if (!q) continue;
+    const contribKey = MIND_DIMS.find((m) => m.dim === dim)!.contribKey;
+    rows.push({ key: qKey, label: titleCase(dim), qualifier: q });
+    seenRows.add(qKey);
+    seenRows.add(contribKey);
   }
 
   // Row 1/2 above only counts rows backed by REAL contributor evidence.
@@ -367,16 +434,6 @@ export default function PillDetailContent({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-2 pr-7">
-        <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground font-body">
-          {pill.label}
-        </span>
-        {pill.tierLabel && (
-          <span className="text-[11px] uppercase tracking-[0.08em] text-foreground/70 font-body">
-            {pill.tierLabel}
-          </span>
-        )}
-      </div>
       {useNeutralFallback ? (
         <span className="text-xs text-muted-foreground/70 font-body italic">
           {NEUTRAL_FALLBACK_ON_EMPTY[pill.key] ?? 'Detail not available for this reading.'}
