@@ -209,3 +209,39 @@ Deno.test("assessment context exports validator/prompt views from finalized payl
   assertStringIncludes(promptSection, "Structured divergence:");
   assertStringIncludes(promptSection, context.deterministic.pillFingerprint);
 });
+
+Deno.test("assessment context nested mutation attempts cannot alter frozen payload", async () => {
+  const context = await buildContext();
+  const originalTier = context.pills.finalized[0].tier;
+  const originalContributor = context.pills.finalized[0].contributors.hrvValue;
+  const originalQualifier = JSON.stringify(context.pills.qualifiers);
+  const originalAdjustments = JSON.stringify(context.pills.coherence.adjustments);
+  const originalDivergence = JSON.stringify(context.divergence);
+  const originalSources = [...context.pills.finalized[0].sourceTypes];
+
+  try {
+    (context.pills.finalized[0] as any).tier = "red";
+  } catch {}
+  try {
+    (context.pills.finalized[0].contributors as any).hrvValue = 999;
+  } catch {}
+  try {
+    (context.pills.qualifiers as any).clarity = { trend: "mutated" };
+  } catch {}
+  try {
+    (context.pills.coherence.adjustments as any).push({ pill: "decision_readiness" });
+  } catch {}
+  try {
+    (context.divergence?.left.evidenceKeys as any)?.push("clarityLevel");
+  } catch {}
+  try {
+    (context.pills.finalized[0].sourceTypes as any).push("checkin");
+  } catch {}
+
+  assertEquals(context.pills.finalized[0].tier, originalTier);
+  assertEquals(context.pills.finalized[0].contributors.hrvValue, originalContributor);
+  assertEquals(JSON.stringify(context.pills.qualifiers), originalQualifier);
+  assertEquals(JSON.stringify(context.pills.coherence.adjustments), originalAdjustments);
+  assertEquals(JSON.stringify(context.divergence), originalDivergence);
+  assertEquals(context.pills.finalized[0].sourceTypes, originalSources);
+});

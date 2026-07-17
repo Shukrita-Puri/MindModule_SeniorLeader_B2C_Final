@@ -5554,8 +5554,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   if (!normalized.brief) {
                     llmFallbackReason = `attempt${attempt}_${normalized.reason}`;
                     const _bp = parsed?.body ? String(parsed.body).replace(/<[^>]+>/g, '').slice(0, 100) : '(empty)';
-                    const _lo = parsed?.leanOn?.[0]?.signal ?? '(none)';
-                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | body="${_bp}" | signal0="${_lo}"`);
+                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms`);
                     llmAttemptRecords.push({
                       model, attempt, durationMs,
                       outcome: 'validator_reject',
@@ -5635,7 +5634,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   if (!atomic.ok) {
                     const reason = atomic.reason || 'atomic_reject';
                     llmFallbackReason = `attempt${attempt}_atomic_${reason}`;
-                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} atomic-rejected: ${reason} | model=${model} | duration=${durationMs}ms | phrase="${normalized.brief.phrase}"`);
+                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} atomic-rejected: ${reason} | model=${model} | duration=${durationMs}ms`);
                     llmAttemptRecords.push({
                       model, attempt, durationMs,
                       outcome: 'atomic_validator_reject',
@@ -5662,25 +5661,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     httpStatus: 200,
                     errorMessageHead: null,
                   });
-                  console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED (normaliser + atomic) in ${durationMs}ms | model=${model} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
+                  console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED (normaliser + atomic) in ${durationMs}ms | model=${model} | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
                   try {
                     console.log('[compute-outer-readiness][llm-accepted]', JSON.stringify({
-                      userId,
                       localDate: userLocalDate,
                       timeWindow: getTimeOfDay(hour),
                       model,
                       attempt,
                       durationMs,
-                      phrase: llmBrief.phrase,
-                      bodyText: llmBrief.bodyText,
-                      leanOn: llmBrief.leanOn,
-                      watchFor: llmBrief.watchFor,
+                      leanOnCount: llmBrief.leanOn.length,
+                      watchForCount: llmBrief.watchFor.length,
                     }));
                   } catch {}
                   break;
                 } catch (parseErr) {
                   llmFallbackReason = `attempt${attempt}_parse_failed`;
-                  console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} parse failed | model=${model} | duration=${durationMs}ms | rawLen=${content.length} | first200=${JSON.stringify(content.substring(0, 200))}`);
+                  console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} parse failed | model=${model} | duration=${durationMs}ms | rawLen=${content.length}`);
                   llmAttemptRecords.push({
                     model, attempt, durationMs,
                     outcome: 'parse_error',
@@ -5823,7 +5819,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 });
                 if (detValidation.ok) {
                   deterministicBrief = built;
-                  console.log(`[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (v6.6-spec) | topSignal=${built.topSignal} | band=${specParams.bandValence} | phrase="${built.phrase}"`);
+                  console.log(`[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (v6.6-spec) | topSignal=${built.topSignal} | band=${specParams.bandValence}`);
                 } else {
                   console.warn(`[compute-outer-readiness] [DETERMINISTIC] rejected by validator: ${detValidation.reason} | topSignal=${built.topSignal} | band=${specParams.bandValence}`);
                 }
@@ -6506,13 +6502,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const pillGuard = validatePillBodyConsistency(persistBody, finalPillContext);
             if (!numericGuard.ok || !pillGuard.ok) {
               console.warn('[compute-outer-readiness][w3-persist-revalidate] rejecting persisted brief copy', {
-                userId,
                 localDate: userLocalDate,
                 window: getTimeOfDay(hour),
                 numericGuard: numericGuard.ok ? null : numericGuard.reason,
                 pillGuard: pillGuard.ok ? null : pillGuard.reason,
                 briefSource,
-                finalMrs: finalMrsForCheck,
                 finalPillContext,
                 fingerprints: assessmentContext?.deterministic ?? null,
               });

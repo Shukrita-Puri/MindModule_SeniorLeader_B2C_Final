@@ -171,5 +171,5 @@ Deno.test("spec deterministic — assessment context fallback uses the same fina
   });
 
   assertEquals(built?.topSignal, "imminent_high_stakes");
-  assertStringIncludes(built?.body ?? "", "You checked in drained, while HRV is holding above its usual range.");
+  assertStringIncludes(built?.body ?? "", "You checked in drained, while HRV is holding above its usual range;");
 });

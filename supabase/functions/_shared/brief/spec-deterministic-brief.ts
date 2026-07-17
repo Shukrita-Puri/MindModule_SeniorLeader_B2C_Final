@@ -100,9 +100,9 @@ const SIGNAL_PHRASES: Partial<Record<TopSignal, string>> = {
 // ──────────────────────────────────────────────────────────
 
 const READ_CLAUSES: Record<BandKey, string> = {
-  high: "You're carrying more edge than the day is asking for.",
-  mid:  "You're evenly matched with what's ahead.",
-  low:  "The day is asking more than the body is offering — worth noticing.",
+  high: "Mind and body are carrying more edge than the day is asking for.",
+  mid:  "Mind and composure are evenly matched with what's ahead.",
+  low:  "The day is asking more than body and composure are offering — worth noticing.",
 };
 
 // ──────────────────────────────────────────────────────────
@@ -360,11 +360,11 @@ export function buildSpecDeterministicBriefFromAssessmentContext(
       context.wearable.sleepDuration < 360,
     rhrDeviation: context.wearable.rhrDeviation,
     calendarLoad: context.calendar.load,
-    todayHighStakes: genericTitle("high-stakes meeting", context.calendar.highStakesEventsCount),
+    todayHighStakes: genericTitle("priority meeting", context.calendar.highStakesEventsCount),
     nextHighStakesEvent:
       typeof context.calendar.nextHighStakesMinutesUntil === "number"
         ? {
-            title: "next high-stakes meeting",
+            title: "next priority meeting",
             minutesUntil: context.calendar.nextHighStakesMinutesUntil,
           }
         : null,
@@ -377,7 +377,7 @@ export function buildSpecDeterministicBriefFromAssessmentContext(
     confidenceLevel: context.checkIn.confidenceLevel,
     behaviourFlags: null,
     tomorrowLoad: context.calendar.tomorrowLoad,
-    tomorrowHighStakesTitles: genericTitle("high-stakes meeting", context.calendar.tomorrowHighStakesCount),
+    tomorrowHighStakesTitles: genericTitle("priority meeting", context.calendar.tomorrowHighStakesCount),
   };
   const built = buildSpecDeterministicBrief(params);
   if (!built) return null;
@@ -385,7 +385,7 @@ export function buildSpecDeterministicBriefFromAssessmentContext(
   if (!divergenceLead) return built;
   return {
     ...built,
-    body: `${divergenceLead} ${built.body}`,
+    body: `${divergenceLead.replace(/\.$/, "")}; ${built.body}`,
   };
 }
 
