@@ -951,15 +951,15 @@ const Insights = () => {
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)' }}
       >
         <div className="px-4 md:px-6 max-w-lg mx-auto pt-3 space-y-3" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
-          {/* Suppressed for now — keep import/component intact for easy re-enable */}
-          {false && <DailyShowUpCalendar userId={user?.id} />}
+          {/* Suppressed via SHOW_DAILY_SHOW_UP_CALENDAR — component + data intact for easy re-enable */}
+          {SHOW_DAILY_SHOW_UP_CALENDAR && <DailyShowUpCalendar userId={user?.id} />}
 
           {/* Inner Readiness dial (resets weekly) + Performance Streaks (resets monthly) */}
           <InnerReadinessDial />
           <PerformanceStreaks />
 
-          {/* Trajectory row suppressed — dial taps already deep-link to /insights/leadership-patterns */}
-          {false && (
+          {/* Trajectory row suppressed via SHOW_TRAJECTORY_SUMMARY_ROW — dial taps already deep-link to /insights/leadership-patterns */}
+          {SHOW_TRAJECTORY_SUMMARY_ROW && (
             <InsightSummaryRow
               to="/insights/leadership-patterns"
               eyebrow="Your Performance Trajectory"
@@ -990,8 +990,8 @@ const Insights = () => {
             value="The practices that most reliably lift your next check-in."
           />
 
-          {/* SUPPRESSED — kept for future re-enable once data is more text-based */}
-          {false && (
+          {/* Suppressed via SHOW_MOMENTUM_LUXURY_CARD — kept for future re-enable once data is more text-based */}
+          {SHOW_MOMENTUM_LUXURY_CARD && (
             <LuxuryInsightCard>
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
