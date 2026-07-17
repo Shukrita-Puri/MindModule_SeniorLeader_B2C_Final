@@ -31,6 +31,14 @@ import { setTourMockActive } from './useTourMock';
 
 interface GuideStep {
   targetSelector: string;
+  /**
+   * Optional selector to use on viewports ≥ 640px (Tailwind `sm`).
+   * The bottom pill nav that owns `[data-tour="bottom-nav-*"]` is
+   * `sm:hidden`, so desktop/tablet steps must fall back to the
+   * equivalent sidebar anchor. If omitted, `targetSelector` is used
+   * on every viewport.
+   */
+  desktopTargetSelector?: string;
   title: string;
   body: string;
   page: 'check-in' | 'home' | 'plan';
@@ -42,6 +50,12 @@ interface GuideStep {
   tooltipPosition?: 'above' | 'below' | 'auto';
   activateTab?: 'mrs' | 'brief' | 'plan';
   openSidebar?: boolean;
+  /**
+   * Override for `openSidebar` on viewports ≥ 640px. Used together
+   * with `desktopTargetSelector` when the desktop equivalent lives
+   * inside the collapsible sidebar.
+   */
+  desktopOpenSidebar?: boolean;
 }
 
 const STEPS: GuideStep[] = [
@@ -89,6 +103,10 @@ const STEPS: GuideStep[] = [
   },
   {
     targetSelector: '[data-tour="bottom-nav-reset"]',
+    // Bottom nav is mobile-only (`sm:hidden`); on desktop/tablet the
+    // equivalent lives in the sidebar (Recalibrate = features[4]).
+    desktopTargetSelector: '[data-tour="sidebar-suite-4"]',
+    desktopOpenSidebar: true,
     title: 'Reset on demand',
     body:
       'A library of short Pause, Flow, and Reenergise mindset and somatic protocols. Open the Reset button before a high-stakes moment to prepare — or after one to prevent stress carrying into the next.',
@@ -99,6 +117,10 @@ const STEPS: GuideStep[] = [
   },
   {
     targetSelector: '[data-tour="bottom-nav-insights"]',
+    // Bottom nav is mobile-only; on desktop/tablet use the sidebar
+    // Insight entry (features[3]).
+    desktopTargetSelector: '[data-tour="sidebar-suite-3"]',
+    desktopOpenSidebar: true,
     title: 'See the patterns forming',
     body:
       'Open the Insight button to see how your progress and patterns forming through the week and month — you can see the exact moments that could cause stress, burnout or clarity drain and prevent it from happening.',
@@ -114,6 +136,25 @@ const TARGET_WAIT_MS = 1800;
 const RETRY_INTERVAL_MS = 150;
 const MAX_RETRIES = 10;
 const STEP_FAILSAFE_MS = 3500;
+
+/**
+ * Resolve the effective spotlight selector for a step given the
+ * current viewport. On viewports ≥ 640px, prefer `desktopTargetSelector`
+ * when provided (mobile-only anchors like the bottom pill nav do not
+ * render there and would otherwise trigger the failsafe fallback).
+ */
+const isDesktopViewport = () =>
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(min-width: 640px)').matches;
+
+const effectiveSelector = (s: GuideStep) =>
+  isDesktopViewport() && s.desktopTargetSelector ? s.desktopTargetSelector : s.targetSelector;
+
+const effectiveOpenSidebar = (s: GuideStep) =>
+  isDesktopViewport() && s.desktopOpenSidebar !== undefined
+    ? s.desktopOpenSidebar
+    : !!s.openSidebar;
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
