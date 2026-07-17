@@ -3848,6 +3848,7 @@ type NotificationTraceOutcome =
   | 'two_hour_suppression'
   | 'light_day_strong_state'
   | 'no_qualified_nudge'
+  | 'plan_ready_morning_fallback'
   | 'week_ahead_not_in_window'
   | 'week_ahead_already_sent_this_week'
   | 'week_ahead_not_selected'
@@ -4722,15 +4723,47 @@ serve(async (req) => {
               intentionally_skipped: true,
             },
           });
-        } else if (!suppressedEffective) {
-          const projected = await projectPlanSlotToNudge(
-            ctx,
-            activeSlot,
-            alreadySentTypes,
-            sentEventRefs,
-            supabase,
-          );
-          if (projected) qualified.push(projected);
+        } else {
+          let projected: QualifiedNudge | null = null;
+          if (!suppressedEffective) {
+            projected = await projectPlanSlotToNudge(
+              ctx,
+              activeSlot,
+              alreadySentTypes,
+              sentEventRefs,
+              supabase,
+            );
+            if (projected) qualified.push(projected);
+          }
+
+          // Morning nudge_one is the user's first-touch anchor and is
+          // intentionally exempt from the 2h suppression gate in the
+          // legacy cascade. If a ready plan slot produces no copy, fail
+          // open to the proven legacy evaluator instead of ending the
+          // morning window with no qualified nudge.
+          if (
+            activeSlot === 'morning' &&
+            !projected &&
+            !alreadySentTypes.has('nudge_one') &&
+            !alreadySentTypes.has('morning_prep')
+          ) {
+            const fallback = await evaluateNudgeOne(ctx, alreadySentTypes, sentEventRefs, supabase);
+            if (fallback) {
+              qualified.push(fallback);
+              trace(userId, 'plan_ready_morning_fallback', {
+                ...traceBase,
+                metadata: {
+                  reason: suppressedEffective
+                    ? 'projection_suppressed_falling_through_to_legacy_nudge_one'
+                    : 'projection_returned_null_falling_through_to_legacy_nudge_one',
+                  active_slot: activeSlot,
+                  plan_slot_count: ctx.planSlots?.length ?? 0,
+                  fallback: 'legacy_nudge_one',
+                  fallback_variant_id: fallback.copy.variantId,
+                },
+              });
+            }
+          }
         }
       }
 

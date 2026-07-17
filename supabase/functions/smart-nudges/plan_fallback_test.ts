@@ -79,6 +79,27 @@ Deno.test("plan-driven projection remains preferred when slot pref is enabled", 
   );
 });
 
+Deno.test("ready morning plan projection fails open to legacy nudge_one when no copy qualifies", () => {
+  assert(
+    SRC.includes("plan_ready_morning_fallback"),
+    "expected structured trace for ready-plan morning fallback",
+  );
+  assert(
+    /activeSlot === 'morning'[\s\S]*!projected[\s\S]*evaluateNudgeOne\(ctx, alreadySentTypes, sentEventRefs, supabase\)/.test(
+      SRC,
+    ),
+    "ready morning plan path must fall through to legacy nudge_one when projection returns null",
+  );
+  assert(
+    SRC.includes("projection_returned_null_falling_through_to_legacy_nudge_one"),
+    "fallback trace must explain null projected-slot copy",
+  );
+  assert(
+    SRC.includes("projection_suppressed_falling_through_to_legacy_nudge_one"),
+    "fallback must preserve legacy nudge_one suppression exemption",
+  );
+});
+
 Deno.test("slot-cap reconstruction prefers persisted delivery slot over family-name inference", () => {
   assert(
     SRC.includes("function slotFromNotificationLogRow("),
