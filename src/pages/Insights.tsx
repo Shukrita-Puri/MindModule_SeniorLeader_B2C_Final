@@ -31,6 +31,23 @@ import {
   cacheKeys,
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
+
+// ---------------------------------------------------------------------------
+// Local re-enable flags for suppressed Insights blocks.
+// Each flag replaces a magic `{false && …}` guard so the intent, owner, and
+// re-enable path are explicit. Keep defaults `false` — flipping any of these
+// is a product decision, not a cleanup. See
+// docs/INSIGHTS_MASTER_AUDIT_CORRECTIONS_2026-07-16.md for context.
+// ---------------------------------------------------------------------------
+// Daily Show-Up calendar row. Component + data pipeline are intact; suppressed
+// while the streak surface lives on the homepage. Owner: Insights product.
+const SHOW_DAILY_SHOW_UP_CALENDAR = false;
+// Trajectory summary row. Suppressed because the Inner Readiness dial already
+// deep-links to /insights/leadership-patterns. Owner: Insights product.
+const SHOW_TRAJECTORY_SUMMARY_ROW = false;
+// "Your Momentum" Tiny Wins luxury card. Retained for re-enable once the copy
+// shifts to a more text-based framing. Owner: Insights product.
+const SHOW_MOMENTUM_LUXURY_CARD = false;
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
 const THEME_KEYWORDS: Record<string, string[]> = {
   'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
@@ -934,15 +951,15 @@ const Insights = () => {
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)' }}
       >
         <div className="px-4 md:px-6 max-w-lg mx-auto pt-3 space-y-3" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
-          {/* Suppressed for now — keep import/component intact for easy re-enable */}
-          {false && <DailyShowUpCalendar userId={user?.id} />}
+          {/* Suppressed via SHOW_DAILY_SHOW_UP_CALENDAR — component + data intact for easy re-enable */}
+          {SHOW_DAILY_SHOW_UP_CALENDAR && <DailyShowUpCalendar userId={user?.id} />}
 
           {/* Inner Readiness dial (resets weekly) + Performance Streaks (resets monthly) */}
           <InnerReadinessDial />
           <PerformanceStreaks />
 
-          {/* Trajectory row suppressed — dial taps already deep-link to /insights/leadership-patterns */}
-          {false && (
+          {/* Trajectory row suppressed via SHOW_TRAJECTORY_SUMMARY_ROW — dial taps already deep-link to /insights/leadership-patterns */}
+          {SHOW_TRAJECTORY_SUMMARY_ROW && (
             <InsightSummaryRow
               to="/insights/leadership-patterns"
               eyebrow="Your Performance Trajectory"
@@ -973,8 +990,8 @@ const Insights = () => {
             value="The practices that most reliably lift your next check-in."
           />
 
-          {/* SUPPRESSED — kept for future re-enable once data is more text-based */}
-          {false && (
+          {/* Suppressed via SHOW_MOMENTUM_LUXURY_CARD — kept for future re-enable once data is more text-based */}
+          {SHOW_MOMENTUM_LUXURY_CARD && (
             <LuxuryInsightCard>
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
