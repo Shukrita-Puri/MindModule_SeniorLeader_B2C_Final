@@ -131,6 +131,21 @@ export interface DerivePillsResult {
   // Debug/audit — mirrors what the inline block logged.
   supplyDemandGapPill: boolean;
   regulationRiskPill: boolean;
+  diagnostics: DerivePillsDiagnostics;
+}
+
+export interface PillDiagnostic {
+  key: PillKey;
+  code:
+    | "v4_force_neutral"
+    | "v4_clear_checkin_credit"
+    | "physical_reserves_no_displayable_contributors";
+  message: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface DerivePillsDiagnostics {
+  warnings: PillDiagnostic[];
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -317,6 +332,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
 
   // ── Payload build ─────────────────────────────────────────────────────
   const pillColdStart = coldStartLabel(wearableDaysConnected);
+  const diagnostics: PillDiagnostic[] = [];
 
   const pills: SignalPill[] = [
     {
@@ -460,10 +476,12 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   for (const p of pills) {
     if (!wearableFreshForGate) {
       if (p.isScoreBearing || p.tier !== "neutral" || p.contributedByCheckIn) {
-        console.warn(
-          "[signal-pills-v4] invariant: forcing neutral/non-score-bearing for",
-          p.key,
-        );
+        diagnostics.push({
+          key: p.key,
+          code: "v4_force_neutral",
+          message:
+            "[signal-pills-v4] invariant: forcing neutral/non-score-bearing",
+        });
         p.isScoreBearing = false;
         p.contributedByCheckIn = false;
         p.tier = "neutral";
@@ -472,10 +490,12 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
         p.freshness = hasWearable ? "stale" : "missing";
       }
     } else if (!checkInFreshForGate && p.contributedByCheckIn) {
-      console.warn(
-        "[signal-pills-v4] invariant: clearing contributedByCheckIn for",
-        p.key,
-      );
+      diagnostics.push({
+        key: p.key,
+        code: "v4_clear_checkin_credit",
+        message:
+          "[signal-pills-v4] invariant: clearing contributedByCheckIn",
+      });
       p.contributedByCheckIn = false;
     }
   }
@@ -489,10 +509,16 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     const displayableCount =
       (isNum(c.rhrValue) ? 1 : 0) + (isNum(c.hrValue) ? 1 : 0);
     if (displayableCount === 0 && p.tier !== "neutral") {
-      console.warn(
-        "[signal-pills-v4][physical_reserves] forcing neutral — no displayable contributors",
-        { previousTier: p.tier, previousTierLabel: p.tierLabel },
-      );
+      diagnostics.push({
+        key: p.key,
+        code: "physical_reserves_no_displayable_contributors",
+        message:
+          "[signal-pills-v4][physical_reserves] forcing neutral — no displayable contributors",
+        meta: {
+          previousTier: p.tier,
+          previousTierLabel: p.tierLabel,
+        },
+      });
       p.tier = "neutral";
       p.tierLabel = PILL_NEUTRAL_LABELS.physical_reserves;
       p.isScoreBearing = false;
@@ -510,6 +536,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     pills,
     supplyDemandGapPill,
     regulationRiskPill,
+    diagnostics: { warnings: diagnostics },
   };
 }
 
@@ -519,7 +546,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
 // ────────────────────────────────────────────────────────────────────────
 
 export interface FinalizePillsInput {
-  pills: SignalPill[]; // output of derivePills(); mutated in place, then returned
+  pills: SignalPill[]; // output of derivePills(); cloned before reconciliation
   safeTier: PqPillTier; // outer MRS band (mirrors inline call site)
   cognitiveTier: PillTier;
   physicalTier: PillTier;
@@ -543,6 +570,14 @@ export interface FinalizePillsResult {
     adjustments: CoherenceAdjustment[];
   };
   coherenceWarning: string | null;
+  diagnostics: FinalizePillsDiagnostics;
+}
+
+export interface FinalizePillsDiagnostics {
+  warnings: Array<{
+    code: "coherence_adjustment";
+    message: string;
+  }>;
 }
 
 export function finalizePills(input: FinalizePillsInput): FinalizePillsResult {
@@ -558,6 +593,12 @@ export function finalizePills(input: FinalizePillsInput): FinalizePillsResult {
     hrv3dTrend,
     rhr3dTrend,
   } = input;
+  const nextPills = pills.map((pill) => ({
+    ...pill,
+    contributors: { ...pill.contributors },
+    sourceTypes: [...pill.sourceTypes],
+    qualifiers: pill.qualifiers ? { ...pill.qualifiers } : pill.qualifiers,
+  }));
 
   const qualifiers = getPillQualifiers(
     checkinHistory14d,
@@ -575,7 +616,7 @@ export function finalizePills(input: FinalizePillsInput): FinalizePillsResult {
   if (warning) {
     coherenceWarning = warning;
     for (const cp of coherentPills) {
-      const p = pills.find((x) => x.key === cp.key);
+      const p = nextPills.find((x) => x.key === cp.key);
       if (p && p.tier !== cp.tier) {
         p.tier = cp.tier as PillTier;
         p.tierLabel =
@@ -583,13 +624,10 @@ export function finalizePills(input: FinalizePillsInput): FinalizePillsResult {
           p.tierLabel;
       }
     }
-    if ((Deno.env.get("APP_ENV") ?? "development") !== "production") {
-      console.warn("[signal-pills-v3]", warning);
-    }
   }
 
   // ── Attach qualifiers ─────────────────────────────────────────────────
-  for (const p of pills) {
+  for (const p of nextPills) {
     if (p.key === "decision_readiness") {
       p.qualifiers = {
         hrv: { ...qualifiers.hrv, trend3d: hrv3dTrend ?? null },
@@ -617,12 +655,17 @@ export function finalizePills(input: FinalizePillsInput): FinalizePillsResult {
   }
 
   return {
-    pills,
+    pills: nextPills,
     qualifiers,
     coherence: {
       inSync: coherenceResult.inSync,
       adjustments: coherenceResult.adjustments,
     },
     coherenceWarning,
+    diagnostics: {
+      warnings: coherenceWarning
+        ? [{ code: "coherence_adjustment", message: coherenceWarning }]
+        : [],
+    },
   };
 }

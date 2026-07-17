@@ -79,12 +79,9 @@ import {
 import {
   isAppleMetricSource,
   hasMeaningfulDemand,
-  coldStartLabel,
 } from "../_shared/signal-engine/context-builder.ts";
 import { deriveWearableDaysConnected } from "./wearable-connection-age.ts";
 import {
-  getPillQualifiers,
-  assertPillCoherence,
   type CheckinRow as PqCheckinRow,
   type WearableRow as PqWearableRow,
   type PillTier as PqPillTier,
@@ -5917,13 +5914,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         const cognitiveTier = _pillDerivation.cognitiveTier;
         const physicalTier = _pillDerivation.physicalTier;
         const resilienceTier = _pillDerivation.resilienceTier;
-        const signalPillsPayload = _pillDerivation.pills;
-
-        // F3.1 — Hoist the base pill payload immediately so a downstream throw
-        // in qualifier/coherence enrichment can no longer null the entire
-        // signalPills response (which surfaces in the UI as "No signal detail
-        // yet" even after a valid check-in).
-        echoedSignalPills = signalPillsPayload;
+        let signalPillsPayload = _pillDerivation.pills;
+        for (const warning of _pillDerivation.diagnostics.warnings) {
+          console.warn(warning.message, {
+            key: warning.key,
+            code: warning.code,
+            ...(warning.meta ? { meta: warning.meta } : {}),
+          });
+        }
 
         // ── Signal Pills v3: bracketed qualifiers + coherence guard ──
         // Qualifiers are display-only enrichment; coherence guard reconciles
@@ -5963,15 +5961,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             hrv3dTrend,
             rhr3dTrend,
           });
+          signalPillsPayload = _finalized.pills;
+          echoedSignalPills = signalPillsPayload;
 
           echoedPillCoherence = _finalized.coherence;
           echoedPillQualifiers = _finalized.qualifiers;
           echoedCoherenceWarning = _finalized.coherenceWarning;
+          if ((Deno.env.get("APP_ENV") ?? "development") !== 'production') {
+            for (const warning of _finalized.diagnostics.warnings) {
+              console.warn(warning.message);
+            }
+          }
         } catch (qErr) {
           // F3.2 — Promote to error so the failure surfaces in edge logs and
           // we can correlate "no qualifiers" with "no enrichment ran". The
           // base pill payload (tier + label + contributors) is still echoed
           // because we hoisted the assignment above.
+          echoedSignalPills = signalPillsPayload;
           console.error(
             '[signal-pills-v3] qualifier/coherence step failed:',
             qErr instanceof Error ? qErr.message : qErr,

@@ -409,9 +409,49 @@ Deno.test("FP-34: RC sleepEfficiency contributor updated from latest wearable ro
   assertEquals(rc.contributors.sleepEfficiency, 92);
 });
 
+Deno.test("FP-35: canonical finalized payload carries qualifiers + coherence into downstream consumers", () => {
+  const derived = derivePills(
+    baseInput({
+      hrvValue: 60,
+      hrvDeviation: 0,
+      rhrValue: 60,
+      rhrDeviation: 0,
+      sleepEfficiency: 90,
+    }),
+  );
+  const preFinalizePayload = derived.pills;
+  const finalized = finalizePills({
+    pills: preFinalizePayload,
+    safeTier: "depleted" as any,
+    cognitiveTier: derived.cognitiveTier,
+    physicalTier: derived.physicalTier,
+    resilienceTier: derived.resilienceTier,
+    checkinHistory14d: [],
+    wearableHistory14d: [],
+    baselines: { hrv: null, rhr: null, sleep: null },
+    hrv3dTrend: "unknown",
+    rhr3dTrend: "unknown",
+  });
+  const signalPillsPayload = finalized.pills;
+  const echoedSignalPills = signalPillsPayload;
+  const baselineSignalPills = signalPillsPayload;
+  const refinedSignalPills = signalPillsPayload;
+
+  assertNotEquals(signalPillsPayload, preFinalizePayload);
+  const finalDecision = pill(signalPillsPayload, "decision_readiness");
+  assertEquals(finalDecision.tier, "red");
+  assertNotEquals(finalDecision.qualifiers, undefined);
+  assertEquals(pill(echoedSignalPills, "decision_readiness").tier, "red");
+  assertNotEquals(pill(echoedSignalPills, "decision_readiness").qualifiers, undefined);
+  assertEquals(pill(baselineSignalPills, "decision_readiness").tier, "red");
+  assertNotEquals(pill(baselineSignalPills, "decision_readiness").qualifiers, undefined);
+  assertEquals(pill(refinedSignalPills, "decision_readiness").tier, "red");
+  assertNotEquals(pill(refinedSignalPills, "decision_readiness").qualifiers, undefined);
+});
+
 // ── Determinism ────────────────────────────────────────────────────────
 
-Deno.test("DET-35: derivePills deterministic across two invocations", () => {
+Deno.test("DET-36: derivePills deterministic across two invocations", () => {
   const inputs: DerivePillsInput[] = [
     baseInput({ hrvValue: 55, hrvDeviation: -10, clarityLevel: 3 }),
     baseInput({ rhrValue: 65, rhrDeviation: 12, rhr3dTrend: "rising" }),
@@ -437,7 +477,7 @@ Deno.test("DET-35: derivePills deterministic across two invocations", () => {
   }
 });
 
-Deno.test("DET-36: finalizePills deterministic across two invocations", () => {
+Deno.test("DET-37: finalizePills deterministic across two invocations", () => {
   const build = () =>
     derivePills(
       baseInput({
@@ -470,9 +510,96 @@ Deno.test("DET-36: finalizePills deterministic across two invocations", () => {
   assertEquals(a.coherenceWarning, b.coherenceWarning);
 });
 
+Deno.test("DET-38: derivePills does not mutate input", () => {
+  const input = baseInput({
+    cooccurrence7d: {
+      cooccurrence_count: 3,
+      cooccurrence_ratio: 0.5,
+      days_observed: 6,
+    },
+    protectionGoals: ["mornings"],
+  });
+  const before = JSON.stringify(input);
+  derivePills(input);
+  assertEquals(JSON.stringify(input), before);
+});
+
+Deno.test("DET-39: finalizePills does not mutate input pills or nested members", () => {
+  const derived = derivePills(
+    baseInput({
+      hrvValue: 60,
+      hrvDeviation: 0,
+      rhrValue: 60,
+      rhrDeviation: 0,
+      sleepEfficiency: 90,
+    }),
+  );
+  const originalPills = derived.pills;
+  const before = JSON.stringify(originalPills);
+  const finalized = finalizePills({
+    pills: originalPills,
+    safeTier: "depleted" as any,
+    cognitiveTier: derived.cognitiveTier,
+    physicalTier: derived.physicalTier,
+    resilienceTier: derived.resilienceTier,
+    checkinHistory14d: [],
+    wearableHistory14d: [],
+    baselines: { hrv: null, rhr: null, sleep: null },
+    hrv3dTrend: "unknown",
+    rhr3dTrend: "unknown",
+  });
+  assertEquals(JSON.stringify(originalPills), before);
+  assertNotEquals(finalized.pills, originalPills);
+  assertNotEquals(finalized.pills[0], originalPills[0]);
+});
+
+Deno.test("DET-40: derivePills and finalizePills perform no console calls", () => {
+  const originalWarn = console.warn;
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.warn = () => {
+    throw new Error("console.warn should not be called");
+  };
+  console.log = () => {
+    throw new Error("console.log should not be called");
+  };
+  console.error = () => {
+    throw new Error("console.error should not be called");
+  };
+
+  try {
+    const derived = derivePills(
+      baseInput({
+        hrvValue: 60,
+        hrvDeviation: 0,
+        rhrValue: 60,
+        rhrDeviation: 0,
+        sleepEfficiency: 90,
+      }),
+    );
+    const finalized = finalizePills({
+      pills: derived.pills,
+      safeTier: "depleted" as any,
+      cognitiveTier: derived.cognitiveTier,
+      physicalTier: derived.physicalTier,
+      resilienceTier: derived.resilienceTier,
+      checkinHistory14d: [],
+      wearableHistory14d: [],
+      baselines: { hrv: null, rhr: null, sleep: null },
+      hrv3dTrend: "unknown",
+      rhr3dTrend: "unknown",
+    });
+    assertEquals(finalized.diagnostics.warnings.length > 0, true);
+  } finally {
+    console.warn = originalWarn;
+    console.log = originalLog;
+    console.error = originalError;
+  }
+});
+
 // ── Cross-pillar ───────────────────────────────────────────────────────
 
-Deno.test("XP-37: baseline (wearable only) -> no checkin source anywhere", () => {
+Deno.test("XP-41: baseline (wearable only) -> no checkin source anywhere", () => {
   const r = derivePills(
     baseInput({ hrvValue: 55, rhrValue: 60, sleepEfficiency: 88 }),
   );
@@ -481,7 +608,7 @@ Deno.test("XP-37: baseline (wearable only) -> no checkin source anywhere", () =>
   }
 });
 
-Deno.test("XP-38: refined -> contributedByCheckIn true where check-in contributed", () => {
+Deno.test("XP-42: refined -> contributedByCheckIn true where check-in contributed", () => {
   const r = derivePills(
     baseInput({
       hrvValue: 55,
@@ -499,7 +626,7 @@ Deno.test("XP-38: refined -> contributedByCheckIn true where check-in contribute
   assertEquals(rc.contributedByCheckIn, true);
 });
 
-Deno.test("XP-39: clarity is check-in (self-report), never wearable", () => {
+Deno.test("XP-43: clarity is check-in (self-report), never wearable", () => {
   const r = derivePills(baseInput({ clarityLevel: 4 }));
   const dr = pill(r.pills, "decision_readiness");
   assertEquals(dr.sourceTypes.includes("checkin"), true);
