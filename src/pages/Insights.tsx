@@ -34,9 +34,9 @@ import { getLocalDataSummary } from '@/services/localDataStore';
 
 // ---------------------------------------------------------------------------
 // Local re-enable flags for suppressed Insights blocks.
-// Each flag replaces a magic `{false && …}` guard so the intent, owner, and
-// re-enable path are explicit. Keep defaults `false` — flipping any of these
-// is a product decision, not a cleanup. See
+// Each flag controls a previously magic `{false && …}` suppressed block so
+// the intent, owner, and re-enable path are explicit. Keep defaults `false` —
+// flipping any of these is a product decision, not a cleanup. See
 // docs/INSIGHTS_MASTER_AUDIT_CORRECTIONS_2026-07-16.md for context.
 // ---------------------------------------------------------------------------
 // Daily Show-Up calendar row. Component + data pipeline are intact; suppressed
