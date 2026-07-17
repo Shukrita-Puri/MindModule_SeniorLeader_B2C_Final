@@ -51,6 +51,9 @@ interface RequestBody {
     energy_balance?: number;
     clarity_level?: number;
     confidence_level?: number;
+    emotion_level?: number;
+    pressure_level?: number;
+    regulation_level?: number;
     skipped?: boolean;
     timestamp: string;
     data_sources?: Record<string, unknown>;
