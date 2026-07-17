@@ -71,7 +71,10 @@ export default function StageUSPIntro() {
       <div className="shrink-0 h-[calc(53px+env(safe-area-inset-top,0px))]" />
 
       {/* Hero image (reuses existing engraved asset) */}
-      <div className="relative shrink-0 h-[48vh] overflow-hidden">
+      <div
+        className="relative shrink-0 h-[52vh] overflow-hidden"
+        style={{ backgroundColor: "#ece4d6" }}
+      >
         <img
           src={SLIDES[idx].image}
           alt=""
