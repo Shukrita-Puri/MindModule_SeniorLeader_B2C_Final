@@ -9,9 +9,9 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// Tables we will delete from in admin-delete-user. We SELECT count(*) per
-// table here so admins see exact impact before confirming.
-// Kept in sync with public.admin_delete_user_data().
+// Tables shown in the delete preview. The backend RPC also deletes every
+// current public table with a user_id column, so keep this list updated for
+// accurate admin-facing impact counts.
 const USER_TABLES: Array<[string, string]> = [
   // [tableName, userIdColumn or "session_id_via_dialogue_sessions"]
   ["attendee_relationships", "user_id"],
@@ -70,6 +70,7 @@ const USER_TABLES: Array<[string, string]> = [
   ["onboarding_progress", "user_id"],
   ["onboarding_v8_responses", "user_id"],
   ["oura_connections", "user_id"],
+  ["oura_daily_data", "user_id"],
   ["physiological_events", "user_id"],
   ["practice_reflections", "user_id"],
   ["practice_sessions", "user_id"],
@@ -94,6 +95,7 @@ const USER_TABLES: Array<[string, string]> = [
   ["user_referrals", "user_id"],
   ["user_roles", "user_id"],
   ["wearable_data", "user_id"],
+  ["wearable_reconciliation_log", "user_id"],
   ["wearable_signal_diagnostics", "user_id"],
   ["web_primary_calendar_events", "user_id"],
   ["weekly_plan_snapshots", "user_id"],

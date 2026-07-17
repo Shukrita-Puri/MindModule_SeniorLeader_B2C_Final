@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { getAuthToken } from '@/services/authTokenService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   open: boolean;
@@ -41,18 +42,12 @@ const DeleteUserModal = ({ open, onOpenChange, target, onDeleted }: Props) => {
       try {
         const token = await getAuthToken();
         if (!token) throw new Error('Not authenticated');
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/admin-user-delete-preview`,
-          {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: target.id }),
-          },
-        );
-        const body = await res.json();
-        if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
-        if (!cancelled) setPreview(body as PreviewResp);
+        const { data, error } = await supabase.functions.invoke('admin-user-delete-preview', {
+          headers: { Authorization: `Bearer ${token}` },
+          body: { userId: target.id },
+        });
+        if (error) throw new Error(error.message);
+        if (!cancelled) setPreview(data as PreviewResp);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -71,17 +66,11 @@ const DeleteUserModal = ({ open, onOpenChange, target, onDeleted }: Props) => {
     try {
       const token = await getAuthToken();
       if (!token) throw new Error('Not authenticated');
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/admin-delete-user`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: target.id, confirmation: CONFIRM }),
-        },
-      );
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+      const { error } = await supabase.functions.invoke('admin-delete-user', {
+        headers: { Authorization: `Bearer ${token}` },
+        body: { userId: target.id, confirmation: CONFIRM },
+      });
+      if (error) throw new Error(error.message);
       toast.success(`Deleted ${target.email ?? target.id}`);
       onOpenChange(false);
       onDeleted();
