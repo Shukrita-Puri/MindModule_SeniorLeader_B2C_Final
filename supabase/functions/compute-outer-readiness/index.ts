@@ -90,6 +90,10 @@ import {
   type PillTier as PqPillTier,
   type CoherenceAdjustment,
 } from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
+import {
+  derivePills,
+  finalizePills,
+} from "../_shared/signal-pills/derive-pills.ts";
 
 // CORS headers are now per-request via getCorsHeaders(req) so the origin
 // allowlist can be enforced. See _shared/cors.ts.
