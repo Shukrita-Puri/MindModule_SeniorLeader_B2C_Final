@@ -111,6 +111,26 @@ This repo does not currently contain `INSIGHTS_DRAINS_RESTORES_REDESIGN_SPEC_V3.
 - `supabase/functions/content-feedback/index.ts`
 - `src/components/insights/PracticeEffectiveness.tsx`
 
+## Partially Completed — `/insights` page cleanup
+
+A cleanup pass on `src/pages/Insights.tsx` removed clearly dead code while preserving intentionally dormant or re-enableable surfaces.
+
+**Removed:**
+
+- `mindMapReady` useMemo (calculated but never consumed)
+- `tinyWinsBubbleData` useMemo (calculated but never consumed)
+- Unused imports (`Loader2`, `Card`, `ProgressiveUnlockMessage`, `LeadershipPatternsCard`, `PerformanceRhythmCard`, `PerformanceCausalityCard`, and unused React hooks)
+- Dead tab/tier state (`INSIGHT_TABS`, `activeTab`/`setActiveTab`, `InsightsTier`) and the `setActiveTab('patterns')` side effect
+- Unattached `highlightRef`
+
+**Intentionally preserved:**
+
+- Semantic Analysis dormant state, helper functions, and types — retained by design for future re-enable and clearly commented.
+- Tiny Wins and State Patterns pipelines — they feed rendered JSX or explicit `{false && ...}` re-enable blocks.
+- `{false && ...}` re-enable blocks for `DailyShowUpCalendar`, `LuxuryInsightCard`, and related summary-row routing — kept as explicit opt-in scaffolding for product to re-enable.
+
+**Status:** Partially complete. The remaining cleanup is a product decision about which suppressed blocks to delete vs. re-enable, not a mechanical dead-code removal.
+
 ## Missing From The Master Audit
 
 These areas are active in the current `/insights` implementation but are not covered meaningfully by the master audit.
