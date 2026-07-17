@@ -72,7 +72,7 @@ export default function StageUSPIntro() {
 
       {/* Hero image (reuses existing engraved asset) */}
       <div
-        className="relative shrink-0 h-[52vh] overflow-hidden"
+        className="relative shrink-0 h-[44vh] overflow-hidden"
         style={{ backgroundColor: "#ece4d6" }}
       >
         <img
