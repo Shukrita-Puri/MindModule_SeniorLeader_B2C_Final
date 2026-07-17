@@ -3891,6 +3891,7 @@ export type Database = {
           linkedin_scrape: Json | null
           linkedin_url: string | null
           load_chips: string[]
+          preferred_practice_window: string | null
           reset_modality: string | null
           stakes_chips: string[]
           step_status: Json
@@ -3917,6 +3918,7 @@ export type Database = {
           linkedin_scrape?: Json | null
           linkedin_url?: string | null
           load_chips?: string[]
+          preferred_practice_window?: string | null
           reset_modality?: string | null
           stakes_chips?: string[]
           step_status?: Json
@@ -3943,6 +3945,7 @@ export type Database = {
           linkedin_scrape?: Json | null
           linkedin_url?: string | null
           load_chips?: string[]
+          preferred_practice_window?: string | null
           reset_modality?: string | null
           stakes_chips?: string[]
           step_status?: Json
