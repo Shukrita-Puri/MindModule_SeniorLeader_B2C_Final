@@ -19,6 +19,7 @@ import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { isRetakeForUser, isTourActiveForUser } from "@/utils/firstSessionTour";
+import { recordPlanViewed } from "@/services/appReview";
 
 const PlanPage = () => {
   const { user } = useAuth();
@@ -41,6 +42,12 @@ const PlanPage = () => {
 
   useEffect(() => {
     setShowGuide(isTourActiveForUser(effectiveId) || isRetakeForUser(effectiveId));
+  }, [effectiveId]);
+
+  // Passive engagement signal for the native App Store rating prompt —
+  // counts a plan view once per mount for a signed-in user.
+  useEffect(() => {
+    if (effectiveId) recordPlanViewed();
   }, [effectiveId]);
 
   return (

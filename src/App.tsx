@@ -29,6 +29,7 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from "./utils/appleCalendar";
 import { syncAppleCalendarToBackend } from "./services/appleCalendarSync";
+import { recordAppOpen, maybeRequestReview } from "./services/appReview";
 import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
 // Lazy load pages for code splitting
@@ -141,6 +142,11 @@ const TravelWatcher = () => {
       void persistPermissionStatus();
     };
     sync();
+    // Track engagement sessions for the native in-app rating prompt.
+    // Counted once per cold start and once per foreground resume (throttled
+    // internally to at most one increment per 6h).
+    recordAppOpen();
+    void maybeRequestReview();
     const stopTz = startTimezoneWatcher();
 
     let removeAppListener: (() => void) | undefined;
@@ -148,7 +154,11 @@ const TravelWatcher = () => {
       try {
         const { App } = await import('@capacitor/app');
         const handle = await App.addListener('appStateChange', ({ isActive }) => {
-          if (isActive) sync();
+          if (isActive) {
+            sync();
+            recordAppOpen();
+            void maybeRequestReview();
+          }
         });
         removeAppListener = () => { void handle.remove(); };
       } catch { /* web: no-op */ }

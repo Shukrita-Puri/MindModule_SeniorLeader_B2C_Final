@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2, Bell } from 'lucide-react';
+import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2, Bell, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -372,6 +372,28 @@ const Profile = () => {
             >
               <Bell className="h-4 w-4" />
               Push Notification Test
+            </Button>
+
+            {/*
+              Send Feedback — a dedicated escape hatch for users experiencing
+              issues. Kept intentionally separate from any rating flow so the
+              app never routes only-happy users to the App Store or filters
+              sentiment before Apple's native review prompt (App Store
+              Review Guideline 1.1.7).
+            */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => {
+                const subject = encodeURIComponent('MindModule feedback');
+                const body = encodeURIComponent(
+                  'Hi MindModule team,\n\nI wanted to share some feedback:\n\n',
+                );
+                window.location.href = `mailto:support@mindmodule.me?subject=${subject}&body=${body}`;
+              }}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Send Feedback
             </Button>
 
             {/* Delete Local Data */}

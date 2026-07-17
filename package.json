@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.9.0",
+    "@capacitor-community/in-app-review": "^8.0.0",
     "@capacitor/android": "^8.1.0",
     "@capacitor/app": "^8.0.1",
     "@capacitor/assets": "^3.0.5",
