@@ -25,6 +25,7 @@ export interface OnboardingV8ResumeState {
 
 type RawV8Row = {
   brief_timing?: string | null;
+  preferred_practice_window?: string | null;
   burden_chips?: string[] | null;
   calendar_selections?: string[] | null;
   completed_at?: string | null;
@@ -97,7 +98,7 @@ function normalizeStepStatus(row: RawV8Row | null): Record<OnboardingV8StepId, O
   if ((row?.goals?.length ?? 0) > 0) {
     status.protect_goals = status.protect_goals === "completed" ? "completed" : "in_progress";
   }
-  if (row?.weekend_signals || row?.brief_timing || row?.reset_modality) {
+  if (row?.weekend_signals || row?.brief_timing || row?.preferred_practice_window || row?.reset_modality) {
     status.brief_prefs = status.brief_prefs === "completed" ? "completed" : "in_progress";
   }
   if ((row?.calendar_selections?.length ?? 0) > 0 || (row?.wearable_selections?.length ?? 0) > 0) {
@@ -111,7 +112,10 @@ function deriveStepStatusFromFields(row: RawV8Row | null): Record<OnboardingV8St
   const status = normalizeStepStatus(row);
   if ((row?.goals?.length ?? 0) > 0) status.protect_goals = "completed";
   if ((row?.calendar_selections?.length ?? 0) > 0 && (row?.wearable_selections?.length ?? 0) > 0) status.permissions = "completed";
-  if (row?.weekend_signals != null && String(row.weekend_signals).length > 0) {
+  if (
+    row?.weekend_signals != null && String(row.weekend_signals).length > 0 ||
+    row?.preferred_practice_window != null && String(row.preferred_practice_window).length > 0
+  ) {
     status.brief_prefs = "completed";
   }
   return status;
@@ -182,6 +186,7 @@ export async function loadOnboardingV8ResumeState(): Promise<OnboardingV8ResumeS
       burden_chips: row?.burden_chips ?? [],
       goals: row?.goals ?? [],
       brief_timing: row?.brief_timing ?? null,
+      preferred_practice_window: row?.preferred_practice_window ?? null,
       reset_modality: row?.reset_modality ?? null,
       weekend_signals: row?.weekend_signals ?? null,
     },

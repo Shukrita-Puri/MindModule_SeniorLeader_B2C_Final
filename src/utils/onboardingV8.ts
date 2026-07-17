@@ -10,6 +10,7 @@ export type V8Fields = Partial<{
   burden_chips: string[];
   goals: string[];
   brief_timing: string | null;
+  preferred_practice_window: string | null;
   reset_modality: string | null;
   weekend_signals: string | null;
   calendar_selections: string[];

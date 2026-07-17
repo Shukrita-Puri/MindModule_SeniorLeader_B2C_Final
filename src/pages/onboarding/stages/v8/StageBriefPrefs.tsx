@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { loadV8Row, saveV8 } from "@/utils/onboardingV8";
-import { BRIEF_TIMING, RESET_MODALITY, WEEKEND_SIGNALS } from "@/utils/onboardingV8Validation";
+import { BRIEF_TIMING, PRACTICE_WINDOWS, RESET_MODALITY, WEEKEND_SIGNALS } from "@/utils/onboardingV8Validation";
 
 type Row = { key: string; label: string; note: string; options: string[]; hint?: string };
 
@@ -13,6 +13,13 @@ const ROWS: Row[] = [
     note: "When to prompt your check-in",
     options: ["Morning", "Evening", "Use intelligence"],
     hint: "Use intelligence — Mind Module learns your performance patterns and prompts at your optimal window.",
+  },
+  {
+    key: "practice",
+    label: "Practice window",
+    note: "When to place single-slot recovery days",
+    options: ["Morning", "Evening", "Use intelligence"],
+    hint: "Used for Saturday, holiday, and low-demand one-slot plans.",
   },
   {
     key: "reset",
@@ -32,6 +39,7 @@ export default function StageBriefPrefs() {
   const navigate = useNavigate();
   const [prefs, setPrefs] = useState<Record<string, string>>({
     timing: "Use intelligence",
+    practice: "Use intelligence",
     reset: "Use intelligence",
     weekends: "Reduce",
   });
@@ -43,6 +51,7 @@ export default function StageBriefPrefs() {
     let cancelled = false;
     void loadV8Row<{
       brief_timing?: string | null;
+      preferred_practice_window?: string | null;
       reset_modality?: string | null;
       weekend_signals?: string | null;
     }>().then((res) => {
@@ -50,6 +59,7 @@ export default function StageBriefPrefs() {
       if (res.ok && res.data) {
         setPrefs({
           timing: res.data.brief_timing ?? "Use intelligence",
+          practice: res.data.preferred_practice_window ?? "Use intelligence",
           reset: res.data.reset_modality ?? "Use intelligence",
           weekends: res.data.weekend_signals ?? "Reduce",
         });
@@ -66,12 +76,14 @@ export default function StageBriefPrefs() {
   const next = async () => {
     if (saving) return;
     const timingOk = (BRIEF_TIMING as readonly string[]).includes(prefs.timing);
+    const practiceOk = (PRACTICE_WINDOWS as readonly string[]).includes(prefs.practice);
     const resetOk = (RESET_MODALITY as readonly string[]).includes(prefs.reset);
     const weekendsOk = (WEEKEND_SIGNALS as readonly string[]).includes(prefs.weekends);
-    if (!timingOk || !resetOk || !weekendsOk) {
+    if (!timingOk || !practiceOk || !resetOk || !weekendsOk) {
       // Reset corrupted local state to safe defaults and refuse to advance.
       setPrefs({
         timing: timingOk ? prefs.timing : "Morning",
+        practice: practiceOk ? prefs.practice : "Use intelligence",
         reset: resetOk ? prefs.reset : "Sound",
         weekends: weekendsOk ? prefs.weekends : "Reduce",
       });
@@ -82,6 +94,7 @@ export default function StageBriefPrefs() {
     const res = await saveV8(
       {
         brief_timing: prefs.timing === "Use intelligence" ? null : prefs.timing,
+        preferred_practice_window: prefs.practice === "Use intelligence" ? null : prefs.practice,
         reset_modality: prefs.reset === "Use intelligence" ? null : prefs.reset,
         weekend_signals: prefs.weekends,
       },

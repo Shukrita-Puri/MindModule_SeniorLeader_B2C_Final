@@ -171,6 +171,21 @@ Deno.test("allocator — Saturday recovery day returns one state slot", () => {
   assertEquals(alloc.slots[0].allocationReason, "saturday_habit_only");
 });
 
+Deno.test("allocator — Saturday recovery day honors evening practice preference", () => {
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: [],
+    dayOfWeek: 6,
+    isFullWorkingWeekend: false,
+    preferredPracticeWindows: ["evening"],
+  });
+  assertEquals(alloc.dayShape, "saturday");
+  assertEquals(alloc.mode, "state");
+  assertEquals(alloc.slots.length, 1);
+  assertEquals(alloc.slots[0].slotRole, "close_of_day");
+  assertEquals(alloc.slots[0].allocationReason, "saturday_habit_only_evening");
+});
+
 Deno.test("allocator — PTO/holiday day returns one state slot", () => {
   const alloc = allocatePlanSlots({
     nowMs: Date.now(),
@@ -180,7 +195,7 @@ Deno.test("allocator — PTO/holiday day returns one state slot", () => {
   assertEquals(alloc.dayShape, "holiday_pto");
   assertEquals(alloc.mode, "state");
   assertEquals(alloc.slots.length, 1);
-  assertEquals(alloc.slots[0].allocationReason, "holiday_morning_habit");
+  assertEquals(alloc.slots[0].allocationReason, "holiday_habit_only");
 });
 
 Deno.test("allocator — Week-Ahead day returns one planning slot", () => {

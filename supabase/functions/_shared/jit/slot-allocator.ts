@@ -44,6 +44,7 @@ export interface SlotAllocationInput {
   /** Weekend work evidence strong enough to use normal workday cadence. */
   isFullWorkingWeekend?: boolean;
   mrsWindow?: "morning" | "afternoon" | "evening";
+  preferredPracticeWindows?: Array<"morning" | "afternoon" | "evening">;
   forceArcCategoryIds?: EventCategoryId[];
 }
 
@@ -104,15 +105,15 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
   const forceArcCategoryIds = new Set(input.forceArcCategoryIds ?? []);
 
   if (input.isWeekAhead) {
-    return buildSingleStateSlotResult("week_ahead", "week_ahead_planning", ranked.length);
+    return buildSingleStateSlotResult("week_ahead", "week_ahead_planning", ranked.length, input.preferredPracticeWindows);
   }
 
   if (input.dayOfWeek === 6 && !input.isFullWorkingWeekend) {
-    return buildSingleStateSlotResult("saturday", "saturday_habit_only", ranked.length);
+    return buildSingleStateSlotResult("saturday", "saturday_habit_only", ranked.length, input.preferredPracticeWindows);
   }
 
   if (input.isPtoOrHoliday) {
-    return buildSingleStateSlotResult("holiday_pto", "holiday_morning_habit", ranked.length);
+    return buildSingleStateSlotResult("holiday_pto", "holiday_habit_only", ranked.length, input.preferredPracticeWindows);
   }
 
   if (input.hasTravelDay && (!top || top.categoryId === "G")) {
@@ -268,21 +269,29 @@ function buildSingleStateSlotResult(
   dayShape: Extract<DayShape, "saturday" | "holiday_pto" | "week_ahead">,
   allocationReason: string,
   candidateCount: number,
+  preferredPracticeWindows: Array<"morning" | "afternoon" | "evening"> = [],
 ): SlotAllocation {
+  const preferredWindow = preferredPracticeWindows.includes("evening")
+    ? "evening"
+    : preferredPracticeWindows.includes("morning")
+    ? "morning"
+    : null;
+  const slotRole: SlotRole = preferredWindow === "evening" ? "close_of_day" : "state_anchor";
+  const reason = preferredWindow ? `${allocationReason}_${preferredWindow}` : allocationReason;
   return {
     dayShape,
     mode: "state",
-    allocationReason,
+    allocationReason: reason,
     slots: [
       {
         index: 0,
-        slotRole: "state_anchor",
+        slotRole,
         arcLabel: "Steady",
         jitPhase: null,
         jitEventTitle: null,
         jitEventId: null,
         jitCategoryId: null,
-        allocationReason,
+        allocationReason: reason,
       },
     ],
     debug: {

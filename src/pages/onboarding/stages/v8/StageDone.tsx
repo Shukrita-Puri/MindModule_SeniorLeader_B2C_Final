@@ -38,7 +38,12 @@ export default function StageDone() {
           setTimeout(() => navigate("/onboarding/protect-goals"), 1200);
           return;
         }
-        if (fields.includes("weekend_signals") || fields.includes("brief_timing") || fields.includes("reset_modality")) {
+        if (
+          fields.includes("weekend_signals") ||
+          fields.includes("brief_timing") ||
+          fields.includes("preferred_practice_window") ||
+          fields.includes("reset_modality")
+        ) {
           setError("Finish your brief preferences before entering the app.");
           setTimeout(() => navigate("/onboarding/brief-prefs"), 1200);
           return;

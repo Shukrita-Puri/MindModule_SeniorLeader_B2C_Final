@@ -4566,6 +4566,7 @@ async function buildSharedContext(
     checkinsRes,
     wearableRes,
     profileRes,
+    onboardingPrefsRes,
     userPrefsRes,
     favsRes,
     ritualRes,
@@ -4591,6 +4592,9 @@ async function buildSharedContext(
     supabaseClient.from("profiles").select(
       "practice_priority_tag, pressure_context_tag, user_archetype, component_scores",
     ).eq("id", req.userId).maybeSingle(),
+    supabaseClient.from("onboarding_v8_responses").select(
+      "preferred_practice_window",
+    ).eq("user_id", req.userId).maybeSingle(),
     supabaseClient.from("user_preferences").select("preferred_times").eq(
       "user_id",
       req.userId,
@@ -4864,7 +4868,11 @@ async function buildSharedContext(
     req.archetype = (profileRes.data as any).user_archetype || "";
     req.componentScores = profileRes.data.component_scores || null;
   }
-  req.preferredTimes = (userPrefsRes.data as any)?.preferred_times ?? null;
+  req.preferredTimes = {
+    onboardingPreferredPracticeWindow:
+      (onboardingPrefsRes.data as any)?.preferred_practice_window ?? null,
+    legacyPreferredTimes: (userPrefsRes.data as any)?.preferred_times ?? null,
+  };
   req.preferredPracticeWindows = normalizePreferredPracticeWindows(
     req.preferredTimes,
   );
@@ -6674,6 +6682,7 @@ async function generateMasteryPlan(
           ? ledger.generatedPeriod
           : null,
         mrsWindow: timeOfDay as "morning" | "afternoon" | "evening",
+        preferredPracticeWindows: req.preferredPracticeWindows ?? [],
         forceArcCategoryIds: Array.from(forceArcCategoryIds),
         ...deriveStructuralDayFlags(
           req.calendarEvents,
@@ -8269,6 +8278,8 @@ function normalizePreferredPracticeWindows(
         "practices",
         "reset",
         "resets",
+        "onboardingPreferredPracticeWindow",
+        "preferred_practice_window",
         "preferredPracticeWindows",
         "preferred_practice_windows",
       ]
@@ -10951,6 +10962,7 @@ function buildHorizonModules(
     nowMs,
     rankedCandidates: jitRankedCandidates,
     mrsWindow: timeOfDay as "morning" | "afternoon" | "evening",
+    preferredPracticeWindows: (req as any).preferredPracticeWindows ?? [],
     forceArcCategoryIds,
     ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad, {
       now: new Date(Date.now() - ((req as any).timezoneOffset ?? 0) * 60000),
@@ -11248,6 +11260,7 @@ export interface LedgerAllocatorContext {
   isPtoOrHoliday?: boolean;
   isFullWorkingWeekend?: boolean;
   mrsWindow?: "morning" | "afternoon" | "evening";
+  preferredPracticeWindows?: Array<"morning" | "afternoon" | "evening">;
   forceArcCategoryIds?: EventCategoryId[];
   currentPeriod?: "morning" | "afternoon" | "evening" | null;
   ledgerGeneratedPeriod?: "morning" | "afternoon" | "evening" | null;
@@ -11565,6 +11578,7 @@ export function mergeWithLedger(
     isPtoOrHoliday: allocatorContext.isPtoOrHoliday,
     isFullWorkingWeekend: allocatorContext.isFullWorkingWeekend,
     mrsWindow: allocatorContext.mrsWindow,
+    preferredPracticeWindows: allocatorContext.preferredPracticeWindows,
     forceArcCategoryIds: allocatorContext.forceArcCategoryIds,
   });
 

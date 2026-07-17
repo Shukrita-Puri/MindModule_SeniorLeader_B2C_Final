@@ -25,6 +25,7 @@ export const GOAL_IDS = [
 ] as const;
 
 export const BRIEF_TIMING = ["Morning", "Evening", "Use intelligence"] as const;
+export const PRACTICE_WINDOWS = ["Morning", "Evening", "Use intelligence"] as const;
 export const RESET_MODALITY = ["Sound", "Guided", "Mindset", "Use intelligence"] as const;
 export const WEEKEND_SIGNALS = ["Reduce", "Keep"] as const;
 
@@ -98,6 +99,7 @@ export type V8Payload = {
   burden_chips?: string[];
   goals?: string[];
   brief_timing?: string | null;
+  preferred_practice_window?: string | null;
   reset_modality?: string | null;
   weekend_signals?: string | null;
   calendar_selections?: string[];
@@ -153,6 +155,10 @@ export function sanitizePayload(input: V8Payload): V8Payload {
   if ("brief_timing" in input) {
     const v = typeof input.brief_timing === "string" ? input.brief_timing.trim() : input.brief_timing;
     out.brief_timing = v === "Use intelligence" ? null : (BRIEF_TIMING as readonly string[]).includes(v as string) ? (v as string) : null;
+  }
+  if ("preferred_practice_window" in input) {
+    const v = typeof input.preferred_practice_window === "string" ? input.preferred_practice_window.trim() : input.preferred_practice_window;
+    out.preferred_practice_window = v === "Use intelligence" ? null : (PRACTICE_WINDOWS as readonly string[]).includes(v as string) ? (v as string) : null;
   }
   if ("reset_modality" in input) {
     const v = typeof input.reset_modality === "string" ? input.reset_modality.trim() : input.reset_modality;
