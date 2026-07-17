@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
 import slide1Engraved from "@/assets/onboarding/app-intro-slide-1-engraved.jpg";
 import slide2Engraved from "@/assets/onboarding/app-intro-slide-2-engraved.jpg";
 import slide3Engraved from "@/assets/onboarding/app-intro-slide-3-engraved.jpg";
+import slide4Engraved from "@/assets/onboarding/app-intro-slide-4-engraved.jpg";
 
 /**
  * USP Carousel — new onboarding v8 intro.
@@ -34,7 +34,7 @@ const SLIDES = [
     title: "Learn how you perform at your best.",
     body:
       "Performance Patterns identifies the signals behind your cognitive performance — from recovery and workload to focus, stress, and decision quality.",
-    image: uspSunriseEngraved,
+    image: slide4Engraved,
   },
 ];
 
@@ -83,8 +83,8 @@ export default function StageUSPIntro() {
           className="absolute inset-0 w-full h-full"
           style={{
             filter: "grayscale(1) contrast(1.05)",
-          objectFit: idx < 3 ? "cover" : "cover",
-          objectPosition: idx < 3 ? "center bottom" : "center",
+          objectFit: "cover",
+          objectPosition: "center bottom",
           }}
         />
       </div>
