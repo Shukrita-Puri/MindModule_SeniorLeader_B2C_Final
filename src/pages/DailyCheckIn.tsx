@@ -32,6 +32,7 @@ const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
 const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
+type SubmitStage = 'idle' | 'saving' | 'refreshing';
 
 const clarityLabels = ['Clouded', 'Obscured', 'Neutral', 'Lucid', 'Crystal'];
 const emotionLabels = ['Reactive', 'Unsettled', 'Balanced', 'Composed', 'Open'];
@@ -68,19 +69,20 @@ const DailyCheckIn = () => {
   const [emotion, setEmotion] = useState(3);
   const [pressure, setPressure] = useState(3);
   const [regulation, setRegulation] = useState(3);
-  const [clarityTouched, setClarityTouched] = useState(false);
-  const [emotionTouched, setEmotionTouched] = useState(false);
-  const [pressureTouched, setPressureTouched] = useState(false);
-  const [regulationTouched, setRegulationTouched] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStage, setSubmitStage] = useState<SubmitStage>('idle');
   const [showGuide, setShowGuide] = useState(false);
+  const isSubmitting = submitStage !== 'idle';
 
-  const allFourTouched =
-    clarityTouched && emotionTouched && pressureTouched && regulationTouched;
   const rClarity = Math.round(clarity);
   const rEmotion = Math.round(emotion);
   const rPressure = Math.round(pressure);
   const rRegulation = Math.round(regulation);
+  const submitLabel =
+    submitStage === 'saving'
+      ? 'Saving check-in...'
+      : submitStage === 'refreshing'
+        ? 'Refreshing score...'
+        : dailyCtaLabel;
 
   useEffect(() => {
     // No longer auto-navigates to CheckInDetail; Page 2 is reserved for
@@ -208,8 +210,9 @@ const DailyCheckIn = () => {
   }, [location.search, user?.id, user?.onboarding_completed_at]);
 
   const handleSubmit = async () => {
-    if (!allFourTouched || isSubmitting) return;
-    setIsSubmitting(true);
+    if (isSubmitting) return;
+    let refreshStarted = false;
+    setSubmitStage('saving');
 
     const outcome = deriveOutcome(rClarity, rEmotion, rPressure, rRegulation);
     // Track check-in engagement
@@ -251,7 +254,7 @@ const DailyCheckIn = () => {
           description: 'Unable to save your check-in. Please sign in and try again.',
           variant: 'destructive',
         });
-        setIsSubmitting(false);
+        setSubmitStage('idle');
         return;
       }
 
@@ -282,51 +285,52 @@ const DailyCheckIn = () => {
         sessionStorage.setItem(cacheKeys.planForceRefresh(todayDate2, p), '1');
       }
 
-      // Fire-and-forget: query invalidations do not block navigation. Any
-      // rejection is swallowed so a background failure never surfaces as
-      // "Check-in failed" — the check-in itself has already persisted.
-      Promise.resolve()
-        .then(() => {
-          queryClient.invalidateQueries({ queryKey: ['energy-state'] });
-          queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-          queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] });
-          queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] });
-          queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] });
-        })
-        .catch((e) => console.warn('[Check-In] invalidate (bg) failed:', e));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['energy-state'] }),
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] }),
+      ]);
 
-      // Fire-and-forget: server-side Executive Home rebuild. Never awaited
-      // and never blocks navigation. Background failure logs a structured
-      // diagnostic and stays silent to the user.
-      (async () => {
-        try {
-          const period = getCurrentTimeWindow();
-          console.info('[exec-home][refresh:start]', {
-            trigger: 'daily_checkin_save',
-            localDate: todayDate2,
-            window: period,
-          });
-          const headers: Record<string, string> = {};
-          if (DEV_MODE) headers['x-dev-user-id'] = effectiveUserId ?? DEV_USER.id;
-          const t = await getAuthToken().catch(() => null);
-          if (t) headers.Authorization = `Bearer ${t}`;
-          await supabase.functions.invoke('build-executive-home-cards', {
-            headers,
-            body: {
-              mode: 'checkin_save',
-              userId: DEV_MODE ? (effectiveUserId ?? DEV_USER.id) : undefined,
-              localDate: todayDate2,
-              window: period,
-              checkinId: result.id,
-            },
-          });
-        } catch (e) {
-          console.warn('[exec-home][refresh:error]', {
-            trigger: 'daily_checkin_save',
-            error: e instanceof Error ? e.message : String(e),
-          });
-        }
-      })();
+      // Snapshot-only home: rebuild Executive Home snapshots before routing
+      // so the destination reads the refreshed score instead of stale cache.
+      refreshStarted = true;
+      setSubmitStage('refreshing');
+      const period = timeWindow;
+      console.info('[exec-home][refresh:start]', {
+        trigger: 'daily_checkin_save',
+        localDate: todayDate2,
+        window: period,
+      });
+      const headers: Record<string, string> = {};
+      if (DEV_MODE) headers['x-dev-user-id'] = effectiveUserId ?? DEV_USER.id;
+      const t = await getAuthToken().catch(() => null);
+      if (t) headers.Authorization = `Bearer ${t}`;
+      const { error: refreshError } = await supabase.functions.invoke('build-executive-home-cards', {
+        headers,
+        body: {
+          mode: 'checkin_save',
+          userId: DEV_MODE ? (effectiveUserId ?? DEV_USER.id) : undefined,
+          localDate: todayDate2,
+          window: period,
+          checkinId: result.id,
+        },
+      });
+
+      if (refreshError) {
+        console.warn('[exec-home][refresh:error]', {
+          trigger: 'daily_checkin_save',
+          error: refreshError.message,
+        });
+        throw new Error(refreshError.message || 'Unable to refresh your score.');
+      }
+
+      queryClient.removeQueries({ queryKey: ['mrs-snapshot'] });
+      queryClient.removeQueries({ queryKey: ['current-brief-snapshot'] });
+      queryClient.removeQueries({ queryKey: ['mastery-plan-snapshot'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
+      ]);
 
       // Route to the next step based on the user's check-in mode:
       // - Wearable + Self → straight to Today's Brief (wearable supplies body data)
@@ -336,11 +340,13 @@ const DailyCheckIn = () => {
       console.error('[Check-In] Failed to save to database:', error);
       toast({
         title: 'Check-in failed',
-        description: 'Unable to save your check-in. Please try again.',
+        description: refreshStarted
+          ? 'Your check-in saved, but the refreshed score was not ready. Please try again.'
+          : 'Unable to save your check-in. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmitStage('idle');
     }
   };
 
@@ -428,7 +434,8 @@ const DailyCheckIn = () => {
               </div>
               <Slider
                 value={[clarity]}
-                onValueChange={(v) => { setClarity(v[0]); setClarityTouched(true); }}
+                onValueChange={(v) => setClarity(v[0])}
+                disabled={isSubmitting}
                 min={1}
                 max={5}
                 step={1}
@@ -455,7 +462,8 @@ const DailyCheckIn = () => {
               </div>
               <Slider
                 value={[emotion]}
-                onValueChange={(v) => { setEmotion(v[0]); setEmotionTouched(true); }}
+                onValueChange={(v) => setEmotion(v[0])}
+                disabled={isSubmitting}
                 min={1}
                 max={5}
                 step={1}
@@ -482,7 +490,8 @@ const DailyCheckIn = () => {
               </div>
               <Slider
                 value={[pressure]}
-                onValueChange={(v) => { setPressure(v[0]); setPressureTouched(true); }}
+                onValueChange={(v) => setPressure(v[0])}
+                disabled={isSubmitting}
                 min={1}
                 max={5}
                 step={1}
@@ -509,7 +518,8 @@ const DailyCheckIn = () => {
               </div>
               <Slider
                 value={[regulation]}
-                onValueChange={(v) => { setRegulation(v[0]); setRegulationTouched(true); }}
+                onValueChange={(v) => setRegulation(v[0])}
+                disabled={isSubmitting}
                 min={1}
                 max={5}
                 step={1}
@@ -526,10 +536,23 @@ const DailyCheckIn = () => {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="mt-2 w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]"
+              className="mt-2 w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:opacity-80"
             >
-              {isSubmitting ? 'Saving...' : dailyCtaLabel}
+              <span className="inline-flex items-center justify-center gap-2">
+                {isSubmitting && (
+                  <span
+                    className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"
+                    aria-hidden="true"
+                  />
+                )}
+                {submitLabel}
+              </span>
             </button>
+            {submitStage === 'refreshing' && (
+              <p className="text-center text-xs text-muted-foreground">
+                Reading your refreshed snapshot...
+              </p>
+            )}
           </div>
         </div>
       </div>
