@@ -162,6 +162,8 @@ This is a missing audit area because it affects:
 - cache behavior
 - future re-enable risk
 
+**Partial cleanup note:** The dormant state, functions, and types are intentionally preserved with in-file comments that document their future re-enable purpose. They were not removed in the latest cleanup pass.
+
 **Files:**
 - `src/pages/Insights.tsx`
 - `supabase/functions/insights-semantic-analysis/index.ts`
