@@ -29,6 +29,7 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from "./utils/appleCalendar";
 import { syncAppleCalendarToBackend } from "./services/appleCalendarSync";
+import { recordAppOpen, maybeRequestReview } from "./services/appReview";
 import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
 // Lazy load pages for code splitting
