@@ -331,12 +331,9 @@ const Insights = () => {
   }, [checkInCount]);
 
 
-  // Mind Map readiness check
-  const mindMapReady = useMemo(() => {
-    const coachSessions = semanticAnalysis?.unifiedThemes?.reduce((sum, t) => sum + t.sources.coach, 0) || 0;
-    const totalPoints = checkInCount + (tinyWinsInsights?.winsCount || 0) + coachSessions;
-    return totalPoints >= 3;
-  }, [semanticAnalysis, checkInCount, tinyWinsInsights]);
+  // (Mind Map readiness memo removed — the Mind Map tab is suppressed and no
+  // JSX consumed this value. Semantic analysis state + edge function are kept
+  // intentionally for future reuse; only the dead derivation is dropped.)
 
   useEffect(() => {
     if (user?.id && !fetchedRef.current) {
@@ -893,16 +890,8 @@ const Insights = () => {
   };
 
 
-  // Transform Tiny Wins themes to bubble format for unified styling
-  const tinyWinsBubbleData = useMemo(() => {
-    if (!tinyWinsInsights?.themes || tinyWinsInsights.themes.length === 0) return [];
-    return tinyWinsInsights.themes.map((theme, i) => ({
-      theme,
-      totalCount: 1,
-      weight: (tinyWinsInsights.themes.length - i) / tinyWinsInsights.themes.length,
-      sources: { coach: 0, practice: 0, wins: 1, checkins: 0 }
-    }));
-  }, [tinyWinsInsights]);
+  // (tinyWinsBubbleData memo removed — no JSX consumer. The Patterns tab
+  // renders wins via `tinyWinsInsights` and `tinyWinsContent` directly.)
 
   // Get progressive message for wins
   const getWinsProgressMessage = () => {
