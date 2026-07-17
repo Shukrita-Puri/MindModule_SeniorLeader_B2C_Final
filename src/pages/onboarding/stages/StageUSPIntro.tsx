@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
+import slide1Engraved from "@/assets/onboarding/app-intro-slide-1-engraved.jpg";
+import slide2Engraved from "@/assets/onboarding/app-intro-slide-2-engraved.jpg";
 
 /**
  * USP Carousel — new onboarding v8 intro.
@@ -13,21 +15,25 @@ const SLIDES = [
     title: "Stay Mentally Ahead",
     body:
       "MindModule acts as a proactive Chief of Staff for your mind — reading your cognitive state, anticipating what the day demands, and deploying the right protocols before performance slips.",
+    image: slide1Engraved,
   },
   {
     title: "Prepare for what the day demands.",
     body:
       "Today combines your calendar, cognitive load, recovery signals, and work patterns to help you stay sharp through critical moments.",
+    image: slide2Engraved,
   },
   {
     title: "Protect your cognitive edge for key moments.",
     body:
       "Your plan gives you interventions to protect composure, clarity and capacity — and prevent mental noise, stress accumulation, emotional hijack and recovery debt. All, before cognitive performance declines.",
+    image: uspSunriseEngraved,
   },
   {
     title: "Learn how you perform at your best.",
     body:
       "Performance Patterns identifies the signals behind your cognitive performance — from recovery and workload to focus, stress, and decision quality.",
+    image: uspSunriseEngraved,
   },
 ];
 
@@ -67,7 +73,7 @@ export default function StageUSPIntro() {
       {/* Hero image (reuses existing engraved asset) */}
       <div className="relative shrink-0 h-[34vh] overflow-hidden">
         <img
-          src={uspSunriseEngraved}
+          src={SLIDES[idx].image}
           alt=""
           aria-hidden
           className="absolute inset-0 w-full h-full object-cover"
