@@ -129,7 +129,17 @@ A cleanup pass on `src/pages/Insights.tsx` removed clearly dead code while prese
 - Tiny Wins and State Patterns pipelines — they feed rendered JSX or explicit `{false && ...}` re-enable blocks.
 - `{false && ...}` re-enable blocks for `DailyShowUpCalendar`, `LuxuryInsightCard`, and related summary-row routing — kept as explicit opt-in scaffolding for product to re-enable.
 
-**Status:** Partially complete. The remaining cleanup is a product decision about which suppressed blocks to delete vs. re-enable, not a mechanical dead-code removal.
+**Flag cleanup:**
+
+The magic `{false && ...}` guards were replaced with named local constants at the top of `src/pages/Insights.tsx`. Each defaults to `false` and is documented with an owner/reason comment:
+
+- `SHOW_DAILY_SHOW_UP_CALENDAR` — gates the `DailyShowUpCalendar` card. Suppressed while streaks live on the homepage.
+- `SHOW_TRAJECTORY_SUMMARY_ROW` — gates the trajectory summary row. Derivation is live but redundant with dial deep-links.
+- `SHOW_MOMENTUM_LUXURY_CARD` — gates the "Your Momentum" `LuxuryInsightCard`. Suppressed pending a product copy-rewrite.
+
+All three remain `false` pending a product decision. They have active data pipelines, so deletion is premature, but re-enabling requires explicit sign-off on copy, placement, and feature-flag ownership.
+
+**Status:** Partially complete. The remaining cleanup is a product decision about which suppressed blocks to delete, product-copy-rewrite, or feature-flag properly at the app/config level—not a mechanical dead-code removal.
 
 ## Missing From The Master Audit
 
@@ -210,7 +220,7 @@ The master audit should be refreshed with these sections:
 2. `Still open`
 3. `Partially fixed / needs revalidation`
 4. `Suppressed but still active runtime paths`
-5. `Page-level cleanup opportunities` — including a decision to fully remove or re-enable the remaining `{false && ...}` blocks in `src/pages/Insights.tsx`
+5. `Page-level cleanup opportunities` — including a decision to delete, product-copy-rewrite, or feature-flag properly at the app/config level the remaining named constants in `src/pages/Insights.tsx` (`SHOW_DAILY_SHOW_UP_CALENDAR`, `SHOW_TRAJECTORY_SUMMARY_ROW`, `SHOW_MOMENTUM_LUXURY_CARD`)
 6. `Rollout decisions / feature flags`
 
 ## Bottom Line
