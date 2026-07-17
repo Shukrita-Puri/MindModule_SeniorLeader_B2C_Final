@@ -111,6 +111,26 @@ This repo does not currently contain `INSIGHTS_DRAINS_RESTORES_REDESIGN_SPEC_V3.
 - `supabase/functions/content-feedback/index.ts`
 - `src/components/insights/PracticeEffectiveness.tsx`
 
+## Partially Completed — `/insights` page cleanup
+
+A cleanup pass on `src/pages/Insights.tsx` removed clearly dead code while preserving intentionally dormant or re-enableable surfaces.
+
+**Removed:**
+
+- `mindMapReady` useMemo (calculated but never consumed)
+- `tinyWinsBubbleData` useMemo (calculated but never consumed)
+- Unused imports (`Loader2`, `Card`, `ProgressiveUnlockMessage`, `LeadershipPatternsCard`, `PerformanceRhythmCard`, `PerformanceCausalityCard`, and unused React hooks)
+- Dead tab/tier state (`INSIGHT_TABS`, `activeTab`/`setActiveTab`, `InsightsTier`) and the `setActiveTab('patterns')` side effect
+- Unattached `highlightRef`
+
+**Intentionally preserved:**
+
+- Semantic Analysis dormant state, helper functions, and types — retained by design for future re-enable and clearly commented.
+- Tiny Wins and State Patterns pipelines — they feed rendered JSX or explicit `{false && ...}` re-enable blocks.
+- `{false && ...}` re-enable blocks for `DailyShowUpCalendar`, `LuxuryInsightCard`, and related summary-row routing — kept as explicit opt-in scaffolding for product to re-enable.
+
+**Status:** Partially complete. The remaining cleanup is a product decision about which suppressed blocks to delete vs. re-enable, not a mechanical dead-code removal.
+
 ## Missing From The Master Audit
 
 These areas are active in the current `/insights` implementation but are not covered meaningfully by the master audit.
@@ -124,6 +144,8 @@ This creates:
 - unnecessary fetch/load work
 - stale maintenance surface
 - mismatch between runtime behavior and documented page scope
+
+**Partial cleanup note:** Dead-only memos and unused imports have been removed. The active fetch/cache path remains because it feeds an explicit `{false && ...}` re-enable block.
 
 **Files:**
 - `src/pages/Insights.tsx`
@@ -139,6 +161,8 @@ This is a missing audit area because it affects:
 - network behavior
 - cache behavior
 - future re-enable risk
+
+**Partial cleanup note:** The dormant state, functions, and types are intentionally preserved with in-file comments that document their future re-enable purpose. They were not removed in the latest cleanup pass.
 
 **Files:**
 - `src/pages/Insights.tsx`
@@ -186,7 +210,7 @@ The master audit should be refreshed with these sections:
 2. `Still open`
 3. `Partially fixed / needs revalidation`
 4. `Suppressed but still active runtime paths`
-5. `Page-level cleanup opportunities`
+5. `Page-level cleanup opportunities` — including a decision to fully remove or re-enable the remaining `{false && ...}` blocks in `src/pages/Insights.tsx`
 6. `Rollout decisions / feature flags`
 
 ## Bottom Line
