@@ -374,6 +374,28 @@ const Profile = () => {
               Push Notification Test
             </Button>
 
+            {/*
+              Send Feedback — a dedicated escape hatch for users experiencing
+              issues. Kept intentionally separate from any rating flow so the
+              app never routes only-happy users to the App Store or filters
+              sentiment before Apple's native review prompt (App Store
+              Review Guideline 1.1.7).
+            */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => {
+                const subject = encodeURIComponent('MindModule feedback');
+                const body = encodeURIComponent(
+                  'Hi MindModule team,\n\nI wanted to share some feedback:\n\n',
+                );
+                window.location.href = `mailto:support@mindmodule.me?subject=${subject}&body=${body}`;
+              }}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Send Feedback
+            </Button>
+
             {/* Delete Local Data */}
             <Button
               variant="outline"
