@@ -71,13 +71,13 @@ export default function StageUSPIntro() {
       <div className="shrink-0 h-[calc(53px+env(safe-area-inset-top,0px))]" />
 
       {/* Hero image (reuses existing engraved asset) */}
-      <div className="relative shrink-0 h-[34vh] overflow-hidden">
+      <div className="relative shrink-0 h-[46vh] overflow-hidden">
         <img
           src={SLIDES[idx].image}
           alt=""
           aria-hidden
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: "grayscale(1) contrast(1.05)" }}
+          style={{ filter: "grayscale(1) contrast(1.05)", objectPosition: "center bottom" }}
         />
         <div
           className="absolute inset-x-0 bottom-0 h-[55%] pointer-events-none"
