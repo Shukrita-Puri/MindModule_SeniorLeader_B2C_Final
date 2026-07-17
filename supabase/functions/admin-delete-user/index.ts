@@ -73,8 +73,16 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, target: { id: targetUserId, email: targetEmail }, counts, durationMs });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[admin-delete-user] failed", message);
+    const message =
+      err instanceof Error
+        ? err.message
+        : err && typeof err === "object"
+          ? ((err as { message?: string }).message ??
+             (err as { details?: string }).details ??
+             (err as { hint?: string }).hint ??
+             JSON.stringify(err))
+          : String(err);
+    console.error("[admin-delete-user] failed", message, err);
     await writeAdminAudit(db, {
       admin: admin!,
       action: "ADMIN_USER_DELETE_FAILED",
