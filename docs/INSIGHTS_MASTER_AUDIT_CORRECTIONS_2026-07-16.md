@@ -1,19 +1,20 @@
 # Insights Master Audit Corrections
 
 **Date:** 2026-07-16  
+**Re-baselined:** 2026-07-17  
 **Purpose:** Correct and complete the claims in `MindModule_Insights_MASTER_Audit_and_Dev_Plan.md` after validating against the current repo state.
 
 ## Summary
 
-The master audit is useful, but it is no longer safe to treat as fully definitive.
+The master audit is useful as historical context, but it is stale and must not be used as an implementation plan against current `HEAD`.
 
-Three problems were found:
+The current codebase has already shipped nearly every Section 4 remediation from the master audit. A developer applying that document verbatim would mostly re-apply existing work, and in a few places would overwrite tighter current code with weaker draft patches.
 
-1. Several listed gaps are already fixed in the current codebase.
-2. Some items are only partially fixed, but the document presents them as fully open.
-3. Important active `/insights` surface area is omitted entirely from the audit scope.
+Use this addendum as the HEAD baseline. The characterization guard is:
 
-This addendum should be read alongside the master audit until that document is refreshed.
+- `src/components/insights/__tests__/insightsAuditFixes.test.ts`
+
+That suite asserts the core Insights audit fixes and should stay green for any follow-up work.
 
 ## Already Fixed In Code
 
@@ -22,59 +23,93 @@ These should be removed from the master audit's open-gap list or marked as resol
 | Master audit item | Current status | Verified location |
 |---|---|---|
 | GAP 1 — Box3 physiological dims never rendered | Fixed | `src/components/insights/PracticeEffectiveness.tsx` |
+| GAP 2 — `evaluatePatternAlert` is a permanent stub | Body fixed, still intentionally dormant | `supabase/functions/smart-nudges/index.ts` |
+| GAP 3 — Burnout unlock uses generic wearable-day count | Fixed via HRV-day count | `src/components/insights/PerformanceCausalityCard.tsx` |
+| GAP 4 — Stress Load unlock uses generic wearable-day count | Fixed via intraday HR sample-day count | `src/components/insights/PerformanceCausalityCard.tsx` |
 | GAP 5 — Recovery lookahead too short | Fixed (`RECOVERY_LOOKAHEAD_DAYS = 7`) | `supabase/functions/cause-effect-engine/index.ts` |
+| GAP 6 — Burnout Risk lacks historical reading guide | Fixed structurally | `src/components/insights/PerformanceCausalityCard.tsx` |
 | GAP 7 — `PerformanceRhythmCard` silently disappears on error | Fixed | `src/components/insights/PerformanceRhythmCard.tsx` |
 | GAP 8 — null score shows `EARLY READ` | Fixed | `src/components/insights/InnerReadinessDial.tsx` |
 | GAP 9 — trend panel collapsed by default | Fixed | `src/components/insights/InnerReadinessDial.tsx` |
+| GAP 10 — Practice Effectiveness stage keys use day-range names | Fixed with cache back-compat | `src/components/insights/PracticeEffectiveness.tsx`, `supabase/functions/content-feedback/index.ts` |
+| Change 5 — Burnout trajectory banner copy too terse | Fixed | `supabase/functions/cause-effect-engine/index.ts` |
 
-## Partially Fixed
+## Important Corrections To The Master Audit
 
-These items need the master audit to be rewritten more precisely.
+### Pattern-alert evaluator
 
-| Area | Current state | Remaining issue |
-|---|---|---|
-| Burnout Risk reading guidance | Inline historical guidance exists in the card | No evidence yet that the richer modal/banner copy from the master audit has been fully applied |
-| Burnout/Stress gating | HRV-specific and intraday-HR-specific gating is implemented client-side | The audit should be updated to reflect this as done, not still open |
-| Burnout trajectory banner | Card copy still comes from generic server text | Backend copy remains terse in `cause-effect-engine` |
+The master audit says `evaluatePatternAlert` returns `null` unconditionally. That is false in current `HEAD`.
+
+Current state:
+
+- `MVP_POST_LAUNCH` remains `false`, so all post-MVP evaluators are dormant.
+- `evaluatePatternAlert` has a real implementation with event-to-HRV and consecutive-load branches.
+- `PATTERN_ALERT_ENABLED` is now a separate sub-flag and remains `false`, so pattern alerts can be staged independently when the global post-MVP bucket is later enabled.
+
+Do not replace the current evaluator with the thinner draft in the master audit.
+
+### Practice Effectiveness stage keys
+
+Current code uses session-based stage keys:
+
+- `early`
+- `building`
+- `deepening`
+
+The frontend also keeps a `LegacyStage` normalizer for cached payloads that may still contain:
+
+- `day_1_6`
+- `day_7_29`
+- `day_30_plus`
+
+Do not delete this compatibility shim unless cache migration/expiry has been explicitly handled.
+
+### Wearable gates
+
+The master audit's proposed field name `coverage.hvDays` is wrong and should not be introduced. Current code reads:
+
+- `data.diagnostics.counts.hrvDays`
+- `data.diagnostics.counts.hrSamplesDays`
+
+### Inner Readiness expanded state
+
+The current implementation defaults the trend panel open unless session storage is exactly `'0'`. This is cleaner than the master audit's draft, which would collapse on unexpected stored values.
+
+### Burnout copy
+
+The structural fix is shipped: info modal, historical reading guide, and self-explanatory server banner copy exist. Any remaining work here is copy polish only, not a feature gap.
 
 ## Still Open
 
-These remain valid issues.
+These remain valid, but they are not direct re-application of the master audit's Section 4 patches.
 
-### 1. Practice Effectiveness stage keys still use misleading day-range names
+### 1. Smart nudges post-MVP rollout decision
 
-The master audit is correct that the labels are backed by session-count logic but still use day-range internal keys.
+The post-MVP nudge path is still intentionally dormant:
 
-- Frontend still uses `day_1_6 | day_7_29 | day_30_plus`
-- Backend still emits the same stage values
+- `MVP_POST_LAUNCH = false`
+- `PATTERN_ALERT_ENABLED = false`
 
-**Files:**
-- `src/components/insights/PracticeEffectiveness.tsx`
+Recommended rollout shape:
+
+1. Keep `MVP_POST_LAUNCH` off until all post-MVP evaluators are staging-verified.
+2. When the global bucket is ready, turn on one evaluator at a time with sub-flags.
+3. For pattern alerts, enable `PATTERN_ALERT_ENABLED` only after copy, suppression, and `/insights/performance-causality` deep-link behavior are verified.
+
+**File:** `supabase/functions/smart-nudges/index.ts`
+
+### 2. Optional Burnout Risk copy polish
+
+Product may still choose to adjust the exact modal/guide wording from the master audit. Treat that as a copy-only PR against `PerformanceCausalityCard.tsx`, not as the missing structural implementation described in the stale plan.
+
+### 3. V3 spec correction
+
+The master audit's Section 6 remains conceptually valid: Practice Effectiveness physiology should be documented as HRV next AM plus RHR next AM, not `hr_samples`-based within-session HR delta.
+
+This repo does not currently contain `INSIGHTS_DRAINS_RESTORES_REDESIGN_SPEC_V3.md`; if that source doc lives outside this repo, update it there. In this repo, the implemented behavior is already visible in:
+
 - `supabase/functions/content-feedback/index.ts`
-
-### 2. Smart nudges pattern-alert loop is still effectively disabled
-
-The post-MVP nudge path is still gated behind:
-
-- `const MVP_POST_LAUNCH = false`
-
-And the pattern-alert evaluator still requires verification before the audit can call that loop live.
-
-**File:**
-- `supabase/functions/smart-nudges/index.ts`
-
-### 3. Burnout trajectory banner copy is still too generic
-
-The backend still emits:
-
-- `Risk trajectory: escalating`
-- `Risk trajectory: improving`
-- `Risk trajectory: stable`
-
-This remains weaker than the more explanatory copy proposed in the audit.
-
-**File:**
-- `supabase/functions/cause-effect-engine/index.ts`
+- `src/components/insights/PracticeEffectiveness.tsx`
 
 ## Missing From The Master Audit
 
@@ -140,6 +175,8 @@ These are documentation problems in the master audit itself.
 1. The section index says QA is in Section 6, but the QA checklist is actually Section 7.
 2. The document claims “definitive single document,” but no revalidation pass was done against the current repo state.
 3. Open gaps, resolved gaps, and partially resolved gaps are not separated.
+4. Change 6 contains the field typo `hvDays`; the current code uses `hrvDays`.
+5. Change 2 would overwrite a richer shipped pattern-alert evaluator with a thinner draft.
 
 ## Recommended Next Pass
 
@@ -150,13 +187,17 @@ The master audit should be refreshed with these sections:
 3. `Partially fixed / needs revalidation`
 4. `Suppressed but still active runtime paths`
 5. `Page-level cleanup opportunities`
+6. `Rollout decisions / feature flags`
 
 ## Bottom Line
 
-The highest-value correction is not just fixing individual code items. It is updating the audit so it accurately reflects:
+Do not implement the old master audit as written.
+
+The highest-value correction is keeping the audit aligned with current code so it accurately reflects:
 
 - what is already fixed
 - what is still missing
 - what hidden `/insights` runtime paths are still active
+- what rollout switches are product decisions, not mechanical code fixes
 
 Without that refresh, teams can waste time re-implementing already-shipped fixes while missing the still-loaded hidden surfaces in `Insights.tsx`.

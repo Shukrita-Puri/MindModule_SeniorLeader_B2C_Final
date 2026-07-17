@@ -302,6 +302,11 @@ const WEEK_AHEAD_PICKER_ENABLED =
 // MVP feature flag - set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
+// Sub-flag for staged activation once the post-launch evaluator bucket is on.
+// Keep this false until pattern-alert copy, suppression, and deep-link behavior
+// are validated independently in staging.
+const PATTERN_ALERT_ENABLED = false;
+
 // v7 - Suppress legacy generic mid-day variants (priorities-count, consecutive-low).
 // Framework code is preserved for future use; flip this on to re-enable.
 const LEGACY_GENERIC_NUDGES_ENABLED = false;
@@ -4507,7 +4512,7 @@ async function evaluatePatternAlert(
   alreadySentTypes: Set<string>,
   supabase: SupabaseLoose,
 ): Promise<QualifiedNudge | null> {
-  if (!MVP_POST_LAUNCH) return null;
+  if (!MVP_POST_LAUNCH || !PATTERN_ALERT_ENABLED) return null;
   if (alreadySentTypes.has("pattern_alert")) return null;
   if (
     ctx.lastAppOpen &&

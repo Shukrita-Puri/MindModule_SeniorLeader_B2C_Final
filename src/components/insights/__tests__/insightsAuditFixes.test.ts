@@ -68,8 +68,10 @@ describe('Insights audit fixes', () => {
 
   it('implements the dormant pattern-alert evaluator without enabling the global flag', () => {
     expect(SMART_NUDGES_SRC).toContain("const MVP_POST_LAUNCH = false;");
-    expect(SMART_NUDGES_SRC).toContain("type: 'pattern_alert'");
-    expect(SMART_NUDGES_SRC).toContain("deepLinkRoute: '/insights/performance-causality'");
-    expect(SMART_NUDGES_SRC).toContain("variantId: 'FB-PATTERN'");
+    expect(SMART_NUDGES_SRC).toContain("const PATTERN_ALERT_ENABLED = false;");
+    expect(SMART_NUDGES_SRC).toContain("if (!MVP_POST_LAUNCH || !PATTERN_ALERT_ENABLED) return null;");
+    expect(SMART_NUDGES_SRC).toContain('type: "pattern_alert"');
+    expect(SMART_NUDGES_SRC).toContain('deepLinkRoute: "/insights/performance-causality"');
+    expect(SMART_NUDGES_SRC).toContain('variantId: "FB-PATTERN"');
   });
 });
