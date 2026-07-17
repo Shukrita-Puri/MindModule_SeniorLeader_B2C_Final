@@ -1,22 +1,22 @@
 ## Goal
-Make the top-half hero on `/onboarding/app-intro` (slides 1 & 2) read as its own distinct panel — edge-to-edge background, no beige from the bottom half bleeding in around the phone mockup — while keeping the full phone mockup visible.
+Make the phone mockup bigger on slides 1 & 2, remove the beige/paper seam visible on the left and right of the mockup, and do NOT push the bottom text half down.
 
 ## Root cause
-In `src/pages/onboarding/stages/StageUSPIntro.tsx`, the hero container currently:
-- Uses `object-contain` on the image, so the paper/engraved background of the JPG only covers the phone's aspect ratio. The surrounding area shows the page's beige canvas.
-- Has no explicit hero background color of its own, so the bottom-half beige shows through on the sides.
+Currently the hero uses `object-fit: contain` at 52vh. The portrait image (1024×1280, aspect 0.8) is taller than the container's aspect (~0.89 on a 390×~440px hero), so `contain` fits by height and leaves ~19px gaps on each side. The container's `#ece4d6` band is close to but not identical to the image's paper tone (slide 2 corner samples as ~`#dad7d0`, slide 1 as ~`#ebe3d6`), so a faint seam shows.
 
-## Changes (single file: `StageUSPIntro.tsx`)
+## Fix (single file: `src/pages/onboarding/stages/StageUSPIntro.tsx`)
 
-1. **Give the hero its own background band.** Wrap the hero area with an explicit off-white/paper background token (matching the engraving's paper tone) so the top half is visually its own panel edge-to-edge, independent of the beige card below.
-2. **Stop the beige bleed on slides 1 & 2.** Keep `object-contain` so the phone mockup stays fully visible and uncropped, but center the mockup on the new paper-tone background. The paper band now fills the full width; the mockup sits on top of it.
-3. **Increase mockup presence.** Bump the hero height slightly (from `48vh` to ~`52vh`) and/or scale the image within the container so the phone reads larger, while still fully visible top-to-bottom. Bottom text block remains ~48vh — no squeezing.
-4. **Slides 3+ unchanged.** Landscape sunrise slides keep their current `object-cover` behavior; the new hero background sits behind them harmlessly.
-
-## Out of scope
-- No image regeneration (the engraved JPGs already have paper backgrounds that will blend seamlessly with the new hero band).
-- No changes to copy, CTAs, pagination dots, or bottom card styling.
+1. **Switch slides 1 & 2 to `object-fit: cover` with `object-position: center top`.** The image itself fills the full width edge-to-edge — no side gap, no seam possible. Because the phone mockup sits in the upper portion of the JPG, anchoring to the top keeps the entire mockup visible; the cropped area is empty paper at the bottom of the image, not the phone.
+2. **Keep hero height at 52vh (do not grow it).** The bottom half stays exactly where it is. The mockup reads bigger purely because `cover` scales the image up to fill width rather than shrinking to fit height.
+3. **Keep the `#ece4d6` container background** as a safety net (covers any 1px sub-pixel rounding on some devices), but with `cover` it should no longer be visible.
+4. **Slides 3+ unchanged** — they already use `cover`.
 
 ## Verification
-- Mobile screenshot at 390×844 for slide 1 and slide 2: hero fills full width with a single paper tone, phone mockup fully visible, clean horizontal seam between hero and beige bottom card.
+- Playwright screenshot at 390×844 for slide 1 and slide 2:
+  - No beige/paper seam on left or right of the mockup.
+  - Full phone mockup visible top-to-bottom (Brief score / Priorities card readable).
+  - Bottom text block ("Stay Mentally Ahead" / "Prepare for what the day demands.") sits at the same vertical position as before.
 - `tsgo` clean.
+
+## Out of scope
+- No image regeneration, no copy changes, no bottom-card changes.
