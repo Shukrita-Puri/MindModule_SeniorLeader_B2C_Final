@@ -216,7 +216,7 @@ const MrsPage = () => {
             currentScore={score}
             delta={showTourMockMrs ? MOCK_MRS.weeklyDelta : (weekly.data?.delta ?? null)}
             mode={showTourMockMrs ? 'refined' : (weekly.data?.mode ?? 'baseline')}
-            reason={showTourMockMrs ? 'Tour sample' : (weekly.data?.reason ?? null)}
+            reason={showTourMockMrs ? null : (weekly.data?.reason ?? null)}
           />
         </div>
       </div>
