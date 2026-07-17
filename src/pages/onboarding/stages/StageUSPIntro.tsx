@@ -83,7 +83,7 @@ export default function StageUSPIntro() {
           style={{
             filter: "grayscale(1) contrast(1.05)",
             objectFit: "cover",
-            objectPosition: idx < 2 ? "center top" : "center",
+            objectPosition: idx < 2 ? "center bottom" : "center",
           }}
         />
       </div>
