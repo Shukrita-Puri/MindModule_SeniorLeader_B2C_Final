@@ -145,6 +145,8 @@ This creates:
 - stale maintenance surface
 - mismatch between runtime behavior and documented page scope
 
+**Partial cleanup note:** Dead-only memos and unused imports have been removed. The active fetch/cache path remains because it feeds an explicit `{false && ...}` re-enable block.
+
 **Files:**
 - `src/pages/Insights.tsx`
 - `supabase/functions/tiny-wins-insights/index.ts`
