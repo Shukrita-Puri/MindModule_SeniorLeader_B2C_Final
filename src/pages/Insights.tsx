@@ -1,7 +1,6 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { CardContent, CardHeader } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,16 +12,14 @@ import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 // WeeklyRitualStreak removed – lives on homepage via InsightProgressCard
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
-import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
-import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
-import PerformanceCausalityCard from '@/components/insights/PerformanceCausalityCard';
 import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 import InsightSummaryRow from '@/components/insights/InsightSummaryRow';
 import InnerReadinessDial from '@/components/insights/InnerReadinessDial';
 import PerformanceStreaks from '@/components/insights/PerformanceStreaks';
-// BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
-import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
+// Detail cards (LeadershipPatternsCard / PerformanceRhythmCard /
+// PerformanceCausalityCard) render on their own /insights/:cardId routes
+// and are intentionally not imported here.
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -167,9 +164,6 @@ interface ProfileBaseline {
   growthPriority?: string;
 }
 
-// Insights tier based on check-in count
-type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
-
 // Helper: wrap a promise with a timeout to prevent infinite loading on mobile
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -180,24 +174,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-const INSIGHT_TABS = [
-  { key: 'progress' as const, label: 'Progress' },
-  { key: 'patterns' as const, label: 'Patterns' },
-];
-
 const Insights = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightParam = searchParams.get('highlight');
-  const [activeTab, setActiveTab] = useState<'progress' | 'patterns'>(highlightParam ? 'patterns' : 'progress');
   const navigate = useNavigate();
-  const highlightRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
   // Change 5: Scroll to highlighted section from nudge deep link
   useEffect(() => {
     if (!highlightParam) return;
-    // Switch to patterns tab for pattern highlights
-    setActiveTab('patterns');
     // Delay to allow render, then scroll and pulse
     const timer = setTimeout(() => {
       const el = document.querySelector(`[data-highlight="${highlightParam}"]`);
@@ -317,19 +302,6 @@ const Insights = () => {
     checkInsWithTimestamp,
   ]);
   const fetchedRef = useRef(false);
-
-  // Calculate check-in count from state patterns
-  const checkInCount = statePatterns?.checkInCount || 0;
-
-  // Determine insights tier
-  const insightsTier: InsightsTier = useMemo(() => {
-    if (checkInCount >= 7) return 'full';
-    if (checkInCount >= 4) return 'deepening';
-    if (checkInCount >= 3) return 'summary';
-    if (checkInCount >= 1) return 'early';
-    return 'baseline';
-  }, [checkInCount]);
-
 
   // (Mind Map readiness memo removed — the Mind Map tab is suppressed and no
   // JSX consumed this value. Semantic analysis state + edge function are kept
