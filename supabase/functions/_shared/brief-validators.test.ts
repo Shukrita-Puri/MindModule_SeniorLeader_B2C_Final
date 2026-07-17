@@ -305,15 +305,44 @@ Deno.test("W3 pill-consistency: Green DR + 'mind feels spent' rejected without d
 
 Deno.test("W3 pill-consistency: Green DR + 'mind feels spent' accepted WITH structural divergence", () => {
   const r = validatePillBodyConsistency(
-    "Your mind feels spent but the wearable disagrees — protect the first hour and pace the calls.",
+    "You checked in drained, while HRV is holding up better than usual — protect the first hour and pace the calls.",
     pill("green", "green", {
       exists: true,
       dimension: "decision_readiness",
-      checkinDirection: "negative",
-      objectiveDirection: "positive",
+      left: {
+        source: "wearable_objective",
+        direction: "positive",
+        evidenceKeys: ["hrvValue"],
+      },
+      right: {
+        source: "self_report",
+        direction: "negative",
+        evidenceKeys: ["outcome"],
+      },
     }),
   );
   assert(r.ok, `expected ok, got: ${r.reason}`);
+});
+
+Deno.test("W3 pill-consistency: structural divergence still rejects when only one evidence side is named", () => {
+  const r = validatePillBodyConsistency(
+    "The mind feels spent even with HRV holding up better than usual — protect the first hour and pace the calls.",
+    pill("green", "green", {
+      exists: true,
+      dimension: "decision_readiness",
+      left: {
+        source: "wearable_objective",
+        direction: "positive",
+        evidenceKeys: ["hrvValue"],
+      },
+      right: {
+        source: "self_report",
+        direction: "negative",
+        evidenceKeys: ["outcome"],
+      },
+    }),
+  );
+  assertEquals(r.ok, false);
 });
 
 Deno.test("W3 pill-consistency: Red DR + 'mentally sharp' rejected", () => {
@@ -343,12 +372,12 @@ Deno.test("W3 pill-consistency: Green PR + 'body is strained' rejected without d
   assert(r.reason?.includes("Physical Reserves"));
 });
 
-Deno.test("W3 pill-consistency: Green PR + 'body is strained' accepted with 'despite' framing", () => {
+Deno.test("W3 pill-consistency: Green PR + 'body is strained' is still rejected without structured evidence", () => {
   const r = validatePillBodyConsistency(
     "Despite the check-in reading tired, the body is strained on paper only — protect the first hour.",
     pill("green", "green"),
   );
-  assert(r.ok, `expected ok, got: ${r.reason}`);
+  assertEquals(r.ok, false);
 });
 
 Deno.test("W3 pill-consistency: Unread DR + 'mentally sharp' rejected", () => {

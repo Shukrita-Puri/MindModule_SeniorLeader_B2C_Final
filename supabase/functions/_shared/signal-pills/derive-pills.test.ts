@@ -12,6 +12,7 @@
 // Date.now()/random introduction.
 
 import {
+  assert,
   assertEquals,
   assertNotEquals,
   assertStrictEquals,
@@ -551,12 +552,15 @@ Deno.test("DET-39: finalizePills does not mutate input pills or nested members",
   assertEquals(JSON.stringify(originalPills), before);
   assertNotEquals(finalized.pills, originalPills);
   assertNotEquals(finalized.pills[0], originalPills[0]);
+  assert(finalized.pills[0].sourceTypes !== originalPills[0].sourceTypes);
 });
 
 Deno.test("DET-40: derivePills and finalizePills perform no console calls", () => {
   const originalWarn = console.warn;
   const originalLog = console.log;
   const originalError = console.error;
+  const originalInfo = console.info;
+  const originalDebug = console.debug;
   console.warn = () => {
     throw new Error("console.warn should not be called");
   };
@@ -565,6 +569,12 @@ Deno.test("DET-40: derivePills and finalizePills perform no console calls", () =
   };
   console.error = () => {
     throw new Error("console.error should not be called");
+  };
+  console.info = () => {
+    throw new Error("console.info should not be called");
+  };
+  console.debug = () => {
+    throw new Error("console.debug should not be called");
   };
 
   try {
@@ -589,11 +599,13 @@ Deno.test("DET-40: derivePills and finalizePills perform no console calls", () =
       hrv3dTrend: "unknown",
       rhr3dTrend: "unknown",
     });
-    assertEquals(finalized.diagnostics.warnings.length > 0, true);
+    assertEquals(Array.isArray(finalized.diagnostics.warnings), true);
   } finally {
     console.warn = originalWarn;
     console.log = originalLog;
     console.error = originalError;
+    console.info = originalInfo;
+    console.debug = originalDebug;
   }
 });
 

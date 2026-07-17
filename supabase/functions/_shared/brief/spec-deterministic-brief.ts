@@ -10,6 +10,8 @@
  *   Both paths validated by the same validators.
  */
 
+import type { AssessmentContext } from "../signal-pills/assessment-context.ts";
+
 // ──────────────────────────────────────────────────────────
 // TYPES
 // ──────────────────────────────────────────────────────────
@@ -69,6 +71,10 @@ export interface SpecDeterministicResult {
   phrase: string;
   body: string;
   topSignal: TopSignal;
+}
+
+function genericTitle(label: string, count: number): string[] {
+  return count > 0 ? Array.from({ length: count }, () => label) : [];
 }
 
 // ──────────────────────────────────────────────────────────
@@ -220,6 +226,29 @@ export function pickTopSignal(p: SpecDeterministicParams): TopSignal {
   return 'baseline_quiet';
 }
 
+function buildDivergenceLead(context: AssessmentContext): string | null {
+  const divergence = context.divergence;
+  if (!divergence) return null;
+  const left = divergence.left.evidenceKeys;
+  const right = divergence.right.evidenceKeys;
+  const wearableLead =
+    left.includes("hrvValue")
+      ? "HRV is holding above its usual range"
+      : left.includes("sleepDuration") || left.includes("sleepScore")
+        ? "sleep is holding up better than the check-in suggests"
+        : left.includes("rhrValue")
+          ? "RHR is staying steadier than the check-in suggests"
+          : null;
+  const selfLead =
+    right.includes("outcome")
+      ? `You checked in ${context.checkIn.outcome ?? "off"}`
+      : right.includes("clarityLevel")
+        ? "you reported low clarity"
+        : null;
+  if (!wearableLead || !selfLead) return null;
+  return `${selfLead}, while ${wearableLead}.`;
+}
+
 // ──────────────────────────────────────────────────────────
 // EVIDENCE CLAUSE — reads SAME signal variables as LLM
 // ──────────────────────────────────────────────────────────
@@ -314,6 +343,50 @@ export function buildSpecDeterministicBrief(p: SpecDeterministicParams): SpecDet
   const body = `${evidence} ${read} ${directive}, ${close}`;
 
   return { phrase, body, topSignal };
+}
+
+export function buildSpecDeterministicBriefFromAssessmentContext(
+  context: AssessmentContext,
+): SpecDeterministicResult | null {
+  const params: SpecDeterministicParams = {
+    bandValence: context.readiness.band,
+    timeOfDay: context.local.window,
+    hasWearable: context.wearable.hasWearable,
+    hrvDeviation: context.wearable.hrvDeviation,
+    sleepDuration: context.wearable.sleepDuration,
+    sleepDeviation: null,
+    sleepHardFloor:
+      typeof context.wearable.sleepDuration === "number" &&
+      context.wearable.sleepDuration < 360,
+    rhrDeviation: context.wearable.rhrDeviation,
+    calendarLoad: context.calendar.load,
+    todayHighStakes: genericTitle("high-stakes meeting", context.calendar.highStakesEventsCount),
+    nextHighStakesEvent:
+      typeof context.calendar.nextHighStakesMinutesUntil === "number"
+        ? {
+            title: "next high-stakes meeting",
+            minutesUntil: context.calendar.nextHighStakesMinutesUntil,
+          }
+        : null,
+    hasBackToBack: context.calendar.hasBackToBack,
+    avgScore7d: context.patterns.avgScore7d,
+    scoreTrajectory7d: context.patterns.scoreTrajectory7d,
+    hrvEventCorrelation: context.patterns.hrvEventCorrelation,
+    checkInOutcome: context.checkIn.outcome,
+    clarityLevel: context.checkIn.clarityLevel,
+    confidenceLevel: context.checkIn.confidenceLevel,
+    behaviourFlags: null,
+    tomorrowLoad: context.calendar.tomorrowLoad,
+    tomorrowHighStakesTitles: genericTitle("high-stakes meeting", context.calendar.tomorrowHighStakesCount),
+  };
+  const built = buildSpecDeterministicBrief(params);
+  if (!built) return null;
+  const divergenceLead = buildDivergenceLead(context);
+  if (!divergenceLead) return built;
+  return {
+    ...built,
+    body: `${divergenceLead} ${built.body}`,
+  };
 }
 
 export const __specDeterministicInternals = {

@@ -47,8 +47,16 @@ export interface PillContext {
   divergence?: {
     exists: boolean;
     dimension?: "decision_readiness" | "physical_reserves" | "resilience_capacity";
-    checkinDirection?: "positive" | "negative";
-    objectiveDirection?: "positive" | "negative";
+    left?: {
+      source?: "wearable_objective" | "self_report" | "behavioural_pattern" | "calendar_context";
+      direction?: "positive" | "negative";
+      evidenceKeys?: string[];
+    };
+    right?: {
+      source?: "wearable_objective" | "self_report" | "behavioural_pattern" | "calendar_context";
+      direction?: "positive" | "negative";
+      evidenceKeys?: string[];
+    };
   } | null;
 }
 
@@ -194,19 +202,31 @@ export function validateNoScoreRestatement(
 // gap.
 // ---------------------------------------------------------------------------
 
-const DIVERGENCE_MARKERS: RegExp[] = [
-  /\bdespite\b/i,
-  /\bat\s+odds\s+with\b/i,
-  /\beven\s+though\b/i,
-  /\bcheck-?in\s+(?:says|reads|reports|shows)\b/i,
-  /\bself-?reported\b/i,
-  /\bfelt\s+state\s+(?:is|reads|says|reports)\b/i,
-  /\bbut\s+(?:the\s+)?(?:wearable|hrv|rhr|body|check-?in)\b/i,
-  /\b(?:wearable|hrv|rhr|body|check-?in)\s+(?:says|reads|reports|disagrees|diverges)\b/i,
-];
+const EVIDENCE_KEY_PATTERNS: Record<string, RegExp[]> = {
+  hrvValue: [/\bHRV\b/i, /\brecovery\b/i],
+  sleepDuration: [/\bsleep\b/i],
+  sleepScore: [/\bsleep score\b/i, /\bsleep\b/i],
+  sleepEfficiency: [/\bsleep efficiency\b/i, /\bsleep\b/i],
+  rhrValue: [/\bRHR\b/i, /\bresting heart rate\b/i],
+  hrValue: [/\bheart rate\b/i, /\bHR\b/i],
+  outcome: [/\bchecked in\b/i, /\byou checked in\b/i, /\bself-?report(?:ed)?\b/i, /\breported\b/i, /\bdrained\b/i, /\bstrong\b/i, /\bfoggy\b/i, /\boverwhelmed\b/i],
+  clarityLevel: [/\bclarity\b/i],
+  emotionLevel: [/\bemotion(?:al)?\b/i],
+  regulationLevel: [/\bregulation\b/i, /\bcomposure\b/i],
+  pressureLevel: [/\bpressure\b/i],
+};
 
-function hasDivergenceMarker(body: string): boolean {
-  return DIVERGENCE_MARKERS.some((rx) => rx.test(body));
+function hasStructuredDivergenceEvidence(
+  body: string,
+  divergence: PillContext["divergence"],
+): boolean {
+  if (!divergence?.exists) return false;
+  const leftKeys = divergence.left?.evidenceKeys ?? [];
+  const rightKeys = divergence.right?.evidenceKeys ?? [];
+  if (leftKeys.length === 0 || rightKeys.length === 0) return false;
+  const mentions = (keys: string[]) =>
+    keys.some((key) => (EVIDENCE_KEY_PATTERNS[key] ?? []).some((rx) => rx.test(body)));
+  return mentions(leftKeys) && mentions(rightKeys);
 }
 
 // Phrase groups — each keyed to a specific contradiction. These are
@@ -245,7 +265,7 @@ export function validatePillBodyConsistency(
   const text = body || "";
   if (!text.trim()) return { ok: true };
 
-  const divergenceOk = pill.divergence?.exists === true || hasDivergenceMarker(text);
+  const divergenceOk = hasStructuredDivergenceEvidence(text, pill.divergence);
 
   // Decision Readiness rules.
   if (pill.decisionReadiness === "green") {

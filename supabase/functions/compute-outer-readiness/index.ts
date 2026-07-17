@@ -31,6 +31,7 @@ import {
 } from "../_shared/brief-validators.ts";
 import {
   buildSpecDeterministicBrief,
+  buildSpecDeterministicBriefFromAssessmentContext,
   type SpecDeterministicParams,
   type SpecDeterministicResult,
 } from "../_shared/brief/spec-deterministic-brief.ts";
@@ -91,6 +92,12 @@ import {
   derivePills,
   finalizePills,
 } from "../_shared/signal-pills/derive-pills.ts";
+import {
+  buildAssessmentContext,
+  buildPillContextFromAssessment,
+  formatPillAssessmentSection,
+  type AssessmentContext,
+} from "../_shared/signal-pills/assessment-context.ts";
 
 // CORS headers are now per-request via getCorsHeaders(req) so the origin
 // allowlist can be enforced. See _shared/cors.ts.
@@ -2620,6 +2627,79 @@ serve(async (req) => {
     // MRS v2 §3.5 — RHR 3-day trend (Physical Reserves input). Computed
     // from the same 30-day baseline pull below so we avoid a second query.
     let rhr3dTrend: 'declining' | 'stable' | 'rising' | 'unknown' = 'unknown';
+    // Signal Pills v3 / W3.5 — canonical finalized payload + prompt context.
+    let echoedSignalPills: any[] | null = null;
+    let echoedPillQualifiers: any = null;
+    let echoedCoherenceWarning: string | null = null;
+    let echoedPillCoherence: {
+      inSync: boolean;
+      adjustments: CoherenceAdjustment[];
+    } = { inSync: true, adjustments: [] };
+    let echoedBaselineScore: number | null = null;
+    let echoedProvenance: {
+      mrs: { sources: MrsSource[]; primary: MrsSource | null; refinedBy: 'checkin' | null };
+      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' | 'awaiting' };
+      pills: {
+        decision_readiness: MrsSource[];
+        physical_reserves: MrsSource[];
+        resilience_capacity: MrsSource[];
+      };
+    } | null = null;
+    let canonicalInnerScore: number | null =
+      typeof innerReadinessScore === 'number' ? innerReadinessScore : null;
+    let canonicalTier: any = safeTier ?? null;
+    let canonicalTierDisplayed: any = safeTierDisplayed ?? null;
+    let canonicalTierCapReason: any = safeTierCapReason ?? null;
+    let canonicalScoreBaseline: number | null =
+      typeof effectiveBaselineScore === 'number' ? effectiveBaselineScore : null;
+    let canonicalScoreRefined: number | null =
+      typeof clientScoreRefined === 'number' ? clientScoreRefined : null;
+    let canonicalReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
+      clientReadinessState ?? null;
+    let canonicalRefinedContribution: number | null =
+      typeof clientRefinedContribution === 'number' ? clientRefinedContribution : null;
+    let canonicalScoreSource: 'incoming' | 'preserved_existing_mrs' = 'incoming';
+    let assessmentContext: Readonly<AssessmentContext> | null = null;
+    let assessmentSignalPillsPayload: any[] | null = null;
+    let assessmentPromptSection = '';
+    let composedPatternSignals: {
+      hrv_3day_trend: 'improving' | 'stable' | 'declining' | 'unknown';
+      consecutive_high_load_days: number;
+      dow_historical_pattern: {
+        typical_hrv_for_dow: number | null;
+        typical_load_for_dow: 'low' | 'medium' | 'high' | null;
+        samples: number;
+      };
+      sustained_deficit_flag: boolean;
+      hrv_low_high_demand_cooccurrence_7d?: {
+        cooccurrence_count: number;
+        cooccurrence_ratio: number | null;
+        days_observed: number;
+      };
+    } | null = null;
+    let protectionGoals: string[] = [];
+    let hrv3dTrend: 'improving' | 'stable' | 'declining' | 'unknown' = 'unknown';
+    let consecutiveHighLoadDays = 0;
+    let sustainedDeficitFlag = false;
+    let cooccurrence7d: {
+      cooccurrence_count: number;
+      cooccurrence_ratio: number | null;
+      days_observed: number;
+    } = { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 };
+    let typicalLoadForDow: 'low' | 'medium' | 'high' | null = null;
+    let hasTodayCheckIn = false;
+    let hasFreshWearable = false;
+    let hasCalendarSignal = false;
+    let hasCalendarConnected = false;
+    const assessmentBandValence: ReadinessValence | null = (() => {
+      const s = typeof innerReadinessScore === 'number'
+        ? Math.max(0, Math.min(100, Math.round(innerReadinessScore)))
+        : null;
+      if (s == null) return null;
+      if (s < 50) return 'low';
+      if (s < 65) return 'mid';
+      return 'high';
+    })();
 
     // ── HR / RHR live-freshness gate ─────────────────────────────────────
     // HR and RHR are real-time metrics and must never appear as "live" if
@@ -3458,6 +3538,273 @@ serve(async (req) => {
         console.error('[compute-outer-readiness] Enrichment queries error:', enrichErr);
       }
 
+      // ── Turn B: canonical signal-pill derivation before Brief generation ──
+      try {
+        try {
+          const composed = await composeDailyContext(db as any, userId, userLocalDate, {
+            timezone: effectiveCurrentTz || undefined,
+            dryRun: true,
+          });
+          composedPatternSignals = composed.patternSignals as any;
+        } catch (composeErr) {
+          console.warn('[mrs-v2:composeDailyContext] dry-run failed:', composeErr instanceof Error ? composeErr.message : composeErr);
+        }
+
+        try {
+          const profileGoals = await db.from('profiles')
+            .select('protection_goals')
+            .eq('id', userId)
+            .maybeSingle()
+            .then((r: any) => r, () => ({ data: null }));
+          const pg = (profileGoals as any)?.data?.protection_goals;
+          if (Array.isArray(pg)) protectionGoals = pg.filter((x) => typeof x === 'string');
+          else if (pg && typeof pg === 'object') protectionGoals = Object.keys(pg);
+        } catch (resErr) {
+          console.warn('[mrs-v2:resilience-inputs] fetch failed:', resErr instanceof Error ? resErr.message : resErr);
+        }
+
+        hrv3dTrend =
+          composedPatternSignals?.hrv_3day_trend
+          ?? ((wearableTrend7d === 'improving' || wearableTrend7d === 'declining' || wearableTrend7d === 'stable')
+              ? wearableTrend7d as any
+              : 'unknown');
+        consecutiveHighLoadDays =
+          composedPatternSignals?.consecutive_high_load_days
+          ?? (calendarLoad === 'high' ? 1 : 0);
+        sustainedDeficitFlag =
+          composedPatternSignals?.sustained_deficit_flag
+          ?? (typeof hrvDeviation === 'number' && hrvDeviation <= -20);
+        cooccurrence7d =
+          composedPatternSignals?.hrv_low_high_demand_cooccurrence_7d
+          ?? { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 };
+        typicalLoadForDow =
+          composedPatternSignals?.dow_historical_pattern?.typical_load_for_dow ?? null;
+
+        const historyStart = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+        const [ciHistResult, wearableHistResult] = await Promise.allSettled([
+          db.from('daily_checkins')
+            .select('checkin_date, time_window, clarity_level, emotion_level, pressure_level, regulation_level')
+            .eq('user_id', userId)
+            .gte('checkin_date', historyStart)
+            .order('checkin_date', { ascending: false })
+            .limit(40),
+          db.from('wearable_data')
+            .select('summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency')
+            .eq('user_id', userId)
+            .gte('summary_date', historyStart)
+            .order('summary_date', { ascending: false })
+            .limit(14),
+        ]);
+        const checkinHistory14d =
+          ciHistResult.status === 'fulfilled'
+            ? ((ciHistResult.value.data || []) as PqCheckinRow[])
+            : [];
+        const wearableHistory14d =
+          wearableHistResult.status === 'fulfilled'
+            ? ((wearableHistResult.value.data || []) as PqWearableRow[])
+            : [];
+        if (ciHistResult.status === 'rejected' || wearableHistResult.status === 'rejected') {
+          console.error('[signal-pills-v3] qualifier/coherence step failed:', {
+            checkinHistoryFailed: ciHistResult.status === 'rejected',
+            wearableHistoryFailed: wearableHistResult.status === 'rejected',
+          });
+        }
+
+        const pillDerivation = derivePills({
+          hrvValue,
+          hrvDeviation,
+          sleepDuration,
+          sleepScoreVal,
+          rhrValue,
+          rhrDeviation,
+          hrValue,
+          hrDeviation,
+          sleepEfficiency: wearableContext?.sleepEfficiency ?? null,
+          wearableContextHrvDeviation:
+            typeof (wearableContext as any)?.hrvDeviation === 'number'
+              ? (wearableContext as any).hrvDeviation
+              : null,
+          wearableContextPoorSleep: !!wearableContext?.poorSleep,
+          wearableContextHrvElevated: !!wearableContext?.hrvElevated,
+          clarityLevel,
+          emotionLevel,
+          regulationLevel,
+          pressureLevel,
+          calendarLoad,
+          calendarPressure,
+          highStakesEventsCount: calendarResult.highStakesEvents?.length ?? 0,
+          rhr3dTrend,
+          sustainedDeficitFlag,
+          cooccurrence7d,
+          protectionGoals,
+          wearableFreshForGate,
+          checkInFreshForGate,
+          hasWearable,
+          wearableDaysConnected,
+        });
+        for (const warning of pillDerivation.diagnostics.warnings) {
+          console.warn(warning.message, {
+            key: warning.key,
+            code: warning.code,
+            ...(warning.meta ? { meta: warning.meta } : {}),
+          });
+        }
+        const pillFinalized = finalizePills({
+          pills: pillDerivation.pills,
+          safeTier: safeTier as PqPillTier,
+          cognitiveTier: pillDerivation.cognitiveTier,
+          physicalTier: pillDerivation.physicalTier,
+          resilienceTier: pillDerivation.resilienceTier,
+          checkinHistory14d,
+          wearableHistory14d,
+          baselines: {
+            hrv: typeof hrvBaseline === 'number' ? hrvBaseline : null,
+            rhr: typeof rhrBaseline === 'number' ? rhrBaseline : null,
+            sleep: typeof sleepBaseline === 'number' ? sleepBaseline : null,
+          },
+          hrv3dTrend,
+          rhr3dTrend,
+        });
+        if ((Deno.env.get("APP_ENV") ?? "development") !== 'production') {
+          for (const warning of pillFinalized.diagnostics.warnings) {
+            console.warn(warning.message);
+          }
+        }
+
+        const loadComponent = calendarLoad === 'high' ? 70 : calendarLoad === 'medium' ? 40 : 0;
+        const pressureComponent = calendarPressure === 'high' ? 25 : calendarPressure === 'medium' ? 15 : 0;
+        const stakesBonus = (calendarResult.highStakesEvents?.length ?? 0) > 0 ? 10 : 0;
+        const calendarDemandScore = Math.max(0, Math.min(100, loadComponent + pressureComponent + stakesBonus));
+        const physComposite = hasWearable
+          ? computePhysiologicalComposite({
+              hrvDeviationPct: typeof hrvDeviation === 'number' ? hrvDeviation : null,
+              sleepScore: typeof sleepScoreVal === 'number' ? sleepScoreVal : null,
+              sleepHours: typeof sleepDuration === 'number' ? sleepDuration / 60 : null,
+              rhrTrend: rhr3dTrend,
+            })
+          : null;
+        const baselineParts: Array<[number, number]> = [];
+        if (physComposite != null) baselineParts.push([physComposite, 0.65]);
+        if (calendarDemandScore != null) baselineParts.push([100 - clamp01to100(calendarDemandScore), 0.35]);
+        if (baselineParts.length > 0) {
+          const totalW = baselineParts.reduce((a, [, w]) => a + w, 0);
+          const weighted = baselineParts.reduce((a, [v, w]) => a + v * w, 0);
+          let base = Math.round(weighted / totalW);
+          if (sustainedDeficitFlag) base = Math.max(0, base - 5);
+          echoedBaselineScore = clamp01to100(base);
+        }
+        echoedProvenance = {
+          mrs: divergenceProvenance({
+            physComposite,
+            demandScore: calendarDemandScore,
+            hrvRecovering: hrv3dTrend === 'improving',
+            hasPatternSignal: !!(
+              sustainedDeficitFlag ||
+              consecutiveHighLoadDays > 0 ||
+              hrv3dTrend !== 'unknown'
+            ),
+            hasCeoBehaviour: !!briefBehaviourSnapshot,
+            hasCheckin: hasTodayCheckIn,
+          }),
+          brief: {
+            sources: (() => {
+              const s: MrsSource[] = [];
+              if (hasFreshWearable) s.push('wearable');
+              if (hasCalendarSignal || hasCalendarConnected) s.push('calendar');
+              if (briefBehaviourSnapshot) s.push('ceo-behaviour');
+              if (hasTodayCheckIn) s.push('checkin');
+              return s;
+            })(),
+            briefSource: 'awaiting',
+          },
+          pills: {
+            decision_readiness: pillSourceList('decision_readiness', physComposite, calendarDemandScore, hasTodayCheckIn),
+            physical_reserves: pillSourceList('physical_reserves', physComposite, calendarDemandScore, hasTodayCheckIn),
+            resilience_capacity: pillSourceList('resilience_capacity', physComposite, calendarDemandScore, hasTodayCheckIn),
+          },
+        };
+        assessmentContext = await buildAssessmentContext({
+          localDate: userLocalDate,
+          timeWindow: getTimeOfDay(hour),
+          timezoneOffsetMinutes: timezoneOffset,
+          currentTimezone: effectiveCurrentTz,
+          homeTimezone: effectiveHomeTz,
+          derivationVersion: 'w3.5-turn-b',
+          readiness: {
+            score: typeof canonicalInnerScore === 'number' ? canonicalInnerScore : innerReadinessScore ?? null,
+            tier: safeTier ?? null,
+            displayedTier: safeTierDisplayed ?? null,
+            capReason: safeTierCapReason ?? null,
+            band: assessmentBandValence,
+            mode: (canonicalReadinessState ?? (checkInFreshForGate ? 'refined' : 'baseline')) as 'baseline' | 'refined' | 'awaiting',
+          },
+          pills: {
+            finalized: pillFinalized.pills,
+            qualifiers: pillFinalized.qualifiers,
+            coherence: pillFinalized.coherence,
+            coherenceWarning: pillFinalized.coherenceWarning,
+            diagnostics: {
+              derive: pillDerivation.diagnostics,
+              finalize: pillFinalized.diagnostics,
+            },
+          },
+          provenance: echoedProvenance,
+          checkIn: {
+            outcome: checkInOutcome ?? null,
+            clarityLevel: clarityLevel ?? null,
+            confidenceLevel: confidenceLevel ?? null,
+            mentalSharpnessLevel: mentalSharpnessLevel ?? null,
+            emotionLevel: emotionLevel ?? null,
+            regulationLevel: regulationLevel ?? null,
+            pressureLevel: pressureLevel ?? null,
+          },
+          wearable: {
+            hasWearable,
+            wearableFreshForGate,
+            hasTodayData: hasTodayWearableData,
+            hasRecentData: hasRecentWearableData,
+            wearableDaysConnected,
+            wearableSourceAgeDays,
+            hrvValue,
+            hrvDeviation,
+            sleepDuration,
+            sleepScore: sleepScoreVal,
+            sleepEfficiency: wearableContext?.sleepEfficiency ?? null,
+            rhrValue,
+            rhrDeviation,
+            hrValue,
+            hrDeviation,
+          },
+          patterns: {
+            hrv3dTrend,
+            rhr3dTrend,
+            sustainedDeficitFlag,
+            consecutiveHighLoadDays,
+            cooccurrence7d,
+            avgScore7d: typeof avgScore7d === 'number' ? avgScore7d : null,
+            scoreTrajectory7d: scoreTrajectory7d ?? null,
+            hrvEventCorrelation: hrvEventCorrelation ?? null,
+          },
+          calendar: {
+            load: calendarLoad,
+            pressure: calendarPressure,
+            highStakesEventsCount: calendarResult.highStakesEvents?.length ?? 0,
+            hasBackToBack: !!hasBackToBack,
+            nextHighStakesMinutesUntil: nextHighStakesEvent?.minutesUntil ?? null,
+            typicalLoadForDow,
+            tomorrowLoad,
+            tomorrowHighStakesCount: tomorrowHighStakes.length,
+          },
+        });
+        assessmentSignalPillsPayload = assessmentContext.pills.finalized as any[];
+        echoedSignalPills = assessmentSignalPillsPayload;
+        echoedPillCoherence = assessmentContext.pills.coherence;
+        echoedPillQualifiers = assessmentContext.pills.qualifiers;
+        echoedCoherenceWarning = assessmentContext.pills.coherenceWarning;
+        assessmentPromptSection = formatPillAssessmentSection(assessmentContext);
+      } catch (assessmentErr) {
+        console.error('[signal-pills-v3] assessment-context build failed:', assessmentErr instanceof Error ? assessmentErr.message : assessmentErr);
+      }
 
       // ── Build & call LLM ──
 
@@ -4038,6 +4385,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\nNo current-period check-in exists for this brief. Do NOT mention mental energy, clarity, confidence, sharpness, felt state, self-declared state, or the check-in.`;
           }
           userPrompt += `\nIf a source is absent, pivot to the sources that are present. Never fabricate missing evidence.`;
+          if (assessmentPromptSection) userPrompt += assessmentPromptSection;
 
           // === WEARABLE ===
           if (hasWearable) {
@@ -5279,7 +5627,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                      normalized.brief.phrase,
                      normalized.brief.bodyText,
                      atomicCtx,
-                     { mrsScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null },
+                     {
+                       mrsScore: assessmentContext?.readiness.score ?? (typeof innerReadinessScore === 'number' ? innerReadinessScore : null),
+                       pillContext: assessmentContext ? buildPillContextFromAssessment(assessmentContext) : null,
+                     },
                    );
                   if (!atomic.ok) {
                     const reason = atomic.reason || 'atomic_reject';
@@ -5445,7 +5796,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 tomorrowHighStakesTitles: Array.isArray(tomorrowHighStakes) ? tomorrowHighStakes : [],
               };
 
-              const built = buildSpecDeterministicBrief(specParams);
+              const built = assessmentContext
+                ? buildSpecDeterministicBriefFromAssessmentContext(assessmentContext)
+                : buildSpecDeterministicBrief(specParams);
               if (built) {
                 const detCtx: any = {
                   signals: {
@@ -5465,7 +5818,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 // W3: deterministic fallback runs through the SAME
                 // validator with the same numeric-restatement guard.
                 const detValidation = validateBrief(built.phrase, built.body, detCtx, {
-                  mrsScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null,
+                  mrsScore: assessmentContext?.readiness.score ?? (typeof innerReadinessScore === 'number' ? innerReadinessScore : null),
+                  pillContext: assessmentContext ? buildPillContextFromAssessment(assessmentContext) : null,
                 });
                 if (detValidation.ok) {
                   deterministicBrief = built;
@@ -5580,10 +5934,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       console.warn('[compute-outer-readiness] Day-scoped check-in lookup failed:', e);
       hasTodayCheckInDB = !!checkInOutcome;
     }
-    const hasTodayCheckIn = hasTodayCheckInDB;
-    const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
-    const hasCalendarSignal = calendarResult?.state === 'active';
-    const hasCalendarConnected = calendarResult?.state && calendarResult.state !== 'not_connected';
+    hasTodayCheckIn = hasTodayCheckInDB;
+    hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
+    hasCalendarSignal = calendarResult?.state === 'active';
+    hasCalendarConnected = !!calendarResult?.state && calendarResult.state !== 'not_connected';
     const hasStage1Signal = hasWearableData || hasCalendarSignal || hasCalendarConnected;
     const briefSignalContractMet = hasStage1Signal;
     const awaitingSignals = !briefSignalContractMet;
@@ -5741,52 +6095,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       linkedDailyCheckinId = null;
     }
 
-    // Signal Pills v3 — hoisted echoes so the response builder (below) can
-    // surface server-built pills + qualifier qualifiers to the client.
-    let echoedSignalPills: any[] | null = null;
-    let echoedPillQualifiers: any = null;
-    let echoedCoherenceWarning: string | null = null;
-    // MRS v3 §baseline-of-truth — structured pill↔MRS coherence + source
-    // provenance + baseline-only score (computed inside the pill engine
-    // block when wearable/calendar inputs are in-hand).
-    let echoedPillCoherence: {
-      inSync: boolean;
-      adjustments: CoherenceAdjustment[];
-    } = { inSync: true, adjustments: [] };
-    let echoedBaselineScore: number | null = null;
-    let echoedProvenance: {
-      mrs: { sources: MrsSource[]; primary: MrsSource | null; refinedBy: 'checkin' | null };
-      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' | 'awaiting' };
-      pills: {
-        decision_readiness: MrsSource[];
-        physical_reserves: MrsSource[];
-        resilience_capacity: MrsSource[];
-      };
-    } | null = null;
-
-    // Canonical MRS payload — populated inside the daily_context_snapshot
-    // mirror below and reused by brief_snapshots + response echo so MRS
-    // and Brief cannot diverge (e.g. MRS=78 vs Brief=50). When we preserve
-    // an existing ready daily_context_snapshot row over an awaiting /
-    // lower-quality incoming payload, the same preserved score/tier/state
-    // must flow into brief_snapshots and the client echo. Hoisted to the
-    // request-handler scope so it is visible from the `result` builder
-    // below (which lives outside the cache-miss `if` and mirror `try`).
-    let canonicalInnerScore: number | null =
-      typeof innerReadinessScore === 'number' ? innerReadinessScore : null;
-    let canonicalTier: any = safeTier ?? null;
-    let canonicalTierDisplayed: any = safeTierDisplayed ?? null;
-    let canonicalTierCapReason: any = safeTierCapReason ?? null;
-    let canonicalScoreBaseline: number | null =
-      typeof effectiveBaselineScore === 'number' ? effectiveBaselineScore : null;
-    let canonicalScoreRefined: number | null =
-      typeof clientScoreRefined === 'number' ? clientScoreRefined : null;
-    let canonicalReadinessState: 'baseline' | 'refined' | 'awaiting' | null =
-      clientReadinessState ?? null;
-    let canonicalRefinedContribution: number | null =
-      typeof clientRefinedContribution === 'number' ? clientRefinedContribution : null;
-    let canonicalScoreSource: 'incoming' | 'preserved_existing_mrs' = 'incoming';
-
     // Persistence contract (cron/snapshot-read model):
     // Always attempt to persist both `daily_context_snapshot` (MRS mirror)
     // and `brief_snapshots` on every run that isn't a same-signature cache
@@ -5797,191 +6105,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // brief_source='awaiting') instead of leaving no row at all.
     if (!cachedSnapshot) {
       try {
-        // ── MRS v2 Phase B: hydrate pattern signals + resilience inputs ─────
-        // Pull the orchestrator-derived pattern signals (real 14d HRV trend,
-        // 3-day load count, DOW pattern, sustained deficit) and the three
-        // Resilience side-inputs (active coach patterns, recent memory
-        // depletion flags, profile protection goals). Every fetch is
-        // null-safe; pill build must never throw on missing data.
-        let composedPatternSignals: {
-          hrv_3day_trend: 'improving' | 'stable' | 'declining' | 'unknown';
-          consecutive_high_load_days: number;
-          dow_historical_pattern: {
-            typical_hrv_for_dow: number | null;
-            typical_load_for_dow: 'low' | 'medium' | 'high' | null;
-            samples: number;
-          };
-          sustained_deficit_flag: boolean;
-          hrv_low_high_demand_cooccurrence_7d?: {
-            cooccurrence_count: number;
-            cooccurrence_ratio: number | null;
-            days_observed: number;
-          };
-        } | null = null;
-        try {
-          const composed = await composeDailyContext(db as any, userId, userLocalDate, {
-            timezone: effectiveCurrentTz || undefined,
-            dryRun: true,
-          });
-          composedPatternSignals = composed.patternSignals as any;
-        } catch (composeErr) {
-          console.warn('[mrs-v2:composeDailyContext] dry-run failed:', composeErr instanceof Error ? composeErr.message : composeErr);
-        }
-
-        // Coach feature is suppressed (see mem://features/coach/suppression-standard).
-        // Resilience reads only wearable + calendar patterns + onboarding
-        // protection_goals (framing only). Coach pattern / memory fetches
-        // have been removed from the Resilience pill path per MRS v2 §3.5.
-        let protectionGoals: string[] = [];
-        try {
-          const profileRes = await db.from('profiles')
-            .select('protection_goals')
-            .eq('id', userId)
-            .maybeSingle()
-            .then((r: any) => r, () => ({ data: null }));
-          const pg = (profileRes as any)?.data?.protection_goals;
-          if (Array.isArray(pg)) protectionGoals = pg.filter(x => typeof x === 'string');
-          else if (pg && typeof pg === 'object') protectionGoals = Object.keys(pg);
-        } catch (resErr) {
-          console.warn('[mrs-v2:resilience-inputs] fetch failed:', resErr instanceof Error ? resErr.message : resErr);
-        }
-
-        // Effective pattern signals — prefer orchestrator, fall back to
-        // single-day approximations already in scope so pill build never
-        // collapses to neutral just because compose failed.
-        const hrv3dTrend: 'improving' | 'stable' | 'declining' | 'unknown' =
-          composedPatternSignals?.hrv_3day_trend
-          ?? ((wearableTrend7d === 'improving' || wearableTrend7d === 'declining' || wearableTrend7d === 'stable')
-              ? wearableTrend7d as any
-              : 'unknown');
-        const consecutiveHighLoadDays: number =
-          composedPatternSignals?.consecutive_high_load_days
-          ?? (calendarLoad === 'high' ? 1 : 0);
-        const sustainedDeficitFlag: boolean =
-          composedPatternSignals?.sustained_deficit_flag
-          ?? (typeof hrvDeviation === 'number' && hrvDeviation <= -20);
-
-        // MRS v2 §3.5 — HRV-low × high-demand co-occurrence (last 7 days).
-        // Primary Resilience signal: how often this week the body was under-
-        // baseline AND the calendar hammered. Pure wearable-pattern signal —
-        // null-safe defaults so we never block on missing history.
-        const cooccurrence7d = composedPatternSignals?.hrv_low_high_demand_cooccurrence_7d
-          ?? { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 };
-        const typicalLoadForDow: 'low' | 'medium' | 'high' | null =
-          composedPatternSignals?.dow_historical_pattern?.typical_load_for_dow ?? null;
-
-        // ── Signal Pills — extracted derivation (Turn A1, mechanical) ──
-        // The tier math, payload construction, source/freshness metadata,
-        // V4 invariants, and Physical-Reserves displayable gate now live in
-        // `../_shared/signal-pills/derive-pills.ts`. Behaviour and thresholds
-        // are unchanged; the block below is a call site plus the DB fetch
-        // for qualifier history rows (which must remain here because it is
-        // async I/O). See `derive-pills.ts` header for the extraction notes.
-        // Turn A2 will hoist this call above Brief generation; Turn B adds
-        // AssessmentContext. Do NOT re-inline this block.
-        const _pillDerivation = derivePills({
-          hrvValue,
-          hrvDeviation,
-          sleepDuration,
-          sleepScoreVal,
-          rhrValue,
-          rhrDeviation,
-          hrValue,
-          hrDeviation,
-          sleepEfficiency: wearableContext?.sleepEfficiency ?? null,
-          wearableContextHrvDeviation:
-            typeof (wearableContext as any)?.hrvDeviation === 'number'
-              ? (wearableContext as any).hrvDeviation
-              : null,
-          wearableContextPoorSleep: !!wearableContext?.poorSleep,
-          wearableContextHrvElevated: !!wearableContext?.hrvElevated,
-          clarityLevel,
-          emotionLevel,
-          regulationLevel,
-          pressureLevel,
-          calendarLoad,
-          calendarPressure,
-          highStakesEventsCount: calendarResult.highStakesEvents?.length ?? 0,
-          rhr3dTrend,
-          sustainedDeficitFlag,
-          cooccurrence7d,
-          protectionGoals,
-          wearableFreshForGate,
-          checkInFreshForGate,
-          hasWearable,
-          wearableDaysConnected,
-        });
-        const cognitiveTier = _pillDerivation.cognitiveTier;
-        const physicalTier = _pillDerivation.physicalTier;
-        const resilienceTier = _pillDerivation.resilienceTier;
-        let signalPillsPayload = _pillDerivation.pills;
-        for (const warning of _pillDerivation.diagnostics.warnings) {
-          console.warn(warning.message, {
-            key: warning.key,
-            code: warning.code,
-            ...(warning.meta ? { meta: warning.meta } : {}),
-          });
-        }
-
-        // ── Signal Pills v3: bracketed qualifiers + coherence guard ──
-        // Qualifiers are display-only enrichment; coherence guard reconciles
-        // pill tiers against the outer MRS tier. Both phases are pure post-
-        // processing over history rows fetched below and delegated to
-        // `finalizePills()` in the extracted module.
-        try {
-          const fourteenAgo = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
-          const [ciHistRes, wHistRes] = await Promise.all([
-            db.from('daily_checkins')
-              .select('checkin_date, time_window, clarity_level, emotion_level, pressure_level, regulation_level')
-              .eq('user_id', userId)
-              .gte('checkin_date', fourteenAgo)
-              .order('checkin_date', { ascending: false })
-              .limit(40),
-            db.from('wearable_data')
-              .select('summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency')
-              .eq('user_id', userId)
-              .gte('summary_date', fourteenAgo)
-              .order('summary_date', { ascending: false })
-              .limit(14),
-          ]);
-
-          const _finalized = finalizePills({
-            pills: signalPillsPayload,
-            safeTier: safeTier as PqPillTier,
-            cognitiveTier,
-            physicalTier,
-            resilienceTier,
-            checkinHistory14d: (ciHistRes.data || []) as PqCheckinRow[],
-            wearableHistory14d: (wHistRes.data || []) as PqWearableRow[],
-            baselines: {
-              hrv: typeof hrvBaseline === 'number' ? hrvBaseline : null,
-              rhr: typeof rhrBaseline === 'number' ? rhrBaseline : null,
-              sleep: typeof sleepBaseline === 'number' ? sleepBaseline : null,
-            },
-            hrv3dTrend,
-            rhr3dTrend,
-          });
-          signalPillsPayload = _finalized.pills;
-          echoedSignalPills = signalPillsPayload;
-
-          echoedPillCoherence = _finalized.coherence;
-          echoedPillQualifiers = _finalized.qualifiers;
-          echoedCoherenceWarning = _finalized.coherenceWarning;
-          if ((Deno.env.get("APP_ENV") ?? "development") !== 'production') {
-            for (const warning of _finalized.diagnostics.warnings) {
-              console.warn(warning.message);
-            }
-          }
-        } catch (qErr) {
-          // F3.2 — Promote to error so the failure surfaces in edge logs and
-          // we can correlate "no qualifiers" with "no enrichment ran". The
-          // base pill payload (tier + label + contributors) is still echoed
-          // because we hoisted the assignment above.
-          echoedSignalPills = signalPillsPayload;
-          console.error(
-            '[signal-pills-v3] qualifier/coherence step failed:',
-            qErr instanceof Error ? qErr.message : qErr,
-          );
+        const signalPillsPayload = assessmentSignalPillsPayload ?? echoedSignalPills ?? null;
+        if (!signalPillsPayload || !assessmentContext) {
+          throw new Error('assessment_context_unavailable');
         }
 
         // MRS v2 — mirror canonical pill payload + demand into daily_context_snapshot.
@@ -6368,15 +6494,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // awaiting rather than persisting a self-contradictory brief.
         if (persistBody && persistPhrase) {
           try {
-            const drPill = (signalPillsPayload as any[]).find((p) => p?.key === 'decision_readiness');
-            const prPill = (signalPillsPayload as any[]).find((p) => p?.key === 'physical_reserves');
-            const rcPill = (signalPillsPayload as any[]).find((p) => p?.key === 'resilience_capacity');
-            const finalPillContext = {
-              decisionReadiness: (drPill?.tier ?? 'neutral') as 'green' | 'amber' | 'red' | 'neutral',
-              physicalReserves: (prPill?.tier ?? 'neutral') as 'green' | 'amber' | 'red' | 'neutral',
-              resilienceCapacity: (rcPill?.tier ?? 'neutral') as 'green' | 'amber' | 'red' | 'neutral',
-              divergence: null,
-            };
+            const finalPillContext = assessmentContext
+              ? buildPillContextFromAssessment(assessmentContext)
+              : null;
             const finalMrsForCheck: number | null = typeof canonicalInnerScore === 'number'
               ? canonicalInnerScore
               : (typeof innerReadinessScore === 'number' ? innerReadinessScore : null);
@@ -6394,8 +6514,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 briefSource,
                 finalMrs: finalMrsForCheck,
                 finalPillContext,
-                phrasePreview: (persistPhrase || '').slice(0, 60),
-                bodyPreview: (persistBody || '').slice(0, 120),
+                fingerprints: assessmentContext?.deterministic ?? null,
               });
               // Null the copy and downgrade to awaiting so the row stays
               // consistent (score + pills preserved; contradictory body

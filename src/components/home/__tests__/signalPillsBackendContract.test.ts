@@ -16,8 +16,8 @@ describe('signal pills backend contract · extracted ownership', () => {
   it('index.ts imports and calls derivePills plus finalizePills', () => {
     expect(INDEX_SRC).toContain('derivePills,');
     expect(INDEX_SRC).toContain('finalizePills,');
-    expect(INDEX_SRC).toContain('const _pillDerivation = derivePills({');
-    expect(INDEX_SRC).toContain('const _finalized = finalizePills({');
+    expect(INDEX_SRC).toContain('const pillDerivation = derivePills({');
+    expect(INDEX_SRC).toContain('const pillFinalized = finalizePills({');
   });
 
   it('derive-pills.ts owns Physical Reserves contributors and excludes sleep', () => {
@@ -45,12 +45,21 @@ describe('signal pills backend contract · extracted ownership', () => {
   });
 
   it('index.ts uses finalized.pills as the canonical downstream payload', () => {
-    expect(INDEX_SRC).toContain('let signalPillsPayload = _pillDerivation.pills;');
-    expect(INDEX_SRC).toContain('signalPillsPayload = _finalized.pills;');
-    expect(INDEX_SRC).toContain('echoedSignalPills = signalPillsPayload;');
+    expect(INDEX_SRC).toContain('finalized: pillFinalized.pills,');
+    expect(INDEX_SRC).toContain('assessmentSignalPillsPayload = assessmentContext.pills.finalized as any[];');
+    expect(INDEX_SRC).toContain('echoedSignalPills = assessmentSignalPillsPayload;');
+    expect(INDEX_SRC).toContain('const signalPillsPayload = assessmentSignalPillsPayload ?? echoedSignalPills ?? null;');
     expect(INDEX_SRC).toContain('signalPills: signalPillsPayload,');
     expect(INDEX_SRC).toContain('refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,');
     expect(INDEX_SRC).toContain('baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,');
+  });
+
+  it('index.ts carries finalized qualifiers and coherence into response and persistence validation', () => {
+    expect(INDEX_SRC).toContain('echoedPillCoherence = assessmentContext.pills.coherence;');
+    expect(INDEX_SRC).toContain('echoedPillQualifiers = assessmentContext.pills.qualifiers;');
+    expect(INDEX_SRC).toContain('echoedCoherenceWarning = assessmentContext.pills.coherenceWarning;');
+    expect(INDEX_SRC).toContain('pillContext: assessmentContext ? buildPillContextFromAssessment(assessmentContext) : null,');
+    expect(INDEX_SRC).toContain('const finalPillContext = assessmentContext');
   });
 
   it('index.ts still treats only same-day wearable data as fresh for pill scoring', () => {
