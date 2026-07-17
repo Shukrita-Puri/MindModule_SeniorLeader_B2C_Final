@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2, Bell } from 'lucide-react';
+import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2, Bell, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
