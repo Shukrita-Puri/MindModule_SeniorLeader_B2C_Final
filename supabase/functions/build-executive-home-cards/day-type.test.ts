@@ -157,7 +157,11 @@ Deno.test("W2: all-day PTO with a real meeting → pto_with_meeting (morning + a
       allDay("PTO", "2026-01-05"),
       meeting("Investor call", "2026-01-05", 10),
     ],
-    tomorrowEvents: [],
+    // Tomorrow ALSO off — otherwise the week-ahead evaluator (which runs
+    // before the PTO branch) fires last_day_pto/last_day_holiday. This test
+    // targets the "mid-PTO block with a slipped meeting" scenario, which is
+    // exactly what the pto_with_meeting cadence exists for.
+    tomorrowEvents: [allDay("PTO", "2026-01-06")],
     travel: null,
   });
   assertEquals(d.dayType, "pto_with_meeting");
@@ -207,20 +211,41 @@ Deno.test("W2: Weekday with no meetings → light_day (morning + evening)", () =
   assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
 });
 
-Deno.test("W2: Tomorrow is applicable public holiday → today becomes week_ahead", () => {
-  // Today = ordinary Monday, tomorrow = applicable bank holiday for GB-ENG.
-  // Week-ahead should fire so the user gets tomorrow-framing tonight.
+Deno.test("W2: Tomorrow is applicable public holiday but today is a workday → workday (no week-ahead trigger exists for pre-holiday days)", () => {
+  // Documenting current SSOT-derived contract: week-ahead reasons are
+  // { sunday, last_day_pto, last_day_holiday, last_day_long_weekend,
+  //   manual_override }. There is intentionally NO "eve of holiday" trigger
+  // — that day is a normal workday. If Product decides to add one later,
+  // this test will need to be flipped alongside the new reason token.
   const monday = new Date("2026-01-05T18:00:00Z");
   const d = resolveDayTypeAndCadence({
     effectiveTimezone: LDN,
     now: monday,
     userHomeCountry: "GB-ENG",
-    todayEvents: [],
+    // Today has a real meeting so we don't fall into light_day.
+    todayEvents: [meeting("Board sync", "2026-01-05", 9), meeting("Team", "2026-01-05", 14)],
     tomorrowEvents: [allDay("Bank Holiday (England & Wales)", "2026-01-06")],
     travel: null,
   });
+  assertEquals(d.dayType, "workday");
+  assertEquals(d.weekAheadReason, null);
+});
+
+Deno.test("W2: Today = applicable holiday, tomorrow = workday → week_ahead (last_day_holiday)", () => {
+  // Positive counterpart of the previous test — the "last day of the
+  // holiday block" branch DOES exist and should fire the moment tomorrow
+  // resolves to a workday via the SSOT.
+  const monday = new Date("2026-01-05T18:00:00Z");
+  const d = resolveDayTypeAndCadence({
+    effectiveTimezone: LDN,
+    now: monday,
+    userHomeCountry: "GB-ENG",
+    todayEvents: [allDay("Bank Holiday (England & Wales)", "2026-01-05")],
+    tomorrowEvents: [meeting("Board sync", "2026-01-06", 9), meeting("Team", "2026-01-06", 14)],
+    travel: null,
+  });
   assertEquals(d.dayType, "week_ahead");
-  assertEquals(d.weekAheadReason, "last_day_before_holiday");
+  assertEquals(d.weekAheadReason, "last_day_holiday");
   assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
 });
 
