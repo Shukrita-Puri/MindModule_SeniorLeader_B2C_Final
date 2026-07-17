@@ -1899,7 +1899,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         // filtered upstream by `snapshotIsRenderable`.
         const DISPLAYABLE_KEYS: Record<string, string[]> = {
           decision_readiness: ['hrvValue', 'sleepDuration', 'sleepScore', 'clarityLevel'],
-          physical_reserves: ['sleepDuration', 'sleepScore', 'rhrValue', 'hrValue'],
+          // W1: Physical Reserves owns RHR + HR only. Legacy snapshots that
+          // still carry sleepDuration/sleepScore under physical_reserves
+          // must NOT boost live-vs-snapshot richness — the tooltip ignores
+          // those keys, and this preference gate must match.
+          physical_reserves: ['rhrValue', 'hrValue'],
           resilience_capacity: [
             'sleepEfficiency',
             'sleep_efficiency',
