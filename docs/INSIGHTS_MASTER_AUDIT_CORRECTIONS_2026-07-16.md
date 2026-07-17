@@ -126,12 +126,12 @@ A cleanup pass on `src/pages/Insights.tsx` removed clearly dead code while prese
 **Intentionally preserved:**
 
 - Semantic Analysis dormant state, helper functions, and types — retained by design for future re-enable and clearly commented.
-- Tiny Wins and State Patterns pipelines — they feed rendered JSX or explicit `{false && ...}` re-enable blocks.
-- `{false && ...}` re-enable blocks for `DailyShowUpCalendar`, `LuxuryInsightCard`, and related summary-row routing — kept as explicit opt-in scaffolding for product to re-enable.
+- Tiny Wins and State Patterns pipelines — they feed rendered JSX or named-flag re-enable blocks.
+- Named-flag re-enable blocks for `DailyShowUpCalendar`, `LuxuryInsightCard`, and related summary-row routing — kept as explicit opt-in scaffolding for product to re-enable.
 
 **Flag cleanup:**
 
-The magic `{false && ...}` guards were replaced with named local constants at the top of `src/pages/Insights.tsx`. Each defaults to `false` and is documented with an owner/reason comment:
+The former magic `{false && ...}` guards are now named local constants at the top of `src/pages/Insights.tsx`. Each defaults to `false` and is documented with an owner/reason comment:
 
 - `SHOW_DAILY_SHOW_UP_CALENDAR` — gates the `DailyShowUpCalendar` card. Suppressed while streaks live on the homepage.
 - `SHOW_TRAJECTORY_SUMMARY_ROW` — gates the trajectory summary row. Derivation is live but redundant with dial deep-links.
