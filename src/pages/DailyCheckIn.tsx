@@ -336,6 +336,8 @@ const DailyCheckIn = () => {
       // Route to the next step based on the user's check-in mode:
       // - Wearable + Self → straight to Today's Brief (wearable supplies body data)
       // - Self-Declared Only → continue to Body State Check-in
+      // Passive engagement signal for the native App Store rating prompt.
+      recordCheckinCompleted();
       navigate(dailyCtaTarget);
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
