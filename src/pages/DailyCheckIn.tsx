@@ -255,49 +255,7 @@ const DailyCheckIn = () => {
         return;
       }
 
-      console.log('[Check-In] Saved to database');
-
-      // Persist all 4 slider levels via the daily-checkins edge function
-      // (UPDATE_CLARITY_CONFIDENCE accepts the new optional fields). We
-      // pass clarity as the `clarity` field and reuse `confidence` to
-      // satisfy the edge function's required-field contract — the new
-      // emotion/pressure/regulation columns are what we care about.
-      try {
-        if (DEV_MODE) {
-          await supabase
-            .from('daily_checkins')
-            .update({
-              clarity_level: rClarity,
-              emotion_level: rEmotion,
-              pressure_level: rPressure,
-              regulation_level: rRegulation,
-            })
-            .eq('id', result.id!);
-        } else {
-          const accessToken = await getAuthToken();
-          if (accessToken) {
-            await supabase.functions.invoke('daily-checkins', {
-              headers: { Authorization: `Bearer ${accessToken}` },
-              body: {
-                action: 'UPDATE_CLARITY_CONFIDENCE',
-                checkinDate,
-                checkinId: result.id,
-                timeWindow,
-                clarity: rClarity,
-                // Confidence is no longer captured on Page 1; pass the
-                // clarity value to satisfy the legacy required field
-                // without overwriting any existing confidence with junk.
-                confidence: rClarity,
-                emotion: rEmotion,
-                pressure: rPressure,
-                regulation: rRegulation,
-              },
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('[Check-In] Slider persistence (extra fields) failed:', e);
-      }
+      console.log('[Check-In] Saved to database (atomic)');
 
       // Clear any persisted "awaiting signals" brief payload across all three
       // windows for today — otherwise the synchronous initialData hydrate
@@ -324,43 +282,51 @@ const DailyCheckIn = () => {
         sessionStorage.setItem(cacheKeys.planForceRefresh(todayDate2, p), '1');
       }
 
-      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
-      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+      // Fire-and-forget: query invalidations do not block navigation. Any
+      // rejection is swallowed so a background failure never surfaces as
+      // "Check-in failed" — the check-in itself has already persisted.
+      Promise.resolve()
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['energy-state'] });
+          queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+          queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] });
+          queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] });
+          queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] });
+        })
+        .catch((e) => console.warn('[Check-In] invalidate (bg) failed:', e));
 
-      // Snapshot-only home: after a check-in save, trigger the server-side
-      // rebuild of the 3 Executive Home snapshots, then invalidate the
-      // snapshot readers so /executive-home rehydrates from the new rows.
-      try {
-        const period = getCurrentTimeWindow();
-        console.info('[exec-home][refresh:start]', {
-          trigger: 'daily_checkin_save',
-          localDate: todayDate2,
-          window: period,
-        });
-        const headers: Record<string, string> = {};
-        if (DEV_MODE) headers['x-dev-user-id'] = effectiveUserId ?? DEV_USER.id;
-        const t = await getAuthToken().catch(() => null);
-        if (t) headers.Authorization = `Bearer ${t}`;
-        await supabase.functions.invoke('build-executive-home-cards', {
-          headers,
-          body: {
-            mode: 'checkin_save',
-            userId: DEV_MODE ? (effectiveUserId ?? DEV_USER.id) : undefined,
+      // Fire-and-forget: server-side Executive Home rebuild. Never awaited
+      // and never blocks navigation. Background failure logs a structured
+      // diagnostic and stays silent to the user.
+      (async () => {
+        try {
+          const period = getCurrentTimeWindow();
+          console.info('[exec-home][refresh:start]', {
+            trigger: 'daily_checkin_save',
             localDate: todayDate2,
             window: period,
-          },
-        });
-      } catch (e) {
-        console.warn('[exec-home][refresh:error]', {
-          trigger: 'daily_checkin_save',
-          error: e instanceof Error ? e.message : String(e),
-        });
-      }
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
-        queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
-        queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
-      ]);
+          });
+          const headers: Record<string, string> = {};
+          if (DEV_MODE) headers['x-dev-user-id'] = effectiveUserId ?? DEV_USER.id;
+          const t = await getAuthToken().catch(() => null);
+          if (t) headers.Authorization = `Bearer ${t}`;
+          await supabase.functions.invoke('build-executive-home-cards', {
+            headers,
+            body: {
+              mode: 'checkin_save',
+              userId: DEV_MODE ? (effectiveUserId ?? DEV_USER.id) : undefined,
+              localDate: todayDate2,
+              window: period,
+              checkinId: result.id,
+            },
+          });
+        } catch (e) {
+          console.warn('[exec-home][refresh:error]', {
+            trigger: 'daily_checkin_save',
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
 
       // Route to the next step based on the user's check-in mode:
       // - Wearable + Self → straight to Today's Brief (wearable supplies body data)
