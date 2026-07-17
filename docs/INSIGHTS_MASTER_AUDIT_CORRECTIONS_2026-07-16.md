@@ -210,7 +210,7 @@ The master audit should be refreshed with these sections:
 2. `Still open`
 3. `Partially fixed / needs revalidation`
 4. `Suppressed but still active runtime paths`
-5. `Page-level cleanup opportunities`
+5. `Page-level cleanup opportunities` — including a decision to fully remove or re-enable the remaining `{false && ...}` blocks in `src/pages/Insights.tsx`
 6. `Rollout decisions / feature flags`
 
 ## Bottom Line
