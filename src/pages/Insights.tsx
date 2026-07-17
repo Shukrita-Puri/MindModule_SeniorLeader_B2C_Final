@@ -31,6 +31,23 @@ import {
   cacheKeys,
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
+
+// ---------------------------------------------------------------------------
+// Local re-enable flags for suppressed Insights blocks.
+// Each flag replaces a magic `{false && …}` guard so the intent, owner, and
+// re-enable path are explicit. Keep defaults `false` — flipping any of these
+// is a product decision, not a cleanup. See
+// docs/INSIGHTS_MASTER_AUDIT_CORRECTIONS_2026-07-16.md for context.
+// ---------------------------------------------------------------------------
+// Daily Show-Up calendar row. Component + data pipeline are intact; suppressed
+// while the streak surface lives on the homepage. Owner: Insights product.
+const SHOW_DAILY_SHOW_UP_CALENDAR = false;
+// Trajectory summary row. Suppressed because the Inner Readiness dial already
+// deep-links to /insights/leadership-patterns. Owner: Insights product.
+const SHOW_TRAJECTORY_SUMMARY_ROW = false;
+// "Your Momentum" Tiny Wins luxury card. Retained for re-enable once the copy
+// shifts to a more text-based framing. Owner: Insights product.
+const SHOW_MOMENTUM_LUXURY_CARD = false;
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
 const THEME_KEYWORDS: Record<string, string[]> = {
   'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
