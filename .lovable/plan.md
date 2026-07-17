@@ -1,137 +1,148 @@
-# Pre-merge verification for PR2 — results + revised recommendation
+# W3.5 — Complete the deferred architectural gap
 
-Ran the three checks. Two of them return red flags that change the shape of PR2. Details below, then the revised proposal.
+## Honest status correction
 
----
+W3 landed the validators and the persistence-time guard, but the pill tiers are still computed **after** the LLM writes the Brief (at L5849 in `compute-outer-readiness/index.ts`), while the LLM prompt is built around L4015. That means:
 
-## Check 1 — `\bAway\b` and `\bday\s*off\b` false-positive stress test
+- The LLM never sees the final pill tiers.
+- The deterministic fallback receives a hand-rolled `SpecDeterministicParams`, not the same pill context.
+- "Response pills == persisted pills" holds only because the same `signalPillsPayload` object is reused for both — but neither equals what the LLM was told, and coherence auto-correction still mutates tiers **after** copy is written.
 
-Tested the proposed extended regex
-`/\b(ooo|out\s*of\s*office|pto|vacation|annual\s+leave|on\s+leave|holiday|public\s+holiday|bank\s+holiday|national\s+holiday|day\s*off|away)\b/i`
-against realistic exec-calendar titles.
+W3.5 fixes those four gaps without changing any tier thresholds.
 
-### False positives on `\baway\b` (WORK titles wrongly classified as PTO)
+## Files to add
 
-| Title                            | Verdict | Real-world hit |
-|----------------------------------|---------|----------------|
-| `Team Away Day`                  | MATCH   | UK offsite (WORK) |
-| `Away Day Q4`                    | MATCH   | UK offsite (WORK) |
-| `Company away day`               | MATCH   | UK offsite (WORK) |
-| `Away game vs Arsenal`           | MATCH   | Personal event, not PTO |
-| `Away from desk 2pm`             | MATCH   | Focus block, not PTO |
-| `Project Away kickoff`           | MATCH   | Project meeting |
-| `Away Team sync`                 | MATCH   | Sales team sync |
-| `Give-away campaign review`      | MATCH   | Marketing review |
-| `Move it away from Friday`       | MATCH   | Scheduling note |
+### `supabase/functions/_shared/signal-pills/derive-pills.ts` (new, pure module)
+- `type PillTier = 'green' | 'amber' | 'red' | 'neutral'`
+- `type PillKey = 'decision_readiness' | 'physical_reserves' | 'resilience_capacity'`
+- `interface PillDerivationInput` — every input the L5849–6350 block currently reads:
+  - Wearable: `hrvValue, hrvDeviation, rhrValue, rhrDeviation, hrValue, hrDeviation, sleepDuration, sleepScoreVal, sleepEfficiency, rhr3dTrend, hrv3dTrend, wearableTrend7d`
+  - Check-in: `clarityLevel, emotionLevel, regulationLevel, pressureLevel`
+  - Calendar: `calendarLoad, calendarPressure, fragmentationScore, highStakesEventsCount`
+  - Pattern: `sustainedDeficitFlag, consecutiveHighLoadDays, cooccurrence7d, typicalLoadForDow`
+  - Freshness/gates: `wearableFreshForGate, checkInFreshForGate, hasWearable, wearableDaysConnected`
+  - Baseline: `hrvBaseline, rhrBaseline, sleepBaseline`
+  - Framing: `protectionGoals`
+  - History rows for qualifiers: `checkinHistory14d, wearableHistory14d`
+  - MRS tier for coherence: `mrsTier`
+- `interface PillDerivationResult` — the complete canonical object:
+  - `pills: SignalPill[]` (tier, tierLabel, coldStartLabel, contributors, sourceTypes, isScoreBearing, freshness, hiddenReason, detail, contributedByCheckIn, qualifiers)
+  - `coherence: { inSync, adjustments, warning }`
+  - `divergence: { pillar: PillKey; objectiveTier: PillTier; selfReportTier: PillTier; direction: 'objective_better' | 'objective_worse' }[]`
+  - `derivedAtMs`
+- `derivePills(input): PillDerivationResult` — verbatim move of L5879–6355 with:
+  - No behavioural changes to thresholds, veto caps, freshness gates, physical-reserves displayable gate, or coherence assertion.
+  - **Coherence auto-correction applied before return**, so callers see final tiers only.
+  - Divergence detection: computed by comparing objective sub-tiers (HRV/sleep bands for Decision Readiness; RHR/HR bands for Physical Reserves; sleep-efficiency + pattern for Resilience) against check-in sub-tiers (clarity / emotion+regulation+pressure). Emitted whenever the two disagree by ≥1 tier step.
 
-The UK-common phrase **"Team Away Day"** / **"Away Day"** is the killer — this is a work offsite, not PTO, and it's exactly the kind of high-stakes anchor event Brief and Plan must reason about. A widened regex marks the day as PTO and drops the event silently.
-
-### False positives on `\bday\s*off\b`
-
-| Title                       | Verdict | Real-world hit |
-|-----------------------------|---------|----------------|
-| `Day off-site`              | MATCH   | Work offsite |
-| `Kick day off with standup` | MATCH   | Kickoff colloquial |
-| `Round day off`             | MATCH   | Round-off / recap |
-| `Sign day off checklist`    | MATCH   | Sign-off checklist |
-| `Day off Tue`               | MATCH   | Legit PTO (true positive) |
-
-The word-boundary matches trip on kickoff / sign-off / round-off phrasing that treats "day" and "off" as adjacent by coincidence.
-
-### Verdict
-
-Both proposed additions have real false-positive risk on realistic exec calendar titles. The `\bAway\b` case in particular is high-severity because `Team Away Day` is a common WORK anchor that would be silently reclassified. **The plan's Option A on decision point #1 needs to change.**
-
----
-
-## Check 2 — Full existing SSOT test suite that must be green on PR2
-
-Existing test files at `supabase/functions/_shared/availability/`:
-
-- `availability-classifier.test.ts` (182 lines, 15+ test cases including regional holiday applicability, explicit PTO, travel-for-work overrides, FYI feeds)
-- `availability-classifier-consolidation.test.ts` (95 lines, shim-import + SSOT round-trip)
-- `availability-cross-surface.test.ts` (284 lines, Brief/Plan/Nudges cross-surface parity)
-
-Total: 561 lines, 3 files. **All three must run green as a merge gate on PR2**, not just the new 6-row lock. Any change to `PTO_TITLE_RX` inherits into these existing cross-surface assertions and must not regress them.
-
----
-
-## Check 3 — "Additive is safe" — actually verified
-
-Searched Brief / Plan / Executive Home orchestrator for consumers that branch on `isPtoOrHolidayTitle` in ways that would silently change behaviour if the regex widens. Three real hits:
-
-### 3a. `_shared/brief-signal-coverage.ts:203-211` — meeting exclusion filter
-
+### `supabase/functions/_shared/signal-pills/assessment-context.ts` (new)
 ```ts
-function isMeetingLikeEvt(e) {
-  if (!isConfirmedEvt(e)) return false;
-  if (e.isAllDay) return false;
-  if (isTravelTitle(e.title)) return false;
-  if (isPtoOrHolidayTitle(e.title)) return false;   // ← title-only, NOT gated by isAllDay
-  ...
+export interface AssessmentContext {
+  readonly mrs: { score: number | null; tier: MrsTier; band: 'high'|'mid'|'low'|'awaiting' };
+  readonly pills: PillDerivationResult;                    // canonical, final
+  readonly checkIn: { present: boolean; clarity: number|null; emotion: number|null;
+                      regulation: number|null; pressure: number|null; outcome: string|null };
+  readonly wearable: { present: boolean; fresh: boolean; daysConnected: number };
+  readonly freshness: { wearableFresh: boolean; checkInFresh: boolean };
+  readonly baselineMode: 'baseline' | 'refined' | 'awaiting';
+  readonly divergence: PillDerivationResult['divergence'];
+  readonly patternContext: { calendarLoad, calendarPressure, typicalLoadForDow, ... };
+  readonly windowMeta: { localDate: string; window: string; timezone: string };
 }
+export function buildAssessmentContext(...): AssessmentContext;
+```
+Frozen with `Object.freeze` at construction. Correlation/run id attached for logging.
+
+### `supabase/functions/_shared/signal-pills/derive-pills.test.ts` (characterization)
+Pin the current tier output for ~25 fixture inputs covering: HRV-only, sleep-only, clarity-only, cognitive supply-demand cap, physical RHR trend/deviation/sustained-deficit, resilience sleepEfficiency + check-in overlay + cooccurrence + protection goals, cold-start, wearable-not-fresh neutral collapse, physical-reserves displayable-gate collapse, MRS↔pill coherence auto-correction. Run **before** wiring the extraction into `index.ts`; snapshot passes = extraction is behaviour-preserving.
+
+### `supabase/functions/_shared/signal-pills/divergence.test.ts`
+- Mind Sharp (objective green: HRV strong, clarity absent or high) + drained check-in (emotion≤2 and regulation≤2) → `divergence[0].pillar === 'decision_readiness'`, direction `objective_better`.
+- Aligned green wearable + green check-in → no divergence.
+- Objective red + upbeat check-in → divergence `objective_worse`.
+
+### `supabase/functions/_shared/brief-validators.test.ts` (additions)
+Strengthened `validateDivergence`:
+- REJECT: `"Despite the pressure, the mind feels spent."`
+- REJECT: `"Even though today is busy, the mind is tired."`
+- REJECT: `"The mind feels spent, but protect the afternoon."`
+- ACCEPT: `"You checked in drained, while HRV and clarity support a sharper cognitive read."`
+- ACCEPT: `"Objective signals hold steady even though you feel spent."` (both sides named)
+
+Rule: at least one sentence must name a self-report term (`checked in`, `you feel`, `felt`, `self-report`, drained/spent/tired) **and** an objective term (`HRV`, `RHR`, `clarity`, `objective`, `wearable`, `sleep`) with opposing valence (adjectives pulled from `SCORE_VOCAB`). Implemented via sentence tokenisation + tagged term lists, not a global regex.
+
+### `supabase/functions/compute-outer-readiness/assessment-context-flow.test.ts` (new)
+End-to-end behavioural test with mocked LLM:
+1. Mind Sharp + drained input → LLM prompt captured contains exact final pill tiers `decision_readiness=green, physical_reserves=amber, resilience_capacity=amber` and the string `divergence: objective vs self-report`.
+2. Retry prompt on validation reject receives the identical `AssessmentContext.pills` object reference-equal by JSON.
+3. Deterministic fallback receives the same context; output body names both objective and self-report sides.
+4. `response.signalPills` === persisted `signal_pills` (deep-equal) === `context.pills.pills`.
+5. No coherence adjustment fires after copy generation (assert via spy on the reconciler that it was called 0 times in the post-copy phase).
+
+## Edits to existing files
+
+### `supabase/functions/compute-outer-readiness/index.ts`
+1. **Hoist pill derivation to run once, before the LLM prompt is built** (~L3900, immediately after MRS score + wearable/check-in signals are finalized, before the userPrompt construction at L4015). Pull the ~40 locals it needs; anything not yet in scope at that point (calendar pattern signals, cooccurrence, etc.) is what actually gets moved up — audit shows all of these are computed before L4015 already except `composedPatternSignals` derivations at L5849–5871, which are simple fallbacks over already-in-scope variables and move cleanly.
+2. Build `AssessmentContext` immediately after `derivePills` returns.
+3. Replace inline pill block at L5849–6355 with `const { pills, coherence } = assessmentContext;` and reuse.
+4. Pass `assessmentContext` into:
+   - LLM userPrompt builder — new `=== PILL ASSESSMENT ===` section listing tier + label + top contributors per pill, plus explicit `DIVERGENCE:` line when `context.divergence.length > 0` describing which pillar and which side is which, and `UNREAD:` line listing neutral pills with reason.
+   - Retry/repair prompt (currently at ~L5049–5301) — inject the same section.
+   - `buildSpecDeterministicBrief` — extend `SpecDeterministicParams` to accept `assessmentContext` and use `context.pills` / `context.divergence` directly instead of re-deriving MRS band + contributors. Deterministic templates gain a divergence-aware branch that names both sides when `divergence.length > 0`.
+   - Persistence — pass `context.pills.pills` into the snapshot write; guard revalidates and logs only reason codes, tiers, sourceTypes, date/window, correlation id (no body previews).
+5. **Remove** the post-copy coherence auto-correction branch — replaced by pre-copy application inside `derivePills`.
+6. Remove `SpecDeterministicParams` fields now redundant with `AssessmentContext` (or make them `Pick<AssessmentContext, ...>` for clarity).
+
+### `supabase/functions/_shared/brief/spec-deterministic-brief.ts`
+- Accept `assessmentContext` (optional for back-compat during transition, required after).
+- New helper `renderDivergenceBeat(context)` — chooses a template that names objective signal (HRV/RHR/clarity by name) and self-report (feeling/check-in) with opposing valences.
+- All output runs through the same validators immediately (`validateNoScoreRestatement`, `validatePillBodyConsistency`, strengthened `validateDivergence`) — no persistence-only rescue.
+
+### `supabase/functions/_shared/brief-validators.ts`
+- Replace the global "despite/but/even though" heuristic in `validateDivergence` with `parseDivergenceStatements(body, tokens)`:
+  - Tokenise into sentences.
+  - Tag each sentence for `objectiveTerm | selfReportTerm | neither`.
+  - Require ≥1 sentence containing at least one objective term AND at least one self-report term, or two adjacent sentences that split them with an explicit contrast connector (`while`, `even though`, `despite`, `but`) and opposing valence adjectives.
+- Export `SCORE_VOCAB` for reuse by deterministic templates.
+
+## Execution order
+
+```text
+signals → MRS → derivePills → AssessmentContext (frozen)
+                                    ↓
+             ┌──────────────────────┼──────────────────────┐
+         LLM prompt          Retry prompt        Deterministic fallback
+                                    ↓
+                              validators
+                                    ↓
+                       persistence (pills = context.pills)
+                       revalidate as invariant, log reason codes only
 ```
 
-A timed 9-to-5 event titled `Team Away Day` — under the widened regex — would be silently **dropped from Brief's meeting count entirely.** Brief would show the CEO an empty calendar on their offsite.
+No tier mutation after `AssessmentContext` is frozen.
 
-### 3b. `build-executive-home-cards/day-type.ts:100-125` — real-meeting counter
+## Testing sequence
 
-`hasRealMeeting` and `realMeetingMinutes` both explicitly exclude events matching `isPtoOrHolidayTitle`, again title-only. Widening the regex means `Team Away Day` (a full-day timed offsite) drops out of the meeting-minutes tally → day flips to `light_day` → afternoon regen suppressed → orchestrator downgrades a high-stakes day to a light one.
+1. Add characterization suite; run against **current** inline code with a temporary shim that captures inputs → confirm parity fixtures. (Prevents extraction regressions.)
+2. Extract to module; rerun — must pass identically.
+3. Wire context into prompts + deterministic + persistence.
+4. Add divergence, flow, and validator tests.
+5. Rerun W1 (24), W2 (12 + 31 Deno), W3 (existing validators, brief_prompt_contract, body_copy, redundancy, validator_loosening).
+6. `tsgo` for TS check; Deno test on all `_shared/signal-pills/*` and `compute-outer-readiness/*`.
 
-### 3c. `build-executive-home-cards/index.ts:189` — consecutive-off-day lookback
+## Guarantees this delivers (all provable by the new tests)
 
-Uses `isAllDay && isPtoOrHolidayTitle` so is gated correctly. Safe.
+- LLM prompt contains final pill tiers before any copy is written.
+- Retry prompt uses the same frozen context.
+- Deterministic fallback consumes the same context and produces divergence-aware copy directly.
+- `response.signalPills`, `context.pills.pills`, and the persisted snapshot are the same object graph.
+- No `assertPillCoherence` invocation exists downstream of LLM/deterministic output.
+- Mind Sharp + drained produces a Brief that names both the objective side (HRV/clarity) and self-report side (drained) with opposing valence — not `awaiting`.
+- Persistence guard remains as defence-in-depth, logs only reason codes/tiers/sourceTypes/date/window/correlation id, never body previews.
+- W4 (check-in latency) is not touched.
 
-### Verdict
+## Risks / deferred
 
-The "additive is safe" assumption is **falsified**. `isPtoOrHolidayTitle` is used as a title-only filter in Brief (3a) and Executive Home (3b), not just as a state classifier. Widening the regex silently changes what counts as a meeting on both surfaces. The Team-Away-Day case makes this concrete: a full-day offsite currently classified as WORK would silently become an off-day with no meetings, which is the exact failure mode the plan claimed monotonicity would prevent.
-
----
-
-## Revised recommendation
-
-The original PR2 plan (Option A on decision points 2b) is **not safe to ship as specced**. Two workable paths forward:
-
-### Path A (recommended) — narrower SSOT extension + gate title-only filters on `isAllDay`
-
-1. **Do NOT add bare `\baway\b`.** Replace it with either:
-   - Drop the `away` addition entirely; accept that "Away" as a bare title reads as WORK (current SSOT behaviour). Real users type `PTO`, `Annual leave`, `On leave`, or `Holiday`. Lose almost nothing.
-   - OR add a very narrow variant that requires a PTO-anchoring suffix: `\baway\s+(all\s*day|today|through|until|this\s+(week|month)|for\s+\d)\b`. Manually stress-test the new pattern against the same false-positive list before shipping. This is the "if we insist on catching informal titles" path.
-2. **`\bday\s*off\b`** — narrow to a boundary that excludes kickoff/sign-off/round-off collisions. Options:
-   - Title-anchored: `^(?:my\s+|taking\s+(?:a|the)\s+)?day\s*off\b` (matches "Day off", "Day off Tue", "Taking the day off"; rejects "Kick day off with standup", "Sign day off checklist").
-   - Whole-title equality: `^\s*day\s*off\b`. Slightly stricter, same intent.
-3. **Add an `isAllDay` gate to `isMeetingLikeEvt` (brief-signal-coverage.ts:208) and to `hasRealMeeting` / `realMeetingMinutes` (day-type.ts:100, 125)** — title-only exclusion is the actual bug. A timed 9-5 "PTO" is nonsense; if the SSOT title matches AND the event is all-day, exclude it; otherwise it's a meeting. This is a small, defensive fix that neutralises the entire class of widened-regex-drops-work-events problem regardless of future SSOT changes.
-4. Land Path A behind a git-branch-only PR, run the full 561-line existing SSOT suite plus the new 6-row lock plus the `Team Away Day` / `Day off-site` fixtures added as false-positive locks, review, then merge.
-
-### Path B — smaller, launch-safest cut
-
-Skip the SSOT regex change entirely. C2 becomes: delete `AWAY_KEYWORDS`, `TRAVEL_KEYWORDS`, `OOO_KEYWORDS` from `event-classifier.ts` and rewrite `detectDayKindFromEvents` to call the SSOT as-is. Accept that:
-- `Out of office` / `OOO` still work (already in SSOT).
-- `Day off` / `Away` — previously suppressed nudges under old C2, will now behave as WORK under the SSOT. Document this as a semantic tightening in the mem doc. Real impact: nudges continue on informal PTO titles until the user retitles or the SSOT gets Path A step 1 later.
-- No change to `PTO_TITLE_RX`, so Brief and Plan see zero behaviour delta from PR2. **This is the safest pre-launch shape.**
-
-### My recommendation
-
-Land **Path B** as PR2 now (contained, zero SSOT change, zero Brief/Plan behaviour delta). Do Path A as a separate PR3 **post-launch**, together with the `isAllDay`-gate defensive fix — that fix is worth doing on its own merit even if the SSOT never widens, because it closes a class of bug where any future regex loosening (deliberate or accidental) can silently drop work events.
-
-Both C3/C4 stay as mem notes only. C1 stays branch-only until post-launch.
-
-## Deliverables of THIS response
-
-- Verification results above (evidence in the plan body, no code changed).
-- If Path B is approved: revised PR2 spec with the 6-row lock updated so `Day off`, `Away`, `OOO`, `Out of office` rows document the intentional semantic tightening rather than a suppressed change.
-- If Path A is approved instead: extended PR2 spec with the narrower regexes, the `isAllDay` gate fix, and the false-positive lock fixtures.
-- Mem-doc addendum for C3/C4 (unchanged from prior turn).
-- PR1 (C1) hold-until-post-launch note (unchanged from prior turn).
-
-## Out of scope (unchanged)
-
-- Physical move under `ceo-behaviour/`.
-- Deletion of `holiday-applicability.ts` shim.
-- Any change to consumer logic beyond the `isAllDay` gate in step 3 of Path A.
-
-## Technical notes
-
-- The stress-test fixtures are synthetic but drawn from patterns that appear literally in this repo's own strings (`Team away`, `Day off-site`, `sign-off`, `kickoff`). This is not hypothetical — the collision surface is real.
-- `\bAway\b` on its own can never be safe in a title-only predicate: "Away Day" is idiomatic English for an offsite. The only way to keep it is to gate on `isAllDay` at the call site, which we should do anyway.
-- The `isAllDay` gate fix is 3 lines across 2 files (`brief-signal-coverage.ts` and `day-type.ts`) and can ship independently of any SSOT change. Consider elevating it out of PR2 into its own tiny PR that lands first — it makes every subsequent SSOT change safer.
+- Moving pill derivation up ~1800 lines may surface a hidden dependency on a variable not yet in scope; the characterization suite catches that before wiring. If a genuine ordering hazard emerges, only the strict inputs get hoisted, not consumers.
+- Existing snapshots persisted before this change may have coherence-adjusted tiers that differed from raw derivation; the new pre-copy application makes both paths identical going forward but does not backfill history.
+- Divergence template library starts small (Decision Readiness objective-better + objective-worse, mirrored for Physical Reserves); further pillars added in a follow-up if fixtures demand.
