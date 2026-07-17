@@ -4,6 +4,7 @@ import slide1Engraved from "@/assets/onboarding/app-intro-slide-1-engraved.jpg";
 import slide2Engraved from "@/assets/onboarding/app-intro-slide-2-engraved.jpg";
 import slide3Engraved from "@/assets/onboarding/app-intro-slide-3-engraved.jpg";
 import slide4Engraved from "@/assets/onboarding/app-intro-slide-4-engraved.jpg";
+import slide5Engraved from "@/assets/onboarding/app-intro-slide-5-engraved.jpg";
 
 /**
  * USP Carousel — new onboarding v8 intro.
@@ -35,6 +36,12 @@ const SLIDES = [
     body:
       "Performance Patterns identifies the signals behind your cognitive performance — from recovery and workload to focus, stress, and decision quality.",
     image: slide4Engraved,
+  },
+  {
+    title: "See what drains your performance.",
+    body:
+      "Spot the meetings, workloads and moments that quietly erode your edge — so you can rebalance before they cost you.",
+    image: slide5Engraved,
   },
 ];
 
