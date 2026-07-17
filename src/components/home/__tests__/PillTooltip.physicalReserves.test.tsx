@@ -17,37 +17,36 @@ const makePill = (
 });
 
 describe('PillDetailContent · physical_reserves contract', () => {
-  it('full contributors → renders every displayable row', () => {
+  it('RHR + HR contributors render as their own rows (no sleep — W1)', () => {
     render(
       <PillDetailContent
         pill={makePill({
           contributors: {
-            sleepDuration: 450,
-            sleepScore: 82,
             rhrValue: 58,
             hrValue: 72,
           },
         })}
       />,
     );
-    expect(screen.getByText('Sleep Duration')).toBeInTheDocument();
-    expect(screen.getByText('Sleep Score')).toBeInTheDocument();
     expect(screen.getByText('RHR')).toBeInTheDocument();
     expect(screen.getByText('HR')).toBeInTheDocument();
+    expect(screen.queryByText('Sleep Duration')).toBeNull();
+    expect(screen.queryByText('Sleep Score')).toBeNull();
     expect(screen.queryByText(/not available for this reading/i)).toBeNull();
   });
 
-  it('partial contributors → only real rows render, no fake missing wall', () => {
+  it('partial contributors → RHR renders, HR shows honest missing row', () => {
     render(
       <PillDetailContent
         pill={makePill({ contributors: { rhrValue: 60 } })}
       />,
     );
     expect(screen.getByText('RHR')).toBeInTheDocument();
-    // Expected-missing rows still render for the other three (legacy honesty).
-    expect(screen.getByText('Sleep Duration')).toBeInTheDocument();
-    // But we should NOT collapse into the neutral fallback line because at
-    // least one real contributor row exists.
+    // Only HR is expected under physical_reserves now — Sleep rows must
+    // never appear here.
+    expect(screen.getByText('HR')).toBeInTheDocument();
+    expect(screen.queryByText('Sleep Duration')).toBeNull();
+    expect(screen.queryByText('Sleep Score')).toBeNull();
     expect(screen.queryByText(/not available for this reading/i)).toBeNull();
   });
 
@@ -87,8 +86,27 @@ describe('PillDetailContent · physical_reserves contract', () => {
     );
     // Neutral tier keeps the honest "missing" rows so users see what's absent.
     expect(screen.getByText(/No RHR data available/i)).toBeInTheDocument();
+    expect(screen.getByText(/No HR data available/i)).toBeInTheDocument();
+    // Sleep is not expected under Physical Reserves anymore.
+    expect(screen.queryByText(/No sleep duration available/i)).toBeNull();
+    expect(screen.queryByText(/No sleep score available/i)).toBeNull();
     expect(
       screen.queryByText('Body detail not available for this reading.'),
     ).toBeNull();
+  });
+
+  it('legacy snapshot sleep keys under Physical Reserves are ignored', () => {
+    render(
+      <PillDetailContent
+        pill={makePill({
+          // Legacy backend payload that still ships sleep under
+          // physical_reserves must not surface any Sleep rows.
+          contributors: { sleepDuration: 420, sleepScore: 78, rhrValue: 60 } as any,
+        })}
+      />,
+    );
+    expect(screen.getByText('RHR')).toBeInTheDocument();
+    expect(screen.queryByText('Sleep Duration')).toBeNull();
+    expect(screen.queryByText('Sleep Score')).toBeNull();
   });
 });

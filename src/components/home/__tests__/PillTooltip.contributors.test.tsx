@@ -53,7 +53,7 @@ describe('PillDetailContent · Sprint B contributor rendering', () => {
     expect(screen.queryByText(/No check-in yet/i)).toBeNull();
   });
 
-  it('physical_reserves renders wearable sleep/RHR/HR contributor rows', () => {
+  it('physical_reserves renders RHR + HR rows only (no sleep — W1)', () => {
     render(
       <PillDetailContent
         pill={make({
@@ -64,9 +64,9 @@ describe('PillDetailContent · Sprint B contributor rendering', () => {
         })}
       />,
     );
-    expect(screen.getByText('Sleep Duration')).toBeInTheDocument();
-    expect(screen.getByText('Sleep Score')).toBeInTheDocument();
     expect(screen.getByText('RHR')).toBeInTheDocument();
     expect(screen.getByText('HR')).toBeInTheDocument();
+    expect(screen.queryByText('Sleep Duration')).toBeNull();
+    expect(screen.queryByText('Sleep Score')).toBeNull();
   });
 });

@@ -6030,10 +6030,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               // MRS v3 — Physical Reserves owns RHR, HR, and the RHR 3-day trend.
               // Sleep belongs to Decision Readiness; sustained deficit belongs
               // to Resilience Capacity (deferred consequence, not raw reserve).
-              // Display contract: include sleep fields so the tooltip can show
-              // Sleep / RHR / HR together and mark missing values honestly.
-              sleepDuration,
-              sleepScore: sleepScoreVal,
+              // Display contract (W1): sleep is intentionally NOT surfaced here
+              // — it lives under Decision Readiness only. Physical Reserves
+              // contributors are strictly RHR + HR.
               rhrValue,
               hrValue,
             },
@@ -6189,17 +6188,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const c = (p.contributors ?? {}) as Record<string, unknown>;
           const isNum = (v: unknown): v is number =>
             typeof v === 'number' && Number.isFinite(v);
+          // W1: Physical Reserves owns RHR + HR only. Sleep fields are
+          // no longer emitted for this pill — see contributors block above.
           const displayableCount =
-            (isNum(c.sleepDuration) ? 1 : 0) +
-            (isNum(c.sleepScore) ? 1 : 0) +
-            (isNum(c.rhrValue) ? 1 : 0) +
-            (isNum(c.hrValue) ? 1 : 0);
+            (isNum(c.rhrValue) ? 1 : 0) + (isNum(c.hrValue) ? 1 : 0);
           const suppressedKeys = Object.keys(c).filter(
-            (k) =>
-              k !== 'sleepDuration' &&
-              k !== 'sleepScore' &&
-              k !== 'rhrValue' &&
-              k !== 'hrValue',
+            (k) => k !== 'rhrValue' && k !== 'hrValue',
           );
           console.log('[signal-pills-v4][physical_reserves] displayable audit', {
             tier: p.tier,

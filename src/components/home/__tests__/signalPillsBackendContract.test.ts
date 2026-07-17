@@ -27,15 +27,16 @@ describe('compute-outer-readiness signalPillsPayload · Sprint B contributors', 
     expect(drSlice).toContain('clarityLevel');
   });
 
-  it("physical_reserves contributors literal includes sleep + RHR + HR", () => {
+  it("physical_reserves contributors literal is RHR + HR (no sleep — W1)", () => {
     const prSlice = SRC.slice(
       SRC.indexOf("key: 'physical_reserves'"),
       SRC.indexOf("key: 'resilience_capacity'"),
     );
-    expect(prSlice).toContain('sleepDuration');
-    expect(prSlice).toContain('sleepScore: sleepScoreVal');
     expect(prSlice).toContain('rhrValue');
     expect(prSlice).toContain('hrValue');
+    // Sleep belongs to Decision Readiness only.
+    expect(prSlice).not.toMatch(/sleepDuration,/);
+    expect(prSlice).not.toContain('sleepScore: sleepScoreVal');
   });
 
   it("resilience_capacity contributors literal includes sleepEfficiency + emotion/regulation/pressure + pattern fields", () => {
