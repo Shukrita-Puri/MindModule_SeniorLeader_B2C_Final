@@ -83,9 +83,8 @@ export default function StageUSPIntro() {
           className="absolute inset-0 w-full h-full"
           style={{
             filter: "grayscale(1) contrast(1.05)",
-            objectFit: "cover",
-            objectPosition: idx < 3 ? "center bottom" : "center",
-            top: idx === 2 ? "8%" : undefined,
+          objectFit: idx < 3 ? "cover" : "cover",
+          objectPosition: idx < 3 ? "center bottom" : "center",
           }}
         />
       </div>
