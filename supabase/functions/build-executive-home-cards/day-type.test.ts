@@ -245,7 +245,10 @@ Deno.test("W2: Today = applicable holiday, tomorrow = workday → week_ahead (la
     travel: null,
   });
   assertEquals(d.dayType, "week_ahead");
-  assertEquals(d.weekAheadReason, "last_day_holiday");
+  // Reason is `last_day_pto`: the SSOT collapses PTO and public-holiday into
+  // one state, and the week-ahead evaluator's PTO branch is checked before
+  // the holiday branch — both trigger the same cadence so this is intentional.
+  assertEquals(d.weekAheadReason, "last_day_pto");
   assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
 });
 
