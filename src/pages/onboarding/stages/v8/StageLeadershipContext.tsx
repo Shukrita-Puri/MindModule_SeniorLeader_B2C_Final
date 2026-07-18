@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA, SkipLink } from "./ShellV8";
-import { loadV8Row, makeDebouncedSaver, saveV8 } from "@/utils/onboardingV8";
+import { loadV8Row, saveV8, type V8Fields } from "@/utils/onboardingV8";
 import {
   isHttpUrl,
   isLinkedInUrl,
@@ -51,6 +51,25 @@ const CARDS: { key: Key; icon: string; title: string; sub: string; badge: string
   },
 ];
 
+function normalizeLinkedInProfileInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^\/?in\//i.test(trimmed)) {
+    return normalizeUrl(`linkedin.com/${trimmed.replace(/^\/+/, "")}`);
+  }
+  return normalizeUrl(trimmed);
+}
+
+function isLinkedInProfileUrl(raw: string): boolean {
+  if (!isLinkedInUrl(raw)) return false;
+  try {
+    const url = new URL(normalizeUrl(raw));
+    return /^\/in\/[^/]+\/?$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 export default function StageLeadershipContext() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
@@ -60,7 +79,7 @@ export default function StageLeadershipContext() {
   const [touched, setTouched] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const [scrape, setScrape] = useState<ScrapeState>({ status: "idle" });
   const [isHydrated, setIsHydrated] = useState(false);
-  const debouncedSave = useMemo(() => makeDebouncedSaver(700), []);
+  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
     let cancelled = false;
@@ -92,33 +111,46 @@ export default function StageLeadershipContext() {
 
   // Compute validation each render (cheap).
   const writingArr = parseWritingUrlsInput(values.writing);
-  const linkedinValid = !selected.linkedin || values.linkedin.trim() === "" || isLinkedInUrl(values.linkedin);
+  const linkedinInput = normalizeLinkedInProfileInput(values.linkedin);
+  const linkedinValid = !selected.linkedin || values.linkedin.trim() === "" || isLinkedInProfileUrl(linkedinInput);
   const writingInvalid = selected.writing && writingArr.some((u) => !isHttpUrl(u));
   const writingOverLimit = selected.writing && values.writing
     .split(/[\n,]+/)
     .map((s) => s.trim())
     .filter(Boolean).length > MAX_WRITING_URLS;
-
-  // Debounced autosave whenever text values change — only persist sanitized values.
-  useEffect(() => {
-    if (!isHydrated) return;
-    debouncedSave({
-      linkedin_url:
-        selected.linkedin && values.linkedin.trim() && isLinkedInUrl(values.linkedin)
-          ? normalizeUrl(values.linkedin)
-          : null,
-      writing_urls: selected.writing ? writingArr.filter(isHttpUrl).map(normalizeUrl) : [],
-      freetext_context: selected.notes
-        ? (values.notes.trim().slice(0, MAX_FREETEXT_LEN) || null)
-        : null,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSave, isHydrated, values, selected]);
-
   const canContinue = linkedinValid && !writingInvalid && !writingOverLimit;
 
+  const buildPayload = (): V8Fields => ({
+    linkedin_url:
+      selected.linkedin && values.linkedin.trim() && isLinkedInProfileUrl(linkedinInput)
+        ? linkedinInput
+        : null,
+    writing_urls: selected.writing ? writingArr.filter(isHttpUrl).map(normalizeUrl) : [],
+    freetext_context: selected.notes
+      ? (values.notes.trim().slice(0, MAX_FREETEXT_LEN) || null)
+      : null,
+  });
+
+  // Debounced autosave whenever text values change — with visible state so
+  // users can tell their context was actually recorded.
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (!canContinue) {
+      setAutosaveState("idle");
+      return;
+    }
+    setAutosaveState("saving");
+    const timer = window.setTimeout(() => {
+      void saveV8(buildPayload()).then((res) => {
+        setAutosaveState(res.ok ? "saved" : "error");
+      });
+    }, 700);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, values, selected, canContinue]);
+
   const linkedinReady =
-    selected.linkedin && values.linkedin.trim() !== "" && isLinkedInUrl(values.linkedin);
+    selected.linkedin && values.linkedin.trim() !== "" && isLinkedInProfileUrl(linkedinInput);
 
   const verifyLinkedin = async () => {
     if (!linkedinReady) return;
@@ -133,7 +165,7 @@ export default function StageLeadershipContext() {
       const res = await fetch(getSupabaseFunctionUrl("linkedin-profile-scrape"), {
         method: "POST",
         headers,
-        body: JSON.stringify({ linkedinUrl: normalizeUrl(values.linkedin) }),
+        body: JSON.stringify({ linkedinUrl: linkedinInput }),
       });
       const data = await res.json().catch(() => ({} as Record<string, unknown>));
       if (!res.ok) {
@@ -187,12 +219,7 @@ export default function StageLeadershipContext() {
     setSaveError(null);
     const res = await saveV8(
       {
-        linkedin_url:
-          selected.linkedin && values.linkedin.trim() && isLinkedInUrl(values.linkedin)
-            ? normalizeUrl(values.linkedin)
-            : null,
-        writing_urls: selected.writing ? writingArr.filter(isHttpUrl).map(normalizeUrl) : [],
-        freetext_context: selected.notes ? (values.notes.trim().slice(0, MAX_FREETEXT_LEN) || null) : null,
+        ...buildPayload(),
       },
       "leadership_context",
     );
@@ -249,21 +276,33 @@ export default function StageLeadershipContext() {
       {saveError && (
         <div className="text-[11px] text-saffron mb-2">{saveError}</div>
       )}
+      {autosaveState !== "idle" && (
+        <div className={`text-[11px] mb-2 ${autosaveState === "error" ? "text-saffron" : "text-[#1a6b4a]"}`}>
+          {autosaveState === "saving"
+            ? "Saving leadership context…"
+            : autosaveState === "saved"
+            ? "Leadership context saved."
+            : "Couldn't autosave yet — Continue will retry."}
+        </div>
+      )}
 
       <div className="space-y-2.5">
         {CARDS.map((c) => {
           const sel = selected[c.key];
-          const showLinkedInErr = c.key === "linkedin" && sel && touched.linkedin && values.linkedin.trim() !== "" && !isLinkedInUrl(values.linkedin);
+          const showLinkedInErr = c.key === "linkedin" && sel && touched.linkedin && values.linkedin.trim() !== "" && !isLinkedInProfileUrl(linkedinInput);
           const showWritingErr = c.key === "writing" && sel && touched.writing && (writingInvalid || writingOverLimit);
           return (
             <div
               key={c.key}
-              onClick={() => setSelected((p) => ({ ...p, [c.key]: !p[c.key] }))}
-              className={`cursor-pointer rounded-[14px] p-4 border transition-colors ${
+              className={`rounded-[14px] p-4 border transition-colors ${
                 sel ? "border-[#1a6b4a] bg-[#e1f0e8]" : "border-[#cfc7b8] bg-white hover:bg-[#ede8dc]"
               }`}
             >
-              <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={() => setSelected((p) => ({ ...p, [c.key]: !p[c.key] }))}
+                className="w-full text-left flex items-start gap-3"
+              >
                 <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 text-sm font-semibold ${sel ? "bg-[#1a6b4a]/12 text-[#1a6b4a]" : "bg-[#ede8dc] text-[#7a7060]"}`}>
                   {c.icon}
                 </div>
@@ -271,7 +310,7 @@ export default function StageLeadershipContext() {
                   <div className="text-[13px] font-medium text-[#1a1712]">{c.title}</div>
                   <div className="text-[11px] text-[#7a7060] mt-0.5 leading-[1.45]">{c.sub}</div>
                 </div>
-              </div>
+              </button>
               <div className={`text-[9px] mt-2 px-2.5 py-0.5 rounded-full w-fit font-medium tracking-[0.4px] ${sel ? "bg-[#1a6b4a]/12 text-[#1a6b4a]" : "bg-[#e0d9ce] text-[#7a7060]"}`}>
                 {c.badge}
               </div>
@@ -281,8 +320,11 @@ export default function StageLeadershipContext() {
                     rows={4}
                     placeholder={c.placeholder}
                     value={values[c.key]}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setValues((p) => ({ ...p, [c.key]: e.target.value }))}
+                    onFocus={() => setSelected((p) => ({ ...p, [c.key]: true }))}
+                    onChange={(e) => {
+                      setSelected((p) => ({ ...p, [c.key]: true }));
+                      setValues((p) => ({ ...p, [c.key]: e.target.value }));
+                    }}
                     onBlur={() => setTouched((p) => ({ ...p, [c.key]: true }))}
                     maxLength={MAX_FREETEXT_LEN}
                     className="w-full mt-2.5 text-xs px-3 py-2.5 rounded-[10px] border border-[#cfc7b8] bg-[#f5f0e8] text-[#1a1712] outline-none focus:border-[#1a6b4a] resize-none"
@@ -291,8 +333,11 @@ export default function StageLeadershipContext() {
                   <input
                     placeholder={c.placeholder}
                     value={values[c.key]}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setValues((p) => ({ ...p, [c.key]: e.target.value }))}
+                    onFocus={() => setSelected((p) => ({ ...p, [c.key]: true }))}
+                    onChange={(e) => {
+                      setSelected((p) => ({ ...p, [c.key]: true }));
+                      setValues((p) => ({ ...p, [c.key]: e.target.value }));
+                    }}
                     onBlur={() => setTouched((p) => ({ ...p, [c.key]: true }))}
                     className="w-full mt-2.5 text-xs px-3 py-2.5 rounded-[10px] border border-[#cfc7b8] bg-[#f5f0e8] text-[#1a1712] outline-none focus:border-[#1a6b4a]"
                   />
