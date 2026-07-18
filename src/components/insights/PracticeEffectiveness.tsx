@@ -92,7 +92,7 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
         const token = await getAuthToken();
         const { data: res, error } = await supabase.functions.invoke('content-feedback', {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          body: { action: 'GET_PRACTICE_IMPACT' },
+          body: { action: 'GET_PRACTICE_IMPACT', lookbackWindow: 'all_time' },
         });
         if (error) throw error;
         if (!cancelled) setData((res as any)?.data ?? null);
@@ -119,7 +119,8 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
 
   const planRows = useMemo(() => practices.filter((practice) => !!practice.planBadge), [practices]);
   const standaloneRows = useMemo(() => practices.filter((practice) => !practice.planBadge), [practices]);
-  const topPractice = practices.find((practice) => practice.sessions >= 3) ?? practices[0];
+  const confirmedPractice = practices.find((practice) => practice.sessions >= 3);
+  const emergingPractice = practices[0];
 
   if (loading) {
     return (
@@ -147,8 +148,10 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
       </div>
 
       <div className="text-sm font-medium text-foreground leading-snug mb-3">
-        {topPractice
-          ? `Most effective: ${topPractice.title}${bestWindow ? ` · usually ${bestWindowLabel(bestWindow)}` : ''}`
+        {confirmedPractice
+          ? `Most effective: ${confirmedPractice.title}${bestWindow ? ` · usually ${bestWindowLabel(bestWindow)}` : ''}`
+          : emergingPractice && emergingPractice.sessions > 0
+            ? `Building signal: ${emergingPractice.title} — ${3 - emergingPractice.sessions} more session${3 - emergingPractice.sessions === 1 ? '' : 's'} to confirm`
           : 'Log practices to reveal what restores your performance'}
       </div>
 

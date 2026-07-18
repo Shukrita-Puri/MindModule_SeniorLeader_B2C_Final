@@ -93,6 +93,14 @@ const InsightDetail = () => {
           >
             {card.render(user?.id)}
           </Suspense>
+          <div
+            data-share-only
+            style={{ display: 'none' }}
+            className="mt-3 pt-2 border-t border-border/30 flex items-center justify-between"
+          >
+            <span className="text-[10px] text-muted-foreground font-body">Mind Module</span>
+            <span className="text-[10px] text-muted-foreground font-body">mindmodule.me</span>
+          </div>
         </div>
       </div>
     </div>

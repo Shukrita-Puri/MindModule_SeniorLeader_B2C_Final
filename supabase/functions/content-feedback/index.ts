@@ -11,6 +11,7 @@ const corsHeaders = {
 
 interface RequestBody {
   action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT';
+  lookbackWindow?: 'thirty_days' | 'all_time';
   contentId?: string;
   feedbackData?: {
     content_id: string;
@@ -117,11 +118,14 @@ serve(async (req) => {
       }
 
       case 'GET_PRACTICE_IMPACT': {
-        // 30-day window
-        const sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const sinceDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10);
+        // Session counting can use all-time history; impact deltas stay
+        // bounded to recent data so the measured effect remains relevant.
+        const lookbackWindow = body.lookbackWindow ?? 'thirty_days';
+        const sessionSinceIso = lookbackWindow === 'all_time'
+          ? '2020-01-01T00:00:00.000Z'
+          : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const deltaSinceIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+        const deltaSinceDate = deltaSinceIso.slice(0, 10);
 
         // ── Pull all source data in parallel ─────────────────────
         const [fbRes, evRes, ciRes, wdRes, favRes] = await Promise.all([
@@ -131,24 +135,24 @@ serve(async (req) => {
             .eq('user_id', userId)
             .eq('feedback_type', 'star_rating')
             .not('star_rating', 'is', null)
-            .gte('created_at', sinceIso),
+            .gte('created_at', deltaSinceIso),
           supabase
             .from('sanctuary_events')
             .select('content_id, category, timestamp')
             .eq('user_id', userId)
             .in('event_type', ['completed', 'session_complete'])
-            .gte('timestamp', sinceIso),
+            .gte('timestamp', sessionSinceIso),
           supabase
             .from('daily_checkins')
             .select('checkin_date, time_window, timestamp, clarity_level, mental_sharpness_level, confidence_level')
             .eq('user_id', userId)
-            .gte('checkin_date', sinceDate)
+            .gte('checkin_date', deltaSinceDate)
             .order('timestamp', { ascending: true }),
           supabase
             .from('wearable_data')
             .select('summary_date, hrv, resting_heart_rate')
             .eq('user_id', userId)
-            .gte('summary_date', sinceDate),
+            .gte('summary_date', deltaSinceDate),
           supabase
             .from('user_favorites')
             .select('content_id'),

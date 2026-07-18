@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 type Confidence = 'strong' | 'emerging';
 interface StressMatrix {
   events: string[];
+  categoryNames?: string[];
   days: string[];
   cells: (number | null)[][];
   n: number[][];
@@ -106,21 +107,41 @@ interface DrainHeatmapGridProps {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  'Board reviews': 'Governance',
-  'Board / governance': 'Governance',
-  'Board governance': 'Governance',
-  'Investor calls': 'Visibility',
-  'Town halls': 'Visibility',
-  'Client meetings': 'Visibility',
-  'Small-group session': 'Visibility',
-  'Small-group sessions': 'Visibility',
-  '1:1s': 'Relationship / 1:1',
-  'Catch-up': 'Relationship / 1:1',
-  'Catch-ups': 'Relationship / 1:1',
-  Networking: 'Networking',
-  'Deep work': 'Deep Work',
-  'Solo work block': 'Deep Work',
-  Interviews: 'Hiring',
+  'Board reviews': 'High-Stakes Governance',
+  'Board / governance': 'High-Stakes Governance',
+  'Board governance': 'High-Stakes Governance',
+  Governance: 'High-Stakes Governance',
+  'Investor calls': 'High-Stakes Governance',
+  'Sales / pitches': 'Influence & Persuasion',
+  'Town halls': 'Visibility & Communication',
+  'Client meetings': 'Visibility & Communication',
+  'Small-group session': 'Visibility & Communication',
+  'Small-group sessions': 'Visibility & Communication',
+  Visibility: 'Visibility & Communication',
+  '1:1s': 'People & Difficult Conversations',
+  'Catch-up': 'People & Difficult Conversations',
+  'Catch-ups': 'People & Difficult Conversations',
+  'Catch-ups & syncs': 'People & Difficult Conversations',
+  'Relationship / 1:1': 'People & Difficult Conversations',
+  Networking: 'People & Difficult Conversations',
+  'Networking & com...': 'People & Difficult Conversations',
+  Interviews: 'People & Difficult Conversations',
+  Hiring: 'People & Difficult Conversations',
+  'Deep work': 'Deep Work & Strategy',
+  'Solo work block': 'Deep Work & Strategy',
+  'Solo work blocks': 'Deep Work & Strategy',
+  'Deep Work': 'Deep Work & Strategy',
+  Conferences: 'Conferences & External Events',
+  'School & family': 'Daily Rhythm & Baseline',
+  Personal: 'Daily Rhythm & Baseline',
+  'High-Stakes Governance': 'High-Stakes Governance',
+  'Influence & Persuasion': 'Influence & Persuasion',
+  'Visibility & Communication': 'Visibility & Communication',
+  'People & Difficult Conversations': 'People & Difficult Conversations',
+  'Deep Work & Strategy': 'Deep Work & Strategy',
+  'Conferences & External Events': 'Conferences & External Events',
+  Travel: 'Travel',
+  'Daily Rhythm & Baseline': 'Daily Rhythm & Baseline',
 };
 
 const RECOVERY_BUCKETS = [
@@ -295,7 +316,7 @@ function TabPill({ active, onClick, children }: { active: boolean; onClick: () =
 
 // ── Stress Load tab ──────────────────────────────────────────────────
 function StressLoadTab({ matrix }: { matrix: StressMatrix }) {
-  const { events, days, cells, n, maxObserved, topDay } = matrix;
+  const { events, categoryNames, days, cells, n, maxObserved, topDay } = matrix;
   const hasAny = cells.some((row) => row.some((v) => v !== null));
   if (!hasAny) {
     return (
@@ -305,12 +326,14 @@ function StressLoadTab({ matrix }: { matrix: StressMatrix }) {
     );
   }
 
-  const rows = Array.from(new Set(events.map(normalizeCategory)));
+  const categoryForEvent = (event: string, eventIndex: number) =>
+    normalizeCategory(categoryNames?.[eventIndex] || event);
+  const rows = Array.from(new Set(events.map((event, eventIndex) => categoryForEvent(event, eventIndex))));
   const aggregatedCells = new Map<string, DrainCell>();
   days.forEach((day, dayIndex) => {
     events.forEach((event, eventIndex) => {
       const value = cells[dayIndex]?.[eventIndex] ?? null;
-      const categoryId = normalizeCategory(event);
+      const categoryId = categoryForEvent(event, eventIndex);
       const count = n[dayIndex]?.[eventIndex] ?? 0;
       const key = `${categoryId}::${day}`;
       const existing = aggregatedCells.get(key);
@@ -463,18 +486,18 @@ function RecoveryTimeTab({ data }: { data: RecoveryByEvent }) {
       </p>
     );
   }
-  const qualifying = entries.filter((entry) => entry.n >= 3);
-  const microLocked = entries.filter((entry) => entry.n < 3);
+  const qualifying = entries.filter((entry) => entry.n >= 2);
+  const microLocked = entries.filter((entry) => entry.n < 2);
 
   if (!qualifying.length) {
     return (
       <div className="space-y-2 py-4">
         <p className="text-xs text-muted-foreground/80 text-center">
-          Need at least 3 resolved recovery events in one category to show recovery time.
+          Need at least 2 resolved recovery events in one category to show recovery time.
         </p>
         {entries.slice(0, 3).map((entry) => (
           <p key={entry.eventType} className="text-[11px] text-muted-foreground text-center">
-            {normalizeCategory(entry.eventType)} — {3 - entry.n} more event{3 - entry.n === 1 ? '' : 's'} needed to show recovery time
+            {normalizeCategory(entry.eventType)} — {2 - entry.n} more event{2 - entry.n === 1 ? '' : 's'} needed to show recovery time
           </p>
         ))}
       </div>
@@ -507,7 +530,7 @@ function RecoveryTimeTab({ data }: { data: RecoveryByEvent }) {
       />
       {microLocked.map((entry) => (
         <p key={entry.eventType} className="text-[11px] text-muted-foreground">
-          {normalizeCategory(entry.eventType)} — {3 - entry.n} more event{3 - entry.n === 1 ? '' : 's'} needed to show recovery time
+          {normalizeCategory(entry.eventType)} — {2 - entry.n} more event{2 - entry.n === 1 ? '' : 's'} needed to show recovery time
         </p>
       ))}
       {topEntry && (
@@ -646,7 +669,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
   const cov = data?.coverage;
   const showGating = !!cov && !cov.hasWearable && !cov.hasCalendar;
   const qualifyingRecoveryCount = useMemo(
-    () => (data?.recoveryByEvent?.entries ?? []).filter((entry) => entry.n >= 3).length,
+    () => (data?.recoveryByEvent?.entries ?? []).filter((entry) => entry.n >= 2).length,
     [data?.recoveryByEvent],
   );
   const tabStates = useMemo(() => {
@@ -691,9 +714,9 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
       recovery: {
         unlocked: qualifyingRecoveryCount > 0,
         title: 'Recovery Time',
-        message: 'Recovery Time unlocks once one category has at least 3 resolved recovery events.',
+        message: 'Recovery Time unlocks once one category has at least 2 resolved recovery events.',
         progress: bestRecoveryN > 0
-          ? { current: Math.min(bestRecoveryN, 3), target: 3 }
+          ? { current: Math.min(bestRecoveryN, 2), target: 2 }
           : undefined,
       },
     } as const;

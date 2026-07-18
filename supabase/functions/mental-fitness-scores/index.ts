@@ -247,7 +247,51 @@ if (import.meta.main) {
             throw error;
           }
 
-          return new Response(JSON.stringify({ data }), {
+          let rows = data ?? [];
+          if (rows.length < 5) {
+            const fallbackStart = new Date();
+            fallbackStart.setDate(fallbackStart.getDate() - Math.max(daysToFetch, 90));
+            const { data: checkinRows, error: checkinError } = await supabase
+              .from("daily_checkins")
+              .select("checkin_date, time_window, clarity_level, emotion_level, pressure_level, regulation_level")
+              .eq("user_id", userId)
+              .gte("checkin_date", fallbackStart.toISOString().split("T")[0])
+              .order("checkin_date", { ascending: true });
+
+            if (checkinError) {
+              console.warn("[mental-fitness-scores] GET_SCORES check-in fallback error:", checkinError.message);
+            } else {
+              const existingDates = new Set(rows.map((row: any) => row.score_date));
+              const byDate = new Map<string, number[]>();
+              for (const row of checkinRows ?? []) {
+                const pressure = typeof row.pressure_level === "number" ? 6 - row.pressure_level : null;
+                const vals = [
+                  row.clarity_level,
+                  row.emotion_level,
+                  pressure,
+                  row.regulation_level,
+                ].filter((v): v is number => typeof v === "number");
+                if (vals.length < 2) continue;
+                const avg = vals.reduce((sum, value) => sum + value, 0) / vals.length;
+                const score = Math.round((avg / 5) * 100);
+                const list = byDate.get(row.checkin_date) ?? [];
+                list.push(score);
+                byDate.set(row.checkin_date, list);
+              }
+              const fallbackRows = Array.from(byDate.entries())
+                .filter(([date]) => !existingDates.has(date))
+                .map(([date, scores]) => ({
+                  user_id: userId,
+                  score_date: date,
+                  score: Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length),
+                  metadata: { source: "checkin_composite" },
+                }));
+              rows = [...rows, ...fallbackRows]
+                .sort((a: any, b: any) => String(b.score_date).localeCompare(String(a.score_date)));
+            }
+          }
+
+          return new Response(JSON.stringify({ data: rows }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import StreakWreath from '@/components/insights/StreakWreath';
+import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -50,6 +51,8 @@ interface LevelTrendCalendarProps {
   streakLabel?: string;
   /** Suppress the flame streak wreath entirely (used on Performance Rhythm tabs). */
   hideStreak?: boolean;
+  /** Optional wider fetch window for sparse dimensions. */
+  lookbackDays?: number;
 }
 
 interface DayCell {
@@ -167,7 +170,7 @@ const tierFor = (tiers: Tier[], v: number | null) => {
 const MILESTONES = [3, 7, 14, 21, 30] as const;
 type Milestone = (typeof MILESTONES)[number];
 
-const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette, streakLabel, hideStreak }: LevelTrendCalendarProps) => {
+const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette, streakLabel, hideStreak, lookbackDays }: LevelTrendCalendarProps) => {
   const LEVEL_TIERS = tiersFor(palette, vocabulary);
   const [days, setDays] = useState<DayCell[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -308,7 +311,9 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
             .from('daily_checkins')
             .select(`checkin_date, time_window, created_at, ${field}`)
             .eq('user_id', DEV_USER.id)
-            .gte('checkin_date', startDate)
+            .gte('checkin_date', lookbackDays
+              ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+              : startDate)
             .lte('checkin_date', endDate);
           if (error) throw error;
           data = (rows || []).map((row: Record<string, unknown>) => ({
@@ -320,7 +325,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         } else {
           const { data: result, error } = await supabase.functions.invoke('level-trend-calendar', {
             headers: { Authorization: `Bearer ${accessToken}` },
-            body: { field, startDate, endDate },
+            body: { field, startDate, endDate, lookbackDays: lookbackDays ?? null },
           });
           if (error) throw error;
           data = (result?.rows || []) as typeof data;
@@ -341,11 +346,14 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
           }
         });
 
-        // Walk day 1 → last day of the current calendar month.
-        const totalDays = monthEnd.getDate();
+        const firstVisible = lookbackDays
+          ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
+          : monthStart;
+        firstVisible.setHours(0, 0, 0, 0);
+        const totalDays = Math.max(1, Math.ceil((monthEnd.getTime() - firstVisible.getTime()) / (24 * 60 * 60 * 1000)) + 1);
         const out: DayCell[] = [];
         for (let i = 0; i < totalDays; i++) {
-          const d = new Date(currentYear, currentMonth, i + 1);
+          const d = new Date(firstVisible.getTime() + i * 24 * 60 * 60 * 1000);
           const dateStr = d.toLocaleDateString('en-CA');
           const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
           const dateNum = String(d.getDate());
@@ -373,7 +381,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
       }
     })();
     return () => { cancelled = true; };
-  }, [userId, field]);
+  }, [userId, field, lookbackDays]);
 
   // After data arrives, re-apply layout once we know the strip element exists.
   useEffect(() => {
@@ -391,7 +399,25 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
     );
   }
 
-  if (!days || days.length === 0) return null;
+  const hasAnyData = !!days?.some(
+    (d) => d.slots.morning.value !== null || d.slots.midday.value !== null || d.slots.evening.value !== null,
+  );
+
+  if (!days || days.length === 0 || !hasAnyData) {
+    return (
+      <div className="space-y-3">
+        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">
+          {title}
+        </span>
+        <ProgressiveUnlockMessage
+          currentCount={0}
+          unlockAt={3}
+          featureName={title}
+          previewText="No data yet for this dimension in the selected period. Check in to start building your trend."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

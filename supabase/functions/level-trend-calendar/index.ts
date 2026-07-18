@@ -37,7 +37,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * Confidence) light up for every authenticated user, exactly the way Energy
  * Trend already does.
  *
- * Body: { field, startDate, endDate }
+ * Body: { field, startDate, endDate, lookbackDays? }
  * Response: { rows: Array<{ checkin_date, time_window, created_at, value }> }
  */
 serve(async (req) => {
@@ -67,6 +67,9 @@ serve(async (req) => {
     const field = String(body?.field || "");
     const startDate = String(body?.startDate || "");
     const endDate = String(body?.endDate || "");
+    const lookbackDays = typeof body?.lookbackDays === "number"
+      ? Math.min(Math.max(1, body.lookbackDays), 180)
+      : null;
 
     if (!ALLOWED_FIELDS.has(field)) {
       return new Response(
@@ -82,12 +85,17 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const effectiveStartDate = lookbackDays
+      ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
+      : startDate;
 
     const { data, error } = await supabase
       .from("daily_checkins")
       .select(`checkin_date, time_window, created_at, ${field}`)
       .eq("user_id", userId)
-      .gte("checkin_date", startDate)
+      .gte("checkin_date", effectiveStartDate)
       .lte("checkin_date", endDate)
       .not(field, "is", null);
 

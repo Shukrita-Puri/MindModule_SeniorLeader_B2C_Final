@@ -4579,6 +4579,36 @@ async function evaluatePatternAlert(
     };
   }
 
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+
+  const { data: finding } = await supabase
+    .from("causality_findings")
+    .select("top_finding_label, top_finding_delta_pct, confidence, generated_at")
+    .eq("user_id", ctx.userId)
+    .gte("generated_at", monthStart.toISOString())
+    .in("confidence", ["strong", "emerging"])
+    .order("generated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (finding?.top_finding_label) {
+    return {
+      type: "pattern_alert",
+      copy: {
+        title: "Your pattern is ready",
+        body: `${finding.top_finding_label} is showing up in your data. See what it is costing you.`,
+        variantId: "FB-PATTERN",
+      },
+      deepLinkRoute: "/insights/performance-causality",
+      priority: finding.confidence === "strong" ? 3 : 2,
+      anchorKind: "state",
+      slot: "morning",
+      signalStrength: finding.confidence === "strong" ? 2 : 1,
+    };
+  }
+
   return null;
 }
 

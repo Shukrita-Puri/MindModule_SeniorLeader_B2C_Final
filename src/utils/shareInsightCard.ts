@@ -14,6 +14,36 @@ interface ShareOpts {
   fileName?: string;
 }
 
+function inlineCssVariables(node: HTMLElement): () => void {
+  const allEls = [node, ...Array.from(node.querySelectorAll<HTMLElement>('*'))];
+  const restoreFns: Array<() => void> = [];
+
+  for (const el of allEls) {
+    const computed = getComputedStyle(el);
+    const style = el.style;
+    const previous = {
+      backgroundColor: style.backgroundColor,
+      color: style.color,
+      borderColor: style.borderColor,
+    };
+
+    const bg = computed.backgroundColor;
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+      style.backgroundColor = bg;
+    }
+    if (computed.color) style.color = computed.color;
+    if (computed.borderColor) style.borderColor = computed.borderColor;
+
+    restoreFns.push(() => {
+      style.backgroundColor = previous.backgroundColor;
+      style.color = previous.color;
+      style.borderColor = previous.borderColor;
+    });
+  }
+
+  return () => restoreFns.forEach((restore) => restore());
+}
+
 async function snapshotPng(node: HTMLElement): Promise<string> {
   // Hide any in-card chrome marked [data-share-hide] (e.g. the Share button
   // itself) during capture so the affordance doesn't appear in the exported PNG.
@@ -21,14 +51,32 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
   const prevVisibility = hidden.map(el => el.style.visibility);
   hidden.forEach(el => { el.style.visibility = 'hidden'; });
 
-  // Expand every scroll container inside the captured tree so the snapshot
+  const shareOnly = Array.from(node.querySelectorAll<HTMLElement>('[data-share-only]'));
+  const prevShareOnlyDisplay = shareOnly.map((el) => el.style.display);
+  shareOnly.forEach((el) => { el.style.display = ''; });
+
+  const blurEls = Array.from(node.querySelectorAll<HTMLElement>('[class*="backdrop-blur"]'));
+  const prevBlur = blurEls.map((el) => ({
+    backdropFilter: el.style.backdropFilter,
+    webkitBackdropFilter: (el.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter ?? '',
+  }));
+  blurEls.forEach((el) => {
+    el.style.backdropFilter = 'none';
+    (el.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = 'none';
+  });
+
+  const restoreCssVars = inlineCssVariables(node);
+
+  // Expand real scroll containers inside the captured tree so the snapshot
   // includes the FULL intrinsic content (e.g. the entire month-wide Rhythm
-  // calendar, not just the visible week). We save originals and restore them
-  // in finally so the live DOM is untouched after capture.
-  const scrollables: HTMLElement[] = [node];
+  // calendar, not just the visible week). Preserve overflow:hidden elements
+  // used only for border-radius clipping.
+  const scrollables: HTMLElement[] = [];
   node.querySelectorAll<HTMLElement>('*').forEach(el => {
     const cs = getComputedStyle(el);
-    if (/(auto|scroll|hidden)/.test(cs.overflow + cs.overflowX + cs.overflowY)) {
+    const isScrollable = /(auto|scroll)/.test(cs.overflow + cs.overflowX + cs.overflowY);
+    const hasScrollableContent = el.scrollHeight > el.clientHeight + 4 || el.scrollWidth > el.clientWidth + 4;
+    if (isScrollable && hasScrollableContent) {
       scrollables.push(el);
     }
   });
@@ -52,6 +100,11 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
     el.style.height = 'auto';
   });
 
+  const prevNodeBg = node.style.backgroundColor;
+  const prevNodePad = node.style.padding;
+  node.style.backgroundColor = '#ffffff';
+  node.style.padding = '16px';
+
   // Force a layout pass before measuring scrollWidth/Height.
   void node.offsetHeight;
   const fullWidth = Math.max(node.scrollWidth, node.offsetWidth);
@@ -62,7 +115,7 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: '#ffffff',
-      skipFonts: true,
+      skipFonts: false,
       width: fullWidth,
       height: fullHeight,
       style: {
@@ -71,6 +124,14 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
       },
     });
   } finally {
+    node.style.backgroundColor = prevNodeBg;
+    node.style.padding = prevNodePad;
+    restoreCssVars();
+    blurEls.forEach((el, i) => {
+      el.style.backdropFilter = prevBlur[i].backdropFilter;
+      (el.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = prevBlur[i].webkitBackdropFilter;
+    });
+    shareOnly.forEach((el, i) => { el.style.display = prevShareOnlyDisplay[i]; });
     scrollables.forEach((el, i) => {
       const p = prevStyles[i];
       el.style.overflow = p.overflow;

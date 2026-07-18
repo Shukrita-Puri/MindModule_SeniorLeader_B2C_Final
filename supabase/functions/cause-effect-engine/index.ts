@@ -165,6 +165,7 @@ interface Payload {
 // ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
 interface StressMatrix {
   events: string[];               // column headers (event-type buckets)
+  categoryNames?: string[];        // canonical A-H category names, parallel to events
   days: string[];                 // row headers (Mon..Fri)
   cells: (number | null)[][];     // value to render (e.g. peak HR delta in bpm); null = no data
   n: number[][];                  // sample size per cell
@@ -325,6 +326,10 @@ const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
 
 function classifyEvent(title: string | null | undefined): string | null {
   return classifyPatternBucket(title);
+}
+function canonicalCategoryName(title: string | null | undefined): string | null {
+  const eventType = classifyEventCanonical(title);
+  return eventType ? EVENT_CATEGORIES[eventType.categoryId]?.name ?? eventType.bucket : null;
 }
 
 // Pillar swim-lane projection (Section K) — exposed so the Insights
@@ -573,12 +578,15 @@ serve(async (req) => {
             if (daySet.has(d)) eventDayVals.push(v);
             else nonEventVals.push(v);
           });
-          if (eventDayVals.length < MIN_OCCURRENCES_EMERGING || nonEventVals.length < 3) continue;
+          const minEventOccurrences = sig === "resting_heart_rate" ? 2 : MIN_OCCURRENCES_EMERGING;
+          if (eventDayVals.length < minEventOccurrences || nonEventVals.length < 3) continue;
 
           const baseline = mean(nonEventVals);
           const observed = mean(eventDayVals);
           const deltaPct = pctDelta(observed, baseline);
-          const conf = classifyNumeric(deltaPct, eventDayVals.length);
+          const conf = sig === "resting_heart_rate" && eventDayVals.length === 2
+            ? (Math.abs(deltaPct) >= MIN_DELTA_PCT_EMERGING ? "emerging" as const : null)
+            : classifyNumeric(deltaPct, eventDayVals.length);
           if (!conf) continue;
 
           const isHarmful = sig === "hrv" ? deltaPct < 0 : deltaPct > 0;
@@ -981,6 +989,12 @@ serve(async (req) => {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 7)
       .map(([label]) => label);
+    const eventTypeCategoryNames = new Map<string, string>();
+    for (const e of events as any[]) {
+      const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
+      if (!label || eventTypeCategoryNames.has(label)) continue;
+      eventTypeCategoryNames.set(label, canonicalCategoryName(e.title) ?? label);
+    }
 
     // Accumulators for each (day, event) cell: arrays of per-event peak deltas.
     const stressAcc: Array<Array<number[]>> = DAY_LABELS.map(() =>
@@ -1056,6 +1070,7 @@ serve(async (req) => {
 
     const stressMatrix: StressMatrix = {
       events: topEventTypes,
+      categoryNames: topEventTypes.map((label) => eventTypeCategoryNames.get(label) ?? label),
       days: DAY_LABELS,
       cells: stressCells,
       n: stressN,
@@ -1417,12 +1432,12 @@ serve(async (req) => {
           });
         });
         let best: { window: TimeWindow; liftPct: number; n: number } | null = null;
-        (Object.keys(winAcc) as TimeWindow[]).forEach((w) => {
-          if (winAcc[w].length < MIN_OCCURRENCES_EMERGING) return;
+        for (const w of Object.keys(winAcc) as TimeWindow[]) {
+          if (winAcc[w].length < MIN_OCCURRENCES_EMERGING) continue;
           const winBase = prsByWindow[w].length >= 3 ? mean(prsByWindow[w]) : prsBaseline!;
           const lift = Math.round(pctDelta(mean(winAcc[w]), winBase) * 10) / 10;
           if (!best || lift > best.liftPct) best = { window: w, liftPct: lift, n: winAcc[w].length };
-        });
+        }
         if (best && best.liftPct > 0) {
           const conf: Confidence = best.n >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging";
           rhr_recovery_window = { ...best, confidence: conf };

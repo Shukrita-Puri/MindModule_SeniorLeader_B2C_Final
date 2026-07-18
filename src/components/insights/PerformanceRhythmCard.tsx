@@ -1380,6 +1380,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 palette="clarity"
                 streakLabel="Peak Clarity"
                 hideStreak
+                lookbackDays={90}
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'emotion' && (
@@ -1392,6 +1393,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 palette="emotion"
                 streakLabel="Open Days"
                 hideStreak
+                lookbackDays={90}
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'pressure' && (
@@ -1404,6 +1406,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 palette="pressure"
                 streakLabel="Spacious Days"
                 hideStreak
+                lookbackDays={90}
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'regulation' && (
@@ -1416,6 +1419,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 palette="regulation"
                 streakLabel="In-Control Days"
                 hideStreak
+                lookbackDays={90}
               />
             )}
 
