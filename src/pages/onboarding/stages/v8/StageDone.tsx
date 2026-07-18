@@ -2,11 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { useAuth } from "@/hooks/useAuth";
+import { startFirstSessionTour } from "@/utils/firstSessionTour";
 import { markV8Complete, synthesizeCosProfile } from "@/utils/onboardingV8";
 
 export default function StageDone() {
   const navigate = useNavigate();
   const { recordStep } = useOnboardingProgress();
+  const { refreshProfile, user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,12 +65,15 @@ export default function StageDone() {
     // canonical V8 completion path has succeeded.
     void recordStep("context_connection", { completed: true }).catch(() => {});
 
+    void refreshProfile().catch(() => {});
+
     // Best-effort COS synthesis with the complete saved row. Idempotent —
     // returns cached profile if already ready. Failure does NOT block entry;
     // it can be retried later and the server marks cos_profile_status.
     void synthesizeCosProfile().catch(() => {});
 
-    navigate("/executive-home");
+    const target = startFirstSessionTour({ userId: user?.id, source: "onboarding" });
+    navigate(target);
   };
 
   return (
