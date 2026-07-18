@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { markV8Complete, synthesizeCosProfile } from "@/utils/onboardingV8";
 
@@ -14,15 +15,8 @@ export default function StageDone() {
     setBusy(true);
     setError(null);
 
-    // 1. Best-effort COS synthesis with the complete saved row.
-    //    Idempotent — returns cached profile if already ready.
-    //    Synthesis failure does NOT block onboarding completion; it can be
-    //    retried later. The server marks cos_profile_status accordingly.
-    try {
-      await synthesizeCosProfile();
-    } catch { /* non-blocking */ }
-
-    // 2. Mark onboarding complete (gated on data validation, not synthesis).
+    // Mark onboarding complete first. COS synthesis is intentionally kept off
+    // the button's critical path because Firecrawl/Gemini can take a while.
     const res = await markV8Complete();
     if (!res.ok) {
       setBusy(false);
@@ -64,9 +58,15 @@ export default function StageDone() {
       setError("Couldn't finalise onboarding. Please try again.");
       return;
     }
-    // 3. Mirror completion into progress for resume/recovery views after the
+    // Mirror completion into progress for resume/recovery views after the
     // canonical V8 completion path has succeeded.
-    try { await recordStep("context_connection", { completed: true }); } catch { /* non-blocking */ }
+    void recordStep("context_connection", { completed: true }).catch(() => {});
+
+    // Best-effort COS synthesis with the complete saved row. Idempotent —
+    // returns cached profile if already ready. Failure does NOT block entry;
+    // it can be retried later and the server marks cos_profile_status.
+    void synthesizeCosProfile().catch(() => {});
+
     navigate("/executive-home");
   };
 
@@ -132,9 +132,16 @@ export default function StageDone() {
         <button
           onClick={enter}
           disabled={busy}
-          className="w-full py-4 rounded-2xl bg-saffron hover:bg-saffron/90 text-white text-sm font-medium transition-colors disabled:opacity-60"
+          className="w-full py-4 rounded-2xl bg-saffron hover:bg-saffron/90 text-white text-sm font-medium transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
         >
-          {busy ? "Calibrating your profile…" : "Enter the brief →"}
+          {busy ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Opening your brief…
+            </>
+          ) : (
+            "Enter the brief →"
+          )}
         </button>
       </div>
     </div>
