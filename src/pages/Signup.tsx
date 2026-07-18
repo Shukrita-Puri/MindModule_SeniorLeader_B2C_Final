@@ -75,7 +75,7 @@ const Signup = () => {
 
     clearLogoutGuard();
 
-    const returnTo = isOnboardingFlow ? '/onboarding/app-intro' : '/onboarding/app-intro';
+    const returnTo = isOnboardingFlow ? '/onboarding/app-intro' : '/executive-home';
 
     clearTimeoutSafe();
     timeoutRef.current = window.setTimeout(() => {
