@@ -1,5 +1,6 @@
 interface WeeklyDeltaDialProps {
   currentScore: number | null;
+  lastWeekAvg: number | null;
   delta: number | null;
   mode: 'baseline' | 'refined';
   reason?: 'composition_mismatch' | 'not_enough_history' | 'awaiting_signals' | null;
@@ -11,11 +12,11 @@ interface WeeklyDeltaDialProps {
  */
 const WeeklyDeltaDial = ({
   currentScore,
+  lastWeekAvg,
   delta,
   mode,
   reason = null,
 }: WeeklyDeltaDialProps) => {
-  const scoreLabel = typeof currentScore === 'number' ? String(currentScore) : '—';
   const progressLabel =
     delta == null || reason !== null
       ? '—'
@@ -61,13 +62,20 @@ const WeeklyDeltaDial = ({
           </p>
         </div>
 
-        <div className="flex min-h-[92px] min-w-[92px] flex-col items-center justify-center rounded-[22px] border border-[hsl(var(--tier-strong)/0.18)] bg-[linear-gradient(180deg,hsl(var(--tier-strong)/0.12)_0%,hsl(var(--sky)/0.10)_100%)] px-4 py-3">
-          <span className="text-[34px] font-semibold leading-none text-foreground tabular-nums">
-            {scoreLabel}
-          </span>
-          <span className="mt-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            Score
-          </span>
+        <div className="flex min-h-[92px] items-stretch justify-end rounded-[22px] border border-[hsl(var(--tier-strong)/0.18)] bg-[linear-gradient(180deg,hsl(var(--tier-strong)/0.12)_0%,hsl(var(--sky)/0.10)_100%)] px-4 py-3">
+          <div className="flex flex-col items-end justify-center gap-1">
+            <div className="text-[13px] text-muted-foreground/70 text-right">This week</div>
+            <div className="text-[28px] font-semibold tabular-nums leading-none text-foreground">
+              {typeof currentScore === 'number' ? currentScore : '—'}
+            </div>
+          </div>
+          <div className="w-px bg-border/40 self-stretch mx-3" />
+          <div className="flex flex-col items-end justify-center gap-1">
+            <div className="text-[13px] text-muted-foreground/70 text-right">Last week</div>
+            <div className="text-[28px] font-semibold tabular-nums leading-none text-muted-foreground/80">
+              {typeof lastWeekAvg === 'number' ? lastWeekAvg : '—'}
+            </div>
+          </div>
         </div>
       </div>
 

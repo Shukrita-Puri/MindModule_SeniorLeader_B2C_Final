@@ -6648,8 +6648,19 @@ async function generateMasteryPlan(
     const calendarEventIds = new Set<string>(
       (req.calendarEvents || []).map((e: any) => String(e.id)).filter(Boolean),
     );
-    const calendarEventTitles = new Set<string>(
-      (req.calendarEvents || []).map((e: any) => String(e.title || "").trim())
+    const nowForLedger = Date.now();
+    const LEDGER_STALE_GRACE_MS = 30 * 60_000;
+    const currentWindowEventTitles = new Set<string>(
+      (req.calendarEvents || [])
+        .filter((e: any) => {
+          const endMs = e.end_time
+            ? new Date(e.end_time).getTime()
+            : (e.start_time
+              ? new Date(e.start_time).getTime() + 60 * 60_000
+              : Infinity);
+          return endMs > nowForLedger - LEDGER_STALE_GRACE_MS;
+        })
+        .map((e: any) => String(e.title || "").trim())
         .filter(Boolean),
     );
     const calendarEventTitleById = new Map<string, string>(
@@ -6665,7 +6676,7 @@ async function generateMasteryPlan(
       ledger?.modules || [],
       new Set<string>(req.completedToday || []),
       calendarEventIds,
-      calendarEventTitles,
+      currentWindowEventTitles,
       ledger?.userEdits,
       calendarEventTitleById,
       // Sprint 2 (Phase 3): pass REAL current-window allocator context so
@@ -6673,7 +6684,7 @@ async function generateMasteryPlan(
       // fresh-generation path. `jitRankedCandidates` is populated ~525
       // lines up from the same request's calendar events.
       {
-        nowMs: Date.now(),
+        nowMs: nowForLedger,
         rankedCandidates: jitRankedCandidates,
         currentPeriod: timeOfDay,
         ledgerGeneratedPeriod: (ledger?.generatedPeriod === "morning" ||
@@ -7083,15 +7094,11 @@ async function generateMasteryPlan(
     !planIsRestDay && finalHorizonModules.length < 3 && todModules.length > 0
   ) {
     const beforeCount = finalHorizonModules.length;
-    finalHorizonModules = topUpHorizonModulesToThree(
-      finalHorizonModules,
-      todModules,
-      {
+    finalHorizonModules = topUpHorizonModulesToThree(finalHorizonModules, todModules, {
         period: timeOfDay as "morning" | "afternoon" | "evening",
         label: periodLabels[timeOfDay],
         planBrief: planBrief || null,
-      },
-    );
+      });
     console.warn("[generate-mastery-plan][snapshot-projection-topup]", {
       userId: redactUserId(req.userId),
       date: today,
@@ -7100,6 +7107,31 @@ async function generateMasteryPlan(
       fallbackCount: finalHorizonModules.length,
       timeOfDayModulesCount: todModules.length,
       dayShape: planDayShape,
+    });
+  }
+
+  if (!planIsRestDay && finalHorizonModules.length > 1) {
+    const seenTitles = new Set<string>();
+    const titleFallbacks = [
+      "Protect your edge",
+      "Ground into the next block",
+      "Build into tomorrow",
+    ];
+    finalHorizonModules = finalHorizonModules.map((module, index) => {
+      const currentTitle = String(module?.timeLabel || "").trim();
+      if (!currentTitle || !seenTitles.has(currentTitle)) {
+        if (currentTitle) seenTitles.add(currentTitle);
+        return module;
+      }
+      const replacement = titleFallbacks.find((title) =>
+        !seenTitles.has(title)
+      ) ??
+        `Priority ${index + 1}`;
+      seenTitles.add(replacement);
+      return {
+        ...module,
+        timeLabel: replacement,
+      };
     });
   }
 
@@ -7446,30 +7478,62 @@ function buildSnapshotFallbackHorizonModules(
   },
 ): HorizonModule[] {
   const planBrief = typeof opts.planBrief === "string" ? opts.planBrief : "";
-  return modules.map((practice, index) => ({
-    horizon: "immediate",
-    timeLabel: opts.label,
-    typeLabel: typeof practice?.type === "string" ? practice.type : "align",
-    whyLine: practice?.reasoning || planBrief ||
-      "This move keeps the day on track.",
-    recommendedAction: practice?.reasoning || planBrief ||
-      "This move keeps the day on track.",
-    practice,
-    practices: [practice],
-    slotKind: "state-management",
-    isJit: false,
-    jitEventTitle: null,
-    jitMinutesUntil: null,
-    showNavyBorder: false,
-    showPulse: index === 0,
-    showPriorityPill: false,
-    arcLabel: opts.period === "evening" && practice?.type === "integrate"
-      ? "Recover"
-      : "Steady",
-    mode: "state",
-    slotRole: "state_anchor",
-    allocationReason: "snapshot_projection_fallback",
-  }));
+  const stateActionByIndex: Record<number, string> = {
+    0: opts.period === "morning"
+      ? "Ground into the morning"
+      : opts.period === "afternoon"
+      ? "Reset into the afternoon"
+      : "Protect tonight",
+    1: opts.period === "morning"
+      ? "Steady before the main block"
+      : opts.period === "afternoon"
+      ? "Protect the second half"
+      : "Settle before tomorrow",
+    2: opts.period === "morning"
+      ? "Build into the day"
+      : opts.period === "afternoon"
+      ? "Close the afternoon clean"
+      : "Close it clean",
+  };
+  const usedPracticeIds = new Set<string>();
+  const usedTitles = new Set<string>();
+  const out: HorizonModule[] = [];
+
+  for (const practice of modules) {
+    const practiceId = String(practice?.contentId || "");
+    if (practiceId && usedPracticeIds.has(practiceId)) continue;
+    const slotTitle = stateActionByIndex[out.length] ?? opts.label;
+    if (usedTitles.has(slotTitle)) continue;
+    if (practiceId) usedPracticeIds.add(practiceId);
+    usedTitles.add(slotTitle);
+    out.push({
+      horizon: "immediate",
+      timeLabel: slotTitle,
+      typeLabel: typeof practice?.type === "string" ? practice.type : "align",
+      whyLine: practice?.reasoning || planBrief ||
+        "This move keeps the day on track.",
+      recommendedAction: practice?.reasoning || planBrief ||
+        "This move keeps the day on track.",
+      practice,
+      practices: [practice],
+      slotKind: "state-management",
+      isJit: false,
+      jitEventTitle: null,
+      jitMinutesUntil: null,
+      showNavyBorder: false,
+      showPulse: out.length === 0,
+      showPriorityPill: false,
+      arcLabel: opts.period === "evening" && practice?.type === "integrate"
+        ? "Recover"
+        : "Steady",
+      mode: "state",
+      slotRole: "state_anchor",
+      allocationReason: "snapshot_projection_fallback",
+    });
+    if (out.length >= 3) break;
+  }
+
+  return out;
 }
 
 function topUpHorizonModulesToThree(
@@ -11271,6 +11335,7 @@ export function mergeWithLedger(
   ledgerModules: HorizonModule[],
   completedIds: Set<string>,
   calendarEventIds: Set<string>,
+  // Time-filtered to events still active/upcoming in the current window.
   calendarEventTitles: Set<string>,
   userEdits: PlanLedger["userEdits"] | undefined,
   calendarEventTitleById: Map<string, string> | undefined,

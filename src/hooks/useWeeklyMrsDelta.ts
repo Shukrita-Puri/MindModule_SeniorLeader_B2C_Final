@@ -20,6 +20,10 @@ export type WeeklyMrsDeltaReason =
 export interface WeeklyMrsDelta {
   /** Signed integer delta: this Mon→today AVG minus last Mon→Sun AVG. */
   delta: number | null;
+  /** This week's average MRS to date, using the same comparison metric. */
+  thisWeekAvg: number | null;
+  /** Prior week's average MRS, using the same comparison metric. */
+  lastWeekAvg: number | null;
   /** Which input the delta is computed from for today's user. */
   mode: 'baseline' | 'refined';
   /** Pretty pts label e.g. "+4 pts", "−3 pts", or null when delta unknown. */
@@ -90,6 +94,8 @@ export function useWeeklyMrsDelta() {
         const reason = (payload.reason as WeeklyMrsDeltaReason) ?? null;
         const thisWeekComposition = (payload.thisWeekComposition as ReadinessComposition) ?? 'unknown';
         const lastWeekComposition = (payload.lastWeekComposition as ReadinessComposition) ?? 'unknown';
+        const thisWeekAvg = typeof payload.thisWeekAvg === 'number' ? payload.thisWeekAvg : null;
+        const lastWeekAvg = typeof payload.lastWeekAvg === 'number' ? payload.lastWeekAvg : null;
         const comparisonMetric = (payload.comparisonMetric as 'baseline' | 'refined' | undefined)
           ?? (todayState === 'refined' ? 'refined' : 'baseline');
         // Prefer the input matching the comparison metric; fall back to baseline.
@@ -100,10 +106,12 @@ export function useWeeklyMrsDelta() {
           delta === null || reason !== null
             ? null
             : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} pts`;
-        return { delta, mode, label, reason, thisWeekComposition, lastWeekComposition };
+        return { delta, thisWeekAvg, lastWeekAvg, mode, label, reason, thisWeekComposition, lastWeekComposition };
       } catch {
         return {
           delta: null,
+          thisWeekAvg: null,
+          lastWeekAvg: null,
           mode: 'baseline',
           label: null,
           reason: 'not_enough_history',

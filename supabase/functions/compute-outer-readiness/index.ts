@@ -86,6 +86,67 @@ import {
   type CalendarMetricsResult,
   getServerCalendarMetrics,
 } from "../_shared/signal-engine/db-queries.ts";
+
+function buildBandKeyedDeterministicBriefFallback(opts: {
+  band: "high" | "mid" | "low" | null;
+  wearableFact: string | null;
+  calendarFact: string | null;
+  cognitivePillTier: "green" | "amber" | "red" | "unread";
+  physicalPillTier: "green" | "amber" | "red" | "unread";
+}): SpecDeterministicResult | null {
+  const band = opts.band ?? "mid";
+  const evidenceParts = [opts.wearableFact, opts.calendarFact]
+    .filter((part): part is string =>
+      typeof part === "string" && part.trim().length > 0
+    );
+  const evidence = evidenceParts.length > 0
+    ? evidenceParts.join(" and ")
+    : "Signals are thin this window";
+  const phraseByBand: Record<"high" | "mid" | "low", string> = {
+    high: "Better than it feels.",
+    mid: "Holding steady.",
+    low: "Pace it today.",
+  };
+  const readByBand: Record<"high" | "mid" | "low", string> = {
+    high:
+      "Mind and body are carrying more capacity than the day is asking for.",
+    mid: "Mind and body are evenly matched with what's ahead.",
+    low: "The day is asking more than reserves can easily cover.",
+  };
+  let directive = "";
+  if (opts.cognitivePillTier === "green" && opts.physicalPillTier !== "green") {
+    directive =
+      "use the window for decisions and analysis, keep the relational work short";
+  } else if (
+    opts.physicalPillTier === "green" && opts.cognitivePillTier !== "green"
+  ) {
+    directive =
+      "route presence and stakeholder conversations through the physical runway";
+  } else if (band === "low") {
+    directive = "name the one thing that cannot wait and do only that";
+  } else {
+    directive = "keep pace and protect the most important block";
+  }
+  const closeByBand: Record<"high" | "mid" | "low", string> = {
+    high: "and don't overextend.",
+    mid: "and hold the line.",
+    low: "and protect the close.",
+  };
+  const phrase = phraseByBand[band];
+  const body = `${evidence}. ${readByBand[band]} ${directive}, ${
+    closeByBand[band]
+  }`;
+  const validation = validateBrief(phrase, body, {
+    signals: {},
+    behaviourFlags: [],
+    lexiconClusters: [],
+    forbiddenWords: [],
+    allowedPatternKeywords: [],
+  } as any);
+  if (!validation.ok) return null;
+  return { phrase, body, topSignal: "baseline_quiet" };
+}
+
 import {
   type DayContext,
   getDayContext,
@@ -5727,8 +5788,7 @@ serve(async (req) => {
             tomorrowHighStakesCount: tomorrowHighStakes.length,
           },
         });
-        assessmentSignalPillsPayload = assessmentContext.pills
-          .finalized as any[];
+        assessmentSignalPillsPayload = assessmentContext.pills.finalized as any[];
         echoedSignalPills = assessmentSignalPillsPayload;
         echoedPillCoherence = assessmentContext.pills.coherence;
         echoedPillQualifiers = assessmentContext.pills.qualifiers;
@@ -6429,8 +6489,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const _contextHeader = `=== CONTEXT: ${
             contextHeaderForSlot(timeOfDayStr)
           } ===`;
-          let userPrompt =
-            `${PRE_COMPUTED_USER_NOTICE}\n\n${_contextHeader}\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${
+          let userPrompt = `${PRE_COMPUTED_USER_NOTICE}\n\n${_contextHeader}\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${
               isWeekend ? "yes" : "no"
             } · Is Sunday evening: ${
               isSundayEvening2 ? "yes" : "no"
@@ -8039,16 +8098,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           > = [
             {
               model: "google/gemini-2.5-flash",
-              timeoutMs: 8000,
+              timeoutMs: 15000,
               useGateway: true,
             },
-            { model: CLAUDE_MODELS.SONNET, timeoutMs: 9000, useGateway: false },
+            {
+              model: CLAUDE_MODELS.SONNET,
+              timeoutMs: 10000,
+              useGateway: false,
+            },
             // 2026-07-11 — Attempt 3 (Claude Sonnet, second pass). Uses the
             // corrective-retry instruction seeded from attempt 2's reject
             // reason. Reduces `awaiting` states caused by two back-to-back
             // validator misses (e.g. tier-word on attempt 1, phrase-length
             // soft-reject on attempt 2) before we fall through to awaiting.
-            { model: CLAUDE_MODELS.SONNET, timeoutMs: 9000, useGateway: false },
+            {
+              model: CLAUDE_MODELS.SONNET,
+              timeoutMs: 10000,
+              useGateway: false,
+            },
           ];
 
           // §2.18 stricter retry instruction appended on soft-reject (legacy
@@ -8208,9 +8275,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       const targeted = correctiveRetryInstruction(
                         normalized.reason,
                       );
-                      const retryUserPrompt = userPrompt +
-                        FOUR_BEAT_RETRY_GUIDANCE +
-                        (targeted || STRICT_PHRASE_RETRY);
+                      const retryUserPrompt = userPrompt + FOUR_BEAT_RETRY_GUIDANCE + (targeted || STRICT_PHRASE_RETRY);
                       let retryContent: string;
                       if (useGateway) {
                         retryContent = await callLovableAIText({
@@ -8605,11 +8670,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   : [],
               };
 
-              const built = assessmentContext
-                ? buildSpecDeterministicBriefFromAssessmentContext(
-                  assessmentContext,
-                )
-                : buildSpecDeterministicBrief(specParams);
+              const built = assessmentContext ? buildSpecDeterministicBriefFromAssessmentContext(assessmentContext) : buildSpecDeterministicBrief(specParams);
               if (built) {
                 const detCtx: any = {
                   signals: {
@@ -8661,6 +8722,55 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 "[compute-outer-readiness] [DETERMINISTIC] build error:",
                 detErr,
               );
+            }
+
+            if (!deterministicBrief && !cachedSnapshot && !awaitingSignals) {
+              const pillContext = assessmentContext
+                ? buildPillContextFromAssessment(assessmentContext)
+                : null;
+              const normalizeTier = (tier: unknown):
+                | "green"
+                | "amber"
+                | "red"
+                | "unread" => {
+                if (tier === "green" || tier === "amber" || tier === "red") {
+                  return tier;
+                }
+                return "unread";
+              };
+              const wearableFact = typeof hrvDeviation === "number"
+                ? `HRV ${hrvDeviation > 0 ? "+" : ""}${
+                  Math.round(hrvDeviation)
+                }% vs baseline`
+                : (typeof sleepScore === "number"
+                  ? `Sleep score ${Math.round(sleepScore)}`
+                  : null);
+              const meetingCount = Array.isArray(calendarEvents)
+                ? calendarEvents.length
+                : 0;
+              const calendarFact =
+                calendarLoad === "high" || calendarPressure === "high"
+                  ? (meetingCount > 0
+                    ? `${meetingCount} meeting${
+                      meetingCount > 1 ? "s" : ""
+                    } today`
+                    : "Heavy calendar today")
+                  : null;
+              const bandFallback = buildBandKeyedDeterministicBriefFallback({
+                band: (bandValence as "high" | "mid" | "low" | null) ?? null,
+                wearableFact,
+                calendarFact,
+                cognitivePillTier: normalizeTier(
+                  pillContext?.decisionReadiness,
+                ),
+                physicalPillTier: normalizeTier(pillContext?.physicalReserves),
+              });
+              if (bandFallback) {
+                deterministicBrief = bandFallback;
+                console.log(
+                  `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (band-keyed-last-resort) | band=${bandValence}`,
+                );
+              }
             }
           }
         }
@@ -8983,8 +9093,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // brief_source='awaiting') instead of leaving no row at all.
       if (!cachedSnapshot) {
         try {
-          const signalPillsPayload = assessmentSignalPillsPayload ??
-            echoedSignalPills ?? null;
+          const signalPillsPayload = assessmentSignalPillsPayload ?? echoedSignalPills ?? null;
           if (!signalPillsPayload || !assessmentContext) {
             throw new Error("assessment_context_unavailable");
           }
@@ -9703,9 +9812,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               refined_tier: suppressScorePayload
                 ? null
                 : (canonicalTier ?? null),
-              refined_signal_pills: suppressScorePayload
-                ? null
-                : signalPillsPayload,
+              refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             }
             : {
               baseline_state: awaitingStateLabel,
@@ -9721,9 +9828,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               baseline_tier: suppressScorePayload
                 ? null
                 : (canonicalTier ?? null),
-              baseline_signal_pills: suppressScorePayload
-                ? null
-                : signalPillsPayload,
+              baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,
             };
           const { data: upsertRow, error: upsertError } = await db
             .from("brief_snapshots")

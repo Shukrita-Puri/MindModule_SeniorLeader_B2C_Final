@@ -807,6 +807,11 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const cogRefined: 'baseline' | 'refined' = clarity != null ? 'refined' : 'baseline';
   const resRefined: 'baseline' | 'refined' =
     (emotion != null || regulation != null || pressure != null) ? 'refined' : 'baseline';
+  const physRefined: 'baseline' | 'refined' =
+    outerBrief?.wearableStatus?.hasTodayData === true &&
+    outerBrief?.wearableStatus?.isStale !== true
+      ? 'refined'
+      : 'baseline';
   const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
   const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
 
@@ -1370,7 +1375,7 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       bottomEmptyText: physTop.length === 0
         ? undefined
         : (physEmpty ?? 'Body signals only'),
-      readinessState: 'baseline',
+      readinessState: physRefined,
     },
     {
       id: 'emotional',
@@ -2031,6 +2036,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             snap.innerReadinessState ?? base.innerReadinessState ?? null,
           signalPills: chosenPills,
           checkInOutcome: chosenCheckInOutcome,
+          emotionLevel: base.emotionLevel ?? snap.emotionLevel ?? null,
+          pressureLevel: base.pressureLevel ?? snap.pressureLevel ?? null,
+          regulationLevel: base.regulationLevel ?? snap.regulationLevel ?? null,
           sourceProvenance: snap.sourceProvenance ?? base.sourceProvenance ?? null,
           behaviourSnapshot: snap.behaviourSnapshot ?? base.behaviourSnapshot ?? null,
           // Snapshot exists for the current window with either copy or a
