@@ -209,6 +209,35 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const CRON_SHARED_SECRET = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+
+  // Authorization: this function is an internal-only backend worker.
+  // It performs cache writes, LLM calls, and Firecrawl enrichment on
+  // behalf of a specified user. It MUST only be reachable by trusted
+  // server contexts: either the service-role bearer (used by
+  // sync-calendar, sync-apple-calendar, generate-mastery-plan, and
+  // the attendee resolver queue) or a request carrying the
+  // CRON_SHARED_SECRET header. Public/anon requests and end-user
+  // JWTs are rejected outright to prevent cache poisoning and
+  // uncontrolled third-party API spend.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const isServiceRoleCall = !!SERVICE_ROLE &&
+    authHeader === `Bearer ${SERVICE_ROLE}`;
+  const isCronSecretCall = !!CRON_SHARED_SECRET &&
+    cronSecretHeader === CRON_SHARED_SECRET;
+  const looksLikeAnon = !!ANON_KEY && authHeader === `Bearer ${ANON_KEY}`;
+  if (looksLikeAnon || (!isServiceRoleCall && !isCronSecretCall)) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized: internal-only endpoint" }),
+      {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   let body: ResolveRequest;
