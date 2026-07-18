@@ -5995,6 +5995,7 @@ export type Database = {
         Args: { _connection_id: string }
         Returns: string
       }
+      get_cron_shared_secret: { Args: never; Returns: string }
       get_event_type_skip_count: {
         Args: { p_days_back: number; p_event_type: string; p_user_id: string }
         Returns: number

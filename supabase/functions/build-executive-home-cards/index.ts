@@ -1025,6 +1025,8 @@ Deno.serve(async (req) => {
     const auth = req.headers.get("Authorization") ?? "";
     const apiKeyHeader = req.headers.get("apikey") ?? "";
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const cronSharedSecret = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+    const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
     const body = await req.json().catch(() => ({}));
     const requestedMode = (body.mode ?? "scheduled") as BuildModeInput;
     const mode = normalizeBuildMode(requestedMode);
@@ -1041,14 +1043,21 @@ Deno.serve(async (req) => {
     }
     let authenticatedUserId: string | null = null;
     const isServiceRoleCall = auth === `Bearer ${serviceRole}`;
-    // Scheduled cron is treated as a background orchestrator and does not need
-    // a per-user JWT: it only iterates onboarded profiles and writes to the
-    // server-owned run log + snapshot tables via service role. We require at
-    // least a Supabase apikey/Authorization header to be present so random
-    // public hits without any credential are still rejected upstream by the
-    // platform's API gateway.
+    // Scheduled cron must present a real shared secret (or the service role).
+    // Accepting a plain Bearer/apikey value made the endpoint reachable with
+    // the public anon key, which is a critical auth bypass. The only trusted
+    // scheduled callers are pg_cron (via CRON_SHARED_SECRET, sourced from
+    // vault) and internal service-role invocations.
+    const hasValidCronSecret =
+      cronSharedSecret.length > 0 &&
+      cronSecretHeader.length > 0 &&
+      cronSecretHeader === cronSharedSecret;
     const isScheduledCredentialedCall =
-      mode === "scheduled" && (auth.startsWith("Bearer ") || apiKeyHeader.length > 0);
+      mode === "scheduled" && hasValidCronSecret;
+    void apiKeyHeader; // preserved for observability; no longer used for auth
+    if (mode === "scheduled" && !isServiceRoleCall && !isScheduledCredentialedCall) {
+      return json({ error: "unauthorized_scheduled_call" }, 401);
+    }
     if (!isServiceRoleCall && !isScheduledCredentialedCall) {
       const authResult = await authenticateRequest(req, corsHeaders);
       if (authResult.errorResponse) {

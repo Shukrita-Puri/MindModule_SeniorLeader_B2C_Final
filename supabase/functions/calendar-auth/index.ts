@@ -108,10 +108,14 @@ serve(async (req) => {
           console.warn('[calendar-auth] Token auth failed:', error);
         }
       }
-      
-      if (!authenticatedUserId && body.userId && body.action === 'connect') {
-        authenticatedUserId = body.userId as string;
-        console.log('[calendar-auth] Using userId from body for connect:', redactUserId(authenticatedUserId));
+
+      // SECURITY: never trust caller-supplied userId. The user identity for
+      // every mutating action (connect, disconnect, update_status) is derived
+      // exclusively from the verified Auth0 access token. The old body.userId
+      // fallback allowed an unauthenticated caller to bind any account's
+      // calendar to their own OAuth consent.
+      if (body.userId && !authenticatedUserId) {
+        console.warn('[calendar-auth] Rejected body.userId — no verified Bearer token present');
       }
     }
     
