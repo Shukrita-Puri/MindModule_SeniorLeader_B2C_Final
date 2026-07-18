@@ -119,8 +119,6 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
   const [checking, setChecking] = useState(false);
 
   const isWhitelisted = ONBOARDING_WHITELIST.includes(location.pathname);
-  const isOnboardingRoot = location.pathname === '/onboarding';
-
   useEffect(() => {
     if (loading) return;
 
@@ -159,15 +157,8 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
           return;
         }
 
-        // Authenticated, incomplete — if at root, check for resume
-        if (isOnboardingRoot) {
-          const resumeRoute = await getResumeRoute();
-          if (resumeRoute && resumeRoute !== '/onboarding') {
-            console.log('[OnboardingBlockGuard] 🔀 Resuming at:', resumeRoute);
-            navigate(resumeRoute, { replace: true });
-            return;
-          }
-        }
+        // Authenticated, incomplete users at the root should see the intro
+        // sequence first. The route index handles /onboarding -> /onboarding/app-intro.
 
         // For non-root routes: stage gating in OnboardingFlow handles progression
       } catch (err) {
@@ -177,7 +168,7 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
         setChecking(false);
       }
     })();
-  }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted, isOnboardingRoot, refreshProfile, checked, checking]);
+  }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted, refreshProfile, checked, checking]);
 
   // Same silent-then-delayed pattern as OnboardingGuard above.
   if (loading || (isAuthenticated && !checked && !DEV_MODE)) {

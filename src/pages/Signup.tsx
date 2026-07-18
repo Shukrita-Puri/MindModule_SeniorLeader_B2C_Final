@@ -11,7 +11,6 @@ import {
   getSanitisedAuth0Audience,
 } from '@/utils/nativeAuth';
 import { isLogoutGuardActive, clearLogoutGuard } from '@/utils/logoutGuard';
-import { getResumeRoute } from '@/utils/onboardingStatus';
 import PageSeo from '@/components/PageSeo';
 
 const REDIRECT_TIMEOUT_MS = 8000;
@@ -26,6 +25,7 @@ const Signup = () => {
   const timeoutRef = useRef<number | null>(null);
 
   const isOnboardingFlow =
+    location.pathname === '/signup' ||
     location.pathname.includes('/onboarding') ||
     location.search.includes('from=onboarding');
 
@@ -54,9 +54,7 @@ const Signup = () => {
     if (isAuthenticated) {
       clearTimeoutSafe();
       if (isOnboardingFlow) {
-        void getResumeRoute()
-          .then((route) => navigate(route, { replace: true }))
-          .catch(() => navigate('/onboarding/app-intro', { replace: true }));
+        navigate('/onboarding', { replace: true });
       } else {
         navigate('/executive-home');
       }
@@ -75,7 +73,7 @@ const Signup = () => {
 
     clearLogoutGuard();
 
-    const returnTo = isOnboardingFlow ? '/onboarding/app-intro' : '/executive-home';
+    const returnTo = isOnboardingFlow ? '/onboarding' : '/executive-home';
 
     clearTimeoutSafe();
     timeoutRef.current = window.setTimeout(() => {
