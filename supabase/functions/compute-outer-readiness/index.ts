@@ -2958,15 +2958,39 @@ serve(async (req) => {
   try {
     const body: ComputeRequest & { userId?: string } = await req.json();
 
+    // Auth model:
+    //   - Normal user calls: identity is derived from a verified Auth0 JWT.
+    //     `body.userId` is IGNORED for these callers.
+    //   - Internal/cron/service calls: caller must present either the
+    //     service-role bearer or the `x-cron-secret` header matching
+    //     CRON_SHARED_SECRET. Only these callers may pass `body.userId`.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const CRON_SHARED_SECRET = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+    const isServiceRoleCall = !!SERVICE_ROLE_KEY &&
+      authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
+    const isCronSecretCall = !!CRON_SHARED_SECRET &&
+      cronSecretHeader === CRON_SHARED_SECRET;
+    const isInternalCall = isServiceRoleCall || isCronSecretCall;
+
     let userId: string;
-    if (body.userId) {
-      console.log(
-        "[compute-outer-readiness] Using userId from body (dev mode):",
-        redactUserId(body.userId),
-      );
+    if (isInternalCall) {
+      if (!body.userId) {
+        return new Response(
+          JSON.stringify({ error: "Internal call missing userId" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
       userId = body.userId;
+      console.log(
+        "[compute-outer-readiness] Internal call, userId:",
+        redactUserId(userId),
+      );
     } else {
-      const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
         return new Response(
           JSON.stringify({ error: "Missing authorization header" }),
@@ -2976,7 +3000,27 @@ serve(async (req) => {
           },
         );
       }
-      userId = await verifyAuth0JWT(authHeader, req);
+      try {
+        userId = await verifyAuth0JWT(authHeader, req);
+      } catch (_e) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+      // Non-internal callers can never act on another user's data.
+      if (body.userId && body.userId !== userId) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: userId mismatch" }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     const {
