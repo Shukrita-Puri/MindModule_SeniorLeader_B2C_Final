@@ -321,7 +321,12 @@ const DailyCheckIn = () => {
           trigger: 'daily_checkin_save',
           error: refreshError.message,
         });
-        throw new Error(refreshError.message || 'Unable to refresh your score.');
+        // Non-blocking: check-in is already saved. Let the destination
+        // refetch/rebuild in the background so the user isn't stuck.
+        toast({
+          title: 'Refreshing in the background',
+          description: "Your check-in is saved. Today's Brief will catch up shortly.",
+        });
       }
 
       queryClient.removeQueries({ queryKey: ['mrs-snapshot'] });
@@ -341,13 +346,21 @@ const DailyCheckIn = () => {
       navigate(dailyCtaTarget);
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
-      toast({
-        title: 'Check-in failed',
-        description: refreshStarted
-          ? 'Your check-in saved, but the refreshed score was not ready. Please try again.'
-          : 'Unable to save your check-in. Please try again.',
-        variant: 'destructive',
-      });
+      if (refreshStarted) {
+        // Save succeeded; only the refresh step threw. Do not block the user.
+        toast({
+          title: 'Refreshing in the background',
+          description: "Your check-in is saved. Today's Brief will catch up shortly.",
+        });
+        recordCheckinCompleted();
+        navigate(dailyCtaTarget);
+      } else {
+        toast({
+          title: 'Check-in failed',
+          description: 'Unable to save your check-in. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setSubmitStage('idle');
     }
