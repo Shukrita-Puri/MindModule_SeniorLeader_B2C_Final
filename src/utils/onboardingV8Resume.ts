@@ -201,5 +201,5 @@ export async function loadOnboardingV8ResumeState(): Promise<OnboardingV8ResumeS
 export function getResumeRouteFromState(state: OnboardingV8ResumeState): string {
   if (state.completed) return "/executive-home";
   if (state.nextRoute) return state.nextRoute;
-  return "/onboarding/leadership-context";
+  return "/onboarding/app-intro";
 }

@@ -56,7 +56,7 @@ const Signup = () => {
       if (isOnboardingFlow) {
         void getResumeRoute()
           .then((route) => navigate(route, { replace: true }))
-          .catch(() => navigate('/onboarding/leadership-context', { replace: true }));
+          .catch(() => navigate('/onboarding/app-intro', { replace: true }));
       } else {
         navigate('/executive-home');
       }
@@ -75,7 +75,7 @@ const Signup = () => {
 
     clearLogoutGuard();
 
-    const returnTo = isOnboardingFlow ? '/onboarding/leadership-context' : '/executive-home';
+    const returnTo = isOnboardingFlow ? '/onboarding/app-intro' : '/executive-home';
 
     clearTimeoutSafe();
     timeoutRef.current = window.setTimeout(() => {
