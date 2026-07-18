@@ -4,7 +4,7 @@ import WeeklyDeltaDial from './WeeklyDeltaDial';
 
 describe('WeeklyDeltaDial', () => {
   it('renders suppression text when comparison is unavailable', () => {
-    render(<WeeklyDeltaDial currentScore={64} delta={null} mode="baseline" reason="composition_mismatch" />);
+    render(<WeeklyDeltaDial currentScore={64} delta={null} lastWeekAvg={null} mode="baseline" reason="composition_mismatch" />);
 
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Building your trend')).toBeInTheDocument();
@@ -12,7 +12,7 @@ describe('WeeklyDeltaDial', () => {
   });
 
   it('renders numeric progress when a delta exists', () => {
-    render(<WeeklyDeltaDial currentScore={64} delta={14} mode="refined" reason={null} />);
+    render(<WeeklyDeltaDial currentScore={64} delta={14} lastWeekAvg={50} mode="refined" reason={null} />);
 
     expect(screen.getByText('64')).toBeInTheDocument();
     expect(screen.getByText('+14')).toBeInTheDocument();
