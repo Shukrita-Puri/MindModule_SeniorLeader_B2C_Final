@@ -47,6 +47,7 @@ interface GuideStep {
   scrollBlock?: ScrollLogicalPosition;
   spotlightPad?: number;
   spotlightCircle?: boolean;
+  spotlightRadius?: number;
   tooltipPosition?: 'above' | 'below' | 'auto';
   activateTab?: 'mrs' | 'brief' | 'plan';
   openSidebar?: boolean;
@@ -114,6 +115,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'EXPLORE WHEN YOU NEED',
     tooltipPosition: 'auto',
     spotlightPad: 6,
+    spotlightRadius: 9999,
   },
   {
     targetSelector: '[data-tour="bottom-nav-insights"]',
@@ -128,6 +130,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'EXPLORE WHEN YOU NEED',
     tooltipPosition: 'auto',
     spotlightPad: 6,
+    spotlightRadius: 9999,
   },
 ];
 
@@ -273,7 +276,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const sy = rect.top - pad;
     const sw = rect.width + pad * 2;
     const sh = rect.height + pad * 2;
-    const sr = s.spotlightCircle ? Math.max(sw, sh) / 2 : 12;
+    const sr = s.spotlightCircle ? Math.max(sw, sh) / 2 : (s.spotlightRadius ?? 12);
 
     setSpotRect({ x: sx, y: sy, w: sw, h: sh, r: sr });
 
@@ -359,7 +362,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
       el.style.position = 'relative';
       el.style.zIndex = '61';
-      el.style.borderRadius = s.spotlightCircle ? '9999px' : '12px';
+      el.style.borderRadius = s.spotlightCircle || s.spotlightRadius === 9999 ? '9999px' : `${s.spotlightRadius ?? 12}px`;
       previousElRef.current = el;
 
       // Secondary scroll adjustment: ensure tooltip fits and feature is centered
