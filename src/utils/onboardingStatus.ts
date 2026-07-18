@@ -50,7 +50,7 @@ export async function getResumeRoute(): Promise<string> {
     return getResumeRouteFromState(state);
   } catch (err) {
     console.warn("[onboardingStatus] resume loader failed:", err);
-    return "/onboarding/leadership-context";
+    return "/onboarding/app-intro";
   }
 }
 
@@ -60,7 +60,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
   }
 
   if (!V8_PATHS.has(targetPath)) {
-    return "/onboarding/leadership-context";
+    return "/onboarding/app-intro";
   }
 
   if (targetPath === "/onboarding" || targetPath === "/onboarding/app-intro") {
