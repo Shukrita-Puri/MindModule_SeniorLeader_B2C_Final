@@ -17,9 +17,22 @@ Deno.serve(async (req) => {
 
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const projectUrl = Deno.env.get("SUPABASE_URL")!;
-  // Optional security: require admin bypass header to call this endpoint at all.
-  const callerKey = req.headers.get("x-admin-bypass") || req.headers.get("apikey");
-  if (!callerKey || (callerKey !== serviceKey && callerKey !== Deno.env.get("SUPABASE_ANON_KEY"))) {
+  // Only pg_cron (via CRON_SHARED_SECRET from vault) or a service-role caller
+  // may fan out Oura syncs. The public anon key is explicitly rejected — it is
+  // a client-facing credential and previously allowed anyone to trigger a
+  // fleet-wide sync.
+  const cronSharedSecret = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+  const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
+  const adminBypass = req.headers.get("x-admin-bypass") ?? "";
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const isServiceRoleCaller =
+    (authHeader.startsWith("Bearer ") && authHeader.slice(7) === serviceKey) ||
+    adminBypass === serviceKey;
+  const isCronCaller =
+    cronSharedSecret.length > 0 &&
+    cronSecretHeader.length > 0 &&
+    cronSecretHeader === cronSharedSecret;
+  if (!isServiceRoleCaller && !isCronCaller) {
     return new Response(JSON.stringify({ error: "forbidden" }), {
       status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
