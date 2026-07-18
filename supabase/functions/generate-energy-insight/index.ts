@@ -87,7 +87,7 @@ Generate unified insight with recommendation:`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 100,
         temperature: 0.7,

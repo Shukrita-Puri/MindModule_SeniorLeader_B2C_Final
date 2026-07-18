@@ -109,7 +109,7 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         system: 'You analyze coaching sessions and generate structured summaries. Return only valid JSON.',
           messages: [
           {
@@ -310,10 +310,10 @@ Return ONLY the JSON object.`
             let matchedEvent: { title: string; start_time: string } | null = null;
 
             for (const commitment of allPendingCommitments) {
-              const commitWords = commitment.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+              const commitWords = commitment.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
               for (const event of upcomingEvents) {
                 const eventTitle = (event.title || '').toLowerCase();
-                const hasMatch = commitWords.some(word => eventTitle.includes(word));
+                const hasMatch = commitWords.some((word: string) => eventTitle.includes(word));
                 if (hasMatch) {
                   matchedCommitment = commitment;
                   matchedEvent = event as { title: string; start_time: string };

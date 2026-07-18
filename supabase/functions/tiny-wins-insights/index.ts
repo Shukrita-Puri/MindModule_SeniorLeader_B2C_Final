@@ -221,7 +221,7 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-20250514",
+              model: "claude-haiku-4-5-20251001",
               system: "You analyze personal wins to extract psychological dimensions. Be specific and accurate.",
           messages: [
                 {
@@ -366,7 +366,7 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-20250514",
+              model: "claude-haiku-4-5-20251001",
               system: "You are a senior executive coach observing patterns in a leader's recent wins. Respond with exactly one sentence. Be direct, specific, and insight-driven. No filler.",
           messages: [
                 { role: "user", content: observationPrompt }

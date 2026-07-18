@@ -506,7 +506,7 @@ async function finalizeCoachSession(
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-20250514",
+              model: "claude-haiku-4-5-20251001",
               system: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
 Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.

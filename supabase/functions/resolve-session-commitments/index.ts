@@ -84,7 +84,7 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         system: 'You analyze coaching conversations to detect if pending commitments were discussed. Return only valid JSON.',
           messages: [
           {

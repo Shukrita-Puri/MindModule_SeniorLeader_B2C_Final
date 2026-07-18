@@ -106,7 +106,7 @@ Return ONLY valid JSON.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5-20251001",
         system: systemPrompt,
           messages: [
           { role: "user", content: userPrompt }
