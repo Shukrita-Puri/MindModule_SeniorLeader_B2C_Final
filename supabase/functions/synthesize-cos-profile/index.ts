@@ -12,6 +12,24 @@ const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "google/gemini-2.5-pro";
 
+type CosFallbackArgs = {
+  userId: string;
+  linkedinUrl: string | null;
+  linkedinText: string;
+  writingUrls: string[];
+  writingText: string;
+  freetext: string;
+  stakesChips: string[];
+  loadChips: string[];
+  burdenChips: string[];
+  goals: string[];
+  briefTiming: string | null;
+  resetModality: string | null;
+  weekendSignals: string | null;
+  calendarSelections: string[];
+  wearableSelections: string[];
+};
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -26,6 +44,205 @@ function isValidHttpUrl(s: string): boolean {
   } catch {
     return false;
   }
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function compactList(values: string[], fallback: string): string {
+  const clean = values.map((v) => String(v).trim()).filter(Boolean);
+  return clean.length ? clean.join(", ") : fallback;
+}
+
+function hasMeaningfulCosInput(args: CosFallbackArgs): boolean {
+  return Boolean(
+    args.linkedinUrl ||
+    args.linkedinText ||
+    args.writingUrls.length ||
+    args.writingText ||
+    args.freetext ||
+    args.stakesChips.length ||
+    args.loadChips.length ||
+    args.burdenChips.length ||
+    args.goals.length ||
+    args.briefTiming ||
+    args.resetModality ||
+    args.weekendSignals ||
+    args.calendarSelections.length ||
+    args.wearableSelections.length,
+  );
+}
+
+function inferSelfKnowledge(freetext: string) {
+  const disc = freetext.match(/\bDISC\s*[:=-]?\s*([A-Z/ -]{1,16})/i);
+  const enneagram = freetext.match(/\b(?:enneagram|type)\s*[:=-]?\s*([0-9][a-zw0-9 -]*)/i);
+  return {
+    discType: disc?.[1]?.trim() || "",
+    otherFrameworks: enneagram ? `Enneagram/type signal: ${enneagram[1].trim()}` : "",
+  };
+}
+
+function buildFallbackDisplayHtml(profile: any): string {
+  const gaps = Array.isArray(profile.what_is_missing) ? profile.what_is_missing : [];
+  return `
+<div class="hero">
+  <div class="sec-label">Chief of Staff profile</div>
+  <h2>Provisional leadership context</h2>
+  <p>${escapeHtml(profile.confidence_note)}</p>
+</div>
+<div class="section">
+  <div class="sec-label">What we know</div>
+  <div class="card"><div class="card-body">
+    <span class="tag">Goals: ${escapeHtml(compactList(profile.goals?.declared ?? [], "not selected"))}</span>
+    <span class="tag">High stakes: ${escapeHtml(compactList(profile.high_stakes_map?.declared_events ?? [], "not declared"))}</span>
+    <span class="tag">Load: ${escapeHtml(compactList(profile.cognitive_load_map?.declared_loads ?? [], "not declared"))}</span>
+  </div></div>
+</div>
+<div class="section">
+  <div class="sec-label">How Mind Module should brief you</div>
+  <div class="card"><div class="card-body">${escapeHtml(profile.communication_profile?.cos_brief_rules ?? "")}</div></div>
+</div>
+<div class="section">
+  <div class="sec-label">Missing context</div>
+  ${gaps.map((g: any) => `<div class="missing-item">${escapeHtml(g.gap)} — ${escapeHtml(g.description)}</div>`).join("")}
+</div>`.trim();
+}
+
+function buildFallbackCosProfile(args: CosFallbackArgs, reason: string) {
+  const generatedAt = new Date().toISOString();
+  const self = inferSelfKnowledge(args.freetext);
+  const hasExternalText = Boolean(args.linkedinText || args.writingText);
+  const dataSources = [
+    args.linkedinUrl ? "linkedin_url" : null,
+    args.linkedinText ? "linkedin_scrape" : null,
+    args.writingUrls.length ? "writing_urls" : null,
+    args.writingText ? "writing_scrapes" : null,
+    args.freetext ? "self_provided_context" : null,
+    args.stakesChips.length || args.loadChips.length || args.burdenChips.length ? "cognitive_load_chips" : null,
+    args.goals.length ? "goals" : null,
+    args.calendarSelections.length ? "calendar_connection_choice" : null,
+    args.wearableSelections.length ? "wearable_connection_choice" : null,
+  ].filter(Boolean);
+  const confidence = hasExternalText || args.freetext.length > 120 ? "medium" : hasMeaningfulCosInput(args) ? "low" : "very_low";
+
+  const profile: any = {
+    profile_id: `cos_${args.userId}_${Date.now()}`,
+    generated_at: generatedAt,
+    data_sources: dataSources,
+    confidence_overall: confidence,
+    confidence_note:
+      `Generated provisionally from onboarding data because ${reason}. This profile is intentionally conservative and will improve when LinkedIn, writing, or richer self-context is available.`,
+    identity: {
+      display_name: "Executive",
+      role: args.linkedinUrl ? "LinkedIn URL provided; role not yet extracted" : "Role not provided",
+      sector: "Not provided",
+      organisation_stage: "Not provided",
+      leadership_stage: args.stakesChips.length ? "High-stakes operating context declared" : "Not yet established",
+    },
+    leadership_style: {
+      primary_style: self.discType ? `Self-reported DISC ${self.discType}` : "Provisional operator",
+      style_tags: [
+        ...args.goals.slice(0, 3),
+        ...args.stakesChips.slice(0, 2),
+      ].filter(Boolean),
+      style_description:
+        args.freetext ||
+        "Leadership style cannot be inferred yet from external materials. Use declared goals and load signals only until richer context is available.",
+      confidence,
+      source_note: args.freetext ? "Based primarily on self-provided context." : "Based on onboarding selections only.",
+    },
+    communication_profile: {
+      how_they_think:
+        args.writingText
+          ? "Writing was provided for later enrichment; use it as the main source for cognitive style."
+          : "Cognitive style is not yet directly evidenced.",
+      how_they_communicate:
+        args.freetext
+          ? "Mirror the user's own stated operating language and avoid over-inference."
+          : "Use concise, executive-grade language and make uncertainty explicit.",
+      what_lands: ["Direct signal", "Clear tradeoffs", "Specific next action"],
+      what_wont_land: ["Generic encouragement", "Wellness language", "Overconfident personality claims"],
+      cos_brief_rules:
+        "Brief with discretion and precision. Name what is known, what is provisional, and what is missing. Tie recommendations to declared goals, load, and high-stakes moments.",
+      confidence,
+    },
+    existing_self_knowledge: {
+      disc_provided: Boolean(self.discType),
+      disc_type: self.discType,
+      archetype_provided: Boolean(self.otherFrameworks),
+      archetype_type: "",
+      other_frameworks: self.otherFrameworks,
+      alignment_note: self.discType || self.otherFrameworks ? "Treat self-reported frameworks as primary until contradicted by richer source material." : "No self-knowledge framework provided.",
+      confidence: self.discType || self.otherFrameworks ? "medium" : "low",
+    },
+    cognitive_risk_profile: {
+      primary_risk: args.loadChips[0] || args.burdenChips[0] || "Context not yet specific enough to name a primary risk",
+      risk_flags: [
+        ...args.loadChips.slice(0, 2).map((flag) => ({
+          flag,
+          severity: "unknown",
+          description: `Declared load signal: ${flag}`,
+          trigger_conditions: compactList(args.stakesChips, "High-demand leadership moments"),
+        })),
+        ...args.burdenChips.slice(0, 1).map((flag) => ({
+          flag,
+          severity: "unknown",
+          description: `Declared operating burden: ${flag}`,
+          trigger_conditions: "Sustained demand without recovery space",
+        })),
+      ],
+      regulation_strengths: args.goals.length ? args.goals : ["To be learned through check-ins and practice usage"],
+      confidence,
+    },
+    external_persona: {
+      summary: args.linkedinUrl ? `LinkedIn URL provided: ${args.linkedinUrl}` : "No external persona source provided.",
+      legacy_signals: args.writingUrls.length ? `Writing/interview URLs provided: ${args.writingUrls.join(", ")}` : "No writing/interview sources provided.",
+      confidence: hasExternalText ? "medium" : "low",
+    },
+    high_stakes_map: {
+      declared_events: args.stakesChips,
+      inferred_events: [],
+      event_frequency_estimate: "Requires calendar history to estimate reliably",
+    },
+    cognitive_load_map: {
+      declared_loads: args.loadChips,
+      inferred_loads: [],
+      operating_burdens: args.burdenChips,
+      primary_depletion_pattern: args.loadChips[0] || args.burdenChips[0] || "Not enough signal yet",
+    },
+    goals: {
+      declared: args.goals,
+      cos_accountability_note: args.goals.length
+        ? `Use daily briefs and plan selection to protect: ${args.goals.join(", ")}.`
+        : "Ask the user to select goals before applying accountability logic.",
+    },
+    brief_personalisation: {
+      timing: args.briefTiming || "Not set",
+      reset_modality: args.resetModality || "Not set",
+      weekend_signals: args.weekendSignals || "Not set",
+      brief_voice_note: "Use high-signal, low-drama language. Avoid false certainty.",
+    },
+    provisional_archetype: {
+      name: "Provisional Executive Operator",
+      subtitle: "Built from onboarding signals only",
+      description: "A temporary profile used to personalise the app until richer leadership context is available.",
+      to_be_confirmed_after: "LinkedIn scrape, writing/interviews, richer self-context, and several days of check-ins",
+      confidence,
+    },
+    what_is_missing: [
+      !args.linkedinText ? { gap_number: 1, gap: "LinkedIn details", description: "Role, sector, trajectory, and external positioning could not be read yet." } : null,
+      !args.writingText ? { gap_number: 2, gap: "Writing/interview evidence", description: "Communication style and cognitive style need richer source material." } : null,
+      !args.freetext ? { gap_number: 3, gap: "Self-provided operating context", description: "DISC, operating principles, current chapter, or leadership constraints would improve confidence." } : null,
+    ].filter(Boolean),
+  };
+  profile.display_html = buildFallbackDisplayHtml(profile);
+  return profile;
 }
 
 async function firecrawlScrape(apiKey: string, url: string): Promise<{ ok: boolean; markdown?: string; summary?: string; metadata?: any; error?: string }> {
@@ -304,9 +521,6 @@ Deno.serve(async (req) => {
     const force = !!(body as any)?.force;
 
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) {
-      return json(503, { error: "ai_unavailable", message: "AI gateway not configured" });
-    }
 
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -389,7 +603,7 @@ Deno.serve(async (req) => {
       .filter((t) => t && t.length > 0)
       .join("\n\n---\n\n");
 
-    const userPrompt = buildUserPrompt({
+    const cosInput: CosFallbackArgs = {
       userId,
       linkedinUrl,
       linkedinText: String(linkedinText).slice(0, 30_000),
@@ -405,7 +619,43 @@ Deno.serve(async (req) => {
       weekendSignals: row.weekend_signals,
       calendarSelections: Array.isArray(row.calendar_selections) ? row.calendar_selections : [],
       wearableSelections: Array.isArray(row.wearable_selections) ? row.wearable_selections : [],
-    });
+    };
+    const userPrompt = buildUserPrompt(cosInput);
+
+    const persistReadyProfile = async (profile: any) => {
+      const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
+      const { error: persistErr } = await db
+        .from("onboarding_v8_responses")
+        .update({
+          cos_profile: profile,
+          cos_profile_html: displayHtml,
+          cos_profile_status: "ready",
+          cos_profile_error: null,
+          cos_profile_generated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId);
+
+      if (persistErr) {
+        console.error("[synthesize-cos] persist error:", persistErr);
+        return { ok: false as const, error: persistErr };
+      }
+      return { ok: true as const, displayHtml };
+    };
+
+    if (!lovableKey) {
+      console.warn("[synthesize-cos] LOVABLE_API_KEY missing — generating fallback COS profile");
+      const profile = buildFallbackCosProfile(cosInput, "the AI gateway is not configured");
+      const persisted = await persistReadyProfile(profile);
+      if (!persisted.ok) return json(500, { error: "persist_failed" });
+      return json(200, {
+        ok: true,
+        cached: false,
+        fallback: true,
+        fallback_reason: "ai_unavailable",
+        cos_profile: profile,
+        cos_profile_html: persisted.displayHtml,
+      });
+    }
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
     console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
@@ -429,20 +679,17 @@ Deno.serve(async (req) => {
     if (!aiRes.ok) {
       const errText = await aiRes.text();
       console.error("[synthesize-cos] AI gateway error:", aiRes.status, errText);
-      await db
-        .from("onboarding_v8_responses")
-        .update({
-          cos_profile_status: "failed",
-          cos_profile_error: `ai_${aiRes.status}: ${errText.slice(0, 500)}`,
-        })
-        .eq("user_id", userId);
-      if (aiRes.status === 429) {
-        return json(429, { error: "rate_limited", message: "Too many requests, please try again shortly." });
-      }
-      if (aiRes.status === 402) {
-        return json(402, { error: "payment_required", message: "AI credits exhausted." });
-      }
-      return json(502, { error: "ai_failed" });
+      const profile = buildFallbackCosProfile(cosInput, `the AI gateway returned ${aiRes.status}`);
+      const persisted = await persistReadyProfile(profile);
+      if (!persisted.ok) return json(500, { error: "persist_failed" });
+      return json(200, {
+        ok: true,
+        cached: false,
+        fallback: true,
+        fallback_reason: `ai_${aiRes.status}`,
+        cos_profile: profile,
+        cos_profile_html: persisted.displayHtml,
+      });
     }
 
     const aiPayload = await aiRes.json();
@@ -456,40 +703,28 @@ Deno.serve(async (req) => {
     }
 
     if (!profile || typeof profile !== "object") {
-      await db
-        .from("onboarding_v8_responses")
-        .update({
-          cos_profile_status: "failed",
-          cos_profile_error: "ai_no_tool_call",
-        })
-        .eq("user_id", userId);
-      return json(502, { error: "ai_no_tool_call" });
+      const fallbackProfile = buildFallbackCosProfile(cosInput, "the AI response did not emit the COS tool payload");
+      const persisted = await persistReadyProfile(fallbackProfile);
+      if (!persisted.ok) return json(500, { error: "persist_failed" });
+      return json(200, {
+        ok: true,
+        cached: false,
+        fallback: true,
+        fallback_reason: "ai_no_tool_call",
+        cos_profile: fallbackProfile,
+        cos_profile_html: persisted.displayHtml,
+      });
     }
 
-    const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
-
-    const { error: persistErr } = await db
-      .from("onboarding_v8_responses")
-      .update({
-        cos_profile: profile,
-        cos_profile_html: displayHtml,
-        cos_profile_status: "ready",
-        cos_profile_error: null,
-        cos_profile_generated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId);
-
-    if (persistErr) {
-      console.error("[synthesize-cos] persist error:", persistErr);
-      return json(500, { error: "persist_failed" });
-    }
+    const persisted = await persistReadyProfile(profile);
+    if (!persisted.ok) return json(500, { error: "persist_failed" });
 
     console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
     return json(200, {
       ok: true,
       cached: false,
       cos_profile: profile,
-      cos_profile_html: displayHtml,
+      cos_profile_html: persisted.displayHtml,
       scrape_summary: {
         linkedin_ok: !!(linkedinScrape && linkedinScrape.ok),
         writing_ok_count: writingScrapes.filter((w) => w?.ok).length,
