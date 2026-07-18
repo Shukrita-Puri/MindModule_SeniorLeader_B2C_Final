@@ -1,17 +1,17 @@
 /**
- * useTourMock — strict gate for showing best-in-class demo Brief and
- * Plan content to GENUINE first-time users during the App Tour.
+ * useTourMock — gate for showing best-in-class demo MRS, Brief, and Plan
+ * content while the App Tour is actively mounted.
  *
- * Triple-AND contract:
+ * Contract:
  *   1. Tour is mounted (sessionStorage flag set by FirstSessionGuide)
- *   2. User is a genuine first-time user (layered detection below)
- *   3. (Decided per-consumer) the real Brief / Plan has no data yet
+ *   2. Fresh onboarding users and explicit Retake Tour users see the same
+ *      stable demo surfaces, so the walkthrough never spotlights sparse or
+ *      personally variable production data.
  *
  * First-time user resolver (negative signals win):
- *   a. isRetakeForUser(uid) === true → existing user
- *   b. getTourSource() === 'retake'  → existing user
- *   c. user.onboarding_completed_at older than ~10 minutes → existing
- *   d. otherwise → first-time
+ *   a. source/binding says retake → demo tour
+ *   b. user.onboarding_completed_at older than ~10 minutes → existing
+ *   c. otherwise → first-time onboarding
  */
 
 import { useEffect, useState } from 'react';
@@ -68,11 +68,9 @@ export function useTourMock(): TourMockState {
   }, []);
 
   const firstTimeUser = (() => {
-    // (a) explicit retake binding
-    if (isRetakeForUser(effectiveId)) return false;
-    // (b) source flag
-    if (getTourSource() === 'retake') return false;
-    // (c) account age — onboarding finished more than ~10 minutes ago
+    // Retake is not first-time, but it should still render demo tour surfaces.
+    if (isRetakeForUser(effectiveId) || getTourSource() === 'retake') return false;
+    // Account age — onboarding finished more than ~10 minutes ago.
     const finishedAt = user?.onboarding_completed_at;
     if (finishedAt) {
       const age = Date.now() - new Date(finishedAt).getTime();
@@ -80,10 +78,11 @@ export function useTourMock(): TourMockState {
     }
     return true;
   })();
+  const retakeTour = isRetakeForUser(effectiveId) || getTourSource() === 'retake';
 
   return {
     isTourMockActive: isActive,
     firstTimeUser,
-    shouldRenderMock: isActive && firstTimeUser,
+    shouldRenderMock: isActive && (firstTimeUser || retakeTour),
   };
 }

@@ -1866,17 +1866,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const snapshotHasCopy = !!currentBriefSnapshot?.hasRenderableCopy;
   const snapshotIsRenderable = !!currentBriefSnapshot?.isRenderable;
 
-  // App-Tour mock injection — strict triple-AND gate (mock active + genuine
-  // first-time user + no real brief yet). Substitutes a best-in-class demo
-  // payload so the tour spotlights a realistic, fully populated card
-  // instead of an empty awaiting state. Real users with real data are
-  // never overridden.
+  // App-Tour mock injection. Substitutes a best-in-class demo payload so
+  // first-time and retake tours spotlight a realistic, fully populated card
+  // instead of sparse or personally variable production data.
   const { shouldRenderMock: tourMockBriefActive } = useTourMock();
-  const realBriefEmpty =
-    !outerBriefReal ||
-    (outerBriefReal as any)?.briefMode === 'cold-start' ||
-    (outerBriefReal as any)?.awaitingSignals === true ||
-    !outerBriefReal.phrase;
   // Snapshot overlay: when a renderable current-window snapshot exists,
   // override the brief-visible fields on the live payload with snapshot
   // values. We spread the live payload first so wearable / calendar /
@@ -2053,10 +2046,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         };
       })()
     : null;
-  let outerBrief: any =
-    tourMockBriefActive && realBriefEmpty
-      ? MOCK_BRIEF
-      : (briefFromSnapshot ?? outerBriefReal);
+  let outerBrief: any = tourMockBriefActive ? MOCK_BRIEF : (briefFromSnapshot ?? outerBriefReal);
 
   // ─── SPRINT A — STABLE LAST-GOOD BRIEF GUARD ───
   // Once a valid current-window Brief has rendered, hold it as
@@ -2304,8 +2294,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     period: currentPeriodLocal(),
     snapshotExists: !!currentBriefSnapshot,
     snapshotIsRenderable,
-    usingSnapshot: !!briefFromSnapshot && !(tourMockBriefActive && realBriefEmpty),
-    usingLive: !briefFromSnapshot && !(tourMockBriefActive && realBriefEmpty),
+    usingSnapshot: !!briefFromSnapshot && !tourMockBriefActive,
+    usingLive: !briefFromSnapshot && !tourMockBriefActive,
     cardsAwaiting,
     awaitingSignals,
     readinessState,
@@ -2324,7 +2314,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     console.log('[PRB][render]', JSON.parse(_prbRenderKey));
     // Final resolved payload — one normalized line summarising origin.
     const source: 'mock' | 'snapshot' | 'live' | 'none' =
-      tourMockBriefActive && realBriefEmpty
+      tourMockBriefActive
         ? 'mock'
         : briefFromSnapshot
           ? 'snapshot'
@@ -2418,7 +2408,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         Array.isArray((outerBrief as any)?.signalPills) &&
         (outerBrief as any).signalPills.length > 0,
     });
-  }, [_prbRenderKey, tourMockBriefActive, realBriefEmpty, briefFromSnapshot, outerBriefReal, outerBrief]);
+  }, [_prbRenderKey, tourMockBriefActive, briefFromSnapshot, outerBriefReal, outerBrief]);
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {
