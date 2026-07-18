@@ -276,7 +276,7 @@ const Login = () => {
           </div>
 
           <p className="pt-3 text-[11.5px] leading-relaxed text-foreground/55 text-center">
-            Privacy by design. Local-first where possible. End-to-end encrypted. Powered by AI.
+            Powered by AI →
           </p>
         </section>
       </div>
