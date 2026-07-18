@@ -23,7 +23,6 @@ describe('onboarding route behavior', () => {
         protect_goals: 'not_started',
         brief_prefs: 'not_started',
         permissions: 'not_started',
-        connect: 'not_started',
       },
     });
 
@@ -31,23 +30,22 @@ describe('onboarding route behavior', () => {
     await expect(getResumeRoute()).resolves.toBe('/onboarding/protect-goals');
   });
 
-  it('allows connections only after permissions are complete', async () => {
+  it('routes legacy connect links back to the current permissions step', async () => {
     loadOnboardingV8ResumeState.mockResolvedValue({
       completed: false,
-      currentStep: 'connect',
-      nextRoute: '/onboarding/connect',
+      currentStep: null,
+      nextRoute: '/onboarding/done',
       stepStatus: {
         leadership_context: 'completed',
         cognitive_load: 'completed',
         protect_goals: 'completed',
         brief_prefs: 'completed',
         permissions: 'completed',
-        connect: 'not_started',
       },
     });
 
     const { validateStageAccess } = await import('./onboardingStatus');
-    await expect(validateStageAccess('/onboarding/connect')).resolves.toBeNull();
+    await expect(validateStageAccess('/onboarding/connect')).resolves.toBe('/onboarding/app-intro');
   });
 
   it('keeps done behind the current incomplete step', async () => {
@@ -61,7 +59,6 @@ describe('onboarding route behavior', () => {
         protect_goals: 'completed',
         brief_prefs: 'completed',
         permissions: 'in_progress',
-        connect: 'not_started',
       },
     });
 
@@ -80,11 +77,10 @@ describe('onboarding route behavior', () => {
         protect_goals: 'completed',
         brief_prefs: 'completed',
         permissions: 'completed',
-        connect: 'completed',
       },
     });
 
     const { validateStageAccess } = await import('./onboardingStatus');
-    await expect(validateStageAccess('/onboarding/connect')).resolves.toBe('/executive-home');
+    await expect(validateStageAccess('/onboarding/permissions')).resolves.toBe('/executive-home');
   });
 });

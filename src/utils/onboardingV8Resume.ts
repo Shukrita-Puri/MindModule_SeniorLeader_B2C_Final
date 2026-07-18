@@ -7,8 +7,7 @@ export type OnboardingV8StepId =
   | "cognitive_load"
   | "protect_goals"
   | "brief_prefs"
-  | "permissions"
-  | "connect";
+  | "permissions";
 
 export type OnboardingStepStatus = "not_started" | "in_progress" | "completed";
 export type OnboardingSynthesisStatus = "not_started" | "pending" | "ready" | "failed";
@@ -48,7 +47,6 @@ const STEP_ORDER: OnboardingV8StepId[] = [
   "protect_goals",
   "brief_prefs",
   "permissions",
-  "connect",
 ];
 
 const STEP_ROUTE: Record<OnboardingV8StepId, string> = {
@@ -57,7 +55,6 @@ const STEP_ROUTE: Record<OnboardingV8StepId, string> = {
   protect_goals: "/onboarding/protect-goals",
   brief_prefs: "/onboarding/brief-prefs",
   permissions: "/onboarding/permissions",
-  connect: "/onboarding/connect",
 };
 
 function toSynthesisStatus(raw: string | null | undefined): OnboardingSynthesisStatus {

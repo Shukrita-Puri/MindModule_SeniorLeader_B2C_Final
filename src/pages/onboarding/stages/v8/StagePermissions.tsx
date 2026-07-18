@@ -4,6 +4,9 @@ import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { loadV8Row, saveV8 } from "@/utils/onboardingV8";
 import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from "@/utils/onboardingV8Validation";
 import { CALENDAR_PROVIDER_META, WEARABLE_PROVIDER_META } from "@/utils/providerMetadata";
+import ConnectionsPanel from "@/components/connections/ConnectionsPanel";
+import type { CalendarProviderId } from "@/components/calendar/CalendarProviderPicker";
+import type { WearableProviderId } from "@/components/connections/WearableProviderPicker";
 import googleCalLogo from "@/assets/shared/google-calendar-logo.avif";
 import outlookLogo from "@/assets/shared/microsoft-calendar-logo.png";
 import appleCalLogo from "@/assets/shared/apple-calendar-logo.png";
@@ -89,8 +92,11 @@ export default function StagePermissions() {
       setSaveError(msg);
       return;
     }
-    navigate("/onboarding/connect");
+    navigate("/onboarding/done");
   };
+
+  const selectedCalendars = Array.from(cal) as CalendarProviderId[];
+  const selectedWearables = Array.from(wear) as WearableProviderId[];
 
   const renderCard = (
     items: { id: string; name: string; note: string; logo: string }[],
@@ -170,6 +176,23 @@ export default function StagePermissions() {
         Wearable <span className="text-saffron font-semibold">· Required – select one</span>
       </div>
       {renderCard(WEAR, wear, setWear, wear.size > 0)}
+
+      {(selectedCalendars.length > 0 || selectedWearables.length > 0) && (
+        <>
+          <div className="h-px bg-[#cfc7b8] my-4" />
+          <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
+            Connect selected data
+          </div>
+          <p className="text-[11px] text-[#7a7060] leading-[1.55] mb-3">
+            Use Connect on each selected provider now, or continue and finish setup later from Profile.
+          </p>
+          <ConnectionsPanel
+            calendarOnly={selectedCalendars}
+            wearableOnly={selectedWearables}
+            redirectPath="/onboarding/permissions"
+          />
+        </>
+      )}
     </ParchScreen>
   );
 }

@@ -9,7 +9,6 @@ const V8_PATHS = new Set([
   "/onboarding/protect-goals",
   "/onboarding/brief-prefs",
   "/onboarding/permissions",
-  "/onboarding/connect",
   "/onboarding/done",
 ]);
 
@@ -77,10 +76,6 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
     if (targetPath === "/onboarding/done") {
       const canEnterDone = state.currentStep === null || state.nextRoute === "/onboarding/done";
       return canEnterDone ? null : resumeRoute;
-    }
-
-    if (targetPath === "/onboarding/connect") {
-      return state.stepStatus.permissions === "completed" ? null : resumeRoute;
     }
 
     return targetPath === resumeRoute ? null : resumeRoute;

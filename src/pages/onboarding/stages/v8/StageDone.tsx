@@ -30,7 +30,7 @@ export default function StageDone() {
         const fields = (res.validationErrors ?? []).map((e) => e.field);
         if (fields.includes("calendar_selections") || fields.includes("wearable_selections")) {
           setError("Finish your selected connections before entering the app.");
-          setTimeout(() => navigate("/onboarding/connect"), 1200);
+          setTimeout(() => navigate("/onboarding/permissions"), 1200);
           return;
         }
         if (fields.includes("goals")) {
