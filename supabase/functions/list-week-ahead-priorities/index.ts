@@ -372,6 +372,31 @@ serve(async (req) => {
     );
     const inputById = new Map(input.map((i) => [i.id, i]));
 
+    // ── Rehydrate prior user decisions (Star / Cancel / Never) ──────────
+    // event_priority_memory is the source of truth for picker actions.
+    // We surface the most recent per-event decision so the UI can show
+    // the selected state after refresh instead of appearing to have
+    // "lost" the user's choice.
+    const priorByEventId = new Map<string, PriorSignal>();
+    const eventIdList = Array.from(metaById.keys());
+    if (eventIdList.length > 0) {
+      try {
+        const { data: priorRows } = await supabase
+          .from("event_priority_memory")
+          .select("event_id, signal, occurred_at")
+          .eq("user_id", userId)
+          .eq("source", "week_ahead_picker")
+          .in("event_id", eventIdList)
+          .in("signal", ["priority", "not_this_week", "never"])
+          .order("occurred_at", { ascending: false });
+        for (const r of (priorRows ?? []) as any[]) {
+          if (!r?.event_id || priorByEventId.has(r.event_id)) continue;
+          if (!PRIOR_SIGNALS.has(r.signal as PriorSignal)) continue;
+          priorByEventId.set(r.event_id, r.signal as PriorSignal);
+        }
+      } catch (_e) { /* best-effort — picker still functions without it */ }
+    }
+
     // Stakes rank for ordering.
     const STAKES_RANK: Record<string, number> = {
       A: 8, B: 7, C: 6, D: 5, E: 4, F: 3, G: 2, H: 1,
