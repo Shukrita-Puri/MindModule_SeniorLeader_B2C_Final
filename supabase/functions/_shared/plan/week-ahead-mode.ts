@@ -24,9 +24,23 @@ export type WeekAheadReason =
 
 /**
  * Home Country → recurring weekly planning day (local).
- * Sunday-start working-week countries plan on Saturday evening.
- * Everyone else plans on Sunday evening.
- * Temporary travel never changes the planning cadence.
+ *
+ * Countries where the user's normal working week begins on Sunday,
+ * therefore their weekly planning reminder fires Saturday evening.
+ * This is based on **home country**, not current travel location —
+ * temporary travel never changes the planning cadence.
+ *
+ * Members (ISO-3166-1 alpha-2):
+ *   SA — Saudi Arabia
+ *   KW — Kuwait
+ *   QA — Qatar
+ *   BH — Bahrain
+ *   OM — Oman
+ *   IL — Israel
+ *
+ * Everyone else plans on Sunday evening for a Monday-start week. Do not
+ * remove entries thinking they are historical — they encode the local
+ * working-week convention.
  */
 const SATURDAY_WEEKLY_COUNTRIES = new Set([
   "SA", "KW", "QA", "BH", "OM", "IL",
@@ -101,6 +115,11 @@ export interface WeekAheadDecision {
  *   5. today == planning day    → weekly_planning       (suppressed on
  *                                                        PTO / holiday)
  *   else                        → inactive
+ *
+ * Return-from-break precedence is **PTO → public holiday → long weekend
+ * → weekly planning**. First matching reason wins. A day that is both
+ * the last day of PTO AND the last day of a long weekend is reported as
+ * `end_of_pto` by design (PTO is the more specific signal).
  *
  * Global travel / full-working-weekend short-circuits are intentionally
  * removed — the planning cadence is fixed by Home Country. Saturday is
