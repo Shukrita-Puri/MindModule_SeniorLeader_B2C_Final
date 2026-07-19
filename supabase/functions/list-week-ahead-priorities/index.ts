@@ -290,6 +290,11 @@ serve(async (req) => {
       scoreReasons: string[];
       tags: WeekAheadTag[];
       isOrganizer: boolean | null;
+      /** Last decision recorded by the user for THIS event via the picker
+       *  (source='week_ahead_picker'). Null when the user hasn't chosen
+       *  yet — the UI uses this to rehydrate Star / Not this week / Never
+       *  state across refreshes. */
+      priorSignal: PriorSignal | null;
     };
 
     // ── Human-first triage: show EVERY real event, tag but never filter. ──
