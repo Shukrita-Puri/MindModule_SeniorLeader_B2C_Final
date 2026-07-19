@@ -1107,6 +1107,9 @@ async function loadPatternSummary(
     event_to_rhr: Array.isArray(sig.event_to_rhr) ? sig.event_to_rhr : [],
     sleep_to_prs: sig.sleep_to_prs ?? null,
     consecutive_load: sig.consecutive_load ?? null,
+    subcategory_lift: Array.isArray(sig?.performance_lift?.subcategory_lift)
+      ? sig.performance_lift.subcategory_lift
+      : [],
   };
 }
 
