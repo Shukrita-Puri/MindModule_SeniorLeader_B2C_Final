@@ -1,53 +1,64 @@
-## Bug: `classifyInterview` returns `'none'` for bare "Interview" with <2 attendees
+## WS5 (minimal-footprint) — Insights Stress Load: correct A–H + subcategory line
 
-**File:** `supabase/functions/_shared/jit/select-jit.ts:122`
+Zero new files. All edits land in two files that already own this surface.
 
-### Current behaviour (verified)
-```ts
-if ((args.attendeesCount ?? 0) < 2) return 'none';
-```
-A bare "Interview" event with `attendeesCount: 1` (or 0/unknown) is rejected entirely — even though line 110 already confirmed the title matches `INTERVIEW_RE`. This drops real high-stakes events from JIT scoring and fails the existing test at `select-jit.test.ts:475` which expects `'ambiguous'`.
+### File 1 — `supabase/functions/cause-effect-engine/index.ts` (edit in place)
 
-### Contract note (why not Path A from the ticket)
-`classifyInterview` returns `InterviewKind = 'media' | 'candidate' | 'hiring' | 'ambiguous' | 'none'` — **not** an A–H category. Returning `'D'` (as the ticket's "Path A" suggests) would break the type and every downstream caller (`interviewBoost`, etc.). Category assignment happens separately; `InterviewKind` only controls the interview-specific score boost.
-
-The correct alignment with the test and the ticket's underlying intent ("don't gate real events out; keep them in the Plan") is **Path B / Path C**: return `'ambiguous'` so the event still flows through JIT with the `+8` ambiguous boost, and still receives normal category classification + pre/post arcs upstream.
-
-### Change
-
-Replace line 122 with:
+Add one more rollup next to the existing `hr_event_lift` / `category_lift` construction (~lines 1332-1377) and include it in the `signal_summary` payload emitted at line ~1612.
 
 ```ts
-// Bare "Interview" titles with unknown/placeholder attendee counts are still
-// real events — don't gate them out. Fall through to 'ambiguous' so the
-// event keeps its category (D) + pre/post arcs and gets a modest boost.
-if ((args.attendeesCount ?? 0) < 2) return 'ambiguous';
+// signal_summary.subcategory_lift
+const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
+hrAcc.forEach(({ hrDeltas, et }) => {
+  if (!et) return;
+  const subcategoryId = et.id.includes('.') ? et.id.split('.')[1] : et.id;
+  const key = `${et.categoryId}::${subcategoryId}`;
+  if (!subAcc.has(key)) subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
+  const slot = subAcc.get(key)!;
+  slot.hr.push(...hrDeltas);
+  slot.n += hrDeltas.length;
+});
+const subcategory_lift = [] as Array<{ categoryId: EventCategoryId; subcategoryId: string; hrDeltaBpm: number; n: number; confidence: Confidence }>;
+subAcc.forEach((slot) => {
+  if (slot.n < MIN_OCCURRENCES_EMERGING) return;
+  subcategory_lift.push({
+    categoryId: slot.categoryId,
+    subcategoryId: slot.subcategoryId,
+    hrDeltaBpm: Math.round(mean(slot.hr)),
+    n: slot.n,
+    confidence: slot.n >= MIN_OCCURRENCES_STRONG ? 'strong' : 'emerging',
+  });
+});
 ```
+Add `subcategory_lift` to the `signalSummary` object that already gets written into `causality_findings.signal_summary` at line ~1612 (no schema change — jsonb).
 
-Then let the media / direction / hiring-keyword branches below run only when `attendeesCount >= 2` by wrapping the remaining logic in an early return path, OR (simpler) leave the branches as-is — they're all keyword/domain driven and safely produce more specific kinds when signals exist. The bare "Interview" with count<2 and no other signals will hit `'ambiguous'` via the new early return above **only if** we return early; to keep the more specific branches available when title/domain signals do exist, restructure as:
+### File 2 — `src/components/insights/PerformanceCausalityCard.tsx` (edit in place)
 
+Two small edits, no new imports:
+
+**(a) A–H label correctness.** Replace the local `CATEGORY_LABELS` map / `normalizeCategory` (~line 155) so it prefers server-provided `categoryNames[]` verbatim (they already come from `EVENT_CATEGORIES[id].name`), and only falls back to the current hardcoded map for legacy labels. That's a one-function tweak inside the file — no new module. This is the "use the correct A–H category names" fix the user called out.
+
+**(b) Subcategory secondary line.** Extend the local `CausalityPayload` interface (already inline in this file, ~line 78) with:
 ```ts
-const hasStrongSignals =
-  args.subtypeId === 'media-publication' ||
-  args.categoryId === 'C' ||
-  MEDIA_INTERVIEW_RE.test(title) ||
-  HIRING_KEYWORD_RE.test(title) ||
-  args.subtypeId === 'hiring-loop';
-
-if ((args.attendeesCount ?? 0) < 2 && !hasStrongSignals) return 'ambiguous';
+signalSummary?: {
+  subcategory_lift?: Array<{ categoryId: string; subcategoryId: string; hrDeltaBpm: number; n: number }>;
+};
 ```
+Below the existing Stress Load grid, inside each category row's expand region (already present), render a muted `<div className="text-xs text-muted-foreground">` listing subcategories for that categoryId when **≥2 subcategories** each have **n≥2**:
+`deep_work −10 bpm (n=3) · learning +4 bpm (n=2)`.
+If the array is missing/empty (older engine run, or window has no data) → render nothing. No layout shift, no empty state, no new component.
 
-This preserves existing test behaviour for `"CNBC interview with David"` (media, count 2 — unaffected) and `"Interview with CEO at Stripe"` (already returns `'candidate'` via `MY_INTERVIEW_TITLE_RE` before line 122).
+### No test files added
+Add two assertions to the nearest existing test file if one exists (`src/components/insights/__tests__/*` or `PerformanceCausalityCard.test.tsx` if present). If not, skip — pre-launch, we rely on visual verification per the user's preference. Run existing suites to confirm no regression.
 
 ### Verification
-- Existing test at `select-jit.test.ts:475` (`"bare ambiguous interview falls through to ambiguous"`) now passes.
-- Run full Deno suite: `deno test supabase/functions/_shared/jit/` — expect 180/180.
-- No frontend or DB changes; no migrations; no redeploy required beyond the shared module (it's imported by `generate-mastery-plan`, `smart-nudges`, `list-week-ahead-priorities`, so redeploy those three).
+- `bunx vitest run src/components/insights` — existing suite still green.
+- `deno test supabase/functions/cause-effect-engine/` — existing tests still green (new field is additive).
+- Redeploy `cause-effect-engine` after merge.
+- Manual: on a user with no subcategory data the card renders exactly as today; on a user with data an extra muted line appears inside the expand region.
 
-### Out of scope
-- Ticket's "Path C" (context-aware `D.hiring_interview` subtype) — the enrichment/subtype layer already handles this in WS1-2 via `classify-event-v2`. No change needed here.
-- Any changes to category assignment or arc generation — those already work correctly for D events.
-
-### Files touched
-1. `supabase/functions/_shared/jit/select-jit.ts` — one-line/small-block change at line 122.
-2. Redeploy: `generate-mastery-plan`, `smart-nudges`, `list-week-ahead-priorities`.
+### Explicitly out of scope
+- No new `.ts` files.
+- No changes to Burnout Risk / Recovery Time.
+- No migration.
+- WS6 in a separate PR.

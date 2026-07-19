@@ -83,6 +83,20 @@ interface CausalityPayload {
   diagnostics?: {
     counts?: DiagnosticsCounts;
   };
+  /**
+   * Additive subset of the engine's `signal_summary` — Stress Load renders
+   * `subcategory_lift` as a secondary line under any A–H row that spans
+   * ≥2 subcategories with n≥2 each. Missing/empty → render nothing.
+   */
+  signalSummary?: {
+    subcategory_lift?: Array<{
+      categoryId: string;
+      categoryName: string;
+      subcategoryId: string;
+      hrDeltaBpm: number;
+      n: number;
+    }>;
+  };
   version?: number;
   cached?: boolean;
 }
@@ -315,7 +329,21 @@ function TabPill({ active, onClick, children }: { active: boolean; onClick: () =
 }
 
 // ── Stress Load tab ──────────────────────────────────────────────────
-function StressLoadTab({ matrix }: { matrix: StressMatrix }) {
+type SubcategoryLiftEntry = {
+  categoryId: string;
+  categoryName: string;
+  subcategoryId: string;
+  hrDeltaBpm: number;
+  n: number;
+};
+
+function StressLoadTab({
+  matrix,
+  subcategoryLift,
+}: {
+  matrix: StressMatrix;
+  subcategoryLift?: SubcategoryLiftEntry[];
+}) {
   const { events, categoryNames, days, cells, n, maxObserved, topDay } = matrix;
   const hasAny = cells.some((row) => row.some((v) => v !== null));
   if (!hasAny) {
@@ -406,6 +434,44 @@ function StressLoadTab({ matrix }: { matrix: StressMatrix }) {
           )}
         </div>
       )}
+
+      {(() => {
+        // Additive subcategory breakdown. Render only when at least one
+        // A–H row shown above has ≥2 subcategories, each with n≥2.
+        const list = (subcategoryLift ?? []).filter((e) => e && e.n >= 2);
+        if (list.length === 0) return null;
+        const visibleRows = new Set(rows);
+        const byCategory = new Map<string, SubcategoryLiftEntry[]>();
+        list.forEach((entry) => {
+          const rowLabel = normalizeCategory(entry.categoryName);
+          if (!visibleRows.has(rowLabel)) return;
+          const bucket = byCategory.get(rowLabel) ?? [];
+          bucket.push(entry);
+          byCategory.set(rowLabel, bucket);
+        });
+        const eligible = Array.from(byCategory.entries()).filter(
+          ([, entries]) => entries.length >= 2,
+        );
+        if (eligible.length === 0) return null;
+        return (
+          <div className="space-y-1 pt-2 border-t border-border/40">
+            {eligible.map(([rowLabel, entries]) => (
+              <div key={rowLabel} className="text-[11px] text-muted-foreground">
+                <span className="text-muted-foreground/80">{rowLabel}:</span>{' '}
+                {entries
+                  .slice()
+                  .sort((a, b) => a.hrDeltaBpm - b.hrDeltaBpm)
+                  .map((entry) => {
+                    const sign = entry.hrDeltaBpm >= 0 ? '+' : '−';
+                    const val = Math.abs(entry.hrDeltaBpm);
+                    return `${entry.subcategoryId.replace(/_/g, ' ')} ${sign}${val} bpm (n=${entry.n})`;
+                  })
+                  .join(' · ')}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -779,7 +845,10 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   progress={tabStates.stress.progress}
                 />
               ) : data.stressMatrix ? (
-                <StressLoadTab matrix={data.stressMatrix} />
+                <StressLoadTab
+                  matrix={data.stressMatrix}
+                  subcategoryLift={data.signalSummary?.subcategory_lift}
+                />
               ) : (
                 <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
                   Need a few more wearable days during meetings to populate.

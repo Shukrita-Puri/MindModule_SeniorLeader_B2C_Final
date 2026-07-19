@@ -273,6 +273,20 @@ interface PerformanceLift {
     n: number;
     confidence: Confidence;
   }>;
+  /**
+   * Rollup of hr_event_lift to (categoryId, subcategoryId). Subcategory id
+   * is derived from the canonical subtype id (`str.deep_work` → `deep_work`).
+   * Consumed by the Insights Stress Load card to render a secondary line
+   * under any A–H row that spans ≥2 subcategories.
+   */
+  subcategory_lift: Array<{
+    categoryId: EventCategoryId;
+    categoryName: string;
+    subcategoryId: string;
+    hrDeltaBpm: number;
+    n: number;
+    confidence: Confidence;
+  }>;
   /** Nights with sleep ≥ user P70 → next-day PRS lift + best window. */
   sleep_to_peak: { deltaPct: number; n: number; confidence: Confidence; bestWindow: TimeWindow | null } | null;
   /** Well-recovered mornings (RHR ≤ baseline − 1σ) → window with highest lift. */
@@ -397,7 +411,7 @@ serve(async (req) => {
     if (!force) {
       const { data: cached } = await supabase
         .from("causality_findings")
-        .select("payload")
+        .select("payload, signal_summary")
         .eq("user_id", userId)
         .eq("pattern_kind", "cause_effect_v2")
         .eq("computed_for_date", todayStr)
@@ -424,7 +438,13 @@ serve(async (req) => {
             cachedPayload.coverage.eventTypesIdentified == null ||
             cachedPayload.coverage.lensReasons == null);
         if (!isOldVersion && !isEmptyAndOldShape) {
-          return new Response(JSON.stringify({ ...cachedPayload, cached: true }), {
+          const cachedSig: any = (cached as any)?.signal_summary;
+          const subcat = cachedSig?.performance_lift?.subcategory_lift ?? [];
+          return new Response(JSON.stringify({
+            ...cachedPayload,
+            signalSummary: { subcategory_lift: subcat },
+            cached: true,
+          }), {
             status: 200,
             headers: corsHeaders,
           });
@@ -1376,6 +1396,34 @@ serve(async (req) => {
       });
       category_lift.sort((a, b) => b.compositeLift - a.compositeLift);
 
+      // ── (2b) subcategory_lift: rollup by (categoryId, subcategoryId) ─
+      // Subcategory id derived from canonical subtype id (`str.deep_work`
+      // → `deep_work`). Additive; consumed by Insights Stress Load only.
+      const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
+      hrAcc.forEach(({ hrDeltas, et }) => {
+        if (!et) return;
+        const subcategoryId = et.id.includes(".") ? et.id.split(".")[1] : et.id;
+        const key = `${et.categoryId}::${subcategoryId}`;
+        if (!subAcc.has(key)) {
+          subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
+        }
+        const slot = subAcc.get(key)!;
+        slot.hr.push(...hrDeltas);
+        slot.n += hrDeltas.length;
+      });
+      const subcategory_lift: PerformanceLift["subcategory_lift"] = [];
+      subAcc.forEach((slot) => {
+        if (slot.n < MIN_OCCURRENCES_EMERGING) return;
+        subcategory_lift.push({
+          categoryId: slot.categoryId,
+          categoryName: EVENT_CATEGORIES[slot.categoryId]?.name ?? slot.categoryId,
+          subcategoryId: slot.subcategoryId,
+          hrDeltaBpm: Math.round(mean(slot.hr)),
+          n: slot.n,
+          confidence: slot.n >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging",
+        });
+      });
+
       // ── (3) sleep_to_peak: high-sleep nights → next-day PRS + window ─
       let sleep_to_peak: PerformanceLift["sleep_to_peak"] = null;
       const sleepScored = (wearable as any[])
@@ -1479,6 +1527,7 @@ serve(async (req) => {
       return {
         hr_event_lift,
         category_lift,
+        subcategory_lift,
         sleep_to_peak,
         rhr_recovery_window,
         recovery_streak_to_peak,
@@ -1613,7 +1662,15 @@ serve(async (req) => {
       }, { onConflict: "user_id,pattern_kind,computed_for_date" });
     if (upsertErr) console.error("[cause-effect-engine] cache upsert failed:", upsertErr);
 
-    return new Response(JSON.stringify({ ...payload, cached: false }), {
+    // Attach the subset of signal_summary that client surfaces read (Insights
+    // Stress Load renders `subcategory_lift`). Additive — never breaking.
+    return new Response(JSON.stringify({
+      ...payload,
+      signalSummary: {
+        subcategory_lift: signalSummary.performance_lift?.subcategory_lift ?? [],
+      },
+      cached: false,
+    }), {
       status: 200,
       headers: corsHeaders,
     });
