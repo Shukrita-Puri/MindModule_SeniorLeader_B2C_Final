@@ -14,9 +14,20 @@ function pruneTravelPhases(
   phases: Phase[],
   categoryId: EventCategoryId | null | undefined,
   title: string | null | undefined,
+  durationMin?: number | null,
 ): Phase[] {
   if (categoryId !== "G") return phases;
-  const arc = enrichEvent({ title: title ?? "" }).travelArc;
+  // Prefer the calendar-derived duration: a bland "Flight LHR→SIN" title
+  // still resolves to long-haul when the event spans ≥6h.
+  const startIso = new Date(0).toISOString();
+  const endIso = durationMin != null && durationMin > 0
+    ? new Date(durationMin * 60_000).toISOString()
+    : null;
+  const arc = enrichEvent(
+    endIso
+      ? { title: title ?? "", start_time: startIso, end_time: endIso }
+      : { title: title ?? "" },
+  ).travelArc;
   // Only long-haul / explicit travel_day keeps the "during" (in-flight) slot.
   // enrichEvent defaults null-duration flights to 'pre-post', which is the
   // conservative behaviour we want at the allocator boundary.
@@ -211,7 +222,12 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     const map = EVENT_PHASE_MAP[top.categoryId as EventCategoryId] || {};
     dominantEventPhases = (["pre", "during", "post"] as const).filter((p) => !!map[p]);
     // WS4: prune "during" from short-haul flight anchors.
-    dominantEventPhases = pruneTravelPhases(dominantEventPhases, top.categoryId as EventCategoryId, top.title);
+    dominantEventPhases = pruneTravelPhases(
+      dominantEventPhases,
+      top.categoryId as EventCategoryId,
+      top.title,
+      top.durationMinutes,
+    );
     phaseCandidates = {};
     for (const c of ranked) {
       if (topEventId && c.eventId !== topEventId) continue;
@@ -347,6 +363,7 @@ function buildNamedFullArcResult(
     (["pre", "during", "post"] as const).slice(),
     categoryId,
     topG?.title,
+    topG?.durationMinutes,
   );
   const includeDuring = allowedPhases.includes("during");
   const duringSlot = includeDuring

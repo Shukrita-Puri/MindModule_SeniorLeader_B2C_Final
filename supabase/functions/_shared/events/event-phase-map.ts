@@ -60,7 +60,6 @@ export const EVENT_PHASE_MAP: Record<EventCategoryId, CategoryPhaseMap> = {
     post:   { timing: "on landing",     combo: "somatic.reenergise",goal: "Hardware recovery, circadian re-entry",                       preventsBuilds: ["Prevents next-morning baseline collapse", "Builds capacity for landing-day event"], severityHint: "high"   },
   },
   H: {
-    during: { timing: "in-window",     combo: "somatic.reenergise", goal: "Active recovery to build, not passive wind-down",  preventsBuilds: ["Prevents end-of-day collapse"],                                                       severityHint: "low"    },
   },
 };
 
