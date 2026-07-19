@@ -36,6 +36,10 @@ interface PriorityItem {
   scoreReasons: string[];
   tags: WeekAheadTag[];
   isOrganizer: boolean | null;
+  /** Last decision recorded by the user for this event via the picker.
+   *  Populated from event_priority_memory (source='week_ahead_picker')
+   *  so Star/Cancel/Never selections survive a refresh. */
+  priorSignal: Signal | null;
 }
 
 type WeekAheadTag =
@@ -132,8 +136,21 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
               )
             : [],
           isOrganizer: it.isOrganizer ?? null,
+          priorSignal:
+            (it as any).priorSignal === "priority" ||
+            (it as any).priorSignal === "not_this_week" ||
+            (it as any).priorSignal === "never"
+              ? ((it as any).priorSignal as Signal)
+              : null,
         }));
       setItems(safe);
+      // Rehydrate decisions from the server so the user's prior
+      // Star/Cancel/Never selections remain visible after refresh.
+      const hydrated: Record<string, Signal> = {};
+      for (const it of safe) {
+        if (it.priorSignal) hydrated[it.eventId] = it.priorSignal;
+      }
+      setDecisions(hydrated);
     } catch (e) {
       console.error("[WeekAheadPriorities] load failed", e);
       setError("Couldn't load your upcoming week.");

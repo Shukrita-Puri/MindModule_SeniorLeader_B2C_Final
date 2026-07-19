@@ -84,6 +84,15 @@ const TAG_LABEL: Record<WeekAheadTag, string> = {
   historically_low_signal: "historically low-signal",
 };
 
+/** User decisions recorded via `record-event-priority-signal` — surfaced back
+ *  to the picker UI so Star/Cancel/Never selections persist across refresh. */
+type PriorSignal = "priority" | "not_this_week" | "never";
+const PRIOR_SIGNALS: ReadonlySet<PriorSignal> = new Set([
+  "priority",
+  "not_this_week",
+  "never",
+]);
+
 /** User-friendly bucket label aligned with the Plan card vocabulary. */
 function categoryLabelFor(title: string, categoryId: string | null): string {
   const subtype = classifyEvent(title);
@@ -281,6 +290,11 @@ serve(async (req) => {
       scoreReasons: string[];
       tags: WeekAheadTag[];
       isOrganizer: boolean | null;
+      /** Last decision recorded by the user for THIS event via the picker
+       *  (source='week_ahead_picker'). Null when the user hasn't chosen
+       *  yet — the UI uses this to rehydrate Star / Not this week / Never
+       *  state across refreshes. */
+      priorSignal: PriorSignal | null;
     };
 
     // ── Human-first triage: show EVERY real event, tag but never filter. ──
@@ -358,6 +372,31 @@ serve(async (req) => {
     );
     const inputById = new Map(input.map((i) => [i.id, i]));
 
+    // ── Rehydrate prior user decisions (Star / Cancel / Never) ──────────
+    // event_priority_memory is the source of truth for picker actions.
+    // We surface the most recent per-event decision so the UI can show
+    // the selected state after refresh instead of appearing to have
+    // "lost" the user's choice.
+    const priorByEventId = new Map<string, PriorSignal>();
+    const eventIdList = Array.from(metaById.keys());
+    if (eventIdList.length > 0) {
+      try {
+        const { data: priorRows } = await supabase
+          .from("event_priority_memory")
+          .select("event_id, signal, occurred_at")
+          .eq("user_id", userId)
+          .eq("source", "week_ahead_picker")
+          .in("event_id", eventIdList)
+          .in("signal", ["priority", "not_this_week", "never"])
+          .order("occurred_at", { ascending: false });
+        for (const r of (priorRows ?? []) as any[]) {
+          if (!r?.event_id || priorByEventId.has(r.event_id)) continue;
+          if (!PRIOR_SIGNALS.has(r.signal as PriorSignal)) continue;
+          priorByEventId.set(r.event_id, r.signal as PriorSignal);
+        }
+      } catch (_e) { /* best-effort — picker still functions without it */ }
+    }
+
     // Stakes rank for ordering.
     const STAKES_RANK: Record<string, number> = {
       A: 8, B: 7, C: 6, D: 5, E: 4, F: 3, G: 2, H: 1,
@@ -426,6 +465,7 @@ serve(async (req) => {
         scoreReasons: orderedTags.map((t) => TAG_LABEL[t]).slice(0, 3),
         tags: orderedTags,
         isOrganizer: meta.isOrganizer,
+        priorSignal: priorByEventId.get(eventId) ?? null,
       });
     }
 
