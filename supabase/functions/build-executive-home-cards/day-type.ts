@@ -209,12 +209,16 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   const weekAhead = evaluateWeekAheadMode({
     dayOfWeek,
     localHour: local.hour,
+    homeCountry: input.userHomeCountry ?? null,
     travelDay,
     ptoTodayAllDay: ptoToday,
     ptoTomorrowAllDay: ptoTomorrow,
     holidayAllDayEventToday: todayAvailability.state === "PUBLIC_HOLIDAY",
     tomorrowIsWorkday: !tomorrowAvailability.isOffDay,
-    consecutiveOffDaysBefore: input.consecutiveOffDaysBefore ?? 0,
+    // This orchestrator does not carry a full ≥3-day lookback, so the
+    // end_of_long_weekend branch is intentionally left to smart-nudges,
+    // which walks the full 14-day calendar via the Availability SSOT.
+    isLastDayOfLongWeekend: false,
   });
 
   // 1. TRAVEL — wins over everything (matches ceo-behaviour/travel.ts precedence).
@@ -230,13 +234,14 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     };
   }
 
-  // 2. WEEK-AHEAD — last-day-PTO / last-day-holiday / last-day-long-weekend
-  //    (Sunday is handled below as a distinct weekend_sunday day-type so we
-  //    don't collapse ordinary Sunday nudge cadence into week-ahead cadence.)
+  // 2. WEEK-AHEAD — end_of_pto / end_of_public_holiday / end_of_long_weekend
+  //    (weekly_planning day is handled below as a distinct weekend_sunday
+  //    day-type so we don't collapse ordinary weekly-planning nudge cadence
+  //    into week-ahead cadence.)
   if (
     weekAhead.active &&
     weekAhead.reason &&
-    weekAhead.reason !== "sunday" &&
+    weekAhead.reason !== "weekly_planning" &&
     weekAhead.reason !== "manual_override"
   ) {
     return {
@@ -288,7 +293,7 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     return {
       dayType: "weekend_sunday",
       allowedWindows: new Set<TimeWindow>(["morning", "evening"]),
-      weekAheadReason: "sunday",
+      weekAheadReason: "weekly_planning",
       evidence: ["sunday_week_ahead"],
     };
   }

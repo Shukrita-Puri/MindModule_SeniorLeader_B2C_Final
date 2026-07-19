@@ -33,25 +33,28 @@ Deno.test("response attaches weekAheadDecision derived from shared predicate", (
   assertStringIncludes(SRC, "mode: _wam.active ? 'week_ahead' : 'day_of'");
 });
 
-Deno.test("Saturday 20 Jun 2026 evening → weekAheadDecision.active === false", () => {
-  // Local Sat 18:00 — no PTO/holiday/travel signals.
+Deno.test("Saturday 20 Jun 2026 evening (non-Saturday-planning country) → weekAheadDecision.active === false", () => {
+  // Local Sat 18:00 — no PTO/holiday/travel signals and homeCountry
+  // defaults to Sunday-planning cadence, so Saturday is inactive.
   const decision = evaluateWeekAheadMode({
     dayOfWeek: 6,
     localHour: 18,
+    homeCountry: "GB",
     manualOverride: false,
   });
   assertEquals(decision.active, false);
   assertEquals(decision.reason, null);
 });
 
-Deno.test("Sunday 21 Jun 2026 → weekAheadDecision.active === true / reason='sunday'", () => {
+Deno.test("Sunday 21 Jun 2026 → weekAheadDecision.active === true / reason='weekly_planning'", () => {
   const decision = evaluateWeekAheadMode({
     dayOfWeek: 0,
     localHour: 12,
+    homeCountry: "GB",
     manualOverride: false,
   });
   assertEquals(decision.active, true);
-  assertEquals(decision.reason, "sunday");
+  assertEquals(decision.reason, "weekly_planning");
   assertEquals(decision.lookaheadDays, 7);
 });
 

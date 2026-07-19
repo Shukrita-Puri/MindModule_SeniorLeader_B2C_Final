@@ -11,6 +11,19 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
+/**
+ * Home Country → local planning weekday. Mirrors the server-side
+ * `planningDayOfWeek` in `supabase/functions/_shared/plan/week-ahead-mode.ts`.
+ */
+const SATURDAY_WEEKLY_COUNTRIES = new Set([
+  "SA", "KW", "QA", "BH", "OM", "IL",
+]);
+function planningDayOfWeek(homeCountry?: string | null): 0 | 6 {
+  return SATURDAY_WEEKLY_COUNTRIES.has((homeCountry ?? "").toUpperCase())
+    ? 6
+    : 0;
+}
+
 export interface WeekAheadHint {
   active: boolean;
   reason: string | null;
@@ -19,13 +32,14 @@ export interface WeekAheadHint {
 }
 
 /**
- * @param serverDecision Optional server-authoritative Week-Ahead decision
- *   surfaced by `generate-mastery-plan` or `list-week-ahead-priorities`.
- *   When provided, it WINS over the local DoW heuristic so frontend and
- *   backend can never disagree.
+ * @param serverDecision Server-authoritative Week-Ahead decision (wins).
+ * @param homeCountry Optional Home Country (ISO-2) used ONLY by the local
+ *   fallback when the server decision is absent — Sunday-start working-week
+ *   countries (SA/KW/QA/BH/OM/IL) plan on Saturday.
  */
 export function useWeekAheadMode(
   serverDecision?: { active: boolean; reason: string | null } | null,
+  homeCountry?: string | null,
 ): WeekAheadHint {
   const [searchParams] = useSearchParams();
   const manualOverride = searchParams.get("mode") === "week-ahead";
@@ -42,12 +56,13 @@ export function useWeekAheadMode(
         manualOverride: false,
       };
     }
-    // Mirror the server predicate (_shared/plan/week-ahead-mode.ts §17.2a):
-    // Saturday is a recovery day, NOT a Week-Ahead day. Only Sunday triggers
-    // the surface client-side. Special last-day-PTO/holiday/long-weekend
-    // branches are server-driven and only land via manual override here.
+    // Local fallback mirrors the server engine: only the weekly planning
+    // day fires here. End-of-PTO / end-of-holiday / end-of-long-weekend
+    // branches require calendar visibility and are always server-driven.
     const dow = new Date().getDay();
-    if (dow === 0) return { active: true, reason: "sunday", manualOverride: false };
+    if (dow === planningDayOfWeek(homeCountry)) {
+      return { active: true, reason: "weekly_planning", manualOverride: false };
+    }
     return { active: false, reason: null, manualOverride: false };
-  }, [manualOverride, serverDecision?.active, serverDecision?.reason]);
+  }, [manualOverride, serverDecision?.active, serverDecision?.reason, homeCountry]);
 }

@@ -3,6 +3,7 @@ import {
   evaluateWeekAheadMode,
   isSaturdayRecoveryDay,
   normalizeEventTypeKey,
+  planningDayOfWeek,
 } from "./week-ahead-mode.ts";
 
 Deno.test("inactive on weekday", () => {
@@ -10,13 +11,28 @@ Deno.test("inactive on weekday", () => {
   assertEquals(d.active, false);
 });
 
-Deno.test("Sunday triggers", () => {
+Deno.test("Sunday triggers weekly_planning (default country)", () => {
   const d = evaluateWeekAheadMode({ dayOfWeek: 0, localHour: 17 });
   assertEquals(d.active, true);
-  assertEquals(d.reason, "sunday");
+  assertEquals(d.reason, "weekly_planning");
 });
 
-Deno.test("Saturday no longer triggers Week-Ahead Mode", () => {
+Deno.test("Saturday triggers weekly_planning for SA/KW/QA/BH/OM/IL", () => {
+  for (const c of ["SA", "KW", "QA", "BH", "OM", "IL"]) {
+    const d = evaluateWeekAheadMode({
+      dayOfWeek: 6,
+      localHour: 17,
+      homeCountry: c,
+    });
+    assertEquals(d.active, true, `country=${c}`);
+    assertEquals(d.reason, "weekly_planning", `country=${c}`);
+  }
+  assertEquals(planningDayOfWeek("SA"), 6);
+  assertEquals(planningDayOfWeek("GB"), 0);
+  assertEquals(planningDayOfWeek(null), 0);
+});
+
+Deno.test("Saturday inactive for Monday-start countries", () => {
   const d = evaluateWeekAheadMode({ dayOfWeek: 6, localHour: 10 });
   assertEquals(d.active, false);
   assertEquals(d.reason, null);
@@ -45,74 +61,77 @@ Deno.test("isSaturdayRecoveryDay false on Sunday/weekday", () => {
   assertEquals(isSaturdayRecoveryDay({ dayOfWeek: 3, localHour: 10 }), false);
 });
 
-Deno.test("travel day suppresses", () => {
-  const d = evaluateWeekAheadMode({ dayOfWeek: 0, localHour: 10, travelDay: true });
-  assertEquals(d.active, false);
+Deno.test("travel day does NOT suppress weekly planning (cadence is fixed)", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 0,
+    localHour: 10,
+    travelDay: true,
+  });
+  assertEquals(d.active, true);
+  assertEquals(d.reason, "weekly_planning");
 });
 
-Deno.test("full working weekend suppresses", () => {
-  const d = evaluateWeekAheadMode({ dayOfWeek: 6, localHour: 10, fullWorkingWeekend: true });
-  assertEquals(d.active, false);
+Deno.test("full working weekend does NOT suppress weekly planning", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 0,
+    localHour: 10,
+    fullWorkingWeekend: true,
+  });
+  assertEquals(d.active, true);
+  assertEquals(d.reason, "weekly_planning");
 });
 
-Deno.test("last day of PTO triggers", () => {
+Deno.test("end of PTO triggers when tomorrow is not PTO", () => {
   const d = evaluateWeekAheadMode({
     dayOfWeek: 1,
     localHour: 18,
     ptoTodayAllDay: true,
     ptoTomorrowAllDay: false,
-    todayIsOffDay: true,
   });
   assertEquals(d.active, true);
-  assertEquals(d.reason, "last_day_pto");
+  assertEquals(d.reason, "end_of_pto");
 });
 
-Deno.test("last day of long weekend triggers", () => {
+Deno.test("end_of_long_weekend triggers only when SSOT flag set", () => {
   const d = evaluateWeekAheadMode({
     dayOfWeek: 1,
     localHour: 19,
-    consecutiveOffDaysBefore: 3,
+    isLastDayOfLongWeekend: true,
     tomorrowIsWorkday: true,
-    todayIsOffDay: true,
   });
   assertEquals(d.active, true);
-  assertEquals(d.reason, "last_day_long_weekend");
+  assertEquals(d.reason, "end_of_long_weekend");
 });
 
-Deno.test("Tuesday with lookback but today is workday → inactive", () => {
+Deno.test("plain weekend does NOT satisfy end_of_long_weekend (SSOT flag false)", () => {
   // Regression: shukrita@mindmodule.me, Tue 14 Jul 2026 fired
-  // last_day_long_weekend because the lookback inflated
-  // consecutiveOffDaysBefore and today was not gated as an off-day.
+  // last_day_long_weekend because a legacy counter treated a plain
+  // weekend as a long weekend. The SSOT flag now gates this.
   const d = evaluateWeekAheadMode({
     dayOfWeek: 2,
     localHour: 16,
-    consecutiveOffDaysBefore: 3,
+    isLastDayOfLongWeekend: false,
     tomorrowIsWorkday: true,
-    todayIsOffDay: false,
   });
   assertEquals(d.active, false);
   assertEquals(d.reason, null);
 });
 
-Deno.test("Monday after plain weekend → inactive (weekend != long weekend)", () => {
+Deno.test("weekly_planning suppressed when today is PTO", () => {
   const d = evaluateWeekAheadMode({
-    dayOfWeek: 1,
+    dayOfWeek: 0,
     localHour: 17,
-    consecutiveOffDaysBefore: 2,
-    tomorrowIsWorkday: true,
-    todayIsOffDay: false, // Mon itself is a workday
+    ptoTodayAllDay: true,
   });
   assertEquals(d.active, false);
 });
 
-Deno.test("last_day_pto requires todayIsOffDay to be true", () => {
-  // If today isn't classified as off, PTO flags alone must not fire.
+Deno.test("weekly_planning suppressed when today is a public holiday", () => {
   const d = evaluateWeekAheadMode({
-    dayOfWeek: 2,
-    localHour: 18,
-    ptoTodayAllDay: true,
-    ptoTomorrowAllDay: false,
-    todayIsOffDay: false,
+    dayOfWeek: 0,
+    localHour: 17,
+    holidayAllDayEventToday: true,
+    tomorrowIsWorkday: false, // still not "end_of_public_holiday"
   });
   assertEquals(d.active, false);
 });

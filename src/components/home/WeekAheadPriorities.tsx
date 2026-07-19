@@ -59,11 +59,11 @@ interface ApiResponse {
 }
 
 const SUBTITLE_BY_REASON: Record<string, string> = {
-  sunday: "Mark what truly matters this week — nuke the rest.",
+  weekly_planning: "Mark what truly matters this week — nuke the rest.",
   manual_override: "Re-prioritise the week ahead.",
-  last_day_pto: "Coming back to work — what's worth your attention?",
-  last_day_holiday: "Re-engaging — pick the events that matter.",
-  last_day_long_weekend: "Frame the week ahead before Monday lands.",
+  end_of_pto: "Coming back to work — what's worth your attention?",
+  end_of_public_holiday: "Re-engaging — pick the events that matter.",
+  end_of_long_weekend: "Frame the week ahead before Monday lands.",
 };
 
 const DAY_LABEL = (iso: string) => {
@@ -194,7 +194,8 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
     }
   }, []);
 
-  const subtitle = (reason && SUBTITLE_BY_REASON[reason]) || SUBTITLE_BY_REASON.sunday;
+  const subtitle = (reason && SUBTITLE_BY_REASON[reason]) ||
+    SUBTITLE_BY_REASON.weekly_planning;
 
   return (
     <section className="px-3 md:px-4" aria-label="Week-Ahead Priorities">

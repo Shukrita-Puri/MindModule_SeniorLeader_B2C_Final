@@ -11,8 +11,10 @@ import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 // today?" always has one authoritative answer.
 import {
   type AvailabilityResult,
+  type AvailabilityState,
   classifyAvailability,
   classifyDay,
+  isLastDayOfLongWeekend,
 } from "../_shared/availability/availability-classifier.ts";
 // Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
 // reasoned over instead of re-evaluating rules against a fresh
@@ -797,6 +799,10 @@ interface NudgeContext {
     fullWorkingWeekend: boolean;
     /** SSOT-derived: today is a PTO / applicable holiday / weekend day. */
     todayIsOffDay: boolean;
+    /** SSOT-derived: today ends a long weekend (weekend ∪ PTO/holiday). */
+    isLastDayOfLongWeekend: boolean;
+    /** Home country from profiles.country. Selects planning weekday. */
+    homeCountry: string | null;
   };
   // v5.3 - Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
@@ -1976,12 +1982,15 @@ async function buildNudgeContext(
           calendarSummary: e?.calendar_summary ?? null,
         }));
       let consecutiveOffDaysBefore = 0;
+      // Prior day states (newest-first) for the SSOT long-weekend detector.
+      const priorDayStates: Array<{ state: AvailabilityState }> = [];
       const cursor = new Date(`${todayStr}T00:00:00`);
       for (let i = 0; i < 14; i++) {
         cursor.setDate(cursor.getDate() - 1);
         const dStr = cursor.toISOString().split("T")[0];
         const events = byDate.get(dStr) || [];
         let isOff = false;
+        let priorState: AvailabilityState = "WORKDAY";
         try {
           const r = classifyDay({
             now: new Date(`${dStr}T12:00:00Z`),
@@ -1990,12 +1999,15 @@ async function buildNudgeContext(
             events: toAvailEvents(events),
           });
           isOff = r.isOffDay;
+          priorState = r.state;
         } catch (_e) {
           // Fallback: weekend-only. Empty calendars intentionally do NOT
           // count — see canonical rules above.
           const dDow = cursor.getDay();
           isOff = dDow === 0 || dDow === 6;
+          priorState = isOff ? "REST_DAY" : "WORKDAY";
         }
+        priorDayStates.push({ state: priorState });
         if (isOff) consecutiveOffDaysBefore++;
         else break;
       }
@@ -2004,6 +2016,15 @@ async function buildNudgeContext(
       // existing nonNoiseEvents array.
       const isTodayWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const fullWorkingWeekend = isTodayWeekend && nonNoiseEvents.length >= 3;
+      // SSOT long-weekend detector: needs today's state, tomorrow-is-workday,
+      // and the walked-back prior day states above.
+      const todayStateForLW: AvailabilityState = nudgeAvailability?.state ??
+        (dayOfWeek === 0 || dayOfWeek === 6 ? "REST_DAY" : "WORKDAY");
+      const longWeekendToday = isLastDayOfLongWeekend({
+        today: { state: todayStateForLW },
+        tomorrowIsWorkday,
+        priorDays: priorDayStates,
+      });
       if (defaults.length > 0) {
         console.log(
           `[week-ahead-hydration] user=${userId} defaulted=${
@@ -2019,6 +2040,8 @@ async function buildNudgeContext(
                 consecutiveOffDaysBefore,
                 travelDay,
                 fullWorkingWeekend,
+                isLastDayOfLongWeekend: longWeekendToday,
+                homeCountry: userHomeCountry,
               })
             }`,
         );
@@ -2039,6 +2062,8 @@ async function buildNudgeContext(
             nudgeAvailability.state === "PUBLIC_HOLIDAY" ||
             nudgeAvailability.state === "REST_DAY")
           : (dayOfWeek === 0 || dayOfWeek === 6),
+        isLastDayOfLongWeekend: longWeekendToday,
+        homeCountry: userHomeCountry,
       };
     })(),
     badgeCount: (() => {
@@ -4184,21 +4209,15 @@ async function projectPlanSlotToNudge(
 // ══════════════════════════════════════════════════════════════
 
 /**
- * Fires Sun 16:00–19:00 local AND 16:00–19:00 local on a detected last day
- * of PTO / holiday / long-weekend. Saturday is hard-suppressed (recovery day).
- *
- * Suppression order:
- *   - already shipped today (notification_log)
- *   - user already opened the picker today (event_priority_memory row with
- *     source='week_ahead_picker' written today is the proxy - set when the
- *     user actually tags any priority in the picker)
- *   - shouldFireWeekAheadPickerInvite predicate (Sat / out-of-window /
- *     week-ahead inactive)
+ * Fires 16:00–19:00 local on any active Week-Ahead trigger — weekly
+ * planning day (Home Country dependent), end of PTO, end of public holiday,
+ * or end of long weekend. Per-reason, per-day dedupe: the caller passes
+ * the set of Week-Ahead reasons already delivered today.
  */
 async function evaluateWeekAheadPickerInvite(
   ctx: NudgeContext,
   supabase: SupabaseLoose,
-  weeklyAlreadySent: boolean,
+  alreadySentReasonsToday: ReadonlySet<string>,
 ): Promise<QualifiedNudge | null> {
   const log = (reason: string, extra?: unknown) =>
     console.log(
@@ -4208,14 +4227,6 @@ async function evaluateWeekAheadPickerInvite(
         extra !== undefined ? " " + JSON.stringify(extra) : ""
       }`,
     );
-
-  // §17.7 - ISO-week idempotency. At most ONE picker invite per user per
-  // ISO week, regardless of reason. The weekly window is computed by the
-  // main loop in user-local time and passed in.
-  if (weeklyAlreadySent) {
-    log("already_sent_this_week");
-    return null;
-  }
 
   // Proxy for pickerOpenedToday: any week_ahead_picker signal written today
   // means the user landed in the picker and tagged something. Cheap query,
@@ -4247,17 +4258,20 @@ async function evaluateWeekAheadPickerInvite(
     fullWorkingWeekend: false,
     todayIsOffDay: !!ctx.dayContext.ptoMode || ctx.dayOfWeek === 0 ||
       ctx.dayOfWeek === 6,
+    isLastDayOfLongWeekend: false,
+    homeCountry: null,
   };
   const wam = evaluateWeekAheadMode({
     dayOfWeek: ctx.dayOfWeek,
     localHour: Math.floor(ctx.localTime),
+    homeCountry: wai.homeCountry,
     travelDay: wai.travelDay,
     fullWorkingWeekend: wai.fullWorkingWeekend,
     ptoTodayAllDay: wai.ptoTodayAllDay,
     ptoTomorrowAllDay: wai.ptoTomorrowAllDay,
     holidayAllDayEventToday: wai.holidayTodayAllDay,
     tomorrowIsWorkday: wai.tomorrowIsWorkday,
-    consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
+    isLastDayOfLongWeekend: wai.isLastDayOfLongWeekend,
     todayIsOffDay: wai.todayIsOffDay,
     manualOverride: false,
   });
@@ -4266,7 +4280,7 @@ async function evaluateWeekAheadPickerInvite(
     dayOfWeek: ctx.dayOfWeek,
     localHour: Math.floor(ctx.localTime),
     weekAheadDecision: wam,
-    alreadySentToday: false, // already covered above
+    alreadySentReasonsToday: alreadySentReasonsToday as ReadonlySet<any>,
     pickerOpenedToday,
   });
 
@@ -4275,7 +4289,7 @@ async function evaluateWeekAheadPickerInvite(
   // Filter in supabase__edge_function_logs with `[week-ahead-trigger]`.
   if (
     wam.active || wai.ptoTodayAllDay || wai.holidayTodayAllDay ||
-    wai.consecutiveOffDaysBefore >= 2
+    wai.isLastDayOfLongWeekend
   ) {
     console.log(
       `[week-ahead-trigger] user=${ctx.userId} reason=${
@@ -4286,18 +4300,19 @@ async function evaluateWeekAheadPickerInvite(
           JSON.stringify({
             dayOfWeek: ctx.dayOfWeek,
             localHour: Math.floor(ctx.localTime),
+            homeCountry: wai.homeCountry,
             ptoTodayAllDay: wai.ptoTodayAllDay,
             ptoTomorrowAllDay: wai.ptoTomorrowAllDay,
             holidayTodayAllDay: wai.holidayTodayAllDay,
             holidayTomorrowAllDay: wai.holidayTomorrowAllDay,
             tomorrowIsWorkday: wai.tomorrowIsWorkday,
-            consecutiveOffDaysBefore: wai.consecutiveOffDaysBefore,
+            isLastDayOfLongWeekend: wai.isLastDayOfLongWeekend,
             travelDay: wai.travelDay,
             fullWorkingWeekend: wai.fullWorkingWeekend,
             todayIsOffDay: wai.todayIsOffDay,
           })
         } ` +
-        `suppressors=${JSON.stringify({ pickerOpenedToday })}`,
+        `suppressors=${JSON.stringify({ pickerOpenedToday, alreadySentReasonsToday: [...alreadySentReasonsToday] })}`,
     );
   }
   log(`fire=${decision.fire}`, {
@@ -4309,28 +4324,28 @@ async function evaluateWeekAheadPickerInvite(
   if (!decision.fire) return null;
 
   const variantByReason: Record<string, { title: string; body: string }> = {
-    sunday_evening: {
+    weekly_planning: {
       title: "Sunday reset",
       body:
         "10 priority choices can shape the week before Monday starts - log in to prep your mind tonight.",
     },
-    last_day_pto_evening: {
+    end_of_pto: {
       title: "Last day off",
       body:
         "10 priority choices can shape tomorrow before work restarts - log in to prep your mind.",
     },
-    last_day_holiday_evening: {
+    end_of_public_holiday: {
       title: "Re-engaging",
       body:
         "10 priority choices can shape re-entry before work restarts - log in to prep your mind.",
     },
-    last_day_long_weekend_evening: {
+    end_of_long_weekend: {
       title: "Frame the week",
       body:
         "10 priority choices can shape the week before Monday lands - log in to prep your mind.",
     },
   };
-  const v = variantByReason[decision.reason] ?? variantByReason.sunday_evening;
+  const v = variantByReason[decision.reason] ?? variantByReason.weekly_planning;
 
   return {
     type: "week_ahead_picker_invite",
@@ -5322,7 +5337,6 @@ serve(async (req) => {
         Math.floor(localHour + localMinute / 60) < 19;
       const weekAheadPreflight = WEEK_AHEAD_PICKER_ENABLED &&
         (prefs?.evening_close_enabled ?? true) &&
-        dayOfWeek !== 6 && // Saturday is recovery day (§17.2a)
         weekAheadEligibleHour;
       if (!weekAheadPreflight) {
         trace(userId, "week_ahead_not_in_window", {
@@ -5336,40 +5350,37 @@ serve(async (req) => {
           },
         });
       } else {
-        // ISO-week start in user-local time, projected to UTC for the
-        // notification_log query. Week starts Monday 00:00 local.
-        const weekStartLocal = new Date(`${todayStr}T00:00:00`);
-        const dow = weekStartLocal.getDay();
-        const daysSinceMonday = (dow + 6) % 7; // Sun=6, Mon=0, ... Sat=5
-        weekStartLocal.setDate(weekStartLocal.getDate() - daysSinceMonday);
-        const weekStartUtcIso = new Date(
-          weekStartLocal.getTime() + tzOffset * 60000,
-        ).toISOString();
-
-        const { data: weeklySent } = await supabase
+        // Per-reason, per-day dedupe. Pull today's already-delivered
+        // Week-Ahead invites and extract the reason suffix from variant_id
+        // (`week_ahead_picker_invite::<reason>`). A prior weekly_planning
+        // invite must NOT block a same-day end_of_pto invite.
+        const { data: todaysSent } = await supabase
           .from("notification_log")
           .select("id, sent_at, variant_id")
           .eq("user_id", userId)
           .eq("notification_type", "week_ahead_picker_invite")
-          .gte("sent_at", weekStartUtcIso)
-          // Fix C: dry-run and other non-countable rows must never suppress
-          // a real Week-Ahead invite. Only rows that entered the delivery
-          // lifecycle count against the weekly cap.
+          .gte("sent_at", todayStartUtc)
+          .lt("sent_at", todayEndUtc)
+          // dry-run and other non-countable rows must never suppress a
+          // real Week-Ahead invite. Only rows that entered the delivery
+          // lifecycle count.
           .in(
             "delivery_state",
             COUNTABLE_DELIVERY_STATES as unknown as string[],
-          )
-          .limit(1);
+          );
 
-        const weeklyAlreadySent = !!(weeklySent && weeklySent.length > 0);
-        if (weeklyAlreadySent) {
-          trace(userId, "week_ahead_already_sent_this_week", {
+        const alreadySentReasonsToday = new Set<string>();
+        for (const row of todaysSent ?? []) {
+          const vid = String((row as { variant_id?: string }).variant_id ?? "");
+          const idx = vid.indexOf("::");
+          if (idx >= 0) alreadySentReasonsToday.add(vid.slice(idx + 2));
+        }
+        if (alreadySentReasonsToday.size > 0) {
+          trace(userId, "week_ahead_prior_reasons_today", {
             ...traceBase,
             notificationType: "week_ahead_picker_invite",
             metadata: {
-              week_start_utc: weekStartUtcIso,
-              existing_sent_at: weeklySent?.[0]?.sent_at ?? null,
-              existing_variant_id: weeklySent?.[0]?.variant_id ?? null,
+              reasons: [...alreadySentReasonsToday],
             },
           });
         }
@@ -5396,14 +5407,14 @@ serve(async (req) => {
         const inv = await evaluateWeekAheadPickerInvite(
           ctx,
           supabase,
-          weeklyAlreadySent,
+          alreadySentReasonsToday,
         );
         if (inv) {
           trace(userId, "week_ahead_selected", {
             ...traceBase,
             notificationType: inv.type,
             variantId: inv.copy.variantId,
-            metadata: { weekly_already_sent: weeklyAlreadySent },
+            metadata: { prior_reasons_today: [...alreadySentReasonsToday] },
           });
           // Direct dispatch - bypasses competitive ranking, daily cap,
           // 2h suppression, slot cap, post-CTA gates. This is a weekly
@@ -5431,13 +5442,13 @@ serve(async (req) => {
           console.log(
             `[smart-nudges] week_ahead_picker_invite dispatched user=${
               redactUserId(userId)
-            } variant=${inv.copy.variantId} (own bucket - bypassing daily cap)`,
+            } variant=${inv.copy.variantId} prior_reasons=${[...alreadySentReasonsToday].join(",") || "none"} (own bucket - bypassing daily cap)`,
           );
-        } else if (!weeklyAlreadySent) {
+        } else {
           trace(userId, "week_ahead_not_selected", {
             ...traceBase,
             notificationType: "week_ahead_picker_invite",
-            metadata: { weekly_already_sent: weeklyAlreadySent },
+            metadata: { prior_reasons_today: [...alreadySentReasonsToday] },
           });
         }
       }

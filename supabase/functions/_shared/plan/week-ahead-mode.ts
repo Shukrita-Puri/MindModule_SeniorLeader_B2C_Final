@@ -10,22 +10,48 @@
  * RuleContext. Callers project the data they already have.
  */
 
+/**
+ * Day-neutral reason vocabulary. Describes WHY the Week-Ahead surface
+ * fired, never WHICH weekday it fired on. The planning weekday itself is
+ * derived from Home Country via `planningDayOfWeek`.
+ */
 export type WeekAheadReason =
-  | "sunday"
-  | "last_day_pto"
-  | "last_day_holiday"
-  | "last_day_long_weekend"
+  | "weekly_planning"
+  | "end_of_pto"
+  | "end_of_public_holiday"
+  | "end_of_long_weekend"
   | "manual_override";
+
+/**
+ * Home Country → recurring weekly planning day (local).
+ * Sunday-start working-week countries plan on Saturday evening.
+ * Everyone else plans on Sunday evening.
+ * Temporary travel never changes the planning cadence.
+ */
+const SATURDAY_WEEKLY_COUNTRIES = new Set([
+  "SA", "KW", "QA", "BH", "OM", "IL",
+]);
+export function planningDayOfWeek(
+  homeCountry?: string | null,
+): 0 | 6 {
+  const c = (homeCountry ?? "").toUpperCase();
+  return SATURDAY_WEEKLY_COUNTRIES.has(c) ? 6 : 0;
+}
 
 export interface WeekAheadInput {
   /** 0=Sun, 6=Sat — user local day of week. */
   dayOfWeek: number;
   /** Local hour (0–23). Currently unused but reserved for future windowing. */
   localHour: number;
-  /** Truthy when the active travel detector says today is a travel day. */
+  /** ISO-2 country from `profiles.country`. Determines planning weekday. */
+  homeCountry?: string | null;
+  /** Truthy when the active travel detector says today is a travel day.
+   *  Only consumed by `isSaturdayRecoveryDay`; the Week-Ahead engine
+   *  itself no longer suppresses on travel — planning cadence is fixed. */
   travelDay?: boolean;
-  /** True when the weekend is operating as a working weekend (≥3 meetings
-   *  or ≥4h back-to-back or an explicit weekend work block). */
+  /** True when the weekend is operating as a working weekend.
+   *  Only consumed by `isSaturdayRecoveryDay`; the Week-Ahead engine no
+   *  longer suppresses on working weekends. */
   fullWorkingWeekend?: boolean;
   /** PTO covers today as an all-day event. */
   ptoTodayAllDay?: boolean;
@@ -35,14 +61,23 @@ export interface WeekAheadInput {
   holidayAllDayEventToday?: boolean;
   /** Tomorrow is a workday (used to detect "last day of holiday block"). */
   tomorrowIsWorkday?: boolean;
-  /** Number of consecutive off-days that have just preceded today. */
+  /**
+   * DEPRECATED: kept for one release so cached callers keep working.
+   * The new engine consumes `isLastDayOfLongWeekend` from the Availability
+   * SSOT instead of re-deriving from this counter.
+   */
   consecutiveOffDaysBefore?: number;
   /**
+   * SSOT-derived (see `availability-classifier.ts#isLastDayOfLongWeekend`):
+   * today is the last day of a contiguous off-day block that contains BOTH
+   * a normal-weekend day AND at least one adjacent PTO or applicable public
+   * holiday day. A plain weekend is NOT a long weekend.
+   */
+  isLastDayOfLongWeekend?: boolean;
+  /**
    * SSOT-derived flag: today itself is an off-day (PTO, applicable public
-   * holiday, or weekend). MANDATORY for any `last_day_*` branch — the "last
-   * day" of a break must be inside the break, not the first working day
-   * after it. When omitted, we derive a conservative fallback from the
-   * PTO/holiday/weekend inputs already on this bag.
+   * holiday, or weekend). Consumed by `isSaturdayRecoveryDay` and the
+   * legacy fallback; the new engine does not depend on it.
    */
   todayIsOffDay?: boolean;
   /** Manual entry via deep link (?mode=week-ahead). Forces active=true. */
@@ -57,57 +92,71 @@ export interface WeekAheadDecision {
 }
 
 /**
- * Decide whether the user is in week-ahead-planning mode.
- * Order matters — first match wins.
+ * Elimination engine — order matters.
+ *
+ *   1. manualOverride           → manual_override
+ *   2. end of PTO block         → end_of_pto
+ *   3. end of public holiday    → end_of_public_holiday
+ *   4. end of long weekend      → end_of_long_weekend   (SSOT boolean)
+ *   5. today == planning day    → weekly_planning       (suppressed on
+ *                                                        PTO / holiday)
+ *   else                        → inactive
+ *
+ * Global travel / full-working-weekend short-circuits are intentionally
+ * removed — the planning cadence is fixed by Home Country. Saturday is
+ * no longer universally excluded; it is the planning day for
+ * Sunday-start working-week countries.
  */
 export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision {
   if (input.manualOverride) {
     return { active: true, reason: "manual_override", lookbackDays: 7, lookaheadDays: 7 };
   }
 
-  // Travel always wins — the travel context owns those days.
-  if (input.travelDay) return inactive();
-
-  // A working weekend reverts to weekday cadence.
-  if (input.fullWorkingWeekend) return inactive();
-
-  // Conservative fallback: if caller didn't pass `todayIsOffDay`, derive it
-  // from the same PTO/holiday/weekend inputs already on the bag. Empty
-  // calendar days are NEVER off-days here — only positive evidence counts.
-  const isWeekend = input.dayOfWeek === 0 || input.dayOfWeek === 6;
-  const todayIsOffDay = input.todayIsOffDay ??
-    (input.ptoTodayAllDay === true ||
-     input.holidayAllDayEventToday === true ||
-     isWeekend);
-
-  // Last day of a PTO block (today off, tomorrow back on).
-  if (input.ptoTodayAllDay && input.ptoTomorrowAllDay === false && todayIsOffDay) {
-    return { active: true, reason: "last_day_pto", lookbackDays: 7, lookaheadDays: 7 };
+  // 2. End of PTO (isolated PTO day with a workday after → return-to-work).
+  if (input.ptoTodayAllDay === true && input.ptoTomorrowAllDay === false) {
+    return {
+      active: true,
+      reason: "end_of_pto",
+      lookbackDays: 7,
+      lookaheadDays: 7,
+    };
   }
 
-  // Last day of a public holiday block.
-  if (input.holidayAllDayEventToday && input.tomorrowIsWorkday && todayIsOffDay) {
-    return { active: true, reason: "last_day_holiday", lookbackDays: 7, lookaheadDays: 7 };
+  // 3. End of public holiday (single-day holiday returning to work).
+  if (input.holidayAllDayEventToday === true && input.tomorrowIsWorkday === true) {
+    return {
+      active: true,
+      reason: "end_of_public_holiday",
+      lookbackDays: 7,
+      lookaheadDays: 7,
+    };
   }
 
-  // End-of-long-weekend (≥2 consecutive off days behind us, tomorrow is
-  // work, AND today itself is still inside the break). Firing this branch
-  // on the first workday after a break is out of contract — the last day
-  // of the break is the last off-day, not the first on-day.
-  if (
-    (input.consecutiveOffDaysBefore ?? 0) >= 2 &&
-    input.tomorrowIsWorkday &&
-    todayIsOffDay
-  ) {
-    return { active: true, reason: "last_day_long_weekend", lookbackDays: 7, lookaheadDays: 7 };
+  // 4. End of long weekend — SSOT boolean. A long weekend REQUIRES both a
+  // normal weekend day AND at least one adjacent PTO/holiday day; plain
+  // weekends never trigger this branch.
+  if (input.isLastDayOfLongWeekend === true) {
+    return {
+      active: true,
+      reason: "end_of_long_weekend",
+      lookbackDays: 7,
+      lookaheadDays: 7,
+    };
   }
 
-  // Saturday is intentionally NOT a Week-Ahead day — it is a recovery day
-  // (see isSaturdayRecoveryDay below + §17.2a of the SSOT). Only Sunday is
-  // the plain weekend trigger; the special last-day-PTO/holiday/long-weekend
-  // branches above cover post-break planning regardless of day-of-week.
-  if (input.dayOfWeek === 0) {
-    return { active: true, reason: "sunday", lookbackDays: 7, lookaheadDays: 7 };
+  // 5. Weekly planning day (Home Country dependent). Suppressed if today
+  // is itself PTO / public holiday — return-from-break triggers already
+  // covered those cases above.
+  if (input.dayOfWeek === planningDayOfWeek(input.homeCountry)) {
+    if (input.ptoTodayAllDay === true || input.holidayAllDayEventToday === true) {
+      return inactive();
+    }
+    return {
+      active: true,
+      reason: "weekly_planning",
+      lookbackDays: 7,
+      lookaheadDays: 7,
+    };
   }
 
   return inactive();

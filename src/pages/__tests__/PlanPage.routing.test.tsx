@@ -62,7 +62,7 @@ describe("PlanPage routing", () => {
   it("Sunday / server active → renders WeekAheadPriorities + correct eyebrow", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-21T12:00:00Z")); // Sun
-    serverDecisionMock.current = { active: true, reason: "sunday" };
+    serverDecisionMock.current = { active: true, reason: "weekly_planning" };
     renderAt("/plan");
     expect(screen.getByTestId("week-ahead")).toBeInTheDocument();
     expect(screen.queryByTestId("today-three")).toBeNull();

@@ -23,7 +23,7 @@ describe("WeekAheadPriorities", () => {
   it("renders a valid populated response", async () => {
     invokeMock.mockResolvedValue({
       data: {
-        weekAheadMode: { active: true, reason: "sunday" },
+        weekAheadMode: { active: true, reason: "weekly_planning" },
         priorities: [
           {
             eventId: "e1",
@@ -45,7 +45,7 @@ describe("WeekAheadPriorities", () => {
       error: null,
     });
 
-    render(<WeekAheadPriorities reason="sunday" manualOverride={false} />);
+    render(<WeekAheadPriorities reason="weekly_planning" manualOverride={false} />);
 
     await waitFor(() => {
       expect(screen.getByText("Board Review")).toBeInTheDocument();
@@ -58,11 +58,11 @@ describe("WeekAheadPriorities", () => {
 
   it("renders a safe empty state when the response has no priorities", async () => {
     invokeMock.mockResolvedValue({
-      data: { weekAheadMode: { active: true, reason: "sunday" }, priorities: [] },
+      data: { weekAheadMode: { active: true, reason: "weekly_planning" }, priorities: [] },
       error: null,
     });
 
-    render(<WeekAheadPriorities reason="sunday" manualOverride={false} />);
+    render(<WeekAheadPriorities reason="weekly_planning" manualOverride={false} />);
 
     await waitFor(() => {
       expect(
@@ -74,7 +74,7 @@ describe("WeekAheadPriorities", () => {
   it("does not crash when optional fields are missing on items", async () => {
     invokeMock.mockResolvedValue({
       data: {
-        weekAheadMode: { active: true, reason: "sunday" },
+        weekAheadMode: { active: true, reason: "weekly_planning" },
         // No scoreReasons / category / period / stakesLevel / score / times
         priorities: [
           { eventId: "e1", title: "Mystery Event" },
@@ -98,7 +98,7 @@ describe("WeekAheadPriorities", () => {
   it("renders a recoverable error state when the invoke fails", async () => {
     invokeMock.mockResolvedValue({ data: null, error: new Error("boom") });
 
-    render(<WeekAheadPriorities reason="sunday" manualOverride={false} />);
+    render(<WeekAheadPriorities reason="weekly_planning" manualOverride={false} />);
     await waitFor(() => {
       expect(screen.getByText(/Couldn't load your upcoming week/i)).toBeInTheDocument();
     });

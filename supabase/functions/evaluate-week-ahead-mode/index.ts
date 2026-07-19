@@ -15,6 +15,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,11 +48,33 @@ serve(async (req) => {
       : new Date().getTimezoneOffset();
     const manualOverride = req.headers.get("x-week-ahead-override") === "1";
 
+    // Fetch Home Country (profiles.country) so the planning weekday
+    // matches the smart-nudges evaluator. Best-effort — a missing
+    // country degrades to the default Sunday cadence.
+    let homeCountry: string | null = null;
+    if (userId && userId !== "dev") {
+      try {
+        const supaUrl = Deno.env.get("SUPABASE_URL") ?? "";
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+        if (supaUrl && serviceKey) {
+          const admin = createClient(supaUrl, serviceKey);
+          const { data } = await admin
+            .from("profiles")
+            .select("country")
+            .eq("id", userId)
+            .maybeSingle();
+          homeCountry = (data as { country?: string | null } | null)?.country ??
+            null;
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+
     const localNow = new Date(Date.now() - offsetMinutes * 60_000);
     const dow = localNow.getUTCDay();
     const decision = evaluateWeekAheadMode({
       dayOfWeek: dow,
       localHour: localNow.getUTCHours(),
+      homeCountry,
       manualOverride,
       // Conservative default: only Sat/Sun count as off. This endpoint
       // does not have calendar visibility, so PTO / applicable holiday
@@ -68,6 +91,7 @@ serve(async (req) => {
           lookaheadDays: decision.lookaheadDays,
           mode: decision.active ? "week_ahead" : "day_of",
         },
+        homeCountry,
         userId,
         generatedAt: new Date().toISOString(),
       }),
