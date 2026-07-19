@@ -256,6 +256,7 @@ export async function loadJitContextForEvents(
           memoryDeltaByEventId![eid] = {
             delta: res.delta,
             hardDemote: res.hardDemote || undefined,
+            hasPriorDayPriority: res.hasPriorDayPriority || undefined,
           };
         }
       }
