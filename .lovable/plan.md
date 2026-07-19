@@ -1,64 +1,43 @@
-## WS5 (minimal-footprint) — Insights Stress Load: correct A–H + subcategory line
+## WS6 — Smart Nudges consume A-H subcategory + arc from Plan ledger
 
-Zero new files. All edits land in two files that already own this surface.
+**Scope confirmed: enrichment only.** Every JIT-anchored nudge already fires off an existing plan slot. WS6 makes that slot's A-H category + subcategory + arc phase authoritative in the copy path so the nudge language matches what the Plan promised the user.
 
-### File 1 — `supabase/functions/cause-effect-engine/index.ts` (edit in place)
+**Structure preserved (non-negotiable):**
+- Collapsed headline stays `Mind Module` (always).
+- `aps.alert.subtitle` = short moment title (≤3 words / 28 chars, `clampSubtitle`, `requiresHeadlineStructure`).
+- Body = Context + CTA, obeying V8 copy contract (≤22 words, ≤140 chars, meaning-forward, qualified mind-prep CTA verb).
+- No change to v8 comparator, DND, 2h suppression, daily-3 cap, week-ahead pipeline, headline/subtitle/body layering, or `ALLOWED_CTA_VERBS_V8`.
 
-Add one more rollup next to the existing `hr_event_lift` / `category_lift` construction (~lines 1332-1377) and include it in the `signal_summary` payload emitted at line ~1612.
+### Why this matters
+Today Smart Nudges reads `jitEventTitle` + `jitPhase` + `arcLabel` from `plan_ledger`, then re-classifies the title on the fly to derive category context. That re-classification can drift from what the Plan actually committed (e.g. Plan tagged a session as `E.learning`, nudge re-derives generic `E`). WS6 lets the ledger drive both the Plan surface and the Smart Nudges copy path from the same subcategory — same alignment WS5 gave Insights Stress Load.
 
-```ts
-// signal_summary.subcategory_lift
-const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
-hrAcc.forEach(({ hrDeltas, et }) => {
-  if (!et) return;
-  const subcategoryId = et.id.includes('.') ? et.id.split('.')[1] : et.id;
-  const key = `${et.categoryId}::${subcategoryId}`;
-  if (!subAcc.has(key)) subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
-  const slot = subAcc.get(key)!;
-  slot.hr.push(...hrDeltas);
-  slot.n += hrDeltas.length;
-});
-const subcategory_lift = [] as Array<{ categoryId: EventCategoryId; subcategoryId: string; hrDeltaBpm: number; n: number; confidence: Confidence }>;
-subAcc.forEach((slot) => {
-  if (slot.n < MIN_OCCURRENCES_EMERGING) return;
-  subcategory_lift.push({
-    categoryId: slot.categoryId,
-    subcategoryId: slot.subcategoryId,
-    hrDeltaBpm: Math.round(mean(slot.hr)),
-    n: slot.n,
-    confidence: slot.n >= MIN_OCCURRENCES_STRONG ? 'strong' : 'emerging',
-  });
-});
-```
-Add `subcategory_lift` to the `signalSummary` object that already gets written into `causality_findings.signal_summary` at line ~1612 (no schema change — jsonb).
+### Files touched (two, edit in place — no new files)
 
-### File 2 — `src/components/insights/PerformanceCausalityCard.tsx` (edit in place)
+**1. `supabase/functions/generate-mastery-plan/index.ts` — stamp subcategory on every ledger module**
+- At every point categoryId is already assigned to modules (~lines 8810, 8907, 9127, 10090, 10240, 10503, 10574, 10941), also stamp `anchorSubcategory` using `enrichEvent({ title }).subcategory`. Reuse the existing `enrichEvent` import; no new dependencies.
+- Extend the module TypeScript shape (`jitEventTitle` / `anchorCategoryId` neighbours around 7436 / 8905) with `anchorSubcategory: string | null`.
+- Zero DB migration: `plan_ledger` is jsonb; new key is additive and older rows stay valid.
 
-Two small edits, no new imports:
+**2. `supabase/functions/smart-nudges/index.ts` — read + use subcategory in Context, keep structure**
+- Extend `PlanNudgeSlot` (line 627) with `categoryId: EventCategoryId | null` and `subcategory: string | null`.
+- In `parsePlanSlots` (~line 560-593), read `m.anchorCategoryId ?? m.categoryId ?? null` and `m.anchorSubcategory ?? null`.
+- Enrichment hooks — **body Context sharpens only; subtitle, headline, and CTA verb unchanged**:
+  - **(a) Context sentence** (`buildSharedEventFrameLine` / `buildActionFrameForEvent` around 1104-1133 and 3627-3652): when the plan slot provides `subcategory`, pass it into the existing pattern lookup so `findEventPattern` cites subcategory-level lift (from `causality_findings.signal_summary.subcategory_lift`, WS5) instead of category-level average when both exist. Missing subcategory → existing category behaviour verbatim. Word/char caps and V8 validators still gate the final string.
+  - **(b) Telemetry only**: add `payload.metadata.plan_ledger_category` and `payload.metadata.plan_ledger_subcategory` to `notification_log` so we can verify Plan ↔ Nudge alignment. Not user-visible.
+- `NudgeSlot` selection order, cascade, `Mind Module` headline, subtitle clamp, CTA verb bucket, and V8 body validators are untouched — subcategory only sharpens the Context clause inside the existing body.
 
-**(a) A–H label correctness.** Replace the local `CATEGORY_LABELS` map / `normalizeCategory` (~line 155) so it prefers server-provided `categoryNames[]` verbatim (they already come from `EVENT_CATEGORIES[id].name`), and only falls back to the current hardcoded map for legacy labels. That's a one-function tweak inside the file — no new module. This is the "use the correct A–H category names" fix the user called out.
-
-**(b) Subcategory secondary line.** Extend the local `CausalityPayload` interface (already inline in this file, ~line 78) with:
-```ts
-signalSummary?: {
-  subcategory_lift?: Array<{ categoryId: string; subcategoryId: string; hrDeltaBpm: number; n: number }>;
-};
-```
-Below the existing Stress Load grid, inside each category row's expand region (already present), render a muted `<div className="text-xs text-muted-foreground">` listing subcategories for that categoryId when **≥2 subcategories** each have **n≥2**:
-`deep_work −10 bpm (n=3) · learning +4 bpm (n=2)`.
-If the array is missing/empty (older engine run, or window has no data) → render nothing. No layout shift, no empty state, no new component.
-
-### No test files added
-Add two assertions to the nearest existing test file if one exists (`src/components/insights/__tests__/*` or `PerformanceCausalityCard.test.tsx` if present). If not, skip — pre-launch, we rely on visual verification per the user's preference. Run existing suites to confirm no regression.
+### What we deliberately do NOT do
+- No change to the `Mind Module` collapsed headline, subtitle format, or "Context + CTA" body shape.
+- No new nudge type, no new deep link, no new firing rule, no new copy variant.
+- No new CTA verbs beyond `ALLOWED_CTA_VERBS_V8`.
+- No frontend change. No Insights / Brief / Executive Home change.
+- No PTO regex widening or availability logic change.
 
 ### Verification
-- `bunx vitest run src/components/insights` — existing suite still green.
-- `deno test supabase/functions/cause-effect-engine/` — existing tests still green (new field is additive).
-- Redeploy `cause-effect-engine` after merge.
-- Manual: on a user with no subcategory data the card renders exactly as today; on a user with data an extra muted line appears inside the expand region.
+- `deno test supabase/functions/_shared/events/event-tagging-v2.test.ts supabase/functions/_shared/plan/*.test.ts` — must stay green.
+- `deno test supabase/functions/smart-nudges/` — existing suite green; add two assertions if a suitable file exists: (i) `parsePlanSlots` surfaces `categoryId` + `subcategory` when present; (ii) missing subcategory falls back to category-level pattern with no throw and unchanged body/subtitle/headline shape.
+- Manual: `/functions/v1/smart-nudges?force_user=<uid>&force_dry=1` for a user whose `plan_ledger` carries `anchorSubcategory: "learning"` under category E. Confirm the dry-run `notification_log` row has `metadata.plan_ledger_subcategory = "learning"`, headline still `Mind Module`, subtitle ≤3 words, body still Context+CTA within V8 caps.
+- Redeploy `generate-mastery-plan` and `smart-nudges` after merge.
 
-### Explicitly out of scope
-- No new `.ts` files.
-- No changes to Burnout Risk / Recovery Time.
-- No migration.
-- WS6 in a separate PR.
+### Risk
+Low. Both edits are additive; missing keys on old ledger rows fall back to current behaviour. No cap, cascade, suppression, or notification structure code is modified.
