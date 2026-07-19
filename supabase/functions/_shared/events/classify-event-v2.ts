@@ -75,15 +75,33 @@ function resultFromSubtype(
 // ── User-tag → category mapping (Layer 1) ────────────────────────────
 const USER_TAG_TO_CATEGORY: Record<string, EventCategoryId> = {
   'board': 'A', 'governance': 'A', 'investor': 'A', 'earnings': 'A',
-  'm&a': 'A', 'budget': 'A', 'finance': 'A',
+  'm&a': 'A', 'budget': 'A', 'finance': 'A', 'trustee': 'A',
   'fundraise': 'B', 'pitch': 'B', 'negotiation': 'B', 'client': 'B',
   'media': 'C', 'press': 'C', 'podcast': 'C', 'all-hands': 'C', 'town-hall': 'C',
+  'stakeholder-comm': 'C', 'stakeholder': 'C',
   '1:1': 'D', 'performance-review': 'D', 'difficult': 'D', 'layoff': 'D', 'hiring': 'D',
   'strategy': 'E', 'deep-work': 'E', 'launch': 'E',
+  'learning': 'E', 'community': 'E', 'review': 'E', 'compliance': 'E',
   'keynote': 'F', 'speaking': 'F', 'offsite': 'F', 'conference': 'F',
-  'travel': 'G', 'flight': 'G',
+  'travel': 'G', 'flight': 'G', 'accommodation': 'G', 'travel-day': 'G',
   'sync': 'H', 'standup': 'H', 'catchup': 'H', 'pto': 'H', 'ooo': 'H',
+  'holiday': 'H', 'wellness': 'H', 'family': 'H', 'social': 'H', 'recreation': 'H',
 };
+
+// v2 additive — deep-work / product-feedback override. When the title contains
+// beta/product/user/customer feedback + a session/review/analysis marker AND
+// the user is organizer, route to str.deep_work regardless of v1 dictionary
+// (which historically caught "feedback" in lead.difficult_conversation).
+const DEEP_WORK_FEEDBACK_RE = /\b(beta|user|customer|product)\s+(feedback|test\s+feedback)\b|\bfeedback\s+(session|review|analysis)\b/i;
+
+function isDeepWorkFeedback(title: string, isOrganizer: boolean | null | undefined): boolean {
+  if (!title) return false;
+  if (!DEEP_WORK_FEEDBACK_RE.test(title)) return false;
+  // Organizer signal is a strong positive but not required — the title itself
+  // is specific enough. Kept flexible so calendar events without organizer
+  // metadata still benefit from the fix.
+  return isOrganizer !== false;
+}
 
 // ── Attendee-role → subtype mapping (Layer 3) ────────────────────────
 function classifyByRoles(roles: string[]): { subtypeId: string; confidence: Confidence } | null {
@@ -172,6 +190,12 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
   // L2: presentation verb + organizer → visibility.
   if (input.isOrganizer === true && hasPresentationVerb(title)) {
     return resultFromSubtype('vis.all_hands', 'layer2_verbs', 'medium');
+  }
+
+  // L2b (v2 additive): deep-work / product-feedback override — beats L6 & L7
+  // to correct the "Mind Module - Beta test feedback" mis-route into D.
+  if (isDeepWorkFeedback(title, input.isOrganizer)) {
+    return resultFromSubtype('str.deep_work', 'layer2_verbs', 'high');
   }
 
   // L3: attendee roles (only when caller passed them).
