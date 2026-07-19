@@ -7138,6 +7138,24 @@ async function generateMasteryPlan(
   // Persist the (possibly evolved) ledger onto the current period row so the
   // very next regeneration sees it. Service role bypasses the ledger guard.
   try {
+    // WS6 — stamp A-H subcategory (and category, when missing) on every
+    // JIT-anchored module so Smart Nudges + Insights read authoritative
+    // taxonomy from the ledger instead of re-classifying titles at fetch
+    // time. Additive: older ledger rows without these keys keep working.
+    for (const m of finalHorizonModules) {
+      const anyM = m as Record<string, unknown>;
+      const title = typeof anyM.jitEventTitle === "string"
+        ? (anyM.jitEventTitle as string).trim()
+        : "";
+      if (!title) continue;
+      const en = enrichEvent({ title });
+      if (anyM.anchorSubcategory == null && en.subcategory) {
+        anyM.anchorSubcategory = en.subcategory;
+      }
+      if (anyM.anchorCategoryId == null && en.categoryId) {
+        anyM.anchorCategoryId = en.categoryId;
+      }
+    }
     const planLedger = {
       modules: finalHorizonModules,
       generatedAt: new Date().toISOString(),
