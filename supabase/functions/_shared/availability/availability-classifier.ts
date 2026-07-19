@@ -410,3 +410,48 @@ export function classifyDay(
     r.state === "REST_DAY";
   return { state: r.state, isOffDay, reason: r.reason };
 }
+
+/**
+ * Long-weekend detector.
+ *
+ * Given a chronologically-ordered array of already-classified previous
+ * days (oldest → newest, NOT including today) and today's own state,
+ * returns true iff:
+ *
+ *   - today is an off-day (PTO / applicable public holiday / weekend), AND
+ *   - tomorrow is a workday (caller-supplied), AND
+ *   - the contiguous off-day block that ends today contains BOTH:
+ *       • at least one normal weekend day (REST_DAY), AND
+ *       • at least one PTO or applicable PUBLIC_HOLIDAY day
+ *
+ * A plain Saturday+Sunday weekend is NOT a long weekend. A weekday PTO
+ * alone is NOT a long weekend. This matches the product definition:
+ * a "long weekend" is a weekend extended by a public holiday or PTO.
+ *
+ * The helper is intentionally pure — the caller (smart-nudges) walks
+ * the calendar, classifies each day via `classifyDay`, and passes the
+ * result in. Empty calendars never count as off-days (SSOT rule).
+ */
+export function isLastDayOfLongWeekend(input: {
+  today: { state: AvailabilityState };
+  tomorrowIsWorkday: boolean;
+  /** Prior days newest-first (yesterday, day-before, …). Bounded ≤ 14. */
+  priorDays: Array<{ state: AvailabilityState }>;
+}): boolean {
+  const isOff = (s: AvailabilityState) =>
+    s === "PTO" || s === "PUBLIC_HOLIDAY" || s === "REST_DAY";
+  if (!isOff(input.today.state)) return false;
+  if (input.tomorrowIsWorkday !== true) return false;
+
+  // Walk backwards through the contiguous off-day block ending today.
+  const block: AvailabilityState[] = [input.today.state];
+  for (const d of input.priorDays) {
+    if (!isOff(d.state)) break;
+    block.push(d.state);
+  }
+  const hasWeekend = block.some((s) => s === "REST_DAY");
+  const hasPtoOrHoliday = block.some(
+    (s) => s === "PTO" || s === "PUBLIC_HOLIDAY",
+  );
+  return hasWeekend && hasPtoOrHoliday;
+}
