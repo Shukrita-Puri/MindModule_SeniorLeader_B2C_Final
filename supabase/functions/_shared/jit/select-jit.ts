@@ -119,7 +119,19 @@ export function classifyInterview(args: {
   ) {
     return 'candidate';
   }
-  if ((args.attendeesCount ?? 0) < 2) return 'none';
+  // Bare "Interview" titles with unknown/placeholder attendee counts are
+  // still real events — don't gate them out. Fall through to 'ambiguous' so
+  // the event keeps its category (D) + pre/post arcs and receives the
+  // ambiguous interview boost. Only skip this early-return when the title
+  // carries strong media/hiring signals that the branches below can resolve
+  // more specifically.
+  const hasStrongSignals =
+    args.subtypeId === 'media-publication' ||
+    args.categoryId === 'C' ||
+    MEDIA_INTERVIEW_RE.test(title) ||
+    HIRING_KEYWORD_RE.test(title) ||
+    args.subtypeId === 'hiring-loop';
+  if ((args.attendeesCount ?? 0) < 2 && !hasStrongSignals) return 'ambiguous';
 
   // Media — broadcast/reputational. Highest-confidence first.
   if (
