@@ -376,7 +376,15 @@ serve(async (req) => {
       const tags: WeekAheadTag[] = [];
       const memEntry = ctx.memoryDeltaByEventId?.[eventId];
       const memDelta = memEntry?.delta ?? 0;
-      if (memDelta >= 8) tags.push("prior_priority");
+      // "Prior priority" MUST reflect a genuine cross-day pattern.
+      // A single star tapped an hour ago satisfies `memDelta >= 8` alone
+      // but has no historical meaning yet. Gate on the priority-memory
+      // helper's `hasPriorDayPriority` flag, which is true iff at least
+      // one `priority` row (within the 60d window) has an `occurred_at`
+      // UTC date strictly before today's UTC date.
+      if (memDelta >= 8 && memEntry?.hasPriorDayPriority) {
+        tags.push("prior_priority");
+      }
       const { score: pScore } = patternHit(meta.title, ctx.signalSummary);
       if (pScore >= 10) tags.push("pattern_based");
       const inputRow = inputById.get(eventId);
@@ -399,6 +407,11 @@ serve(async (req) => {
       const stakesBoost = stakesRank * 10;
       const orderScore = priorBoost + patternBoost + stakesBoost;
 
+      // Pin `prior_priority` to the front of the visible chip list so it
+      // survives the top-3 truncation even when other advisory tags also fire.
+      const orderedTags = tags.includes("prior_priority")
+        ? (["prior_priority", ...tags.filter((t) => t !== "prior_priority")] as WeekAheadTag[])
+        : tags;
       scored.push({
         eventId,
         title: meta.title,
@@ -410,8 +423,8 @@ serve(async (req) => {
         typeKey: meta.typeKey,
         stakesLevel,
         score: orderScore,
-        scoreReasons: tags.map((t) => TAG_LABEL[t]).slice(0, 3),
-        tags,
+        scoreReasons: orderedTags.map((t) => TAG_LABEL[t]).slice(0, 3),
+        tags: orderedTags,
         isOrganizer: meta.isOrganizer,
       });
     }

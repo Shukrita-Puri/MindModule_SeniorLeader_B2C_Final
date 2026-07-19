@@ -1,100 +1,150 @@
-# Week-Ahead Priorities — "Rank, never filter"
 
-## Problem
+# Week-Ahead "Prior Priority" — correct definition & fix
 
-The Week-Ahead list currently drops legitimately important meetings before you ever see them. In `supabase/functions/list-week-ahead-priorities/index.ts` and the shared `selectJitCandidates` (`supabase/functions/_shared/jit/select-jit.ts`), events are removed by nine different gates:
+Date: 2026-07-19
+Scope: `list-week-ahead-priorities`, `_shared/plan/event-priority-memory.ts`, `_shared/jit/load-jit-context.ts`, `_shared/jit/select-jit.ts`, `WeekAheadPriorities.tsx`
+Out of scope: the classifier bug that put "Mind Module — Beta test…" into category `layoff`, daily Plan, Brief, JIT selectors.
 
-1. `isNoiseTitle`
-2. `isEducationalTitle` when you're not the organizer
-3. `enrichEvent` → `no_category`
-4. `isPersonalNoise`
-5. `memory_hard_demote` / `memory_escalated_low` (learned)
-6. `user_tag_low`
-7. `below_min_immediate` score floor
-8. `crisis_route_to_nudge`
-9. Per-category soft cap (4) + hard `TOP_N = 10`
+## Plain-English definition
 
-Even if you cancel a few, no "next best" backfill happens beyond the top 10, and the score floor still hides events entirely — which is why the exercise feels amputated.
+**"Prior" means before today.** A star tapped an hour ago is a *present* signal, not a learned pattern. The tag should read:
 
-## Goal
+> `prior_priority` fires when the user has starred an event of this category/type at least once on a **calendar day before today (UTC)**, within the existing 60-day priority window.
 
-Move Week-Ahead to a **human-first triage list**: show every real calendar event in the next 7 days, ordered by learned signal, tagged so the human can spot what the system has learned — but never eliminated by scoring, category caps, or top-N truncation.
+No ISO-week boundary (too strict; loses last night's tap). No minimum count (one genuine prior-day tap is enough).
 
-## Behaviour after change
+## Confirmed cause (from DB + code)
 
-- Every real event in the 7-day window is returned.
-- Only these two auto-hides remain (per your answer):
-  - Declined or cancelled events
-  - All-day OOO / holiday blocks
-- Everything else — including low-attendee syncs, "personal noise", low-score events, memory-demoted events, over-cap categories, and beyond-top-10 — appears in the list.
-- Each event carries **tags** (not filters) that the UI can render as chips:
-  - `prior_priority` — user starred this recurring series or same-title event in a prior week
-  - `pattern_based` — recurring pressure pattern (`patternScore ≥ 10`) or physiological correlation from `causality_findings` / `signal_summary` (e.g. elevated HR at board meetings)
-  - `known_relationship` — attendee resolved via `attendee_relationships`
-  - `high_stakes` — Category A/B/C
-  - `historically_low_signal` — user has dismissed similar events (advisory only, does NOT hide)
-- Ordering: prior-priority + pattern-based first, then high-stakes, then remaining events chronologically. No hard cap; return the full week.
+For `shukrita@mindmodule.me`, `event_priority_memory` has one row for `(layoff, mind_module_beta, priority)` at **2026-07-19 14:17 UTC** — ~1 hour before the 15:25 screenshot. That single row contributes `+10` to `memoryDelta`, clears the `>= 8` threshold in `list-week-ahead-priorities/reasonsFor()`, and emits "prior priority". So the tag is technically driven by real data, but the label lies about *when* the signal happened.
 
-## Scope of changes
+Root cause chain (all read-only, no schema change needed):
 
-### 1. `supabase/functions/list-week-ahead-priorities/index.ts`
+```text
+event_priority_memory (category, type_key, signal, occurred_at)
+   │
+   ▼ applyEventPriorityMemory  → returns { delta, hardDemote, reasons }
+                                   ← priorityCount + age info discarded
+   │
+   ▼ load-jit-context.ts        → stores { delta, hardDemote } only
+   │
+   ▼ list-week-ahead reasonsFor → if delta >= 8 push 'prior priority'
+                                   ← no "before today" check
+```
 
-- Replace the `selectJitCandidates` call with a new `annotateWeekAheadEvents(...)` pass that:
-  - Keeps the full deduped event list.
-  - Drops only: declined / cancelled (from `event_metadata.status` / attendee response) and all-day OOO (`is_all_day` + OOO title match via existing `classifyAvailability` SSOT).
-  - Reuses the same context loaders (`loadJitContextForEvents`) so we still have access to `memoryDeltaByEventId`, `signalSummary`, attendee relationships, sovereign tags — but only to produce **tags and an ordering score**, never to exclude.
-- Remove `PER_CATEGORY_SOFT_CAP` and `TOP_N` caps.
-- Sort: prior_priority DESC → pattern_based DESC → stakes rank DESC → startTime ASC. Then return chronological for UI, with the tag/score fields intact.
-- Persist the full list to `weekly_plan_snapshots.priorities` (same shape, longer array).
+## Additional issues spotted while auditing
 
-### 2. `supabase/functions/_shared/jit/` — no changes
+1. `reasonsFor()` silently caps at 3 reasons via `.slice(0, 3)`. A genuine prior-priority chip can be dropped when it collides with `known_relationship`, `high_stakes`, and `recurring pressure pattern`. Fix: pin `prior priority` to the front before slicing.
+2. `historically_low_signal` renders with the same visual weight as positive chips, so users read it as a verdict. Fix: muted chip styling — no data change.
+3. `recurring pressure pattern` (`patternScore >= 10`) is opaque to users. Not blocking — flagged for follow-up docs, not part of this PR.
 
-Leave `selectJitCandidates` untouched; the daily Plan / JIT surfaces still need its filtering behaviour. The new `annotateWeekAheadEvents` lives inside the week-ahead function or as a sibling helper.
+## Implementation
 
-### 3. Frontend — `src/components/home/WeekAheadPriorities.tsx` (and children)
+### 1. `supabase/functions/_shared/plan/event-priority-memory.ts`
 
-- Render every returned event grouped by day (no truncation).
-- Show tag chips: "Prior priority", "Pattern-based", "Known relationship", "High stakes", "Historically low-signal".
-- Keep existing star / dismiss / snooze controls; dismiss no longer removes the event from view — it just clears any tag emphasis and records the memory signal for future weeks.
-- No score number shown to the user; tags are the whole story.
+Extend `MemoryBoostResult` with additive fields; behaviour of existing callers unchanged.
 
-### 4. Tests
+```ts
+export interface MemoryBoostResult {
+  delta: number;
+  hardDemote: boolean;
+  reasons: string[];
+  priorityCount: number;         // NEW
+  hasPriorDayPriority: boolean;  // NEW — ≥1 priority row on a UTC date < today
+}
+```
 
-- Update `supabase/functions/list-week-ahead-priorities/selector-evidence.test.ts`: replace "uses selectJitCandidates" assertions with "does not filter by score / category cap / top-N" assertions.
-- Add unit tests for the new annotator:
-  - Declined event is hidden.
-  - All-day OOO is hidden.
-  - Low-score event is present with no tags.
-  - Prior-priority event carries `prior_priority` tag and sorts above an unrelated same-day event.
-  - Pattern-based event (from `signal_summary`) carries `pattern_based` tag.
-- Keep `weekly_snapshot_test.ts` green (upsert shape unchanged).
+Inside `applyEventPriorityMemory`, compute `todayDateUTC = now.toISOString().slice(0,10)`. For each `signal === 'priority'` row that already passes the `ageDays <= 60` gate, compare `new Date(r.occurred_at).toISOString().slice(0,10) < todayDateUTC` and set `hasPriorDayPriority = true` if any match. Return the two new fields (default `false` / `0` when there are no rows).
 
-## Technical detail
+### 2. `supabase/functions/_shared/jit/load-jit-context.ts`
 
-**Data sources for tags** (all already loaded by `loadJitContextForEvents`, no new queries):
+Extend the stored shape:
 
-| Tag | Source |
-|-----|--------|
-| `prior_priority` | `event_priority_memory` via `memoryDeltaByEventId[eventId].delta ≥ 8` OR same normalized title starred in prior `weekly_plan_snapshots.selected_plan` |
-| `pattern_based` | `signal_summary.patternHits` for the event's bucket, or `causality_findings` matching bucket (physiological correlation) |
-| `known_relationship` | `attendee_relationships` resolved role ≠ `unknown` with `source ∈ {user_tag, memory_user_tag, llm}` |
-| `high_stakes` | `enrichEvent(title).categoryId ∈ {A,B,C}` |
-| `historically_low_signal` | `memoryDeltaByEventId[eventId].delta ≤ -10` — advisory tag only, event is NOT excluded even if `hardDemote` is true |
+```ts
+memoryDeltaByEventId?: Record<string, {
+  delta?: number;
+  hardDemote?: boolean;
+  sovereignEscalation?: 'low';
+  hasPriorDayPriority?: boolean;  // NEW
+}>;
+```
 
-**Declined / cancelled detection**: `event_metadata.status === 'cancelled'` OR attendee response for the user is `declined`. Fall back to keeping the event if metadata is missing (never hide by inference).
+In section 4b where `applyEventPriorityMemory` is called, forward `res.hasPriorDayPriority || undefined` onto the stored entry.
 
-**All-day OOO detection**: reuse `classifyAvailability` from `_shared/availability/` (already the SSOT after the C2 cleanup) rather than adding new regexes.
+### 3. `supabase/functions/_shared/jit/select-jit.ts`
 
-## Out of scope
+Thread the flag through so `list-week-ahead-priorities` can read it without re-querying:
 
-- No changes to the daily Plan, Brief, or JIT selectors.
-- No new taxonomy, no new DB tables.
-- No changes to `selectJitCandidates` — the weekday Plan still filters, only Week-Ahead becomes permissive.
-- No changes to the weekly snapshot schema.
+```ts
+components: {
+  …,
+  memoryDelta,
+  hasPriorDayPriority,   // NEW — ctx.memoryDeltaByEventId?.[ev.id]?.hasPriorDayPriority ?? false
+  …,
+}
+```
+
+Type additions on `SelectedCandidate.components` are additive; no consumers break.
+
+### 4. `supabase/functions/list-week-ahead-priorities/index.ts`
+
+Update `reasonsFor()`:
+
+```ts
+if (c.components.memoryDelta >= 8 && c.components.hasPriorDayPriority) {
+  out.push('prior priority');
+}
+// Ranking boost from memoryDelta is unchanged — only the label is gated.
+if (c.components.memoryDelta <= -10) out.push('historically low-signal');
+
+// Preserve prior_priority ahead of the 3-cap slice
+const prioritised = out.includes('prior priority')
+  ? ['prior priority', ...out.filter(r => r !== 'prior priority')]
+  : out;
+return Array.from(new Set(prioritised)).slice(0, 3);
+```
+
+Ordering / picked-array / snapshot persistence unchanged. Ranking numbers unchanged — only the emitted label changes.
+
+### 5. `src/components/home/WeekAheadPriorities.tsx`
+
+Cosmetic only. Render `scoreReasons` as chips; give `historically low-signal` a muted style so it visually reads as advisory:
+
+```tsx
+{it.scoreReasons.map((reason) => {
+  const isAdvisory = reason === 'historically low-signal';
+  return (
+    <span key={reason} className={cn(
+      'text-[10px] rounded-full px-2 py-0.5 whitespace-nowrap',
+      isAdvisory
+        ? 'bg-muted/40 text-muted-foreground/60'
+        : 'bg-muted/70 text-foreground/75 font-medium',
+    )}>{reason}</span>
+  );
+})}
+```
+
+## Tests
+
+- `supabase/functions/_shared/plan/event-priority-memory.test.ts` — five cases: (a) single priority row today → `hasPriorDayPriority=false`; (b) yesterday → true; (c) mix of today+yesterday → true; (d) no rows → false; (e) rows older than 60d → `delta=0`, `hasPriorDayPriority=false`.
+- `supabase/functions/list-week-ahead-priorities/selector-evidence.test.ts` — assert source contains `hasPriorDayPriority` gate and that `prior priority` is pinned before the `.slice(0,3)` cap.
+- Existing `event-priority-memory.test.ts` cases stay green (new fields are additive with `false`/`0` defaults).
+- Frontend: extend `WeekAheadPriorities.test.tsx` to assert the muted chip class is applied to `historically low-signal` and the standard class to others.
+
+## What does NOT change
+
+| Item | Decision |
+|---|---|
+| 60-day priority lookback | Unchanged |
+| `memoryDelta >= 8` ranking boost | Unchanged — only the label is gated |
+| Daily Plan / JIT selector behaviour | Unchanged (extra field ignored) |
+| `event_priority_memory` schema | No migration |
+| `weekly_plan_snapshots.priorities` shape | Unchanged |
+| Classifier bug (`layoff` on Mind Module event) | **Separate ticket** |
 
 ## Rollout
 
-1. Implement server changes behind no flag (single-surface, low blast radius; weekday Plan is untouched).
-2. Update frontend to render tags and remove any client-side "top N" slicing.
-3. Deploy `list-week-ahead-priorities`.
-4. Verify on your account: open Week Ahead, confirm the Mind Module beta-test event and the Do's and Don'ts event both appear alongside the rest of the week, with correct tags.
+1. Ship helper + context + selector changes (server) in one deploy of `list-week-ahead-priorities`.
+2. Ship frontend chip styling.
+3. Verify on `shukrita@mindmodule.me`: the current same-day `mind_module_beta` row should no longer emit "prior priority" until a signal from a prior UTC date exists.
+
+No feature flag — the only user-visible change is that same-day stars stop masquerading as history.

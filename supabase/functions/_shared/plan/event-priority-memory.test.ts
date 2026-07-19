@@ -18,6 +18,64 @@ Deno.test("priority signals boost", () => {
   const r = applyEventPriorityMemory(idx, { eventCategory: "exec", eventTypeKey: "board", now });
   assertEquals(r.delta, 20);
   assertEquals(r.hardDemote, false);
+  assertEquals(r.priorityCount, 2);
+  assertEquals(r.hasPriorDayPriority, true);
+});
+
+// ── hasPriorDayPriority: "prior" means UTC calendar date < today ──────
+// A single tap made on today's calendar date is a PRESENT signal and must
+// not be labeled as "prior" — even though it contributes +10 to delta.
+
+Deno.test("hasPriorDayPriority: single priority row from today → false", () => {
+  const today = new Date("2026-06-07T09:00:00Z");
+  const idx = indexPriorityMemory([
+    { event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: new Date("2026-06-07T04:00:00Z").toISOString() },
+  ]);
+  const r = applyEventPriorityMemory(idx, { eventCategory: "exec", eventTypeKey: "board", now: today });
+  assertEquals(r.delta, 10);
+  assertEquals(r.priorityCount, 1);
+  assertEquals(r.hasPriorDayPriority, false);
+});
+
+Deno.test("hasPriorDayPriority: single priority row from yesterday → true", () => {
+  const today = new Date("2026-06-07T09:00:00Z");
+  const idx = indexPriorityMemory([
+    { event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: new Date("2026-06-06T23:30:00Z").toISOString() },
+  ]);
+  const r = applyEventPriorityMemory(idx, { eventCategory: "exec", eventTypeKey: "board", now: today });
+  assertEquals(r.hasPriorDayPriority, true);
+});
+
+Deno.test("hasPriorDayPriority: mix of today + yesterday → true", () => {
+  const today = new Date("2026-06-07T09:00:00Z");
+  const idx = indexPriorityMemory([
+    { event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: new Date("2026-06-07T08:00:00Z").toISOString() },
+    { event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: new Date("2026-06-06T10:00:00Z").toISOString() },
+  ]);
+  const r = applyEventPriorityMemory(idx, { eventCategory: "exec", eventTypeKey: "board", now: today });
+  assertEquals(r.priorityCount, 2);
+  assertEquals(r.hasPriorDayPriority, true);
+});
+
+Deno.test("hasPriorDayPriority: no rows → false with priorityCount 0", () => {
+  const idx = indexPriorityMemory([]);
+  const r = applyEventPriorityMemory(idx, { eventCategory: "exec", eventTypeKey: "board", now });
+  assertEquals(r.priorityCount, 0);
+  assertEquals(r.hasPriorDayPriority, false);
+});
+
+Deno.test("hasPriorDayPriority: rows older than 60d don't count (delta=0)", () => {
+  const idx = indexPriorityMemory([
+    { event_category: "exec", event_type_key: "board", signal: "priority", occurred_at: daysAgo(90) },
+  ]);
+  const r = applyEventPriorityMemory(idx, { eventCategory: "exec", eventTypeKey: "board", now });
+  assertEquals(r.delta, 0);
+  assertEquals(r.priorityCount, 0);
+  assertEquals(r.hasPriorDayPriority, false);
 });
 
 Deno.test("never hard demotes", () => {

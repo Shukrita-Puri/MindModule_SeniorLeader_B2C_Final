@@ -49,6 +49,21 @@ Deno.test("emits advisory tags (prior/pattern/relationship/stakes/low-signal)", 
   assertStringIncludes(SRC, '"historically_low_signal"');
 });
 
+Deno.test("prior_priority tag is gated on hasPriorDayPriority (not just memDelta)", () => {
+  // The tag must require a genuine prior-day signal; a same-day star that
+  // only satisfies memDelta >= 8 must NOT emit the chip.
+  assertStringIncludes(SRC, "hasPriorDayPriority");
+  // The emission line must combine both conditions.
+  const re = /memDelta\s*>=\s*8\s*&&\s*memEntry\?\.hasPriorDayPriority/;
+  assertEquals(re.test(SRC), true);
+});
+
+Deno.test("prior_priority is pinned before the 3-chip truncation", () => {
+  // Prior priority must survive the top-3 slice even when other tags fire.
+  assertStringIncludes(SRC, 'orderedTags');
+  assertStringIncludes(SRC, '"prior_priority", ...tags.filter');
+});
+
 Deno.test("returns weekAheadMode + priorities + generatedAt envelope", () => {
   assertStringIncludes(SRC, "weekAheadMode: decision");
   assertStringIncludes(SRC, "priorities: picked");
