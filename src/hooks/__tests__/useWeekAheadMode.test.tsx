@@ -41,12 +41,23 @@ describe("useWeekAheadMode", () => {
     expect(result.current.active).toBe(false);
   });
 
-  it("Sunday defaults to active when no server decision available", () => {
+  it("Sunday defaults to active weekly_planning when no server decision", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-21T12:00:00Z")); // Sun
     const { result } = renderHook(() => useWeekAheadMode(null), { wrapper: wrapper() });
     expect(result.current.active).toBe(true);
-    expect(result.current.reason).toBe("sunday");
+    expect(result.current.reason).toBe("weekly_planning");
+  });
+
+  it("Saturday defaults to active weekly_planning for SA (Sunday-start country)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-20T18:00:00Z")); // Sat
+    const { result } = renderHook(
+      () => useWeekAheadMode(null, "SA"),
+      { wrapper: wrapper() },
+    );
+    expect(result.current.active).toBe(true);
+    expect(result.current.reason).toBe("weekly_planning");
   });
 
   it("manual override (?mode=week-ahead) wins over server inactive", () => {
