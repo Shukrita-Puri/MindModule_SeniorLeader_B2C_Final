@@ -230,13 +230,14 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     };
   }
 
-  // 2. WEEK-AHEAD — last-day-PTO / last-day-holiday / last-day-long-weekend
-  //    (Sunday is handled below as a distinct weekend_sunday day-type so we
-  //    don't collapse ordinary Sunday nudge cadence into week-ahead cadence.)
+  // 2. WEEK-AHEAD — end_of_pto / end_of_public_holiday / end_of_long_weekend
+  //    (weekly_planning day is handled below as a distinct weekend_sunday
+  //    day-type so we don't collapse ordinary weekly-planning nudge cadence
+  //    into week-ahead cadence.)
   if (
     weekAhead.active &&
     weekAhead.reason &&
-    weekAhead.reason !== "sunday" &&
+    weekAhead.reason !== "weekly_planning" &&
     weekAhead.reason !== "manual_override"
   ) {
     return {
@@ -288,7 +289,7 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     return {
       dayType: "weekend_sunday",
       allowedWindows: new Set<TimeWindow>(["morning", "evening"]),
-      weekAheadReason: "sunday",
+      weekAheadReason: "weekly_planning",
       evidence: ["sunday_week_ahead"],
     };
   }
