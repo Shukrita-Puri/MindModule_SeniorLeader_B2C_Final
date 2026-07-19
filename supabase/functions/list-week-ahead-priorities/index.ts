@@ -84,6 +84,15 @@ const TAG_LABEL: Record<WeekAheadTag, string> = {
   historically_low_signal: "historically low-signal",
 };
 
+/** User decisions recorded via `record-event-priority-signal` — surfaced back
+ *  to the picker UI so Star/Cancel/Never selections persist across refresh. */
+type PriorSignal = "priority" | "not_this_week" | "never";
+const PRIOR_SIGNALS: ReadonlySet<PriorSignal> = new Set([
+  "priority",
+  "not_this_week",
+  "never",
+]);
+
 /** User-friendly bucket label aligned with the Plan card vocabulary. */
 function categoryLabelFor(title: string, categoryId: string | null): string {
   const subtype = classifyEvent(title);
