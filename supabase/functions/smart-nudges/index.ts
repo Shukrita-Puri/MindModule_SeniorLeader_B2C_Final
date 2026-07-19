@@ -586,6 +586,22 @@ async function loadPlanNudgeSlots(
         whyLine: typeof m.whyLine === "string" && m.whyLine.trim()
           ? m.whyLine.trim()
           : null,
+        // WS6 — read A-H taxonomy tags stamped by generate-mastery-plan.
+        // `anchorCategoryId` is the canonical writer key; `categoryId` and
+        // `jitCategoryId` are legacy fallbacks for pre-WS6 ledger rows.
+        categoryId:
+          typeof m.anchorCategoryId === "string" && m.anchorCategoryId
+            ? (m.anchorCategoryId as string)
+            : typeof m.categoryId === "string" && m.categoryId
+            ? (m.categoryId as string)
+            : typeof (m as any).jitCategoryId === "string" &&
+              (m as any).jitCategoryId
+            ? ((m as any).jitCategoryId as string)
+            : null,
+        subcategory:
+          typeof m.anchorSubcategory === "string" && m.anchorSubcategory
+            ? (m.anchorSubcategory as string)
+            : null,
       };
     })
     .filter((slot): slot is PlanNudgeSlot => slot !== null);
