@@ -21,6 +21,7 @@ function cand(
   phase: "pre" | "during" | "post",
   categoryId: string,
   score: number,
+  durationMinutes: number | null = null,
 ): RankedJitCandidate {
   return {
     eventId,
@@ -31,6 +32,7 @@ function cand(
     severity: "high",
     leadTimeMin: 30,
     demandProfile: null,
+    durationMinutes,
     windowStartMs: 0,
     windowEndMs: 1_000,
     eligible: true,
