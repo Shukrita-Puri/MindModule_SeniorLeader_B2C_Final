@@ -3880,7 +3880,14 @@ async function evaluateNudgeTwo(
       ctx.afternoonCheckinOutcome !== null;
     const route = checkedInToday ? "/executive-home" : "/daily-check-in";
 
-    const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+    // WS6 — see nudge_one_jit for rationale.
+    const planSlotForEvt = (ctx.planSlots ?? []).find(
+      (s) =>
+        s.jitEventTitle &&
+        evt.eventTitle &&
+        s.jitEventTitle.toLowerCase() === evt.eventTitle.toLowerCase(),
+    ) ?? null;
+    const pat = findEventPattern(ctx.pattern, evt.eventTitle, planSlotForEvt);
     const sigStrength = pat ? 3 : 2;
 
     return {
@@ -3892,6 +3899,8 @@ async function evaluateNudgeTwo(
       anchorKind: "jit",
       slot: "afternoon",
       signalStrength: sigStrength,
+      planLedgerCategoryId: planSlotForEvt?.categoryId ?? null,
+      planLedgerSubcategory: planSlotForEvt?.subcategory ?? null,
     };
   }
 
