@@ -434,6 +434,44 @@ function StressLoadTab({
           )}
         </div>
       )}
+
+      {(() => {
+        // Additive subcategory breakdown. Render only when at least one
+        // A–H row shown above has ≥2 subcategories, each with n≥2.
+        const list = (subcategoryLift ?? []).filter((e) => e && e.n >= 2);
+        if (list.length === 0) return null;
+        const visibleRows = new Set(rows);
+        const byCategory = new Map<string, SubcategoryLiftEntry[]>();
+        list.forEach((entry) => {
+          const rowLabel = normalizeCategory(entry.categoryName);
+          if (!visibleRows.has(rowLabel)) return;
+          const bucket = byCategory.get(rowLabel) ?? [];
+          bucket.push(entry);
+          byCategory.set(rowLabel, bucket);
+        });
+        const eligible = Array.from(byCategory.entries()).filter(
+          ([, entries]) => entries.length >= 2,
+        );
+        if (eligible.length === 0) return null;
+        return (
+          <div className="space-y-1 pt-2 border-t border-border/40">
+            {eligible.map(([rowLabel, entries]) => (
+              <div key={rowLabel} className="text-[11px] text-muted-foreground">
+                <span className="text-muted-foreground/80">{rowLabel}:</span>{' '}
+                {entries
+                  .slice()
+                  .sort((a, b) => a.hrDeltaBpm - b.hrDeltaBpm)
+                  .map((entry) => {
+                    const sign = entry.hrDeltaBpm >= 0 ? '+' : '−';
+                    const val = Math.abs(entry.hrDeltaBpm);
+                    return `${entry.subcategoryId.replace(/_/g, ' ')} ${sign}${val} bpm (n=${entry.n})`;
+                  })
+                  .join(' · ')}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
