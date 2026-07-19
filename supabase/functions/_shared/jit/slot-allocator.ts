@@ -2,6 +2,27 @@ import type { RankedJitCandidate } from "../events/jit-candidates.ts";
 import type { Phase } from "../events/event-phase-map.ts";
 import { EVENT_PHASE_MAP } from "../events/event-phase-map.ts";
 import type { EventCategoryId } from "../events/event-categories.ts";
+import { enrichEvent } from "../events/enrich-event.ts";
+
+// WS4 — Plan Arc Selector.
+// For Category G (travel) anchors the phase map advertises pre/during/post,
+// but that is a capability declaration. The actual arc for a specific flight
+// is short-haul (pre+post) vs long-haul (pre+during+post) per
+// enrichEvent().travelArc. This helper prunes phases the specific event
+// doesn't warrant so short-haul flights don't get pushed an in-flight slot.
+function pruneTravelPhases(
+  phases: Phase[],
+  categoryId: EventCategoryId | null | undefined,
+  title: string | null | undefined,
+): Phase[] {
+  if (categoryId !== "G") return phases;
+  const arc = enrichEvent({ title: title ?? "" }).travelArc;
+  // Only long-haul / explicit travel_day keeps the "during" (in-flight) slot.
+  // enrichEvent defaults null-duration flights to 'pre-post', which is the
+  // conservative behaviour we want at the allocator boundary.
+  if (arc === "pre-during-post") return phases;
+  return phases.filter((p) => p !== "during");
+}
 
 export type DayShape =
   | "light_routine"
