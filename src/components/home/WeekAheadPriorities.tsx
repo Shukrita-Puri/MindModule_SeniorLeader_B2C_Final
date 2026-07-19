@@ -194,7 +194,8 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
     }
   }, []);
 
-  const subtitle = (reason && SUBTITLE_BY_REASON[reason]) || SUBTITLE_BY_REASON.sunday;
+  const subtitle = (reason && SUBTITLE_BY_REASON[reason]) ||
+    SUBTITLE_BY_REASON.weekly_planning;
 
   return (
     <section className="px-3 md:px-4" aria-label="Week-Ahead Priorities">
