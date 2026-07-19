@@ -212,9 +212,12 @@ Deno.test("allocator — Week-Ahead day returns one planning slot", () => {
 
 Deno.test("allocator — travel day uses named full arc", () => {
   const ranked = [
-    cand("trip-1", "Flight to NYC", "pre", "G", 70),
-    cand("trip-1", "Flight to NYC", "during", "G", 80),
-    cand("trip-1", "Flight to NYC", "post", "G", 75),
+    // WS4: full-arc travel_day requires a long-haul-signalled title
+    // (or explicit trv.long_haul / trv.travel_day subtype). Short-haul
+    // flights are covered by the dedicated WS4 tests below.
+    cand("trip-1", "Long-haul flight to NYC", "pre", "G", 70),
+    cand("trip-1", "Long-haul flight to NYC", "during", "G", 80),
+    cand("trip-1", "Long-haul flight to NYC", "post", "G", 75),
   ];
   const alloc = allocatePlanSlots({
     nowMs: Date.now(),
@@ -287,4 +290,84 @@ Deno.test("allocator — non-rest empty-calendar day still returns 3 state fallb
   assertEquals(alloc.dayShape, "light_routine");
   assertEquals(alloc.slots.length, 3, "non-rest state-only day still shows 3 state fallback slots");
   assertEquals(alloc.restDay, undefined);
+});
+
+// ── WS4 — Plan Arc Selector (travel arc pruning) ──────────────────────
+
+Deno.test("WS4 — short-haul flight (travel_day path) drops the During slot", () => {
+  // Title has no long-haul/red-eye keyword and no duration is carried on
+  // RankedJitCandidate → enrichEvent().travelArc defaults to 'pre-post'.
+  const ranked = [
+    cand("flt-1", "Flight BA123 to Amsterdam", "pre",    "G", 80),
+    cand("flt-1", "Flight BA123 to Amsterdam", "during", "G", 70),
+    cand("flt-1", "Flight BA123 to Amsterdam", "post",   "G", 75),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    hasTravelDay: true,
+  });
+  assertEquals(alloc.dayShape, "travel_day");
+  assertEquals(alloc.mode, "full_arc");
+  assertEquals(alloc.slots[0].jitPhase, "pre");
+  assertEquals(alloc.slots[1].jitPhase, null, "short-haul must NOT emit an in-flight slot");
+  assertEquals(alloc.slots[1].slotRole, "state_anchor");
+  assertEquals(alloc.slots[2].jitPhase, "post");
+  assert(!alloc.debug.dominantEventPhases?.includes("during"));
+});
+
+Deno.test("WS4 — long-haul flight (travel_day path) keeps the During slot", () => {
+  // "long-haul" keyword forces enrichEvent → 'pre-during-post' regardless
+  // of duration availability at the allocator boundary.
+  const ranked = [
+    cand("flt-2", "Long-haul flight LHR → SFO", "pre",    "G", 80),
+    cand("flt-2", "Long-haul flight LHR → SFO", "during", "G", 70),
+    cand("flt-2", "Long-haul flight LHR → SFO", "post",   "G", 75),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    hasTravelDay: true,
+  });
+  assertEquals(alloc.dayShape, "travel_day");
+  assertEquals(alloc.slots[0].jitPhase, "pre");
+  assertEquals(alloc.slots[1].jitPhase, "during", "long-haul must keep in-flight slot");
+  assertEquals(alloc.slots[2].jitPhase, "post");
+  assertEquals(alloc.debug.dominantEventPhases, ["pre", "during", "post"]);
+});
+
+Deno.test("WS4 — dominant-event branch prunes During for short-haul G anchor", () => {
+  // No `hasTravelDay` flag → falls into dominant_structural_event branch.
+  const ranked = [
+    cand("flt-3", "Flight to Manchester", "pre",    "G", 80),
+    cand("flt-3", "Flight to Manchester", "during", "G", 60),
+    cand("flt-3", "Flight to Manchester", "post",   "G", 70),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+  });
+  assertEquals(alloc.dayShape, "dominant_structural_event");
+  assertEquals(alloc.mode, "full_arc");
+  assertEquals(alloc.debug.dominantEventPhases, ["pre", "post"]);
+  assertEquals(alloc.slots[0].jitPhase, "pre");
+  assertEquals(alloc.slots[1].jitPhase, null);
+  assertEquals(alloc.slots[2].jitPhase, "post");
+});
+
+Deno.test("WS4 — Cat F conference day is unaffected by travel arc pruning", () => {
+  const ranked = [
+    cand("conf-1", "Annual Sales Conference", "pre",    "F", 80),
+    cand("conf-1", "Annual Sales Conference", "during", "F", 70),
+    cand("conf-1", "Annual Sales Conference", "post",   "F", 75),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    hasConferenceDay: true,
+  });
+  assertEquals(alloc.dayShape, "conference_day");
+  assertEquals(alloc.slots[0].jitPhase, "pre");
+  assertEquals(alloc.slots[1].jitPhase, "during", "conference days keep the During slot");
+  assertEquals(alloc.slots[2].jitPhase, "post");
 });

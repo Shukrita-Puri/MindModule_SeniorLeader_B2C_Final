@@ -2,6 +2,27 @@ import type { RankedJitCandidate } from "../events/jit-candidates.ts";
 import type { Phase } from "../events/event-phase-map.ts";
 import { EVENT_PHASE_MAP } from "../events/event-phase-map.ts";
 import type { EventCategoryId } from "../events/event-categories.ts";
+import { enrichEvent } from "../events/enrich-event.ts";
+
+// WS4 — Plan Arc Selector.
+// For Category G (travel) anchors the phase map advertises pre/during/post,
+// but that is a capability declaration. The actual arc for a specific flight
+// is short-haul (pre+post) vs long-haul (pre+during+post) per
+// enrichEvent().travelArc. This helper prunes phases the specific event
+// doesn't warrant so short-haul flights don't get pushed an in-flight slot.
+function pruneTravelPhases(
+  phases: Phase[],
+  categoryId: EventCategoryId | null | undefined,
+  title: string | null | undefined,
+): Phase[] {
+  if (categoryId !== "G") return phases;
+  const arc = enrichEvent({ title: title ?? "" }).travelArc;
+  // Only long-haul / explicit travel_day keeps the "during" (in-flight) slot.
+  // enrichEvent defaults null-duration flights to 'pre-post', which is the
+  // conservative behaviour we want at the allocator boundary.
+  if (arc === "pre-during-post") return phases;
+  return phases.filter((p) => p !== "during");
+}
 
 export type DayShape =
   | "light_routine"
@@ -189,6 +210,8 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
   if (dominantStructuralEvent && top) {
     const map = EVENT_PHASE_MAP[top.categoryId as EventCategoryId] || {};
     dominantEventPhases = (["pre", "during", "post"] as const).filter((p) => !!map[p]);
+    // WS4: prune "during" from short-haul flight anchors.
+    dominantEventPhases = pruneTravelPhases(dominantEventPhases, top.categoryId as EventCategoryId, top.title);
     phaseCandidates = {};
     for (const c of ranked) {
       if (topEventId && c.eventId !== topEventId) continue;
@@ -317,13 +340,27 @@ function buildNamedFullArcResult(
       phaseCandidates[c.phase] = c;
     }
   }
+  // WS4: for a travel_day, prune the "during" (in-flight) slot when the
+  // top-ranked G candidate is not long-haul. Conference days are unaffected.
+  const topG = ranked.find((c) => c.categoryId === categoryId) ?? null;
+  const allowedPhases = pruneTravelPhases(
+    (["pre", "during", "post"] as const).slice(),
+    categoryId,
+    topG?.title,
+  );
+  const includeDuring = allowedPhases.includes("during");
+  const duringSlot = includeDuring
+    ? makeSlot(1, dayShape, "full_arc", phaseCandidates.during ?? null, "during", "during")
+    // Degrade slot-1 to a state anchor rather than fabricate an in-flight
+    // phase for a short-haul flight. Mirrors the Category A slot-1 pattern.
+    : makeSlot(1, dayShape, "full_arc", null, "state_anchor");
   return {
     dayShape,
     mode: "full_arc",
     allocationReason,
     slots: [
       makeSlot(0, dayShape, "full_arc", phaseCandidates.pre ?? null, "pre", "pre"),
-      makeSlot(1, dayShape, "full_arc", phaseCandidates.during ?? null, "during", "during"),
+      duringSlot,
       makeSlot(2, dayShape, "full_arc", phaseCandidates.post ?? null, "post", "post"),
     ],
     debug: {
@@ -332,7 +369,9 @@ function buildNamedFullArcResult(
       candidateCount: ranked.length,
       multiPhaseEligible: true,
       sameEventFan: ranked.length > 1 && new Set(ranked.map((c) => c.eventId).filter(Boolean)).size === 1,
-      dominantEventPhases: (["pre", "during", "post"] as const).filter((p) => !!phaseCandidates[p]),
+      dominantEventPhases: (["pre", "during", "post"] as const).filter(
+        (p) => !!phaseCandidates[p] && (p !== "during" || includeDuring),
+      ),
     },
   };
 }

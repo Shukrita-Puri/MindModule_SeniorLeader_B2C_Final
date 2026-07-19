@@ -1,55 +1,57 @@
-# Persist Week Ahead "saved" confirmation across refreshes
+# WS4 — Plan Arc Selector (reuse existing arc plumbing)
 
-## Problem
-`WeekAheadPriorities.tsx` holds `saved` in local state and resets it to `false` on every mount (line 156 in `load()`). After a refresh the user sees the "Save Week Ahead Priorities" CTA again — even though their Star/Cancel/Never selections did rehydrate from the server — making it feel like the save didn't stick.
+## Reuse decision
+Everything needed already exists. WS4 becomes a **surgical edit** to the two files that already own arc logic:
 
-## Fix (UI-only, no backend change)
-Persist a lightweight "confirmed for this ISO week" marker in `localStorage` and rehydrate `saved` from it on load. Selections themselves already persist server-side via `event_priority_memory` and rehydrate through `priorSignal` — this change only restores the *confirmation receipt* UI state.
+- `supabase/functions/_shared/events/event-phase-map.ts` — SSOT for which phases each category (A–H) supports; `G` already declares `pre + during + post`, `H` already declares `during` only.
+- `supabase/functions/_shared/jit/slot-allocator.ts` — already fans a travel_day into a `full_arc` of 3 slots (line 120 `buildNamedFullArcResult("travel_day", …, "G")`) and already gates dominant-event phase picking on the phase map (line 191 `dominantEventPhases`).
 
-### Changes in `src/components/home/WeekAheadPriorities.tsx`
+**No new .ts files. No new imports on the consumer side.** The gap today is one-dimensional: Category G's phase map advertises all three phases, so short-haul flights get pushed a "during" (in-flight) slot they don't need. We fix that by consulting `enrichEvent().travelArc` (already surfaced by WS2) at the two existing prune sites.
 
-1. Add a small helper at module scope:
-   ```ts
-   const SAVED_KEY_PREFIX = "mm.weekAhead.saved.";
-   const isoWeekKey = (d = new Date()) => {
-     // YYYY-Www of the target planning week (current week's Mon..Sun)
-     const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-     const day = t.getUTCDay() || 7;
-     t.setUTCDate(t.getUTCDate() + 4 - day);
-     const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-     const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-     return `${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
-   };
-   ```
-2. In `load()`, after `setDecisions(hydrated)`, replace `setSaved(false)` with:
-   ```ts
-   const wasSaved =
-     Object.keys(hydrated).length > 0 &&
-     typeof window !== "undefined" &&
-     window.localStorage.getItem(SAVED_KEY_PREFIX + isoWeekKey()) === "1";
-   setSaved(wasSaved);
-   ```
-   (Gated on `hydrated` having at least one decision so a stale marker from a prior week with no signals doesn't produce a misleading banner.)
-3. In `handleSave()`, right after `setSaved(true)`, write the marker:
-   ```ts
-   try { window.localStorage.setItem(SAVED_KEY_PREFIX + isoWeekKey(), "1"); } catch {}
-   ```
-4. In `recordSignal()`, when the user edits after saving (existing `setSaved(false)` on line 182), also clear the marker so the CTA correctly reappears until they re-confirm:
-   ```ts
-   try { window.localStorage.removeItem(SAVED_KEY_PREFIX + isoWeekKey()); } catch {}
-   ```
+## Change 1 — `slot-allocator.ts`, dominant-event branch (~line 187–200)
 
-### Behaviour after change
-- User saves → banner shows, marker written for this ISO week.
-- User refreshes same week → decisions rehydrate from server, marker read from localStorage, banner shows again (no CTA nag).
-- User edits any Star/Cancel/Never after refresh → banner hides, CTA returns, marker cleared. Re-saving re-writes the marker.
-- New ISO week → different key, marker naturally absent, CTA shows as intended for the new planning cycle.
+Just after `dominantEventPhases` is derived from `EVENT_PHASE_MAP`, add a G-specific prune:
 
-### Out of scope
-- No edge-function change, no schema change, no change to `record-event-priority-signal` or `list-week-ahead-priorities`.
-- Not cross-device: the "confirmation" is a UX receipt, so per-browser localStorage is acceptable. If you want it cross-device later, we can persist a per-user/per-week flag on the server (small follow-up), but it isn't needed for the reported issue.
+```ts
+if (top.categoryId === "G") {
+  const arc = enrichEvent({ title: top.eventTitle ?? "", durationMinutes: top.durationMinutes ?? undefined }).travelArc;
+  if (arc === "pre-post") {
+    dominantEventPhases = dominantEventPhases.filter(p => p !== "during");
+  }
+}
+```
 
-### Validation
-- Extend `src/components/home/__tests__/WeekAheadPriorities.test.tsx` (or the existing test file) with two cases:
-  1. After clicking Save, remount the component with the same mocked `list-week-ahead-priorities` response — banner should render without another click.
-  2. After remount with the saved marker present, changing a decision hides the banner and re-shows the CTA.
+`pickForDominant("during")` then returns `null`, and the existing slot-2 fallback (`makeSlot(1, …, pickForDominant("during"), …, "during")`) will resolve to a state anchor — exactly the behaviour the phase map already produces for Category A today.
+
+## Change 2 — `slot-allocator.ts`, `buildNamedFullArcResult` (~line 308–335)
+
+Same idea, one line: when `dayShape === "travel_day"`, use the ranked top event's `travelArc` to drop the `during` slot from the emitted phases + `dominantEventPhases` array. Long-haul, red-eye and unknown-duration flights are unchanged (still full arc).
+
+The `RankedJitCandidate` shape already carries `eventTitle` and duration signals through `ranked[]` (used elsewhere in this file), so no plumbing change is needed — we read them off the top-ranked G candidate.
+
+## Change 3 — extend existing tests, no new suite file
+
+Append to `supabase/functions/_shared/jit/slot-allocator.test.ts`:
+
+1. **Short-haul flight as dominant G event** → slots emitted with `phase: "pre"`, `phase: "state"` (slot 1 fell back), `phase: "post"`. Assert no slot has `phase === "during"`.
+2. **Long-haul flight (`durationMinutes >= 300` or explicit "long-haul"/"red-eye" title)** → slots `pre / during / post` unchanged. (Regression guard.)
+3. **`hasTravelDay = true` with short-haul top event → `buildNamedFullArcResult` path** → same assertion as (1).
+
+`event-tagging-v2.test.ts` already covers the enrichEvent side (12h→full arc, 2h→pre-post) so no duplication there.
+
+## Explicitly out of scope
+
+- No changes to `event-phase-map.ts` — Category G is correct as a **capability declaration**. Arc pruning belongs at the allocator, not the map.
+- No new shared module (`travel-arc-selector.ts` is unnecessary given the reuse above).
+- No changes to Brief, Smart Nudges, JIT selector, or any frontend.
+- No schema changes.
+
+## Validation
+
+- `deno test supabase/functions/_shared/jit/slot-allocator.test.ts` — extended suite green.
+- `deno test supabase/functions/_shared/events/` — WS1/WS2/WS3 tests remain green (48/48).
+- No redeploy of edge functions required beyond `generate-mastery-plan` (which transitively imports `slot-allocator`), which we redeploy at the end of the change.
+
+## Why this is safe pre-launch
+
+Two localised inserts inside a file that already governs arc selection, gated on `categoryId === "G"` and a value already produced by an existing WS2 helper. No new file to wire, no new import graph, no consumer changes. Behaviour for every non-G event is byte-identical.
