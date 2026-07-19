@@ -193,7 +193,7 @@ Deno.test("W2: Sunday with no meetings → weekend_sunday (morning + evening, we
     travel: null,
   });
   assertEquals(d.dayType, "weekend_sunday");
-  assertEquals(d.weekAheadReason, "sunday");
+  assertEquals(d.weekAheadReason, "weekly_planning");
   assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
 });
 
@@ -213,8 +213,9 @@ Deno.test("W2: Weekday with no meetings → light_day (morning + evening)", () =
 
 Deno.test("W2: Tomorrow is applicable public holiday but today is a workday → workday (no week-ahead trigger exists for pre-holiday days)", () => {
   // Documenting current SSOT-derived contract: week-ahead reasons are
-  // { sunday, last_day_pto, last_day_holiday, last_day_long_weekend,
-  //   manual_override }. There is intentionally NO "eve of holiday" trigger
+  // { weekly_planning, end_of_pto, end_of_public_holiday,
+  //   end_of_long_weekend, manual_override }. There is intentionally NO
+  //   "eve of holiday" trigger
   // — that day is a normal workday. If Product decides to add one later,
   // this test will need to be flipped alongside the new reason token.
   const monday = new Date("2026-01-05T18:00:00Z");
@@ -231,7 +232,7 @@ Deno.test("W2: Tomorrow is applicable public holiday but today is a workday → 
   assertEquals(d.weekAheadReason, null);
 });
 
-Deno.test("W2: Today = applicable holiday, tomorrow = workday → week_ahead (last_day_holiday)", () => {
+Deno.test("W2: Today = applicable holiday, tomorrow = workday → week_ahead (end_of_pto)", () => {
   // Positive counterpart of the previous test — the "last day of the
   // holiday block" branch DOES exist and should fire the moment tomorrow
   // resolves to a workday via the SSOT.
@@ -245,10 +246,10 @@ Deno.test("W2: Today = applicable holiday, tomorrow = workday → week_ahead (la
     travel: null,
   });
   assertEquals(d.dayType, "week_ahead");
-  // Reason is `last_day_pto`: the SSOT collapses PTO and public-holiday into
+  // Reason is `end_of_pto`: the SSOT collapses PTO and public-holiday into
   // one state, and the week-ahead evaluator's PTO branch is checked before
   // the holiday branch — both trigger the same cadence so this is intentional.
-  assertEquals(d.weekAheadReason, "last_day_pto");
+  assertEquals(d.weekAheadReason, "end_of_pto");
   assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
 });
 
