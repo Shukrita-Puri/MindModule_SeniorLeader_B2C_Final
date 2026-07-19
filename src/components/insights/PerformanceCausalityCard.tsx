@@ -83,6 +83,20 @@ interface CausalityPayload {
   diagnostics?: {
     counts?: DiagnosticsCounts;
   };
+  /**
+   * Additive subset of the engine's `signal_summary` — Stress Load renders
+   * `subcategory_lift` as a secondary line under any A–H row that spans
+   * ≥2 subcategories with n≥2 each. Missing/empty → render nothing.
+   */
+  signalSummary?: {
+    subcategory_lift?: Array<{
+      categoryId: string;
+      categoryName: string;
+      subcategoryId: string;
+      hrDeltaBpm: number;
+      n: number;
+    }>;
+  };
   version?: number;
   cached?: boolean;
 }
