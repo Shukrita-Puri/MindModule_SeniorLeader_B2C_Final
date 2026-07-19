@@ -212,9 +212,12 @@ Deno.test("allocator — Week-Ahead day returns one planning slot", () => {
 
 Deno.test("allocator — travel day uses named full arc", () => {
   const ranked = [
-    cand("trip-1", "Flight to NYC", "pre", "G", 70),
-    cand("trip-1", "Flight to NYC", "during", "G", 80),
-    cand("trip-1", "Flight to NYC", "post", "G", 75),
+    // WS4: full-arc travel_day requires a long-haul-signalled title
+    // (or explicit trv.long_haul / trv.travel_day subtype). Short-haul
+    // flights are covered by the dedicated WS4 tests below.
+    cand("trip-1", "Long-haul flight to NYC", "pre", "G", 70),
+    cand("trip-1", "Long-haul flight to NYC", "during", "G", 80),
+    cand("trip-1", "Long-haul flight to NYC", "post", "G", 75),
   ];
   const alloc = allocatePlanSlots({
     nowMs: Date.now(),
