@@ -411,7 +411,7 @@ serve(async (req) => {
     if (!force) {
       const { data: cached } = await supabase
         .from("causality_findings")
-        .select("payload")
+        .select("payload, signal_summary")
         .eq("user_id", userId)
         .eq("pattern_kind", "cause_effect_v2")
         .eq("computed_for_date", todayStr)
@@ -438,7 +438,13 @@ serve(async (req) => {
             cachedPayload.coverage.eventTypesIdentified == null ||
             cachedPayload.coverage.lensReasons == null);
         if (!isOldVersion && !isEmptyAndOldShape) {
-          return new Response(JSON.stringify({ ...cachedPayload, cached: true }), {
+          const cachedSig: any = (cached as any)?.signal_summary;
+          const subcat = cachedSig?.performance_lift?.subcategory_lift ?? [];
+          return new Response(JSON.stringify({
+            ...cachedPayload,
+            signalSummary: { subcategory_lift: subcat },
+            cached: true,
+          }), {
             status: 200,
             headers: corsHeaders,
           });
