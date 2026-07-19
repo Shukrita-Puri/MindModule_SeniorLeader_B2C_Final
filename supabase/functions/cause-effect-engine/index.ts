@@ -1390,6 +1390,34 @@ serve(async (req) => {
       });
       category_lift.sort((a, b) => b.compositeLift - a.compositeLift);
 
+      // ── (2b) subcategory_lift: rollup by (categoryId, subcategoryId) ─
+      // Subcategory id derived from canonical subtype id (`str.deep_work`
+      // → `deep_work`). Additive; consumed by Insights Stress Load only.
+      const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
+      hrAcc.forEach(({ hrDeltas, et }) => {
+        if (!et) return;
+        const subcategoryId = et.id.includes(".") ? et.id.split(".")[1] : et.id;
+        const key = `${et.categoryId}::${subcategoryId}`;
+        if (!subAcc.has(key)) {
+          subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
+        }
+        const slot = subAcc.get(key)!;
+        slot.hr.push(...hrDeltas);
+        slot.n += hrDeltas.length;
+      });
+      const subcategory_lift: PerformanceLift["subcategory_lift"] = [];
+      subAcc.forEach((slot) => {
+        if (slot.n < MIN_OCCURRENCES_EMERGING) return;
+        subcategory_lift.push({
+          categoryId: slot.categoryId,
+          categoryName: EVENT_CATEGORIES[slot.categoryId]?.name ?? slot.categoryId,
+          subcategoryId: slot.subcategoryId,
+          hrDeltaBpm: Math.round(mean(slot.hr)),
+          n: slot.n,
+          confidence: slot.n >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging",
+        });
+      });
+
       // ── (3) sleep_to_peak: high-sleep nights → next-day PRS + window ─
       let sleep_to_peak: PerformanceLift["sleep_to_peak"] = null;
       const sleepScored = (wearable as any[])
