@@ -307,7 +307,18 @@ export interface SelectContext {
    *  - `hardDemote`         evict outright (mirrors `rankJitCandidates` hard demote)
    *  - `sovereignEscalation` `'low'` → 3× cancelled-as-noise escalation per §9 M3
    */
-  memoryDeltaByEventId?: Record<string, { delta?: number; hardDemote?: boolean; sovereignEscalation?: 'low' }>;
+  memoryDeltaByEventId?: Record<string, {
+    delta?: number;
+    hardDemote?: boolean;
+    sovereignEscalation?: 'low';
+    /**
+     * True when the underlying `priority` memory contains at least one row
+     * whose UTC calendar date predates today's UTC date. Advisory-only —
+     * ranking uses `delta`; consumers use this flag to label a "prior"
+     * signal honestly (vs a same-day tap that also boosted `delta`).
+     */
+    hasPriorDayPriority?: boolean;
+  }>;
   /**
    * Maximum lead time (ms) for an event to remain in the candidate set.
    * Default 24h — preserves Plan / JIT behaviour. The Week-Ahead picker
