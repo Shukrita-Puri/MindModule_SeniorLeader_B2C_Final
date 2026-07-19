@@ -4323,12 +4323,24 @@ async function evaluateWeekAheadPickerInvite(
   });
   if (!decision.fire) return null;
 
+  // Saturday-planning countries (SA/KW/QA/BH/OM/IL) plan on Saturday
+  // evening for a Sunday-start working week; everyone else plans on
+  // Sunday for a Monday start. Keep variantId stable (day-neutral) so
+  // per-reason dedupe and analytics don't fork.
+  const isSaturdayPlanning = planningDayOfWeek(wai.homeCountry) === 6;
+  const weeklyPlanningVariant = isSaturdayPlanning
+    ? {
+        title: "Week reset",
+        body:
+          "10 priority choices can shape the week before Sunday starts - log in to prep your mind tonight.",
+      }
+    : {
+        title: "Sunday reset",
+        body:
+          "10 priority choices can shape the week before Monday starts - log in to prep your mind tonight.",
+      };
   const variantByReason: Record<string, { title: string; body: string }> = {
-    weekly_planning: {
-      title: "Sunday reset",
-      body:
-        "10 priority choices can shape the week before Monday starts - log in to prep your mind tonight.",
-    },
+    weekly_planning: weeklyPlanningVariant,
     end_of_pto: {
       title: "Last day off",
       body:
