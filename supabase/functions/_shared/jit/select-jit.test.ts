@@ -121,7 +121,7 @@ Deno.test("EY interview with 4 attendees outranks a zero-attendee Chief AI conne
   assertEquals(res.ranked[0].eventId, "ey");
 });
 
-Deno.test("zero-attendee connects block gets no recurring-pattern bonus", () => {
+Deno.test("zero-attendee connects block is excluded (WS4: str.community classificationOnly)", () => {
   const res = selectJitCandidates(
     [{
       id: "block",
@@ -140,7 +140,10 @@ Deno.test("zero-attendee connects block gets no recurring-pattern bonus", () => 
       nowMs: NOW,
     },
   );
-  assertEquals(res.ranked[0].components.breakdown.patternScore, 0);
+  // "Thursday connects" hits str.community (classificationOnly:true) — it must
+  // never anchor a Plan slot regardless of pattern signal. Recurring-pattern
+  // bonus gating is unreachable because the event is filtered upstream.
+  assertEquals(res.ranked.length, 0);
 });
 
 Deno.test("events beyond 24h are excluded before scoring", () => {
