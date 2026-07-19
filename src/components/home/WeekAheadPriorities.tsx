@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Star, X, Ban, Loader2 } from "lucide-react";
+import { Star, X, Ban, Loader2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getAuthToken } from "@/services/authTokenService";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
@@ -89,6 +89,8 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
   const [items, setItems] = useState<PriorityItem[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Signal>>({});
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
+  const [saved, setSaved] = useState(false);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,6 +153,8 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
         if (it.priorSignal) hydrated[it.eventId] = it.priorSignal;
       }
       setDecisions(hydrated);
+      setSaved(false);
+      setFailedIds(new Set());
     } catch (e) {
       console.error("[WeekAheadPriorities] load failed", e);
       setError("Couldn't load your upcoming week.");
@@ -175,6 +179,7 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
   const recordSignal = useCallback(async (item: PriorityItem, signal: Signal) => {
     setSubmitting((s) => ({ ...s, [item.eventId]: true }));
     setDecisions((d) => ({ ...d, [item.eventId]: signal })); // optimistic
+    setSaved(false);
     try {
       const headers: Record<string, string> = {};
       const token = await getAuthToken();
@@ -194,12 +199,23 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
         },
       );
       if (invokeErr) throw invokeErr;
+      setFailedIds((prev) => {
+        if (!prev.has(item.eventId)) return prev;
+        const next = new Set(prev);
+        next.delete(item.eventId);
+        return next;
+      });
     } catch (e) {
       console.error("[WeekAheadPriorities] record signal failed", e);
       toast({ title: "Couldn't save", description: "We'll retry next time you open this page." });
       setDecisions((d) => {
         const next = { ...d };
         delete next[item.eventId];
+        return next;
+      });
+      setFailedIds((prev) => {
+        const next = new Set(prev);
+        next.add(item.eventId);
         return next;
       });
     } finally {
@@ -210,6 +226,25 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
       });
     }
   }, []);
+
+  const inFlight = Object.keys(submitting).length > 0;
+  const hasDecisions = Object.keys(decisions).length > 0;
+  const hasFailures = failedIds.size > 0;
+
+  const handleSave = useCallback(async () => {
+    // Wait for any in-flight per-click writes to settle.
+    // The submitting map clears as each write resolves; poll briefly.
+    const start = Date.now();
+    while (Object.keys(submitting).length > 0 && Date.now() - start < 8000) {
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    if (failedIds.size > 0) {
+      toast({ title: "We couldn't save your Week Ahead priorities. Please try again." });
+      return;
+    }
+    setSaved(true);
+    toast({ title: "Week Ahead priorities saved" });
+  }, [submitting, failedIds]);
 
   const subtitle = (reason && SUBTITLE_BY_REASON[reason]) ||
     SUBTITLE_BY_REASON.weekly_planning;
@@ -331,9 +366,45 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
       ))}
 
       {!loading && !error && (
-        <div className="mt-6 flex items-center justify-between text-xs text-muted-foreground">
-          <span>Your choices teach the system what matters.</span>
-          <Button variant="ghost" size="sm" onClick={() => void load()}>Refresh</Button>
+        <div className="mt-6">
+          {saved && !hasFailures ? (
+            <div
+              role="status"
+              className="rounded-xl border border-primary/30 bg-primary/10 text-primary p-4 flex items-start gap-3"
+            >
+              <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" aria-hidden />
+              <div className="text-sm">
+                <div className="font-medium">Your Week Ahead priorities have been recorded.</div>
+                <div className="text-primary/80 mt-0.5">
+                  They'll be used when building your upcoming plan.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <p className="text-xs text-muted-foreground order-2 md:order-1">
+                {hasFailures
+                  ? "We couldn't save one or more choices. Tap Save to try again."
+                  : hasDecisions
+                    ? "Your preferences will shape your upcoming plan."
+                    : "Mark at least one event to save."}
+              </p>
+              <Button
+                className="w-full md:w-auto order-1 md:order-2"
+                disabled={!hasDecisions || inFlight}
+                onClick={() => void handleSave()}
+              >
+                {inFlight ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving your choices…
+                  </>
+                ) : (
+                  "Save Week Ahead Priorities"
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </section>
