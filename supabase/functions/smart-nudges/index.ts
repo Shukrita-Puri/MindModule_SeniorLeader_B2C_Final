@@ -1116,20 +1116,51 @@ async function loadPatternSummary(
 function findEventPattern(
   pattern: PatternSummary | null,
   eventTitle: string | null | undefined,
+  planLedger?: {
+    categoryId?: string | null;
+    subcategory?: string | null;
+  } | null,
 ): {
   hrvDeltaPct: number;
   n: number;
   rhrElevated: boolean;
   confidence: "strong" | "emerging";
+  source?: "subcategory" | "category";
 } | null {
   if (!pattern) return null;
+  // WS6 — prefer subcategory-level HR lift when the plan ledger tells us
+  // exactly which A-H subcategory this event belongs to. Falls back to
+  // the category-level `event_to_hrv` lookup otherwise, preserving legacy
+  // behaviour verbatim.
+  const subLift = pattern.subcategory_lift ?? [];
+  const catId = planLedger?.categoryId ?? null;
+  const subId = planLedger?.subcategory ?? null;
+  if (catId && subId && subLift.length) {
+    const subHit = subLift.find(
+      (s) => s.categoryId === catId && s.subcategoryId === subId,
+    );
+    if (
+      subHit &&
+      (subHit.confidence === "strong" || subHit.confidence === "emerging") &&
+      subHit.hrDeltaBpm > 0
+    ) {
+      // Elevated HR at subcategory level acts as the pattern citation.
+      return {
+        hrvDeltaPct: 0,
+        n: subHit.n,
+        rhrElevated: true,
+        confidence: subHit.confidence,
+        source: "subcategory",
+      };
+    }
+  }
   const bucket = classifyEventForPattern(eventTitle);
   if (!bucket) return null;
   const hit = pattern.event_to_hrv.find((p) => p.event_type === bucket);
   if (!hit) return null;
   if (hit.confidence !== "strong" && hit.confidence !== "emerging") return null;
   if (hit.hrvDeltaPct >= 0 && !hit.rhrElevated) return null;
-  return hit;
+  return { ...hit, source: "category" };
 }
 
 function suppressJitForNotificationOnlyCategory(
