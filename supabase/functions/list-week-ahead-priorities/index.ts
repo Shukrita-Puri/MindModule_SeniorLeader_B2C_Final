@@ -33,8 +33,6 @@ import {
 } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
-  isEducationalTitle,
-  isNoiseTitle,
   classifyEvent,
 } from "../_shared/events/event-classifier.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
@@ -67,9 +65,8 @@ interface CalendarEventRow {
   created_at?: string | null;
 }
 
-const PER_CATEGORY_SOFT_CAP = 4;
-const TOP_N = 10;
-const WEEK_AHEAD_HORIZON_MS = 7 * 24 * 60 * 60_000;
+// No per-category cap, no top-N truncation — Week-Ahead is a full human
+// triage list. Ordering is by tag/stakes; the UI groups by day.
 
 /** Week-Ahead tag vocabulary (advisory only; NEVER used to filter). */
 type WeekAheadTag =
