@@ -210,6 +210,8 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
   if (dominantStructuralEvent && top) {
     const map = EVENT_PHASE_MAP[top.categoryId as EventCategoryId] || {};
     dominantEventPhases = (["pre", "during", "post"] as const).filter((p) => !!map[p]);
+    // WS4: prune "during" from short-haul flight anchors.
+    dominantEventPhases = pruneTravelPhases(dominantEventPhases, top.categoryId as EventCategoryId, top.title);
     phaseCandidates = {};
     for (const c of ranked) {
       if (topEventId && c.eventId !== topEventId) continue;
