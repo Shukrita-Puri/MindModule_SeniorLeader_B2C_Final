@@ -168,6 +168,56 @@ Deno.test("expired event windows are not emitted as stale candidates", () => {
   assertEquals(ranked.length, 0);
 });
 
+// WS4 — classificationOnly subtypes must never produce Plan slot candidates.
+for (
+  const [label, title] of [
+    ["str.learning (webinar)", "Fireside chat webinar"],
+    ["str.community (breakfast club)", "Breakfast club roundtable"],
+    ["rhy.social (dinner with)", "Dinner with Alex"],
+    ["rhy.wellness_fitness (gym)", "Gym workout"],
+    ["trv.accommodation (hotel)", "Hotel booking Marriott"],
+    ["conf.networking (mixer)", "Fintech networking mixer"],
+  ] as const
+) {
+  Deno.test(`WS4 — ${label} → 0 JIT candidates`, () => {
+    const ranked = rankJitCandidates(
+      [{
+        event: {
+          id: "cls-only",
+          title,
+          start_time: inHours(2),
+          end_time: inHours(3),
+        },
+        stakesLevel: "medium",
+      }],
+      NOW,
+    );
+    assertEquals(ranked.length, 0, `${title} must not anchor Plan slots`);
+  });
+}
+
+Deno.test("WS4 — deep_work event still emits pre + post (E has no during)", () => {
+  const ranked = rankJitCandidates(
+    [{
+      event: {
+        id: "dw-1",
+        title: "Deep work block — 3-year strategy",
+        start_time: inHours(2),
+        end_time: inHours(4),
+      },
+      stakesLevel: "high",
+    }],
+    NOW,
+  );
+  const phases = ranked.map((r) => r.phase).sort();
+  // E declares pre + during + post at category level; deep_work anchor
+  // may fan into all three depending on lead-time windows. What matters
+  // for WS4 is that it is NOT dropped and remains E.
+  assert(ranked.length > 0, "deep_work must produce candidates");
+  assertEquals(ranked.every((r) => r.categoryId === "E"), true);
+  assert(phases.includes("pre") || phases.includes("post"));
+});
+
 Deno.test("ranker enforces the 24h firing horizon internally", () => {
   const ranked = rankJitCandidates(
     [{

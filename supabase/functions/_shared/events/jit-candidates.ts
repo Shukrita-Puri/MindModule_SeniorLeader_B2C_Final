@@ -42,6 +42,10 @@ export interface RankedJitCandidate {
   severity: 'high' | 'medium' | 'low';
   leadTimeMin: number | null;
   demandProfile: DemandProfile | null;
+  /** Wall-clock event duration in minutes when start/end are both known.
+   *  WS4 — allocator uses this to distinguish long-haul flights (≥6h)
+   *  from short-haul when the title alone doesn't say so. */
+  durationMinutes: number | null;
   /** Absolute window the candidate is firing-eligible inside (ms). */
   windowStartMs: number;
   windowEndMs: number;
@@ -156,10 +160,19 @@ export function rankJitCandidates(
     const endMs = ev.event.end_time ? new Date(ev.event.end_time).getTime() : startMs + 60 * 60_000;
     const enriched = enrichEvent({ title: ev.event.title || '' });
     if (!enriched.categoryId) continue;
+    // WS4: subtypes flagged classificationOnly (str.learning, str.community,
+    // conf.networking, trv.accommodation, trv.travel_day, all rhy.* / H)
+    // must never anchor a Plan slot. Spec: getArcForEvent → null.
+    // trv.travel_day is handled specially via hasTravelDay / buildNamedFullArcResult
+    // so dropping it here is safe.
+    if (enriched.subtype?.classificationOnly) continue;
     const base = STAKES_BASE[(ev.stakesLevel || '').toLowerCase()] ?? 5;
     const catW = CATEGORY_WEIGHT[enriched.categoryId];
     const skipPenalty = ev.skipPenalty ?? 0;
     const memory = ev.memoryDelta ?? 0;
+    const durationMinutes = ev.event.end_time && isFinite(endMs) && endMs > startMs
+      ? Math.round((endMs - startMs) / 60_000)
+      : null;
 
     for (const phase of ['pre', 'during', 'post'] as const) {
       const ph = enriched.phases[phase];
@@ -187,6 +200,7 @@ export function rankJitCandidates(
         severity,
         leadTimeMin: enriched.leadTimeMin ?? (Math.abs(fromMin) || null),
         demandProfile: enriched.demandProfile,
+        durationMinutes,
         windowStartMs: winStart,
         windowEndMs: winEnd,
         eligible: nowMs >= winStart && nowMs <= winEnd,
