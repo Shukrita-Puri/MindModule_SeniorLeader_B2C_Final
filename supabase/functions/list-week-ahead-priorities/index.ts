@@ -33,8 +33,6 @@ import {
 } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
-  isEducationalTitle,
-  isNoiseTitle,
   classifyEvent,
 } from "../_shared/events/event-classifier.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
@@ -43,10 +41,9 @@ import {
   normalizeEventTypeKey,
 } from "../_shared/plan/week-ahead-mode.ts";
 import { loadJitContextForEvents } from "../_shared/jit/load-jit-context.ts";
-import {
-  selectJitCandidates,
-  type SelectedCandidate,
-} from "../_shared/jit/select-jit.ts";
+import { enrichEvent } from "../_shared/events/enrich-event.ts";
+import { patternHit } from "../_shared/jit/tactical-signals.ts";
+import { PTO_TITLE_RX } from "../_shared/availability/availability-classifier.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,33 +65,51 @@ interface CalendarEventRow {
   created_at?: string | null;
 }
 
-const PER_CATEGORY_SOFT_CAP = 4;
-const TOP_N = 10;
-const WEEK_AHEAD_HORIZON_MS = 7 * 24 * 60 * 60_000;
+// No per-category cap, no top-N truncation — Week-Ahead is a full human
+// triage list. Ordering is by tag/stakes; the UI groups by day.
 
-/** Plan-aligned reason strings derived from the SelectedCandidate breakdown. */
-function reasonsFor(c: SelectedCandidate): string[] {
-  const b = c.components.breakdown;
-  const out: string[] = [];
-  if (c.components.sovereignBonus >= 45) out.push("you tagged this high");
-  else if (c.components.sovereignBonus >= 20) out.push("you tagged this");
-  if (b.relationship_sovereign >= 15) out.push("known relationship");
-  else if (b.relationshipLeads) out.push("relationship-led");
-  if (b.situationalBoost >= 15) out.push("interview");
-  else if (b.situationalBoost >= 6) out.push("hiring");
-  if (b.categoryBase >= 35) out.push("high stakes");
-  else if (b.categoryBase >= 25) out.push("important");
-  if (b.patternScore >= 10) out.push("recurring pressure pattern");
-  if (c.components.memoryDelta >= 8) out.push("prior priority");
-  else if (c.components.memoryDelta <= -10) out.push("historically low-signal");
-  return Array.from(new Set(out)).slice(0, 3);
-}
+/** Week-Ahead tag vocabulary (advisory only; NEVER used to filter). */
+type WeekAheadTag =
+  | "prior_priority"
+  | "pattern_based"
+  | "known_relationship"
+  | "high_stakes"
+  | "historically_low_signal";
+
+const TAG_LABEL: Record<WeekAheadTag, string> = {
+  prior_priority: "prior priority",
+  pattern_based: "recurring pressure pattern",
+  known_relationship: "known relationship",
+  high_stakes: "high stakes",
+  historically_low_signal: "historically low-signal",
+};
 
 /** User-friendly bucket label aligned with the Plan card vocabulary. */
-function categoryLabelFor(title: string, c: SelectedCandidate): string {
+function categoryLabelFor(title: string, categoryId: string | null): string {
   const subtype = classifyEvent(title);
   if (subtype) return subtype.bucket;
-  return EVENT_CATEGORIES[c.categoryId]?.name ?? "Meeting";
+  return (categoryId && EVENT_CATEGORIES[categoryId]?.name) || "Meeting";
+}
+
+/** All-day OOO / holiday block: full-day duration AND PTO-flavoured title. */
+function isAllDayOoo(title: string, startMs: number, endMs: number): boolean {
+  if (!PTO_TITLE_RX.test(title || "")) return false;
+  const durMs = endMs - startMs;
+  return durMs >= 20 * 60 * 60_000; // ≥20h ⇒ effectively an all-day block
+}
+
+/** Declined by user OR cancelled by organiser (best-effort from metadata). */
+function isDeclinedOrCancelled(
+  // deno-lint-ignore no-explicit-any
+  eventMetadata: Record<string, any> | null,
+): boolean {
+  if (!eventMetadata || typeof eventMetadata !== "object") return false;
+  const status = String(eventMetadata.status ?? "").toLowerCase();
+  if (status === "cancelled") return true;
+  const signals = (eventMetadata as any).attendeeSignals ?? eventMetadata;
+  const self = signals?.selfResponse ?? signals?.self?.responseStatus ?? null;
+  if (typeof self === "string" && self.toLowerCase() === "declined") return true;
+  return false;
 }
 
 serve(async (req) => {
@@ -264,19 +279,14 @@ serve(async (req) => {
       stakesLevel: string | null;  // 'board' | 'investor' | 'external' | null
       score: number;
       scoreReasons: string[];
+      tags: WeekAheadTag[];
       isOrganizer: boolean | null;
     };
 
-    // ── Filter noise / passive educational and prep selector inputs ──
-    type Meta = {
-      startTime: string;
-      endTime: string;
-      localDay: string;
-      period: string;
-      typeKey: string;
-      isOrganizer: boolean | null;
-    };
-    const metaById = new Map<string, Meta>();
+    // ── Human-first triage: show EVERY real event, tag but never filter. ──
+    // Only hard hides: declined/cancelled and all-day OOO/holiday blocks.
+    // See mem://features/notifications/week-ahead-picker-trigger.md and
+    // the "Rank, never filter" plan in .lovable/plan.md.
     const selectorRows: Array<{
       id: string;
       title: string;
@@ -289,12 +299,29 @@ serve(async (req) => {
       // deno-lint-ignore no-explicit-any
       event_metadata: Record<string, any> | null;
     }> = [];
+    type Meta = {
+      startTime: string;
+      endTime: string;
+      localDay: string;
+      period: string;
+      typeKey: string;
+      isOrganizer: boolean | null;
+      title: string;
+      attendeesCount: number | null;
+      // deno-lint-ignore no-explicit-any
+      eventMetadata: Record<string, any> | null;
+    };
+    const metaById = new Map<string, Meta>();
 
     for (const e of deduped) {
-      if (isNoiseTitle(e.title)) continue;
-      if (isEducationalTitle(e.title) && e.isOrganizer === false) continue;
+      const startMs = new Date(e.startTime).getTime();
+      const endMs = new Date(e.endTime).getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+      // Hard hides only.
+      if (isDeclinedOrCancelled((e as any).eventMetadata ?? null)) continue;
+      if (isAllDayOoo(e.title, startMs, endMs)) continue;
 
-      const localStart = new Date(new Date(e.startTime).getTime() - offsetMinutes * 60_000);
+      const localStart = new Date(startMs - offsetMinutes * 60_000);
       const localDay =
         `${localStart.getFullYear()}-${String(localStart.getMonth() + 1).padStart(2, "0")}-${String(localStart.getDate()).padStart(2, "0")}`;
       metaById.set(e.id, {
@@ -304,6 +331,9 @@ serve(async (req) => {
         period: periodFor(localStart),
         typeKey: normalizeEventTypeKey(e.title),
         isOrganizer: e.isOrganizer,
+        title: e.title,
+        attendeesCount: e.attendeesCount ?? null,
+        eventMetadata: (e as any).eventMetadata ?? null,
       });
       selectorRows.push({
         id: e.id,
@@ -318,68 +348,79 @@ serve(async (req) => {
       });
     }
 
-    // ── Run the unified Plan/JIT selector with a 7-day horizon ──
+    // Load memory / relationships / pattern context (READ-ONLY: used to
+    // annotate, never to exclude).
     const { input, ctx } = await loadJitContextForEvents(
       supabase,
       userId,
       selectorRows,
       { nowMs: Date.now() },
     );
-    const result = selectJitCandidates(input, {
-      ...ctx,
-      horizonMs: WEEK_AHEAD_HORIZON_MS,
-    });
+    const inputById = new Map(input.map((i) => [i.id, i]));
+
+    // Stakes rank for ordering.
+    const STAKES_RANK: Record<string, number> = {
+      A: 8, B: 7, C: 6, D: 5, E: 4, F: 3, G: 2, H: 1,
+    };
 
     const scored: Scored[] = [];
-    for (const c of result.ranked) {
-      const meta = metaById.get(c.eventId);
-      if (!meta) continue;
-      const bucketLower = (c.bucket ?? "").toLowerCase();
-      const stakesLevel = c.categoryId === "A"
-        ? (bucketLower.includes("investor") ? "investor" : "board")
-        : ((c.categoryId === "B" || c.categoryId === "C") ? "external" : null);
+    for (const [eventId, meta] of metaById.entries()) {
+      const enriched = enrichEvent({ title: meta.title });
+      const categoryId = enriched.categoryId;
+      const stakesRank = categoryId ? (STAKES_RANK[categoryId] ?? 0) : 0;
+      const stakesLevel = categoryId === "A"
+        ? (meta.title.toLowerCase().includes("investor") ? "investor" : "board")
+        : ((categoryId === "B" || categoryId === "C") ? "external" : null);
+
+      // ── Tags (advisory only) ────────────────────────────────────────
+      const tags: WeekAheadTag[] = [];
+      const memEntry = ctx.memoryDeltaByEventId?.[eventId];
+      const memDelta = memEntry?.delta ?? 0;
+      if (memDelta >= 8) tags.push("prior_priority");
+      const { score: pScore } = patternHit(meta.title, ctx.signalSummary);
+      if (pScore >= 10) tags.push("pattern_based");
+      const inputRow = inputById.get(eventId);
+      const roles = inputRow?.attendeeRoles ?? [];
+      const hasKnownRel = Array.isArray(roles) && roles.some((r: any) =>
+        r && r.role && r.role !== "unknown" &&
+        (r.source === "user_tag" || r.source === "memory_user_tag" || r.source === "llm")
+      );
+      if (hasKnownRel) tags.push("known_relationship");
+      if (categoryId === "A" || categoryId === "B" || categoryId === "C") {
+        tags.push("high_stakes");
+      }
+      if (memDelta <= -10 || memEntry?.hardDemote) {
+        tags.push("historically_low_signal");
+      }
+
+      // Ordering score — never used to exclude.
+      const priorBoost = tags.includes("prior_priority") ? 1000 : 0;
+      const patternBoost = tags.includes("pattern_based") ? 500 : 0;
+      const stakesBoost = stakesRank * 10;
+      const orderScore = priorBoost + patternBoost + stakesBoost;
+
       scored.push({
-        eventId: c.eventId,
-        title: c.title,
+        eventId,
+        title: meta.title,
         startTime: meta.startTime,
         endTime: meta.endTime,
         localDay: meta.localDay,
         period: meta.period,
-        category: categoryLabelFor(c.title, c),
+        category: categoryLabelFor(meta.title, categoryId),
         typeKey: meta.typeKey,
         stakesLevel,
-        score: c.importance,
-        scoreReasons: reasonsFor(c),
+        score: orderScore,
+        scoreReasons: tags.map((t) => TAG_LABEL[t]).slice(0, 3),
+        tags,
         isOrganizer: meta.isOrganizer,
       });
     }
 
-    scored.sort((a, b) => b.score - a.score);
-
-    // Soft per-category cap only (no per-day cap — this is a week planner).
-    const perCategory = new Map<string, number>();
-    const picked: Scored[] = [];
-    for (const s of scored) {
-      if (picked.length >= TOP_N) break;
-      const c = perCategory.get(s.category) ?? 0;
-      if (c >= PER_CATEGORY_SOFT_CAP) continue;
-      picked.push(s);
-      perCategory.set(s.category, c + 1);
-    }
-    // If the soft cap was too restrictive (small calendars dominated by one
-    // bucket), backfill with the next-best events to honour the top-10 goal.
-    if (picked.length < TOP_N) {
-      const pickedIds = new Set(picked.map((p) => p.eventId));
-      for (const s of scored) {
-        if (picked.length >= TOP_N) break;
-        if (pickedIds.has(s.eventId)) continue;
-        picked.push(s);
-        pickedIds.add(s.eventId);
-      }
-    }
-
-    // Re-sort the selected slice by chronological start time for UI rendering.
-    picked.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    // No per-category cap, no top-N truncation. Return everything.
+    // Emphasis order handled by score; final list stays chronological for UI.
+    const picked = scored.slice().sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    );
 
     // ── Persist Week Ahead snapshot (Sun → Plan memory for the week) ──
     // Upsert by (user_id, week_start_date, source) so repeated Sunday
