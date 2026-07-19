@@ -799,6 +799,10 @@ interface NudgeContext {
     fullWorkingWeekend: boolean;
     /** SSOT-derived: today is a PTO / applicable holiday / weekend day. */
     todayIsOffDay: boolean;
+    /** SSOT-derived: today ends a long weekend (weekend ∪ PTO/holiday). */
+    isLastDayOfLongWeekend: boolean;
+    /** Home country from profiles.country. Selects planning weekday. */
+    homeCountry: string | null;
   };
   // v5.3 - Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
