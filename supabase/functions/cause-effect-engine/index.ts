@@ -1656,7 +1656,15 @@ serve(async (req) => {
       }, { onConflict: "user_id,pattern_kind,computed_for_date" });
     if (upsertErr) console.error("[cause-effect-engine] cache upsert failed:", upsertErr);
 
-    return new Response(JSON.stringify({ ...payload, cached: false }), {
+    // Attach the subset of signal_summary that client surfaces read (Insights
+    // Stress Load renders `subcategory_lift`). Additive — never breaking.
+    return new Response(JSON.stringify({
+      ...payload,
+      signalSummary: {
+        subcategory_lift: signalSummary.performance_lift?.subcategory_lift ?? [],
+      },
+      cached: false,
+    }), {
       status: 200,
       headers: corsHeaders,
     });
