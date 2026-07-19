@@ -340,13 +340,27 @@ function buildNamedFullArcResult(
       phaseCandidates[c.phase] = c;
     }
   }
+  // WS4: for a travel_day, prune the "during" (in-flight) slot when the
+  // top-ranked G candidate is not long-haul. Conference days are unaffected.
+  const topG = ranked.find((c) => c.categoryId === categoryId) ?? null;
+  const allowedPhases = pruneTravelPhases(
+    (["pre", "during", "post"] as const).slice(),
+    categoryId,
+    topG?.title,
+  );
+  const includeDuring = allowedPhases.includes("during");
+  const duringSlot = includeDuring
+    ? makeSlot(1, dayShape, "full_arc", phaseCandidates.during ?? null, "during", "during")
+    // Degrade slot-1 to a state anchor rather than fabricate an in-flight
+    // phase for a short-haul flight. Mirrors the Category A slot-1 pattern.
+    : makeSlot(1, dayShape, "full_arc", null, "state_anchor");
   return {
     dayShape,
     mode: "full_arc",
     allocationReason,
     slots: [
       makeSlot(0, dayShape, "full_arc", phaseCandidates.pre ?? null, "pre", "pre"),
-      makeSlot(1, dayShape, "full_arc", phaseCandidates.during ?? null, "during", "during"),
+      duringSlot,
       makeSlot(2, dayShape, "full_arc", phaseCandidates.post ?? null, "post", "post"),
     ],
     debug: {
@@ -355,7 +369,9 @@ function buildNamedFullArcResult(
       candidateCount: ranked.length,
       multiPhaseEligible: true,
       sameEventFan: ranked.length > 1 && new Set(ranked.map((c) => c.eventId).filter(Boolean)).size === 1,
-      dominantEventPhases: (["pre", "during", "post"] as const).filter((p) => !!phaseCandidates[p]),
+      dominantEventPhases: (["pre", "during", "post"] as const).filter(
+        (p) => !!phaseCandidates[p] && (p !== "during" || includeDuring),
+      ),
     },
   };
 }
