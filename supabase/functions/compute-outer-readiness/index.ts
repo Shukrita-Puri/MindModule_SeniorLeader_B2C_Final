@@ -2955,8 +2955,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Hoisted so the outermost catch can still return a 200 with the MRS
+  // fields the client forwarded, even if some later assembly step throws.
+  // MRS is deterministic (compute-inner-readiness) and must not be gated
+  // by an LLM/Brief-copy failure. See top-of-file Brief/MRS contract.
+  let recoveryBody: any = null;
+
   try {
     const body: ComputeRequest & { userId?: string } = await req.json();
+    recoveryBody = body;
 
     // Auth model:
     //   - Normal user calls: identity is derived from a verified Auth0 JWT.
