@@ -845,7 +845,10 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   progress={tabStates.stress.progress}
                 />
               ) : data.stressMatrix ? (
-                <StressLoadTab matrix={data.stressMatrix} />
+                <StressLoadTab
+                  matrix={data.stressMatrix}
+                  subcategoryLift={data.signalSummary?.subcategory_lift}
+                />
               ) : (
                 <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
                   Need a few more wearable days during meetings to populate.
