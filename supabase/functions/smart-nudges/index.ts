@@ -1982,12 +1982,15 @@ async function buildNudgeContext(
           calendarSummary: e?.calendar_summary ?? null,
         }));
       let consecutiveOffDaysBefore = 0;
+      // Prior day states (newest-first) for the SSOT long-weekend detector.
+      const priorDayStates: Array<{ state: AvailabilityState }> = [];
       const cursor = new Date(`${todayStr}T00:00:00`);
       for (let i = 0; i < 14; i++) {
         cursor.setDate(cursor.getDate() - 1);
         const dStr = cursor.toISOString().split("T")[0];
         const events = byDate.get(dStr) || [];
         let isOff = false;
+        let priorState: AvailabilityState = "WORKDAY";
         try {
           const r = classifyDay({
             now: new Date(`${dStr}T12:00:00Z`),
@@ -1996,12 +1999,15 @@ async function buildNudgeContext(
             events: toAvailEvents(events),
           });
           isOff = r.isOffDay;
+          priorState = r.state;
         } catch (_e) {
           // Fallback: weekend-only. Empty calendars intentionally do NOT
           // count — see canonical rules above.
           const dDow = cursor.getDay();
           isOff = dDow === 0 || dDow === 6;
+          priorState = isOff ? "REST_DAY" : "WORKDAY";
         }
+        priorDayStates.push({ state: priorState });
         if (isOff) consecutiveOffDaysBefore++;
         else break;
       }
@@ -2010,6 +2016,15 @@ async function buildNudgeContext(
       // existing nonNoiseEvents array.
       const isTodayWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const fullWorkingWeekend = isTodayWeekend && nonNoiseEvents.length >= 3;
+      // SSOT long-weekend detector: needs today's state, tomorrow-is-workday,
+      // and the walked-back prior day states above.
+      const todayStateForLW: AvailabilityState = nudgeAvailability?.state ??
+        (dayOfWeek === 0 || dayOfWeek === 6 ? "REST_DAY" : "WORKDAY");
+      const longWeekendToday = isLastDayOfLongWeekend({
+        today: { state: todayStateForLW },
+        tomorrowIsWorkday,
+        priorDays: priorDayStates,
+      });
       if (defaults.length > 0) {
         console.log(
           `[week-ahead-hydration] user=${userId} defaulted=${
@@ -2025,6 +2040,8 @@ async function buildNudgeContext(
                 consecutiveOffDaysBefore,
                 travelDay,
                 fullWorkingWeekend,
+                isLastDayOfLongWeekend: longWeekendToday,
+                homeCountry: userHomeCountry,
               })
             }`,
         );
@@ -2045,6 +2062,8 @@ async function buildNudgeContext(
             nudgeAvailability.state === "PUBLIC_HOLIDAY" ||
             nudgeAvailability.state === "REST_DAY")
           : (dayOfWeek === 0 || dayOfWeek === 6),
+        isLastDayOfLongWeekend: longWeekendToday,
+        homeCountry: userHomeCountry,
       };
     })(),
     badgeCount: (() => {
