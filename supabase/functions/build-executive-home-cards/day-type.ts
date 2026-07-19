@@ -209,12 +209,16 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   const weekAhead = evaluateWeekAheadMode({
     dayOfWeek,
     localHour: local.hour,
+    homeCountry: input.userHomeCountry ?? null,
     travelDay,
     ptoTodayAllDay: ptoToday,
     ptoTomorrowAllDay: ptoTomorrow,
     holidayAllDayEventToday: todayAvailability.state === "PUBLIC_HOLIDAY",
     tomorrowIsWorkday: !tomorrowAvailability.isOffDay,
-    consecutiveOffDaysBefore: input.consecutiveOffDaysBefore ?? 0,
+    // This orchestrator does not carry a full ≥3-day lookback, so the
+    // end_of_long_weekend branch is intentionally left to smart-nudges,
+    // which walks the full 14-day calendar via the Availability SSOT.
+    isLastDayOfLongWeekend: false,
   });
 
   // 1. TRAVEL — wins over everything (matches ceo-behaviour/travel.ts precedence).
