@@ -2480,6 +2480,7 @@ export type Database = {
         Row: {
           event_category: string
           event_id: string | null
+          event_subcategory: string | null
           event_type_key: string
           id: string
           meta: Json
@@ -2491,6 +2492,7 @@ export type Database = {
         Insert: {
           event_category: string
           event_id?: string | null
+          event_subcategory?: string | null
           event_type_key: string
           id?: string
           meta?: Json
@@ -2502,6 +2504,7 @@ export type Database = {
         Update: {
           event_category?: string
           event_id?: string | null
+          event_subcategory?: string | null
           event_type_key?: string
           id?: string
           meta?: Json
