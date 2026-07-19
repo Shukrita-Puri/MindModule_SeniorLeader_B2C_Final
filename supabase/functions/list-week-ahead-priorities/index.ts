@@ -465,6 +465,7 @@ serve(async (req) => {
         scoreReasons: orderedTags.map((t) => TAG_LABEL[t]).slice(0, 3),
         tags: orderedTags,
         isOrganizer: meta.isOrganizer,
+        priorSignal: priorByEventId.get(eventId) ?? null,
       });
     }
 
