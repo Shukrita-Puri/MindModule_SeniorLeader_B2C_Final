@@ -20,6 +20,7 @@ import { authenticateRequest } from "../_shared/auth.ts";
 import {
   coarseEventType,
 } from "../_shared/events/event-classifier.ts";
+import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
   normalizeEventTitleMemoryKey,
   TITLE_SPECIFIC_MEMORY_CATEGORY,
@@ -140,6 +141,10 @@ serve(async (req) => {
 
     const category = coarseEventType(resolvedTitle);
     const typeKey = normalizeEventTypeKey(resolvedTitle);
+    // v2 taxonomy: capture the fine-grained subcategory (e.g. "deep_work",
+    // "long_haul") once so downstream Plan / Insights / Nudges can read it
+    // without re-classifying. Nullable — safe if classifier returns no match.
+    const subcategory = enrichEvent({ title: resolvedTitle }).subcategory;
 
     const { error: insErr } = await supabase
       .from("event_priority_memory")
@@ -147,6 +152,7 @@ serve(async (req) => {
         user_id: userId,
         event_category: category,
         event_type_key: typeKey,
+        event_subcategory: subcategory,
         signal,
         source,
         event_id: eventId,
@@ -180,6 +186,7 @@ serve(async (req) => {
           user_id: userId,
           event_category: TITLE_SPECIFIC_MEMORY_CATEGORY,
           event_type_key: titleKey,
+          event_subcategory: subcategory,
           signal,
           source,
           event_id: eventId,
@@ -317,6 +324,7 @@ serve(async (req) => {
           user_id: userId,
           event_category: category,
           event_type_key: typeKey,
+          event_subcategory: subcategory,
           signal: "tag_relationship",
           source: "priority_tag",
           event_id: eventId,
