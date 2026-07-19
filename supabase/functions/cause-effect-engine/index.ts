@@ -273,6 +273,20 @@ interface PerformanceLift {
     n: number;
     confidence: Confidence;
   }>;
+  /**
+   * Rollup of hr_event_lift to (categoryId, subcategoryId). Subcategory id
+   * is derived from the canonical subtype id (`str.deep_work` → `deep_work`).
+   * Consumed by the Insights Stress Load card to render a secondary line
+   * under any A–H row that spans ≥2 subcategories.
+   */
+  subcategory_lift: Array<{
+    categoryId: EventCategoryId;
+    categoryName: string;
+    subcategoryId: string;
+    hrDeltaBpm: number;
+    n: number;
+    confidence: Confidence;
+  }>;
   /** Nights with sleep ≥ user P70 → next-day PRS lift + best window. */
   sleep_to_peak: { deltaPct: number; n: number; confidence: Confidence; bestWindow: TimeWindow | null } | null;
   /** Well-recovered mornings (RHR ≤ baseline − 1σ) → window with highest lift. */
