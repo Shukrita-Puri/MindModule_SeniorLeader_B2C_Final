@@ -34,8 +34,24 @@ interface PriorityItem {
   stakesLevel: string | null;
   score: number;
   scoreReasons: string[];
+  tags: WeekAheadTag[];
   isOrganizer: boolean | null;
 }
+
+type WeekAheadTag =
+  | "prior_priority"
+  | "pattern_based"
+  | "known_relationship"
+  | "high_stakes"
+  | "historically_low_signal";
+
+const TAG_CHIP: Record<WeekAheadTag, string> = {
+  prior_priority: "Prior priority",
+  pattern_based: "Pattern-based",
+  known_relationship: "Known relationship",
+  high_stakes: "High stakes",
+  historically_low_signal: "Historically low-signal",
+};
 
 interface ApiResponse {
   weekAheadMode: { active: boolean; reason: string | null };
@@ -105,6 +121,16 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
           stakesLevel: it.stakesLevel ?? null,
           score: typeof it.score === "number" ? it.score : 0,
           scoreReasons: Array.isArray(it.scoreReasons) ? it.scoreReasons : [],
+          tags: Array.isArray((it as any).tags)
+            ? ((it as any).tags as unknown[]).filter(
+                (t): t is WeekAheadTag =>
+                  t === "prior_priority" ||
+                  t === "pattern_based" ||
+                  t === "known_relationship" ||
+                  t === "high_stakes" ||
+                  t === "historically_low_signal",
+              )
+            : [],
           isOrganizer: it.isOrganizer ?? null,
         }));
       setItems(safe);
@@ -225,15 +251,30 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {TIME_LABEL(it.startTime)} · {it.category}
-                        {it.stakesLevel === "board" || it.stakesLevel === "investor"
-                          ? " · high stakes"
-                          : it.stakesLevel === "external"
-                            ? " · important"
-                            : ""}
                       </div>
-                      {it.scoreReasons.length > 0 && (
-                        <div className="text-[11px] text-muted-foreground/80 mt-1">
-                          {it.scoreReasons.join(" · ")}
+                      {it.tags.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {it.tags.map((t) => (
+                            <span
+                              key={t}
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded-full",
+                                "text-[10px] uppercase tracking-[0.06em] border",
+                                t === "prior_priority" &&
+                                  "bg-primary/10 text-primary border-primary/30",
+                                t === "pattern_based" &&
+                                  "bg-amber-50 text-amber-800 border-amber-200",
+                                t === "known_relationship" &&
+                                  "bg-emerald-50 text-emerald-800 border-emerald-200",
+                                t === "high_stakes" &&
+                                  "bg-rose-50 text-rose-800 border-rose-200",
+                                t === "historically_low_signal" &&
+                                  "bg-muted text-muted-foreground border-border",
+                              )}
+                            >
+                              {TAG_CHIP[t]}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
