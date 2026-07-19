@@ -1089,6 +1089,9 @@ interface QualifiedNudge {
   anchorKind: "jit" | "state";
   slot: "morning" | "afternoon" | "evening";
   signalStrength: number; // 0..3 - higher wins ties (e.g., pattern-cited JIT > plain JIT)
+  // WS6 — plan-ledger A-H tags for telemetry (payload.metadata.*).
+  planLedgerCategoryId?: string | null;
+  planLedgerSubcategory?: string | null;
 }
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
