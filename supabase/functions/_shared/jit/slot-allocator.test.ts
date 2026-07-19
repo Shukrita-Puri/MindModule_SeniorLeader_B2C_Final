@@ -279,6 +279,40 @@ Deno.test("allocator — forced drain category elevates non-structural event to 
   assertEquals(alloc.slots[2].jitPhase, "post");
 });
 
+Deno.test("WS4 — bland-titled flight with 12h calendar duration keeps During", () => {
+  // Title has no long-haul keyword — the ≥6h calendar duration alone must
+  // upgrade the arc to pre-during-post via pruneTravelPhases(durationMin).
+  const ranked = [
+    cand("flt-4", "Flight LHR → SIN", "pre",    "G", 80, 720),
+    cand("flt-4", "Flight LHR → SIN", "during", "G", 70, 720),
+    cand("flt-4", "Flight LHR → SIN", "post",   "G", 75, 720),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    hasTravelDay: true,
+  });
+  assertEquals(alloc.dayShape, "travel_day");
+  assertEquals(alloc.slots[1].jitPhase, "during", "12h duration must promote to full arc");
+  assertEquals(alloc.debug.dominantEventPhases, ["pre", "during", "post"]);
+});
+
+Deno.test("WS4 — bland-titled flight with 2h calendar duration drops During", () => {
+  const ranked = [
+    cand("flt-5", "Flight LHR → CDG", "pre",    "G", 80, 120),
+    cand("flt-5", "Flight LHR → CDG", "during", "G", 60, 120),
+    cand("flt-5", "Flight LHR → CDG", "post",   "G", 70, 120),
+  ];
+  const alloc = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: ranked,
+    hasTravelDay: true,
+  });
+  assertEquals(alloc.dayShape, "travel_day");
+  assertEquals(alloc.slots[1].jitPhase, null, "2h short-haul must drop in-flight slot");
+  assertEquals(alloc.slots[1].slotRole, "state_anchor");
+});
+
 Deno.test("allocator — non-rest empty-calendar day still returns 3 state fallback slots (not the rest-day path)", () => {
   // No ranked candidates and no rest signals → light_routine, NOT rest_day.
   const alloc = allocatePlanSlots({
