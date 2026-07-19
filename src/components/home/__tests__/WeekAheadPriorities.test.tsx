@@ -37,6 +37,7 @@ describe("WeekAheadPriorities", () => {
             stakesLevel: "board",
             score: 82,
             scoreReasons: ["high stakes", "known relationship"],
+            tags: ["high_stakes", "known_relationship"],
             isOrganizer: true,
           },
         ],
@@ -50,7 +51,9 @@ describe("WeekAheadPriorities", () => {
       expect(screen.getByText("Board Review")).toBeInTheDocument();
     });
     expect(screen.getAllByText(/Board/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/high stakes/).length).toBeGreaterThan(0);
+    // Tag chips render from `tags` (advisory only).
+    expect(screen.getByText(/High stakes/)).toBeInTheDocument();
+    expect(screen.getByText(/Known relationship/)).toBeInTheDocument();
   });
 
   it("renders a safe empty state when the response has no priorities", async () => {
