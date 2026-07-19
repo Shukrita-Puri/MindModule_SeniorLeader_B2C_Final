@@ -62,6 +62,15 @@ export interface MemoryBoostResult {
   hardDemote: boolean;
   /** Human-readable reasons safe to surface in `scoreReasons[]`. */
   reasons: string[];
+  /** Number of `priority` signals inside the 60-day window. */
+  priorityCount: number;
+  /**
+   * True when at least one `priority` row (inside the 60-day window) has an
+   * `occurred_at` calendar date (UTC) strictly before today's UTC date.
+   * Callers use this to distinguish a genuine prior-day learned pattern
+   * from a same-day star that is really a present, not "prior", signal.
+   */
+  hasPriorDayPriority: boolean;
 }
 
 /**
@@ -74,7 +83,13 @@ export function applyEventPriorityMemory(
 ): MemoryBoostResult {
   const now = args.now ?? new Date();
   const rows = index.rowsByKey.get(KEY(args.eventCategory, args.eventTypeKey)) ?? [];
-  if (rows.length === 0) return { delta: 0, hardDemote: false, reasons: [] };
+  if (rows.length === 0) {
+    return { delta: 0, hardDemote: false, reasons: [], priorityCount: 0, hasPriorDayPriority: false };
+  }
+
+  // UTC calendar date of "now" (YYYY-MM-DD). Any priority row whose
+  // `occurred_at` UTC date is strictly less than this is a prior-day signal.
+  const todayDateUTC = now.toISOString().slice(0, 10);
 
   let delta = 0;
   let hardDemote = false;
@@ -84,6 +99,7 @@ export function applyEventPriorityMemory(
   let notThisWeekCount = 0;
   let cancelledAsNoiseCount = 0;
   let cancelledKeepCount = 0;
+  let hasPriorDayPriority = false;
 
   for (const r of rows) {
     const ageDays = (now.getTime() - new Date(r.occurred_at).getTime()) / (1000 * 60 * 60 * 24);
@@ -100,6 +116,8 @@ export function applyEventPriorityMemory(
     if (r.signal === "priority" && ageDays <= 60) {
       delta += 10;
       priorityCount++;
+      const rowDateUTC = new Date(r.occurred_at).toISOString().slice(0, 10);
+      if (rowDateUTC < todayDateUTC) hasPriorDayPriority = true;
     } else if (r.signal === "cancelled_keep_surfacing" && ageDays <= 60) {
       delta += 5;
       cancelledKeepCount++;
@@ -122,7 +140,7 @@ export function applyEventPriorityMemory(
   if (delta > 30) delta = 30;
   if (delta < -50) delta = -50;
 
-  return { delta, hardDemote, reasons };
+  return { delta, hardDemote, reasons, priorityCount, hasPriorDayPriority };
 }
 
 /** Fetch + index memory rows for a user. Uses a service-role supabase client. */
