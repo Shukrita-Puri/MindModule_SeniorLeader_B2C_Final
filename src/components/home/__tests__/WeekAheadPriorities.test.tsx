@@ -18,7 +18,10 @@ vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }));
 import WeekAheadPriorities from "../WeekAheadPriorities";
 
 describe("WeekAheadPriorities", () => {
-  beforeEach(() => invokeMock.mockReset());
+  beforeEach(() => {
+    invokeMock.mockReset();
+    try { window.localStorage.clear(); } catch { /* noop */ }
+  });
 
   it("renders a valid populated response", async () => {
     invokeMock.mockResolvedValue({
@@ -145,6 +148,54 @@ describe("WeekAheadPriorities", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Save Week Ahead Priorities/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Your Week Ahead priorities have been recorded/i),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("keeps the confirmation banner after a refresh (remount) when the marker is set and decisions rehydrate", async () => {
+    invokeMock.mockImplementation((fn: string) => {
+      if (fn === "list-week-ahead-priorities") {
+        return Promise.resolve({
+          data: {
+            weekAheadMode: { active: true, reason: "weekly_planning" },
+            priorities: [
+              {
+                eventId: "e1",
+                title: "Board Review",
+                startTime: "2026-06-22T09:00:00Z",
+                endTime: "2026-06-22T10:00:00Z",
+                localDay: "2026-06-22",
+                period: "morning",
+                category: "Board",
+                typeKey: "board",
+                score: 82,
+                scoreReasons: [],
+                tags: [],
+                priorSignal: "priority",
+              },
+            ],
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+
+    // Pre-seed the saved marker for the current ISO week.
+    const d = new Date();
+    const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    const key = `mm.weekAhead.saved.${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+    window.localStorage.setItem(key, "1");
+
+    render(<WeekAheadPriorities reason="weekly_planning" manualOverride={false} />);
+    await waitFor(() => expect(screen.getByText("Board Review")).toBeInTheDocument());
     await waitFor(() =>
       expect(
         screen.getByText(/Your Week Ahead priorities have been recorded/i),

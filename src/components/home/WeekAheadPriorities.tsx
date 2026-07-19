@@ -83,6 +83,28 @@ interface Props {
   manualOverride: boolean;
 }
 
+const SAVED_KEY_PREFIX = "mm.weekAhead.saved.";
+const isoWeekKey = (d = new Date()) => {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+};
+const readSavedMarker = () => {
+  try {
+    return typeof window !== "undefined" &&
+      window.localStorage.getItem(SAVED_KEY_PREFIX + isoWeekKey()) === "1";
+  } catch { return false; }
+};
+const writeSavedMarker = () => {
+  try { window.localStorage.setItem(SAVED_KEY_PREFIX + isoWeekKey(), "1"); } catch { /* noop */ }
+};
+const clearSavedMarker = () => {
+  try { window.localStorage.removeItem(SAVED_KEY_PREFIX + isoWeekKey()); } catch { /* noop */ }
+};
+
 const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,7 +175,7 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
         if (it.priorSignal) hydrated[it.eventId] = it.priorSignal;
       }
       setDecisions(hydrated);
-      setSaved(false);
+      setSaved(Object.keys(hydrated).length > 0 && readSavedMarker());
       setFailedIds(new Set());
     } catch (e) {
       console.error("[WeekAheadPriorities] load failed", e);
@@ -180,6 +202,7 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
     setSubmitting((s) => ({ ...s, [item.eventId]: true }));
     setDecisions((d) => ({ ...d, [item.eventId]: signal })); // optimistic
     setSaved(false);
+    clearSavedMarker();
     try {
       const headers: Record<string, string> = {};
       const token = await getAuthToken();
@@ -243,6 +266,7 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
       return;
     }
     setSaved(true);
+    writeSavedMarker();
     toast({ title: "Week Ahead priorities saved" });
   }, [submitting, failedIds]);
 
