@@ -1521,6 +1521,7 @@ serve(async (req) => {
       return {
         hr_event_lift,
         category_lift,
+        subcategory_lift,
         sleep_to_peak,
         rhr_recovery_window,
         recovery_streak_to_peak,
