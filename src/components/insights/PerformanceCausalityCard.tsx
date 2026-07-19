@@ -329,16 +329,20 @@ function TabPill({ active, onClick, children }: { active: boolean; onClick: () =
 }
 
 // ── Stress Load tab ──────────────────────────────────────────────────
+type SubcategoryLiftEntry = {
+  categoryId: string;
+  categoryName: string;
+  subcategoryId: string;
+  hrDeltaBpm: number;
+  n: number;
+};
+
 function StressLoadTab({
   matrix,
   subcategoryLift,
 }: {
   matrix: StressMatrix;
-  subcategoryLift?: CausalityPayload["signalSummary"] extends infer S
-    ? S extends { subcategory_lift?: infer L }
-      ? L
-      : never
-    : never;
+  subcategoryLift?: SubcategoryLiftEntry[];
 }) {
   const { events, categoryNames, days, cells, n, maxObserved, topDay } = matrix;
   const hasAny = cells.some((row) => row.some((v) => v !== null));
