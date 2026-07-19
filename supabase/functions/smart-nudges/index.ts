@@ -692,6 +692,17 @@ interface PatternSummary {
     n: number;
     confidence: "strong" | "emerging";
   } | null;
+  // WS6 — subcategory-level HR lift rollup from cause-effect-engine
+  // (`signal_summary.performance_lift.subcategory_lift`). Consumed by
+  // findEventPattern to prefer subcategory citations over category
+  // averages when both are present.
+  subcategory_lift?: Array<{
+    categoryId: string;
+    subcategoryId: string;
+    hrDeltaBpm: number;
+    n: number;
+    confidence: "strong" | "emerging";
+  }>;
 }
 
 interface NudgeContext {
