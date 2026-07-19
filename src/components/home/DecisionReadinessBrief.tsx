@@ -1865,6 +1865,12 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const snapshotHasScore = !!currentBriefSnapshot?.hasRenderableScore;
   const snapshotHasCopy = !!currentBriefSnapshot?.hasRenderableCopy;
   const snapshotIsRenderable = !!currentBriefSnapshot?.isRenderable;
+  const { data: mrsSnapshot } = useMrsSnapshot();
+  const currentWindowLocal = currentPeriodLocal();
+  const shouldPreferMrsSnapshot =
+    !!mrsSnapshot?.isRenderable &&
+    typeof mrsSnapshot?.score === 'number' &&
+    mrsSnapshot?.mrsWindow === currentWindowLocal;
 
   // App-Tour mock injection. Substitutes a best-in-class demo payload so
   // first-time and retake tours spotlight a realistic, fully populated card
@@ -1983,6 +1989,21 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         const chosenWatchForSource = useLiveCopy
           ? (base.watchForSource ?? snap.watchForSource)
           : (snap.watchForSource ?? base.watchForSource);
+        const canonicalMrsScore = shouldPreferMrsSnapshot
+          ? mrsSnapshot!.score
+          : (snap.innerReadinessScore ?? base.innerReadinessScore ?? null);
+        const canonicalMrsTier = shouldPreferMrsSnapshot
+          ? (mrsSnapshot!.tier ?? snap.innerReadinessTier ?? base.innerReadinessTier ?? null)
+          : (snap.innerReadinessTier ?? base.innerReadinessTier ?? null);
+        const canonicalMrsState = shouldPreferMrsSnapshot
+          ? (mrsSnapshot!.readinessState ?? snap.innerReadinessState ?? base.innerReadinessState ?? null)
+          : (snap.innerReadinessState ?? base.innerReadinessState ?? null);
+        const canonicalMrsBaseline = shouldPreferMrsSnapshot
+          ? (mrsSnapshot!.scoreBaseline ?? snap.innerReadinessScoreBaseline ?? base.innerReadinessScoreBaseline ?? null)
+          : (snap.innerReadinessScoreBaseline ?? base.innerReadinessScoreBaseline ?? null);
+        const canonicalMrsRefined = shouldPreferMrsSnapshot
+          ? (mrsSnapshot!.scoreRefined ?? snap.innerReadinessScoreRefined ?? base.innerReadinessScoreRefined ?? null)
+          : (snap.innerReadinessScoreRefined ?? base.innerReadinessScoreRefined ?? null);
         try {
           // eslint-disable-next-line no-console
           console.log('[PRB][copy-source]', {
@@ -2009,24 +2030,16 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           briefId: snap.briefId,
           briefSource: snap.briefSource ?? base.briefSource,
           driver: snap.driver ?? base.driver,
-          innerReadinessScore:
-            snap.innerReadinessScore ?? base.innerReadinessScore ?? null,
-          innerReadinessTier:
-            snap.innerReadinessTier ?? base.innerReadinessTier ?? null,
+          innerReadinessScore: canonicalMrsScore,
+          innerReadinessTier: canonicalMrsTier,
           innerReadinessTierDisplayed:
+            canonicalMrsTier ??
             snap.innerReadinessTierDisplayed ??
             base.innerReadinessTierDisplayed ??
             null,
-          innerReadinessScoreBaseline:
-            snap.innerReadinessScoreBaseline ??
-            base.innerReadinessScoreBaseline ??
-            null,
-          innerReadinessScoreRefined:
-            snap.innerReadinessScoreRefined ??
-            base.innerReadinessScoreRefined ??
-            null,
-          innerReadinessState:
-            snap.innerReadinessState ?? base.innerReadinessState ?? null,
+          innerReadinessScoreBaseline: canonicalMrsBaseline,
+          innerReadinessScoreRefined: canonicalMrsRefined,
+          innerReadinessState: canonicalMrsState,
           signalPills: chosenPills,
           checkInOutcome: chosenCheckInOutcome,
           emotionLevel: base.emotionLevel ?? snap.emotionLevel ?? null,
@@ -2169,12 +2182,6 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // when it is renderable. Narrative/pills stay driven by `outerBrief`; this
   // only aligns the numeric score/tier with the Today gauge so the two
   // surfaces cannot disagree.
-  const { data: mrsSnapshot } = useMrsSnapshot();
-  const currentWindowLocal = currentPeriodLocal();
-  const shouldPreferMrsSnapshot =
-    !!mrsSnapshot?.isRenderable &&
-    typeof mrsSnapshot?.score === 'number' &&
-    mrsSnapshot?.mrsWindow === currentWindowLocal;
   if (shouldPreferMrsSnapshot && mrsSnapshot) {
     try {
       // eslint-disable-next-line no-console

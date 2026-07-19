@@ -8954,8 +8954,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       hasCalendarSignal = calendarResult?.state === "active";
       hasCalendarConnected = !!calendarResult?.state &&
         calendarResult.state !== "not_connected";
-      const hasStage1Signal = hasWearableData || hasCalendarSignal ||
-        hasCalendarConnected;
+      const hasStage1Signal = hasFreshWearable || hasCalendarSignal;
       const briefSignalContractMet = hasStage1Signal;
       const awaitingSignals = !briefSignalContractMet;
       const awaitingReason: string | null = awaitingSignals

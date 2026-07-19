@@ -935,12 +935,16 @@ serve(async (req) => {
       }
       return s;
     });
+    const hasScoreBearingBaselineSignal = subsForCompose.some(
+      (s) => s.available === true && s.id !== 'patternEngineComposite',
+    );
     console.log('[compute-inner-readiness][mrs-v4-input]', JSON.stringify({
       mrsWindow: body.mrsWindow,
       demandScore: body.demandScore,
       hasCalendarSignal: body.hasCalendarSignal === true,
       effectiveDemandScore,
       calendarDemandScore,
+      hasScoreBearingBaselineSignal,
       incomingSubScores: normalizedSubScores,
       subsForCompose,
     }));
@@ -951,7 +955,7 @@ serve(async (req) => {
       body.sleepDeficitMeasurement ?? { available: false },
     );
     const baselineAnchorScore = coerceFiniteNumber(body.baselineAnchorScore);
-    const normalizedAnchorScore = baselineAnchorScore == null
+    const normalizedAnchorScore = baselineAnchorScore == null || !hasScoreBearingBaselineSignal
       ? null
       : Math.max(0, Math.min(100, Math.round(baselineAnchorScore)));
     score = normalizedAnchorScore ?? v4.baseline;
