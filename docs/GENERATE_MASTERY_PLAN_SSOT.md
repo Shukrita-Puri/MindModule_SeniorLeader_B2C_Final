@@ -453,25 +453,25 @@ Slot 3 in the integrate / Tiny Win path renders `arcLabel='Steady'` because it h
 
 ## 17. Week-Ahead Mode (Weekend / Post-Break Planning)
 
-On **Sundays**, on the **last day of a PTO block**, on the **last day of a public-holiday block**, and on the **last day of a long weekend**, the Plan surface flips from day-of self-regulation to **upcoming-week prioritisation**. The principle: not every day is a self-regulation day. On these days the user is already regulated — the value is signal-vs-noise prioritisation of what's coming.
+On the **weekly planning day** (Saturday for Sunday-start working-week countries — SA, KW, QA, BH, OM, IL — Sunday everywhere else), on the **last day of a PTO block**, on the **last day of a public-holiday block**, and on the **last day of a long weekend**, the Plan surface flips from day-of self-regulation to **upcoming-week prioritisation**. The principle: not every day is a self-regulation day. On these days the user is already regulated — the value is signal-vs-noise prioritisation of what's coming.
 
-**Saturday is intentionally NOT a Week-Ahead day.** Saturday remains a self-regulation / recovery day across Brief, Plan, and Nudges — the Brief swaps to a backward-looking `week_recovery` driver (§17.2a), the Plan stays on the weekday cadence, and the `weekAheadPickerInvite` nudge never fires.
+The weekly planning day is derived from `profiles.country` via `planningDayOfWeek(homeCountry)` in `_shared/plan/week-ahead-mode.ts`. Temporary travel never changes the cadence — only the local delivery time.
 
 ### 17.1 Trigger predicate
 
 `supabase/functions/_shared/plan/week-ahead-mode.ts → evaluateWeekAheadMode(input)`
 
-First-match-wins ladder:
+First-match-wins ladder (day-neutral reason vocabulary):
 
 1. `manualOverride` (deep link `?mode=week-ahead`, or nudge tap) → `reason: 'manual_override'`.
-2. `travelDay` → inactive (travel context owns these days).
-3. `fullWorkingWeekend` (existing `weekend.ts` rule: ≥3 meetings or ≥4 h back-to-back or weekend work block) → inactive (run weekday cadence).
-4. `ptoTodayAllDay && !ptoTomorrowAllDay` → `last_day_pto`.
-5. `holidayAllDayEventToday && tomorrowIsWorkday` → `last_day_holiday`.
-6. `consecutiveOffDaysBefore ≥ 2 && tomorrowIsWorkday` → `last_day_long_weekend`.
-7. `dayOfWeek == 0` → `sunday`.
+2. `ptoTodayAllDay && !ptoTomorrowAllDay` → `end_of_pto`.
+3. `holidayAllDayEventToday && tomorrowIsWorkday` → `end_of_public_holiday`.
+4. `isLastDayOfLongWeekend === true` (SSOT boolean from `availability-classifier.ts`; requires a weekend day PLUS an adjacent PTO/holiday — plain weekends never qualify) → `end_of_long_weekend`.
+5. `dayOfWeek === planningDayOfWeek(homeCountry)` and today is not itself PTO/holiday → `weekly_planning`.
 
-Both Brief and Plan call the same helper so they cannot disagree. Saturday is handled by a sibling predicate `isSaturdayRecoveryDay(input)` (true on `dayOfWeek === 6` when not a travel day or full working weekend) which the Brief reads directly to select the `week_recovery` driver — Plan never reads it.
+**Precedence:** return-from-break reasons take priority in the order **PTO → public holiday → long weekend → weekly planning**. First matching reason wins. A day that is both the last day of PTO AND the last day of a long weekend is reported as `end_of_pto` by design (PTO is the more specific signal).
+
+Global travel and full-working-weekend short-circuits are intentionally removed — the planning cadence is fixed by Home Country. Both Brief and Plan call the same helper so they cannot disagree. Saturday is handled either as the planning day (Sunday-start countries) or by a sibling predicate `isSaturdayRecoveryDay(input)` which the Brief reads to select the `week_recovery` driver.
 
 ### 17.2 Brief: `week_recap` driver (Sunday / last-PTO / last-holiday)
 
@@ -563,25 +563,25 @@ State-anchored slots (no JIT event) never write to event memory.
 
 New nudge rule `weekAheadPickerInvite`:
 
-- **Sunday 16:00–19:00 local**, OR **16:00–19:00 local on any detected last-PTO / last-holiday / last-long-weekend day**.
-- **No Saturday trigger** — Saturday is a recovery day across Brief, Plan, and Nudges.
-- Suppressed when `evaluateWeekAheadMode(...).active === false` (covers travel + full-working-weekend), when a `weekAheadPickerInvite` was already sent today, or when the user already opened the picker today.
+- **Planning-day evening (local)**, OR evening of any detected end_of_pto / end_of_public_holiday / end_of_long_weekend day.
+- Saturday fires when it is the user's planning day (Sunday-start working-week countries); otherwise it is a recovery day.
+- Suppressed when `evaluateWeekAheadMode(...).active === false`, when the same reason was already sent today, or when the user already opened the picker today. Dedupe is **per-reason, per-day** — different reasons on the same day are permitted.
 - Deep link: `/plan?mode=week-ahead` → PlanPage detects the query param via `useWeekAheadMode`, forces `manualOverride`, and the edge function honours `x-week-ahead-override: 1` for borderline server-side decisions.
 - Shared predicate: `supabase/functions/_shared/plan/week-ahead-nudge.ts → shouldFireWeekAheadPickerInvite(input)` — pure function, unit-tested independently of the nudge runner.
-- Runner wiring: `supabase/functions/smart-nudges/index.ts → evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, supabase)` calls the shared predicate after Nudge 3, gated on `prefs.evening_close_enabled`. Uses `event_priority_memory` rows with `source='week_ahead_picker'` written today as the proxy for `pickerOpenedToday` (no extra writes required — set whenever the user tags any item in the picker). Static copy variants per reason: `sunday_evening`, `last_day_pto_evening`, `last_day_holiday_evening`, `last_day_long_weekend_evening`. Slot=`evening`, anchor=`state`, signalStrength=2, priority=25 (sits behind genuine JIT evening nudges in the v7 comparator).
+- Runner wiring: `supabase/functions/smart-nudges/index.ts → evaluateWeekAheadPickerInvite(ctx, alreadySentTypes, supabase)` calls the shared predicate after Nudge 3, gated on `prefs.evening_close_enabled`. Uses `event_priority_memory` rows with `source='week_ahead_picker'` written today as the proxy for `pickerOpenedToday`. Copy variants per reason: `weekly_planning`, `end_of_pto`, `end_of_public_holiday`, `end_of_long_weekend` (the `weekly_planning` copy is templatized by `planningDayOfWeek(homeCountry)` — "Sunday reset" for Mon-start countries, "Week reset" for Sun-start countries). Slot=`evening`, anchor=`state`, signalStrength=2, priority=25.
 
 ### 17.8 Suppression matrix
 
 | State                                 | Behaviour                              |
 |---------------------------------------|----------------------------------------|
-| Travel day                            | Suppressed — travel context owns       |
-| Full working weekend                  | Suppressed — run weekday cadence       |
 | Weekday, no override                  | Suppressed — normal Plan               |
-| **Saturday**                          | Suppressed — recovery day (Brief uses `week_recovery` driver, Plan runs weekday cadence, nudge never fires) |
-| Sunday, no working-weekend            | Active                                 |
-| PTO last day (today off, tomorrow on) | Active                                 |
-| Holiday last day, tomorrow workday    | Active                                 |
-| Manual `?mode=week-ahead`             | Active                                 |
+| Saturday (Mon-start countries)        | Recovery day — Brief uses `week_recovery`, Plan runs weekday cadence, nudge does not fire |
+| Saturday (Sun-start countries: SA/KW/QA/BH/OM/IL) | Active — `weekly_planning`      |
+| Sunday (Mon-start countries)          | Active — `weekly_planning`             |
+| PTO last day (today off, tomorrow on) | Active — `end_of_pto`                  |
+| Holiday last day, tomorrow workday    | Active — `end_of_public_holiday`       |
+| Last day of a long weekend            | Active — `end_of_long_weekend`         |
+| Manual `?mode=week-ahead`             | Active — `manual_override`             |
 
 ### 17.9 Auth & Dev-mode parity
 

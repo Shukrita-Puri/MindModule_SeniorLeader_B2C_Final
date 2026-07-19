@@ -1,20 +1,23 @@
 -- Week-Ahead picker invite — verification queries.
--- Use these after the trigger-hydration fix to confirm the last_day_pto /
--- last_day_holiday / last_day_long_weekend branches actually fire in prod.
+-- Use these to confirm the end_of_pto / end_of_public_holiday /
+-- end_of_long_weekend / weekly_planning branches fire in prod.
 --
 -- Send ledger:  notification_log
 -- Reason key:   variant_id LIKE '%::<reason>' where <reason> is one of
---               sunday_evening | last_day_pto_evening |
---               last_day_holiday_evening | last_day_long_weekend_evening
+--               weekly_planning | end_of_pto |
+--               end_of_public_holiday | end_of_long_weekend |
+--               manual_override
 -- Structured log: filter Edge function logs for `[week-ahead-trigger]`.
 -- Hydration log:  filter Edge function logs for `[week-ahead-hydration]`
 --                 — emitted whenever any upstream source returned empty
 --                 and the evaluator fell back to a safe default.
 -- Kill switch:    secret WEEK_AHEAD_PICKER_ENABLED (set to 'false' to
 --                 disable without a deploy; any other value = enabled).
--- Idempotency:    one invite per ISO week per user (Mon 00:00 local →
---                 next Mon 00:00 local). Enforced server-side by the
---                 weekly notification_log lookup BEFORE dispatch.
+-- Idempotency:    per-reason, per-day. The same reason cannot fire twice
+--                 on the same UTC day for the same user; different
+--                 reasons on the same day are permitted (e.g. an
+--                 end_of_pto Thursday and a weekly_planning Sunday in
+--                 the same ISO week both fire).
 -- Cap bucket:     own bucket — exempt from DAILY_NOTIFICATION_CAP, the
 --                 2-hour intra-tick suppression, APP_OPEN_COOLDOWN_MS,
 --                 and the per-window slot cap.
@@ -49,24 +52,26 @@ WHERE notification_type = 'week_ahead_picker_invite'
 GROUP BY 1
 ORDER BY sends DESC;
 
--- (1b) ISO-week idempotency audit — any user with >1 picker invite in the
--- same ISO week is a bug (server-side dedupe should make this impossible).
+-- (1b) Per-reason, per-day idempotency audit — any user with >1 picker
+-- invite for the SAME reason on the SAME UTC day is a bug (server-side
+-- dedupe should make this impossible). Multiple reasons on the same day
+-- are allowed by design.
 SELECT
   user_id,
-  date_trunc('week', sent_at) AS iso_week_start,
+  date_trunc('day', sent_at) AS day,
+  split_part(payload->>'variant_id', '::', 2) AS reason,
   COUNT(*) AS invites,
-  array_agg(split_part(payload->>'variant_id', '::', 2) ORDER BY sent_at) AS reasons,
   array_agg(sent_at ORDER BY sent_at) AS sent_ats
 FROM notification_log
 WHERE notification_type = 'week_ahead_picker_invite'
   AND sent_at >= now() - interval '60 days'
-GROUP BY user_id, date_trunc('week', sent_at)
+GROUP BY user_id, date_trunc('day', sent_at), reason
 HAVING COUNT(*) > 1
-ORDER BY iso_week_start DESC;
+ORDER BY day DESC;
 
 -- (2) Users who had a PTO/holiday block end in the last 30 days but did NOT
--- receive a last_day_pto_evening / last_day_holiday_evening invite on the
--- return day. (Use to spot-check that the trigger fired when it should have.)
+-- receive an end_of_pto / end_of_public_holiday invite on the return day.
+-- (Use to spot-check that the trigger fired when it should have.)
 WITH pto_days AS (
   SELECT user_id, date(start_time) AS d
   FROM primary_calendar_events
@@ -89,7 +94,7 @@ sent AS (
   SELECT user_id, date(sent_at) AS d
   FROM notification_log
   WHERE notification_type = 'week_ahead_picker_invite'
-    AND payload->>'variant_id' LIKE '%::last_day_pto_evening'
+    AND payload->>'variant_id' LIKE '%::end_of_pto'
     AND sent_at >= now() - interval '30 days'
 )
 SELECT l.user_id, l.last_off_day
