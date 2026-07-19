@@ -1,103 +1,53 @@
+## Bug: `classifyInterview` returns `'none'` for bare "Interview" with <2 attendees
 
-## Audit findings — Plan Arcs across A–H
+**File:** `supabase/functions/_shared/jit/select-jit.ts:122`
 
-### 1. Where arcs are declared today
+### Current behaviour (verified)
+```ts
+if ((args.attendeesCount ?? 0) < 2) return 'none';
+```
+A bare "Interview" event with `attendeesCount: 1` (or 0/unknown) is rejected entirely — even though line 110 already confirmed the title matches `INTERVIEW_RE`. This drops real high-stakes events from JIT scoring and fails the existing test at `select-jit.test.ts:475` which expects `'ambiguous'`.
 
-**Category-level phase capability** — `supabase/functions/_shared/events/event-phase-map.ts` (`EVENT_PHASE_MAP`):
+### Contract note (why not Path A from the ticket)
+`classifyInterview` returns `InterviewKind = 'media' | 'candidate' | 'hiring' | 'ambiguous' | 'none'` — **not** an A–H category. Returning `'D'` (as the ticket's "Path A" suggests) would break the type and every downstream caller (`interviewBoost`, etc.). Category assignment happens separately; `InterviewKind` only controls the interview-specific score boost.
 
-| Cat | Name | Phases declared today | Spec target |
-|-----|------|-----------------------|-------------|
-| A | High-Stakes Governance | pre, post | pre, post |
-| B | Influence & Persuasion | pre, post | pre, post |
-| C | Visibility & Communication | pre, post | pre, post |
-| D | People / Difficult Conversations | pre, post | pre, post |
-| E | Deep Work & Strategy | pre, during, post | **conditional per subtype** |
-| F | Conferences & External Events | pre, during, post (during = notif-only) | pre, during, post |
-| G | Travel | pre, during, post | **conditional per subtype + duration** |
-| H | Daily Rhythm & Baseline | during only | **null (excluded)** |
+The correct alignment with the test and the ticket's underlying intent ("don't gate real events out; keep them in the Plan") is **Path B / Path C**: return `'ambiguous'` so the event still flows through JIT with the `+8` ambiguous boost, and still receives normal category classification + pre/post arcs upstream.
 
-**Subtype taxonomy** — `event-subtypes.ts` already carries `classificationOnly:true` on:
-- `str.learning`, `str.community` (E — no arc per spec)
-- `conf.networking` (F — no arc per spec)
-- `trv.accommodation`, `trv.travel_day` (G — accommodation: no arc; travel_day: full arc)
-- All `rhy.*` (H — no Plan presence per spec)
+### Change
 
-**Travel arc** — `enrich-event.ts::computeTravelArc()` correctly returns `'pre-post' | 'pre-during-post' | 'pre-only'` from `trv.flight` duration (≥360m = long-haul).
-
-**Allocator** — `slot-allocator.ts` now calls `pruneTravelPhases()` (WS4 landed) to drop the during-slot for short-haul G. ✅
-
-### 2. Gaps versus the spec's `getArcForEvent()` contract
-
-Three concrete gaps between shipped code and the spec:
-
-1. **`classificationOnly` is not enforced by the JIT ranker.** Only `state-engines.ts:254` honours the flag. `rankJitCandidates()` (`jit-candidates.ts:146`) calls `enrichEvent()` and then iterates `enriched.phases` — which is built from the **category-level** `EVENT_PHASE_MAP`. Result: `str.learning`, `str.community`, `conf.networking`, `trv.accommodation`, and every `rhy.*` (H) event can still generate JIT candidates and be picked into Plan slots. This directly contradicts the spec's:
-   - `E.learning → null`
-   - `E.community → null`
-   - `H.social → excluded from Plan`
-   - `G.accommodation → null`
-2. **H currently declares a `during` phase.** `EVENT_PHASE_MAP.H.during` is populated, so a matched H event (e.g. a gym block that isn't `classificationOnly`) would still land a slot. Spec says H returns `null` end-to-end.
-3. **Long-haul from a real 12-h flight without a keyword.** `enrichEvent().travelArc` correctly reads `durationMinutes` — but `RankedJitCandidate` doesn't carry the duration, so `pruneTravelPhases()` calls `enrichEvent({ title })` alone. A `trv.flight` titled "Flight LHR→SIN" without the words *long-haul/red-eye/overnight* falls back to `'pre-post'` even when the calendar says 12 hours. The spec's 12-h Singapore example would emit only pre/post.
-
-### 3. Downstream / frontend / DB readers
-
-- **DB write path** — `record-event-priority-signal` now persists `event_subcategory` on `event_priority_memory` (WS3). No frontend/DB reader of `travelArc` or the arc list itself: arcs are re-derived on read via `enrichEvent()` inside the plan generator. No schema change needed for WS4.
-- **Frontend** — no component reads `travelArc` or `jitPhase` directly except `MasteryPlan`/`Plan` rendering the allocator's slot output. Fixes stay backend-only.
-- **Insights / Nudges** — consume `subcategory` (already wired via WS3), unaffected by arc pruning.
-
-## Plan — complete WS4 spec compliance
-
-Four surgical edits, all in `_shared/events` and `_shared/jit`. No new files. No DB migration. No frontend change.
-
-### Change 1 — enforce `classificationOnly` at the JIT ranker (fixes gaps 1)
-`supabase/functions/_shared/events/jit-candidates.ts` at line 158, alongside the existing `if (!enriched.categoryId) continue;`:
+Replace line 122 with:
 
 ```ts
-if (enriched.subtype?.classificationOnly) continue;
+// Bare "Interview" titles with unknown/placeholder attendee counts are still
+// real events — don't gate them out. Fall through to 'ambiguous' so the
+// event keeps its category (D) + pre/post arcs and gets a modest boost.
+if ((args.attendeesCount ?? 0) < 2) return 'ambiguous';
 ```
 
-This single line drops `str.learning`, `str.community`, `conf.networking`, `trv.accommodation`, `trv.travel_day` (already handled specially by the travel_day dayShape branch), and every `rhy.*` from Plan slot eligibility. Matches the spec's `return null` behaviour for E.learning, E.community, G.accommodation, H.*.
+Then let the media / direction / hiring-keyword branches below run only when `attendeesCount >= 2` by wrapping the remaining logic in an early return path, OR (simpler) leave the branches as-is — they're all keyword/domain driven and safely produce more specific kinds when signals exist. The bare "Interview" with count<2 and no other signals will hit `'ambiguous'` via the new early return above **only if** we return early; to keep the more specific branches available when title/domain signals do exist, restructure as:
 
-### Change 2 — H has no arc (fixes gap 2)
-`event-phase-map.ts`: remove the `during` entry from `EVENT_PHASE_MAP.H` so the map is `{}`. `CATEGORY_MAX_SLOTS.H` stays at 1 (rest-day handling continues to work via `hasRestSignals`, not per-event slots). No caller iterates a required `during` on H.
+```ts
+const hasStrongSignals =
+  args.subtypeId === 'media-publication' ||
+  args.categoryId === 'C' ||
+  MEDIA_INTERVIEW_RE.test(title) ||
+  HIRING_KEYWORD_RE.test(title) ||
+  args.subtypeId === 'hiring-loop';
 
-### Change 3 — plumb calendar duration into travel-arc pruning (fixes gap 3)
-Two small edits so a real 12-h flight is treated as long-haul even when the title is bland:
+if ((args.attendeesCount ?? 0) < 2 && !hasStrongSignals) return 'ambiguous';
+```
 
-- `jit-candidates.ts::RankedJitCandidate`: add optional `durationMinutes: number | null` and populate it in the ranker (`(endMs - startMs) / 60000`).
-- `slot-allocator.ts::pruneTravelPhases`: accept an optional `durationMin` and pass it through to a new `enrichEvent({ title, start_time, end_time })`-shaped call — or, simpler, call the existing `computeTravelArc` logic directly. Both prune sites (`dominantEventPhases` and `buildNamedFullArcResult`) forward the top candidate's `durationMinutes`.
+This preserves existing test behaviour for `"CNBC interview with David"` (media, count 2 — unaffected) and `"Interview with CEO at Stripe"` (already returns `'candidate'` via `MY_INTERVIEW_TITLE_RE` before line 122).
 
-### Change 4 — regression tests
-Extend `_shared/jit/slot-allocator.test.ts` with:
-- 12-h flight with a plain "Flight LHR→SIN" title + `durationMinutes: 720` → keeps `during`.
-- 2-h flight with `durationMinutes: 120` → drops `during` (already covered, add duration variant).
+### Verification
+- Existing test at `select-jit.test.ts:475` (`"bare ambiguous interview falls through to ambiguous"`) now passes.
+- Run full Deno suite: `deno test supabase/functions/_shared/jit/` — expect 180/180.
+- No frontend or DB changes; no migrations; no redeploy required beyond the shared module (it's imported by `generate-mastery-plan`, `smart-nudges`, `list-week-ahead-priorities`, so redeploy those three).
 
-Extend `_shared/events/jit-candidates.test.ts` (or add a small file if none exists) with:
-- `str.learning` event → 0 candidates.
-- `str.community` event → 0 candidates.
-- `rhy.social` event → 0 candidates.
-- `trv.accommodation` event → 0 candidates.
-- `str.deep_work` event → pre + post candidates (no during).
+### Out of scope
+- Ticket's "Path C" (context-aware `D.hiring_interview` subtype) — the enrichment/subtype layer already handles this in WS1-2 via `classify-event-v2`. No change needed here.
+- Any changes to category assignment or arc generation — those already work correctly for D events.
 
-### Verification & rollout
-1. `deno test --allow-all --no-check _shared/jit/slot-allocator.test.ts _shared/events/**/*.test.ts` → all green.
-2. Redeploy `generate-mastery-plan` (only consumer of the shared modules that renders Plan slots). `record-event-priority-signal`, `smart-nudges`, `build-executive-home-cards` transitively use `enrichEvent` but their behaviour is unchanged.
-3. No DB migration, no frontend edit, no config change.
-
-### Post-change arc matrix (matches spec)
-
-| Category / Subtype | Arc emitted |
-|--------------------|-------------|
-| A.* | pre, post |
-| B.* | pre, post |
-| C.* | pre, post |
-| D.* | pre, post |
-| E.deep_work | pre, post |
-| E.learning | none |
-| E.community | none |
-| E.routine sync | none (no matching subtype → not classified) |
-| F.* (conference/offsite) | pre, during, post (during = notif-only) |
-| F.networking | none |
-| G.flight ≥ 6h (or long_haul/travel_day) | pre, during, post |
-| G.flight < 6h | pre, post |
-| G.accommodation | none |
-| H.* | none |
+### Files touched
+1. `supabase/functions/_shared/jit/select-jit.ts` — one-line/small-block change at line 122.
+2. Redeploy: `generate-mastery-plan`, `smart-nudges`, `list-week-ahead-priorities`.
