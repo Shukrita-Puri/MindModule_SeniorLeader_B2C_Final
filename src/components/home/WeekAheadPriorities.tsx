@@ -175,7 +175,7 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
         if (it.priorSignal) hydrated[it.eventId] = it.priorSignal;
       }
       setDecisions(hydrated);
-      setSaved(false);
+      setSaved(Object.keys(hydrated).length > 0 && readSavedMarker());
       setFailedIds(new Set());
     } catch (e) {
       console.error("[WeekAheadPriorities] load failed", e);
@@ -202,6 +202,7 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
     setSubmitting((s) => ({ ...s, [item.eventId]: true }));
     setDecisions((d) => ({ ...d, [item.eventId]: signal })); // optimistic
     setSaved(false);
+    clearSavedMarker();
     try {
       const headers: Record<string, string> = {};
       const token = await getAuthToken();
@@ -265,6 +266,7 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
       return;
     }
     setSaved(true);
+    writeSavedMarker();
     toast({ title: "Week Ahead priorities saved" });
   }, [submitting, failedIds]);
 
