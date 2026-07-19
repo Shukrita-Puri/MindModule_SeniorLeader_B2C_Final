@@ -8602,6 +8602,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 (httpStatus === 400 && bodyLower.includes("credit balance"))
               ) {
                 providerReason = "anthropic_402_credits";
+                // Anthropic billing exhaustion is a hard operational failure
+                // (not transient). Treat it identically to the gateway credit
+                // ceiling so we short-circuit remaining Claude attempts —
+                // otherwise every attempt burns its full 10s timeout budget
+                // trying to hit an account with $0 balance, which pushes the
+                // total function latency past the platform timeout and the
+                // edge runtime surfaces a 503 to the client. MRS is
+                // deterministic and must never be gated by LLM billing.
+                terminalOperational = "workspace_credit_limit";
                 console.error(
                   `[compute-outer-readiness] [LLM] provider unavailable — credits exhausted | model=${model} | attempt=${attempt} | httpStatus=${httpStatus} (operational dependency failure, not a content failure)`,
                 );
