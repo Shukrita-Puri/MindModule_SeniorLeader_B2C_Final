@@ -632,6 +632,10 @@ interface PlanNudgeSlot {
   jitPhase: "pre" | "during" | "post" | null;
   jitEventTitle: string | null;
   whyLine: string | null;
+  // WS6 — A-H taxonomy tags stamped by generate-mastery-plan on the ledger.
+  // Read-only for smart-nudges; drives copy Context enrichment + telemetry.
+  categoryId: string | null;
+  subcategory: string | null;
 }
 
 interface CoachSignals {
