@@ -3717,7 +3717,16 @@ async function evaluateNudgeOne(
           : "/executive-home";
 
         // v7 - pattern-cited JIT outranks plain JIT in the comparator.
-        const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+        // WS6 — look up the plan slot for this event (if any) so
+        // findEventPattern can prefer subcategory-level HR lift and so
+        // the outgoing nudge carries the A-H tags in payload.metadata.
+        const planSlotForEvt = (ctx.planSlots ?? []).find(
+          (s) =>
+            s.jitEventTitle &&
+            evt.eventTitle &&
+            s.jitEventTitle.toLowerCase() === evt.eventTitle.toLowerCase(),
+        ) ?? null;
+        const pat = findEventPattern(ctx.pattern, evt.eventTitle, planSlotForEvt);
         const sigStrength = pat ? 3 : 2;
 
         return {
@@ -3729,6 +3738,8 @@ async function evaluateNudgeOne(
           anchorKind: "jit",
           slot: "morning",
           signalStrength: sigStrength,
+          planLedgerCategoryId: planSlotForEvt?.categoryId ?? null,
+          planLedgerSubcategory: planSlotForEvt?.subcategory ?? null,
         };
       }
     }
