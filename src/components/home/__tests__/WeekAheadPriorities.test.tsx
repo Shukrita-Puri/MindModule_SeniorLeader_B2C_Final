@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 // ── Module mocks (must be hoisted before importing the component) ──
 const invokeMock = vi.fn();
@@ -103,5 +103,52 @@ describe("WeekAheadPriorities", () => {
       expect(screen.getByText(/Couldn't load your upcoming week/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/Retry/i)).toBeInTheDocument();
+  });
+
+  it("shows a confirmation banner after clicking Save with a selection", async () => {
+    invokeMock.mockImplementation((fn: string) => {
+      if (fn === "list-week-ahead-priorities") {
+        return Promise.resolve({
+          data: {
+            weekAheadMode: { active: true, reason: "weekly_planning" },
+            priorities: [
+              {
+                eventId: "e1",
+                title: "Board Review",
+                startTime: "2026-06-22T09:00:00Z",
+                endTime: "2026-06-22T10:00:00Z",
+                localDay: "2026-06-22",
+                period: "morning",
+                category: "Board",
+                typeKey: "board",
+                score: 82,
+                scoreReasons: [],
+                tags: [],
+              },
+            ],
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+
+    render(<WeekAheadPriorities reason="weekly_planning" manualOverride={false} />);
+    await waitFor(() => expect(screen.getByText("Board Review")).toBeInTheDocument());
+
+    const saveBtn = screen.getByRole("button", { name: /Save Week Ahead Priorities/i });
+    expect(saveBtn).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Priority$/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Save Week Ahead Priorities/i })).not.toBeDisabled(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Week Ahead Priorities/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Your Week Ahead priorities have been recorded/i),
+      ).toBeInTheDocument(),
+    );
   });
 });
