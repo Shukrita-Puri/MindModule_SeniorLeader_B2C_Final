@@ -5337,7 +5337,6 @@ serve(async (req) => {
         Math.floor(localHour + localMinute / 60) < 19;
       const weekAheadPreflight = WEEK_AHEAD_PICKER_ENABLED &&
         (prefs?.evening_close_enabled ?? true) &&
-        dayOfWeek !== 6 && // Saturday is recovery day (§17.2a)
         weekAheadEligibleHour;
       if (!weekAheadPreflight) {
         trace(userId, "week_ahead_not_in_window", {
@@ -5351,40 +5350,37 @@ serve(async (req) => {
           },
         });
       } else {
-        // ISO-week start in user-local time, projected to UTC for the
-        // notification_log query. Week starts Monday 00:00 local.
-        const weekStartLocal = new Date(`${todayStr}T00:00:00`);
-        const dow = weekStartLocal.getDay();
-        const daysSinceMonday = (dow + 6) % 7; // Sun=6, Mon=0, ... Sat=5
-        weekStartLocal.setDate(weekStartLocal.getDate() - daysSinceMonday);
-        const weekStartUtcIso = new Date(
-          weekStartLocal.getTime() + tzOffset * 60000,
-        ).toISOString();
-
-        const { data: weeklySent } = await supabase
+        // Per-reason, per-day dedupe. Pull today's already-delivered
+        // Week-Ahead invites and extract the reason suffix from variant_id
+        // (`week_ahead_picker_invite::<reason>`). A prior weekly_planning
+        // invite must NOT block a same-day end_of_pto invite.
+        const { data: todaysSent } = await supabase
           .from("notification_log")
           .select("id, sent_at, variant_id")
           .eq("user_id", userId)
           .eq("notification_type", "week_ahead_picker_invite")
-          .gte("sent_at", weekStartUtcIso)
-          // Fix C: dry-run and other non-countable rows must never suppress
-          // a real Week-Ahead invite. Only rows that entered the delivery
-          // lifecycle count against the weekly cap.
+          .gte("sent_at", todayStartUtc)
+          .lt("sent_at", todayEndUtc)
+          // dry-run and other non-countable rows must never suppress a
+          // real Week-Ahead invite. Only rows that entered the delivery
+          // lifecycle count.
           .in(
             "delivery_state",
             COUNTABLE_DELIVERY_STATES as unknown as string[],
-          )
-          .limit(1);
+          );
 
-        const weeklyAlreadySent = !!(weeklySent && weeklySent.length > 0);
-        if (weeklyAlreadySent) {
-          trace(userId, "week_ahead_already_sent_this_week", {
+        const alreadySentReasonsToday = new Set<string>();
+        for (const row of todaysSent ?? []) {
+          const vid = String((row as { variant_id?: string }).variant_id ?? "");
+          const idx = vid.indexOf("::");
+          if (idx >= 0) alreadySentReasonsToday.add(vid.slice(idx + 2));
+        }
+        if (alreadySentReasonsToday.size > 0) {
+          trace(userId, "week_ahead_prior_reasons_today", {
             ...traceBase,
             notificationType: "week_ahead_picker_invite",
             metadata: {
-              week_start_utc: weekStartUtcIso,
-              existing_sent_at: weeklySent?.[0]?.sent_at ?? null,
-              existing_variant_id: weeklySent?.[0]?.variant_id ?? null,
+              reasons: [...alreadySentReasonsToday],
             },
           });
         }
@@ -5411,14 +5407,14 @@ serve(async (req) => {
         const inv = await evaluateWeekAheadPickerInvite(
           ctx,
           supabase,
-          weeklyAlreadySent,
+          alreadySentReasonsToday,
         );
         if (inv) {
           trace(userId, "week_ahead_selected", {
             ...traceBase,
             notificationType: inv.type,
             variantId: inv.copy.variantId,
-            metadata: { weekly_already_sent: weeklyAlreadySent },
+            metadata: { prior_reasons_today: [...alreadySentReasonsToday] },
           });
           // Direct dispatch - bypasses competitive ranking, daily cap,
           // 2h suppression, slot cap, post-CTA gates. This is a weekly
@@ -5446,13 +5442,13 @@ serve(async (req) => {
           console.log(
             `[smart-nudges] week_ahead_picker_invite dispatched user=${
               redactUserId(userId)
-            } variant=${inv.copy.variantId} (own bucket - bypassing daily cap)`,
+            } variant=${inv.copy.variantId} prior_reasons=${[...alreadySentReasonsToday].join(",") || "none"} (own bucket - bypassing daily cap)`,
           );
-        } else if (!weeklyAlreadySent) {
+        } else {
           trace(userId, "week_ahead_not_selected", {
             ...traceBase,
             notificationType: "week_ahead_picker_invite",
-            metadata: { weekly_already_sent: weeklyAlreadySent },
+            metadata: { prior_reasons_today: [...alreadySentReasonsToday] },
           });
         }
       }
