@@ -164,7 +164,7 @@ const ROWS: RawSubtype[] = [
   // v2 additive — accommodation & full travel-day markers. Classification-only
   // (they inform Insights and Plan arc selection; no JIT prompts on their own).
   { id:'trv.accommodation',    label:'Accommodation / Hotel', bucket:'Travel', categoryId:'G', group:'G_travel', primaryPillar:4, secondaryPillar:5, demandProfile:D(0,0,0,0,0,1,1,0), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['hotel booking','hotel stay','airbnb','staying at','accommodation','hotel reservation'], classificationOnly:true },
-  { id:'trv.travel_day',       label:'Travel day',            bucket:'Travel', categoryId:'G', group:'G_travel', primaryPillar:4, secondaryPillar:5, demandProfile:D(0,0,0,0,0:2,2,0) as unknown as DemandProfile, timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['travel day','in transit day','all-day travel','all day travel'], classificationOnly:true },
+  { id:'trv.travel_day',       label:'Travel day',            bucket:'Travel', categoryId:'G', group:'G_travel', primaryPillar:4, secondaryPillar:5, demandProfile:D(0,0,0,0,0,2,2,0), timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['travel day','in transit day','all-day travel','all day travel'], classificationOnly:true },
 
   // ── Category H · Daily Rhythm & Baseline ──
   // v2 additive — insert BEFORE rhy.catchup / rhy.pto so more specific rows win
