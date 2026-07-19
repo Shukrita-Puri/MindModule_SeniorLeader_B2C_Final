@@ -2955,8 +2955,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Hoisted so the outermost catch can still return a 200 with the MRS
+  // fields the client forwarded, even if some later assembly step throws.
+  // MRS is deterministic (compute-inner-readiness) and must not be gated
+  // by an LLM/Brief-copy failure. See top-of-file Brief/MRS contract.
+  let recoveryBody: any = null;
+
   try {
     const body: ComputeRequest & { userId?: string } = await req.json();
+    recoveryBody = body;
 
     // Auth model:
     //   - Normal user calls: identity is derived from a verified Auth0 JWT.
@@ -8602,6 +8609,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 (httpStatus === 400 && bodyLower.includes("credit balance"))
               ) {
                 providerReason = "anthropic_402_credits";
+                // Anthropic billing exhaustion is a hard operational failure
+                // (not transient). Treat it identically to the gateway credit
+                // ceiling so we short-circuit remaining Claude attempts —
+                // otherwise every attempt burns its full 10s timeout budget
+                // trying to hit an account with $0 balance, which pushes the
+                // total function latency past the platform timeout and the
+                // edge runtime surfaces a 503 to the client. MRS is
+                // deterministic and must never be gated by LLM billing.
+                terminalOperational = "workspace_credit_limit";
                 console.error(
                   `[compute-outer-readiness] [LLM] provider unavailable — credits exhausted | model=${model} | attempt=${attempt} | httpStatus=${httpStatus} (operational dependency failure, not a content failure)`,
                 );
@@ -10474,6 +10490,75 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       msg === "Invalid token" || msg === "Missing authorization header"
         ? 401
         : 500;
+    // MRS-preservation fallback: if the caller forwarded deterministic
+    // MRS fields (compute-inner-readiness output), return HTTP 200 with
+    // an awaiting Brief but keep the numeric MRS payload intact so the
+    // MRS gauge and Brief-page score never blank just because the LLM
+    // Brief path (or a later assembly helper) threw. Only 5xx-class
+    // failures qualify; auth failures still surface as 401 so the UI
+    // routes to sign-in.
+    if (
+      status === 500 &&
+      recoveryBody &&
+      typeof recoveryBody === "object" &&
+      (typeof recoveryBody.innerReadinessScore === "number" ||
+        typeof recoveryBody.innerReadinessScoreBaseline === "number" ||
+        typeof recoveryBody.innerReadinessScoreRefined === "number")
+    ) {
+      const rb = recoveryBody as Record<string, unknown>;
+      const numOrNull = (v: unknown): number | null =>
+        typeof v === "number" && Number.isFinite(v) ? v : null;
+      console.error(
+        "[compute-outer-readiness] returning 200 awaiting-brief with preserved MRS (recovery from fatal):",
+        msg,
+      );
+      return new Response(
+        JSON.stringify({
+          fallback: true,
+          recovered: true,
+          phrase: null,
+          context: null,
+          bodyText: null,
+          leanOn: null,
+          watchFor: null,
+          awaitingSignals: true,
+          awaitingReason: "fatal_recovered",
+          briefSource: "awaiting",
+          leanOnSource: null,
+          watchForSource: null,
+          dataSources: [],
+          calendarState: "unknown",
+          hasWearable: false,
+          wearableDaysConnected: null,
+          innerReadinessScore: numOrNull(rb.innerReadinessScore),
+          innerReadinessTier: typeof rb.innerReadinessTier === "string"
+            ? rb.innerReadinessTier
+            : null,
+          innerReadinessTierDisplayed: typeof rb.tierDisplayed === "string"
+            ? rb.tierDisplayed
+            : (typeof rb.innerReadinessTier === "string"
+              ? rb.innerReadinessTier
+              : null),
+          innerReadinessScoreBaseline: numOrNull(
+            rb.innerReadinessScoreBaseline,
+          ),
+          innerReadinessScoreRefined: numOrNull(
+            rb.innerReadinessScoreRefined,
+          ),
+          innerReadinessState:
+            rb.innerReadinessState === "refined" ||
+                rb.innerReadinessState === "baseline" ||
+                rb.innerReadinessState === "awaiting"
+              ? rb.innerReadinessState
+              : null,
+          mrsSnapshotWritten: false,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
     return new Response(JSON.stringify({ error: msg }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
