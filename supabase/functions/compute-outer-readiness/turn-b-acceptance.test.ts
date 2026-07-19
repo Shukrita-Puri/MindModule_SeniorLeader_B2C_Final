@@ -5,7 +5,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { buildAssessmentContext, buildPillContextFromAssessment, formatPillAssessmentSection } from "../_shared/signal-pills/assessment-context.ts";
 import { derivePills, finalizePills, type DerivePillsInput } from "../_shared/signal-pills/derive-pills.ts";
-import { buildSpecDeterministicBriefFromAssessmentContext } from "../_shared/brief/spec-deterministic-brief.ts";
+import { buildDeterministicBriefFallback } from "../_shared/brief/deterministic-brief.ts";
 import { validateBrief, validatePillBodyConsistency } from "../_shared/brief-validators.ts";
 
 const INDEX_PATH = new URL("./index.ts", import.meta.url);
@@ -333,7 +333,7 @@ Deno.test("Turn B execution order and prompt reuse are source-enforced", async (
   const iInject = src.indexOf("if (assessmentPromptSection) userPrompt += assessmentPromptSection;");
   const iFirstCall = src.indexOf("content = await callLovableAIText({");
   const iRetry = src.indexOf("const retryUserPrompt = userPrompt + FOUR_BEAT_RETRY_GUIDANCE + (targeted || STRICT_PHRASE_RETRY);");
-  const iFallback = src.indexOf("buildSpecDeterministicBriefFromAssessmentContext(assessmentContext)");
+  const iFallback = src.indexOf("buildDeterministicBriefFallback({");
   const iPersistence = src.indexOf("await upsertDailyContextSnapshot(db, {");
   const iResponse = src.indexOf("signalPills: echoedSignalPills,");
 
@@ -372,14 +372,27 @@ Deno.test("Turn B no post-context mutation or re-derivation occurs after buildAs
 Deno.test("Turn B divergence generation path: valid evidence-backed copy stays valid, unsupported contradiction is rejected", async () => {
   const context = await buildGreenMindDrainedContext();
   const section = formatPillAssessmentSection(context);
-  const built = buildSpecDeterministicBriefFromAssessmentContext(context);
   const pillContext = buildPillContextFromAssessment(context);
+  const built = buildDeterministicBriefFallback({
+    band: "firing",
+    hasWearable: true,
+    checkInOutcome: "drained",
+    cognitivePillTier: "green",
+    physicalPillTier: "green",
+    wearableFact: "Recovery is running above its usual range",
+    window: "morning",
+    todayHighStakes: ["Board Review"],
+    calendarLoad: "high",
+    meetingCount: 2,
+    sleepScore: 81,
+    hasBackToBack: false,
+  });
 
   assert(context.divergence !== null);
   assertEquals(context.pills.finalized.find((pill) => pill.key === "decision_readiness")?.tier, "green");
   assertStringIncludes(section, "wearable_objective positive");
   assertStringIncludes(section, "self_report negative");
-  assertStringIncludes(built?.body ?? "", "You checked in drained, while HRV is holding above its usual range;");
+  assertStringIncludes(built.body, "Recovery is running above its usual range but you've checked in drained");
 
   const invalid = validatePillBodyConsistency(
     "The mind feels spent going into the board review, so protect the first hour and pace the calls.",
@@ -417,7 +430,7 @@ Deno.test("Turn B divergence generation path: valid evidence-backed copy stays v
     forbiddenWords: [],
     allowedPatternKeywords: [],
   };
-  const valid = validateBrief(built?.phrase ?? "", built?.body ?? "", detCtx, {
+  const valid = validateBrief(built.phrase, built.body, detCtx, {
     mrsScore: context.readiness.score,
     pillContext,
   });

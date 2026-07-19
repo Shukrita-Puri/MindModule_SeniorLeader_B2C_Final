@@ -8542,8 +8542,19 @@ function pickActionVerb(primaryType: string): string {
     case "integrate":
       return "Close cleanly";
     default:
-      return "Hold the base";
+      return "Protect the priority";
   }
+}
+
+function normalizeDeterministicWhyLine(text: string, maxWords = 30): string {
+  const cleaned = stripBriefMarkdown(text).replace(/\s+/g, " ").trim();
+  if (!cleaned) return cleaned;
+  const words = cleaned.split(/\s+/);
+  const trimmed = words.length > maxWords
+    ? words.slice(0, maxWords).join(" ").replace(/[,:;—-]\s*$/, "")
+    : cleaned;
+  const withoutTrailing = trimmed.replace(/[.!?]+$/, "");
+  return `${withoutTrailing}.`;
 }
 
 function composeWhyLine(
@@ -8657,7 +8668,7 @@ function composeWhyLine(
     if (imm) parts.push(imm);
   }
   parts.push(`${arcLabel}: ${verb} ${forContext}.`);
-  return stripBriefMarkdown(parts.join(" ").replace(/\s+/g, " ").trim());
+  return normalizeDeterministicWhyLine(parts.join(" "));
 }
 
 const STEP_RATIONALE_MAP: Record<string, [string, string]> = {
@@ -8726,9 +8737,7 @@ async function applyV51Enrichment(
         timeOfDay === "evening")
       ? timeOfDay as "morning" | "afternoon" | "evening"
       : null;
-  const whyWindowSignals = timeOfDayForWhy
-    ? derivePlanWindowSignals(req, timeOfDayForWhy)
-    : null;
+  const whyWindowSignals = timeOfDayForWhy ? derivePlanWindowSignals(req, timeOfDayForWhy) : null;
   if (whyWindowSignals) {
     console.log("[Plan][why-window-signals]", {
       timeOfDay: timeOfDayForWhy,
@@ -8998,14 +9007,10 @@ async function applyV51Enrichment(
           // Sprint E — same window signals used by the deterministic path
           // (Sprint D derivation). Only true / non-null keys reach the
           // prompt; helper drops the rest.
-          decisionLeakageRisk: whyWindowSignals?.decisionLeakageRisk === true
-            ? true
-            : undefined,
-          bodyLoadElevated: whyWindowSignals?.bodyLoadElevated === true
-            ? true
-            : undefined,
+          decisionLeakageRisk: whyWindowSignals?.decisionLeakageRisk === true ? true : undefined,
+          bodyLoadElevated: whyWindowSignals?.bodyLoadElevated === true ? true : undefined,
           recoveryNote: whyWindowSignals?.recoveryNote ?? null,
-          vetoRisk: whyWindowSignals?.vetoRisk === true ? true : undefined,
+          vetoRisk: undefined,
           // Phase 3 — Leader voice rules (null-safe; prompt omits the
           // block when unavailable). Same rules injected into the Brief.
           leaderVoiceRules:

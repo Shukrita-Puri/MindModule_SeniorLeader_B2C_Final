@@ -43,18 +43,11 @@ import {
   validatePillBodyConsistency,
 } from "../_shared/brief-validators.ts";
 import {
-  buildSpecDeterministicBrief,
-  buildSpecDeterministicBriefFromAssessmentContext,
-  type SpecDeterministicParams,
-  type SpecDeterministicResult,
-} from "../_shared/brief/spec-deterministic-brief.ts";
-// v6.5-no-deterministic-fallback (2026-07-11): the legacy deterministic
-// Brief path (`buildDeterministicBrief`, `decideBriefFallback`,
-// `capDeterministicBody`) has been removed from the render pipeline. When
-// both LLM attempts miss, the Brief becomes `awaiting` — never templated
-// prose. Do NOT re-import these symbols; a fresh deterministic system
-// (spec: "Deterministic Fallback Final") must pass validateBrief() before
-// shipping and is not implemented in this file.
+  buildDeterministicBriefFallback,
+  type DeterministicBriefBand,
+  type DeterministicBriefPillTier,
+  type DeterministicBriefResult,
+} from "../_shared/brief/deterministic-brief.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
@@ -87,64 +80,41 @@ import {
   getServerCalendarMetrics,
 } from "../_shared/signal-engine/db-queries.ts";
 
-function buildBandKeyedDeterministicBriefFallback(opts: {
-  band: "high" | "mid" | "low" | null;
-  wearableFact: string | null;
-  calendarFact: string | null;
-  cognitivePillTier: "green" | "amber" | "red" | "unread";
-  physicalPillTier: "green" | "amber" | "red" | "unread";
-}): SpecDeterministicResult | null {
-  const band = opts.band ?? "mid";
-  const evidenceParts = [opts.wearableFact, opts.calendarFact]
-    .filter((part): part is string =>
-      typeof part === "string" && part.trim().length > 0
-    );
-  const evidence = evidenceParts.length > 0
-    ? evidenceParts.join(" and ")
-    : "Signals are thin this window";
-  const phraseByBand: Record<"high" | "mid" | "low", string> = {
-    high: "Better than it feels.",
-    mid: "Holding steady.",
-    low: "Pace it today.",
-  };
-  const readByBand: Record<"high" | "mid" | "low", string> = {
-    high:
-      "Mind and body are carrying more capacity than the day is asking for.",
-    mid: "Mind and body are evenly matched with what's ahead.",
-    low: "The day is asking more than reserves can easily cover.",
-  };
-  let directive = "";
-  if (opts.cognitivePillTier === "green" && opts.physicalPillTier !== "green") {
-    directive =
-      "use the window for decisions and analysis, keep the relational work short";
-  } else if (
-    opts.physicalPillTier === "green" && opts.cognitivePillTier !== "green"
-  ) {
-    directive =
-      "route presence and stakeholder conversations through the physical runway";
-  } else if (band === "low") {
-    directive = "name the one thing that cannot wait and do only that";
-  } else {
-    directive = "keep pace and protect the most important block";
+function mapDeterministicBriefBand(
+  valence: "high" | "mid" | "low" | null,
+  score: number | null,
+  checkInOutcome: "sharp" | "holding" | "drained" | null,
+  hrvDeviation: number | null,
+): DeterministicBriefBand {
+  if (checkInOutcome === "drained" || (score != null && score < 40)) {
+    return "depleted";
   }
-  const closeByBand: Record<"high" | "mid" | "low", string> = {
-    high: "and don't overextend.",
-    mid: "and hold the line.",
-    low: "and protect the close.",
-  };
-  const phrase = phraseByBand[band];
-  const body = `${evidence}. ${readByBand[band]} ${directive}, ${
-    closeByBand[band]
-  }`;
-  const validation = validateBrief(phrase, body, {
-    signals: {},
-    behaviourFlags: [],
-    lexiconClusters: [],
-    forbiddenWords: [],
-    allowedPatternKeywords: [],
-  } as any);
-  if (!validation.ok) return null;
-  return { phrase, body, topSignal: "baseline_quiet" };
+  if (valence === "high" && hrvDeviation != null && hrvDeviation >= 10) {
+    return "firing";
+  }
+  if (valence === "high") return "sharp";
+  if (valence === "low") return "stretched";
+  return "steady";
+}
+
+function mapDeterministicCheckInOutcome(
+  outcome: string | null,
+  clarity: number | null,
+  confidence: number | null,
+): "sharp" | "holding" | "drained" | null {
+  const lower = String(outcome ?? "").toLowerCase();
+  if (/drained|overwhelmed|scattered|foggy|low|struggl/.test(lower)) {
+    return "drained";
+  }
+  if (/focused|sharp|steady|strong|thriving|energ/.test(lower)) return "sharp";
+  const vals = [clarity, confidence].filter((v): v is number =>
+    typeof v === "number" && Number.isFinite(v)
+  );
+  if (vals.length === 0) return outcome ? "holding" : null;
+  const avg = vals.reduce((sum, v) => sum + v, 0) / vals.length;
+  if (avg >= 4) return "sharp";
+  if (avg <= 2) return "drained";
+  return "holding";
 }
 
 import {
@@ -4384,7 +4354,7 @@ serve(async (req) => {
     // attempts fail, only when real signals exist). Populated inside the
     // LLM block where all in-scope variables are visible, read further
     // down by the briefSource / responsePhrase / responseBody logic.
-    let deterministicBrief: SpecDeterministicResult | null = null;
+    let deterministicBrief: DeterministicBriefResult | null = null;
     let llmFallbackReason: string | null = null;
     // Per-attempt diagnostic records persisted on every brief_snapshots write.
     // Replaces the prior hard-coded `llm_attempts: null`. Each record:
@@ -8681,58 +8651,76 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             );
 
             try {
-              const specParams: SpecDeterministicParams = {
-                bandValence: (bandValence as any) ?? null,
-                timeOfDay: getTimeOfDay(hour) as any,
+              const pillContext = assessmentContext
+                ? buildPillContextFromAssessment(assessmentContext)
+                : null;
+              const normalizeTier = (tier: unknown):
+                DeterministicBriefPillTier => {
+                if (tier === "green" || tier === "amber" || tier === "red") {
+                  return tier;
+                }
+                return "unread";
+              };
+              const deterministicCheckIn = mapDeterministicCheckInOutcome(
+                checkInOutcome ?? null,
+                typeof clarityLevel === "number" ? clarityLevel : null,
+                typeof confidenceLevel === "number" ? confidenceLevel : null,
+              );
+              const scoreForBand = assessmentContext?.readiness.score ??
+                (typeof innerReadinessScore === "number"
+                  ? innerReadinessScore
+                  : null);
+              const hrvForBand = typeof hrvDeviation === "number"
+                ? hrvDeviation
+                : null;
+              const wearableFactForSpec = hrvForBand != null
+                ? (hrvForBand >= 10
+                  ? "Recovery is running above its usual range"
+                  : hrvForBand <= -20
+                  ? "Recovery is significantly under its usual range"
+                  : hrvForBand <= -10
+                  ? "Recovery is below its usual range"
+                  : "The wearable read is in")
+                : (typeof sleepScoreVal === "number"
+                  ? (sleepScoreVal < 65
+                    ? "Sleep ran short last night"
+                    : sleepScoreVal >= 80
+                    ? "Sleep was solid last night"
+                    : "The wearable read is in")
+                  : null);
+              const specBuilt = buildDeterministicBriefFallback({
+                band: mapDeterministicBriefBand(
+                  (bandValence as "high" | "mid" | "low" | null) ?? null,
+                  scoreForBand,
+                  deterministicCheckIn,
+                  hrvForBand,
+                ),
                 hasWearable: !!wearableContext,
-                hrvDeviation: typeof hrvDeviation === "number"
-                  ? hrvDeviation
-                  : null,
-                sleepDuration: typeof sleepDuration === "number"
-                  ? sleepDuration
-                  : null,
-                sleepDeviation: typeof sleepDeviation === "number"
-                  ? sleepDeviation
-                  : null,
-                sleepHardFloor: typeof sleepDuration === "number" &&
-                  sleepDuration < 360,
-                rhrDeviation: typeof rhrDeviation === "number"
-                  ? rhrDeviation
-                  : null,
-                calendarLoad: (calendarLoad as any) ?? null,
+                checkInOutcome: deterministicCheckIn,
+                cognitivePillTier: normalizeTier(
+                  pillContext?.decisionReadiness,
+                ),
+                physicalPillTier: normalizeTier(pillContext?.physicalReserves),
+                wearableFact: wearableFactForSpec,
+                window: getTimeOfDay(hour) as "morning" | "afternoon" | "evening",
                 todayHighStakes: Array.isArray(todayHighStakes)
                   ? todayHighStakes
                   : [],
-                nextHighStakesEvent: nextHighStakesEvent
-                  ? {
-                    title: nextHighStakesEvent.title,
-                    minutesUntil: nextHighStakesEvent.minutesUntil,
-                  }
+                calendarLoad: calendarLoad === "low" ||
+                    calendarLoad === "medium" || calendarLoad === "high"
+                  ? calendarLoad
+                  : null,
+                meetingCount: calendarResult?.meetingCount ??
+                  calendarResult?.eventCount ?? 0,
+                sleepScore: typeof sleepScoreVal === "number"
+                  ? sleepScoreVal
                   : null,
                 hasBackToBack: !!hasBackToBack,
-                avgScore7d: typeof avgScore7d === "number" ? avgScore7d : null,
-                scoreTrajectory7d: scoreTrajectory7d ?? null,
-                hrvEventCorrelation: hrvEventCorrelation ?? null,
-                checkInOutcome: checkInOutcome ?? null,
-                clarityLevel: typeof clarityLevel === "number"
-                  ? clarityLevel
-                  : null,
-                confidenceLevel: typeof confidenceLevel === "number"
-                  ? confidenceLevel
-                  : null,
-                behaviourFlags: [
-                  ...(briefBehaviourSnapshot?.flagsBrief ?? []),
-                  ...(briefBehaviourSnapshot?.flagsPlan ?? []),
-                ],
-                tomorrowLoad: (tomorrowLoad as any) ?? null,
-                tomorrowHighStakesTitles: Array.isArray(tomorrowHighStakes)
-                  ? tomorrowHighStakes
-                  : [],
-              };
-
-              const built = assessmentContext ? buildSpecDeterministicBriefFromAssessmentContext(assessmentContext) : buildSpecDeterministicBrief(specParams);
-              if (built) {
-                const detCtx: any = {
+              });
+              const specValidation = validateBrief(
+                specBuilt.phrase,
+                specBuilt.body,
+                {
                   signals: {
                     highStakesEventInNext24h: nextHighStakesEvent
                       ? {
@@ -8749,89 +8737,29 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   lexiconClusters: [],
                   forbiddenWords: [],
                   allowedPatternKeywords: [],
-                };
-                // W3: deterministic fallback runs through the SAME
-                // validator with the same numeric-restatement guard.
-                const detValidation = validateBrief(
-                  built.phrase,
-                  built.body,
-                  detCtx,
-                  {
-                    mrsScore: assessmentContext?.readiness.score ??
-                      (typeof innerReadinessScore === "number"
-                        ? innerReadinessScore
-                        : null),
-                    pillContext: assessmentContext
-                      ? buildPillContextFromAssessment(assessmentContext)
-                      : null,
-                  },
+                } as any,
+                {
+                  mrsScore: scoreForBand,
+                  pillContext,
+                },
+              );
+              if (specValidation.ok) {
+                deterministicBrief = specBuilt;
+                console.log(
+                  `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase}`,
                 );
-                if (detValidation.ok) {
-                  deterministicBrief = built;
-                  console.log(
-                    `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (v6.6-spec) | topSignal=${built.topSignal} | band=${specParams.bandValence}`,
-                  );
-                } else {
-                  console.warn(
-                    `[compute-outer-readiness] [DETERMINISTIC] rejected by validator: ${detValidation.reason} | topSignal=${built.topSignal} | band=${specParams.bandValence}`,
-                  );
-                }
+              } else {
+                console.warn(
+                  `[compute-outer-readiness] [DETERMINISTIC] A8 rejected by validator: ${specValidation.reason}`,
+                );
               }
-            } catch (detErr) {
+            } catch (detSpecErr) {
               console.error(
-                "[compute-outer-readiness] [DETERMINISTIC] build error:",
-                detErr,
+                "[compute-outer-readiness] [DETERMINISTIC] A8 build error:",
+                detSpecErr,
               );
             }
 
-            if (!deterministicBrief && !cachedSnapshot && !awaitingSignals) {
-              const pillContext = assessmentContext
-                ? buildPillContextFromAssessment(assessmentContext)
-                : null;
-              const normalizeTier = (tier: unknown):
-                | "green"
-                | "amber"
-                | "red"
-                | "unread" => {
-                if (tier === "green" || tier === "amber" || tier === "red") {
-                  return tier;
-                }
-                return "unread";
-              };
-              const wearableFact = typeof hrvDeviation === "number"
-                ? `HRV ${hrvDeviation > 0 ? "+" : ""}${
-                  Math.round(hrvDeviation)
-                }% vs baseline`
-                : (typeof sleepScore === "number"
-                  ? `Sleep score ${Math.round(sleepScore)}`
-                  : null);
-              const meetingCount = Array.isArray(calendarEvents)
-                ? calendarEvents.length
-                : 0;
-              const calendarFact =
-                calendarLoad === "high" || calendarPressure === "high"
-                  ? (meetingCount > 0
-                    ? `${meetingCount} meeting${
-                      meetingCount > 1 ? "s" : ""
-                    } today`
-                    : "Heavy calendar today")
-                  : null;
-              const bandFallback = buildBandKeyedDeterministicBriefFallback({
-                band: (bandValence as "high" | "mid" | "low" | null) ?? null,
-                wearableFact,
-                calendarFact,
-                cognitivePillTier: normalizeTier(
-                  pillContext?.decisionReadiness,
-                ),
-                physicalPillTier: normalizeTier(pillContext?.physicalReserves),
-              });
-              if (bandFallback) {
-                deterministicBrief = bandFallback;
-                console.log(
-                  `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (band-keyed-last-resort) | band=${bandValence}`,
-                );
-              }
-            }
           }
         }
       } catch (llmErr) {
