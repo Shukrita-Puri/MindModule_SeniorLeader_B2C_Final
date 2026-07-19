@@ -2,21 +2,22 @@ import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { evaluateWeekAheadMode } from "./week-ahead-mode.ts";
 import { shouldFireWeekAheadPickerInvite } from "./week-ahead-nudge.ts";
 
-function decide(opts: { dayOfWeek: number; localHour: number; reason?: any; active?: boolean }) {
+function decide(opts: { dayOfWeek: number; localHour: number; homeCountry?: string | null }) {
   return shouldFireWeekAheadPickerInvite({
     dayOfWeek: opts.dayOfWeek,
     localHour: opts.localHour,
     weekAheadDecision: evaluateWeekAheadMode({
       dayOfWeek: opts.dayOfWeek,
       localHour: opts.localHour,
+      homeCountry: opts.homeCountry ?? null,
     }),
   });
 }
 
-Deno.test("fires Sunday 17:00", () => {
+Deno.test("fires Sunday 17:00 (default country → weekly_planning)", () => {
   const d = decide({ dayOfWeek: 0, localHour: 17 });
   assertEquals(d.fire, true);
-  assertEquals(d.reason, "sunday_evening");
+  assertEquals(d.reason, "weekly_planning");
 });
 
 Deno.test("does not fire Sunday 10:00 (out of window)", () => {
@@ -25,13 +26,16 @@ Deno.test("does not fire Sunday 10:00 (out of window)", () => {
   assertEquals(d.reason, "out_of_window");
 });
 
-Deno.test("never fires on Saturday (recovery day)", () => {
-  const morning = decide({ dayOfWeek: 6, localHour: 10 });
+Deno.test("fires Saturday 17:00 for Sunday-start countries (SA)", () => {
+  const d = decide({ dayOfWeek: 6, localHour: 17, homeCountry: "SA" });
+  assertEquals(d.fire, true);
+  assertEquals(d.reason, "weekly_planning");
+});
+
+Deno.test("does not fire Saturday for Monday-start countries", () => {
   const evening = decide({ dayOfWeek: 6, localHour: 17 });
-  assertEquals(morning.fire, false);
-  assertEquals(morning.reason, "saturday_recovery_day");
   assertEquals(evening.fire, false);
-  assertEquals(evening.reason, "saturday_recovery_day");
+  assertEquals(evening.reason, "week_ahead_inactive");
 });
 
 Deno.test("does not fire Monday 17:00", () => {
@@ -52,10 +56,10 @@ Deno.test("fires at 17:00 on a detected last-PTO day", () => {
     weekAheadDecision: wam,
   });
   assertEquals(d.fire, true);
-  assertEquals(d.reason, "last_day_pto_evening");
+  assertEquals(d.reason, "end_of_pto");
 });
 
-Deno.test("suppressed when full working weekend (Sunday)", () => {
+Deno.test("full working weekend does NOT suppress (cadence is fixed)", () => {
   const wam = evaluateWeekAheadMode({
     dayOfWeek: 0,
     localHour: 17,
@@ -66,69 +70,38 @@ Deno.test("suppressed when full working weekend (Sunday)", () => {
     localHour: 17,
     weekAheadDecision: wam,
   });
-  assertEquals(d.fire, false);
+  assertEquals(d.fire, true);
+  assertEquals(d.reason, "weekly_planning");
 });
 
-Deno.test("suppressed when already sent today", () => {
+Deno.test("suppressed when same reason already sent today", () => {
   const d = shouldFireWeekAheadPickerInvite({
     dayOfWeek: 0,
     localHour: 17,
     weekAheadDecision: evaluateWeekAheadMode({ dayOfWeek: 0, localHour: 17 }),
-    alreadySentToday: true,
+    alreadySentReasonsToday: new Set(["weekly_planning"]),
   });
   assertEquals(d.fire, false);
   assertEquals(d.reason, "already_sent");
 });
 
-// NOTE: Production idempotency for the picker invite is ISO-WEEKLY (one
-// invite per user per ISO week, any reason), enforced server-side in
-// smart-nudges/index.ts via a notification_log lookup against
-// `week_ahead_picker_invite` rows ≥ Monday-00:00-local. The pure
-// predicate below still exposes a generic `alreadySentToday` flag — the
-// main loop now passes the WEEKLY result through that flag, so the same
-// suppression branch covers both daily and weekly semantics. These two
-// tests assert the contract explicitly so a future refactor that drops
-// the weekly query without updating this comment will fail loudly.
-Deno.test("ISO-week idempotency: a second tick within the same week is suppressed", () => {
-  // First tick — invite fires.
-  const wamSun = evaluateWeekAheadMode({ dayOfWeek: 0, localHour: 17 });
-  const first = shouldFireWeekAheadPickerInvite({
-    dayOfWeek: 0,
-    localHour: 17,
-    weekAheadDecision: wamSun,
-    alreadySentToday: false, // weekly = false
-  });
-  assertEquals(first.fire, true);
-  // Same week, later tick — weekly flag now true → suppressed.
-  const second = shouldFireWeekAheadPickerInvite({
-    dayOfWeek: 0,
-    localHour: 18,
-    weekAheadDecision: wamSun,
-    alreadySentToday: true,
-  });
-  assertEquals(second.fire, false);
-  assertEquals(second.reason, "already_sent");
-});
-
-Deno.test("ISO-week idempotency: cross-reason dedupe (Sun invite blocks later last_day_pto invite same week)", () => {
-  // Sunday invite went out.
-  // Monday is a last-day-PTO trigger. With weekly dedupe, the Mon invite
-  // is suppressed even though it has a different reason.
-  const monPto = evaluateWeekAheadMode({
+Deno.test("per-reason dedupe: prior 'weekly_planning' does NOT block 'end_of_pto'", () => {
+  // Weekly planning invite went out earlier in the week; today is a
+  // return-from-PTO day. With per-reason dedupe, the new invite fires.
+  const wamPto = evaluateWeekAheadMode({
     dayOfWeek: 1,
     localHour: 17,
     ptoTodayAllDay: true,
     ptoTomorrowAllDay: false,
-    tomorrowIsWorkday: true,
   });
   const d = shouldFireWeekAheadPickerInvite({
     dayOfWeek: 1,
     localHour: 17,
-    weekAheadDecision: monPto,
-    alreadySentToday: true, // weekly flag from main loop
+    weekAheadDecision: wamPto,
+    alreadySentReasonsToday: new Set(["weekly_planning"]),
   });
-  assertEquals(d.fire, false);
-  assertEquals(d.reason, "already_sent");
+  assertEquals(d.fire, true);
+  assertEquals(d.reason, "end_of_pto");
 });
 
 Deno.test("suppressed when picker already opened today", () => {
@@ -142,7 +115,7 @@ Deno.test("suppressed when picker already opened today", () => {
   assertEquals(d.reason, "picker_already_opened");
 });
 
-Deno.test("Monday 17:00 last-day-PTO fires (regression: previously stubbed)", () => {
+Deno.test("Monday 17:00 end_of_pto fires (regression)", () => {
   const wam = evaluateWeekAheadMode({
     dayOfWeek: 1,
     localHour: 17,
@@ -156,7 +129,7 @@ Deno.test("Monday 17:00 last-day-PTO fires (regression: previously stubbed)", ()
     weekAheadDecision: wam,
   });
   assertEquals(d.fire, true);
-  assertEquals(d.reason, "last_day_pto_evening");
+  assertEquals(d.reason, "end_of_pto");
 });
 
 Deno.test("Tuesday 17:00 still on PTO (tomorrow=PTO) does NOT fire", () => {
@@ -174,11 +147,11 @@ Deno.test("Tuesday 17:00 still on PTO (tomorrow=PTO) does NOT fire", () => {
   assertEquals(d.fire, false);
 });
 
-Deno.test("Monday 17:00 end of 3-day long weekend fires", () => {
+Deno.test("Monday 17:00 end_of_long_weekend fires (SSOT flag)", () => {
   const wam = evaluateWeekAheadMode({
     dayOfWeek: 1,
     localHour: 17,
-    consecutiveOffDaysBefore: 3,
+    isLastDayOfLongWeekend: true,
     tomorrowIsWorkday: true,
   });
   const d = shouldFireWeekAheadPickerInvite({
@@ -187,7 +160,7 @@ Deno.test("Monday 17:00 end of 3-day long weekend fires", () => {
     weekAheadDecision: wam,
   });
   assertEquals(d.fire, true);
-  assertEquals(d.reason, "last_day_long_weekend_evening");
+  assertEquals(d.reason, "end_of_long_weekend");
 });
 
 Deno.test("Last day of public holiday block fires", () => {
@@ -203,5 +176,5 @@ Deno.test("Last day of public holiday block fires", () => {
     weekAheadDecision: wam,
   });
   assertEquals(d.fire, true);
-  assertEquals(d.reason, "last_day_holiday_evening");
+  assertEquals(d.reason, "end_of_public_holiday");
 });
