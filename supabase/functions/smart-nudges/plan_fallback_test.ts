@@ -23,7 +23,7 @@ Deno.test("smart-nudges fails open to legacy cascade when plan snapshot is empty
     "expected trace outcome renamed away from `no_qualified_nudge`",
   );
   assert(
-    /ctx\.planSnapshotStatus === 'missing'\s*\|\|\s*ctx\.planSnapshotStatus === 'empty'/.test(SRC),
+    /ctx\.planSnapshotStatus === ["']missing["']\s*\|\|\s*ctx\.planSnapshotStatus === ["']empty["']/.test(SRC),
     "legacy 3-nudge cascade guard must match both `missing` and `empty` statuses",
   );
 });
@@ -72,7 +72,7 @@ Deno.test("plan-driven projection remains preferred when slot pref is enabled", 
   // `projectPlanSlotToNudge` — the fail-open is a fallback, not a
   // replacement.
   assert(
-    /planSnapshotStatus === 'ready'[\s\S]*projectPlanSlotToNudge\(\s*ctx,\s*activeSlot,\s*alreadySentTypes,\s*sentEventRefs,\s*supabase,?\s*\)/.test(
+    /planSnapshotStatus === ["']ready["'][\s\S]*projectPlanSlotToNudge\(\s*ctx,\s*activeSlot,\s*alreadySentTypes,\s*sentEventRefs,\s*supabase,?\s*\)/.test(
       SRC,
     ),
     "ready plan snapshot must still drive projected-slot nudge",
@@ -85,7 +85,7 @@ Deno.test("ready morning plan projection fails open to legacy nudge_one when no 
     "expected structured trace for ready-plan morning fallback",
   );
   assert(
-    /activeSlot === 'morning'[\s\S]*!projected[\s\S]*evaluateNudgeOne\(ctx, alreadySentTypes, sentEventRefs, supabase\)/.test(
+    /activeSlot === ["']morning["'][\s\S]*!projected[\s\S]*evaluateNudgeOne\(\s*ctx,\s*alreadySentTypes,\s*sentEventRefs,\s*supabase,?\s*\)/.test(
       SRC,
     ),
     "ready morning plan path must fall through to legacy nudge_one when projection returns null",
@@ -106,11 +106,11 @@ Deno.test("slot-cap reconstruction prefers persisted delivery slot over family-n
     "expected dedicated notification_log slot reader",
   );
   assert(
-    SRC.includes(".select('notification_type, variant_id, sent_at, event_reference, payload')"),
+    /\.select\(\s*["']notification_type, variant_id, sent_at, event_reference, payload["']\s*\)/.test(SRC),
     "today log query must hydrate payload so slot-cap can read persisted slot",
   );
   assert(
-    SRC.includes("const explicitSlot = metadata?.delivery_slot ?? payload?.slot;"),
+    /const\s+explicitSlot\s*=\s*metadata\?\.delivery_slot\s*\?\?\s*payload\?\.slot;?/.test(SRC),
     "slot reader must prefer persisted payload slot metadata",
   );
   assert(
