@@ -19,35 +19,11 @@ import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-type Signal = "priority" | "not_this_week" | "never";
-
-interface PriorityItem {
-  eventId: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  localDay: string;
-  period: string;
-  category: string;
-  typeKey: string;
-  stakesLevel: string | null;
-  score: number;
-  scoreReasons: string[];
-  tags: WeekAheadTag[];
-  isOrganizer: boolean | null;
-  /** Last decision recorded by the user for this event via the picker.
-   *  Populated from event_priority_memory (source='week_ahead_picker')
-   *  so Star/Cancel/Never selections survive a refresh. */
-  priorSignal: Signal | null;
-}
-
-type WeekAheadTag =
-  | "prior_priority"
-  | "pattern_based"
-  | "known_relationship"
-  | "high_stakes"
-  | "historically_low_signal";
+import type {
+  PriorSignal as Signal,
+  WeekAheadPriority as PriorityItem,
+  WeekAheadTag,
+} from "@/types/weekAhead";
 
 const TAG_CHIP: Record<WeekAheadTag, string> = {
   prior_priority: "Prior priority",
@@ -166,6 +142,9 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
             (it as any).priorSignal === "never"
               ? ((it as any).priorSignal as Signal)
               : null,
+          subcategoryId: typeof (it as any).subcategoryId === "string"
+            ? ((it as any).subcategoryId as string)
+            : null,
         }));
       setItems(safe);
       // Rehydrate decisions from the server so the user's prior
@@ -328,6 +307,14 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {TIME_LABEL(it.startTime)} · {it.category}
+                        {it.subcategoryId && (
+                          <span
+                            className="ml-1.5 text-muted-foreground/70"
+                            title="A–H subcategory"
+                          >
+                            · {it.subcategoryId.replace(/_/g, " ")}
+                          </span>
+                        )}
                       </div>
                       {it.tags.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">

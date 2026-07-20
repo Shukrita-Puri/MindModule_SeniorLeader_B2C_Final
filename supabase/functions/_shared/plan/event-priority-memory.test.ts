@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
   applyEventPriorityMemory,
+  getSubcategoryForEvent,
   indexPriorityMemory,
   normalizeEventTitleMemoryKey,
   TITLE_SPECIFIC_MEMORY_CATEGORY,
@@ -84,6 +85,48 @@ Deno.test("never hard demotes", () => {
   ]);
   const r = applyEventPriorityMemory(idx, { eventCategory: "exec", eventTypeKey: "town", now });
   assertEquals(r.hardDemote, true);
+});
+
+// ── WS-A · subcategoryByEventId + getSubcategoryForEvent ────────────────
+
+Deno.test("subcategoryByEventId: most recent non-null value wins per event", () => {
+  const idx = indexPriorityMemory([
+    // Rows arrive in occurred_at DESC order (as loaded).
+    {
+      event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: daysAgo(1), event_id: "evt-1",
+      event_subcategory: "C.interview_panel",
+    },
+    {
+      event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: daysAgo(5), event_id: "evt-1",
+      event_subcategory: "C.old_value",
+    },
+  ]);
+  assertEquals(getSubcategoryForEvent(idx, "evt-1"), "C.interview_panel");
+});
+
+Deno.test("getSubcategoryForEvent: null when no memory row exists", () => {
+  const idx = indexPriorityMemory([]);
+  assertEquals(getSubcategoryForEvent(idx, "evt-missing"), null);
+  assertEquals(getSubcategoryForEvent(idx, null), null);
+  assertEquals(getSubcategoryForEvent(idx, undefined), null);
+});
+
+Deno.test("getSubcategoryForEvent: skips rows with null subcategory", () => {
+  const idx = indexPriorityMemory([
+    {
+      event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: daysAgo(1), event_id: "evt-2",
+      event_subcategory: null,
+    },
+    {
+      event_category: "exec", event_type_key: "board", signal: "priority",
+      occurred_at: daysAgo(3), event_id: "evt-2",
+      event_subcategory: "A.board_meeting",
+    },
+  ]);
+  assertEquals(getSubcategoryForEvent(idx, "evt-2"), "A.board_meeting");
 });
 
 Deno.test("not_this_week decays after 14d", () => {

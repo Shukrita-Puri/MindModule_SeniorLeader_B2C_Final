@@ -1092,6 +1092,10 @@ interface QualifiedNudge {
   // WS6 — plan-ledger A-H tags for telemetry (payload.metadata.*).
   planLedgerCategoryId?: string | null;
   planLedgerSubcategory?: string | null;
+  // WS-B · Precise HR delta (bpm) from `subcategory_lift` when the JIT
+  // pattern was subcategory-anchored. Null when unknown. Telemetry-only:
+  // notification body/title copy is not mutated by this value.
+  planLedgerHrDeltaBpm?: number | null;
 }
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
@@ -3751,6 +3755,8 @@ async function evaluateNudgeOne(
           signalStrength: sigStrength,
           planLedgerCategoryId: planSlotForEvt?.categoryId ?? null,
           planLedgerSubcategory: planSlotForEvt?.subcategory ?? null,
+          planLedgerHrDeltaBpm:
+            typeof pat?.hrDeltaBpm === "number" ? pat.hrDeltaBpm : null,
         };
       }
     }
@@ -3912,6 +3918,8 @@ async function evaluateNudgeTwo(
       signalStrength: sigStrength,
       planLedgerCategoryId: planSlotForEvt?.categoryId ?? null,
       planLedgerSubcategory: planSlotForEvt?.subcategory ?? null,
+      planLedgerHrDeltaBpm:
+        typeof pat?.hrDeltaBpm === "number" ? pat.hrDeltaBpm : null,
     };
   }
 
@@ -5269,6 +5277,7 @@ serve(async (req) => {
       // WS6 — telemetry only. Stamped on payload.metadata below.
       planLedgerCategoryId?: string | null;
       planLedgerSubcategory?: string | null;
+      planLedgerHrDeltaBpm?: number | null;
     }> = [];
 
     // 3. Evaluate each user
@@ -6324,6 +6333,7 @@ serve(async (req) => {
             // WS6 — telemetry only; consumed at payload.metadata below.
             planLedgerCategoryId: bestNudge.planLedgerCategoryId ?? null,
             planLedgerSubcategory: bestNudge.planLedgerSubcategory ?? null,
+            planLedgerHrDeltaBpm: bestNudge.planLedgerHrDeltaBpm ?? null,
           });
         }
       } else {
@@ -6572,6 +6582,9 @@ serve(async (req) => {
           // are unchanged. Null for non-JIT anchored sends.
           plan_ledger_category: notif.planLedgerCategoryId ?? null,
           plan_ledger_subcategory: notif.planLedgerSubcategory ?? null,
+          // WS-B · Precise HR delta (bpm) sourced from subcategory_lift.
+          // Telemetry-only; nudge copy is unchanged.
+          plan_ledger_hr_delta_bpm: notif.planLedgerHrDeltaBpm ?? null,
         },
         decision_trace: {
           variant: notif.copy.variantId,

@@ -34,6 +34,11 @@ import {
 } from "../_shared/executive-state-taxonomy.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 import {
+  getSubcategoryForEvent,
+  loadPriorityMemoryForUser,
+  type PriorityMemoryIndex,
+} from "../_shared/plan/event-priority-memory.ts";
+import {
   buildWearableDiagnostics,
   type WearableDiagnostics,
 } from "./_diagnostics.ts";
@@ -498,6 +503,16 @@ serve(async (req) => {
     const checkins = checkinsRes.data || [];
     const briefs = briefsRes.data || [];
     const hasCalendar = !!calConnRes.data?.is_active;
+
+    // WS-A · Best-effort load of persisted A–H subcategories for this user.
+    // When a memory row exists for a given event_id, prefer it over the
+    // deterministic classifier below. Falls back silently on any error.
+    let priorityMemoryIndex: PriorityMemoryIndex | null = null;
+    try {
+      priorityMemoryIndex = await loadPriorityMemoryForUser(supabase, userId);
+    } catch (_e) {
+      priorityMemoryIndex = null;
+    }
 
     const sleepRowsAvailable = wearable.filter(
       (w: any) => typeof w.sleep_score === "number" || typeof w.total_sleep_minutes === "number",
@@ -1397,20 +1412,44 @@ serve(async (req) => {
       category_lift.sort((a, b) => b.compositeLift - a.compositeLift);
 
       // ── (2b) subcategory_lift: rollup by (categoryId, subcategoryId) ─
-      // Subcategory id derived from canonical subtype id (`str.deep_work`
-      // → `deep_work`). Additive; consumed by Insights Stress Load only.
+      // WS-A · Prefer persisted `event_priority_memory.event_subcategory`
+      // per event when available; fall back to canonical subtype id
+      // (`str.deep_work` → `deep_work`). Additive; Insights Stress Load
+      // reads this rollup directly.
       const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
-      hrAcc.forEach(({ hrDeltas, et }) => {
-        if (!et) return;
-        const subcategoryId = et.id.includes(".") ? et.id.split(".")[1] : et.id;
-        const key = `${et.categoryId}::${subcategoryId}`;
-        if (!subAcc.has(key)) {
-          subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
+      if (restingBaseline !== null) {
+        for (const e of events as any[]) {
+          if (!e.start_time || !e.end_time) continue;
+          const et = classifyEventCanonical(e.title);
+          if (!et) continue;
+          const dayKey = ymd(new Date(e.start_time));
+          const samples = hrSamplesByDay.get(dayKey);
+          if (!samples || samples.length === 0) continue;
+          const startMs = new Date(e.start_time).getTime();
+          const endMs = new Date(e.end_time).getTime();
+          let peak = 0;
+          for (const s of samples) {
+            const t = new Date(s.t).getTime();
+            if (t >= startMs && t <= endMs && typeof s.v === "number" && s.v > peak) peak = s.v;
+          }
+          if (peak <= 0) continue;
+          const hrDelta = peak - restingBaseline;
+          if (!Number.isFinite(hrDelta)) continue;
+          const eventId = typeof e.id === "string" ? e.id : null;
+          const persistedSub = priorityMemoryIndex
+            ? getSubcategoryForEvent(priorityMemoryIndex, eventId)
+            : null;
+          const fallbackSub = et.id.includes(".") ? et.id.split(".")[1] : et.id;
+          const subcategoryId = persistedSub || fallbackSub;
+          const key = `${et.categoryId}::${subcategoryId}`;
+          if (!subAcc.has(key)) {
+            subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
+          }
+          const slot = subAcc.get(key)!;
+          slot.hr.push(hrDelta);
+          slot.n += 1;
         }
-        const slot = subAcc.get(key)!;
-        slot.hr.push(...hrDeltas);
-        slot.n += hrDeltas.length;
-      });
+      }
       const subcategory_lift: PerformanceLift["subcategory_lift"] = [];
       subAcc.forEach((slot) => {
         if (slot.n < MIN_OCCURRENCES_EMERGING) return;

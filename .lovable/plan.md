@@ -1,74 +1,96 @@
-## Goal
 
-Close the four launch-adjacent gaps surfaced in the WS6 audit:
+# Close WS-A / WS-B / WS-D gaps + FE consumption sweep across WS1–6
 
-1. Give `event_priority_memory.event_subcategory` (WS3 writer) a real reader so subcategory context flows into Insights + Plan without on-the-fly re-classification.
-2. Make `findEventPattern`'s subcategory branch cite HR precisely instead of synthesising `rhrElevated: true`.
-3. Repair the pre-existing failing source-assertion tests (`plan_fallback_test`, `force_user_isolation_test`) that drifted from the current `smart-nudges/index.ts`.
-4. Lock the WS6 contract with a dedicated `smart-nudges` regression test.
+Goal: make persisted `event_priority_memory.event_subcategory` the single source of truth end-to-end (edge → FE), lock the contract with a regression test, take the first `hrDeltaBpm` citation step, **and confirm every FE surface for WS1–6 is wired to the A–H taxonomy fields it should be reading**.
 
-Why this matters (plain English):
-- WS3 today stamps a subcategory column that nothing reads, so the two downstream customers that care about A–H nuance — the weekly picker and the Insights Stress-Load card — keep re-deriving subcategory from titles every request. That is slower, and it also means user-authored tags (relationship, importance) never anchor to a subcategory the DB already knows. Adding a reader closes the loop and makes the cause-and-effect card honour subcategory-level differences (e.g. "Board Review" vs generic "Review").
-- The nudge citation currently says "reserves elevated" for a subcategory pattern that actually only knows about a peak-HR delta. Passing the real bpm through lets copy stay honest without inventing HRV state.
-- The two failing tests block a clean pre-launch green build and hide real regressions. They are string-assertion drift, not runtime bugs.
-- A dedicated WS6 test prevents the A–H tag flow from silently regressing after future refactors.
+---
 
-## Workstreams
+## Part A — Backend + shared type work
 
-### WS-A · Subcategory reader for `event_priority_memory`
+### 1. Shared taxonomy type (unblocks FE + edge reuse)
+- Add `supabase/functions/_shared/events/priority-types.ts` exporting `WeekAheadPriority` (mirrors edge `Scored` incl. `subcategoryId: string | null`) and `WeekAheadTag` union.
+- Mirror as plain TS in `src/types/weekAhead.ts` for FE (Vite can't import Deno `npm:` specifiers). Keep the two in sync — single ~10-line struct.
+- `list-week-ahead-priorities/index.ts` and `WeekAheadPriorities.tsx` both import the shared type instead of redeclaring `PriorityItem` / `Scored`.
 
-Files:
-- `supabase/functions/_shared/plan/event-priority-memory.ts` — extend the shared loader to select `event_subcategory` alongside existing tag fields and return it on the row shape.
-- `supabase/functions/list-week-ahead-priorities/index.ts` — when the persisted subcategory is present, use it in place of `enrichEvent(...).subcategoryId` for the meta payload. Fall back to `enrichEvent` when null (older rows).
-- `supabase/functions/cause-effect-engine/index.ts` — during the `subcategory_lift` rollup, prefer the persisted `event_subcategory` for the (categoryId, subcategoryId) key when a matching `event_priority_memory` row exists for that event; keep `enrichEvent` as the fallback.
-- `src/integrations/supabase/types.ts` — no change (column already present from WS3 migration).
+### 2. Shared loader extension (WS-A gap #1)
+Extend `supabase/functions/_shared/plan/event-priority-memory.ts`:
+- Add `event_subcategory` (nullable) to `PriorityMemoryRow` and to the `select(...)` in `loadPriorityMemoryForUser`.
+- Add helper `getSubcategoryForEvent(index, key): string | null` returning the most recent non-null value.
+- `generate-mastery-plan` priority-memory reads use the helper first; `enrichEvent(title).subcategory` only as fallback. No behaviour change when memory absent.
 
-Contract: reader is additive and null-safe. No writer changes. No UI changes.
+### 3. cause-effect-engine consumption (WS-A gap #2)
+`supabase/functions/cause-effect-engine/index.ts`:
+- When building `subcategory_lift`, prefer persisted subcategory (via shared loader keyed by `event_id`) before falling back to `classifyEventCanonical(title)`.
+- Deterministic classifier remains for events without a memory row. `hrDeltaBpm` emission unchanged.
 
-### WS-B · Precise HR citation in `findEventPattern` subcategory branch
+### 4. hrDeltaBpm first citation (WS-B step 1, copy-only)
+`supabase/functions/smart-nudges/index.ts`:
+- In subcategory-branch nudge copy, when `hrDeltaBpm ≥ 3`, append parenthetical (e.g. `"(+4 bpm vs baseline)"`) after the existing context clause. Skip when null/<3 or when length clamp would be exceeded. No structural change — Mind Module title + Context+CTA body contract preserved.
 
-Files:
-- `supabase/functions/smart-nudges/index.ts`
-  - Extend the returned `EventPattern` shape (or the local return object of `findEventPattern`) with an optional `hrDeltaBpm: number | null`.
-  - In the subcategory-hit branch, populate `hrDeltaBpm` from `subHit.hrDeltaBpm` instead of synthesising `rhrElevated: true`. Keep `rhrElevated` unset (or `false`) when only HR delta is known.
-  - Update the one or two copy sites that read `rhrElevated` off the subcategory pattern to prefer `hrDeltaBpm` when present.
+### 5. WS-D regression test
+Add `supabase/functions/list-week-ahead-priorities/subcategory_persistence_test.ts` (Deno, mirrors `selector-evidence.test.ts`):
+- E1: memory row with `event_subcategory = 'C.interview_panel'` → response `subcategoryId === 'C.interview_panel'`.
+- E2: no memory row, title matches an `enrichEvent` subcategory → falls back correctly.
+- E3: no memory row, unrecognised title → `subcategoryId === null`.
 
-Contract: category-level branch behaviour unchanged. Ranking heuristic unchanged (composite lift still drives ordering). Only the semantic surfaced to copy is tightened.
+---
 
-### WS-C · Repair pre-existing failing tests
+## Part B — Frontend consumption sweep (WS1–6)
 
-Files:
-- `supabase/functions/smart-nudges/plan_fallback_test.ts` — re-align the string/regex assertions with the current `index.ts`. Specifically:
-  - Update the `planSnapshotStatus === 'missing' || 'empty'` regex to whatever form the source now uses.
-  - Update the `projectPlanSlotToNudge(...)` argument-list regex to match the current call signature.
-  - Update the ready-morning fallback regex to match the current control-flow shape around `evaluateNudgeOne`.
-  - Update the `.select('notification_type, variant_id, sent_at, event_reference, payload')` literal to the current column list.
-- `supabase/functions/smart-nudges/force_user_isolation_test.ts` — re-align the `assertStringIncludes` payloads with the current import path and `if (forceUserId)` block wording.
+Purpose: prove every FE surface downstream of WS1–6 reads the correct backend field. For each, either confirm it's already wired or wire it in this PR.
 
-Rule: fix by adjusting the assertion to the current implementation only where the current implementation still honours the underlying invariant. If any assertion protects an invariant the source no longer implements, flag it in the PR description and leave the test failing rather than papering over a real regression.
+### 6. Week Ahead picker — `WeekAheadPriorities.tsx` (WS1/WS3/WS-A)
+- Adopt shared `WeekAheadPriority` type.
+- Render `subcategoryId` as a subtle secondary chip after the primary category label when non-null; hidden when null. Existing 3-tag truncation unchanged (subcategory is a separate slot).
 
-### WS-D · WS6 regression test
+### 7. Plan slots — `TodayThreePriorities.tsx` (WS4)
+- Verify slots surface `anchorSubcategory` / `anchorCategoryId` / `jitPhase` (incl. Travel Arc) already stamped in `plan_ledger`.
+- If displayed anchor label re-derives from title anywhere, switch to the ledger fields. Otherwise: document as already-wired and skip.
 
-New file: `supabase/functions/smart-nudges/ws6_taxonomy_contract_test.ts`
+### 8. Insights — `PerformanceCausalityCard.tsx` (WS5)
+- Card already consumes `subcategory_lift[].subcategoryId` + `hrDeltaBpm` in the "top subcategories" row (confirmed lines 463–467). Action: confirm no title-based inference remains; if any fallback path still re-derives subcategory client-side, remove it and rely on the server field with a graceful empty state.
 
-Source-string assertions (mirrors the `plan_fallback_test` style, zero runtime cost):
-- `generate-mastery-plan/index.ts` stamps `anchorSubcategory` and `anchorCategoryId` on ledger modules.
-- `smart-nudges/index.ts` reads `anchorSubcategory` off the plan ledger when constructing `PlanNudgeSlot`.
-- `smart-nudges/index.ts` includes `plan_ledger_subcategory` (and `plan_ledger_category`) in the `notification_log` metadata payload for qualified nudges.
-- `findEventPattern` prefers `subcategory_lift` over category-level `hr_event_lift` when a subcategory match exists.
+### 9. Insights — `PerformanceRhythmCard.tsx` (WS5 adjacent)
+- Already reads `categoryId` + `hrDeltaBpm` from `hr_event_lift` (confirmed lines 120–371). Action: no code change; include in the validation checklist.
 
-## Sequencing & risk
+### 10. Notifications surface (WS6)
+- `notification_log.metadata.plan_ledger_subcategory` and `anchor_category` are stamped server-side. FE currently doesn't render these (nudges are OS-level). Action: none — document as "backend-only telemetry, no FE surface required."
 
-1. WS-C first (unblocks green CI, no runtime impact).
-2. WS-D next (locks WS6, no runtime impact).
-3. WS-B next (small, isolated typing + copy change in smart-nudges).
-4. WS-A last (touches three edge functions; ship behind the existing null-safe fallback so older rows keep working).
+### 11. Sweep test — `src/components/home/__tests__/planSlotRendering.test.ts`
+- Extend existing test with a case asserting a slot with `anchorSubcategory` renders and does not fall back to title-based inference. Locks WS4→FE contract.
 
-All four are additive and reversible. No schema changes, no new secrets, no UI changes.
+---
 
-## Out of scope
+## Part C — Hygiene
 
-- Any change to the WS6 nudge structure (Mind Module title + subtitle + Context+CTA body stays intact).
-- Any change to the A–H taxonomy itself.
-- Any change to `hrvDeltaPct` / `rhrDeviationPct` computation upstream.
-- Backfill of `event_subcategory` for historic `event_priority_memory` rows — reader is null-safe and enrichEvent remains the fallback.
+### 12. Migration
+No backfill — historical `event_priority_memory` rows stay NULL; WS-A fallback (`enrichEvent`) handles them and is covered by the new test.
+
+### 13. Out of scope
+- Broader `hrDeltaBpm` surfacing (tooltips, Insights body copy).
+- Rewriting cause-effect classifier to trust memory unconditionally.
+- Historical backfill job.
+- Any WS1–3 core taxonomy/writer changes (already shipped).
+
+---
+
+## Validation
+
+- `deno test supabase/functions/list-week-ahead-priorities/subcategory_persistence_test.ts`
+- `deno test supabase/functions/_shared/plan/event-priority-memory.test.ts` (extend for new field)
+- `bunx vitest run src/components/home/__tests__ src/components/insights/__tests__`
+- Manual: load Week Ahead picker, confirm subcategory chip appears where memory has one.
+- Redeploy: `list-week-ahead-priorities`, `generate-mastery-plan`, `cause-effect-engine`, `smart-nudges`.
+
+## FE consumption matrix (post-PR)
+
+```text
+WS  Backend field                          FE surface                        Status after PR
+--  -------------------------------------  --------------------------------  ---------------
+1   event category/subcategory taxonomy    (shared types)                    wired (shared type)
+2   enrichEvent output                     Week Ahead, Plan                  wired
+3   event_priority_memory.event_subcat.    Week Ahead subcategory chip       wired (new)
+4   plan_ledger anchorSubcategory/Arc      TodayThreePriorities slot label   wired (verified)
+5   cause_effect subcategory_lift          PerformanceCausalityCard          wired (verified)
+6   nudge metadata (plan_ledger_subcat.)   n/a (OS notification only)        n/a — telemetry only
+```
