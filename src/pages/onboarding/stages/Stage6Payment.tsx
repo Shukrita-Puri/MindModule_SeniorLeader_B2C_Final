@@ -13,7 +13,8 @@ export default function Stage6Payment() {
   const navigate = useNavigate();
   const location = useLocation();
   const { recordStep } = useOnboardingProgress();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshProfile } = useAuth();
+  const [checkoutReturnProcessing, setCheckoutReturnProcessing] = useState(false);
   // Canonical access decision is the single source of truth. Until it resolves
   // to a definitive verdict we render the loader and DO NOT route the user.
   const onboardingAccess = resolveOnboardingAccess(user);
@@ -41,6 +42,46 @@ export default function Stage6Payment() {
   const isAnnualSubscriber = currentTier === 'annual_pro' && hasValidUserAccess;
   const isUpgradeVisit = hasExplicitUpgradeSource || hasCompletedOnboarding;
   const showUpgradeMode = hasExplicitUpgradeSource || (isUpgradeVisit && (isMonthlySubscriber || isExpiredBeta || isExpiredTrial || !hasValidUserAccess));
+
+  useEffect(() => {
+    const checkoutSessionId = new URLSearchParams(location.search).get('session_id');
+    if (!checkoutSessionId) return;
+
+    let cancelled = false;
+    setCheckoutReturnProcessing(true);
+    recordStep('payment', {
+      completed: true,
+      reason: 'stripe_checkout_return',
+    });
+
+    const next = new URLSearchParams(location.search);
+    next.delete('session_id');
+    navigate(
+      {
+        pathname: location.pathname,
+        search: next.toString() ? `?${next.toString()}` : '',
+      },
+      { replace: true }
+    );
+
+    const refreshDelays = [0, 1500, 3500];
+    const timers = refreshDelays.map((delay) => (
+      window.setTimeout(() => {
+        refreshProfile().catch((err) => {
+          console.warn('[Stage6Payment] Profile refresh after checkout return failed:', err);
+        });
+      }, delay)
+    ));
+
+    timers.push(window.setTimeout(() => {
+      if (!cancelled) setCheckoutReturnProcessing(false);
+    }, 4500));
+
+    return () => {
+      cancelled = true;
+      timers.forEach(window.clearTimeout);
+    };
+  }, [location.pathname, location.search, navigate, recordStep, refreshProfile]);
 
   useEffect(() => {
     // Never auto-redirect while the access decision is still resolving.
@@ -194,7 +235,7 @@ export default function Stage6Payment() {
   // valid beta without an explicit upgrade source, render a neutral loader
   // instead of the pricing UI. Prevents the "payment flash for beta user"
   // bug while profile is still syncing.
-  if (accessPending || (isBetaValid && !hasExplicitUpgradeSource)) {
+  if (accessPending || checkoutReturnProcessing || (isBetaValid && !hasExplicitUpgradeSource)) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
