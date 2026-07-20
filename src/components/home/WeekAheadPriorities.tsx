@@ -142,6 +142,9 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
             (it as any).priorSignal === "never"
               ? ((it as any).priorSignal as Signal)
               : null,
+          subcategoryId: typeof (it as any).subcategoryId === "string"
+            ? ((it as any).subcategoryId as string)
+            : null,
         }));
       setItems(safe);
       // Rehydrate decisions from the server so the user's prior
