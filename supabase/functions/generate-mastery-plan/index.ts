@@ -7150,8 +7150,17 @@ async function generateMasteryPlan(
         : "";
       if (!title) continue;
       const en = enrichEvent({ title });
-      if (anyM.anchorSubcategory == null && en.subcategory) {
-        anyM.anchorSubcategory = en.subcategory;
+      // WS-A · Prefer the subcategory persisted by
+      // `record-event-priority-signal` for this event over on-the-fly
+      // classification. Falls back to enrichEvent when memory is silent.
+      const anchorEventId = typeof anyM.anchorEventId === "string"
+        ? (anyM.anchorEventId as string)
+        : null;
+      const persistedSub = priorityMemoryIndex
+        ? getSubcategoryForEvent(priorityMemoryIndex, anchorEventId)
+        : null;
+      if (anyM.anchorSubcategory == null && (persistedSub || en.subcategory)) {
+        anyM.anchorSubcategory = persistedSub ?? en.subcategory;
       }
       if (anyM.anchorCategoryId == null && en.categoryId) {
         anyM.anchorCategoryId = en.categoryId;
