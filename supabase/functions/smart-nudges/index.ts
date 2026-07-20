@@ -874,6 +874,33 @@ interface NudgeCopy {
   aiProvider?: "claude" | "gemini" | "static" | null;
 }
 
+/**
+ * WS-B step 1 · Optional parenthetical HR-delta citation.
+ *
+ * When the JIT nudge was anchored via a subcategory-level HR lift and the
+ * delta is meaningful (≥ 3 bpm), insert `" (+N bpm vs baseline)"` after the
+ * first sentence of the body. Preserves the Mind Module title + Context+CTA
+ * body contract: no restructuring, no CTA verb change, and skipped entirely
+ * when the resulting body would exceed the 160-char clamp or no sentence
+ * boundary exists to insert after.
+ */
+function citeHrDeltaInBody(
+  body: string,
+  hrDeltaBpm: number | null | undefined,
+): string {
+  if (typeof hrDeltaBpm !== "number" || !Number.isFinite(hrDeltaBpm)) return body;
+  const abs = Math.round(Math.abs(hrDeltaBpm));
+  if (abs < 3) return body;
+  const sign = hrDeltaBpm >= 0 ? "+" : "-";
+  const cite = ` (${sign}${abs} bpm vs baseline)`;
+  // Insert after the first sentence-ending period (not the CTA period).
+  const m = body.match(/^([^.!?]+[.!?])\s+(.+)$/);
+  if (!m) return body;
+  const candidate = `${m[1]}${cite} ${m[2]}`;
+  if (candidate.length > 160) return body;
+  return candidate;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── A/B CTA Variant System (v5.1) ──
 // Goal: measure which action-verb CTA drives the highest
@@ -3746,7 +3773,10 @@ async function evaluateNudgeOne(
 
         return {
           type: "nudge_one",
-          copy,
+          // WS-B step 1 — parenthetical HR-delta citation on subcategory hits.
+          copy: pat && pat.source === "subcategory"
+            ? { ...copy, body: citeHrDeltaInBody(copy.body, pat.hrDeltaBpm) }
+            : copy,
           deepLinkRoute: route,
           eventReference: evt.externalId,
           priority: 0,
@@ -3909,7 +3939,9 @@ async function evaluateNudgeTwo(
 
     return {
       type: "nudge_two",
-      copy,
+      copy: pat && pat.source === "subcategory"
+        ? { ...copy, body: citeHrDeltaInBody(copy.body, pat.hrDeltaBpm) }
+        : copy,
       deepLinkRoute: route,
       eventReference: evt.externalId,
       priority: 1,

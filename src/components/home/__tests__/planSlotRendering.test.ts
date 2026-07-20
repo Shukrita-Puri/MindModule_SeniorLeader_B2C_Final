@@ -183,4 +183,37 @@ describe('Sprint F — Plan slot rendering contract', () => {
       expect(SRC).toContain('strictBriefHandshake: true,');
     });
   });
+
+  // WS4 → FE contract: slot metadata comes from `plan_ledger` fields
+  // (`jitPhase`, `anchorSubcategory`, `anchorCategoryId`). The component
+  // must NOT re-derive the anchor from the event title on the client.
+  describe('WS4 · ledger-driven anchor rendering (no title inference)', () => {
+    it('does not import a client-side title classifier (enrichEvent)', () => {
+      expect(SRC).not.toMatch(/from\s+['"][^'"]*enrich-event['"]/);
+      expect(SRC).not.toMatch(/\benrichEvent\s*\(/);
+    });
+
+    it('reads jitPhase directly from the horizon module (ledger field)', () => {
+      expect(SRC).toContain('jitPhase: hm?.jitPhase ?? null');
+    });
+
+    it('emits jitPhase into the slot debug payload without post-processing', () => {
+      const plan = { meta: { dayShape: 'standard', mode: 'default', generatedAt: '' } };
+      const hm = {
+        arcLabel: 'Prepare',
+        slotRole: 'event-anchored',
+        jitPhase: 'pre',
+        jitEventTitle: 'Board review',
+        isJit: true,
+        combo: 'cognitive:prime',
+        intent: 'prepare',
+        mode: null,
+        practice: { contentId: 'p-42', title: 'Pre-brief centring' },
+      };
+      const payload = buildSlotDebugPayload(plan, hm, 0);
+      expect(payload.jitPhase).toBe('pre');
+      expect(payload.jitEventTitle).toBe('Board review');
+      expect(payload.arcLabel).toBe('Prepare');
+    });
+  });
 });
