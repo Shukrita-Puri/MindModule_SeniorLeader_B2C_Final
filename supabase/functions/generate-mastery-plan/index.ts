@@ -8574,7 +8574,7 @@ function pickActionVerb(primaryType: string): string {
   }
 }
 
-function normalizeDeterministicWhyLine(text: string, maxWords = 30): string {
+function normalizeDeterministicWhyLine(text: string, maxWords = 35): string {
   const cleaned = stripBriefMarkdown(text).replace(/\s+/g, " ").trim();
   if (!cleaned) return cleaned;
   const words = cleaned.split(/\s+/);

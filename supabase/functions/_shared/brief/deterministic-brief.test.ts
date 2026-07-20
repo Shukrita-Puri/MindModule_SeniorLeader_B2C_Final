@@ -64,6 +64,21 @@ Deno.test("deterministic brief — low sleep into strategy uses preparation wind
   assertStringIncludes(built.body, "Protect the first thinking window before the strategy session");
 });
 
+Deno.test("deterministic brief — wearable plus stacked calendar uses calendar-load evidence", () => {
+  const built = buildDeterministicBriefFallback(base({
+    band: "steady",
+    hasWearable: true,
+    wearableFact: "Recovery signals are in",
+    calendarLoad: "high",
+    meetingCount: 5,
+    hasBackToBack: true,
+    physicalPillTier: "amber",
+  }));
+
+  assertStringIncludes(built.body, "with 5 meetings stacked this morning");
+  assertStringIncludes(built.body, "Physical load is elevated going into a compressed calendar");
+});
+
 Deno.test("deterministic brief — firing plus drained check-in uses divergence phrase", () => {
   const built = buildDeterministicBriefFallback(base({
     band: "firing",

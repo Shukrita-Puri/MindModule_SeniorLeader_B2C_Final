@@ -62,6 +62,15 @@ Deno.test("Sprint E — deterministic valence guard reuses validateWhyLine + rec
   assertStringIncludes(SRC, "fallback=deterministic_repair reject=");
 });
 
+Deno.test("Part B — deterministic why-line cap follows 35-word fallback spec", () => {
+  assertStringIncludes(SRC, "function normalizeDeterministicWhyLine(text: string, maxWords = 35): string");
+});
+
+Deno.test("Part C — deterministic why-line default avoids forbidden hold-the-base phrase", () => {
+  assertStringIncludes(SRC, 'return "Protect the priority";');
+  assert(!SRC.includes('return "Hold the base";'), "deterministic default must not use forbidden hold-the-base phrase");
+});
+
 Deno.test("Sprint E — LLM WhyLLMInput carries the new window fields", () => {
   assertStringIncludes(SRC, "decisionLeakageRisk: whyWindowSignals?.decisionLeakageRisk === true ? true : undefined,");
   assertStringIncludes(SRC, "bodyLoadElevated: whyWindowSignals?.bodyLoadElevated === true ? true : undefined,");

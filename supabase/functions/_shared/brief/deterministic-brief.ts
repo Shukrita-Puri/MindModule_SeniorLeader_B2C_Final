@@ -101,6 +101,21 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   }
 
   if (
+    opts.hasWearable &&
+    !hasHighStakes &&
+    (opts.meetingCount >= 3 || opts.calendarLoad === "medium" || opts.calendarLoad === "high")
+  ) {
+    if (opts.meetingCount >= 3) {
+      return `${
+        wearableFact ?? "Recovery signals are in"
+      } with ${opts.meetingCount} meetings stacked this ${opts.window}.`;
+    }
+    return `${
+      wearableFact ?? "Recovery signals are in"
+    } and the calendar is ${opts.calendarLoad} this ${opts.window}.`;
+  }
+
+  if (
     opts.hasWearable && opts.checkInOutcome &&
     opts.checkInOutcome !== "sharp"
   ) {
@@ -141,6 +156,12 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
     return "The felt state and the calendar don't match - that gap is what needs managing.";
   }
   if (lowSleepIntoHighStakes) return "That changes what preparation looks like.";
+  if (opts.hasBackToBack && opts.physicalPillTier !== "green") {
+    return "Physical load is elevated going into a compressed calendar.";
+  }
+  if (hasHighStakes && opts.cognitivePillTier === "green") {
+    return "Decision focus is clear and the calendar is stacked.";
+  }
 
   const pillKey = `${opts.cognitivePillTier}+${opts.physicalPillTier}`;
   const readMap: Record<string, string> = {
