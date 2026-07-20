@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, X, Loader2 } from "lucide-react";
@@ -15,6 +15,12 @@ export default function Stage6Payment() {
   const { recordStep } = useOnboardingProgress();
   const { user, loading: authLoading, refreshProfile } = useAuth();
   const [checkoutReturnProcessing, setCheckoutReturnProcessing] = useState(false);
+  const [checkoutFallback, setCheckoutFallback] = useState(false);
+  const processedCheckoutSessionRef = useRef<string | null>(null);
+  const refreshProfileRef = useRef(refreshProfile);
+  const recordStepRef = useRef(recordStep);
+  useEffect(() => { refreshProfileRef.current = refreshProfile; }, [refreshProfile]);
+  useEffect(() => { recordStepRef.current = recordStep; }, [recordStep]);
   // Canonical access decision is the single source of truth. Until it resolves
   // to a definitive verdict we render the loader and DO NOT route the user.
   const onboardingAccess = resolveOnboardingAccess(user);
@@ -44,43 +50,69 @@ export default function Stage6Payment() {
   const showUpgradeMode = hasExplicitUpgradeSource || (isUpgradeVisit && (isMonthlySubscriber || isExpiredBeta || isExpiredTrial || !hasValidUserAccess));
 
   useEffect(() => {
-    const checkoutSessionId = new URLSearchParams(location.search).get('session_id');
+    const checkoutSessionId = new URLSearchParams(window.location.search).get('session_id');
     if (!checkoutSessionId) return;
+    // Guard: only process a given session_id once per page load.
+    if (processedCheckoutSessionRef.current === checkoutSessionId) return;
+    processedCheckoutSessionRef.current = checkoutSessionId;
 
     let cancelled = false;
     setCheckoutReturnProcessing(true);
-    recordStep('payment', {
+    setCheckoutFallback(false);
+
+    // Fire-and-forget: record step once.
+    recordStepRef.current('payment', {
       completed: true,
       reason: 'stripe_checkout_return',
     });
 
-    const next = new URLSearchParams(location.search);
+    // Strip session_id from URL without remounting the route.
+    const next = new URLSearchParams(window.location.search);
     next.delete('session_id');
     const cleanedSearch = next.toString();
     window.history.replaceState(
       window.history.state,
       '',
-      `${location.pathname}${cleanedSearch ? `?${cleanedSearch}` : ''}`
+      `${window.location.pathname}${cleanedSearch ? `?${cleanedSearch}` : ''}`
     );
 
+    // Limited profile refresh retries: 0ms, 1500ms, 3500ms.
     const refreshDelays = [0, 1500, 3500];
-    const timers = refreshDelays.map((delay) => (
+    const timers: number[] = refreshDelays.map((delay) => (
       window.setTimeout(() => {
-        refreshProfile().catch((err) => {
+        if (cancelled) return;
+        refreshProfileRef.current().catch((err) => {
           console.warn('[Stage6Payment] Profile refresh after checkout return failed:', err);
         });
       }, delay)
     ));
 
+    // After the last retry, stop the loader. Redirect (if access is now
+    // valid) is handled by the auto-redirect effect below; otherwise show
+    // the fallback message.
     timers.push(window.setTimeout(() => {
-      if (!cancelled) setCheckoutReturnProcessing(false);
-    }, 4500));
+      if (cancelled) return;
+      setCheckoutReturnProcessing(false);
+      setCheckoutFallback(true);
+    }, 5000));
 
     return () => {
       cancelled = true;
       timers.forEach(window.clearTimeout);
     };
-  }, [location.pathname, location.search, navigate, recordStep, refreshProfile]);
+    // Intentionally run once on mount; refs keep function identities stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Once access flips to valid during the checkout-return window, redirect
+  // immediately and clear the fallback state.
+  useEffect(() => {
+    if (!processedCheckoutSessionRef.current) return;
+    if (!hasValidUserAccess) return;
+    setCheckoutReturnProcessing(false);
+    setCheckoutFallback(false);
+    navigate('/executive-home', { replace: true });
+  }, [hasValidUserAccess, navigate]);
 
   useEffect(() => {
     // Never auto-redirect while the access decision is still resolving.
