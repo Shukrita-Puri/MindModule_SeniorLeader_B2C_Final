@@ -110,6 +110,12 @@ Deno.serve(async (req) => {
           trial_ends_at: subscription?.trial_end
             ? new Date(subscription.trial_end * 1000).toISOString()
             : null,
+          // A brand-new checkout supersedes any prior cancellation timestamps
+          // on the profile. Without clearing these, the UI keeps showing
+          // "Canceled / Access ended" even though Stripe has issued a new
+          // active/trialing subscription.
+          subscription_canceled_at: null,
+          subscription_cancel_at: null,
         }).eq('id', userId);
 
         await supabase.from('subscription_events').insert({
@@ -390,6 +396,33 @@ Deno.serve(async (req) => {
         const subscription = event.data.object as Stripe.Subscription;
         const userId = subscription.metadata?.userId;
         if (!userId) break;
+
+        // Only cancel the profile if the deleted subscription is the one the
+        // profile currently tracks. A stale `subscription.deleted` for an
+        // older subscription must NOT wipe access when the user has since
+        // started a newer active/trialing subscription.
+        const { data: currentProfile } = await supabase
+          .from('profiles')
+          .select('stripe_subscription_id, subscription_status')
+          .eq('id', userId)
+          .single();
+
+        if (currentProfile?.stripe_subscription_id && currentProfile.stripe_subscription_id !== subscription.id) {
+          console.log(
+            `[stripe-webhook] Ignoring subscription.deleted for ${subscription.id} — profile tracks ${currentProfile.stripe_subscription_id}`,
+          );
+          await supabase.from('subscription_events').insert({
+            user_id: userId,
+            event_type: 'stale_cancel_ignored',
+            stripe_event_id: event.id,
+            stripe_event_type: event.type,
+            metadata: {
+              deleted_subscription_id: subscription.id,
+              current_subscription_id: currentProfile.stripe_subscription_id,
+            },
+          });
+          break;
+        }
 
         const fromTier = subscription.items.data[0]?.price?.recurring?.interval === 'year'
           ? 'annual_pro' : 'monthly_pro';
