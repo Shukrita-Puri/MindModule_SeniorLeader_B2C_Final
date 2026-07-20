@@ -89,6 +89,7 @@ import {
 } from "../_shared/plan/practice-selector.ts";
 import {
   applyEventPriorityMemory,
+  getSubcategoryForEvent,
   loadPriorityMemoryForUser,
   normalizeEventTitleMemoryKey,
   type PriorityMemoryIndex,
