@@ -6310,6 +6310,9 @@ serve(async (req) => {
                 todayStr,
                 isTravel,
               ),
+            // WS6 — telemetry only; consumed at payload.metadata below.
+            planLedgerCategoryId: bestNudge.planLedgerCategoryId ?? null,
+            planLedgerSubcategory: bestNudge.planLedgerSubcategory ?? null,
           });
         }
       } else {
