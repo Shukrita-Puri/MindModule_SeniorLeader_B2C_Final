@@ -6556,6 +6556,11 @@ serve(async (req) => {
           cta_bucket: notif.ctaBucket,
           requires_app_open: notif.requiresAppOpen,
           weekend_cta_gate: notif.weekendCtaGate ?? null,
+          // WS6 — A-H taxonomy tags flowed through from the plan ledger.
+          // Additive telemetry; Mind Module title / subtitle / body shape
+          // are unchanged. Null for non-JIT anchored sends.
+          plan_ledger_category: notif.planLedgerCategoryId ?? null,
+          plan_ledger_subcategory: notif.planLedgerSubcategory ?? null,
         },
         decision_trace: {
           variant: notif.copy.variantId,
