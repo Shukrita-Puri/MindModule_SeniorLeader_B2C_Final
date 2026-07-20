@@ -122,6 +122,10 @@ function firstIncompleteStep(status: Record<OnboardingV8StepId, OnboardingStepSt
   return STEP_ORDER.find((step) => status[step] !== "completed") ?? null;
 }
 
+function hasStartedV8(status: Record<OnboardingV8StepId, OnboardingStepStatus>): boolean {
+  return Object.values(status).some((stepStatus) => stepStatus !== "not_started");
+}
+
 export async function loadOnboardingV8ResumeState(): Promise<OnboardingV8ResumeState> {
   const token = await getAuthToken();
   if (!token) {
@@ -161,9 +165,12 @@ export async function loadOnboardingV8ResumeState(): Promise<OnboardingV8ResumeS
 
   const completed = Boolean(profile?.onboarding_completed_at);
   const currentStep = firstIncompleteStep(stepStatus);
+  const hasStarted = hasStartedV8(stepStatus);
   const nextRoute = completed
     ? "/executive-home"
-    : currentStep
+    : !hasStarted
+      ? "/onboarding/app-intro"
+      : currentStep
       ? STEP_ROUTE[currentStep]
       : synthesisStatus === "failed"
         ? "/onboarding/done"

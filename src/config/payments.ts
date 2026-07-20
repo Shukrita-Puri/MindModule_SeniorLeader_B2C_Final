@@ -1,1 +1,1 @@
-export const PAYMENT_PAGE_SUPPRESSED = true;
+export const PAYMENT_PAGE_SUPPRESSED = false;

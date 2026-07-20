@@ -115,7 +115,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'EXPLORE WHEN YOU NEED',
     tooltipPosition: 'auto',
     spotlightPad: 6,
-    spotlightRadius: 9999,
+    spotlightRadius: 22,
   },
   {
     targetSelector: '[data-tour="bottom-nav-insights"]',
@@ -130,7 +130,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'EXPLORE WHEN YOU NEED',
     tooltipPosition: 'auto',
     spotlightPad: 6,
-    spotlightRadius: 9999,
+    spotlightRadius: 22,
   },
 ];
 

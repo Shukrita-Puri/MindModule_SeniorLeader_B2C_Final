@@ -59,6 +59,8 @@ const safeRemove = (k: string) => {
 const safeGet = (k: string): string | null => {
   try { return sessionStorage.getItem(k); } catch { return null; }
 };
+const TOUR_MOCK_KEY = 'tour_mock_active';
+const TOUR_MOCK_EVENT = 'tour-mock-changed';
 
 /**
  * Initialise tour state and return the route the caller should navigate to.
@@ -77,7 +79,11 @@ export function startFirstSessionTour({ userId, source }: StartTourOptions): str
   safeRemove(FST_KEYS.introSeen);
   // A previous completion marker would suppress the new tour run.
   safeRemove(FST_KEYS.done);
+  // Set this before navigation so MRS, Brief, and Plan render their populated
+  // tour examples on the first paint, including Profile retakes.
+  safeSet(TOUR_MOCK_KEY, '1');
   try {
+    window.dispatchEvent(new CustomEvent(TOUR_MOCK_EVENT));
     window.dispatchEvent(new CustomEvent(FIRST_SESSION_TOUR_STARTED_EVENT, {
       detail: { userId: userId || null, source },
     }));
@@ -119,7 +125,8 @@ export function isRetakeForUser(userId?: string | null): boolean {
   // CONTRACT: the "Retake Tour" entry point in Profile is only visible to
   // existing users. So a truthy retake flag is a deterministic
   // "this is NOT a first-time user" signal. The TourMock gate relies on
-  // this to avoid ever showing demo Brief/Plan content to retake users.
+  // this to show demo Brief/Plan content without classifying retakes as new
+  // onboarding users.
   const r = safeGet(FST_KEYS.retake);
   if (!r) return false;
   if (!userId) return true;
@@ -154,5 +161,7 @@ export function clearFirstSessionTour(opts: { markDone?: boolean } = {}): void {
   safeRemove(FST_KEYS.retake);
   safeRemove(FST_KEYS.introSeen);
   safeRemove(FST_KEYS.source);
+  safeRemove(TOUR_MOCK_KEY);
   if (opts.markDone) safeSet(FST_KEYS.done, '1');
+  try { window.dispatchEvent(new CustomEvent(TOUR_MOCK_EVENT)); } catch { /* non-browser/test environment */ }
 }

@@ -304,10 +304,9 @@ const WEEK_AHEAD_PICKER_ENABLED =
 // MVP feature flag - set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
-// Sub-flag for staged activation once the post-launch evaluator bucket is on.
-// Keep this false until pattern-alert copy, suppression, and deep-link behavior
-// are validated independently in staging.
-const PATTERN_ALERT_ENABLED = false;
+// Sub-flag for staged activation of the pattern-alert evaluator without
+// turning on the rest of the post-launch nudge bucket.
+const PATTERN_ALERT_ENABLED = true;
 
 // v7 - Suppress legacy generic mid-day variants (priorities-count, consecutive-low).
 // Framework code is preserved for future use; flip this on to re-enable.
@@ -4678,7 +4677,7 @@ async function evaluatePatternAlert(
   alreadySentTypes: Set<string>,
   supabase: SupabaseLoose,
 ): Promise<QualifiedNudge | null> {
-  if (!MVP_POST_LAUNCH || !PATTERN_ALERT_ENABLED) return null;
+  if (!PATTERN_ALERT_ENABLED) return null;
   if (alreadySentTypes.has("pattern_alert")) return null;
   if (
     ctx.lastAppOpen &&
@@ -5994,11 +5993,14 @@ serve(async (req) => {
       // dispatched above the daily cap earlier in this loop. It is
       // intentionally not part of the competitive `qualified` queue.
 
-      // Post-MVP evaluators (all gated by MVP_POST_LAUNCH = false)
-      if (MVP_POST_LAUNCH) {
-        const signals = computeSignalRichness(ctx);
-        const signalGatePassed = signals.signalCount >= 2;
+      const postMvpSignals = (MVP_POST_LAUNCH || PATTERN_ALERT_ENABLED)
+        ? computeSignalRichness(ctx)
+        : null;
+      const postMvpSignalGatePassed = (postMvpSignals?.signalCount ?? 0) >= 2;
 
+      // Post-MVP evaluators. Pattern Alert has its own staged flag so it can
+      // ship without enabling the rest of this evaluator bucket.
+      if (MVP_POST_LAUNCH) {
         if (!suppressed) {
           const gap = await evaluateCalendarGap(ctx, alreadySentTypes);
           if (gap) qualified.push(gap);
@@ -6011,13 +6013,15 @@ serve(async (req) => {
           if (coach) qualified.push(coach);
         }
 
-        if (signalGatePassed && !suppressed) {
+        if (postMvpSignalGatePassed && !suppressed) {
           const state = await evaluateStateAwareAfternoon(
             ctx,
             alreadySentTypes,
           );
           if (state) qualified.push(state);
+        }
 
+        if (postMvpSignalGatePassed && !suppressed && !PATTERN_ALERT_ENABLED) {
           const pattern = await evaluatePatternAlert(
             ctx,
             alreadySentTypes,
@@ -6026,7 +6030,7 @@ serve(async (req) => {
           if (pattern) qualified.push(pattern);
         }
 
-        if (qualified.length === 0 && signalGatePassed) {
+        if (qualified.length === 0 && postMvpSignalGatePassed) {
           const fallback = await evaluateDailyFallback(
             ctx,
             alreadySentTypes,
@@ -6034,6 +6038,15 @@ serve(async (req) => {
           );
           if (fallback) qualified.push(fallback);
         }
+      }
+
+      if (PATTERN_ALERT_ENABLED && postMvpSignalGatePassed && !suppressed) {
+        const pattern = await evaluatePatternAlert(
+          ctx,
+          alreadySentTypes,
+          supabase,
+        );
+        if (pattern) qualified.push(pattern);
       }
 
       // ── Select best notification (v7 comparator) ──

@@ -935,6 +935,16 @@ serve(async (req) => {
       }
       return s;
     });
+    const WEARABLE_SUBCOMPONENT_IDS = new Set<SubComponentId>([
+      'hrvMorningDeviation',
+      'sleepDeviation',
+      'rhrTrend',
+      'intradayHrDeviation',
+      'eveningPhysioRead',
+    ]);
+    const wearablePillarMet = subsForCompose.some(
+      (s) => WEARABLE_SUBCOMPONENT_IDS.has(s.id) && s.available === true,
+    );
     const hasScoreBearingBaselineSignal = subsForCompose.some(
       (s) => s.available === true && s.id !== 'patternEngineComposite',
     );
@@ -945,6 +955,7 @@ serve(async (req) => {
       effectiveDemandScore,
       calendarDemandScore,
       hasScoreBearingBaselineSignal,
+      wearablePillarMet,
       incomingSubScores: normalizedSubScores,
       subsForCompose,
     }));
@@ -955,10 +966,10 @@ serve(async (req) => {
       body.sleepDeficitMeasurement ?? { available: false },
     );
     const baselineAnchorScore = coerceFiniteNumber(body.baselineAnchorScore);
-    const normalizedAnchorScore = baselineAnchorScore == null || !hasScoreBearingBaselineSignal
+    const normalizedAnchorScore = baselineAnchorScore == null || !hasScoreBearingBaselineSignal || !wearablePillarMet
       ? null
       : Math.max(0, Math.min(100, Math.round(baselineAnchorScore)));
-    score = normalizedAnchorScore ?? v4.baseline;
+    score = wearablePillarMet ? (normalizedAnchorScore ?? v4.baseline) : null;
     mrsV4Provenance = normalizedAnchorScore == null
       ? v4.weightProvenance
       : {
@@ -973,7 +984,12 @@ serve(async (req) => {
           },
         };
     mrsV4Window = body.mrsWindow;
-    mrsV4AwaitingSignals = normalizedAnchorScore == null ? v4.awaitingSignals : false;
+    mrsV4AwaitingSignals = !wearablePillarMet || (normalizedAnchorScore == null ? v4.awaitingSignals : false);
+    if (!wearablePillarMet) {
+      console.log('[compute-inner-readiness] wearable pillar absent -> awaiting', {
+        subScoreIds: normalizedSubScores.map((s) => s.id),
+      });
+    }
     // Circadian + patternScore are intentionally NOT folded into the score.
     // They remain available downstream for framing only (see §4 spec).
 

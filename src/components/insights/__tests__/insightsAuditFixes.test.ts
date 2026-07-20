@@ -66,10 +66,11 @@ describe('Insights audit fixes', () => {
     expect(ENGINE_SRC).toContain('Risk trajectory: stable - holding consistent');
   });
 
-  it('implements the dormant pattern-alert evaluator without enabling the global flag', () => {
+  it('ships pattern-alert through its own staged flag without enabling the global bucket', () => {
     expect(SMART_NUDGES_SRC).toContain("const MVP_POST_LAUNCH = false;");
-    expect(SMART_NUDGES_SRC).toContain("const PATTERN_ALERT_ENABLED = false;");
-    expect(SMART_NUDGES_SRC).toContain("if (!MVP_POST_LAUNCH || !PATTERN_ALERT_ENABLED) return null;");
+    expect(SMART_NUDGES_SRC).toContain("const PATTERN_ALERT_ENABLED = true;");
+    expect(SMART_NUDGES_SRC).toContain("if (!PATTERN_ALERT_ENABLED) return null;");
+    expect(SMART_NUDGES_SRC).toContain("if (PATTERN_ALERT_ENABLED && postMvpSignalGatePassed && !suppressed)");
     expect(SMART_NUDGES_SRC).toContain('type: "pattern_alert"');
     expect(SMART_NUDGES_SRC).toContain('deepLinkRoute: "/insights/performance-causality"');
     expect(SMART_NUDGES_SRC).toContain('variantId: "FB-PATTERN"');
