@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useOuterReadiness, type OuterReadinessData } from '@/hooks/useOuterReadiness';
 import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useWeeklyMrsDelta } from '@/hooks/useWeeklyMrsDelta';
+import { useExecutiveHomeCardsRefresh } from '@/hooks/useExecutiveHomeCardsRefresh';
 import MrsGauge, { tierColorVar } from './MrsGauge';
 import WeeklyDeltaDial from './WeeklyDeltaDial';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,13 @@ type MrsOuterReadiness = OuterReadinessData & {
 const MrsPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: outerBrief, refetch, isFetching } = useOuterReadiness();
+  // Snapshot-only home: do NOT invoke the live `compute-outer-readiness`
+  // pipeline on mount. The query is disabled under HOME_SNAPSHOT_ONLY, so
+  // `outerBrief` is effectively `undefined` unless a manual refresh has
+  // populated the persistent cache. Retry uses the manual cards refresh.
+  const { data: outerBrief } = useOuterReadiness({ snapshotOnly: true });
+  const refreshCards = useExecutiveHomeCardsRefresh();
+  const isFetching = refreshCards.isPending;
   const mrsBrief = outerBrief as MrsOuterReadiness | null | undefined;
   const { shouldRenderMock: showTourMockMrs } = useTourMock();
   // Phase 3.9 — snapshot-read-first. Render from current-window
@@ -140,12 +147,15 @@ const MrsPage = () => {
             <button
               type="button"
               onClick={() => {
-                // Live retry refreshes useOuterReadiness; also invalidate
-                // the snapshot query because a successful live compute
-                // upserts `daily_context_snapshot` for the current
-                // window and we want snapshot-read-first to pick it up.
-                refetch();
-                queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] });
+                // Snapshot-only home: retry regenerates the persisted
+                // MRS/Brief/Plan snapshots via the cron orchestrator,
+                // then invalidates the snapshot query so the card
+                // re-reads the fresh row.
+                refreshCards.mutate(undefined, {
+                  onSettled: () => {
+                    queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] });
+                  },
+                });
               }}
               disabled={isFetching}
               className="mt-1 text-[11px] uppercase tracking-[0.16em] underline-offset-4 hover:underline disabled:opacity-50 text-foreground/80"
