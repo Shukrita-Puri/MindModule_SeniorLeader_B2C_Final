@@ -56,12 +56,11 @@ export default function Stage6Payment() {
 
     const next = new URLSearchParams(location.search);
     next.delete('session_id');
-    navigate(
-      {
-        pathname: location.pathname,
-        search: next.toString() ? `?${next.toString()}` : '',
-      },
-      { replace: true }
+    const cleanedSearch = next.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${location.pathname}${cleanedSearch ? `?${cleanedSearch}` : ''}`
     );
 
     const refreshDelays = [0, 1500, 3500];
