@@ -3939,7 +3939,9 @@ async function evaluateNudgeTwo(
 
     return {
       type: "nudge_two",
-      copy,
+      copy: pat && pat.source === "subcategory"
+        ? { ...copy, body: citeHrDeltaInBody(copy.body, pat.hrDeltaBpm) }
+        : copy,
       deepLinkRoute: route,
       eventReference: evt.externalId,
       priority: 1,
