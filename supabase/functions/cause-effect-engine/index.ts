@@ -504,6 +504,16 @@ serve(async (req) => {
     const briefs = briefsRes.data || [];
     const hasCalendar = !!calConnRes.data?.is_active;
 
+    // WS-A · Best-effort load of persisted A–H subcategories for this user.
+    // When a memory row exists for a given event_id, prefer it over the
+    // deterministic classifier below. Falls back silently on any error.
+    let priorityMemoryIndex: PriorityMemoryIndex | null = null;
+    try {
+      priorityMemoryIndex = await loadPriorityMemoryForUser(supabase, userId);
+    } catch (_e) {
+      priorityMemoryIndex = null;
+    }
+
     const sleepRowsAvailable = wearable.filter(
       (w: any) => typeof w.sleep_score === "number" || typeof w.total_sleep_minutes === "number",
     ).length;
