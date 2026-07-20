@@ -5255,6 +5255,9 @@ serve(async (req) => {
       weekendCtaGate?: "ok" | "missing_brief" | "missing_plan" | null;
       ttlSeconds: number;
       collapseId: string;
+      // WS6 — telemetry only. Stamped on payload.metadata below.
+      planLedgerCategoryId?: string | null;
+      planLedgerSubcategory?: string | null;
     }> = [];
 
     // 3. Evaluate each user
