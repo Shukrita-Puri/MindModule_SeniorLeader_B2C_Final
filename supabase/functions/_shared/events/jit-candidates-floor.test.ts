@@ -168,7 +168,10 @@ Deno.test("getJitCandidateDropReason: admin/compliance noise drops before numeri
     eventId: "tax", title: "R&D Tax claim review", phase: "pre" as const,
     categoryId: "D" as any, comboKey: "somatic.pause" as any,
     severity: "high" as const, leadTimeMin: 30,
-    demandProfile: { cog: 3, emo: 2, vis: 0, pol: 0, rel: 0, ene: 1, cir: 0, id: 0 },
+    demandProfile: {
+      cog: 3 as const, emo: 2 as const, vis: 0 as const, pol: 0 as const,
+      rel: 0 as const, ene: 1 as const, cir: 0 as const, id: 0 as const,
+    },
     windowStartMs: NOW, windowEndMs: NOW + 60_000, eligible: true,
     minutesUntilWindow: 0, score: MIN_CANDIDATE_SCORE + 20, durationMinutes: null,
     components: { base: 15, category: 15, severity: 15, demand: 10, proximity: 0, skipPenalty: 0, memory: 0 },
