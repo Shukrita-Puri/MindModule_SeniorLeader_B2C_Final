@@ -786,7 +786,25 @@ function getCurrentPeriod(): string {
   return currentPeriodLocal();
 }
 
-export function useOuterReadiness() {
+export interface UseOuterReadinessOptions {
+  /**
+   * When true and `HOME_SNAPSHOT_ONLY` is enabled, the React Query is
+   * disabled: no `compute-outer-readiness` / `compute-inner-readiness`
+   * network call fires, no `calendar_connections` / `calendar_events`
+   * / `daily_context_snapshot` / `daily-checkins` reads happen from the
+   * live `computeEnergyState` pipeline. Snapshot-only Executive Home
+   * callers (`MrsPage`, `DecisionReadinessBrief`, `TodayThreePriorities`)
+   * MUST pass this so the three home pages don't stampede live readiness
+   * on mount. Manual refresh (`useExecutiveHomeCardsRefresh`) still
+   * regenerates the snapshots via the cron/build orchestrator.
+   *
+   * Callers on other surfaces (Insights, Coach, admin) omit the option
+   * and continue to hit the live compute path unchanged.
+   */
+  snapshotOnly?: boolean;
+}
+
+export function useOuterReadiness(options?: UseOuterReadinessOptions) {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
   const period = getCurrentPeriod();
@@ -820,6 +838,14 @@ export function useOuterReadiness() {
     typeof window !== 'undefined' &&
     !!forceRefreshKey &&
     window.sessionStorage.getItem(forceRefreshKey) === '1';
+
+  // Executive Home snapshot-only guard. When the caller opts in AND the
+  // global snapshot-only flag is on, we short-circuit the React Query
+  // entirely so no live compute pipeline runs on Home mount. A manual
+  // force-refresh (set by `clearOuterReadinessCache`) re-enables the
+  // query for a single fetch cycle.
+  const snapshotOnlyDisabled =
+    options?.snapshotOnly === true && HOME_SNAPSHOT_ONLY && !forceRefresh;
 
   // ── Period-crossover sweep ──────────────────────────────────────────────
   // The Brief is a *current-period* artifact. When the user crosses from
@@ -934,15 +960,18 @@ export function useOuterReadiness() {
       }
       return data;
     },
-    enabled: !!effectiveUserId,
+    enabled: !!effectiveUserId && !snapshotOnlyDisabled,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    // Executive Home should reconcile with the backend on mount. The server
-    // snapshot cache returns the saved DB brief when inputs are unchanged, and
-    // generates a new one when check-in / wearable / calendar inputs changed.
-    // Focus/reconnect refreshes stay disabled so mobile viewport/app lifecycle
-    // noise does not churn the brief.
-    refetchOnMount: 'always',
+    // Executive Home now reads via snapshot hooks; the live compute path is
+    // reserved for non-home surfaces (Insights, Coach) and manual refresh.
+    // We no longer force `refetchOnMount: 'always'` because it caused every
+    // Home mount (all 3 swipe pages) to re-invoke `compute-outer-readiness`
+    // and its `computeEnergyState` fan-out (calendar_connections,
+    // calendar_events, daily_context_snapshot, daily-checkins,
+    // compute-inner-readiness). Snapshot mode disables the query outright;
+    // non-snapshot callers get the standard staleTime-driven behaviour.
+    refetchOnMount: snapshotOnlyDisabled ? false : 'always',
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     // IMPORTANT: do NOT use placeholderData here. Keeping the previous

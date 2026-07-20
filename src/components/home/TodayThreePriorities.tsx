@@ -418,7 +418,11 @@ const TodayThreePriorities = ({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
-  const { data: outerReadinessData } = useOuterReadiness();
+  // Snapshot-only Home: do NOT invoke the live `compute-outer-readiness`
+  // pipeline on mount. Plan hydration prefers the mastery plan snapshot
+  // (`useMasteryPlanSnapshot`) and MRS snapshot; the live payload is only
+  // consulted when a manual refresh has populated the persistent cache.
+  const { data: outerReadinessData } = useOuterReadiness({ snapshotOnly: true });
   const { data: mrsSnapshot } = useMrsSnapshot();
   const awaitingCopy = getReadinessAwaitingCopy(outerReadinessData ?? undefined);
 

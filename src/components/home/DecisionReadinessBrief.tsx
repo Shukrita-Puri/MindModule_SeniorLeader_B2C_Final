@@ -1843,11 +1843,16 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const [signalsOpen, setSignalsOpen] = useState(true);
 
   // Single canonical payload — no separate computeEnergyState call
+  // Snapshot-only Home: do NOT invoke the live `compute-outer-readiness`
+  // pipeline on mount. The Brief renders from `useCurrentBriefSnapshot`
+  // first; the live payload is only consulted when a manual refresh has
+  // populated the persistent cache. Under HOME_SNAPSHOT_ONLY this query
+  // is disabled and `outerBriefReal` is effectively `undefined`.
   const {
     data: outerBriefReal,
     isLoading: outerBriefLoading,
     isFetching: outerBriefFetching,
-  } = useOuterReadiness();
+  } = useOuterReadiness({ snapshotOnly: true });
 
   // ── Brief snapshot-read-first (Phase 3.8) ──
   // Prefer the persisted current-window `brief_snapshots` row over the
