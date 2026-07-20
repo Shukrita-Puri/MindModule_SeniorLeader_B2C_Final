@@ -295,6 +295,12 @@ serve(async (req) => {
        *  yet — the UI uses this to rehydrate Star / Not this week / Never
        *  state across refreshes. */
       priorSignal: PriorSignal | null;
+      /** WS-A · Subcategory reader. Prefers the value persisted by
+       *  `record-event-priority-signal` on the most recent memory row for
+       *  this event; falls back to `enrichEvent(title).subcategoryId` when
+       *  no row has been written yet (older events, first-touch events).
+       *  Additive: consumers may ignore this. */
+      subcategoryId: string | null;
     };
 
     // ── Human-first triage: show EVERY real event, tag but never filter. ──
@@ -378,21 +384,39 @@ serve(async (req) => {
     // the selected state after refresh instead of appearing to have
     // "lost" the user's choice.
     const priorByEventId = new Map<string, PriorSignal>();
+    // WS-A · Persisted subcategory keyed by event_id. Populated from the
+    // same query as `priorByEventId` so we do not add a round-trip. Any
+    // signal type is acceptable as a subcategory carrier — the classifier
+    // stamps the same subcategory across signals for a given event.
+    const subcategoryByEventId = new Map<string, string>();
     const eventIdList = Array.from(metaById.keys());
     if (eventIdList.length > 0) {
       try {
         const { data: priorRows } = await supabase
           .from("event_priority_memory")
-          .select("event_id, signal, occurred_at")
+          .select("event_id, signal, occurred_at, event_subcategory")
           .eq("user_id", userId)
-          .eq("source", "week_ahead_picker")
           .in("event_id", eventIdList)
-          .in("signal", ["priority", "not_this_week", "never"])
           .order("occurred_at", { ascending: false });
         for (const r of (priorRows ?? []) as any[]) {
-          if (!r?.event_id || priorByEventId.has(r.event_id)) continue;
-          if (!PRIOR_SIGNALS.has(r.signal as PriorSignal)) continue;
-          priorByEventId.set(r.event_id, r.signal as PriorSignal);
+          if (!r?.event_id) continue;
+          // Prior signal only accepts week_ahead_picker actions.
+          if (
+            !priorByEventId.has(r.event_id) &&
+            r.source === "week_ahead_picker" &&
+            PRIOR_SIGNALS.has(r.signal as PriorSignal)
+          ) {
+            priorByEventId.set(r.event_id, r.signal as PriorSignal);
+          }
+          // Subcategory: accept from ANY memory row (writer stamps it on
+          // every signal). First (most recent) hit wins.
+          if (
+            !subcategoryByEventId.has(r.event_id) &&
+            typeof r.event_subcategory === "string" &&
+            r.event_subcategory
+          ) {
+            subcategoryByEventId.set(r.event_id, r.event_subcategory);
+          }
         }
       } catch (_e) { /* best-effort — picker still functions without it */ }
     }
