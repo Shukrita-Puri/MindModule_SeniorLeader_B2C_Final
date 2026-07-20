@@ -1092,6 +1092,10 @@ interface QualifiedNudge {
   // WS6 — plan-ledger A-H tags for telemetry (payload.metadata.*).
   planLedgerCategoryId?: string | null;
   planLedgerSubcategory?: string | null;
+  // WS-B · Precise HR delta (bpm) from `subcategory_lift` when the JIT
+  // pattern was subcategory-anchored. Null when unknown. Telemetry-only:
+  // notification body/title copy is not mutated by this value.
+  planLedgerHrDeltaBpm?: number | null;
 }
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
