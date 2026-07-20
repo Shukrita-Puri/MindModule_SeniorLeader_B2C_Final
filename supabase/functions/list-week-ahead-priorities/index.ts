@@ -493,7 +493,7 @@ serve(async (req) => {
         // WS-A · Persisted subcategory (if any) beats the on-the-fly
         // classifier; fall back to `enrichEvent` when no memory row exists.
         subcategoryId: subcategoryByEventId.get(eventId)
-          ?? (enriched as any).subcategoryId
+          ?? enriched.subcategory
           ?? null,
       });
     }
