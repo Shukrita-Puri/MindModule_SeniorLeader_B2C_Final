@@ -17,6 +17,7 @@ export default function Stage6Payment() {
   const [checkoutReturnProcessing, setCheckoutReturnProcessing] = useState(false);
   const [checkoutFallback, setCheckoutFallback] = useState(false);
   const processedCheckoutSessionRef = useRef<string | null>(null);
+  const pendingCheckoutSessionRef = useRef<string | null>(null);
   const refreshProfileRef = useRef(refreshProfile);
   const recordStepRef = useRef(recordStep);
   useEffect(() => { refreshProfileRef.current = refreshProfile; }, [refreshProfile]);
@@ -55,6 +56,7 @@ export default function Stage6Payment() {
     // Guard: only process a given session_id once per page load.
     if (processedCheckoutSessionRef.current === checkoutSessionId) return;
     processedCheckoutSessionRef.current = checkoutSessionId;
+    pendingCheckoutSessionRef.current = checkoutSessionId;
 
     let cancelled = false;
     setCheckoutReturnProcessing(true);
@@ -76,29 +78,60 @@ export default function Stage6Payment() {
       `${window.location.pathname}${cleanedSearch ? `?${cleanedSearch}` : ''}`
     );
 
-    // Limited profile refresh retries: 0ms, 1500ms, 3500ms.
-    const refreshDelays = [0, 1500, 3500];
-    const timers: number[] = refreshDelays.map((delay) => (
-      window.setTimeout(() => {
-        if (cancelled) return;
-        refreshProfileRef.current().catch((err) => {
-          console.warn('[Stage6Payment] Profile refresh after checkout return failed:', err);
-        });
-      }, delay)
-    ));
+    // Instant verify + bounded retry: hit verify-checkout-session every 5s
+    // for up to 30s. Each successful attempt is followed by refreshProfile
+    // so the auto-redirect effect can flip to /executive-home as soon as
+    // access becomes valid.
+    const startedAt = Date.now();
+    const MAX_MS = 30_000;
+    const INTERVAL_MS = 5_000;
+    let intervalId: number | null = null;
 
-    // After the last retry, stop the loader. Redirect (if access is now
-    // valid) is handled by the auto-redirect effect below; otherwise show
-    // the fallback message.
-    timers.push(window.setTimeout(() => {
+    const runVerify = async () => {
       if (cancelled) return;
-      setCheckoutReturnProcessing(false);
-      setCheckoutFallback(true);
-    }, 5000));
+      try {
+        const headers = await getAuthHeaders();
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/verify-checkout-session`,
+          {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: checkoutSessionId }),
+          }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (data?.accessGranted) {
+          await refreshProfileRef.current().catch(() => {});
+        } else {
+          // Still refresh in case webhook already updated the profile in
+          // parallel — cheap and keeps the UX responsive.
+          await refreshProfileRef.current().catch(() => {});
+        }
+      } catch (err) {
+        console.warn('[Stage6Payment] verify-checkout-session failed:', err);
+      }
+    };
+
+    // Immediate attempt
+    void runVerify();
+
+    intervalId = window.setInterval(() => {
+      if (cancelled) return;
+      if (Date.now() - startedAt >= MAX_MS) {
+        if (intervalId !== null) window.clearInterval(intervalId);
+        intervalId = null;
+        setCheckoutReturnProcessing(false);
+        setCheckoutFallback(true);
+        return;
+      }
+      void runVerify();
+    }, INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      timers.forEach(window.clearTimeout);
+      if (intervalId !== null) window.clearInterval(intervalId);
     };
     // Intentionally run once on mount; refs keep function identities stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -270,7 +303,10 @@ export default function Stage6Payment() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 px-6 text-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Finalising your subscription…</p>
+        <p className="text-[15px] font-medium">Setting up your access</p>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Your payment was successful. We're finishing setup. This usually takes a few seconds.
+        </p>
       </div>
     );
   }
@@ -278,26 +314,39 @@ export default function Stage6Payment() {
   if (checkoutFallback && !hasValidUserAccess) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-[15px] font-medium">Payment received.</p>
+        <p className="text-[15px] font-medium">Payment received</p>
         <p className="text-sm text-muted-foreground max-w-sm">
           We're still finalising your access. Please try again in a moment.
         </p>
         <Button
           variant="outline"
-          onClick={() => {
+          onClick={async () => {
             setCheckoutFallback(false);
             setCheckoutReturnProcessing(true);
-            refreshProfileRef.current()
-              .catch(() => {})
-              .finally(() => {
-                window.setTimeout(() => {
-                  setCheckoutReturnProcessing(false);
-                  setCheckoutFallback(true);
-                }, 1500);
-              });
+            const sessionId = pendingCheckoutSessionRef.current;
+            try {
+              if (sessionId) {
+                const headers = await getAuthHeaders();
+                const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+                await fetch(
+                  `https://${projectId}.supabase.co/functions/v1/verify-checkout-session`,
+                  {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId }),
+                  }
+                ).catch(() => {});
+              }
+              await refreshProfileRef.current().catch(() => {});
+            } finally {
+              window.setTimeout(() => {
+                setCheckoutReturnProcessing(false);
+                setCheckoutFallback(true);
+              }, 1500);
+            }
           }}
         >
-          Try again
+          Check again
         </Button>
       </div>
     );
