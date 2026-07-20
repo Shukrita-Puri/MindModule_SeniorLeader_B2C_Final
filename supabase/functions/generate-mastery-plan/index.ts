@@ -7143,7 +7143,7 @@ async function generateMasteryPlan(
     // taxonomy from the ledger instead of re-classifying titles at fetch
     // time. Additive: older ledger rows without these keys keep working.
     for (const m of finalHorizonModules) {
-      const anyM = m as Record<string, unknown>;
+      const anyM = m as unknown as Record<string, unknown>;
       const title = typeof anyM.jitEventTitle === "string"
         ? (anyM.jitEventTitle as string).trim()
         : "";
