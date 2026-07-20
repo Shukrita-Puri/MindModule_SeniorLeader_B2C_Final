@@ -44,7 +44,7 @@ function allMorningSubs(opts: Partial<Record<SubComponentId, SubScore>> = {}): S
   return defaults.map((s) => opts[s.id] ?? s);
 }
 
-// Day 1 — calendar alone now unlocks a baseline via redistribution.
+// Day 1 — calendar alone unlocks an early baseline via redistribution.
 Deno.test('day-1: only calendar available → baseline numeric, awaiting=false', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
     id: c.id,
@@ -54,6 +54,20 @@ Deno.test('day-1: only calendar available → baseline numeric, awaiting=false',
   const r = composeBaselineV4('morning', subs);
   assertEquals(r.awaitingSignals, false);
   assert(r.baseline != null);
+});
+
+// Check-in-only callers may pass an anchor, but without a calendar/wearable
+// baseline the composer remains awaiting and the anchor must not be applied by
+// higher-level callers.
+Deno.test('day-1: no calendar/wearable sub available → awaiting signals', () => {
+  const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
+    id: c.id,
+    score: 0,
+    available: false,
+  }));
+  const r = composeBaselineV4('morning', subs);
+  assertEquals(r.awaitingSignals, true);
+  assertEquals(r.baseline, null);
 });
 
 // Pattern-only inputs cannot form MRS; MRS is immediate/topical.

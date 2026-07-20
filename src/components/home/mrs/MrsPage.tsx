@@ -214,6 +214,7 @@ const MrsPage = () => {
         <div className="mt-6">
           <WeeklyDeltaDial
             currentScore={score}
+            thisWeekAvg={showTourMockMrs ? MOCK_MRS.score : (weekly.data?.thisWeekAvg ?? null)}
             lastWeekAvg={showTourMockMrs ? MOCK_MRS.score - MOCK_MRS.weeklyDelta : (weekly.data?.lastWeekAvg ?? null)}
             delta={showTourMockMrs ? MOCK_MRS.weeklyDelta : (weekly.data?.delta ?? null)}
             mode={showTourMockMrs ? 'refined' : (weekly.data?.mode ?? 'baseline')}

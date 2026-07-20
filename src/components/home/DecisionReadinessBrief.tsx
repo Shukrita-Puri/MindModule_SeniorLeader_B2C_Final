@@ -2586,7 +2586,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
         <p className="mt-4 text-quote text-foreground">
-          Read from your signals. Full brief prose is momentarily unavailable.
+          Read from your signals. Full brief prose is awaiting the latest signals.
         </p>
       )}
 
@@ -2599,7 +2599,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           <p className="text-quote text-foreground">
             {engineStatus === 'auth-failure' || engineStatus === 'session-failure'
               ? 'We couldn\u2019t verify your session.'
-              : 'Reading unavailable right now.'}
+              : 'Awaiting signals right now.'}
           </p>
           <p className="mt-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
             {engineStatus === 'auth-failure' || engineStatus === 'session-failure'

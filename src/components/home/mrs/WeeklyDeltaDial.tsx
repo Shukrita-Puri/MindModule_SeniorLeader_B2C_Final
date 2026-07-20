@@ -1,5 +1,6 @@
 interface WeeklyDeltaDialProps {
   currentScore: number | null;
+  thisWeekAvg?: number | null;
   lastWeekAvg: number | null;
   delta: number | null;
   mode: 'baseline' | 'refined';
@@ -12,6 +13,7 @@ interface WeeklyDeltaDialProps {
  */
 const WeeklyDeltaDial = ({
   currentScore,
+  thisWeekAvg = null,
   lastWeekAvg,
   delta,
   mode,
@@ -66,7 +68,11 @@ const WeeklyDeltaDial = ({
           <div className="flex flex-col items-end justify-center gap-1">
             <div className="text-[13px] text-muted-foreground/70 text-right">This week</div>
             <div className="text-[28px] font-semibold tabular-nums leading-none text-foreground">
-              {typeof currentScore === 'number' ? currentScore : '—'}
+              {typeof thisWeekAvg === 'number'
+                ? thisWeekAvg
+                : typeof currentScore === 'number' && delta !== null && reason === null
+                  ? currentScore
+                  : '—'}
             </div>
           </div>
           <div className="w-px bg-border/40 self-stretch mx-3" />
