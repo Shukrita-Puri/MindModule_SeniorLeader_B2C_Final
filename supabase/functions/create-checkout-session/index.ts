@@ -55,40 +55,33 @@ Deno.serve(async (req) => {
 
     // ═══════════════════════════════════════════════════════════
     // ACTIVE SUBSCRIPTION HANDLING
-    // If same plan → billing portal. If different plan → allow new checkout for upgrade.
+    // Existing subscribers manage plan changes in Stripe Billing Portal.
+    // Creating a second Checkout subscription would risk double-billing.
     // ═══════════════════════════════════════════════════════════
     if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
       const selectedPlan = plan === 'monthly' ? 'monthly' : 'annual';
       const currentTier = profile.subscription_tier || '';
-      const isAlreadyOnRequestedPlan =
-        (selectedPlan === 'monthly' && currentTier === 'monthly_pro') ||
-        (selectedPlan === 'annual' && currentTier === 'annual_pro');
 
-      if (isAlreadyOnRequestedPlan) {
-        console.log(`[create-checkout-session] User ${redactUserId(userId)} already on ${currentTier}, redirecting to portal`);
+      console.log(`[create-checkout-session] User ${redactUserId(userId)} on ${currentTier}, redirecting to portal for requested ${selectedPlan}`);
 
-        if (profile.stripe_customer_id) {
-          const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
-          const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.mindmodule.me';
-          const portalSession = await portalStripe.billingPortal.sessions.create({
-            customer: profile.stripe_customer_id,
-            return_url: `${frontendUrl}/profile`,
-          });
-
-          return new Response(
-            JSON.stringify({ alreadySubscribed: true, portalUrl: portalSession.url }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+      if (profile.stripe_customer_id) {
+        const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
+        const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.mindmodule.me';
+        const portalSession = await portalStripe.billingPortal.sessions.create({
+          customer: profile.stripe_customer_id,
+          return_url: `${frontendUrl}/profile`,
+        });
 
         return new Response(
-          JSON.stringify({ error: 'You already have this plan.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ alreadySubscribed: true, portalUrl: portalSession.url }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Different plan requested — allow checkout to proceed as an upgrade (no trial)
-      console.log(`[create-checkout-session] User ${redactUserId(userId)} upgrading from ${currentTier} to ${selectedPlan}`);
+      return new Response(
+        JSON.stringify({ error: 'Subscription already exists, but no Stripe customer was found.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get or create Stripe customer

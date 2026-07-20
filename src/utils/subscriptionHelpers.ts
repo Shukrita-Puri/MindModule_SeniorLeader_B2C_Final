@@ -21,6 +21,12 @@ export interface AccessUser {
 
 export type SubscriptionAccessDecision = 'allow' | 'block' | 'pending';
 
+function isFutureDate(value?: string | null): boolean {
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp > Date.now();
+}
+
 function hasResolvedSubscriptionState(user: AccessUser): boolean {
   return [
     user.subscription_status,
@@ -37,7 +43,7 @@ function hasResolvedSubscriptionState(user: AccessUser): boolean {
  * 
  * Rules (in priority order):
  * 1. Valid beta access (beta_user + unexpired beta_expires_at)
- * 2. subscription_status === 'active' → always allowed
+ * 2. subscription_status === 'active' → allowed unless a known period end is past
  * 3. subscription_status === 'trialing' → allowed (Stripe billing trial or app trial)
  *    - For app-level trials: also check trial_ends_at if present
  * 4. Legacy 'trial' status → allowed only if trial_ends_at is unexpired
@@ -58,7 +64,7 @@ export function hasValidAccess(user: AccessUser | null): boolean {
  */
 export function isValidBeta(user: AccessUser | null): boolean {
   if (!user?.beta_user || !user.beta_expires_at) return false;
-  return new Date(user.beta_expires_at) > new Date();
+  return isFutureDate(user.beta_expires_at);
 }
 
 export function resolveSubscriptionAccess(user: AccessUser | null): SubscriptionAccessDecision {
@@ -66,22 +72,35 @@ export function resolveSubscriptionAccess(user: AccessUser | null): Subscription
 
   // 1. Beta access
   if (user.beta_user && user.beta_expires_at) {
-    if (new Date(user.beta_expires_at) > new Date()) return 'allow';
+    if (isFutureDate(user.beta_expires_at)) return 'allow';
   }
 
   const status = user.subscription_status;
 
-  // 2. Active subscription – always allowed
-  if (status === 'active') return 'allow';
+  // 2. Active subscription – allowed unless Stripe has given us a period end
+  // that is already past. This prevents stale webhook/profile state from
+  // granting access forever after a monthly/yearly subscription ended.
+  if (status === 'active') {
+    if (user.subscription_current_period_end && !isFutureDate(user.subscription_current_period_end)) {
+      return 'block';
+    }
+    return 'allow';
+  }
 
   // 3. Trialing subscription
   if (status === 'trialing') {
     const tier = user.subscription_tier;
-    // Paid-tier Stripe billing trial → full access (no local expiry check)
-    if (tier === 'monthly_pro' || tier === 'annual_pro') return 'allow';
+    // Paid-tier Stripe billing trial → full access unless Stripe's current
+    // period end has already passed.
+    if (tier === 'monthly_pro' || tier === 'annual_pro') {
+      if (user.subscription_current_period_end && !isFutureDate(user.subscription_current_period_end)) {
+        return 'block';
+      }
+      return 'allow';
+    }
     // App-level free trial – check trial_ends_at if present
     if (user.trial_ends_at) {
-      return new Date(user.trial_ends_at) > new Date() ? 'allow' : 'block';
+      return isFutureDate(user.trial_ends_at) ? 'allow' : 'block';
     }
     // No trial_ends_at but status is trialing → allow (don't false-block)
     return 'allow';
@@ -89,7 +108,7 @@ export function resolveSubscriptionAccess(user: AccessUser | null): Subscription
 
   // 4. Legacy 'trial' status
   if (status === 'trial' && user.trial_ends_at) {
-    return new Date(user.trial_ends_at) > new Date() ? 'allow' : 'block';
+    return isFutureDate(user.trial_ends_at) ? 'allow' : 'block';
   }
 
   // If subscription data hasn't been resolved yet, fail open.

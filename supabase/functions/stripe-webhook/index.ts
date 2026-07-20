@@ -89,24 +89,36 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Determine the paid tier from the plan metadata
-        const paidTier = plan === 'annual' ? 'annual_pro' : 'monthly_pro';
+        const subscription = subId
+          ? await stripe.subscriptions.retrieve(subId)
+          : null;
+        const interval = subscription?.items.data[0]?.price?.recurring?.interval;
+        const paidTier = interval === 'year' || plan === 'annual' ? 'annual_pro' : 'monthly_pro';
+        const status = subscription?.status === 'active' ? 'active' : 'trialing';
 
         await supabase.from('profiles').update({
-          subscription_status: 'trialing',
+          subscription_status: status,
           subscription_tier: paidTier,
           subscription_currency: currency || 'USD',
-          stripe_subscription_id: session.subscription as string,
-          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          stripe_subscription_id: subId,
+          subscription_current_period_start: subscription?.current_period_start
+            ? new Date(subscription.current_period_start * 1000).toISOString()
+            : null,
+          subscription_current_period_end: subscription?.current_period_end
+            ? new Date(subscription.current_period_end * 1000).toISOString()
+            : null,
+          trial_ends_at: subscription?.trial_end
+            ? new Date(subscription.trial_end * 1000).toISOString()
+            : null,
         }).eq('id', userId);
 
         await supabase.from('subscription_events').insert({
           user_id: userId,
-          event_type: 'trial_started',
+          event_type: status === 'active' ? 'subscription_started' : 'trial_started',
           to_tier: paidTier,
           stripe_event_id: event.id,
           stripe_event_type: event.type,
-          metadata: { plan, currency }
+          metadata: { plan, currency, stripe_status: subscription?.status || null }
         });
 
         // ═══════════════════════════════════════════════════════════
