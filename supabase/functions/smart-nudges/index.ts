@@ -5277,6 +5277,7 @@ serve(async (req) => {
       // WS6 — telemetry only. Stamped on payload.metadata below.
       planLedgerCategoryId?: string | null;
       planLedgerSubcategory?: string | null;
+      planLedgerHrDeltaBpm?: number | null;
     }> = [];
 
     // 3. Evaluate each user
