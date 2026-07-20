@@ -110,6 +110,12 @@ Deno.serve(async (req) => {
           trial_ends_at: subscription?.trial_end
             ? new Date(subscription.trial_end * 1000).toISOString()
             : null,
+          // A brand-new checkout supersedes any prior cancellation timestamps
+          // on the profile. Without clearing these, the UI keeps showing
+          // "Canceled / Access ended" even though Stripe has issued a new
+          // active/trialing subscription.
+          subscription_canceled_at: null,
+          subscription_cancel_at: null,
         }).eq('id', userId);
 
         await supabase.from('subscription_events').insert({
