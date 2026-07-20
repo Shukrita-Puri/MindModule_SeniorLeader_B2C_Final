@@ -106,7 +106,7 @@ Deno.test("slot-cap reconstruction prefers persisted delivery slot over family-n
     "expected dedicated notification_log slot reader",
   );
   assert(
-    /\.select\(\s*["']notification_type, variant_id, sent_at, event_reference, payload["']\s*\)/.test(SRC),
+    /\.select\(\s*["']notification_type, variant_id, sent_at, event_reference, payload["'],?\s*\)/.test(SRC),
     "today log query must hydrate payload so slot-cap can read persisted slot",
   );
   assert(
