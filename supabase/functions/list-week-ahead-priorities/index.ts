@@ -394,7 +394,7 @@ serve(async (req) => {
       try {
         const { data: priorRows } = await supabase
           .from("event_priority_memory")
-          .select("event_id, signal, occurred_at, event_subcategory")
+          .select("event_id, signal, source, occurred_at, event_subcategory")
           .eq("user_id", userId)
           .in("event_id", eventIdList)
           .order("occurred_at", { ascending: false });
