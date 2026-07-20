@@ -22,10 +22,16 @@ export interface PriorityMemoryRow {
   event_type_key: string;
   signal: PriorityMemorySignal;
   occurred_at: string; // ISO
+  /** WS-A · Persisted A–H subcategory (nullable — older rows). */
+  event_subcategory?: string | null;
+  /** Calendar event id (nullable — some memory paths are title-only). */
+  event_id?: string | null;
 }
 
 export interface PriorityMemoryIndex {
   rowsByKey: Map<string, PriorityMemoryRow[]>;
+  /** WS-A · Most-recent-non-null subcategory keyed by event_id. */
+  subcategoryByEventId: Map<string, string>;
 }
 
 export const TITLE_SPECIFIC_MEMORY_CATEGORY = "title_specific";
@@ -46,13 +52,33 @@ const KEY = (category: string, typeKey: string) =>
 /** Build an in-memory lookup keyed by (category, type_key). */
 export function indexPriorityMemory(rows: PriorityMemoryRow[]): PriorityMemoryIndex {
   const map = new Map<string, PriorityMemoryRow[]>();
+  const subByEvent = new Map<string, string>();
   for (const r of rows ?? []) {
     const k = KEY(r.event_category, r.event_type_key);
     const bucket = map.get(k);
     if (bucket) bucket.push(r);
     else map.set(k, [r]);
+    // Rows are inserted in `occurred_at DESC` order at load time; keep the
+    // FIRST non-null subcategory we see per event_id (== most recent).
+    if (r.event_id && !subByEvent.has(r.event_id) &&
+        typeof r.event_subcategory === "string" && r.event_subcategory) {
+      subByEvent.set(r.event_id, r.event_subcategory);
+    }
   }
-  return { rowsByKey: map };
+  return { rowsByKey: map, subcategoryByEventId: subByEvent };
+}
+
+/**
+ * WS-A · Return the persisted A–H subcategory for a calendar event, if any.
+ * Callers should fall back to `enrichEvent(title).subcategory` when this
+ * returns null.
+ */
+export function getSubcategoryForEvent(
+  index: PriorityMemoryIndex,
+  eventId: string | null | undefined,
+): string | null {
+  if (!eventId) return null;
+  return index.subcategoryByEventId.get(eventId) ?? null;
 }
 
 export interface MemoryBoostResult {
@@ -153,7 +179,7 @@ export async function loadPriorityMemoryForUser(
     const since = new Date(Date.now() - lookbackDays * 86400_000).toISOString();
     const { data, error } = await supabase
       .from("event_priority_memory")
-      .select("event_category, event_type_key, signal, occurred_at")
+      .select("event_category, event_type_key, signal, occurred_at, event_subcategory, event_id")
       .eq("user_id", userId)
       .gte("occurred_at", since)
       .order("occurred_at", { ascending: false })
