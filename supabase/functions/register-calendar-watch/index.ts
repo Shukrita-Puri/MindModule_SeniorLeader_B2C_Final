@@ -144,6 +144,25 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    // Auth: internal-only. Reject public callers. Only service-role bearer
+    // or CRON_SHARED_SECRET header may invoke this — it triggers Google/
+    // Microsoft Calendar API operations across the whole user base in cron
+    // mode and could otherwise be abused for quota exhaustion.
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const cronSecretHeader = req.headers.get('x-cron-secret') ?? '';
+    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const CRON_SHARED_SECRET = Deno.env.get('CRON_SHARED_SECRET') ?? '';
+    const isServiceRoleCall = !!SERVICE_ROLE_KEY &&
+      authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
+    const isCronSecretCall = !!CRON_SHARED_SECRET &&
+      cronSecretHeader === CRON_SHARED_SECRET;
+    if (!isServiceRoleCall && !isCronSecretCall) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: internal-only endpoint' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
