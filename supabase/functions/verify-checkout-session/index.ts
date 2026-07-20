@@ -147,6 +147,10 @@ Deno.serve(async (req) => {
       trial_ends_at: subscription.trial_end
         ? new Date(subscription.trial_end * 1000).toISOString()
         : null,
+      // Clear any prior cancellation stamps — a successful new checkout
+      // supersedes them, otherwise the UI keeps rendering "Canceled".
+      subscription_canceled_at: null,
+      subscription_cancel_at: null,
     };
     if (customerId) update.stripe_customer_id = customerId;
 
