@@ -3773,7 +3773,10 @@ async function evaluateNudgeOne(
 
         return {
           type: "nudge_one",
-          copy,
+          // WS-B step 1 — parenthetical HR-delta citation on subcategory hits.
+          copy: pat && pat.source === "subcategory"
+            ? { ...copy, body: citeHrDeltaInBody(copy.body, pat.hrDeltaBpm) }
+            : copy,
           deepLinkRoute: route,
           eventReference: evt.externalId,
           priority: 0,
