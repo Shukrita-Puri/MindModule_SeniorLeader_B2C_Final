@@ -6582,6 +6582,9 @@ serve(async (req) => {
           // are unchanged. Null for non-JIT anchored sends.
           plan_ledger_category: notif.planLedgerCategoryId ?? null,
           plan_ledger_subcategory: notif.planLedgerSubcategory ?? null,
+          // WS-B · Precise HR delta (bpm) sourced from subcategory_lift.
+          // Telemetry-only; nudge copy is unchanged.
+          plan_ledger_hr_delta_bpm: notif.planLedgerHrDeltaBpm ?? null,
         },
         decision_trace: {
           variant: notif.copy.variantId,
