@@ -266,7 +266,44 @@ export default function Stage6Payment() {
   // valid beta without an explicit upgrade source, render a neutral loader
   // instead of the pricing UI. Prevents the "payment flash for beta user"
   // bug while profile is still syncing.
-  if (accessPending || checkoutReturnProcessing || (isBetaValid && !hasExplicitUpgradeSource)) {
+  if (checkoutReturnProcessing) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Finalising your subscription…</p>
+      </div>
+    );
+  }
+
+  if (checkoutFallback && !hasValidUserAccess) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-[15px] font-medium">Payment received.</p>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          We're still finalising your access. Please try again in a moment.
+        </p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setCheckoutFallback(false);
+            setCheckoutReturnProcessing(true);
+            refreshProfileRef.current()
+              .catch(() => {})
+              .finally(() => {
+                window.setTimeout(() => {
+                  setCheckoutReturnProcessing(false);
+                  setCheckoutFallback(true);
+                }, 1500);
+              });
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (accessPending || (isBetaValid && !hasExplicitUpgradeSource)) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
