@@ -397,6 +397,33 @@ Deno.serve(async (req) => {
         const userId = subscription.metadata?.userId;
         if (!userId) break;
 
+        // Only cancel the profile if the deleted subscription is the one the
+        // profile currently tracks. A stale `subscription.deleted` for an
+        // older subscription must NOT wipe access when the user has since
+        // started a newer active/trialing subscription.
+        const { data: currentProfile } = await supabase
+          .from('profiles')
+          .select('stripe_subscription_id, subscription_status')
+          .eq('id', userId)
+          .single();
+
+        if (currentProfile?.stripe_subscription_id && currentProfile.stripe_subscription_id !== subscription.id) {
+          console.log(
+            `[stripe-webhook] Ignoring subscription.deleted for ${subscription.id} — profile tracks ${currentProfile.stripe_subscription_id}`,
+          );
+          await supabase.from('subscription_events').insert({
+            user_id: userId,
+            event_type: 'stale_cancel_ignored',
+            stripe_event_id: event.id,
+            stripe_event_type: event.type,
+            metadata: {
+              deleted_subscription_id: subscription.id,
+              current_subscription_id: currentProfile.stripe_subscription_id,
+            },
+          });
+          break;
+        }
+
         const fromTier = subscription.items.data[0]?.price?.recurring?.interval === 'year'
           ? 'annual_pro' : 'monthly_pro';
 
