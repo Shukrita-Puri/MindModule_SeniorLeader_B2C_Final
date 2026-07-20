@@ -34,6 +34,11 @@ import {
 } from "../_shared/executive-state-taxonomy.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 import {
+  getSubcategoryForEvent,
+  loadPriorityMemoryForUser,
+  type PriorityMemoryIndex,
+} from "../_shared/plan/event-priority-memory.ts";
+import {
   buildWearableDiagnostics,
   type WearableDiagnostics,
 } from "./_diagnostics.ts";
