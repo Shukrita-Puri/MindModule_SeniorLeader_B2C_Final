@@ -586,6 +586,22 @@ async function loadPlanNudgeSlots(
         whyLine: typeof m.whyLine === "string" && m.whyLine.trim()
           ? m.whyLine.trim()
           : null,
+        // WS6 — read A-H taxonomy tags stamped by generate-mastery-plan.
+        // `anchorCategoryId` is the canonical writer key; `categoryId` and
+        // `jitCategoryId` are legacy fallbacks for pre-WS6 ledger rows.
+        categoryId:
+          typeof m.anchorCategoryId === "string" && m.anchorCategoryId
+            ? (m.anchorCategoryId as string)
+            : typeof m.categoryId === "string" && m.categoryId
+            ? (m.categoryId as string)
+            : typeof (m as any).jitCategoryId === "string" &&
+              (m as any).jitCategoryId
+            ? ((m as any).jitCategoryId as string)
+            : null,
+        subcategory:
+          typeof m.anchorSubcategory === "string" && m.anchorSubcategory
+            ? (m.anchorSubcategory as string)
+            : null,
       };
     })
     .filter((slot): slot is PlanNudgeSlot => slot !== null);
@@ -632,6 +648,10 @@ interface PlanNudgeSlot {
   jitPhase: "pre" | "during" | "post" | null;
   jitEventTitle: string | null;
   whyLine: string | null;
+  // WS6 — A-H taxonomy tags stamped by generate-mastery-plan on the ledger.
+  // Read-only for smart-nudges; drives copy Context enrichment + telemetry.
+  categoryId: string | null;
+  subcategory: string | null;
 }
 
 interface CoachSignals {
@@ -692,6 +712,17 @@ interface PatternSummary {
     n: number;
     confidence: "strong" | "emerging";
   } | null;
+  // WS6 — subcategory-level HR lift rollup from cause-effect-engine
+  // (`signal_summary.performance_lift.subcategory_lift`). Consumed by
+  // findEventPattern to prefer subcategory citations over category
+  // averages when both are present.
+  subcategory_lift?: Array<{
+    categoryId: string;
+    subcategoryId: string;
+    hrDeltaBpm: number;
+    n: number;
+    confidence: "strong" | "emerging";
+  }>;
 }
 
 interface NudgeContext {
@@ -1058,6 +1089,9 @@ interface QualifiedNudge {
   anchorKind: "jit" | "state";
   slot: "morning" | "afternoon" | "evening";
   signalStrength: number; // 0..3 - higher wins ties (e.g., pattern-cited JIT > plain JIT)
+  // WS6 — plan-ledger A-H tags for telemetry (payload.metadata.*).
+  planLedgerCategoryId?: string | null;
+  planLedgerSubcategory?: string | null;
 }
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
@@ -1096,26 +1130,60 @@ async function loadPatternSummary(
     event_to_rhr: Array.isArray(sig.event_to_rhr) ? sig.event_to_rhr : [],
     sleep_to_prs: sig.sleep_to_prs ?? null,
     consecutive_load: sig.consecutive_load ?? null,
+    subcategory_lift: Array.isArray(sig?.performance_lift?.subcategory_lift)
+      ? sig.performance_lift.subcategory_lift
+      : [],
   };
 }
 
 function findEventPattern(
   pattern: PatternSummary | null,
   eventTitle: string | null | undefined,
+  planLedger?: {
+    categoryId?: string | null;
+    subcategory?: string | null;
+  } | null,
 ): {
   hrvDeltaPct: number;
   n: number;
   rhrElevated: boolean;
   confidence: "strong" | "emerging";
+  source?: "subcategory" | "category";
 } | null {
   if (!pattern) return null;
+  // WS6 — prefer subcategory-level HR lift when the plan ledger tells us
+  // exactly which A-H subcategory this event belongs to. Falls back to
+  // the category-level `event_to_hrv` lookup otherwise, preserving legacy
+  // behaviour verbatim.
+  const subLift = pattern.subcategory_lift ?? [];
+  const catId = planLedger?.categoryId ?? null;
+  const subId = planLedger?.subcategory ?? null;
+  if (catId && subId && subLift.length) {
+    const subHit = subLift.find(
+      (s) => s.categoryId === catId && s.subcategoryId === subId,
+    );
+    if (
+      subHit &&
+      (subHit.confidence === "strong" || subHit.confidence === "emerging") &&
+      subHit.hrDeltaBpm > 0
+    ) {
+      // Elevated HR at subcategory level acts as the pattern citation.
+      return {
+        hrvDeltaPct: 0,
+        n: subHit.n,
+        rhrElevated: true,
+        confidence: subHit.confidence,
+        source: "subcategory",
+      };
+    }
+  }
   const bucket = classifyEventForPattern(eventTitle);
   if (!bucket) return null;
   const hit = pattern.event_to_hrv.find((p) => p.event_type === bucket);
   if (!hit) return null;
   if (hit.confidence !== "strong" && hit.confidence !== "emerging") return null;
   if (hit.hrvDeltaPct >= 0 && !hit.rhrElevated) return null;
-  return hit;
+  return { ...hit, source: "category" };
 }
 
 function suppressJitForNotificationOnlyCategory(
@@ -3649,7 +3717,16 @@ async function evaluateNudgeOne(
           : "/executive-home";
 
         // v7 - pattern-cited JIT outranks plain JIT in the comparator.
-        const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+        // WS6 — look up the plan slot for this event (if any) so
+        // findEventPattern can prefer subcategory-level HR lift and so
+        // the outgoing nudge carries the A-H tags in payload.metadata.
+        const planSlotForEvt = (ctx.planSlots ?? []).find(
+          (s) =>
+            s.jitEventTitle &&
+            evt.eventTitle &&
+            s.jitEventTitle.toLowerCase() === evt.eventTitle.toLowerCase(),
+        ) ?? null;
+        const pat = findEventPattern(ctx.pattern, evt.eventTitle, planSlotForEvt);
         const sigStrength = pat ? 3 : 2;
 
         return {
@@ -3661,6 +3738,8 @@ async function evaluateNudgeOne(
           anchorKind: "jit",
           slot: "morning",
           signalStrength: sigStrength,
+          planLedgerCategoryId: planSlotForEvt?.categoryId ?? null,
+          planLedgerSubcategory: planSlotForEvt?.subcategory ?? null,
         };
       }
     }
@@ -3801,7 +3880,14 @@ async function evaluateNudgeTwo(
       ctx.afternoonCheckinOutcome !== null;
     const route = checkedInToday ? "/executive-home" : "/daily-check-in";
 
-    const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+    // WS6 — see nudge_one_jit for rationale.
+    const planSlotForEvt = (ctx.planSlots ?? []).find(
+      (s) =>
+        s.jitEventTitle &&
+        evt.eventTitle &&
+        s.jitEventTitle.toLowerCase() === evt.eventTitle.toLowerCase(),
+    ) ?? null;
+    const pat = findEventPattern(ctx.pattern, evt.eventTitle, planSlotForEvt);
     const sigStrength = pat ? 3 : 2;
 
     return {
@@ -3813,6 +3899,8 @@ async function evaluateNudgeTwo(
       anchorKind: "jit",
       slot: "afternoon",
       signalStrength: sigStrength,
+      planLedgerCategoryId: planSlotForEvt?.categoryId ?? null,
+      planLedgerSubcategory: planSlotForEvt?.subcategory ?? null,
     };
   }
 
@@ -5167,6 +5255,9 @@ serve(async (req) => {
       weekendCtaGate?: "ok" | "missing_brief" | "missing_plan" | null;
       ttlSeconds: number;
       collapseId: string;
+      // WS6 — telemetry only. Stamped on payload.metadata below.
+      planLedgerCategoryId?: string | null;
+      planLedgerSubcategory?: string | null;
     }> = [];
 
     // 3. Evaluate each user
@@ -6219,6 +6310,9 @@ serve(async (req) => {
                 todayStr,
                 isTravel,
               ),
+            // WS6 — telemetry only; consumed at payload.metadata below.
+            planLedgerCategoryId: bestNudge.planLedgerCategoryId ?? null,
+            planLedgerSubcategory: bestNudge.planLedgerSubcategory ?? null,
           });
         }
       } else {
@@ -6462,6 +6556,11 @@ serve(async (req) => {
           cta_bucket: notif.ctaBucket,
           requires_app_open: notif.requiresAppOpen,
           weekend_cta_gate: notif.weekendCtaGate ?? null,
+          // WS6 — A-H taxonomy tags flowed through from the plan ledger.
+          // Additive telemetry; Mind Module title / subtitle / body shape
+          // are unchanged. Null for non-JIT anchored sends.
+          plan_ledger_category: notif.planLedgerCategoryId ?? null,
+          plan_ledger_subcategory: notif.planLedgerSubcategory ?? null,
         },
         decision_trace: {
           variant: notif.copy.variantId,
