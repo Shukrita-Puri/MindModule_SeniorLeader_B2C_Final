@@ -1147,6 +1147,13 @@ function findEventPattern(
   hrvDeltaPct: number;
   n: number;
   rhrElevated: boolean;
+  /**
+   * WS-B — populated only in the subcategory branch. Peak-HR delta (bpm)
+   * for the (categoryId, subcategoryId) pair, from `subcategory_lift`.
+   * Category-level hits leave this null because the legacy
+   * `event_to_hrv` shape does not carry a discrete bpm.
+   */
+  hrDeltaBpm?: number | null;
   confidence: "strong" | "emerging";
   source?: "subcategory" | "category";
 } | null {
@@ -1167,11 +1174,15 @@ function findEventPattern(
       (subHit.confidence === "strong" || subHit.confidence === "emerging") &&
       subHit.hrDeltaBpm > 0
     ) {
-      // Elevated HR at subcategory level acts as the pattern citation.
+      // Subcategory-level HR lift acts as the pattern citation. We do
+      // NOT synthesise `rhrElevated: true` here — the source signal is
+      // peak-HR delta (bpm), not resting-HR elevation vs baseline. Copy
+      // sites that want to cite the number can read `hrDeltaBpm`.
       return {
         hrvDeltaPct: 0,
         n: subHit.n,
-        rhrElevated: true,
+        rhrElevated: false,
+        hrDeltaBpm: subHit.hrDeltaBpm,
         confidence: subHit.confidence,
         source: "subcategory",
       };
@@ -1183,7 +1194,7 @@ function findEventPattern(
   if (!hit) return null;
   if (hit.confidence !== "strong" && hit.confidence !== "emerging") return null;
   if (hit.hrvDeltaPct >= 0 && !hit.rhrElevated) return null;
-  return { ...hit, source: "category" };
+  return { ...hit, hrDeltaBpm: null, source: "category" };
 }
 
 function suppressJitForNotificationOnlyCategory(
