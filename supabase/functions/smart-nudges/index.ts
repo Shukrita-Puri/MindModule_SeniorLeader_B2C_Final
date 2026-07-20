@@ -3918,6 +3918,8 @@ async function evaluateNudgeTwo(
       signalStrength: sigStrength,
       planLedgerCategoryId: planSlotForEvt?.categoryId ?? null,
       planLedgerSubcategory: planSlotForEvt?.subcategory ?? null,
+      planLedgerHrDeltaBpm:
+        typeof pat?.hrDeltaBpm === "number" ? pat.hrDeltaBpm : null,
     };
   }
 
