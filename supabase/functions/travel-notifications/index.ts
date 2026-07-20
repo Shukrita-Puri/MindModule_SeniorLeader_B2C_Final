@@ -130,6 +130,24 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth: internal-only. Only service-role bearer or CRON_SHARED_SECRET
+    // may invoke — this manipulates arbitrary users' pending travel push
+    // notifications. Called server-to-server by persist-travel-location.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const CRON_SHARED_SECRET = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+    const isServiceRoleCall = !!SERVICE_ROLE_KEY &&
+      authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
+    const isCronSecretCall = !!CRON_SHARED_SECRET &&
+      cronSecretHeader === CRON_SHARED_SECRET;
+    if (!isServiceRoleCall && !isCronSecretCall) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: internal-only endpoint" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const userId: string | undefined = body.user_id;
     const prevState: string = body.prev_state ?? "not_travelling";
