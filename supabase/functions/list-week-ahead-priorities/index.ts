@@ -490,6 +490,11 @@ serve(async (req) => {
         tags: orderedTags,
         isOrganizer: meta.isOrganizer,
         priorSignal: priorByEventId.get(eventId) ?? null,
+        // WS-A · Persisted subcategory (if any) beats the on-the-fly
+        // classifier; fall back to `enrichEvent` when no memory row exists.
+        subcategoryId: subcategoryByEventId.get(eventId)
+          ?? (enriched as any).subcategoryId
+          ?? null,
       });
     }
 
