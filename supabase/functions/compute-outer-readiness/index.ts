@@ -8257,6 +8257,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   messages: [{ role: "user", content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
+                  cacheSystemPrompt: true,
                   signal: controller.signal,
                 });
               }
@@ -8319,6 +8320,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                           }],
                           model,
                           max_tokens: 380,
+                          cacheSystemPrompt: true,
                           signal: retryController.signal,
                         });
                       }

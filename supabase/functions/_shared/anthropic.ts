@@ -47,6 +47,7 @@ interface CallClaudeParams {
   model?: string;
   max_tokens?: number;
   temperature?: number;
+  cacheSystemPrompt?: boolean;
   tools?: ClaudeTool[];
   tool_choice?: { type: string; function?: { name: string } };
   signal?: AbortSignal;
@@ -57,6 +58,25 @@ interface ClaudeResponse {
   stop_reason: string;
   model: string;
   usage: { input_tokens: number; output_tokens: number };
+}
+
+function shouldCacheSystemPrompt(system: string | undefined, explicit?: boolean): boolean {
+  if (!system) return false;
+  if (explicit !== undefined) return explicit;
+  return system.length >= 1024;
+}
+
+function buildSystemPayload(
+  system: string | undefined,
+  cache?: boolean,
+): string | Array<Record<string, unknown>> | undefined {
+  if (!system) return undefined;
+  if (!shouldCacheSystemPrompt(system, cache)) return system;
+  return [{
+    type: 'text',
+    text: system,
+    cache_control: { type: 'ephemeral' },
+  }];
 }
 
 interface ClaudeToolUseResponse {
@@ -129,7 +149,8 @@ export async function callClaude(params: CallClaudeParams): Promise<ClaudeRespon
     messages,
   };
 
-  if (system) body.system = system;
+  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt);
+  if (systemPayload) body.system = systemPayload;
   if (params.temperature !== undefined) body.temperature = params.temperature;
   if (anthropicTools) body.tools = anthropicTools;
   if (anthropicToolChoice) body.tool_choice = anthropicToolChoice;
@@ -220,7 +241,8 @@ export async function streamClaude(params: CallClaudeParams): Promise<Response> 
     stream: true,
   };
 
-  if (system) body.system = system;
+  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt);
+  if (systemPayload) body.system = systemPayload;
   if (params.temperature !== undefined) body.temperature = params.temperature;
 
   const fetchOptions: RequestInit = {

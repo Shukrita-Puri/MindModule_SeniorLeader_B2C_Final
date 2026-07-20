@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
-import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -206,73 +205,9 @@ serve(async (req) => {
 
     // Analyze wins that don't have dimensions yet
     const winsToAnalyze = wins.filter(w => !w.analyzed_at);
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
     for (const win of winsToAnalyze) {
-      let dimensions: Dimensions;
-      
-      if (ANTHROPIC_API_KEY) {
-        try {
-          const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
-              system: "You analyze personal wins to extract psychological dimensions. Be specific and accurate.",
-          messages: [
-                {
-                  role: "user",
-                  content: `Analyze this win: "${win.win_content}"`
-                }
-              ],
-              tools: [
-                {
-                  type: "function",
-                  function: {
-                    name: "extract_dimensions",
-                    description: "Extract psychological dimensions from a personal win",
-                    parameters: {
-                      type: "object",
-                      properties: {
-                        sentiment: { type: "string", enum: ["positive", "negative", "mixed", "neutral"] },
-                        primary_emotion: { type: "string", enum: ["joy", "pride", "relief", "gratitude", "confidence", "hope", "courage"] },
-                        secondary_emotion: { type: "string", enum: ["joy", "pride", "relief", "gratitude", "confidence", "hope", "courage", ""] },
-                        agency_type: { type: "string", enum: ["proactive", "responsive", "collaborative", "supported"] },
-                        regulation_level: { type: "string", enum: ["regulated", "intentional", "reactive"] },
-                        growth_signal: { type: "string", enum: ["learning", "breakthrough", "mastery", "resilience", "boundary", "letting-go"] }
-                      },
-                      required: ["sentiment"],
-                      additionalProperties: false
-                    }
-                  }
-                }
-              ],
-              tool_choice: { type: "function", function: { name: "extract_dimensions" } }
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            const toolCall = aiData.content?.filter((c: any) => c.type === 'tool_use')?.[0];
-            if (toolCall?.function?.arguments) {
-              dimensions = JSON.parse(toolCall.function.arguments);
-            } else {
-              dimensions = extractDimensionsFromText(win.win_content);
-            }
-          } else {
-            dimensions = extractDimensionsFromText(win.win_content);
-          }
-        } catch (e) {
-          console.error("AI extraction failed:", e);
-          dimensions = extractDimensionsFromText(win.win_content);
-        }
-      } else {
-        dimensions = extractDimensionsFromText(win.win_content);
-      }
+      const dimensions: Dimensions = extractDimensionsFromText(win.win_content);
 
       await supabase
         .from("tiny_wins")
@@ -353,47 +288,7 @@ serve(async (req) => {
 
     if (topEmotion && topGrowth) {
       patternLine = `Your wins over the past 14 days most reflect ${topEmotion.value} and ${topGrowth.value}`;
-
-      if (ANTHROPIC_API_KEY) {
-        try {
-          const observationPrompt = `This leader's recent wins most reflect ${topEmotion.value} and ${topGrowth.value}. In one sentence, what does this pattern of wins reveal about their current momentum and how they are leading themselves? Speak directly to the leader. No generic language.`;
-
-          const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
-              system: "You are a senior executive coach observing patterns in a leader's recent wins. Respond with exactly one sentence. Be direct, specific, and insight-driven. No filler.",
-          messages: [
-                { role: "user", content: observationPrompt }
-              ],
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            const content = aiData.content?.[0]?.text;
-            if (content) {
-              observation = content.trim();
-            }
-          }
-
-          if (aiResponse.status === 429 || aiResponse.status === 402) {
-            console.warn("AI rate limit / payment issue for observation, using fallback");
-          }
-        } catch (e) {
-          console.error("AI observation failed:", e);
-        }
-      }
-
-      // Fallback template
-      if (!observation) {
-        observation = `Over the past two weeks your wins most reflect ${topEmotion.value} and ${topGrowth.value}.`;
-      }
+      observation = `Over the past two weeks your wins most reflect ${topEmotion.value} and ${topGrowth.value}.`;
     } else if (topEmotion) {
       observation = `Over the past two weeks your wins most reflect ${topEmotion.value}.`;
       patternLine = `Your wins over the past 14 days most reflect ${topEmotion.value}`;

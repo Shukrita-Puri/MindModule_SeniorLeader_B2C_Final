@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Loader2, Mail } from 'lucide-react';
+import { AlertCircle, Apple, Loader2, Mail } from 'lucide-react';
 import {
   NATIVE_AUTH_CANCELLED_EVENT,
   getRedirectUri,
@@ -21,13 +21,15 @@ const LEGAL_KEY = 'mm_legal_accepted_v1';
 const GOOGLE_CONNECTION = 'google-oauth2';
 const MICROSOFT_CONNECTION =
   (import.meta.env.VITE_AUTH0_MICROSOFT_CONNECTION as string | undefined) || 'windowslive';
+const APPLE_CONNECTION =
+  (import.meta.env.VITE_AUTH0_APPLE_CONNECTION as string | undefined) || 'apple';
 // Email: leaving `connection` undefined opens Universal Login so the user
 // can sign in/up with whichever email/password or passwordless connection
 // the tenant has configured. Override via env if a single explicit DB
 // connection is preferred.
 const EMAIL_CONNECTION = import.meta.env.VITE_AUTH0_EMAIL_CONNECTION as string | undefined;
 
-type Provider = 'google' | 'microsoft' | 'email';
+type Provider = 'apple' | 'google' | 'microsoft' | 'email';
 
 function GoogleIcon() {
   return (
@@ -110,7 +112,9 @@ const Login = () => {
       resetStaleNativeAuth();
 
       const connection =
-        provider === 'google'
+        provider === 'apple'
+          ? APPLE_CONNECTION
+          : provider === 'google'
           ? GOOGLE_CONNECTION
           : provider === 'microsoft'
           ? MICROSOFT_CONNECTION
@@ -223,6 +227,13 @@ const Login = () => {
             </div>
           )}
 
+          <ProviderButton
+            onClick={() => handleProvider('apple')}
+            disabled={disabled}
+            busy={busy === 'apple'}
+            label="Continue with Apple"
+            icon={<Apple className="w-5 h-5 text-foreground/80" />}
+          />
           <ProviderButton
             onClick={() => handleProvider('google')}
             disabled={disabled}

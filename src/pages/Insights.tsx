@@ -48,6 +48,9 @@ const SHOW_TRAJECTORY_SUMMARY_ROW = false;
 // "Your Momentum" Tiny Wins luxury card. Retained for re-enable once the copy
 // shifts to a more text-based framing. Owner: Insights product.
 const SHOW_MOMENTUM_LUXURY_CARD = false;
+// Tiny Wins is hidden, so skip the edge function entirely until the product
+// surface is re-enabled.
+const TINY_WINS_ENABLED = false;
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
 const THEME_KEYWORDS: Record<string, string[]> = {
   'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
@@ -506,6 +509,13 @@ const Insights = () => {
             : null,
           winsCount: wins?.length || 0
         });
+        setWinsLoading(false);
+        return;
+      }
+
+      if (!TINY_WINS_ENABLED) {
+        setTinyWinsInsights(null);
+        setTinyWinsContent([]);
         setWinsLoading(false);
         return;
       }
