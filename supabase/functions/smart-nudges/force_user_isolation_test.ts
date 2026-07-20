@@ -38,7 +38,10 @@ Deno.test("delivery mode defaults to production; dry-run is explicit opt-in", ()
   // the default when APNs creds are present and no explicit opt-in flag
   // is set. Dry-run requires ?force_dry=1|true|yes, missing APNs
   // credentials, or a failed admin gate on a force_user diagnostic.
-  assertStringIncludes(src, 'import {\n  DeliveryMode,\n  describeDeliveryMode,\n  resolveDeliveryMode,\n} from "./delivery-mode.ts";');
+  assertStringIncludes(
+    src,
+    'import {\n  type DeliveryMode,\n  describeDeliveryMode,\n  resolveDeliveryMode,\n} from "./delivery-mode.ts";',
+  );
   assertStringIncludes(src, "resolveDeliveryMode({");
   assertStringIncludes(deliverySrc, "'production_delivery'");
   assertStringIncludes(deliverySrc, "'explicit_force_dry'");
