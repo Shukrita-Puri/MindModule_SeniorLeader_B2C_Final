@@ -156,7 +156,7 @@ Deno.test("getJitCandidateDropReason: personal category without stakes → dropp
     categoryId: "H" as any, comboKey: "focus_prep" as any,
     severity: "medium" as const, leadTimeMin: 30, demandProfile: null,
     windowStartMs: NOW, windowEndMs: NOW + 60_000, eligible: true,
-    minutesUntilWindow: 0, score: 40,
+    minutesUntilWindow: 0, score: 40, durationMinutes: null,
     components: { base: 5, category: 0, severity: 8, demand: 0, proximity: 0, skipPenalty: 0, memory: 0 },
   };
   assertEquals(getJitCandidateDropReason(fake, ev), "personal_category_without_explicit_stakes");
@@ -167,9 +167,13 @@ Deno.test("getJitCandidateDropReason: admin/compliance noise drops before numeri
   const fake = {
     eventId: "tax", title: "R&D Tax claim review", phase: "pre" as const,
     categoryId: "D" as any, comboKey: "somatic.pause" as any,
-    severity: "high" as const, leadTimeMin: 30, demandProfile: { cog: 3, emo: 2, ene: 1, cir: 0 },
+    severity: "high" as const, leadTimeMin: 30,
+    demandProfile: {
+      cog: 3 as const, emo: 2 as const, vis: 0 as const, pol: 0 as const,
+      rel: 0 as const, ene: 1 as const, cir: 0 as const, id: 0 as const,
+    },
     windowStartMs: NOW, windowEndMs: NOW + 60_000, eligible: true,
-    minutesUntilWindow: 0, score: MIN_CANDIDATE_SCORE + 20,
+    minutesUntilWindow: 0, score: MIN_CANDIDATE_SCORE + 20, durationMinutes: null,
     components: { base: 15, category: 15, severity: 15, demand: 10, proximity: 0, skipPenalty: 0, memory: 0 },
   };
   assertEquals(getJitCandidateDropReason(fake, ev), "admin_compliance_noise");
