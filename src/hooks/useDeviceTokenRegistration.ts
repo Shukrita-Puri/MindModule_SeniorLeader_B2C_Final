@@ -5,9 +5,21 @@ import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
-import { rememberPushTokenMeta, rememberCurrentDeviceToken } from '@/utils/notificationDiagnostics';
+import {
+  rememberPushTokenMeta,
+  rememberCurrentDeviceToken,
+  rememberPushPersistFailure,
+  rememberPushPersistSuccess,
+  rememberPushPermissionState,
+  rememberPushRegistrationAttempt,
+} from '@/utils/notificationDiagnostics';
 import { hashTokenPrefix } from '@/utils/tokenHash';
 import { getSupabaseFunctionHeaders, getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
+import {
+  getNativeNotificationAuthorizationStatus,
+  isAuthorizedForRemoteNotifications,
+  requestProvisionalNotificationPermission,
+} from '@/utils/nativeNotificationAuthorization';
 
 interface NormalizedApnsToken {
   token: string | null;
@@ -120,16 +132,29 @@ export function useDeviceTokenRegistration() {
         authTokenRefreshCleanupRef.current?.();
         authTokenRefreshCleanupRef.current = null;
 
+        // Quiet first-touch path: request provisional delivery when the system
+        // has never seen this app before. Save the one-shot hard prompt for an
+        // explicit in-app CTA.
+        let nativeStatus = await getNativeNotificationAuthorizationStatus();
+        if (nativeStatus?.authorizationStatus === 'not_determined') {
+          nativeStatus = await requestProvisionalNotificationPermission() ?? await getNativeNotificationAuthorizationStatus();
+        }
+
         // Check / request permission
         let permStatus = await PushNotifications.checkPermissions();
         emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_state', userId: user.id, meta: { receive: permStatus.receive } });
-        if (permStatus.receive === 'prompt') {
-          permStatus = await PushNotifications.requestPermissions();
-          emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_state', userId: user.id, meta: { receive: permStatus.receive, afterRequest: true } });
-        }
-        if (permStatus.receive !== 'granted') {
-          console.log('[PushReg] Permission not granted:', permStatus.receive);
-          emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_denied', userId: user.id, meta: { receive: permStatus.receive } });
+        const nativePermissionState = nativeStatus?.authorizationStatus ?? 'unknown';
+        rememberPushPermissionState(nativePermissionState);
+        const hasPushAuthorization = isAuthorizedForRemoteNotifications(nativeStatus)
+          || permStatus.receive === 'granted';
+        if (!hasPushAuthorization) {
+          console.log('[PushReg] Permission not granted:', nativePermissionState, permStatus.receive);
+          emitIntegrationEvent({
+            provider: 'notification',
+            event: 'notification_permission_denied',
+            userId: user.id,
+            meta: { receive: permStatus.receive, nativePermissionState },
+          });
         }
 
         // Listen for registration success
@@ -150,6 +175,7 @@ export function useDeviceTokenRegistration() {
           });
           if (!cleaned) {
             registered.current = false;
+            rememberPushPersistFailure('registration', 'Malformed APNs token');
             console.error(
               '[PushReg] Refusing to register malformed APNs token. Expected an even-length hex token ' +
               'or a base64-encoded binary token. Reinstall if this persists.'
@@ -162,6 +188,7 @@ export function useDeviceTokenRegistration() {
             const accessToken = await getRegistrationAuthToken();
             if (!accessToken && !DEV_MODE) {
               registered.current = false;
+              rememberPushPersistFailure('auth_token', 'Auth token unavailable after retries');
               console.error('[PushReg] Auth token unavailable after retries; cannot persist device token');
               return;
             }
@@ -181,15 +208,18 @@ export function useDeviceTokenRegistration() {
             const responseText = await response.text();
             if (!response.ok) {
               registered.current = false;
+              rememberPushPersistFailure('backend_persist', `HTTP ${response.status}: ${responseText}`);
               console.error('[PushReg] Backend rejected token:', response.status, responseText);
               emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_failed', userId: user.id, errorCode: String(response.status), errorMessage: responseText, meta: { tokenHash, tokenLength: cleaned.length } });
               return;
             }
             console.log('[PushReg] Token persisted to backend');
             registered.current = true;
+            rememberPushPersistSuccess();
             emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_success', userId: user.id, meta: { tokenHash, tokenLength: cleaned.length } });
           } catch (err) {
             registered.current = false;
+            rememberPushPersistFailure('backend_persist', err instanceof Error ? err.message : String(err));
             console.error('[PushReg] Failed to persist token:', err);
             emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_failed', userId: user.id, errorMessage: err instanceof Error ? err.message : String(err) });
           }
@@ -198,6 +228,7 @@ export function useDeviceTokenRegistration() {
         // Listen for registration errors
         const registrationErrorHandle = await PushNotifications.addListener('registrationError', (err) => {
           registered.current = false;
+          rememberPushPersistFailure('apns_registration', JSON.stringify(err));
           console.error('[PushReg] Registration error:', err);
         });
 
@@ -214,14 +245,18 @@ export function useDeviceTokenRegistration() {
         }
 
         const registerIfAllowed = async (reason: 'launch' | 'resume' | 'auth_token_refreshed') => {
+          const liveNativeStatus = await getNativeNotificationAuthorizationStatus();
           const perm = await PushNotifications.checkPermissions();
+          rememberPushPermissionState(liveNativeStatus?.authorizationStatus ?? perm.receive);
           emitIntegrationEvent({
             provider: 'notification',
             event: 'notification_permission_state',
             userId: user.id,
-            meta: { receive: perm.receive, reason },
+            meta: { receive: perm.receive, reason, nativePermissionState: liveNativeStatus?.authorizationStatus ?? 'unknown' },
           });
-          if (perm.receive !== 'granted') return;
+          const allowed = isAuthorizedForRemoteNotifications(liveNativeStatus) || perm.receive === 'granted';
+          if (!allowed) return;
+          rememberPushRegistrationAttempt(reason);
           await PushNotifications.register();
           console.log(`[PushReg] ${reason}: APNs registration initiated`);
           emitIntegrationEvent({

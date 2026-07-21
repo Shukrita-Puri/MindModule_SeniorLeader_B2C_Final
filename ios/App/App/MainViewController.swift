@@ -5,6 +5,7 @@ class MainViewController: CAPBridgeViewController {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(AppleCalendarPlugin())
         bridge?.registerPluginInstance(NativeBackgroundSyncPlugin())
+        bridge?.registerPluginInstance(NotificationAuthorizationPlugin())
         bridge?.registerPluginInstance(LocationBridgePlugin())
     }
 }

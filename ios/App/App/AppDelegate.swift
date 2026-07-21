@@ -25,6 +25,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Set notification center delegate for foreground notifications
         UNUserNotificationCenter.current().delegate = self
 
+        // Drain any notification receipts the extension cached while the app
+        // was suspended, offline, or not yet launched.
+        NotificationReceiptClient.shared.flushPending()
+
         // Register HealthKit background observers so iOS can wake the app silently
         // when new HRV/RHR/HR/Sleep samples arrive — keeps wearable_data flowing
         // without requiring the user to open the app. Permission must already be
@@ -177,6 +181,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        if let notificationLogId = notification.request.content.userInfo["notification_log_id"] as? String,
+           !notificationLogId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            NotificationReceiptClient.shared.recordReceipt(
+                notificationLogId: notificationLogId,
+                source: .foregroundSync
+            )
+        }
         if #available(iOS 14.0, *) {
             completionHandler([.banner, .list, .badge, .sound])
         } else {
@@ -196,6 +207,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Drain any payloads that were queued while the app was backgrounded
         // or terminated. JS layer will also retry, but a native flush guarantees
         // we don't depend on the WebView being alive.
+        NotificationReceiptClient.shared.flushPending()
         WearableSyncBridge.shared.flushOutbox {}
         AppleCalendarBackgroundSyncBridge.shared.flushOutbox {}
     }

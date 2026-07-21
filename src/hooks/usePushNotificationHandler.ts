@@ -64,7 +64,11 @@ export function usePushNotificationHandler() {
             trackTap(notificationLogId);
             // v5.3 — Honest receipts: tap is also a "delivered" signal.
             supabase.functions.invoke('notification-receipt', {
-              body: { notification_log_id: notificationLogId, received_at: new Date().toISOString() },
+              body: {
+                notification_log_id: notificationLogId,
+                received_at: new Date().toISOString(),
+                source: 'tap',
+              },
             }).catch(() => { /* best-effort */ });
           }
 

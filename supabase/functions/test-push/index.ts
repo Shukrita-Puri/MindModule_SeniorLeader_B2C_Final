@@ -190,9 +190,7 @@ serve(async (req) => {
           },
           sound: "default",
           badge: 1,
-          // 'mutable-content' intentionally omitted — requires a Notification
-          // Service Extension which this app does not ship. Without one some
-          // iOS versions silently suppress the alert.
+          "mutable-content": 1,
         },
         notification_type: "test_push",
         notification_log_id: notificationLogId ?? '',

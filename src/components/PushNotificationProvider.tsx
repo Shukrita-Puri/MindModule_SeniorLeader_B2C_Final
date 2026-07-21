@@ -1,5 +1,6 @@
 import { useDeviceTokenRegistration } from '@/hooks/useDeviceTokenRegistration';
 import { usePushNotificationHandler } from '@/hooks/usePushNotificationHandler';
+import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 
 /**
  * Wrapper component that initialises push notification hooks.
@@ -7,7 +8,7 @@ import { usePushNotificationHandler } from '@/hooks/usePushNotificationHandler';
  */
 export function PushNotificationProvider() {
   useDeviceTokenRegistration();
-  return null;
+  return <NotificationPermissionBanner />;
 }
 
 /**

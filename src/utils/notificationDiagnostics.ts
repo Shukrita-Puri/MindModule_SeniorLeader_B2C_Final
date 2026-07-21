@@ -6,6 +6,7 @@ const CURRENT_DEVICE_TOKEN_KEY = 'mm_push_current_device_token_v1';
 const LAST_LOCAL_SCHEDULE_KEY = 'mm_local_notification_last_schedule_v1';
 const LAST_LOCAL_DELIVERED_KEY = 'mm_local_notification_last_delivered_v1';
 const LAST_LOCAL_FAILURE_KEY = 'mm_local_notification_last_failure_v1';
+const PUSH_REGISTRATION_HEALTH_KEY = 'mm_push_registration_health_v1';
 
 export interface PushTokenMeta {
   userId?: string | null;
@@ -28,6 +29,17 @@ export interface NotificationDiagnostics {
   lastScheduledLocal: unknown | null;
   lastDeliveredLocal: unknown | null;
   lastLocalFailure: unknown | null;
+  pushRegistrationHealth: PushRegistrationHealth | null;
+}
+
+export interface PushRegistrationHealth {
+  lastAttemptAt?: string | null;
+  lastAttemptReason?: string | null;
+  lastPersistSuccessAt?: string | null;
+  lastFailureAt?: string | null;
+  lastFailureStage?: string | null;
+  lastFailureMessage?: string | null;
+  lastPermissionState?: string | null;
 }
 
 function readJson<T>(key: string): T | null {
@@ -41,6 +53,23 @@ function readJson<T>(key: string): T | null {
 
 function writeJson(key: string, value: unknown): void {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* best-effort */ }
+}
+
+function emitPushRegistrationHealthChanged(): void {
+  try {
+    window.dispatchEvent(new CustomEvent('mm:push-registration-health-changed'));
+  } catch {
+    // no-op
+  }
+}
+
+function writePushRegistrationHealth(update: Partial<PushRegistrationHealth>): void {
+  const next = {
+    ...(readJson<PushRegistrationHealth>(PUSH_REGISTRATION_HEALTH_KEY) ?? {}),
+    ...update,
+  };
+  writeJson(PUSH_REGISTRATION_HEALTH_KEY, next);
+  emitPushRegistrationHealthChanged();
 }
 
 export function rememberPushTokenMeta(meta: Omit<PushTokenMeta, 'updatedAt'>): void {
@@ -86,6 +115,40 @@ export function clearCurrentDeviceToken(): void {
   try { localStorage.removeItem(CURRENT_DEVICE_TOKEN_KEY); } catch { /* best-effort */ }
 }
 
+export function getPushRegistrationHealth(): PushRegistrationHealth | null {
+  return readJson<PushRegistrationHealth>(PUSH_REGISTRATION_HEALTH_KEY);
+}
+
+export function rememberPushRegistrationAttempt(reason: string): void {
+  writePushRegistrationHealth({
+    lastAttemptAt: new Date().toISOString(),
+    lastAttemptReason: reason,
+  });
+}
+
+export function rememberPushPersistSuccess(): void {
+  writePushRegistrationHealth({
+    lastPersistSuccessAt: new Date().toISOString(),
+    lastFailureAt: null,
+    lastFailureStage: null,
+    lastFailureMessage: null,
+  });
+}
+
+export function rememberPushPersistFailure(stage: string, message: string): void {
+  writePushRegistrationHealth({
+    lastFailureAt: new Date().toISOString(),
+    lastFailureStage: stage,
+    lastFailureMessage: message,
+  });
+}
+
+export function rememberPushPermissionState(state: string): void {
+  writePushRegistrationHealth({
+    lastPermissionState: state,
+  });
+}
+
 export async function getNotificationDiagnostics(): Promise<NotificationDiagnostics> {
   const isNative = Capacitor.isNativePlatform();
   const platform = Capacitor.getPlatform();
@@ -126,6 +189,7 @@ export async function getNotificationDiagnostics(): Promise<NotificationDiagnost
     lastScheduledLocal: readJson(LAST_LOCAL_SCHEDULE_KEY),
     lastDeliveredLocal: readJson(LAST_LOCAL_DELIVERED_KEY),
     lastLocalFailure: readJson(LAST_LOCAL_FAILURE_KEY),
+    pushRegistrationHealth: getPushRegistrationHealth(),
   };
 
   emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_state', meta: diagnostics as unknown as Record<string, unknown> });
