@@ -4840,6 +4840,7 @@ type NotificationTraceOutcome =
   | "light_day_strong_state"
   | "no_qualified_nudge"
   | "plan_ready_morning_fallback"
+  | "plan_ready_afternoon_fallback"
   | "week_ahead_not_in_window"
   | "week_ahead_already_sent_this_week"
   | "week_ahead_not_selected"
@@ -5933,6 +5934,39 @@ serve(async (req) => {
                   active_slot: activeSlot,
                   plan_slot_count: ctx.planSlots?.length ?? 0,
                   fallback: "legacy_nudge_one",
+                  fallback_variant_id: fallback.copy.variantId,
+                },
+              });
+            }
+          }
+
+          // Afternoon nudge_two is also allowed to fail open when a
+          // ready-plan slot cannot project usable copy. Without this,
+          // a null projection can strand the user even though the
+          // legacy evaluator still has valid JIT/state fallbacks.
+          if (
+            activeSlot === "afternoon" &&
+            !projected &&
+            !alreadySentTypes.has("nudge_two") &&
+            !alreadySentTypes.has("pre_event_prep")
+          ) {
+            const fallback = await evaluateNudgeTwo(
+              ctx,
+              alreadySentTypes,
+              sentEventRefs,
+              supabase,
+            );
+            if (fallback) {
+              qualified.push(fallback);
+              trace(userId, "plan_ready_afternoon_fallback", {
+                ...traceBase,
+                metadata: {
+                  reason: suppressedEffective
+                    ? "projection_suppressed_falling_through_to_legacy_nudge_two"
+                    : "projection_returned_null_falling_through_to_legacy_nudge_two",
+                  active_slot: activeSlot,
+                  plan_slot_count: ctx.planSlots?.length ?? 0,
+                  fallback: "legacy_nudge_two",
                   fallback_variant_id: fallback.copy.variantId,
                 },
               });

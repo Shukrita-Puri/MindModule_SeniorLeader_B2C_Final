@@ -100,6 +100,27 @@ Deno.test("ready morning plan projection fails open to legacy nudge_one when no 
   );
 });
 
+Deno.test("ready afternoon plan projection fails open to legacy nudge_two when no copy qualifies", () => {
+  assert(
+    SRC.includes("plan_ready_afternoon_fallback"),
+    "expected structured trace for ready-plan afternoon fallback",
+  );
+  assert(
+    /activeSlot === ["']afternoon["'][\s\S]*!projected[\s\S]*evaluateNudgeTwo\(\s*ctx,\s*alreadySentTypes,\s*sentEventRefs,\s*supabase,?\s*\)/.test(
+      SRC,
+    ),
+    "ready afternoon plan path must fall through to legacy nudge_two when projection returns null",
+  );
+  assert(
+    SRC.includes("projection_returned_null_falling_through_to_legacy_nudge_two"),
+    "fallback trace must explain null projected-slot copy for afternoon",
+  );
+  assert(
+    SRC.includes("projection_suppressed_falling_through_to_legacy_nudge_two"),
+    "fallback must preserve legacy nudge_two suppression visibility",
+  );
+});
+
 Deno.test("slot-cap reconstruction prefers persisted delivery slot over family-name inference", () => {
   assert(
     SRC.includes("function slotFromNotificationLogRow("),

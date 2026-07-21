@@ -4,7 +4,7 @@ const SRC = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 
 Deno.test("ready plan snapshot morning projection preserves legacy route after check-in", () => {
   assert(
-    /deepLinkRoute:\s*activeSlot === 'morning' && anchorKind === 'jit' && ctx\.morningCheckinOutcome !== null\s*\?\s*'\/executive-home'\s*:\s*'\/daily-check-in'/.test(
+    /deepLinkRoute:\s*activeSlot === ["']morning["'] && anchorKind === ["']jit["'] &&[\s\S]*ctx\.morningCheckinOutcome !== null[\s\S]*\?\s*["']\/executive-home["']\s*:\s*["']\/daily-check-in["']/.test(
       SRC,
     ),
     "projected morning JIT must route checked-in users to /executive-home",
@@ -13,7 +13,9 @@ Deno.test("ready plan snapshot morning projection preserves legacy route after c
 
 Deno.test("ready plan snapshot morning state projection is suppressed after morning check-in", () => {
   assert(
-    SRC.includes("if (activeSlot === 'morning') {\n      if (ctx.morningCheckinOutcome !== null) return null;"),
+    /if \(activeSlot === ["']morning["']\)\s*\{\s*if \(ctx\.morningCheckinOutcome !== null\) return null;/.test(
+      SRC,
+    ),
     "projected morning state nudge must stop once morning check-in exists",
   );
 });
@@ -36,13 +38,18 @@ Deno.test("ready plan snapshot morning JIT projection keeps legacy safety gates"
   );
   for (const needle of [
     "if (!matchingJit) return false;",
-    "if (matchingJit.confidenceBand === 'none') return false;",
+    'if (matchingJit.confidenceBand === "none") return false;',
     "if (sentEventRefs.has(matchingJit.externalId)) return false;",
     "if (suppressJitForNotificationOnlyCategory(slotEventTitle)) return false;",
-    "if (minutesUntil === null || minutesUntil < 30 || minutesUntil > 180) return false;",
-    ".from('jit_event_context')",
-    ".from('daily_ritual_completions')",
+    '.from("jit_event_context")',
+    '.from("daily_ritual_completions")',
   ]) {
     assert(SRC.includes(needle), `missing projected morning JIT safeguard: ${needle}`);
   }
+  assert(
+    /if \(minutesUntil === null \|\| minutesUntil < 30 \|\| minutesUntil > 180\)\s*\{\s*return false;\s*\}/.test(
+      SRC,
+    ),
+    "missing projected morning JIT safeguard: minutesUntil window check",
+  );
 });

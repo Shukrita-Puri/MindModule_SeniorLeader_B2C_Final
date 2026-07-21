@@ -35,6 +35,7 @@ Deno.test("smart-nudges traces required skip and APNs outcomes", () => {
     "light_day_strong_state",
     "no_qualified_nudge",
     "plan_ready_morning_fallback",
+    "plan_ready_afternoon_fallback",
     "week_ahead_not_in_window",
     "week_ahead_already_sent_this_week",
     "week_ahead_not_selected",

@@ -233,7 +233,6 @@
         "npm:@capacitor-community/in-app-review@8",
         "npm:@capacitor/android@^8.1.0",
         "npm:@capacitor/app@^8.0.1",
-        "npm:@capacitor/assets@^3.0.5",
         "npm:@capacitor/browser@^8.0.1",
         "npm:@capacitor/cli@^8.1.0",
         "npm:@capacitor/core@^8.1.0",
@@ -300,7 +299,7 @@
         "npm:html-to-image@^1.11.13",
         "npm:input-otp@^1.2.4",
         "npm:jsdom@^20.0.3",
-        "npm:jspdf@^3.0.4",
+        "npm:jspdf@^4.2.1",
         "npm:lovable-tagger@^1.1.7",
         "npm:lucide-react@0.462",
         "npm:next-themes@0.3",
@@ -323,7 +322,7 @@
         "npm:typescript@^5.5.3",
         "npm:vaul@~0.9.3",
         "npm:vite@^5.4.1",
-        "npm:vitest@^3.2.4",
+        "npm:vitest@^4.1.10",
         "npm:zod@^3.23.8"
       ]
     }
