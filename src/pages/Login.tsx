@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Apple, Loader2, Mail } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import {
   NATIVE_AUTH_CANCELLED_EVENT,
   getRedirectUri,
@@ -15,43 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import mmLogo from '@/assets/brand/mm-logo-circle.png';
 
 const LEGAL_KEY = 'mm_legal_accepted_v1';
-
-// Auth0 connection names (env-overridable for tenants whose connections
-// are named differently). Defaults match the standard Auth0 social/db names.
-const GOOGLE_CONNECTION = 'google-oauth2';
-const MICROSOFT_CONNECTION =
-  (import.meta.env.VITE_AUTH0_MICROSOFT_CONNECTION as string | undefined) || 'windowslive';
-const APPLE_CONNECTION =
-  (import.meta.env.VITE_AUTH0_APPLE_CONNECTION as string | undefined) || 'apple';
-// Email: leaving `connection` undefined opens Universal Login so the user
-// can sign in/up with whichever email/password or passwordless connection
-// the tenant has configured. Override via env if a single explicit DB
-// connection is preferred.
-const EMAIL_CONNECTION = import.meta.env.VITE_AUTH0_EMAIL_CONNECTION as string | undefined;
-
-type Provider = 'apple' | 'google' | 'microsoft' | 'email';
-
-function GoogleIcon() {
-  return (
-    <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8a12 12 0 110-24c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 1024 44c11 0 20-8 20-20 0-1.2-.1-2.3-.4-3.5z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 006.3 14.7z"/>
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.5-5.2l-6.2-5.2C29.3 35 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5A20 20 0 0024 44z"/>
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3a12 12 0 01-4.1 5.6l6.2 5.2c-.4.4 6.6-4.8 6.6-14.8 0-1.2-.1-2.3-.4-3.5z"/>
-    </svg>
-  );
-}
-
-function MicrosoftIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
-      <rect x="1" y="1" width="10" height="10" fill="#F25022" />
-      <rect x="13" y="1" width="10" height="10" fill="#7FBA00" />
-      <rect x="1" y="13" width="10" height="10" fill="#00A4EF" />
-      <rect x="13" y="13" width="10" height="10" fill="#FFB900" />
-    </svg>
-  );
-}
+type LoginState = 'auth0';
 
 const Login = () => {
   const { isAuthenticated: sdkIsAuthenticated, isLoading, loginWithRedirect } = useAuth0();
@@ -70,7 +34,7 @@ const Login = () => {
       return false;
     }
   });
-  const [busy, setBusy] = useState<Provider | null>(null);
+  const [busy, setBusy] = useState<LoginState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelledRef = useRef(false);
 
@@ -103,28 +67,16 @@ const Login = () => {
   }, []);
 
   const handleProvider = useCallback(
-    async (provider: Provider) => {
+    async () => {
       if (!accepted || busy) return;
       setError(null);
-      setBusy(provider);
+      setBusy('auth0');
       cancelledRef.current = false;
       clearLogoutGuard();
       resetStaleNativeAuth();
 
-      const connection =
-        provider === 'apple'
-          ? APPLE_CONNECTION
-          : provider === 'google'
-          ? GOOGLE_CONNECTION
-          : provider === 'microsoft'
-          ? MICROSOFT_CONNECTION
-          : EMAIL_CONNECTION;
-
       try {
-        const result = await nativeLogin({
-          returnTo: finalDestination,
-          connection,
-        });
+        const result = await nativeLogin({ returnTo: finalDestination });
         if (result.status === 'opened') return;
         if (nativeLoginHandled(result)) return;
 
@@ -134,7 +86,6 @@ const Login = () => {
             redirect_uri: getRedirectUri(),
             audience: getSanitisedAuth0Audience(),
             scope: 'openid profile email offline_access',
-            ...(connection ? { connection } : {}),
           },
         });
       } catch (e) {
@@ -228,32 +179,10 @@ const Login = () => {
           )}
 
           <ProviderButton
-            onClick={() => handleProvider('apple')}
+            onClick={handleProvider}
             disabled={disabled}
-            busy={busy === 'apple'}
-            label="Continue with Apple"
-            icon={<Apple className="w-5 h-5 text-foreground/80" />}
-          />
-          <ProviderButton
-            onClick={() => handleProvider('google')}
-            disabled={disabled}
-            busy={busy === 'google'}
-            label="Continue with Google"
-            icon={<GoogleIcon />}
-          />
-          <ProviderButton
-            onClick={() => handleProvider('microsoft')}
-            disabled={disabled}
-            busy={busy === 'microsoft'}
-            label="Continue with Microsoft"
-            icon={<MicrosoftIcon />}
-          />
-          <ProviderButton
-            onClick={() => handleProvider('email')}
-            disabled={disabled}
-            busy={busy === 'email'}
-            label="Continue with Email"
-            icon={<Mail className="w-5 h-5 text-foreground/70" />}
+            busy={busy === 'auth0'}
+            label="Continue with Auth0"
           />
 
           <div className="pt-4 flex items-center justify-between gap-4">
@@ -300,13 +229,11 @@ function ProviderButton({
   disabled,
   busy,
   label,
-  icon,
 }: {
   onClick: () => void;
   disabled: boolean;
   busy: boolean;
   label: string;
-  icon: React.ReactNode;
 }) {
   return (
     <button
@@ -317,7 +244,7 @@ function ProviderButton({
       className="relative w-full h-[54px] rounded-full bg-white/95 backdrop-blur-sm border border-black/[0.05] shadow-[0_2px_8px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] flex items-center justify-center px-5 text-[15.5px] font-medium text-foreground/90 transition active:scale-[0.985] disabled:opacity-60 disabled:active:scale-100"
     >
       <span className="absolute left-5 flex items-center justify-center">
-        {busy ? <Loader2 className="w-5 h-5 animate-spin text-foreground/60" /> : icon}
+        {busy ? <Loader2 className="w-5 h-5 animate-spin text-foreground/60" /> : null}
       </span>
       <span>{label}</span>
     </button>
