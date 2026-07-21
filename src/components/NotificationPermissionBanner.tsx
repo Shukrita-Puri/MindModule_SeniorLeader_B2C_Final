@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { Bell, BellOff, RefreshCcw, Settings } from 'lucide-react';
+import { Bell, BellOff, RefreshCcw, Settings, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -18,14 +18,16 @@ import {
   getPushRegistrationHealth,
   type PushRegistrationHealth,
 } from '@/utils/notificationDiagnostics';
+import {
+  NOTIFICATION_RECOVERY_CONFIG,
+  dismissRecoveryReason,
+  isRecoveryReasonDismissed,
+  type NotificationRecoveryReason,
+} from '@/config/notificationRecovery';
 
-const STALE_TOKEN_DAYS = 7;
+const STALE_TOKEN_DAYS = NOTIFICATION_RECOVERY_CONFIG.staleTokenDays;
 
-type BannerReason =
-  | 'denied'
-  | 'provisional'
-  | 'background_refresh_off'
-  | 'stale_token';
+type BannerReason = NotificationRecoveryReason;
 
 function isNativeIos(): boolean {
   try {
@@ -111,6 +113,21 @@ export function NotificationPermissionBanner() {
 
   const reason = useMemo(() => buildReason(nativeStatus, health), [health, nativeStatus]);
 
+  // Suppress banner while the user's dismissal window is active (except
+  // 'denied', which has no dismissal window because it needs iOS Settings).
+  const [dismissTick, setDismissTick] = useState(0);
+  const isDismissed = useMemo(() => {
+    if (!reason) return false;
+    return isRecoveryReasonDismissed(reason);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reason, dismissTick]);
+
+  const handleDismiss = useCallback(() => {
+    if (!reason) return;
+    dismissRecoveryReason(reason);
+    setDismissTick((n) => n + 1);
+  }, [reason]);
+
   const bannerCopy = useMemo(() => {
     if (!reason || !nativeStatus) return null;
 
@@ -166,7 +183,9 @@ export function NotificationPermissionBanner() {
     }
   }, [health?.lastPersistSuccessAt, nativeStatus, reason]);
 
-  if (!isAuthenticated || !isNativeIos() || !bannerCopy) return null;
+  if (!isAuthenticated || !isNativeIos() || !bannerCopy || isDismissed) return null;
+
+  const canDismiss = reason !== 'denied';
 
   const Icon = bannerCopy.icon;
 
@@ -241,6 +260,18 @@ export function NotificationPermissionBanner() {
             {bannerCopy.secondaryLabel && (
               <Button size="sm" variant="outline" onClick={() => void handleOpenSettings()}>
                 {bannerCopy.secondaryLabel}
+              </Button>
+            )}
+            {canDismiss && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleDismiss}
+                aria-label="Dismiss for now"
+                className="ml-auto"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Not now
               </Button>
             )}
           </div>
