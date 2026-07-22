@@ -266,14 +266,18 @@ Deno.test("S15 ambiguous identity: memory row without resolved_event_id still ex
 
 // ── Scenario 16: occurrence restore does NOT clear permanent ──
 Deno.test("S16 occurrence priority does not clear a permanent (never) row", () => {
-  const never = baseRow({ id: "row-never", signal: "never", scope: "permanent" });
+  const never = baseRow({
+    id: "row-never", signal: "never", scope: "permanent",
+    event_category: "meeting", event_type_key: "1on1",
+  });
   const restore = baseRow({
     id: "row-restore", signal: "priority", source: "priority_tag",
     resolved_event_id: "evt-A", occurred_at: "2026-07-20T09:00:00.000Z",
+    event_category: "meeting", event_type_key: "1on1",
   });
   const r = evaluateEventPriorityExclusion({
     memoryRows: [never, restore],
-    candidate: cand({ eventId: "evt-A" }),
+    candidate: cand({ eventId: "evt-A", category: "meeting", typeKey: "1on1" }),
     targetDate: TUE_2026_07_21, timezone: TZ,
   });
   assertEquals(r.excluded, true);
