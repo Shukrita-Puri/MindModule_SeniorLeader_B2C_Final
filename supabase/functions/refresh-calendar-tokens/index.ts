@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { isAuthorizedCronCaller, cronForbiddenResponse } from "../_shared/cron-auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,6 +48,12 @@ interface UserResult {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only pg_cron (CRON_SHARED_SECRET) or a service-role caller may refresh
+  // OAuth tokens across every active calendar connection. Reject public callers.
+  if (!isAuthorizedCronCaller(req)) {
+    return cronForbiddenResponse(corsHeaders);
   }
 
   try {
