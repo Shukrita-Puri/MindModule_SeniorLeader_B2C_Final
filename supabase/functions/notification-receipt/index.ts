@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +53,13 @@ function normalizeReceipt(payload: ReceiptPayload): NormalizedReceipt | null {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Only the authenticated app user may mark their own notifications as
+  // delivered. Without this, anyone who obtains a notification_log_id can
+  // corrupt another user's delivery/engagement analytics.
+  const auth = await authenticateRequest(req, corsHeaders);
+  if (auth.errorResponse) return auth.errorResponse;
+  const userId = auth.userId;
+
   try {
     const body = await req.json().catch(() => ({}));
     const rawReceipts: ReceiptPayload[] = Array.isArray(body?.receipts)
@@ -81,8 +89,9 @@ serve(async (req) => {
 
     const { data: rows, error: fetchError } = await supabase
       .from("notification_log")
-      .select("id, delivery_state, delivered_at, payload")
-      .in("id", ids);
+      .select("id, delivery_state, delivered_at, payload, user_id")
+      .in("id", ids)
+      .eq("user_id", userId);
 
     if (fetchError) throw fetchError;
 
