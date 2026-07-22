@@ -1,13 +1,69 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, ArrowLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 import { openUrl } from "@/utils/openUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { hasValidAccess, isValidBeta, resolveOnboardingAccess } from "@/utils/subscriptionHelpers";
+
+// Shared mobile-safe scroll shell for the pricing/upgrade page.
+//
+// Fixes the mobile layout bugs on `/upgrade` (Stage6Payment is also the
+// standalone upgrade page — see App.tsx route "upgrade"):
+//   - `min-h-dvh` (not fixed 100vh) so iOS URL bar changes don't clip content
+//   - vertical scrolling always enabled, no body-scroll lock
+//   - top/bottom safe-area insets so the title clears the Dynamic Island and
+//     the CTA clears the iOS home indicator
+//   - a visible Back control top-left with history-aware fallback
+function PaymentPageShell({
+  children,
+  showBack = true,
+}: {
+  children: ReactNode;
+  showBack?: boolean;
+}) {
+  const navigate = useNavigate();
+  const handleBack = () => {
+    // Prefer real browser history when available; otherwise route to a safe
+    // in-app home. window.history.length is >1 whenever the user navigated
+    // into this page from within the SPA.
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/executive-home', { replace: true });
+    }
+  };
+  return (
+    <div
+      data-testid="payment-page-shell"
+      className="min-h-dvh w-full overflow-y-auto overscroll-contain bg-background"
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      {showBack && (
+        <div className="max-w-md mx-auto px-4 pt-3">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="Back"
+            data-testid="payment-back-button"
+            className="inline-flex items-center gap-1 -ml-1 py-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+          >
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            <span>Back</span>
+          </button>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
@@ -285,13 +341,15 @@ export default function Stage6Payment() {
   // If user is already on the best plan
   if (availablePlans.length === 0) {
     return (
-      <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
-        <div className="py-12">
-          <p className="text-[15px] font-medium mb-2">You're on the best plan!</p>
-          <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
-          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+      <PaymentPageShell>
+        <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
+          <div className="py-12">
+            <p className="text-[15px] font-medium mb-2">You're on the best plan!</p>
+            <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
+            <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+          </div>
         </div>
-      </div>
+      </PaymentPageShell>
     );
   }
 
@@ -301,18 +359,21 @@ export default function Stage6Payment() {
   // bug while profile is still syncing.
   if (checkoutReturnProcessing) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        <p className="text-[15px] font-medium">Setting up your access</p>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Your payment was successful. We're finishing setup. This usually takes a few seconds.
-        </p>
-      </div>
+      <PaymentPageShell showBack={false}>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <p className="text-[15px] font-medium">Setting up your access</p>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Your payment was successful. We're finishing setup. This usually takes a few seconds.
+          </p>
+        </div>
+      </PaymentPageShell>
     );
   }
 
   if (checkoutFallback && !hasValidUserAccess) {
     return (
+      <PaymentPageShell>
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-[15px] font-medium">Payment received</p>
         <p className="text-sm text-muted-foreground max-w-sm">
@@ -349,19 +410,23 @@ export default function Stage6Payment() {
           Check again
         </Button>
       </div>
+      </PaymentPageShell>
     );
   }
 
   if (accessPending || (isBetaValid && !hasExplicitUpgradeSource)) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
+      <PaymentPageShell showBack={false}>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </PaymentPageShell>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto pt-2 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] px-4 animate-fade-in">
+    <PaymentPageShell>
+    <div className="max-w-md mx-auto pt-2 pb-8 px-4 animate-fade-in">
       {/* Toggle + Title row */}
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-[20px] font-headline font-bold">
@@ -504,5 +569,6 @@ export default function Stage6Payment() {
         </a>
       </div>
     </div>
+    </PaymentPageShell>
   );
 }
