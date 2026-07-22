@@ -7,6 +7,7 @@ import {
   type QuotaCooldownRow,
 } from "../_shared/rules/calendar-quota-scope.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { isAuthorizedCronCaller, cronForbiddenResponse } from "../_shared/cron-auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,12 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only pg_cron (CRON_SHARED_SECRET) or a service-role caller may fan out
+  // per-user calendar syncs. Reject public/anon callers.
+  if (!isAuthorizedCronCaller(req)) {
+    return cronForbiddenResponse(corsHeaders);
   }
 
   try {
