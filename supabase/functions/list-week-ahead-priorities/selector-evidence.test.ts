@@ -6,15 +6,18 @@
  *   - asserts per-category cap and top-N truncation are gone
  *   - asserts hard hides are limited to declined/cancelled + all-day OOO
  */
-import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertStringIncludes,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 const SRC = await Deno.readTextFile(
   new URL("./index.ts", import.meta.url),
 );
 
 Deno.test("imports loadJitContextForEvents (relationship/memory/sovereign)", () => {
-  assertStringIncludes(SRC, 'import { loadJitContextForEvents }');
-  assertStringIncludes(SRC, 'loadJitContextForEvents(');
+  assertStringIncludes(SRC, "import { loadJitContextForEvents }");
+  assertStringIncludes(SRC, "loadJitContextForEvents(");
 });
 
 Deno.test("does NOT use the filtering selectJitCandidates in week-ahead", () => {
@@ -60,12 +63,13 @@ Deno.test("prior_priority tag is gated on hasPriorDayPriority (not just memDelta
 
 Deno.test("prior_priority is pinned before the 3-chip truncation", () => {
   // Prior priority must survive the top-3 slice even when other tags fire.
-  assertStringIncludes(SRC, 'orderedTags');
-  assertStringIncludes(SRC, '"prior_priority", ...tags.filter');
+  assertStringIncludes(SRC, "const orderedTags = tags.includes");
+  assertStringIncludes(SRC, '"prior_priority"');
+  assertStringIncludes(SRC, 'tags.filter((t) => t !== "prior_priority")');
 });
 
 Deno.test("returns weekAheadMode + priorities + generatedAt envelope", () => {
   assertStringIncludes(SRC, "weekAheadMode: decision");
-  assertStringIncludes(SRC, "priorities: picked");
+  assertStringIncludes(SRC, "priorities: prioritiesForSnapshot");
   assertStringIncludes(SRC, "generatedAt:");
 });

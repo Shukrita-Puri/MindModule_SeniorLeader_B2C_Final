@@ -32,9 +32,7 @@ import {
   periodFor,
 } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
-import {
-  classifyEvent,
-} from "../_shared/events/event-classifier.ts";
+import { classifyEvent } from "../_shared/events/event-classifier.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import {
   evaluateWeekAheadMode,
@@ -117,12 +115,16 @@ function isDeclinedOrCancelled(
   if (status === "cancelled") return true;
   const signals = (eventMetadata as any).attendeeSignals ?? eventMetadata;
   const self = signals?.selfResponse ?? signals?.self?.responseStatus ?? null;
-  if (typeof self === "string" && self.toLowerCase() === "declined") return true;
+  if (typeof self === "string" && self.toLowerCase() === "declined") {
+    return true;
+  }
   return false;
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
     let userId: string | null = null;
@@ -174,7 +176,9 @@ serve(async (req) => {
     const localSunday = new Date(localMonday);
     localSunday.setDate(localSunday.getDate() + 6);
     const fmtLocalDate = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${
+        String(d.getDate()).padStart(2, "0")
+      }`;
     const weekStart = fmtLocalDate(localMonday);
     const weekEnd = fmtLocalDate(localSunday);
 
@@ -183,10 +187,18 @@ serve(async (req) => {
     // priorities. Returns immediately; never falls through to listing.
     if (req.method === "POST") {
       let body: any = {};
-      try { body = await req.json(); } catch { body = {}; }
+      try {
+        body = await req.json();
+      } catch {
+        body = {};
+      }
       if (body && body.action === "save") {
-        const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
-        if (body.selected_plan !== undefined) update.selected_plan = body.selected_plan;
+        const update: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (body.selected_plan !== undefined) {
+          update.selected_plan = body.selected_plan;
+        }
         if (body.user_edits !== undefined) update.user_edits = body.user_edits;
 
         const { data: existing } = await supabase
@@ -204,7 +216,8 @@ serve(async (req) => {
             .eq("id", existing.id);
           if (updErr) {
             return new Response(JSON.stringify({ error: updErr.message }), {
-              status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
         } else {
@@ -221,18 +234,28 @@ serve(async (req) => {
             });
           if (insErr) {
             return new Response(JSON.stringify({ error: insErr.message }), {
-              status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
         }
-        console.log("[week_ahead.save.success]", { userId: redactUserId(userId), weekStart });
-        return new Response(JSON.stringify({ ok: true, weekStartDate: weekStart }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        console.log("[week_ahead.save.success]", {
+          userId: redactUserId(userId),
+          weekStart,
         });
+        return new Response(
+          JSON.stringify({ ok: true, weekStartDate: weekStart }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
     }
 
-    const windowStartUtc = new Date(localStartOfToday.getTime() + offsetMinutes * 60_000);
+    const windowStartUtc = new Date(
+      localStartOfToday.getTime() + offsetMinutes * 60_000,
+    );
     const windowEndUtc = new Date(localEnd.getTime() + offsetMinutes * 60_000);
 
     // Week-ahead-mode evaluation (server-derived; PTO/holiday signals are
@@ -246,13 +269,18 @@ serve(async (req) => {
     // Pull events (multi-provider) with dedupe — mirrors list-replacement-calendar-events.
     const { data, error } = await supabase
       .from("calendar_events")
-      .select("id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring, event_metadata, created_at")
+      .select(
+        "id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring, event_metadata, created_at",
+      )
       .eq("user_id", userId)
       .gte("start_time", windowStartUtc.toISOString())
       .lt("start_time", windowEndUtc.toISOString())
       .order("start_time", { ascending: true });
     if (error) {
-      console.warn("[list-week-ahead-priorities] event query error:", error.message);
+      console.warn(
+        "[list-week-ahead-priorities] event query error:",
+        error.message,
+      );
     }
     const rows = (data ?? []) as CalendarEventRow[];
 
@@ -271,8 +299,12 @@ serve(async (req) => {
         createdAt: r.created_at ?? null,
       }));
 
-    const platform = (req.headers.get("x-client-platform") || "web").toLowerCase().includes("ios")
-      ? "ios" : "web";
+    const platform =
+      (req.headers.get("x-client-platform") || "web").toLowerCase().includes(
+          "ios",
+        )
+        ? "ios"
+        : "web";
     const deduped = mergeCalendarEvents(rawEvents, platform as "ios" | "web");
     logMergeStats("week-ahead", rawEvents.length, deduped as any, { userId });
 
@@ -281,15 +313,17 @@ serve(async (req) => {
       title: string;
       startTime: string;
       endTime: string;
-      localDay: string;            // YYYY-MM-DD (local)
+      localDay: string; // YYYY-MM-DD (local)
       period: string;
-      category: string;            // user-friendly bucket label
-      typeKey: string;             // normalized bucket
-      stakesLevel: string | null;  // 'board' | 'investor' | 'external' | null
+      category: string; // user-friendly bucket label
+      typeKey: string; // normalized bucket
+      stakesLevel: string | null; // 'board' | 'investor' | 'external' | null
       score: number;
       scoreReasons: string[];
       tags: WeekAheadTag[];
       isOrganizer: boolean | null;
+      /** Canonical A-H category id used by Plan / Insights. */
+      eventCategory: string | null;
       /** Last decision recorded by the user for THIS event via the picker
        *  (source='week_ahead_picker'). Null when the user hasn't chosen
        *  yet — the UI uses this to rehydrate Star / Not this week / Never
@@ -301,6 +335,11 @@ serve(async (req) => {
        *  no row has been written yet (older events, first-touch events).
        *  Additive: consumers may ignore this. */
       subcategoryId: string | null;
+      /** Alias persisted in weekly_plan_snapshots.priorities[] for DB consumers. */
+      eventSubcategory: string | null;
+      event_category: string | null;
+      event_subcategory: string | null;
+      event_title_display: string;
     };
 
     // ── Human-first triage: show EVERY real event, tag but never filter. ──
@@ -342,8 +381,9 @@ serve(async (req) => {
       if (isAllDayOoo(e.title, startMs, endMs)) continue;
 
       const localStart = new Date(startMs - offsetMinutes * 60_000);
-      const localDay =
-        `${localStart.getFullYear()}-${String(localStart.getMonth() + 1).padStart(2, "0")}-${String(localStart.getDate()).padStart(2, "0")}`;
+      const localDay = `${localStart.getFullYear()}-${
+        String(localStart.getMonth() + 1).padStart(2, "0")
+      }-${String(localStart.getDate()).padStart(2, "0")}`;
       metaById.set(e.id, {
         startTime: e.startTime,
         endTime: e.endTime,
@@ -423,7 +463,14 @@ serve(async (req) => {
 
     // Stakes rank for ordering.
     const STAKES_RANK: Record<string, number> = {
-      A: 8, B: 7, C: 6, D: 5, E: 4, F: 3, G: 2, H: 1,
+      A: 8,
+      B: 7,
+      C: 6,
+      D: 5,
+      E: 4,
+      F: 3,
+      G: 2,
+      H: 1,
     };
 
     const scored: Scored[] = [];
@@ -452,10 +499,12 @@ serve(async (req) => {
       if (pScore >= 10) tags.push("pattern_based");
       const inputRow = inputById.get(eventId);
       const roles = inputRow?.attendeeRoles ?? [];
-      const hasKnownRel = Array.isArray(roles) && roles.some((r: any) =>
-        r && r.role && r.role !== "unknown" &&
-        (r.source === "user_tag" || r.source === "memory_user_tag" || r.source === "llm")
-      );
+      const hasKnownRel = Array.isArray(roles) &&
+        roles.some((r: any) =>
+          r && r.role && r.role !== "unknown" &&
+          (r.source === "user_tag" || r.source === "memory_user_tag" ||
+            r.source === "llm")
+        );
       if (hasKnownRel) tags.push("known_relationship");
       if (categoryId === "A" || categoryId === "B" || categoryId === "C") {
         tags.push("high_stakes");
@@ -469,11 +518,17 @@ serve(async (req) => {
       const patternBoost = tags.includes("pattern_based") ? 500 : 0;
       const stakesBoost = stakesRank * 10;
       const orderScore = priorBoost + patternBoost + stakesBoost;
+      const subcategoryId = subcategoryByEventId.get(eventId) ??
+        enriched.subcategory ??
+        null;
 
       // Pin `prior_priority` to the front of the visible chip list so it
       // survives the top-3 truncation even when other advisory tags also fire.
       const orderedTags = tags.includes("prior_priority")
-        ? (["prior_priority", ...tags.filter((t) => t !== "prior_priority")] as WeekAheadTag[])
+        ? ([
+          "prior_priority",
+          ...tags.filter((t) => t !== "prior_priority"),
+        ] as WeekAheadTag[])
         : tags;
       scored.push({
         eventId,
@@ -489,20 +544,29 @@ serve(async (req) => {
         scoreReasons: orderedTags.map((t) => TAG_LABEL[t]).slice(0, 3),
         tags: orderedTags,
         isOrganizer: meta.isOrganizer,
+        eventCategory: categoryId,
         priorSignal: priorByEventId.get(eventId) ?? null,
         // WS-A · Persisted subcategory (if any) beats the on-the-fly
         // classifier; fall back to `enrichEvent` when no memory row exists.
-        subcategoryId: subcategoryByEventId.get(eventId)
-          ?? enriched.subcategory
-          ?? null,
+        subcategoryId,
+        eventSubcategory: subcategoryId,
+        event_category: categoryId,
+        event_subcategory: subcategoryId,
+        event_title_display: meta.title,
       });
     }
 
     // No per-category cap, no top-N truncation. Return everything.
     // Emphasis order handled by score; final list stays chronological for UI.
     const picked = scored.slice().sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      (a, b) =>
+        new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
     );
+    const prioritiesForSnapshot = picked.map((item, index) => ({
+      ...item,
+      priorityRank: index + 1,
+      priority_rank: index + 1,
+    }));
 
     // ── Persist Week Ahead snapshot (Sun → Plan memory for the week) ──
     // Upsert by (user_id, week_start_date, source) so repeated Sunday
@@ -516,28 +580,39 @@ serve(async (req) => {
             week_start_date: weekStart,
             week_end_date: weekEnd,
             source: "sunday_week_ahead",
-            priorities: picked,
+            priorities: prioritiesForSnapshot,
             generated_at: new Date().toISOString(),
           },
           { onConflict: "user_id,week_start_date,source" },
         );
       if (upsertErr) {
-        console.warn("[week_ahead.write.error]", upsertErr.message, { userId: redactUserId(userId), weekStart });
+        console.warn("[week_ahead.write.error]", upsertErr.message, {
+          userId: redactUserId(userId),
+          weekStart,
+        });
       } else {
-        console.log("[week_ahead.write.success]", { userId: redactUserId(userId), weekStart, weekEnd, count: picked.length });
+        console.log("[week_ahead.write.success]", {
+          userId: redactUserId(userId),
+          weekStart,
+          weekEnd,
+          count: picked.length,
+        });
       }
     } catch (e) {
       console.warn("[week_ahead.write.error] threw:", (e as Error).message);
     }
 
-    return new Response(JSON.stringify({
-      weekAheadMode: decision,
-      priorities: picked,
-      generatedAt: new Date().toISOString(),
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        weekAheadMode: decision,
+        priorities: prioritiesForSnapshot,
+        generatedAt: new Date().toISOString(),
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
     console.error("[list-week-ahead-priorities] fatal:", err);
     return new Response(JSON.stringify({ error: "internal_error" }), {

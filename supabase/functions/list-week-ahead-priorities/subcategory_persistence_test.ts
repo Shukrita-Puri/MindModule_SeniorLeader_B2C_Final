@@ -5,7 +5,7 @@
  * We assert the source shape rather than spin up a live Supabase harness,
  * mirroring the existing `selector-evidence.test.ts` pattern. Together the
  * assertions below prove:
- *   1. Response items carry a `subcategoryId` field.
+ *   1. Response items carry a `subcategoryId` field plus snapshot aliases.
  *   2. `event_subcategory` is read from `event_priority_memory`.
  *   3. Persisted value is preferred over `enrichEvent(...).subcategory`,
  *      with `enrichEvent` used only as a fallback, and `null` when both
@@ -21,8 +21,13 @@ const SRC = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 Deno.test("response exposes subcategoryId on every priority item", () => {
   // The `Scored` interface declares the field explicitly.
   assertStringIncludes(SRC, "subcategoryId: string | null;");
+  assertStringIncludes(SRC, "eventSubcategory: string | null;");
+  assertStringIncludes(SRC, "event_subcategory: string | null;");
+  assertStringIncludes(SRC, "eventCategory: string | null;");
+  assertStringIncludes(SRC, "event_category: string | null;");
   // And the picked/scored object emits it.
   assertStringIncludes(SRC, "subcategoryId:");
+  assertStringIncludes(SRC, "event_subcategory:");
 });
 
 Deno.test("selects event_subcategory from event_priority_memory", () => {
@@ -37,8 +42,15 @@ Deno.test("selects event_subcategory from event_priority_memory", () => {
 Deno.test("persisted subcategory wins over enrichEvent fallback", () => {
   // Emission line must consult the map first, then fall back to enrichEvent.
   const re =
-    /subcategoryByEventId\.get\(eventId\)\s*\n?\s*\?\?\s*enriched\.subcategory\s*\n?\s*\?\?\s*null/;
+    /const subcategoryId = subcategoryByEventId\.get\(eventId\)\s*\n?\s*\?\?\s*enriched\.subcategory\s*\n?\s*\?\?\s*null/;
   assertEquals(re.test(SRC), true);
+});
+
+Deno.test("weekly snapshot persists self-contained category/subcategory aliases", () => {
+  assertStringIncludes(SRC, "prioritiesForSnapshot");
+  assertStringIncludes(SRC, "priorities: prioritiesForSnapshot");
+  assertStringIncludes(SRC, "event_title_display: meta.title");
+  assertStringIncludes(SRC, "priority_rank: index + 1");
 });
 
 Deno.test("subcategory map is populated from ANY memory row (not just picker)", () => {
@@ -50,6 +62,6 @@ Deno.test("subcategory map is populated from ANY memory row (not just picker)", 
 });
 
 Deno.test("enrichEvent import remains as the fallback classifier", () => {
-  assertStringIncludes(SRC, 'import { enrichEvent }');
+  assertStringIncludes(SRC, "import { enrichEvent }");
   assertStringIncludes(SRC, "enrichEvent({ title: meta.title })");
 });
