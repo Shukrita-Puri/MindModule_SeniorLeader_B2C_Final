@@ -96,6 +96,12 @@ import {
   type PriorityMemoryIndex,
   TITLE_SPECIFIC_MEMORY_CATEGORY,
 } from "../_shared/plan/event-priority-memory.ts";
+import {
+  evaluateEventPriorityExclusion,
+  computeExclusionRevision,
+  type MemoryRow as ExclusionMemoryRow,
+} from "../_shared/plan/exclusion-evaluator.ts";
+import { toLocalDateString } from "../_shared/plan/exclusion-scope.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
