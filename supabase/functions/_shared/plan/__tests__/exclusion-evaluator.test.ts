@@ -22,7 +22,7 @@ function baseRow(overrides: Partial<MemoryRow>): MemoryRow {
   return {
     id: overrides.id ?? "row-" + Math.random().toString(36).slice(2, 9),
     event_category: overrides.event_category ?? "other",
-    event_type_key: overrides.event_type_key ?? "generic",
+    event_type_key: overrides.event_type_key ?? "1_day_liquid",
     signal: overrides.signal ?? "not_this_week",
     source: overrides.source ?? "week_ahead_picker",
     occurred_at: overrides.occurred_at ?? SUNDAY_ISO,
