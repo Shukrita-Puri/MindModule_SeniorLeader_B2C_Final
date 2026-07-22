@@ -2478,39 +2478,57 @@ export type Database = {
       }
       event_priority_memory: {
         Row: {
+          effective_week_end: string | null
+          effective_week_start: string | null
           event_category: string
           event_id: string | null
           event_subcategory: string | null
           event_type_key: string
           id: string
+          identity_confidence: string | null
           meta: Json
           occurred_at: string
+          resolved_event_id: string | null
+          scope: string | null
           signal: string
           source: string
+          timezone: string | null
           user_id: string
         }
         Insert: {
+          effective_week_end?: string | null
+          effective_week_start?: string | null
           event_category: string
           event_id?: string | null
           event_subcategory?: string | null
           event_type_key: string
           id?: string
+          identity_confidence?: string | null
           meta?: Json
           occurred_at?: string
+          resolved_event_id?: string | null
+          scope?: string | null
           signal: string
           source: string
+          timezone?: string | null
           user_id: string
         }
         Update: {
+          effective_week_end?: string | null
+          effective_week_start?: string | null
           event_category?: string
           event_id?: string | null
           event_subcategory?: string | null
           event_type_key?: string
           id?: string
+          identity_confidence?: string | null
           meta?: Json
           occurred_at?: string
+          resolved_event_id?: string | null
+          scope?: string | null
           signal?: string
           source?: string
+          timezone?: string | null
           user_id?: string
         }
         Relationships: []
