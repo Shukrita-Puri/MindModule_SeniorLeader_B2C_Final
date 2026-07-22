@@ -31,4 +31,12 @@ export interface WeekAheadPriority {
   isOrganizer: boolean | null;
   priorSignal: PriorSignal | null;
   subcategoryId: string | null;
+  /** Snapshot aliases written into weekly_plan_snapshots.priorities[]. */
+  eventCategory?: string | null;
+  eventSubcategory?: string | null;
+  event_category?: string | null;
+  event_subcategory?: string | null;
+  event_title_display?: string;
+  priorityRank?: number;
+  priority_rank?: number;
 }

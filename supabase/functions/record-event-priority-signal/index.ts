@@ -17,9 +17,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
-import {
-  coarseEventType,
-} from "../_shared/events/event-classifier.ts";
+import { coarseEventType } from "../_shared/events/event-classifier.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
   normalizeEventTitleMemoryKey,
@@ -28,10 +26,11 @@ import {
 import { normalizeEventTypeKey } from "../_shared/plan/week-ahead-mode.ts";
 import { routeCustomTag } from "../_shared/jit/custom-tag-router.ts";
 import {
+  isValidIsoDate,
+  localWeekOf,
   parseCanonicalIdentity,
   scopeForSignal,
   upcomingWeek,
-  isValidIsoDate,
 } from "../_shared/plan/exclusion-scope.ts";
 
 const corsHeaders = {
@@ -81,7 +80,9 @@ const RELATIONSHIP_TO_ROLE: Record<string, string> = {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
     let userId: string | null = null;
@@ -100,29 +101,40 @@ serve(async (req) => {
     }
     if (!userId) {
       return new Response(JSON.stringify({ error: "no_user" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const body = await req.json().catch(() => ({}));
     const eventId: string | null = body?.eventId ? String(body.eventId) : null;
-    const eventTitleHint: string | null = body?.eventTitle ? String(body.eventTitle) : null;
+    const eventTitleHint: string | null = body?.eventTitle
+      ? String(body.eventTitle)
+      : null;
     const signal: string = String(body?.signal || "");
     const source: string = String(body?.source || "");
     const meta = body?.meta && typeof body.meta === "object" ? body.meta : {};
     const targetWeekStartIn: unknown = body?.targetWeekStart;
     const targetWeekEndIn: unknown = body?.targetWeekEnd;
-    const timezoneIn: string = typeof body?.timezone === "string" && body.timezone ? body.timezone : "UTC";
-    const clientCanonicalId: string | null = typeof body?.clientCanonicalId === "string" ? body.clientCanonicalId : null;
+    const timezoneIn: string =
+      typeof body?.timezone === "string" && body.timezone
+        ? body.timezone
+        : "UTC";
+    const clientCanonicalId: string | null =
+      typeof body?.clientCanonicalId === "string"
+        ? body.clientCanonicalId
+        : null;
 
     if (!VALID_SIGNALS.has(signal)) {
       return new Response(JSON.stringify({ error: "invalid_signal" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     if (!VALID_SOURCES.has(source)) {
       return new Response(JSON.stringify({ error: "invalid_source" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -145,7 +157,8 @@ serve(async (req) => {
 
     if (!resolvedTitle) {
       return new Response(JSON.stringify({ error: "event_not_found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -161,7 +174,9 @@ serve(async (req) => {
     let effectiveWeekStart: string | null = null;
     let effectiveWeekEnd: string | null = null;
     if (scope === "target_week") {
-      if (isValidIsoDate(targetWeekStartIn) && isValidIsoDate(targetWeekEndIn)) {
+      if (
+        isValidIsoDate(targetWeekStartIn) && isValidIsoDate(targetWeekEndIn)
+      ) {
         effectiveWeekStart = targetWeekStartIn as string;
         effectiveWeekEnd = targetWeekEndIn as string;
       } else {
@@ -175,7 +190,8 @@ serve(async (req) => {
     // Safe identity resolution — only attach a real calendar_events.id when
     // the (title, start, duration) tuple matches exactly one row.
     let resolvedEventUuid: string | null = null;
-    let identityConfidence: "resolved" | "ambiguous" | "unresolved" | null = null;
+    let identityConfidence: "resolved" | "ambiguous" | "unresolved" | null =
+      null;
     let resolutionDiagnostic: string | null = null;
     const canon = parseCanonicalIdentity(clientCanonicalId);
     if (canon) {
@@ -190,9 +206,14 @@ serve(async (req) => {
         .gte("start_time", startLoISO)
         .lte("start_time", startHiISO);
       const candidates = (matches ?? []).filter((row: any) => {
-        if (String(row?.title ?? "").trim().toLowerCase() !== normTitle) return false;
+        if (String(row?.title ?? "").trim().toLowerCase() !== normTitle) {
+          return false;
+        }
         if (!row?.start_time || !row?.end_time) return false;
-        const dur = Math.round((new Date(row.end_time).getTime() - new Date(row.start_time).getTime()) / 60_000);
+        const dur = Math.round(
+          (new Date(row.end_time).getTime() -
+            new Date(row.start_time).getTime()) / 60_000,
+        );
         return Math.abs(dur - canon.durationMinutes) <= 1;
       });
       if (candidates.length === 1) {
@@ -206,7 +227,9 @@ serve(async (req) => {
         resolutionDiagnostic = "multiple_matches";
       }
       (meta as any).clientCanonicalId = canon.raw;
-      if (resolutionDiagnostic) (meta as any).resolutionDiagnostic = resolutionDiagnostic;
+      if (resolutionDiagnostic) {
+        (meta as any).resolutionDiagnostic = resolutionDiagnostic;
+      }
       // Prefer server-resolved UUID over any client-supplied `eventId` when
       // client sent a canonical hint but no eventId.
     }
@@ -238,15 +261,19 @@ serve(async (req) => {
         signal,
         source,
       });
-      return new Response(JSON.stringify({
-        error: "insert_failed",
-        pg_code: (insErr as any)?.code ?? null,
-        pg_message: insErr.message,
-        pg_details: (insErr as any)?.details ?? null,
-        pg_hint: (insErr as any)?.hint ?? null,
-      }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "insert_failed",
+          pg_code: (insErr as any)?.code ?? null,
+          pg_message: insErr.message,
+          pg_details: (insErr as any)?.details ?? null,
+          pg_hint: (insErr as any)?.hint ?? null,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (signal === "never") {
@@ -273,12 +300,15 @@ serve(async (req) => {
           identity_confidence: identityConfidence,
         });
       if (titleErr) {
-        console.warn("[record-event-priority-signal] title-specific memory insert failed", {
-          code: (titleErr as any)?.code,
-          message: titleErr.message,
-          signal,
-          source,
-        });
+        console.warn(
+          "[record-event-priority-signal] title-specific memory insert failed",
+          {
+            code: (titleErr as any)?.code,
+            message: titleErr.message,
+            signal,
+            source,
+          },
+        );
       }
     }
 
@@ -292,10 +322,22 @@ serve(async (req) => {
       if (scope === "permanent") {
         // `never` — invalidate everything from today forward for this user.
         const todayISO = new Date().toISOString().slice(0, 10);
-        await supabase.from("mastery_plan_snapshots").delete().eq("user_id", userId).gte("plan_date", todayISO);
-        await supabase.from("daily_context_snapshot").delete().eq("user_id", userId).gte("local_date", todayISO);
-        await supabase.from("weekly_plan_snapshots").delete().eq("user_id", userId).gte("week_start_date", todayISO);
-      } else if (scope === "target_week" && effectiveWeekStart && effectiveWeekEnd) {
+        const currentWeekStart = localWeekOf(new Date(), timezoneIn).start;
+        await supabase.from("mastery_plan_snapshots").delete().eq(
+          "user_id",
+          userId,
+        ).gte("plan_date", todayISO);
+        await supabase.from("daily_context_snapshot").delete().eq(
+          "user_id",
+          userId,
+        ).gte("local_date", todayISO);
+        await supabase.from("weekly_plan_snapshots").delete().eq(
+          "user_id",
+          userId,
+        ).gte("week_start_date", currentWeekStart);
+      } else if (
+        scope === "target_week" && effectiveWeekStart && effectiveWeekEnd
+      ) {
         await supabase.from("mastery_plan_snapshots").delete()
           .eq("user_id", userId)
           .gte("plan_date", effectiveWeekStart)
@@ -309,7 +351,10 @@ serve(async (req) => {
           .eq("week_start_date", effectiveWeekStart);
       }
     } catch (invalidErr) {
-      console.warn("[record-event-priority-signal] snapshot invalidation soft-failed", (invalidErr as Error)?.message);
+      console.warn(
+        "[record-event-priority-signal] snapshot invalidation soft-failed",
+        (invalidErr as Error)?.message,
+      );
     }
 
     const upsertDerived = async (patch: Record<string, unknown>) => {
@@ -352,7 +397,11 @@ serve(async (req) => {
       });
     } else if (signal.startsWith("tag_importance_")) {
       const level = signal.slice("tag_importance_".length);
-      const importanceMap: Record<string, number> = { high: 45, medium: 20, low: 0 };
+      const importanceMap: Record<string, number> = {
+        high: 45,
+        medium: 20,
+        low: 0,
+      };
       await upsertDerived({
         net_importance: importanceMap[level] ?? 0,
         permanent_flag: true,
@@ -368,16 +417,24 @@ serve(async (req) => {
       });
     } else if (signal === "tag_custom") {
       const routed = Array.isArray((meta as any)?.customTags)
-        ? (meta as any).customTags.map((t: string) => routeCustomTag(t)).filter(Boolean)
+        ? (meta as any).customTags.map((t: string) => routeCustomTag(t)).filter(
+          Boolean,
+        )
         : [];
-      const routedImportance = routed.find((r: any) => r?.kind === "importance") as { kind: "importance"; value: "high" | "medium" | "low" } | undefined;
-      const routedRelationship = routed.find((r: any) => r?.kind === "relationship") as { kind: "relationship"; value: string } | undefined;
+      const routedImportance = routed.find((r: any) =>
+        r?.kind === "importance"
+      ) as { kind: "importance"; value: "high" | "medium" | "low" } | undefined;
+      const routedRelationship = routed.find((r: any) =>
+        r?.kind === "relationship"
+      ) as { kind: "relationship"; value: string } | undefined;
       await upsertDerived({
-        net_importance:
-          routedImportance?.value === "high" ? 45 :
-          routedImportance?.value === "medium" ? 20 :
-          routedImportance?.value === "low" ? 0 :
-          undefined,
+        net_importance: routedImportance?.value === "high"
+          ? 45
+          : routedImportance?.value === "medium"
+          ? 20
+          : routedImportance?.value === "low"
+          ? 0
+          : undefined,
         relationship_role: routedRelationship?.value ?? undefined,
         last_signal: signal,
         signal_count: routed.length || 1,
@@ -398,13 +455,16 @@ serve(async (req) => {
             .eq("id", eventId)
             .eq("user_id", userId)
             .maybeSingle();
-          const attendees = Array.isArray((evRow as any)?.event_metadata?.attendees)
-            ? (evRow as any).event_metadata.attendees
-            : [];
+          const attendees =
+            Array.isArray((evRow as any)?.event_metadata?.attendees)
+              ? (evRow as any).event_metadata.attendees
+              : [];
           const emails: string[] = [];
           for (const a of attendees) {
             const em = typeof a === "string" ? a : a?.email;
-            if (typeof em === "string" && em.includes("@")) emails.push(em.toLowerCase().trim());
+            if (typeof em === "string" && em.includes("@")) {
+              emails.push(em.toLowerCase().trim());
+            }
           }
           if (emails.length > 0) {
             await supabase
@@ -415,13 +475,17 @@ serve(async (req) => {
               .in("attendee_email", emails);
           }
         } catch (e) {
-          console.warn("[record-event-priority-signal] tag_cleared relationship cleanup failed", (e as Error)?.message);
+          console.warn(
+            "[record-event-priority-signal] tag_cleared relationship cleanup failed",
+            (e as Error)?.message,
+          );
         }
       }
     }
 
     if (signal === "tag_relationship" && eventId) {
-      const rel = String((meta as any)?.relationshipTag || "").toLowerCase().trim();
+      const rel = String((meta as any)?.relationshipTag || "").toLowerCase()
+        .trim();
       const role = RELATIONSHIP_TO_ROLE[rel];
       if (role) {
         await supabase.from("event_priority_memory").insert({
@@ -437,19 +501,26 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({
-      ok: true,
-      category,
-      typeKey,
-      signal,
-      resolvedBy: signal === "tag_relationship" ? "sovereign_tag" : signal === "tag_custom" ? "custom_tag_router" : "direct_signal",
-      sovereignFired: signal.startsWith("tag_"),
-      relationshipLeads: signal === "tag_relationship",
-      gateBypassed: signal === "never" || signal === "cancelled_now",
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        category,
+        typeKey,
+        signal,
+        resolvedBy: signal === "tag_relationship"
+          ? "sovereign_tag"
+          : signal === "tag_custom"
+          ? "custom_tag_router"
+          : "direct_signal",
+        sovereignFired: signal.startsWith("tag_"),
+        relationshipLeads: signal === "tag_relationship",
+        gateBypassed: signal === "never" || signal === "cancelled_now",
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
     console.error("[record-event-priority-signal] fatal:", err);
     return new Response(JSON.stringify({ error: "internal_error" }), {

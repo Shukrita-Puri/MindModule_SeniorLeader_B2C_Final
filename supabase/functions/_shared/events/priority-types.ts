@@ -34,4 +34,12 @@ export interface WeekAheadPriority {
    *  most recent `event_priority_memory` row for this event; falls back to
    *  `enrichEvent(title).subcategory`. `null` when neither yields a value. */
   subcategoryId: string | null;
+  /** Snapshot aliases written into `weekly_plan_snapshots.priorities[]`. */
+  eventCategory?: string | null;
+  eventSubcategory?: string | null;
+  event_category?: string | null;
+  event_subcategory?: string | null;
+  event_title_display?: string;
+  priorityRank?: number;
+  priority_rank?: number;
 }
