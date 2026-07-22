@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.event_priority_memory_validate_scope() FROM PUBLIC, anon, authenticated;
