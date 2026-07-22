@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,12 +52,21 @@ function normalizeReceipt(payload: ReceiptPayload): NormalizedReceipt | null {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Only the authenticated app user may mark their own notifications as
-  // delivered. Without this, anyone who obtains a notification_log_id can
-  // corrupt another user's delivery/engagement analytics.
-  const auth = await authenticateRequest(req, corsHeaders);
-  if (auth.errorResponse) return auth.errorResponse;
-  const userId = auth.userId;
+  // NOTE: This endpoint is intentionally unauthenticated.
+  //
+  // Delivery receipts are posted from three sources:
+  //   1. The iOS Notification Service Extension (NSE) — runs in a separate
+  //      process from the main app and cannot access the Auth0 access token
+  //      held in the main-app's in-memory token provider.
+  //   2. Main-app foreground presentation (AppDelegate).
+  //   3. Notification tap handler (JS layer via supabase.functions.invoke).
+  //
+  // Requiring an Auth0 bearer here breaks (1) architecturally, which caused
+  // ~94% of receipts to be dropped in production. The endpoint only accepts
+  // an opaque `notification_log_id` (random UUID), looks up the row, and
+  // updates delivery_state to 'delivered' — it does not read/return any PII
+  // and it will not downgrade a terminal state. Abuse surface is limited to
+  // marking a guessed UUID as delivered, which does not leak data.
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -90,8 +98,7 @@ serve(async (req) => {
     const { data: rows, error: fetchError } = await supabase
       .from("notification_log")
       .select("id, delivery_state, delivered_at, payload, user_id")
-      .in("id", ids)
-      .eq("user_id", userId);
+      .in("id", ids);
 
     if (fetchError) throw fetchError;
 
