@@ -12332,6 +12332,17 @@ if (import.meta.main) {
         ]);
         const ci = checkinSnap.data;
         const ri = ritualSnap.data;
+        // SSOT: mix the exclusion-revision hash into the fingerprint so a
+        // fresh Week-Ahead signal invalidates today's cached plan snapshot.
+        let exclusionRev = "none";
+        try {
+          const rows = (await loadExclusionMemoryRowsForUser(
+            supabaseClient,
+            userId!,
+          )) as ExclusionMemoryRow[];
+          exclusionRev = await computeExclusionRevision(rows, today, "UTC");
+          exclusionRev = exclusionRev.slice(0, 16);
+        } catch { /* fingerprint tolerates missing rev */ }
         stateFingerprint = [
           userId,
           currentPeriod,
@@ -12342,6 +12353,7 @@ if (import.meta.main) {
           ci?.confidence_level ?? "none",
           ri?.updated_at || "none",
           (ri?.completed_practice_ids || []).join(",") || "none",
+          exclusionRev,
         ].join(":");
       } catch { /* fallback to userId:period */ }
 
