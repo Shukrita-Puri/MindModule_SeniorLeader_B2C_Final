@@ -5871,8 +5871,47 @@ async function generateMasteryPlan(
   const nowMsForJit = Date.now();
   let jitRankedCandidates: RankedJitCandidate[] = [];
   try {
+    // SSOT hard-exclusion filter — drop any event the user has marked
+    // `not_this_week`/`never` (via Week Ahead or elsewhere) before ranking.
+    // Precedence and scope are decided by `evaluateEventPriorityExclusion`.
+    const planTimezone =
+      (req as any)?.timezone || (req as any)?.userTimezone || "UTC";
+    const excludedIds: Array<{ id: string | null; title: string; reason: string }> = [];
+    const preFilteredEvents = filteredEvents.filter((e) => {
+      const startIso = getCalendarEventStartIso(e.event) ?? "";
+      const targetDate = startIso
+        ? toLocalDateString(new Date(startIso), planTimezone)
+        : new Date().toISOString().slice(0, 10);
+      const decision = evaluateEventPriorityExclusion({
+        memoryRows: exclusionMemoryRows,
+        candidate: {
+          eventId: e.event.id ?? null,
+          title: e.event.title || "",
+          startTimeISO: startIso,
+          category: coarseEventType(e.event.title || ""),
+          typeKey: normalizeEventTypeKey(e.event.title || ""),
+        },
+        targetDate,
+        timezone: planTimezone,
+      });
+      if (decision.excluded) {
+        excludedIds.push({
+          id: e.event.id ?? null,
+          title: e.event.title || "",
+          reason: decision.reason,
+        });
+        return false;
+      }
+      return true;
+    });
+    if (excludedIds.length > 0) {
+      console.log("[generate-mastery-plan] SSOT excluded events", {
+        count: excludedIds.length,
+        sample: excludedIds.slice(0, 5),
+      });
+    }
     jitRankedCandidates = rankJitCandidates(
-      filteredEvents.map((e) => {
+      preFilteredEvents.map((e) => {
         let memoryDelta = Number((e as any).weeklyPriorityDelta ?? 0);
         let memoryHardDemote = false;
         if (priorityMemoryIndex) {
