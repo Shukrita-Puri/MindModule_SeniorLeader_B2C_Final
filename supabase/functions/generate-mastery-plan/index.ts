@@ -5609,6 +5609,7 @@ async function generateMasteryPlan(
   // Plan build so Week-Ahead choices, cancellation memory, and permanent
   // derived demotions can shape day-of ranking.
   let priorityMemoryIndex: PriorityMemoryIndex | null = null;
+  let exclusionMemoryRows: ExclusionMemoryRow[] = [];
   let derivedMemoryByKey = new Map<
     string,
     { net_importance: number; permanent_flag: boolean }
@@ -5618,6 +5619,10 @@ async function generateMasteryPlan(
       supabaseClient,
       req.userId,
     );
+    exclusionMemoryRows = (await loadExclusionMemoryRowsForUser(
+      supabaseClient,
+      req.userId,
+    )) as ExclusionMemoryRow[];
     const { data: derivedRows } = await supabaseClient
       .from("event_priority_derived")
       .select("event_category, event_type_key, net_importance, permanent_flag")
