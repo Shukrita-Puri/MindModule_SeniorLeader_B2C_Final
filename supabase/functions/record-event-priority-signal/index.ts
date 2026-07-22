@@ -27,6 +27,12 @@ import {
 } from "../_shared/plan/event-priority-memory.ts";
 import { normalizeEventTypeKey } from "../_shared/plan/week-ahead-mode.ts";
 import { routeCustomTag } from "../_shared/jit/custom-tag-router.ts";
+import {
+  parseCanonicalIdentity,
+  scopeForSignal,
+  upcomingWeek,
+  isValidIsoDate,
+} from "../_shared/plan/exclusion-scope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +110,10 @@ serve(async (req) => {
     const signal: string = String(body?.signal || "");
     const source: string = String(body?.source || "");
     const meta = body?.meta && typeof body.meta === "object" ? body.meta : {};
+    const targetWeekStartIn: unknown = body?.targetWeekStart;
+    const targetWeekEndIn: unknown = body?.targetWeekEnd;
+    const timezoneIn: string = typeof body?.timezone === "string" && body.timezone ? body.timezone : "UTC";
+    const clientCanonicalId: string | null = typeof body?.clientCanonicalId === "string" ? body.clientCanonicalId : null;
 
     if (!VALID_SIGNALS.has(signal)) {
       return new Response(JSON.stringify({ error: "invalid_signal" }), {
@@ -146,6 +156,61 @@ serve(async (req) => {
     // without re-classifying. Nullable — safe if classifier returns no match.
     const subcategory = enrichEvent({ title: resolvedTitle }).subcategory;
 
+    // ─── SSOT exclusion scope: compute the target week + resolve identity ───
+    const scope = scopeForSignal(signal);
+    let effectiveWeekStart: string | null = null;
+    let effectiveWeekEnd: string | null = null;
+    if (scope === "target_week") {
+      if (isValidIsoDate(targetWeekStartIn) && isValidIsoDate(targetWeekEndIn)) {
+        effectiveWeekStart = targetWeekStartIn as string;
+        effectiveWeekEnd = targetWeekEndIn as string;
+      } else {
+        // Server-authoritative fallback: upcoming Mon–Sun in the user's zone.
+        const wk = upcomingWeek(new Date(), timezoneIn);
+        effectiveWeekStart = wk.start;
+        effectiveWeekEnd = wk.end;
+      }
+    }
+
+    // Safe identity resolution — only attach a real calendar_events.id when
+    // the (title, start, duration) tuple matches exactly one row.
+    let resolvedEventUuid: string | null = null;
+    let identityConfidence: "resolved" | "ambiguous" | "unresolved" | null = null;
+    let resolutionDiagnostic: string | null = null;
+    const canon = parseCanonicalIdentity(clientCanonicalId);
+    if (canon) {
+      const startISO = new Date(canon.startMs).toISOString();
+      const startLoISO = new Date(canon.startMs - 60_000).toISOString();
+      const startHiISO = new Date(canon.startMs + 60_000).toISOString();
+      const normTitle = canon.title.trim().toLowerCase();
+      const { data: matches } = await supabase
+        .from("calendar_events")
+        .select("id, title, start_time, end_time")
+        .eq("user_id", userId)
+        .gte("start_time", startLoISO)
+        .lte("start_time", startHiISO);
+      const candidates = (matches ?? []).filter((row: any) => {
+        if (String(row?.title ?? "").trim().toLowerCase() !== normTitle) return false;
+        if (!row?.start_time || !row?.end_time) return false;
+        const dur = Math.round((new Date(row.end_time).getTime() - new Date(row.start_time).getTime()) / 60_000);
+        return Math.abs(dur - canon.durationMinutes) <= 1;
+      });
+      if (candidates.length === 1) {
+        resolvedEventUuid = candidates[0].id as string;
+        identityConfidence = "resolved";
+      } else if (candidates.length === 0) {
+        identityConfidence = "unresolved";
+        resolutionDiagnostic = "no_match";
+      } else {
+        identityConfidence = "ambiguous";
+        resolutionDiagnostic = "multiple_matches";
+      }
+      (meta as any).clientCanonicalId = canon.raw;
+      if (resolutionDiagnostic) (meta as any).resolutionDiagnostic = resolutionDiagnostic;
+      // Prefer server-resolved UUID over any client-supplied `eventId` when
+      // client sent a canonical hint but no eventId.
+    }
+
     const { error: insErr } = await supabase
       .from("event_priority_memory")
       .insert({
@@ -157,6 +222,12 @@ serve(async (req) => {
         source,
         event_id: eventId,
         meta,
+        scope: scope === "none" ? null : scope,
+        effective_week_start: effectiveWeekStart,
+        effective_week_end: effectiveWeekEnd,
+        timezone: scope === "target_week" ? timezoneIn : null,
+        resolved_event_id: resolvedEventUuid,
+        identity_confidence: identityConfidence,
       });
     if (insErr) {
       console.error("[record-event-priority-signal] insert error", {
@@ -197,6 +268,9 @@ serve(async (req) => {
             originalTypeKey: typeKey,
             resolvedTitle,
           },
+          scope: "permanent",
+          resolved_event_id: resolvedEventUuid,
+          identity_confidence: identityConfidence,
         });
       if (titleErr) {
         console.warn("[record-event-priority-signal] title-specific memory insert failed", {
@@ -206,6 +280,36 @@ serve(async (req) => {
           source,
         });
       }
+    }
+
+    // ─── Snapshot invalidation ───
+    // A signal change means any pre-existing plan / daily-context / weekly-plan
+    // snapshot covering the target window may still surface the excluded event.
+    // We proactively delete them; the next fetch regenerates against the new
+    // memory row (which now also participates in the input signature via
+    // `computeExclusionRevision`).
+    try {
+      if (scope === "permanent") {
+        // `never` — invalidate everything from today forward for this user.
+        const todayISO = new Date().toISOString().slice(0, 10);
+        await supabase.from("mastery_plan_snapshots").delete().eq("user_id", userId).gte("plan_date", todayISO);
+        await supabase.from("daily_context_snapshot").delete().eq("user_id", userId).gte("local_date", todayISO);
+        await supabase.from("weekly_plan_snapshots").delete().eq("user_id", userId).gte("week_start_date", todayISO);
+      } else if (scope === "target_week" && effectiveWeekStart && effectiveWeekEnd) {
+        await supabase.from("mastery_plan_snapshots").delete()
+          .eq("user_id", userId)
+          .gte("plan_date", effectiveWeekStart)
+          .lte("plan_date", effectiveWeekEnd);
+        await supabase.from("daily_context_snapshot").delete()
+          .eq("user_id", userId)
+          .gte("local_date", effectiveWeekStart)
+          .lte("local_date", effectiveWeekEnd);
+        await supabase.from("weekly_plan_snapshots").delete()
+          .eq("user_id", userId)
+          .eq("week_start_date", effectiveWeekStart);
+      }
+    } catch (invalidErr) {
+      console.warn("[record-event-priority-signal] snapshot invalidation soft-failed", (invalidErr as Error)?.message);
     }
 
     const upsertDerived = async (patch: Record<string, unknown>) => {

@@ -91,10 +91,17 @@ import {
   applyEventPriorityMemory,
   getSubcategoryForEvent,
   loadPriorityMemoryForUser,
+  loadExclusionMemoryRowsForUser,
   normalizeEventTitleMemoryKey,
   type PriorityMemoryIndex,
   TITLE_SPECIFIC_MEMORY_CATEGORY,
 } from "../_shared/plan/event-priority-memory.ts";
+import {
+  evaluateEventPriorityExclusion,
+  computeExclusionRevision,
+  type MemoryRow as ExclusionMemoryRow,
+} from "../_shared/plan/exclusion-evaluator.ts";
+import { toLocalDateString } from "../_shared/plan/exclusion-scope.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
@@ -5602,6 +5609,7 @@ async function generateMasteryPlan(
   // Plan build so Week-Ahead choices, cancellation memory, and permanent
   // derived demotions can shape day-of ranking.
   let priorityMemoryIndex: PriorityMemoryIndex | null = null;
+  let exclusionMemoryRows: ExclusionMemoryRow[] = [];
   let derivedMemoryByKey = new Map<
     string,
     { net_importance: number; permanent_flag: boolean }
@@ -5611,6 +5619,10 @@ async function generateMasteryPlan(
       supabaseClient,
       req.userId,
     );
+    exclusionMemoryRows = (await loadExclusionMemoryRowsForUser(
+      supabaseClient,
+      req.userId,
+    )) as ExclusionMemoryRow[];
     const { data: derivedRows } = await supabaseClient
       .from("event_priority_derived")
       .select("event_category, event_type_key, net_importance, permanent_flag")
@@ -5859,8 +5871,47 @@ async function generateMasteryPlan(
   const nowMsForJit = Date.now();
   let jitRankedCandidates: RankedJitCandidate[] = [];
   try {
+    // SSOT hard-exclusion filter — drop any event the user has marked
+    // `not_this_week`/`never` (via Week Ahead or elsewhere) before ranking.
+    // Precedence and scope are decided by `evaluateEventPriorityExclusion`.
+    const planTimezone =
+      (req as any)?.timezone || (req as any)?.userTimezone || "UTC";
+    const excludedIds: Array<{ id: string | null; title: string; reason: string }> = [];
+    const preFilteredEvents = filteredEvents.filter((e) => {
+      const startIso = getCalendarEventStartIso(e.event) ?? "";
+      const targetDate = startIso
+        ? toLocalDateString(new Date(startIso), planTimezone)
+        : new Date().toISOString().slice(0, 10);
+      const decision = evaluateEventPriorityExclusion({
+        memoryRows: exclusionMemoryRows,
+        candidate: {
+          eventId: e.event.id ?? null,
+          title: e.event.title || "",
+          startTimeISO: startIso,
+          category: coarseEventType(e.event.title || ""),
+          typeKey: normalizeEventTypeKey(e.event.title || ""),
+        },
+        targetDate,
+        timezone: planTimezone,
+      });
+      if (decision.excluded) {
+        excludedIds.push({
+          id: e.event.id ?? null,
+          title: e.event.title || "",
+          reason: decision.reason,
+        });
+        return false;
+      }
+      return true;
+    });
+    if (excludedIds.length > 0) {
+      console.log("[generate-mastery-plan] SSOT excluded events", {
+        count: excludedIds.length,
+        sample: excludedIds.slice(0, 5),
+      });
+    }
     jitRankedCandidates = rankJitCandidates(
-      filteredEvents.map((e) => {
+      preFilteredEvents.map((e) => {
         let memoryDelta = Number((e as any).weeklyPriorityDelta ?? 0);
         let memoryHardDemote = false;
         if (priorityMemoryIndex) {
@@ -12281,6 +12332,17 @@ if (import.meta.main) {
         ]);
         const ci = checkinSnap.data;
         const ri = ritualSnap.data;
+        // SSOT: mix the exclusion-revision hash into the fingerprint so a
+        // fresh Week-Ahead signal invalidates today's cached plan snapshot.
+        let exclusionRev = "none";
+        try {
+          const rows = (await loadExclusionMemoryRowsForUser(
+            supabaseClient,
+            userId!,
+          )) as ExclusionMemoryRow[];
+          exclusionRev = await computeExclusionRevision(rows, today, "UTC");
+          exclusionRev = exclusionRev.slice(0, 16);
+        } catch { /* fingerprint tolerates missing rev */ }
         stateFingerprint = [
           userId,
           currentPeriod,
@@ -12291,6 +12353,7 @@ if (import.meta.main) {
           ci?.confidence_level ?? "none",
           ri?.updated_at || "none",
           (ri?.completed_practice_ids || []).join(",") || "none",
+          exclusionRev,
         ].join(":");
       } catch { /* fallback to userId:period */ }
 

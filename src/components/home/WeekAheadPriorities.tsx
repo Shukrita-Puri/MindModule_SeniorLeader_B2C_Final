@@ -188,6 +188,27 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
       if (token) headers["Authorization"] = `Bearer ${token}`;
       if (DEV_MODE) headers["x-dev-user-id"] = DEV_USER.id;
 
+      // Explicit target week (upcoming Mon–Sun) — never inferred from occurred_at.
+      const timezone =
+        (typeof Intl !== "undefined" && Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC";
+      const now = new Date();
+      const jsDow = now.getDay(); // 0=Sun..6=Sat
+      const daysToMon = jsDow === 1 ? 7 : ((8 - jsDow) % 7 || 7);
+      const monday = new Date(now); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() + daysToMon);
+      const sunday = new Date(monday); sunday.setDate(sunday.getDate() + 6);
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const targetWeekStart = fmt(monday);
+      const targetWeekEnd = fmt(sunday);
+
+      // Canonical identity: title|startMs|durationMinutes — resolved server-side to a
+      // real calendar_events.id only when the match is unambiguous.
+      const startMs = new Date(item.startTime).getTime();
+      const endMs = new Date(item.endTime).getTime();
+      const durationMinutes = Number.isFinite(startMs) && Number.isFinite(endMs)
+        ? Math.max(0, Math.round((endMs - startMs) / 60000))
+        : 0;
+      const clientCanonicalId = `canonical:${item.title}|${startMs}|${durationMinutes}`;
+
       const { error: invokeErr } = await supabase.functions.invoke(
         "record-event-priority-signal",
         {
@@ -197,6 +218,10 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
             eventTitle: item.title,
             signal,
             source: "week_ahead_picker",
+            targetWeekStart,
+            targetWeekEnd,
+            timezone,
+            clientCanonicalId,
           },
         },
       );
