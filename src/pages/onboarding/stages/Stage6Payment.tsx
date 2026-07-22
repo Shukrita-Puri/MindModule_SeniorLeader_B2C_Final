@@ -341,13 +341,15 @@ export default function Stage6Payment() {
   // If user is already on the best plan
   if (availablePlans.length === 0) {
     return (
-      <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
-        <div className="py-12">
-          <p className="text-[15px] font-medium mb-2">You're on the best plan!</p>
-          <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
-          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+      <PaymentPageShell>
+        <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
+          <div className="py-12">
+            <p className="text-[15px] font-medium mb-2">You're on the best plan!</p>
+            <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
+            <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+          </div>
         </div>
-      </div>
+      </PaymentPageShell>
     );
   }
 
@@ -357,18 +359,21 @@ export default function Stage6Payment() {
   // bug while profile is still syncing.
   if (checkoutReturnProcessing) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        <p className="text-[15px] font-medium">Setting up your access</p>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Your payment was successful. We're finishing setup. This usually takes a few seconds.
-        </p>
-      </div>
+      <PaymentPageShell showBack={false}>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <p className="text-[15px] font-medium">Setting up your access</p>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Your payment was successful. We're finishing setup. This usually takes a few seconds.
+          </p>
+        </div>
+      </PaymentPageShell>
     );
   }
 
   if (checkoutFallback && !hasValidUserAccess) {
     return (
+      <PaymentPageShell>
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-[15px] font-medium">Payment received</p>
         <p className="text-sm text-muted-foreground max-w-sm">
@@ -405,19 +410,23 @@ export default function Stage6Payment() {
           Check again
         </Button>
       </div>
+      </PaymentPageShell>
     );
   }
 
   if (accessPending || (isBetaValid && !hasExplicitUpgradeSource)) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
+      <PaymentPageShell showBack={false}>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </PaymentPageShell>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto pt-2 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] px-4 animate-fade-in">
+    <PaymentPageShell>
+    <div className="max-w-md mx-auto pt-2 pb-8 px-4 animate-fade-in">
       {/* Toggle + Title row */}
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-[20px] font-headline font-bold">
@@ -560,5 +569,6 @@ export default function Stage6Payment() {
         </a>
       </div>
     </div>
+    </PaymentPageShell>
   );
 }
