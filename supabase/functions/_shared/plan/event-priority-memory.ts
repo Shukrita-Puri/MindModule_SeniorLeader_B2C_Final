@@ -194,3 +194,38 @@ export async function loadPriorityMemoryForUser(
     return indexPriorityMemory([]);
   }
 }
+
+/**
+ * Load raw memory rows including scope columns, for use with the
+ * `evaluateEventPriorityExclusion` SSOT helper.
+ *
+ * Kept alongside `loadPriorityMemoryForUser` so consumers can adopt the
+ * exclusion evaluator incrementally without disturbing the existing scoring
+ * (which continues to operate on the indexed rows).
+ */
+export async function loadExclusionMemoryRowsForUser(
+  supabase: any,
+  userId: string,
+  lookbackDays = 90,
+): Promise<any[]> {
+  try {
+    const since = new Date(Date.now() - lookbackDays * 86400_000).toISOString();
+    const { data, error } = await supabase
+      .from("event_priority_memory")
+      .select(
+        "id, event_category, event_type_key, event_subcategory, signal, source, event_id, occurred_at, scope, effective_week_start, effective_week_end, timezone, resolved_event_id, identity_confidence, meta",
+      )
+      .eq("user_id", userId)
+      .gte("occurred_at", since)
+      .order("occurred_at", { ascending: false })
+      .limit(500);
+    if (error) {
+      console.warn("[event-priority-memory] load exclusion rows failed", error.message);
+      return [];
+    }
+    return (data ?? []) as any[];
+  } catch (e) {
+    console.warn("[event-priority-memory] load exclusion rows threw", (e as Error).message);
+    return [];
+  }
+}
