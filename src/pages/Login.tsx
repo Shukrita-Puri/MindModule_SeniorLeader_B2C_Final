@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Mail } from 'lucide-react';
 import {
   NATIVE_AUTH_CANCELLED_EVENT,
   getRedirectUri,
@@ -15,7 +15,49 @@ import { useAuth } from '@/hooks/useAuth';
 import mmLogo from '@/assets/brand/mm-logo-circle.png';
 
 const LEGAL_KEY = 'mm_legal_accepted_v1';
-type LoginState = 'auth0';
+
+const APPLE_CONNECTION =
+  (import.meta.env.VITE_AUTH0_APPLE_CONNECTION as string | undefined) || 'apple';
+const GOOGLE_CONNECTION = 'google-oauth2';
+const LINKEDIN_CONNECTION =
+  (import.meta.env.VITE_AUTH0_LINKEDIN_CONNECTION as string | undefined) || 'linkedin';
+const EMAIL_CONNECTION = import.meta.env.VITE_AUTH0_EMAIL_CONNECTION as string | undefined;
+
+type Provider = 'apple' | 'google' | 'linkedin' | 'email';
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8a12 12 0 110-24c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 1024 44c11 0 20-8 20-20 0-1.2-.1-2.3-.4-3.5z"/>
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 006.3 14.7z"/>
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.5-5.2l-6.2-5.2C29.3 35 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5A20 20 0 0024 44z"/>
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3a12 12 0 01-4.1 5.6l6.2 5.2c-.4.4 6.6-4.8 6.6-14.8 0-1.2-.1-2.3-.4-3.5z"/>
+    </svg>
+  );
+}
+
+function LinkedInIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+      <rect width="24" height="24" rx="3" fill="#0A66C2" />
+      <path
+        fill="#fff"
+        d="M7.06 9.5H4.5V19h2.56V9.5zM5.78 8.39a1.49 1.49 0 110-2.98 1.49 1.49 0 010 2.98zM19.5 19h-2.56v-4.62c0-1.1-.02-2.52-1.54-2.52-1.54 0-1.78 1.2-1.78 2.44V19h-2.56V9.5h2.46v1.3h.04c.34-.64 1.18-1.32 2.42-1.32 2.6 0 3.08 1.71 3.08 3.93V19z"
+      />
+    </svg>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-5 h-5 text-black" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M19.2 14.35c-.28.64-.61 1.23-1 1.78-.53.75-.97 1.27-1.33 1.56-.55.48-1.14.73-1.77.75-.45 0-.99-.13-1.6-.39-.62-.26-1.18-.39-1.7-.39-.54 0-1.12.13-1.74.39-.62.26-1.11.4-1.49.41-.6.03-1.21-.23-1.81-.78-.38-.32-.85-.86-1.41-1.63-.6-.81-1.09-1.76-1.48-2.83-.42-1.16-.63-2.29-.63-3.37 0-1.24.27-2.31.8-3.21a4.7 4.7 0 0 1 1.69-1.68 4.55 4.55 0 0 1 2.28-.64c.5 0 1.16.15 1.99.45.82.3 1.35.46 1.58.46.17 0 .74-.18 1.72-.53.92-.32 1.7-.45 2.34-.39 1.74.14 3.05.83 3.92 2.08-1.56.95-2.33 2.28-2.31 3.99.01 1.33.49 2.44 1.45 3.33.43.41.91.72 1.45.93-.12.36-.25.7-.39 1.03ZM14.88 2.18c0 1.04-.38 2.01-1.14 2.92-.92 1.08-2.03 1.71-3.23 1.61a3.28 3.28 0 0 1-.02-.4c0-1 .43-2.07 1.2-2.95.39-.46.89-.84 1.49-1.14.6-.29 1.17-.46 1.71-.51.01.15.02.31.02.47Z"
+      />
+    </svg>
+  );
+}
 
 const Login = () => {
   const { isAuthenticated: sdkIsAuthenticated, isLoading, loginWithRedirect } = useAuth0();
@@ -34,7 +76,7 @@ const Login = () => {
       return false;
     }
   });
-  const [busy, setBusy] = useState<LoginState | null>(null);
+  const [busy, setBusy] = useState<Provider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelledRef = useRef(false);
 
@@ -67,16 +109,22 @@ const Login = () => {
   }, []);
 
   const handleProvider = useCallback(
-    async () => {
+    async (provider: Provider) => {
       if (!accepted || busy) return;
       setError(null);
-      setBusy('auth0');
+      setBusy(provider);
       cancelledRef.current = false;
       clearLogoutGuard();
       resetStaleNativeAuth();
 
+      const connection =
+        provider === 'apple' ? APPLE_CONNECTION :
+        provider === 'google' ? GOOGLE_CONNECTION :
+        provider === 'linkedin' ? LINKEDIN_CONNECTION :
+        EMAIL_CONNECTION;
+
       try {
-        const result = await nativeLogin({ returnTo: finalDestination });
+        const result = await nativeLogin({ returnTo: finalDestination, connection });
         if (result.status === 'opened') return;
         if (nativeLoginHandled(result)) return;
 
@@ -86,6 +134,7 @@ const Login = () => {
             redirect_uri: getRedirectUri(),
             audience: getSanitisedAuth0Audience(),
             scope: 'openid profile email offline_access',
+            ...(connection ? { connection } : {}),
           },
         });
       } catch (e) {
@@ -179,10 +228,32 @@ const Login = () => {
           )}
 
           <ProviderButton
-            onClick={handleProvider}
+            onClick={() => handleProvider('apple')}
             disabled={disabled}
-            busy={busy === 'auth0'}
-            label="Continue with Auth0"
+            busy={busy === 'apple'}
+            label="Continue with Apple"
+            icon={<AppleIcon />}
+          />
+          <ProviderButton
+            onClick={() => handleProvider('google')}
+            disabled={disabled}
+            busy={busy === 'google'}
+            label="Continue with Google"
+            icon={<GoogleIcon />}
+          />
+          <ProviderButton
+            onClick={() => handleProvider('linkedin')}
+            disabled={disabled}
+            busy={busy === 'linkedin'}
+            label="Continue with LinkedIn"
+            icon={<LinkedInIcon />}
+          />
+          <ProviderButton
+            onClick={() => handleProvider('email')}
+            disabled={disabled}
+            busy={busy === 'email'}
+            label="Continue with Email"
+            icon={<Mail className="w-5 h-5 text-foreground/70" />}
           />
 
           <div className="pt-4 flex items-center justify-between gap-4">
@@ -229,11 +300,13 @@ function ProviderButton({
   disabled,
   busy,
   label,
+  icon,
 }: {
   onClick: () => void;
   disabled: boolean;
   busy: boolean;
   label: string;
+  icon?: React.ReactNode;
 }) {
   return (
     <button
@@ -244,7 +317,7 @@ function ProviderButton({
       className="relative w-full h-[54px] rounded-full bg-white/95 backdrop-blur-sm border border-black/[0.05] shadow-[0_2px_8px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] flex items-center justify-center px-5 text-[15.5px] font-medium text-foreground/90 transition active:scale-[0.985] disabled:opacity-60 disabled:active:scale-100"
     >
       <span className="absolute left-5 flex items-center justify-center">
-        {busy ? <Loader2 className="w-5 h-5 animate-spin text-foreground/60" /> : null}
+        {busy ? <Loader2 className="w-5 h-5 animate-spin text-foreground/60" /> : icon}
       </span>
       <span>{label}</span>
     </button>

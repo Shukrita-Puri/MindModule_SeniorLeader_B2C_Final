@@ -4751,31 +4751,96 @@ async function evaluatePatternAlert(
 
   const { data: finding } = await supabase
     .from("causality_findings")
-    .select("top_finding_label, top_finding_delta_pct, confidence, generated_at")
+    .select("signal_summary, computed_for_date, updated_at")
     .eq("user_id", ctx.userId)
-    .gte("generated_at", monthStart.toISOString())
-    .in("confidence", ["strong", "emerging"])
-    .order("generated_at", { ascending: false })
+    .eq("pattern_kind", "cause_effect_v2")
+    .gte("computed_for_date", monthStart.toISOString().slice(0, 10))
+    .order("computed_for_date", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (finding?.top_finding_label) {
+  const topPattern = extractTopPattern(finding?.signal_summary);
+  if (topPattern) {
     return {
       type: "pattern_alert",
       copy: {
         title: "Your pattern is ready",
-        body: `${finding.top_finding_label} is showing up in your data. See what it is costing you.`,
+        body: `${topPattern.label} is showing up in your data. See what it is costing you.`,
         variantId: "FB-PATTERN",
       },
       deepLinkRoute: "/insights/performance-causality",
-      priority: finding.confidence === "strong" ? 3 : 2,
+      priority: topPattern.confidence === "strong" ? 3 : 2,
       anchorKind: "state",
       slot: "morning",
-      signalStrength: finding.confidence === "strong" ? 2 : 1,
+      signalStrength: topPattern.confidence === "strong" ? 2 : 1,
     };
   }
 
   return null;
+}
+
+// Extracts the strongest human-readable pattern from the signal_summary jsonb
+// projected by cause-effect-engine. Returns null when no eligible pattern
+// (strong/emerging) is present.
+function extractTopPattern(
+  summary: unknown,
+): { label: string; confidence: "strong" | "emerging" } | null {
+  if (!summary || typeof summary !== "object") return null;
+  const s = summary as Record<string, unknown>;
+
+  type Candidate = { label: string; confidence: "strong" | "emerging"; rank: number };
+  const candidates: Candidate[] = [];
+
+  const eligible = (c: unknown): c is "strong" | "emerging" =>
+    c === "strong" || c === "emerging";
+  const rankOf = (c: "strong" | "emerging") => (c === "strong" ? 2 : 1);
+
+  const eventArrays: Array<[string, string]> = [
+    ["event_to_hrv", "hrvDeltaPct"],
+    ["event_to_rhr", "rhrDeltaPct"],
+  ];
+  for (const [key, deltaKey] of eventArrays) {
+    const arr = s[key];
+    if (Array.isArray(arr)) {
+      for (const item of arr) {
+        if (!item || typeof item !== "object") continue;
+        const it = item as Record<string, unknown>;
+        if (!eligible(it.confidence)) continue;
+        const eventType = typeof it.event_type === "string" ? it.event_type : null;
+        const delta = typeof it[deltaKey] === "number" ? (it[deltaKey] as number) : null;
+        if (!eventType || delta === null) continue;
+        const sign = delta > 0 ? "+" : "";
+        const metric = key === "event_to_hrv" ? "HRV" : "resting HR";
+        candidates.push({
+          label: `${eventType} → ${metric} ${sign}${Math.round(delta)}%`,
+          confidence: it.confidence,
+          rank: rankOf(it.confidence),
+        });
+      }
+    }
+  }
+
+  const sleep = s.sleep_to_prs as Record<string, unknown> | undefined;
+  if (sleep && eligible(sleep.confidence) && typeof sleep.lowSleepPrsDeltaPct === "number") {
+    candidates.push({
+      label: `Low sleep → next-day readiness ${sleep.lowSleepPrsDeltaPct > 0 ? "+" : ""}${Math.round(sleep.lowSleepPrsDeltaPct as number)}%`,
+      confidence: sleep.confidence,
+      rank: rankOf(sleep.confidence),
+    });
+  }
+
+  const consec = s.consecutive_load as Record<string, unknown> | undefined;
+  if (consec && eligible(consec.confidence) && typeof consec.tailDeltaPct === "number") {
+    candidates.push({
+      label: `Consecutive heavy days → tail-of-week ${consec.tailDeltaPct > 0 ? "+" : ""}${Math.round(consec.tailDeltaPct as number)}%`,
+      confidence: consec.confidence,
+      rank: rankOf(consec.confidence),
+    });
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.rank - a.rank);
+  return { label: candidates[0].label, confidence: candidates[0].confidence };
 }
 
 // P7: Daily Fallback
