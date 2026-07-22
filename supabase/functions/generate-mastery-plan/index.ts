@@ -91,6 +91,7 @@ import {
   applyEventPriorityMemory,
   getSubcategoryForEvent,
   loadPriorityMemoryForUser,
+  loadExclusionMemoryRowsForUser,
   normalizeEventTitleMemoryKey,
   type PriorityMemoryIndex,
   TITLE_SPECIFIC_MEMORY_CATEGORY,
