@@ -11,6 +11,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { isAuthorizedCronCaller, cronForbiddenResponse } from "../_shared/cron-auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,6 +21,12 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only pg_cron (CRON_SHARED_SECRET) or a service-role caller may sweep
+  // orphaned coach sessions — this function fires downstream paid AI calls.
+  if (!isAuthorizedCronCaller(req)) {
+    return cronForbiddenResponse(corsHeaders);
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

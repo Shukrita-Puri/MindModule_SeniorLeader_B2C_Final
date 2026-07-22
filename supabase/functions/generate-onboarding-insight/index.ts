@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -135,6 +136,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Require signed-in Auth0 user — paid Anthropic call, must not be
+  // internet-callable by unauthenticated clients.
+  const auth = await authenticateRequest(req, corsHeaders);
+  if (auth.errorResponse) return auth.errorResponse;
 
   try {
     const body = await req.json();
