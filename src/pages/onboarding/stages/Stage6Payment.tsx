@@ -8,6 +8,8 @@ import { openUrl } from "@/utils/openUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { hasValidAccess, isValidBeta, resolveOnboardingAccess } from "@/utils/subscriptionHelpers";
+import { isIosNativeShell } from "@/config/purchasePlatform";
+import { ApplePaywall } from "@/components/subscription/ApplePaywall";
 
 // Shared mobile-safe scroll shell for the pricing/upgrade page.
 //
