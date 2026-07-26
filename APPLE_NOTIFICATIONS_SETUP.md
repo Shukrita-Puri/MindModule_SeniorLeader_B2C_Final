@@ -115,7 +115,7 @@ Apple Developer account holder:
    Purchase key; download the `.p8` once, note the **Key ID** and **Issuer ID**,
    and store them as the secrets in section 2.
 7. Create the subscription group and the two auto-renewable products
-   (`com.mindmodule.pro.monthly`, `com.mindmodule.pro.annual`) — both confirmed
+   (`me.mindmodule.pro.monthly`, `me.mindmodule.pro.annual`) — both confirmed
    and unique; see `IAP_CONFIGURATION_REQUIRED.md`.
 
 ## 6. What the function does

@@ -8,7 +8,7 @@ import {
 import type { IapProduct } from '@/services/iap';
 
 const base: IapProduct = {
-  id: 'com.mindmodule.pro.monthly',
+  id: 'me.mindmodule.pro.monthly',
   title: 'Mind Module Pro Monthly',
   description: 'Monthly',
   displayPrice: '£12.99',
@@ -76,7 +76,7 @@ describe('Apple introductory offer presentation', () => {
   it('uses the localized price and period Apple returned, never a hardcoded one', () => {
     const annual: IapProduct = {
       ...sevenDayTrial,
-      id: 'com.mindmodule.pro.annual',
+      id: 'me.mindmodule.pro.annual',
       displayPrice: '¥14,800',
       periodUnit: 'year',
       periodValue: 1,
