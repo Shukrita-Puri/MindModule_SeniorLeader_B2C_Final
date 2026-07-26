@@ -32,6 +32,32 @@ export interface AppleTransactionPayload {
   isUpgraded?: boolean;
 }
 
+/** Decoded `signedRenewalInfo` payload (App Store Server API v2). */
+export interface AppleRenewalInfo {
+  originalTransactionId?: string;
+  autoRenewProductId?: string;
+  productId?: string;
+  autoRenewStatus?: number; // 0 = off, 1 = on
+  expirationIntent?: number;
+  gracePeriodExpiresDate?: number;
+  isInBillingRetryPeriod?: boolean;
+  priceIncreaseStatus?: number;
+  offerType?: number;
+  offerIdentifier?: string;
+  environment?: string;
+  recentSubscriptionStartDate?: number;
+  renewalDate?: number;
+}
+
+/** Extra lifecycle facts derived from a notification, merged into writes. */
+export interface AppleEntitlementContext {
+  renewal?: AppleRenewalInfo | null;
+  notificationType?: string;
+  notificationSubtype?: string;
+  notificationUuid?: string;
+  signedDate?: number;
+}
+
 function b64UrlToBytes(input: string): Uint8Array {
   const normalised = input.replace(/-/g, '+').replace(/_/g, '/');
   const padded = normalised + '='.repeat((4 - (normalised.length % 4)) % 4);
