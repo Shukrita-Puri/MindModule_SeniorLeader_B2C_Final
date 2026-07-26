@@ -12,6 +12,7 @@
  *    to repurchase through Apple.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, RotateCcw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -311,9 +312,16 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       </div>
 
       <div className="flex items-center justify-center gap-3 pt-2">
-        <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy Policy</a>
+        {/* Router links, not raw <a href>: inside the Capacitor webview a hard
+            navigation reloads the bundle and can strand the reviewer on a
+            blank screen. Apple requires both links to be reachable here. */}
+        <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground">
+          Privacy Policy
+        </Link>
         <span className="text-muted-foreground/40 text-xs">·</span>
-        <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground">Terms of Use</a>
+        <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground">
+          Terms of Use
+        </Link>
       </div>
     </div>
   );
