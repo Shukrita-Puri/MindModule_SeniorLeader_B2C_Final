@@ -78,11 +78,17 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                     if let sub = product.subscription {
                         entry["periodUnit"] = self.periodLabel(sub.subscriptionPeriod.unit)
                         entry["periodValue"] = sub.subscriptionPeriod.value
-                        // Only advertise an intro offer if Apple actually returns one.
-                        if let intro = sub.introductoryOffer {
+                        // Apple decides eligibility per Apple ID / subscription group.
+                        // A returned introductoryOffer alone is NOT proof the *current*
+                        // user can take it, so we ask StoreKit explicitly.
+                        let eligible = await sub.isEligibleForIntroOffer
+                        entry["isEligibleForIntroOffer"] = eligible
+                        // Only advertise an intro offer if Apple returns one AND the
+                        // signed-in Apple ID is eligible for it.
+                        if let intro = sub.introductoryOffer, eligible {
                             entry["introOffer"] = [
                                 "displayPrice": intro.displayPrice,
-                                "paymentMode": "\(intro.paymentMode)",
+                                "paymentMode": self.paymentModeLabel(intro.paymentMode),
                                 "periodUnit": self.periodLabel(intro.period.unit),
                                 "periodValue": intro.period.value,
                                 "periodCount": intro.periodCount,
@@ -91,6 +97,8 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                     }
                     return entry
                 }
+                // `products` is mapped with an async eligibility lookup, so the
+                // map above must be built sequentially rather than with `map`.
                 call.resolve(["products": payload])
             } catch {
                 call.reject("Failed to load products: \(error.localizedDescription)")
