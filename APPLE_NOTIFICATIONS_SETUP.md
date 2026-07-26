@@ -10,10 +10,33 @@ An Apple write never clears Stripe columns, and an active Stripe subscription ke
 
 ---
 
+## 0. Two independent systems — do not merge
+
+Mind Module runs **two completely separate** Apple-facing systems:
+
+| | **APNs user notifications** (existing) | **`apple-notifications`** (this doc) |
+|---|---|---|
+| Purpose | Sends pushes to users | Receives subscription lifecycle webhooks from Apple |
+| Direction | App/server → device | Apple server → our server |
+| Surfaces | `notification_device_tokens`, `notification_log`, `notification_preferences`, `notification_delivery_attempts`, Smart Nudges, scheduled reminders, cron orchestration, `notification-receipt`, `notification-engagement`, `test-push`, `travel-notifications` | `apple-notifications` Edge Function, `apple_notification_events`, `apple_transactions`, Apple columns on `profiles` |
+| Credentials | APNs auth key (`APNS_P8_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_ENVIRONMENT`) | App Store Connect In-App Purchase key (`APPLE_*`) |
+
+Rules:
+- The Apple subscription webhook **must not** send APNs pushes, register or
+  unregister device tokens, or touch any notification table.
+- The APNs system **must not** be modified to accommodate subscription events.
+- Device-token registration, multi-device handling, safe logout/unregister,
+  Smart Nudges, scheduled notifications, diagnostics and cron orchestration are
+  unchanged by the IAP work.
+- App Store Connect configuration of the V2 webhook URL remains a **manual
+  action by the Apple account owner** — it cannot be automated from the app.
+
+---
+
 ## 1. Deployed function URL
 
 ```
-https://<SUPABASE_PROJECT_REF>.supabase.co/functions/v1/apple-notifications
+https://iyilcpvercoywaweybpc.supabase.co/functions/v1/apple-notifications
 ```
 
 - **Production Server URL:** the URL above (production App Store Connect field)
