@@ -13,10 +13,11 @@ import Stripe from "https://esm.sh/stripe@14.14.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { rejectIosPurchaseFlow } from "../_shared/ios-purchase-guard.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-mm-client-platform, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 Deno.serve(async (req) => {
@@ -29,21 +30,8 @@ Deno.serve(async (req) => {
     const userId = await verifyAuth0JWT(req);
 
     // App Store Review Guideline 3.1.1 — defence in depth.
-    // Stripe checkout must never be reachable from the native iOS/iPadOS
-    // shell. The client already hides every Stripe CTA there
-    // (src/config/purchasePlatform.ts); this rejects the request server-side
-    // so a stale build, a deep link, or a crafted request cannot open an
-    // external purchase flow on iOS.
-    const clientPlatform = (req.headers.get('x-supabase-client-platform') || '').toLowerCase();
-    if (clientPlatform === 'ios') {
-      return new Response(
-        JSON.stringify({
-          error: 'Purchases in the iOS app must go through Apple In-App Purchase.',
-          code: 'ios_requires_iap',
-        }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
+    const iosBlocked = rejectIosPurchaseFlow(req, corsHeaders);
+    if (iosBlocked) return iosBlocked;
 
     const { plan, currency, referralCode } = await req.json();
 
