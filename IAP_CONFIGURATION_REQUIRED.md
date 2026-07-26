@@ -4,6 +4,19 @@ Single source of truth in code: `src/config/iapProducts.ts`.
 Prices, currencies, localized names, billing periods and introductory offers are
 loaded from StoreKit at runtime and are never hardcoded.
 
+## Scope — this is not the push-notification system
+
+`apple-notifications` is a **backend-to-backend Apple subscription webhook only**.
+The existing **APNs** stack (device tokens, multi-device handling, safe
+logout/unregister, Smart Nudges, scheduled reminders, diagnostics, cron
+orchestration) is a separate system and is untouched by the IAP work. The two
+must remain independent — the subscription webhook never sends user pushes, and
+the APNs system never processes subscription events. See
+`APPLE_NOTIFICATIONS_SETUP.md` §0.
+
+App Store Connect configuration (products, V2 notification URLs, IAP key)
+remains a manual action by the Apple account owner.
+
 ## Product IDs
 
 | Plan | App Store Connect ref | Product ID used by the app | Status |
