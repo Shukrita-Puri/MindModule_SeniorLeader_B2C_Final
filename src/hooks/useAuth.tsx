@@ -55,6 +55,14 @@ interface AppUser {
   beta_user?: boolean;
   beta_expires_at?: string | null;
   stripe_customer_id?: string | null;
+  /**
+   * Which provider granted the current entitlement ('stripe' | 'apple' |
+   * 'beta' | 'manual'). Server-owned — the client never sets this. Used only
+   * to decide which purchase/management surface to render (Guideline 3.1.1).
+   */
+  subscription_provider?: string | null;
+  apple_product_id?: string | null;
+  apple_expires_at?: string | null;
   founding_member?: boolean;
   referral_code?: string | null;
   referral_rewards_balance?: number;
