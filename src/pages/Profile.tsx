@@ -238,7 +238,7 @@ const Profile = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm">{planLabel}</span>
-                {!PAYMENT_PAGE_SUPPRESSED && <DropdownMenu>
+                {showBillingMenu && <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-1 rounded hover:bg-muted transition-colors">
                       <MoreVertical className="h-4 w-4 text-muted-foreground" />
@@ -305,7 +305,7 @@ const Profile = () => {
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {!PAYMENT_PAGE_SUPPRESSED && (
+            {!PAYMENT_PAGE_SUPPRESSED && allowStripeUi && (
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2"
@@ -412,6 +412,19 @@ const Profile = () => {
               <Trash2 className="h-4 w-4" />
               Delete Local Data
             </Button>
+
+            {/* Delete Account — user self-serve, server-driven (Guideline 5.1.1(v)) */}
+            {user && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+                onClick={() => setShowDeleteAccount(true)}
+                data-testid="delete-account-button"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Account
+              </Button>
+            )}
 
             {/* Sign Out */}
             {user && (
