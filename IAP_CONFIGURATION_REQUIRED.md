@@ -24,6 +24,43 @@ remains a manual action by the Apple account owner.
 | Pro Monthly | 6794852233 | `com.mindmodule.pro.monthly` | ✅ Confirmed |
 | Pro Annual  | 6794852439 | `com.mindmodule.pro.annual`  | ✅ Confirmed |
 
+No trial product exists and none must ever be created. Product ids such as
+`com.mindmodule.pro.trial` or `com.mindmodule.pro.7daytrial` are forbidden — the
+7-day free trial is an **Introductory Offer attached to the two subscriptions
+above**, inside the single `Mind Module Pro` subscription group.
+
+## 7-day free trial (Apple Introductory Offer)
+
+Model: one subscription group, two auto-renewable subscriptions, one
+**Introductory Offer → Free Trial → 7 days** on each.
+
+Runtime behaviour (implemented):
+
+- The native plugin asks StoreKit for `isEligibleForIntroOffer` per subscription
+  and only returns `introOffer` when the signed-in Apple ID is eligible.
+- `paymentMode` is normalized to `freeTrial` / `payAsYouGo` / `payUpFront`; only
+  `freeTrial` produces trial copy.
+- `src/utils/introOffer.ts` builds all trial strings from Apple's data:
+  `"7-day free trial"`, `"then <localized price> per <period>"`, the CTA
+  `"Start 7-day free trial"`, and the auto-renewal + cancellation disclosure.
+- Ineligible users (already trialled, resubscribers) see standard paid pricing,
+  a `Subscribe` CTA and no trial text.
+- Trial duration, currency, localized price and availability are never
+  hardcoded — change the offer in App Store Connect and the app follows.
+
+Lifecycle: trial start, conversion to paid, cancellation during trial, renewal,
+expiry, refund and revocation are all handled by the existing
+`verify-apple-purchase` + `apple-notifications` (V2) path. Entitlement rule is
+unchanged: **active Apple subscription OR active Stripe subscription = Pro**.
+
+Owner actions still required in App Store Connect (per subscription, Monthly and
+Annual): Subscription → *Introductory Offers* → Create → territories: All →
+type **Free**, duration **1 week (7 days)** → no end date → save, then submit
+with the next app version. Finally validate with a StoreKit Sandbox tester
+(fresh Sandbox Apple ID, buy Monthly, confirm trial copy and the "7 days free,
+then …" system sheet; cancel mid-trial; re-open the paywall with the same
+Apple ID and confirm the trial copy is gone).
+
 ### Product ID conflict — RESOLVED
 
 Both product IDs are now confirmed in App Store Connect and are unique. Monthly
@@ -53,8 +90,9 @@ Server side (Supabase secrets — never commit): `APPLE_BUNDLE_ID`,
 2. Add two **Auto-Renewable Subscriptions** (not consumable/non-consumable):
    - Pro Monthly — 1 month duration.
    - Pro Annual — 1 year duration.
-3. Add a **7-day free trial introductory offer** to each. The app only renders
-   trial copy when StoreKit actually returns the offer.
+3. Add a **7-day free trial introductory offer** to each (Free, 1 week, all
+   territories). Do NOT create a separate trial product. The app only renders
+   trial copy when StoreKit returns the offer AND reports the Apple ID eligible.
 4. Complete localizations, review screenshot, and pricing per territory.
 5. Users and Access → Integrations → In-App Purchase → create key, download
    `.p8`, note Key ID + Issuer ID → store as Supabase secrets.
@@ -75,6 +113,8 @@ Server side (Supabase secrets — never commit): `APPLE_BUNDLE_ID`,
   handling with idempotency; Auth0 `sub` remains the identity.
 - iOS/iPadOS shows no Stripe checkout, external payment button or web purchase
   link; Stripe remains live on web and is rejected server-side for iOS callers.
+- Eligibility-gated 7-day introductory-offer rendering (code-side complete,
+  covered by `src/utils/__tests__/introOffer.test.ts`).
 
 **B. Implemented, awaiting deployment/config**
 - Server-side re-verification via App Store Server API activates once the Apple
@@ -85,3 +125,7 @@ Server side (Supabase secrets — never commit): `APPLE_BUNDLE_ID`,
   `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID`).
 
 **D. Manual App Store Connect steps** — see list above.
+
+**E. Not yet validated** — the 7-day trial is NOT live until the introductory
+offers are created on both subscriptions in App Store Connect and a StoreKit
+Sandbox tester has completed a trial purchase end to end.

@@ -28,6 +28,7 @@ import {
 import { getIapConfigStatus, planSortOrder } from '@/config/iapProducts';
 import { isNonApplePaidEntitlement } from '@/config/purchasePlatform';
 import { hasValidAccess, type AccessUser } from '@/utils/subscriptionHelpers';
+import { describeTrial, describeIntroDiscount, billingFrequencyLabel } from '@/utils/introOffer';
 
 interface ApplePaywallProps {
   user: (AccessUser & { subscription_provider?: string | null; stripe_customer_id?: string | null }) | null;
@@ -35,11 +36,7 @@ interface ApplePaywallProps {
   onRefreshProfile: () => Promise<unknown>;
 }
 
-function periodLabel(product: IapProduct): string {
-  if (!product.periodUnit) return '';
-  const value = product.periodValue ?? 1;
-  return value === 1 ? `per ${product.periodUnit}` : `every ${value} ${product.periodUnit}s`;
-}
+const periodLabel = billingFrequencyLabel;
 
 export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywallProps) {
   const [products, setProducts] = useState<IapProduct[]>([]);
@@ -112,7 +109,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       switch (result.status) {
         case 'purchased':
           await onRefreshProfile();
-          toast.success('Subscription active. Welcome to Pro.');
+          toast.success('You\u2019re in. Welcome to Pro.');
           onEntitled();
           break;
         case 'pending':
@@ -249,8 +246,15 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
         </div>
       )}
 
-      {!loadingProducts && products.map((product) => (
-        <div key={product.id} className="rounded-2xl border border-border bg-card p-5 space-y-3">
+      {!loadingProducts && products.map((product) => {
+        const trial = describeTrial(product);
+        const introDiscount = describeIntroDiscount(product);
+        return (
+        <div
+          key={product.id}
+          className="rounded-2xl border border-border bg-card p-5 space-y-3"
+          data-testid={`apple-plan-${product.id}`}
+        >
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-[17px] font-headline font-bold">{product.title}</h2>
             <div className="text-right">
@@ -263,12 +267,16 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
           {product.description && (
             <p className="text-sm text-muted-foreground">{product.description}</p>
           )}
-          {product.introOffer && (
-            <p className="text-xs text-saffron">
-              Introductory offer: {product.introOffer.displayPrice} for{' '}
-              {product.introOffer.periodValue} {product.introOffer.periodUnit}
-              {product.introOffer.periodValue === 1 ? '' : 's'}
-            </p>
+          {/* Trial copy renders ONLY when StoreKit returns an eligible
+              free-trial introductory offer for this Apple ID. */}
+          {trial.isFreeTrial && (
+            <div className="space-y-1" data-testid={`apple-trial-${product.id}`}>
+              <p className="text-sm font-medium text-saffron">{trial.headline}</p>
+              <p className="text-xs text-muted-foreground">{trial.postTrialLine}</p>
+            </div>
+          )}
+          {introDiscount && (
+            <p className="text-xs text-saffron">{introDiscount}</p>
           )}
           <Button
             className="w-full h-11"
@@ -281,17 +289,15 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
                 <Loader2 className="w-4 h-4 animate-spin" /> Processing…
               </span>
             ) : (
-              'Subscribe'
+              trial.ctaLabel
             )}
           </Button>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            {trial.disclosure}
+          </p>
         </div>
-      ))}
-
-      <p className="text-xs text-muted-foreground leading-relaxed">
-        Payment is charged to your Apple ID at confirmation of purchase. The subscription renews
-        automatically unless cancelled at least 24 hours before the end of the current period. You
-        can manage or cancel it in your Apple ID settings at any time.
-      </p>
+        );
+      })}
 
       <div className="space-y-2">
         <Button

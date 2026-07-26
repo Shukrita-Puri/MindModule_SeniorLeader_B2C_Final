@@ -29,6 +29,12 @@ export interface IapProduct {
   currencyCode?: string;
   periodUnit?: string;
   periodValue?: number;
+  /**
+   * StoreKit's per-Apple-ID introductory-offer eligibility for this
+   * subscription group. Undefined on older native builds; `introOffer` is only
+   * populated by the plugin when the user is actually eligible.
+   */
+  isEligibleForIntroOffer?: boolean;
   introOffer?: IapIntroOffer;
 }
 

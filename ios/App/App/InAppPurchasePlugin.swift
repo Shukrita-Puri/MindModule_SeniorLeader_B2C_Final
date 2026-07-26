@@ -66,7 +66,8 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             do {
                 let products = try await Product.products(for: ids)
-                let payload: [[String: Any]] = products.map { product in
+                var payload: [[String: Any]] = []
+                for product in products {
                     var entry: [String: Any] = [
                         "id": product.id,
                         "title": product.displayName,
@@ -78,18 +79,24 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                     if let sub = product.subscription {
                         entry["periodUnit"] = self.periodLabel(sub.subscriptionPeriod.unit)
                         entry["periodValue"] = sub.subscriptionPeriod.value
-                        // Only advertise an intro offer if Apple actually returns one.
-                        if let intro = sub.introductoryOffer {
+                        // Apple decides eligibility per Apple ID / subscription group.
+                        // A returned introductoryOffer alone is NOT proof the *current*
+                        // user can take it, so we ask StoreKit explicitly.
+                        let eligible = await sub.isEligibleForIntroOffer
+                        entry["isEligibleForIntroOffer"] = eligible
+                        // Only advertise an intro offer if Apple returns one AND the
+                        // signed-in Apple ID is eligible for it.
+                        if let intro = sub.introductoryOffer, eligible {
                             entry["introOffer"] = [
                                 "displayPrice": intro.displayPrice,
-                                "paymentMode": "\(intro.paymentMode)",
+                                "paymentMode": self.paymentModeLabel(intro.paymentMode),
                                 "periodUnit": self.periodLabel(intro.period.unit),
                                 "periodValue": intro.period.value,
                                 "periodCount": intro.periodCount,
                             ]
                         }
                     }
-                    return entry
+                    payload.append(entry)
                 }
                 call.resolve(["products": payload])
             } catch {
@@ -204,6 +211,17 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         case .month: return "month"
         case .year: return "year"
         @unknown default: return "unknown"
+        }
+    }
+
+    /// Stable, parseable payment-mode strings for the web layer.
+    /// `freeTrial` is what drives the "7-day free trial" paywall copy.
+    private func paymentModeLabel(_ mode: Product.SubscriptionOffer.PaymentMode) -> String {
+        switch mode {
+        case .freeTrial: return "freeTrial"
+        case .payAsYouGo: return "payAsYouGo"
+        case .payUpFront: return "payUpFront"
+        default: return "unknown"
         }
     }
 }
