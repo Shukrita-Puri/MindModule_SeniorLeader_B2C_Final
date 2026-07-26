@@ -326,6 +326,7 @@ const Layout = () => {
         <ScrollToTop />
         <TravelWatcher />
         <AppleCalendarWatcher />
+        <IapEntitlementWatcher />
         <PushNotificationProvider />
         <PushNotificationActionHandler />
         {showPillNav && <FloatingPillNav />}
