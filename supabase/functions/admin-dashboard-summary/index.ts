@@ -79,7 +79,11 @@ Deno.serve(async (req) => {
       db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", since7d),
       db.from("executive_home_card_runs").select("run_id, error, created_at").eq("status", "error").order("created_at", { ascending: false }).limit(1).maybeSingle(),
       db.from("executive_home_card_runs").select("id", { count: "exact", head: true }).eq("status", "error").gte("created_at", since24),
-      db.from("notification_log").select("id", { count: "exact", head: true }).eq("status", "failed" as any).gte("created_at", since24),
+      db
+        .from("notification_log")
+        .select("id", { count: "exact", head: true })
+        .in("delivery_state", ["failed", "error", "undelivered", "bounced"] as any)
+        .gte("sent_at", since24),
     ]);
 
     return json({
