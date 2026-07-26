@@ -4,6 +4,7 @@ import {
   IAP_PRODUCT_ANNUAL,
   IAP_PRODUCT_IDS,
   DEFAULT_ANNUAL_PRODUCT_ID,
+  DEFAULT_MONTHLY_PRODUCT_ID,
   getIapConfigStatus,
   isIapConfigured,
   planForProductId,
@@ -11,8 +12,11 @@ import {
 } from '@/config/iapProducts';
 
 describe('Apple IAP product configuration', () => {
-  it('uses the confirmed annual product id', () => {
+  it('uses the confirmed product ids', () => {
     expect(IAP_PRODUCT_ANNUAL).toBe(DEFAULT_ANNUAL_PRODUCT_ID);
+    expect(IAP_PRODUCT_MONTHLY).toBe(DEFAULT_MONTHLY_PRODUCT_ID);
+    expect(DEFAULT_MONTHLY_PRODUCT_ID).toBe('com.mindmodule.pro.monthly');
+    expect(DEFAULT_ANNUAL_PRODUCT_ID).toBe('com.mindmodule.pro.annual');
   });
 
   it('never reuses the annual id for monthly', () => {
@@ -36,7 +40,9 @@ describe('Apple IAP product configuration', () => {
     expect(getIapConfigStatus().missingIds).toBe(false);
   });
 
-  it('flags the monthly id as pending App Store Connect confirmation', () => {
-    expect(getIapConfigStatus().monthlyNeedsConfirmation).toBe(true);
+  it('has no unresolved product id conflict', () => {
+    expect(new Set(IAP_PRODUCT_IDS).size).toBe(2);
+    expect(getIapConfigStatus().ok).toBe(true);
+    expect(getIapConfigStatus().reason).toBeUndefined();
   });
 });
