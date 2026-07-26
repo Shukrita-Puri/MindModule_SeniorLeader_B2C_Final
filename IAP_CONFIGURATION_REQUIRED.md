@@ -8,25 +8,19 @@ loaded from StoreKit at runtime and are never hardcoded.
 
 | Plan | App Store Connect ref | Product ID used by the app | Status |
 |---|---|---|---|
-| Pro Monthly | 6794852233 | `com.mindmodule.pro.monthly` | ⚠️ **PENDING CONFIRMATION** |
+| Pro Monthly | 6794852233 | `com.mindmodule.pro.monthly` | ✅ Confirmed |
 | Pro Annual  | 6794852439 | `com.mindmodule.pro.annual`  | ✅ Confirmed |
 
-### 🚨 BLOCKER — duplicate product id reported
+### Product ID conflict — RESOLVED
 
-App Store Connect currently shows `com.mindmodule.pro.annual` for **both**
-products. Apple product ids are globally unique, so the monthly entry is
-misconfigured or was misread. The app deliberately does **not** reuse the annual
-id for the monthly plan.
+Both product IDs are now confirmed in App Store Connect and are unique. Monthly
+does **not** use the annual ID anywhere in the codebase. Guards still in place:
 
-Until the monthly id is confirmed:
-- `getIapConfigStatus().monthlyNeedsConfirmation === true`
-- If both ids ever resolve to the same string, the paywall refuses to sell and
-  shows "Monthly and annual are configured with the same Apple product id."
-
-**Action:** open App Store Connect → Subscriptions → Mind Module Pro group →
-Pro Monthly and read the exact **Product ID** field. Then either
-(a) confirm it is `com.mindmodule.pro.monthly`, or
-(b) set the override below.
+- `getIapConfigStatus().duplicateIds` — if both ids ever resolve to the same
+  string (e.g. a bad env override), the paywall refuses to sell and shows
+  "Monthly and annual are configured with the same Apple product id."
+- `src/config/__tests__/iapProducts.test.ts` asserts both ids are exact, unique
+  and mapped monthly-first.
 
 ## Environment overrides (no code change needed)
 
@@ -74,7 +68,6 @@ Server side (Supabase secrets — never commit): `APPLE_BUNDLE_ID`,
   API credentials are stored as Supabase secrets.
 
 **C. Blocked**
-- Monthly product ID confirmation (see BLOCKER above).
 - Apple API credentials (`APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`,
   `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID`).
 
