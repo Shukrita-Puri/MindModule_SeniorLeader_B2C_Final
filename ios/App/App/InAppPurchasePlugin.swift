@@ -66,7 +66,8 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             do {
                 let products = try await Product.products(for: ids)
-                let payload: [[String: Any]] = products.map { product in
+                var payload: [[String: Any]] = []
+                for product in products {
                     var entry: [String: Any] = [
                         "id": product.id,
                         "title": product.displayName,
@@ -95,10 +96,8 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                             ]
                         }
                     }
-                    return entry
+                    payload.append(entry)
                 }
-                // `products` is mapped with an async eligibility lookup, so the
-                // map above must be built sequentially rather than with `map`.
                 call.resolve(["products": payload])
             } catch {
                 call.reject("Failed to load products: \(error.localizedDescription)")
