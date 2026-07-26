@@ -13,7 +13,7 @@
  * guarding against is a future edit re-adding an ungated CTA, which a
  * render test of today's components would not catch.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -21,8 +21,8 @@ const read = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
 describe('iOS purchase-surface gating (client)', () => {
   afterEach(() => {
+    // doMock is registry-scoped, so resetting modules is enough to drop it.
     vi.resetModules();
-    vi.unmock('@capacitor/core');
   });
 
   const mockPlatform = (native: boolean, platform: string) => {
