@@ -213,4 +213,15 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         @unknown default: return "unknown"
         }
     }
+
+    /// Stable, parseable payment-mode strings for the web layer.
+    /// `freeTrial` is what drives the "7-day free trial" paywall copy.
+    private func paymentModeLabel(_ mode: Product.SubscriptionOffer.PaymentMode) -> String {
+        switch mode {
+        case .freeTrial: return "freeTrial"
+        case .payAsYouGo: return "payAsYouGo"
+        case .payUpFront: return "payUpFront"
+        default: return "unknown"
+        }
+    }
 }
