@@ -113,6 +113,8 @@ Server side (Supabase secrets — never commit): `APPLE_BUNDLE_ID`,
   handling with idempotency; Auth0 `sub` remains the identity.
 - iOS/iPadOS shows no Stripe checkout, external payment button or web purchase
   link; Stripe remains live on web and is rejected server-side for iOS callers.
+- Eligibility-gated 7-day introductory-offer rendering (code-side complete,
+  covered by `src/utils/__tests__/introOffer.test.ts`).
 
 **B. Implemented, awaiting deployment/config**
 - Server-side re-verification via App Store Server API activates once the Apple
@@ -123,3 +125,7 @@ Server side (Supabase secrets — never commit): `APPLE_BUNDLE_ID`,
   `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID`).
 
 **D. Manual App Store Connect steps** — see list above.
+
+**E. Not yet validated** — the 7-day trial is NOT live until the introductory
+offers are created on both subscriptions in App Store Connect and a StoreKit
+Sandbox tester has completed a trial purchase end to end.
