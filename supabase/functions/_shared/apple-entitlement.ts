@@ -32,6 +32,32 @@ export interface AppleTransactionPayload {
   isUpgraded?: boolean;
 }
 
+/** Decoded `signedRenewalInfo` payload (App Store Server API v2). */
+export interface AppleRenewalInfo {
+  originalTransactionId?: string;
+  autoRenewProductId?: string;
+  productId?: string;
+  autoRenewStatus?: number; // 0 = off, 1 = on
+  expirationIntent?: number;
+  gracePeriodExpiresDate?: number;
+  isInBillingRetryPeriod?: boolean;
+  priceIncreaseStatus?: number;
+  offerType?: number;
+  offerIdentifier?: string;
+  environment?: string;
+  recentSubscriptionStartDate?: number;
+  renewalDate?: number;
+}
+
+/** Extra lifecycle facts derived from a notification, merged into writes. */
+export interface AppleEntitlementContext {
+  renewal?: AppleRenewalInfo | null;
+  notificationType?: string;
+  notificationSubtype?: string;
+  notificationUuid?: string;
+  signedDate?: number;
+}
+
 function b64UrlToBytes(input: string): Uint8Array {
   const normalised = input.replace(/-/g, '+').replace(/_/g, '/');
   const padded = normalised + '='.repeat((4 - (normalised.length % 4)) % 4);
@@ -58,6 +84,17 @@ export async function verifyAppleSignedPayload<T>(jws: string): Promise<T> {
   const header = decodeSegment<{ alg: string; x5c?: string[] }>(headerSeg);
   if (header.alg !== 'ES256') throw new Error(`Unsupported JWS alg: ${header.alg}`);
   if (!header.x5c || header.x5c.length === 0) throw new Error('Apple JWS missing x5c chain');
+
+  // Apple always sends leaf -> intermediate -> root.
+  if (header.x5c.length < 3) throw new Error('Apple JWS chain too short');
+
+  const pinnedRoot = (globalThis as any).Deno?.env?.get?.('APPLE_ROOT_CA_G3_B64');
+  if (pinnedRoot) {
+    const presentedRoot = header.x5c[header.x5c.length - 1].replace(/\s/g, '');
+    if (presentedRoot !== pinnedRoot.replace(/\s/g, '')) {
+      throw new Error('Apple JWS root certificate does not match pinned Apple Root CA G3');
+    }
+  }
 
   const leafDer = b64UrlToBytes(header.x5c[0].replace(/\s/g, ''));
   const publicKey = await crypto.subtle.importKey(
@@ -125,6 +162,20 @@ export function tierForProductId(productId: string): 'monthly_pro' | 'annual_pro
 }
 
 /**
+ * Effective expiry = the later of the transaction expiry and any grace
+ * period Apple granted (billing retry). Apple keeps the user entitled for
+ * the duration of the grace period, so we must too.
+ */
+export function effectiveExpiry(
+  tx: AppleTransactionPayload,
+  renewal?: AppleRenewalInfo | null,
+): number | undefined {
+  const grace = renewal?.gracePeriodExpiresDate;
+  if (grace && grace > (tx.expiresDate ?? 0)) return grace;
+  return tx.expiresDate;
+}
+
+/**
  * Write the Apple entitlement onto the profile.
  *
  * Never clears Stripe columns. If the user already has an active Stripe
@@ -137,8 +188,14 @@ export async function applyAppleEntitlement(
   },
   userId: string,
   tx: AppleTransactionPayload,
+  ctx: AppleEntitlementContext = {},
 ): Promise<{ entitled: boolean }> {
-  const active = isTransactionActive(tx);
+  const renewal = ctx.renewal ?? null;
+  const withGrace: AppleTransactionPayload = {
+    ...tx,
+    expiresDate: effectiveExpiry(tx, renewal),
+  };
+  const active = isTransactionActive(withGrace);
 
   const { data: profile } = await db
     .from('profiles')
@@ -154,23 +211,51 @@ export async function applyAppleEntitlement(
 
   const update: Record<string, unknown> = {
     apple_original_transaction_id: tx.originalTransactionId,
+    apple_transaction_id: tx.transactionId,
     apple_product_id: tx.productId,
-    apple_expires_at: tx.expiresDate ? new Date(tx.expiresDate).toISOString() : null,
+    apple_expires_at: withGrace.expiresDate ? new Date(withGrace.expiresDate).toISOString() : null,
     apple_environment: tx.environment ?? null,
     apple_revoked_at: tx.revocationDate ? new Date(tx.revocationDate).toISOString() : null,
     apple_last_verified_at: new Date().toISOString(),
   };
+
+  if (renewal) {
+    update.apple_auto_renew = renewal.autoRenewStatus === 1;
+    update.apple_grace_period_expires_at = renewal.gracePeriodExpiresDate
+      ? new Date(renewal.gracePeriodExpiresDate).toISOString()
+      : null;
+    // Auto-renew switched off while still active = user cancelled.
+    update.apple_cancellation_date =
+      renewal.autoRenewStatus === 0 && !tx.revocationDate
+        ? new Date().toISOString()
+        : null;
+  }
+  if (ctx.notificationType) {
+    update.apple_last_notification_type = ctx.notificationSubtype
+      ? `${ctx.notificationType}.${ctx.notificationSubtype}`
+      : ctx.notificationType;
+    update.apple_last_notification_at = ctx.signedDate
+      ? new Date(ctx.signedDate).toISOString()
+      : new Date().toISOString();
+  }
 
   if (active && !stripeStillActive) {
     update.subscription_provider = 'apple';
     update.subscription_status = 'active';
     update.subscription_tier = tierForProductId(tx.productId);
     update.subscription_plan = tx.productId;
-    update.subscription_current_period_end = tx.expiresDate
-      ? new Date(tx.expiresDate).toISOString()
+    update.subscription_current_period_end = withGrace.expiresDate
+      ? new Date(withGrace.expiresDate).toISOString()
       : null;
-    update.subscription_canceled_at = null;
-    update.subscription_cancel_at = null;
+    if (renewal?.autoRenewStatus === 0) {
+      // Still entitled until period end, but will not renew.
+      update.subscription_cancel_at = withGrace.expiresDate
+        ? new Date(withGrace.expiresDate).toISOString()
+        : null;
+    } else {
+      update.subscription_canceled_at = null;
+      update.subscription_cancel_at = null;
+    }
   } else if (!active && profile?.subscription_provider === 'apple' && !stripeStillActive) {
     // Apple entitlement lapsed / refunded / revoked and there is no Stripe
     // fallback — drop access.
@@ -189,7 +274,14 @@ export async function recordAppleTransaction(
   db: { from: (t: string) => any },
   userId: string,
   tx: AppleTransactionPayload,
-  meta: { notificationType?: string; notificationSubtype?: string; raw?: unknown } = {},
+  meta: {
+    notificationType?: string;
+    notificationSubtype?: string;
+    notificationUuid?: string;
+    signedDate?: number;
+    renewal?: AppleRenewalInfo | null;
+    raw?: unknown;
+  } = {},
 ): Promise<void> {
   await db
     .from('apple_transactions')
@@ -204,6 +296,16 @@ export async function recordAppleTransaction(
         expires_at: tx.expiresDate ? new Date(tx.expiresDate).toISOString() : null,
         revoked_at: tx.revocationDate ? new Date(tx.revocationDate).toISOString() : null,
         is_upgraded: tx.isUpgraded === true,
+        auto_renew_status:
+          meta.renewal?.autoRenewStatus === undefined
+            ? null
+            : meta.renewal.autoRenewStatus === 1,
+        grace_period_expires_at: meta.renewal?.gracePeriodExpiresDate
+          ? new Date(meta.renewal.gracePeriodExpiresDate).toISOString()
+          : null,
+        renewal_product_id: meta.renewal?.autoRenewProductId ?? null,
+        notification_uuid: meta.notificationUuid ?? null,
+        signed_date: meta.signedDate ? new Date(meta.signedDate).toISOString() : null,
         notification_type: meta.notificationType ?? null,
         notification_subtype: meta.notificationSubtype ?? null,
         raw_payload: (meta.raw as Record<string, unknown>) ?? null,

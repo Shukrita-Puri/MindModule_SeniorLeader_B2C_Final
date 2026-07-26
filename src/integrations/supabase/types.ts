@@ -131,21 +131,76 @@ export type Database = {
         }
         Relationships: []
       }
+      apple_notification_events: {
+        Row: {
+          created_at: string
+          detail: Json | null
+          environment: string | null
+          id: string
+          notification_subtype: string | null
+          notification_type: string
+          notification_uuid: string
+          original_transaction_id: string | null
+          processed_at: string | null
+          signed_date: string | null
+          status: string
+          transaction_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json | null
+          environment?: string | null
+          id?: string
+          notification_subtype?: string | null
+          notification_type: string
+          notification_uuid: string
+          original_transaction_id?: string | null
+          processed_at?: string | null
+          signed_date?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: Json | null
+          environment?: string | null
+          id?: string
+          notification_subtype?: string | null
+          notification_type?: string
+          notification_uuid?: string
+          original_transaction_id?: string | null
+          processed_at?: string | null
+          signed_date?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       apple_transactions: {
         Row: {
           auto_renew_status: boolean | null
           created_at: string
           environment: string | null
           expires_at: string | null
+          grace_period_expires_at: string | null
           id: string
           is_upgraded: boolean
           notification_subtype: string | null
           notification_type: string | null
+          notification_uuid: string | null
           original_transaction_id: string
           product_id: string
           purchase_date: string | null
           raw_payload: Json | null
+          renewal_product_id: string | null
           revoked_at: string | null
+          signed_date: string | null
           transaction_id: string
           updated_at: string
           user_id: string
@@ -155,15 +210,19 @@ export type Database = {
           created_at?: string
           environment?: string | null
           expires_at?: string | null
+          grace_period_expires_at?: string | null
           id?: string
           is_upgraded?: boolean
           notification_subtype?: string | null
           notification_type?: string | null
+          notification_uuid?: string | null
           original_transaction_id: string
           product_id: string
           purchase_date?: string | null
           raw_payload?: Json | null
+          renewal_product_id?: string | null
           revoked_at?: string | null
+          signed_date?: string | null
           transaction_id: string
           updated_at?: string
           user_id: string
@@ -173,15 +232,19 @@ export type Database = {
           created_at?: string
           environment?: string | null
           expires_at?: string | null
+          grace_period_expires_at?: string | null
           id?: string
           is_upgraded?: boolean
           notification_subtype?: string | null
           notification_type?: string | null
+          notification_uuid?: string | null
           original_transaction_id?: string
           product_id?: string
           purchase_date?: string | null
           raw_payload?: Json | null
+          renewal_product_id?: string | null
           revoked_at?: string | null
+          signed_date?: string | null
           transaction_id?: string
           updated_at?: string
           user_id?: string
@@ -4313,12 +4376,17 @@ export type Database = {
         Row: {
           alignment_status: string | null
           apple_auto_renew: boolean | null
+          apple_cancellation_date: string | null
           apple_environment: string | null
           apple_expires_at: string | null
+          apple_grace_period_expires_at: string | null
+          apple_last_notification_at: string | null
+          apple_last_notification_type: string | null
           apple_last_verified_at: string | null
           apple_original_transaction_id: string | null
           apple_product_id: string | null
           apple_revoked_at: string | null
+          apple_transaction_id: string | null
           archetype_description: string | null
           archetype_title: string | null
           auth_name: string | null
@@ -4397,12 +4465,17 @@ export type Database = {
         Insert: {
           alignment_status?: string | null
           apple_auto_renew?: boolean | null
+          apple_cancellation_date?: string | null
           apple_environment?: string | null
           apple_expires_at?: string | null
+          apple_grace_period_expires_at?: string | null
+          apple_last_notification_at?: string | null
+          apple_last_notification_type?: string | null
           apple_last_verified_at?: string | null
           apple_original_transaction_id?: string | null
           apple_product_id?: string | null
           apple_revoked_at?: string | null
+          apple_transaction_id?: string | null
           archetype_description?: string | null
           archetype_title?: string | null
           auth_name?: string | null
@@ -4481,12 +4554,17 @@ export type Database = {
         Update: {
           alignment_status?: string | null
           apple_auto_renew?: boolean | null
+          apple_cancellation_date?: string | null
           apple_environment?: string | null
           apple_expires_at?: string | null
+          apple_grace_period_expires_at?: string | null
+          apple_last_notification_at?: string | null
+          apple_last_notification_type?: string | null
           apple_last_verified_at?: string | null
           apple_original_transaction_id?: string | null
           apple_product_id?: string | null
           apple_revoked_at?: string | null
+          apple_transaction_id?: string | null
           archetype_description?: string | null
           archetype_title?: string | null
           auth_name?: string | null
