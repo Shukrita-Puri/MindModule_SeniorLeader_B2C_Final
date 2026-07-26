@@ -1,22 +1,14 @@
 /**
  * Apple In-App Purchase product configuration — SINGLE source of truth.
  *
- * Products MUST be Auto-Renewable Subscriptions inside ONE subscription group
+ * Products are Auto-Renewable Subscriptions inside ONE subscription group
  * ("Mind Module Pro"): Pro Monthly + Pro Annual.
  *
- * Canonical IDs (App Store Connect):
- *   Annual  — com.mindmodule.pro.annual        (CONFIRMED, ASC ref 6794852439)
- *   Monthly — com.mindmodule.pro.monthly       (⚠️ PENDING CONFIRMATION, ASC ref 6794852233)
+ * Canonical IDs (App Store Connect, both CONFIRMED and unique):
+ *   Monthly — com.mindmodule.pro.monthly   (ASC ref 6794852233)
+ *   Annual  — com.mindmodule.pro.annual    (ASC ref 6794852439)
  *
- * ⚠️ BLOCKER: App Store Connect currently reports the SAME product id
- * (com.mindmodule.pro.annual) for both the monthly and the annual product.
- * Apple product ids are globally unique, so one of them is wrong. We do NOT
- * reuse the annual id for monthly — that would either fail to load or sell the
- * wrong plan. Until the monthly id is confirmed in App Store Connect, the
- * value below is a *declared expectation* flagged by
- * `MONTHLY_PRODUCT_ID_NEEDS_CONFIRMATION`.
- *
- * Environment overrides (no rebuild of the contract needed):
+ * Environment overrides (no code change needed):
  *   VITE_APPLE_PRO_MONTHLY_PRODUCT_ID
  *   VITE_APPLE_PRO_ANNUAL_PRODUCT_ID
  * (legacy VITE_IAP_PRODUCT_ID_MONTHLY / _ANNUAL are still honoured)
@@ -30,9 +22,9 @@ const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
 export const APPLE_SUBSCRIPTION_GROUP = 'Mind Module Pro';
 
 /** Confirmed in App Store Connect. */
-export const DEFAULT_ANNUAL_PRODUCT_ID = 'com.mindmodule.pro.annual';
-/** Expected, awaiting App Store Connect confirmation. */
 export const DEFAULT_MONTHLY_PRODUCT_ID = 'com.mindmodule.pro.monthly';
+/** Confirmed in App Store Connect. */
+export const DEFAULT_ANNUAL_PRODUCT_ID = 'com.mindmodule.pro.annual';
 
 export const IAP_PRODUCT_MONTHLY =
   env.VITE_APPLE_PRO_MONTHLY_PRODUCT_ID ??
@@ -43,10 +35,6 @@ export const IAP_PRODUCT_ANNUAL =
   env.VITE_APPLE_PRO_ANNUAL_PRODUCT_ID ??
   env.VITE_IAP_PRODUCT_ID_ANNUAL ??
   DEFAULT_ANNUAL_PRODUCT_ID;
-
-/** True while the monthly id is still the unconfirmed default. */
-export const MONTHLY_PRODUCT_ID_NEEDS_CONFIRMATION =
-  !env.VITE_APPLE_PRO_MONTHLY_PRODUCT_ID && !env.VITE_IAP_PRODUCT_ID_MONTHLY;
 
 /** Monthly first, annual second — the order the paywall renders. */
 export const IAP_PRODUCT_IDS: string[] = [IAP_PRODUCT_MONTHLY, IAP_PRODUCT_ANNUAL];
@@ -72,7 +60,6 @@ export interface IapConfigStatus {
   /** Distinct, non-placeholder ids for both plans. */
   duplicateIds: boolean;
   missingIds: boolean;
-  monthlyNeedsConfirmation: boolean;
   reason?: string;
 }
 
@@ -86,13 +73,7 @@ export function getIapConfigStatus(): IapConfigStatus {
     : duplicateIds
       ? 'Monthly and annual are configured with the same Apple product id.'
       : undefined;
-  return {
-    ok: !missingIds && !duplicateIds,
-    duplicateIds,
-    missingIds,
-    monthlyNeedsConfirmation: MONTHLY_PRODUCT_ID_NEEDS_CONFIRMATION,
-    reason,
-  };
+  return { ok: !missingIds && !duplicateIds, duplicateIds, missingIds, reason };
 }
 
 export function isIapConfigured(): boolean {
