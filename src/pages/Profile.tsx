@@ -443,6 +443,12 @@ const Profile = () => {
         {/* Home location — Sprint 10 / Phase 9B */}
         <HomeLocationCard />
 
+      {/* iOS-only subscription surface (Apple IAP). Replaces the Stripe
+          billing entries above, which are hidden inside the native shell. */}
+      {isIosNativeShell() && !PAYMENT_PAGE_SUPPRESSED && (
+        <AppleSubscriptionCard user={user} onRefreshProfile={refreshProfile} />
+      )}
+
       {/* Edit Name Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm">
@@ -482,6 +488,8 @@ const Profile = () => {
         open={showPushTest}
         onOpenChange={setShowPushTest}
       />
+
+      <DeleteAccountDialog open={showDeleteAccount} onOpenChange={setShowDeleteAccount} />
 
       {/* Delete Local Data Confirmation */}
       <Dialog open={showDeleteLocal} onOpenChange={setShowDeleteLocal}>
