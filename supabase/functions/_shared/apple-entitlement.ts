@@ -85,6 +85,17 @@ export async function verifyAppleSignedPayload<T>(jws: string): Promise<T> {
   if (header.alg !== 'ES256') throw new Error(`Unsupported JWS alg: ${header.alg}`);
   if (!header.x5c || header.x5c.length === 0) throw new Error('Apple JWS missing x5c chain');
 
+  // Apple always sends leaf -> intermediate -> root.
+  if (header.x5c.length < 3) throw new Error('Apple JWS chain too short');
+
+  const pinnedRoot = (globalThis as any).Deno?.env?.get?.('APPLE_ROOT_CA_G3_B64');
+  if (pinnedRoot) {
+    const presentedRoot = header.x5c[header.x5c.length - 1].replace(/\s/g, '');
+    if (presentedRoot !== pinnedRoot.replace(/\s/g, '')) {
+      throw new Error('Apple JWS root certificate does not match pinned Apple Root CA G3');
+    }
+  }
+
   const leafDer = b64UrlToBytes(header.x5c[0].replace(/\s/g, ''));
   const publicKey = await crypto.subtle.importKey(
     'spki',
