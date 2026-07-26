@@ -28,6 +28,7 @@ import {
 } from "./services/travelStateService";
 import { useAuth } from "./hooks/useAuth";
 import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from "./utils/appleCalendar";
+import { isIosNativeShell } from "./config/purchasePlatform";
 import { syncAppleCalendarToBackend } from "./services/appleCalendarSync";
 import { recordAppOpen, maybeRequestReview } from "./services/appReview";
 import DelayedFallback from "./components/ui/delayed-fallback";
@@ -169,6 +170,59 @@ const TravelWatcher = () => {
 };
 
 const AppleCalendarWatcher = () => {
+  return <AppleCalendarWatcherInner />;
+};
+
+/**
+ * Apple IAP entitlement watcher.
+ *
+ * StoreKit entitlements are re-verified server-side on cold start and on every
+ * foreground resume, so renewals, expirations, refunds and revocations
+ * converge without the user doing anything. No-op on web and Android.
+ */
+const IapEntitlementWatcher = () => {
+  const { user, refreshProfile } = useAuth();
+
+  useEffect(() => {
+    if (!user?.id || !isIosNativeShell()) return;
+
+    let cancelled = false;
+    const sync = async () => {
+      const { refreshIapEntitlements } = await import('@/services/iap');
+      const { entitled } = await refreshIapEntitlements();
+      if (!cancelled && entitled) await refreshProfile().catch(() => {});
+    };
+    void sync();
+
+    let removeAppListener: (() => void) | undefined;
+    let removeTxListener: (() => void) | undefined;
+    void (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) void sync();
+        });
+        removeAppListener = () => { void handle.remove(); };
+      } catch { /* web: no-op */ }
+      try {
+        const { onIapTransactionUpdate } = await import('@/services/iap');
+        removeTxListener = await onIapTransactionUpdate(() => {
+          void refreshProfile().catch(() => {});
+        });
+      } catch { /* no-op */ }
+    })();
+
+    return () => {
+      cancelled = true;
+      removeAppListener?.();
+      removeTxListener?.();
+    };
+  }, [user?.id, refreshProfile]);
+
+  return null;
+};
+
+const AppleCalendarWatcherInner = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -272,6 +326,7 @@ const Layout = () => {
         <ScrollToTop />
         <TravelWatcher />
         <AppleCalendarWatcher />
+        <IapEntitlementWatcher />
         <PushNotificationProvider />
         <PushNotificationActionHandler />
         {showPillNav && <FloatingPillNav />}

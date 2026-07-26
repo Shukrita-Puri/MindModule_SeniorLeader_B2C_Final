@@ -16,6 +16,9 @@ import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStor
 import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
+import { canShowStripePurchaseUi, isIosNativeShell } from '@/config/purchasePlatform';
+import { AppleSubscriptionCard } from '@/components/subscription/AppleSubscriptionCard';
+import { DeleteAccountDialog } from '@/components/profile/DeleteAccountDialog';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import PushNotificationTestDialog from '@/components/profile/PushNotificationTestDialog';
@@ -40,7 +43,11 @@ const Profile = () => {
   const [showCancelFlow, setShowCancelFlow] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
   const [showDeleteLocal, setShowDeleteLocal] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [showPushTest, setShowPushTest] = useState(false);
+  // Guideline 3.1.1: no Stripe checkout / billing-portal CTA inside the iOS app.
+  const allowStripeUi = canShowStripePurchaseUi();
+  const showBillingMenu = !PAYMENT_PAGE_SUPPRESSED && allowStripeUi;
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -231,7 +238,7 @@ const Profile = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm">{planLabel}</span>
-                {!PAYMENT_PAGE_SUPPRESSED && <DropdownMenu>
+                {showBillingMenu && <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-1 rounded hover:bg-muted transition-colors">
                       <MoreVertical className="h-4 w-4 text-muted-foreground" />
@@ -298,7 +305,7 @@ const Profile = () => {
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {!PAYMENT_PAGE_SUPPRESSED && (
+            {!PAYMENT_PAGE_SUPPRESSED && allowStripeUi && (
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2"
@@ -406,6 +413,19 @@ const Profile = () => {
               Delete Local Data
             </Button>
 
+            {/* Delete Account — user self-serve, server-driven (Guideline 5.1.1(v)) */}
+            {user && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+                onClick={() => setShowDeleteAccount(true)}
+                data-testid="delete-account-button"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Account
+              </Button>
+            )}
+
             {/* Sign Out */}
             {user && (
               <Button
@@ -422,6 +442,12 @@ const Profile = () => {
 
         {/* Home location — Sprint 10 / Phase 9B */}
         <HomeLocationCard />
+
+      {/* iOS-only subscription surface (Apple IAP). Replaces the Stripe
+          billing entries above, which are hidden inside the native shell. */}
+      {isIosNativeShell() && !PAYMENT_PAGE_SUPPRESSED && (
+        <AppleSubscriptionCard user={user} onRefreshProfile={refreshProfile} />
+      )}
 
       {/* Edit Name Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -462,6 +488,8 @@ const Profile = () => {
         open={showPushTest}
         onOpenChange={setShowPushTest}
       />
+
+      <DeleteAccountDialog open={showDeleteAccount} onOpenChange={setShowDeleteAccount} />
 
       {/* Delete Local Data Confirmation */}
       <Dialog open={showDeleteLocal} onOpenChange={setShowDeleteLocal}>

@@ -55,6 +55,14 @@ interface AppUser {
   beta_user?: boolean;
   beta_expires_at?: string | null;
   stripe_customer_id?: string | null;
+  /**
+   * Which provider granted the current entitlement ('stripe' | 'apple' |
+   * 'beta' | 'manual'). Server-owned — the client never sets this. Used only
+   * to decide which purchase/management surface to render (Guideline 3.1.1).
+   */
+  subscription_provider?: string | null;
+  apple_product_id?: string | null;
+  apple_expires_at?: string | null;
   founding_member?: boolean;
   referral_code?: string | null;
   referral_rewards_balance?: number;
@@ -272,6 +280,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             beta_user: profile.beta_user || false,
             beta_expires_at: profile.beta_expires_at || null,
             stripe_customer_id: profile.stripe_customer_id || null,
+            subscription_provider: profile.subscription_provider || null,
+            apple_product_id: profile.apple_product_id || null,
+            apple_expires_at: profile.apple_expires_at || null,
             founding_member: profile.founding_member || false,
             referral_code: profile.referral_code || null,
             referral_rewards_balance: profile.referral_rewards_balance || 0,
@@ -376,6 +387,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             beta_user: profile.beta_user || false,
             beta_expires_at: profile.beta_expires_at || null,
             stripe_customer_id: profile.stripe_customer_id || null,
+            subscription_provider: profile.subscription_provider || null,
+            apple_product_id: profile.apple_product_id || null,
+            apple_expires_at: profile.apple_expires_at || null,
             founding_member: profile.founding_member || false,
             referral_code: profile.referral_code || null,
             referral_rewards_balance: profile.referral_rewards_balance || 0,
@@ -485,6 +499,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           beta_user: !!profile.beta_user,
           beta_expires_at: profile.beta_expires_at ?? null,
           stripe_customer_id: profile.stripe_customer_id ?? prev.stripe_customer_id,
+          subscription_provider: profile.subscription_provider ?? prev.subscription_provider,
+          apple_product_id: profile.apple_product_id ?? prev.apple_product_id,
+          apple_expires_at: profile.apple_expires_at ?? prev.apple_expires_at,
           founding_member: profile.founding_member ?? prev.founding_member,
           referral_code: profile.referral_code ?? prev.referral_code,
           referral_rewards_balance: profile.referral_rewards_balance ?? prev.referral_rewards_balance,

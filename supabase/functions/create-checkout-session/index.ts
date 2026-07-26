@@ -28,6 +28,23 @@ Deno.serve(async (req) => {
     // Auth0 JWT verification
     const userId = await verifyAuth0JWT(req);
 
+    // App Store Review Guideline 3.1.1 — defence in depth.
+    // Stripe checkout must never be reachable from the native iOS/iPadOS
+    // shell. The client already hides every Stripe CTA there
+    // (src/config/purchasePlatform.ts); this rejects the request server-side
+    // so a stale build, a deep link, or a crafted request cannot open an
+    // external purchase flow on iOS.
+    const clientPlatform = (req.headers.get('x-supabase-client-platform') || '').toLowerCase();
+    if (clientPlatform === 'ios') {
+      return new Response(
+        JSON.stringify({
+          error: 'Purchases in the iOS app must go through Apple In-App Purchase.',
+          code: 'ios_requires_iap',
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const { plan, currency, referralCode } = await req.json();
 
     const stripeConfig = getStripeConfig();

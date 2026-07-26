@@ -2,6 +2,7 @@ import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import appLogo from "@/assets/app-logo-4.png";
+import { isIosNativeShell } from "@/config/purchasePlatform";
 
 interface UpgradeModalProps {
   sessionsRemaining: number;
@@ -68,7 +69,9 @@ export function UpgradeModal({ sessionsRemaining, onClose }: UpgradeModalProps) 
             variant="critical"
             onClick={() => navigate('/upgrade?source=coach-upgrade', { state: { source: 'coach_upgrade' } })}
           >
-            Upgrade to Mind Module- Pro
+            {/* On iOS this routes to the in-app Apple IAP paywall, never to
+                an external Stripe checkout (Guideline 3.1.1). */}
+            {isIosNativeShell() ? 'Subscribe to Mind Module Pro' : 'Upgrade to Mind Module- Pro'}
           </Button>
           {sessionsRemaining > 0 && (
             <Button variant="ghost" className="w-full" onClick={onClose}>

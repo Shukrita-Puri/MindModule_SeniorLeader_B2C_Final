@@ -131,6 +131,63 @@ export type Database = {
         }
         Relationships: []
       }
+      apple_transactions: {
+        Row: {
+          auto_renew_status: boolean | null
+          created_at: string
+          environment: string | null
+          expires_at: string | null
+          id: string
+          is_upgraded: boolean
+          notification_subtype: string | null
+          notification_type: string | null
+          original_transaction_id: string
+          product_id: string
+          purchase_date: string | null
+          raw_payload: Json | null
+          revoked_at: string | null
+          transaction_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_renew_status?: boolean | null
+          created_at?: string
+          environment?: string | null
+          expires_at?: string | null
+          id?: string
+          is_upgraded?: boolean
+          notification_subtype?: string | null
+          notification_type?: string | null
+          original_transaction_id: string
+          product_id: string
+          purchase_date?: string | null
+          raw_payload?: Json | null
+          revoked_at?: string | null
+          transaction_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_renew_status?: boolean | null
+          created_at?: string
+          environment?: string | null
+          expires_at?: string | null
+          id?: string
+          is_upgraded?: boolean
+          notification_subtype?: string | null
+          notification_type?: string | null
+          original_transaction_id?: string
+          product_id?: string
+          purchase_date?: string | null
+          raw_payload?: Json | null
+          revoked_at?: string | null
+          transaction_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       attendee_relationships: {
         Row: {
           attendee_domain: string | null
@@ -4255,6 +4312,13 @@ export type Database = {
       profiles: {
         Row: {
           alignment_status: string | null
+          apple_auto_renew: boolean | null
+          apple_environment: string | null
+          apple_expires_at: string | null
+          apple_last_verified_at: string | null
+          apple_original_transaction_id: string | null
+          apple_product_id: string | null
+          apple_revoked_at: string | null
           archetype_description: string | null
           archetype_title: string | null
           auth_name: string | null
@@ -4319,6 +4383,7 @@ export type Database = {
           subscription_current_period_end: string | null
           subscription_current_period_start: string | null
           subscription_plan: string | null
+          subscription_provider: string | null
           subscription_status: string | null
           subscription_tier: string | null
           timezone_offset: number | null
@@ -4331,6 +4396,13 @@ export type Database = {
         }
         Insert: {
           alignment_status?: string | null
+          apple_auto_renew?: boolean | null
+          apple_environment?: string | null
+          apple_expires_at?: string | null
+          apple_last_verified_at?: string | null
+          apple_original_transaction_id?: string | null
+          apple_product_id?: string | null
+          apple_revoked_at?: string | null
           archetype_description?: string | null
           archetype_title?: string | null
           auth_name?: string | null
@@ -4395,6 +4467,7 @@ export type Database = {
           subscription_current_period_end?: string | null
           subscription_current_period_start?: string | null
           subscription_plan?: string | null
+          subscription_provider?: string | null
           subscription_status?: string | null
           subscription_tier?: string | null
           timezone_offset?: number | null
@@ -4407,6 +4480,13 @@ export type Database = {
         }
         Update: {
           alignment_status?: string | null
+          apple_auto_renew?: boolean | null
+          apple_environment?: string | null
+          apple_expires_at?: string | null
+          apple_last_verified_at?: string | null
+          apple_original_transaction_id?: string | null
+          apple_product_id?: string | null
+          apple_revoked_at?: string | null
           archetype_description?: string | null
           archetype_title?: string | null
           auth_name?: string | null
@@ -4471,6 +4551,7 @@ export type Database = {
           subscription_current_period_end?: string | null
           subscription_current_period_start?: string | null
           subscription_plan?: string | null
+          subscription_provider?: string | null
           subscription_status?: string | null
           subscription_tier?: string | null
           timezone_offset?: number | null
@@ -6003,6 +6084,7 @@ export type Database = {
       cleanup_device_tokens: { Args: never; Returns: Json }
       cleanup_old_calendar_events: { Args: never; Returns: number }
       credit_referrer_atomic: { Args: { p_referrer_id: string }; Returns: Json }
+      delete_my_user_data: { Args: { _user_id: string }; Returns: Json }
       enforce_trial_expiry: { Args: { p_user_id: string }; Returns: undefined }
       extend_subscription: {
         Args: { p_months: number; p_user_id: string }

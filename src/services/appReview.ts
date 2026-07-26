@@ -28,6 +28,28 @@ const MIN_CHECKINS = 3;
 const MIN_PLAN_VIEWS = 2;
 const MIN_SESSIONS = 3;
 
+/**
+ * Never prompt during fragile or transactional flows: onboarding, payment /
+ * upgrade, auth, and error surfaces. Apple treats an ill-timed prompt as a
+ * poor experience, and a prompt on top of a StoreKit sheet can be dropped
+ * silently, burning one of the 3 allowed displays per year.
+ */
+const SUPPRESSED_PATH_PREFIXES = [
+  "/onboarding",
+  "/upgrade",
+  "/payment",
+  "/signup",
+  "/login",
+  "/callback",
+  "/error",
+  "/reset-password",
+];
+
+export function isReviewPromptSuppressedForPath(pathname: string): boolean {
+  const path = (pathname || "").toLowerCase();
+  return SUPPRESSED_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 type ReviewState = {
   firstOpenAt: number;
   lastSessionAt: number;
@@ -129,6 +151,11 @@ function meetsEngagementGate(state: ReviewState): boolean {
  */
 export async function maybeRequestReview(): Promise<void> {
   if (!isNativeMobile()) return;
+  try {
+    if (isReviewPromptSuppressedForPath(window.location.pathname)) return;
+  } catch {
+    /* no window (tests) – fall through */
+  }
   const state = readState();
   if (!meetsEngagementGate(state)) return;
 
