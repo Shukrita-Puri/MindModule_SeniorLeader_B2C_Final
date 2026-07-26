@@ -28,6 +28,7 @@ import {
 } from "./services/travelStateService";
 import { useAuth } from "./hooks/useAuth";
 import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from "./utils/appleCalendar";
+import { isIosNativeShell } from "./config/purchasePlatform";
 import { syncAppleCalendarToBackend } from "./services/appleCalendarSync";
 import { recordAppOpen, maybeRequestReview } from "./services/appReview";
 import DelayedFallback from "./components/ui/delayed-fallback";
