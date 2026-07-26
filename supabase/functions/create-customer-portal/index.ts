@@ -3,11 +3,12 @@ import Stripe from "https://esm.sh/stripe@14.14.0";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { rejectIosPurchaseFlow } from "../_shared/ios-purchase-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-mm-client-platform, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -19,6 +20,12 @@ Deno.serve(async (req) => {
     const authResult = await authenticateRequest(req, corsHeaders);
     if (authResult.errorResponse) return authResult.errorResponse;
     const userId = authResult.userId;
+
+    // Guideline 3.1.1: the Stripe billing portal can be used to change or buy
+    // a plan, so it counts as an external purchase mechanism. It must never
+    // open from the native iOS shell.
+    const iosBlocked = rejectIosPurchaseFlow(req, corsHeaders);
+    if (iosBlocked) return iosBlocked;
 
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,

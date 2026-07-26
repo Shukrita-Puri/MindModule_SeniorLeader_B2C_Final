@@ -179,8 +179,32 @@ export async function getAuthToken(): Promise<string | null> {
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAuthToken();
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = { ...clientPlatformHeader() };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
+/**
+ * Declares the runtime shell to every edge function.
+ *
+ * App Store Review Guideline 3.1.1: the server must be able to refuse to open
+ * an external Stripe purchase flow for a caller running inside the native
+ * iOS/iPadOS shell. The client already hides those CTAs; this header lets the
+ * server enforce the same rule independently, so a stale build or a deep link
+ * cannot reach checkout. It is a defence-in-depth signal, not an auth claim —
+ * omitting or forging it can only ever *deny* a purchase, never grant one.
+ */
+function clientPlatformHeader(): Record<string, string> {
+  try {
+    // Lazily read Capacitor so this module stays importable in Node tests.
+    const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor;
+    if (cap?.isNativePlatform?.() && cap.getPlatform) {
+      return { 'x-mm-client-platform': `native-${cap.getPlatform()}` };
+    }
+  } catch {
+    /* fall through to web */
+  }
+  return { 'x-mm-client-platform': 'web' };
 }
 
 /**
@@ -192,6 +216,7 @@ export async function getEdgeFunctionHeaders(): Promise<Record<string, string>> 
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...clientPlatformHeader(),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (DEV_MODE) {

@@ -12,6 +12,7 @@
  *    to repurchase through Apple.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, RotateCcw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -50,6 +51,10 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
 
   const alreadyEntitled = hasValidAccess(user);
   const stripeLegacy = isNonApplePaidEntitlement(user) && alreadyEntitled;
+  // An Apple subscriber who lands back on /upgrade (deep link, back-nav, stale
+  // route) must never be shown another "Subscribe" button — that invites a
+  // duplicate purchase for a plan they already hold.
+  const appleEntitled = alreadyEntitled && !stripeLegacy;
 
   const refresh = useCallback(async () => {
     setLoadingProducts(true);
@@ -79,12 +84,12 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   }, []);
 
   useEffect(() => {
-    if (stripeLegacy) {
+    if (stripeLegacy || appleEntitled) {
       setLoadingProducts(false);
       return;
     }
     void refresh();
-  }, [refresh, stripeLegacy]);
+  }, [refresh, stripeLegacy, appleEntitled]);
 
   // Out-of-band transactions (Ask to Buy approval, interrupted purchase,
   // renewal while backgrounded) land here.
@@ -167,6 +172,46 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
           Need to change or cancel it? Sign in at app.mindmodule.me from a browser, or email
           support@mindmodule.me.
         </p>
+      </div>
+    );
+  }
+
+  // Active Apple subscriber: manage/restore only, never a purchase CTA.
+  if (appleEntitled) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-8 space-y-4" data-testid="apple-paywall-active">
+        <h1 className="text-[20px] font-headline font-bold">Your subscription</h1>
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-2">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-saffron" />
+            <p className="text-[15px] font-medium">Mind Module Pro is active</p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Billed through your Apple ID. Change your plan or cancel any time in your Apple ID
+            subscription settings.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Button
+            variant="outline"
+            className="w-full justify-center gap-2"
+            onClick={() => void handleManage()}
+            data-testid="manage-apple-subscription"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Manage Subscription
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-center gap-2"
+            onClick={() => void handleRestore()}
+            disabled={restoring}
+            data-testid="restore-purchases"
+          >
+            <RotateCcw className="w-4 h-4" />
+            {restoring ? 'Restoring…' : 'Restore Purchases'}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -267,9 +312,16 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       </div>
 
       <div className="flex items-center justify-center gap-3 pt-2">
-        <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy Policy</a>
+        {/* Router links, not raw <a href>: inside the Capacitor webview a hard
+            navigation reloads the bundle and can strand the reviewer on a
+            blank screen. Apple requires both links to be reachable here. */}
+        <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground">
+          Privacy Policy
+        </Link>
         <span className="text-muted-foreground/40 text-xs">·</span>
-        <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground">Terms of Use</a>
+        <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground">
+          Terms of Use
+        </Link>
       </div>
     </div>
   );
