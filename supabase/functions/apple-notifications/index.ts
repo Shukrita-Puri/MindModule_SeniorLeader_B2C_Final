@@ -201,19 +201,6 @@ Deno.serve(async (req) => {
     if (byProfile?.id) userId = byProfile.id as string;
   }
 
-  if (!userId && tx.appAccountToken) {
-    // appAccountToken is set by our own client at purchase time to the Auth0
-    // sub hash mapping stored on the profile.
-    const { data: byToken } = await db
-      .from('profiles')
-      .select('id')
-      .eq('apple_app_account_token', tx.appAccountToken)
-      .limit(1)
-      .maybeSingle()
-      .then((r: { data: unknown }) => r, () => ({ data: null }));
-    if ((byToken as { id?: string } | null)?.id) userId = (byToken as { id: string }).id;
-  }
-
   if (!userId) {
     // Unknown transaction — store nothing user-scoped, but ack so Apple stops
     // retrying. The client-side verify path will bind it on next launch.
