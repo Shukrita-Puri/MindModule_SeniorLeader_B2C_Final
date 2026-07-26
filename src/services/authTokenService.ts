@@ -185,6 +185,38 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 /**
+ * Declares the runtime shell to every edge function.
+ *
+ * App Store Review Guideline 3.1.1: the server must be able to refuse to open
+ * an external Stripe purchase flow for a caller running inside the native
+ * iOS/iPadOS shell. The client already hides those CTAs; this header lets the
+ * server enforce the same rule independently, so a stale build or a deep link
+ * cannot reach checkout. It is a defence-in-depth signal, not an auth claim —
+ * omitting or forging it can only ever *deny* a purchase, never grant one.
+ */
+function clientPlatformHeader(): Record<string, string> {
+  try {
+    // Lazily read Capacitor so this module stays importable in Node tests.
+    const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor;
+    if (cap?.isNativePlatform?.() && cap.getPlatform) {
+      return { 'x-mm-client-platform': `native-${cap.getPlatform()}` };
+    }
+  } catch {
+    /* fall through to web */
+  }
+  return { 'x-mm-client-platform': 'web' };
+}
+
+function _unusedLegacyGetAuthHeaders(): Promise<Record<string, string>> {
+  return Promise.resolve({});
+}
+
+async function _legacy() {
+  const token = await getAuthToken();
+  return token;
+}
+
+/**
  * Returns auth headers including the dev bypass header in DEV_MODE.
  * Use this for raw fetch() calls to edge functions (supabase.functions.invoke
  * is already patched by devInterceptor).
