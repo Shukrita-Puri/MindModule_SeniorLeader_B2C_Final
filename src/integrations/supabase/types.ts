@@ -6084,6 +6084,7 @@ export type Database = {
       cleanup_device_tokens: { Args: never; Returns: Json }
       cleanup_old_calendar_events: { Args: never; Returns: number }
       credit_referrer_atomic: { Args: { p_referrer_id: string }; Returns: Json }
+      delete_my_user_data: { Args: { _user_id: string }; Returns: Json }
       enforce_trial_expiry: { Args: { p_user_id: string }; Returns: undefined }
       extend_subscription: {
         Args: { p_months: number; p_user_id: string }
