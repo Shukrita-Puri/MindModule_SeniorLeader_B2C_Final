@@ -28,6 +28,7 @@ import {
 import { getIapConfigStatus, planSortOrder } from '@/config/iapProducts';
 import { isNonApplePaidEntitlement } from '@/config/purchasePlatform';
 import { hasValidAccess, type AccessUser } from '@/utils/subscriptionHelpers';
+import { describeTrial, describeIntroDiscount, billingFrequencyLabel } from '@/utils/introOffer';
 
 interface ApplePaywallProps {
   user: (AccessUser & { subscription_provider?: string | null; stripe_customer_id?: string | null }) | null;
@@ -35,11 +36,7 @@ interface ApplePaywallProps {
   onRefreshProfile: () => Promise<unknown>;
 }
 
-function periodLabel(product: IapProduct): string {
-  if (!product.periodUnit) return '';
-  const value = product.periodValue ?? 1;
-  return value === 1 ? `per ${product.periodUnit}` : `every ${value} ${product.periodUnit}s`;
-}
+const periodLabel = billingFrequencyLabel;
 
 export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywallProps) {
   const [products, setProducts] = useState<IapProduct[]>([]);
@@ -112,7 +109,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       switch (result.status) {
         case 'purchased':
           await onRefreshProfile();
-          toast.success('Subscription active. Welcome to Pro.');
+          toast.success('You\u2019re in. Welcome to Pro.');
           onEntitled();
           break;
         case 'pending':
