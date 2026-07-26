@@ -25,7 +25,7 @@ import {
   onIapTransactionUpdate,
   type IapProduct,
 } from '@/services/iap';
-import { isIapConfigured } from '@/config/iapProducts';
+import { getIapConfigStatus, planSortOrder } from '@/config/iapProducts';
 import { isNonApplePaidEntitlement } from '@/config/purchasePlatform';
 import { hasValidAccess, type AccessUser } from '@/utils/subscriptionHelpers';
 
@@ -60,9 +60,11 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
     setLoadingProducts(true);
     setProductError(null);
     try {
-      if (!isIapConfigured()) {
+      const config = getIapConfigStatus();
+      if (!config.ok) {
         setProductError(
-          'In-app purchases are not configured for this build. Please update to the latest version.',
+          config.reason ??
+            'In-app purchases are not configured for this build. Please update to the latest version.',
         );
         return;
       }
@@ -71,7 +73,9 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
         setStoreUnavailable(true);
         return;
       }
-      const list = await loadIapProducts();
+      const list = [...(await loadIapProducts())].sort(
+        (a, b) => planSortOrder(a.id) - planSortOrder(b.id),
+      );
       if (list.length === 0) {
         setProductError('No subscription options are available right now. Please try again later.');
       }
