@@ -21,8 +21,8 @@ remains a manual action by the Apple account owner.
 
 | Plan | App Store Connect ref | Product ID used by the app | Status |
 |---|---|---|---|
-| Pro Monthly | 6794852233 | `com.mindmodule.pro.monthly` | ✅ Confirmed |
-| Pro Annual  | 6794852439 | `com.mindmodule.pro.annual`  | ✅ Confirmed |
+| Pro Monthly | 6794905314 | `me.mindmodule.pro.monthly` | ✅ Confirmed |
+| Pro Annual  | 6794905448 | `me.mindmodule.pro.annual`  | ✅ Confirmed |
 
 No trial product exists and none must ever be created. Product ids such as
 `com.mindmodule.pro.trial` or `com.mindmodule.pro.7daytrial` are forbidden — the
@@ -75,8 +75,8 @@ does **not** use the annual ID anywhere in the codebase. Guards still in place:
 ## Environment overrides (no code change needed)
 
 ```
-VITE_APPLE_PRO_MONTHLY_PRODUCT_ID=com.mindmodule.pro.monthly
-VITE_APPLE_PRO_ANNUAL_PRODUCT_ID=com.mindmodule.pro.annual
+VITE_APPLE_PRO_MONTHLY_PRODUCT_ID=me.mindmodule.pro.monthly
+VITE_APPLE_PRO_ANNUAL_PRODUCT_ID=me.mindmodule.pro.annual
 ```
 Legacy names `VITE_IAP_PRODUCT_ID_MONTHLY` / `_ANNUAL` are still honoured.
 

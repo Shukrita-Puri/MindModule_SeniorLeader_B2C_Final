@@ -5,8 +5,8 @@
  * ("Mind Module Pro"): Pro Monthly + Pro Annual.
  *
  * Canonical IDs (App Store Connect, both CONFIRMED and unique):
- *   Monthly — com.mindmodule.pro.monthly   (ASC ref 6794852233)
- *   Annual  — com.mindmodule.pro.annual    (ASC ref 6794852439)
+ *   Monthly — me.mindmodule.pro.monthly   (ASC ref 6794905314)
+ *   Annual  — me.mindmodule.pro.annual    (ASC ref 6794905448)
  *
  * Environment overrides (no code change needed):
  *   VITE_APPLE_PRO_MONTHLY_PRODUCT_ID
@@ -22,9 +22,9 @@ const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
 export const APPLE_SUBSCRIPTION_GROUP = 'Mind Module Pro';
 
 /** Confirmed in App Store Connect. */
-export const DEFAULT_MONTHLY_PRODUCT_ID = 'com.mindmodule.pro.monthly';
+export const DEFAULT_MONTHLY_PRODUCT_ID = 'me.mindmodule.pro.monthly';
 /** Confirmed in App Store Connect. */
-export const DEFAULT_ANNUAL_PRODUCT_ID = 'com.mindmodule.pro.annual';
+export const DEFAULT_ANNUAL_PRODUCT_ID = 'me.mindmodule.pro.annual';
 
 export const IAP_PRODUCT_MONTHLY =
   env.VITE_APPLE_PRO_MONTHLY_PRODUCT_ID ??

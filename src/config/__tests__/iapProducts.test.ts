@@ -15,8 +15,8 @@ describe('Apple IAP product configuration', () => {
   it('uses the confirmed product ids', () => {
     expect(IAP_PRODUCT_ANNUAL).toBe(DEFAULT_ANNUAL_PRODUCT_ID);
     expect(IAP_PRODUCT_MONTHLY).toBe(DEFAULT_MONTHLY_PRODUCT_ID);
-    expect(DEFAULT_MONTHLY_PRODUCT_ID).toBe('com.mindmodule.pro.monthly');
-    expect(DEFAULT_ANNUAL_PRODUCT_ID).toBe('com.mindmodule.pro.annual');
+    expect(DEFAULT_MONTHLY_PRODUCT_ID).toBe('me.mindmodule.pro.monthly');
+    expect(DEFAULT_ANNUAL_PRODUCT_ID).toBe('me.mindmodule.pro.annual');
   });
 
   it('never reuses the annual id for monthly', () => {
