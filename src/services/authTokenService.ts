@@ -179,8 +179,9 @@ export async function getAuthToken(): Promise<string | null> {
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAuthToken();
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = { ...clientPlatformHeader() };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
 }
 
 /**
@@ -192,6 +193,7 @@ export async function getEdgeFunctionHeaders(): Promise<Record<string, string>> 
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...clientPlatformHeader(),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (DEV_MODE) {
