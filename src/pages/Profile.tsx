@@ -16,6 +16,9 @@ import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStor
 import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
+import { canShowStripePurchaseUi, isIosNativeShell } from '@/config/purchasePlatform';
+import { AppleSubscriptionCard } from '@/components/subscription/AppleSubscriptionCard';
+import { DeleteAccountDialog } from '@/components/profile/DeleteAccountDialog';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import PushNotificationTestDialog from '@/components/profile/PushNotificationTestDialog';
@@ -40,7 +43,11 @@ const Profile = () => {
   const [showCancelFlow, setShowCancelFlow] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
   const [showDeleteLocal, setShowDeleteLocal] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [showPushTest, setShowPushTest] = useState(false);
+  // Guideline 3.1.1: no Stripe checkout / billing-portal CTA inside the iOS app.
+  const allowStripeUi = canShowStripePurchaseUi();
+  const showBillingMenu = !PAYMENT_PAGE_SUPPRESSED && allowStripeUi;
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)

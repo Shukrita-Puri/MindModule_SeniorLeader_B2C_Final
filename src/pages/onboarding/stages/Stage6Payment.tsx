@@ -340,6 +340,40 @@ export default function Stage6Payment() {
 
   const features = selectedPlan === 'annual' ? annualFeatures : monthlyFeatures;
 
+  // ── App Store Review Guideline 3.1.1 ────────────────────────────────────
+  // Inside the iOS/iPadOS shell we must never render a Stripe checkout CTA,
+  // an external purchase link, or a billing-portal entry point. Apple IAP is
+  // the only purchase surface. Web keeps the Stripe flow below unchanged.
+  if (isIosNativeShell()) {
+    if (accessPending) {
+      return (
+        <PaymentPageShell showBack={false}>
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        </PaymentPageShell>
+      );
+    }
+    if (isBetaValid && !hasExplicitUpgradeSource) {
+      return (
+        <PaymentPageShell showBack={false}>
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        </PaymentPageShell>
+      );
+    }
+    return (
+      <PaymentPageShell>
+        <ApplePaywall
+          user={user}
+          onRefreshProfile={() => refreshProfileRef.current()}
+          onEntitled={() => navigate('/executive-home', { replace: true })}
+        />
+      </PaymentPageShell>
+    );
+  }
+
   // If user is already on the best plan
   if (availablePlans.length === 0) {
     return (
