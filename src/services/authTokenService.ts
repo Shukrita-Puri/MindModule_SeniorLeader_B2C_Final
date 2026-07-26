@@ -207,15 +207,6 @@ function clientPlatformHeader(): Record<string, string> {
   return { 'x-mm-client-platform': 'web' };
 }
 
-function _unusedLegacyGetAuthHeaders(): Promise<Record<string, string>> {
-  return Promise.resolve({});
-}
-
-async function _legacy() {
-  const token = await getAuthToken();
-  return token;
-}
-
 /**
  * Returns auth headers including the dev bypass header in DEV_MODE.
  * Use this for raw fetch() calls to edge functions (supabase.functions.invoke
