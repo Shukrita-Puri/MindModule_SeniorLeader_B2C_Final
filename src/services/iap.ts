@@ -9,7 +9,7 @@
  */
 import { registerPlugin } from '@capacitor/core';
 import { isIosNativeShell } from '@/config/purchasePlatform';
-import { IAP_PRODUCT_IDS } from '@/config/iapProducts';
+import { IAP_PRODUCT_IDS, getIapConfigStatus } from '@/config/iapProducts';
 import { getAuthHeaders } from '@/services/authTokenService';
 
 export interface IapIntroOffer {
@@ -58,7 +58,14 @@ export interface IapEntitlement {
 
 interface InAppPurchasePlugin {
   isAvailable(): Promise<{ available: boolean }>;
-  getProducts(options: { productIds: string[] }): Promise<{ products: IapProduct[] }>;
+  getProducts(options: { productIds: string[] }): Promise<{
+    products: IapProduct[];
+    /** Diagnostics from newer native builds; absent on older shells. */
+    requestedProductIds?: string[];
+    missingProductIds?: string[];
+    storefront?: string | null;
+    locale?: string | null;
+  }>;
   purchase(options: { productId: string; appAccountToken: string }): Promise<IapPurchaseResult>;
   restorePurchases(): Promise<{ entitlements: IapEntitlement[] }>;
   getCurrentEntitlements(): Promise<{ entitlements: IapEntitlement[] }>;
