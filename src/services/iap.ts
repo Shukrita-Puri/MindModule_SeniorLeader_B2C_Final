@@ -9,7 +9,7 @@
  */
 import { registerPlugin } from '@capacitor/core';
 import { isIosNativeShell } from '@/config/purchasePlatform';
-import { IAP_PRODUCT_IDS } from '@/config/iapProducts';
+import { IAP_PRODUCT_IDS, getIapConfigStatus } from '@/config/iapProducts';
 import { getAuthHeaders } from '@/services/authTokenService';
 
 export interface IapIntroOffer {
@@ -58,7 +58,14 @@ export interface IapEntitlement {
 
 interface InAppPurchasePlugin {
   isAvailable(): Promise<{ available: boolean }>;
-  getProducts(options: { productIds: string[] }): Promise<{ products: IapProduct[] }>;
+  getProducts(options: { productIds: string[] }): Promise<{
+    products: IapProduct[];
+    /** Diagnostics from newer native builds; absent on older shells. */
+    requestedProductIds?: string[];
+    missingProductIds?: string[];
+    storefront?: string | null;
+    locale?: string | null;
+  }>;
   purchase(options: { productId: string; appAccountToken: string }): Promise<IapPurchaseResult>;
   restorePurchases(): Promise<{ entitlements: IapEntitlement[] }>;
   getCurrentEntitlements(): Promise<{ entitlements: IapEntitlement[] }>;
@@ -104,6 +111,162 @@ export async function loadIapProducts(): Promise<IapProduct[]> {
   if (!isIosNativeShell()) return [];
   const { products } = await InAppPurchase.getProducts({ productIds: IAP_PRODUCT_IDS });
   return products ?? [];
+}
+
+/**
+ * Product-load outcomes, deliberately distinct so an operator can tell an App
+ * Store Connect / runtime problem apart from a code problem.
+ */
+export type IapLoadOutcome =
+  | 'not_native'        // not running inside the iOS shell
+  | 'config_invalid'    // product ids missing / duplicated in this build
+  | 'store_unavailable' // StoreKit says purchases are disabled on this device
+  | 'empty'             // StoreKit returned ZERO of the requested products
+  | 'partial'           // StoreKit returned SOME of the requested products
+  | 'complete'          // StoreKit returned all requested products
+  | 'fetch_error';      // the bridge / native fetch threw
+
+export interface IapLoadDiagnostics {
+  outcome: IapLoadOutcome;
+  /** Product ids this build asked StoreKit for. */
+  requestedIds: string[];
+  /** Product ids StoreKit actually returned. */
+  returnedIds: string[];
+  /** requestedIds minus returnedIds — the App Store Connect smoking gun. */
+  missingIds: string[];
+  returnedCount: number;
+  configOk: boolean;
+  configReason?: string;
+  storeAvailable: boolean;
+  /** Per-product intro-offer eligibility flags (no user identity). */
+  introEligibility: Record<string, boolean | null>;
+  storefront?: string | null;
+  locale?: string | null;
+  errorMessage?: string;
+  errorCode?: string;
+}
+
+export interface IapLoadResult {
+  products: IapProduct[];
+  diagnostics: IapLoadDiagnostics;
+}
+
+function baseDiagnostics(partial: Partial<IapLoadDiagnostics>): IapLoadDiagnostics {
+  return {
+    outcome: 'empty',
+    requestedIds: [...IAP_PRODUCT_IDS],
+    returnedIds: [],
+    missingIds: [...IAP_PRODUCT_IDS],
+    returnedCount: 0,
+    configOk: true,
+    storeAvailable: false,
+    introEligibility: {},
+    ...partial,
+  };
+}
+
+/**
+ * Diagnostics-only wrapper around the StoreKit product fetch.
+ *
+ * Logs product IDs, counts and native error codes — never receipts, signed
+ * transactions, appAccountToken values or any Apple account identity.
+ */
+export async function loadIapProductsWithDiagnostics(): Promise<IapLoadResult> {
+  const requestedIds = [...IAP_PRODUCT_IDS];
+
+  const emit = (result: IapLoadResult): IapLoadResult => {
+    const d = result.diagnostics;
+    const line = `[iap] product-load outcome=${d.outcome} requested=${d.requestedIds.join(',') || 'none'} returned=${d.returnedIds.join(',') || 'none'} missing=${d.missingIds.join(',') || 'none'} count=${d.returnedCount} configOk=${d.configOk} storeAvailable=${d.storeAvailable} storefront=${d.storefront ?? 'unknown'} locale=${d.locale ?? 'unknown'} intro=${JSON.stringify(d.introEligibility)}${d.errorCode ? ` errorCode=${d.errorCode}` : ''}${d.errorMessage ? ` error=${d.errorMessage}` : ''}`;
+    if (d.outcome === 'complete') console.info(line);
+    else if (d.outcome === 'not_native') console.debug(line);
+    else console.warn(line);
+    return result;
+  };
+
+  if (!isIosNativeShell()) {
+    return emit({ products: [], diagnostics: baseDiagnostics({ outcome: 'not_native', requestedIds }) });
+  }
+
+  const config = getIapConfigStatus();
+  if (!config.ok) {
+    return emit({
+      products: [],
+      diagnostics: baseDiagnostics({
+        outcome: 'config_invalid',
+        requestedIds,
+        configOk: false,
+        configReason: config.reason,
+      }),
+    });
+  }
+
+  const storeAvailable = await isIapAvailable();
+  if (!storeAvailable) {
+    return emit({
+      products: [],
+      diagnostics: baseDiagnostics({ outcome: 'store_unavailable', requestedIds }),
+    });
+  }
+
+  try {
+    const res = await InAppPurchase.getProducts({ productIds: requestedIds });
+    const products = res?.products ?? [];
+    const returnedIds = products.map((p) => p.id);
+    const missingIds = requestedIds.filter((id) => !returnedIds.includes(id));
+    const introEligibility: Record<string, boolean | null> = {};
+    for (const p of products) {
+      introEligibility[p.id] = p.isEligibleForIntroOffer ?? null;
+    }
+    const outcome: IapLoadOutcome =
+      products.length === 0 ? 'empty' : missingIds.length === 0 ? 'complete' : 'partial';
+    return emit({
+      products,
+      diagnostics: baseDiagnostics({
+        outcome,
+        requestedIds,
+        returnedIds,
+        missingIds,
+        returnedCount: products.length,
+        storeAvailable: true,
+        introEligibility,
+        storefront: res?.storefront ?? null,
+        locale: res?.locale ?? null,
+      }),
+    });
+  } catch (err) {
+    const e = err as { message?: string; code?: string | number };
+    return emit({
+      products: [],
+      diagnostics: baseDiagnostics({
+        outcome: 'fetch_error',
+        requestedIds,
+        storeAvailable: true,
+        errorMessage: e?.message ?? 'Unknown native error',
+        errorCode: e?.code != null ? String(e.code) : undefined,
+      }),
+    });
+  }
+}
+
+/** One-line, non-sensitive operator hint derived from diagnostics. */
+export function describeIapLoadDiagnostics(d: IapLoadDiagnostics): string {
+  const parts = [
+    `outcome=${d.outcome}`,
+    `requested=${d.requestedIds.join(', ') || 'none'}`,
+    `missing=${d.missingIds.join(', ') || 'none'}`,
+  ];
+  if (d.storefront) parts.push(`storefront=${d.storefront}`);
+  if (d.errorCode) parts.push(`code=${d.errorCode}`);
+  return parts.join(' · ');
+}
+
+/**
+ * Whether the outcome points at App Store Connect / runtime state rather than
+ * at this build's code. `empty` and `partial` mean StoreKit accepted the
+ * request and simply does not know those ids in this storefront.
+ */
+export function looksLikeAppStoreConnectIssue(d: IapLoadDiagnostics): boolean {
+  return (d.outcome === 'empty' || d.outcome === 'partial') && d.configOk && d.storeAvailable;
 }
 
 function functionUrl(name: string): string {
