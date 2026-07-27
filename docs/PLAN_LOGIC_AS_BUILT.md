@@ -1117,3 +1117,341 @@ each re-derives its own day/weekend logic):
 - **N6** — `smart-nudges` independently re-derives day-of-week/weekend logic
   in at least 12 separate locations rather than consuming a persisted Plan
   `dayShape`/`mode`, creating duplicate-logic maintenance risk.
+
+## Section H — Runtime Step-by-Step Walkthrough
+
+### H.1 Full Execution Sequence (Steps 1–15), in actual code order
+
+#### Step 1 — Request arrival: auth, body parse, tz/local-date resolution (`generate-mastery-plan/index.ts:11828-12000`, `Deno.serve` handler)
+- **Receives:** raw HTTP `POST` request (headers, JSON body). No prior step — this is the entry point.
+- **Does:**
+  1. CORS preflight: `if (req.method === "OPTIONS") return new Response(null, {headers: corsHeaders})` (`index.ts:11830-11832`) → early return, nothing downstream runs for OPTIONS requests.
+  2. `authenticateRequest(req, corsHeaders)` (`index.ts:11844`). If it errors:
+     - Sub-branch a: service-role bypass — if `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` **and** an `x-dev-user-id` header are both present, `userId` is taken from that header and execution continues (`index.ts:11849-11858`).
+     - Sub-branch b: dev bypass — if not in `production` env **and** `x-dev-user-id` header present, `userId` taken from it (`index.ts:11862-11870`).
+     - Sub-branch c: otherwise → `return auth.errorResponse` — **Steps 2–15 never run** (`index.ts:11871-11876`).
+  3. Else `userId = auth.userId` (`index.ts:11879`).
+  4. Body read: `rawBodyText = await req.text()`; on throw → `return` 400 `{error:"Invalid request body", reason:"Unable to read request body"}` — early return, rest of function never runs (`index.ts:11888-11906`).
+  5. `bodyIsEmpty` check → if empty, logs a warning and **defaults `body = {}`** rather than erroring (`index.ts:11927-11938`) — no early return here.
+  6. Else `JSON.parse(rawBodyText)`; on throw → `return` 400 `{reason:"Malformed JSON"}`, early return (`index.ts:11940-11961`).
+  7. Shape guard: `if (!body || typeof body !== 'object' || Array.isArray(body)) return` 400 `{reason:"Expected JSON object"}` (`index.ts:11963-11981`) — early return.
+  8. `clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset()` (`index.ts:11982-11983`).
+  9. `clientLocalDate = typeof body.localDate === "string" ? body.localDate : null` (`index.ts:11984-11986`).
+  10. Additional per-request fields normalised: `todayCheckinId`, `selectedCalendarEventIds` (filtered to non-empty strings), `slotReplacements` (per-slot event-binding map, keyed `"0"|"1"|"2"`) (`index.ts:11987-12000`).
+  11. Later in the same handler, local-date resolution for context-building falls back per §Step 2: `const today = req.localDate || serverLocalDate` (`index.ts:5364`) and, for the Brief handshake specifically, `const localDateForLookup = req.localDate || today` (`index.ts:5091`).
+- **Emits / hands to next step:** `userId` (consumed by every subsequent DB read/write, Steps 2, 9, 13), `body` fields (`calendarEvents[]`, `practicePriorityTag`, `growthIntention`, `protectGoals[]`, `leaderProfile.goals.declared[]`, `expectedSignatureHash`, `mode`, `localDate`, `timezoneOffset`, `todayCheckinId`, `selectedCalendarEventIds`, `slotReplacements`) → Step 2 (context loading), Step 5 (tagging), Step 6 (memory), Step 9 (allocator inputs), Step 12 (final object). `clientTimezoneOffset`/`clientLocalDate` → Step 2's `today` resolution and Step 13's `planDate` key.
+- **Side effects:** none yet beyond logging (`[generate-mastery-plan][request-body]` structured log, `index.ts:11914-11925`).
+
+#### Step 2 — Loading context: profile, onboarding, priority memory, prior snapshot, `expectedSignatureHash` handshake (`index.ts:5091-5442`, `buildSharedContext`-region)
+- **Receives:** `userId`, `req.localDate`/`clientLocalDate`, `req.expectedSignatureHash` (Step 1).
+- **Does:** detail: existing doc §A.14/§A.17 already establishes the Brief-handshake existence and onboarding-field consumption without full re-derivation; only the gaps below were newly confirmed by reading code this pass.
+  1. `today = req.localDate || serverLocalDate` (`index.ts:5364`) — resolves the plan's working local date; if the client didn't send one, server-computed UTC-derived date is used (no further timezone correction visible at this line).
+  2. `localDateForLookup = req.localDate || today` (`index.ts:5091`) is used specifically to query the Brief behaviour snapshot for the day (`loadBriefBehaviourSnapshot`, called with `localDateForLookup`, `timeOfDay`, `expectedSignatureHash: expectedSig` — `index.ts:5106-5110`).
+  3. If the strict Brief handshake fails (signature mismatch / missing), a warning is logged (`[buildSharedContext] strict Brief handshake failed...`, `index.ts:5125`) and the code falls back to a **local rebuild** of Brief-equivalent context rather than erroring (`index.ts:5134`, `[buildSharedContext] briefBehaviour fallback to local rebuild`) — no early return; plan generation continues without the Brief's payload.
+  4. `clientLocalDate: req.localDate || null` is also stamped into the shared context object for downstream use (`index.ts:5442`).
+  5. Profile / onboarding fields (`practicePriorityTag`, `growthIntention`, `req.leaderProfile.goals.declared`, `req.protectGoals`, `req.onboarding.protectGoals`) are read directly off the request body at `index.ts:700-722` — per existing doc §A.17, the UI flow that produces these was not traced further; treated as given inputs here.
+  6. Prior-snapshot-for-the-day lookup and priority-memory index loading occur later in the handler as part of allocator-input assembly (see Step 6 for `event_priority_memory` and Step 13 for the prior-row read used for merge/idempotency, `index.ts:12136-12175`).
+- **Emits / hands to next step:** `today`/`localDateForLookup` (planDate string) → Steps 3, 4, 9, 13; Brief behaviour snapshot (or its local-rebuild fallback) → Step 11 (`briefClaim`/`clauseOverlapsBrief`, `briefAnchorEventTitles` re-sort in Step 8); onboarding fields (`practicePriorityTag`, `growthIntention`, goal tags) → Step 10 (practice-selector intent/goal scoring).
+- **Side effects:** DB reads for Brief snapshot / onboarding-derived rows (not fully enumerated — existing doc Unknown #6, #2); structured logs on handshake success/fallback.
+
+#### Step 3 — `classifyAvailability` (`_shared/availability/availability-classifier.ts:261`)
+- **Receives:** `{ now, userHomeCountry, userCurrentCountry, explicitPto, calendarLoad, events[] }` assembled from Step 1's `calendarEvents` and Step 2's profile/onboarding fields (per data-flow diagram, doc §Section 0).
+- **Does:** detail: §A.3 — copied verbatim, precedence is first-match-wins top-to-bottom:
+  1. Calendar work evidence (≥2 timed work meetings, `WORK_MEETING_MIN = 2`, organizer OR ≥1 attendee, not all-day) → `WORKDAY`, overriding weekend/PTO/holiday.
+  2. Explicit user intent (`explicitPto`) → `PTO` (travel never overrides PTO).
+  3. Applicable public holiday → `PUBLIC_HOLIDAY`.
+  4. Weekend day (default `weekendDays = [6]`, i.e. Saturday only — **N4**: Plan's call site does not override this with a country-aware set, `index.ts:11339-11355`) → `REST_DAY`.
+  5. Workload split → `LIGHT_ROUTINE` (low/empty) or `WORKDAY`.
+  Internal decision order matches the docstring quoted at `availability-classifier.ts:250-260`.
+- **Consumed vs discarded outputs:** the function returns `{ state, isRestDay, workEvidence, holiday, reason }`, but per §Section 0 (`index.ts:11339-11356`) **only `isRestDay` is consumed downstream**, re-labelled `hasRestSignals`. `state`, `workEvidence`, `holiday`, `reason` are computed but not read by `deriveStructuralDayFlags` or `allocatePlanSlots` in this call path — DEAD for the day-of Plan pipeline (they are read elsewhere by `smart-nudges` and `_shared/ceo-behaviour/pto-holiday` per the file's own docblock, §A.3, but not by this pipeline).
+- **Emits / hands to next step:** `hasRestSignals` (= `isRestDay`) → Step 4 (`deriveStructuralDayFlags` output field) → Step 9 (`allocatePlanSlots` `restSignals` in the dayShape ternary, §Section C step 7).
+- **Side effects:** none (pure function over passed-in event/context data).
+
+#### Step 4 — `deriveStructuralDayFlags` (`index.ts:11330-11397`, called at `index.ts:7062`)
+- **Receives:** `calendarEvents`, `calendarLoad`, `opts` (Step 1/2), plus `classifyAvailability`'s `isRestDay` (Step 3).
+- **Does:** detail: §A.1, §Section 0 — every flag in computed order:
+  1. `hasConferenceDay = events.some(e => /conference|offsite|retreat|summit/i.test(titleOf(e)))` (`index.ts:11330-11333`).
+  2. `hasOffsiteDay = events.some(e => /offsite|off-site/i.test(titleOf(e)))` (`index.ts:11334-11336`).
+  3. `hasTravelDay` (title/category-derived; existing doc references this flag by name at `index.ts:11330-11397` and consumes it at Step 9/allocator but does not re-quote its exact regex — treated as parallel to `hasConferenceDay`/`hasOffsiteDay` construction).
+  4. `hasRestSignals` = `classifyAvailability(...).isRestDay` (Step 3's output, folded in here per §A.1/§A.3).
+  5. `dayOfWeek` — raw JS day-of-week integer (0-6), computed from `now`/local date; this is the **same raw value** later consumed unmodified by the hardcoded Saturday check in the allocator (§Bug B) — no home-country adjustment happens at this layer.
+  6. **Embedded call:** `evaluateWeekAheadMode({ dayOfWeek, ... })` (`week-ahead-mode.ts:129`) — first-match-wins waterfall (full quote in doc §Section D / referenced §A.4); computes `planningDayOfWeek(homeCountry)` (`week-ahead-mode.ts:48`): Saturday-start countries (`SA, KW, QA, BH, OM, IL`) plan on Saturday evening, everyone else on Sunday. Returns `{ active, reason, lookbackDays, lookaheadDays }`.
+     - **What Week-Ahead active changes:** if `active === true`, `isWeekAhead = true` is folded into the flags object and becomes the **first** check the live allocator makes (§Section C step 1) — it short-circuits the entire day-shape waterfall (Saturday/PTO/travel/conference/dominant/mixed/light_routine are all skipped) and instead returns a single `week_ahead` slot. It also changes `lookbackDays`/`lookaheadDays` used by `list-week-ahead-priorities`' own separate orchestration (§A.5) and the persisted `horizon_iso` computation at Step 13 (`index.ts:12198-2210`: `lookaheadDays` from `weekAheadDecision` extends the horizon timestamp instead of the default 24h `DAY_OF_HORIZON_MS`).
+  7. `isPtoOrHoliday` — folded from `classifyAvailability`'s `PTO`/`PUBLIC_HOLIDAY` states (per §A.3's precedence) — note this is a *separate* consumption of `classifyAvailability`'s output than `hasRestSignals` (`isRestDay`); both are read from the same underlying call.
+  8. `isFullWorkingWeekend = (dayOfWeek === 0 || dayOfWeek === 6) && (calendarLoad ∈ {high, extreme} || realMeetingCount ≥ 3)` (`index.ts:11360-11362`, quoted verbatim in §A.1).
+- **Emits / hands to next step:** `{ hasTravelDay, hasConferenceDay, hasOffsiteDay, hasRestSignals, dayOfWeek, isWeekAhead, isPtoOrHoliday, isFullWorkingWeekend }` → Step 9 (`allocatePlanSlots` input fields, verbatim per §Section 0 data-flow diagram) and `isWeekAhead`/`lookaheadDays` → Step 13 (horizon persistence).
+- **Side effects:** none beyond internal logging inferred from surrounding code style; no DB calls in this function itself.
+
+#### Step 5 — Event tagging / A–H category resolution (upstream of this pipeline; tags assumed pre-present at ranking time)
+- **Receives:** raw `calendarEvents[]` (Step 1) and pre-scored rows from `jit_event_context` ("the Bridge", per §A.1).
+- **Does:** Titles are mapped to a category (`A`–`H`) + subtype by `enrichEvent()` (`_shared/events/enrich-event.ts`), called by **both** `select-jit.ts` (Step 7, shadow) and `jit-candidates.ts` (Step 8, live) — per §A.2. `EVENT_CATEGORIES` (`_shared/events/event-categories.ts:49`) is the single source of truth for the eight pillars and their pre/during/post protocol (table reproduced from §A.2):
+
+  | ID | Name | Pre/During/Post protocol |
+  |---|---|---|
+  | A | High-Stakes Governance | Flow / — / Pause |
+  | B | Influence & Persuasion | Flow / — / Reenergise |
+  | C | Visibility & Communication | Pause / — / Reenergise |
+  | D | People & Difficult Conversations | Pause / — / Pause |
+  | E | Deep Work & Strategy | Flow / Flow / Pause |
+  | F | Conferences & External Events | Pause / Pause (notif-only) / Reenergise |
+  | G | Travel | Pause / Pause / Reenergise |
+  | H | Daily Rhythm & Baseline | Pause / — / Pause |
+
+  By the time Steps 6-8 run, each event carries `categoryId`, `stakesLevel`, `severity`, `demandProfile`, and phase-eligibility windows as attached fields — this tagging step is **assumed complete upstream** of `applyEventPriorityMemory`/`rankJitCandidates`/`selectJitCandidates`; `enrich-event.ts` itself was not fully re-read this pass (existing doc flags it "not fully read").
+- **Emits / hands to next step:** enriched per-event `{categoryId, stakesLevel, severity, demandProfile, phase windows}` → Step 6 (memory lookup keys `eventCategory`/`eventTypeKey`), Step 7 (shadow scorer), Step 8 (live scorer weight-table lookups).
+- **Side effects:** none observed at this layer (pure enrichment); category taxonomy itself is a static table, no DB read per event visible in the audited excerpt.
+
+#### Step 6 — `applyEventPriorityMemory` (`_shared/plan/event-priority-memory.ts:106`)
+- **Receives:** `priorityMemoryIndex` (loaded from `event_priority_memory` table, per Step 2/context) and per-event `{eventCategory, eventTypeKey}` keys (Step 5).
+- **Does:** detail: §A.6, §B.3, Constants Table — computes a **net delta clamped to `[-50, +30]`** (`event-priority-memory.ts:166-167`) from six signal types, quoted verbatim from the Constants Table:
+
+  | Signal | Delta | Decay window |
+  |---|---|---|
+  | `priority` | +10 | ≤60d |
+  | `cancelled_keep_surfacing` | +5 | ≤60d |
+  | `cancelled_now` | −8 | ≤7d |
+  | `not_this_week` | −15 | ≤14d |
+  | `cancelled_as_noise` | −25 | ≤60d |
+  | `never` | −40 **+ hardDemote = true (always, no decay)** | — |
+
+  Hard-demote rule (§B.3): any `never` row sets `hardDemote = true` and `delta -= 40` (`event-priority-memory.ts:133-136`). Upstream, `index.ts:5935-5938` additionally folds in `titleMem.hardDemote` (exact-title-key memory) and forces `memoryHardDemote = true` whenever a derived memory row is permanently flagged with `net_importance <= -999`.
+- **Emits / hands to next step:** per-event `memoryDelta` and `memoryHardDemote` → Step 8 (`rankJitCandidates`'s `score = ... + memory` term, and the `if (ev.memoryHardDemote) continue;` skip at `jit-candidates.ts:157` which runs **before any phase/scoring logic** — a candidate with hard-demote never reaches scoring at all).
+- **Side effects:** DB read of `event_priority_memory` (implied by "Read model over `event_priority_memory`", §A.6); no writes in this step.
+
+#### Step 7 — Shadow `selectJitCandidates` call (`select-jit.ts`, called `index.ts:725-732`) — runs, logged, dropped
+- **Receives:** `input` (enriched events, Step 5), `{accountAgeDays, signalSummary, skipCountsByBucket: {} /* PR1 empty */, followThroughByBucket: {}, goals, nowMs: Date.now()}` (`index.ts:725-732`, quoted verbatim).
+- **Does:** detail: §B.0 — runs the full Immediate/Tactical/Strategic/tier-weighted/sovereign scoring model (`CATEGORY_BASE`: A=40,C=32,B=30,D=22(cap 38 via `D_BOOSTED_CAP`),F=18,G=12,E=10,H=5; floor `MIN_IMMEDIATE = 25` on immediate/tactical/tierWeighted axes). Produces `{ranked[], excluded[], tier, crisisEvents[]}`.
+- **Emits / hands to next step:** **none that are consumed.** The only use of `result` is a single log line: `` console.log(`[generate-mastery-plan][jit-v2-shadow] tier=${result.tier.tier} ...`) `` (`index.ts:734-737`). Every field of `result` — `ranked`, `excluded`, `tier`, `crisisEvents` — is **DEAD / shadow**: computed but never read by Step 8, Step 9, or any later step. Bug cross-ref: see Section F, Finding N1 (one-line only, per instructions).
+- **Side effects:** structured console log only (`[jit-v2-shadow]` tag); no DB writes; no influence on `allocatePlanSlots`.
+
+#### Step 8 — `rankJitCandidates` (LIVE) (`_shared/events/jit-candidates.ts:150-248`, called `index.ts:5913-5954`)
+- **Receives:** `preFilteredEvents.map(e => ({event:{id,title,start_time,end_time}, stakesLevel, score, memoryDelta, memoryHardDemote}))` (Step 6's memory outputs folded in per-event) and `nowMsForJit` (`index.ts:5913-5954`).
+- **Does:** detail: §B.1-B.3, per-event scoring sub-steps in coded order:
+  1. **Hard-demote gate first:** `if (ev.memoryHardDemote) continue;` (`jit-candidates.ts:157`) — candidate skipped entirely before any phase/scoring logic runs.
+  2. Per remaining event, per eligible phase: `base = STAKES_BASE[stakesLevel] ?? 5` (board=40, external=35, investor=35, critical=30, high=22, medium=12, low=4, default=5).
+  3. `catW = CATEGORY_WEIGHT[categoryId]` (A=20,C=15,D=15,B=10,F=10,E=5,G=5,H=0).
+  4. `sevW = SEVERITY_WEIGHT[severity]` (high=15, medium=8, low=3).
+  5. `demW = demandWeight(phase, demandProfile)`: `pre → (cog+emo)×2` (max 12); `during → cog×3` (max 9); `post → (ene+cir)×3` (max 18).
+  6. `prox = proximityScore(nowMs, winStart, winEnd)`, clamped ±5, fed by `computeRawProximity`: fades in from 30min (+8) → 6h (+6) → 24h (+3) → 0 further out, and **−5** once the window has passed.
+  7. `skipPenalty = ev.skipPenalty ?? 0`; `memory = ev.memoryDelta ?? 0` (Step 6's output).
+  8. `score = base + catW + sevW + demW + prox − skipPenalty + memory` (`jit-candidates.ts:169-193`).
+  9. **Horizon ceiling:** candidates whose window starts more than `MAX_JIT_HORIZON_MS = 24h` out are dropped (`jit-candidates.ts:80,187`).
+  10. **Staleness grace:** candidates dropped once window has been over longer than `STALE_PHASE_GRACE_MS` (pre=30min, during=30min, post=2h).
+  11. **Meaningful-candidate floor** (`getJitCandidateDropReason`, `jit-candidates.ts:300-344`), predicate tree evaluated in this exact order:
+      1. `hasStrongStakes` (board/external/investor/critical/high) → always kept regardless of score.
+      2. `hasPositiveMemory` (`components.memory ≥ 10`) → always kept.
+      3. Title matches `ADMIN_COMPLIANCE_NOISE_KEYWORDS` (e.g. "r&d tax", "vat", "payroll", "invoice", "audit prep") → dropped, `admin_compliance_noise`.
+      4. `categoryId === 'H'` with no explicit stakes → dropped, `personal_category_without_explicit_stakes`.
+      5. Structural categories (`A,C,F,G`): kept if `hasMediumStakes` OR `severity==='high'` OR `demand≥8`; else falls through.
+      6. Non-structural (`B,D,E`): kept only if ≥2 of {mediumStakes, highSeverity, strongDemand}; else falls through.
+      7. Final numeric floor: `score >= MIN_CANDIDATE_SCORE (25)` → kept; else dropped, `below_meaningful_floor`.
+  12. Sort: `out.sort((a,b) => b.score - a.score)` — pure score descending, no secondary tiebreaker column (`jit-candidates.ts:236`).
+- **Emits / hands to next step:** `jitRankedCandidates: RankedJitCandidate[] = {eventId, title, phase, categoryId, comboKey, severity, leadTimeMin, demandProfile, durationMinutes, windowStartMs, windowEndMs, eligible, minutesUntilWindow, score, components{...}}` → Step 8b (Brief re-sort) → Step 9 (`allocatePlanSlots` `rankedCandidates` input, `index.ts:7060`, `11111`) and Step 10 (per-slot practice window signals reference `components`/`demandProfile`).
+- **Side effects:** none beyond whatever logging surrounds the call; no DB writes in this function itself.
+
+#### Step 8b — Brief-anchor re-sort (`index.ts:5959-5986`)
+- **Receives:** `jitRankedCandidates` (Step 8), `shared.briefBehaviour` (Step 2, or its local-rebuild fallback).
+- **Does:** `briefAnchorEventTitles(shared.briefBehaviour)` extracts titles the Brief already flagged as anchors, then does a **stable sort** of `jitRankedCandidates` so Brief-flagged titles float to the top, without altering relative order of non-flagged items or recomputing scores (§Section 0 data-flow diagram, `index.ts:5959-5986`).
+- **Emits / hands to next step:** re-ordered `jitRankedCandidates` → Step 9 (`allocatePlanSlots`'s `top`/`second`/`third` selection is therefore Brief-influenced, not pure-score-only, at the margins).
+- **Side effects:** none.
+
+#### Step 9 — `allocatePlanSlots` (`_shared/jit/slot-allocator.ts:125-278`) — full day-shape waterfall
+- **Receives:** `{nowMs, rankedCandidates: jitRankedCandidates (Step 8b), hasTravelDay, hasConferenceDay, hasOffsiteDay, hasRestSignals, dayOfWeek, isWeekAhead, isPtoOrHoliday, isFullWorkingWeekend (all Step 4), mrsWindow, preferredPracticeWindows, forceArcCategoryIds}` (per §Section 0 data-flow diagram).
+- **Does:** detail: §Section C — the exact `if`-statement order as coded, numbered identically to the existing doc:
+  1. **Week-Ahead** (checked first, unconditionally): `if (input.isWeekAhead) return buildSingleStateSlotResult("week_ahead", "week_ahead_planning", ranked.length, preferredPracticeWindows)` (`slot-allocator.ts:139-141`) → **early return; branches 2-9 below never run for this request.**
+  2. **Saturday / weekend rest — hardcoded**: `if (input.dayOfWeek === 6 && !input.isFullWorkingWeekend) return buildSingleStateSlotResult("saturday", "saturday_habit_only", ...)` (`slot-allocator.ts:143-145`) → early return if matched. Bug cross-ref: Section F, Bug B (hardcoded `dayOfWeek===6`, ignores `planningDayOfWeek(homeCountry)`) — one line only, not expanded here.
+  3. **PTO / holiday**: `if (input.isPtoOrHoliday) return buildSingleStateSlotResult("holiday_pto", "holiday_habit_only", ...)` (`slot-allocator.ts:147-149`) → early return if matched.
+  4. **Travel day (full arc)**: `if (input.hasTravelDay && (!top || top.categoryId === "G")) return buildNamedFullArcResult("travel_day", "travel_day_full_arc", ranked, "G")` (`slot-allocator.ts:151-153`) → early return if matched. Note: `isFullWorkingWeekend` only gates branch 2, not this branch.
+  5. **Conference day (full arc)**: `if (input.hasConferenceDay && (!top || top.categoryId === "F")) return buildNamedFullArcResult("conference_day", "conference_day_full_arc", ranked, "F")` (`slot-allocator.ts:155-157`) → early return if matched.
+  6. **Same-event-fan detection** (not itself a returning branch): `sameEventFan = !!top && !!topEventId && !differentEventCandidate && ranked.length > 1`; `topIsStructural = top.categoryId ∈ {A,C,F,G} or forceArcCategoryIds`; `dominantStructuralEvent = topIsStructural && (!hasSecondCandidate || sameEventFan || !differentEventCandidate)` (`slot-allocator.ts:159-173`).
+  7. **Final `dayShape` ternary** (`slot-allocator.ts:174-182`), precedence `rest_day > mixed_day (two conditions) > dominant_structural_event > light_routine > default mixed_day`:
+     ```
+     dayShape = restSignals ? "rest_day"
+       : structuralSignals>=2 || (top.categoryId==="F" && hasSecondCandidate && hasThirdCandidate && differentEventCandidate) ? "mixed_day"
+       : dominantStructuralEvent ? "dominant_structural_event"
+       : ranked.length<=1 ? "light_routine"
+       : "mixed_day"
+     ```
+     where `restSignals = input.hasRestSignals === true` (Step 3's output) and `structuralSignals` counts truthy `[hasTravelDay, hasConferenceDay, hasOffsiteDay]` (0-3). By this point, branches 4-5's travel/conference "top=G/F" early returns have already fired if applicable — this ternary only reaches travel/conference-as-background-signal cases.
+  8. **`light_routine` reachability** confirmed live: fires whenever none of branches 1-7 above short-circuited and `ranked.length <= 1`.
+  9. **`light_day_strong_state` does not exist** in the `DayShape` union type at all (`slot-allocator.ts:38-47`) — confirmed absent; any reference to it elsewhere describes non-existent code (Section F, N3).
+  10. **Mode derivation** (`slot-allocator.ts:184-188`, immediately after `dayShape`): `mode = dayShape==="rest_day" ? "state" : dayShape==="light_routine" ? "jit+state" : dayShape==="dominant_structural_event" ? "full_arc" : "jit+state"`. Bug cross-ref: Section F, Bug A (`light_routine` always unconditionally `"jit+state"` regardless of actual candidate count) — one line only.
+  11. **`rest_day` short-circuit** (`slot-allocator.ts:196-211`): `if (dayShape === "rest_day") return {dayShape, mode, restDay:true, allocationReason:"rest_day_no_priorities", slots: [], debug:{...}}` → **zero slots**, Steps 10-11 (practice selection, copy generation) never run for any slot on a true rest day.
+  12. **Per-slot `makeSlot`/`buildSingleStateSlotResult`/`buildNamedFullArcResult`**, slot timing, arc-phase per slot (non-rest-day paths), day-level `mode` already assigned above:
+      - `saturday`/`holiday_pto`/`week_ahead` → **1 slot** via `buildSingleStateSlotResult` (`slot-allocator.ts:307-344`); `slotRole` depends on `preferredPracticeWindows` — `evening` preference → `close_of_day`; else `state_anchor`; `allocationReason` suffixed with the preferred window name when present. No JIT fields populated (`jitPhase:null, jitEventTitle:null, jitEventId:null, jitCategoryId:null`).
+      - `travel_day`/`conference_day` → **3 slots** (full arc: pre/during-or-state/post) via `buildNamedFullArcResult` (`slot-allocator.ts:346-394`); for travel specifically, `pruneTravelPhases` (`slot-allocator.ts:13-36`) drops the `during` (in-flight) phase for short-haul flights (duration <6h or unknown duration) — only long-haul/explicit `travel_day` keeps it; short-haul degrades slot 2 to a plain state anchor (`slot-allocator.ts:369-373`).
+      - `dominant_structural_event` → **3 slots**, phases picked by the dominant event's own `EVENT_PHASE_MAP` entry, never array position (`slot-allocator.ts:213-239`). Category A special-case: gets `pre`, then a fixed **"board protect" state slot** (`makeBoardProtectSlot`, lines 294-305, `allocationReason:"board_protect_state"`), then `post` — never a real "during" JIT slot, because `event-categories.ts:66` defines Category A's protocol as `{pre:"Flow", during:null, post:"Pause"}`.
+      - `mixed_day`/`light_routine` (default) → **3 slots** (top/second/third by array position, lines 256-264), may degrade per-slot to a state fallback when a slot has no qualifying candidate (`allocationReason:"state_fallback_no_meaningful_jit"`, `isJit:false`).
+  Arc-phase per slot: derived from the anchor event/category's `EVENT_PHASE_MAP` entry (`_shared/events/event-phase-map.ts`, referenced but not fully re-quoted, per §A.10).
+- **Emits / hands to next step:** `SlotAllocation = {dayShape, mode, restDay?, slots[] = {index, slotRole, arcLabel, jitPhase, jitEventTitle, jitEventId, jitCategoryId, allocationReason}, debug{...}}` → Step 10 (per-slot practice selection consumes `slots[].slotRole`/`arcLabel`/`jitCategoryId`/`jitPhase`), Step 11 (`composeWhyLine` consumes `arcLabel`, `slotAnchorCategoryId`), Step 12 (final object assembly consumes `dayShape`, `mode`, `slots[]`), Step 13 (`day_kind`/`plan_json.meta.dayShape` persistence).
+- **Side effects:** none (pure allocation function); logging only (`debug{}` object returned for observability, not itself a side effect).
+
+#### Step 10 — Practice selection per slot (`_shared/plan/practice-selector.ts`, `selectPracticeForSlot`)
+- **Receives:** per slot: `{stateAction, ceoVerb, anchorCategory, anchorPhase}` (from Step 9's slot object), `practicePriorityTag` (Step 2/onboarding), `preferredPracticeWindows` (Step 1/profile), candidate rows from `sanctuary_content`/`sanctuary_content_metadata` (read at `index.ts:5564`/`5572`).
+- **Does:** detail: §D.2, filter/score/pick per slot in order:
+  1. `deriveSlotIntent()` (line 70) — **first-match waterfall**, checked in this exact order:
+     0. **Pre-decision clarity** (checked first so it "cannot be shadowed by `verb==='decide'`"): fires on action containing clarify/clarity/detach/reactive/"decision fatigue"/"pre-decision", OR `anchorCategory==='A' && anchorPhase==='pre'`, OR `verb ∈ {clarify, detach}`, OR `tag ∈ {decision_fatigue, pre_decision_clarity}`, OR `combo==='mindset.pause'`.
+     1. **Focus/flow-mastery**: action contains "focus" OR `verb ∈ {sharpen, decide}` OR `tag==='focus_clarity'` OR `anchorCategory==='E'`.
+     2. **Recovery/renewal**: action contains recover/restore/settle/decompress OR `verb ∈ {recover, reset, land}` OR `tag==='recovery_resilience'` OR `anchorPhase==='post'`.
+     3. **Circadian**: action contains "circadian" OR `anchorCategory==='G'`.
+     4. **Activation/presence**: action contains "activate"/"build capacity" OR `verb ∈ {present, lead}` OR `tag==='energy_endurance'`.
+     5. **Default — regulation/composure**: unconditional fallback → `meta-recalibration`/`pause`/`somatic.pause`.
+  2. `scoreStructuredTags()` (line 390): per-`intentLabel` bespoke point total from `structuredTags` (pillar, masterySubtypes, goalTags, contextTags, cognitiveLoadHelp, energyDirection) — e.g. focus/flow-mastery: `pillar==='flow'` +8, matching subtypes +5, matching goals +7, matching cognitiveLoadHelp +4, direction clarify/stabilize +2, **guardrail penalty −8** if `pillar==='renewal'` and no clarity-family goal present.
+  3. `scoreLeaderGoalAlignment()` (line 300): 0/9/14 points for 0/1/2+ matched onboarding leader-goal tags (`prepare|patterns|sustain`).
+  4. `practiceWindowPreferenceBoost()` (line 273): +4 if content declares a matching preferred time window AND it's among the user's `preferredPracticeWindows`; **−2** if content declares preferred windows but current one isn't among them; 0 if no declaration.
+  5. Window handling / fallbacks: existing doc flags (§D.2) that the remaining `intentLabel` branches beyond pre-decision-clarity and focus/flow-mastery were only partially re-read (file continues past line 500, "Unknowns" #7) — not expanded further here per "copy from doc, don't re-derive" rule.
+  6. Highest-scoring content row per slot is selected: `{selected: [practice], usedProtocolFallback}`.
+- **Emits / hands to next step:** `selected` practice content object (id, title, tags, protocol metadata), `usedProtocolFallback` flag → Step 11 (copy generation references the selected practice's action/verb for `composeWhyLine`), Step 12 (final `horizonModules[]` embed the selected content), Step 13 (`recommended_practice_ids` persisted array).
+- **Side effects:** DB reads of `sanctuary_content`, `sanctuary_content_metadata`, `sanctuary_content_steps` (§A.11); no writes.
+
+#### Step 11 — Copy generation per slot (`composeWhyLine`, `index.ts:8639-8751`; `why-llm.ts`, `generateWhyStatement`)
+- **Receives:** `hm` (HorizonModule shape from Steps 9-10), `req`, `shared` (Step 2 context incl. Brief behaviour), `hrvCorrelations`, `ceo` (CEO framework context), `briefClaim` (Step 2), `fusionEventTitle`/`fusion`, `opts` (`timeOfDay`, `windowSignals`).
+- **Does:** detail: §D.3, clause build order quoted verbatim:
+  1. Deterministic `composeWhyLine` is computed **first, always**, as `fallbackWhyLine` (`index.ts:8869-8881`) — this runs regardless of whether the LLM path is later attempted.
+  2. Clause construction, in order: `strat = strategicAnchorClause(...)`, `tac = tacticalClause(...)`, `imm = immediateClause(...)` (`index.ts:8682-8691`).
+  3. Each clause independently nulled if it duplicates the Brief: `if (strat && clauseOverlapsBrief(strat, briefClaim)) strat = null;` (same for `tac`, `imm`) (`index.ts:8687-8689`).
+  4. Final assembly (`index.ts:8739-8749`): if `eventSpecificWhy` (from `buildModuleEventWhyLine`) exists → it wins outright, `strat`/`tac`/`imm` discarded; else if all three overlapped the brief → `"Following your brief:"`; else append non-null `strat`, then `tac`, then `imm` in that fixed order (any/all may be absent).
+  5. Sentence always ends with a fixed closer: `` `${arcLabel}: ${verb} ${forContext}.` ``.
+  6. `arcLabel` derivation (`index.ts:8704-8713`): `"Recover"` if `phase==='post'` or `hm.slotKind==='end_of_day'`; else `"During"` if `phase==='during'`; else `"Prepare"` if `phase==='pre'` or `hm.slotKind ∈ {jit, start_of_day}`; else `"Steady"`.
+  7. **LLM vs deterministic decision:** after `fallbackWhyLine` is computed, a parallel LLM call (`generateWhyStatement`, `why-llm.ts`) is attempted per slot (Promise.all fan-out per prior doc; not independently re-read this pass, flagged partial-Unknown in §D.3). If LLM output passes `validateWhyLine`, it **overwrites** `fallbackWhyLine`; if it fails validation, the deterministic line is kept.
+  8. **Deterministic valence guard** (`index.ts:8895-8926`): even the deterministic fallback is itself re-validated via the same `validateWhyLine` used for the LLM path; `if (!detVerdict.ok && detVerdict.reason ∈ {valence_firing_recovery, valence_depleted_push}) { fallbackWhyLine = composeWhyLine(...) }` — i.e. re-composed a second time dropping the offending clause on valence mismatch.
+  9. Per-practice display copy: sourced from the selected content's own metadata (Step 10) plus the composed why-line; Brief's `buildDeterministicBriefFallback` (`compute-outer-readiness`) is **not** imported or reused here — Plan's `composeWhyLine` is a fully separate implementation (§D.3, N5).
+- **Emits / hands to next step:** `fallbackWhyLine`/final why-line text per slot, `arcLabel` → Step 12 (`horizonModules[]` field assembly).
+- **Side effects:** LLM API call (Gemini, per prior-doc characterization, not independently re-verified — §D.3, Unknowns #4); no DB writes.
+
+#### Step 12 — Final plan object assembly (`generate-mastery-plan/index.ts`, region feeding `planObj`)
+- **Receives:** `dayShape`, `mode`, `slots[]` (Step 9); selected practice content per slot (Step 10); why-line/copy per slot (Step 11); `weekAheadDecision` (Step 4); merge inputs from `mergeWithLedger` (below).
+- **Does:**
+  1. `buildPriorityTitle(...)` → deterministic `HorizonModule.title` per slot (§Section 0 data-flow diagram).
+  2. `mergeWithLedger(freshModules, ledgerModules, completedIds, ...)` reads `daily_ritual_completions.plan_ledger` (`index.ts:11417`) and merges freshly-generated modules against the existing ledger so already-completed items retain their completed status (Executive Summary point 5, "Persist... merge it against whatever plan the user already had for the day").
+  3. Assembles `planObj` fields in order per §Section 0: `meta.dayShape`/`meta.dayKind` (Step 9's `dayShape`), `horizonModules[]` (Steps 10-11's per-slot output), `weekAheadDecision` (Step 4), `reason`/`message` (set when the plan is in an "awaiting" state), `planState`.
+  4. `visiblePriorities` and `horizonMods` are derived/filtered subsets of the assembled modules used specifically for the persisted `priorities`/`horizon_modules` columns (Step 13).
+  5. `practiceIds` computed as the de-duplicated union of `visiblePriorities`/`horizonMods`' content IDs (`index.ts:12182-12191`).
+  6. Non-rest-day empty-payload guard: `if (!isRestDayPayload && !planIsAwaiting && horizonMods.length === 0)` → logs a structured warning `[mastery-plan-snapshot][non-rest-day-empty-payload]` (`index.ts:12107-12131`) — this is a **logged anomaly, not an early return**; execution continues to persistence regardless.
+- **Emits / hands to next step:** `planObj` (full plan JSON), `horizonMods`, `visiblePriorities`, `practiceIds`, `snapshotStatus` (`ready`/`awaiting`/`error`) → Step 13 (persistence) and Step 14 (response payload).
+- **Side effects:** DB read of `daily_ritual_completions.plan_ledger` (`index.ts:12217-12224`); structured logging (`[mastery-plan-snapshot][payload-details]`, `index.ts:12227-12238`).
+
+#### Step 13 — Persistence: `mastery_plan_snapshots` writes, merge/overwrite, idempotency/signature (`index.ts:12100-12300`+, `12582-12622` error path)
+- **Receives:** `planObj`, `horizonMods`, `visiblePriorities`, `practiceIds`, `planLedger`, `snapshotStatus`, `userId`, `planDate`, `currentPeriod` (mrsWindow) — all from Steps 1-12.
+- **Does:**
+  1. **`onlyIfMissing` early return:** if `opts.onlyIfMissing`, selects existing row by `(user_id, plan_date, mrs_window)`; if found, logs `[mastery-plan-snapshot][early-return]` reason `only_if_missing_row_exists` and **returns without writing** (`index.ts:12136-12150`).
+  2. **Awaiting-never-clobbers-ready guard:** if `snapshotStatus === "awaiting"`, checks for an existing `status:"ready"` row for the same key; if found, logs `[mastery-plan-snapshot][awaiting-preserved-ready]` and **returns without writing** (`index.ts:12157-12174`) — so an in-flight/degraded generation never overwrites a good prior plan.
+  3. Computes `horizonIsoValue`: if `weekAheadDecision.active` and `lookaheadDays > 0` → `now + lookaheadDays*86_400_000`; else `now + DAY_OF_HORIZON_MS` (default 24h) (`index.ts:12196-12213`) — Week-Ahead delta noted here (also see H.4).
+  4. Reads `daily_ritual_completions.plan_ledger` for merge context (`index.ts:12217-12224`, same lookup feeding Step 12's `mergeWithLedger`).
+  5. **Upsert**: `mastery_plan_snapshots.upsert({user_id, plan_date, mrs_window, day_kind, horizon_iso, plan_json: planObj, horizon_modules, priorities, recommended_practice_ids: practiceIds, plan_ledger, brief_snapshot_id: null, input_signature: stateFingerprint, status: snapshotStatus, error_json, generated_at}, {onConflict: "user_id,plan_date,mrs_window"})` (`index.ts:12239-12266`) — natural key confirmed directly this pass (resolves prior doc's Unknown #5). `brief_snapshot_id` is intentionally always `null` (comment: "generate-mastery-plan does not receive a briefId today"). `error_json` is populated only when `status === "awaiting"`.
+  6. On upsert error: logs `[mastery-plan-snapshot][upsert-failure]`; on success: logs `[mastery-plan-snapshot][upsert-success]` (`index.ts:12269-12280`+).
+  7. **Separate error-path upsert** (`index.ts:12590`, distinct call site from the success path above): writes `user_id, plan_date, mrs_window, status, error_json, generated_at` on the same `onConflict`, with an explicit **overwrite-protection** comment (`index.ts:12577-12588`): never clobber a valid ready snapshot with an error row; if a ready row exists, the UI keeps rendering it and the error is captured in logs/`executive_home_card_runs` instead.
+  8. `input_signature: stateFingerprint` is the idempotency/signature field — this is what Step 2's `expectedSignatureHash` handshake and the client's next-request `expectedSignatureHash` are checked against; exact fingerprint-computation logic was not re-derived beyond confirming the field name and its write-time slot in the upsert payload.
+- **Emits / hands to next step:** persisted row `{id, status}` → Step 14 (response echoes/derives from this row); `plan_json`, `horizon_modules`, `priorities`, `recommended_practice_ids`, `status`, `generated_at`, `input_signature`, `day_kind`, `horizon_iso` → Step 15 (Plan UI hook, `compute-outer-readiness`, `smart-nudges` all read these columns).
+- **Side effects:** DB read (existence checks, ledger read) and DB write (upsert) against `mastery_plan_snapshots`; structured logging throughout.
+
+#### Step 14 — Response to client (`generate-mastery-plan/index.ts`, handler return)
+- **Receives:** `planObj` and derived fields from Steps 12-13.
+- **Does:** returns the HTTP response per §Section 0's quoted shape — no additional branching beyond the earlier early-return points (Step 1's auth/parse failures, Step 9's dayShape-driven early returns which only affect `slots`/`dayShape` content, not the top-level response envelope).
+- **Emits / hands to next step:** `{signatureHash, timeOfDay, horizonModules[], calendarPills[], preEventPlan, coachCard, ledger, observability}` (exact payload shape, §Section 0) → Step 15's client-side consumers (Plan UI via `useMasteryPlanSnapshot`/`get-mastery-plan-snapshot`, not via this direct response body for the snapshot-first read path — see Step 15 note).
+- **Side effects:** none beyond the HTTP response itself.
+
+#### Step 15 — Post-run consumers: `compute-outer-readiness` (Brief) + `smart-nudges`
+- **Receives (Plan UI / `useMasteryPlanSnapshot`):** per `src/hooks/useMasteryPlanSnapshot.ts:1-45`, the hook does **not** read the direct `generate-mastery-plan` response — it is a **snapshot-first** read via a separate edge function `get-mastery-plan-snapshot`, keyed on `(effectiveUserId, planDate, mrsWindow)`, which performs current-window-first + latest-ready cross-window fallback and stamps `source.strategy`/`source.crossWindowFallback`. Fields exposed to the UI: `id, planJson, horizonModules, priorities, recommendedPracticeIds, planLedger, status, errorJson, generatedAt, inputSignature, planDate, mrsWindow, dayKind, horizonIso, deliveredAt, viewedAt, sourceStrategy, sourceSelectedWindow, sourceCrossWindowFallback` — all sourced from the `mastery_plan_snapshots` row written in Step 13. The hook does not trigger generation itself (comment, lines 5-11).
+- **Receives (`compute-outer-readiness`, Brief):** per existing doc §A.14, reads/produces the reciprocal direction — `compute-outer-readiness` is the **producer** of `brief_snapshots.payload_json.behaviour_snapshot`, which Plan itself **reads** at Step 2 (`loadBriefBehaviourSnapshot`) via the `expectedSignatureHash` handshake, not the other way around. `compute-outer-readiness` also imports `buildDeterministicBriefFallback` (`_shared/brief/deterministic-brief.ts:244`), used at `compute-outer-readiness/index.ts:8693` — this is a Brief-internal fallback, confirmed **not** shared with Plan's `composeWhyLine` (§D.3, N5). The 409/412 Brief↔Plan handshake contract itself was not independently re-verified line-by-line this pass (existing doc Unknown #6, carried forward unchanged).
+- **Receives (`smart-nudges`):** `loadPlanNudgeSlots(supabase, userId, planDate, mrsWindow)` (`smart-nudges/index.ts:511-560`, newly read this pass): selects `mastery_plan_snapshots.horizon_modules, status, generated_at` for the exact `(user_id, plan_date, mrs_window)` key, ordered by `generated_at desc`, `limit(1)`. **If no row is found for the exact window**, it falls back to a **same-day, any-window** query: `select horizon_modules,status,generated_at,mrs_window ... .eq(user_id).eq(plan_date) .order(generated_at desc).limit(1)` (`smart-nudges/index.ts:538-551`) — i.e. smart-nudges will happily read a *different* window's snapshot for the same day if the exact-window one is missing. Only `horizon_modules` is extracted (`raw = Array.isArray(row.horizon_modules) ? row.horizon_modules : []`) into `slots` — **`dayShape`/`mode`/`plan_json` are not read by this function**, consistent with existing doc's read-vs-re-derive table (§A.15, §A on Downstream-consumer table) showing smart-nudges independently recomputes its own day-of-week/weekend booleans (`ctx.dayOfWeek === 6` in 12+ places) rather than consuming a persisted `dayShape` field. Cross-ref Section F, N6 (one line only).
+- **Does / when:** Plan UI reads on every home-screen mount/poll via `useQuery` (`staleTime: 60s`, `queryKey: ['mastery-plan-snapshot', effectiveUserId, planDate, mrsWindow]`) — independent of, and after, any given `generate-mastery-plan` run. `smart-nudges` reads on its own scheduling/dispatch cadence, not synchronously chained to Step 13. `compute-outer-readiness` runs on the Brief's own cadence, upstream in time relative to a given Plan run's Step 2 read (Plan reads Brief's most recent output, not vice versa).
+- **Emits:** Plan UI renders `horizonModules`/`priorities`/`status` to the "Today's 3" card; `smart-nudges` uses `horizon_modules` (`slots`) to compose nudge copy/timing; `compute-outer-readiness` output feeds back into the **next** Plan run's Step 2, not the current one.
+- **Side effects:** DB reads only in this step (no writes by these three consumers against `mastery_plan_snapshots` itself, beyond `smart-nudges`' own separate dispatch/claim tables per `dispatch-key.ts`, §A.16 — one line, not expanded).
+
+---
+
+### H.2 Handoff Table
+
+| Step N | Field name | Produced at (file:line) | Consumed at Step M (file:line) |
+|---|---|---|---|
+| 1 | `userId` | `index.ts:11844-11879` | Steps 2,6,9,13 (`index.ts:5091`, `5913`, `12140-12266`) |
+| 1 | `body.calendarEvents[]` | `index.ts:11886-11962` (parsed) | Step 3/4/5 (`index.ts:11330-11397`, availability-classifier.ts:261) |
+| 1 | `body.expectedSignatureHash` | request body | Step 2 (`index.ts:5106-5110`) |
+| 1 | `clientLocalDate`/`req.localDate` | `index.ts:11984-11986` | Step 2 (`index.ts:5091,5364`), Step 13 (`planDate`) |
+| 1 | `slotReplacements`/`selectedCalendarEventIds` | `index.ts:11990-12000` | Step 9/12 (slot construction overrides — not exhaustively re-traced this pass) |
+| 2 | `today`/`localDateForLookup` | `index.ts:5091,5364` | Steps 3,4,9,13 (`planDate` key) |
+| 2 | Brief behaviour snapshot (or local-rebuild fallback) | `index.ts:5106-5134` | Step 11 (`briefClaim`, `index.ts:8687-8689`), Step 8b (`index.ts:5959-5986`) |
+| 2 | `practicePriorityTag`, `growthIntention`, goal tags | `index.ts:700-722` | Step 10 (`practice-selector.ts:70` intent, `:300,373` goal scoring) |
+| 3 | `isRestDay` → `hasRestSignals` | `availability-classifier.ts:261` → `index.ts:11339-11356` | Step 4 (fold-in), Step 9 (§Section C step 7 ternary, `slot-allocator.ts:174-182`) |
+| 3 | `state`, `workEvidence`, `holiday`, `reason` | `availability-classifier.ts:261` | **DEAD** for this pipeline (used by `smart-nudges`, `_shared/ceo-behaviour/pto-holiday` elsewhere, not by `deriveStructuralDayFlags`/`allocatePlanSlots`) |
+| 4 | `hasTravelDay`,`hasConferenceDay`,`hasOffsiteDay` | `index.ts:11330-11336` | Step 9 (`slot-allocator.ts:151-157,135`) |
+| 4 | `dayOfWeek` | `index.ts:11330-11397` | Step 9 (`slot-allocator.ts:143`, Bug B) |
+| 4 | `isWeekAhead` | `week-ahead-mode.ts:129` via `index.ts:11330-11397` | Step 9 (`slot-allocator.ts:139-141`, first check) |
+| 4 | `lookaheadDays`/`lookbackDays` | `week-ahead-mode.ts:129` | Step 13 (`index.ts:12198-12210`, `horizonIsoValue`), `list-week-ahead-priorities` (separate orchestration) |
+| 4 | `isPtoOrHoliday` | `index.ts:11330-11397` (from `classifyAvailability`) | Step 9 (`slot-allocator.ts:147-149`) |
+| 4 | `isFullWorkingWeekend` | `index.ts:11360-11362` | Step 9 (`slot-allocator.ts:143`, negation gate) |
+| 5 | per-event `categoryId`,`stakesLevel`,`severity`,`demandProfile` | `enrich-event.ts` (called by both scorers) | Step 6 (memory keys), Step 7 (shadow), Step 8 (live weights) |
+| 6 | `memoryDelta` | `event-priority-memory.ts:106` | Step 8 (`jit-candidates.ts:169-193`, `+memory` term) |
+| 6 | `memoryHardDemote` | `event-priority-memory.ts:133-136` + `index.ts:5935-5938` | Step 8 (`jit-candidates.ts:157`, skip gate) |
+| 7 | `result.ranked`,`result.excluded`,`result.tier`,`result.crisisEvents` | `select-jit.ts` via `index.ts:725-732` | **DEAD / shadow** — only `result.tier.tier` reaches a log line (`index.ts:734-737`); never consumed by Step 8/9 |
+| 8 | `jitRankedCandidates` (scored, floored, sorted) | `jit-candidates.ts:150-248` via `index.ts:5913-5954` | Step 8b (re-sort), Step 9 (`index.ts:7060,11111`), Step 10 (window signals) |
+| 8b | Brief-anchor-reordered `jitRankedCandidates` | `index.ts:5959-5986` | Step 9 (`allocatePlanSlots` input) |
+| 9 | `dayShape` | `slot-allocator.ts:174-182` | Step 10 (slot `anchorCategory`/`anchorPhase`), Step 12 (`planObj.meta.dayShape`), Step 13 (`day_kind` column) |
+| 9 | `mode` | `slot-allocator.ts:184-188` | Step 12 (`planObj` field); not read by `smart-nudges` (§A.15) — **effectively dead outside Plan's own response/snapshot** |
+| 9 | `slots[]` (`slotRole`,`arcLabel`,`jitPhase`,`jitEventTitle`,`jitEventId`,`jitCategoryId`,`allocationReason`) | `slot-allocator.ts:213-394` | Step 10 (practice selection input), Step 11 (`arcLabel`,`slotAnchorCategoryId`), Step 12 (`horizonModules[]`) |
+| 10 | `selected` practice content, `usedProtocolFallback` | `practice-selector.ts` | Step 11 (copy uses selected practice's action/verb), Step 12 (`horizonModules[]`), Step 13 (`recommended_practice_ids`) |
+| 11 | `fallbackWhyLine`/final why-line, `arcLabel` closer text | `index.ts:8639-8926`, `why-llm.ts` | Step 12 (`horizonModules[]` copy field) |
+| 12 | `planObj`,`horizonMods`,`visiblePriorities`,`practiceIds`,`snapshotStatus` | `index.ts:12100-12238` | Step 13 (upsert payload), Step 14 (response) |
+| 13 | `mastery_plan_snapshots` row (`plan_json`,`horizon_modules`,`priorities`,`recommended_practice_ids`,`status`,`generated_at`,`input_signature`,`day_kind`,`horizon_iso`) | `index.ts:12239-12266` | Step 15: Plan UI hook (`useMasteryPlanSnapshot.ts` full field list), `smart-nudges` (`horizon_modules` only, `smart-nudges/index.ts:520-560`); `dayShape`/`mode`/`plan_json` **not** read by `smart-nudges` |
+| 13 | `brief_snapshot_id` | `index.ts:12255` | **DEAD** — always written `null`, no consumer reads a populated value (contract not yet surfaced) |
+| 13 | `input_signature` (`stateFingerprint`) | `index.ts:12256` | Step 2 of the **next** run (`expectedSignatureHash` handshake), Plan UI (`inputSignature` field) |
+| 15 | `brief_snapshots.payload_json.behaviour_snapshot` | `compute-outer-readiness/index.ts` | Step 2 of a **later** Plan run (`loadBriefBehaviourSnapshot`) |
+
+---
+
+### H.3 Three Full-Day Traces
+
+**(a) Regular weekday, 2 strong JIT candidates (e.g. board-prep + client-pitch), non-UK/non-Gulf home country.**
+- Step 1: request parses normally, `dayOfWeek = 3` (Wed), `userId` resolved via normal auth.
+- Step 2: Brief handshake succeeds; `today` = client-sent local date.
+- Step 3: `classifyAvailability` → `WORKDAY` (≥2 timed meetings) → `hasRestSignals = false`.
+- Step 4: `hasTravelDay=false, hasConferenceDay=false, hasOffsiteDay=false, dayOfWeek=3, isWeekAhead=false` (evening-planning-day check fails on a Wednesday for any country), `isPtoOrHoliday=false, isFullWorkingWeekend=false`.
+- Step 5: board-prep event tagged category A, `stakesLevel='board'`; client-pitch tagged category C or B, `stakesLevel='high'`.
+- Step 6: assume no memory rows → `memoryDelta=0`, `memoryHardDemote=false` for both.
+- Step 7: shadow scorer runs, logs a `[jit-v2-shadow]` line, discarded.
+- Step 8: board-prep example scores per doc §B.4 Example 1: `base=40+catW=20+sevW=15+demW=12+prox=3-0+0 = 90` → kept (`hasStrongStakes`). Client-pitch, assume `high` stakes, category C: `base=22+catW=15+sevW=15+demW≈8+prox=5-0+0 ≈ 65` → also kept. Sorted: board (90) > pitch (65).
+- Step 9: Step 1 (Week-Ahead) — no. Step 2 (Saturday) — no (`dayOfWeek≠6`). Step 3 (PTO) — no. Step 4 (travel) — no. Step 5 (conference) — no. Step 6: `top`=board (category A, structural), `differentEventCandidate`=pitch event (different event) → `sameEventFan=false`; `dominantStructuralEvent = topIsStructural(true) && (!hasSecondCandidate(false, since second exists) || sameEventFan(false) || !differentEventCandidate(false))` → all three disjuncts false → **`dominantStructuralEvent=false`**. Step 7 ternary: `restSignals=false`; `structuralSignals=0` and top.categoryId≠F → not mixed via that clause; `dominantStructuralEvent=false`; `ranked.length<=1`? No (2+) → **`dayShape="mixed_day"`**. Mode = `"jit+state"`. 3 slots built top/second/third by array position; third slot likely degrades to a state fallback since only 2 real candidates exist.
+- Step 10: slot 1 (board, pre) → pre-decision-clarity intent (category A + phase pre) → practice selected accordingly. Slot 2 (pitch) → focus/flow-mastery intent likely (category C/high stakes) or activation/presence. Slot 3 (no candidate) → default regulation/composure intent.
+- Step 11: slot 1 why-line: event-specific clause likely present (board-specific) → wins outright, closer `"Prepare: ... {board title}."` (`arcLabel="Prepare"` since phase=pre). Slot 2: `arcLabel` depends on phase (likely "Prepare" or "Steady"). Slot 3: `arcLabel="Steady"` (no event phase), deterministic clauses only (no event-specific text since no anchor event).
+- Step 12: `planObj.meta.dayShape="mixed_day"`, 3 `horizonModules`.
+- Step 13: upserted with `status="ready"`, `day_kind="mixed_day"`, `horizon_iso = now+24h` (not Week-Ahead).
+- Step 14: response returns the 3 modules.
+- Step 15: Plan UI shows 3 modules; `smart-nudges` reads `horizon_modules` for this exact window; independently recomputes its own `dayOfWeek===6` checks elsewhere (irrelevant here since it's a Wednesday).
+
+**(b) Light weekday where zero candidates survive the floor.**
+- Steps 1-6 as in (a) but all events are low-stakes/admin (e.g. "R&D Tax Credit Claim Review", routine 1:1s with no stakes).
+- Step 7: shadow scorer runs, logged, discarded (as always).
+- Step 8: the R&D Tax event is dropped immediately at floor-check #3 (`admin_compliance_noise` title match) regardless of score (§B.2/B.4 Example 3). Other low-stakes events: category H with no explicit stakes → dropped at floor-check #4 (`personal_category_without_explicit_stakes`); any category D events with only 1 of {mediumStakes,highSeverity,strongDemand} true and numeric score <25 → dropped `below_meaningful_floor`. **All candidates dropped** → `jitRankedCandidates = []`.
+- Step 9: Step 1 (Week-Ahead) no. Step 2 (Saturday) no. Step 3 (PTO) no. Step 4/5 (travel/conference) no (`hasTravelDay`/`hasConferenceDay` false, or even if a background travel/conference flag were true, `!top` would be true since `ranked=[]`, so branches 4/5 **would** actually fire if `hasTravelDay`/`hasConferenceDay` were true here — but in this scenario both are false, so they don't). Step 6: `top=undefined` → `dominantStructuralEvent=false` (topIsStructural false since `!!top` is false). Step 7 ternary: `restSignals=false`; `structuralSignals=0`; `dominantStructuralEvent=false`; `ranked.length<=1`? Yes (0) → **`dayShape="light_routine"`**. Mode = `"jit+state"` (Bug A: unconditional, even with zero real candidates).
+- All 3 slots: `top=null, second=null, third=null` → each degrades to a state fallback via `makeSlot` with `candidate=null` → `isJit=false`, `allocationReason:"state_fallback_no_meaningful_jit"` (per doc §Section E row 2).
+- Step 10: default regulation/composure intent for all 3 slots (no `anchorCategory`/`anchorPhase` context from a real event) — degrades to whichever fallback content wins on generic scoring.
+- Step 11: no event-specific why-line possible (no anchor event) → deterministic strat/tac/imm clauses only, closer `arcLabel="Steady"` for all 3 (no phase context).
+- Step 12: `planObj.meta.dayShape="light_routine"`; non-rest-day-empty-payload guard does **not** fire here because `horizonMods.length===3`, not 0 (all 3 slots still produce state-fallback modules, they're just not JIT-anchored).
+- Step 13: persisted `status="ready"`, `day_kind="light_routine"`.
+- Step 15: `smart-nudges` reads `horizon_modules` (3 generic state slots) for nudge copy.
+
+**(c) Saturday, UK user (home country not in the Saturday-planning set).**
+- Step 1-2 as normal; `dayOfWeek=6`.
+- Step 3: `classifyAvailability` — weekend day (`weekendDays=[6]` default applies regardless of home country per N4) and assume no ≥2-meeting work evidence → `REST_DAY` → `hasRestSignals=true`.
+- Step 4: `dayOfWeek=6`. `evaluateWeekAheadMode`: `planningDayOfWeek('GB')` (UK, not in `{SA,KW,QA,BH,OM,IL}`) → Sunday-planning, so on a **Saturday** for a UK user, Week-Ahead does **not** activate via this path (would activate Sunday evening instead) → `isWeekAhead=false` (assuming no other Week-Ahead trigger condition independently fires; full waterfall not re-quoted here per "don't re-derive," see §Section D reference). `isPtoOrHoliday=false` (assume not applicable). `isFullWorkingWeekend`: `(dayOfWeek===6) && (calendarLoad∈{high,extreme} || realMeetingCount≥3)` — assume ordinary light Saturday, `calendarLoad` not high/extreme and `<3` meetings → **`isFullWorkingWeekend=false`**.
+- Step 9: branch 1 (Week-Ahead) — no (`isWeekAhead=false`). Branch 2 (Saturday): `input.dayOfWeek===6 && !isFullWorkingWeekend` → **true** → `return buildSingleStateSlotResult("saturday","saturday_habit_only", ranked.length, preferredPracticeWindows)`. **This early return means the `rest_day` ternary (branch 7) is never reached at all**, even though `hasRestSignals=true` was computed — per doc §Section E row 3, `saturday` and `rest_day` are structurally different return paths despite overlapping meaning. **Steps 8-8b's ranked candidates are effectively unused** for day-shape purposes here — only `ranked.length` feeds into `buildSingleStateSlotResult`'s debug telemetry, not the slot content itself.
+- 1 slot only: `slotRole` = `close_of_day` if `preferredPracticeWindows` includes `evening`, else `state_anchor`; `allocationReason="saturday_habit_only"` (suffixed with preferred-window name if present); no JIT fields populated.
+- Step 10: intent derivation for the single state slot → likely recovery/renewal (weekend, no anchor event) or regulation/composure default.
+- Step 11: no event-specific why-line (no anchor event); deterministic clauses only; `arcLabel="Steady"` (no phase).
+- Step 12: `planObj.meta.dayShape="saturday"`, 1 `horizonModule`.
+- Step 13: persisted `status="ready"`, `day_kind="saturday"`, `horizon_iso=now+24h` (Week-Ahead not active).
+- Step 15: `smart-nudges` reads `horizon_modules` (1 slot); independently, `smart-nudges` also separately re-derives its own `dayOfWeek===6` weekend checks at its 12+ call sites, which is a **completely separate** recomputation from this Plan run's `dayShape` (per §A.15/N6) — the two systems can in principle disagree about "is today special" without either being aware of the other's answer.
+
+---
+
+### H.4 Week-Ahead Variant — Delta Walkthrough
+
+- **Step 4 (`deriveStructuralDayFlags` / `evaluateWeekAheadMode`)**: normally computes `dayOfWeek`, structural flags, and `isPtoOrHoliday`/`isFullWorkingWeekend` for use by the day-of allocator; under Week-Ahead, it **additionally** evaluates `evaluateWeekAheadMode({dayOfWeek,...})`'s first-match-wins waterfall and, when it returns `active:true`, sets `isWeekAhead=true` and populates `lookaheadDays`/`lookbackDays` — these extra fields have no equivalent in the non-Week-Ahead path.
+- **Step 8 (`rankJitCandidates`)**: normally scores/floors/sorts events within a same-day `MAX_JIT_HORIZON_MS=24h` window; the doc's §A.5 notes that **Week-Ahead does not reuse this same invocation** — instead, `list-week-ahead-priorities` (a separate edge function) re-runs `rankJitCandidates` independently over a `[today, +8d)` window and applies its own `applyEventPriorityMemory` pass, writing to `weekly_plan_snapshots` rather than `mastery_plan_snapshots`. So under Week-Ahead, the **day-of** `generate-mastery-plan` invocation's own Step 8 result becomes largely moot for slot content, because Step 9 short-circuits before consuming it in detail (see below).
+- **Step 9 (`allocatePlanSlots`)**: normally runs the full 7-branch dayShape waterfall (Saturday/PTO/travel/conference/dominant/mixed/light_routine); under Week-Ahead, branch 1 (`if (input.isWeekAhead) return buildSingleStateSlotResult("week_ahead","week_ahead_planning", ranked.length, preferredPracticeWindows)`, `slot-allocator.ts:139-141`) fires **first, unconditionally**, before any of Saturday/PTO/travel/conference/dominant/mixed/light_routine logic runs — none of branches 2-7 ever execute. Only 1 slot is produced instead of the normal 0/1/3 depending on day-shape.
+- **Step 9 (slot fields)**: normally `jitEventTitle`/`jitEventId`/`jitCategoryId`/`jitPhase` are populated for JIT-anchored slots (`mixed_day`/`dominant_structural_event`/etc.); under Week-Ahead, `buildSingleStateSlotResult` **never** populates any JIT field (`jitPhase:null, jitEventTitle:null, jitEventId:null, jitCategoryId:null`, lines 328-332) — the single slot is always a generic state anchor, never event-anchored, regardless of how many candidates `ranked` actually contains.
+- **Step 9 (`slotRole`)**: normally `slotRole` is set per-arc-position (`pre`/`during`-or-state/`post`, or `state_anchor` for single-slot day-shapes); under Week-Ahead, `slotRole` specifically depends on `preferredPracticeWindows` — `evening` preference → `close_of_day`; otherwise `state_anchor` — and `allocationReason` is suffixed with the preferred window name when present (`` `${allocationReason}_${preferredWindow}` ``, line 319). This suffixing pattern is unique to the Week-Ahead/Saturday/PTO single-slot branches and does not occur for the 3-slot day-shapes.
+- **Step 12 (final assembly)**: normally `planObj` carries no `weekAheadDecision`-derived horizon extension; under Week-Ahead, `planObj.weekAheadDecision` (from Step 4) is read at Step 13 to extend the persisted horizon.
+- **Step 13 (persistence, `horizonIsoValue`)**: normally `horizon_iso = now + DAY_OF_HORIZON_MS` (24h default, `index.ts:12208-12210`); under Week-Ahead (`wad.active && lookaheadDays>0`), `horizon_iso = now + lookaheadDays*86_400_000` instead (`index.ts:12203-12206`) — i.e. the persisted horizon window is stretched from "next 24h" to "next N days" per the Week-Ahead decision's `lookaheadDays`.
+- **Step 15 (consumers)**: normally Plan UI/`smart-nudges` read the day-of `mastery_plan_snapshots` row for "Today's 3"; Week-Ahead's parallel surface (`list-week-ahead-priorities`) writes to a **different table**, `weekly_plan_snapshots`, which is a separate read path not covered by `useMasteryPlanSnapshot`/`loadPlanNudgeSlots` in this pipeline — i.e. Week-Ahead output and day-of Plan output are two distinct persisted artifacts, not a single merged record.
