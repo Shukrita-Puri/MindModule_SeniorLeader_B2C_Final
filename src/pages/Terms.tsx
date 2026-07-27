@@ -52,18 +52,13 @@ const Terms = () => {
           <h2 className={H2_CLS}>5. Subscriptions and Payment</h2>
 
           <h3 className={H3_CLS}>5.1 Subscription Plans</h3>
-          <p className="mb-4">Mind Module offers subscription plans billed on a recurring basis.</p>
-          <p className="mb-2"><strong>United Kingdom &amp; European Union:</strong></p>
-          <ul className="list-disc pl-6 space-y-2 mb-4">
-            <li>Monthly Pro: £29 per month</li>
-            <li>Annual Pro: £24 per month, billed annually at £288 per year</li>
-          </ul>
-          <p className="mb-2"><strong>United States &amp; Rest of World:</strong></p>
-          <ul className="list-disc pl-6 space-y-2 mb-4">
-            <li>Monthly Pro: $29 per month</li>
-            <li>Annual Pro: $24 per month, billed annually at $288 per year</li>
-          </ul>
-          <p className="mb-4">Prices are displayed in your local currency where supported.</p>
+          <p className="mb-4">Mind Module Pro is offered as a monthly plan and an annual plan, billed on a recurring basis.</p>
+          <p className="mb-4">
+            The exact price, currency and billing period that apply to you are always shown before you
+            confirm a purchase: on the checkout page when you subscribe on the web, and on the in-app
+            subscription screen and Apple's confirmation sheet when you subscribe through the App Store.
+            Prices are localised to your region and store, so no price is stated here.
+          </p>
 
           <h3 className={H3_CLS}>5.2 Free Trial</h3>
           <p className="mb-4">
@@ -71,7 +66,13 @@ const Terms = () => {
           </p>
 
           <h3 className={H3_CLS}>5.3 Billing and Renewals</h3>
-          <p className="mb-4">Payments are processed by Stripe. By subscribing, you authorise Stripe to charge your selected payment method on a recurring basis. Subscriptions automatically renew at the end of each billing period unless cancelled before the renewal date.</p>
+          <p className="mb-4">
+            Web subscriptions are processed by Stripe; by subscribing you authorise Stripe to charge your
+            selected payment method on a recurring basis. Subscriptions purchased in the iOS app are
+            processed by Apple and billed to your Apple ID. In both cases the subscription automatically
+            renews at the end of each billing period at the price shown at purchase, unless cancelled at
+            least 24 hours before the renewal date.
+          </p>
 
           <h3 className={H3_CLS}>5.4 Cancellation and Refunds</h3>
           <p className="mb-4">You may cancel your subscription at any time via account settings, or via your Apple ID subscription settings if you subscribed through the App Store. Cancellation takes effect at the end of the current billing period — you retain access until then.</p>
