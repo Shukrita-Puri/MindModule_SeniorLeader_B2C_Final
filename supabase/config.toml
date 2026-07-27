@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.set-home-location]
 verify_jwt = false
+
+[functions.apple-notifications]
+verify_jwt = false
