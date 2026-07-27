@@ -17,15 +17,17 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Check, RotateCcw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  loadIapProducts,
+  loadIapProductsWithDiagnostics,
+  describeIapLoadDiagnostics,
+  looksLikeAppStoreConnectIssue,
   purchaseIapProduct,
   restoreIapPurchases,
   openAppleManageSubscriptions,
-  isIapAvailable,
   onIapTransactionUpdate,
   type IapProduct,
+  type IapLoadDiagnostics,
 } from '@/services/iap';
-import { getIapConfigStatus, planSortOrder } from '@/config/iapProducts';
+import { planSortOrder } from '@/config/iapProducts';
 import { isNonApplePaidEntitlement } from '@/config/purchasePlatform';
 import { hasValidAccess, type AccessUser } from '@/utils/subscriptionHelpers';
 import { describeTrial, describeIntroDiscount, billingFrequencyLabel } from '@/utils/introOffer';
@@ -45,6 +47,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [storeUnavailable, setStoreUnavailable] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<IapLoadDiagnostics | null>(null);
 
   const alreadyEntitled = hasValidAccess(user);
   const stripeLegacy = isNonApplePaidEntitlement(user) && alreadyEntitled;
@@ -56,28 +59,41 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   const refresh = useCallback(async () => {
     setLoadingProducts(true);
     setProductError(null);
+    setStoreUnavailable(false);
     try {
-      const config = getIapConfigStatus();
-      if (!config.ok) {
+      const { products: fetched, diagnostics: diag } = await loadIapProductsWithDiagnostics();
+      setDiagnostics(diag);
+
+      if (diag.outcome === 'config_invalid') {
+        setProducts([]);
         setProductError(
-          config.reason ??
+          diag.configReason ??
             'In-app purchases are not configured for this build. Please update to the latest version.',
         );
         return;
       }
-      const available = await isIapAvailable();
-      if (!available) {
+      if (diag.outcome === 'store_unavailable') {
+        setProducts([]);
         setStoreUnavailable(true);
         return;
       }
-      const list = [...(await loadIapProducts())].sort(
+      if (diag.outcome === 'fetch_error') {
+        setProducts([]);
+        setProductError(diag.errorMessage ?? 'Unable to reach the App Store.');
+        return;
+      }
+
+      const list = [...fetched].sort(
         (a, b) => planSortOrder(a.id) - planSortOrder(b.id),
       );
+      // A partial return must still render what StoreKit gave us — collapsing
+      // to the generic empty state would hide a purchasable plan.
       if (list.length === 0) {
         setProductError('No subscription options are available right now. Please try again later.');
       }
       setProducts(list);
     } catch (err) {
+      setProducts([]);
       setProductError((err as Error)?.message ?? 'Unable to reach the App Store.');
     } finally {
       setLoadingProducts(false);
@@ -242,6 +258,12 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       {!loadingProducts && productError && (
         <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
           <p className="text-sm">{productError}</p>
+          {import.meta.env.DEV && diagnostics && (
+            <p className="text-[11px] font-mono text-muted-foreground break-all" data-testid="apple-paywall-diagnostics">
+              {describeIapLoadDiagnostics(diagnostics)}
+              {looksLikeAppStoreConnectIssue(diagnostics) ? ' · likely App Store Connect state' : ''}
+            </p>
+          )}
           <Button variant="outline" size="sm" onClick={() => void refresh()}>Try again</Button>
         </div>
       )}
