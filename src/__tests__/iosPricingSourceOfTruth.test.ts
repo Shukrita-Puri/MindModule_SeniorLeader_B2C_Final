@@ -16,6 +16,10 @@ import { resolve } from 'node:path';
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
+/** Comments explain intent; only executable copy can mislead a user. */
+const stripComments = (src: string) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
 /** e.g. £29, $24.99, €349.99 */
 const CURRENCY_AMOUNT = /[£$€]\s?\d/;
 
@@ -31,7 +35,7 @@ const IOS_VISIBLE_SURFACES = [
 
 describe('no hardcoded subscription pricing on iOS-reachable surfaces', () => {
   it.each(IOS_VISIBLE_SURFACES)('%s states no currency amount', (file) => {
-    expect(CURRENCY_AMOUNT.test(read(file))).toBe(false);
+    expect(CURRENCY_AMOUNT.test(stripComments(read(file)))).toBe(false);
   });
 
   it('the paywall renders StoreKit displayPrice rather than its own copy', () => {
@@ -40,7 +44,7 @@ describe('no hardcoded subscription pricing on iOS-reachable surfaces', () => {
   });
 
   it('trial copy is derived from Apple intro-offer data only', () => {
-    const src = read('src/utils/introOffer.ts');
+    const src = stripComments(read('src/utils/introOffer.ts'));
     expect(src).toContain('freeTrial');
     // No baked-in duration: the "7-day" string must come from Apple's period.
     expect(/['"`]7[- ]day/i.test(src)).toBe(false);
