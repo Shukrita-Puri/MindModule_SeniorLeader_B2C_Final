@@ -1,78 +1,35 @@
-# Apple In-App Purchase — Configuration Required
+# Apple In-App Purchase — status and required App Store Connect configuration
 
-Single source of truth in code: `src/config/iapProducts.ts`.
-Prices, currencies, localized names, billing periods and introductory offers are
-loaded from StoreKit at runtime and are never hardcoded.
+Last verified against the codebase: 27 July 2026.
+
+Single source of truth in code: `src/config/iapProducts.ts`. Prices, currencies,
+localized names, billing periods and introductory offers are read from StoreKit
+at runtime and are never hardcoded — enforced by
+`src/__tests__/iosPricingSourceOfTruth.test.ts`.
 
 ## Scope — this is not the push-notification system
 
 `apple-notifications` is a **backend-to-backend Apple subscription webhook only**.
-The existing **APNs** stack (device tokens, multi-device handling, safe
-logout/unregister, Smart Nudges, scheduled reminders, diagnostics, cron
-orchestration) is a separate system and is untouched by the IAP work. The two
-must remain independent — the subscription webhook never sends user pushes, and
-the APNs system never processes subscription events. See
+The APNs stack (device tokens, Smart Nudges, scheduled reminders, diagnostics,
+cron orchestration) is a separate system and is untouched by the IAP work. The
+separation is enforced by
+`supabase/functions/_shared/apple-webhook-separation.test.ts`. See
 `APPLE_NOTIFICATIONS_SETUP.md` §0.
 
-App Store Connect configuration (products, V2 notification URLs, IAP key)
-remains a manual action by the Apple account owner.
+## Products
 
-## Product IDs
-
-| Plan | App Store Connect ref | Product ID used by the app | Status |
+| Plan | App Store Connect ref | Product ID | Duration |
 |---|---|---|---|
-| Pro Monthly | 6794905314 | `me.mindmodule.pro.monthly` | ✅ Confirmed |
-| Pro Annual  | 6794905448 | `me.mindmodule.pro.annual`  | ✅ Confirmed |
+| Pro Monthly | 6794905314 | `me.mindmodule.pro.monthly` | 1 month |
+| Pro Annual  | 6794905448 | `me.mindmodule.pro.annual`  | 1 year |
 
-No trial product exists and none must ever be created. Product ids such as
-`com.mindmodule.pro.trial` or `com.mindmodule.pro.7daytrial` are forbidden — the
-7-day free trial is an **Introductory Offer attached to the two subscriptions
-above**, inside the single `Mind Module Pro` subscription group.
+Both live in ONE subscription group: **Mind Module Pro**.
 
-## 7-day free trial (Apple Introductory Offer)
+No trial product exists and none must ever be created. Ids such as
+`com.mindmodule.pro.trial` are forbidden — the 7-day free trial is an
+**Introductory Offer attached to the two subscriptions above**.
 
-Model: one subscription group, two auto-renewable subscriptions, one
-**Introductory Offer → Free Trial → 7 days** on each.
-
-Runtime behaviour (implemented):
-
-- The native plugin asks StoreKit for `isEligibleForIntroOffer` per subscription
-  and only returns `introOffer` when the signed-in Apple ID is eligible.
-- `paymentMode` is normalized to `freeTrial` / `payAsYouGo` / `payUpFront`; only
-  `freeTrial` produces trial copy.
-- `src/utils/introOffer.ts` builds all trial strings from Apple's data:
-  `"7-day free trial"`, `"then <localized price> per <period>"`, the CTA
-  `"Start 7-day free trial"`, and the auto-renewal + cancellation disclosure.
-- Ineligible users (already trialled, resubscribers) see standard paid pricing,
-  a `Subscribe` CTA and no trial text.
-- Trial duration, currency, localized price and availability are never
-  hardcoded — change the offer in App Store Connect and the app follows.
-
-Lifecycle: trial start, conversion to paid, cancellation during trial, renewal,
-expiry, refund and revocation are all handled by the existing
-`verify-apple-purchase` + `apple-notifications` (V2) path. Entitlement rule is
-unchanged: **active Apple subscription OR active Stripe subscription = Pro**.
-
-Owner actions still required in App Store Connect (per subscription, Monthly and
-Annual): Subscription → *Introductory Offers* → Create → territories: All →
-type **Free**, duration **1 week (7 days)** → no end date → save, then submit
-with the next app version. Finally validate with a StoreKit Sandbox tester
-(fresh Sandbox Apple ID, buy Monthly, confirm trial copy and the "7 days free,
-then …" system sheet; cancel mid-trial; re-open the paywall with the same
-Apple ID and confirm the trial copy is gone).
-
-### Product ID conflict — RESOLVED
-
-Both product IDs are now confirmed in App Store Connect and are unique. Monthly
-does **not** use the annual ID anywhere in the codebase. Guards still in place:
-
-- `getIapConfigStatus().duplicateIds` — if both ids ever resolve to the same
-  string (e.g. a bad env override), the paywall refuses to sell and shows
-  "Monthly and annual are configured with the same Apple product id."
-- `src/config/__tests__/iapProducts.test.ts` asserts both ids are exact, unique
-  and mapped monthly-first.
-
-## Environment overrides (no code change needed)
+Environment overrides (no code change needed):
 
 ```
 VITE_APPLE_PRO_MONTHLY_PRODUCT_ID=me.mindmodule.pro.monthly
@@ -80,52 +37,71 @@ VITE_APPLE_PRO_ANNUAL_PRODUCT_ID=me.mindmodule.pro.annual
 ```
 Legacy names `VITE_IAP_PRODUCT_ID_MONTHLY` / `_ANNUAL` are still honoured.
 
-Server side (Supabase secrets — never commit): `APPLE_BUNDLE_ID`,
-`APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_ISSUER_ID`, `APPLE_PRIVATE_KEY`,
-`APPLE_ENVIRONMENT` (`Production` | `Sandbox`), optional `APPLE_ROOT_CA_G3_B64`.
+Server secrets (never committed): `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`,
+`APPLE_KEY_ID`, `APPLE_ISSUER_ID`, `APPLE_PRIVATE_KEY`, `APPLE_ENVIRONMENT`
+(`Production` | `Sandbox`), optional `APPLE_ROOT_CA_G3_B64`.
 
-## Manual App Store Connect steps
+## Already handled in code — verified
 
-1. Create ONE subscription group: **Mind Module Pro**.
-2. Add two **Auto-Renewable Subscriptions** (not consumable/non-consumable):
-   - Pro Monthly — 1 month duration.
-   - Pro Annual — 1 year duration.
-3. Add a **7-day free trial introductory offer** to each (Free, 1 week, all
-   territories). Do NOT create a separate trial product. The app only renders
-   trial copy when StoreKit returns the offer AND reports the Apple ID eligible.
-4. Complete localizations, review screenshot, and pricing per territory.
-5. Users and Access → Integrations → In-App Purchase → create key, download
-   `.p8`, note Key ID + Issuer ID → store as Supabase secrets.
-6. App Store Server Notifications → **Version 2** →
+| Behaviour | Where |
+|---|---|
+| iOS shows the Apple paywall, never Stripe checkout | `src/pages/onboarding/stages/Stage6Payment.tsx` (early return), `src/config/purchasePlatform.ts` |
+| Products loaded only from StoreKit, monthly-then-annual | `src/services/iap.ts`, `src/config/iapProducts.ts` |
+| Partial product return still renders the plans Apple did send | `src/components/subscription/ApplePaywall.tsx` |
+| Zero / partial / error / store-disabled states are distinct and calm | `ApplePaywall.tsx` + `loadIapProductsWithDiagnostics()` |
+| Diagnostics log product ids, counts, storefront and native error codes only — never receipts, JWS, appAccountToken or Apple identity | `src/services/iap.ts`, covered by `src/services/__tests__/iapProductDiagnostics.test.ts` |
+| Trial copy built purely from Apple's `paymentMode` + period; ineligible users see paid copy and a `Subscribe` CTA | `src/utils/introOffer.ts` |
+| Purchase / pending / cancelled / failed handling | `ApplePaywall.tsx` |
+| Restore Purchases, Manage Subscription (Apple deep link only) | `ApplePaywall.tsx`, `iap.ts` |
+| Entitlement sync on cold start, foreground resume, StoreKit transaction updates | `IapEntitlementWatcher` in `src/App.tsx`, `onIapTransactionUpdate()` |
+| Renewal / expiry / refund / revocation convergence | `supabase/functions/apple-notifications`, `_shared/apple-entitlement.ts` |
+| Server-side JWS verification, bundle-id check, idempotent upsert, Auth0 `sub` identity | `supabase/functions/verify-apple-purchase` |
+| Stripe blocked server-side for iOS callers (`ios_requires_iap`) | `supabase/functions/create-checkout-session` |
+| Existing Stripe subscribers on iOS see read-only status, never a repurchase CTA | `ApplePaywall.tsx`, `isNonApplePaidEntitlement()` |
+| Entitlement rule: active Apple **or** active Stripe subscription = Pro | `src/utils/subscriptionHelpers.ts` |
+| Account deletion happens server-side before sign-out | `src/components/profile/DeleteAccountDialog.tsx`, `supabase/functions/delete-my-account` |
+| Review prompt suppressed on onboarding / payment / auth / error routes | `src/services/appReview.ts` |
+| No currency amount rendered on any iOS-reachable surface (paywall, upgrade modal, Terms) | `src/__tests__/iosPricingSourceOfTruth.test.ts` |
+| Webhook reachable unauthenticated by Apple | `[functions.apple-notifications] verify_jwt = false` in `supabase/config.toml` |
+
+## Still required in App Store Connect — owner only
+
+These cannot be performed from code. The account holder must complete them.
+
+1. **Subscription group** — confirm exactly one group named `Mind Module Pro`
+   containing both subscriptions. Do not create a second group.
+2. **Product IDs** — confirm `me.mindmodule.pro.monthly` (1 month) and
+   `me.mindmodule.pro.annual` (1 year) exist, are unique, and sit under bundle
+   `com.moonshot.mindmoduleapp`.
+3. **Per subscription**: complete Subscription Prices (all territories),
+   Localizations (display name + description), and the review screenshot.
+   A subscription missing any of these is not returned by StoreKit.
+4. **7-day free trial** — for each subscription: Introductory Offers → Create →
+   Territories: All → Type **Free** → Duration **1 week** → no end date → Save.
+   Do NOT create a separate trial product.
+5. **Attach both subscriptions to the app version** being submitted
+   (App Store → your version → In-App Purchases and Subscriptions).
+6. **App Store Server Notifications V2** — set Production and Sandbox URLs to:
    `https://iyilcpvercoywaweybpc.supabase.co/functions/v1/apple-notifications`
-   (see `APPLE_NOTIFICATIONS_SETUP.md`).
-7. Sandbox-test: purchase, trial, cancel, renew, refund, restore.
+   Version 2 only (see `APPLE_NOTIFICATIONS_SETUP.md`).
+7. **In-App Purchase key** — Users and Access → Integrations → In-App Purchase →
+   create key, download `.p8`, note Key ID + Issuer ID, store as backend secrets.
+8. **Agreements, Tax and Banking** — Paid Applications Agreement active,
+   banking and tax complete. Products never load until this is done.
+9. **Sandbox validation** with a fresh Sandbox Apple ID: buy Monthly, confirm the
+   "7 days free, then …" system sheet and in-app trial copy; cancel mid-trial;
+   reopen the paywall with the same Apple ID and confirm trial copy is gone;
+   test Restore Purchases; test Annual; confirm entitlement appears server-side.
 
-## Status
+If the paywall shows no plans, read the `[iap] product-load …` console line on
+device: the `missing=` list names exactly which product id App Store Connect is
+not returning, and `outcome=` distinguishes App Store Connect state from a code
+or device problem.
 
-**A. Implemented and verified**
-- Centralized, environment-safe product config with duplicate-id guard.
-- StoreKit 2 native plugin, runtime product load, monthly-then-annual ordering.
-- Purchase / pending / cancelled / failed handling, Restore Purchases,
-  Manage Subscription (Apple only), launch + resume entitlement refresh,
-  duplicate-purchase suppression for already-entitled users.
-- Server-side verification (`verify-apple-purchase`) and V2 notification
-  handling with idempotency; Auth0 `sub` remains the identity.
-- iOS/iPadOS shows no Stripe checkout, external payment button or web purchase
-  link; Stripe remains live on web and is rejected server-side for iOS callers.
-- Eligibility-gated 7-day introductory-offer rendering (code-side complete,
-  covered by `src/utils/__tests__/introOffer.test.ts`).
+## Known non-blocking gaps
 
-**B. Implemented, awaiting deployment/config**
-- Server-side re-verification via App Store Server API activates once the Apple
-  API credentials are stored as Supabase secrets.
-
-**C. Blocked**
-- Apple API credentials (`APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`,
-  `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID`).
-
-**D. Manual App Store Connect steps** — see list above.
-
-**E. Not yet validated** — the 7-day trial is NOT live until the introductory
-offers are created on both subscriptions in App Store Connect and a StoreKit
-Sandbox tester has completed a trial purchase end to end.
+- Server-side re-verification through the App Store Server API only activates
+  once the Apple API credentials above are stored as backend secrets.
+- Web (Stripe) pricing copy in `src/pages/onboarding/stages/Stage6Payment.tsx`
+  is still a hardcoded table. It is unreachable inside the iOS shell, but it
+  must be reconciled with the live Stripe prices before web launch.
