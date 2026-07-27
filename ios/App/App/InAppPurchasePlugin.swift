@@ -98,9 +98,29 @@ public class InAppPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                     }
                     payload.append(entry)
                 }
-                call.resolve(["products": payload])
+                // Diagnostics only — product ids, counts and storefront country.
+                // Never receipts, transactions, tokens or Apple account identity.
+                let returnedIds = products.map { $0.id }
+                let missingIds = ids.filter { !returnedIds.contains($0) }
+                let storefront = await Storefront.current?.countryCode
+                if !missingIds.isEmpty {
+                    CAPLog.print("[InAppPurchase] StoreKit did not return: \(missingIds.joined(separator: ", ")) (requested: \(ids.joined(separator: ", ")), storefront: \(storefront ?? "unknown"))")
+                }
+                call.resolve([
+                    "products": payload,
+                    "requestedProductIds": ids,
+                    "missingProductIds": missingIds,
+                    "storefront": storefront ?? NSNull(),
+                    "locale": Locale.current.identifier,
+                ])
             } catch {
-                call.reject("Failed to load products: \(error.localizedDescription)")
+                let nsError = error as NSError
+                CAPLog.print("[InAppPurchase] getProducts failed: domain=\(nsError.domain) code=\(nsError.code) requested=\(ids.joined(separator: ", "))")
+                call.reject(
+                    "Failed to load products: \(error.localizedDescription)",
+                    "\(nsError.domain).\(nsError.code)",
+                    error
+                )
             }
         }
     }
