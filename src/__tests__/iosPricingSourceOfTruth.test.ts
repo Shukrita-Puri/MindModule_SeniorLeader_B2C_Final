@@ -45,7 +45,8 @@ describe('no hardcoded subscription pricing on iOS-reachable surfaces', () => {
 
   it('trial copy is derived from Apple intro-offer data only', () => {
     const src = stripComments(read('src/utils/introOffer.ts'));
-    expect(src).toContain('freeTrial');
+    expect(src).toContain("mode === 'freetrial'");
+    expect(src).toContain('product.introOffer');
     // No baked-in duration: the "7-day" string must come from Apple's period.
     expect(/['"`]7[- ]day/i.test(src)).toBe(false);
   });
