@@ -30,6 +30,7 @@ const ALLOWED_HEADERS = [
   "x-client-path",
   "x-dev-user-id",
   "x-impersonation-token",
+  "x-mm-client-platform",
 ].join(", ");
 
 export function getCorsHeaders(req: Request): Record<string, string> {
