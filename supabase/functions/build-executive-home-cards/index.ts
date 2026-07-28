@@ -795,6 +795,12 @@ async function buildForUser(db: any, args: {
           timezoneOffset: offset,
           localDate,
           forceRefresh: force,
+          currentTimezone: effectiveTimezone,
+          homeTimezone,
+          userHomeCountry: profile?.country ?? null,
+          userCurrentCountry: null,
+          travelState: travel ?? null,
+          preferJitV2: true,
           outerReadinessCache: brief,
         // F1 — bind Plan persistence to the exact window this orchestrator
         // run is for (morning/afternoon/evening). Without this, the Plan

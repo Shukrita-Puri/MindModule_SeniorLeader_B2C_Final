@@ -863,6 +863,7 @@ const TodayThreePriorities = ({
       forceRefresh: opts.forceRefresh,
       localDate: opts.localDate,
       todayCheckinId: opts.todayCheckinId,
+      preferJitV2: true,
       timeWindow: currentWindow,
       strictBriefHandshake: true,
       mrsReadinessState:

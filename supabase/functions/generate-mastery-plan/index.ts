@@ -145,6 +145,7 @@ import {
 // user sees until PR 2.
 import {
   type SelectInputEvent,
+  type SelectResult,
   selectJitCandidates,
 } from "../_shared/jit/select-jit.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
@@ -176,13 +177,14 @@ async function runJitV2Shadow(
   scoredEvents: any[],
   filteredEvents: any[],
   req: any,
-): Promise<void> {
+  opts?: { persistShadow?: boolean },
+): Promise<SelectResult | null> {
   // Run on the broader scored set so v2 has visibility even when the legacy
   // suppression filter drops everything; fall back to filteredEvents.
   const sourceEvents = Array.isArray(scoredEvents) && scoredEvents.length > 0
     ? scoredEvents
     : (Array.isArray(filteredEvents) ? filteredEvents : []);
-  if (sourceEvents.length === 0) return;
+  if (sourceEvents.length === 0) return null;
 
   // Account age in days (floor by profiles.created_at).
   let accountAgeDays = 0;
@@ -752,6 +754,10 @@ async function runJitV2Shadow(
     });
   } catch { /* logging must never break plan generation */ }
 
+  if (opts?.persistShadow === false) {
+    return result;
+  }
+
   // Capture legacy top for parity (filteredEvents[0] is the legacy winner).
   const legacyTop = (filteredEvents && filteredEvents[0]) || null;
   const legacyTopId = legacyTop?.event?.id ?? null;
@@ -804,6 +810,7 @@ async function runJitV2Shadow(
       e?.message,
     );
   }
+  return result;
 }
 
 // FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
@@ -911,6 +918,12 @@ interface PlanRequest {
    * that still want the local fallback.
    */
   strictBriefHandshake?: boolean;
+  preferJitV2?: boolean;
+  currentTimezone?: string | null;
+  homeTimezone?: string | null;
+  userHomeCountry?: string | null;
+  userCurrentCountry?: string | null;
+  travelState?: unknown;
   selectedCalendarEventIds?: string[];
   /**
    * Per-slot replacement map (preferred over `selectedCalendarEventIds`).
@@ -6010,12 +6023,64 @@ async function generateMasteryPlan(
   // PR 1: writes shadow columns only; never affects user-visible output.
   // ────────────────────────────────────────────────────────────────────
   const JIT_V2_MODE = (Deno.env.get("JIT_V2") || "").toLowerCase();
+  const preferJitV2 = req.preferJitV2 === true;
   console.log(
-    `[generate-mastery-plan][jit-v2-shadow] gate JIT_V2="${JIT_V2_MODE}" scored=${scoredEvents.length} filtered=${filteredEvents.length}`,
+    `[generate-mastery-plan][jit-v2-shadow] gate JIT_V2="${JIT_V2_MODE}" preferJitV2=${preferJitV2} scored=${scoredEvents.length} filtered=${filteredEvents.length}`,
   );
   // Treat any non-empty value other than the explicit disables as shadow-on.
   const jitV2Enabled = JIT_V2_MODE !== "" && JIT_V2_MODE !== "off" &&
     JIT_V2_MODE !== "false" && JIT_V2_MODE !== "0";
+  if (preferJitV2) {
+    try {
+      const liveV2 = await runJitV2Shadow(
+        supabaseClient,
+        req.userId,
+        scoredEvents,
+        filteredEvents,
+        req,
+        { persistShadow: false },
+      );
+      if (liveV2?.ranked?.length) {
+        const v2RankByEvent = new Map(
+          liveV2.ranked.map((candidate, index) => [
+            candidate.eventId,
+            { importance: candidate.importance, index },
+          ]),
+        );
+        jitRankedCandidates.sort((a, b) => {
+          const av2 = v2RankByEvent.get(a.eventId);
+          const bv2 = v2RankByEvent.get(b.eventId);
+          if (av2 && bv2) {
+            if (bv2.importance !== av2.importance) {
+              return bv2.importance - av2.importance;
+            }
+            if (av2.index !== bv2.index) return av2.index - bv2.index;
+          } else if (av2 || bv2) {
+            return av2 ? -1 : 1;
+          }
+          return b.score - a.score;
+        });
+        console.log(
+          "[generate-mastery-plan][jit-v2-live] reordered legacy phase candidates from v2 event ranking",
+          {
+            rankedEvents: liveV2.ranked.slice(0, 5).map((c) => ({
+              eventId: c.eventId,
+              title: c.title,
+              importance: c.importance,
+            })),
+            topCandidates: jitRankedCandidates.slice(0, 5).map((c) => ({
+              eventId: c.eventId,
+              title: c.title,
+              phase: c.phase,
+              score: c.score,
+            })),
+          },
+        );
+      }
+    } catch (e: any) {
+      console.warn("[generate-mastery-plan][jit-v2-live] failed:", e?.message);
+    }
+  }
   if (jitV2Enabled) {
     runJitV2Shadow(
       supabaseClient,
@@ -6023,6 +6088,7 @@ async function generateMasteryPlan(
       scoredEvents,
       filteredEvents,
       req,
+      { persistShadow: true },
     ).catch((e) =>
       console.warn("[generate-mastery-plan][jit-v2-shadow] failed:", e?.message)
     );
@@ -6048,7 +6114,7 @@ async function generateMasteryPlan(
     }
   }
 
-  if (!topEvent) {
+  if (!topEvent && !preferJitV2) {
     // Defensive fallback while the remaining legacy bridge is still present.
     for (const evt of filteredEvents) {
       if (evt.score < JIT_THRESHOLD_UNIFIED) {
@@ -6069,6 +6135,15 @@ async function generateMasteryPlan(
         `[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – window=${window} minutesUntil=${evt.minutesUntil} score=${evt.score}`,
       );
     }
+  }
+  if (!topEvent && preferJitV2) {
+    console.log(
+      "[generate-mastery-plan][jit-v2-live] no eligible topEvent from preferred selector; legacy fallback suppressed",
+      {
+        rankedCandidateCount: jitRankedCandidates.length,
+        filteredEventCount: filteredEvents.length,
+      },
+    );
   }
 
   if (topEvent) {
@@ -12420,6 +12495,20 @@ if (import.meta.main) {
         timezoneOffset: clientTimezoneOffset,
         localDate: clientLocalDate || undefined,
         todayCheckinId,
+        preferJitV2: body.preferJitV2 === true,
+        currentTimezone: typeof body.currentTimezone === "string"
+          ? body.currentTimezone
+          : null,
+        homeTimezone: typeof body.homeTimezone === "string"
+          ? body.homeTimezone
+          : null,
+        userHomeCountry: typeof body.userHomeCountry === "string"
+          ? body.userHomeCountry
+          : null,
+        userCurrentCountry: typeof body.userCurrentCountry === "string"
+          ? body.userCurrentCountry
+          : null,
+        travelState: body.travelState ?? null,
         selectedCalendarEventIds,
         slotReplacements,
         mrsReadinessState: requestMrsState,
