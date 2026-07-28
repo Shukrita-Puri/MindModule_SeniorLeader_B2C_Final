@@ -15,7 +15,7 @@ import { sanitizePayload, validateForCompletion } from "../_shared/onboardingV8V
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-mm-client-platform",
 };
 
 Deno.serve(async (req) => {

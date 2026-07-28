@@ -31,7 +31,7 @@ import { hashTokenPrefix } from "../_shared/token-hash.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-impersonation-token',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-impersonation-token, x-mm-client-platform',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 

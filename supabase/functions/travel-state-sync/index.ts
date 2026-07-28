@@ -44,7 +44,7 @@ import { ADMIN_EMAIL_ALLOWLIST } from "../_shared/admin-guard.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-mm-client-platform",
 };
 
 const JOB_KEY = "travel_state_sync";

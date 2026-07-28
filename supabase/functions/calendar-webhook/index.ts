@@ -10,7 +10,7 @@ import {
 // but keep the OPTIONS handler clean.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-goog-channel-id, x-goog-channel-token, x-goog-resource-id, x-goog-resource-state, x-goog-message-number, x-goog-resource-uri, x-goog-channel-expiration',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-goog-channel-id, x-goog-channel-token, x-goog-resource-id, x-goog-resource-state, x-goog-message-number, x-goog-resource-uri, x-goog-channel-expiration, x-mm-client-platform',
 };
 
 async function enqueueSyncForConnection(

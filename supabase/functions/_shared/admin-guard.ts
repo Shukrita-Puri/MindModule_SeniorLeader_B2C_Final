@@ -38,7 +38,7 @@ export function adminCorsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-impersonation-token",
+      "authorization, x-client-info, apikey, content-type, x-impersonation-token, x-mm-client-platform",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 }

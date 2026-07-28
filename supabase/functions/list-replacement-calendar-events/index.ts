@@ -6,7 +6,7 @@ import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-dev-user-id, x-user-tz-offset, x-client-platform',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-dev-user-id, x-user-tz-offset, x-client-platform, x-mm-client-platform',
 };
 
 interface CalendarEventRow {

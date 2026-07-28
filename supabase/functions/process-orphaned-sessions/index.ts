@@ -15,7 +15,7 @@ import { isAuthorizedCronCaller, cronForbiddenResponse } from "../_shared/cron-a
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-mm-client-platform',
 };
 
 serve(async (req) => {

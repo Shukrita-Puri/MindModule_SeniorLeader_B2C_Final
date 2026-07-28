@@ -47,7 +47,7 @@ import { PTO_TITLE_RX } from "../_shared/availability/availability-classifier.ts
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-dev-user-id, x-user-tz-offset, x-client-platform, x-week-ahead-override",
+    "authorization, x-client-info, apikey, content-type, x-dev-user-id, x-user-tz-offset, x-client-platform, x-week-ahead-override, x-mm-client-platform",
 };
 
 interface CalendarEventRow {

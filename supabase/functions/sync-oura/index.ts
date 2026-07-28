@@ -24,7 +24,7 @@ import { atomicMergeUpsertWearable } from "../_shared/wearable/atomic-upsert.ts"
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-admin-bypass, x-outbox-item-id",
+    "authorization, x-client-info, apikey, content-type, x-admin-bypass, x-outbox-item-id, x-mm-client-platform",
 };
 
 const OURA_BASE = "https://api.ouraring.com/v2/usercollection";
