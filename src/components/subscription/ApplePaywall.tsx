@@ -9,7 +9,8 @@
  *  - Manage Subscription points at Apple, never Stripe.
  *  - A user who already holds a non-Apple (Stripe) paid entitlement sees a
  *    read-only status message and NO purchase button, so they are never asked
- *    to repurchase through Apple.
+ *    to repurchase through Apple, and they are not pointed to a web purchase
+ *    or billing flow from inside the app.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -181,13 +182,12 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
             <p className="text-[15px] font-medium">Pro access is active</p>
           </div>
           <p className="text-sm text-muted-foreground">
-            Your subscription was purchased outside the App Store and is managed on the web.
-            Nothing to do here — you have full access in the app.
+            Your subscription was purchased outside the App Store and remains active here.
+            Nothing to do right now — you have full access in the app.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Need to change or cancel it? Sign in at app.mindmodule.me from a browser, or email
-          support@mindmodule.me.
+          Need help with that subscription? Email support@mindmodule.me and we&apos;ll help.
         </p>
       </div>
     );

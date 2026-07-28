@@ -329,6 +329,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       // Only timezoneOffset – ALL signals are now derived server-side
       const requestBody = {
         timezoneOffset: new Date().getTimezoneOffset(),
+        preferJitV2: true,
       };
 
       const { data: planData, error } = await supabase.functions.invoke('generate-mastery-plan', {

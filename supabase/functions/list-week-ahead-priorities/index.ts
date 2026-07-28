@@ -39,6 +39,7 @@ import {
   normalizeEventTypeKey,
 } from "../_shared/plan/week-ahead-mode.ts";
 import { loadJitContextForEvents } from "../_shared/jit/load-jit-context.ts";
+import { selectJitCandidates } from "../_shared/jit/select-jit.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import { patternHit } from "../_shared/jit/tactical-signals.ts";
 import { PTO_TITLE_RX } from "../_shared/availability/availability-classifier.ts";
@@ -95,7 +96,10 @@ const PRIOR_SIGNALS: ReadonlySet<PriorSignal> = new Set([
 function categoryLabelFor(title: string, categoryId: string | null): string {
   const subtype = classifyEvent(title);
   if (subtype) return subtype.bucket;
-  return (categoryId && EVENT_CATEGORIES[categoryId]?.name) || "Meeting";
+  return (
+    categoryId &&
+      EVENT_CATEGORIES[categoryId as keyof typeof EVENT_CATEGORIES]?.name
+  ) || "Meeting";
 }
 
 /** All-day OOO / holiday block: full-day duration AND PTO-flavoured title. */
@@ -417,6 +421,20 @@ serve(async (req) => {
       { nowMs: Date.now() },
     );
     const inputById = new Map(input.map((i) => [i.id, i]));
+    const liveSelector = selectJitCandidates(input, {
+      ...ctx,
+      nowMs: Date.now(),
+      horizonMs: 7 * 24 * 60 * 60_000,
+    });
+    const rankedByEventId = new Map(
+      liveSelector.ranked.map((candidate, index) => [
+        candidate.eventId,
+        { candidate, index },
+      ]),
+    );
+    const excludedByEventId = new Map(
+      liveSelector.excluded.map((entry) => [entry.eventId, entry.reason]),
+    );
 
     // ── Rehydrate prior user decisions (Star / Cancel / Never) ──────────
     // event_priority_memory is the source of truth for picker actions.
@@ -486,6 +504,7 @@ serve(async (req) => {
       const tags: WeekAheadTag[] = [];
       const memEntry = ctx.memoryDeltaByEventId?.[eventId];
       const memDelta = memEntry?.delta ?? 0;
+      const liveRank = rankedByEventId.get(eventId)?.candidate;
       // "Prior priority" MUST reflect a genuine cross-day pattern.
       // A single star tapped an hour ago satisfies `memDelta >= 8` alone
       // but has no historical meaning yet. Gate on the priority-memory
@@ -517,7 +536,10 @@ serve(async (req) => {
       const priorBoost = tags.includes("prior_priority") ? 1000 : 0;
       const patternBoost = tags.includes("pattern_based") ? 500 : 0;
       const stakesBoost = stakesRank * 10;
-      const orderScore = priorBoost + patternBoost + stakesBoost;
+      const orderScore =
+        typeof liveRank?.importance === "number"
+          ? liveRank.importance
+          : priorBoost + patternBoost + stakesBoost;
       const subcategoryId = subcategoryByEventId.get(eventId) ??
         enriched.subcategory ??
         null;
@@ -541,7 +563,12 @@ serve(async (req) => {
         typeKey: meta.typeKey,
         stakesLevel,
         score: orderScore,
-        scoreReasons: orderedTags.map((t) => TAG_LABEL[t]).slice(0, 3),
+        scoreReasons: [
+          ...orderedTags.map((t) => TAG_LABEL[t]),
+          ...(excludedByEventId.has(eventId)
+            ? [`selector fallback: ${excludedByEventId.get(eventId)}`]
+            : []),
+        ].slice(0, 3),
         tags: orderedTags,
         isOrganizer: meta.isOrganizer,
         eventCategory: categoryId,

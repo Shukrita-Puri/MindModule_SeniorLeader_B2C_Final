@@ -9,7 +9,8 @@
  *   - Manage Subscription → Apple's own subscription sheet
  *
  * A user whose access came from Stripe sees a read-only status message and no
- * purchase CTA, so they are never pushed to repurchase through Apple.
+ * purchase CTA, so they are never pushed to repurchase through Apple or back
+ * to a web billing flow from inside the app.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -60,7 +61,7 @@ export function AppleSubscriptionCard({ user, onRefreshProfile }: Props) {
         <CardTitle className="text-[15px] font-medium">Subscription</CardTitle>
         <CardDescription>
           {stripeLegacy
-            ? 'Your Pro access is active and managed on the web.'
+            ? 'Your Pro access is active.'
             : appleSubscriber
               ? 'Managed through your Apple ID.'
               : 'Subscribe or restore a previous purchase.'}
@@ -103,8 +104,7 @@ export function AppleSubscriptionCard({ user, onRefreshProfile }: Props) {
 
         {stripeLegacy && (
           <p className="text-xs text-muted-foreground">
-            To change or cancel this subscription, sign in at app.mindmodule.me from a browser, or
-            email support@mindmodule.me.
+            Need help with that subscription? Email support@mindmodule.me and we&apos;ll help.
           </p>
         )}
       </CardContent>

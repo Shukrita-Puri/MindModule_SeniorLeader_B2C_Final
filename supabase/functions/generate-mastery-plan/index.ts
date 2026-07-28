@@ -148,6 +148,7 @@ import {
   type SelectResult,
   selectJitCandidates,
 } from "../_shared/jit/select-jit.ts";
+import { loadJitContextForEvents } from "../_shared/jit/load-jit-context.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 // Phase 3 — Unified CoS Leader Profile reader. Single source of truth for
 // leader goals, voice rules, high-stakes priors and preferences. Missing
@@ -3517,165 +3518,241 @@ function scoreCalendarEventsShared(
   return scored;
 }
 
-/**
- * Bridge: Try to use pre-scored events from jit_event_context (new pipeline).
- * Falls back to a shared ranked-candidate scorer if no pre-scored events are available.
- */
-async function getPreScoredEvents(
+async function buildPreferredJitV2Selection(
   userId: string,
   calendarEvents: CalendarEvent[],
   supabaseClient: any,
-  hrvCorrelations: HRVCorrelationMap | null,
-  memoryIndex?: PriorityMemoryIndex | null,
-): Promise<ScoredEvent[]> {
-  const now = new Date();
-
-  // Query jit_event_context for recent pre-scored events (within last 60 min)
+  req: PlanRequest,
+): Promise<SelectResult | null> {
   try {
-    const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000)
-      .toISOString();
-    const { data: jitContextRows } = await supabaseClient
-      .from("jit_event_context")
-      .select(
-        "calendar_event_id, event_title, event_type, event_start, final_score, context_statement, jit_bucket_primary, jit_bucket_secondary, jit_confidence_score, jit_urgency_horizon, jit_dimension_scores, has_coach_context, coach_scenario, expressed_concern, has_pending_tool, dismissed_by_user, dismissed_horizons",
-      )
-      .eq("user_id", userId)
-      .eq("shown_in_jit", true)
-      .gte("updated_at", twelveHoursAgo)
-      .gte("event_start", now.toISOString())
-      .order("final_score", { ascending: false })
-      .limit(5);
+    const rows = calendarEvents
+      .filter((event) => !!event?.id && !!event?.title && !!event?.startTime)
+      .map((event) => ({
+        id: event.id,
+        title: event.title,
+        start_time: event.startTime,
+        end_time: event.endTime ?? null,
+        created_at: null,
+        attendees_count: event.attendeesCount ?? null,
+        is_organizer: event.isOrganizer ?? null,
+        event_metadata: event.eventMetadata ?? null,
+      }));
+    const goals = {
+      growthIntentions: Array.isArray(req?.leaderProfile?.goals?.declared)
+        ? req.leaderProfile!.goals!.declared
+        : [],
+      practicePriorityTags: req.practicePriorityTag
+        ? [String(req.practicePriorityTag)]
+        : [],
+      coachGrowthAreas: (req?.coachInsights || [])
+        .filter((i: any) => i?.type === "growth_area")
+        .map((i: any) => String(i.content || ""))
+        .filter(Boolean),
+      protectGoals: [],
+    };
+    const { input, ctx } = await loadJitContextForEvents(
+      supabaseClient,
+      userId,
+      rows,
+      { nowMs: Date.now(), goals },
+    );
+    return selectJitCandidates(input, {
+      ...ctx,
+      nowMs: Date.now(),
+      horizonMs: DAY_OF_HORIZON_MS,
+    });
+  } catch (err) {
+    console.warn(
+      "[generate-mastery-plan][jit-v2-live] preferred selection build failed:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return null;
+  }
+}
 
-    if (jitContextRows && jitContextRows.length > 0) {
-      console.log(
-        `[generate-mastery-plan] Bridge: found ${jitContextRows.length} pre-scored events from jit_event_context`,
-      );
+function scoreCalendarEventsFromSelectedCandidates(
+  events: CalendarEvent[],
+  selected: SelectResult,
+  hrvCorrelations?: HRVCorrelationMap | null,
+): ScoredEvent[] {
+  const nowMs = Date.now();
+  const byId = new Map(events.map((event) => [event.id, event]));
+  const scored: ScoredEvent[] = [];
+  for (const candidate of selected.ranked) {
+    const event = byId.get(candidate.eventId);
+    if (!event) continue;
+    const startMs = new Date(event.startTime).getTime();
+    if (!Number.isFinite(startMs)) continue;
+    const minutesUntil = Math.floor((startMs - nowMs) / (1000 * 60));
+    if (minutesUntil < 0) continue;
+    const actionWindow = getActionWindow(minutesUntil);
+    if (actionWindow === "selection_only") continue;
+    const sid = scenarioIdFor(event.title);
+    const scenario = sid
+      ? EXECUTIVE_SCENARIOS.find((s) => s.id === sid) || null
+      : null;
+    const parts: string[] = [];
+    if (candidate.bucket) {
+      parts.push(`aligned to ${candidate.bucket.toLowerCase()}`);
+    }
+    if (candidate.components.breakdown.relationship > 0 && candidate.role !== "unknown") {
+      parts.push(`relationship stake: ${candidate.role.replace(/_/g, " ")}`);
+    }
+    if (candidate.components.breakdown.patternScore > 0) {
+      parts.push("recurring pressure pattern detected");
+    }
+    if (minutesUntil <= 30) parts.push("starting very soon");
+    else if (minutesUntil <= 120) parts.push(`in ${minutesUntil} minutes`);
+    else parts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
 
-      const bridgedEvents: ScoredEvent[] = [];
-      for (const row of jitContextRows) {
-        // Find matching calendar event for full metadata
-        const matchingEvent = calendarEvents.find((e) =>
-          e.id === row.calendar_event_id
-        );
-        const eventStart = new Date(row.event_start);
-        const minutesUntil = Math.floor(
-          (eventStart.getTime() - now.getTime()) / (1000 * 60),
-        );
-        if (minutesUntil < 0) continue;
-
-        // Educational non-organizer hard gate – completely block, no override
-        const isEducational = isEducationalTitle(row.event_title || "");
-        const isOrganizer = matchingEvent?.isOrganizer ?? false;
-        if (isEducational && !isOrganizer) {
-          console.log(
-            `[generate-mastery-plan] Bridge: BLOCKED educational non-organizer "${row.event_title}"`,
-          );
-          continue;
-        }
-
-        // ═══ TWO-TOUCH ACTION WINDOW FILTER ═══
-        // Only include events in valid action windows (touch1 or touch2)
-        const actionWindow = getActionWindow(minutesUntil);
-        if (actionWindow === "selection_only") {
-          console.log(
-            `[generate-mastery-plan] Bridge: EXCLUDED "${row.event_title}" – window=${actionWindow} minutesUntil=${minutesUntil} score=${row.final_score}`,
-          );
-          continue;
-        }
-
-        // ═══ PER-TOUCH DISMISSAL CHECK ═══
-        // Check if this specific touch has been dismissed (not the whole event)
-        const touchLabel = actionWindow === "touch1" ? "touch_1" : "touch_2";
-        const dismissedHorizons: string[] = row.dismissed_horizons || [];
-        if (dismissedHorizons.includes(touchLabel)) {
-          console.log(
-            `[generate-mastery-plan] Bridge: skipping "${row.event_title}" – ${touchLabel} dismissed`,
-          );
-          continue;
-        }
-
-        // Build enriched context description from pipeline signals
-        const contextDescription = buildEnrichedContextDescription(
-          row,
-          minutesUntil,
-          matchingEvent,
-          hrvCorrelations,
-        );
-
-        // Find matching scenario for module selection
-        // Scenario lookup goes through the shared taxonomy: classifyEvent →
-        // EVENT_TYPE_TO_SCENARIO_ID → ExecutiveScenario.id. Single source of
-        // truth for keywords; bespoke ModuleSpecs stay here.
-        let matchedScenario: ExecutiveScenario | null = null;
-        const sid = scenarioIdFor(row.event_title);
-        if (sid) {
-          matchedScenario = EXECUTIVE_SCENARIOS.find((s) => s.id === sid) ||
-            null;
-        }
-
-        // Build HRV correlation from existing correlations
-        let hrvCorrelation: ScoredEvent["hrvCorrelation"] = undefined;
-        if (hrvCorrelations) {
-          const evtType = extractEventType(row.event_title || "");
-          const corr = hrvCorrelations[evtType];
-          if (corr && corr.count >= 2) {
-            hrvCorrelation = {
-              eventType: evtType,
-              avgDeviation: corr.avgHRVDeviation,
-              historicalCount: corr.count,
-            };
-          }
-        }
-
-        bridgedEvents.push({
-          event: matchingEvent || {
-            id: row.calendar_event_id,
-            title: row.event_title,
-            startTime: row.event_start,
-          } as CalendarEvent,
-          score: row.final_score || 0,
-          minutesUntil,
-          scenario: matchedScenario,
-          timePill: formatTimePill(minutesUntil),
-          contextDescription,
-          hrvCorrelation,
-          jitBucketPrimary: row.jit_bucket_primary,
-          jitBucketSecondary: row.jit_bucket_secondary,
-          jitConfidenceScore: row.jit_confidence_score,
-          jitConfidenceBand: row.jit_confidence_score != null
-            ? (row.jit_confidence_score >= 70
-              ? "high"
-              : row.jit_confidence_score >= 40
-              ? "medium"
-              : row.jit_confidence_score >= 20
-              ? "low"
-              : "none")
-            : null,
-          jitUrgencyHorizon: row.jit_urgency_horizon,
-          jitDimensionScores: row.jit_dimension_scores,
-        });
-      }
-
-      if (bridgedEvents.length > 0) {
-        return bridgedEvents;
+    let hrvCorrelation: ScoredEvent["hrvCorrelation"] = undefined;
+    if (hrvCorrelations) {
+      const evtType = extractEventType(event.title || "");
+      const corr = hrvCorrelations[evtType];
+      if (corr && corr.count >= 2) {
+        hrvCorrelation = {
+          eventType: evtType,
+          avgDeviation: corr.avgHRVDeviation,
+          historicalCount: corr.count,
+        };
       }
     }
-  } catch (err) {
-    console.error(
-      "[generate-mastery-plan] jit_event_context bridge error:",
-      err,
-    );
-  }
 
-  // Fallback: shared ranked-candidate scoring (no jit_event_context rows yet)
+    scored.push({
+      event,
+      score: candidate.importance,
+      minutesUntil,
+      scenario,
+      timePill: formatTimePill(minutesUntil),
+      contextDescription: parts.length > 0
+        ? `${parts.join(" – ")}. Prepare with targeted practice.`
+        : "Prepare with targeted practice.",
+      hrvCorrelation,
+      jitBucketPrimary: candidate.bucket,
+      jitBucketSecondary: null,
+      jitConfidenceScore: candidate.importance,
+      jitConfidenceBand: candidate.importance >= 70
+        ? "high"
+        : candidate.importance >= 40
+        ? "medium"
+        : candidate.importance >= 20
+        ? "low"
+        : "none",
+      jitUrgencyHorizon: actionWindow === "touch1" ? "tactical" : "immediate",
+      jitDimensionScores: candidate.components,
+    });
+  }
+  scored.sort((a, b) => b.score - a.score || a.minutesUntil - b.minutesUntil);
+  return scored;
+}
+
+function buildPreferredRankedCandidates(
+  events: CalendarEvent[],
+  selected: SelectResult,
+  nowMs = Date.now(),
+): RankedJitCandidate[] {
+  const byId = new Map(events.map((event) => [event.id, event]));
+  const candidates: RankedJitCandidate[] = [];
+  for (const rankedEvent of selected.ranked) {
+    const event = byId.get(rankedEvent.eventId);
+    if (!event) continue;
+    const startMs = new Date(event.startTime).getTime();
+    if (!Number.isFinite(startMs)) continue;
+    const endMs = event.endTime
+      ? new Date(event.endTime).getTime()
+      : startMs + 60 * 60_000;
+    const durationMinutes = Number.isFinite(endMs) && endMs > startMs
+      ? Math.round((endMs - startMs) / 60_000)
+      : null;
+    const enriched = enrichEvent({
+      title: event.title || "",
+      start_time: event.startTime,
+      end_time: event.endTime ?? null,
+    });
+    if (!enriched.categoryId || enriched.subtype?.classificationOnly) continue;
+    const declaredPhases = (["pre", "during", "post"] as const).filter((phase) =>
+      !!EVENT_PHASE_MAP[enriched.categoryId as EventCategoryId]?.[phase]
+    );
+    if (declaredPhases.length === 0) continue;
+    const temporalPhase: Phase = nowMs >= endMs
+      ? "post"
+      : nowMs >= startMs
+      ? "during"
+      : "pre";
+    for (const phase of declaredPhases) {
+      const resolved = phaseForEvent(event.title || "", phase);
+      if (!resolved) continue;
+      const temporalPenalty = phase === temporalPhase
+        ? 0
+        : temporalPhase === "pre"
+        ? phase === "during"
+          ? 0.3
+          : 0.6
+        : temporalPhase === "during"
+        ? phase === "post"
+          ? 0.2
+          : 0.6
+        : phase === "during"
+        ? 0.3
+        : 0.7;
+      const importance = Math.round((rankedEvent.importance - temporalPenalty) * 10) /
+        10;
+      candidates.push({
+        eventId: rankedEvent.eventId,
+        title: rankedEvent.title,
+        phase,
+        categoryId: enriched.categoryId,
+        comboKey: `${resolved.resolvedCombo.protocol}.${resolved.resolvedCombo.mode}` as ComboKey,
+        severity: importance >= 70
+          ? "high"
+          : importance >= 40
+          ? "medium"
+          : "low",
+        leadTimeMin: enriched.leadTimeMin ?? null,
+        demandProfile: enriched.demandProfile,
+        durationMinutes,
+        windowStartMs: startMs,
+        windowEndMs: endMs,
+        eligible: phase === temporalPhase,
+        minutesUntilWindow: Math.round((startMs - nowMs) / 60_000),
+        score: importance,
+        components: {
+          base: rankedEvent.importance,
+          category: 0,
+          severity: 0,
+          demand: 0,
+          proximity: -temporalPenalty,
+          skipPenalty: 0,
+          memory: 0,
+        },
+      });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score || a.minutesUntilWindow - b.minutesUntilWindow);
+  return candidates;
+}
+
+/**
+ * Live plan scoring path: score directly from the shared selector result.
+ * The older jit_event_context bridge remains in-source for historical
+ * compatibility only and is not part of live plan generation.
+ */
+async function getPreScoredEvents(
+  calendarEvents: CalendarEvent[],
+  hrvCorrelations: HRVCorrelationMap | null,
+  preferredSelectResult?: SelectResult | null,
+): Promise<ScoredEvent[]> {
+  const preferred = preferredSelectResult
+    ? scoreCalendarEventsFromSelectedCandidates(
+      calendarEvents,
+      preferredSelectResult,
+      hrvCorrelations,
+    )
+    : [];
   console.log(
-    "[generate-mastery-plan] Bridge: no pre-scored events, falling back to shared ranked-candidate scoring",
+    `[generate-mastery-plan][jit-v2-live] preferred selector scored events: ${preferred.length}`,
   );
-  return scoreCalendarEventsShared(
-    calendarEvents,
-    hrvCorrelations,
-    memoryIndex,
-  );
+  return preferred;
 }
 
 /**
@@ -5663,14 +5740,21 @@ async function generateMasteryPlan(
     relationshipLeads: !!priorityMemoryIndex,
     gateBypassed: false,
   };
-
-  // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
-  const scoredEvents = await getPreScoredEvents(
+  const preferJitV2 = true;
+  const preferredSelectResult = await buildPreferredJitV2Selection(
     req.userId,
     req.calendarEvents || [],
     supabaseClient,
+    req,
+  );
+
+  // 4. Score calendar events from the shared selector only. Legacy scoring is
+  // retained in-source for historical compatibility but is not part of the
+  // live plan runtime anymore.
+  const scoredEvents = await getPreScoredEvents(
+    req.calendarEvents || [],
     hrvCorrelations,
-    priorityMemoryIndex,
+    preferredSelectResult,
   );
   const forceArcCategoryIds = new Set<EventCategoryId>();
   try {
@@ -5714,12 +5798,32 @@ async function generateMasteryPlan(
     );
   }
 
-  // Suppresses event types skipped 3+ times in last 30 days.
-  // TODO: Replace with query to jit_cancellation_memory:
-  //   SELECT DISTINCT event_type FROM jit_cancellation_memory
-  //   WHERE user_id = userId AND penalty_level >= 3
-  //   AND cancelled_at > NOW() - INTERVAL '30d'
-  const skippedTypes3Plus: string[] = [];
+  // Suppress repeatedly cancelled event types from live plan ranking.
+  let skippedTypes3Plus: string[] = [];
+  try {
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
+      .toISOString();
+    const { data: cancellationRows, error: cancellationError } =
+      await supabaseClient
+        .from("jit_cancellation_memory")
+        .select("event_type, penalty_level, cancelled_at")
+        .eq("user_id", req.userId)
+        .gte("cancelled_at", sixtyDaysAgo);
+    if (cancellationError) throw cancellationError;
+    skippedTypes3Plus = Array.from(
+      new Set(
+        (cancellationRows || [])
+          .filter((row: any) => Number(row?.penalty_level ?? 0) >= 3)
+          .map((row: any) => String(row?.event_type || "").trim())
+          .filter(Boolean),
+      ),
+    );
+  } catch (cancelErr: any) {
+    console.warn(
+      "[generate-mastery-plan] cancellation-memory suppression skipped:",
+      cancelErr?.message,
+    );
+  }
 
   // Filter out 3+ skipped types (defensive – degrades to unfiltered on error)
   let filteredEvents = scoredEvents;
@@ -5877,10 +5981,9 @@ async function generateMasteryPlan(
   // Selection-only (>48h): nothing surfaces. Per-event suppression via dismissed_horizons.
   let preEventPlan: any = null;
 
-  // Phase B: rank (event, phase) candidates against §3/§4. This now drives
-  // top-event selection for the visible pre-event plan, while the older
-  // filtered-event loop remains only as a defensive fallback until the rest
-  // of the bridge cleanup lands.
+  // Phase B: rank (event, phase) candidates against §3/§4. Preferred JIT v2
+  // requests derive this list directly from the shared selector so allocator
+  // identity and visible cards cannot drift back to legacy phase ranking.
   const nowMsForJit = Date.now();
   let jitRankedCandidates: RankedJitCandidate[] = [];
   try {
@@ -5923,85 +6026,22 @@ async function generateMasteryPlan(
         sample: excludedIds.slice(0, 5),
       });
     }
-    jitRankedCandidates = rankJitCandidates(
-      preFilteredEvents.map((e) => {
-        let memoryDelta = Number((e as any).weeklyPriorityDelta ?? 0);
-        let memoryHardDemote = false;
-        if (priorityMemoryIndex) {
-          const mem = applyEventPriorityMemory(priorityMemoryIndex, {
-            eventCategory: coarseEventType(e.event.title || ""),
-            eventTypeKey: normalizeEventTypeKey(e.event.title || ""),
-          });
-          const titleMem = applyEventPriorityMemory(priorityMemoryIndex, {
-            eventCategory: TITLE_SPECIFIC_MEMORY_CATEGORY,
-            eventTypeKey: normalizeEventTitleMemoryKey(e.event.title || ""),
-          });
-          const derivedKey = `${
-            String(coarseEventType(e.event.title || "") || "").toLowerCase()
-          }::${
-            String(normalizeEventTypeKey(e.event.title || "") || "")
-              .toLowerCase()
-          }`;
-          const derived = derivedMemoryByKey.get(derivedKey);
-          memoryDelta += mem.delta + titleMem.delta +
-            (derived?.net_importance ?? 0);
-          memoryHardDemote = mem.hardDemote || titleMem.hardDemote;
-          if (derived?.permanent_flag && derived.net_importance <= -999) {
-            memoryHardDemote = true;
-          }
-        }
-        return {
-          event: {
-            id: e.event.id,
-            title: e.event.title,
-            start_time: getCalendarEventStartIso(e.event) ?? "",
-            end_time: getCalendarEventEndIso(e.event),
-          },
-          stakesLevel: (e as any).stakesLevel ?? null,
-          score: e.score,
-          memoryDelta,
-          memoryHardDemote,
-        };
-      }),
-      nowMsForJit,
-    );
-    // Brief↔Plan parity: re-rank so any candidate whose title matches an
-    // event the Brief named as high-stakes (HighStakesPrep / boardLevelOutcome /
-    // etc.) is guaranteed to surface — even if its raw §B score was below
-    // a higher-scoring noise event. Stable sort: tied items keep §B order.
-    try {
-      const anchors = new Set(
-        briefAnchorEventTitles(shared.briefBehaviour).map((t) =>
-          t.toLowerCase().trim()
-        ),
+    if (preferredSelectResult) {
+      jitRankedCandidates = buildPreferredRankedCandidates(
+        preFilteredEvents.map((entry) => entry.event),
+        preferredSelectResult,
+        nowMsForJit,
+      ).filter((candidate) =>
+        preFilteredEvents.some((event) => event.event.id === candidate.eventId)
       );
-      if (anchors.size > 0 && jitRankedCandidates.length > 0) {
-        const before = jitRankedCandidates.map((c) => c.title);
-        jitRankedCandidates = [...jitRankedCandidates]
-          .map((c, i) => ({
-            c,
-            i,
-            anchored: anchors.has(String(c.title || "").toLowerCase().trim()),
-          }))
-          .sort((
-            a,
-            b,
-          ) => (a.anchored === b.anchored ? a.i - b.i : (a.anchored ? -1 : 1)))
-          .map(({ c }) => c);
-        const after = jitRankedCandidates.map((c) => c.title);
-        if (JSON.stringify(before) !== JSON.stringify(after)) {
-          console.log(
-            `[generate-mastery-plan] JIT reordered for brief anchors=${
-              Array.from(anchors).join("|")
-            }: ${before.join(" > ")} → ${after.join(" > ")}`,
-          );
-        }
-      }
-    } catch (anchorErr: any) {
-      console.warn(
-        "[generate-mastery-plan] brief-anchor JIT reorder skipped:",
-        anchorErr?.message,
+      console.log(
+        `[generate-mastery-plan][jit-v2-live] preferred phase candidates: ${jitRankedCandidates.length}`,
       );
+    } else {
+      console.log(
+        "[generate-mastery-plan][jit-v2-live] preferred selector produced no ranked candidates; legacy phase ranking suppressed",
+      );
+      jitRankedCandidates = [];
     }
     const top3 = jitRankedCandidates.slice(0, 3).map((c) =>
       `${c.title}/${c.phase}=${c.score}`
@@ -6023,64 +6063,12 @@ async function generateMasteryPlan(
   // PR 1: writes shadow columns only; never affects user-visible output.
   // ────────────────────────────────────────────────────────────────────
   const JIT_V2_MODE = (Deno.env.get("JIT_V2") || "").toLowerCase();
-  const preferJitV2 = req.preferJitV2 === true;
   console.log(
     `[generate-mastery-plan][jit-v2-shadow] gate JIT_V2="${JIT_V2_MODE}" preferJitV2=${preferJitV2} scored=${scoredEvents.length} filtered=${filteredEvents.length}`,
   );
   // Treat any non-empty value other than the explicit disables as shadow-on.
   const jitV2Enabled = JIT_V2_MODE !== "" && JIT_V2_MODE !== "off" &&
     JIT_V2_MODE !== "false" && JIT_V2_MODE !== "0";
-  if (preferJitV2) {
-    try {
-      const liveV2 = await runJitV2Shadow(
-        supabaseClient,
-        req.userId,
-        scoredEvents,
-        filteredEvents,
-        req,
-        { persistShadow: false },
-      );
-      if (liveV2?.ranked?.length) {
-        const v2RankByEvent = new Map(
-          liveV2.ranked.map((candidate, index) => [
-            candidate.eventId,
-            { importance: candidate.importance, index },
-          ]),
-        );
-        jitRankedCandidates.sort((a, b) => {
-          const av2 = v2RankByEvent.get(a.eventId);
-          const bv2 = v2RankByEvent.get(b.eventId);
-          if (av2 && bv2) {
-            if (bv2.importance !== av2.importance) {
-              return bv2.importance - av2.importance;
-            }
-            if (av2.index !== bv2.index) return av2.index - bv2.index;
-          } else if (av2 || bv2) {
-            return av2 ? -1 : 1;
-          }
-          return b.score - a.score;
-        });
-        console.log(
-          "[generate-mastery-plan][jit-v2-live] reordered legacy phase candidates from v2 event ranking",
-          {
-            rankedEvents: liveV2.ranked.slice(0, 5).map((c) => ({
-              eventId: c.eventId,
-              title: c.title,
-              importance: c.importance,
-            })),
-            topCandidates: jitRankedCandidates.slice(0, 5).map((c) => ({
-              eventId: c.eventId,
-              title: c.title,
-              phase: c.phase,
-              score: c.score,
-            })),
-          },
-        );
-      }
-    } catch (e: any) {
-      console.warn("[generate-mastery-plan][jit-v2-live] failed:", e?.message);
-    }
-  }
   if (jitV2Enabled) {
     runJitV2Shadow(
       supabaseClient,
@@ -6114,29 +6102,7 @@ async function generateMasteryPlan(
     }
   }
 
-  if (!topEvent && !preferJitV2) {
-    // Defensive fallback while the remaining legacy bridge is still present.
-    for (const evt of filteredEvents) {
-      if (evt.score < JIT_THRESHOLD_UNIFIED) {
-        console.log(
-          `[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – score=${evt.score} < threshold=${JIT_THRESHOLD_UNIFIED}`,
-        );
-        continue;
-      }
-      const window = getActionWindow(evt.minutesUntil);
-      if (window === "touch1" || window === "touch2") {
-        topEvent = evt;
-        console.log(
-          `[generate-mastery-plan] topEvent selected from legacy fallback: "${evt.event.title}" score=${evt.score} minutesUntil=${evt.minutesUntil}`,
-        );
-        break;
-      }
-      console.log(
-        `[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – window=${window} minutesUntil=${evt.minutesUntil} score=${evt.score}`,
-      );
-    }
-  }
-  if (!topEvent && preferJitV2) {
+  if (!topEvent) {
     console.log(
       "[generate-mastery-plan][jit-v2-live] no eligible topEvent from preferred selector; legacy fallback suppressed",
       {
@@ -12495,7 +12461,7 @@ if (import.meta.main) {
         timezoneOffset: clientTimezoneOffset,
         localDate: clientLocalDate || undefined,
         todayCheckinId,
-        preferJitV2: body.preferJitV2 === true,
+        preferJitV2: true,
         currentTimezone: typeof body.currentTimezone === "string"
           ? body.currentTimezone
           : null,

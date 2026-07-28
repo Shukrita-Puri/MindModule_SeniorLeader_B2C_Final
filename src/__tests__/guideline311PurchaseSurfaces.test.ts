@@ -97,6 +97,16 @@ describe('no ungated Stripe CTA in iOS-reachable screens', () => {
     expect(src.match(/Restore Purchases/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
+  it('native iOS subscription surfaces do not route users to a web billing flow', () => {
+    const paywall = read('src/components/subscription/ApplePaywall.tsx');
+    const profileCard = read('src/components/subscription/AppleSubscriptionCard.tsx');
+    for (const src of [paywall, profileCard]) {
+      expect(src).not.toContain('app.mindmodule.me');
+      expect(src).not.toContain('from a browser');
+      expect(src).not.toContain('managed on the web');
+    }
+  });
+
   it('ApplePaywall keeps Privacy and Terms reachable via router links', () => {
     const src = read('src/components/subscription/ApplePaywall.tsx');
     expect(src).toContain('to="/privacy"');
