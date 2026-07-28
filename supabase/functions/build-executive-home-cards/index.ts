@@ -27,7 +27,7 @@ const JOB_KEY = "executive_home_cards";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-dev-user-id",
+    "authorization, x-client-info, apikey, content-type, x-dev-user-id, x-mm-client-platform",
 };
 
 function json(body: unknown, status = 200) {

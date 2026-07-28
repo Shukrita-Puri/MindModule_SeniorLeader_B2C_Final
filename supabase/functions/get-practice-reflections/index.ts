@@ -4,7 +4,7 @@ import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-dev-user-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-dev-user-id, x-mm-client-platform",
 };
 
 serve(async (req) => {

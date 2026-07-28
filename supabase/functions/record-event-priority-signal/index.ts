@@ -36,7 +36,7 @@ import {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-dev-user-id",
+    "authorization, x-client-info, apikey, content-type, x-dev-user-id, x-mm-client-platform",
 };
 
 const VALID_SIGNALS = new Set([
