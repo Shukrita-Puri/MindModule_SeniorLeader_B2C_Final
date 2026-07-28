@@ -16,12 +16,6 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		6A21000131B1000100AA0001 /* NotificationAuthorizationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A21000031B1000100AA0001 /* NotificationAuthorizationPlugin.swift */; };
-		7C10000131B0000100AA0001 /* NotificationReceiptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000031B0000100AA0001 /* NotificationReceiptStore.swift */; };
-		7C10000331B0000100AA0001 /* NotificationReceiptClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000231B0000100AA0001 /* NotificationReceiptClient.swift */; };
-		7C10000531B0000100AA0001 /* NotificationService.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 7C10000431B0000100AA0001 /* NotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		7C10001131B0000100AA0001 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000631B0000100AA0001 /* NotificationService.swift */; };
-		7C10001231B0000100AA0001 /* NotificationReceiptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000031B0000100AA0001 /* NotificationReceiptStore.swift */; };
-		7C10001331B0000100AA0001 /* NotificationReceiptClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000231B0000100AA0001 /* NotificationReceiptClient.swift */; };
 		7B8A3F112DB0A00100AA0001 /* WearableSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F102DB0A00100AA0001 /* WearableSyncBridge.swift */; };
 		7B8A3F132DB0A00200AA0001 /* AppleCalendarBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F122DB0A00200AA0001 /* AppleCalendarBridge.swift */; };
 		7B8A3F152DB0A00300AA0001 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F142DB0A00300AA0001 /* MainViewController.swift */; };
@@ -31,6 +25,12 @@
 		7B8A3F1D2DB0A00700AA0001 /* LocationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */; };
 		7B8A3F1F2DB0A00800AA0001 /* LocationBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */; };
 		7B8A3F212DB0A00900AA0001 /* InAppPurchasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F202DB0A00900AA0001 /* InAppPurchasePlugin.swift */; };
+		7C10000131B0000100AA0001 /* NotificationReceiptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000031B0000100AA0001 /* NotificationReceiptStore.swift */; };
+		7C10000331B0000100AA0001 /* NotificationReceiptClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000231B0000100AA0001 /* NotificationReceiptClient.swift */; };
+		7C10000531B0000100AA0001 /* NotificationService.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 7C10000431B0000100AA0001 /* NotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7C10001131B0000100AA0001 /* NotificationService/NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000631B0000100AA0001 /* NotificationService/NotificationService.swift */; };
+		7C10001231B0000100AA0001 /* NotificationReceiptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000031B0000100AA0001 /* NotificationReceiptStore.swift */; };
+		7C10001331B0000100AA0001 /* NotificationReceiptClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C10000231B0000100AA0001 /* NotificationReceiptClient.swift */; };
 		FC1443A830025A7700459011 /* HealthKitAnchorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1443A330025A7700459011 /* HealthKitAnchorStore.swift */; };
 		FC1443A930025A7700459011 /* HealthKitSampleNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1443A430025A7700459011 /* HealthKitSampleNormalizer.swift */; };
 		FC1443AA30025A7700459011 /* WearableStatusWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1443A630025A7700459011 /* WearableStatusWriter.swift */; };
@@ -72,12 +72,6 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		6A21000031B1000100AA0001 /* NotificationAuthorizationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAuthorizationPlugin.swift; sourceTree = "<group>"; };
-		7C10000031B0000100AA0001 /* NotificationReceiptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationReceiptStore.swift; sourceTree = "<group>"; };
-		7C10000231B0000100AA0001 /* NotificationReceiptClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationReceiptClient.swift; sourceTree = "<group>"; };
-		7C10000431B0000100AA0001 /* NotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		7C10000631B0000100AA0001 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService/NotificationService.swift; sourceTree = SOURCE_ROOT; };
-		7C10000731B0000100AA0001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = NotificationService/Info.plist; sourceTree = SOURCE_ROOT; };
-		7C10000831B0000100AA0001 /* NotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NotificationService/NotificationService.entitlements; sourceTree = SOURCE_ROOT; };
 		7B8A3F102DB0A00100AA0001 /* WearableSyncBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableSyncBridge.swift; sourceTree = "<group>"; };
 		7B8A3F122DB0A00200AA0001 /* AppleCalendarBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCalendarBridge.swift; sourceTree = "<group>"; };
 		7B8A3F142DB0A00300AA0001 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
@@ -87,6 +81,12 @@
 		7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridge.swift; sourceTree = "<group>"; };
 		7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridgePlugin.swift; sourceTree = "<group>"; };
 		7B8A3F202DB0A00900AA0001 /* InAppPurchasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppPurchasePlugin.swift; sourceTree = "<group>"; };
+		7C10000031B0000100AA0001 /* NotificationReceiptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationReceiptStore.swift; sourceTree = "<group>"; };
+		7C10000231B0000100AA0001 /* NotificationReceiptClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationReceiptClient.swift; sourceTree = "<group>"; };
+		7C10000431B0000100AA0001 /* NotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C10000631B0000100AA0001 /* NotificationService/NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService/NotificationService.swift; sourceTree = SOURCE_ROOT; };
+		7C10000731B0000100AA0001 /* NotificationService/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = NotificationService/Info.plist; sourceTree = SOURCE_ROOT; };
+		7C10000831B0000100AA0001 /* NotificationService/NotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NotificationService/NotificationService.entitlements; sourceTree = SOURCE_ROOT; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		FC1443A330025A7700459011 /* HealthKitAnchorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAnchorStore.swift; sourceTree = "<group>"; };
 		FC1443A430025A7700459011 /* HealthKitSampleNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSampleNormalizer.swift; sourceTree = "<group>"; };
@@ -167,9 +167,9 @@
 		7C10000931B0000100AA0001 /* NotificationService */ = {
 			isa = PBXGroup;
 			children = (
-				7C10000831B0000100AA0001 /* NotificationService.entitlements */,
-				7C10000631B0000100AA0001 /* NotificationService.swift */,
-				7C10000731B0000100AA0001 /* Info.plist */,
+				7C10000831B0000100AA0001 /* NotificationService/NotificationService.entitlements */,
+				7C10000631B0000100AA0001 /* NotificationService/NotificationService.swift */,
+				7C10000731B0000100AA0001 /* NotificationService/Info.plist */,
 			);
 			path = NotificationService;
 			sourceTree = SOURCE_ROOT;
@@ -321,7 +321,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7C10001131B0000100AA0001 /* NotificationService.swift in Sources */,
+				7C10001131B0000100AA0001 /* NotificationService/NotificationService.swift in Sources */,
 				7C10001231B0000100AA0001 /* NotificationReceiptStore.swift in Sources */,
 				7C10001331B0000100AA0001 /* NotificationReceiptClient.swift in Sources */,
 			);
