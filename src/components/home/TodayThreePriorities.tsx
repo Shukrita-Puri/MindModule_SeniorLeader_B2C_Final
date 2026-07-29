@@ -12,6 +12,11 @@ import { Check, Heart, ChevronRight, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  deviceLocaleContext,
+  getPlanLocaleContext,
+  type PlanLocaleContext,
+} from '@/utils/planLocaleContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
@@ -418,6 +423,12 @@ const TodayThreePriorities = ({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
+  // Locale context for the plan orchestrator. `generate-mastery-plan`
+  // resolves weekend days / planning day / plan window from these fields
+  // and does not read them off the profile, so they must be sent.
+  const [planLocale, setPlanLocale] = useState<PlanLocaleContext>(() =>
+    deviceLocaleContext(),
+  );
   // Snapshot-only Home: do NOT invoke the live `compute-outer-readiness`
   // pipeline on mount. Plan hydration prefers the mastery plan snapshot
   // (`useMasteryPlanSnapshot`) and MRS snapshot; the live payload is only
