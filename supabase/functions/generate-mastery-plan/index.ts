@@ -11743,7 +11743,17 @@ export function mergeWithLedger(
     // refresh when the day advances from morning to afternoon/evening, so
     // stale "this morning" anchors and duplicate carried slots do not leak
     // into later windows.
-    if (!slotCancelled && !ledgerSlot.isJit && periodShifted) {
+    //
+    // Title-dedup refresh: when the ledger carries slots with duplicate
+    // timeLabels (legacy generation bug), allow fresh modules to replace
+    // them so the user sees distinct plan cards instead of 3 identical ones.
+    const ledgerTitlesSeenSoFar = new Set<string>(
+      out.map((m: HorizonModule) => (m.timeLabel || "").trim().toLowerCase()).filter(Boolean),
+    );
+    const ledgerSlotTitleLower = (ledgerSlot.timeLabel || "").trim().toLowerCase();
+    const hasDuplicateTitle = !!ledgerSlotTitleLower && ledgerTitlesSeenSoFar.has(ledgerSlotTitleLower);
+
+    if (!slotCancelled && !ledgerSlot.isJit && (periodShifted || hasDuplicateTitle)) {
       const replacement = findRefreshCandidateForLedgerSlot(
         ledgerSlot,
         slotIndex,
@@ -11760,6 +11770,13 @@ export function mergeWithLedger(
           customTags: ledgerSlot.customTags || [],
         });
         slotOrigins.push("refreshed");
+        if (hasDuplicateTitle) {
+          console.info("[generate-mastery-plan][ledger-dedup-refresh]", {
+            slotIndex,
+            duplicateTitle: ledgerSlotTitleLower,
+            replacedWith: replacement.slot.timeLabel,
+          });
+        }
         continue;
       }
     }

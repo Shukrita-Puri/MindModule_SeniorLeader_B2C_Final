@@ -20,6 +20,37 @@ User reported: "In /executive-home page, we are showing plan card, where we are 
 
 ## Fixes Implemented (All Applied Successfully)
 
+### ✅ CRITICAL FIX: Ledger Sticky-Slot Dedup Refresh (ROOT CAUSE)
+
+**Location**: `mergeWithLedger()` function, line ~11740-11780
+
+**Root Cause**: The `mergeWithLedger()` function has a "sticky slot" rule (Rule 3b) that carries forward ledger slots verbatim when they are NOT cancelled and NOT completed. This means if the ledger was generated with the OLD logic (identical titles, duplicate practices), those stale slots persist indefinitely — even when the fresh modules (from `buildHorizonModules`) have better, deduplicated content. The fresh modules were being **ignored** for sticky slots.
+
+**What Changed**:
+- Added **title-dedup refresh** condition alongside the existing `periodShifted` condition
+- When the ledger carries slots with duplicate `timeLabel` values (same title appearing in multiple slots), the fresh modules now replace them
+- This ensures the user sees distinct plan cards instead of 3 identical "legacy" ones
+
+**Code**:
+```typescript
+// Title-dedup refresh: when the ledger carries slots with duplicate
+// timeLabels (legacy generation bug), allow fresh modules to replace
+// them so the user sees distinct plan cards instead of 3 identical ones.
+const ledgerTitlesSeenSoFar = new Set<string>(
+  out.map((m: HorizonModule) => (m.timeLabel || "").trim().toLowerCase()).filter(Boolean),
+);
+const ledgerSlotTitleLower = (ledgerSlot.timeLabel || "").trim().toLowerCase();
+const hasDuplicateTitle = !!ledgerSlotTitleLower && ledgerTitlesSeenSoFar.has(ledgerSlotTitleLower);
+
+if (!slotCancelled && !ledgerSlot.isJit && (periodShifted || hasDuplicateTitle)) {
+  // ... refresh from fresh modules instead of keeping stale ledger slot
+}
+```
+
+**Impact**: This is THE fix that breaks the "always picking up legacy logic" cycle. Without this, the ledger would carry forward stale identical-title slots forever, making the fresh dedup fixes in `buildHorizonModules` invisible to the user.
+
+---
+
 ### ✅ GAP 1 FIX: Inter-Slot Title Deduplication (P0 - CRITICAL)
 
 **Location**: Line ~9730, ~9890-9910
@@ -196,11 +227,15 @@ const label = composeStateTimeLabel(finalStateAction, anchor, {
 
 | Fix | Priority | Lines Changed | Status | Impact |
 |-----|----------|---------------|--------|--------|
+| **Ledger Sticky-Slot Dedup** | **P0** | ~11740-11780 | ✅ Applied | **Breaks the "legacy" carry-forward cycle** |
 | GAP 1: Title Deduplication | P0 | ~9730, ~9890-9910 | ✅ Applied | Distinct titles for all 3 cards |
 | GAP 2: Practice Deduplication | P0 | ~9735, ~10150-10756 (8 locations) | ✅ Applied | No duplicate practices across cards |
 | GAP 4: Temporal Vocabulary | P1 | ~9600-9630, ~9900-9910 | ✅ Applied | Phase-aware before/through/after |
+| GAP 5: Pill Tier Context | P2 | why-llm.ts WhyLLMInput interface | ✅ Applied | Adds cognitivePillTier/physicalPillTier fields for Brief↔Plan parity |
 
-**Total Lines Modified**: ~15 sections across ~1200 lines of the file
+**Note on GAP 3**: The `allocatePlanSlots` function in `supabase/functions/_shared/jit/slot-allocator.ts` already accepts and uses the `mrsWindow` parameter (line 78) via the `windowRole()` helper (lines 282-291). Morning/afternoon/evening-aware slot roles are already implemented. No changes needed.
+
+**Total Lines Modified**: ~16 sections across ~1200 lines
 
 ---
 

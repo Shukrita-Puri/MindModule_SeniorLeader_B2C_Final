@@ -89,6 +89,10 @@ export interface WhyLLMInput {
   decisionReadinessPill?: string | null;
   /** User-visible Physical Reserves pill label from the same request state. */
   physicalReservesPill?: string | null;
+  /** Cognitive pill tier (green/amber/red) from deterministic brief state. */
+  cognitivePillTier?: "green" | "amber" | "red" | "unread" | null;
+  /** Physical pill tier (green/amber/red) from deterministic brief state. */
+  physicalPillTier?: "green" | "amber" | "red" | "unread" | null;
   /** Allocator role for this slot, e.g. pre/current_priority/protect_tonight. */
   slotRole?: string | null;
   /** Allocator day-shape for this plan, e.g. mixed_day/week_ahead/travel_day. */
