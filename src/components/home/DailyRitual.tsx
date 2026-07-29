@@ -16,6 +16,7 @@ import { getCheckinForWindow, getCurrentTimeWindow } from '@/utils/dailyCheckins
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getPlanLocaleContext } from '@/utils/planLocaleContext';
 import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
 
 // Background images for Coach cards
@@ -326,9 +327,16 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      // Only timezoneOffset – ALL signals are now derived server-side
+      // Locale context + timezone offset. All other signals are derived
+      // server-side; the orchestrator resolves the plan window from these.
+      const locale = await getPlanLocaleContext(user?.id || (DEV_MODE ? DEV_USER.id : null));
       const requestBody = {
-        timezoneOffset: new Date().getTimezoneOffset(),
+        timezoneOffset: locale.timezoneOffset,
+        currentTimezone: locale.currentTimezone,
+        homeTimezone: locale.homeTimezone,
+        userHomeCountry: locale.userHomeCountry,
+        userCurrentCountry: locale.userCurrentCountry,
+        travelState: locale.travelState,
         preferJitV2: true,
       };
 
