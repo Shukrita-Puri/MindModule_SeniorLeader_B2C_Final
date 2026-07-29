@@ -89,7 +89,7 @@ export async function getPlanLocaleContext(
         .maybeSingle(),
       (supabase as any)
         .from('travel_state')
-        .select('state, current_timezone')
+        .select('state, last_known_timezone')
         .eq('user_id', userId)
         .maybeSingle(),
     ]);
@@ -100,7 +100,7 @@ export async function getPlanLocaleContext(
     const value: PlanLocaleContext = {
       timezoneOffset: base.timezoneOffset,
       currentTimezone:
-        (t.current_timezone as string | null) ??
+        (t.last_known_timezone as string | null) ??
         (p.current_timezone as string | null) ??
         base.currentTimezone,
       homeTimezone: (p.home_timezone as string | null) ?? base.homeTimezone,
