@@ -291,3 +291,294 @@ Native bridge: `ios/App/App/AppleCalendarBridge.swift` + `AppleCalendarBackgroun
 ---
 
 _Audit produced from a read-only pass of the repo at commit-current. No code was modified._
+---
+
+# COS Profile — Deep Audit of Scraping, Analysis, and LLM Synthesis
+
+_Read-only audit, 29 Jul 2026. Source of truth: `supabase/functions/synthesize-cos-profile/index.ts` (738 lines), `supabase/functions/linkedin-profile-scrape/index.ts` (328 lines), and live `onboarding_v8_responses` / `user_external_profiles` rows. No code was changed._
+
+## Section A — Scraping: what is actually fetched
+
+### A1 — LinkedIn scraping
+
+**The Firecrawl call** (`synthesize-cos-profile/index.ts:248-278`) is a single generic helper used for *every* URL — LinkedIn and writing URLs alike:
+
+```ts
+const res = await fetch(`${FIRECRAWL_V2}/scrape`, {
+  method: "POST",
+  headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ url, onlyMainContent: true, formats: ["markdown", "summary"] }),
+});
+```
+
+- Endpoint: `https://api.firecrawl.dev/v2/scrape` (direct API mode, `Bearer FIRECRAWL_API_KEY` — no gateway).
+- Body: only `url`, `onlyMainContent: true`, `formats: ["markdown","summary"]`. **No `actions`, no `waitFor`, no `json` extraction schema, no `location`, no proxy/stealth option.**
+- Timeout: **none** — no `AbortController`, no `signal`. A hung Firecrawl call hangs the whole synthesis.
+- Error handling: any non-2xx or unparsable body returns `{ ok:false, error: "firecrawl_<status>" }`; thrown errors return `{ ok:false, error: message }`. Never throws upward.
+- Fields kept: `markdown` (truncated to 60 000 chars), `summary`, `metadata`. `html`, `links`, `json` are **not** requested and therefore never available.
+
+**What is stored in `onboarding_v8_responses.linkedin_scrape`** (`:571-596`): a processed subset, not the raw response —
+`{ url, ok, markdown?, summary?, metadata?, error?, scraped_at }`.
+
+**Which LinkedIn sections are covered:** in principle whatever markdown Firecrawl returns for the public page. In practice **none** — see below.
+
+**Anti-bot reality (evidence, not inference).** Every LinkedIn scrape attempt in the live DB failed with an explicit Firecrawl refusal:
+
+```
+li_ok = false
+li_err = "We apologize for the inconvenience but we do not support this site.
+          If you are part of an enterprise and want to have a further conversation
+          about this, please fill out our intake form here: https://…typeform.com/…"
+```
+
+- Rows with a `linkedin_scrape` object present: **3**. Rows where `ok = true`: **0**.
+- `length(linkedin_scrape->>'markdown')` = **0** in every row.
+- `user_external_profiles`: **3 rows, all `scrape_status = 'url_only'`, zero `ok`/`partial`.**
+
+So Firecrawl is not being blocked by LinkedIn — **Firecrawl itself refuses linkedin.com by policy**. LinkedIn scraping success rate to date: **0 / 3 (0%)**. `FIRECRAWL_API_KEY` is clearly present in production (the API answered with a policy refusal, not an auth error).
+
+**Duplicate scraper.** `linkedin-profile-scrape/index.ts:124-206` is a *second, richer* Firecrawl call to the same endpoint:
+
+```ts
+formats: ["markdown", "summary", { type: "json", prompt: "Extract the public LinkedIn profile fields… full_name, headline, current_company, current_role, location, about, experience, education, skills, profile_image_url…" }]
+```
+
+It adds LLM JSON extraction, URL canonicalisation (`LINKEDIN_PUBLIC_RX`), a confidence heuristic (`ok` / `partial` / `insufficient`), writes `user_external_profiles`, **and mirrors its result into `onboarding_v8_responses.linkedin_scrape`** (`:297-306` and `:227-244` for the failure path).
+
+- Called from the client at `StageLeadershipContext.tsx:165`, `LinkedInAccountRow.tsx:95`, `LinkedInImportCard.tsx:75`.
+- **Both run.** The onboarding step calls `linkedin-profile-scrape` first; `synthesize-cos-profile` then skips its own LinkedIn scrape only because of the guard `if (linkedinUrl && isValidHttpUrl(linkedinUrl) && !linkedinScrape)` (`:571`). A *failed* mirror row is a truthy object, so **the synthesis never retries LinkedIn** — a permanent negative cache with no TTL.
+- Canonical in practice: `linkedin-profile-scrape` (it writes first). The block inside `synthesize-cos-profile` is effectively dead for any user who passed through the onboarding step. Neither is superior in outcome today, since both hit the same policy refusal.
+
+### A2 — Writing URL scraping
+
+`:565` — `const writingUrls = Array.isArray(row.writing_urls) ? row.writing_urls.slice(0, 2) : []`.
+
+- **Only the first 2 URLs are ever scraped**, regardless of how many the user entered (client allows up to `MAX_WRITING_URLS`). Silent truncation, no user-visible notice.
+- Options are **identical to the LinkedIn call** — `onlyMainContent: true`, `formats: ["markdown","summary"]`. No link-following, no crawl, no per-domain handling. A Substack *index* page therefore yields post titles/blurbs, not article bodies; only a direct article URL yields the full text.
+- **Video URLs:** no transcript extraction of any kind. YouTube/Loom yield page metadata and whatever markdown Firecrawl scrapes off the watch page — effectively title + description.
+- Limits: per-scrape markdown capped at 60 000 chars (`:271`); the *combined* writing text is then capped at **30 000 chars** (`:611`) before reaching the LLM.
+- `writing_scrapes` stores **one entry per attempted URL**: `{ url, ok, markdown?, summary?, metadata?, error?, scraped_at }`; invalid URLs get `{ url, ok:false, error:"invalid_url" }` (`:576-584`).
+- Paywall / 404 / empty: **per-URL failure only** — the loop continues, the entry is stored with `ok:false`, and synthesis proceeds. The scraping step never fails the request. Note there is no content-quality check: a paywall page that returns 200 with a "Subscribe to read" stub is stored as `ok: true` and passed to the LLM as if it were real writing.
+- Live data: **0 rows have any `writing_scrapes` entries.** This path has never produced data in production.
+
+## Section B — The LLM analysis
+
+### B1 — System prompt (verbatim, `:280-298`)
+
+```
+You are an expert analyst building a Chief of Staff for the Mind (COS) intelligence profile for a senior executive. Your role is to synthesise onboarding inputs into a structured, actionable profile that the app uses to personalise daily briefs, Readiness Assessments, Prepare protocols, and Recalibrate recommendations.
+
+Output must be:
+- Operational and precise, never generic
+- Performance-coded, never wellness-coded (say "cognitive load" not "stress", "recovery deficit" not "burnout", "regulation gap" not "anxiety")
+- Honest about what is known vs provisional vs missing
+- Structured for both app consumption (JSON fields) and in-app display (HTML)
+
+You are writing for a CEO-level user. Tone: highly intelligent, discreet chief of staff. Direct. Economical. High signal. Never sounds like coaching, therapy, or personality assessment.
+
+Critical rules:
+- If freetext contains DISC / Enneagram / archetype / self-assessment, treat as PRIMARY SOURCE — overrides inferred traits. Flag where LinkedIn/writing confirms or diverges.
+- LinkedIn: extract role, sector, trajectory, board exposure, positioning, communication signals. Do not infer emotional states from job titles.
+- Writing/interviews: richest source for cognitive style and how the COS should speak to them.
+- Be honest about confidence. Avoid false certainty.
+- If LinkedIn or writing missing, explicitly list gaps in what_is_missing. Never fabricate.
+- display_html must follow the Rishad COS profile format with classes: .hero, .section, .sec-label, .card, .card-body, .tag, .two-col, .lean-item, .flag, .flag-amber, .flag-red, .flag-teal, .quote, .missing-item.
+
+You MUST call the tool "emit_cos_profile" exactly once with the structured profile. Do not return prose.
+```
+
+### B2 — `buildUserPrompt()` (verbatim, `:300-349`)
+
+```
+Build a COS intelligence profile for this executive using the onboarding data below. Follow the output schema exactly.
+
+### INPUT DATA
+
+**LinkedIn URL provided:** ${args.linkedinUrl ?? "(none)"}
+**LinkedIn profile content (scraped):**
+${args.linkedinText || "(no scrape available)"}
+
+**Published writing / interview URLs:** ${args.writingUrls.join(", ") || "(none)"}
+**Writing content (scraped):**
+${args.writingText || "(no scrape available)"}
+
+**Self-provided context (free text):**
+${args.freetext || "(none provided)"}
+If this contains DISC, Enneagram, archetype, or any existing self-assessment, treat as PRIMARY SOURCE.
+
+**High-stakes events that matter to them:** ${args.stakesChips.join(", ") || "(none selected)"}
+**What tends to weigh on them:** ${args.loadChips.join(", ") || "(none selected)"}
+**Operating burdens:** ${args.burdenChips.join(", ") || "(none selected)"}
+
+**Goals selected (up to 3):** ${args.goals.join(", ") || "(none selected)"}
+**Brief timing preference:** ${args.briefTiming ?? "(not set)"}
+**Reset modality preference:** ${args.resetModality ?? "(not set)"}
+**Weekend signals preference:** ${args.weekendSignals ?? "(not set)"}
+
+**Calendar providers connected:** ${args.calendarSelections.join(", ") || "(none selected)"}
+**Wearable providers connected:** ${args.wearableSelections.join(", ") || "(none selected)"}
+
+user_id: ${args.userId}
+timestamp: ${new Date().toISOString()}
+
+Now emit the profile via the emit_cos_profile tool.
+```
+
+- LinkedIn content: **raw markdown dump**, unlabelled, unsegmented, capped at 30 000 chars (`:609`).
+- Writing scrapes: **concatenated raw markdown joined by `\n\n---\n\n`** (`:601-604`). Individual sources are **not labelled with their URL** — the LLM cannot attribute a quote to a source.
+- Chips/goals: **comma-joined plain lists**, not JSON, with `(none selected)` placeholders.
+- Freetext: passed **as-is**, only truncated to 6 000 chars (`:612`).
+- Token estimate for a "typical" populated user (LinkedIn markdown ~8 000 chars + one Substack article ~12 000 chars + chips/freetext ~1 500 chars): ≈ 21 500 chars ≈ **5–6k tokens**. Worst case (both caps hit): ≈ 67 000 chars ≈ **17k tokens**. Today's real users: **< 700 tokens** because both scrape fields are empty.
+
+### B3 — `emit_cos_profile` tool schema (`:351-504`)
+
+Full property list (all leaf types are `string` unless noted):
+
+| Field | Type | Description in schema |
+|---|---|---|
+| `profile_id`, `generated_at`, `confidence_overall`, `confidence_note` | string | *(none)* |
+| `data_sources` | string[] | *(none)* |
+| `identity` | object: `display_name`, `role`, `sector`, `organisation_stage`, `leadership_stage` | *(none)* |
+| `leadership_style` | object: `primary_style`, `style_tags[]`, `style_description`, `confidence`, `source_note` | *(none)* |
+| `communication_profile` | object: `how_they_think`, `how_they_communicate`, `what_lands[]`, `what_wont_land[]`, `cos_brief_rules`, `confidence` | *(none)* |
+| `existing_self_knowledge` | object: `disc_provided`(bool), `disc_type`, `archetype_provided`(bool), `archetype_type`, `other_frameworks`, `alignment_note`, `confidence` | *(none)* |
+| `cognitive_risk_profile` | object: `primary_risk`, `risk_flags[]{flag,severity,description,trigger_conditions}`, `regulation_strengths[]`, `confidence` | *(none)* |
+| `external_persona` | object: `summary`, `legacy_signals`, `confidence` | *(none)* |
+| `high_stakes_map` | object: `declared_events[]`, `inferred_events[]`, `event_frequency_estimate` | *(none)* |
+| `cognitive_load_map` | object: `declared_loads[]`, `inferred_loads[]`, `operating_burdens[]`, `primary_depletion_pattern` | *(none)* |
+| `goals` | object: `declared[]`, `cos_accountability_note` | *(none)* |
+| `brief_personalisation` | object: `timing`, `reset_modality`, `weekend_signals`, `brief_voice_note` | *(none)* |
+| `provisional_archetype` | object: `name`, `subtitle`, `description`, `to_be_confirmed_after`, `confidence` | *(none)* |
+| `what_is_missing` | array of `{gap_number:number, gap, description}` | *(none)* |
+| `display_html` | string | *(none)* |
+
+`required`: `confidence_overall`, `identity`, `leadership_style`, `communication_profile`, `cognitive_risk_profile`, `goals`, `brief_personalisation`, `display_html`. `additionalProperties: false`. Tool `description`: `"Emit the structured Chief of Staff for the Mind profile."`
+
+**Critical schema finding: not a single property in the schema carries a `description`.** There is zero per-field instruction — no "infer", no "derive from evidence", no `display_html` formatting spec. All analytical guidance lives only in the system prompt. The *field names* are interpretive (`inferred_events`, `inferred_loads`, `primary_depletion_pattern`, `provisional_archetype`, `cognitive_risk_profile`), so the schema shape implies synthesis, but nothing in the schema enforces or explains it.
+
+### B4 — AI call parameters (`:660-677`)
+
+- Endpoint: `https://ai.gateway.lovable.dev/v1/chat/completions`
+- Model: `google/gemini-2.5-pro` (constant `AI_MODEL` at `:13`; no runtime override, no model fallback chain — unlike the Claude→Haiku paths elsewhere).
+- `temperature`: **not set** (provider default).
+- `max_tokens` / `maxOutputTokens`: **not set** — a long `display_html` can be truncated with no detection; a truncated tool-call JSON fails `JSON.parse` and silently falls back.
+- `tool_choice`: **forced** — `{ type: "function", function: { name: "emit_cos_profile" } }`.
+- No `reasoning_effort`, no `thinking`, no `service_tier`.
+
+## Section C — The fallback
+
+### C1 — `buildFallbackCosProfile()` (`:117-246`)
+
+The only "analysis" it performs is two regexes in `inferSelfKnowledge()` (`:82-89`) that look for `DISC` and `Enneagram|type` tokens in the freetext. Everything else is a direct field mapping:
+
+- `identity.display_name` is hardcoded `"Executive"`; `sector`/`organisation_stage` hardcoded `"Not provided"`.
+- `leadership_style.style_tags` = `goals.slice(0,3) + stakesChips.slice(0,2)`; `style_description` = the raw freetext or a canned sentence.
+- `cognitive_risk_profile.risk_flags` = load/burden chips wrapped in `{ flag, severity: "unknown", description: "Declared load signal: <chip>" }`.
+- `high_stakes_map.inferred_events` and `cognitive_load_map.inferred_loads` are **always `[]`** — the inference fields exist and are always empty.
+- `communication_profile.what_lands` / `what_wont_land` are **fixed literal arrays** for every user.
+- `provisional_archetype.name` is always `"Provisional Executive Operator"`.
+- `confidence` = `medium` if any external text or freetext > 120 chars, else `low`, else `very_low`.
+
+Structurally it is **field-for-field identical** to the AI schema (same keys, same nesting) but **semantically hollow**: no interpretation, no cross-source reconciliation, no archetype reasoning. It is deliberately labelled as provisional in `confidence_note`.
+
+For a chips-only user the fallback yields, essentially: display_name "Executive", role "Role not provided", style_description = the canned "Leadership style cannot be inferred yet…" string, risk_flags = the user's own chips echoed back, and a 3-item `what_is_missing` list.
+
+### C2 — When the fallback actually runs
+
+Three trigger paths, all returning HTTP 200 with `fallback: true`:
+
+| Trigger | Line | `fallback_reason` |
+|---|---|---|
+| `LOVABLE_API_KEY` missing | `:645-658` | `ai_unavailable` |
+| AI gateway non-2xx (incl. 402 credits, 429) | `:679-693` | `ai_<status>` |
+| Response has no parsable `emit_cos_profile` tool call | `:705-717` | `ai_no_tool_call` |
+
+Note: a missing `FIRECRAWL_API_KEY` does **not** trigger the fallback — it only skips scraping (`:585-587`) and the AI still runs with empty scrape sections.
+
+**Observability gap:** `cos_profile_status` is set to `"ready"` for both AI and fallback profiles (`persistReadyProfile`, `:625-643`). The `fallback: true` flag exists **only in the HTTP response**, never persisted. There is no stored column, no `cos_profile.data_sources` marker, and no distinguishing status value. **You cannot query how many stored profiles are fallbacks.**
+
+**Live rows** (all 5 `onboarding_v8_responses`; only 2 have `cos_profile_generated_at`):
+
+| user | status | generated_at | linkedin | archetype | confidence | html len |
+|---|---|---|---|---|---|---|
+| `linkedin\|2b…` | ready | 2026-07-17 | none | **"The Juggler (Provisional)"** | Very Low | 4 030 |
+| `google-oauth…` | ready | 2026-06-16 | scrape refused | **"The Athlete"** | Very Low | 6 131 |
+| 3 others | pending | — | 1 refused / 2 none | — | — | 0 |
+
+Both generated rows are **AI-generated, not fallback** — proof: the archetype names ("The Juggler (Provisional)", "The Athlete") are not the hardcoded `"Provisional Executive Operator"`, and the confidence notes are bespoke interpretive prose ("This is a thin profile based solely on the initial onboarding questionnaire… It should be treated as a provisional starting point…"). Fallback-marked rows: **0**.
+
+But both are AI runs over **chips only** — the LLM's own text confirms it: *"No inputs from LinkedIn, written materials, or self-description were provided."* So the pipeline is running the expensive path on the thinnest possible input.
+
+### C3 — `buildFallbackDisplayHtml()` (`:91-115`)
+
+```ts
+function buildFallbackDisplayHtml(profile: any): string {
+  const gaps = Array.isArray(profile.what_is_missing) ? profile.what_is_missing : [];
+  return `
+<div class="hero">
+  <div class="sec-label">Chief of Staff profile</div>
+  <h2>Provisional leadership context</h2>
+  <p>${escapeHtml(profile.confidence_note)}</p>
+</div>
+<div class="section">
+  <div class="sec-label">What we know</div>
+  <div class="card"><div class="card-body">
+    <span class="tag">Goals: ${escapeHtml(compactList(profile.goals?.declared ?? [], "not selected"))}</span>
+    <span class="tag">High stakes: ${escapeHtml(compactList(profile.high_stakes_map?.declared_events ?? [], "not declared"))}</span>
+    <span class="tag">Load: ${escapeHtml(compactList(profile.cognitive_load_map?.declared_loads ?? [], "not declared"))}</span>
+  </div></div>
+</div>
+<div class="section">
+  <div class="sec-label">How Mind Module should brief you</div>
+  <div class="card"><div class="card-body">${escapeHtml(profile.communication_profile?.cos_brief_rules ?? "")}</div></div>
+</div>
+<div class="section">
+  <div class="sec-label">Missing context</div>
+  ${gaps.map((g: any) => `<div class="missing-item">${escapeHtml(g.gap)} — ${escapeHtml(g.description)}</div>`).join("")}
+</div>`.trim();
+}
+```
+
+Four sections, three of which are a chip echo. It is **a placeholder, not a profile page** — no leadership style, no risk profile, no archetype, no prose. It is correctly HTML-escaped. Note the fallback path overwrites whatever `display_html` might exist (`:244`).
+
+## Section D — End-to-end quality assessment
+
+1. **Is the LLM doing real analysis?** *Partly — instructed to, but not enforced.* The system prompt does ask for synthesis: *"synthesise onboarding inputs"*, *"extract role, sector, trajectory, board exposure, positioning"*, *"Writing/interviews: richest source for cognitive style"*, *"treat as PRIMARY SOURCE — overrides inferred traits. Flag where LinkedIn/writing confirms or diverges."* That is genuine interpretive instruction, not copy-paste. **But** the tool schema carries **zero field descriptions**, and the user prompt is a flat label→value dump with no analytical framing. Evidence from live rows shows Gemini *is* interpreting (bespoke archetypes, honest confidence notes) — it is simply interpreting almost nothing, because there is almost nothing to interpret.
+
+2. **Is the LinkedIn scrape returning useful data?** **No — 0% success.** Firecrawl returns a policy refusal for `linkedin.com` ("we do not support this site"), not a login wall or a truncation. 0/3 attempts succeeded; `markdown` length is 0 in every stored scrape; all 3 `user_external_profiles` rows are `url_only`. The single richest input the whole design depends on has **never once been captured**.
+
+3. **Are writing URLs meaningfully analysed?** **Unproven and structurally limited.** Zero rows have any `writing_scrapes`. Structurally: only the first 2 URLs are scraped; `onlyMainContent` with no link-following means a Substack *index* URL yields blurbs not articles (a direct article URL would work); video URLs yield no transcript; sources are concatenated without URL labels; a paywall stub returning 200 is treated as valid content.
+
+4. **AI vs fallback share?** Of the 2 generated profiles, **both are AI-generated (100%)**; 0 fallbacks. But this is unmeasurable at scale — the fallback flag is never persisted (C2). The dominant real-world failure is not the fallback, it is **AI-on-empty-input**: 100% of generated profiles were produced with no LinkedIn, no writing, and no freetext.
+
+5. **Is the HTML a genuine profile?** For the AI path, plausibly — 4 030 and 6 131 chars of structured markup against the CSS contract `.hero .section .sec-label .card .card-body .tag .two-col .lean-item .flag .flag-amber .flag-red .flag-teal .quote .missing-item` (`:296`). For the fallback path, no — it is a 4-block placeholder. **Either way it is currently unreachable:** `rg` over `src/` finds `cos_profile_html` **only in the generated `types.ts`** — no component, page, or email template renders it. The profile is generated, stored, and never shown to anyone.
+
+## Section E — Gap list
+
+1. **LinkedIn scraping is 100% non-functional.** Firecrawl refuses linkedin.com by policy. Not a bug in the calling code — a provider capability gap. Requires a different provider (Proxycurl / Bright Data / official LinkedIn API) or dropping LinkedIn as an input.
+2. **Failed LinkedIn scrapes are cached forever.** `!linkedinScrape` (`:571`) treats a `{ok:false}` object as "already scraped". No TTL, no retry-on-failure, even with `force: true` (force only bypasses the *profile* cache, not the scrape cache).
+3. **Two competing LinkedIn scrapers.** `linkedin-profile-scrape` (richer, with LLM JSON extraction) and the inline block in `synthesize-cos-profile` (basic). The richer one writes the shared field first and thereby disables the other. Undocumented coupling.
+4. **Writing URLs silently truncated to 2** (`:565`) with no user feedback.
+5. **No timeout on any Firecrawl call** — a hung scrape hangs synthesis, and there is no wall-clock budget for the whole function.
+6. **No content-quality gate on scrapes.** A paywall/consent/404-soft page returning 200 is stored `ok:true` and fed to the LLM as genuine writing.
+7. **No transcript extraction for video URLs** despite the UI inviting interview/video links.
+8. **Writing sources are unlabelled** in the prompt (`\n\n---\n\n` join) — the LLM cannot attribute or weight by source.
+9. **Tool schema has zero field descriptions** — all analytical intent depends on the system prompt surviving into a forced tool call.
+10. **No `max_tokens`** on a call that must emit multi-KB HTML → silent truncation risk → `JSON.parse` failure → silent fallback.
+11. **No model fallback** for `google/gemini-2.5-pro`; a 402/429 drops straight to the hollow fallback.
+12. **Fallback vs AI is not persisted.** `cos_profile_status = 'ready'` for both. Impossible to measure fallback rate, impossible to re-run only the fallbacks.
+13. **`inferred_events` / `inferred_loads` are structurally always empty in fallback** and unenforced in the AI path — the "inference" half of the data model is decorative.
+14. **`cos_profile_html` is never rendered.** No UI, no admin viewer, no email. The entire pipeline currently has no consumer.
+15. **No downstream consumer of `cos_profile` at all** in `src/` — pairs with the ONBOARDING_AS_BUILT "WIRED BUT SILENT" findings (`user_archetype`, `practice_priority_tag` never written).
+16. **No user-facing error surface** when synthesis fails or produces a very-low-confidence profile (`cos_profile_error` is written but never read by the client).
+17. **Cost/benefit inversion:** Gemini 2.5 Pro (the most expensive text path in the app) is being invoked on ~600-token chips-only prompts.
+
+## Unknowns
+
+- Whether Firecrawl's refusal is plan-tier-dependent (an enterprise Firecrawl agreement might unblock linkedin.com) — determinable only with Firecrawl, not from code.
+- Real-world Substack/blog scrape fidelity — **zero** production samples exist to measure.
+- Whether `synthesize-cos-profile` is ever invoked server-side or is purely opt-in from `StageDone.tsx` (carried over from the prior audit; still unresolved).
+- Whether Gemini 2.5 Pro would produce materially better output with populated LinkedIn/writing input — untestable without a working scraper.
+- Whether the truncation caps (30 000 chars each for LinkedIn and writing) are ever hit in practice.
+
+_Read-only audit. No code, schema, or data was modified._
