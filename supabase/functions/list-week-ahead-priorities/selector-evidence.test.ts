@@ -20,10 +20,9 @@ Deno.test("imports loadJitContextForEvents (relationship/memory/sovereign)", () 
   assertStringIncludes(SRC, "loadJitContextForEvents(");
 });
 
-Deno.test("does NOT use the filtering selectJitCandidates in week-ahead", () => {
-  // Must not be imported or called (allow substring in comments only).
-  assertEquals(/from\s+["'][^"']*select-jit/.test(SRC), false);
-  assertEquals(/selectJitCandidates\s*\(/.test(SRC), false);
+Deno.test("USES the filtering selectJitCandidates in week-ahead", () => {
+  assertEquals(/from\s+["'][^"']*select-jit/.test(SRC), true);
+  assertEquals(/selectJitCandidates\s*\(/.test(SRC), true);
 });
 
 Deno.test("does NOT import or call legacy rankJitCandidates", () => {

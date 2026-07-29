@@ -71,6 +71,7 @@ import {
   isPtoOrHolidayTitle,
 } from "../_shared/ceo-behaviour/pto-holiday.ts";
 import { classifyAvailability } from "../_shared/availability/availability-classifier.ts";
+import { resolveUserLocaleContext, type UserLocaleContext } from "../_shared/plan/user-locale.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
   type RankedJitCandidate,
@@ -119,6 +120,7 @@ import {
   buildPriorityTitle,
   type SlotAnchor,
   verbForCategoryPhase,
+  executiveObjectiveFor,
 } from "../_shared/plan/title-prefixes.ts";
 import { stripBriefMarkdown } from "../_shared/text/sanitise.ts";
 import {
@@ -967,6 +969,13 @@ interface PlanRequest {
    * "use dynamic behaviour". Never gate on this being non-null.
    */
   leaderProfile?: LeaderProfileContext;
+  /**
+   * F1 — Unified user locale context (country, timezone, weekend days, local date).
+   * Resolved once at Plan start and threaded to all consumers (availability classifier,
+   * day-shape derivation, slot allocation). Single source of truth for locale-dependent
+   * logic, preventing scatter and ensuring consistency across all phases.
+   */
+  userLocale?: UserLocaleContext;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
@@ -3430,6 +3439,17 @@ function buildSharedContextDescription(
   };
 }
 
+/**
+ * @deprecated F3 (2026-07-29): Legacy scoring function — NO LONGER USED.
+ * 
+ * This function used the old rankJitCandidates() engine with stakesLevel
+ * strings. It has been superseded by:
+ *   - buildPreferredJitV2Selection() → uses selectJitCandidates()
+ *   - scoreCalendarEventsFromSelectedCandidates() → converts v2 output
+ * 
+ * Retained in-source for historical reference only. All live plan generation
+ * uses the v2 scoring engine exclusively.
+ */
 function scoreCalendarEventsShared(
   events: CalendarEvent[],
   hrvCorrelations?: HRVCorrelationMap | null,
@@ -5740,12 +5760,41 @@ async function generateMasteryPlan(
     relationshipLeads: !!priorityMemoryIndex,
     gateBypassed: false,
   };
-  const preferJitV2 = true;
+  // ════════════════════════════════════════════════════════════════════════
+  // F3: JIT v2 Engine Switch-Over (2026-07-29)
+  // ════════════════════════════════════════════════════════════════════════
+  // The v2 scoring engine (selectJitCandidates) is now the SOLE source of
+  // truth for event ranking and slot allocation. Legacy ranker
+  // (rankJitCandidates) is no longer used in the live plan generation path.
+  //
+  // V2 uses category-based weights (A=40, B=30, C=32, D=22/38, E=10, F=18,
+  // G=12, H=5) with Immediate/Tactical/Strategic tier weighting, sovereign
+  // tag layer, relationship scoring, and memory delta.
+  //
+  // Architecture:
+  //   buildPreferredJitV2Selection() → selectJitCandidates() → SelectResult
+  //   → buildPreferredRankedCandidates() → RankedJitCandidate[]
+  //   → allocatePlanSlots() → 3 daily slots
+  // ════════════════════════════════════════════════════════════════════════
+  const JIT_V2_LIVE = true; // F3: v2 engine is now production default
+  const preferJitV2 = JIT_V2_LIVE;
   const preferredSelectResult = await buildPreferredJitV2Selection(
     req.userId,
     req.calendarEvents || [],
     supabaseClient,
     req,
+  );
+  
+  // F3: Confirm v2 engine activation
+  console.log(
+    `[F3-engine-switch][jit-v2-live] ✓ V2 scoring engine ACTIVE (selectJitCandidates). Legacy ranker gated off.`,
+    {
+      v2_active: JIT_V2_LIVE,
+      v2_candidates: preferredSelectResult?.ranked?.length ?? 0,
+      v2_excluded: preferredSelectResult?.excluded?.length ?? 0,
+      v2_tier: preferredSelectResult?.tier,
+      crisis_events: preferredSelectResult?.crisisEvents?.length ?? 0,
+    }
   );
 
   // 4. Score calendar events from the shared selector only. Legacy scoring is
@@ -6082,332 +6131,8 @@ async function generateMasteryPlan(
     );
   }
 
-  let topEvent: ScoredEvent | null = null;
-  const sharedTopCandidate = jitRankedCandidates.find((candidate) =>
-    candidate.phase === "pre"
-  );
-  if (sharedTopCandidate && sharedTopCandidate.score >= JIT_THRESHOLD_UNIFIED) {
-    const mappedEvent = findScoredEventForCandidate(
-      filteredEvents,
-      sharedTopCandidate,
-    );
-    if (mappedEvent) {
-      const window = getActionWindow(mappedEvent.minutesUntil);
-      if (window === "touch1" || window === "touch2") {
-        topEvent = mappedEvent;
-        console.log(
-          `[generate-mastery-plan] topEvent selected from shared ranking: "${mappedEvent.event.title}" phase=${sharedTopCandidate.phase} score=${sharedTopCandidate.score} minutesUntil=${mappedEvent.minutesUntil}`,
-        );
-      }
-    }
-  }
-
-  if (!topEvent) {
-    console.log(
-      "[generate-mastery-plan][jit-v2-live] no eligible topEvent from preferred selector; legacy fallback suppressed",
-      {
-        rankedCandidateCount: jitRankedCandidates.length,
-        filteredEventCount: filteredEvents.length,
-      },
-    );
-  }
-
-  if (topEvent) {
-    const scenario = topEvent.scenario;
-    const actionWindow = getActionWindow(topEvent.minutesUntil);
-    const horizon = actionWindow === "touch1" ? "touch_1" : "touch_2";
-    const preEventModules: any[] = [];
-
-    console.log(
-      `[generate-mastery-plan] Two-touch: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} score=${topEvent.score} minutesUntil=${topEvent.minutesUntil}`,
-    );
-
-    if (actionWindow === "touch2") {
-      // ═══ TOUCH 2 (0-6h): BODY PREP – somatic-first, 3-5 min max ═══
-      // Primary: somatic/breathing regulation practice (gentle, micro/short)
-      const somaticSpec: ModuleSpec = {
-        type: "regulate",
-        required: true,
-        priority: 9,
-        intensity: "gentle",
-        duration: "micro",
-        focus: "composure",
-      };
-      const somaticContent = selectContent(
-        enrichedContent,
-        somaticSpec,
-        req,
-        pendingCommitments,
-      );
-      if (somaticContent) {
-        preEventModules.push({
-          type: "regulate",
-          contentId: somaticContent.id,
-          title: somaticContent.title,
-          contentType: somaticContent.content_type,
-          duration: somaticContent.duration,
-          focus: "composure",
-          intensity: "gentle",
-          isFavorite: req.favorites.includes(somaticContent.id),
-          reasoning: `Settle your body before ${
-            topEvent.event.title?.split(" ").slice(0, 4).join(" ") ||
-            "this event"
-          }`,
-        });
-      }
-      // Secondary: one short focus/grounding exercise
-      const focusSpec: ModuleSpec = {
-        type: "align",
-        required: false,
-        priority: 6,
-        intensity: "gentle",
-        duration: "micro",
-        focus: "grounding",
-      };
-      const focusContent = selectContent(
-        enrichedContent,
-        focusSpec,
-        req,
-        pendingCommitments,
-      );
-      if (focusContent) {
-        preEventModules.push({
-          type: "align",
-          contentId: focusContent.id,
-          title: focusContent.title,
-          contentType: focusContent.content_type,
-          duration: focusContent.duration,
-          focus: "grounding",
-          intensity: "gentle",
-          isFavorite: req.favorites.includes(focusContent.id),
-          reasoning: `Get focused and grounded before ${
-            topEvent.event.title?.split(" ").slice(0, 4).join(" ") ||
-            "this event"
-          }`,
-        });
-      }
-      // Coach card as secondary CTA only
-      preEventModules.push({
-        type: "prepare",
-        contentId: "coach-prepare",
-        title: "Quick Coach Check-in",
-        contentType: "coach",
-        duration: 2,
-        focus: "composure",
-        intensity: "gentle",
-        isFavorite: false,
-        isCoachCard: true,
-        reasoning: "Quick check-in if you need it",
-      });
-    } else {
-      // ═══ TOUCH 1 (24-48h): THINK PREP – coach primary, framework, 5-8 min ═══
-      // Primary: coach card (prepare type) as main CTA
-      preEventModules.push({
-        type: "prepare",
-        contentId: "coach-prepare",
-        title: "Prepare with Your Coach",
-        contentType: "coach",
-        duration: 3,
-        focus: "composure",
-        intensity: "moderate",
-        isFavorite: false,
-        isCoachCard: true,
-        reasoning: scenario
-          ? `Discuss your ${scenario.contextLabel.toLowerCase()} approach with your coach`
-          : `Discuss your approach with your coach before ${
-            topEvent.event.title?.split(" ").slice(0, 4).join(" ") ||
-            "this event"
-          }`,
-      });
-      // Secondary: one mental framework / reframe / align practice
-      const frameworkSpec: ModuleSpec = {
-        type: "align",
-        required: true,
-        priority: 7,
-        intensity: "moderate",
-        duration: "short",
-        focus: "confidence",
-      };
-      const frameworkContent = selectContent(
-        enrichedContent,
-        frameworkSpec,
-        req,
-        pendingCommitments,
-      );
-      if (frameworkContent) {
-        preEventModules.push({
-          type: "align",
-          contentId: frameworkContent.id,
-          title: frameworkContent.title,
-          contentType: frameworkContent.content_type,
-          duration: frameworkContent.duration,
-          focus: "confidence",
-          intensity: "moderate",
-          isFavorite: req.favorites.includes(frameworkContent.id),
-          reasoning: `Mental framework to sharpen your approach for ${
-            topEvent.event.title?.split(" ").slice(0, 4).join(" ") ||
-            "this event"
-          }`,
-        });
-      }
-      // Optional: one focus practice if scenario matched
-      if (scenario) {
-        const focusSpec: ModuleSpec = {
-          type: "regulate",
-          required: false,
-          priority: 5,
-          intensity: "gentle",
-          duration: "short",
-          focus: "focus",
-        };
-        const focusContent = selectContent(
-          enrichedContent,
-          focusSpec,
-          req,
-          pendingCommitments,
-        );
-        if (focusContent) {
-          preEventModules.push({
-            type: "regulate",
-            contentId: focusContent.id,
-            title: focusContent.title,
-            contentType: focusContent.content_type,
-            duration: focusContent.duration,
-            focus: "focus",
-            intensity: "gentle",
-            isFavorite: req.favorites.includes(focusContent.id),
-            reasoning: `Optional focus practice for deeper ${
-              scenario?.contextLabel?.toLowerCase() || "event"
-            } preparation`,
-          });
-        }
-      }
-    }
-
-    // ═══ ENRICH CONTEXT – Coach Memory + HRV as Lead Context ═══
-    let enrichedContextDescription = topEvent.contextDescription || "";
-    const eventTitleLower = (topEvent.event.title || "").toLowerCase();
-    const eventTitleShort =
-      topEvent.event.title?.split(" ").slice(0, 4).join(" ") || "this event";
-
-    // Check if any pending coach commitment mentions this event
-    const relevantCommitment = pendingCommitments.find((c: any) => {
-      const commitText = (c.commitment_text || "").toLowerCase();
-      return eventTitleLower.split(" ").some((word: string) =>
-        word.length > 3 && commitText.includes(word)
-      );
-    });
-
-    // Check for pattern observations related to this event type
-    let patternMatched = false;
-    if (scenario && req.patternInsight) {
-      // Canonical pattern↔scenario match: route the pattern state text through
-      // the same classifier used to detect the scenario. No local keyword table.
-      const patternState = (req.patternInsight.state || "").trim();
-      if (patternState) {
-        const patternScenarioId = scenarioIdFor(patternState);
-        patternMatched = !!patternScenarioId &&
-          patternScenarioId === scenario.id;
-      }
-    }
-
-    // Aggressively replace context – coach memory and HRV take priority over generic text
-    if (relevantCommitment && patternMatched) {
-      enrichedContextDescription =
-        `You discussed this with your coach and a pattern has been noted – ${
-          topEvent.timePill?.toLowerCase() || "upcoming"
-        }. Prepare with targeted practice.`;
-    } else if (relevantCommitment) {
-      enrichedContextDescription = `You discussed this with your coach – ${
-        topEvent.timePill?.toLowerCase() || "upcoming"
-      }. Prepare with targeted practice.`;
-    } else if (patternMatched) {
-      enrichedContextDescription = `Your coach has noted a pattern here – ${
-        topEvent.timePill?.toLowerCase() || "upcoming"
-      }. Prepare with targeted practice.`;
-    } else if (
-      topEvent.hrvCorrelation &&
-      Math.abs(topEvent.hrvCorrelation.avgDeviation) > 10 &&
-      !enrichedContextDescription
-    ) {
-      // HRV as lead context when no coach signals and context is empty
-      const canonicalLabel = canonicalTagForCoarse(
-        topEvent.hrvCorrelation.eventType,
-      );
-      enrichedContextDescription = `Your HRV typically shifts ${
-        Math.abs(topEvent.hrvCorrelation.avgDeviation)
-      }% during ${canonicalLabel.toLowerCase()} events – ${
-        topEvent.timePill?.toLowerCase() || "upcoming"
-      }. Prepare with targeted practice.`;
-    }
-
-    if (preEventModules.length > 0) {
-      preEventPlan = {
-        eventTitle: topEvent.event.title,
-        eventType: canonicalEventTag(topEvent.event.title || "") ||
-          scenario?.contextLabel || "Meeting Prep",
-        minutesUntil: topEvent.minutesUntil,
-        timePill: topEvent.timePill,
-        contextDescription: enrichedContextDescription,
-        modules: preEventModules,
-        coachCard: generateCoachCard(
-          "prepare",
-          timeOfDay,
-          req.innerReadinessTier,
-          req.patternInsight,
-          topEvent.event.title,
-          topEvent.minutesUntil,
-          coachStateHash,
-        ),
-        progressTracked: false,
-        hrvCorrelation: topEvent.hrvCorrelation || null,
-        actionWindow: actionWindow,
-        horizon: horizon,
-        eventId: topEvent.event.id,
-      };
-      console.log(
-        `[generate-mastery-plan] preEventPlan built: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} with ${preEventModules.length} modules (scenario: ${
-          scenario?.id || "fallback"
-        })`,
-      );
-    } else {
-      console.log(
-        `[generate-mastery-plan] preEventPlan skipped: no modules resolved for "${topEvent.event.title}"`,
-      );
-    }
-  } else {
-    const reason = filteredEvents.length === 0
-      ? "no calendar events"
-      : `no events in action window (top: "${
-        filteredEvents[0]?.event.title
-      }" score=${filteredEvents[0]?.score || 0} minutesUntil=${
-        filteredEvents[0]?.minutesUntil || 0
-      })`;
-    console.log(`[generate-mastery-plan] preEventPlan=null: ${reason}`);
-  }
-
-  // Collect JIT content IDs to exclude from ToD plan (prevent duplicate practices)
-  const jitContentIds = new Set<string>();
-  if (preEventPlan?.modules) {
-    for (const m of preEventPlan.modules) {
-      if (m.contentId && !m.isCoachCard) {
-        jitContentIds.add(m.contentId);
-      }
-    }
-  }
-  if (jitContentIds.size > 0) {
-    console.log(
-      `[generate-mastery-plan] Excluding ${jitContentIds.size} JIT content IDs from ToD selection: ${
-        [...jitContentIds].join(", ")
-      }`,
-    );
-  }
-
-  // 6. Build time-of-day plan
-  const { maxModules } = getDurationCeiling(req.calendarLoad);
+  const { maxDuration, maxModules } = getDurationCeiling(req.calendarLoad);
   const baseMapping = getModulesFromTheme(req.outerReadinessPhrase);
-
-  // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(
     rawCalendarEvents,
     timeOfDay,
@@ -6418,18 +6143,9 @@ async function generateMasteryPlan(
     timeOfDay,
     req.innerReadinessTier,
   );
-  // Build resolved modules list for module-derived rationale
   const resolvedModuleTypes = Object.entries(moduleMapping)
     .filter(([_, spec]) => spec)
     .map(([type, spec]) => ({ type, focus: (spec as any).focus }));
-
-  // Determine JIT priority: if preEventPlan exists and is in touch_2 window
-  const jitPriority = !!(preEventPlan && topEvent &&
-    getActionWindow(topEvent.minutesUntil) === "touch2");
-
-  // Next event info for urgency frame
-  const nextEvtTitle = topEvent?.event.title || null;
-  const nextEvtMins = topEvent?.minutesUntil || null;
 
   const planBrief = generatePlanBrief(
     calendarContext,
@@ -6445,312 +6161,179 @@ async function generateMasteryPlan(
     req.coachInsights,
     resolvedModuleTypes,
     combinedAlreadyUsed,
-    nextEvtTitle,
-    nextEvtMins,
+    null,
+    null,
     pendingCommitments,
     shared.calendarGaps,
   );
-  console.log(
-    `[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`,
-  );
 
-  // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
-  if (timeOfDay === "evening") {
-    if (!moduleMapping.regulate) {
-      moduleMapping.regulate = {
-        type: "regulate",
-        required: true,
-        priority: 8,
-        intensity: "gentle",
-        duration: "short",
-        focus: "release",
-      };
-    }
-    if (!moduleMapping.align) {
-      moduleMapping.align = {
-        type: "align",
-        required: true,
-        priority: 7,
-        intensity: "gentle",
-        duration: "short",
-        focus: "grounding",
-      };
-    }
-    if (!moduleMapping.integrate) {
-      moduleMapping.integrate = {
-        type: "integrate",
-        required: true,
-        priority: 7,
-        intensity: "gentle",
-        duration: "short",
-        focus: "release",
-      };
-    }
-  }
-
-  // Afternoon: suppress Prepare unless scenario detected
-  if (
-    timeOfDay === "afternoon" && moduleMapping.prepare &&
-    filteredEvents.length === 0
-  ) {
-    delete moduleMapping.prepare;
-  }
-
-  // Evening: suppress Prepare unless high-priority event within 18 hours
-  if (timeOfDay === "evening" && moduleMapping.prepare) {
-    const hasNearEvent = filteredEvents.some((e) => e.minutesUntil <= 18 * 60);
-    if (!hasNearEvent) delete moduleMapping.prepare;
-  }
-
-  // ── CEO behaviour wiring (Brief↔Plan parity, canonical) ──
-  // We no longer re-call `evaluateForScope` here — that path drifted from
-  // the Brief because the SignalCoverageInput differed (no tomorrowEvents,
-  // no trailingClarityAvg, etc.). Instead, consume the snapshot the Brief
-  // already wrote (`shared.briefBehaviour`) so the Plan applies the exact
-  // same slotBoosts the Brief's flagsPlan implied. Source is logged in
-  // buildSharedContext; rebuild fallback already happened there.
+  let planAvailabilityMeta: any = null;
   try {
-    const wiring = snapshotToWiring(shared.briefBehaviour, "plan");
-    if (wiring && wiring.slotBoosts.length > 0) {
-      const safeSlotBoosts = wiring.slotBoosts.filter((boost) => {
-        const sharedPref = PRACTICE_TYPE_TO_COMBO[boost.practiceType];
-        const comboKey = sharedPref
-          ? `${sharedPref.protocol}.${sharedPref.mode}` as ComboKey
-          : null;
-        if (comboKey && !PROTOCOL_COMBOS[comboKey]) {
-          console.warn(
-            `[generate-mastery-plan] dropped slot boost with unknown combo ${comboKey} from reason=${boost.reason}`,
-          );
-          return false;
-        }
-        return true;
+    const _events = Array.isArray(req.calendarEvents) ? req.calendarEvents : [];
+    const _avail = classifyAvailability({
+      now: new Date(),
+      userHomeCountry: (req as any).userHomeCountry ?? null,
+      userCurrentCountry: (req as any).userCurrentCountry ?? null,
+      explicitPto: (req as any).explicitPto === true,
+      calendarLoad: ((req as any).calendarLoad as any) ?? null,
+      weekendDays: (req as any).userLocale?.weekendDays ?? [6],
+      events: _events.map((e: any) => ({
+        title: String(e?.title || ""),
+        startTime: String(e?.startTime || e?.start_time || ""),
+        endTime: String(e?.endTime || e?.end_time || e?.startTime || ""),
+        isAllDay: e?.isAllDay === true || e?.is_all_day === true,
+        isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+        attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+        source: e?.source ?? e?.calendarName ?? null,
+        calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+      })),
+    });
+    planAvailabilityMeta = {
+      state: _avail.state,
+      reason: _avail.reason,
+      isRestDay: _avail.isRestDay,
+      meetingCount: _avail.workEvidence.meetingCount,
+      holiday: {
+        detected: _avail.holiday.detected,
+        applicable: _avail.holiday.applicable,
+        title: _avail.holiday.title,
+        scope: _avail.holiday.scope,
+      },
+    };
+  } catch (availErr: any) {
+    console.warn("[generate-mastery-plan][availability-meta-failed]", availErr?.message ?? String(availErr));
+  }
+
+  const allocation = allocatePlanSlots({
+    nowMs: Date.now(),
+    rankedCandidates: jitRankedCandidates,
+    mrsWindow: timeOfDay as "morning" | "afternoon" | "evening",
+    preferredPracticeWindows: (req as any).preferredPracticeWindows ?? [],
+    forceArcCategoryIds: Array.from(forceArcCategoryIds),
+    ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad, {
+      now: new Date(Date.now() - ((req as any).timezoneOffset ?? 0) * 60000),
+      userHomeCountry: (req as any).userHomeCountry ?? null,
+      userCurrentCountry: (req as any).userCurrentCountry ?? null,
+      explicitPto: (req as any).explicitPto === true,
+      weekAheadOverride: (req as any).weekAheadOverride === true,
+    }),
+  });
+
+  const planDayShape = allocation.dayShape;
+  const planIsRestDay = allocation.restDay === true || allocation.dayShape === "rest_day";
+
+  let horizonModules: any[] = [];
+  if (!planIsRestDay) {
+    const seenContentIds = new Set<string>();
+    for (const slot of allocation.slots) {
+      const ceoVerb = slot.jitCategoryId && slot.jitPhase ? verbForCategoryPhase(slot.jitCategoryId, slot.jitPhase) : null;
+      const stateAction = executiveObjectiveFor(req.practicePriorityTag, slot.jitCategoryId, slot.jitPhase ?? "pre");
+      
+      const intent = deriveSlotIntent({
+        stateAction,
+        ceoVerb,
+        anchorCategory: slot.jitCategoryId,
+        anchorPhase: slot.jitPhase,
+        practicePriorityTag: req.practicePriorityTag,
       });
-      const { applied } = applySlotBoostsToMapping(
-        moduleMapping as any,
-        safeSlotBoosts,
-        timeOfDay as "morning" | "afternoon" | "evening",
-      );
-      if (applied.length > 0) {
-        console.log(
-          `[generate-mastery-plan] behaviour boosts applied (${timeOfDay}) source=${shared.briefBehaviourSource} sig=${shared.briefBehaviour?.signatureHash}:`,
-          JSON.stringify(applied),
-        );
-      }
-    } else {
-      console.log(
-        `[generate-mastery-plan] no behaviour boosts for ${timeOfDay} source=${shared.briefBehaviourSource}`,
-      );
-    }
-  } catch (e) {
-    console.warn(
-      "[generate-mastery-plan] behaviour snapshot apply skipped:",
-      e,
-    );
-  }
 
-  const todModules: any[] = [];
-  const moduleOrder: ("regulate" | "align" | "prepare" | "integrate")[] = [
-    "regulate",
-    "align",
-    "prepare",
-    "integrate",
-  ];
-
-  // Filter out content already used in JIT plan – computed once, used by all modules
-  const todCandidates = jitContentIds.size > 0
-    ? enrichedContent.filter((c: any) => !jitContentIds.has(c.id))
-    : enrichedContent;
-
-  for (const moduleType of moduleOrder) {
-    if (todModules.length >= maxModules) break;
-    const spec = moduleMapping[moduleType];
-    if (!spec) continue;
-
-    // Skip optional modules if 3+ required already
-    const requiredCount = todModules.filter((m) => m.required).length;
-    if (!spec.required && requiredCount >= 3) continue;
-
-    if (moduleType === "prepare" || moduleType === "integrate") {
-      // Coach cards
-      const coachCard = generateCoachCard(
-        moduleType,
-        timeOfDay,
-        req.innerReadinessTier,
-        req.patternInsight,
-        undefined,
-        undefined,
-        coachStateHash,
-      );
-      if (coachCard) {
-        todModules.push({
-          type: moduleType,
-          contentId: coachCard.id,
-          title: coachCard.title,
-          contentType: "coach",
-          duration: coachCard.duration,
-          focus: spec.focus,
-          intensity: spec.intensity,
-          isFavorite: false,
-          isCoachCard: true,
-          reasoning: moduleType === "prepare"
-            ? "Prepare your mindset for what's coming – arrive ready, not reactive"
-            : "Capture what went well today and close with intention – this prevents rumination overnight",
-          required: spec.required,
-        });
-      }
-    } else {
-      const selected = selectContent(
-        todCandidates,
-        spec,
-        req,
-        pendingCommitments,
-      );
-      if (selected) {
-        todModules.push({
-          type: moduleType,
-          contentId: selected.id,
-          title: selected.title,
-          contentType: selected.content_type,
-          duration: selected.duration,
-          focus: spec.focus,
-          intensity: spec.intensity,
-          isFavorite: req.favorites.includes(selected.id),
-          reasoning: getContextualReasoning(
-            moduleType,
-            spec.focus,
-            req.innerReadinessTier,
-            req.checkInOutcome,
-            req.calendarLoad,
-            timeOfDay,
-            req.wearableContext,
-            req.outerReadinessPhrase,
-          ),
-          required: spec.required,
-          thumbnailUrl: selected.thumbnail_url,
-        });
-      } else if (timeOfDay === "evening") {
-        // Fallback: try to find unfinished content from DB for this module type
-        const fallbackCategory = moduleType === "regulate"
-          ? "somatic"
-          : "mindset";
-        const fallbackItem = todCandidates.find((c: any) =>
-          c.category === fallbackCategory && !req.completedToday.includes(c.id)
-        );
-        if (fallbackItem) {
-          todModules.push({
-            type: moduleType,
-            contentId: fallbackItem.id,
-            title: fallbackItem.title,
-            contentType: fallbackItem.content_type,
-            duration: fallbackItem.duration,
-            focus: spec.focus,
-            intensity: spec.intensity,
-            isFavorite: req.favorites.includes(fallbackItem.id),
-            reasoning: getContextualReasoning(
-              moduleType,
-              spec.focus,
-              req.innerReadinessTier,
-              req.checkInOutcome,
-              req.calendarLoad,
-              timeOfDay,
-              req.wearableContext,
-              req.outerReadinessPhrase,
-            ),
-            required: spec.required,
-            thumbnailUrl: fallbackItem.thumbnail_url,
-          });
+      const { selected } = selectPracticeForSlot(
+        enrichedContent,
+        slot,
+        intent,
+        seenContentIds,
+        {
+          recentPracticeDays: (req as any).recentPracticeDays || {},
+          mrsScore: req.innerReadinessScore,
+          leaderGoals: (req as any).leaderProfile?.goals?.declared ?? [],
+          preferredPracticeWindows: (req as any).preferredPracticeWindows ?? [],
+          currentWindow: timeOfDay,
         }
-        // If no unfinished content exists, skip the module entirely – never resurface completed
+      );
+
+      const practice = selected[0];
+      if (practice) {
+        seenContentIds.add(practice.id);
       }
+
+      const timeLabel = buildPriorityTitle({
+        slotAnchor: {
+          eventTitle: slot.jitEventTitle,
+          categoryId: slot.jitCategoryId,
+          phase: slot.jitPhase,
+        },
+        isTomorrow: false,
+        practicePriorityTag: req.practicePriorityTag,
+      });
+
+      const hm: any = {
+        horizon: "immediate",
+        timeLabel,
+        typeLabel: practice ? `REGULATE · ${(practice as any).content_type}` : "REGULATE · Protocol",
+        whyLine: "",
+        recommendedAction: "",
+        practice: practice ? {
+          type: "regulate",
+          contentId: practice.id,
+          title: (practice as any).title,
+          contentType: (practice as any).content_type,
+          duration: (practice as any).duration || 3,
+          focus: "composure",
+          intensity: "gentle",
+          isFavorite: req.favorites.includes(practice.id),
+          isCoachCard: false,
+          reasoning: "",
+          thumbnailUrl: (practice as any).thumbnail_url,
+        } : null,
+        practices: practice ? [{
+          type: "regulate",
+          contentId: practice.id,
+          title: (practice as any).title,
+          contentType: (practice as any).content_type,
+          duration: (practice as any).duration || 3,
+          focus: "composure",
+          intensity: "gentle",
+          isFavorite: req.favorites.includes(practice.id),
+          isCoachCard: false,
+          reasoning: "",
+          thumbnailUrl: (practice as any).thumbnail_url,
+        }] : [],
+        isJit: slot.jitEventId != null,
+        jitEventTitle: slot.jitEventTitle,
+        jitMinutesUntil: null,
+        showNavyBorder: false,
+        showPulse: false,
+        showPriorityPill: false,
+        anchorEventId: slot.jitEventId,
+        anchorCategoryId: slot.jitCategoryId,
+        anchorSubtypeId: null,
+        anchorScenarioId: null,
+        anchorLeadTimeMin: null,
+        mode: allocation.mode,
+        dayShape: allocation.dayShape,
+        slotAllocationDebug: allocation.debug,
+        slotRole: slot.slotRole,
+        allocationReason: slot.allocationReason,
+        arcLabel: slot.arcLabel,
+        jitPhase: slot.jitPhase,
+      };
+
+      horizonModules.push(hm);
     }
   }
 
-  // 7. Coach card synthetic injection — REMOVED per
-  // mem://features/coach/suppression-standard. The previous block
-  // hard-coded "Brief coaching check-in" into slot 3/evening and seeded
-  // "Evening reflection and tiny wins capture" as a default fallback,
-  // which leaked Coach + Tiny Wins into Practice even when the Coach
-  // feature is suppressed for the user. Coach/Tiny Wins modules can
-  // still appear only when the practice/recalibration selector chooses
-  // them on their own merits (existing prepare/integrate slot above).
-  const todCoachCard: any = null;
-
-  // Calculate total duration
-  const totalDuration = todModules.reduce(
-    (sum, m) => sum + (m.duration || 0),
-    0,
-  );
-
-  // Time-of-day label
-  const periodLabels: Record<string, string> = {
-    morning: "Morning Practice",
-    afternoon: "Afternoon Reset",
-    evening: "Evening Close",
-  };
-
-  const { maxDuration } = getDurationCeiling(req.calendarLoad);
-
-  // ════════════════════════════════════════════
-  // BUILD HORIZON MODULES (Today's 3 Performance Priorities)
-  // ════════════════════════════════════════════
-
-  const horizonModules = buildHorizonModules(
-    todModules,
-    preEventPlan,
-    topEvent,
-    req,
-    shared,
-    hrvCorrelations,
-    timeOfDay,
-    todCoachCard,
-    enrichedContent,
-    pendingCommitments,
-    outerReadinessCache,
-    jitRankedCandidates,
-    Array.from(forceArcCategoryIds),
-  );
-
-  // ═══════════════════════════════════════════════════════════════
-  // STATEFUL PLAN EVOLUTION — merge with today's persisted ledger
-  // (Refs: refinement memo "Lifecycle of a Daily Plan")
-  //
-  // Rules:
-  //  1. Sticky completion: a slot whose primary practice is in
-  //     completedToday stays VERBATIM in its slotIndex with ✓.
-  //  2. JIT anchor: a slot bound to a calendar event whose event still
-  //     exists today keeps slotIndex/jitEventTitle/horizon/timeLabel —
-  //     practices + whyLine may refresh when context materially changed.
-  //  3. Otherwise the fresh slot wins.
-  //  4. "Unfinished business": as long as ANY slot from the ledger is
-  //     incomplete, the new plan is an evolution of the ledger. Only when
-  //     all 3 ledger slots are completed do we hand off to a fresh
-  //     "Bonus Round" plan with a victoryLine.
-  // ═══════════════════════════════════════════════════════════════
   let finalHorizonModules = horizonModules;
-  let ledgerMeta: {
-    source: "fresh" | "ledger-evolution" | "bonus-round";
-    carriedSlots: number;
-    anchoredSlots: number;
-    completedSlots: number;
-    victoryLine?: string;
-  } = { source: "fresh", carriedSlots: 0, anchoredSlots: 0, completedSlots: 0 };
-
-  let ledger: PlanLedger | null = null;
+  let ledgerMeta: any = { source: "fresh", carriedSlots: 0, anchoredSlots: 0, completedSlots: 0 };
+  let ledger: any = null;
   try {
     ledger = await loadTodayPlanLedger(req.userId, today, supabaseClient);
-    const calendarEventIds = new Set<string>(
-      (req.calendarEvents || []).map((e: any) => String(e.id)).filter(Boolean),
-    );
+    const calendarEventIds = new Set<string>((req.calendarEvents || []).map((e: any) => String(e.id)).filter(Boolean));
     const nowForLedger = Date.now();
     const LEDGER_STALE_GRACE_MS = 30 * 60_000;
     const currentWindowEventTitles = new Set<string>(
       (req.calendarEvents || [])
         .filter((e: any) => {
-          const endMs = e.end_time
-            ? new Date(e.end_time).getTime()
-            : (e.start_time
-              ? new Date(e.start_time).getTime() + 60 * 60_000
-              : Infinity);
+          const endMs = e.end_time ? new Date(e.end_time).getTime() : (e.start_time ? new Date(e.start_time).getTime() + 60 * 60_000 : Infinity);
           return endMs > nowForLedger - LEDGER_STALE_GRACE_MS;
         })
         .map((e: any) => String(e.title || "").trim())
@@ -6758,9 +6341,7 @@ async function generateMasteryPlan(
     );
     const calendarEventTitleById = new Map<string, string>(
       (req.calendarEvents || [])
-        .map((
-          e: any,
-        ): [string, string] => [String(e.id), String(e.title || "").trim()])
+        .map((e: any): [string, string] => [String(e.id), String(e.title || "").trim()])
         .filter(([id, title]) => Boolean(id) && Boolean(title)),
     );
 
@@ -6772,35 +6353,21 @@ async function generateMasteryPlan(
       currentWindowEventTitles,
       ledger?.userEdits,
       calendarEventTitleById,
-      // Sprint 2 (Phase 3): pass REAL current-window allocator context so
-      // the ledger-evolution path derives the same day-shape / mode as the
-      // fresh-generation path. `jitRankedCandidates` is populated ~525
-      // lines up from the same request's calendar events.
       {
         nowMs: nowForLedger,
         rankedCandidates: jitRankedCandidates,
         currentPeriod: timeOfDay,
-        ledgerGeneratedPeriod: (ledger?.generatedPeriod === "morning" ||
-            ledger?.generatedPeriod === "afternoon" ||
-            ledger?.generatedPeriod === "evening")
-          ? ledger.generatedPeriod
-          : null,
+        ledgerGeneratedPeriod: (ledger?.generatedPeriod === "morning" || ledger?.generatedPeriod === "afternoon" || ledger?.generatedPeriod === "evening") ? ledger.generatedPeriod : null,
         mrsWindow: timeOfDay as "morning" | "afternoon" | "evening",
         preferredPracticeWindows: req.preferredPracticeWindows ?? [],
         forceArcCategoryIds: Array.from(forceArcCategoryIds),
-        ...deriveStructuralDayFlags(
-          req.calendarEvents,
-          (req as any).calendarLoad,
-          {
-            now: new Date(
-              Date.now() - ((req as any).timezoneOffset ?? 0) * 60000,
-            ),
-            userHomeCountry: (req as any).userHomeCountry ?? null,
-            userCurrentCountry: (req as any).userCurrentCountry ?? null,
-            explicitPto: (req as any).explicitPto === true,
-            weekAheadOverride: (req as any).weekAheadOverride === true,
-          },
-        ),
+        ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad, {
+          now: new Date(Date.now() - ((req as any).timezoneOffset ?? 0) * 60000),
+          userHomeCountry: (req as any).userHomeCountry ?? null,
+          userCurrentCountry: (req as any).userCurrentCountry ?? null,
+          explicitPto: (req as any).explicitPto === true,
+          weekAheadOverride: (req as any).weekAheadOverride === true,
+        }),
       },
     );
     finalHorizonModules = merged.modules;
@@ -6811,26 +6378,11 @@ async function generateMasteryPlan(
       completedSlots: merged.completedSlots,
       victoryLine: merged.victoryLine,
     };
-    finalHorizonModules = applyLedgerEditsToModules(
-      finalHorizonModules,
-      ledger?.userEdits,
-    );
-    console.log("[generate-mastery-plan] ledger", {
-      userId: req.userId,
-      today,
-      currentPeriod: timeOfDay,
-      hasLedger: !!ledger,
-      ledgerGeneratedAt: ledger?.generatedAt || null,
-      ...ledgerMeta,
-    });
+    finalHorizonModules = applyLedgerEditsToModules(finalHorizonModules, ledger?.userEdits);
   } catch (ledgerErr) {
-    console.warn(
-      "[generate-mastery-plan] ledger merge failed, falling back to fresh modules:",
-      ledgerErr instanceof Error ? ledgerErr.message : ledgerErr,
-    );
+    console.warn("[generate-mastery-plan] ledger merge failed:", ledgerErr);
   }
 
-  // v5.1: enrich whyLine + stepRationale + slotKind without changing UI structure.
   try {
     finalHorizonModules = await applyV51Enrichment(
       finalHorizonModules,
@@ -6841,416 +6393,35 @@ async function generateMasteryPlan(
       timeOfDay,
     );
   } catch (enrichErr: any) {
-    console.warn(
-      "[generate-mastery-plan] v5.1 enrichment failed:",
-      enrichErr?.message,
-    );
+    console.warn("[generate-mastery-plan] v5.1 enrichment failed:", enrichErr?.message);
   }
 
-  // ── Per-slot replacement override ─────────────────────────────────────
-  // Strictly 1:1: each entry in req.slotReplacements pins one calendar
-  // event to one slot index. We anchor that slot to a fresh module that
-  // matches the chosen event and leave every other slot untouched. This
-  // runs after merge+enrich so that:
-  //  - When a ledger already records the edit, mergeWithLedger's Rule 3a
-  //    has already placed the right content; this override is a no-op or
-  //    idempotent reinforcement.
-  //  - When the ledger hasn't yet caught up (race on first regen after
-  //    the client's persist), this override still binds the event to the
-  //    exact slot index the user clicked instead of letting it bubble to
-  //    slot 1 via fresh ordering.
-  try {
-    const slotReplacements =
-      (req.slotReplacements && typeof req.slotReplacements === "object")
-        ? req.slotReplacements
-        : {};
-    for (const [slotKey, value] of Object.entries(slotReplacements)) {
-      const idx = Number(slotKey);
-      if (
-        !Number.isInteger(idx) || idx < 0 || idx >= finalHorizonModules.length
-      ) continue;
-      const eventId = (value as any)?.eventId;
-      if (typeof eventId !== "string" || !eventId) continue;
-      const evt = (req.calendarEvents || []).find((e: any) =>
-        String(e.id) === String(eventId)
-      );
-      if (!evt) continue;
-      const matchTitle = String(evt.title || "").trim().toLowerCase();
-      if (!matchTitle) continue;
-      const freshMatch = horizonModules.find((m: HorizonModule) =>
-        m.isJit && (m.jitEventTitle || "").toLowerCase().trim() === matchTitle
-      ) || horizonModules.find((m: HorizonModule) => {
-        const t = (m.jitEventTitle || "").toLowerCase().trim();
-        return !!t && (t.includes(matchTitle) || matchTitle.includes(t));
-      });
+  if (req.slotReplacements && Object.keys(req.slotReplacements).length > 0 && !planIsRestDay) {
+    for (const [slotIdxStr, replacement] of Object.entries(req.slotReplacements)) {
+      const idx = Number(slotIdxStr);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= finalHorizonModules.length) continue;
+      const eventId = replacement.eventId;
+      const freshMatch = horizonModules.find((m: any) => m.anchorEventId === eventId) || horizonModules.find((m: any) => m.replacementEventIds?.includes(eventId));
       const prior = finalHorizonModules[idx];
-      // Skip if this exact slot is already anchored to the requested event.
-      const alreadyAnchored =
-        (prior?.replacementEventIds || []).includes(eventId) ||
-        ((prior?.jitEventTitle || "").toLowerCase().trim() === matchTitle &&
-          !prior?.isCancelled);
-      if (alreadyAnchored) {
-        continue;
+      if (freshMatch) {
+        finalHorizonModules[idx] = {
+          ...freshMatch,
+          priorityTag: prior?.priorityTag ?? null,
+          relationshipTag: prior?.relationshipTag ?? null,
+          customTags: prior?.customTags ?? [],
+        };
       }
-      const truncatedEvtTitle = String(evt.title || "").split(/\s+/).slice(0, 5)
-        .join(" ").trim();
-      const prepareLabel = `Prepare before ${truncatedEvtTitle}`;
-      const minsUntilEvt = (new Date(evt.startTime).getTime() - Date.now()) /
-        60000;
-      // Use fresh match if present, otherwise synthesize from prior so the
-      // slot is always re-anchored to the chosen event with Prepare framing.
-      const base = freshMatch || prior;
-      if (!base) {
-        continue;
-      }
-      finalHorizonModules[idx] = {
-        ...base,
-        isJit: true,
-        jitEventTitle: truncatedEvtTitle,
-        jitMinutesUntil: Number.isFinite(minsUntilEvt)
-          ? Math.round(minsUntilEvt)
-          : null,
-        timeLabel: prepareLabel,
-        isCancelled: false,
-        cancelReason: null,
-        replacementEventIds: [eventId],
-        showPriorityPill: true,
-        priorityTag: prior?.priorityTag ?? null,
-        relationshipTag: prior?.relationshipTag ?? null,
-        customTags: prior?.customTags ?? [],
-      };
-      console.log("[generate-mastery-plan] per-slot replacement applied", {
-        slotIndex: idx,
-        eventId,
-        eventTitle: evt.title,
-      });
     }
-  } catch (overrideErr: any) {
-    console.warn(
-      "[generate-mastery-plan] slot replacement override failed:",
-      overrideErr?.message,
-    );
   }
 
-  // ── Final cross-slot event dedupe ─────────────────────────────────────
-  // Idempotent guard: after mergeWithLedger, applyV51Enrichment, and the
-  // per-slot replacement override, no calendar event may anchor more slots
-  // than its CATEGORY_MAX_SLOTS cap (C/E/B/H = 1; A/D = 2; F/G = 3) and no
-  // event may be anchored to the same §4 phase twice. This is the last
-  // line of defence against "the same event becomes 2-3 visible plans"
-  // when the ledger evolves, a slot replacement merges with a fresh JIT
-  // pick, or two horizon picks happen to land on the same anchor.
-  // Preserves the FIRST valid slot for each event and replaces later
-  // duplicates with a fresh unused module (preferring one anchored to a
-  // different event) or strips JIT framing if no alternative exists.
   try {
-    const eventIdByTitleLower = new Map<string, string>();
-    const categoryByEventId = new Map<string, any>();
-    for (const e of (req.calendarEvents || [])) {
-      const t = String((e as any).title || "").trim().toLowerCase();
-      const id = String((e as any).id || "");
-      if (!id) continue;
-      if (t) eventIdByTitleLower.set(t, id);
-      try {
-        const enr = enrichEvent(e as any);
-        categoryByEventId.set(id, enr?.categoryId ?? null);
-      } catch { /* enrich failure → cap defaults to 1 */ }
-    }
-    const slotEventId = (m: HorizonModule): string | null => {
-      if (m.anchorEventId) return String(m.anchorEventId);
-      const r = m.replacementEventIds && m.replacementEventIds[0];
-      if (r) return String(r);
-      const t = (m.jitEventTitle || "").toLowerCase().trim();
-      if (!t) return null;
-      if (eventIdByTitleLower.has(t)) return eventIdByTitleLower.get(t)!;
-      // Loose match for truncated/normalised titles.
-      for (const [k, v] of eventIdByTitleLower.entries()) {
-        if (k.includes(t) || t.includes(k)) return v;
-      }
-      return null;
-    };
-    const usedFreshIdxs = new Set<number>();
-    const useCount = new Map<string, number>();
-    const phasesByEvent = new Map<string, Set<string>>();
-    const pickFreshAlternative = (
-      excludeIds: Set<string>,
-    ): { mod: HorizonModule; eid: string | null } | null => {
-      for (let i = 0; i < horizonModules.length; i++) {
-        if (usedFreshIdxs.has(i)) continue;
-        const fm = horizonModules[i];
-        const fid = slotEventId(fm);
-        if (fid && excludeIds.has(fid)) continue;
-        usedFreshIdxs.add(i);
-        return { mod: fm, eid: fid };
-      }
-      return null;
-    };
-    for (let i = 0; i < finalHorizonModules.length; i++) {
-      const m = finalHorizonModules[i];
-      const eid = slotEventId(m);
-      if (!eid) continue;
-      const cat = categoryByEventId.get(eid);
-      const cap = (CATEGORY_MAX_SLOTS as any)[cat] ?? 1;
-      const used = useCount.get(eid) ?? 0;
-      const phaseSet = phasesByEvent.get(eid) ?? new Set<string>();
-      const phase = (m.jitPhase ?? null) as string | null;
-      const phaseDup = phase ? phaseSet.has(phase) : false;
-      const overCap = used >= cap;
-      if (overCap || phaseDup) {
-        const excludeIds = new Set<string>(Array.from(useCount.keys()));
-        excludeIds.add(eid);
-        const alt = pickFreshAlternative(excludeIds);
-        if (alt && alt.mod) {
-          finalHorizonModules[i] = {
-            ...alt.mod,
-            priorityTag: m.priorityTag ?? null,
-            relationshipTag: m.relationshipTag ?? null,
-            customTags: m.customTags ?? [],
-          };
-          if (alt.eid) {
-            useCount.set(alt.eid, (useCount.get(alt.eid) ?? 0) + 1);
-            const ps = phasesByEvent.get(alt.eid) ?? new Set<string>();
-            if (alt.mod.jitPhase) ps.add(alt.mod.jitPhase);
-            phasesByEvent.set(alt.eid, ps);
-          }
-          console.log(
-            "[generate-mastery-plan] dedupe: replaced duplicate event slot",
-            {
-              slotIndex: i,
-              droppedEventId: eid,
-              newEventId: alt.eid,
-              reason: phaseDup ? "phase-dup" : "cap-exceeded",
-              cap,
-            },
-          );
-        } else {
-          // No alternative — strip JIT framing so the slot survives without
-          // cloning the event. Practices/whyLine stay intact.
-          finalHorizonModules[i] = {
-            ...m,
-            isJit: false,
-            jitEventTitle: null,
-            jitMinutesUntil: null,
-            jitPhase: null,
-            replacementEventIds: [],
-            showPriorityPill: false,
-            showNavyBorder: false,
-            showPulse: false,
-          };
-          console.log(
-            "[generate-mastery-plan] dedupe: stripped duplicate event anchor",
-            {
-              slotIndex: i,
-              droppedEventId: eid,
-              reason: phaseDup ? "phase-dup" : "cap-exceeded",
-              cap,
-            },
-          );
-        }
-      } else {
-        useCount.set(eid, used + 1);
-        if (phase) phaseSet.add(phase);
-        phasesByEvent.set(eid, phaseSet);
-      }
-    }
-  } catch (dedupeErr: any) {
-    console.warn(
-      "[generate-mastery-plan] final dedupe pass failed:",
-      dedupeErr?.message,
-    );
-  }
-
-  // ─── Sprint 4 (Phase 6) — rest-day truncation ─────────────────────────
-  // Recompute allocation at the outer level so the Plan snapshot's
-  // top-level metadata (and downstream renderers) can distinguish a
-  // truthful rest_day from a low/no-stakes workday. When dayShape is
-  // rest_day we drop all horizon modules — a rest day must NOT ship
-  // three fabricated Performance Priorities. Ledger stays untouched;
-  // completed slots from earlier in the day (if any) remain on the
-  // ledger row but are not resurfaced as fresh priorities.
-  let planDayShape:
-    | "light_routine"
-    | "dominant_structural_event"
-    | "mixed_day"
-    | "rest_day"
-    | "saturday"
-    | "holiday_pto"
-    | "week_ahead"
-    | "travel_day"
-    | "conference_day"
-    | null = null;
-  let planIsRestDay = false;
-  // Observability — surface the canonical classifier's already-computed
-  // state/reason so Plan snapshots record WHY a day was flagged rest/PTO/
-  // holiday. Read-only; does not affect plan behavior.
-  let planAvailabilityMeta: {
-    state: string;
-    reason: string;
-    isRestDay: boolean;
-    meetingCount: number;
-    holiday: {
-      detected: boolean;
-      applicable: boolean;
-      title?: string;
-      scope?: string;
-    };
-  } | null = null;
-  try {
-    const outerAllocation = allocatePlanSlots({
-      nowMs: Date.now(),
-      rankedCandidates: jitRankedCandidates,
-      mrsWindow: timeOfDay as "morning" | "afternoon" | "evening",
-      ...deriveStructuralDayFlags(
-        req.calendarEvents,
-        (req as any).calendarLoad,
-        {
-          now: new Date(
-            Date.now() - ((req as any).timezoneOffset ?? 0) * 60000,
-          ),
-          userHomeCountry: (req as any).userHomeCountry ?? null,
-          userCurrentCountry: (req as any).userCurrentCountry ?? null,
-          explicitPto: (req as any).explicitPto === true,
-          weekAheadOverride: (req as any).weekAheadOverride === true,
-        },
-      ),
-    });
-    planDayShape = outerAllocation.dayShape;
-    planIsRestDay = outerAllocation.dayShape === "rest_day";
-    try {
-      const _events = Array.isArray(req.calendarEvents)
-        ? req.calendarEvents
-        : [];
-      const _avail = classifyAvailability({
-        now: new Date(),
-        userHomeCountry: (req as any).userHomeCountry ?? null,
-        userCurrentCountry: (req as any).userCurrentCountry ?? null,
-        explicitPto: (req as any).explicitPto === true,
-        calendarLoad: ((req as any).calendarLoad as any) ?? null,
-        events: _events.map((e: any) => ({
-          title: String(e?.title || ""),
-          startTime: String(e?.startTime || e?.start_time || ""),
-          endTime: String(e?.endTime || e?.end_time || e?.startTime || ""),
-          isAllDay: e?.isAllDay === true || e?.is_all_day === true,
-          isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
-          attendeesCount:
-            Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
-          source: e?.source ?? e?.calendarName ?? null,
-          calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
-        })),
-      });
-      planAvailabilityMeta = {
-        state: _avail.state,
-        reason: _avail.reason,
-        isRestDay: _avail.isRestDay,
-        meetingCount: _avail.workEvidence.meetingCount,
-        holiday: {
-          detected: _avail.holiday.detected,
-          applicable: _avail.holiday.applicable,
-          title: _avail.holiday.title,
-          scope: _avail.holiday.scope,
-        },
-      };
-    } catch (availErr: any) {
-      console.warn(
-        "[generate-mastery-plan][availability-meta-failed]",
-        availErr?.message ?? String(availErr),
-      );
-    }
-    if (planIsRestDay) {
-      const slotCountBefore = finalHorizonModules.length;
-      finalHorizonModules = [];
-      console.log("[generate-mastery-plan][rest-day]", {
-        userId: redactUserId(req.userId),
-        date: today,
-        window: timeOfDay,
-        dayShape: outerAllocation.dayShape,
-        mode: outerAllocation.mode,
-        slotCount: 0,
-        slotCountBefore,
-        reason: outerAllocation.allocationReason ?? "rest_day_no_priorities",
-      });
-    }
-  } catch (restErr: any) {
-    console.warn(
-      "[generate-mastery-plan][rest-day-check-failed]",
-      restErr?.message ?? String(restErr),
-    );
-  }
-
-  // Contract hardening: the server, not the client, owns the canonical
-  // horizon-module projection. If a non-rest-day request resolved
-  // time-of-day modules but allocator / dedupe / merge collapsed the slot
-  // projection below 3, top it back up with state-management fallbacks so
-  // persisted snapshots and downstream readers never see partial 1-slot or
-  // 2-slot plans on a normal day.
-  if (
-    !planIsRestDay && finalHorizonModules.length < 3 && todModules.length > 0
-  ) {
-    const beforeCount = finalHorizonModules.length;
-    finalHorizonModules = topUpHorizonModulesToThree(finalHorizonModules, todModules, {
-        period: timeOfDay as "morning" | "afternoon" | "evening",
-        label: periodLabels[timeOfDay],
-        planBrief: planBrief || null,
-      });
-    console.warn("[generate-mastery-plan][snapshot-projection-topup]", {
-      userId: redactUserId(req.userId),
-      date: today,
-      window: timeOfDay,
-      beforeCount,
-      fallbackCount: finalHorizonModules.length,
-      timeOfDayModulesCount: todModules.length,
-      dayShape: planDayShape,
-    });
-  }
-
-  if (!planIsRestDay && finalHorizonModules.length > 1) {
-    const seenTitles = new Set<string>();
-    const titleFallbacks = [
-      "Protect your edge",
-      "Ground into the next block",
-      "Build into tomorrow",
-    ];
-    finalHorizonModules = finalHorizonModules.map((module, index) => {
-      const currentTitle = String(module?.timeLabel || "").trim();
-      if (!currentTitle || !seenTitles.has(currentTitle)) {
-        if (currentTitle) seenTitles.add(currentTitle);
-        return module;
-      }
-      const replacement = titleFallbacks.find((title) =>
-        !seenTitles.has(title)
-      ) ??
-        `Priority ${index + 1}`;
-      seenTitles.add(replacement);
-      return {
-        ...module,
-        timeLabel: replacement,
-      };
-    });
-  }
-
-  // Persist the (possibly evolved) ledger onto the current period row so the
-  // very next regeneration sees it. Service role bypasses the ledger guard.
-  try {
-    // WS6 — stamp A-H subcategory (and category, when missing) on every
-    // JIT-anchored module so Smart Nudges + Insights read authoritative
-    // taxonomy from the ledger instead of re-classifying titles at fetch
-    // time. Additive: older ledger rows without these keys keep working.
     for (const m of finalHorizonModules) {
-      const anyM = m as unknown as Record<string, unknown>;
-      const title = typeof anyM.jitEventTitle === "string"
-        ? (anyM.jitEventTitle as string).trim()
-        : "";
+      const anyM = m as any;
+      const title = typeof anyM.jitEventTitle === "string" ? anyM.jitEventTitle.trim() : "";
       if (!title) continue;
       const en = enrichEvent({ title });
-      // WS-A · Prefer the subcategory persisted by
-      // `record-event-priority-signal` for this event over on-the-fly
-      // classification. Falls back to enrichEvent when memory is silent.
-      const anchorEventId = typeof anyM.anchorEventId === "string"
-        ? (anyM.anchorEventId as string)
-        : null;
-      const persistedSub = priorityMemoryIndex
-        ? getSubcategoryForEvent(priorityMemoryIndex, anchorEventId)
-        : null;
+      const anchorEventId = typeof anyM.anchorEventId === "string" ? anyM.anchorEventId : null;
+      const persistedSub = priorityMemoryIndex ? getSubcategoryForEvent(priorityMemoryIndex, anchorEventId) : null;
       if (anyM.anchorSubcategory == null && (persistedSub || en.subcategory)) {
         anyM.anchorSubcategory = persistedSub ?? en.subcategory;
       }
@@ -7265,37 +6436,33 @@ async function generateMasteryPlan(
       source: ledgerMeta.source,
       userEdits: ledger?.userEdits || undefined,
     };
-    await supabaseClient
-      .from("daily_ritual_completions")
-      .upsert(
-        {
-          user_id: req.userId,
-          ritual_date: today,
-          session_period: timeOfDay,
-          plan_ledger: planLedger,
-        },
-        { onConflict: "user_id,ritual_date,session_period" },
-      );
-  } catch (persistErr) {
-    console.warn(
-      "[generate-mastery-plan] ledger persist failed:",
-      persistErr instanceof Error ? persistErr.message : persistErr,
+    await supabaseClient.from("daily_ritual_completions").upsert(
+      { user_id: req.userId, ritual_date: today, session_period: timeOfDay, plan_ledger: planLedger },
+      { onConflict: "user_id,ritual_date,session_period" },
     );
+  } catch (persistErr) {
+    console.warn("[generate-mastery-plan] ledger persist failed:", persistErr);
   }
+
+  const periodLabels: Record<string, string> = {
+    morning: "Morning Practice",
+    afternoon: "Afternoon Reset",
+    evening: "Evening Close",
+  };
 
   return {
     timeOfDayPlan: {
       label: periodLabels[timeOfDay],
       period: timeOfDay,
-      modules: todModules,
-      coachCard: todCoachCard,
-      totalDuration,
+      modules: [],
+      coachCard: null,
+      totalDuration: 0,
       progressTracked: true,
       planBrief: planBrief || undefined,
     },
     calendarPills,
     preEventPlan,
-    jitPriority,
+    jitPriority: false,
     horizonModules: finalHorizonModules,
     ledger: ledgerMeta,
     promptVersion: BRIEF_PROMPT_VERSION,
@@ -7589,123 +6756,8 @@ interface HorizonModule {
   };
 }
 
-function buildSnapshotFallbackHorizonModules(
-  modules: any[],
-  opts: {
-    period: "morning" | "afternoon" | "evening";
-    label: string;
-    planBrief?: string | null;
-  },
-): HorizonModule[] {
-  const planBrief = typeof opts.planBrief === "string" ? opts.planBrief : "";
-  const stateActionByIndex: Record<number, string> = {
-    0: opts.period === "morning"
-      ? "Ground into the morning"
-      : opts.period === "afternoon"
-      ? "Reset into the afternoon"
-      : "Protect tonight",
-    1: opts.period === "morning"
-      ? "Steady before the main block"
-      : opts.period === "afternoon"
-      ? "Protect the second half"
-      : "Settle before tomorrow",
-    2: opts.period === "morning"
-      ? "Build into the day"
-      : opts.period === "afternoon"
-      ? "Close the afternoon clean"
-      : "Close it clean",
-  };
-  const usedPracticeIds = new Set<string>();
-  const usedTitles = new Set<string>();
-  const out: HorizonModule[] = [];
 
-  for (const practice of modules) {
-    const practiceId = String(practice?.contentId || "");
-    if (practiceId && usedPracticeIds.has(practiceId)) continue;
-    const slotTitle = stateActionByIndex[out.length] ?? opts.label;
-    if (usedTitles.has(slotTitle)) continue;
-    if (practiceId) usedPracticeIds.add(practiceId);
-    usedTitles.add(slotTitle);
-    out.push({
-      horizon: "immediate",
-      timeLabel: slotTitle,
-      typeLabel: typeof practice?.type === "string" ? practice.type : "align",
-      whyLine: practice?.reasoning || planBrief ||
-        "This move keeps the day on track.",
-      recommendedAction: practice?.reasoning || planBrief ||
-        "This move keeps the day on track.",
-      practice,
-      practices: [practice],
-      slotKind: "state-management",
-      isJit: false,
-      jitEventTitle: null,
-      jitMinutesUntil: null,
-      showNavyBorder: false,
-      showPulse: out.length === 0,
-      showPriorityPill: false,
-      arcLabel: opts.period === "evening" && practice?.type === "integrate"
-        ? "Recover"
-        : "Steady",
-      mode: "state",
-      slotRole: "state_anchor",
-      allocationReason: "snapshot_projection_fallback",
-    });
-    if (out.length >= 3) break;
-  }
 
-  return out;
-}
-
-function topUpHorizonModulesToThree(
-  current: HorizonModule[],
-  modules: any[],
-  opts: {
-    period: "morning" | "afternoon" | "evening";
-    label: string;
-    planBrief?: string | null;
-  },
-): HorizonModule[] {
-  const out = Array.isArray(current) ? current.slice(0, 3) : [];
-  if (out.length >= 3) return out.slice(0, 3);
-
-  const fallback = buildSnapshotFallbackHorizonModules(modules, opts);
-  const usedPracticeIds = new Set<string>(
-    out.flatMap((hm) => hm.practices || [hm.practice])
-      .map((p: any) => String(p?.contentId || ""))
-      .filter(Boolean),
-  );
-
-  for (const fm of fallback) {
-    const practiceId = String(fm?.practice?.contentId || "");
-    if (practiceId && usedPracticeIds.has(practiceId)) continue;
-    out.push(fm);
-    if (practiceId) usedPracticeIds.add(practiceId);
-    if (out.length >= 3) break;
-  }
-
-  for (const fm of fallback) {
-    if (out.length >= 3) break;
-    out.push(fm);
-  }
-
-  return out.slice(0, 3);
-}
-
-function determineAllocationPattern(
-  tier: string,
-  calendarLoad: string,
-  hasJitEvent: boolean,
-  jitMinutesUntil: number | null,
-): "2immediate-1tactical" | "1immediate-1tactical-1strategic" {
-  if (tier === "depleted") return "2immediate-1tactical";
-  if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
-    return "2immediate-1tactical";
-  }
-  if (calendarLoad === "high" || calendarLoad === "extreme") {
-    return "2immediate-1tactical";
-  }
-  return "1immediate-1tactical-1strategic";
-}
 
 // ==================== SLOT CONTEXT (replaces buildWhyLine) ====================
 
@@ -7847,374 +6899,7 @@ function buildModuleEventWhyLine(
   }, fallback);
 }
 
-function buildSlotContext(ctx: SlotContextInput): SlotContext {
-  const hasWeekData = ctx.checkInCountTotal >= 3;
-  const hasWearablePattern = ctx.wearableDaysConnected >= 7;
-  const hasCalendar = ctx.meetingCount > 0;
-  const timeAnchor = getTimeAnchor(ctx.timeOfDay);
-  const anchorPhrase = getAnchorPhrase(ctx);
-  const hasEventAnchor = !!(ctx.anchorTitle && ctx.anchorTitle.trim());
-  const isEvening = ctx.timeOfDay === "evening";
-  // In evening, today's meetingCount represents meetings already on today's calendar
-  // (typically completed), not meetings still ahead. Surface "still left" only when
-  // we know meetings remain; otherwise drop the count to avoid contradictions.
-  const remainingMeetings = isEvening ? 0 : ctx.meetingCount;
-  const hasRemainingMeetings = remainingMeetings > 0;
 
-  // ─── IMMEDIATE ───
-  if (ctx.horizon === "immediate") {
-    if (ctx.isJit && ctx.jitMinutesUntil !== null && ctx.jitMinutesUntil < 30) {
-      return {
-        situation: `${ctx.eventTitle} is imminent`,
-        whyLine: `${ctx.eventTitle} is almost here, prepare now.`,
-      };
-    }
-    if (
-      ctx.isJit && ctx.jitMinutesUntil !== null && ctx.jitMinutesUntil < 120
-    ) {
-      // HRV correlation for JIT event
-      if (
-        hasWearablePattern && ctx.hrvEventCorrelation &&
-        Math.abs(ctx.hrvEventCorrelation.avgHrvDelta) > 10
-      ) {
-        const pct = Math.abs(Math.round(ctx.hrvEventCorrelation.avgHrvDelta));
-        return {
-          situation: `HRV pattern before ${ctx.hrvEventCorrelation.eventType}`,
-          whyLine:
-            `Your HRV drops avg ${pct}% before ${ctx.hrvEventCorrelation.eventType}, ground your nervous system before that pattern takes over.`,
-        };
-      }
-      if (ctx.coachGrowthArea) {
-        return {
-          situation: `Coach insight + upcoming ${ctx.eventTitle}`,
-          whyLine:
-            `Your coach flagged ${ctx.coachGrowthArea}, address your state before ${ctx.eventTitle} so that pattern doesn't drive your thinking.`,
-        };
-      }
-      return {
-        situation: `${ctx.eventTitle} approaching`,
-        whyLine: `${ctx.eventTitle} in ${
-          Math.round(ctx.jitMinutesUntil)
-        } mins, go in prepared.`,
-      };
-    }
-    if (ctx.divergenceMode === "MASKED_HIGH") {
-      if (hasCalendar) {
-        return {
-          situation: "Body under unregistered load",
-          whyLine: isEvening
-            ? `Your body is carrying load you haven't registered, settle your system before you close the day.`
-            : `Your body is carrying load you haven't registered, ${ctx.meetingCount} meeting${
-              ctx.meetingCount > 1 ? "s" : ""
-            } will compound it unless you settle now.`,
-        };
-      }
-      return {
-        situation: "Body under unregistered load",
-        whyLine:
-          `Your body is carrying load you haven't registered, settle your system ${timeAnchor}.`,
-      };
-    }
-    if (ctx.tier === "depleted") {
-      if (ctx.coachGrowthArea) {
-        return {
-          situation: "Depleted + coach growth area",
-          whyLine:
-            `Your coach flagged ${ctx.coachGrowthArea}, address your state first so that pattern doesn't drive your thinking.`,
-        };
-      }
-      if (isEvening) {
-        return {
-          situation: "Low reserves + day close",
-          whyLine: `Reserves low, regulate before you close the day.`,
-        };
-      }
-      if (hasRemainingMeetings) {
-        return {
-          situation: "Low reserves + calendar load",
-          whyLine: `Reserves low with ${remainingMeetings} meeting${
-            remainingMeetings > 1 ? "s" : ""
-          } ahead, regulate ${anchorPhrase}.`,
-        };
-      }
-      return {
-        situation: "Low reserves",
-        whyLine: `Reserves low, regulate ${anchorPhrase}.`,
-      };
-    }
-    if (ctx.tier === "managing" && hasCalendar && ctx.meetingCount > 3) {
-      if (isEvening) {
-        return {
-          situation: "Managing + heavy day close",
-          whyLine: `Heavy day, settle your state before you close it.`,
-        };
-      }
-      return {
-        situation: "Managing + heavy calendar",
-        whyLine: `Heavy day ahead, settle your state ${anchorPhrase}.`,
-      };
-    }
-    if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
-      return {
-        situation:
-          `${ctx.patternInsight.count} consecutive ${ctx.patternInsight.state} days`,
-        whyLine:
-          `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running, this interrupts the pattern before it becomes your baseline.`,
-      };
-    }
-    if (
-      ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel <= 2
-    ) {
-      return {
-        situation: "Clarity deficit",
-        whyLine:
-          `Clarity low, address it ${anchorPhrase} so it doesn't compound.`,
-      };
-    }
-    if (
-      ctx.checkInOutcome && ctx.confidenceLevel !== null &&
-      ctx.confidenceLevel <= 2
-    ) {
-      const groundTarget = hasEventAnchor
-        ? anchorPhrase
-        : `before your ${
-          ctx.timeOfDay === "evening" ? "next" : "first"
-        } commitment`;
-      return {
-        situation: "Confidence deficit",
-        whyLine: `Low confidence, ground yourself ${groundTarget}.`,
-      };
-    }
-    if (hasEventAnchor) {
-      return {
-        situation: `State anchored to ${ctx.anchorTitle}`,
-        whyLine: buildEventAwareWhyLine(
-          ctx,
-          `Set your state ${anchorPhrase}, everything downstream rides on it.`,
-        ),
-      };
-    }
-    if (ctx.timeOfDay === "morning") {
-      return {
-        situation: "Morning start",
-        whyLine: "Start with your state, everything follows from this.",
-      };
-    }
-    if (ctx.timeOfDay === "afternoon") {
-      return {
-        situation: "Mid-day reset",
-        whyLine: "Mid-day reset, your second half starts here.",
-      };
-    }
-    return {
-      situation: "Evening regulation",
-      whyLine: "Regulate now, settle before you close the day.",
-    };
-  }
-
-  // ─── TACTICAL ───
-  if (ctx.horizon === "tactical") {
-    if (
-      ctx.isJit && hasWearablePattern && ctx.hrvEventCorrelation &&
-      Math.abs(ctx.hrvEventCorrelation.avgHrvDelta) > 10
-    ) {
-      const direction = ctx.hrvEventCorrelation.avgHrvDelta > 0
-        ? "elevates"
-        : "drops";
-      return {
-        situation: `HRV pattern before ${ctx.hrvEventCorrelation.eventType}`,
-        whyLine:
-          `Your HRV typically ${direction} before ${ctx.hrvEventCorrelation.eventType}, this sequence grounds your state then sharpens your focus for it.`,
-      };
-    }
-    if (ctx.pendingCommitment) {
-      return {
-        situation: "Coach commitment active",
-        whyLine:
-          `Your coach commitment: '${ctx.pendingCommitment}', this practice directly addresses it while your calendar allows.`,
-      };
-    }
-    if (
-      ctx.isJit && hasWeekData && ctx.patternInsight &&
-      ctx.patternInsight.count >= 3
-    ) {
-      return {
-        situation: `Pattern + upcoming event`,
-        whyLine:
-          `${ctx.eventTitle} approaching, you've been ${ctx.patternInsight.state} ${ctx.patternInsight.count} days running.`,
-      };
-    }
-    if (ctx.isJit) {
-      return {
-        situation: `${ctx.eventTitle} ahead`,
-        whyLine: `${ctx.eventTitle} is ahead, this prepares your state for it.`,
-      };
-    }
-    if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
-      return {
-        situation:
-          `${ctx.patternInsight.count} consecutive ${ctx.patternInsight.state} days`,
-        whyLine:
-          `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running, this interrupts the pattern before it becomes your baseline.`,
-      };
-    }
-    if (hasWeekData && ctx.frictionTrend === "declining") {
-      return {
-        situation: "Focus declining",
-        whyLine: "Focus has been declining this week, this interrupts it.",
-      };
-    }
-    if (hasWeekData && ctx.scoreTrend === "declining") {
-      return {
-        situation: "State trending down",
-        whyLine: "Your state has been trending down, this is the reset point.",
-      };
-    }
-    if (hasCalendar && ctx.meetingCount >= 4) {
-      if (isEvening) {
-        return {
-          situation: "Heavy day completed",
-          whyLine: "Heavy day completed, sustain your edge into tomorrow.",
-        };
-      }
-      return {
-        situation: "Heavy calendar",
-        whyLine: `Heavy day, this keeps you sharp through it.`,
-      };
-    }
-    if (
-      ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel >= 4
-    ) {
-      const todAnchor = ctx.timeOfDay === "morning"
-        ? "afternoon"
-        : ctx.timeOfDay === "afternoon"
-        ? "evening"
-        : "tomorrow";
-      return {
-        situation: "Clarity strong",
-        whyLine: `Clarity strong, this maintains it through the ${todAnchor}.`,
-      };
-    }
-    if (ctx.dayOfWeek === "Monday" && !isEvening) {
-      return {
-        situation: "Week entry",
-        whyLine: "Monday demands more, this builds the week's foundation.",
-      };
-    }
-    if (ctx.dayOfWeek === "Friday") {
-      return isEvening
-        ? {
-          situation: "Week close",
-          whyLine: "Week closing, recover what the week pulled from you.",
-        }
-        : {
-          situation: "Week close",
-          whyLine: "End of week, this sustains your quality through the close.",
-        };
-    }
-    if (hasEventAnchor) {
-      return {
-        situation: `Tactical anchor: ${ctx.anchorTitle}`,
-        whyLine: buildEventAwareWhyLine(
-          ctx,
-          `Carry your edge ${anchorPhrase}.`,
-        ),
-      };
-    }
-    if (isEvening) {
-      return {
-        situation: "Day close",
-        whyLine: "For your state, close the day with intention.",
-      };
-    }
-    return {
-      situation: "State maintenance",
-      whyLine: "For your state and demands today.",
-    };
-  }
-
-  // ─── STRATEGIC ───
-  if (ctx.horizon === "strategic") {
-    if (hasEventAnchor) {
-      return {
-        situation: `Development anchor: ${ctx.anchorTitle}`,
-        whyLine: buildEventAwareWhyLine(
-          ctx,
-          `Build capacity around ${ctx.anchorTitle}, not just the current state.`,
-        ),
-      };
-    }
-    if (ctx.pendingCommitment) {
-      return {
-        situation: "Coach commitment",
-        whyLine:
-          `You committed to '${ctx.pendingCommitment}', your calendar has space to build that capacity now.`,
-      };
-    }
-    if (ctx.coachGrowthArea) {
-      return {
-        situation: "Coach growth area",
-        whyLine:
-          `Your coach identified ${ctx.coachGrowthArea}, this builds it while your system isn't under strain.`,
-      };
-    }
-    if (ctx.practicePriorityTag) {
-      const tagLabels: Record<string, string> = {
-        regulation_composure: "composure under pressure",
-        regulation_early: "early regulation",
-        recovery_resilience: "recovery and resilience",
-        energy_endurance: "energy and endurance",
-        focus_clarity: "focus and clarity",
-        mindset_reframe: "mindset reframing",
-      };
-      return {
-        situation: "Development focus",
-        whyLine: `Aligned to your ${
-          tagLabels[ctx.practicePriorityTag] || "development"
-        } focus, building the foundation for long-term change.`,
-      };
-    }
-    if (ctx.archetypeWatchFor) {
-      return {
-        situation: "Archetype pattern",
-        whyLine:
-          `Your pattern: ${ctx.archetypeWatchFor}. Today has space to address it deliberately.`,
-      };
-    }
-    if (
-      ctx.timeOfDay === "evening" &&
-      (ctx.tier === "strong" || ctx.tier === "peak")
-    ) {
-      return {
-        situation: "Strong day close",
-        whyLine:
-          "Strong day, close with intention before tomorrow's demands arrive.",
-      };
-    }
-    if (ctx.timeOfDay === "evening" && ctx.tier === "depleted") {
-      return {
-        situation: "Depleted day close",
-        whyLine:
-          "Depleted day, restore before tomorrow inherits what today carried.",
-      };
-    }
-    return {
-      situation: "Development",
-      whyLine: "For your development, when your system has capacity.",
-    };
-  }
-
-  return { situation: "Current state", whyLine: "Based on your state today." };
-}
-
-function buildSequenceReasoning(
-  practiceTypes: string[],
-  ctx: SlotContextInput,
-): string | undefined {
-  // Static sequence copy retired — read strangely in evening / weekend / depleted contexts.
-  // Future: re-enable with time-of-day / day-type / state-aware variants.
-  return undefined;
-}
 
 // ════════════════════════════════════════════════════════════════════════
 // v5.1 STRATEGIC-AWARE POST-PROCESSOR
@@ -9320,1960 +8005,7 @@ async function applyV51Enrichment(
  * "Build resilience for high-demand days"). Deterministic — no LLM.
  * Companion to whyLine: whyLine = "why now", recommendedAction = "what this does for you".
  */
-function buildRecommendedAction(
-  primaryType: "regulate" | "align" | "prepare" | "integrate" | string,
-  ctx: SlotContextInput,
-): string {
-  return buildRecommendedActionCopy({
-    primaryType,
-    eventTitle: ctx.eventTitle,
-    timeOfDay: ctx.timeOfDay,
-    tier: ctx.tier,
-  });
-}
 
-function buildHorizonModules(
-  todModules: any[],
-  preEventPlan: any,
-  topEvent: any,
-  req: PlanRequest,
-  shared: SharedContext,
-  hrvCorrelations: any,
-  timeOfDay: string,
-  todCoachCard: any,
-  enrichedContent: any[],
-  pendingCommitments: any[],
-  outerReadinessCache?: any,
-  jitRankedCandidates: RankedJitCandidate[] = [],
-  forceArcCategoryIds: EventCategoryId[] = [],
-): HorizonModule[] {
-  const hasJitEvent = !!preEventPlan;
-  const jitMinutesUntil = preEventPlan?.minutesUntil ?? null;
-  const jitEventTitle = preEventPlan?.eventTitle ?? null;
-
-  const pattern = determineAllocationPattern(
-    req.innerReadinessTier,
-    req.calendarLoad,
-    hasJitEvent,
-    jitMinutesUntil,
-  );
-
-  // Derive signals for context
-  const frictionTrend = shared.innerReadinessPattern.trend === "declining"
-    ? "declining"
-    : null;
-  const scoreTrend = shared.innerReadinessPattern.trend === "declining"
-    ? "declining"
-    : null;
-  const pendingCommitment = pendingCommitments.length > 0
-    ? pendingCommitments[0].commitment_text
-    : null;
-  const coachGrowthArea =
-    (req.coachInsights || []).find((i: any) => i.type === "growth_area")
-      ?.content || null;
-  const archetypeWatchFor = ARCHETYPE_WATCH_FOR[req.archetype] || null;
-
-  const checkInCountTotal = shared.innerReadinessPattern.values?.length || 0;
-  const wearableDaysConnected = req.wearableContext?.hasData ? 7 : 0;
-  const meetingCount = req.calendarEvents?.length || 0;
-  const dayNames2 = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-  const dayOfWeekName = dayNames2[new Date().getDay()];
-
-  // Brief relay signals
-  const briefPhrase = outerReadinessCache?.phrase || req.outerReadinessPhrase ||
-    null;
-  const briefBody = outerReadinessCache?.context || req.outerReadinessContext ||
-    null;
-  const briefLeanOn = outerReadinessCache?.leanOn || req.outerReadinessLeanOn ||
-    null;
-  const briefWatchFor = outerReadinessCache?.watchFor ||
-    req.outerReadinessWatchFor || null;
-
-  // Common context input builder.
-  // Pass 4 — accept optional `anchor` so state/filler slots can thread the
-  // resolved event anchor (title / categoryId / phase) into the why-line.
-  // For JIT slots, eventTitle still carries the JIT title; this anchor arg
-  // is intended for non-JIT state and filler branches.
-  const makeCtxInput = (
-    horizon: "immediate" | "tactical" | "strategic",
-    isJit: boolean,
-    practiceTypes?: string[],
-    anchor?: {
-      title: string | null;
-      categoryId: string | null;
-      phase: "pre" | "during" | "post" | null;
-    } | null,
-  ): SlotContextInput => ({
-    horizon,
-    isJit,
-    eventTitle: anchor?.title ?? jitEventTitle,
-    jitMinutesUntil,
-    tier: req.innerReadinessTier,
-    divergenceMode,
-    checkInOutcome: req.checkInOutcome,
-    hrvEventCorrelation,
-    patternInsight: req.patternInsight || null,
-    frictionTrend,
-    scoreTrend,
-    pendingCommitment,
-    coachGrowthArea,
-    practicePriorityTag: req.practicePriorityTag || null,
-    archetypeWatchFor,
-    checkInCountTotal,
-    wearableDaysConnected,
-    calendarLoad: req.calendarLoad,
-    meetingCount,
-    clarityLevel: req.clarityLevel,
-    confidenceLevel: req.confidenceLevel,
-    timeOfDay,
-    dayOfWeek: dayOfWeekName,
-    briefPhrase,
-    briefBody,
-    briefLeanOn,
-    briefWatchFor,
-    practiceTypes,
-    anchorTitle: anchor?.title ?? null,
-    anchorCategoryId: anchor?.categoryId ?? null,
-    anchorPhase: anchor?.phase ?? null,
-  });
-
-  // Divergence mode detection
-  let divergenceMode: string | null = null;
-  if (
-    req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null
-  ) {
-    if (
-      req.wearableContext.hrvDeviation < -15 &&
-      req.innerReadinessTier !== "depleted"
-    ) {
-      divergenceMode = "MASKED_HIGH";
-    }
-  }
-
-  // HRV correlation for today's first event type
-  let hrvEventCorrelation: {
-    eventType: string;
-    avgHrvDelta: number;
-    occurrences: number;
-  } | null = null;
-  if (hrvCorrelations && topEvent) {
-    const evtType = topEvent.hrvCorrelation?.eventType;
-    if (evtType && hrvCorrelations[evtType]) {
-      const c = hrvCorrelations[evtType];
-      hrvEventCorrelation = {
-        eventType: evtType,
-        avgHrvDelta: c.avgHRVDeviation,
-        occurrences: c.count,
-      };
-    }
-  }
-
-  const firstEventTitle =
-    req.calendarEvents?.[0]?.title?.split(" ").slice(0, 4).join(" ") || null;
-  const timeOfDayLabel = timeOfDay === "morning"
-    ? "This morning"
-    : timeOfDay === "afternoon"
-    ? "Right now"
-    : "This evening";
-  const labels: Record<string, string> = {
-    regulate: "REGULATE",
-    align: "ALIGN",
-    prepare: "PREPARE",
-    integrate: "INTEGRATE",
-  };
-  const protocols: Record<string, string> = {
-    regulate: "Somatic Protocol",
-    align: "Mindset Protocol",
-    prepare: "Mind Performance Coach",
-    integrate: "Mind Performance Coach",
-  };
-
-  // ── §4 Pre/During/Post phase-aware JIT label resolver ────────────────
-  // Given the JIT topEvent + current time, returns the correct slot label
-  // contract:
-  //   pre    → "Prepare before <Event>"
-  //   during → "Stay regulated through <Event>"  (skipped for category F —
-  //            EVENT_CATEGORIES.F.protocol.duringNotificationOnly = true)
-  //   post   → "Recover after <Event>" / "Reset after <Event>" (high-stakes
-  //            A/D use "Reset" per §3 selfRegulationFocus emphasis on
-  //            discharging stage chemistry / emotional residue)
-  // The resolved ComboKey from event-phase-map.ts is returned alongside so
-  // downstream practice selection can prefer matching practices (TODO wiring
-  // into module mapping — see follow-up plan §5).
-  const resolveJitPhaseLabel = (
-    eventTitle: string | null | undefined,
-    eventStartMs: number | null,
-    eventEndMs: number | null,
-    nowMs: number,
-  ): {
-    phase: Phase;
-    label: string;
-    combo: ComboKey | null;
-    categoryId: EventCategoryId | null;
-    leadTimeMin: number | null;
-  } => {
-    const fallbackTitle = (eventTitle && eventTitle.trim()) || "this event";
-    const truncated = (eventTitle && eventTitle.trim())
-      ? eventTitle.trim().split(/\s+/).slice(0, 5).join(" ")
-      : fallbackTitle;
-    const enriched = enrichEvent({ title: eventTitle ?? "" });
-    const subtype = enriched.subtype;
-    const categoryId = enriched.categoryId;
-    const category = enriched.category;
-    const leadTimeMin = enriched.leadTimeMin;
-
-    // Resolve phase from absolute times (the only signal we trust).
-    let phase: Phase = "pre";
-    if (eventStartMs != null && eventEndMs != null) {
-      if (nowMs >= eventEndMs) phase = "post";
-      else if (nowMs >= eventStartMs) phase = "during";
-      else phase = "pre";
-    } else if (eventStartMs != null && nowMs >= eventStartMs) {
-      // No end time: assume 60-minute default; treat as post after that.
-      phase = (nowMs - eventStartMs) > 60 * 60_000 ? "post" : "during";
-    }
-
-    // Category F (Conferences) — DURING is notification-only by §3 contract.
-    // If we land in "during" for F, downgrade to "pre" framing so we never
-    // emit a slot card the user can't action mid-keynote.
-    if (phase === "during" && category?.protocol.duringNotificationOnly) {
-      phase = "pre";
-    }
-
-    // Some categories have no During / Post phase defined (E pre-only,
-    // G partial). Fall back to the closest defined phase rather than
-    // emitting a nonsense label.
-    if (categoryId && !EVENT_PHASE_MAP[categoryId][phase]) {
-      const order: Phase[] = phase === "post"
-        ? ["post", "pre", "during"]
-        : phase === "during"
-        ? ["during", "pre", "post"]
-        : ["pre", "during", "post"];
-      const found = order.find((p) => EVENT_PHASE_MAP[categoryId][p]);
-      if (found) phase = found;
-    }
-
-    const resolved = phaseForEvent(eventTitle || "", phase);
-    const combo = resolved
-      ? (`${resolved.resolvedCombo.protocol}.${resolved.resolvedCombo.mode}` as ComboKey)
-      : null;
-
-    // High-stakes governance (A) and difficult people work (D) need a
-    // sharper Post verb — §3 selfRegulationFocus calls out "discharge
-    // residual emotional load" / "post-peak hangover". Use "Reset after".
-    const isHighStakesPost = phase === "post" &&
-      (categoryId === "A" || categoryId === "D");
-
-    let label: string;
-    if (phase === "pre") {
-      label = `Prepare before ${truncated}`;
-    } else if (phase === "during") {
-      label = `Stay regulated through ${truncated}`;
-    } else {
-      label = `${isHighStakesPost ? "Reset" : "Recover"} after ${truncated}`;
-    }
-
-    return { phase, label, combo, categoryId, leadTimeMin };
-  };
-
-  // ── State + Calendar label composer ─────────────────────────────────
-  // Every non-JIT slot label MUST connect the state action to a concrete
-  // calendar/time anchor using phase-aware language.
-  // It bridges the user's dominant physiological / cognitive signal to
-  // the calendar pressure that makes the state matter. Never emit bare
-  // time literals ("Midday reset", "Later today", "Before bed", etc.).
-  const truncateTitle = (
-    t: string | null | undefined,
-    n = 5,
-  ): string | null => {
-    if (!t) return null;
-    return String(t).split(/\s+/).slice(0, n).join(" ").trim() || null;
-  };
-  // GAP 4 FIX: Before/During/After temporal vocabulary based on phase
-  const composeStateTimeLabel = (stateAction: string, anchor: string, args: {
-    anchorEvent: boolean;
-    anchorIsTomorrow: boolean;
-    slotIndex: 0 | 1 | 2;
-    timeOfDay: "morning" | "afternoon" | "evening" | string;
-    phase?: "pre" | "during" | "post" | null;
-  }): string => {
-    // Phase-aware temporal markers
-    const temporal = args.phase === "during" ? "through" 
-      : args.phase === "post" ? "after"
-      : "before"; // pre or null defaults to before
-
-    if (args.anchorIsTomorrow) {
-      const prefix = args.timeOfDay === "evening"
-        ? `${stateAction} tonight ${temporal}`
-        : `${stateAction} ${temporal}`;
-      return `${prefix} ${anchor}`;
-    }
-    if (args.anchorEvent) return `${stateAction} ${temporal} ${anchor}`;
-    if (anchor.includes("back-to-back") || anchor.includes("dense calendar")) {
-      return `${stateAction} through ${anchor}`;
-    }
-    // Window-aware phrases for no-event state slots
-    if (anchor === "this afternoon") return `${stateAction} into the afternoon`;
-    if (anchor === "this evening") return `${stateAction} into the evening`;
-    if (anchor === "this morning") return `${stateAction} this morning`;
-    if (anchor === "the day ahead") return `${stateAction} for the day ahead`;
-    if (args.slotIndex === 2) return `${stateAction} ${temporal} ${anchor}`;
-    return `${stateAction} into ${anchor}`;
-  };
-  const nowMs = Date.now();
-  const startOfTomorrow = new Date();
-  startOfTomorrow.setHours(0, 0, 0, 0);
-  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-  const endOfTomorrow = new Date(startOfTomorrow);
-  endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
-  // Day-of horizon invariant: when the user is NOT in Week-Ahead mode
-  // (Sun / last-day-PTO / last-day-holiday / manual override), no event
-  // whose start is more than 24h from "now" may be used as a named anchor
-  // anywhere downstream. Compute the resolved decision once.
-  const _planTzOffset = (req as any).timezoneOffset ?? 0;
-  const _planLocalNow = new Date(nowMs - _planTzOffset * 60000);
-  const _planWeekAheadDecision = evaluateWeekAheadMode({
-    dayOfWeek: _planLocalNow.getUTCDay(),
-    localHour: _planLocalNow.getUTCHours(),
-    manualOverride: (req as any).weekAheadOverride === true,
-  });
-  const _planWeekAheadActive = _planWeekAheadDecision.active;
-  const _dayOfHorizonCutoffMs = nowMs + DAY_OF_HORIZON_MS;
-  const tomorrowEventsRaw = (req.calendarEvents || []).filter((e: any) => {
-    const t = new Date(e.startTime).getTime();
-    return t >= startOfTomorrow.getTime() && t < endOfTomorrow.getTime();
-  });
-  // Strict 24h gate on day-of: a "tomorrow" event that starts after now+24h
-  // (e.g. Saturday-evening user looking at Sunday-afternoon events) must
-  // NOT seed any named anchor. Week-Ahead mode keeps the full set.
-  const tomorrowEvents = _planWeekAheadActive
-    ? tomorrowEventsRaw
-    : tomorrowEventsRaw.filter((e: any) =>
-      new Date(e.startTime).getTime() <= _dayOfHorizonCutoffMs
-    );
-  const todayRemainingEvents = (req.calendarEvents || []).filter((e: any) => {
-    const t = new Date(e.startTime).getTime();
-    return t >= nowMs && t < startOfTomorrow.getTime();
-  });
-  const scoreEventStakes = (e: any): number => {
-    let s = 0;
-    if (e.isOrganizer) s += 2;
-    const att = e.attendeesCount || 0;
-    if (att > 5) s += 2;
-    else if (att > 2) s += 1;
-    const dur =
-      (new Date(e.endTime).getTime() - new Date(e.startTime).getTime()) / 60000;
-    if (dur > 60) s += 2;
-    else if (dur >= 30) s += 1;
-    if (!e.isRecurring) s += 1;
-    const title = String(e.title || "").toLowerCase();
-    if (
-      /board|investor|interview|keynote|earnings|all[- ]hands|offsite|gdst/
-        .test(title)
-    ) s += 3;
-    return s;
-  };
-  const tomorrowLeadEvent =
-    [...tomorrowEvents].sort((a, b) =>
-      scoreEventStakes(b) - scoreEventStakes(a)
-    )[0] || null;
-  const todayLeadEvent =
-    [...todayRemainingEvents].sort((a, b) =>
-      scoreEventStakes(b) - scoreEventStakes(a)
-    )[0] || null;
-  const isTravelTitle = (t: string | null | undefined) =>
-    isTravelTitleCanonical(t);
-
-  // ── Pass 7 (N — Sunday / weekend / post-holiday) ──
-  // Upcoming-week priority selector: highest-stakes event in the next 7 days
-  // excluding today, used when the day itself has no useful anchor (Sunday,
-  // personal holiday today, or first weekday back from a personal holiday).
-  // Plain `tomorrowEvents` collapses to "tomorrow's load" with no name; this
-  // selector promotes the named event so the slot title and why-line can
-  // reference it directly.
-  const endOfWeekAhead = new Date(startOfTomorrow);
-  endOfWeekAhead.setDate(endOfWeekAhead.getDate() + 7);
-  const upcomingWeekEvents = (req.calendarEvents || []).filter((e: any) => {
-    const t = new Date(e.startTime).getTime();
-    return t >= startOfTomorrow.getTime() && t < endOfWeekAhead.getTime();
-  });
-  const upcomingWeekLeadEvent =
-    [...upcomingWeekEvents].sort((a, b) =>
-      scoreEventStakes(b) - scoreEventStakes(a)
-    )[0] || null;
-
-  // Personal-holiday today / yesterday — canonical regex from
-  // _shared/ceo-behaviour/pto-holiday.ts (same SSOT used by
-  // brief-signal-coverage's personalHolidayInferred).
-  const _isAllDayEvent = (e: any): boolean => {
-    const s = new Date(e.startTime).getTime();
-    const en = new Date(e.endTime || e.startTime).getTime();
-    return (en - s) >= 20 * 3600 * 1000;
-  };
-  const isPersonalHolidayToday = (req.calendarEvents || []).some(
-    (e: any) =>
-      _isAllDayEvent(e) &&
-      isPersonalHolidayTitle(String(e.title || "")) &&
-      new Date(e.startTime).getTime() < startOfTomorrow.getTime() &&
-      new Date(e.endTime || e.startTime).getTime() > (nowMs - 24 * 3600 * 1000),
-  );
-  const startOfYesterday = new Date(startOfTomorrow);
-  startOfYesterday.setDate(startOfYesterday.getDate() - 2);
-  const startOfToday = new Date(startOfTomorrow);
-  startOfToday.setDate(startOfToday.getDate() - 1);
-  const wasPersonalHolidayYesterday = (req.calendarEvents || []).some(
-    (e: any) => {
-      if (!_isAllDayEvent(e)) return false;
-      if (!isPersonalHolidayTitle(String(e.title || ""))) return false;
-      const t = new Date(e.startTime).getTime();
-      return t >= startOfYesterday.getTime() && t < startOfToday.getTime();
-    },
-  );
-
-  // ── Slot-anchor bookkeeper (variable slot count + dedup) ──
-  // Each emitted slot pushes its anchor event id (null for pure
-  // state/load/wearable anchors). canAnchorAgain enforces
-  // CATEGORY_MAX_SLOTS so the same event can't show up in more slots
-  // than its category permits (C/E/B/H = 1; A/D = 2; F/G = 3).
-  const slotAnchors: {
-    eventId: string | null;
-    phase?: "pre" | "during" | "post" | null;
-  }[] = [];
-  const anchorsUsedFor = (id: string) =>
-    slotAnchors.filter((a) => a.eventId === id).length;
-  const canAnchorAgain = (id: string, cat: any): boolean => {
-    const cap = (CATEGORY_MAX_SLOTS as any)[cat] ?? 1;
-    return anchorsUsedFor(id) < cap;
-  };
-  const phaseAlreadyAnchored = (id: string, phase: "pre" | "during" | "post") =>
-    slotAnchors.some((a) => a.eventId === id && a.phase === phase);
-
-  // ── GAP 1 FIX: Inter-slot title deduplication ──
-  // Track used state labels to prevent duplicate titles across slots
-  const usedStateLabels = new Set<string>();
-
-  // State action variants for deduplication fallbacks
-  const STATE_ACTION_VARIANTS: Record<string, string[]> = {
-    "Re-anchor circadian rhythm": ["Reset body clock", "Restore rhythm", "Regulate circadian timing"],
-    "Restore HRV": ["Recover autonomic tone", "Rebuild HRV", "Reset nervous system"],
-    "Recover sleep debt": ["Restore sleep", "Rebuild rest reserves", "Recover from fatigue"],
-    "Reset stage chemistry": ["Clear performance residue", "Discharge stage load", "Reset for presence"],
-    "Settle the system": ["Stabilize the system", "Ground your state", "Restore baseline"],
-    "Decompress": ["Release tension", "Ease the load", "Unwind"],
-    "Prime for focus": ["Sharpen attention", "Prepare to focus", "Build cognitive readiness"],
-    "Re-consolidate focus": ["Restore focus", "Rebuild concentration", "Refocus attention"],
-    "Steady the system": ["Stabilize readiness", "Maintain composure", "Hold the line"],
-    "Build capacity": ["Strengthen reserves", "Build resilience", "Expand capacity"],
-  };
-
-  // ── GAP 2 FIX: Cross-slot practice deduplication ──
-  // Track practice IDs globally across all slots to prevent duplicates
-  const globalConsumedPracticeIds = new Set<string>();
-  /**
-   * Phase C: walk the ranked (event, phase) candidate list and return the
-   * first candidate that (a) hasn't saturated its category's slot cap and
-   * (b) hasn't already been anchored with this same phase. Lets a single
-   * G long-haul / F multi-day / A pre+post event legitimately occupy
-   * multiple slots without re-using the same phase.
-   */
-  const pickNextRankedCandidate = (): RankedJitCandidate | null => {
-    for (const c of jitRankedCandidates) {
-      if (!c.eventId) continue;
-      if (!canAnchorAgain(c.eventId, c.categoryId)) continue;
-      if (phaseAlreadyAnchored(c.eventId, c.phase)) continue;
-      return c;
-    }
-    return null;
-  };
-  // Phase K — `COMBO_TO_PRACTICE_TYPE` now lives in
-  // `_shared/protocols/protocol-combos.ts` (single source of truth).
-  // Local mirror deleted to prevent drift.
-  /**
-   * Phase C.2 — pick the best-matching practice(s) from a module pool for
-   * the given ComboKey. Prefers exact type match; falls back to first
-   * non-coach module so we never emit an empty slot.
-   *
-   * Phase L — adds a 7-day recency penalty: practices completed within the
-   * last 7 days are de-prioritised (sorted last within their type bucket)
-   * so the user sees rotation across the catalog rather than the same
-   * top-of-list module every day. Recency is read from `req.recentPracticeDays`
-   * (contentId → days-ago, populated from the 14-day practice_sessions query).
-   */
-  const selectPracticesByCombo = (
-    pool: any[],
-    combo: ComboKey | null,
-    excludeIds: Set<string>,
-    max = 2,
-    slotContract: SelectionSlotContract = {},
-    intentOverride: ReturnType<typeof deriveSlotIntent> | null = null,
-  ): any[] => {
-    const intent = intentOverride ?? deriveSlotIntent({
-      stateAction: slotContract.stateAction ??
-        (slotContract.arcLabel === "During"
-          ? "Build capacity"
-          : slotContract.arcLabel === "Recover"
-          ? "Recover"
-          : "Steady the system"),
-      ceoVerb: slotContract.ceoVerb ?? null,
-      anchorCategory: slotContract.anchorCategory ?? null,
-      anchorPhase: slotContract.jitPhase ?? null,
-      combo,
-      practicePriorityTag: slotContract.practicePriorityTag ??
-        (req as any).practicePriorityTag ?? null,
-    });
-    const selected: any[] = [];
-    const consumed = new Set(excludeIds);
-    const recencyMap: Record<string, number> =
-      (req as any).recentPracticeDays || {};
-    const poolWithMeta = (pool || []).map((m: any) => ({
-      ...m,
-      masteryCategory: m.masteryCategory ?? m.mastery_category ?? null,
-    }));
-    // Sprint D — derive coarse window signals from data already assembled
-    // upstream (no new DB queries). Missing signals stay null → no-op.
-    const selectorTimeOfDay =
-      timeOfDay === "morning" || timeOfDay === "afternoon" ||
-        timeOfDay === "evening"
-        ? timeOfDay
-        : null;
-    const windowSignals = selectorTimeOfDay
-      ? derivePlanWindowSignals(req, selectorTimeOfDay)
-      : null;
-    if (windowSignals) {
-      console.log("[Plan][practice-window-signals]", {
-        timeOfDay: selectorTimeOfDay,
-        keys: Object.entries(windowSignals)
-          .filter(([, v]) => v !== null && v !== undefined && v !== false)
-          .map(([k]) => k),
-      });
-    }
-    const firstPick = selectPracticeForSlot(
-      poolWithMeta,
-      { ...slotContract, mode: slotContract.mode ?? "jit+state" },
-      intent,
-      consumed,
-      {
-        recentPracticeDays: recencyMap,
-        mrsScore: (req as any).mrsScore ?? null,
-        windowSignals,
-        leaderGoals: (req as any).leaderProfile?.goals?.declared ?? [],
-        preferredPracticeWindows: (req as any).preferredPracticeWindows ?? [],
-        currentWindow: selectorTimeOfDay,
-      },
-    );
-    const head = firstPick.selected[0] ?? null;
-    if (!head) return [];
-    selected.push(head);
-    consumed.add(head.contentId);
-    if (max > 1) {
-      const alt = findAlternate(poolWithMeta, head, intent, consumed);
-      if (alt) {
-        console.log(
-          `[generate-mastery-plan] intra-day dedup: substituted ${alt.contentId} for ${head.contentId} in slot ${selected.length}`,
-        );
-        selected.push(alt);
-        consumed.add(alt.contentId);
-      }
-    }
-    return selected;
-  };
-  const pickAnchorEvent = (candidates: any[]): any | null => {
-    for (const e of candidates) {
-      if (!e) continue;
-      const cat = enrichEvent(e).categoryId;
-      // Phase G fix: state/filler slots implicitly own the 'pre' phase
-      // ("before X"). Skip events whose pre-phase is already claimed by a
-      // JIT slot — otherwise we duplicate the same anchor across slots.
-      if (phaseAlreadyAnchored(e.id, "pre")) continue;
-      if (cat ? canAnchorAgain(e.id, cat) : anchorsUsedFor(e.id) < 1) return e;
-    }
-    return null;
-  };
-
-  const composeStateLabel = (
-    slotIndex: 0 | 1 | 2,
-  ): {
-    label: string;
-    eventId: string | null;
-    eventTitle: string | null;
-    categoryId: EventCategoryId | null;
-    subtypeId: string | null;
-    scenarioId: string | null;
-    leadTimeMin: number | null;
-    phase: "pre" | null;
-  } | null => {
-    const w = req.wearableContext;
-    const tier = req.innerReadinessTier;
-    const checkIn = req.checkInOutcome;
-    const load = req.calendarLoad;
-    const pressure = req.calendarPressure;
-    const tzOffset = (req as any).timezoneOffset ?? 0;
-    const localNow = new Date(Date.now() - tzOffset * 60000);
-    const dow = localNow.getUTCDay(); // 0 Sun .. 6 Sat
-    const isWeekend = dow === 0 || dow === 6;
-    const isBeforeEveningWindow = timeOfDay === "morning" ||
-      timeOfDay === "afternoon";
-    const allowThirdSlotEveningClose = slotIndex === 2 &&
-      isBeforeEveningWindow &&
-      !isWeekend &&
-      !isPersonalHolidayToday &&
-      !wasPersonalHolidayYesterday;
-
-    // Sort candidate event lists by stakes, then pick the first one that
-    // is not already saturating its category's slot cap. Slot 3 only flips
-    // to tomorrow-first once the user is actually in the evening or a
-    // week-ahead / post-holiday mode. Earlier windows must stay grounded
-    // in today's remaining arc first.
-    const todaySorted = [...todayRemainingEvents].sort((a, b) =>
-      scoreEventStakes(b) - scoreEventStakes(a)
-    );
-    const tomorrowSorted = [...tomorrowEvents].sort((a, b) =>
-      scoreEventStakes(b) - scoreEventStakes(a)
-    );
-    const slot3PrefersTomorrow = slotIndex === 2 &&
-      !allowThirdSlotEveningClose &&
-      (timeOfDay === "evening" || dow === 0 || isPersonalHolidayToday ||
-        wasPersonalHolidayYesterday);
-    const candidateList = slot3PrefersTomorrow
-      ? [...tomorrowSorted, ...todaySorted]
-      : [...todaySorted, ...tomorrowSorted];
-    const anchorEvent = pickAnchorEvent(candidateList);
-    const anchorEnriched = anchorEvent ? enrichEvent(anchorEvent) : null;
-    const anchorCategory = anchorEnriched?.categoryId ?? null;
-    const anchorDemand = anchorEnriched?.demandProfile ?? null;
-    const anchorTitle = truncateTitle(anchorEvent?.title);
-    const anchorIsTravel = isTravelTitle(anchorEvent?.title);
-    const anchorIsTomorrow = !!(anchorEvent &&
-      tomorrowEvents.some((e: any) => e.id === anchorEvent.id));
-
-    // 1) State action — pick strongest signal
-    let stateAction = "";
-    if (
-      anchorCategory === "G" || (anchorDemand && anchorDemand.cir >= 2) ||
-      anchorIsTravel
-    ) {
-      stateAction = "Re-anchor circadian rhythm";
-    } else if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
-      stateAction = "Restore HRV";
-    } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
-      stateAction = "Recover sleep debt";
-    } else if (
-      tier === "depleted" || checkIn === "drained" || checkIn === "struggling"
-    ) {
-      const highVisibility = anchorCategory === "C" || anchorCategory === "F";
-      const highEmotional = !!(anchorDemand && anchorDemand.emo >= 3);
-      stateAction = (highVisibility && !highEmotional)
-        ? "Reset stage chemistry"
-        : "Settle the system";
-    } else if (load === "high" || pressure === "high") {
-      stateAction = "Decompress";
-    } else if (tier === "managing") {
-      const cogDominant =
-        !!(anchorDemand && anchorDemand.cog >= 3 && anchorDemand.emo <= 1 &&
-          anchorDemand.ene <= 1);
-      // Only emit focus-bearing verbs when a real focus signal exists.
-      // Without an anchor / focus signal, fall back to a neutral verb so
-      // the title can't claim "focus" the user hasn't asked for.
-      const focusSignal = anchorCategory === "E" || cogDominant;
-      stateAction = focusSignal
-        ? (anchorCategory === "E" ? "Prime for focus" : "Re-consolidate focus")
-        : "Steady the system";
-    } else {
-      stateAction = slotIndex === 2 ? "Build capacity" : "Steady the system";
-    }
-
-    const tomorrowHighStakesEvent = tomorrowSorted.find((e: any) => {
-      const cat = enrichEvent(e).categoryId;
-      return cat === "A" || cat === "B" || cat === "C";
-    }) || null;
-    const wearableStrained =
-      !!(w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10);
-    const checkinStrained = checkIn === "drained" || checkIn === "struggling" ||
-      checkIn === "overwhelmed";
-    if (
-      slotIndex === 2 &&
-      timeOfDay === "evening" &&
-      tomorrowHighStakesEvent &&
-      (wearableStrained || checkinStrained)
-    ) {
-      const nightBeforeEnriched = enrichEvent(tomorrowHighStakesEvent);
-      return {
-        label: `Protect tonight before tomorrow's ${
-          truncateTitle(tomorrowHighStakesEvent.title) ?? "high-stakes event"
-        }`,
-        eventId: tomorrowHighStakesEvent.id ?? null,
-        eventTitle: tomorrowHighStakesEvent.title ?? null,
-        categoryId: nightBeforeEnriched.categoryId ?? null,
-        subtypeId: nightBeforeEnriched.subtype?.id ?? null,
-        scenarioId: nightBeforeEnriched.scenarioId ?? null,
-        leadTimeMin: nightBeforeEnriched.leadTimeMin ?? null,
-        phase: tomorrowHighStakesEvent.id ? "pre" : null,
-      };
-    }
-
-    // 2) Anchor phrase — Contract priority: distinct event > calendar load >
-    //    wearable deficit > generic horizon. For slot 2/3 (index ≥ 1), if
-    //    none of {distinct event, high load, wearable deficit, tomorrow's
-    //    calendar (slot 3)} apply, return null so the resolver drops the
-    //    slot rather than padding with a duplicate anchor.
-    let anchor = "";
-    let anchorEventId: string | null = null;
-    const highLoad = load === "high" || pressure === "high";
-    const hrvDeficit =
-      !!(w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10);
-    const sleepDeficit =
-      !!(w?.hasData && w.sleepScore !== null && w.sleepScore < 65);
-
-    if (anchorEvent) {
-      anchorEventId = anchorEvent.id;
-      if (anchorIsTravel) {
-        anchor = anchorIsTomorrow
-          ? "long-haul travel tomorrow"
-          : "long-haul travel today";
-      } else {
-        anchor = `${
-          anchorIsTomorrow ? "tomorrow's" : "today's"
-        } ${anchorTitle}`;
-      }
-    } else if (highLoad) {
-      anchor = slotIndex === 2
-        ? "today's dense calendar"
-        : "today's back-to-back load";
-    } else if (hrvDeficit || sleepDeficit) {
-      anchor = "tomorrow's load";
-    } else if (slotIndex === 2) {
-      // Pass 7: prefer the named upcoming-week priority over generic
-      // "Monday's / next week's load" when present. Applies on Sunday,
-      // personal-holiday today, and post-holiday weekday. Saturday is
-      // intentionally excluded — it is a recovery day (Week-Ahead server
-      // predicate, _shared/plan/week-ahead-mode.ts §17.2a). Promoting a
-      // Monday lead event on Saturday would violate the 24h JIT rule
-      // and inflate Saturday past the "1 morning slot mandatory" cadence.
-      const isSundayOrPostHoliday = (dow === 0) || isPersonalHolidayToday ||
-        wasPersonalHolidayYesterday;
-      const promoteWeekLead = upcomingWeekLeadEvent && isSundayOrPostHoliday;
-      if (promoteWeekLead && upcomingWeekLeadEvent) {
-        anchorEventId = upcomingWeekLeadEvent.id;
-        anchor = (upcomingWeekLeadEvent.title
-          ? truncateTitle(upcomingWeekLeadEvent.title)
-          : null) || "this week's lead event";
-      } else if (allowThirdSlotEveningClose) {
-        anchor = "this evening";
-      } else if (isWeekend && dow === 0) anchor = "Monday's load";
-      else if (isWeekend) anchor = "next week\u2019s load";
-      else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
-      else anchor = "tomorrow's load";
-    } else {
-      // No event, no high load, no wearable deficit, no slot-2 specials.
-      // Don't fabricate "today's load" — pick a neutral, calendar-aware
-      // phrase that doesn't imply a calendar burden that isn't there.
-      const localHour = localNow.getUTCHours();
-      if (isWeekend) anchor = "the day ahead";
-      else if (localHour < 12) anchor = "this morning";
-      else if (localHour < 18) anchor = "this afternoon";
-      else anchor = "this evening";
-    }
-
-    // Variable-slot rule: index ≥ 1 must have a *meaningful* secondary
-    // signal — distinct event, high load, wearable deficit, or
-    // (slot 3 only) tomorrow's calendar. Otherwise drop the slot.
-    if (
-      slotIndex >= 1 && !anchorEvent && !highLoad && !hrvDeficit &&
-      !sleepDeficit &&
-      !allowThirdSlotEveningClose &&
-      !(slotIndex === 2 && tomorrowEvents.length > 0) &&
-      !(slotIndex === 2 && dow === 0) &&
-      !(slotIndex === 2 &&
-        (isPersonalHolidayToday || wasPersonalHolidayYesterday) &&
-        !!upcomingWeekLeadEvent)
-    ) {
-      return null;
-    }
-
-    // GAP 1 FIX: Inter-slot title deduplication
-    // If this exact stateAction has been used, try to find a variant
-    let finalStateAction = stateAction;
-    if (usedStateLabels.has(stateAction)) {
-      const variants = STATE_ACTION_VARIANTS[stateAction] || [];
-      const unusedVariant = variants.find(v => !usedStateLabels.has(v));
-      if (unusedVariant) {
-        finalStateAction = unusedVariant;
-      }
-    }
-    usedStateLabels.add(finalStateAction);
-
-    const phase = anchorEventId ? "pre" : null;
-    const label = composeStateTimeLabel(finalStateAction, anchor, {
-      anchorEvent: !!anchorEvent,
-      anchorIsTomorrow,
-      slotIndex,
-      timeOfDay,
-      phase,
-    });
-
-    return {
-      label,
-      eventId: anchorEventId,
-      eventTitle: anchorEvent
-        ? anchorEvent.title
-        : (anchorEventId && upcomingWeekLeadEvent?.id === anchorEventId
-          ? upcomingWeekLeadEvent.title
-          : null),
-      categoryId: anchorCategory,
-      subtypeId: anchorEnriched?.subtype?.id ?? null,
-      scenarioId: anchorEnriched?.scenarioId ?? null,
-      leadTimeMin: anchorEnriched?.leadTimeMin ?? null,
-      // Phase H fix: state-label slots always anchor in the *pre* phase
-      // ("before X"). Surface this so the dedupe ledger can detect
-      // collisions with JIT pre-phase anchors.
-      phase,
-    };
-  };
-
-  const modules: HorizonModule[] = [];
-
-  // Pre-compute JIT phase label once — used by whichever slot lands on the
-  // JIT event. Pulled out so Slot 1 (touch1) / Slot 2 (touch2) / Slot 3
-  // (post window) all share one phase-aware contract.
-  const topEventStartIso = topEvent
-    ? getCalendarEventStartIso(topEvent.event)
-    : null;
-  const topEventEndIso = topEvent
-    ? getCalendarEventEndIso(topEvent.event)
-    : null;
-  const topEventStartMs = topEventStartIso
-    ? new Date(topEventStartIso).getTime()
-    : null;
-  const topEventEndMs = topEventEndIso
-    ? new Date(topEventEndIso).getTime()
-    : null;
-  const jitPhase = resolveJitPhaseLabel(
-    jitEventTitle,
-    topEventStartMs,
-    topEventEndMs,
-    nowMs,
-  );
-  const topEventEnriched = topEvent ? enrichEvent(topEvent.event) : null;
-  const topEventCat: any = topEventEnriched?.categoryId ?? null;
-  const topEventId: string | null = topEvent?.event?.id ?? null;
-
-  // ─── SLOT 1 (Immediate) ───
-  let slot1Practices: any[] = [];
-  let slot1IsJit = false;
-  let slot1TimeLabel = "";
-  let slot1AnchorSnapshot = buildAnchorSnapshot(null, null);
-  // Pass 4 — resolved anchor passed to buildSlotContext (title/phase aware why-line)
-  let slot1AnchorForCtx: {
-    title: string | null;
-    categoryId: string | null;
-    phase: "pre" | "during" | "post" | null;
-  } | null = null;
-
-  if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
-    // JIT takes slot 1 — include all pre-event modules (up to 3)
-    // Phase C.2 — bias toward modules whose practiceType matches the
-    // §4 prescribed combo for the resolved phase (e.g. C-pre → somatic.pause
-    // → regulate). Falls through to legacy ordering if no match.
-    const jitModules: any[] = preEventPlan.modules || [];
-    // GAP 2 FIX: Use global consumed practice IDs
-    const matched = selectPracticesByCombo(
-      jitModules,
-      jitPhase.combo,
-      globalConsumedPracticeIds,
-      3,
-      {
-        mode: "jit+state",
-        slotRole: "pre",
-        arcLabel: "Prepare",
-        jitPhase: jitPhase.phase,
-        jitEventTitle,
-        anchorCategory: topEventCat,
-        dayShape: "mixed_day",
-        allocationReason: "jit_phase_allocation",
-      },
-    );
-    slot1Practices = matched.length > 0
-      ? matched.slice(0, 3)
-      : jitModules.slice(0, 3);
-    if (slot1Practices.length === 0 && todModules[0]) {
-      slot1Practices = [todModules[0]];
-    }
-    // GAP 2 FIX: Add to global consumed set
-    slot1Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
-    slot1IsJit = true;
-    slot1TimeLabel = jitPhase.label;
-    slot1AnchorSnapshot = buildAnchorSnapshot(
-      topEventId,
-      topEventEnriched,
-      topEvent?.event?.title ?? null,
-    );
-    slot1AnchorForCtx = {
-      title: truncateTitle(topEvent?.event?.title) ?? null,
-      categoryId: topEventCat ?? null,
-      phase: jitPhase.phase,
-    };
-  } else if (req.innerReadinessTier === "depleted") {
-    const regMod = todModules.find((m: any) =>
-      m.type === "regulate" && !m.isCoachCard
-    ) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
-    slot1Practices = regMod ? [regMod] : [];
-    // Add a second practice (align) if available for depleted state
-    if (regMod) {
-      const alignMod = todModules.find((m: any) =>
-        m.contentId !== regMod.contentId && m.type === "align" && !m.isCoachCard
-      );
-      if (alignMod) slot1Practices.push(alignMod);
-    }
-    // GAP 2 FIX: Add to global consumed set
-    slot1Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
-    const sl = composeStateLabel(0);
-    slot1TimeLabel = sl?.label ?? "";
-    slotAnchors.push({
-      eventId: sl?.eventId ?? null,
-      phase: sl?.phase ?? null,
-    });
-    slot1AnchorSnapshot = sl
-      ? {
-        anchorEventId: sl.eventId,
-        anchorEventTitle: sl.eventTitle ?? null,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      }
-      : buildAnchorSnapshot(null, null);
-    if (sl?.eventId) {
-      const ev = (req.calendarEvents || []).find((e: any) =>
-        e.id === sl.eventId
-      );
-      slot1AnchorForCtx = {
-        title: truncateTitle(ev?.title) ?? null,
-        categoryId: sl.categoryId,
-        phase: sl.phase,
-      };
-    }
-  } else {
-    slot1Practices = todModules[0] ? [todModules[0]] : [];
-    // Add second practice if non-JIT and available
-    if (todModules[1] && todModules[1].contentId !== todModules[0]?.contentId) {
-      const nextMod = todModules[1];
-      // Only add if different type for sequence variety
-      if (nextMod.type !== todModules[0]?.type) {
-        slot1Practices.push(nextMod);
-      }
-    }
-    // GAP 2 FIX: Add to global consumed set
-    slot1Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
-    // Non-JIT slot 1 — state-anchored label.
-    const sl = composeStateLabel(0);
-    slot1TimeLabel = sl?.label ?? "";
-    slotAnchors.push({
-      eventId: sl?.eventId ?? null,
-      phase: sl?.phase ?? null,
-    });
-    slot1AnchorSnapshot = sl
-      ? {
-        anchorEventId: sl.eventId,
-        anchorEventTitle: sl.eventTitle ?? null,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      }
-      : buildAnchorSnapshot(null, null);
-    if (sl?.eventId) {
-      const ev = (req.calendarEvents || []).find((e: any) =>
-        e.id === sl.eventId
-      );
-      slot1AnchorForCtx = {
-        title: truncateTitle(ev?.title) ?? null,
-        categoryId: sl.categoryId,
-        phase: sl.phase,
-      };
-    }
-  }
-  if (slot1IsJit && topEventId) {
-    // Phase C.2 — anchor with phase so the ranked-candidate picker can
-    // legitimately reuse the SAME event in slot 2/3 for a different phase
-    // (G long-haul pre+during+post, F multi-day, A pre+post, D pre+post).
-    slotAnchors.push({ eventId: topEventId, phase: jitPhase.phase });
-  }
-
-  if (slot1Practices.length > 0) {
-    const primaryPractice = slot1Practices[0];
-    const practiceTypes = slot1Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput(
-      "immediate",
-      slot1IsJit,
-      practiceTypes,
-      slot1AnchorForCtx,
-    );
-    const slotCtx = buildSlotContext(ctxInput);
-    const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
-    modules.push({
-      horizon: "immediate",
-      timeLabel: slot1TimeLabel,
-      typeLabel: `${labels[primaryPractice.type] || "REGULATE"} · ${
-        protocols[primaryPractice.type] || "Protocol"
-      }`,
-      whyLine: slotCtx.whyLine,
-      recommendedAction: buildRecommendedAction(primaryPractice.type, ctxInput),
-      practice: primaryPractice,
-      practices: slot1Practices,
-      sequenceReasoning: seqReasoning,
-      isJit: slot1IsJit,
-      jitEventTitle: slot1IsJit ? jitEventTitle : null,
-      jitMinutesUntil: slot1IsJit ? jitMinutesUntil : null,
-      showNavyBorder: false,
-      showPulse: slot1IsJit && jitMinutesUntil !== null &&
-        jitMinutesUntil < 120,
-      showPriorityPill: slot1IsJit,
-      ...slot1AnchorSnapshot,
-      jitPhase: slot1IsJit ? jitPhase.phase : null,
-    });
-  }
-
-  // ─── SLOT 2 (Tactical) ─── with JIT dedup guard
-  let slot2Practices: any[] = [];
-  let slot2IsJit = false;
-  let slot2TimeLabel = "";
-  let slot2NavyBorder = false;
-  let slot2AnchorSnapshot = buildAnchorSnapshot(null, null);
-  let slot2AnchorForCtx: {
-    title: string | null;
-    categoryId: string | null;
-    phase: "pre" | "during" | "post" | null;
-  } | null = null;
-
-  // JIT dedup: if slot 1 already consumed the JIT event, don't reuse it
-  // Phase C.2 — walk the ranked (event, phase) candidate list. This handles
-  // BOTH cases: (a) slot 1 was state-anchored and a JIT exists further out,
-  // and (b) slot 1 was JIT for a multi-phase event whose other phase
-  // (during / post) still has slot capacity left (G long-haul, F multi-day,
-  // A/D pre+post). Single-phase categories (C/E/B/H, cap=1) naturally fall
-  // through because canAnchorAgain returns false after slot 1.
-  const slot2Candidate = hasJitEvent ? pickNextRankedCandidate() : null;
-  let slot2JitPhaseInfo: ReturnType<typeof resolveJitPhaseLabel> | null = null;
-  let slot2JitEventTitle: string | null = null;
-  let slot2JitMinutesUntil: number | null = null;
-  if (slot2Candidate) {
-    const ev = (req.calendarEvents || []).find((e: any) =>
-      e.id === slot2Candidate.eventId
-    );
-    const slot2Enriched = ev
-      ? enrichEvent(ev)
-      : enrichEvent({ title: slot2Candidate.title || "" });
-    const evStart = ev ? new Date(ev.startTime).getTime() : null;
-    const evEnd = ev?.endTime ? new Date(ev.endTime).getTime() : null;
-    slot2JitPhaseInfo = resolveJitPhaseLabel(
-      slot2Candidate.title,
-      evStart,
-      evEnd,
-      nowMs,
-    );
-    // Force the phase the ranker chose (resolveJitPhaseLabel may have
-    // re-derived a different phase from absolute time — for fan-out we
-    // honour the rank decision and only borrow its label string).
-    slot2JitPhaseInfo = { ...slot2JitPhaseInfo, phase: slot2Candidate.phase };
-    slot2JitEventTitle = slot2Candidate.title;
-    slot2JitMinutesUntil = evStart != null
-      ? Math.round((evStart - nowMs) / 60_000)
-      : null;
-    // Phase-aware label rebuild (use the ranked candidate's phase verb).
-    const truncated = (slot2Candidate.title || "this event").split(/\s+/).slice(
-      0,
-      5,
-    ).join(" ");
-    const isHighStakesPost = slot2Candidate.phase === "post" &&
-      (slot2Candidate.categoryId === "A" || slot2Candidate.categoryId === "D");
-    const label = slot2Candidate.phase === "pre"
-      ? `Prepare before ${truncated}`
-      : slot2Candidate.phase === "during"
-      ? `Stay regulated through ${truncated}`
-      : `${isHighStakesPost ? "Reset" : "Recover"} after ${truncated}`;
-    slot2TimeLabel = label;
-    slot2IsJit = true;
-    slot2AnchorSnapshot = buildAnchorSnapshot(
-      slot2Candidate.eventId,
-      slot2Enriched,
-      slot2Candidate.title,
-    );
-    slot2AnchorForCtx = {
-      title: truncateTitle(slot2Candidate.title) ?? null,
-      categoryId: (slot2Candidate.categoryId as any) ?? null,
-      phase: slot2Candidate.phase,
-    };
-    // Imminent (≤6h) keeps navy emphasis; far-out fan-out stays standard.
-    slot2NavyBorder = slot2JitMinutesUntil !== null &&
-      slot2JitMinutesUntil >= 0 && slot2JitMinutesUntil <= 360;
-    // Practice pool: prefer the dedicated pre-event modules when the
-    // candidate matches the originally-staged JIT event; otherwise fall
-    // back to todModules. In both cases filter by the candidate's combo.
-    const pool =
-      (slot2Candidate.eventId === topEventId && preEventPlan?.modules?.length)
-        ? preEventPlan.modules
-        : todModules;
-    const slot1Ids = new Set<string>(
-      slot1Practices.map((p: any) => p.contentId).filter(Boolean),
-    );
-    const matched = selectPracticesByCombo(
-      pool,
-      slot2Candidate.comboKey,
-      slot1Ids,
-      2,
-      {
-        mode:
-          slot2Candidate.phase === "during" || slot2Candidate.phase === "post"
-            ? "full_arc"
-            : "jit+state",
-        slotRole: slot2Candidate.phase === "during"
-          ? "during"
-          : slot2Candidate.phase === "post"
-          ? "post"
-          : "dominant_demand",
-        arcLabel: slot2Candidate.phase === "during"
-          ? "During"
-          : slot2Candidate.phase === "post"
-          ? "Recover"
-          : "Prepare",
-        jitPhase: slot2Candidate.phase,
-        jitEventTitle: slot2JitEventTitle,
-        anchorCategory: (slot2Candidate.categoryId as EventCategoryId | null) ??
-          null,
-        dayShape: "mixed_day",
-        allocationReason: "ranked_jit_candidate",
-      },
-    );
-    slot2Practices = matched.length > 0
-      ? matched
-      : (todModules[1]
-        ? [todModules[1]]
-        : (todModules[0] ? [todModules[0]] : []));
-    // GAP 2 FIX: Add to global consumed set
-    slot2Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
-  } else {
-    // GAP 2 FIX: Second ToD module(s), using global consumed IDs
-    const remaining = todModules.filter((m: any) => !globalConsumedPracticeIds.has(m.contentId));
-    slot2Practices = remaining.length > 0
-      ? [remaining[0]]
-      : (todModules[1]
-        ? [todModules[1]]
-        : (todModules[0] ? [todModules[0]] : []));
-    // Add second practice for tactical depth
-    if (remaining.length > 1 && remaining[1].type !== remaining[0]?.type) {
-      slot2Practices.push(remaining[1]);
-    }
-    // GAP 2 FIX: Add to global consumed set
-    slot2Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
-    const sl = composeStateLabel(1);
-    if (sl) {
-      slot2TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
-      slot2AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorEventTitle: sl.eventTitle ?? null,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
-      if (sl.eventId) {
-        const ev = (req.calendarEvents || []).find((e: any) =>
-          e.id === sl.eventId
-        );
-        slot2AnchorForCtx = {
-          title: truncateTitle(ev?.title) ?? null,
-          categoryId: sl.categoryId,
-          phase: sl.phase,
-        };
-      }
-    } else {
-      slot2TimeLabel = "";
-      slot2Practices = []; // signal "drop this slot"
-    }
-  }
-  if (slot2IsJit && slot2Candidate) {
-    slotAnchors.push({
-      eventId: slot2Candidate.eventId,
-      phase: slot2Candidate.phase,
-    });
-  }
-
-  if (slot2Practices.length > 0) {
-    const primaryPractice = slot2Practices[0];
-    const practiceTypes = slot2Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput(
-      "tactical",
-      slot2IsJit,
-      practiceTypes,
-      slot2AnchorForCtx,
-    );
-    const slotCtx = buildSlotContext(ctxInput);
-    const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
-    modules.push({
-      horizon: "tactical",
-      timeLabel: slot2TimeLabel,
-      typeLabel: `${labels[primaryPractice.type] || "ALIGN"} · ${
-        protocols[primaryPractice.type] || "Protocol"
-      }`,
-      whyLine: slotCtx.whyLine,
-      recommendedAction: buildRecommendedAction(primaryPractice.type, ctxInput),
-      practice: primaryPractice,
-      practices: slot2Practices,
-      sequenceReasoning: seqReasoning,
-      isJit: slot2IsJit,
-      jitEventTitle: slot2IsJit ? (slot2JitEventTitle ?? jitEventTitle) : null,
-      jitMinutesUntil: slot2IsJit
-        ? (slot2JitMinutesUntil ?? jitMinutesUntil)
-        : null,
-      showNavyBorder: slot2NavyBorder,
-      showPulse: false,
-      showPriorityPill: slot2IsJit,
-      ...slot2AnchorSnapshot,
-      jitPhase: slot2IsJit ? (slot2Candidate?.phase ?? jitPhase.phase) : null,
-    });
-  }
-
-  // ─── SLOT 3 (Strategic or second Immediate) ───
-  let slot3Practices: any[] = [];
-  let slot3Horizon: "immediate" | "tactical" | "strategic" = "strategic";
-  let slot3TimeLabel = "";
-  let slot3IsJit = false;
-  let slot3JitEventTitle: string | null = null;
-  let slot3JitMinutesUntil: number | null = null;
-  let slot3JitPhase: "pre" | "during" | "post" | null = null;
-  let slot3AnchorSnapshot = buildAnchorSnapshot(null, null);
-  let slot3AnchorForCtx: {
-    title: string | null;
-    categoryId: string | null;
-    phase: "pre" | "during" | "post" | null;
-  } | null = null;
-
-  // GAP 2 FIX: Start with global consumed IDs
-  const usedIds = new Set(globalConsumedPracticeIds);
-
-  // Phase C.2 — third-slot multi-phase fan-out (G long-haul, F multi-day).
-  // Only fires when a *third* distinct (event, phase) candidate still has
-  // capacity AND we already shipped two JIT-aligned slots. Single-phase
-  // categories (cap=1) and 2-cap (A/D) naturally fall through.
-  //
-  // Slot-3 post-phase guard (CEO doc — variable slot rule): a `post` phase
-  // candidate is only meaningful when the underlying event has actually
-  // ended (or is within the closing 15 minutes). When the event has no
-  // endTime, the endTime is malformed, or the event is still clearly in
-  // progress, the post-phase candidate is invalid — slot 3 must drop it
-  // and fall back to state-management (composeStateLabel) or be dropped
-  // entirely by the variable-slot dedup pass. We never pad a duplicate
-  // post-phase slot just to fill three cards.
-  const isPostPhaseValid = (cand: RankedJitCandidate): boolean => {
-    if (cand.phase !== "post") return true;
-    const ev = (req.calendarEvents || []).find((e: any) =>
-      e.id === cand.eventId
-    );
-    const endRaw = ev?.endTime ?? ev?.startTime;
-    if (!endRaw) return false;
-    const endMs = new Date(endRaw).getTime();
-    if (!Number.isFinite(endMs)) return false;
-    // Valid only when the event is over (or within the last 15 min of running).
-    return (endMs - nowMs) <= 15 * 60_000;
-  };
-  const pickSlot3Candidate = (): RankedJitCandidate | null => {
-    if (!hasJitEvent) return null;
-    for (const c of jitRankedCandidates) {
-      if (!c.eventId) continue;
-      if (!canAnchorAgain(c.eventId, c.categoryId)) continue;
-      if (phaseAlreadyAnchored(c.eventId, c.phase)) continue;
-      if (!isPostPhaseValid(c)) continue;
-      return c;
-    }
-    return null;
-  };
-  const slot3Candidate = pickSlot3Candidate();
-  if (slot3Candidate) {
-    const ev = (req.calendarEvents || []).find((e: any) =>
-      e.id === slot3Candidate.eventId
-    );
-    const slot3Enriched = ev
-      ? enrichEvent(ev)
-      : enrichEvent({ title: slot3Candidate.title || "" });
-    const evStart = ev ? new Date(ev.startTime).getTime() : null;
-    slot3JitMinutesUntil = evStart != null
-      ? Math.round((evStart - nowMs) / 60_000)
-      : null;
-    const truncated = (slot3Candidate.title || "this event").split(/\s+/).slice(
-      0,
-      5,
-    ).join(" ");
-    const isHighStakesPost = slot3Candidate.phase === "post" &&
-      (slot3Candidate.categoryId === "A" || slot3Candidate.categoryId === "D");
-    slot3TimeLabel = slot3Candidate.phase === "pre"
-      ? `Prepare before ${truncated}`
-      : slot3Candidate.phase === "during"
-      ? `Stay regulated through ${truncated}`
-      : `${isHighStakesPost ? "Reset" : "Recover"} after ${truncated}`;
-    slot3IsJit = true;
-    slot3JitEventTitle = slot3Candidate.title;
-    slot3JitPhase = slot3Candidate.phase;
-    slot3Horizon = "tactical";
-    slot3AnchorSnapshot = buildAnchorSnapshot(
-      slot3Candidate.eventId,
-      slot3Enriched,
-      slot3Candidate.title,
-    );
-    const pool =
-      (slot3Candidate.eventId === topEventId && preEventPlan?.modules?.length)
-        ? preEventPlan.modules
-        : todModules;
-    const matched = selectPracticesByCombo(
-      pool,
-      slot3Candidate.comboKey,
-      usedIds,
-      2,
-      {
-        mode:
-          slot3Candidate.phase === "during" || slot3Candidate.phase === "post"
-            ? "full_arc"
-            : "jit+state",
-        slotRole: slot3Candidate.phase === "during"
-          ? "during"
-          : slot3Candidate.phase === "post"
-          ? "post"
-          : "recovery",
-        arcLabel: slot3Candidate.phase === "during"
-          ? "During"
-          : slot3Candidate.phase === "post"
-          ? "Recover"
-          : "Recover",
-        jitPhase: slot3JitPhase,
-        jitEventTitle: slot3JitEventTitle,
-        anchorCategory: (slot3Candidate.categoryId as EventCategoryId | null) ??
-          null,
-        dayShape: "mixed_day",
-        allocationReason: "ranked_jit_candidate",
-      },
-    );
-    slot3Practices = matched.length > 0
-      ? matched
-      : (todModules.find((m: any) => !usedIds.has(m.contentId))
-        ? [todModules.find((m: any) => !usedIds.has(m.contentId))]
-        : []);
-    slotAnchors.push({
-      eventId: slot3Candidate.eventId,
-      phase: slot3Candidate.phase,
-    });
-    slot3AnchorForCtx = {
-      title: truncateTitle(slot3Candidate.title) ?? null,
-      categoryId: (slot3Candidate.categoryId as any) ?? null,
-      phase: slot3Candidate.phase,
-    };
-  } else if (pattern === "2immediate-1tactical") {
-    const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) ||
-      todModules[todModules.length - 1];
-    slot3Practices = nextMod ? [nextMod] : [];
-    slot3Horizon = "immediate";
-    const sl = composeStateLabel(2);
-    if (sl) {
-      slot3TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
-      slot3AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorEventTitle: sl.eventTitle ?? null,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
-      if (sl.eventId) {
-        const ev = (req.calendarEvents || []).find((e: any) =>
-          e.id === sl.eventId
-        );
-        slot3AnchorForCtx = {
-          title: truncateTitle(ev?.title) ?? null,
-          categoryId: sl.categoryId,
-          phase: sl.phase,
-        };
-      }
-    } else {
-      slot3TimeLabel = "";
-      slot3Practices = [];
-    }
-  } else {
-    // Coach suppression: never lift coach cards into the strategic slot.
-    // Integrate-type practices are still eligible — they host the inline
-    // Reflection Corner UI.
-    const strategicModule = todModules.find((m: any) =>
-      !usedIds.has(m.contentId) && m.type === "integrate" && !m.isCoachCard
-    );
-    const fallbackModule = todModules.find((m: any) =>
-      !usedIds.has(m.contentId)
-    ) || todModules[todModules.length - 1];
-    const primaryMod = strategicModule || fallbackModule;
-    slot3Practices = primaryMod ? [primaryMod] : [];
-    // Add second strategic practice if available
-    if (primaryMod) {
-      const secondMod = todModules.find((m: any) =>
-        !usedIds.has(m.contentId) && m.contentId !== primaryMod.contentId
-      );
-      if (secondMod) slot3Practices.push(secondMod);
-    }
-    const sl = composeStateLabel(2);
-    if (sl) {
-      slot3TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
-      slot3AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorEventTitle: sl.eventTitle ?? null,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
-      if (sl.eventId) {
-        const ev = (req.calendarEvents || []).find((e: any) =>
-          e.id === sl.eventId
-        );
-        slot3AnchorForCtx = {
-          title: truncateTitle(ev?.title) ?? null,
-          categoryId: sl.categoryId,
-          phase: sl.phase,
-        };
-      }
-    } else {
-      slot3TimeLabel = "";
-      slot3Practices = [];
-    }
-  }
-
-  // GAP 2 FIX: Add to global consumed set
-  slot3Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
-
-  if (slot3Practices.length > 0) {
-    const primaryPractice = slot3Practices[0];
-    const practiceTypes = slot3Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput(
-      slot3Horizon,
-      slot3IsJit,
-      practiceTypes,
-      slot3AnchorForCtx,
-    );
-    const slotCtx = buildSlotContext(ctxInput);
-    const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
-    modules.push({
-      horizon: slot3Horizon,
-      timeLabel: slot3TimeLabel,
-      typeLabel: `${labels[primaryPractice.type] || "INTEGRATE"} · ${
-        protocols[primaryPractice.type] || "Protocol"
-      }`,
-      whyLine: slotCtx.whyLine,
-      recommendedAction: buildRecommendedAction(primaryPractice.type, ctxInput),
-      practice: primaryPractice,
-      practices: slot3Practices,
-      sequenceReasoning: seqReasoning,
-      isJit: slot3IsJit,
-      jitEventTitle: slot3JitEventTitle,
-      jitMinutesUntil: slot3JitMinutesUntil,
-      showNavyBorder: false,
-      showPulse: false,
-      showPriorityPill: slot3IsJit,
-      ...slot3AnchorSnapshot,
-      jitPhase: slot3JitPhase,
-    });
-  }
-
-  // Deduplicate: ensure no two slots share the same primary contentId or
-  // practice type. Content IDs alone still allowed e.g. two different
-  // "regulate" practices in the same Plan stack.
-  const practiceTypeOf = (p: any): string | null =>
-    typeof p?.type === "string" && p.type.trim().length > 0
-      ? p.type.trim()
-      : null;
-  const practiceTypeForContent = (c: any): string | null => {
-    if (typeof c?.type === "string" && c.type.trim().length > 0) {
-      return c.type.trim();
-    }
-    const contentType = typeof c?.content_type === "string"
-      ? c.content_type
-      : null;
-    if (contentType === "soundbath" || contentType === "guided-practice") {
-      return "regulate";
-    }
-    if (contentType === "micro-practice") return "align";
-    return null;
-  };
-  const seenContentIds = new Set<string>();
-  const seenPracticeTypes = new Set<string>();
-  const deduped: HorizonModule[] = [];
-  for (const m of modules) {
-    // Variable-slot rule: drop slots whose state-anchor resolved to null
-    // (composeStateLabel returned null → empty timeLabel + zero practices).
-    if (!m.timeLabel || (m.practices?.length ?? 0) === 0) continue;
-    const primaryType = practiceTypeOf(m.practice);
-    if (
-      !seenContentIds.has(m.practice.contentId) &&
-      (!primaryType || !seenPracticeTypes.has(primaryType))
-    ) {
-      // Also deduplicate within practices array
-      const uniquePractices: any[] = [];
-      const practiceIds = new Set<string>();
-      const practiceTypes = new Set<string>();
-      for (const p of m.practices) {
-        const pType = practiceTypeOf(p);
-        if (
-          !seenContentIds.has(p.contentId) &&
-          !practiceIds.has(p.contentId) &&
-          (!pType ||
-            (!seenPracticeTypes.has(pType) && !practiceTypes.has(pType)))
-        ) {
-          practiceIds.add(p.contentId);
-          if (pType) practiceTypes.add(pType);
-          uniquePractices.push(p);
-        } else {
-          console.log(
-            "[generate-mastery-plan] practice dedupe: dropped duplicate",
-            {
-              contentId: p.contentId ?? null,
-              type: pType,
-              reason:
-                seenContentIds.has(p.contentId) || practiceIds.has(p.contentId)
-                  ? "content-duplicate"
-                  : "type-duplicate",
-            },
-          );
-        }
-      }
-      m.practices = uniquePractices.length > 0 ? uniquePractices : [m.practice];
-      m.practice = m.practices[0];
-      seenContentIds.add(m.practice.contentId);
-      for (const p of m.practices) {
-        seenContentIds.add(p.contentId);
-        const pType = practiceTypeOf(p);
-        if (pType) seenPracticeTypes.add(pType);
-      }
-      deduped.push(m);
-    } else {
-      console.log(
-        "[generate-mastery-plan] practice dedupe: dropped duplicate slot primary",
-        {
-          contentId: m.practice?.contentId ?? null,
-          type: primaryType,
-          reason: seenContentIds.has(m.practice?.contentId)
-            ? "content-duplicate"
-            : "type-duplicate",
-        },
-      );
-    }
-  }
-
-  // Filler pass — only runs when slot 1 itself is missing (e.g. no
-  // todModules at all). Per the variable-slot contract, we never pad
-  // beyond what composeStateLabel agrees is a meaningful anchor.
-  //
-  // Habit-building minimum-slot rule (CEO doc):
-  //  • Weekday, no JIT, no PTO/holiday → guarantee 2 slots (morning anchor
-  //    + evening recovery building toward tomorrow).
-  //  • Weekday + PTO/public/personal holiday → 1 morning slot only.
-  //  • Saturday → 1 morning slot mandatory.
-  //  • Sunday → 1 slot mandatory (afternoon/evening week-ahead prep).
-  //  • Any JIT-bearing day → existing variable-slot logic owns it.
-  const tzOffsetMin = (req as any).timezoneOffset ?? 0;
-  const _localNow = new Date(Date.now() - tzOffsetMin * 60000);
-  const _dow = _localNow.getUTCDay(); // 0 Sun .. 6 Sat
-  const _isWeekday = _dow >= 1 && _dow <= 5;
-  const _hasAnyJit = !!preEventPlan;
-  // PTO / public-holiday detection delegated to the canonical availability
-  // SSOT. Regional / FYI holidays that don't apply to the user MUST NOT
-  // collapse the plan to a single slot, and calendar work evidence MUST
-  // override any rest signal — both handled inside the classifier.
-  const _availability = classifyAvailability({
-    now: _localNow,
-    userHomeCountry: (req as any).userHomeCountry ?? (req as any).country ??
-      null,
-    userCurrentCountry: (req as any).userCurrentCountry ?? null,
-    explicitPto: (req as any).explicitPto === true,
-    calendarLoad: (req as any).calendarLoad ?? null,
-    events: (req.calendarEvents || []).map((e: any) => ({
-      title: String(e?.title || ""),
-      startTime: String(e?.startTime || e?.start_time || ""),
-      endTime: String(e?.endTime || e?.end_time || e?.startTime || ""),
-      isAllDay: e?.isAllDay === true || e?.is_all_day === true ||
-        ((new Date(e?.endTime || e?.startTime || 0).getTime() -
-          new Date(e?.startTime || 0).getTime()) >= 20 * 3600 * 1000),
-      isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
-      attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
-      source: e?.source ?? e?.calendarName ?? null,
-      calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
-    })),
-  });
-  const _isPtoOrHoliday = _availability.isRestDay &&
-    (_availability.state === "PTO" || _availability.state === "PUBLIC_HOLIDAY");
-  let _minSlots = 1;
-  if (!_hasAnyJit && _isWeekday && !_isPtoOrHoliday) _minSlots = 2;
-  if (_hasAnyJit && !_isPtoOrHoliday) {
-    const meaningfulAnchors = new Set<string>();
-    for (const e of todayRemainingEvents) {
-      const title = String(e?.title || "").trim();
-      const id = String(e?.id || title || "").trim();
-      if (!id || !title) continue;
-      if (isNoiseTitle(title)) continue;
-      meaningfulAnchors.add(id);
-    }
-    if (meaningfulAnchors.size > 1) {
-      _minSlots = Math.min(3, meaningfulAnchors.size);
-    }
-    if (deduped.length < _minSlots) {
-      console.log(
-        "[generate-mastery-plan] JIT day min-slots expanded for distinct anchors",
-        {
-          minSlots: _minSlots,
-          anchors: Array.from(meaningfulAnchors).slice(0, 6),
-          currentSlots: deduped.map((m: any) => ({
-            title: m.timeLabel,
-            anchorEventId: m.anchorEventId ?? null,
-            phase: m.jitPhase ?? null,
-          })),
-        },
-      );
-    }
-  }
-
-  if (deduped.length < _minSlots && enrichedContent.length > 0) {
-    const remaining = enrichedContent.filter((c: any) => {
-      if (seenContentIds.has(c.id) || req.completedToday.includes(c.id)) {
-        return false;
-      }
-      const cType = practiceTypeForContent(c);
-      return !cType || !seenPracticeTypes.has(cType);
-    });
-    const hasBodyUnderLoad = req.wearableContext?.hasData &&
-      req.wearableContext.hrvDeviation !== null &&
-      req.wearableContext.hrvDeviation < -15;
-    const hasMaskedHigh = divergenceMode === "MASKED_HIGH";
-    const clarityLow = req.clarityLevel <= 2;
-    const confidenceLow = req.confidenceLevel <= 2;
-    const poorSleep = req.wearableContext?.hasData &&
-      req.wearableContext.sleepScore !== null &&
-      req.wearableContext.sleepScore < 70;
-    const isNewUser = (shared.innerReadinessPattern.values?.length || 0) < 7;
-    const isHeavyDay = req.calendarLoad === "high" ||
-      req.calendarLoad === "extreme";
-
-    const needsHorizons: ("immediate" | "tactical" | "strategic")[] =
-      _minSlots >= 3
-        ? ["immediate", "tactical", "strategic"]
-        : _minSlots >= 2
-        ? ["immediate", "tactical"]
-        : ["immediate"];
-
-    for (const targetHorizon of needsHorizons) {
-      if (deduped.length >= _minSlots) break;
-
-      let pool = remaining.filter((c: any) => {
-        const hTags: string[] = c.horizonTags || [];
-        return hTags.includes(targetHorizon);
-      });
-
-      const foundationalCount = deduped.filter((m) => {
-        const meta = enrichedContent.find((ec: any) =>
-          ec.id === m.practice.contentId
-        );
-        return meta?.isFoundational === true;
-      }).length;
-      if (isNewUser && foundationalCount < 2) {
-        const foundPool = pool.filter((c: any) => c.isFoundational === true);
-        if (foundPool.length > 0) pool = foundPool;
-      }
-
-      const slotIndex = deduped.length;
-      if (isHeavyDay && slotIndex < 2) {
-        pool = pool.filter((c: any) =>
-          c.durationBand === "micro" || c.durationBand === "short"
-        );
-      }
-
-      if (pool.length === 0) {
-        pool = remaining.filter((c: any) => {
-          if (seenContentIds.has(c.id)) return false;
-          const cType = practiceTypeForContent(c);
-          return !cType || !seenPracticeTypes.has(cType);
-        });
-      }
-
-      if (pool.length === 0) break;
-
-      // Resolve the slot's intent FIRST so content scoring is bound to
-      // the verb the title will render. composeStateLabel is the source
-      // of truth for stateAction + anchor category — re-use it here so
-      // the selector and the title can't drift.
-      const intentLabel = composeStateLabel(
-        Math.min(slotIndex, 2) as 0 | 1 | 2,
-      );
-      // Recover the verb the label uses (everything before the connector).
-      const labelText = String(intentLabel?.label || "");
-      const stateActionFromLabel = labelText
-        .split(/\s+(?:before|through|into|for)\s+/)[0]
-        .replace(/\s+tonight$/, "")
-        .trim() || labelText;
-      const slotIntent: SlotIntent = deriveSlotIntent({
-        stateAction: stateActionFromLabel,
-        anchorCategory: (intentLabel?.categoryId ?? null) as any,
-        anchorPhase: (intentLabel?.phase ?? null) as any,
-        practicePriorityTag: (req as any).practicePriorityTag ?? null,
-      });
-
-      const scored = pool.map((c: any) => {
-        let score = 0;
-        const ssTags: string[] = c.stateSignalTags || [];
-        if (hasBodyUnderLoad && ssTags.includes("signal-body-under-load")) {
-          score += 15;
-        }
-        if (hasMaskedHigh && ssTags.includes("signal-masked-high")) score += 20;
-        if (clarityLow && ssTags.includes("signal-clarity-low")) score += 15;
-        if (confidenceLow && ssTags.includes("signal-confidence-low")) {
-          score += 15;
-        }
-        if (poorSleep && ssTags.includes("signal-poor-sleep")) score += 10;
-        if (req.favorites.includes(c.id)) score += 30;
-        if (!isNewUser && c.isFoundational) score -= 5;
-        // Slot-intent binding (meta_skill + Recalibrate category + combo).
-        // This is the fix for "Sharpen focus slot selecting meta-renewal".
-        const intentScore = scoreContentAgainstIntent(
-          c,
-          slotIntent,
-          (req as any).leaderProfile?.goals?.declared ?? [],
-        );
-        score += intentScore.total;
-        // Phase L — 7-day recency penalty so the filler rotates across the
-        // catalog instead of re-suggesting the same module daily.
-        const recencyMap: Record<string, number> =
-          (req as any).recentPracticeDays || {};
-        const dAgo = recencyMap[c.id];
-        if (dAgo !== undefined) {
-          if (dAgo <= 1) score -= 25;
-          else if (dAgo <= 3) score -= 12;
-          else if (dAgo <= 7) score -= 5;
-        }
-        // Phase L — cross-slot type diversity: penalise content_type that
-        // already appears in an emitted slot in this plan, so the filler
-        // adds variety rather than stacking the same protocol family.
-        const emittedTypes = new Set(
-          deduped.map((m: any) => m.practice?.contentType).filter(Boolean),
-        );
-        if (emittedTypes.has(c.content_type)) score -= 8;
-        return { content: c, score, intentScore };
-      });
-      scored.sort((a: any, b: any) => b.score - a.score);
-
-      const selected = scored[0]?.content;
-      if (!selected) break;
-      // Telemetry — surfaces whether the intent binding is actually
-      // discriminating. Watch for `intentTotal <= 0` rates climbing.
-      console.log("[generate-mastery-plan][filler] intent-scored selection", {
-        slotIndex,
-        intent: slotIntent.intentLabel,
-        intentTargets: {
-          meta: slotIntent.metaSkills,
-          recal: slotIntent.recalibrateCategories,
-        },
-        selectedId: selected.id,
-        selectedMetaSkill: selected.metaSkillTags,
-        selectedCategory: selected.category,
-        intentTotal: scored[0]?.intentScore?.total ?? 0,
-        finalScore: scored[0]?.score ?? 0,
-      });
-
-      seenContentIds.add(selected.id);
-      const contentType = selected.content_type || "micro-practice";
-      const moduleType = contentType === "soundbath"
-        ? "regulate"
-        : contentType === "guided-practice"
-        ? "regulate"
-        : "align";
-      seenPracticeTypes.add(moduleType);
-      // Pass 4 — compose state-label first so the filler's why-line can be
-      // anchored to the resolved event (matches the timeLabel verb).
-      const fillerSlotIdx = Math.min(deduped.length, 2) as 0 | 1 | 2;
-      const fillerLabel = composeStateLabel(fillerSlotIdx);
-      let fillerAnchorForCtx: {
-        title: string | null;
-        categoryId: string | null;
-        phase: "pre" | "during" | "post" | null;
-      } | null = null;
-      if (fillerLabel?.eventId) {
-        const ev = (req.calendarEvents || []).find((e: any) =>
-          e.id === fillerLabel.eventId
-        );
-        fillerAnchorForCtx = {
-          title: truncateTitle(ev?.title) ?? null,
-          categoryId: fillerLabel.categoryId,
-          phase: fillerLabel.phase,
-        };
-      }
-      const ctxInput = makeCtxInput(
-        targetHorizon,
-        false,
-        undefined,
-        fillerAnchorForCtx,
-      );
-      const slotCtx = buildSlotContext(ctxInput);
-      const fillerPractice = {
-        type: moduleType,
-        contentId: selected.id,
-        title: selected.title,
-        contentType: selected.content_type,
-        duration: selected.duration || 3,
-        focus: moduleType === "regulate" ? "composure" : "clarity",
-        intensity: "gentle",
-        isFavorite: req.favorites.includes(selected.id),
-        isCoachCard: false,
-        reasoning: slotCtx.whyLine,
-        thumbnailUrl: selected.thumbnail_url,
-      };
-      if (fillerLabel) {
-        slotAnchors.push({
-          eventId: fillerLabel.eventId,
-          phase: fillerLabel.phase,
-        });
-      }
-      deduped.push({
-        horizon: targetHorizon,
-        timeLabel: fillerLabel?.label ??
-          "Steady the system through today\u2019s load",
-        typeLabel: `${labels[moduleType] || "REGULATE"} · ${
-          protocols[moduleType] || "Protocol"
-        }`,
-        whyLine: slotCtx.whyLine,
-        recommendedAction: buildRecommendedAction(moduleType, ctxInput),
-        practice: fillerPractice,
-        practices: [fillerPractice],
-        isJit: false,
-        jitEventTitle: null,
-        jitMinutesUntil: null,
-        showNavyBorder: false,
-        showPulse: false,
-        showPriorityPill: false,
-        anchorEventId: fillerLabel?.eventId ?? null,
-        anchorCategoryId: fillerLabel?.categoryId ?? null,
-        anchorSubtypeId: fillerLabel?.subtypeId ?? null,
-        anchorScenarioId: fillerLabel?.scenarioId ?? null,
-        anchorLeadTimeMin: fillerLabel?.leadTimeMin ?? null,
-      });
-    }
-  }
-
-  // Final guard: forbidden bare-time literals must never reach the client.
-  // If any sneaks through, rewrite via composeStateLabel so the slot stays
-  // anchored to a calendar / performance moment (Contracts A–E).
-  const FORBIDDEN_LITERALS = new Set<string>([
-    "Midday reset",
-    "Later today",
-    "When you have space",
-    "This evening",
-    "Before bed",
-    "For your development",
-    "When ready",
-    "Right now",
-    "Prepare for the day",
-    "Prepare for tomorrow",
-    "Morning reset",
-    "Prevent the afternoon dip",
-  ]);
-  const out = deduped.slice(0, 3);
-  for (let i = 0; i < out.length; i++) {
-    const lbl = String(out[i].timeLabel || "").trim();
-    if (!lbl || FORBIDDEN_LITERALS.has(lbl)) {
-      const idx = Math.min(i, 2) as 0 | 1 | 2;
-      const sl = composeStateLabel(idx);
-      const replacement = sl?.label ??
-        "Steady the system through today\u2019s load";
-      console.warn("[generate-mastery-plan] blacklisted timeLabel rewritten", {
-        slotIndex: i,
-        original: lbl,
-        replacement,
-      });
-      out[i] = { ...out[i], timeLabel: replacement };
-    }
-  }
-  const allocation = allocatePlanSlots({
-    nowMs,
-    rankedCandidates: jitRankedCandidates,
-    mrsWindow: timeOfDay as "morning" | "afternoon" | "evening",
-    preferredPracticeWindows: (req as any).preferredPracticeWindows ?? [],
-    forceArcCategoryIds,
-    ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad, {
-      now: new Date(Date.now() - ((req as any).timezoneOffset ?? 0) * 60000),
-      userHomeCountry: (req as any).userHomeCountry ?? null,
-      userCurrentCountry: (req as any).userCurrentCountry ?? null,
-      explicitPto: (req as any).explicitPto === true,
-      weekAheadOverride: (req as any).weekAheadOverride === true,
-    }),
-  });
-  const finalized = out.map((m, idx) => {
-    const a = allocation.slots[idx];
-    // Sprint 1 (Phase 2): allocator IDENTITY wins over legacy slot identity.
-    // Legacy `m` may still supply CONTENT fields (whyLine, timeLabel,
-    // practice, recommendedAction, anchorEventId/anchorCategoryId derived
-    // from the fresh module). Identity (which event, which phase, which
-    // arc, which role) is authoritatively decided by allocatePlanSlots.
-    const merged: any = {
-      ...m,
-      mode: allocation.mode,
-      dayShape: allocation.dayShape,
-      slotAllocationDebug: allocation.debug,
-      slotRole: a?.slotRole ?? (m as any).slotRole,
-      allocationReason: a?.allocationReason ?? (m as any).allocationReason,
-      arcLabel: a?.arcLabel ?? m.arcLabel ?? undefined,
-      jitPhase: a?.jitPhase ?? m.jitPhase ?? null,
-      jitEventTitle: a?.jitEventTitle ?? m.jitEventTitle ?? null,
-      // If the allocator degraded this slot to state fallback (jit fields
-      // null), zero out legacy anchor identity too so the frontend does
-      // not resurrect a "During" from stale `m` anchor fields.
-    };
-    if (a && a.jitPhase == null && a.jitEventTitle == null) {
-      merged.isJit = false;
-      merged.anchorEventId = null;
-      merged.anchorCategoryId = null;
-    } else if (a?.jitEventId) {
-      merged.anchorEventId = a.jitEventId;
-      merged.anchorCategoryId = a.jitCategoryId ??
-        (m as any).anchorCategoryId ?? null;
-    }
-    return merged;
-  });
-  try {
-    console.info("[generate-mastery-plan][slot-allocation-final]", {
-      source: "fresh",
-      dayShape: allocation.dayShape,
-      mode: allocation.mode,
-      slots: finalized.map((m: any, idx: number) => ({
-        idx,
-        allocatorPhase: allocation.slots[idx]?.jitPhase ?? null,
-        finalPhase: m.jitPhase ?? null,
-        allocatorTitle: allocation.slots[idx]?.jitEventTitle ?? null,
-        finalTitle: m.jitEventTitle ?? null,
-        identityMatched:
-          (allocation.slots[idx]?.jitPhase ?? null) === (m.jitPhase ?? null) &&
-          (allocation.slots[idx]?.jitEventTitle ?? null) ===
-            (m.jitEventTitle ?? null),
-        slotRole: m.slotRole,
-        allocationReason: m.allocationReason,
-      })),
-    });
-  } catch { /* logging must not break plan */ }
-  const allocationSlotLimit = allocation.restDay === true
-    ? 0
-    : allocation.slots.length > 0
-    ? allocation.slots.length
-    : finalized.length;
-  return finalized.slice(0, allocationSlotLimit);
-}
 
 // ==================== STATEFUL PLAN LEDGER ====================
 
@@ -11404,6 +8136,7 @@ export function deriveStructuralDayFlags(
     userCurrentCountry?: string | null;
     explicitPto?: boolean;
     weekAheadOverride?: boolean;
+    userLocale?: { weekendDays: number[] };
   },
 ): {
   hasTravelDay: boolean;
@@ -11411,6 +8144,7 @@ export function deriveStructuralDayFlags(
   hasOffsiteDay: boolean;
   hasRestSignals: boolean;
   dayOfWeek: number;
+  isWeekendRestDay: boolean;
   isWeekAhead: boolean;
   isPtoOrHoliday: boolean;
   isFullWorkingWeekend: boolean;
@@ -11419,15 +8153,18 @@ export function deriveStructuralDayFlags(
   const localNow = opts?.now ?? new Date();
   const dayOfWeek = localNow.getUTCDay();
   const titleOf = (e: any) => String(e?.title || "");
-  const hasTravelDay = events.some((e: any) =>
-    /travel|flight|train|airport|hotel/i.test(titleOf(e))
-  );
-  const hasConferenceDay = events.some((e: any) =>
-    /conference|offsite|retreat|summit/i.test(titleOf(e))
-  );
-  const hasOffsiteDay = events.some((e: any) =>
-    /offsite|off-site/i.test(titleOf(e))
-  );
+  const hasTravelDay = events.some((e: any) => {
+    const et = classifyEvent(titleOf(e));
+    return et?.categoryId === "G";
+  });
+  const hasConferenceDay = events.some((e: any) => {
+    const et = classifyEvent(titleOf(e));
+    return et?.categoryId === "F" && et?.id !== "conf.offsite";
+  });
+  const hasOffsiteDay = events.some((e: any) => {
+    const et = classifyEvent(titleOf(e));
+    return et?.id === "conf.offsite";
+  });
   // Canonical Rest Day (SSOT): rest is a function of weekend / explicit PTO /
   // applicable public holiday — never of empty calendars alone. Calendar
   // work evidence overrides all three. See _shared/availability/*.
@@ -11437,6 +8174,8 @@ export function deriveStructuralDayFlags(
     userCurrentCountry: opts?.userCurrentCountry ?? null,
     explicitPto: opts?.explicitPto === true,
     calendarLoad: (calendarLoad as any) ?? null,
+    // F1.2: Thread weekendDays from unified locale context
+    weekendDays: (opts as any)?.userLocale?.weekendDays ?? [6],
     events: events.map((e: any) => ({
       title: String(e?.title || ""),
       startTime: String(e?.startTime || e?.start_time || ""),
@@ -11452,7 +8191,9 @@ export function deriveStructuralDayFlags(
   const isPtoOrHoliday = availability.isRestDay &&
     (availability.state === "PTO" || availability.state === "PUBLIC_HOLIDAY");
   const realMeetingCount = availability.workEvidence.meetingCount;
-  const isFullWorkingWeekend = (dayOfWeek === 0 || dayOfWeek === 6) &&
+  const weekendDays = opts?.userLocale?.weekendDays ?? [0, 6];
+  const isWeekendRestDay = weekendDays.includes(dayOfWeek);
+  const isFullWorkingWeekend = isWeekendRestDay &&
     (calendarLoad === "high" || calendarLoad === "extreme" ||
       realMeetingCount >= 3);
   const weekAhead = evaluateWeekAheadMode({
@@ -11467,7 +8208,7 @@ export function deriveStructuralDayFlags(
     ptoTomorrowAllDay: false,
     holidayAllDayEventToday: false,
     tomorrowIsWorkday: false,
-    todayIsOffDay: availability.isRestDay || dayOfWeek === 0 || dayOfWeek === 6,
+    todayIsOffDay: availability.isRestDay || isWeekendRestDay,
     manualOverride: opts?.weekAheadOverride === true,
   });
   try {
@@ -11485,6 +8226,8 @@ export function deriveStructuralDayFlags(
     hasOffsiteDay,
     hasRestSignals,
     dayOfWeek,
+    // F1.3: Add country-aware isWeekendRestDay from availability classifier
+    isWeekendRestDay: availability.isRestDay,
     isWeekAhead: weekAhead.active,
     isPtoOrHoliday: isPtoOrHoliday && !weekAhead.active,
     isFullWorkingWeekend,
@@ -12196,7 +8939,7 @@ if (import.meta.main) {
           const planIsAwaiting = planObj?.planState === "awaiting_signals" ||
             planObj?.awaitingSignals === true;
           const snapshotStatus: "ready" | "awaiting" =
-            (!planIsAwaiting && hasPayload) ? "ready" : "awaiting";
+            (!planIsAwaiting && hasPayload) ? 'ready' : 'awaiting';
           console.log("[mastery-plan-snapshot][persist-start]", {
             userId: redactUserId(userId!),
             planDate,
@@ -12545,6 +9288,20 @@ if (import.meta.main) {
         userCurrentCountry: typeof body.userCurrentCountry === "string"
           ? body.userCurrentCountry
           : null,
+        // F1.2: Build unified locale context (single source of truth)
+        userLocale: resolveUserLocaleContext({
+          localDate: clientLocalDate,
+          utcNowMs: Date.now(),
+          homeCountry:
+            typeof body.userHomeCountry === "string"
+              ? body.userHomeCountry
+              : null,
+          timezone:
+            typeof body.homeTimezone === "string"
+              ? body.homeTimezone
+              : "UTC",
+          timezoneOffsetMinutes: clientTimezoneOffset,
+        }),
         travelState: body.travelState ?? null,
         selectedCalendarEventIds,
         slotReplacements,

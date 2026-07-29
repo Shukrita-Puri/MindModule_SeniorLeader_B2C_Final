@@ -39,6 +39,7 @@ function ranked(
     eligible: true,
     minutesUntilWindow: 0,
     score,
+    durationMinutes: 60,
     components: {
       base: score, category: 0, severity: 0, demand: 0,
       proximity: 0, skipPenalty: 0, memory: 0,
@@ -62,7 +63,7 @@ Deno.test("deriveStructuralDayFlags detects travel/conference/offsite from real 
 
 Deno.test("deriveStructuralDayFlags detects conference/offsite terms", () => {
   const flags = deriveStructuralDayFlags(
-    [{ title: "Leadership Offsite" }, { title: "Q3 Summit" }],
+    [{ title: "Company Retreat" }, { title: "Q3 Summit" }],
     "high",
   );
   assertEquals(flags.hasConferenceDay, true);

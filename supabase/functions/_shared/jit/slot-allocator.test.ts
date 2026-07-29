@@ -164,7 +164,7 @@ Deno.test("allocator — Saturday recovery day returns one state slot", () => {
   const alloc = allocatePlanSlots({
     nowMs: Date.now(),
     rankedCandidates: [],
-    dayOfWeek: 6,
+    isWeekendRestDay: true,
     isFullWorkingWeekend: false,
   });
   assertEquals(alloc.dayShape, "saturday");
@@ -177,7 +177,7 @@ Deno.test("allocator — Saturday recovery day honors evening practice preferenc
   const alloc = allocatePlanSlots({
     nowMs: Date.now(),
     rankedCandidates: [],
-    dayOfWeek: 6,
+    isWeekendRestDay: true,
     isFullWorkingWeekend: false,
     preferredPracticeWindows: ["evening"],
   });

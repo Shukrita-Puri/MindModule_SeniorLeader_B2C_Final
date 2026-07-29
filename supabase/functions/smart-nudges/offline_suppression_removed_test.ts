@@ -89,7 +89,7 @@ Deno.test("stale-device metric is fully removed (no activityAge diagnostic)", ()
  */
 Deno.test("smart-nudges only iterates users with active tokens (no_valid_token contract)", () => {
   assertEquals(
-    (SRC.match(/from\('notification_device_tokens'\)[\s\S]{0,200}\.eq\('is_active',\s*true\)/g) || []).length >= 1,
+    (SRC.match(/from\(["']notification_device_tokens["']\)[\s\S]{0,200}\.eq\(["']is_active["'],\s*true\)/g) || []).length >= 1,
     true,
     "expected at least one is_active=true filter on notification_device_tokens",
   );

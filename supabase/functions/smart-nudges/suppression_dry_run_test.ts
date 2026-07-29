@@ -51,17 +51,20 @@ Deno.test('other non-countable states also ignored (suppressed, failed, expired,
 
 // ── Source-level guards on every suppression query ────────────────────
 
-function extractQueryBlock(needleAfter: string, marker = ".from('notification_log')"): string {
+function extractQueryBlock(needleAfter: string, marker = "from('notification_log')"): string {
   const anchor = src.indexOf(needleAfter);
   assert(anchor > 0, `anchor not found: ${needleAfter}`);
-  const from = src.lastIndexOf(marker, anchor);
+  let from = src.lastIndexOf(marker, anchor);
+  if (from === -1) {
+    from = src.lastIndexOf('from("notification_log")', anchor);
+  }
   assert(from > 0, `from-clause not found before: ${needleAfter}`);
   const end = src.indexOf(';', anchor);
   return src.slice(from, end);
 }
 
 Deno.test('2-hour suppression query filters on COUNTABLE_DELIVERY_STATES', () => {
-  const block = extractQueryBlock('2 * 60 * 60 * 1000).toISOString()');
+  const block = extractQueryBlock('2 * 60 * 60 * 1000)');
   assert(
     block.includes("COUNTABLE_DELIVERY_STATES"),
     "2h suppression query must filter delivery_state so dry-run rows do not suppress:\n" + block,
@@ -70,7 +73,7 @@ Deno.test('2-hour suppression query filters on COUNTABLE_DELIVERY_STATES', () =>
 
 Deno.test('daily-cap / sentSlotsToday query filters on COUNTABLE_DELIVERY_STATES', () => {
   // The `todayLogs` fetch is the SSOT for daily cap + slot suppression.
-  const block = extractQueryBlock('.lt(\'sent_at\', todayEndUtc)');
+  const block = extractQueryBlock('.lt("sent_at", todayEndUtc)');
   assert(
     block.includes("COUNTABLE_DELIVERY_STATES"),
     "todayLogs (daily cap + sentSlotsToday) must filter delivery_state:\n" + block,
@@ -78,7 +81,7 @@ Deno.test('daily-cap / sentSlotsToday query filters on COUNTABLE_DELIVERY_STATES
 });
 
 Deno.test('week-ahead weekly cap query filters on COUNTABLE_DELIVERY_STATES', () => {
-  const block = extractQueryBlock(".eq('notification_type', 'week_ahead_picker_invite')");
+  const block = extractQueryBlock('.eq("notification_type", "week_ahead_picker_invite")');
   assert(
     block.includes("COUNTABLE_DELIVERY_STATES"),
     "Weekly Week-Ahead invite lookup must filter delivery_state:\n" + block,
@@ -90,11 +93,14 @@ Deno.test('repeated-expiry receipt-feedback query filters delivery_state', () =>
   // the warning inspects) but must exclude dry_run.
   const anchor = src.indexOf('repeated_expiry');
   assert(anchor > 0, 'repeated_expiry anchor not found');
-  const from = src.lastIndexOf(".from('notification_log')", anchor);
+  let from = src.lastIndexOf(".from('notification_log')", anchor);
+  if (from === -1) {
+    from = src.lastIndexOf('.from("notification_log")', anchor);
+  }
   const closingLimit = src.indexOf('.limit(3)', from);
   const block = src.slice(from, closingLimit);
   assert(
-    block.includes(".in('delivery_state'"),
+    block.includes('.in("delivery_state"') || block.includes(".in('delivery_state'"),
     "Last-three receipt-feedback query must filter delivery_state so dry-run rows do not skew the warning:\n" + block,
   );
   assert(

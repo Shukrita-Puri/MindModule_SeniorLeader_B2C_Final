@@ -3,8 +3,8 @@ import { assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 const SRC = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 
 Deno.test("generate-mastery-plan reads weekly_plan_snapshots for the current local week only", () => {
-  assert(SRC.includes("from('weekly_plan_snapshots')"), "no read of weekly_plan_snapshots");
-  assert(SRC.includes(".eq('week_start_date', weekStart)"), "must scope read to current weekStart");
+  assert(SRC.includes("from('weekly_plan_snapshots')") || SRC.includes('from("weekly_plan_snapshots")'), "no read of weekly_plan_snapshots");
+  assert(SRC.includes(".eq('week_start_date', weekStart)") || SRC.includes('.eq("week_start_date", weekStart)'), "must scope read to current weekStart");
   assert(SRC.includes("[week_ahead.read.hit]"), "missing hit log");
   assert(SRC.includes("[week_ahead.read.miss]"), "missing miss log");
 });

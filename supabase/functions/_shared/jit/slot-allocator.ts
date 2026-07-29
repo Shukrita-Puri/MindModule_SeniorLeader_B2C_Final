@@ -75,6 +75,8 @@ export interface SlotAllocationInput {
   isPtoOrHoliday?: boolean;
   /** Weekend work evidence strong enough to use normal workday cadence. */
   isFullWorkingWeekend?: boolean;
+  /** F1.3: Country-aware weekend rest day flag (true = Sat/Fri in GCC/IL, or Sat elsewhere). */
+  isWeekendRestDay?: boolean;
   mrsWindow?: "morning" | "afternoon" | "evening";
   preferredPracticeWindows?: Array<"morning" | "afternoon" | "evening">;
   forceArcCategoryIds?: EventCategoryId[];
@@ -140,7 +142,9 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     return buildSingleStateSlotResult("week_ahead", "week_ahead_planning", ranked.length, input.preferredPracticeWindows);
   }
 
-  if (input.dayOfWeek === 6 && !input.isFullWorkingWeekend) {
+  // F1.3.1: Bug B fix — Use country-aware isWeekendRestDay instead of hardcoded dayOfWeek===6
+  // This ensures Friday=rest in GCC/Israel, Saturday=rest elsewhere
+  if (input.isWeekendRestDay && !input.isFullWorkingWeekend) {
     return buildSingleStateSlotResult("saturday", "saturday_habit_only", ranked.length, input.preferredPracticeWindows);
   }
 
@@ -183,7 +187,7 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
 
   const mode: SlotMode =
     dayShape === "rest_day" ? "state" :
-    dayShape === "light_routine" ? "jit+state" :
+    dayShape === "light_routine" ? (ranked.length > 0 ? "jit+state" : "state") :
     dayShape === "dominant_structural_event" ? "full_arc" :
     "jit+state";
 

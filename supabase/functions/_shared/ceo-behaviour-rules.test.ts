@@ -66,7 +66,8 @@ Deno.test("circadianPriority fires on ≥3h TZ drift", () => {
 });
 
 Deno.test("no flags when signals are flat", () => {
-  const flags = evaluate(ctx(emptySignals()));
+  // Use localHour = 14 to avoid morningBaseline (5-11) and eveningShutdown (17-21)
+  const flags = evaluate(ctx(emptySignals(), 14));
   assertEquals(flags.length, 0);
 });
 
