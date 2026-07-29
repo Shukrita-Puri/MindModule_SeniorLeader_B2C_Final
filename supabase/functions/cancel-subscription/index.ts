@@ -11,6 +11,7 @@ import Stripe from "https://esm.sh/stripe@14.14.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { rejectIosPurchaseFlow } from "../_shared/ios-purchase-guard.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +24,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // App Store Review Guideline 3.1.1: Stripe cancellation is only for web subscribers.
+    // Apple subscribers must cancel via Apple's subscription management.
+    const iosBlocked = rejectIosPurchaseFlow(req, corsHeaders);
+    if (iosBlocked) return iosBlocked;
+
     const userId = await verifyAuth0JWT(req);
     const { reason, reasonDetails, immediate } = await req.json();
 

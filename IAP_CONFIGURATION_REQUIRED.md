@@ -56,7 +56,7 @@ Server secrets (never committed): `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`,
 | Entitlement sync on cold start, foreground resume, StoreKit transaction updates | `IapEntitlementWatcher` in `src/App.tsx`, `onIapTransactionUpdate()` |
 | Renewal / expiry / refund / revocation convergence | `supabase/functions/apple-notifications`, `_shared/apple-entitlement.ts` |
 | Server-side JWS verification, bundle-id check, idempotent upsert, Auth0 `sub` identity | `supabase/functions/verify-apple-purchase` |
-| Stripe blocked server-side for iOS callers (`ios_requires_iap`) | `supabase/functions/create-checkout-session` |
+| Stripe blocked server-side for iOS callers (`ios_requires_iap`) | `supabase/functions/create-checkout-session`, `create-customer-portal`, `cancel-subscription` |
 | Existing Stripe subscribers on iOS see read-only status, never a repurchase CTA | `ApplePaywall.tsx`, `isNonApplePaidEntitlement()` |
 | Entitlement rule: active Apple **or** active Stripe subscription = Pro | `src/utils/subscriptionHelpers.ts` |
 | Account deletion happens server-side before sign-out | `src/components/profile/DeleteAccountDialog.tsx`, `supabase/functions/delete-my-account` |

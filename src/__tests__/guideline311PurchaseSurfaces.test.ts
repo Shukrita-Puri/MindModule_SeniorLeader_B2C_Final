@@ -125,6 +125,13 @@ describe('server-side Stripe purchase guard', () => {
     }
   });
 
+  it('is applied to cancel-subscription (Stripe-only operation)', () => {
+    const src = read('supabase/functions/cancel-subscription/index.ts');
+    expect(src, 'cancel-subscription must import the guard').toContain('ios-purchase-guard.ts');
+    expect(src, 'cancel-subscription must invoke the guard').toContain('rejectIosPurchaseFlow(req, corsHeaders)');
+    expect(src, 'cancel-subscription must allow the platform header through CORS').toContain('x-mm-client-platform');
+  });
+
   it('the client attaches a platform header to edge-function calls', () => {
     const src = read('src/services/authTokenService.ts');
     expect(src).toContain('x-mm-client-platform');

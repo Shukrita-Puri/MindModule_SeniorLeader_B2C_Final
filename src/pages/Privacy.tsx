@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import PageSeo from '@/components/PageSeo';
+import { isIosNativeShell } from '@/config/purchasePlatform';
 
 const H2_CLS = "text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3";
 const H3_CLS = "text-[15px] sm:text-lg font-body text-foreground mb-2 mt-4";
@@ -175,8 +176,20 @@ const Privacy = () => {
         {/* 6. Payment Processing */}
         <section>
           <h2 className={H2_CLS}>6. Payment Processing</h2>
-          <p className="mb-4">Subscription payments are processed by Stripe. We do not store your credit card details, CVV, or full payment credentials. Stripe is PCI DSS Level 1 certified.</p>
-          <p>We retain: Stripe customer ID, subscription status and plan type, and referral credit records.</p>
+          <p className="mb-4">
+            {isIosNativeShell() ? (
+              <>Subscription payments are processed through the App Store. We do not store your payment credentials. For information about how Apple handles your payment data, see Apple's Privacy Policy.</>
+            ) : (
+              <>Subscription payments are processed by Stripe. We do not store your credit card details, CVV, or full payment credentials. Stripe is PCI DSS Level 1 certified.</>
+            )}
+          </p>
+          <p>
+            {isIosNativeShell() ? (
+              <>We retain: subscription status and plan type, and referral credit records.</>
+            ) : (
+              <>We retain: Stripe customer ID, subscription status and plan type, and referral credit records.</>
+            )}
+          </p>
         </section>
 
         {/* 7. Data Sharing and Disclosure */}

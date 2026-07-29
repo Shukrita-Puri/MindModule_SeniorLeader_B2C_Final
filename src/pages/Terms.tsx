@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import ProfilePageLayout from '@/components/profile/ProfilePageLayout';
 import PageSeo from '@/components/PageSeo';
+import { isIosNativeShell } from '@/config/purchasePlatform';
 
 const H2_CLS = "text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3";
 const H3_CLS = "text-[15px] sm:text-lg font-body text-foreground mb-2 mt-4";
@@ -67,11 +68,11 @@ const Terms = () => {
 
           <h3 className={H3_CLS}>5.3 Billing and Renewals</h3>
           <p className="mb-4">
-            Web subscriptions are processed by Stripe; by subscribing you authorise Stripe to charge your
-            selected payment method on a recurring basis. Subscriptions purchased in the iOS app are
-            processed by Apple and billed to your Apple ID. In both cases the subscription automatically
-            renews at the end of each billing period at the price shown at purchase, unless cancelled at
-            least 24 hours before the renewal date.
+            {isIosNativeShell() ? (
+              <>Subscriptions are processed by Apple and billed to your Apple ID. Your subscription automatically renews at the end of each billing period at the price shown at purchase, unless cancelled at least 24 hours before the renewal date through your Apple ID subscription settings.</>
+            ) : (
+              <>Web subscriptions are processed by Stripe; by subscribing you authorise Stripe to charge your selected payment method on a recurring basis. Subscriptions purchased in the iOS app are processed by Apple and billed to your Apple ID. In both cases the subscription automatically renews at the end of each billing period at the price shown at purchase, unless cancelled at least 24 hours before the renewal date.</>
+            )}
           </p>
 
           <h3 className={H3_CLS}>5.4 Cancellation and Refunds</h3>
