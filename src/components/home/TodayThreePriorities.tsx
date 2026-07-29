@@ -534,6 +534,16 @@ const TodayThreePriorities = ({
   // of the awaiting-signals empty state.
   const [snapshotMissingReady, setSnapshotMissingReady] = useState(false);
   const [manualGenerating, setManualGenerating] = useState(false);
+
+  // Hydrate the authoritative locale context (profile + travel state).
+  useEffect(() => {
+    let cancelled = false;
+    const uid = user?.id || (DEV_MODE ? DEV_USER.id : null);
+    getPlanLocaleContext(uid).then((ctx) => {
+      if (!cancelled) setPlanLocale(ctx);
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
   // Ref preserves the "we already had a cached payload at mount" fact for
   // the lifetime of this component, so a transient `loading=true` from a
   // silent refresh can never re-trigger the scripted EngravedLoader.
