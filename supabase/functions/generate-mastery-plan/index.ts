@@ -9597,27 +9597,35 @@ function buildHorizonModules(
     if (!t) return null;
     return String(t).split(/\s+/).slice(0, n).join(" ").trim() || null;
   };
+  // GAP 4 FIX: Before/During/After temporal vocabulary based on phase
   const composeStateTimeLabel = (stateAction: string, anchor: string, args: {
     anchorEvent: boolean;
     anchorIsTomorrow: boolean;
     slotIndex: 0 | 1 | 2;
     timeOfDay: "morning" | "afternoon" | "evening" | string;
+    phase?: "pre" | "during" | "post" | null;
   }): string => {
+    // Phase-aware temporal markers
+    const temporal = args.phase === "during" ? "through" 
+      : args.phase === "post" ? "after"
+      : "before"; // pre or null defaults to before
+
     if (args.anchorIsTomorrow) {
       const prefix = args.timeOfDay === "evening"
-        ? `${stateAction} tonight before`
-        : `${stateAction} before`;
+        ? `${stateAction} tonight ${temporal}`
+        : `${stateAction} ${temporal}`;
       return `${prefix} ${anchor}`;
     }
-    if (args.anchorEvent) return `${stateAction} before ${anchor}`;
+    if (args.anchorEvent) return `${stateAction} ${temporal} ${anchor}`;
     if (anchor.includes("back-to-back") || anchor.includes("dense calendar")) {
       return `${stateAction} through ${anchor}`;
     }
+    // Window-aware phrases for no-event state slots
     if (anchor === "this afternoon") return `${stateAction} into the afternoon`;
     if (anchor === "this evening") return `${stateAction} into the evening`;
     if (anchor === "this morning") return `${stateAction} this morning`;
     if (anchor === "the day ahead") return `${stateAction} for the day ahead`;
-    if (args.slotIndex === 2) return `${stateAction} before ${anchor}`;
+    if (args.slotIndex === 2) return `${stateAction} ${temporal} ${anchor}`;
     return `${stateAction} into ${anchor}`;
   };
   const nowMs = Date.now();
@@ -9747,6 +9755,28 @@ function buildHorizonModules(
   };
   const phaseAlreadyAnchored = (id: string, phase: "pre" | "during" | "post") =>
     slotAnchors.some((a) => a.eventId === id && a.phase === phase);
+
+  // ── GAP 1 FIX: Inter-slot title deduplication ──
+  // Track used state labels to prevent duplicate titles across slots
+  const usedStateLabels = new Set<string>();
+
+  // State action variants for deduplication fallbacks
+  const STATE_ACTION_VARIANTS: Record<string, string[]> = {
+    "Re-anchor circadian rhythm": ["Reset body clock", "Restore rhythm", "Regulate circadian timing"],
+    "Restore HRV": ["Recover autonomic tone", "Rebuild HRV", "Reset nervous system"],
+    "Recover sleep debt": ["Restore sleep", "Rebuild rest reserves", "Recover from fatigue"],
+    "Reset stage chemistry": ["Clear performance residue", "Discharge stage load", "Reset for presence"],
+    "Settle the system": ["Stabilize the system", "Ground your state", "Restore baseline"],
+    "Decompress": ["Release tension", "Ease the load", "Unwind"],
+    "Prime for focus": ["Sharpen attention", "Prepare to focus", "Build cognitive readiness"],
+    "Re-consolidate focus": ["Restore focus", "Rebuild concentration", "Refocus attention"],
+    "Steady the system": ["Stabilize readiness", "Maintain composure", "Hold the line"],
+    "Build capacity": ["Strengthen reserves", "Build resilience", "Expand capacity"],
+  };
+
+  // ── GAP 2 FIX: Cross-slot practice deduplication ──
+  // Track practice IDs globally across all slots to prevent duplicates
+  const globalConsumedPracticeIds = new Set<string>();
   /**
    * Phase C: walk the ranked (event, phase) candidate list and return the
    * first candidate that (a) hasn't saturated its category's slot cap and
@@ -10068,11 +10098,25 @@ function buildHorizonModules(
       return null;
     }
 
-    const label = composeStateTimeLabel(stateAction, anchor, {
+    // GAP 1 FIX: Inter-slot title deduplication
+    // If this exact stateAction has been used, try to find a variant
+    let finalStateAction = stateAction;
+    if (usedStateLabels.has(stateAction)) {
+      const variants = STATE_ACTION_VARIANTS[stateAction] || [];
+      const unusedVariant = variants.find(v => !usedStateLabels.has(v));
+      if (unusedVariant) {
+        finalStateAction = unusedVariant;
+      }
+    }
+    usedStateLabels.add(finalStateAction);
+
+    const phase = anchorEventId ? "pre" : null;
+    const label = composeStateTimeLabel(finalStateAction, anchor, {
       anchorEvent: !!anchorEvent,
       anchorIsTomorrow,
       slotIndex,
       timeOfDay,
+      phase,
     });
 
     return {
@@ -10090,7 +10134,7 @@ function buildHorizonModules(
       // Phase H fix: state-label slots always anchor in the *pre* phase
       // ("before X"). Surface this so the dedupe ledger can detect
       // collisions with JIT pre-phase anchors.
-      phase: anchorEventId ? "pre" : null,
+      phase,
     };
   };
 
@@ -10139,10 +10183,11 @@ function buildHorizonModules(
     // §4 prescribed combo for the resolved phase (e.g. C-pre → somatic.pause
     // → regulate). Falls through to legacy ordering if no match.
     const jitModules: any[] = preEventPlan.modules || [];
+    // GAP 2 FIX: Use global consumed practice IDs
     const matched = selectPracticesByCombo(
       jitModules,
       jitPhase.combo,
-      new Set(),
+      globalConsumedPracticeIds,
       3,
       {
         mode: "jit+state",
@@ -10161,6 +10206,8 @@ function buildHorizonModules(
     if (slot1Practices.length === 0 && todModules[0]) {
       slot1Practices = [todModules[0]];
     }
+    // GAP 2 FIX: Add to global consumed set
+    slot1Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
     slot1IsJit = true;
     slot1TimeLabel = jitPhase.label;
     slot1AnchorSnapshot = buildAnchorSnapshot(
@@ -10185,6 +10232,8 @@ function buildHorizonModules(
       );
       if (alignMod) slot1Practices.push(alignMod);
     }
+    // GAP 2 FIX: Add to global consumed set
+    slot1Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? "";
     slotAnchors.push({
@@ -10221,6 +10270,8 @@ function buildHorizonModules(
         slot1Practices.push(nextMod);
       }
     }
+    // GAP 2 FIX: Add to global consumed set
+    slot1Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
     // Non-JIT slot 1 — state-anchored label.
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? "";
@@ -10406,10 +10457,11 @@ function buildHorizonModules(
       : (todModules[1]
         ? [todModules[1]]
         : (todModules[0] ? [todModules[0]] : []));
+    // GAP 2 FIX: Add to global consumed set
+    slot2Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
   } else {
-    // Second ToD module(s), skipping slot1 IDs
-    const slot1Ids = new Set(slot1Practices.map((p: any) => p.contentId));
-    const remaining = todModules.filter((m: any) => !slot1Ids.has(m.contentId));
+    // GAP 2 FIX: Second ToD module(s), using global consumed IDs
+    const remaining = todModules.filter((m: any) => !globalConsumedPracticeIds.has(m.contentId));
     slot2Practices = remaining.length > 0
       ? [remaining[0]]
       : (todModules[1]
@@ -10419,6 +10471,8 @@ function buildHorizonModules(
     if (remaining.length > 1 && remaining[1].type !== remaining[0]?.type) {
       slot2Practices.push(remaining[1]);
     }
+    // GAP 2 FIX: Add to global consumed set
+    slot2Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
     const sl = composeStateLabel(1);
     if (sl) {
       slot2TimeLabel = sl.label;
@@ -10503,11 +10557,8 @@ function buildHorizonModules(
     phase: "pre" | "during" | "post" | null;
   } | null = null;
 
-  const usedIds = new Set(
-    [...slot1Practices, ...slot2Practices].map((p: any) => p.contentId).filter(
-      Boolean,
-    ),
-  );
+  // GAP 2 FIX: Start with global consumed IDs
+  const usedIds = new Set(globalConsumedPracticeIds);
 
   // Phase C.2 — third-slot multi-phase fan-out (G long-haul, F multi-day).
   // Only fires when a *third* distinct (event, phase) candidate still has
@@ -10700,6 +10751,9 @@ function buildHorizonModules(
       slot3Practices = [];
     }
   }
+
+  // GAP 2 FIX: Add to global consumed set
+  slot3Practices.forEach(p => { if (p?.contentId) globalConsumedPracticeIds.add(p.contentId); });
 
   if (slot3Practices.length > 0) {
     const primaryPractice = slot3Practices[0];
