@@ -880,7 +880,13 @@ const TodayThreePriorities = ({
   }) => {
     const currentWindow = getCurrentTimeWindow();
     const body: any = {
-      timezoneOffset: new Date().getTimezoneOffset(),
+      timezoneOffset: planLocale.timezoneOffset ?? new Date().getTimezoneOffset(),
+      // Locale context — SSOT for plan-window resolution server-side.
+      currentTimezone: planLocale.currentTimezone,
+      homeTimezone: planLocale.homeTimezone,
+      userHomeCountry: planLocale.userHomeCountry,
+      userCurrentCountry: planLocale.userCurrentCountry,
+      travelState: planLocale.travelState,
       forceRefresh: opts.forceRefresh,
       localDate: opts.localDate,
       todayCheckinId: opts.todayCheckinId,
@@ -908,7 +914,7 @@ const TodayThreePriorities = ({
       };
     }
     return body;
-  }, [mrsSnapshot, outerReadinessData]);
+  }, [mrsSnapshot, outerReadinessData, planLocale]);
 
   const invokeGenerateMasteryPlan = useCallback((
     requestBody: Record<string, any>,
