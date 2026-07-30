@@ -51,6 +51,7 @@ interface CallClaudeParams {
   tools?: ClaudeTool[];
   tool_choice?: { type: string; function?: { name: string } };
   signal?: AbortSignal;
+  response_format?: { type: string };
 }
 
 interface ClaudeResponse {
