@@ -4458,6 +4458,7 @@ export type Database = {
           onboarding_insight: string | null
           onboarding_session_id: string | null
           practice_priority_tag: string | null
+          preferred_practice_window: string | null
           pressure_context_tag: string | null
           pressure_profile: Json | null
           profile_description: string | null
@@ -4547,6 +4548,7 @@ export type Database = {
           onboarding_insight?: string | null
           onboarding_session_id?: string | null
           practice_priority_tag?: string | null
+          preferred_practice_window?: string | null
           pressure_context_tag?: string | null
           pressure_profile?: Json | null
           profile_description?: string | null
@@ -4636,6 +4638,7 @@ export type Database = {
           onboarding_insight?: string | null
           onboarding_session_id?: string | null
           practice_priority_tag?: string | null
+          preferred_practice_window?: string | null
           pressure_context_tag?: string | null
           pressure_profile?: Json | null
           profile_description?: string | null
