@@ -86,7 +86,7 @@ export function getPhasesForEvent(
   categoryId: EventCategoryId,
   subcategory?: string | null,
 ): CategoryPhaseMap {
-  const subKey = subcategory ? \`\${categoryId}.\${subcategory}\` : null;
+  const subKey = subcategory ? `${categoryId}.${subcategory}` : null;
   if (subKey && NO_ARC_SUBCATEGORIES.has(subKey)) return {};
   if (subKey && SUBCATEGORY_PHASE_OVERRIDE[subKey] !== undefined) {
     return SUBCATEGORY_PHASE_OVERRIDE[subKey];

@@ -63,10 +63,7 @@ export default function StageLeadershipContext() {
     reader.onload = async (ev) => {
       const base64 = (ev.target?.result as string) ?? '';
       setLinkedinPdfBase64(base64);
-      await saveV8({
-        linkedin_pdf_base64: base64,
-        linkedin_scrape: { ok: true, source: 'pdf_upload', filename: file.name },
-      });
+      await saveV8({ linkedin_pdf_base64: base64 });
     };
     reader.readAsDataURL(file);
   };
