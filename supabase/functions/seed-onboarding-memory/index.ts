@@ -56,7 +56,9 @@ Deno.serve(async (req) => {
     if (authHeader.startsWith("Bearer ") && authHeader.slice(7) === serviceKey && typeof body?.userId === "string") {
       userId = body.userId;
     } else {
-      userId = await authenticateRequest(req);
+      const auth = await authenticateRequest(req, corsHeaders);
+      if (auth.errorResponse) return auth.errorResponse;
+      userId = auth.userId!;
     }
 
     const db = createClient(

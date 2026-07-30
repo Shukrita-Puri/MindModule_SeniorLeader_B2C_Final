@@ -51,6 +51,7 @@ interface CallClaudeParams {
   tools?: ClaudeTool[];
   tool_choice?: { type: string; function?: { name: string } };
   signal?: AbortSignal;
+  response_format?: { type: string };
 }
 
 interface ClaudeResponse {
@@ -474,7 +475,12 @@ export async function callAIText(params: CallClaudeParams): Promise<string> {
     const status = err?.status ?? err?.statusCode;
     const isKeyIssue = err?.message?.includes('ANTHROPIC_API_KEY') || 
                        err?.message?.includes('not configured');
-    const isCreditsIssue = status === 401 || status === 429 || status === 402;
+    const rawBody = `${err?.body ?? ''} ${err?.message ?? ''}`.toLowerCase();
+    // Anthropic returns HTTP 400 (not 402) when the account balance is empty.
+    const isBalanceError = rawBody.includes('credit balance is too low') ||
+                           rawBody.includes('billing');
+    const isCreditsIssue = status === 401 || status === 429 || status === 402 ||
+                           (status === 400 && isBalanceError) || isBalanceError;
     
     if (isKeyIssue || isCreditsIssue) {
       console.warn('[anthropic] ⚠️ Claude unavailable, falling back to Gemini:', 
@@ -484,6 +490,8 @@ export async function callAIText(params: CallClaudeParams): Promise<string> {
         messages: params.messages.map(m => ({ role: m.role, content: m.content })),
         max_tokens: params.max_tokens,
         temperature: params.temperature,
+        response_format: params.response_format,
+        signal: params.signal,
       });
     }
     throw err;
