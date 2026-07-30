@@ -293,23 +293,22 @@ Deno.serve(async (req) => {
     }
 
     // Initialize notification_preferences for the user if no row exists
-    if (onboarding_version === "v8" && v8Row) {
-      const briefTiming = typeof v8Row.brief_timing === 'string' ? v8Row.brief_timing : null;
-      const weekendSignals = typeof v8Row.weekend_signals === 'string' ? v8Row.weekend_signals : null;
-      const { error: npErr } = await supabaseAdmin
-        .from("notification_preferences")
-        .upsert({
-          user_id: userId,
-          morning_enabled: briefTiming === 'morning' || briefTiming == null,
-          evening_enabled: briefTiming === 'evening',
-          nudge_frequency: 'standard',
-          weekend_nudges: weekendSignals === 'yes' || weekendSignals === 'include' || weekendSignals === 'full',
-        }, { onConflict: 'user_id', ignoreDuplicates: true });
-      if (npErr) {
-        console.warn("[complete-onboarding] notification_preferences upsert warning:", npErr);
-      } else {
-        console.log("[complete-onboarding] ✅ notification_preferences initialized for:", redactUserId(userId));
-      }
+    const briefTiming = typeof v8Row?.brief_timing === 'string' ? v8Row.brief_timing : null;
+    const { error: npErr } = await supabaseAdmin
+      .from("notification_preferences")
+      .upsert({
+        user_id: userId,
+        morning_anchor_enabled: briefTiming === 'morning' || briefTiming == null,
+        pre_event_prep_enabled: true,
+        evening_close_enabled: briefTiming === 'evening' || briefTiming == null,
+        pattern_alert_enabled: true,
+        state_aware_nudge_enabled: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id', ignoreDuplicates: true });
+    if (npErr) {
+      console.warn("[complete-onboarding] notification_preferences upsert warning:", npErr);
+    } else {
+      console.log("[complete-onboarding] ✅ notification_preferences initialized for:", redactUserId(userId));
     }
 
     // Create initial mental fitness score if baseline provided and not already set
