@@ -31,7 +31,9 @@ import {
   isSaturdayRecoveryDay,
   type WeekAheadReason,
 } from "../_shared/plan/week-ahead-mode.ts";
+import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { localParts } from "../_shared/effective-timezone.ts";
+import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
 import type { TimeWindow } from "./scheduler.ts";
 
 export type DayType =
@@ -165,21 +167,7 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   const localDayDate = new Date(`${local.localDate}T12:00:00Z`);
   const tomorrowLocalDayDate = new Date(`${local.localDate}T12:00:00Z`);
   tomorrowLocalDayDate.setUTCDate(tomorrowLocalDayDate.getUTCDate() + 1);
-  const weekdayShort = new Intl.DateTimeFormat("en-US", {
-    timeZone: input.effectiveTimezone,
-    weekday: "short",
-  })
-    .format(input.now)
-    .toLowerCase()
-    .slice(0, 3);
-  const dayOfWeek =
-    weekdayShort === "sun" ? 0
-    : weekdayShort === "mon" ? 1
-    : weekdayShort === "tue" ? 2
-    : weekdayShort === "wed" ? 3
-    : weekdayShort === "thu" ? 4
-    : weekdayShort === "fri" ? 5
-    : 6;
+  const dayOfWeek = dayOfWeekFromIsoDate(local.localDate);
 
   const travelDay = isTravelActive(input.travel, input.todayEvents);
   const todayAvailability = classifyAvailability({
@@ -201,7 +189,10 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   const meetingMinutesToday = realMeetingMinutes(input.todayEvents);
   const ptoTomorrow =
     tomorrowAvailability.state === "PTO" || tomorrowAvailability.state === "PUBLIC_HOLIDAY";
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const planningDay = planningDayOfWeek(input.userHomeCountry ?? null);
+  const recoveryDay = planningDay === 6 ? 5 : 6;
+  const weeklyPlanningDay = planningDay;
+  const isWeekend = dayOfWeek === recoveryDay || dayOfWeek === weeklyPlanningDay;
 
   // Week-ahead evaluator owns the "last day of block" decisions. We only need
   // it when we might land in a week-ahead surface (Sunday, or the tail of a
@@ -277,24 +268,30 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     };
   }
 
-  // 4. WEEKEND — Saturday is recovery-day (single morning + evening surface);
-  //    Sunday is the plain week-ahead trigger.
-  if (dayOfWeek === 6) {
-    if (isSaturdayRecoveryDay({ dayOfWeek: 6, localHour: local.hour, travelDay: false })) {
+  // 4. WEEKEND — recovery day is locale-aware (Saturday in Sunday-start
+  //    countries, Friday in Saturday-start countries). The following day is
+  //    the plain weekly-planning trigger.
+  if (dayOfWeek === recoveryDay) {
+    if (isSaturdayRecoveryDay({
+      dayOfWeek: recoveryDay,
+      localHour: local.hour,
+      homeCountry: input.userHomeCountry ?? null,
+      travelDay: false,
+    })) {
       return {
         dayType: "weekend_saturday",
         allowedWindows: new Set<TimeWindow>(["morning", "evening"]),
         weekAheadReason: null,
-        evidence: ["saturday_recovery"],
+        evidence: ["weekend_recovery_day"],
       };
     }
   }
-  if (dayOfWeek === 0) {
+  if (dayOfWeek === weeklyPlanningDay) {
     return {
       dayType: "weekend_sunday",
       allowedWindows: new Set<TimeWindow>(["morning", "evening"]),
       weekAheadReason: "weekly_planning",
-      evidence: ["sunday_week_ahead"],
+      evidence: ["weekend_weekly_planning_day"],
     };
   }
 
@@ -334,6 +331,6 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     dayType: "workday",
     allowedWindows: new Set<TimeWindow>(ALL_WINDOWS),
     weekAheadReason: null,
-    evidence: [`weekday=${weekdayShort}`],
+    evidence: [`local_dow=${dayOfWeek}`],
   };
 }

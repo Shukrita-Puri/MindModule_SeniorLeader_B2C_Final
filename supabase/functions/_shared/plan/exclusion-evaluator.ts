@@ -21,6 +21,7 @@
 
 import { toLocalDateString, localWeekOf, upcomingWeek } from "./exclusion-scope.ts";
 import { TITLE_SPECIFIC_MEMORY_CATEGORY, normalizeEventTitleMemoryKey } from "./event-priority-memory.ts";
+import { dayOfWeekFromIsoDate } from "../signal-engine/day-kind-detector.ts";
 
 export interface MemoryRow {
   id: string;
@@ -77,7 +78,7 @@ function withinWeek(dateStr: string, start: string, end: string): boolean {
  */
 function legacyEffectiveWeek(row: MemoryRow, timezone: string): { start: string; end: string; ambiguous: boolean } {
   const occurred = new Date(row.occurred_at);
-  const localDay = new Date(toLocalDateString(occurred, timezone) + "T00:00:00Z").getUTCDay(); // 0=Sun
+  const localDay = dayOfWeekFromIsoDate(toLocalDateString(occurred, timezone)); // 0=Sun
   if (row.source === "week_ahead_picker" && localDay === 0) {
     // Sunday → upcoming week.
     const wk = upcomingWeek(occurred, timezone);

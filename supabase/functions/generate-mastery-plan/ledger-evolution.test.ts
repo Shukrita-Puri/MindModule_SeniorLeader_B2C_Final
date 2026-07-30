@@ -50,9 +50,9 @@ function ranked(
 const NOW = new Date("2026-07-08T12:00:00Z").getTime();
 const START_ISO = "2026-07-08T14:00:00Z";
 
-Deno.test("deriveStructuralDayFlags detects travel/conference/offsite from real events", () => {
+Deno.test("deriveStructuralDayFlags detects travel/conference/offsite from persisted tags", () => {
   const flags = deriveStructuralDayFlags(
-    [{ title: "Flight to SFO" }, { title: "Board Sync" }],
+    [{ title: "Flight to SFO", eventCategory: "G" }, { title: "Board Sync", eventCategory: "A" }],
     "medium",
   );
   assertEquals(flags.hasTravelDay, true);
@@ -61,9 +61,12 @@ Deno.test("deriveStructuralDayFlags detects travel/conference/offsite from real 
   assertEquals(flags.hasRestSignals, false);
 });
 
-Deno.test("deriveStructuralDayFlags detects conference/offsite terms", () => {
+Deno.test("deriveStructuralDayFlags detects conference/offsite from persisted tags", () => {
   const flags = deriveStructuralDayFlags(
-    [{ title: "Company Retreat" }, { title: "Q3 Summit" }],
+    [
+      { title: "Company Retreat", eventCategory: "F", eventSubcategory: "conf.offsite" },
+      { title: "Q3 Summit", eventCategory: "F", eventSubcategory: "conf.executive" },
+    ],
     "high",
   );
   assertEquals(flags.hasConferenceDay, true);

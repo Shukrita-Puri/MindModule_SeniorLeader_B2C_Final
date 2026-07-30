@@ -1,15 +1,15 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { enrichEvent } from "../supabase/functions/_shared/events/enrich-event.ts";
 
 // This script backfills the new F2 schema columns (event_category, event_subcategory, flight_duration_minutes)
 // for the last 30 days of calendar_events.
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
-  Deno.exit(1);
+  process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -29,7 +29,7 @@ async function runBackfill() {
     
   if (fetchError) {
     console.error("Error fetching events:", fetchError);
-    Deno.exit(1);
+    process.exit(1);
   }
   
   if (!events || events.length === 0) {

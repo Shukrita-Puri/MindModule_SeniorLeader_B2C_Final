@@ -11,7 +11,13 @@
 //   afternoon 12:00–17:59 local
 //   evening   18:00–04:59 local (wraps midnight)
 
+import { planningDayOfWeek } from "../plan/user-locale.ts";
+
 export type TimeWindow = 'morning' | 'afternoon' | 'evening';
+// Compatibility labels: keep the historical tokens, but interpret them
+// relative to the user's locale weekend. For Saturday-start countries,
+// "saturday" means the recovery day (Friday) and "sunday" means the
+// weekly-planning day (Saturday).
 export type DayContext = 'weekday' | 'friday' | 'saturday' | 'sunday';
 
 /** Returns a Date shifted into the user's local clock (UTC fields = local). */
@@ -33,14 +39,30 @@ export function isLateEvening(hour: number): boolean {
 }
 
 /** Day-of-week bucket used for theme / nudge selection. */
-export function getDayContext(dayOfWeek: number): DayContext {
-  if (dayOfWeek === 5) return 'friday';
-  if (dayOfWeek === 6) return 'saturday';
-  if (dayOfWeek === 0) return 'sunday';
+export function getDayContext(
+  dayOfWeek: number,
+  homeCountry?: string | null,
+): DayContext {
+  const planningDay = planningDayOfWeek(homeCountry);
+  const recoveryDay = planningDay === 6 ? 5 : 6;
+  const dayBeforeRest = (recoveryDay + 6) % 7;
+  if (dayOfWeek === dayBeforeRest) return 'friday';
+  if (dayOfWeek === recoveryDay) return 'saturday';
+  if (dayOfWeek === planningDay) return 'sunday';
   return 'weekday';
 }
 
 /** Convenience: weekend = Sat or Sun. */
-export function isWeekend(dayOfWeek: number): boolean {
-  return dayOfWeek === 0 || dayOfWeek === 6;
+export function isWeekend(
+  dayOfWeek: number,
+  homeCountry?: string | null,
+): boolean {
+  const planningDay = planningDayOfWeek(homeCountry);
+  const recoveryDay = planningDay === 6 ? 5 : 6;
+  return dayOfWeek === recoveryDay || dayOfWeek === planningDay;
+}
+
+/** Day-of-week for an ISO local date string (YYYY-MM-DD). */
+export function dayOfWeekFromIsoDate(localDate: string): number {
+  return new Date(`${localDate}T00:00:00Z`).getUTCDay();
 }

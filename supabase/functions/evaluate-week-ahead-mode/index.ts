@@ -15,6 +15,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
+import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -71,6 +72,8 @@ serve(async (req) => {
 
     const localNow = new Date(Date.now() - offsetMinutes * 60_000);
     const dow = localNow.getUTCDay();
+    const planningDay = planningDayOfWeek(homeCountry);
+    const recoveryDay = planningDay === 6 ? 5 : 6;
     const decision = evaluateWeekAheadMode({
       dayOfWeek: dow,
       localHour: localNow.getUTCHours(),
@@ -80,7 +83,7 @@ serve(async (req) => {
       // does not have calendar visibility, so PTO / applicable holiday
       // last-day branches never fire from here — they must be resolved
       // by smart-nudges, which owns the SSOT lookup.
-      todayIsOffDay: dow === 0 || dow === 6,
+      todayIsOffDay: dow === recoveryDay || dow === planningDay,
     });
 
     return new Response(

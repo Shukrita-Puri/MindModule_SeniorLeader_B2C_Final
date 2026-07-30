@@ -16,7 +16,7 @@ interface RequestBody {
   // GET_WEEKLY_DELTA: ISO dates anchored in the user's local timezone
   thisMonday?: string; // YYYY-MM-DD
   lastMonday?: string; // YYYY-MM-DD
-  lastSunday?: string; // YYYY-MM-DD
+  lastToday?: string; // YYYY-MM-DD
   today?: string; // YYYY-MM-DD
   scoreData?: {
     score_date: string;
@@ -142,7 +142,7 @@ export function computeWeeklyDeltaComparison(
   rows: SnapshotRow[],
   thisMonday: string,
   lastMonday: string,
-  lastSunday: string,
+  lastToday: string,
   today: string,
 ): {
   baselineDelta: number | null;
@@ -156,7 +156,7 @@ export function computeWeeklyDeltaComparison(
   todayState: string;
 } {
   const thisWeek = summarizeWeek(rows, thisMonday, today);
-  const lastWeek = summarizeWeek(rows, lastMonday, lastSunday);
+  const lastWeek = summarizeWeek(rows, lastMonday, lastToday);
   const todayRow = rows.find((r) => r.local_date === today) || null;
   const todayState = todayRow?.readiness_state || "baseline";
 
@@ -319,8 +319,8 @@ if (import.meta.main) {
         }
 
         case "GET_WEEKLY_DELTA": {
-          const { thisMonday, lastMonday, lastSunday, today } = reqBody;
-          if (!thisMonday || !lastMonday || !lastSunday || !today) {
+          const { thisMonday, lastMonday, lastToday, today } = reqBody;
+          if (!thisMonday || !lastMonday || !lastToday || !today) {
             return new Response(
               JSON.stringify({ error: "Missing week anchors" }),
               {
@@ -368,7 +368,7 @@ if (import.meta.main) {
             rows,
             thisMonday,
             lastMonday,
-            lastSunday,
+            lastToday,
             today,
           );
 

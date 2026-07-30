@@ -923,6 +923,7 @@ export function buildRuleContext(
     Pick<
       RuleContext,
       | "dayOfWeek"
+      | "homeCountry"
       | "backToBackHoursToday"
       | "historicalAppOpenRateLow"
       | "conferenceDayNumber"
@@ -973,6 +974,7 @@ export function buildRuleContext(
       .sort((a, b) => a.minutesUntil - b.minutesUntil),
     localHour,
     availability,
+    homeCountry: input.userHomeCountry ?? null,
     ...extras,
   };
 }

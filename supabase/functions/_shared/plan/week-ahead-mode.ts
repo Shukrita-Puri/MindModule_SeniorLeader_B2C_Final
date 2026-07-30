@@ -10,6 +10,8 @@
  * RuleContext. Callers project the data they already have.
  */
 
+import { planningDayOfWeek } from "./user-locale.ts";
+
 /**
  * Day-neutral reason vocabulary. Describes WHY the Week-Ahead surface
  * fired, never WHICH weekday it fired on. The planning weekday itself is
@@ -22,35 +24,7 @@ export type WeekAheadReason =
   | "end_of_long_weekend"
   | "manual_override";
 
-/**
- * Home Country → recurring weekly planning day (local).
- *
- * Countries where the user's normal working week begins on Sunday,
- * therefore their weekly planning reminder fires Saturday evening.
- * This is based on **home country**, not current travel location —
- * temporary travel never changes the planning cadence.
- *
- * Members (ISO-3166-1 alpha-2):
- *   SA — Saudi Arabia
- *   KW — Kuwait
- *   QA — Qatar
- *   BH — Bahrain
- *   OM — Oman
- *   IL — Israel
- *
- * Everyone else plans on Sunday evening for a Monday-start week. Do not
- * remove entries thinking they are historical — they encode the local
- * working-week convention.
- */
-const SATURDAY_WEEKLY_COUNTRIES = new Set([
-  "SA", "KW", "QA", "BH", "OM", "IL",
-]);
-export function planningDayOfWeek(
-  homeCountry?: string | null,
-): 0 | 6 {
-  const c = (homeCountry ?? "").toUpperCase();
-  return SATURDAY_WEEKLY_COUNTRIES.has(c) ? 6 : 0;
-}
+
 
 export interface WeekAheadInput {
   /** 0=Sun, 6=Sat — user local day of week. */
@@ -193,7 +167,8 @@ function inactive(): WeekAheadDecision {
  * contexts keep their own behaviour.
  */
 export function isSaturdayRecoveryDay(input: WeekAheadInput): boolean {
-  if (input.dayOfWeek !== 6) return false;
+  const recoveryDay = planningDayOfWeek(input.homeCountry) === 6 ? 5 : 6;
+  if (input.dayOfWeek !== recoveryDay) return false;
   if (input.travelDay) return false;
   if (input.fullWorkingWeekend) return false;
   return true;

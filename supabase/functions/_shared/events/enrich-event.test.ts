@@ -44,3 +44,19 @@ Deno.test("enrichEvent accepts raw shape with nested event.title", () => {
   const e = enrichEvent({ event: { title: "Deep work block — strategy memo" } });
   assertEquals(e.categoryId, "E");
 });
+
+Deno.test("enrichEvent respects timingMatrix to prevent arc fabrication for no-arc categories", () => {
+  // E.learning has timingMatrix: { pre: false, during: false, post: false }
+  const learning = enrichEvent({ title: "Passive webinar" });
+  assertEquals(learning.categoryId, "E");
+  assertEquals(learning.phases.pre, undefined);
+  assertEquals(learning.phases.during, undefined);
+  assertEquals(learning.phases.post, undefined);
+
+  // H.catchup has timingMatrix: { pre: false, during: false, post: false }
+  const catchup = enrichEvent({ title: "Weekly sync" });
+  assertEquals(catchup.categoryId, "H");
+  assertEquals(catchup.phases.pre, undefined);
+  assertEquals(catchup.phases.during, undefined);
+  assertEquals(catchup.phases.post, undefined);
+});

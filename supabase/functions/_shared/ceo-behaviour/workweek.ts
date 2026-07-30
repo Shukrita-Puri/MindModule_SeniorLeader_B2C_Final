@@ -15,6 +15,7 @@
  */
 
 import type { BehaviourFlag, RuleContext, Severity } from "../brief-context.ts";
+import { planningDayOfWeek } from "../plan/user-locale.ts";
 
 // --- §2.11 Veto Risk Rule (Masked Fatigue) -----------------------------------
 export function vetoRisk(ctx: RuleContext): BehaviourFlag | null {
@@ -190,12 +191,12 @@ export function boardLevelOutcome(ctx: RuleContext): BehaviourFlag | null {
 // NOTE: Batch 2 adds `sundayEveningWeekAhead` (Sun 14:00+) as the broader frame;
 // this rule remains the mandatory restore-and-prime window.
 export function sundayReset(ctx: RuleContext): BehaviourFlag | null {
-  if (ctx.dayOfWeek !== 0) return null;
+  if (ctx.dayOfWeek !== planningDayOfWeek(ctx.homeCountry)) return null;
   if (ctx.localHour < 18 || ctx.localHour >= 21) return null;
   return {
     rule: "sundayReset",
     severity: "medium",
-    evidence: ["Sunday evening reset window"],
+    evidence: ["weekly planning evening reset window"],
     stake: "Operational Drive",
     copyHint:
       "orient to week-ahead as a readiness asset; prime Monday, do not invite Sunday-anxiety spiral",

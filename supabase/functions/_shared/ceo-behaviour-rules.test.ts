@@ -101,6 +101,16 @@ Deno.test("sundayReset null on Mon 19:00", () => {
   assertEquals(flags.find((f) => f.rule === "sundayReset"), undefined);
 });
 
+Deno.test("sundayReset uses locale planning day for IL", () => {
+  const flags = evaluate({
+    ...ctx(emptySignals(), 19),
+    dayOfWeek: 6,
+    homeCountry: "IL",
+  });
+  const sr = flags.find((f) => f.rule === "sundayReset");
+  assert(sr !== undefined);
+});
+
 // --- §5.2 Notification IS the Product --------------------------------------
 Deno.test("notificationIsProduct fires on 5h back-to-back + low open rate (nudge scope)", () => {
   const flags = evaluate({

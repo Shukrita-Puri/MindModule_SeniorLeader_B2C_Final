@@ -919,7 +919,7 @@ const ROWS: RawSubtype[] = [
     group: "C_strategic",
     primaryPillar: 1,
     demandProfile: D(3, 0, 0, 0, 0, 1, 0, 0),
-    timingMatrix: { pre: false, during: true, post: false },
+    timingMatrix: { pre: true, during: true, post: true },
     regulationObjective: "PROTECT",
     interventionType: "Flow",
     keywords: [

@@ -283,7 +283,8 @@ export type ValidatorReject =
   | "valence_depleted_push"
   | "jaccard_dup"
   | "too_long"
-  | "empty";
+  | "empty"
+  | `forbidden_word_${string}`;
 
 export interface ValidateWhyLineInput {
   text: string | null | undefined;
@@ -355,6 +356,14 @@ export function validateWhyLine(
 
   if (isTitleEcho(raw, inp.echoTexts)) {
     return { ok: false, reason: "title_echo" };
+  }
+
+  // 0.5 Forbidden vocabulary check
+  for (const word of FORBIDDEN_NOTIFICATION_WORDS) {
+    const rx = new RegExp(`\\b${word}\\b`, "i");
+    if (rx.test(lower)) {
+      return { ok: false, reason: `forbidden_word_${word.replace(/\s+/g, "_")}` };
+    }
   }
 
   // 1. Anchor / state grounding (asymmetric — either anchor OR state grounds).

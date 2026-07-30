@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -286,7 +287,7 @@ serve(async (req) => {
             const w = windowOf(ev.timestamp);
             windowAgg[w].sum += after;
             windowAgg[w].n += 1;
-            const dow = new Date(ev.timestamp).getUTCDay();
+            const dow = dayOfWeekFromIsoDate(dateKey(ev.timestamp));
             dowAgg[dow].sum += after;
             dowAgg[dow].n += 1;
 

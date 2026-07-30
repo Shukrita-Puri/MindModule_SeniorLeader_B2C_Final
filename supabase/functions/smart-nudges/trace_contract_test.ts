@@ -32,7 +32,6 @@ Deno.test("smart-nudges traces required skip and APNs outcomes", () => {
     "dnd_window",
     "daily_cap",
     "two_hour_suppression",
-    "light_day_strong_state",
     "no_qualified_nudge",
     "plan_ready_morning_fallback",
     "plan_ready_afternoon_fallback",

@@ -32,7 +32,8 @@ import {
 } from "../_shared/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
-import { evaluateWeekAheadMode, planningDayOfWeek } from "../_shared/plan/week-ahead-mode.ts";
+import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
+import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
@@ -50,6 +51,7 @@ import {
   resolveEffectiveTimezone,
   timezoneOffsetMinutes,
 } from "../_shared/effective-timezone.ts";
+import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
 import {
   COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
   isCountableDeliveryState,
@@ -473,6 +475,25 @@ function periodCollapseId(slot: NudgeSlot, localDate: string): string {
   return `smart-nudge-${slot}-${localDate}`;
 }
 
+function weekendDaysForHomeCountry(homeCountry?: string | null): number[] {
+  return planningDayOfWeek(homeCountry) === 6 ? [5, 6] : [0, 6];
+}
+
+function isWeekendDayForHomeCountry(
+  dayOfWeek: number,
+  homeCountry?: string | null,
+): boolean {
+  return weekendDaysForHomeCountry(homeCountry).includes(dayOfWeek);
+}
+
+function firstWeekendDayForHomeCountry(homeCountry?: string | null): number {
+  return planningDayOfWeek(homeCountry) === 6 ? 5 : 6;
+}
+
+function lastWeekendDayForHomeCountry(homeCountry?: string | null): number {
+  return planningDayOfWeek(homeCountry) === 6 ? 6 : 0;
+}
+
 function slotFromNotificationLogRow(
   row: { notification_type?: string | null; payload?: unknown },
 ): NudgeSlot | null {
@@ -514,11 +535,16 @@ async function loadPlanNudgeSlots(
   planDate: string,
   mrsWindow: BriefTimeWindow,
 ): Promise<
-  { status: "ready" | "missing" | "empty"; slots: PlanNudgeSlot[] | null }
+  {
+    status: "ready" | "missing" | "empty";
+    slots: PlanNudgeSlot[] | null;
+    dayKind: string | null;
+    dayShape: string | null;
+  }
 > {
   const { data, error } = await supabase
     .from("mastery_plan_snapshots")
-    .select("horizon_modules,status,generated_at")
+    .select("horizon_modules,status,generated_at,plan_json")
     .eq("user_id", userId)
     .eq("plan_date", planDate)
     .eq("mrs_window", mrsWindow)
@@ -530,15 +556,15 @@ async function loadPlanNudgeSlots(
       "[smart-nudges] plan snapshot read failed:",
       error.message ?? error,
     );
-    return { status: "missing", slots: null };
+    return { status: "missing", slots: null, dayKind: null, dayShape: null };
   }
   let row = data as
-    | { horizon_modules?: unknown; generated_at?: string | null }
+    | { horizon_modules?: unknown; generated_at?: string | null; plan_json?: unknown }
     | null;
   if (!row) {
     const { data: latest, error: latestError } = await supabase
       .from("mastery_plan_snapshots")
-      .select("horizon_modules,status,generated_at,mrs_window")
+      .select("horizon_modules,status,generated_at,mrs_window,plan_json")
       .eq("user_id", userId)
       .eq("plan_date", planDate)
       .order("generated_at", { ascending: false })
@@ -549,14 +575,20 @@ async function loadPlanNudgeSlots(
         "[smart-nudges] plan snapshot same-day fallback failed:",
         latestError.message ?? latestError,
       );
-      return { status: "missing", slots: null };
+      return { status: "missing", slots: null, dayKind: null, dayShape: null };
     }
     row = latest as
-      | { horizon_modules?: unknown; generated_at?: string | null }
+      | { horizon_modules?: unknown; generated_at?: string | null; plan_json?: unknown }
       | null;
   }
-  if (!row) return { status: "missing", slots: null };
+  if (!row) return { status: "missing", slots: null, dayKind: null, dayShape: null };
   const raw = Array.isArray(row?.horizon_modules) ? row.horizon_modules : [];
+  const planJson = row?.plan_json && typeof row.plan_json === "object"
+    ? row.plan_json as Record<string, unknown>
+    : null;
+  const meta = planJson?.meta && typeof planJson.meta === "object"
+    ? planJson.meta as Record<string, unknown>
+    : null;
   const slots = raw
     .map((module: unknown, idx: number): PlanNudgeSlot | null => {
       const m = module as Record<string, unknown>;
@@ -605,7 +637,20 @@ async function loadPlanNudgeSlots(
       };
     })
     .filter((slot): slot is PlanNudgeSlot => slot !== null);
-  return { status: slots.length > 0 ? "ready" : "empty", slots };
+  return {
+    status: slots.length > 0 ? "ready" : "empty",
+    slots,
+    dayKind: typeof meta?.dayKind === "string"
+      ? meta.dayKind
+      : typeof planJson?.dayKind === "string"
+      ? planJson.dayKind as string
+      : null,
+    dayShape: typeof meta?.dayShape === "string"
+      ? meta.dayShape
+      : typeof planJson?.dayShape === "string"
+      ? planJson.dayShape as string
+      : null,
+  };
 }
 
 interface CalendarGap {
@@ -735,6 +780,9 @@ interface NudgeContext {
   dayOfWeek: number;
   dayName: string;
   isWeekend: boolean;
+  homeCountry: string | null;
+  weekendDays: number[];
+  planningDay: 0 | 6;
   briefWindow: BriefTimeWindow;
   /**
    * Batch B follow-up — IANA timezone used for ALL notification
@@ -768,6 +816,8 @@ interface NudgeContext {
   completedPracticeIds: string[];
   planSlots: PlanNudgeSlot[] | null;
   planSnapshotStatus: "ready" | "missing" | "empty";
+  planPersistedDayKind: string | null;
+  planPersistedDayShape: string | null;
   // JIT
   jitEvents: Array<
     {
@@ -1245,7 +1295,10 @@ function buildSharedEventFrameLine(
 }
 
 function resolveMorningAnchorWindow(
-  ctx: Pick<NudgeContext, "firstNonNoiseEvent" | "timeZone" | "dayOfWeek">,
+  ctx: Pick<
+    NudgeContext,
+    "firstNonNoiseEvent" | "timeZone" | "dayOfWeek" | "homeCountry"
+  >,
 ): { morningStart: number; morningEnd: number } {
   let morningStart = GLOBAL_EARLIEST_LOCAL;
   let morningEnd = 9.5;
@@ -1265,12 +1318,18 @@ function resolveMorningAnchorWindow(
     morningEnd = Math.max(morningStart + 1.0, eventHour - 0.25);
   }
 
-  if (ctx.dayOfWeek === 6) {
+  const firstWeekendDay = firstWeekendDayForHomeCountry(ctx.homeCountry);
+  const lastWeekendDay = lastWeekendDayForHomeCountry(ctx.homeCountry);
+
+  if (ctx.dayOfWeek === firstWeekendDay) {
     morningStart = Math.max(morningStart, 9.0);
     morningEnd = Math.max(morningEnd, 11.0);
   }
 
-  if (ctx.dayOfWeek === 0 || (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent)) {
+  if (
+    ctx.dayOfWeek === lastWeekendDay ||
+    (ctx.dayOfWeek === firstWeekendDay && !ctx.firstNonNoiseEvent)
+  ) {
     morningStart = 9.0;
     morningEnd = 10.5;
   }
@@ -1281,7 +1340,7 @@ function resolveMorningAnchorWindow(
 function isWithinMorningAnchorWindow(
   ctx: Pick<
     NudgeContext,
-    "localTime" | "firstNonNoiseEvent" | "timeZone" | "dayOfWeek"
+    "localTime" | "firstNonNoiseEvent" | "timeZone" | "dayOfWeek" | "homeCountry"
   >,
 ): boolean {
   const { morningStart, morningEnd } = resolveMorningAnchorWindow(ctx);
@@ -1804,12 +1863,15 @@ async function buildNudgeContext(
     userHomeCountry = (prof as { country?: string | null } | null)?.country ??
       null;
   } catch (_e) { /* best-effort — classifier degrades gracefully */ }
+  const weekendDays = weekendDaysForHomeCountry(userHomeCountry);
+  const planningDay = planningDayOfWeek(userHomeCountry);
   let nudgeAvailability: AvailabilityResult | undefined;
   try {
     nudgeAvailability = classifyAvailability({
       now,
       userHomeCountry,
       userCurrentCountry: null,
+      weekendDays,
       events: (todayEvents || []).map((e: any) => ({
         title: String(e?.title ?? ""),
         startTime: String(e?.start_time ?? ""),
@@ -1844,7 +1906,10 @@ async function buildNudgeContext(
     localTime: localHour + localMinute / 60,
     dayOfWeek,
     dayName: DAYS[dayOfWeek],
-    isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+    isWeekend: isWeekendDayForHomeCountry(dayOfWeek, userHomeCountry),
+    homeCountry: userHomeCountry,
+    weekendDays,
+    planningDay,
     // Batch B follow-up: `briefWindow` is used downstream in the
     // plan-empty-fallback warning. Previously it lived only in this
     // function's scope and referencing it at the top-level evaluator
@@ -1893,6 +1958,8 @@ async function buildNudgeContext(
     completedPracticeIds: allCompleted,
     planSlots: planSlotRead.slots,
     planSnapshotStatus: planSlotRead.status,
+    planPersistedDayKind: planSlotRead.dayKind,
+    planPersistedDayShape: planSlotRead.dayShape,
     jitEvents,
     coachSessionReadinessLift,
     practiceCompletionCorrelation,
@@ -1984,7 +2051,10 @@ async function buildNudgeContext(
       const ptoTomorrowAllDay = tomorrow.kind === "away-day";
       const holidayTomorrowAllDay = false;
       const tomorrowDow = (dayOfWeek + 1) % 7;
-      const tomorrowIsWeekend = tomorrowDow === 0 || tomorrowDow === 6;
+      const tomorrowIsWeekend = isWeekendDayForHomeCountry(
+        tomorrowDow,
+        userHomeCountry,
+      );
       const tomorrowIsWorkday = !ptoTomorrowAllDay && !holidayTomorrowAllDay &&
         !tomorrowIsWeekend;
       // §17.7 - Fail-open per-signal hydration. Each upstream source
@@ -2114,7 +2184,7 @@ async function buildNudgeContext(
           // Fallback: weekend-only. Empty calendars intentionally do NOT
           // count — see canonical rules above.
           const dDow = cursor.getDay();
-          isOff = dDow === 0 || dDow === 6;
+          isOff = isWeekendDayForHomeCountry(dDow, userHomeCountry);
           priorState = isOff ? "REST_DAY" : "WORKDAY";
         }
         priorDayStates.push({ state: priorState });
@@ -2124,12 +2194,17 @@ async function buildNudgeContext(
       const travelDay = today.kind === "travel-day";
       // Full working weekend: ≥3 non-noise events on a Sat/Sun. Reuse the
       // existing nonNoiseEvents array.
-      const isTodayWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isTodayWeekend = isWeekendDayForHomeCountry(
+        dayOfWeek,
+        userHomeCountry,
+      );
       const fullWorkingWeekend = isTodayWeekend && nonNoiseEvents.length >= 3;
       // SSOT long-weekend detector: needs today's state, tomorrow-is-workday,
       // and the walked-back prior day states above.
       const todayStateForLW: AvailabilityState = nudgeAvailability?.state ??
-        (dayOfWeek === 0 || dayOfWeek === 6 ? "REST_DAY" : "WORKDAY");
+        (isWeekendDayForHomeCountry(dayOfWeek, userHomeCountry)
+          ? "REST_DAY"
+          : "WORKDAY");
       const longWeekendToday = isLastDayOfLongWeekend({
         today: { state: todayStateForLW },
         tomorrowIsWorkday,
@@ -2171,7 +2246,7 @@ async function buildNudgeContext(
           ? (nudgeAvailability.state === "PTO" ||
             nudgeAvailability.state === "PUBLIC_HOLIDAY" ||
             nudgeAvailability.state === "REST_DAY")
-          : (dayOfWeek === 0 || dayOfWeek === 6),
+          : isWeekendDayForHomeCountry(dayOfWeek, userHomeCountry),
         isLastDayOfLongWeekend: longWeekendToday,
         homeCountry: userHomeCountry,
       };
@@ -2752,7 +2827,8 @@ Required CTA verb at end of body: "log in to prep your state" or "check in to re
 
     case "nudge_three": {
       const isWeekendEvening = ctx.isWeekend || ctx.dayOfWeek === 5;
-      const isSundayEvening = ctx.dayOfWeek === 0;
+      const isLastWeekendEvening =
+        ctx.dayOfWeek === lastWeekendDayForHomeCountry(ctx.homeCountry);
       const tomorrowHighStakes = ctx.tomorrowEvents.filter((e) =>
         isHighStakes(e.title)
       ).map((e) => ({ ...e, title: truncateEventTitle(e.title) }));
@@ -2801,7 +2877,7 @@ ${
             : "- Wearable: not available, DO NOT mention HRV, RHR, sleep"
         }
 ${
-          isSundayEvening
+          isLastWeekendEvening
             ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${
               tomorrowHighStakes.length > 0
                 ? `, incl. "${tomorrowHighStakes[0].title}"`
@@ -2812,7 +2888,7 @@ ${
 ${sharedTomorrowFrameLine}
 
 ${
-          isSundayEvening
+          isLastWeekendEvening
             ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).`
             : ""
         }
@@ -2822,12 +2898,13 @@ ${
             : ""
         }
 ${
-          !isSundayEvening && ctx.dayOfWeek !== 5 && ctx.dayOfWeek !== 6
+          !isLastWeekendEvening && ctx.dayOfWeek !== 5 &&
+            ctx.dayOfWeek !== firstWeekendDayForHomeCountry(ctx.homeCountry)
             ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).`
             : ""
         }
 ${
-          ctx.dayOfWeek === 6
+          ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)
             ? `SATURDAY framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".`
             : ""
         }`;
@@ -3259,34 +3336,34 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
       variantId: "FB-N1-heavy",
     };
   }
-  if (ctx.dayOfWeek === 6) {
-    // V8 - Saturday AM with a meeting: anchored Saturday tone.
+  if (ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)) {
+    // V8 - First weekend day AM with a meeting: anchored recovery tone.
     if (ctx.firstNonNoiseEvent) {
       const ev = truncateEventTitle(
         ctx.firstNonNoiseEvent.title || "today's meeting",
       );
       return {
-        title: "Saturday with one to land",
+        title: "Weekend with one to land",
         body:
           `${ev} on the calendar today. Land your mind before it arrives - check in to set your intention.`,
         variantId: "FB-N1-sat-anchored",
       };
     }
-    // V8 - Saturday AM no meeting: recovery/reset, sets tone for the weekend.
+    // V8 - First weekend day AM no meeting: recovery/reset.
     return {
-      title: "Saturday recovery",
+      title: "Weekend recovery",
       body:
         `No meetings today - a short reset shapes the kind of weekend you actually need. Check in to set your intention.`,
       variantId: "FB-N1-sat-recovery",
     };
   }
 
-  // V8 - Sunday AM habit: recovery/reset before the week forms.
-  if (ctx.dayOfWeek === 0) {
+  // V8 - Last weekend day AM habit: recovery/reset before the week forms.
+  if (ctx.dayOfWeek === lastWeekendDayForHomeCountry(ctx.homeCountry)) {
     if (ctx.firstNonNoiseEvent) {
       const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title);
       return {
-        title: "Sunday reset",
+        title: "Weekend reset",
         body:
           `${ev} on the calendar today. A short reset before the day forms - check in to set your intention.`,
         variantId: "FB-N1-sun-anchored",
@@ -3478,7 +3555,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   const prioritiesTotal = ctx.completedPracticeIds.length +
     ctx.pendingPracticeIds.length;
 
-  if (ctx.dayOfWeek === 0) {
+  if (ctx.dayOfWeek === lastWeekendDayForHomeCountry(ctx.homeCountry)) {
     const tomorrowCount = ctx.tomorrowEvents.filter((e) =>
       !isNoiseEvent(e.title || "")
     ).length;
@@ -3528,11 +3605,11 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     };
   }
 
-  if (ctx.dayOfWeek === 6) {
+  if (ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)) {
     return {
       title: "The body's still catching up",
       body:
-        `Recovery from the week isn't instant - even on Saturday. A short check-in tells you what kind of weekend you actually need - check in to land the weekend.`,
+        `Recovery from the week isn't instant - even on the first day off. A short check-in tells you what kind of weekend you actually need - check in to land the weekend.`,
       variantId: "FB-N3-sat",
     };
   }
@@ -4099,8 +4176,8 @@ async function evaluateNudgeThree(
     return null;
   }
 
-  // Saturday: NO evening nudge
-  if (ctx.dayOfWeek === 6) {
+  // First weekend day: NO evening close
+  if (ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)) {
     log("saturday_skip");
     return null;
   }
@@ -4118,8 +4195,8 @@ async function evaluateNudgeThree(
   let eveningStart = 18;
   let eveningEnd = 21.5;
 
-  // Sunday: ONLY early evening (17:00-19:30) - recovery + mental prep tone
-  if (ctx.dayOfWeek === 0) {
+  // Last weekend day: ONLY early evening (17:00-19:30) - recovery + mental prep tone
+  if (ctx.dayOfWeek === lastWeekendDayForHomeCountry(ctx.homeCountry)) {
     eveningStart = 17;
     eveningEnd = 19.5;
   }
@@ -4391,14 +4468,16 @@ async function evaluateWeekAheadPickerInvite(
     ptoTomorrowAllDay: false,
     holidayTodayAllDay: false,
     holidayTomorrowAllDay: false,
-    tomorrowIsWorkday: ctx.dayOfWeek >= 0 && ctx.dayOfWeek <= 4,
+    tomorrowIsWorkday: !isWeekendDayForHomeCountry(
+      (ctx.dayOfWeek + 1) % 7,
+      ctx.homeCountry,
+    ),
     consecutiveOffDaysBefore: 0,
     travelDay: ctx.dayContext.kind === "travel-day",
     fullWorkingWeekend: false,
-    todayIsOffDay: !!ctx.dayContext.ptoMode || ctx.dayOfWeek === 0 ||
-      ctx.dayOfWeek === 6,
+    todayIsOffDay: !!ctx.dayContext.ptoMode || ctx.isWeekend,
     isLastDayOfLongWeekend: false,
-    homeCountry: null,
+    homeCountry: ctx.homeCountry,
   };
   const wam = evaluateWeekAheadMode({
     dayOfWeek: ctx.dayOfWeek,
@@ -4902,7 +4981,6 @@ type NotificationTraceOutcome =
   | "dnd_window"
   | "daily_cap"
   | "two_hour_suppression"
-  | "light_day_strong_state"
   | "no_qualified_nudge"
   | "plan_ready_morning_fallback"
   | "plan_ready_afternoon_fallback"
@@ -4910,6 +4988,7 @@ type NotificationTraceOutcome =
   | "week_ahead_already_sent_this_week"
   | "week_ahead_not_selected"
   | "week_ahead_selected"
+  | "week_ahead_prior_reasons_today"
   | "leader_pref_weekend_off"
   | "leader_pref_weekend_light_non_morning"
   | "plan_snapshot_empty_fallback"
@@ -5326,7 +5405,7 @@ serve(async (req) => {
       { data: recentEngagements },
     ] = await Promise.all([
       supabase.from("profiles").select(
-        "id, current_streak, timezone_offset, current_timezone, home_timezone",
+        "id, country, current_streak, timezone_offset, current_timezone, home_timezone",
       ).in("id", userIds),
       supabase.from("notification_preferences").select("*").in(
         "user_id",
@@ -5394,8 +5473,7 @@ serve(async (req) => {
       const localHour = parts.hour;
       const localMinute = parts.minute;
       const todayStr = parts.localDate;
-      const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
-      const isWeekendDay = dayOfWeek === 0 || dayOfWeek === 6;
+      const dayOfWeek = dayOfWeekFromIsoDate(todayStr);
 
       // Phase 4 — load the CoS Leader Profile once per user tick and
       // capture preferences for downstream gates + trace metadata.
@@ -5418,6 +5496,10 @@ serve(async (req) => {
       const prefBriefTiming = normaliseBriefTiming(rawBriefTiming);
       const prefResetModality = normaliseResetModality(rawResetModality);
       const prefWeekendSignals = normaliseWeekendSignal(rawWeekendSignals);
+      const isWeekendDay = isWeekendDayForHomeCountry(
+        dayOfWeek,
+        profile?.country ?? null,
+      );
       leaderPrefsByUser.set(userId, {
         brief_timing_raw: rawBriefTiming,
         brief_timing: prefBriefTiming,
@@ -5731,6 +5813,25 @@ serve(async (req) => {
         );
         // v7 - hydrate unified pattern store (causality_findings.signal_summary)
         ctx.pattern = await loadPatternSummary(supabase, userId);
+      }
+      const persistedDayKind = ctx.planPersistedDayKind
+        ? String(ctx.planPersistedDayKind).trim().toLowerCase().replace(/_/g, "-")
+        : null;
+      const inferredDayKind = String(ctx.dayContext.kind || "normal")
+        .trim()
+        .toLowerCase();
+      if (persistedDayKind && persistedDayKind !== inferredDayKind) {
+        console.warn("[dayshape-drift]", {
+          userId: redactUserId(userId),
+          date: todayStr,
+          window: ctx.briefWindow,
+          persistedDayKind,
+          inferredDayKind,
+          persistedDayShape: ctx.planPersistedDayShape,
+          planSnapshotStatus: ctx.planSnapshotStatus,
+          isWeekend: ctx.isWeekend,
+          homeCountry: ctx.homeCountry,
+        });
       }
       // Phase 4 — always hydrate leader voice + reset modality on ctx,
       // even when reused from the week-ahead path above (idempotent set).
@@ -6350,7 +6451,7 @@ serve(async (req) => {
           //   - a Brief snapshot exists for today, AND
           //   - a Plan ledger exists for today (non-empty plan_ledger).
           // Otherwise fall back to the standard weekday CTA + /daily-check-in.
-          const isWeekendOrPto = (dayOfWeek === 0 || dayOfWeek === 6) ||
+          const isWeekendOrPto = ctx.isWeekend ||
             ctx.dayContext.ptoMode === true;
           let ctaBucket: "weekday" | "weekend_post_holiday" = "weekday";
           let weekendCtaGate: "ok" | "missing_brief" | "missing_plan" | null =

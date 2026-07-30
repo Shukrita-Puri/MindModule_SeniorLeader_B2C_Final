@@ -330,6 +330,8 @@ export interface SelectContext {
      * signal honestly (vs a same-day tap that also boosted `delta`).
      */
     hasPriorDayPriority?: boolean;
+    /** Number of `priority` signals inside the 60-day window. */
+    priorityCount?: number;
   }>;
   /**
    * Maximum lead time (ms) for an event to remain in the candidate set.
@@ -361,6 +363,10 @@ export interface SelectedCandidate {
     sovereignRelationship: number;
     /** §11A.6 MemoryDelta applied post-tier-weighting. */
     memoryDelta: number;
+    /** Number of `priority` signals inside the 60-day window. */
+    priorityCount: number;
+    /** True when at least one `priority` row predates today's UTC date. */
+    hasPriorDayPriority: boolean;
     breakdown: {
       categoryBase: number;
       relationship: number;
@@ -594,6 +600,8 @@ export function selectJitCandidates(
         sovereignBonus,
         sovereignRelationship: relationship_sovereign,
         memoryDelta,
+        priorityCount: memEntry?.priorityCount ?? 0,
+        hasPriorDayPriority: memEntry?.hasPriorDayPriority ?? false,
         breakdown: {
           categoryBase,
           // `relationship` reports the EFFECTIVE rel (inferred + sovereign)

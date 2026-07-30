@@ -26,6 +26,8 @@ import type { RelationshipRole } from "./relationship-taxonomy.ts";
 import {
   applyEventPriorityMemory,
   loadPriorityMemoryForUser,
+  normalizeEventTitleMemoryKey,
+  TITLE_SPECIFIC_MEMORY_CATEGORY,
 } from "../plan/event-priority-memory.ts";
 import {
   normalizeEventTypeKey,
@@ -247,16 +249,30 @@ export async function loadJitContextForEvents(
       }
     } catch (_e) { /* optional */ }
 
-    // 4b. Derived memoryDelta from category/type-key history (legacy keys).
+    // 4b. Derived memoryDelta from category/type-key history (legacy keys) + title-specific memory.
     try {
       const memoryIndex = await loadPriorityMemoryForUser(supabase, userId, memoryLookbackDays);
       for (const [eid, key] of legacyKeysByEventId.entries()) {
+        const ev = events.find(e => e.id === eid);
+        const titleKey = {
+          eventCategory: TITLE_SPECIFIC_MEMORY_CATEGORY,
+          eventTypeKey: normalizeEventTitleMemoryKey(ev?.title),
+        };
+        
         const res = applyEventPriorityMemory(memoryIndex, key);
-        if (res.delta !== 0 || res.hardDemote) {
+        const titleRes = applyEventPriorityMemory(memoryIndex, titleKey);
+        
+        const combinedDelta = res.delta + titleRes.delta;
+        const combinedHardDemote = res.hardDemote || titleRes.hardDemote;
+        const combinedHasPriorDayPriority = res.hasPriorDayPriority || titleRes.hasPriorDayPriority;
+        const combinedPriorityCount = res.priorityCount + titleRes.priorityCount;
+        
+        if (combinedDelta !== 0 || combinedHardDemote) {
           memoryDeltaByEventId![eid] = {
-            delta: res.delta,
-            hardDemote: res.hardDemote || undefined,
-            hasPriorDayPriority: res.hasPriorDayPriority || undefined,
+            delta: combinedDelta,
+            hardDemote: combinedHardDemote || undefined,
+            hasPriorDayPriority: combinedHasPriorDayPriority || undefined,
+            priorityCount: combinedPriorityCount || undefined,
           };
         }
       }
@@ -284,6 +300,25 @@ export async function loadJitContextForEvents(
       .maybeSingle();
     signalSummary = (data as any)?.signal_summary ?? null;
   } catch (_e) { /* null tier T0 */ }
+
+  // ── 6.5. jit_preferences (skip/follow-through counts) ───────────────
+  const skipCountsByBucket: Record<string, number> = {};
+  const followThroughByBucket: Record<string, number> = {};
+  try {
+    const { data: prefs } = await supabase
+      .from("jit_preferences")
+      .select("event_type, action")
+      .eq("user_id", userId);
+    for (const p of (prefs ?? []) as any[]) {
+      const bucket = p.event_type;
+      if (!bucket) continue;
+      if (p.action === "skip" || p.action === "dismissed" || p.action === "skipped" || p.action === "cancelled") {
+        skipCountsByBucket[bucket] = (skipCountsByBucket[bucket] || 0) + 1;
+      } else if (p.action === "completed" || p.action === "reflected" || p.action === "recurring_improvement") {
+        followThroughByBucket[bucket] = (followThroughByBucket[bucket] || 0) + 1;
+      }
+    }
+  } catch (_e) { /* optional */ }
 
   // ── 7. Compose SelectInputEvent[] ───────────────────────────────────
   const input: SelectInputEvent[] = [];
@@ -314,8 +349,8 @@ export async function loadJitContextForEvents(
   const ctx: SelectContext = {
     accountAgeDays,
     signalSummary,
-    skipCountsByBucket: {},
-    followThroughByBucket: {},
+    skipCountsByBucket,
+    followThroughByBucket,
     goals: opts.goals ?? null,
     nowMs: opts.nowMs ?? Date.now(),
     memoryDeltaByEventId,

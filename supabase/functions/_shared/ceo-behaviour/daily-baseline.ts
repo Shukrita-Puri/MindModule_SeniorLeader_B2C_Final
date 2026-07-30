@@ -21,9 +21,11 @@
  */
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
+import { planningDayOfWeek } from "../plan/user-locale.ts";
 
 function isQuietWeekday(ctx: RuleContext): boolean {
-  if (ctx.dayOfWeek === 0 || ctx.dayOfWeek === 6) return false;
+  const weekendDays = planningDayOfWeek(ctx.homeCountry) === 6 ? [5, 6] : [0, 6];
+  if (typeof ctx.dayOfWeek === "number" && weekendDays.includes(ctx.dayOfWeek)) return false;
   const s = ctx.signals;
   if (s.travelDay || s.travelLandingDetected) return false;
   if (s.ptoModeToday) return false;
@@ -51,8 +53,8 @@ export function morningBaseline(ctx: RuleContext): BehaviourFlag | null {
 export function eveningShutdown(ctx: RuleContext): BehaviourFlag | null {
   if (!isQuietWeekday(ctx)) return null;
   if (ctx.localHour < 17 || ctx.localHour >= 22) return null;
-  // sundayReset owns Sunday evening.
-  if (ctx.dayOfWeek === 0) return null;
+  // weekly planning reset owns the locale-specific planning-day evening.
+  if (ctx.dayOfWeek === planningDayOfWeek(ctx.homeCountry)) return null;
   return {
     rule: "eveningShutdown",
     severity: "low",

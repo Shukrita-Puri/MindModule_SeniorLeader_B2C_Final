@@ -295,7 +295,7 @@ These were identified in the audit but are NOT part of the plan card logic fix:
 
 - **GAP 3 (P1)**: mrsWindow-aware slot roles in `slot-allocator.ts` - DEFERRED (separate feature)
 - **GAP 5 (P2)**: Pill tier context in `why-llm.ts` - DEFERRED (separate feature)
-- **ISSUE A**: WoW Card incorrect delta - SEPARATE BUG
+- **ISSUE A**: WoW Card incorrect delta - ✅ FIXED (Now compares Mon→Today vs Mon→lastToday instead of Mon→lastSunday)
 - **ISSUE B**: Brief fallback logic - SEPARATE BUG
 - **ISSUE C**: Physical Reserves calculation - SEPARATE BUG
 

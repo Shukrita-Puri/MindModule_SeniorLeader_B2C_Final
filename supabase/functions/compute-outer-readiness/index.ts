@@ -67,6 +67,7 @@ import {
   evaluateWeekAheadMode,
   isSaturdayRecoveryDay,
 } from "../_shared/plan/week-ahead-mode.ts";
+import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 import {
   computeDivergenceFlag,
@@ -115,6 +116,25 @@ function mapDeterministicCheckInOutcome(
   if (avg >= 4) return "sharp";
   if (avg <= 2) return "drained";
   return "holding";
+}
+
+function briefWeekendDaysForCountry(homeCountry?: string | null): number[] {
+  return planningDayOfWeek(homeCountry) === 6 ? [5, 6] : [0, 6];
+}
+
+function isBriefWeekendDay(
+  dayOfWeek: number,
+  homeCountry?: string | null,
+): boolean {
+  return briefWeekendDaysForCountry(homeCountry).includes(dayOfWeek);
+}
+
+function briefRecoveryDay(homeCountry?: string | null): number {
+  return planningDayOfWeek(homeCountry) === 6 ? 5 : 6;
+}
+
+function briefPlanningDay(homeCountry?: string | null): number {
+  return planningDayOfWeek(homeCountry);
 }
 
 import {
@@ -1225,6 +1245,7 @@ function getTheme(
   score: number | null,
   hour: number,
   dayOfWeek: number,
+  homeCountry?: string | null,
   tomorrowLoad?: CalendarLevel | null,
   tomorrowPressure?: CalendarLevel | null,
   tomorrowHighStakes?: string[],
@@ -1242,6 +1263,7 @@ function getTheme(
       score,
       hour,
       dayOfWeek,
+      homeCountry,
       wearable,
       todayHighStakes,
       eventCount,
@@ -1253,7 +1275,7 @@ function getTheme(
   }
 
   const timeOfDay = getTimeOfDay(hour);
-  const dayCtx = getDayContext(dayOfWeek);
+  const dayCtx = getDayContext(dayOfWeek, homeCountry);
 
   // Build dynamic context suffix for all tier×load×pressure entries
   const suffix = buildContextSuffix(
@@ -1849,6 +1871,7 @@ function getNoCalendarTheme(
   score: number | null,
   hour: number,
   dayOfWeek: number,
+  homeCountry?: string | null,
   wearable?: WearableContext | null,
   todayHighStakes?: string[],
   eventCount?: number,
@@ -1857,7 +1880,7 @@ function getNoCalendarTheme(
   meetingCount?: number,
   remainingMeetings?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
-  const dayCtx = getDayContext(dayOfWeek);
+  const dayCtx = getDayContext(dayOfWeek, homeCountry);
   const lateEvening = isLateEvening(hour);
   const timeOfDay = getTimeOfDay(hour);
   const bodyStressed = wearable &&
@@ -3369,6 +3392,7 @@ serve(async (req) => {
     const coachBreakthroughs = coachBreakthroughsRes.data || [];
     const wearableIntegration = wearableIntegrationRes.data ?? null;
     const calendarConnections = calendarConnectionRes.data || [];
+    let localeWeekendHomeCountry: string | null = null;
 
     const strengthInsight = coachInsights.find((i: { insight_type: string }) =>
       i.insight_type === "strength"
@@ -3434,6 +3458,7 @@ serve(async (req) => {
       innerReadinessScore,
       hour,
       dayOfWeek,
+      localeWeekendHomeCountry,
       tomorrowLoad,
       tomorrowPressure,
       tomorrowHighStakes,
@@ -4625,6 +4650,8 @@ serve(async (req) => {
         // is more relevantly subject to US holidays than UK ones.
         const userTz = effectiveCurrentTz || effectiveHomeTz;
         const userCountry = userTz ? tzToCountry[userTz] || null : null;
+        localeWeekendHomeCountry = userCountry ??
+          (effectiveHomeTz ? tzToCountry[effectiveHomeTz] || null : null);
         const localDate = userTime.toISOString().split("T")[0];
         const tomorrowDate =
           new Date(userTime.getTime() + 86400000).toISOString().split("T")[0];
@@ -4644,8 +4671,10 @@ serve(async (req) => {
         }
       } catch (e) { /* ignore holiday lookup failure */ }
 
-      // Friday = day before rest
-      if (dayOfWeek === 5) isDayBeforeRestDay = true;
+      // Locale-aware "day before rest" for downstream brief framing.
+      const localeRecoveryDay = briefRecoveryDay(localeWeekendHomeCountry);
+      const localeDayBeforeRest = (localeRecoveryDay + 6) % 7;
+      if (dayOfWeek === localeDayBeforeRest) isDayBeforeRestDay = true;
 
       // Check for personal holiday/OOO in tomorrow's calendar
       if (tomorrowResult && tomorrowResult.state === "active") {
@@ -5876,7 +5905,7 @@ serve(async (req) => {
           tomorrowLoad: getTimeOfDay(hour) === "evening"
             ? (tomorrowLoad ?? null)
             : null,
-          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          isWeekend: isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry),
           isPublicHoliday: isPublicHoliday === true,
         });
       } catch (sigError) {
@@ -5965,10 +5994,17 @@ serve(async (req) => {
             "Saturday",
           ];
           const dayName = dayNames2[dayOfWeek];
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const isWeekend = isBriefWeekendDay(
+            dayOfWeek,
+            localeWeekendHomeCountry,
+          );
           const isMondayMorning = dayOfWeek === 1 && hour < 12;
-          const isFridayEvening = dayOfWeek === 5 && hour >= 17;
-          const isSundayEvening2 = dayOfWeek === 0 && hour >= 17;
+          const isFridayEvening =
+            dayOfWeek === ((briefRecoveryDay(localeWeekendHomeCountry) + 6) % 7) &&
+            hour >= 17;
+          const isSundayEvening2 =
+            dayOfWeek === briefPlanningDay(localeWeekendHomeCountry) &&
+            hour >= 17;
           const hoursRemaining = hour < 19 ? 19 - hour : null;
           const localTimeStr = `${String(hour).padStart(2, "0")}:${
             String(userTime.getMinutes()).padStart(2, "0")
@@ -9875,7 +9911,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       remainingMeetings: calendarResult.remainingMeetings,
                       remainingHighStakes: calendarResult.remainingHighStakes,
                       nextHighStakesEvent,
-                      isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+                      isWeekend: isBriefWeekendDay(
+                        dayOfWeek,
+                        localeWeekendHomeCountry,
+                      ),
                       consecutiveLowConfidence,
                       consecutiveLowClarity,
                       scoreTrajectory7d,

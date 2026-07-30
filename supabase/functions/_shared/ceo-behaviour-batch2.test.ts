@@ -84,6 +84,18 @@ Deno.test("sundayEveningWeekAhead fires Sun 15:00 but not 19:00 (sundayReset win
   assert(at19.some((x) => x.rule === "sundayReset"));
 });
 
+Deno.test("locale weekend/week-ahead rules use IL Friday/Saturday instead of Sat/Sun", () => {
+  const fri = evaluate(ctx({ dayOfWeek: 5, localHour: 9, homeCountry: "IL" }));
+  assert(fri.some((x) => x.rule === "weekendMorningLightTouch"));
+
+  const sat15 = evaluate(ctx({ dayOfWeek: 6, localHour: 15, homeCountry: "IL" }));
+  assert(sat15.some((x) => x.rule === "sundayEveningWeekAhead"));
+
+  const sat19 = evaluate(ctx({ dayOfWeek: 6, localHour: 19, homeCountry: "IL" }));
+  assertFalse(sat19.some((x) => x.rule === "sundayEveningWeekAhead"));
+  assert(sat19.some((x) => x.rule === "sundayReset"));
+});
+
 // ─── PTO / Holiday ───────────────────────────────────────────────────────────
 Deno.test("holidayReducedTouch fires on PTO all-day with no meetings", () => {
   const flags = evaluate(ctx({}, { ptoTodayAllDay: true }));

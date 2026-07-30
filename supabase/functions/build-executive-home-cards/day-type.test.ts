@@ -197,6 +197,35 @@ Deno.test("W2: Sunday with no meetings → weekend_sunday (morning + evening, we
   assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
 });
 
+Deno.test("W2: IL Friday with no meetings → weekend_saturday cadence (locale recovery day)", () => {
+  const friday = new Date("2026-01-02T09:00:00Z"); // Fri
+  const d = resolveDayTypeAndCadence({
+    effectiveTimezone: "Asia/Jerusalem",
+    now: friday,
+    userHomeCountry: "IL",
+    todayEvents: [],
+    tomorrowEvents: [],
+    travel: null,
+  });
+  assertEquals(d.dayType, "weekend_saturday");
+  assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
+});
+
+Deno.test("W2: IL Saturday with no meetings → weekend_sunday cadence (locale weekly planning day)", () => {
+  const saturday = new Date("2026-01-03T09:00:00Z"); // Sat
+  const d = resolveDayTypeAndCadence({
+    effectiveTimezone: "Asia/Jerusalem",
+    now: saturday,
+    userHomeCountry: "IL",
+    todayEvents: [],
+    tomorrowEvents: [],
+    travel: null,
+  });
+  assertEquals(d.dayType, "weekend_sunday");
+  assertEquals(d.weekAheadReason, "weekly_planning");
+  assertEquals(Array.from(d.allowedWindows), ["morning", "evening"]);
+});
+
 Deno.test("W2: Weekday with no meetings → light_day (morning + evening)", () => {
   const tuesday = new Date("2026-01-06T09:00:00Z");
   const d = resolveDayTypeAndCadence({

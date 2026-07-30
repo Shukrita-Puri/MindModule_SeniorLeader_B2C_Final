@@ -397,6 +397,8 @@ export interface RuleContext {
   localHour: number;
   /** 0 = Sunday … 6 = Saturday, in user's local timezone. */
   dayOfWeek?: number;
+  /** Optional ISO-2 home country for locale-aware weekend rules. */
+  homeCountry?: string | null;
   /** Total hours of back-to-back meetings scheduled today. */
   backToBackHoursToday?: number;
   /** Trailing 7-day app-open rate falls below threshold (set upstream). */

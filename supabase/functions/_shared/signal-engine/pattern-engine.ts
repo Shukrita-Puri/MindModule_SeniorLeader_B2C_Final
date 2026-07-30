@@ -11,6 +11,7 @@ import type {
   RawSignals,
 } from './types.ts';
 import { computeCalendarDemand } from './demand-scorer.ts';
+import { dayOfWeekFromIsoDate } from './day-kind-detector.ts';
 
 const HRV_TREND_BAND_PCT = 5;       // ±5% defines improving / declining
 const SUSTAINED_DEFICIT_PCT = -20;  // > 20% below baseline
@@ -50,7 +51,14 @@ export function buildPatternSignals(
   }
 
   // ── C. dow_historical_pattern ─────────────────────────────────────
-  const todayDow = new Date().getUTCDay();
+  const todayDow =
+    raw.hrvRecent[0]?.date
+      ? dayOfWeekFromIsoDate(raw.hrvRecent[0].date)
+      : raw.dowHistory.find((r) => typeof r.date === 'string' && r.date)?.date
+      ? dayOfWeekFromIsoDate(
+        raw.dowHistory.find((r) => typeof r.date === 'string' && r.date)!.date!,
+      )
+      : raw.dowHistory[0]?.dow ?? new Date().getUTCDay();
   const dowRows = (raw.dowHistory ?? []).filter((r) => r.dow === todayDow);
   const hrvSamples = dowRows.map((r) => r.hrv).filter((v): v is number => v != null);
   const loadCounts: Record<DemandLevel, number> = { low: 0, medium: 0, high: 0 };

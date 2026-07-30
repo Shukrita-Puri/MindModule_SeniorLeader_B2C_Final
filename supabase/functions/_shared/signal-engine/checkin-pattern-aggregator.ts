@@ -16,6 +16,7 @@
  */
 
 // ── Shared types ───────────────────────────────────────────────────────
+import { dayOfWeekFromIsoDate } from './day-kind-detector.ts';
 
 export type MindDim = 'clarity' | 'emotion' | 'pressure' | 'regulation';
 
@@ -127,7 +128,7 @@ function dailyValues(rows: CheckinRow[], dim: MindDim): Array<{ date: string; va
     }
   }
   const out = [...byDate.entries()]
-    .map(([date, value]) => ({ date, value, dow: new Date(date + 'T00:00:00Z').getUTCDay() }))
+    .map(([date, value]) => ({ date, value, dow: dayOfWeekFromIsoDate(date) }))
     .sort((a, b) => b.date.localeCompare(a.date));
   return out;
 }
@@ -371,11 +372,10 @@ export function buildWearableDailySeries(
     const v = valueForDim(r, dim);
     if (v == null) continue;
     seen.add(r.summary_date);
-    const d = new Date(r.summary_date + 'T00:00:00Z');
     const { positive, negative } = classify(v, dim, baselines);
     out.push({
       dateStr: r.summary_date,
-      di: getDayIndex(d.getUTCDay()),
+      di: getDayIndex(dayOfWeekFromIsoDate(r.summary_date)),
       tw: 0,
       positive,
       negative,

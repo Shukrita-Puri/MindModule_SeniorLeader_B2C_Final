@@ -101,6 +101,40 @@ Deno.test("allocator — Cat F multi-phase fan yields correct pre/during/post id
   }
 });
 
+Deno.test("allocator — slot-count contract per DayShape", () => {
+  const nowMs = Date.now();
+  const ranked = [
+    cand("evt-1", "Normal Meeting", "pre", "C", 50),
+    cand("evt-2", "Another Meeting", "pre", "C", 40),
+    cand("evt-3", "Third Meeting", "pre", "C", 30),
+  ];
+
+  // 1. rest_day = 0 slots
+  const restAlloc = allocatePlanSlots({ nowMs, rankedCandidates: ranked, hasRestSignals: true });
+  assertEquals(restAlloc.dayShape, "rest_day");
+  assertEquals(restAlloc.slots.length, 0);
+
+  // 2. saturday = 1 slot
+  const satAlloc = allocatePlanSlots({ nowMs, rankedCandidates: ranked, isWeekendRestDay: true });
+  assertEquals(satAlloc.dayShape, "saturday");
+  assertEquals(satAlloc.slots.length, 1);
+
+  // 3. holiday_pto = 1 slot
+  const holAlloc = allocatePlanSlots({ nowMs, rankedCandidates: ranked, isPtoOrHoliday: true });
+  assertEquals(holAlloc.dayShape, "holiday_pto");
+  assertEquals(holAlloc.slots.length, 1);
+
+  // 4. week_ahead = 1 slot
+  const waAlloc = allocatePlanSlots({ nowMs, rankedCandidates: ranked, isWeekAhead: true });
+  assertEquals(waAlloc.dayShape, "week_ahead");
+  assertEquals(waAlloc.slots.length, 1);
+
+  // 5. others (e.g. mixed_day) = 3 slots
+  const mixedAlloc = allocatePlanSlots({ nowMs, rankedCandidates: ranked });
+  assertEquals(mixedAlloc.dayShape, "mixed_day");
+  assertEquals(mixedAlloc.slots.length, 3);
+});
+
 Deno.test("allocator — same-event fan still qualifies as dominant (was demoted by !hasSecondJit)", () => {
   const nowMs = Date.now();
   // Two candidates, same event. Old logic saw `hasSecondJit=true` and

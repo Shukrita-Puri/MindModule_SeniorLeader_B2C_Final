@@ -14,10 +14,12 @@
  */
 
 import type { BehaviourFlag, RuleContext, Severity } from "../brief-context.ts";
+import { planningDayOfWeek } from "../plan/user-locale.ts";
 
 export function deepWorkProtection(ctx: RuleContext): BehaviourFlag | null {
   // Weekend cluster owns Sat/Sun; let it lead to avoid double-naming.
-  if (ctx.dayOfWeek === 0 || ctx.dayOfWeek === 6) return null;
+  const weekendDays = planningDayOfWeek(ctx.homeCountry) === 6 ? [5, 6] : [0, 6];
+  if (typeof ctx.dayOfWeek === "number" && weekendDays.includes(ctx.dayOfWeek)) return null;
   if (ctx.signals.travelLandingDetected || ctx.signals.travelDay) return null;
   if (ctx.signals.ptoModeToday) return null;
 

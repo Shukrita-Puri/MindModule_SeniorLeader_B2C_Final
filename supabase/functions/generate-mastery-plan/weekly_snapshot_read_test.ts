@@ -28,3 +28,12 @@ Deno.test("generate-mastery-plan exposes weeklyPlanSnapshot as advisory context 
     );
   }
 });
+
+Deno.test("generate-mastery-plan persists normalized priority aliases into snapshot priorities", () => {
+  assert(SRC.includes("const snapshotPriorities = visiblePriorities.map"), "missing normalized priority projection");
+  assert(SRC.includes("event_category: eventCategory"), "missing event_category alias");
+  assert(SRC.includes("event_subcategory: eventSubcategory"), "missing event_subcategory alias");
+  assert(SRC.includes("event_title_display:"), "missing event title display alias");
+  assert(SRC.includes("priority_rank: priorityRank"), "missing priority rank alias");
+  assert(SRC.includes("priorities: snapshotPriorities"), "snapshot write must use normalized priorities");
+});

@@ -28,6 +28,7 @@ import { buildPatternSignals } from './pattern-engine.ts';
 import { computeCalendarDemand } from './demand-scorer.ts';
 import { resolveStrategicContext } from './strategic-context.ts';
 import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
+import { dayOfWeekFromIsoDate } from './day-kind-detector.ts';
 
 type AnySupabase = {
   from: (table: string) => any;
@@ -457,7 +458,7 @@ async function fetchDowHistory(
     const allDays = new Set<string>([...hrvByDay.keys(), ...eventsByDay.keys()]);
     const out: Array<{ date: string; dow: number; hrv: number | null; load: DemandLevel | null }> = [];
     for (const day of allDays) {
-      const dow = new Date(day + 'T00:00:00Z').getUTCDay();
+      const dow = dayOfWeekFromIsoDate(day);
       if (Number.isNaN(dow)) continue;
       const hrv = hrvByDay.get(day) ?? null;
       const dayEvents = eventsByDay.get(day) ?? [];

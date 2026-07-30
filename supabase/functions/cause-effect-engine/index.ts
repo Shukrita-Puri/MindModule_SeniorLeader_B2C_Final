@@ -42,6 +42,7 @@ import {
   buildWearableDiagnostics,
   type WearableDiagnostics,
 } from "./_diagnostics.ts";
+import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1010,9 +1011,10 @@ serve(async (req) => {
 
     const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
     const dayIndex = (iso: string): number => {
-      // Using local-day already encoded in summary_date / event start_time.
-      // JS getUTCDay: 0=Sun..6=Sat. We map Mon..Fri → 0..4, weekend → -1.
-      const d = new Date(iso).getUTCDay();
+      // Event timestamps already carry the user's local calendar date in the
+      // ISO date portion, so derive DOW from that instead of reinterpreting
+      // the timestamp through UTC.
+      const d = dayOfWeekFromIsoDate(iso.slice(0, 10));
       if (d === 0 || d === 6) return -1;
       return d - 1;
     };
@@ -1462,6 +1464,10 @@ serve(async (req) => {
           confidence: slot.n >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging",
         });
       });
+      subcategory_lift.sort((a, b) => {
+        if (b.hrDeltaBpm !== a.hrDeltaBpm) return b.hrDeltaBpm - a.hrDeltaBpm;
+        return b.n - a.n;
+      });
 
       // ── (3) sleep_to_peak: high-sleep nights → next-day PRS + window ─
       let sleep_to_peak: PerformanceLift["sleep_to_peak"] = null;
@@ -1637,6 +1643,8 @@ serve(async (req) => {
       performance_lift,
       generatedAt: new Date().toISOString(),
     };
+    const topEventSubcategory =
+      signalSummary.performance_lift?.subcategory_lift?.[0]?.subcategoryId ?? null;
 
     // ── v6: Wearable signal diagnostics ─────────────────────────────
     // Pure helper, runs on the same inputs the engine just used. Decides
@@ -1696,6 +1704,7 @@ serve(async (req) => {
         user_id: userId,
         pattern_kind: "cause_effect_v2",
         computed_for_date: todayStr,
+        event_subcategory: topEventSubcategory,
         payload: payload as any,
         signal_summary: signalSummary as any,
       }, { onConflict: "user_id,pattern_kind,computed_for_date" });

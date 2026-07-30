@@ -63,6 +63,10 @@ export interface RankedJitCandidate {
     skipPenalty: number;
     memory: number;
   };
+  /** Number of `priority` signals inside the 60-day window. */
+  priorityCount?: number;
+  /** True when at least one `priority` row predates today's UTC date. */
+  hasPriorDayPriority?: boolean;
 }
 
 // ----- scoring weights -----

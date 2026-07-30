@@ -27,9 +27,18 @@
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
+import { planningDayOfWeek } from "../plan/user-locale.ts";
 
-function isWeekend(dow: number | undefined): boolean {
-  return dow === 0 || dow === 6;
+function weekendDaysForCountry(homeCountry?: string | null): number[] {
+  return planningDayOfWeek(homeCountry) === 6 ? [5, 6] : [0, 6];
+}
+
+function isWeekend(dow: number | undefined, homeCountry?: string | null): boolean {
+  return typeof dow === "number" && weekendDaysForCountry(homeCountry).includes(dow);
+}
+
+function planningDay(homeCountry?: string | null): number {
+  return planningDayOfWeek(homeCountry);
 }
 
 function travelActive(ctx: RuleContext): boolean {
@@ -57,7 +66,7 @@ function ptoActive(ctx: RuleContext): boolean {
 
 /** Saturday/Sunday morning, no work meetings — protect rest, single light cue only. */
 export function weekendMorningLightTouch(ctx: RuleContext): BehaviourFlag | null {
-  if (!isWeekend(ctx.dayOfWeek)) return null;
+  if (!isWeekend(ctx.dayOfWeek, ctx.homeCountry)) return null;
   if (travelActive(ctx)) return null;
   if (ptoActive(ctx)) return null;
   if (ctx.localHour < 7 || ctx.localHour >= 11) return null;
@@ -76,7 +85,7 @@ export function weekendMorningLightTouch(ctx: RuleContext): BehaviourFlag | null
 
 /** Sat/Sun with a work meeting in next 90 min — pre-meeting prep wins. */
 export function weekendWithMeeting(ctx: RuleContext): BehaviourFlag | null {
-  if (!isWeekend(ctx.dayOfWeek)) return null;
+  if (!isWeekend(ctx.dayOfWeek, ctx.homeCountry)) return null;
   if (travelActive(ctx)) return null;
   // Full-working-weekend takes precedence (handled below in evaluator order).
   if ((ctx.signals.weekendMeetingCountToday ?? 0) >= 3) return null;
@@ -106,7 +115,7 @@ export function weekendWithMeeting(ctx: RuleContext): BehaviourFlag | null {
 
 /** ≥3 meetings OR ≥4h back-to-back on Sat/Sun → treat as a weekday. */
 export function fullWorkingWeekend(ctx: RuleContext): BehaviourFlag | null {
-  if (!isWeekend(ctx.dayOfWeek)) return null;
+  if (!isWeekend(ctx.dayOfWeek, ctx.homeCountry)) return null;
   if (travelActive(ctx)) return null;
   const meetings = ctx.signals.weekendMeetingCountToday ?? 0;
   const back = ctx.backToBackHoursToday ?? 0;
@@ -152,7 +161,7 @@ export function weekendDeepWorkBlock(ctx: RuleContext): BehaviourFlag | null {
 
 /** Sunday 14:00+ — broader week-ahead anchor (sundayReset still owns 18-21 sub-window). */
 export function sundayEveningWeekAhead(ctx: RuleContext): BehaviourFlag | null {
-  if (ctx.dayOfWeek !== 0) return null;
+  if (ctx.dayOfWeek !== planningDay(ctx.homeCountry)) return null;
   if (travelActive(ctx)) return null;
   if (ctx.localHour < 14) return null;
   // Let the narrower sundayReset (18-21) own that exact window.
@@ -162,7 +171,7 @@ export function sundayEveningWeekAhead(ctx: RuleContext): BehaviourFlag | null {
   return {
     rule: "sundayEveningWeekAhead",
     severity: next24h ? "medium" : "low",
-    evidence: ["Sunday afternoon/evening"],
+    evidence: ["weekly planning afternoon/evening"],
     anchorEvent: next24h?.title,
     stake: "Operational Drive",
     copyHint:

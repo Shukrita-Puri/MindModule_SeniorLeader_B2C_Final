@@ -75,7 +75,6 @@ import { resolveUserLocaleContext, type UserLocaleContext } from "../_shared/pla
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
   type RankedJitCandidate,
-  rankJitCandidates,
 } from "../_shared/events/jit-candidates.ts";
 import {
   allocatePlanSlots,
@@ -727,11 +726,55 @@ async function runJitV2Shadow(
       : [],
   };
 
+  let tacticalSignalsCtx: {
+    skipCountsByBucket: Record<string, number>;
+    followThroughByBucket: Record<string, number>;
+  } = {
+    skipCountsByBucket: {},
+    followThroughByBucket: {},
+  };
+  try {
+    const shadowRows = sourceEvents.map((fe: any) => {
+      const ev = fe?.event ?? fe;
+      return {
+        id: String(ev?.id ?? ""),
+        title: String(ev?.title ?? ""),
+        start_time: String(ev?.start_time ?? ev?.startTime ?? ev?.start ?? ""),
+        end_time: ev?.end_time ?? ev?.endTime ?? ev?.end ?? null,
+        created_at: ev?.created_at ?? ev?.createdAt ?? null,
+        attendees_count: typeof ev?.attendees_count === "number"
+          ? ev.attendees_count
+          : (typeof ev?.attendeesCount === "number" ? ev.attendeesCount : null),
+        is_organizer: ev?.is_organizer ?? ev?.isOrganizer ?? null,
+        event_metadata: ev?.event_metadata ?? null,
+      };
+    }).filter((row: { id: string; title: string; start_time: string }) =>
+      row.id.length > 0 && row.title.length > 0 && row.start_time.length > 0
+    );
+    if (shadowRows.length > 0) {
+      const { ctx } = await loadJitContextForEvents(
+        supabase,
+        userId,
+        shadowRows,
+        { accountAgeDays, goals, nowMs: Date.now() },
+      );
+      tacticalSignalsCtx = {
+        skipCountsByBucket: ctx.skipCountsByBucket,
+        followThroughByBucket: ctx.followThroughByBucket,
+      };
+    }
+  } catch (e) {
+    console.warn(
+      "[generate-mastery-plan][jit-v2-shadow] tactical-signals load failed:",
+      e instanceof Error ? e.message : String(e),
+    );
+  }
+
   const result = selectJitCandidates(input, {
     accountAgeDays,
     signalSummary,
-    skipCountsByBucket: {}, // PR 1: empty; PR 2 wires jit_preferences
-    followThroughByBucket: {},
+    skipCountsByBucket: tacticalSignalsCtx.skipCountsByBucket,
+    followThroughByBucket: tacticalSignalsCtx.followThroughByBucket,
     goals,
     nowMs: Date.now(),
   });
@@ -3439,105 +3482,6 @@ function buildSharedContextDescription(
   };
 }
 
-/**
- * @deprecated F3 (2026-07-29): Legacy scoring function — NO LONGER USED.
- * 
- * This function used the old rankJitCandidates() engine with stakesLevel
- * strings. It has been superseded by:
- *   - buildPreferredJitV2Selection() → uses selectJitCandidates()
- *   - scoreCalendarEventsFromSelectedCandidates() → converts v2 output
- * 
- * Retained in-source for historical reference only. All live plan generation
- * uses the v2 scoring engine exclusively.
- */
-function scoreCalendarEventsShared(
-  events: CalendarEvent[],
-  hrvCorrelations?: HRVCorrelationMap | null,
-  memoryIndex?: PriorityMemoryIndex | null,
-): ScoredEvent[] {
-  const nowMs = Date.now();
-  const eligibleEvents = events
-    .filter((event) => !!event?.title)
-    .filter((event) => !isNoiseEvent(event.title || ""))
-    .filter((event) =>
-      !(isEducationalTitle(event.title || "") && !event.isOrganizer)
-    );
-
-  const ranked = rankJitCandidates(
-    eligibleEvents.map((event) => {
-      let memoryDelta = 0;
-      let memoryHardDemote = false;
-      if (memoryIndex) {
-        const mem = applyEventPriorityMemory(memoryIndex, {
-          eventCategory: coarseEventType(event.title || ""),
-          eventTypeKey: normalizeEventTypeKey(event.title || ""),
-        });
-        memoryDelta = mem.delta;
-        memoryHardDemote = mem.hardDemote;
-      }
-      return {
-        event: {
-          id: event.id,
-          title: event.title,
-          start_time: event.startTime,
-          end_time: event.endTime ?? null,
-        },
-        stakesLevel: null,
-        memoryDelta,
-        memoryHardDemote,
-      };
-    }),
-    nowMs,
-  );
-
-  const bestCandidateByEvent = new Map<string, RankedJitCandidate>();
-  for (const candidate of ranked) {
-    if (!candidate.eventId) continue;
-    const current = bestCandidateByEvent.get(candidate.eventId);
-    if (!current || candidate.score > current.score) {
-      bestCandidateByEvent.set(candidate.eventId, candidate);
-    }
-  }
-
-  const scored: ScoredEvent[] = [];
-  for (const event of eligibleEvents) {
-    const startMs = new Date(event.startTime).getTime();
-    if (!Number.isFinite(startMs)) continue;
-    const minutesUntil = Math.floor((startMs - nowMs) / (1000 * 60));
-    if (minutesUntil < 0) continue;
-    const actionWindow = getActionWindow(minutesUntil);
-    if (actionWindow === "selection_only") continue;
-
-    const candidate = bestCandidateByEvent.get(event.id);
-    if (!candidate) continue;
-    const sid = scenarioIdFor(event.title);
-    const scenario = sid
-      ? EXECUTIVE_SCENARIOS.find((s) => s.id === sid) || null
-      : null;
-    const { contextDescription, hrvCorrelation } =
-      buildSharedContextDescription(
-        event,
-        candidate,
-        minutesUntil,
-        hrvCorrelations ?? null,
-      );
-
-    scored.push({
-      event,
-      score: candidate.score,
-      minutesUntil,
-      scenario,
-      timePill: formatTimePill(minutesUntil),
-      contextDescription,
-      hrvCorrelation,
-      jitUrgencyHorizon: actionWindow === "touch1" ? "tactical" : "immediate",
-    });
-  }
-
-  scored.sort((a, b) => b.score - a.score || a.minutesUntil - b.minutesUntil);
-  return scored;
-}
-
 async function buildPreferredJitV2Selection(
   userId: string,
   calendarEvents: CalendarEvent[],
@@ -3666,7 +3610,7 @@ function scoreCalendarEventsFromSelectedCandidates(
   return scored;
 }
 
-function buildPreferredRankedCandidates(
+function adaptV2Ranked(
   events: CalendarEvent[],
   selected: SelectResult,
   nowMs = Date.now(),
@@ -3736,6 +3680,8 @@ function buildPreferredRankedCandidates(
         eligible: phase === temporalPhase,
         minutesUntilWindow: Math.round((startMs - nowMs) / 60_000),
         score: importance,
+        priorityCount: rankedEvent.components.priorityCount,
+        hasPriorDayPriority: rankedEvent.components.hasPriorDayPriority,
         components: {
           base: rankedEvent.importance,
           category: 0,
@@ -3743,7 +3689,7 @@ function buildPreferredRankedCandidates(
           demand: 0,
           proximity: -temporalPenalty,
           skipPenalty: 0,
-          memory: 0,
+          memory: rankedEvent.components.memoryDelta,
         },
       });
     }
@@ -4753,7 +4699,7 @@ async function buildSharedContext(
     const { data: events } = await supabaseClient
       .from("primary_calendar_events")
       .select(
-        "id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata",
+        "id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata, event_category, event_subcategory, flight_duration_minutes",
       )
       .eq("user_id", req.userId)
       .gte("start_time", now.toISOString())
@@ -4789,6 +4735,9 @@ async function buildSharedContext(
       attendeesCount: e.attendees_count,
       isRecurring: e.is_recurring,
       eventMetadata: e.event_metadata || null,
+      eventCategory: e.event_category || null,
+      eventSubcategory: e.event_subcategory || null,
+      flightDurationMinutes: e.flight_duration_minutes || null,
     }));
     console.log(
       `[buildSharedContext] calendar_events: ${ctx.rawCalendarEvents.length} events in next 48h`,
@@ -5773,7 +5722,7 @@ async function generateMasteryPlan(
   //
   // Architecture:
   //   buildPreferredJitV2Selection() → selectJitCandidates() → SelectResult
-  //   → buildPreferredRankedCandidates() → RankedJitCandidate[]
+  //   → adaptV2Ranked() → RankedJitCandidate[]
   //   → allocatePlanSlots() → 3 daily slots
   // ════════════════════════════════════════════════════════════════════════
   const JIT_V2_LIVE = true; // F3: v2 engine is now production default
@@ -6076,7 +6025,7 @@ async function generateMasteryPlan(
       });
     }
     if (preferredSelectResult) {
-      jitRankedCandidates = buildPreferredRankedCandidates(
+      jitRankedCandidates = adaptV2Ranked(
         preFilteredEvents.map((entry) => entry.event),
         preferredSelectResult,
         nowMsForJit,
@@ -6102,7 +6051,7 @@ async function generateMasteryPlan(
     );
   } catch (rankErr: any) {
     console.warn(
-      "[generate-mastery-plan] rankJitCandidates failed:",
+      "[generate-mastery-plan] selectJitCandidates failed:",
       rankErr?.message,
     );
   }
@@ -6169,14 +6118,22 @@ async function generateMasteryPlan(
 
   let planAvailabilityMeta: any = null;
   try {
+    const userLocale = req.userLocale ?? resolveUserLocaleContext({
+      localDate: null,
+      utcNowMs: Date.now(),
+      homeCountry: (req as any).userHomeCountry ?? null,
+      timezone: (req as any).timezone || "UTC",
+      timezoneOffsetMinutes: Number((req as any).timezoneOffset ?? 0) || 0,
+      currentCountry: (req as any).userCurrentCountry ?? null,
+    });
     const _events = Array.isArray(req.calendarEvents) ? req.calendarEvents : [];
     const _avail = classifyAvailability({
       now: new Date(),
-      userHomeCountry: (req as any).userHomeCountry ?? null,
-      userCurrentCountry: (req as any).userCurrentCountry ?? null,
+      userHomeCountry: userLocale.homeCountry,
+      userCurrentCountry: userLocale.currentCountry,
       explicitPto: (req as any).explicitPto === true,
       calendarLoad: ((req as any).calendarLoad as any) ?? null,
-      weekendDays: (req as any).userLocale?.weekendDays ?? [6],
+      weekendDays: userLocale.weekendDays,
       events: _events.map((e: any) => ({
         title: String(e?.title || ""),
         startTime: String(e?.startTime || e?.start_time || ""),
@@ -6212,8 +6169,7 @@ async function generateMasteryPlan(
     forceArcCategoryIds: Array.from(forceArcCategoryIds),
     ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad, {
       now: new Date(Date.now() - ((req as any).timezoneOffset ?? 0) * 60000),
-      userHomeCountry: (req as any).userHomeCountry ?? null,
-      userCurrentCountry: (req as any).userCurrentCountry ?? null,
+      userLocale: req.userLocale,
       explicitPto: (req as any).explicitPto === true,
       weekAheadOverride: (req as any).weekAheadOverride === true,
     }),
@@ -6224,7 +6180,10 @@ async function generateMasteryPlan(
 
   let horizonModules: any[] = [];
   if (!planIsRestDay) {
-    const seenContentIds = new Set<string>();
+    const globalConsumedPracticeIds = new Set<string>();
+    const usedSlotTitles = new Set<string>();
+    const usedStateLabels = new Set<string>();
+
     for (const slot of allocation.slots) {
       const ceoVerb = slot.jitCategoryId && slot.jitPhase ? verbForCategoryPhase(slot.jitCategoryId, slot.jitPhase) : null;
       const stateAction = executiveObjectiveFor(req.practicePriorityTag, slot.jitCategoryId, slot.jitPhase ?? "pre");
@@ -6241,7 +6200,7 @@ async function generateMasteryPlan(
         enrichedContent,
         slot,
         intent,
-        seenContentIds,
+        globalConsumedPracticeIds,
         {
           recentPracticeDays: (req as any).recentPracticeDays || {},
           mrsScore: req.innerReadinessScore,
@@ -6253,10 +6212,10 @@ async function generateMasteryPlan(
 
       const practice = selected[0];
       if (practice) {
-        seenContentIds.add(practice.id);
+        globalConsumedPracticeIds.add(practice.id);
       }
 
-      const timeLabel = buildPriorityTitle({
+      let timeLabel = buildPriorityTitle({
         slotAnchor: {
           eventTitle: slot.jitEventTitle,
           categoryId: slot.jitCategoryId,
@@ -6265,6 +6224,26 @@ async function generateMasteryPlan(
         isTomorrow: false,
         practicePriorityTag: req.practicePriorityTag,
       });
+
+      // Inter-slot title dedup
+      if (usedSlotTitles.has(timeLabel)) {
+        if (!slot.jitEventTitle) {
+          // State slot dedup
+          const fallbacks = [
+            "Maintain steady presence",
+            "Anchor your focus",
+            "Protect your energy",
+            "Reset and recalibrate"
+          ];
+          const available = fallbacks.filter(f => !usedStateLabels.has(f));
+          timeLabel = available.length > 0 ? available[0] : fallbacks[0];
+          usedStateLabels.add(timeLabel);
+        } else {
+          // JIT slot dedup (e.g. same event, same phase)
+          timeLabel = `${timeLabel} (Continued)`;
+        }
+      }
+      usedSlotTitles.add(timeLabel);
 
       const hm: any = {
         horizon: "immediate",
@@ -6363,8 +6342,7 @@ async function generateMasteryPlan(
         forceArcCategoryIds: Array.from(forceArcCategoryIds),
         ...deriveStructuralDayFlags(req.calendarEvents, (req as any).calendarLoad, {
           now: new Date(Date.now() - ((req as any).timezoneOffset ?? 0) * 60000),
-          userHomeCountry: (req as any).userHomeCountry ?? null,
-          userCurrentCountry: (req as any).userCurrentCountry ?? null,
+          userLocale: req.userLocale,
           explicitPto: (req as any).explicitPto === true,
           weekAheadOverride: (req as any).weekAheadOverride === true,
         }),
@@ -6477,6 +6455,7 @@ async function generateMasteryPlan(
       // can render a truthful rest-day state instead of the empty-shell
       // "check in to build your plan" prompt.
       dayShape: planDayShape,
+      mode: allocation.mode,
       restDay: planIsRestDay,
       availability: planAvailabilityMeta,
       practiceWindowPreference: {
@@ -8132,11 +8111,9 @@ export function deriveStructuralDayFlags(
   calendarLoad?: string,
   opts?: {
     now?: Date;
-    userHomeCountry?: string | null;
-    userCurrentCountry?: string | null;
+    userLocale?: UserLocaleContext;
     explicitPto?: boolean;
     weekAheadOverride?: boolean;
-    userLocale?: { weekendDays: number[] };
   },
 ): {
   hasTravelDay: boolean;
@@ -8151,31 +8128,27 @@ export function deriveStructuralDayFlags(
 } {
   const events = Array.isArray(calendarEvents) ? calendarEvents : [];
   const localNow = opts?.now ?? new Date();
-  const dayOfWeek = localNow.getUTCDay();
-  const titleOf = (e: any) => String(e?.title || "");
+  const dayOfWeek = opts?.userLocale?.dayOfWeek ?? localNow.getUTCDay();
   const hasTravelDay = events.some((e: any) => {
-    const et = classifyEvent(titleOf(e));
-    return et?.categoryId === "G";
+    return e?.eventCategory === "G";
   });
   const hasConferenceDay = events.some((e: any) => {
-    const et = classifyEvent(titleOf(e));
-    return et?.categoryId === "F" && et?.id !== "conf.offsite";
+    return e?.eventCategory === "F" && e?.eventSubcategory !== "conf.offsite";
   });
   const hasOffsiteDay = events.some((e: any) => {
-    const et = classifyEvent(titleOf(e));
-    return et?.id === "conf.offsite";
+    return e?.eventSubcategory === "conf.offsite";
   });
   // Canonical Rest Day (SSOT): rest is a function of weekend / explicit PTO /
   // applicable public holiday — never of empty calendars alone. Calendar
   // work evidence overrides all three. See _shared/availability/*.
   const availability = classifyAvailability({
     now: localNow,
-    userHomeCountry: opts?.userHomeCountry ?? null,
-    userCurrentCountry: opts?.userCurrentCountry ?? null,
+    userHomeCountry: opts?.userLocale?.homeCountry ?? null,
+    userCurrentCountry: opts?.userLocale?.currentCountry ?? null,
     explicitPto: opts?.explicitPto === true,
     calendarLoad: (calendarLoad as any) ?? null,
     // F1.2: Thread weekendDays from unified locale context
-    weekendDays: (opts as any)?.userLocale?.weekendDays ?? [6],
+    weekendDays: opts?.userLocale?.weekendDays ?? [0, 6],
     events: events.map((e: any) => ({
       title: String(e?.title || ""),
       startTime: String(e?.startTime || e?.start_time || ""),
@@ -8191,8 +8164,7 @@ export function deriveStructuralDayFlags(
   const isPtoOrHoliday = availability.isRestDay &&
     (availability.state === "PTO" || availability.state === "PUBLIC_HOLIDAY");
   const realMeetingCount = availability.workEvidence.meetingCount;
-  const weekendDays = opts?.userLocale?.weekendDays ?? [0, 6];
-  const isWeekendRestDay = weekendDays.includes(dayOfWeek);
+  const isWeekendRestDay = opts?.userLocale?.isWeekendRestDay ?? false;
   const isFullWorkingWeekend = isWeekendRestDay &&
     (calendarLoad === "high" || calendarLoad === "extreme" ||
       realMeetingCount >= 3);
@@ -8226,8 +8198,7 @@ export function deriveStructuralDayFlags(
     hasOffsiteDay,
     hasRestSignals,
     dayOfWeek,
-    // F1.3: Add country-aware isWeekendRestDay from availability classifier
-    isWeekendRestDay: availability.isRestDay,
+    isWeekendRestDay,
     isWeekAhead: weekAhead.active,
     isPtoOrHoliday: isPtoOrHoliday && !weekAhead.active,
     isFullWorkingWeekend,
@@ -8918,6 +8889,31 @@ if (import.meta.main) {
           // `priorities` projection from the same horizon source so a `ready`
           // row cannot claim priorities exist while `horizon_modules` is empty.
           const visiblePriorities = horizonMods;
+          const snapshotPriorities = visiblePriorities.map((m: any, idx: number) => {
+            const eventCategory = m?.eventCategory ?? m?.event_category ??
+              m?.anchorCategoryId ?? null;
+            const eventSubcategory = m?.eventSubcategory ??
+              m?.event_subcategory ??
+              m?.anchorSubtypeId ?? null;
+            const priorityRank = Number.isFinite(Number(m?.priorityRank))
+              ? Number(m.priorityRank)
+              : (Number.isFinite(Number(m?.priority_rank))
+                ? Number(m.priority_rank)
+                : idx + 1);
+            return {
+              ...m,
+              eventCategory,
+              eventSubcategory,
+              event_category: eventCategory,
+              event_subcategory: eventSubcategory,
+              event_title_display: typeof m?.event_title_display === "string" &&
+                  m.event_title_display.trim().length > 0
+                ? m.event_title_display
+                : (m?.jitEventTitle ?? m?.anchorEventTitle ?? m?.timeLabel ?? ""),
+              priorityRank,
+              priority_rank: priorityRank,
+            };
+          });
           const timeOfDayModules =
             Array.isArray(planObj?.timeOfDayPlan?.modules)
               ? planObj.timeOfDayPlan.modules
@@ -8951,7 +8947,7 @@ if (import.meta.main) {
             hasPayload,
             planIsAwaiting,
             snapshotStatus,
-            prioritiesCount: visiblePriorities.length,
+            prioritiesCount: snapshotPriorities.length,
             horizonModulesCount: horizonMods.length,
             timeOfDayModulesCount: timeOfDayModules.length,
           });
@@ -9084,7 +9080,7 @@ if (import.meta.main) {
             planDate,
             window: currentPeriod,
             horizonModulesCount: horizonMods.length,
-            prioritiesCount: visiblePriorities.length,
+            prioritiesCount: snapshotPriorities.length,
             timeOfDayModulesCount: timeOfDayModules.length,
             recommendedPracticeIds: practiceIds,
             hasPlanLedger: !!planLedger,
@@ -9101,7 +9097,7 @@ if (import.meta.main) {
               horizon_iso: horizonIsoValue,
               plan_json: planObj,
               horizon_modules: horizonMods,
-              priorities: visiblePriorities,
+              priorities: snapshotPriorities,
               recommended_practice_ids: practiceIds,
               plan_ledger: planLedger,
               // brief_snapshot_id intentionally null — generate-mastery-plan
@@ -9301,6 +9297,10 @@ if (import.meta.main) {
               ? body.homeTimezone
               : "UTC",
           timezoneOffsetMinutes: clientTimezoneOffset,
+          currentCountry:
+            typeof body.userCurrentCountry === "string"
+              ? body.userCurrentCountry
+              : null,
         }),
         travelState: body.travelState ?? null,
         selectedCalendarEventIds,

@@ -88,14 +88,14 @@ Deno.test('pattern-engine: streak breaks at first non-high', () => {
 });
 
 Deno.test('pattern-engine: DOW mode picks most-frequent load', () => {
-  const todayDow = new Date().getUTCDay();
   const out = buildPatternSignals(
     raw({
+      hrvRecent: [{ date: '2026-05-30', hrv: 55 }],
       dowHistory: [
-        { dow: todayDow, hrv: 50, load: 'high' },
-        { dow: todayDow, hrv: 60, load: 'high' },
-        { dow: todayDow, hrv: 70, load: 'medium' },
-        { dow: (todayDow + 1) % 7, hrv: 30, load: 'low' }, // ignored
+        { date: '2026-05-30', dow: 6, hrv: 50, load: 'high' },
+        { date: '2026-05-23', dow: 6, hrv: 60, load: 'high' },
+        { date: '2026-05-16', dow: 6, hrv: 70, load: 'medium' },
+        { date: '2026-05-29', dow: 5, hrv: 30, load: 'low' }, // ignored
       ],
     }),
   );

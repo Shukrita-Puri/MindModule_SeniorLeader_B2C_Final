@@ -114,13 +114,14 @@ export function enrichEvent(raw: any): EnrichedEvent {
   const subcategory = subcategoryFromSubtypeId(subtype?.id ?? null);
   const phases: EnrichedEvent["phases"] = {};
   if (categoryId) {
-    if (EVENT_PHASE_MAP[categoryId].pre) {
+    const timingMatrix = subtype?.timingMatrix;
+    if (EVENT_PHASE_MAP[categoryId].pre && (!timingMatrix || timingMatrix.pre)) {
       phases.pre = phaseForEvent(title, "pre");
     }
-    if (EVENT_PHASE_MAP[categoryId].during) {
+    if (EVENT_PHASE_MAP[categoryId].during && (!timingMatrix || timingMatrix.during)) {
       phases.during = phaseForEvent(title, "during");
     }
-    if (EVENT_PHASE_MAP[categoryId].post) {
+    if (EVENT_PHASE_MAP[categoryId].post && (!timingMatrix || timingMatrix.post)) {
       phases.post = phaseForEvent(title, "post");
     }
   }

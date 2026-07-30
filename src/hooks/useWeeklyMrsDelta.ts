@@ -70,13 +70,13 @@ export function useWeeklyMrsDelta() {
       const today = new Date();
       const thisMon = mondayOf(today);
       const lastMon = addDays(thisMon, -7);
-      const lastSun = addDays(thisMon, -1);
+      const lastToday = addDays(today, -7);
 
       const body = {
         action: 'GET_WEEKLY_DELTA' as const,
         thisMonday: isoLocal(thisMon),
         lastMonday: isoLocal(lastMon),
-        lastSunday: isoLocal(lastSun),
+        lastToday: isoLocal(lastToday),
         today: isoLocal(today),
       };
 
