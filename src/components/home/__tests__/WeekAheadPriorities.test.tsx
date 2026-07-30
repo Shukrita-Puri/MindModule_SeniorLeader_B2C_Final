@@ -20,7 +20,18 @@ import WeekAheadPriorities from "../WeekAheadPriorities";
 describe("WeekAheadPriorities", () => {
   beforeEach(() => {
     invokeMock.mockReset();
-    try { window.localStorage.clear(); } catch { /* noop */ }
+    if (typeof window !== 'undefined') {
+      if (!window.localStorage || typeof window.localStorage.setItem !== 'function') {
+        const store: Record<string, string> = {};
+        (window as any).localStorage = {
+          getItem: (k: string) => store[k] ?? null,
+          setItem: (k: string, v: string) => { store[k] = String(v); },
+          removeItem: (k: string) => { delete store[k]; },
+          clear: () => { for (const k in store) delete store[k]; },
+        };
+      }
+      window.localStorage.clear();
+    }
   });
 
   it("renders a valid populated response", async () => {

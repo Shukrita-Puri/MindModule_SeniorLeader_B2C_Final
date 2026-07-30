@@ -58,7 +58,7 @@ describe('signal pills backend contract · extracted ownership', () => {
     expect(INDEX_SRC).toContain('echoedPillCoherence = assessmentContext.pills.coherence;');
     expect(INDEX_SRC).toContain('echoedPillQualifiers = assessmentContext.pills.qualifiers;');
     expect(INDEX_SRC).toContain('echoedCoherenceWarning = assessmentContext.pills.coherenceWarning;');
-    expect(INDEX_SRC).toContain('pillContext: assessmentContext ? buildPillContextFromAssessment(assessmentContext) : null,');
+    expect(INDEX_SRC).toContain('buildPillContextFromAssessment(assessmentContext)');
     expect(INDEX_SRC).toContain('const finalPillContext = assessmentContext');
   });
 

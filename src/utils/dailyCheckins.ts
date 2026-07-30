@@ -423,8 +423,8 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
 
     if (error) throw error;
     const result = data?.data || null;
-    if (result) {
-      localStorage.setItem('hasEverCheckedIn', 'true');
+    if (result && typeof window !== 'undefined') {
+      window.localStorage?.setItem('hasEverCheckedIn', 'true');
     }
     return result;
   } catch (error) {

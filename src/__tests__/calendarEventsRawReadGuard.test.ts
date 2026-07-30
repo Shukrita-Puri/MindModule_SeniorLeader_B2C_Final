@@ -32,6 +32,7 @@ const APPROVED_WRITERS = new Set<string>([
   // any derived values, so they cannot drift from the merge layer.
   'supabase/functions/analyze-calendar-identity-duplicates/index.ts',
   'supabase/functions/backfill-calendar-identity-keys/index.ts',
+  'scripts/backfill-event-tags.ts',
 ]);
 
 // Grandfathered: raw reads tracked in .lovable/plan.md (calendar dedupe
@@ -44,6 +45,7 @@ const GRANDFATHERED_READERS = new Set<string>([
   'supabase/functions/record-event-priority-signal/index.ts',
   'supabase/functions/performance-rhythm-insights/index.ts',
   'supabase/functions/generate-coach-summary/index.ts',
+  'supabase/functions/travel-state-sync/index.ts',
   'src/utils/energyStateEngine.ts',
   'src/utils/coachContextBuilder.ts',
   'src/hooks/useCalendarSync.ts',

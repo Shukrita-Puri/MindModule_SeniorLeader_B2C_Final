@@ -21,7 +21,9 @@ import { saveCheckin } from '@/utils/dailyCheckins';
 
 beforeEach(() => {
   mockInvoke.mockReset();
-  localStorage.clear();
+  if (typeof window !== 'undefined') {
+    window.localStorage?.clear();
+  }
 });
 
 describe('W4 — saveCheckin atomic persistence', () => {

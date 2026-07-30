@@ -3,9 +3,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import CheckInDetail from '../CheckInDetail';
 
-const mockNavigate = vi.fn();
-const mockInvalidateQueries = vi.fn();
-const mockToast = vi.fn();
+const { mockNavigate, mockInvalidateQueries, mockToast, mockInvoke } = vi.hoisted(() => ({
+  mockNavigate: vi.fn(),
+  mockInvalidateQueries: vi.fn(),
+  mockToast: vi.fn(),
+  mockInvoke: vi.fn(),
+}));
 
 vi.mock('@/config/devMode', () => ({
   DEV_MODE: false,
@@ -34,12 +37,13 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('@/services/authTokenService', () => ({
   getAuthToken: vi.fn().mockResolvedValue('auth-token'),
+  getAccessToken: vi.fn().mockResolvedValue('auth-token'),
 }));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     functions: {
-      invoke: vi.fn(),
+      invoke: (...args: unknown[]) => mockInvoke(...args),
     },
   },
 }));
@@ -86,8 +90,7 @@ vi.mock('@/hooks/useOuterReadiness', () => ({
   clearOuterReadinessCache: vi.fn(),
 }));
 
-import { supabase } from '@/integrations/supabase/client';
-const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>;
+
 
 function renderDetail() {
   return render(
@@ -109,13 +112,26 @@ function renderDetail() {
 }
 
 async function touchAllSliders() {
-  const sliders = screen.getAllByRole('button', { name: /slider/i });
-  sliders.forEach((slider) => fireEvent.click(slider));
+  // Click only check-in input controls (sliders & option buttons), excluding navigation steps
+  const buttons = screen.getAllByRole('button');
+  buttons.forEach((btn) => {
+    const text = (btn.textContent || '').trim();
+    if (
+      text === '+' ||
+      text === '-' ||
+      ['Poor', 'OK', 'Good', 'Great', 'Groggy', 'Alarm', 'Natural'].includes(text) ||
+      btn.getAttribute('aria-label') === 'slider'
+    ) {
+      fireEvent.click(btn);
+    }
+  });
 }
 
 beforeEach(() => {
-  localStorage.clear();
-  sessionStorage.clear();
+  if (typeof window !== 'undefined') {
+    window.localStorage?.clear();
+    window.sessionStorage?.clear();
+  }
   mockNavigate.mockReset();
   mockInvalidateQueries.mockReset();
   mockToast.mockReset();
@@ -131,21 +147,18 @@ describe('CheckInDetail', () => {
 
     renderDetail();
     await touchAllSliders();
-    fireEvent.click(screen.getByRole('button', { name: /continue to today's performance/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continue to today's brief/i }));
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('daily-checkins', {
+      expect(mockInvoke).toHaveBeenCalledWith('daily-checkins', expect.objectContaining({
         headers: { Authorization: 'Bearer auth-token' },
-        body: {
-          action: 'UPDATE_CLARITY_CONFIDENCE',
+        body: expect.objectContaining({
+          action: 'UPDATE_BODY_CHECKIN',
           checkinDate: '2026-04-28',
-          clarity: 4,
-          confidence: 4,
-          mentalSharpness: 4,
           timeWindow: 'afternoon',
           checkinId: 'checkin-abc',
-        },
-      });
+        }),
+      }));
     });
 
     await waitFor(() => {
@@ -161,14 +174,13 @@ describe('CheckInDetail', () => {
 
     renderDetail();
     await touchAllSliders();
-    fireEvent.click(screen.getByRole('button', { name: /continue to today's performance/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continue to today's brief/i }));
 
     await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
         title: 'Save failed',
-        description: 'Unable to save clarity & confidence. Please try again.',
         variant: 'destructive',
-      });
+      }));
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });

@@ -375,6 +375,10 @@ const router = createBrowserRouter([
         element: <Suspense fallback={<RouteSkeleton />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><PlanPage /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
+        path: "week-ahead",
+        element: <Navigate to="/plan" replace />,
+      },
+      {
         path: "insights",
         element: <Suspense fallback={<RouteSkeleton />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },

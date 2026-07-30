@@ -5050,6 +5050,14 @@ serve(async (req) => {
     outcome: NotificationTraceOutcome,
     details: TraceDetails = {},
   ) => {
+    // H-2 Telemetry Throttling: Always record shipped notifications, errors, and APNs failures.
+    // Sample routine no-op/suppressed traces at 10% to prevent database trace explosion.
+    const isCriticalTrace = outcome === "shipped" || outcome === "error" ||
+      details.apnsStatus != null || details.apnsReason != null;
+    if (!isCriticalTrace && Math.random() > 0.1) {
+      return;
+    }
+
     const leaderPrefs = leaderPrefsByUser.get(userId);
     const mergedMetadata: Record<string, unknown> = {
       ...(leaderPrefs ? { leaderPreferences: leaderPrefs } : {}),
