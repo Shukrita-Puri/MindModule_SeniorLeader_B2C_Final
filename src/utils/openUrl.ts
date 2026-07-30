@@ -13,8 +13,8 @@ export async function openUrl(url: string): Promise<void> {
     };
 
     try {
-      pageListener = await Browser.addListener('browserPageLoaded', async (event) => {
-        const loadedUrl = event.url || '';
+      pageListener = await Browser.addListener('browserPageLoaded', (async (event: any) => {
+        const loadedUrl = (event?.url as string) || '';
         if (
           loadedUrl.includes('calendar_connected=') ||
           loadedUrl.includes('oura_connected=') ||
@@ -30,7 +30,7 @@ export async function openUrl(url: string): Promise<void> {
           } catch {}
           window.dispatchEvent(new CustomEvent('mm:connections-changed'));
         }
-      });
+      }) as unknown as () => void);
 
       finishedListener = await Browser.addListener('browserFinished', async () => {
         await cleanup();
