@@ -9,6 +9,7 @@ import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   callClaudeText,
+  callAIText,
   callLovableAIText,
   CLAUDE_MODELS,
 } from "../_shared/anthropic.ts";
@@ -8288,12 +8289,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   signal: controller.signal,
                 });
               } else {
-                content = await callClaudeText({
+                content = await callAIText({
                   system: systemPromptWithLeader,
                   messages: [{ role: "user", content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
                   cacheSystemPrompt: true,
+                  response_format: { type: "json_object" },
                   signal: controller.signal,
                 });
               }
@@ -8348,7 +8350,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                           signal: retryController.signal,
                         });
                       } else {
-                        retryContent = await callClaudeText({
+                        retryContent = await callAIText({
                           system: systemPromptWithLeader,
                           messages: [{
                             role: "user",
@@ -8357,6 +8359,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                           model,
                           max_tokens: 380,
                           cacheSystemPrompt: true,
+                          response_format: { type: "json_object" },
                           signal: retryController.signal,
                         });
                       }
