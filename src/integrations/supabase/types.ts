@@ -4034,13 +4034,17 @@ export type Database = {
           calendar_selections: string[]
           completed_at: string | null
           cos_profile: Json | null
+          cos_profile_email_scheduled_at: string | null
+          cos_profile_email_sent_at: string | null
           cos_profile_error: string | null
           cos_profile_generated_at: string | null
           cos_profile_html: string | null
+          cos_profile_source: string | null
           cos_profile_status: string
           created_at: string
           freetext_context: string | null
           goals: string[]
+          home_country: string | null
           linkedin_scrape: Json | null
           linkedin_url: string | null
           load_chips: string[]
@@ -4061,13 +4065,17 @@ export type Database = {
           calendar_selections?: string[]
           completed_at?: string | null
           cos_profile?: Json | null
+          cos_profile_email_scheduled_at?: string | null
+          cos_profile_email_sent_at?: string | null
           cos_profile_error?: string | null
           cos_profile_generated_at?: string | null
           cos_profile_html?: string | null
+          cos_profile_source?: string | null
           cos_profile_status?: string
           created_at?: string
           freetext_context?: string | null
           goals?: string[]
+          home_country?: string | null
           linkedin_scrape?: Json | null
           linkedin_url?: string | null
           load_chips?: string[]
@@ -4088,13 +4096,17 @@ export type Database = {
           calendar_selections?: string[]
           completed_at?: string | null
           cos_profile?: Json | null
+          cos_profile_email_scheduled_at?: string | null
+          cos_profile_email_sent_at?: string | null
           cos_profile_error?: string | null
           cos_profile_generated_at?: string | null
           cos_profile_html?: string | null
+          cos_profile_source?: string | null
           cos_profile_status?: string
           created_at?: string
           freetext_context?: string | null
           goals?: string[]
+          home_country?: string | null
           linkedin_scrape?: Json | null
           linkedin_url?: string | null
           load_chips?: string[]
