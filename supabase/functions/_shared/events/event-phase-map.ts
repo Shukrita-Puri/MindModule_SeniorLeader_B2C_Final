@@ -63,6 +63,37 @@ export const EVENT_PHASE_MAP: Record<EventCategoryId, CategoryPhaseMap> = {
   },
 };
 
+/** Subcategories that should NOT generate arc slots */
+const NO_ARC_SUBCATEGORIES = new Set([
+  'E.routine_sync', 'E.learning', 'E.community', 'E.compliance',
+]);
+
+/** Subcategory-level phase overrides (null entries suppress arcs entirely) */
+const SUBCATEGORY_PHASE_OVERRIDE: Record<string, CategoryPhaseMap> = {
+  'E.deep_work':    { pre: EVENT_PHASE_MAP.E.pre!, post: EVENT_PHASE_MAP.E.post! },
+  'E.review':       { pre: EVENT_PHASE_MAP.E.pre!, post: EVENT_PHASE_MAP.E.post! },
+  'E.routine_sync': {},
+  'E.learning':     {},
+  'E.community':    {},
+  'E.compliance':   {},
+};
+
+/**
+ * Resolve phase map for a given category + optional subcategory.
+ * Subcategory-level overrides take precedence over category-level.
+ */
+export function getPhasesForEvent(
+  categoryId: EventCategoryId,
+  subcategory?: string | null,
+): CategoryPhaseMap {
+  const subKey = subcategory ? \`\${categoryId}.\${subcategory}\` : null;
+  if (subKey && NO_ARC_SUBCATEGORIES.has(subKey)) return {};
+  if (subKey && SUBCATEGORY_PHASE_OVERRIDE[subKey] !== undefined) {
+    return SUBCATEGORY_PHASE_OVERRIDE[subKey];
+  }
+  return EVENT_PHASE_MAP[categoryId];
+}
+
 /**
  * Max number of priority slots a single event of a given category may
  * occupy in one plan. Anchors the variable-slot dedup rule: C/E/B/H
@@ -101,7 +132,7 @@ export function protocolsForEvent(
 ): ProtocolCombo | null {
   const id = categoryFor(title, stakesLevel);
   if (!id) return null;
-  const ph = EVENT_PHASE_MAP[id][phase];
+  const ph = getPhasesForEvent(id)[phase];
   if (!ph) return null;
   return PROTOCOL_COMBOS[ph.combo];
 }
@@ -113,7 +144,7 @@ export function phaseForEvent(
 ): (EventPhase & { resolvedCombo: ProtocolCombo }) | null {
   const id = categoryFor(title, stakesLevel);
   if (!id) return null;
-  const ph = EVENT_PHASE_MAP[id][phase];
+  const ph = getPhasesForEvent(id)[phase];
   if (!ph) return null;
   return { ...ph, resolvedCombo: PROTOCOL_COMBOS[ph.combo] };
 }

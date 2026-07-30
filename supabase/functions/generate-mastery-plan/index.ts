@@ -729,9 +729,11 @@ async function runJitV2Shadow(
   let tacticalSignalsCtx: {
     skipCountsByBucket: Record<string, number>;
     followThroughByBucket: Record<string, number>;
+    memoryDeltaByEventId: Record<string, number>;
   } = {
     skipCountsByBucket: {},
     followThroughByBucket: {},
+    memoryDeltaByEventId: {},
   };
   try {
     const shadowRows = sourceEvents.map((fe: any) => {
@@ -761,6 +763,7 @@ async function runJitV2Shadow(
       tacticalSignalsCtx = {
         skipCountsByBucket: ctx.skipCountsByBucket,
         followThroughByBucket: ctx.followThroughByBucket,
+        memoryDeltaByEventId: ctx.memoryDeltaByEventId,
       };
     }
   } catch (e) {
@@ -775,6 +778,7 @@ async function runJitV2Shadow(
     signalSummary,
     skipCountsByBucket: tacticalSignalsCtx.skipCountsByBucket,
     followThroughByBucket: tacticalSignalsCtx.followThroughByBucket,
+    memoryDeltaByEventId: tacticalSignalsCtx.memoryDeltaByEventId,
     goals,
     nowMs: Date.now(),
   });

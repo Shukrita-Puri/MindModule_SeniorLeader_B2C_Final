@@ -16,6 +16,7 @@ export type V8Fields = Partial<{
   calendar_selections: string[];
   wearable_selections: string[];
   home_country: string | null;
+  linkedin_pdf_base64: string | null;
 }>;
 
 export type EdgeValidationError = { field: string; message: string };

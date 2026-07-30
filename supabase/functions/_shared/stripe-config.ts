@@ -29,6 +29,13 @@ export function getStripeConfig(): StripeConfig {
   const secretKey = Deno.env.get(`${envPrefix}SECRET_KEY`) || Deno.env.get('STRIPE_SECRET_KEY') || '';
   const webhookSecret = Deno.env.get(`${envPrefix}WEBHOOK_SECRET`) || Deno.env.get('STRIPE_WEBHOOK_SECRET') || '';
 
+  if (!secretKey) {
+    console.error(`[stripe-config] ❌ FATAL: No Stripe secret key found. Expected ${envPrefix}SECRET_KEY or STRIPE_SECRET_KEY in Supabase secrets. Payments will fail.`);
+  }
+  if (!webhookSecret) {
+    console.warn(`[stripe-config] ⚠️ No webhook secret found. Expected ${envPrefix}WEBHOOK_SECRET or STRIPE_WEBHOOK_SECRET. Webhook signature verification will fail.`);
+  }
+
   const priceIds = {
     GBP: {
       monthly: Deno.env.get(`${envPrefix}PRICE_GBP_MONTHLY`) || Deno.env.get('STRIPE_PRICE_GBP_MONTHLY') || '',

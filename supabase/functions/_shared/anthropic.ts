@@ -460,3 +460,33 @@ export async function callLovableAIText(params: {
   const data = await response.json();
   return data.choices?.[0]?.message?.content || '';
 }
+
+/**
+ * AI text generation with automatic Gemini fallback.
+ * Tries Claude first; if Anthropic key is missing or credits exhausted (401/429),
+ * automatically falls back to Lovable AI Gateway (google/gemini-2.5-flash).
+ * Use this instead of callClaudeText for all non-critical paths.
+ */
+export async function callAIText(params: CallClaudeParams): Promise<string> {
+  try {
+    return await callClaudeText(params);
+  } catch (err: any) {
+    const status = err?.status ?? err?.statusCode;
+    const isKeyIssue = err?.message?.includes('ANTHROPIC_API_KEY') || 
+                       err?.message?.includes('not configured');
+    const isCreditsIssue = status === 401 || status === 429 || status === 402;
+    
+    if (isKeyIssue || isCreditsIssue) {
+      console.warn('[anthropic] ⚠️ Claude unavailable, falling back to Gemini:', 
+        isKeyIssue ? 'API key missing' : `HTTP ${status}`);
+      return await callLovableAIText({
+        system: params.system,
+        messages: params.messages.map(m => ({ role: m.role, content: m.content })),
+        max_tokens: params.max_tokens,
+        temperature: params.temperature,
+      });
+    }
+    throw err;
+  }
+}
+
