@@ -4045,6 +4045,7 @@ export type Database = {
           freetext_context: string | null
           goals: string[]
           home_country: string | null
+          linkedin_pdf_base64: string | null
           linkedin_scrape: Json | null
           linkedin_url: string | null
           load_chips: string[]
@@ -4076,6 +4077,7 @@ export type Database = {
           freetext_context?: string | null
           goals?: string[]
           home_country?: string | null
+          linkedin_pdf_base64?: string | null
           linkedin_scrape?: Json | null
           linkedin_url?: string | null
           load_chips?: string[]
@@ -4107,6 +4109,7 @@ export type Database = {
           freetext_context?: string | null
           goals?: string[]
           home_country?: string | null
+          linkedin_pdf_base64?: string | null
           linkedin_scrape?: Json | null
           linkedin_url?: string | null
           load_chips?: string[]
