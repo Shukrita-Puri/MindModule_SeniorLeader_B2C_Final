@@ -851,6 +851,7 @@ export type Database = {
         Row: {
           computed_for_date: string
           created_at: string
+          event_subcategory: string | null
           pattern_kind: string
           payload: Json
           signal_summary: Json | null
@@ -860,6 +861,7 @@ export type Database = {
         Insert: {
           computed_for_date: string
           created_at?: string
+          event_subcategory?: string | null
           pattern_kind?: string
           payload: Json
           signal_summary?: Json | null
@@ -869,6 +871,7 @@ export type Database = {
         Update: {
           computed_for_date?: string
           created_at?: string
+          event_subcategory?: string | null
           pattern_kind?: string
           payload?: Json
           signal_summary?: Json | null
