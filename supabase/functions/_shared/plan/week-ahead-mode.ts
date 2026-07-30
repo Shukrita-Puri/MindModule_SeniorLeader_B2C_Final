@@ -11,6 +11,7 @@
  */
 
 import { planningDayOfWeek } from "./user-locale.ts";
+export { planningDayOfWeek };
 
 /**
  * Day-neutral reason vocabulary. Describes WHY the Week-Ahead surface

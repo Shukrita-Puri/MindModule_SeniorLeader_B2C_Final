@@ -4,6 +4,7 @@ import { composeDailyContext } from "../_shared/signal-engine/build-daily-contex
 import { classifyDay } from "../_shared/availability/availability-classifier.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import {
   localParts,
   resolveEffectiveTimezone,
@@ -736,6 +737,46 @@ async function buildForUser(db: any, args: {
       : mrsIsAwaiting
         ? "awaiting"
         : "awaiting_no_score";
+
+    // Write to inner_readiness_scores for Insights historical timeseries (MRS Fix I1)
+    if (mrsIsReady && typeof mrs?.score === "number") {
+      try {
+        const { error: irsErr } = await supabase
+          .from("inner_readiness_scores")
+          .upsert(
+            {
+              user_id: userId,
+              score_date: localDate,
+              composite_score: Math.round(mrs.score),
+              energy_tier: mrs.tierDisplayed ?? mrs.tier ?? "managing",
+              time_of_day: window,
+              check_in_outcome: checkin?.outcome ?? null,
+              clarity_level: checkin?.clarity_level ?? null,
+              confidence_level: checkin?.confidence_level ?? null,
+              full_context_statement: mrs.contextStatement ?? null,
+              divergence_overlay: mrs.layer3Statement ?? null,
+              divergence_flag: mrs.divergenceFlag ?? "ALIGNED",
+              hrv_deviation: mrs.hrvDeviation ?? null,
+              layers_active: mrs.alreadyUsed ?? mrs.layersActive ?? ["base"],
+              data_sources: mrs.dataSources ?? [],
+              confidence: mrs.confidence ?? "low",
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,score_date" }
+          );
+
+        if (irsErr) {
+          console.warn("[build-executive-home-cards] inner_readiness_scores upsert error:", irsErr.message);
+        } else {
+          console.log("[build-executive-home-cards] ✅ inner_readiness_scores written for:", redactUserId(userId), localDate, window);
+        }
+      } catch (irsEx) {
+        console.warn(
+          "[build-executive-home-cards] inner_readiness_scores upsert threw:",
+          irsEx instanceof Error ? irsEx.message : irsEx
+        );
+      }
+    }
 
     const hasStageOneSignal = mrsIsReady;
     const brief = await callFunction("compute-outer-readiness", {

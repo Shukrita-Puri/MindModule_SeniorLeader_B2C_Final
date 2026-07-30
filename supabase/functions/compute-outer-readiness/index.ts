@@ -9559,6 +9559,38 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             );
           }
 
+          // Mirror into inner_readiness_scores for Insights historical timeseries (MRS Fix I1)
+          if (!suppressScorePayload && typeof effectiveInnerScore === "number") {
+            try {
+              await db.from("inner_readiness_scores").upsert(
+                {
+                  user_id: userId,
+                  score_date: snapshotLocalDate,
+                  composite_score: Math.round(effectiveInnerScore),
+                  energy_tier: tierDisplayed ?? innerReadinessTier ?? "managing",
+                  time_of_day: timeOfDayStr,
+                  check_in_outcome: checkInOutcome ?? null,
+                  clarity_level: clarityLevel ?? null,
+                  confidence_level: confidenceLevel ?? null,
+                  full_context_statement: contextStatementText ?? null,
+                  divergence_overlay: layer3StatementText ?? null,
+                  divergence_flag: divergenceFlagValue ?? "ALIGNED",
+                  hrv_deviation: hrvDeviationValue ?? null,
+                  layers_active: layersActiveArray ?? ["base"],
+                  data_sources: dataSourcesArray ?? [],
+                  confidence: readinessConfidence ?? "low",
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id,score_date" }
+              );
+            } catch (irsErr) {
+              console.warn(
+                "[compute-outer-readiness] inner_readiness_scores upsert failed:",
+                irsErr instanceof Error ? irsErr.message : irsErr
+              );
+            }
+          }
+
           // brief_snapshots was split into baseline_* + refined_* column sets.
           // `phrase`, `body_text`, `lean_on`, `watch_for`, `score`, `tier`,
           // `signal_pills` now exist only as GENERATED columns that COALESCE
