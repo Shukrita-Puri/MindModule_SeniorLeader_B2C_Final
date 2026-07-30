@@ -13,6 +13,14 @@ const corsHeaders = {
 };
 
 const GOAL_TO_CATEGORY: Record<string, { category: string; typeKey: string; delta: number }[]> = {
+  regulated:          [{ category: 'E', typeKey: 'focus_block', delta: 15 }],
+  prepare:            [{ category: 'A', typeKey: 'board_meeting', delta: 20 }, { category: 'B', typeKey: 'investor_pitch', delta: 20 }],
+  recover:            [{ category: 'E', typeKey: 'focus_block', delta: 15 }],
+  sustain:            [{ category: 'E', typeKey: 'focus_block', delta: 15 }],
+  decision:           [{ category: 'A', typeKey: 'board_meeting', delta: 20 }, { category: 'D', typeKey: 'difficult_conversation', delta: 15 }],
+  people:             [{ category: 'D', typeKey: 'difficult_conversation', delta: 20 }],
+  models:             [{ category: 'C', typeKey: 'client_meeting', delta: 15 }],
+  patterns:           [{ category: 'E', typeKey: 'focus_block', delta: 15 }],
   board_performance:  [{ category: 'A', typeKey: 'board_meeting', delta: 20 }],
   governance:         [{ category: 'A', typeKey: 'board_meeting', delta: 20 }],
   investor_relations: [{ category: 'B', typeKey: 'investor_pitch', delta: 20 }],
@@ -40,7 +48,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await authenticateRequest(req);
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const body = await req.json().catch(() => ({}));
+    let userId: string;
+
+    if (authHeader.startsWith("Bearer ") && authHeader.slice(7) === serviceKey && typeof body?.userId === "string") {
+      userId = body.userId;
+    } else {
+      userId = await authenticateRequest(req);
+    }
 
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,

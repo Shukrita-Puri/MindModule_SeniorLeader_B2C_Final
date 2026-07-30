@@ -9581,7 +9581,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   confidence: readinessConfidence ?? "low",
                   updated_at: new Date().toISOString(),
                 },
-                { onConflict: "user_id,score_date" }
+                { onConflict: "user_id,score_date,time_of_day" }
               );
             } catch (irsErr) {
               console.warn(

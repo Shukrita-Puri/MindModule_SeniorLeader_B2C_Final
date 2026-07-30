@@ -329,6 +329,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fire-and-forget: seed event_priority_memory from onboarding goals & chips
+    try {
+      const supaUrl = Deno.env.get("SUPABASE_URL");
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supaUrl && serviceKey) {
+        fetch(`${supaUrl}/functions/v1/seed-onboarding-memory`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ userId }),
+        }).then(async (r) => {
+          console.log("[complete-onboarding] seed-onboarding-memory status:", r.status);
+        }).catch((err) => {
+          console.warn("[complete-onboarding] seed-onboarding-memory enqueue failed:", err);
+        });
+      }
+    } catch (e) {
+      console.warn("[complete-onboarding] seed-onboarding-memory trigger threw:", e);
+    }
+
     console.log("[complete-onboarding] ✅ Onboarding completed for:", redactUserId(userId));
 
     return new Response(

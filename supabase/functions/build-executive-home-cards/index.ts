@@ -739,7 +739,8 @@ async function buildForUser(db: any, args: {
         : "awaiting_no_score";
 
     // Write to inner_readiness_scores for Insights historical timeseries (MRS Fix I1)
-    if (mrsIsReady && typeof mrs?.score === "number") {
+    const scoreToWrite = typeof mrs?.score === "number" ? mrs.score : typeof mrs?.scoreBaseline === "number" ? mrs.scoreBaseline : null;
+    if (scoreToWrite != null) {
       try {
         const { error: irsErr } = await supabase
           .from("inner_readiness_scores")
@@ -747,7 +748,7 @@ async function buildForUser(db: any, args: {
             {
               user_id: userId,
               score_date: localDate,
-              composite_score: Math.round(mrs.score),
+              composite_score: Math.round(scoreToWrite),
               energy_tier: mrs.tierDisplayed ?? mrs.tier ?? "managing",
               time_of_day: window,
               check_in_outcome: checkin?.outcome ?? null,
@@ -762,7 +763,7 @@ async function buildForUser(db: any, args: {
               confidence: mrs.confidence ?? "low",
               updated_at: new Date().toISOString(),
             },
-            { onConflict: "user_id,score_date" }
+            { onConflict: "user_id,score_date,time_of_day" }
           );
 
         if (irsErr) {

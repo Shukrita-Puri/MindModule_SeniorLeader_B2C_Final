@@ -7940,10 +7940,16 @@ async function applyV51Enrichment(
   // "Sleep prep & tomorrow framing" integrate so the prompt matches
   // human perception of the moment.
   const localHour = (() => {
-    const local = new Date(Date.now() - tzOffsetMin * 60_000);
+    // Normalize timezone offset sign:
+    // JS getTimezoneOffset() is negative for UTC+ (e.g. -330 for IST) and positive for UTC- (e.g. +300 for EST).
+    const absOffset = Math.abs(tzOffsetMin);
+    const minutesToSubtract = absOffset <= 840
+      ? (tzOffsetMin > 0 ? -tzOffsetMin : tzOffsetMin)
+      : 0;
+    const local = new Date(Date.now() - minutesToSubtract * 60_000);
     return local.getUTCHours();
   })();
-  const reflectionWindow = localHour >= 18 && localHour < 23;
+  const reflectionWindow = localHour >= 17 || localHour < 4;
   if (!reflectionWindow) {
     for (const hm of modules) {
       const practices = (hm.practices && hm.practices.length > 0)

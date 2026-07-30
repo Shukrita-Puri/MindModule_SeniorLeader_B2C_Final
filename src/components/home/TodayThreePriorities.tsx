@@ -2692,10 +2692,12 @@ const TodayThreePriorities = ({
                       so we suppress the reflection capture here defensively. */}
                   {(() => {
                     const isReflectionPractice = module.title === 'Tiny Win and Reflection'
-                      || module.type === 'integrate';
+                      || module.title === 'Sleep Prep & Tomorrow Framing'
+                      || module.type === 'integrate'
+                      || (module as any)?.slot === 'integrate';
                     if (!isReflectionPractice) return false;
                     const hour = new Date().getHours();
-                    return hour >= 18 && hour < 23;
+                    return hour >= 17 || hour < 4;
                   })() && (
                     <ReflectionCorner
                       postEventTitle={reflectionContext === 'post-event' ? reflectionEvent : null}
@@ -2722,15 +2724,17 @@ const TodayThreePriorities = ({
                       card and bottom Start button below would just re-expand the
                       same view, so we suppress them on this slot only — but ONLY
                       when the Reflection Corner is actually rendered. Outside
-                      its temporal window (18–22 local) we keep the regular
+                      its temporal window (17–04 local) we keep the regular
                       practice card so the substitute "Sleep Prep & Tomorrow
                       Framing" still has a Start affordance. */}
                   {(() => {
                     const isReflectionPractice = module.title === 'Tiny Win and Reflection'
-                      || module.type === 'integrate';
+                      || module.title === 'Sleep Prep & Tomorrow Framing'
+                      || module.type === 'integrate'
+                      || (module as any)?.slot === 'integrate';
                     if (!isReflectionPractice) return true;
                     const hour = new Date().getHours();
-                    const reflectionShown = hour >= 18 && hour < 23;
+                    const reflectionShown = hour >= 17 || hour < 4;
                     return !reflectionShown;
                   })() && (
                   <>

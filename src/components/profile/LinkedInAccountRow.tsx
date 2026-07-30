@@ -67,8 +67,26 @@ export default function LinkedInAccountRow() {
         .order('scraped_at', { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle();
+
       if (cancelled) return;
-      if (!error && data) setExisting(data as ExternalProfileRow);
+      if (!error && data?.profile_url) {
+        setExisting(data as ExternalProfileRow);
+      } else {
+        // Fallback check on profiles table
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('linkedin_url')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (prof?.linkedin_url) {
+          setExisting({
+            profile_url: prof.linkedin_url,
+            scrape_status: 'url_saved',
+            scraped_at: null,
+          });
+        }
+      }
     }
     load();
     return () => {
@@ -82,6 +100,10 @@ export default function LinkedInAccountRow() {
   };
 
   const handleSave = async () => {
+    if (!user?.id) {
+      toast.error('Not authenticated');
+      return;
+    }
     const normalized = normalizeForValidation(url);
     if (!LINKEDIN_RX.test(normalized)) {
       toast.error('Please paste a valid public LinkedIn profile URL.');
@@ -89,43 +111,46 @@ export default function LinkedInAccountRow() {
     }
     setLoading(true);
     try {
-      const token = await getAuthToken();
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/linkedin-profile-scrape`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+      // 1. Persist directly to user_external_profiles table
+      const { error: extErr } = await supabase
+        .from('user_external_profiles')
+        .upsert(
+          {
+            user_id: user.id,
+            source: 'linkedin_public_profile',
+            profile_url: normalized,
+            scrape_status: 'url_saved',
+            scraped_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
-          body: JSON.stringify({ linkedinUrl: normalized }),
-        },
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data?.message || 'Could not import LinkedIn profile.');
+          { onConflict: 'user_id,source,profile_url' }
+        );
+
+      if (extErr) {
+        console.error('[LinkedInAccountRow] user_external_profiles upsert error:', extErr);
+        toast.error('Could not save LinkedIn profile. Please try again.');
         return;
       }
-      if (data?.status === 'insufficient') {
-        toast.warning(
-          data?.message ||
-            "We couldn't read enough public information from this LinkedIn page.",
-        );
-      } else if (data?.status === 'url_only') {
-        toast.success(data?.message || 'LinkedIn URL saved.');
-      } else {
-        toast.success('LinkedIn profile saved.');
-      }
+
+      // 2. Also update profiles.linkedin_url for consistency
+      await supabase
+        .from('profiles')
+        .update({
+          linkedin_url: normalized,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      toast.success('LinkedIn profile saved.');
       setExisting({
         profile_url: normalized,
-        scrape_status: data?.status || 'ok',
+        scrape_status: 'url_saved',
         scraped_at: new Date().toISOString(),
       });
       setDialogOpen(false);
     } catch (err) {
       console.error('[LinkedInAccountRow] error:', err);
-      toast.error('Could not reach the import service. Please try again.');
+      toast.error('Could not save LinkedIn profile. Please try again.');
     } finally {
       setLoading(false);
     }
