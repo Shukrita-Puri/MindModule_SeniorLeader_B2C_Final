@@ -317,7 +317,14 @@ export default function CalendarProviderPicker({ redirectPath, only, onChanged }
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+    const onConnectionsChanged = () => { refresh(); };
+    window.addEventListener('mm:connections-changed', onConnectionsChanged);
+    return () => {
+      window.removeEventListener('mm:connections-changed', onConnectionsChanged);
+    };
+  }, [refresh]);
 
   const handleChanged = useCallback(() => {
     onChanged?.();

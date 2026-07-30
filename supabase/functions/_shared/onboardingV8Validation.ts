@@ -92,6 +92,8 @@ export type ValidationError = { field: string; message: string };
 
 export type V8Payload = {
   linkedin_url?: string | null;
+  linkedin_pdf_base64?: string | null;
+  home_country?: string | null;
   writing_urls?: string[];
   freetext_context?: string | null;
   stakes_chips?: string[];
@@ -130,6 +132,14 @@ export function sanitizePayload(input: V8Payload): V8Payload {
       const t = v.trim();
       out.linkedin_url = t ? normalizeUrl(t).slice(0, MAX_URL_LEN) : null;
     }
+  }
+  if ("linkedin_pdf_base64" in input) {
+    const v = input.linkedin_pdf_base64;
+    out.linkedin_pdf_base64 = typeof v === "string" ? v : null;
+  }
+  if ("home_country" in input) {
+    const v = input.home_country;
+    out.home_country = typeof v === "string" && v.trim() ? v.trim().slice(0, 100) : null;
   }
   if ("writing_urls" in input) {
     const arr = Array.isArray(input.writing_urls) ? input.writing_urls : [];

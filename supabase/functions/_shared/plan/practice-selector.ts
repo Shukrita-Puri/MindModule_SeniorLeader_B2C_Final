@@ -618,6 +618,8 @@ export function scoreContentAgainstIntent(
   c: ScorableContent,
   intent: SlotIntent,
   leaderGoals?: string[] | null,
+  preferredWindow?: string | null,
+  targetWindow?: string | null,
 ): IntentScoreBreakdown {
   const tags = (c.metaSkillTags || []) as MetaSkill[];
 
@@ -666,14 +668,29 @@ export function scoreContentAgainstIntent(
   }
 
   const leaderGoalAlignment = scoreLeaderGoalAlignment(c, leaderGoals);
+
+  // Preferred practice window boost (F6 requirement)
+  let windowBoost = 0;
+  if (preferredWindow && preferredWindow !== "system_decide" && targetWindow) {
+    if (preferredWindow.toLowerCase() === targetWindow.toLowerCase()) {
+      windowBoost = 4;
+    } else if (
+      (preferredWindow === "morning" && targetWindow === "evening") ||
+      (preferredWindow === "evening" && targetWindow === "morning")
+    ) {
+      windowBoost = -2;
+    }
+  }
+
   const total = metaSkill + recalibrateCategory + structuredTags + combo +
-    leaderGoalAlignment.score;
+    leaderGoalAlignment.score + windowBoost;
   return {
     metaSkill,
     recalibrateCategory,
     structuredTags,
     combo,
     leaderGoals: leaderGoalAlignment,
+    windowBoost,
     total,
   };
 }

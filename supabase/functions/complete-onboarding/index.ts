@@ -167,6 +167,14 @@ Deno.serve(async (req) => {
       updateData.biggest_pressure = cosProfile?.cognitive_load_map?.primary_depletion_pattern ?? null;
       updateData.onboarding_insight = cosProfile?.communication_profile?.cos_brief_rules ?? null;
 
+      // Write preferred_practice_window
+      const prefWindow = typeof v8Row.preferred_practice_window === 'string'
+        ? v8Row.preferred_practice_window
+        : (typeof v8Row.reset_modality === 'string' ? v8Row.reset_modality : null);
+      if (prefWindow) {
+        updateData.preferred_practice_window = prefWindow;
+      }
+
       // Write country if collected
       const homeCountry = typeof v8Row.home_country === 'string' ? v8Row.home_country.trim() : null;
       if (homeCountry) {

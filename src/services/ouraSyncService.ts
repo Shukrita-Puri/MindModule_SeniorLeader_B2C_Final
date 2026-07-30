@@ -11,7 +11,7 @@ function projectUrl(): string | null {
   return pid ? `https://${pid}.supabase.co` : null;
 }
 
-export async function startOuraOAuth(): Promise<{ url?: string; error?: string }> {
+export async function startOuraOAuth(redirectPath?: string): Promise<{ url?: string; error?: string }> {
   const token = await getAuthToken();
   const base = projectUrl();
   if (!token || !base) return { error: 'missing_auth_or_project' };
@@ -20,6 +20,7 @@ export async function startOuraOAuth(): Promise<{ url?: string; error?: string }
     const res = await fetch(`${base}/functions/v1/oura-oauth-start`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirectPath }),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => '');

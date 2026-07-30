@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   const { data: rows, error } = await db
     .from("oura_connections")
     .select("user_id")
-    .eq("is_active", true)
+    .or("is_active.eq.true,connection_status.eq.connected")
     .neq("connection_status", "permission_revoked");
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {

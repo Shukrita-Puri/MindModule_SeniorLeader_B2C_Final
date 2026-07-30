@@ -15,9 +15,9 @@ const corsHeaders = {
 
 const OURA_TOKEN = "https://api.ouraring.com/oauth/token";
 
-function appReturnUrl(success: boolean, reason?: string): string {
+function appReturnUrl(success: boolean, reason?: string, redirectPath?: string): string {
   const frontend = Deno.env.get("FRONTEND_URL") || "https://mindmoduleme.lovable.app";
-  const path = "/connected-data";
+  const path = redirectPath && redirectPath.startsWith("/") ? redirectPath : "/connected-data";
   const params = new URLSearchParams();
   params.set("oura_connected", success ? "true" : "false");
   if (reason) params.set("reason", reason);
@@ -41,12 +41,19 @@ Deno.serve(async (req) => {
       return Response.redirect(appReturnUrl(false, "missing_code_or_state"), 302);
     }
 
-    const [userId, nonce] = state.split(":", 2);
+    const stateParts = state.split(":");
+    const userId = stateParts[0];
+    const nonce = stateParts[1];
+    let customRedirectPath: string | undefined = undefined;
+    if (stateParts[2]) {
+      try { customRedirectPath = decodeURIComponent(stateParts[2]); } catch {}
+    }
+
     const clientId = Deno.env.get("OURA_CLIENT_ID");
     const clientSecret = Deno.env.get("OURA_CLIENT_SECRET");
     const redirectUri = Deno.env.get("OURA_REDIRECT_URI");
     if (!clientId || !clientSecret || !redirectUri) {
-      return Response.redirect(appReturnUrl(false, "not_configured"), 302);
+      return Response.redirect(appReturnUrl(false, "not_configured", customRedirectPath), 302);
     }
 
     const db = createClient(
@@ -143,7 +150,7 @@ Deno.serve(async (req) => {
       console.warn("[oura-oauth-callback] initial sync kick threw:", e);
     }
 
-    return Response.redirect(appReturnUrl(true), 302);
+    return Response.redirect(appReturnUrl(true, undefined, customRedirectPath), 302);
   } catch (err) {
     console.error("[oura-oauth-callback] error:", err);
     return Response.redirect(appReturnUrl(false, "internal_error"), 302);

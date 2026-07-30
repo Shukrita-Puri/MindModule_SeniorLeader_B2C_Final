@@ -158,11 +158,12 @@ interface RowProps {
   label: string;
   iconSrc: string;
   status: WearableStatus | undefined;
+  redirectPath?: string;
   onChanged?: () => void;
   disabled?: boolean;
 }
 
-function WearableRow({ provider, label, iconSrc, status, onChanged, disabled }: RowProps) {
+function WearableRow({ provider, label, iconSrc, status, redirectPath, onChanged, disabled }: RowProps) {
   const [busy, setBusy] = useState(false);
   const isAppleWatch = provider === 'apple-watch';
   const isWhoop = provider === 'whoop';
@@ -196,7 +197,7 @@ function WearableRow({ provider, label, iconSrc, status, onChanged, disabled }: 
         else toast.warning('Connected, initial sync will retry shortly');
       } else {
         // Oura
-        const { url, error } = await startOuraOAuth();
+        const { url, error } = await startOuraOAuth(redirectPath);
         if (error || !url) {
           toast.error('Failed to start Oura connection');
           return;
@@ -265,12 +266,13 @@ function WearableRow({ provider, label, iconSrc, status, onChanged, disabled }: 
 }
 
 interface WearableProviderPickerProps {
+  redirectPath?: string;
   /** When provided, only render these wearables. */
   only?: WearableProviderId[];
   onChanged?: () => void;
 }
 
-export default function WearableProviderPicker({ only, onChanged }: WearableProviderPickerProps) {
+export default function WearableProviderPicker({ redirectPath, only, onChanged }: WearableProviderPickerProps) {
   const [state, setState] = useState<WearableProvidersState>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -283,7 +285,14 @@ export default function WearableProviderPicker({ only, onChanged }: WearableProv
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+    const onConnectionsChanged = () => { refresh(); };
+    window.addEventListener('mm:connections-changed', onConnectionsChanged);
+    return () => {
+      window.removeEventListener('mm:connections-changed', onConnectionsChanged);
+    };
+  }, [refresh]);
 
   const handleChanged = useCallback(() => {
     onChanged?.();
@@ -322,15 +331,15 @@ export default function WearableProviderPicker({ only, onChanged }: WearableProv
       )}
       {show('apple-watch') && (
         <WearableRow provider="apple-watch" label="Apple Watch" iconSrc={appleHealthLogo}
-          status={state.appleWatch} onChanged={handleChanged} disabled={loading} />
+          status={state.appleWatch} redirectPath={redirectPath} onChanged={handleChanged} disabled={loading} />
       )}
       {show('oura') && (
         <WearableRow provider="oura" label="Oura Ring" iconSrc={ouraLogo}
-          status={state.oura} onChanged={handleChanged} disabled={loading} />
+          status={state.oura} redirectPath={redirectPath} onChanged={handleChanged} disabled={loading} />
       )}
       {show('whoop') && (
         <WearableRow provider="whoop" label="Whoop" iconSrc={whoopLogo}
-          status={state.whoop} onChanged={handleChanged} disabled={loading} />
+          status={state.whoop} redirectPath={redirectPath} onChanged={handleChanged} disabled={loading} />
       )}
     </div>
   );

@@ -579,20 +579,18 @@ Deno.serve(async (req) => {
       .update({ cos_profile_status: "in_progress", cos_profile_error: null })
       .eq("user_id", userId);
 
-    // ── 1. Firecrawl scraping ─────────────────────────────────────
+    // ── 1. Data Input Resolution (PDF / Scrapes) ───────────────────
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     const linkedinUrl: string | null = row.linkedin_url ?? null;
+    const linkedinPdfBase64: string | null = row.linkedin_pdf_base64 ?? null;
     const writingUrls: string[] = Array.isArray(row.writing_urls) ? row.writing_urls.slice(0, 5) : [];
 
     let linkedinScrape: any = row.linkedin_scrape ?? null;
     const writingScrapes: any[] = [];
 
+    // Note: LinkedIn URL scraping is disabled for MVP in favor of direct PDF upload + paste.
+    // NinjaPear integration will replace this post-MVP.
     if (firecrawlKey) {
-      if (linkedinUrl && isValidHttpUrl(linkedinUrl) && (!linkedinScrape || linkedinScrape.ok === false)) {
-        const r = await firecrawlScrape(firecrawlKey, linkedinUrl);
-        linkedinScrape = { url: linkedinUrl, ...r, scraped_at: new Date().toISOString() };
-        console.info(`[synthesize-cos] firecrawl linkedin ok=${!!r.ok} status=${r.ok ? "scraped" : r.error ?? "unknown"}`);
-      }
       for (const u of writingUrls) {
         if (!isValidHttpUrl(u)) {
           writingScrapes.push({ url: u, ok: false, error: "invalid_url" });
@@ -602,8 +600,8 @@ Deno.serve(async (req) => {
         writingScrapes.push({ url: u, ...r, scraped_at: new Date().toISOString() });
         console.info(`[synthesize-cos] firecrawl writing ok=${!!r.ok}`);
       }
-    } else {
-      console.warn("[synthesize-cos] FIRECRAWL_API_KEY missing — skipping scrape");
+    } else if (writingUrls.length > 0) {
+      console.warn("[synthesize-cos] FIRECRAWL_API_KEY missing — skipping writing URL scrapes");
     }
 
     // Persist scrapes (even on partial)
@@ -640,7 +638,12 @@ Deno.serve(async (req) => {
       calendarSelections: Array.isArray(row.calendar_selections) ? row.calendar_selections : [],
       wearableSelections: Array.isArray(row.wearable_selections) ? row.wearable_selections : [],
     };
-    const userPrompt = buildUserPrompt(cosInput);
+    let userPrompt = buildUserPrompt(cosInput);
+
+    if (linkedinPdfBase64) {
+      console.info(`[synthesize-cos] LinkedIn PDF attached for user_id=${redactUserId(userId)}`);
+      userPrompt += `\n\n**PDF DOCUMENT ATTACHED:** A LinkedIn profile PDF document is attached below. Use its full career history, accomplishments, and bio as primary leadership context for synthesizing the COS profile.`;
+    }
 
     const persistReadyProfile = async (profile: any, source: 'ai' | 'fallback' = 'ai') => {
       const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
@@ -719,6 +722,20 @@ Deno.serve(async (req) => {
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
     console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
+    const userMessageContent: any = linkedinPdfBase64
+      ? [
+          { type: "text", text: userPrompt },
+          {
+            type: "image_url",
+            image_url: {
+              url: linkedinPdfBase64.startsWith("data:")
+                ? linkedinPdfBase64
+                : `data:application/pdf;base64,${linkedinPdfBase64}`,
+            },
+          },
+        ]
+      : userPrompt;
+
     const aiRes = await fetch(AI_GATEWAY_URL, {
       method: "POST",
       headers: {
@@ -730,7 +747,7 @@ Deno.serve(async (req) => {
         max_tokens: 8192,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userMessageContent },
         ],
         tools: [COS_TOOL],
         tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
@@ -754,7 +771,7 @@ Deno.serve(async (req) => {
             max_tokens: 8192,
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: userPrompt },
+              { role: "user", content: userMessageContent },
             ],
             tools: [COS_TOOL],
             tool_choice: { type: "function", function: { name: "emit_cos_profile" } },

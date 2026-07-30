@@ -74,14 +74,14 @@ export default function StageLeadershipContext() {
       writing_urls?: string[];
       freetext_context?: string | null;
       linkedin_pdf_base64?: string | null;
+      home_country?: string | null;
     }>().then((res) => {
       if (cancelled) return;
       if (res.ok && res.data) {
-        // We only hydrate notes/writing from existing data
         const writing = Array.isArray(res.data.writing_urls) ? res.data.writing_urls.join("\n") : "";
         const notes = res.data.freetext_context ?? "";
-        const country = (res.data as any)?.home_country ?? "";
-        const linkedinPdf = (res.data as any)?.linkedin_pdf_base64 ?? null;
+        const country = res.data.home_country ?? "";
+        const linkedinPdf = res.data.linkedin_pdf_base64 ?? null;
         if (linkedinPdf) setLinkedinPdfBase64(linkedinPdf);
         setValues({ linkedin: "", writing, notes });
         setHomeCountry(country);

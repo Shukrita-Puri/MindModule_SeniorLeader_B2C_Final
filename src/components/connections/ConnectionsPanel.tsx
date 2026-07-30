@@ -50,7 +50,7 @@ export default function ConnectionsPanel({
         <div className="text-[10px] tracking-[2px] uppercase text-muted-foreground font-medium mb-2">
           Wearable
         </div>
-        <WearableProviderPicker only={wearableOnly} onChanged={handleChanged} />
+        <WearableProviderPicker redirectPath={resolvedRedirect} only={wearableOnly} onChanged={handleChanged} />
       </section>
     </div>
   );

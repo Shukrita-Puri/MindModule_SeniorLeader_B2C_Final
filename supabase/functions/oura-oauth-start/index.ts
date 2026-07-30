@@ -45,8 +45,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const reqBody = await req.json().catch(() => ({}));
+    const redirectPath = typeof reqBody?.redirectPath === 'string' ? reqBody.redirectPath : '/connected-data';
+
     const nonce = genNonce();
-    const state = `${userId}:${nonce}`;
+    const state = `${userId}:${nonce}:${encodeURIComponent(redirectPath)}`;
     const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString(); // 10 min
 
     // Upsert a (possibly-pending) row so the callback can find it. Keep is_active=false
