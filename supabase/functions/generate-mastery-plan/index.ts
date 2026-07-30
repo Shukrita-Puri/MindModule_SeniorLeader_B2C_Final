@@ -6249,14 +6249,36 @@ async function generateMasteryPlan(
       }
       usedSlotTitles.add(timeLabel);
 
+      // Practice type is derived from the slot's role/arc so the client can
+      // render the correct arc affordances (notably the evening Reflection
+      // Corner, which keys off `type === "integrate"`).
+      const practiceType: "regulate" | "align" | "prepare" | "integrate" =
+        (slot.jitPhase === "post" ||
+          slot.slotRole === "post" ||
+          slot.slotRole === "recovery" ||
+          slot.slotRole === "close_of_day" ||
+          slot.slotRole === "protect_tonight")
+          ? "integrate"
+          : (slot.jitPhase === "pre" ||
+              slot.slotRole === "pre" ||
+              slot.slotRole === "tomorrow_prep" ||
+              slot.slotRole === "dominant_demand")
+            ? "prepare"
+            : (slot.slotRole === "start_of_day" ||
+                slot.slotRole === "current_priority" ||
+                slot.slotRole === "remaining_demand")
+              ? "align"
+              : "regulate";
+      const typeWord = practiceType.toUpperCase();
+
       const hm: any = {
         horizon: "immediate",
         timeLabel,
-        typeLabel: practice ? `REGULATE · ${(practice as any).content_type}` : "REGULATE · Protocol",
+        typeLabel: practice ? `${typeWord} · ${(practice as any).content_type}` : `${typeWord} · Protocol`,
         whyLine: "",
         recommendedAction: "",
         practice: practice ? {
-          type: "regulate",
+          type: practiceType,
           contentId: practice.id,
           title: (practice as any).title,
           contentType: (practice as any).content_type,
@@ -6269,7 +6291,7 @@ async function generateMasteryPlan(
           thumbnailUrl: (practice as any).thumbnail_url,
         } : null,
         practices: practice ? [{
-          type: "regulate",
+          type: practiceType,
           contentId: practice.id,
           title: (practice as any).title,
           contentType: (practice as any).content_type,
