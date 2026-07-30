@@ -80,6 +80,7 @@ export interface LeaderProfileContext {
     brief_timing: string | null;
     reset_modality: string | null;
     weekend_signals: string | null;
+    home_country: string | null;
   };
   analysis: {
     archetype: string | null;
@@ -107,13 +108,14 @@ export async function loadLeaderProfile(
         reset_modality: string | null;
         weekend_signals: string | null;
         goals: string[] | null;
+        home_country: string | null;
       }
     | null = null;
 
   try {
     const { data, error } = await db
       .from('onboarding_v8_responses')
-      .select('cos_profile, cos_profile_status, brief_timing, reset_modality, weekend_signals, goals')
+      .select('cos_profile, cos_profile_status, brief_timing, reset_modality, weekend_signals, goals, home_country')
       .eq('user_id', userId)
       .maybeSingle();
     if (error) {
@@ -146,6 +148,7 @@ export async function loadLeaderProfile(
         brief_timing: row?.brief_timing ?? null,
         reset_modality: row?.reset_modality ?? null,
         weekend_signals: row?.weekend_signals ?? null,
+        home_country: row?.home_country ?? null,
       },
       analysis: {
         archetype: null,
@@ -190,6 +193,7 @@ export async function loadLeaderProfile(
       brief_timing: row.brief_timing ?? null,
       reset_modality: row.reset_modality ?? null,
       weekend_signals: row.weekend_signals ?? null,
+      home_country: row.home_country ?? null,
     },
     analysis: {
       archetype: p.provisional_archetype?.name ?? null,

@@ -74,6 +74,7 @@ export default function StageLeadershipContext() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const [values, setValues] = useState<Record<Key, string>>({ linkedin: "", writing: "", notes: "" });
+  const [homeCountry, setHomeCountry] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
@@ -93,7 +94,9 @@ export default function StageLeadershipContext() {
         const linkedin = res.data.linkedin_url ?? "";
         const writing = Array.isArray(res.data.writing_urls) ? res.data.writing_urls.join("\n") : "";
         const notes = res.data.freetext_context ?? "";
+        const country = (res.data as any)?.home_country ?? "";
         setValues({ linkedin, writing, notes });
+        setHomeCountry(country);
         setSelected({
           linkedin: Boolean(linkedin),
           writing: Boolean(writing),
@@ -129,6 +132,7 @@ export default function StageLeadershipContext() {
     freetext_context: selected.notes
       ? (values.notes.trim().slice(0, MAX_FREETEXT_LEN) || null)
       : null,
+    home_country: homeCountry || null,
   });
 
   // Debounced autosave whenever text values change — with visible state so
@@ -372,6 +376,21 @@ export default function StageLeadershipContext() {
                   {scrape.status === "error" && (
                     <div className="text-[11px] text-saffron">{scrape.message} You can continue manually.</div>
                   )}
+                  {(scrape.status === 'error' || scrape.status === 'insufficient' || scrape.status === 'url_only') && (
+                    <div className="mt-2">
+                      <textarea
+                        placeholder="Paste your LinkedIn About section, current role, or any bio text here..."
+                        value={values.notes}
+                        onChange={(e) => {
+                          setSelected((p) => ({ ...p, notes: true }));
+                          setValues((p) => ({ ...p, notes: e.target.value }));
+                        }}
+                        rows={4}
+                        className="w-full text-xs px-3 py-2.5 rounded-[10px] border border-[#cfc7b8] bg-[#f5f0e8] text-[#1a1712] outline-none focus:border-[#1a6b4a] resize-none"
+                      />
+                      <p className="text-[10px] text-[#7a7060] mt-1">This helps Mind Module understand your leadership context even without the LinkedIn connection.</p>
+                    </div>
+                  )}
                 </div>
               )}
               {showWritingErr && (
@@ -384,6 +403,22 @@ export default function StageLeadershipContext() {
             </div>
           );
         })}
+      </div>
+      <div className="mt-4">
+        <label className="text-[13px] font-medium text-[#1a1712] block mb-1.5">Where are you based?</label>
+        <select
+          value={homeCountry}
+          onChange={(e) => {
+            setHomeCountry(e.target.value);
+            void saveV8({ home_country: e.target.value || null });
+          }}
+          className="w-full text-xs px-3 py-2.5 rounded-[10px] border border-[#cfc7b8] bg-[#f5f0e8] text-[#1a1712] outline-none focus:border-[#1a6b4a]"
+        >
+          <option value="">Select your country (optional)</option>
+          {["United States", "United Kingdom", "Australia", "Canada", "Germany", "France", "India", "Singapore", "United Arab Emirates", "Netherlands", "Switzerland", "Japan", "Hong Kong", "Ireland", "Sweden", "Norway", "Denmark", "New Zealand", "Israel", "South Africa", "Other"].map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
       </div>
     </ParchScreen>
   );

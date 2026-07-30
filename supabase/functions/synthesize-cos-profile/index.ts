@@ -11,6 +11,7 @@ const corsHeaders = {
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "google/gemini-2.5-pro";
+const AI_MODEL_FALLBACK = "anthropic/claude-3-5-haiku";
 
 type CosFallbackArgs = {
   userId: string;
@@ -247,32 +248,51 @@ function buildFallbackCosProfile(args: CosFallbackArgs, reason: string) {
 
 async function firecrawlScrape(apiKey: string, url: string): Promise<{ ok: boolean; markdown?: string; summary?: string; metadata?: any; error?: string }> {
   try {
-    const res = await fetch(`${FIRECRAWL_V2}/scrape`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url,
-        onlyMainContent: true,
-        formats: ["markdown", "summary"],
-      }),
-    });
-    const text = await res.text();
-    let parsed: any = null;
-    try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
-    if (!res.ok || !parsed) {
-      return { ok: false, error: `firecrawl_${res.status}` };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000); // 15s per URL
+    try {
+      const res = await fetch(`${FIRECRAWL_V2}/scrape`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url,
+          onlyMainContent: true,
+          formats: ["markdown", "summary"],
+        }),
+        signal: controller.signal,
+      });
+      const text = await res.text();
+      let parsed: any = null;
+      try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+      if (!res.ok || !parsed) {
+        return { ok: false, error: `firecrawl_${res.status}` };
+      }
+      const root = parsed.data ?? parsed ?? {};
+      const markdown = typeof root.markdown === "string" ? root.markdown.slice(0, 60_000) : "";
+      // Content quality gate: reject paywall stubs and thin pages
+      const hasRealContent = markdown && markdown.length > 200
+        && !markdown.includes('Subscribe to continue reading')
+        && !markdown.includes('Sign in to view')
+        && !markdown.includes('Create your free account');
+      if (!hasRealContent) {
+        return { ok: false, error: 'insufficient_content', markdown: markdown || undefined };
+      }
+      return {
+        ok: true,
+        markdown,
+        summary: typeof root.summary === "string" ? root.summary : undefined,
+        metadata: root.metadata,
+      };
+    } finally {
+      clearTimeout(timeout);
     }
-    const root = parsed.data ?? parsed ?? {};
-    return {
-      ok: true,
-      markdown: typeof root.markdown === "string" ? root.markdown.slice(0, 60_000) : "",
-      summary: typeof root.summary === "string" ? root.summary : undefined,
-      metadata: root.metadata,
-    };
   } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { ok: false, error: 'timeout_15s' };
+    }
     return { ok: false, error: err instanceof Error ? err.message : "fetch_failed" };
   }
 }
@@ -562,13 +582,13 @@ Deno.serve(async (req) => {
     // ── 1. Firecrawl scraping ─────────────────────────────────────
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     const linkedinUrl: string | null = row.linkedin_url ?? null;
-    const writingUrls: string[] = Array.isArray(row.writing_urls) ? row.writing_urls.slice(0, 2) : [];
+    const writingUrls: string[] = Array.isArray(row.writing_urls) ? row.writing_urls.slice(0, 5) : [];
 
     let linkedinScrape: any = row.linkedin_scrape ?? null;
     const writingScrapes: any[] = [];
 
     if (firecrawlKey) {
-      if (linkedinUrl && isValidHttpUrl(linkedinUrl) && !linkedinScrape) {
+      if (linkedinUrl && isValidHttpUrl(linkedinUrl) && (!linkedinScrape || linkedinScrape.ok === false)) {
         const r = await firecrawlScrape(firecrawlKey, linkedinUrl);
         linkedinScrape = { url: linkedinUrl, ...r, scraped_at: new Date().toISOString() };
         console.info(`[synthesize-cos] firecrawl linkedin ok=${!!r.ok} status=${r.ok ? "scraped" : r.error ?? "unknown"}`);
@@ -599,9 +619,9 @@ Deno.serve(async (req) => {
     const linkedinText =
       (linkedinScrape && (linkedinScrape.markdown || linkedinScrape.summary)) || "";
     const writingText = writingScrapes
-      .map((w) => (w?.markdown || w?.summary || ""))
-      .filter((t) => t && t.length > 0)
-      .join("\n\n---\n\n");
+      .filter((w) => w?.ok && (w?.markdown || w?.summary))
+      .map((w) => `SOURCE: ${w.url}\n${w?.markdown || w?.summary || ""}`)
+      .join('\n\n---\n\n');
 
     const cosInput: CosFallbackArgs = {
       userId,
@@ -622,7 +642,7 @@ Deno.serve(async (req) => {
     };
     const userPrompt = buildUserPrompt(cosInput);
 
-    const persistReadyProfile = async (profile: any) => {
+    const persistReadyProfile = async (profile: any, source: 'ai' | 'fallback' = 'ai') => {
       const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
       const { error: persistErr } = await db
         .from("onboarding_v8_responses")
@@ -632,6 +652,7 @@ Deno.serve(async (req) => {
           cos_profile_status: "ready",
           cos_profile_error: null,
           cos_profile_generated_at: new Date().toISOString(),
+          cos_profile_source: source,
         })
         .eq("user_id", userId);
 
@@ -639,13 +660,52 @@ Deno.serve(async (req) => {
         console.error("[synthesize-cos] persist error:", persistErr);
         return { ok: false as const, error: persistErr };
       }
+
+      // Write AI-derived personality fields to profiles (richer overwrite of chip-derived values)
+      try {
+        const profileUpdate: Record<string, unknown> = {
+          user_archetype: profile.provisional_archetype?.name ?? null,
+          archetype_title: profile.provisional_archetype?.subtitle ?? null,
+          archetype_description: profile.provisional_archetype?.description ?? null,
+          identity_role: profile.identity?.role ?? null,
+          biggest_pressure: profile.cognitive_load_map?.primary_depletion_pattern ?? null,
+          leadership_context: profile.leadership_style?.style_description ?? null,
+          onboarding_insight: profile.communication_profile?.cos_brief_rules ?? null,
+          growth_priority: profile.goals?.declared?.[0] ?? null,
+          updated_at: new Date().toISOString(),
+        };
+        // Only write structured fields if they contain data
+        if (profile.high_stakes_map) {
+          profileUpdate.inferred_priorities = JSON.stringify(profile.high_stakes_map);
+        }
+        if (profile.cognitive_risk_profile) {
+          profileUpdate.pressure_profile = JSON.stringify(profile.cognitive_risk_profile);
+        }
+        const linkedinMd = linkedinScrape?.ok ? (linkedinScrape.markdown ?? null) : null;
+        if (linkedinMd) {
+          profileUpdate.linkedin_raw_markdown = linkedinMd;
+          profileUpdate.linkedin_analyzed_at = new Date().toISOString();
+        }
+        const { error: profileErr } = await db
+          .from('profiles')
+          .update(profileUpdate)
+          .eq('id', userId);
+        if (profileErr) {
+          console.warn('[synthesize-cos] profiles update warning:', profileErr.message);
+        } else {
+          console.log('[synthesize-cos] ✅ profiles.* updated from COS:', redactUserId(userId));
+        }
+      } catch (e) {
+        console.warn('[synthesize-cos] profiles update error:', e instanceof Error ? e.message : String(e));
+      }
+
       return { ok: true as const, displayHtml };
     };
 
     if (!lovableKey) {
       console.warn("[synthesize-cos] LOVABLE_API_KEY missing — generating fallback COS profile");
       const profile = buildFallbackCosProfile(cosInput, "the AI gateway is not configured");
-      const persisted = await persistReadyProfile(profile);
+      const persisted = await persistReadyProfile(profile, 'fallback');
       if (!persisted.ok) return json(500, { error: "persist_failed" });
       return json(200, {
         ok: true,
@@ -667,6 +727,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: AI_MODEL,
+        max_tokens: 8192,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
@@ -679,8 +740,52 @@ Deno.serve(async (req) => {
     if (!aiRes.ok) {
       const errText = await aiRes.text();
       console.error("[synthesize-cos] AI gateway error:", aiRes.status, errText);
+      // Retry with fallback model on 429/402/503
+      if ([429, 402, 503].includes(aiRes.status)) {
+        console.info(`[synthesize-cos] retrying with fallback model=${AI_MODEL_FALLBACK}`);
+        const fallbackAiRes = await fetch(AI_GATEWAY_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${lovableKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: AI_MODEL_FALLBACK,
+            max_tokens: 8192,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userPrompt },
+            ],
+            tools: [COS_TOOL],
+            tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
+          }),
+        });
+        if (fallbackAiRes.ok) {
+          // Use the fallback response — continue to parse below
+          const fallbackPayload = await fallbackAiRes.json();
+          const fallbackToolCall = fallbackPayload?.choices?.[0]?.message?.tool_calls?.[0];
+          const fallbackArgsRaw = fallbackToolCall?.function?.arguments;
+          let fallbackProfile: any = null;
+          try {
+            fallbackProfile = fallbackArgsRaw ? JSON.parse(fallbackArgsRaw) : null;
+          } catch (e) {
+            console.error("[synthesize-cos] fallback tool args parse failed:", e);
+          }
+          if (fallbackProfile && typeof fallbackProfile === "object") {
+            const persisted = await persistReadyProfile(fallbackProfile);
+            if (!persisted.ok) return json(500, { error: "persist_failed" });
+            return json(200, {
+              ok: true,
+              cached: false,
+              cos_profile: fallbackProfile,
+              cos_profile_html: persisted.displayHtml,
+              model_used: AI_MODEL_FALLBACK,
+            });
+          }
+        }
+      }
       const profile = buildFallbackCosProfile(cosInput, `the AI gateway returned ${aiRes.status}`);
-      const persisted = await persistReadyProfile(profile);
+      const persisted = await persistReadyProfile(profile, 'fallback');
       if (!persisted.ok) return json(500, { error: "persist_failed" });
       return json(200, {
         ok: true,
@@ -704,7 +809,7 @@ Deno.serve(async (req) => {
 
     if (!profile || typeof profile !== "object") {
       const fallbackProfile = buildFallbackCosProfile(cosInput, "the AI response did not emit the COS tool payload");
-      const persisted = await persistReadyProfile(fallbackProfile);
+      const persisted = await persistReadyProfile(fallbackProfile, 'fallback');
       if (!persisted.ok) return json(500, { error: "persist_failed" });
       return json(200, {
         ok: true,

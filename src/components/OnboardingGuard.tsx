@@ -6,6 +6,7 @@ import { getResumeRoute } from "@/utils/onboardingStatus";
 import { fetchOnboardingProgressSnapshot, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import DelayedFallback from "@/components/ui/delayed-fallback";
 import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
+import { markV8Complete } from "@/utils/onboardingV8";
 
 // Routes that completed users can still access outside the onboarding flow.
 const ONBOARDING_WHITELIST = PAYMENT_PAGE_SUPPRESSED ? [] : ['/upgrade'];
@@ -64,6 +65,16 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
         if (completionState === 'complete') {
           console.log('[OnboardingGuard] ✅ DB says onboarding completed, allowing access');
           await refreshProfile();
+          setResolved(true);
+          setResolving(false);
+          return;
+        }
+
+        // Recovery: if profile.onboarding_completed_at is set but v8 row is
+        // still incomplete, reconcile by calling markV8Complete (idempotent).
+        if (completionState === 'incomplete' && user?.onboarding_completed_at) {
+          console.log('[OnboardingGuard] ⚠️ Profile says complete but v8 row incomplete — recovering');
+          try { await markV8Complete(); } catch { /* best-effort */ }
           setResolved(true);
           setResolving(false);
           return;

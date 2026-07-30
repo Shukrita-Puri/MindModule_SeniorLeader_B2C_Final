@@ -15,6 +15,7 @@ export type V8Fields = Partial<{
   weekend_signals: string | null;
   calendar_selections: string[];
   wearable_selections: string[];
+  home_country: string | null;
 }>;
 
 export type EdgeValidationError = { field: string; message: string };
@@ -58,9 +59,14 @@ export async function loadV8Row<T = Record<string, unknown>>() {
   return postEdge<T>("onboarding-v8-save", { action: "GET" });
 }
 
-/** Mark the v8 onboarding as complete (sets completed_at). */
+/** Mark the v8 onboarding as complete (sets completed_at) and derive personality fields. */
 export async function markV8Complete() {
   return postEdge("complete-onboarding", { onboarding_version: "v8" });
+}
+
+/** Seed event priority memory from onboarding goals. Best-effort. */
+export async function seedOnboardingMemory() {
+  return postEdge("seed-onboarding-memory", {});
 }
 
 /** Trigger Firecrawl + Gemini synthesis. Idempotent unless `force`. */

@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     }
   };
 
-  const [checkin, wearable, calendar, brief, plan, mrs, deviceTokens, recentRuns, referral] = await Promise.all([
+  const [checkin, wearable, calendar, brief, plan, mrs, deviceTokens, recentRuns, referral, cosRow] = await Promise.all([
     safe(db.from("daily_checkins").select("id, checkin_date, time_window, outcome, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle(), "daily_checkins"),
     safe(db.from("wearable_data").select("summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, data_source, created_at").eq("user_id", userId).order("summary_date", { ascending: false }).limit(1).maybeSingle(), "wearable_data"),
     safe(db.from("calendar_connections").select("provider, connection_status, created_at, updated_at, last_synced_at").eq("user_id", userId), "calendar_connections"),
@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
     safe(db.from("notification_device_tokens").select("id, platform, is_active, created_at, updated_at").eq("user_id", userId), "notification_device_tokens"),
     safe(db.from("executive_home_card_runs").select("run_id, local_date, window, mode, status, mrs_status, brief_status, plan_status, skipped_reason, error, duration_ms, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(10), "executive_home_card_runs"),
     safe(db.from("user_referrals").select("referral_code, referral_link, total_signups, total_conversions, credited_months").eq("user_id", userId).maybeSingle(), "user_referrals"),
+    safe(db.from("onboarding_v8_responses").select("cos_profile_html, cos_profile, cos_profile_status, cos_profile_generated_at, cos_profile_source, goals, stakes_chips, home_country").eq("user_id", userId).maybeSingle(), "onboarding_v8_responses"),
   ]);
 
   const referralDetail = referral
@@ -85,5 +86,6 @@ Deno.serve(async (req) => {
     deviceTokens: (deviceTokens as unknown[] | null) ?? [],
     recentCardRuns: (recentRuns as unknown[] | null) ?? [],
     lastCards: (recentRuns as unknown[] | null) ?? [],
+    cosProfile: cosRow ?? null,
   });
 });

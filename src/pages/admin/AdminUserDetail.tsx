@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import DeleteUserModal from '@/components/admin/DeleteUserModal';
 import { ADMIN_EMAIL_ALLOWLIST } from '@/config/adminAllowlist';
 import { useAuth } from '@/hooks/useAuth';
+import { getEdgeFunctionHeaders } from '@/services/authTokenService';
+import { getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
 
 type Row = Record<string, unknown>;
 interface Detail {
@@ -29,6 +31,16 @@ interface Detail {
   latestMrs: Row | null;
   deviceTokens: Row[];
   recentCardRuns: Row[];
+  cosProfile: {
+    cos_profile_html?: string | null;
+    cos_profile?: Record<string, unknown> | null;
+    cos_profile_status?: string | null;
+    cos_profile_generated_at?: string | null;
+    cos_profile_source?: string | null;
+    goals?: string[] | null;
+    stakes_chips?: string[] | null;
+    home_country?: string | null;
+  } | null;
 }
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -211,6 +223,89 @@ const AdminUserDetail = () => {
                   </table>
                 </div>
               )}
+          </Section>
+          <Section title="COS Profile">
+            {(() => {
+              const cos = data.cosProfile;
+              if (!cos) return <p className="text-muted-foreground">No COS profile data.</p>;
+
+              const triggerResynthesis = async () => {
+                try {
+                  const headers = await getEdgeFunctionHeaders();
+                  await fetch(getSupabaseFunctionUrl('synthesize-cos-profile'), {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ userId, force: true }),
+                  });
+                  toast.success('COS re-synthesis triggered');
+                } catch {
+                  toast.error('Failed to trigger re-synthesis');
+                }
+              };
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      cos.cos_profile_status === 'ready'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : cos.cos_profile_status === 'in_progress'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : cos.cos_profile_status === 'error'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {cos.cos_profile_source ? `${cos.cos_profile_source} · ` : ''}
+                      {cos.cos_profile_status ?? 'not started'}
+                    </span>
+                    {cos.cos_profile_generated_at && (
+                      <span className="text-xs text-muted-foreground">
+                        Generated: {new Date(cos.cos_profile_generated_at).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  {cos.home_country && (
+                    <p className="text-xs"><span className="text-muted-foreground">Country:</span> {cos.home_country}</p>
+                  )}
+                  {cos.goals && cos.goals.length > 0 && (
+                    <p className="text-xs"><span className="text-muted-foreground">Goals:</span> {cos.goals.join(', ')}</p>
+                  )}
+                  {cos.cos_profile_html ? (
+                    <>
+                      <iframe
+                        srcDoc={cos.cos_profile_html}
+                        style={{ width: '100%', height: '500px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                        title="COS Profile"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(cos.cos_profile_html ?? '');
+                            toast.success('HTML copied to clipboard');
+                          }}
+                        >
+                          Copy HTML
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={triggerResynthesis}>
+                          Re-generate
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">No HTML profile generated yet.</p>
+                      {cos.cos_profile_status !== 'in_progress' && (
+                        <Button variant="outline" size="sm" onClick={triggerResynthesis}>
+                          Generate now
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </Section>
         </div>
       )}

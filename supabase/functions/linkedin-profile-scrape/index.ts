@@ -10,6 +10,7 @@ const corsHeaders = {
 
 const SOURCE = "linkedin_public_profile";
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
+const PROXYCURL_API = "https://nubela.co/proxycurl/api/v2/linkedin";
 
 // Accept linkedin.com/in/<slug> (with optional country subdomain like uk., www., etc.)
 const LINKEDIN_PUBLIC_RX =
@@ -153,6 +154,97 @@ async function callFirecrawlScrape(apiKey: string, url: string) {
   return { ok: res.ok, status: res.status, body: parsed, raw: text };
 }
 
+/** Call Proxycurl Person Profile API — returns structured JSON directly. */
+async function callProxycurlScrape(apiKey: string, url: string) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
+    try {
+      const res = await fetch(`${PROXYCURL_API}?url=${encodeURIComponent(url)}&use_cache=if-recent`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
+      });
+      const text = await res.text();
+      let parsed: any = null;
+      try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+      return { ok: res.ok, status: res.status, body: parsed, raw: text };
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err) {
+    return { ok: false, status: 0, body: null, raw: err instanceof Error ? err.message : "timeout" };
+  }
+}
+
+/** Converts Proxycurl JSON profile to the same extracted shape as Firecrawl + builds markdown. */
+function extractFromProxycurl(data: any, profileUrl: string) {
+  const extracted = {
+    full_name: pickString(data.full_name),
+    headline: pickString(data.headline, data.occupation),
+    current_company: data.experiences?.[0]?.company ?? null,
+    current_role: data.experiences?.[0]?.title ?? null,
+    location: pickString(data.city, data.state, data.country_full_name)
+      ? [data.city, data.state, data.country_full_name].filter(Boolean).join(', ')
+      : null,
+    about: pickString(data.summary),
+    experience: Array.isArray(data.experiences)
+      ? data.experiences.slice(0, 20).map((e: any) => ({
+          title: e.title ?? '',
+          company: e.company ?? '',
+          dates: [e.starts_at ? `${e.starts_at.month}/${e.starts_at.year}` : '', e.ends_at ? `${e.ends_at.month}/${e.ends_at.year}` : 'Present'].filter(Boolean).join(' - '),
+        }))
+      : null,
+    education: Array.isArray(data.education)
+      ? data.education.slice(0, 10).map((e: any) => ({
+          school: e.school ?? '',
+          degree: [e.degree_name, e.field_of_study].filter(Boolean).join(', '),
+          dates: [e.starts_at?.year, e.ends_at?.year].filter(Boolean).join(' - '),
+        }))
+      : null,
+    skills: null as string[] | null,
+    profile_image_url: pickString(data.profile_pic_url),
+    profile_url: profileUrl,
+    source: SOURCE,
+    scraped_at: new Date().toISOString(),
+  };
+
+  // Build confidence
+  const fields = [extracted.full_name, extracted.headline, extracted.current_company, extracted.current_role, extracted.about, extracted.location];
+  const filled = fields.filter((v) => v && String(v).length > 0).length;
+  const confidence = filled / fields.length;
+  const hasMinimum = !!(extracted.full_name || extracted.headline);
+  const parse_status = hasMinimum ? (confidence >= 0.5 ? "ok" : "partial") : "insufficient";
+
+  // Build markdown for COS synthesis
+  const mdLines: string[] = [];
+  if (extracted.full_name) mdLines.push(`# ${extracted.full_name}`);
+  if (extracted.headline) mdLines.push(`**${extracted.headline}**`);
+  if (extracted.location) mdLines.push(`📍 ${extracted.location}`);
+  if (extracted.about) mdLines.push(`\n## About\n${extracted.about}`);
+  if (extracted.experience?.length) {
+    mdLines.push(`\n## Experience`);
+    for (const exp of extracted.experience) {
+      mdLines.push(`- **${exp.title}** at ${exp.company} (${exp.dates})`);
+    }
+  }
+  if (extracted.education?.length) {
+    mdLines.push(`\n## Education`);
+    for (const edu of extracted.education) {
+      mdLines.push(`- ${edu.degree} — ${edu.school} (${edu.dates})`);
+    }
+  }
+  const markdown = mdLines.join('\n');
+
+  return {
+    extracted,
+    confidence,
+    parse_status,
+    raw_markdown_length: markdown.length,
+    markdown,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -167,9 +259,10 @@ Deno.serve(async (req) => {
     const userId = authResult.userId;
     console.info(`[linkedin-profile-scrape] start user_id=${redactUserId(userId)}`);
 
-    const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!apiKey) {
-      console.error("[linkedin-profile-scrape] FIRECRAWL_API_KEY missing");
+    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+    const proxycurlKey = Deno.env.get("PROXYCURL_API_KEY");
+    if (!firecrawlKey && !proxycurlKey) {
+      console.error("[linkedin-profile-scrape] No scraping API key configured");
       return json(503, {
         error: "linkedin_scrape_unavailable",
         message:
@@ -196,14 +289,100 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const fc = await callFirecrawlScrape(apiKey, profileUrl);
-    console.info(`[linkedin-profile-scrape] firecrawl status=${fc.status} ok=${fc.ok}`);
+    // ── Try Proxycurl first (structured API, higher success rate) ────────
+    let fc: { ok: boolean; status: number; body: any; raw: string } | null = null;
+    let proxycurlResult: ReturnType<typeof extractFromProxycurl> | null = null;
+    let scrapeSource = 'firecrawl';
 
-    if (!fc.ok || !fc.body) {
-      const errMsg =
-        (fc.body && (fc.body.error || fc.body.message)) ||
-        `Firecrawl request failed (status ${fc.status})`;
-      console.error("[linkedin-profile-scrape] Firecrawl error:", fc.status, errMsg);
+    if (proxycurlKey) {
+      console.info(`[linkedin-profile-scrape] trying Proxycurl for ${redactUserId(userId)}`);
+      const pc = await callProxycurlScrape(proxycurlKey, profileUrl);
+      console.info(`[linkedin-profile-scrape] proxycurl status=${pc.status} ok=${pc.ok}`);
+
+      if (pc.ok && pc.body && typeof pc.body === 'object' && (pc.body.full_name || pc.body.headline)) {
+        proxycurlResult = extractFromProxycurl(pc.body, profileUrl);
+        scrapeSource = 'proxycurl';
+        console.info(`[linkedin-profile-scrape] proxycurl extracted name=${proxycurlResult.extracted.full_name} confidence=${proxycurlResult.confidence}`);
+      } else {
+        console.warn(`[linkedin-profile-scrape] proxycurl failed, falling back to firecrawl`);
+      }
+    }
+
+    // ── Fallback to Firecrawl if Proxycurl unavailable/failed ──────────
+    if (!proxycurlResult && firecrawlKey) {
+      fc = await callFirecrawlScrape(firecrawlKey, profileUrl);
+      console.info(`[linkedin-profile-scrape] firecrawl status=${fc.status} ok=${fc.ok}`);
+    }
+
+    // ── Handle Proxycurl success path ──────────────────────────────────
+    if (proxycurlResult) {
+      const status = proxycurlResult.parse_status === 'insufficient' ? 'insufficient' : 'ok';
+      const extracted_data = {
+        ...proxycurlResult.extracted,
+        _meta: {
+          confidence: proxycurlResult.confidence,
+          parse_status: proxycurlResult.parse_status,
+          raw_markdown_length: proxycurlResult.raw_markdown_length,
+          source: 'proxycurl',
+        },
+      };
+
+      const { error: dbErr } = await db.from('user_external_profiles').upsert(
+        {
+          user_id: userId,
+          source: SOURCE,
+          profile_url: profileUrl,
+          extracted_data,
+          scrape_status: status,
+          scrape_error: null,
+          scraped_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,source,profile_url' },
+      );
+
+      if (dbErr) {
+        console.error('[linkedin-profile-scrape] DB upsert error:', dbErr);
+        return json(500, { error: 'persist_failed', message: 'Failed to save profile' });
+      }
+
+      // Mirror into v8 responses for COS synthesis
+      const linkedinScrape = {
+        url: profileUrl,
+        ok: true,
+        markdown: proxycurlResult.markdown,
+        summary: proxycurlResult.extracted.about ?? null,
+        metadata: { source: 'proxycurl' },
+        scraped_at: new Date().toISOString(),
+      };
+      const { error: mirrorErr } = await db
+        .from('onboarding_v8_responses')
+        .upsert(
+          { user_id: userId, linkedin_url: profileUrl, linkedin_scrape: linkedinScrape },
+          { onConflict: 'user_id' },
+        );
+      if (mirrorErr) {
+        console.warn('[linkedin-profile-scrape] v8 mirror failed:', mirrorErr.message);
+      }
+      console.info(`[linkedin-profile-scrape] proxycurl upsert ok user_id=${redactUserId(userId)} status=${status}`);
+
+      if (status === 'insufficient') {
+        return json(200, {
+          ok: false,
+          status: 'insufficient',
+          message: "We couldn't read enough public information from this LinkedIn page. You can try again or continue manually.",
+          profile: extracted_data,
+        });
+      }
+
+      return json(200, { ok: true, status, profile: extracted_data });
+    }
+
+    // ── Firecrawl path (original logic) ───────────────────────────────
+    if (!fc || (!fc.ok || !fc.body)) {
+      const errMsg = fc
+        ? ((fc.body && (fc.body.error || fc.body.message)) || `Firecrawl request failed (status ${fc.status})`)
+        : 'No scraping method available';
+      console.error("[linkedin-profile-scrape] Firecrawl error:", fc?.status, errMsg);
       // Persist the URL even when scraping fails — the URL itself is valuable
       // leadership-context signal and the user explicitly chose to save it.
       const { error: dbErr } = await db.from("user_external_profiles").upsert(

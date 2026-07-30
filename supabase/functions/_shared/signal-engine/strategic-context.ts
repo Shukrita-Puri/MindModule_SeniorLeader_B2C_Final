@@ -41,10 +41,34 @@ export async function resolveStrategicContext(
       return empty;
     }
 
+    // Fallback: if profiles fields are still null, try onboarding_v8_responses
+    let fallbackArchetype: string | null = null;
+    let fallbackPressure: string[] | null = null;
+    let fallbackGoals: string[] | null = null;
+
+    if (!data.user_archetype || !data.pressure_profile) {
+      try {
+        const { data: v8 } = await db
+          .from('onboarding_v8_responses')
+          .select('cos_profile, freetext_context, goals, stakes_chips')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (v8) {
+          fallbackArchetype = (v8.cos_profile as any)?.provisional_archetype?.name ?? null;
+          const depletionPattern = (v8.cos_profile as any)?.cognitive_load_map?.primary_depletion_pattern;
+          if (depletionPattern) fallbackPressure = [depletionPattern];
+          else if (Array.isArray(v8.stakes_chips) && v8.stakes_chips.length) fallbackPressure = v8.stakes_chips;
+          if (Array.isArray(v8.goals) && v8.goals.length) fallbackGoals = v8.goals;
+        }
+      } catch {
+        // Non-critical fallback — silently ignore
+      }
+    }
+
     const value: StrategicContext = {
-      pressure_profile: normalizeArray(data.pressure_profile),
-      protection_goals: normalizeArray(data.protection_goals),
-      user_archetype: typeof data.user_archetype === 'string' ? data.user_archetype : null,
+      pressure_profile: normalizeArray(data.pressure_profile) ?? fallbackPressure,
+      protection_goals: normalizeArray(data.protection_goals) ?? fallbackGoals,
+      user_archetype: (typeof data.user_archetype === 'string' ? data.user_archetype : null) ?? fallbackArchetype,
     };
     cache.set(userId, { value, expires: Date.now() + CACHE_TTL_MS });
     return value;

@@ -207,6 +207,35 @@ serve(async (req) => {
       }
     }
 
+    // ── COS synthesis safety net ──────────────────────────────────
+    // Sweep for users who completed onboarding >30min ago but whose
+    // COS profile was never generated (client closed before StageDone).
+    try {
+      const { data: pending } = await serviceClient
+        .from('onboarding_v8_responses')
+        .select('user_id')
+        .not('completed_at', 'is', null)
+        .is('cos_profile_generated_at', null)
+        .lte('completed_at', new Date(Date.now() - 30 * 60_000).toISOString())
+        .limit(5);
+
+      if (pending && pending.length > 0) {
+        console.log(`[sync-calendar-scheduled] COS sweep: ${pending.length} pending profiles`);
+        for (const row of pending) {
+          try {
+            await serviceClient.functions.invoke('synthesize-cos-profile', {
+              body: { userId: row.user_id },
+            });
+            console.log(`[sync-calendar-scheduled] COS synthesis triggered for:`, redactUserId(row.user_id));
+          } catch (e) {
+            console.warn(`[sync-calendar-scheduled] COS synthesis failed for:`, redactUserId(row.user_id), e instanceof Error ? e.message : String(e));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[sync-calendar-scheduled] COS sweep error:', e instanceof Error ? e.message : String(e));
+    }
+
     console.log(`[sync-calendar-scheduled] Done. success=${successCount} reconnect=${reconnectCount} skipped=${skippedCount} deferred=${deferredCount} failure=${failureCount}`);
 
     return new Response(

@@ -18,6 +18,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-mm-client-platform",
 };
 
+function derivePracticeTagFromGoals(goals: string[]): string {
+  const g = goals.join(' ').toLowerCase();
+  if (g.includes('board') || g.includes('governance')) return 'regulation_composure';
+  if (g.includes('focus') || g.includes('deep_work')) return 'focus_clarity';
+  if (g.includes('energy') || g.includes('recovery')) return 'energy_endurance';
+  if (g.includes('pressure') || g.includes('resilience')) return 'regulation_early';
+  if (g.includes('mindset') || g.includes('reframe')) return 'mindset_reframe';
+  return 'regulation_composure'; // safe default
+}
+
+function derivePressureTagFromChips(stakes: string[], burden: string[]): string {
+  const all = [...stakes, ...burden].join(' ').toLowerCase();
+  if (all.includes('board') || all.includes('investor')) return 'high_stakes_executive';
+  if (all.includes('people') || all.includes('conflict') || all.includes('team')) return 'interpersonal_pressure';
+  if (all.includes('travel') || all.includes('load') || all.includes('volume')) return 'operational_load';
+  return 'high_stakes_executive';
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -70,12 +88,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    let v8Row: any = null;
     if (onboarding_version === "v8") {
-      const { data: v8Row, error: v8FetchError } = await supabaseAdmin
+      const { data: fetchedV8Row, error: v8FetchError } = await supabaseAdmin
         .from("onboarding_v8_responses")
         .select("*")
         .eq("user_id", userId)
         .maybeSingle();
+      v8Row = fetchedV8Row;
       if (v8FetchError) {
         console.error("[complete-onboarding] v8 fetch error:", v8FetchError);
         return new Response(
@@ -121,6 +141,68 @@ Deno.serve(async (req) => {
 
     // Build update payload – always persist results data
     const updateData: Record<string, unknown> = {};
+
+    // ── v8 personality field derivation ──────────────────────────
+    // v8 onboarding collects goals/chips but never writes the profiles.*
+    // personality fields that Plan, Brief, Coach, Nudges all read.
+    // Derive them here so the entire personalization layer is unsilenced.
+    if (onboarding_version === "v8" && v8Row) {
+      const goals: string[] = Array.isArray(v8Row.goals) ? v8Row.goals : [];
+      const stakesChips: string[] = Array.isArray(v8Row.stakes_chips) ? v8Row.stakes_chips : [];
+      const burdenChips: string[] = Array.isArray(v8Row.burden_chips) ? v8Row.burden_chips : [];
+      const cosProfile = v8Row.cos_profile as Record<string, any> | null;
+
+      // Derive practice_priority_tag from goals
+      const practiceTag = derivePracticeTagFromGoals(goals);
+      // Derive pressure_context_tag from chips
+      const pressureTag = derivePressureTagFromChips(stakesChips, burdenChips);
+
+      updateData.practice_priority_tag = practiceTag;
+      updateData.pressure_context_tag = pressureTag;
+      updateData.growth_priority = goals[0] ?? null;
+      updateData.user_archetype = cosProfile?.provisional_archetype?.name ?? null;
+      updateData.archetype_title = cosProfile?.provisional_archetype?.subtitle ?? null;
+      updateData.archetype_description = cosProfile?.provisional_archetype?.description ?? null;
+      updateData.identity_role = cosProfile?.identity?.role ?? null;
+      updateData.biggest_pressure = cosProfile?.cognitive_load_map?.primary_depletion_pattern ?? null;
+      updateData.onboarding_insight = cosProfile?.communication_profile?.cos_brief_rules ?? null;
+
+      // Write country if collected
+      const homeCountry = typeof v8Row.home_country === 'string' ? v8Row.home_country.trim() : null;
+      if (homeCountry) {
+        updateData.country = homeCountry;
+        updateData.home_country = homeCountry;
+      }
+
+      // Forward v8 connector selections to user_integrations
+      const calSel = Array.isArray(v8Row.calendar_selections) ? v8Row.calendar_selections : [];
+      const wearSel = Array.isArray(v8Row.wearable_selections) ? v8Row.wearable_selections : [];
+      if (calSel.length > 0 || wearSel.length > 0) {
+        const integrationData: Record<string, unknown> = {
+          user_id: userId,
+          updated_at: new Date().toISOString(),
+        };
+        if (calSel[0]) {
+          integrationData.calendar_provider = calSel[0];
+          integrationData.calendar_connected_at = new Date().toISOString();
+        }
+        if (wearSel[0]) {
+          integrationData.watch_type = wearSel[0];
+        }
+        const { error: v8IntErr } = await supabaseAdmin
+          .from("user_integrations")
+          .upsert(integrationData, { onConflict: "user_id" });
+        if (v8IntErr) {
+          console.warn("[complete-onboarding] v8 user_integrations upsert warning:", v8IntErr);
+        } else {
+          console.log("[complete-onboarding] ✅ v8 user_integrations saved for:", redactUserId(userId));
+        }
+      }
+
+      console.log("[complete-onboarding] ✅ v8 personality fields derived:", redactUserId(userId), {
+        practiceTag, pressureTag, archetype: updateData.user_archetype,
+      });
+    }
 
     if (mental_fitness_baseline !== undefined) updateData.mental_fitness_baseline = mental_fitness_baseline;
     if (component_scores !== undefined) updateData.component_scores = component_scores;
@@ -200,6 +282,26 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Failed to update profile", detail: updateErr.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Initialize notification_preferences for the user if no row exists
+    if (onboarding_version === "v8" && v8Row) {
+      const briefTiming = typeof v8Row.brief_timing === 'string' ? v8Row.brief_timing : null;
+      const weekendSignals = typeof v8Row.weekend_signals === 'string' ? v8Row.weekend_signals : null;
+      const { error: npErr } = await supabaseAdmin
+        .from("notification_preferences")
+        .upsert({
+          user_id: userId,
+          morning_enabled: briefTiming === 'morning' || briefTiming == null,
+          evening_enabled: briefTiming === 'evening',
+          nudge_frequency: 'standard',
+          weekend_nudges: weekendSignals === 'yes' || weekendSignals === 'include' || weekendSignals === 'full',
+        }, { onConflict: 'user_id', ignoreDuplicates: true });
+      if (npErr) {
+        console.warn("[complete-onboarding] notification_preferences upsert warning:", npErr);
+      } else {
+        console.log("[complete-onboarding] ✅ notification_preferences initialized for:", redactUserId(userId));
+      }
     }
 
     // Create initial mental fitness score if baseline provided and not already set

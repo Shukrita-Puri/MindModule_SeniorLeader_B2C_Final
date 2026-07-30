@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
 import { startFirstSessionTour } from "@/utils/firstSessionTour";
-import { markV8Complete, synthesizeCosProfile } from "@/utils/onboardingV8";
+import { markV8Complete, synthesizeCosProfile, seedOnboardingMemory } from "@/utils/onboardingV8";
 
 export default function StageDone() {
   const navigate = useNavigate();
@@ -12,6 +12,7 @@ export default function StageDone() {
   const { refreshProfile, user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cosStatus, setCosStatus] = useState<'idle' | 'pending' | 'ready' | 'error'>('idle');
 
   const enter = async () => {
     if (busy) return;
@@ -72,6 +73,9 @@ export default function StageDone() {
     // it can be retried later and the server marks cos_profile_status.
     void synthesizeCosProfile().catch(() => {});
 
+    // Seed event priority memory from onboarding goals (best-effort)
+    void seedOnboardingMemory().catch(() => {});
+
     const target = startFirstSessionTour({ userId: user?.id, source: "onboarding" });
     navigate(target);
   };
@@ -121,6 +125,14 @@ export default function StageDone() {
             ))}
           </div>
         </div>
+
+        {cosStatus === 'error' && (
+          <div className="w-full bg-saffron/10 border border-saffron/25 rounded-[10px] p-3 mb-2">
+            <div className="text-[10px] text-saffron leading-[1.6]">
+              We couldn't fully analyse your profile. Your experience will improve as the app learns from your calendar and check-ins. You can update your context in Settings.
+            </div>
+          </div>
+        )}
 
         <div className="w-full bg-[#ede8dc] border border-[#cfc7b8] rounded-[10px] p-3 mb-2">
           <div className="text-[10px] text-[#7a7060] leading-[1.6]">
