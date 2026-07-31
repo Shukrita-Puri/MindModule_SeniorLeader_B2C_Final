@@ -6223,7 +6223,7 @@ async function generateMasteryPlan(
         slotAnchor: {
           eventTitle: slot.jitEventTitle,
           categoryId: slot.jitCategoryId,
-          phase: slot.jitPhase,
+          phase: slot.jitPhase ?? (slot.index === 0 ? "pre" : slot.index === 1 ? "during" : "post"),
         },
         isTomorrow: false,
         practicePriorityTag: req.practicePriorityTag,

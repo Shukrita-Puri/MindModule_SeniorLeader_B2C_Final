@@ -248,8 +248,8 @@ export type ArcBadgeSlot = {
  */
 export function shouldRenderArcBadge(slot: ArcBadgeSlot): boolean {
   if (!slot?.arcLabel) return false;
-  if (slot.arcLabel === 'Steady') return true;
-  return slot.isJit === true || !!slot.jitEventTitle;
+  if (slot.arcLabel === 'During') return slot.isJit === true || !!slot.jitEventTitle;
+  return true;
 }
 
 /**

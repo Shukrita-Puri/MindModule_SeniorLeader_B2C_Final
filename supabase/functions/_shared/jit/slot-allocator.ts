@@ -423,8 +423,17 @@ function makeSlot(
     dayShape === "dominant_structural_event" && !!intendedPhase && (!candidate || phaseMismatch);
   const effectiveCandidate = phaseMismatch ? null : candidate;
   const isJit = !!effectiveCandidate;
-  const phase = effectiveCandidate?.phase ?? null;
-  const arcLabel = phase === "during" ? "During" : phase === "post" ? "Recover" : phase === "pre" ? "Prepare" : "Steady";
+  const arcLabel = phase === "during"
+    ? "During"
+    : phase === "post"
+    ? "Recover"
+    : phase === "pre"
+    ? "Prepare"
+    : defaultRole === "start_of_day"
+    ? "Prepare"
+    : defaultRole === "recovery" || defaultRole === "close_of_day"
+    ? "Recover"
+    : "Steady";
   // slotRole reflects the ACTUAL selected phase for dominant days; if the
   // phase was unavailable (e.g. Cat A "during"), degrade to state_anchor
   // rather than mis-label a state fallback as "during".

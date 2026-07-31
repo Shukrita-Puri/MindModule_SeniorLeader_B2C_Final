@@ -32,10 +32,10 @@ describe('Sprint F — Plan slot rendering contract', () => {
       ).toBe(true);
     });
 
-    it('does NOT render Prepare on a state-only slot (no event anchor)', () => {
+    it('renders Prepare on a state-only morning prep slot', () => {
       expect(
         shouldRenderArcBadge({ arcLabel: 'Prepare', isJit: false, jitEventTitle: null })
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it('does NOT render During on a state-only slot (Category A must not invent During)', () => {

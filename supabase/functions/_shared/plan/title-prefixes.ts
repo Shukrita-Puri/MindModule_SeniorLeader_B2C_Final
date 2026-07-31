@@ -258,8 +258,14 @@ export function buildPriorityTitle(input: BuildPriorityTitleInput): string {
   if (!eventTitle || !eventTitle.trim()) {
     const ctx = input.fallbackContext?.trim();
     if (ctx) return `${verb} ${objective} ${connector} ${ctx}`.replace(/\s+/g, ' ').trim();
-    // No anchor at all — state-management label.
-    return `${verb} ${objective} for the day ahead`;
+    // No anchor at all — phase-aware state-management label.
+    if (phase === 'post') {
+      return `${verb} ${objective} to close the day`;
+    }
+    if (phase === 'during') {
+      return `${verb} ${objective} through mid-day`;
+    }
+    return `${verb} ${objective} for the morning rhythm`;
   }
 
   // Trim event title to ≤4 identifying tokens, drop "Meeting"-style noise tail.
