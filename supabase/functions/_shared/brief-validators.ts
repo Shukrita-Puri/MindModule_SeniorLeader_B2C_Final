@@ -450,10 +450,10 @@ export function validateBodyFourBeatStructure(body: string): ValidationResult {
       reason: `body too short (${wordCount} words) — cannot carry four beats`,
     };
   }
-  if (wordCount > 60) {
+  if (wordCount > 70) {
     return {
       ok: false,
-      reason: `body too long (${wordCount} words) — exceeds 60-word ceiling`,
+      reason: `body too long (${wordCount} words) — exceeds 70-word ceiling`,
     };
   }
 
