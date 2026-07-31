@@ -314,6 +314,11 @@ export function useDeviceTokenRegistration() {
 
     return () => {
       cancelled = true;
+      // Reset latches so a remount (React Strict Mode double-render,
+      // routing change, iOS background→foreground) re-runs the full
+      // registration flow instead of bailing at the guard on line 108.
+      setupStarted.current = false;
+      registered.current = false;
       // Tear down listeners on unmount or before the effect re-runs for a
       // different user. We intentionally don't await here — React effect
       // cleanups are synchronous and the native calls are fire-and-forget.

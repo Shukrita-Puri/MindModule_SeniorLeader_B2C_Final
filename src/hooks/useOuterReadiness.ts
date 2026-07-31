@@ -949,16 +949,19 @@ export function useOuterReadiness(options?: UseOuterReadinessOptions) {
         // A real brief supersedes any awaiting marker for this window.
         if (awaitingKey) clearPersistent(awaitingKey);
       } else if (data?.briefMode === 'cold-start' || data?.awaitingSignals) {
-        // No-signal gating decision — persist it for this window so we
-        // don't keep recomputing it. Always wipe any prior real-brief
-        // entry so we don't accidentally replay it next mount.
+        // If we already have a valid real brief cached for today's window,
+        // preserve it rather than replacing it with an empty/awaiting skeleton.
+        if (cached && cached.phrase && cached.bodyText) {
+          dbg('Network returned awaitingSignals/cold-start, but preserving existing cached brief', { key: persistentKey });
+          return cached;
+        }
         if (persistentKey) clearPersistent(persistentKey);
         if (awaitingKey) writePersistent(awaitingKey, data, msUntilWindowEnd());
       }
       if (forceRefreshKey && typeof window !== 'undefined') {
         try { window.sessionStorage.removeItem(forceRefreshKey); } catch { /* ignore */ }
       }
-      return data;
+      return data ?? cached ?? null;
     },
     enabled: !!effectiveUserId && !snapshotOnlyDisabled,
     staleTime: 5 * 60 * 1000,

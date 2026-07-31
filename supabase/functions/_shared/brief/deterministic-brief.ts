@@ -165,19 +165,19 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
 
   const pillKey = `${opts.cognitivePillTier}+${opts.physicalPillTier}`;
   const readMap: Record<string, string> = {
-    "green+green": "Both pillars are clear - the day is yours to lead.",
+    "green+green": "Cognitive focus and physical stamina are clear - the day is yours to lead.",
     "green+amber":
-      "The cognitive edge is real even though the body is carrying more than usual.",
+      "Mental Bandwidth is clear even though the body is carrying more physical load than usual.",
     "green+red":
-      "The cognitive edge is real even though the body is carrying more than usual.",
+      "Mental Bandwidth is clear even though physical reserves are running low.",
     "amber+green":
-      "Physical steadiness is the asset today, not sharpness.",
-    "red+red": "Both pillars are under load - the day asks for protection, not output.",
-    "red+green": "Physical stamina is the lead - the mind needs protecting.",
-    firing: "You're carrying more capacity than the day is asking for.",
-    steady: "You're evenly matched with what's ahead.",
-    stretched: "The day is asking more than reserves can easily cover.",
-    depleted: "There's less in the tank than the calendar assumes.",
+      "Physical stamina is the asset today, maintaining steady Mental Bandwidth.",
+    "red+red": "Both Mind and body are under load - the day asks for Strategic Composure, not output.",
+    "red+green": "Physical stamina is the lead - Mental Bandwidth needs protecting.",
+    firing: "Mind and body are carrying more capacity than the day is asking for.",
+    steady: "Mental Bandwidth and physical stamina are evenly matched with what's ahead.",
+    stretched: "The day is asking more Mental Bandwidth than physical reserves can easily cover.",
+    depleted: "Physical Recovery is lower than the calendar assumes.",
   };
   return readMap[pillKey] ?? readMap[opts.band] ?? readMap.steady;
 }

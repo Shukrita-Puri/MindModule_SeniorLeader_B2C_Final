@@ -7451,6 +7451,11 @@ function composeWhyLine(
     "",
   );
 
+  // State grounding token to satisfy validateWhyLine state-grounding gate
+  const stateToken = req.innerReadinessTier === "peak" || req.innerReadinessTier === "strong"
+    ? "sharp"
+    : "steady";
+
   // forContext — slot-scoped anchor only. Never name a different event.
   let forContext = "";
   if (slotAnchorTitle) {
@@ -7460,18 +7465,18 @@ function composeWhyLine(
       ? `through ${slotAnchorTitle}`
       : `before ${slotAnchorTitle}`;
   } else if (hm.slotKind === "end_of_day") {
-    forContext = "to close the day with intention";
+    forContext = "to stay settled and close the day with intention";
   } else if (hm.slotKind === "start_of_day") {
-    forContext = "to set the day";
+    forContext = `to keep your mind ${stateToken} and set the morning rhythm`;
   } else {
-    forContext = "for what the day is asking of you";
+    forContext = `to maintain a ${stateToken} rhythm for what the day is asking`;
   }
 
   const parts: string[] = [];
   if (eventSpecificWhy) {
     parts.push(eventSpecificWhy);
   } else if (allOverlap) {
-    parts.push("Following your brief:");
+    parts.push(`Following your brief to remain ${stateToken}:`);
   } else {
     if (strat) parts.push(strat);
     if (tac) parts.push(tac);
@@ -7945,8 +7950,21 @@ async function applyV51Enrichment(
     const isGeneric =
       /\b(following your brief|for your state|demands today|carry your edge|set your state|what the day is asking)\b/i
         .test(why);
-    if (eventWhy && (isRepeated || isGeneric)) {
-      hm.whyLine = eventWhy;
+    if (isRepeated || isGeneric) {
+      if (eventWhy) {
+        hm.whyLine = eventWhy;
+      } else {
+        const slotIdx = modules.indexOf(hm);
+        const stateToken = req.innerReadinessTier === "peak" || req.innerReadinessTier === "strong" ? "sharp" : "steady";
+        const verb = pickActionVerb(hm.practice?.type || "regulate");
+        if (slotIdx === 0) {
+          hm.whyLine = `Prepare: ${verb} to keep your state ${stateToken} and set the morning rhythm.`;
+        } else if (slotIdx === 1) {
+          hm.whyLine = `${(hm as any).arcLabel || "Steady"}: ${verb} to maintain a ${stateToken} rhythm for what the day is asking.`;
+        } else {
+          hm.whyLine = `Recover: ${verb} to stay settled and close the day with intention.`;
+        }
+      }
     } else if (!hm.whyLine && fallbackWhyLineByIndex.has(modules.indexOf(hm))) {
       hm.whyLine = fallbackWhyLineByIndex.get(modules.indexOf(hm)) ||
         hm.whyLine;
