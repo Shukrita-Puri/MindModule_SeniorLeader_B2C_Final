@@ -80,9 +80,11 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
       ? opts.todayHighStakes.slice(0, 2).map(shortRef).join(" and ")
       : shortRef(opts.todayHighStakes[0]);
     return opts.hasWearable
-      ? `${
-        wearableFact ?? "The wearable read is in"
-      } but you've checked in drained, and ${eventRef} is why the gap matters today.`
+      ? `Recovery signals are clear but the Mind checked in drained${
+        hasManyHighStakes
+          ? `, and ${eventRef} are why that gap matters.`
+          : ` — ${eventRef} is why that gap matters.`
+      }`
       : `The mind is drained but ${eventRef} ${
         hasManyHighStakes ? "are" : "is"
       } on today - the demand and the felt state aren't aligned.`;
@@ -134,8 +136,19 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     } is the weight on the ${opts.window}.`;
   }
 
+  if (opts.checkInOutcome && opts.meetingCount > 0) {
+    const evidenceOutcome = opts.checkInOutcome === "holding"
+      ? "steady"
+      : opts.checkInOutcome;
+    const meetingWord = opts.meetingCount === 1 ? "meeting" : "meetings";
+    return `You've checked in ${evidenceOutcome} across ${opts.meetingCount} ${meetingWord} this ${opts.window}.`;
+  }
+
   if (opts.checkInOutcome) {
-    return `You've checked in ${opts.checkInOutcome} and there's no wearable read yet this ${opts.window}.`;
+    const evidenceOutcome = opts.checkInOutcome === "holding"
+      ? "steady"
+      : opts.checkInOutcome;
+    return `You've checked in ${evidenceOutcome} and there's no wearable read yet this ${opts.window}.`;
   }
 
   return `Signal is thin this ${opts.window} - no wearable and no check-in yet.`;
@@ -150,17 +163,17 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
     opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
 
   if (drainedIntoHighStakes && hasManyHighStakes) {
-    return "The felt state and the calendar are pointing in opposite directions - sequencing is the day's real decision.";
+    return "The felt state and the calendar don't match — sequencing is the day's real decision.";
   }
   if (drainedIntoHighStakes) {
     return "The felt state and the calendar don't match - that gap is what needs managing.";
   }
   if (lowSleepIntoHighStakes) return "That changes what preparation looks like.";
   if (opts.hasBackToBack && opts.physicalPillTier !== "green") {
-    return "Physical load is elevated going into a compressed calendar.";
+    return "Physiology is carrying more load going into a compressed calendar.";
   }
   if (hasHighStakes && opts.cognitivePillTier === "green") {
-    return "Decision focus is clear and the calendar is stacked.";
+    return "Mind is clear and the calendar is stacked — use the edge.";
   }
 
   const pillKey = `${opts.cognitivePillTier}+${opts.physicalPillTier}`;
@@ -169,14 +182,14 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
     "green+amber":
       "Mental Bandwidth is clear even though the body is carrying more physical load than usual.",
     "green+red":
-      "Mental Bandwidth is clear even though physical reserves are running low.",
+      "Mental Bandwidth is clear even though the physical runway is running short.",
     "amber+green":
       "Physical stamina is the asset today, maintaining steady Mental Bandwidth.",
     "red+red": "Both Mind and body are under load - the day asks for Strategic Composure, not output.",
     "red+green": "Physical stamina is the lead - Mental Bandwidth needs protecting.",
-    firing: "Mind and body are carrying more capacity than the day is asking for.",
+    firing: "Mind and body are carrying more supply than the day is asking for.",
     steady: "Mental Bandwidth and physical stamina are evenly matched with what's ahead.",
-    stretched: "The day is asking more Mental Bandwidth than physical reserves can easily cover.",
+    stretched: "The day is asking more than the physical runway can easily cover without cost.",
     depleted: "Physical Recovery is lower than the calendar assumes.",
   };
   return readMap[pillKey] ?? readMap[opts.band] ?? readMap.steady;
@@ -192,10 +205,10 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
 
   if (drainedIntoHighStakes) {
     return hasManyHighStakes
-      ? "Set the thinking intention before each room rather than generating in it; conserve the edge for where the decisions actually land"
-      : `Protect the mental energy before ${
+      ? "Set the intention before each room; conserve the edge for where decisions land"
+      : `Protect the edge before ${
         shortRef(opts.todayHighStakes[0])
-      }; trim the peripheral work and enter with what is there intact`;
+      }; trim what's peripheral and enter with what is there intact`;
   }
   if (lowSleepIntoHighStakes) {
     return `Protect the first thinking window before ${
@@ -218,7 +231,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
       : "Use this for the one decision or analysis that compounds most";
   }
   if (opts.band === "depleted" || opts.band === "stretched") {
-    return "Name the one thing that cannot wait and do only that";
+    return "Pick the one priority that cannot wait and do only that";
   }
   return "Keep pace and protect the most important block";
 }
