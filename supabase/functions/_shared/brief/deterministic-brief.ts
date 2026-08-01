@@ -233,9 +233,14 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     return "Route the presence and stakeholder conversations through the physical runway; defer anything needing full processing";
   }
   if (opts.cognitivePillTier === "green" && opts.physicalPillTier === "green") {
-    return hasHighStakes
-      ? `Open with ${shortRef(opts.todayHighStakes[0])} while both pillars are clear`
-      : "Use this for the one decision or analysis that compounds most";
+    if (hasHighStakes) {
+      return `Open with ${
+        shortRef(opts.todayHighStakes[0])
+      } while both pillars are clear`;
+    }
+    return opts.isWeekend
+      ? "Use this clarity on the one thing that genuinely compounds — planning or preparation only, not reactive output"
+      : "Use this for the one decision or analysis that compounds most and protect the most important block";
   }
   if (opts.band === "depleted" || opts.band === "stretched") {
     return "Pick the one priority that cannot wait and do only that";
