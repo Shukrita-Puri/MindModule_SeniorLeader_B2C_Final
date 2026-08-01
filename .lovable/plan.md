@@ -1,21 +1,24 @@
-Isolated UI change on the MRS card only.
+Isolated UI tweaks on the MRS card only. No logic, scoring, Edge Function, or navigation changes.
 
 ### Changes
-1. **Wrap `WeeklyDeltaDial` in a collapsible disclosure inside `MrsPage.tsx`**
-   - Use the same `Collapsible` / `CollapsibleTrigger` / `CollapsibleContent` primitives already used by the signal pills in `DecisionReadinessBrief.tsx`.
-   - Default state: **closed** on page load.
-   - Trigger label: "Week over week" — keep the existing font styling (`text-[11px] uppercase tracking-[0.18em] text-muted-foreground`).
-   - Add a `ChevronDown` icon that rotates 180° when open, matching the signal-pill pattern.
 
-2. **Remove the visible border from `WeeklyDeltaDial.tsx`**
-   - Drop the `border border-border/60` class from the card container (line 51).
-   - Keep all internal layout, gradients, shadows, and typography unchanged.
+1. **Thicken only the coloured progress arc in `src/components/home/mrs/MrsGauge.tsx`**
+   - Progress arc stroke: `strokeWidth={6}` → `strokeWidth={10}`.
+   - Leave the track (`strokeWidth={4}`), radius, gradients, glow, orb, typography, and colour logic untouched.
+   - The overall circle size stays the same; only the coloured line becomes more visible.
 
-3. **Update `WeeklyDeltaDial.test.tsx`**
-   - Because the panel is closed by default, add a click on the trigger before asserting on the card contents.
-   - No calculation or prop contract changes.
+2. **Make the "Take assessment" button chunkier and less elongated in `src/components/home/mrs/MrsPage.tsx`**
+   - Increase vertical padding: `py-2.5` → `py-3.5`.
+   - Slightly increase horizontal padding: `pl-5 pr-6` → `pl-6 pr-7`.
+   - Increase label size: `text-xs` → `text-sm`.
+   - Keep the left-edge half-tab shape, saffron gradient, shimmer, click handler, and all existing behaviour.
 
 ### Out of scope
-- No Edge Function, hook, or scoring changes.
-- No changes to `useWeeklyMrsDelta`, `MOCK_MRS`, or any other MRS logic.
-- No other pages or components touched.
+- No changes to `useWeeklyMrsDelta`, `useMrsSnapshot`, `useOuterReadiness`, scoring, or any Edge Function.
+- No changes to the gauge size, track width, colours, or the Week-over-Week collapsible behaviour.
+- No new assets or copy.
+
+### Verification
+- Run `vitest` for affected components (`WeeklyDeltaDial.test.tsx` and any MRS-related tests).
+- Run `tsgo` typecheck.
+- Visually verify the MRS page preview shows a thicker coloured dial arc and a more substantial assessment button.
