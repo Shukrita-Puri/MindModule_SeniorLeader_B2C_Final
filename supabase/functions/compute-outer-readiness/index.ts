@@ -5951,7 +5951,9 @@ serve(async (req) => {
             // dominating", morning-anchoring in evening) and MUST NOT be
             // served. Ignored deterministic rows fall through to a fresh
             // LLM attempt; if that also misses, the Brief becomes awaiting.
-            const cacheableSource = snapshot.brief_source === "llm";
+            // Deterministic rows are now audited and validated — allow replay.
+            const cacheableSource = snapshot.brief_source === "llm" ||
+              snapshot.brief_source === "deterministic";
             if (cacheableSource && snapshot.phrase && snapshot.body_text) {
               cachedSnapshot = snapshot as CachedBriefSnapshot;
             }
@@ -8987,7 +8989,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // previously-accepted LLM brief could still leak copy through. We
       // gate the response + persistence on `briefMustAwait` so calendar-only
       // and inner-awaiting runs never emit Brief prose.
-      const briefMustAwait = awaitingSignals || innerStateIsAwaiting;
+      // A valid deterministic brief or an adopted canonical score means the user
+      // should always see content — never force awaiting when either exists.
+      const hasDeterministicBrief = deterministicBrief !== null;
+      const briefMustAwait = (awaitingSignals || innerStateIsAwaiting) &&
+        !hasDeterministicBrief &&
+        typeof canonicalInnerScore !== "number";
       const briefIsAwaiting = briefMustAwait ||
         (!cachedSnapshot && !llmBrief && !deterministicBrief);
       const briefSource: "llm" | "deterministic" | "awaiting" = briefMustAwait
