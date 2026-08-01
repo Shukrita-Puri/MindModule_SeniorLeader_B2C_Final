@@ -53,10 +53,7 @@ const WeeklyDeltaDial = ({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Week over week
-          </p>
-          <p className="mt-2 text-[18px] font-semibold leading-tight text-foreground">
+          <p className="text-[18px] font-semibold leading-tight text-foreground">
             {statusText}
           </p>
           <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
