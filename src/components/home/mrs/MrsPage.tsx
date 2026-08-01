@@ -224,7 +224,7 @@ const MrsPage = () => {
             className={cn(
               'relative inline-flex items-center overflow-hidden',
               'rounded-r-full rounded-l-none',
-              'pl-5 pr-6 py-2.5 text-xs font-semibold tracking-wide',
+              'pl-6 pr-7 py-3.5 text-sm font-semibold tracking-wide',
               'text-saffron-foreground',
               'bg-[linear-gradient(90deg,hsl(var(--saffron))_0%,hsl(var(--saffron)/0.88)_60%,hsl(var(--saffron)/0.72)_100%)]',
               'shadow-[0_8px_24px_-8px_hsl(var(--saffron)/0.55)]',

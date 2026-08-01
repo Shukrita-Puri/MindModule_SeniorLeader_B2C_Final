@@ -81,7 +81,7 @@ const MrsGauge = ({ score, tier, size = 220 }: MrsGaugeProps) => {
           r={radius}
           fill="none"
           stroke="url(#mrs-arc)"
-          strokeWidth={6}
+          strokeWidth={10}
           strokeLinecap="round"
           strokeDasharray={`${dash} ${circumference - dash}`}
           transform={`rotate(-90 ${cx} ${cy})`}
