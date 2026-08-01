@@ -14,6 +14,7 @@ import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
 import { localISODate } from '@/utils/persistentBriefCache';
 // getLocalWearableData removed – local cache must not override cloud source of truth
 import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableContextAnalyzer';
+import { HOME_SNAPSHOT_ONLY } from '@/config/homeSnapshotMode';
 
 // ==================== RETRY GUARDRAIL ====================
 const RETRY_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
