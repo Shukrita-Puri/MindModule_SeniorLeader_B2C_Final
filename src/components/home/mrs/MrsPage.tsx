@@ -28,6 +28,7 @@ type MrsOuterReadiness = OuterReadinessData & {
 };
 
 const MrsPage = () => {
+  const [weekOverWeekOpen, setWeekOverWeekOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Snapshot-only home: do NOT invoke the live `compute-outer-readiness`
