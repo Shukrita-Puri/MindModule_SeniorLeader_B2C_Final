@@ -9354,8 +9354,32 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 existingWp == null || // legacy row w/ valid baseline
                 (existingEarned != null && existingEarned.length > 0)
               );
-            const shouldPreserveExistingMrs = suppressIncomingMrsSnapshot &&
+            // Read-first contract: the cron / orchestrator (service role or
+            // cron secret) OWNS the MRS number for a given
+            // (user, local_date, mrs_window). Browser-originated calls
+            // (Auth0 token → isInternalCall === false) must ADOPT the
+            // persisted ready row rather than overwrite it with a
+            // client-supplied score. This removes the second writer that
+            // caused MRS oscillation between Home, MrsPage and the Brief.
+            const adoptExistingMrs = existingIsReadyRow && !isInternalCall;
+            const shouldPreserveExistingMrs =
+              (suppressIncomingMrsSnapshot || adoptExistingMrs) &&
               existingIsReadyRow;
+            if (adoptExistingMrs) {
+              console.log(
+                "[canonical-mrs] adopted_existing_snapshot",
+                {
+                  userId,
+                  localDate: snapshotLocalDate,
+                  window: timeWindow,
+                  incomingScore: typeof innerReadinessScore === "number"
+                    ? innerReadinessScore
+                    : null,
+                  existingScore: existingWindowMrs?.inner_score ?? null,
+                  isInternalCall,
+                },
+              );
+            }
             if (shouldPreserveExistingMrs) {
               console.warn(
                 "[daily_context_snapshot] preserving existing ready MRS; incoming run is awaiting",
@@ -9365,9 +9389,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   window: timeWindow,
                   existingInnerScore: existingWindowMrs?.inner_score,
                   existingState: existingWindowMrs?.readiness_state,
-                  reason: innerStateIsAwaiting
-                    ? "incoming_awaiting"
-                    : "legacy_incomplete_mrs_payload",
+                  reason: suppressIncomingMrsSnapshot
+                    ? (innerStateIsAwaiting
+                      ? "incoming_awaiting"
+                      : "legacy_incomplete_mrs_payload")
+                    : "browser_read_first",
                 },
               );
             } else if (
