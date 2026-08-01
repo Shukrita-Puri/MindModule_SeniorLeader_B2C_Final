@@ -21,7 +21,6 @@ import {
   sanitizeSignalPillsForCheckInFreshness,
   useCurrentBriefSnapshot,
 } from '@/hooks/useCurrentBriefSnapshot';
-import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useAuth } from '@/hooks/useAuth';
 import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_BRIEF } from '@/components/onboarding/tourMockData';
