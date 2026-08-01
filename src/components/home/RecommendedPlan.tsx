@@ -41,7 +41,7 @@ const RecommendedPlan = () => {
       }
       
       // Generate recommendations based on energy state
-      const energyState = await computeEnergyState();
+      const energyState = await computeEnergyState(undefined, { snapshotOnly: true });
       const recs = await generateRecommendations(energyState);
       setRecommendations(recs);
     } catch (error) {

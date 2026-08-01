@@ -74,7 +74,7 @@ const PerformancePreparation = () => {
     
     try {
       // Get current energy state
-      const energyState = await computeEnergyState(user?.id);
+      const energyState = await computeEnergyState(user?.id, { snapshotOnly: true });
       
       // Convert calendar events from database format to CalendarEvent format
       const formattedEvents: CalendarEvent[] = calendarEvents.map(event => ({

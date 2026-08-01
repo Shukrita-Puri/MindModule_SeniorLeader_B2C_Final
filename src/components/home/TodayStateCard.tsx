@@ -28,7 +28,7 @@ const TodayStateCard = () => {
   const { data: energyState, isLoading, isRefetching } = useQuery({
     queryKey: ['energy-state', user?.id],
     queryFn: async () => {
-      return await computeEnergyState(user?.id);
+      return await computeEnergyState(user?.id, { snapshotOnly: true });
     },
     enabled: !!user?.id,
     refetchInterval: 5 * 60 * 1000,
