@@ -1,32 +1,36 @@
-Confirmed: `useMrsSnapshot` already returns the `useQuery` result directly, so `isLoading` / `isFetching` are already destructurable. No return-shape change. The only edit to that file is the one-line `staleTime` bump.
+## Goal
+Remove the competing MRS score source from the Performance Readiness Brief card so it reads score/tier/state from one place: the brief snapshot overlay (`useCurrentBriefSnapshot`), falling back to the live `outerBrief` payload.
 
-## Scope
+## All six references — confirmed handled
 
-Pass 1 = Changes A, B, C plus the stale-time table. Change D (removing the Brief-card `shouldPreferMrsSnapshot` override) is held until A–C are stable. Changes E and F (edge function + energyStateEngine) are out of scope.
+1. **Remove the import** — delete `import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';` (line 24). Verified `useMrsSnapshot` has no other use in this file.
+2. **Remove the hook call + window const** — delete `const { data: mrsSnapshot } = useMrsSnapshot();` (line 1873) and `const currentWindowLocal = currentPeriodLocal();` (line 1874).
+   Note: the `currentPeriodLocal` *import* on line 30 must stay — it is still used at lines 2075, 2130, and 2306. Only the unused local `currentWindowLocal` const is removed.
+3. **Remove the `shouldPreferMrsSnapshot` boolean** (lines 1875-1878).
+4. **Simplify the five canonical fields in the snapshot-overlay IIFE** (lines 1997-2011) to snapshot-then-live, with no `mrsSnapshot` branch:
+   - `const canonicalMrsScore = snap.innerReadinessScore ?? base.innerReadinessScore ?? null;`
+   - `const canonicalMrsTier = snap.innerReadinessTier ?? base.innerReadinessTier ?? null;`
+   - `const canonicalMrsState = snap.innerReadinessState ?? base.innerReadinessState ?? null;`
+   - `const canonicalMrsBaseline = snap.innerReadinessScoreBaseline ?? base.innerReadinessScoreBaseline ?? null;`
+   - `const canonicalMrsRefined = snap.innerReadinessScoreRefined ?? base.innerReadinessScoreRefined ?? null;`
+5. **Remove the override block** at lines 2190-2202 (`if (shouldPreferMrsSnapshot && mrsSnapshot) { ... score = mrsSnapshot.score; tier = mrsSnapshot.tier ?? tier; }`) including its `console.info('[decision-readiness-brief] mrs_override', ...)`. Convert the now-immutable `let score` / `let tier` (lines 2183-2184) to `const`.
+6. **Simplify `canonicalReadinessState`** (lines 2218-2221) to:
+   `const canonicalReadinessState = (outerBrief as any)?.innerReadinessState;`
+   This drops the last `shouldPreferMrsSnapshot` / `mrsSnapshot` reference that would otherwise be a TypeScript error.
 
-## What gets changed
+`hasCurrentPeriodSignal` gating is preserved, so the score still renders `--` when the current period has no signal.
 
-### 1. Stale times → 15 minutes (matches the 15-min cron cadence)
-- `src/hooks/useMrsSnapshot.ts` — `staleTime: 60 * 1000` → `15 * 60 * 1000` (one line; nothing else in this file changes)
-- `src/hooks/useCurrentBriefSnapshot.ts` (line 193) — `5 * 60 * 1000` → `15 * 60 * 1000`
-- `src/hooks/useOuterReadiness.ts` (line 967) — `5 * 60 * 1000` → `15 * 60 * 1000`
+## Test update
 
-Manual refresh is unaffected — it invalidates the queries explicitly.
+`src/hooks/__tests__/snapshotContractGuards.test.ts` line 85 asserts the old dual-source contract:
+- Remove `expect(BRIEF_SRC).toContain('shouldPreferMrsSnapshot && mrsSnapshot?.readinessState');`
+- Add regression guards: `expect(BRIEF_SRC).not.toContain('shouldPreferMrsSnapshot');` and `expect(BRIEF_SRC).not.toContain('useMrsSnapshot');`
+- Keep the existing `canonicalReadinessState` / `'refined'` / `'awaiting' || score == null` assertions — they remain valid.
 
-### 2. Loading state (`src/components/home/mrs/MrsPage.tsx` only)
-- Destructure `isLoading` from the existing `useMrsSnapshot()` return.
-- Derive `showScoreLoader = (mrsLoading && !snapshotRenderable && !hasScore) || (refreshCards.isPending && !hasScore)`.
-- While `showScoreLoader` is true, render the card shell (eyebrow + time/date label) with `EngravedLoader` in place of the gauge and one-liner block, instead of the `—` gauge. Keep the "Take assessment" tab and weekly dial mounted so layout does not collapse.
-- Once a score exists, render exactly as today. Never swap a rendered number back to the loader.
+## Verification (before marking complete)
+- TypeScript build passes (`tsgo`) with zero errors — explicitly confirming no orphaned `mrsSnapshot` / `shouldPreferMrsSnapshot` references.
+- `rg -n "shouldPreferMrsSnapshot|useMrsSnapshot" src/components/home/DecisionReadinessBrief.tsx` returns no matches.
+- Vitest: `snapshotContractGuards.test.ts`, `briefFlickerGuard.test.ts`, `useOuterReadiness.test.ts`.
 
-No other file is touched.
-
-## Deferred (not in this pass)
-
-- **D** — remove the `shouldPreferMrsSnapshot` override at `DecisionReadinessBrief.tsx:2183-2202`. `canonicalMrsScore` (line 1997) already prefers the MRS snapshot inside the snapshot overlay, so the later override is redundant when a brief snapshot is renderable — but not when only the MRS snapshot exists. That case needs its own verified pass.
-- **E / F** — server-side score read-first and disabling the client compute path.
-
-## Verification
-
-- Typecheck + existing vitest suites (`snapshotContractGuards`, `useOuterReadiness` tests).
-- Playwright load of `/` at mobile viewport: capture the MRS card during loading and after the score resolves; confirm no `—` flash and no score change within the first 60s.
+## Out of scope
+- `useMrsSnapshot.ts` itself, `useCurrentBriefSnapshot.ts`, `MrsPage.tsx`, and all backend Edge Functions are untouched.
