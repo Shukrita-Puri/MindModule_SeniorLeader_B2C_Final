@@ -9597,6 +9597,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             );
           }
 
+          // Canonical override: when we adopted a preserved existing MRS
+          // snapshot (or otherwise have a real canonical score), we MUST NOT
+          // null the score payload just because the incoming run is
+          // awaiting/lower-quality.
+          // NOTE: declared here (before first use) — a later `const` caused a
+          // TDZ ReferenceError that aborted every brief_snapshots write.
+          const hasCanonicalScore = typeof canonicalInnerScore === "number";
+          const suppressScorePayload =
+            (awaitingSignals || innerStateIsAwaiting) && !hasCanonicalScore;
+
           // Mirror into inner_readiness_scores for Insights historical timeseries (MRS Fix I1)
           if (!suppressScorePayload && typeof effectiveInnerScore === "number") {
             try {
@@ -9661,9 +9671,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // null the score payload just because the incoming run is
           // awaiting/lower-quality. Otherwise brief_snapshots would end up
           // with score=null while daily_context_snapshot has 78.
-          const hasCanonicalScore = typeof canonicalInnerScore === "number";
-          const suppressScorePayload =
-            (awaitingSignals || innerStateIsAwaiting) && !hasCanonicalScore;
           if ((awaitingSignals || innerStateIsAwaiting) && hasCanonicalScore) {
             console.warn(
               "[canonical-mrs] brief_snapshots score persistence realigned to preserved MRS",
