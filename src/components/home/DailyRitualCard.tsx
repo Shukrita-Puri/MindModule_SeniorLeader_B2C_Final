@@ -15,7 +15,7 @@ const DailyRitualCard = () => {
   // Get energy state
   const { data: energyState, isLoading } = useQuery({
     queryKey: ['energy-state', user?.id],
-    queryFn: () => computeEnergyState(user?.id),
+    queryFn: () => computeEnergyState(user?.id, { snapshotOnly: true }),
     enabled: !!user?.id,
   });
   

@@ -315,7 +315,7 @@ const JustInTimeIntervention = () => {
 
   const getQuickPractices = async (modules: string[]): Promise<Recommendation[]> => {
     try {
-      const energyState = await computeEnergyState(user?.id);
+      const energyState = await computeEnergyState(user?.id, { snapshotOnly: true });
       const recs = await generateRecommendations(energyState);
       
       // Filter for quick practices (< 3 min) matching the needed modules
