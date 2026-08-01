@@ -1869,13 +1869,6 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const snapshotHasScore = !!currentBriefSnapshot?.hasRenderableScore;
   const snapshotHasCopy = !!currentBriefSnapshot?.hasRenderableCopy;
   const snapshotIsRenderable = !!currentBriefSnapshot?.isRenderable;
-  const { data: mrsSnapshot } = useMrsSnapshot();
-  const currentWindowLocal = currentPeriodLocal();
-  const shouldPreferMrsSnapshot =
-    !!mrsSnapshot?.isRenderable &&
-    typeof mrsSnapshot?.score === 'number' &&
-    mrsSnapshot?.mrsWindow === currentWindowLocal;
-
   // App-Tour mock injection. Substitutes a best-in-class demo payload so
   // first-time and retake tours spotlight a realistic, fully populated card
   // instead of sparse or personally variable production data.
@@ -1993,21 +1986,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         const chosenWatchForSource = useLiveCopy
           ? (base.watchForSource ?? snap.watchForSource)
           : (snap.watchForSource ?? base.watchForSource);
-        const canonicalMrsScore = shouldPreferMrsSnapshot
-          ? mrsSnapshot!.score
-          : (snap.innerReadinessScore ?? base.innerReadinessScore ?? null);
-        const canonicalMrsTier = shouldPreferMrsSnapshot
-          ? (mrsSnapshot!.tier ?? snap.innerReadinessTier ?? base.innerReadinessTier ?? null)
-          : (snap.innerReadinessTier ?? base.innerReadinessTier ?? null);
-        const canonicalMrsState = shouldPreferMrsSnapshot
-          ? (mrsSnapshot!.readinessState ?? snap.innerReadinessState ?? base.innerReadinessState ?? null)
-          : (snap.innerReadinessState ?? base.innerReadinessState ?? null);
-        const canonicalMrsBaseline = shouldPreferMrsSnapshot
-          ? (mrsSnapshot!.scoreBaseline ?? snap.innerReadinessScoreBaseline ?? base.innerReadinessScoreBaseline ?? null)
-          : (snap.innerReadinessScoreBaseline ?? base.innerReadinessScoreBaseline ?? null);
-        const canonicalMrsRefined = shouldPreferMrsSnapshot
-          ? (mrsSnapshot!.scoreRefined ?? snap.innerReadinessScoreRefined ?? base.innerReadinessScoreRefined ?? null)
-          : (snap.innerReadinessScoreRefined ?? base.innerReadinessScoreRefined ?? null);
+        const canonicalMrsScore = snap.innerReadinessScore ?? base.innerReadinessScore ?? null;
+        const canonicalMrsTier = snap.innerReadinessTier ?? base.innerReadinessTier ?? null;
+        const canonicalMrsState = snap.innerReadinessState ?? base.innerReadinessState ?? null;
+        const canonicalMrsBaseline =
+          snap.innerReadinessScoreBaseline ?? base.innerReadinessScoreBaseline ?? null;
+        const canonicalMrsRefined =
+          snap.innerReadinessScoreRefined ?? base.innerReadinessScoreRefined ?? null;
         try {
           // eslint-disable-next-line no-console
           console.log('[PRB][copy-source]', {
@@ -2179,26 +2164,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // MRS v3 — the score and tier render off State 1 (wearable + calendar). They
   // are no longer gated on check-in; check-in only flips `readinessState` from
   // 'baseline' to 'refined' (and shifts the number within ±15 of baseline).
-  let score = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessScore ?? null) : null;
-  let tier = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessTier ?? 'default') : 'default';
-
-  // Stage 1 guard — prefer the canonical MRS snapshot for the current window
-  // when it is renderable. Narrative/pills stay driven by `outerBrief`; this
-  // only aligns the numeric score/tier with the Today gauge so the two
-  // surfaces cannot disagree.
-  if (shouldPreferMrsSnapshot && mrsSnapshot) {
-    try {
-      // eslint-disable-next-line no-console
-      console.info('[decision-readiness-brief] mrs_override', {
-        userId: user?.id ?? (DEV_MODE ? DEV_USER.id : null),
-        briefScore: outerBrief?.innerReadinessScore ?? null,
-        mrsScore: mrsSnapshot.score,
-        window: mrsSnapshot.mrsWindow,
-      });
-    } catch {}
-    score = mrsSnapshot.score;
-    tier = mrsSnapshot.tier ?? tier;
-  }
+  // Single source: `outerBrief` already carries the snapshot-overlaid score /
+  // tier (see the snapshot overlay above). No competing MRS snapshot override.
+  const score = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessScore ?? null) : null;
+  const tier = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessTier ?? 'default') : 'default';
   const hasCheckIn =
     ((outerBrief as any)?.hasCurrentPeriodCheckIn ?? false) ||
     (hasCurrentPeriodSignal && !!outerBrief?.checkInOutcome);
@@ -2214,10 +2183,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       : typeof eligibility?.eligible === 'boolean'
         ? eligibility.eligible
         : !!(wsForGate?.isConnected && wsForGate?.hasTodayData && !wsForGate?.isStale);
-  const canonicalReadinessState =
-    shouldPreferMrsSnapshot && mrsSnapshot?.readinessState
-      ? mrsSnapshot.readinessState
-      : (outerBrief as any)?.innerReadinessState;
+  const canonicalReadinessState = (outerBrief as any)?.innerReadinessState;
   const rawReadinessState: 'baseline' | 'refined' | 'awaiting' =
     canonicalReadinessState === 'refined'
       ? 'refined'

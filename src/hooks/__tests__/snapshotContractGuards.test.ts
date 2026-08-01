@@ -82,8 +82,12 @@ describe('snapshot contract guards', () => {
 
   it('brief readiness label follows the same MRS snapshot state that owns the score', () => {
     expect(BRIEF_SRC).toContain('const canonicalReadinessState =');
-    expect(BRIEF_SRC).toContain('shouldPreferMrsSnapshot && mrsSnapshot?.readinessState');
     expect(BRIEF_SRC).toContain("canonicalReadinessState === 'refined'");
     expect(BRIEF_SRC).toContain("canonicalReadinessState === 'awaiting' || score == null");
+  });
+
+  it('brief card has no competing MRS snapshot score source', () => {
+    expect(BRIEF_SRC).not.toContain('shouldPreferMrsSnapshot');
+    expect(BRIEF_SRC).not.toContain('useMrsSnapshot');
   });
 });
