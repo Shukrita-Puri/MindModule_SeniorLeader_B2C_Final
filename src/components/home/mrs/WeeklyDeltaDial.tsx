@@ -48,15 +48,12 @@ const WeeklyDeltaDial = ({
 
   return (
     <div
-      className="rounded-[24px] border border-border/60 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(var(--card)/0.96)_100%)] px-5 py-5 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]"
+      className="rounded-[24px] bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(var(--card)/0.96)_100%)] px-5 py-5 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]"
       aria-label="Weekly readiness summary"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Week over week
-          </p>
-          <p className="mt-2 text-[18px] font-semibold leading-tight text-foreground">
+          <p className="text-[18px] font-semibold leading-tight text-foreground">
             {statusText}
           </p>
           <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
