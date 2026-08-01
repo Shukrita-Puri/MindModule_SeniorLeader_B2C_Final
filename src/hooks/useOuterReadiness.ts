@@ -964,7 +964,7 @@ export function useOuterReadiness(options?: UseOuterReadinessOptions) {
       return data ?? cached ?? null;
     },
     enabled: !!effectiveUserId && !snapshotOnlyDisabled,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     // Executive Home now reads via snapshot hooks; the live compute path is
     // reserved for non-home surfaces (Insights, Coach) and manual refresh.

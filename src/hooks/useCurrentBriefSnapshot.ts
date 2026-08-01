@@ -190,7 +190,7 @@ export function useCurrentBriefSnapshot() {
     // Snapshot-read model: cron owns generation. Read once per window,
     // cache generously, and never auto-poll for late-arriving LLM copy.
     // Manual recovery paths invalidate this query explicitly.
-    staleTime: 5 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
