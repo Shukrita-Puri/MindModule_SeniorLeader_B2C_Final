@@ -15,6 +15,7 @@ import {
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_MRS } from '@/components/onboarding/tourMockData';
+import EngravedLoader from '@/components/ui/engraved-loader';
 
 type MrsOuterReadiness = OuterReadinessData & {
   readinessEligibility?: {
@@ -38,7 +39,7 @@ const MrsPage = () => {
   // Phase 3.9 — snapshot-read-first. Render from current-window
   // `daily_context_snapshot` when present; otherwise fall through to
   // the live `useOuterReadiness` payload (unchanged).
-  const { data: mrsSnapshot } = useMrsSnapshot();
+  const { data: mrsSnapshot, isLoading: mrsLoading } = useMrsSnapshot();
   const snapshotRenderable = !!mrsSnapshot?.isRenderable;
 
   const liveScore = snapshotRenderable
@@ -54,6 +55,13 @@ const MrsPage = () => {
   const weekly = useWeeklyMrsDelta();
 
   const hasScore = typeof score === 'number';
+  // Never render a partial score. While the snapshot read is still in flight
+  // (or a manual refresh is recomputing) and no score exists yet, show the
+  // EngravedLoader instead of an empty gauge that would later jump to a value.
+  const showScoreLoader =
+    !hasScore &&
+    !snapshotRenderable &&
+    (mrsLoading || refreshCards.isPending);
   // Phase 1 — distinguish transient compute/auth failures from true awaiting.
   const engineStatus = mrsBrief?.engineStatus;
   const isFailureState =
@@ -128,13 +136,19 @@ const MrsPage = () => {
         </div>
 
         {/* Gauge */}
-        <div className="mt-5 flex justify-center">
-          <MrsGauge score={score} tier={tier} size={232} />
-        </div>
+        {showScoreLoader ? (
+          <div className="mt-5 flex justify-center">
+            <EngravedLoader label="Reading your signals…" />
+          </div>
+        ) : (
+          <div className="mt-5 flex justify-center">
+            <MrsGauge score={score} tier={tier} size={232} />
+          </div>
+        )}
 
         {/* Phase 1 — engine failure retry block (auth/inner/outer/unknown).
             Suppressed when a current-window snapshot is renderable. */}
-        {showFailureBlock && !hasScore && (
+        {showFailureBlock && !hasScore && !showScoreLoader && (
           <div className="mt-4 flex flex-col items-center text-center gap-2">
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
               {engineStatus === 'auth-failure' || engineStatus === 'session-failure' ? 'Session expired' : 'Reading unavailable'}
@@ -166,7 +180,7 @@ const MrsPage = () => {
         )}
 
         {/* One-line read derived from score; state label replaces (Refined)/(Baseline). */}
-        {hasScore && oneLiner && !showFailureBlock && (
+        {hasScore && oneLiner && !showFailureBlock && !showScoreLoader && (
           <div className="mt-4 flex flex-col items-center text-center">
             <span
               className="text-base font-medium tracking-wide"
@@ -182,7 +196,7 @@ const MrsPage = () => {
             </span>
           </div>
         )}
-        {!hasScore && !showFailureBlock && (
+        {!hasScore && !showFailureBlock && !showScoreLoader && (
           <div className="mt-4 flex flex-col items-center text-center">
             <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
               {stateLabel.label}
