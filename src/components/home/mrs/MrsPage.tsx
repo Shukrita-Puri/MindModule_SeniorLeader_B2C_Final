@@ -190,6 +190,11 @@ const MrsPage = () => {
             </span>
             <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
               {stateLabel.label}
+              {refreshCards.isPending && (
+                <span className="text-[10px] text-[hsl(var(--muted-foreground-v2))] tracking-wide uppercase font-body ml-2 animate-pulse">
+                  Updating
+                </span>
+              )}
             </span>
             <span className="mt-0.5 text-[11px] text-muted-foreground/60">
               {stateLabel.label === 'Awaiting signals' ? awaitingCopy : stateLabel.subtitle}
