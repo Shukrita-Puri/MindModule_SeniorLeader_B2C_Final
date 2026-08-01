@@ -243,17 +243,25 @@ const MrsPage = () => {
           </button>
         </div>
 
-        {/* Half-dial weekly delta */}
-        <div className="mt-6">
-          <WeeklyDeltaDial
-            currentScore={score}
-            thisWeekAvg={showTourMockMrs ? MOCK_MRS.score : (weekly.data?.thisWeekAvg ?? null)}
-            lastWeekAvg={showTourMockMrs ? MOCK_MRS.score - MOCK_MRS.weeklyDelta : (weekly.data?.lastWeekAvg ?? null)}
-            delta={showTourMockMrs ? MOCK_MRS.weeklyDelta : (weekly.data?.delta ?? null)}
-            mode={showTourMockMrs ? 'refined' : (weekly.data?.mode ?? 'baseline')}
-            reason={showTourMockMrs ? null : (weekly.data?.reason ?? null)}
-          />
-        </div>
+        {/* Week over week — collapsible, closed by default */}
+        <Collapsible open={weekOverWeekOpen} onOpenChange={setWeekOverWeekOpen} className="mt-6">
+          <CollapsibleTrigger className="flex items-center gap-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-body font-medium hover:text-muted-foreground/70 transition-colors cursor-pointer">
+            Week over week
+            <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", weekOverWeekOpen && "rotate-180")} />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-3">
+              <WeeklyDeltaDial
+                currentScore={score}
+                thisWeekAvg={showTourMockMrs ? MOCK_MRS.score : (weekly.data?.thisWeekAvg ?? null)}
+                lastWeekAvg={showTourMockMrs ? MOCK_MRS.score - MOCK_MRS.weeklyDelta : (weekly.data?.lastWeekAvg ?? null)}
+                delta={showTourMockMrs ? MOCK_MRS.weeklyDelta : (weekly.data?.delta ?? null)}
+                mode={showTourMockMrs ? 'refined' : (weekly.data?.mode ?? 'baseline')}
+                reason={showTourMockMrs ? null : (weekly.data?.reason ?? null)}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </section>
   );
