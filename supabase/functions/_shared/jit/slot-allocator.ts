@@ -423,6 +423,11 @@ function makeSlot(
     dayShape === "dominant_structural_event" && !!intendedPhase && (!candidate || phaseMismatch);
   const effectiveCandidate = phaseMismatch ? null : candidate;
   const isJit = !!effectiveCandidate;
+  // The phase actually represented by this slot: the selected candidate's
+  // phase, or none when the slot degraded to a state fallback.
+  const phase: Phase | null = phaseUnavailable
+    ? null
+    : (effectiveCandidate?.phase ?? null);
   const arcLabel = phase === "during"
     ? "During"
     : phase === "post"
