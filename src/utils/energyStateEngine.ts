@@ -475,7 +475,57 @@ async function fetchOuterReadinessContext(
   }
 }
 
-export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
+/**
+ * Snapshot-only stub. Returned to Executive Home surfaces when
+ * HOME_SNAPSHOT_ONLY is active so the browser never triggers a
+ * `compute-inner-readiness` round-trip on home load. Shape mirrors
+ * `buildErrorFallback` exactly (all non-nullable CurrentEnergyState fields
+ * present, `energyTier: 'managing'`) so consumers that read
+ * `energyState.energyTier` without a null check stay safe.
+ */
+function buildSnapshotOnlyStub(): CurrentEnergyState {
+  const hour = new Date().getHours();
+  const timeOfDay =
+    hour >= 5 && hour < 12 ? 'morning' as const
+    : hour >= 12 && hour < 18 ? 'afternoon' as const
+    : 'evening' as const;
+
+  return {
+    overallBalance: null,
+    engineStatus: 'stale',
+    state: 'managing',
+    contextTags: [],
+    energyTags: [],
+    stateTags: [],
+    recommendationPriority: 'managing',
+    dataSources: ['circadian'],
+    confidence: 'low',
+    calendarDensity: 0,
+    calendarLoad: null,
+    calendarPressure: null,
+    energyTier: 'managing',
+    timeOfDay,
+    recommendation: {
+      primary: 'pause' as MasteryType,
+      contextStatement: 'Reading your saved readiness snapshot.',
+    },
+    checkInOutcome: undefined,
+    divergenceFlag: 'ALIGNED',
+    wearableStatus: 'missing',
+  };
+}
+
+export async function computeEnergyState(
+  userId?: string,
+  options?: { snapshotOnly?: boolean },
+): Promise<CurrentEnergyState> {
+  // Home snapshot-only mode: cron owns generation. Return a neutral stub
+  // before touching the cache or invoking any edge function, so a later
+  // live caller (Coach) still gets a real compute.
+  if (options?.snapshotOnly === true && HOME_SNAPSHOT_ONLY) {
+    return buildSnapshotOnlyStub();
+  }
+
   const cacheKey = getEnergyStateCacheKey(userId);
   const cached = energyStateCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
