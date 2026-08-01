@@ -1861,7 +1861,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // wait on the live round-trip. If no current-window snapshot exists, or
   // it is an awaiting row with no copy, we fall through to the live
   // payload unchanged.
-  const { data: currentBriefSnapshot } = useCurrentBriefSnapshot();
+  const { data: currentBriefSnapshot, isFetching: briefSnapshotFetching } =
+    useCurrentBriefSnapshot();
   // Snapshot is usable if EITHER copy or score payload is present. We
   // intentionally do NOT AND with `isCardsAwaitingPayload` here — that
   // helper treats "no phrase" as awaiting, which would re-hide a valid
@@ -2481,6 +2482,17 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           {getTimeLabel()} · {getDateLabel()}
         </span>
       </div>
+
+      {/* Post-check-in rebuild indicator — only while content is already
+          renderable (first load is covered by the EngravedLoader). */}
+      {briefSnapshotFetching && snapshotIsRenderable && (
+        <div className="flex items-center gap-1.5 mt-1">
+          <div className="h-1 w-1 rounded-full bg-[hsl(var(--muted-foreground-v2))] animate-pulse" />
+          <span className="text-[10px] text-[hsl(var(--muted-foreground-v2))] tracking-wide uppercase font-body">
+            Updating
+          </span>
+        </div>
+      )}
 
       {/* 2. SCORE ROW — renders off State 1 (wearable + calendar). Check-in
           toggles the badge from "Baseline" to "Refined" but never gates the

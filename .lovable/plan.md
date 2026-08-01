@@ -1,47 +1,32 @@
-## Change 4 — server-side score read-first (implement and deploy first)
+Confirmed the country variable: at the `buildDeterministicBriefFallback({ ... })` call site (line 8734) the in-scope home-country variable is **`localeWeekendHomeCountry`** (declared line 3396, assigned line 4654 from the user's profile country). It is already used for exactly this purpose at lines 5909 and 10000, and it drives `briefWeekendDaysForCountry` → `[5,6]` for Gulf/Israel and `[0,6]` elsewhere, so Fri–Sat detection is correct. `homeCountry` does not exist at that scope.
 
-**File:** `supabase/functions/compute-outer-readiness/index.ts`
+## 1. Brief card "Updating" indicator (frontend, low risk)
 
-- Reuse the already-loaded window row `existingWindowMrs` (line ~9323) and its `existingIsReadyRow` flag (line ~9348). No new query.
-- Add `adoptExistingMrs = existingIsReadyRow && !isInternalCall`, using the existing `isInternalCall` flag defined at line 2976 (service-role or cron-secret caller).
-  - **Browser calls (Auth0 token → `isInternalCall = false`):** adopt the persisted row as canonical — `inner_score`, `inner_tier`, `tier_displayed`, `tier_cap_reason`, `readiness_score_baseline`, `readiness_score_refined`, `readiness_state`, `refined_contribution`, `weight_provenance` — and suppress the MRS portion of the `daily_context_snapshot` upsert.
-  - **`build-executive-home-cards` (service role → `isInternalCall = true`):** unchanged write-through, so manual refresh and cron still update the score.
-- Widen the gate: `shouldPreserveExistingMrs = (suppressIncomingMrsSnapshot || adoptExistingMrs) && existingIsReadyRow`. The adoption block at line ~9394 already assigns every `canonical*` field, so the Brief copy and the client response echo the adopted score automatically.
-- Add a structured log `[canonical-mrs] adopted_existing_snapshot` with `{ userId, localDate, window, incomingScore, existingScore, isInternalCall }`.
-- Brief copy generation, signal pills, calendar/wearable context and `brief_snapshots` persistence are untouched.
+`src/components/home/DecisionReadinessBrief.tsx`
+- Line 1864: destructure `isFetching: briefSnapshotFetching` from `useCurrentBriefSnapshot()`.
+- Immediately after the eyebrow row `</div>` (line 2483), render a pulsing dot + "Updating" label gated on `briefSnapshotFetching && snapshotIsRenderable`, so it never competes with the first-load `EngravedLoader`.
+- `showLoader` (line 2418) untouched.
 
-**Deploy + verify before starting Change 5:**
-1. Deploy `compute-outer-readiness`.
-2. Pick a user with a ready `daily_context_snapshot` row for today's window; record `inner_score` via `read_query`.
-3. Trigger a browser brief load; check edge-function logs for `adopted_existing_snapshot` with `isInternalCall: false`.
-4. Re-read the row — `inner_score` and `readiness_score_baseline` must be unchanged.
-5. Confirm a service-role refresh still updates the row.
+## 2. MRS card "Updating" label (frontend, low risk)
 
----
+`src/components/home/mrs/MrsPage.tsx`
+- Inside the `hasScore && oneLiner && ...` block, add an inline `Updating` span gated on `refreshCards.isPending`, placed alongside the state label so the gauge layout is undisturbed.
 
-## Change 5 — scoped client compute suppression (only after 4 is verified)
+## 3. Deterministic brief: weekend awareness + beat expansion (edge function)
 
-**File:** `src/utils/energyStateEngine.ts`
+`supabase/functions/_shared/brief/deterministic-brief.ts`
+- **A** — add `isWeekend?: boolean` to `DeterministicBriefFallbackOpts`.
+- **B** — `buildEvidence()` wearable-only fallback (lines 129–131): expand to the 15–18 word weekday/weekend variants, keeping `wearableFact ?? "Recovery signals are in"` as the lead. All earlier branches untouched.
+- **C** — `buildDirective()`: the current tail is a bare `return "Keep pace and protect the most important block";` (not an `else` assignment as written in the prompt). Replace that single return with the weekend/weekday branch, wording as specified.
+- **D** — `closeFor()`: insert the weekend override ahead of the existing evening override and band map.
 
-- Signature becomes `computeEnergyState(userId?: string, options?: { snapshotOnly?: boolean })`.
-- Return `SNAPSHOT_ONLY_STUB` when `options?.snapshotOnly === true && HOME_SNAPSHOT_ONLY`, before the cache read and before any `supabase.functions.invoke`. Do not write the stub into the cache, so a later live caller (Coach) still gets a real compute.
-- The stub is modelled exactly on the existing failure stub at line ~1138: every non-nullable `CurrentEnergyState` field present, `energyTier: 'managing'`, `status: 'stale'`, `overallBalance: null`. This keeps `generateRecommendations()` and the JIT reads of `energyState.energyTier` type-safe and crash-free.
+`supabase/functions/compute-outer-readiness/index.ts`
+- Add `isWeekend: isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry),` to the opts object at line 8734.
 
-**Callers passing `{ snapshotOnly: true }` (5):** `TodayStateCard.tsx`, `DailyRitualCard.tsx`, `JustInTimeIntervention.tsx`, `RecommendedPlan.tsx`, `PerformancePreparation.tsx`.
+### Verification
+- `tsgo` clean; `rg "isWeekend"` shows the interface field plus use in `buildEvidence`, `buildDirective`, `closeFor`, and the new call site.
+- Run brief unit tests; assert a Saturday + wearable + sharp body is 25–70 words with beat (a) ≥ 15 words.
+- Check new copy against the phrase/forbidden-word validator before deploy; adjust wording (not the validator) if anything trips. `readMap` unchanged.
+- Deploy `compute-outer-readiness` after the above passes.
 
-**Callers left on the live path (3):** `useCoachConversation.ts`, `coachContextBuilder.ts`, and `fetchOuterReadiness` in `useOuterReadiness.ts` (already short-circuited upstream at line 922 — passing the option there would be dead code).
-
-Each of the five home callers renders its existing empty/awaiting state on the stub; any that lacks a guard gets a null guard in the same pass.
-
----
-
-## Verification
-
-- `tsgo` typecheck clean.
-- Existing suites: `computeOuterReadinessMrsResilienceGuards.test.ts`, `snapshotContractGuards.test.ts`, `useOuterReadiness.test.ts`, `useOuterReadiness.authFailure.test.ts`.
-- New unit test: `computeEnergyState(id, { snapshotOnly: true })` performs zero `supabase.functions.invoke` calls and returns `energyTier: 'managing'` / `status: 'stale'`; `computeEnergyState(id)` still invokes `compute-inner-readiness`.
-- Browser check on `/`: no `compute-inner-readiness` request on Home mount; Coach surface still receives a populated energy state.
-
-## Out of scope
-
-`compute-inner-readiness`, `build-executive-home-cards`, `generate-mastery-plan`, the Plan engine, the `HOME_SNAPSHOT_ONLY` default, and `daily_context_snapshot` schema.
+Issue 1 (pill unlock): no code change — I'll read `build-executive-home-cards` logs around 16:55 on 2026-08-01 and report whether the check-in → refresh chain failed.

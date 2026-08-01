@@ -191,3 +191,49 @@ Deno.test("deterministic brief — FIX 3: drained multi-high-stakes read stays u
   const wordCount = built.body.split(/\s+/).filter(Boolean).length;
   assertEquals(wordCount <= 60, true);
 });
+
+Deno.test("deterministic brief — weekend + wearable-only path expands beats and closes for recovery", () => {
+  const result = buildDeterministicBriefFallback({
+    band: "sharp",
+    hasWearable: true,
+    checkInOutcome: null,
+    cognitivePillTier: "green",
+    physicalPillTier: "green",
+    wearableFact: null,
+    window: "afternoon",
+    todayHighStakes: [],
+    calendarLoad: null,
+    meetingCount: 0,
+    sleepScore: null,
+    hasBackToBack: false,
+    isWeekend: true,
+  });
+  const words = result.body.trim().split(/\s+/).length;
+  assertEquals(words >= 25 && words <= 70, true);
+  // Beat (a) — evidence must clear the 15-word floor.
+  const evidence = result.body.split(".")[0];
+  assertEquals(evidence.trim().split(/\s+/).length >= 15, true);
+  assertEquals(result.body.includes("anchor for the weekend"), true);
+  assertEquals(result.body.includes("genuinely recovers"), true);
+  assertEquals(result.body.includes("smaller calls"), false);
+});
+
+Deno.test("deterministic brief — weekday wearable-only path keeps calendar-free framing", () => {
+  const result = buildDeterministicBriefFallback({
+    band: "sharp",
+    hasWearable: true,
+    checkInOutcome: null,
+    cognitivePillTier: "green",
+    physicalPillTier: "green",
+    wearableFact: null,
+    window: "afternoon",
+    todayHighStakes: [],
+    calendarLoad: null,
+    meetingCount: 0,
+    sleepScore: null,
+    hasBackToBack: false,
+    isWeekend: false,
+  });
+  assertEquals(result.body.includes("no calendar demand in view"), true);
+  assertEquals(result.body.split(".")[0].trim().split(/\s+/).length >= 15, true);
+});

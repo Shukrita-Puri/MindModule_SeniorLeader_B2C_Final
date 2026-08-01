@@ -20,6 +20,7 @@ export interface DeterministicBriefFallbackOpts {
   meetingCount: number;
   sleepScore: number | null;
   hasBackToBack: boolean;
+  isWeekend?: boolean;
 }
 
 export interface DeterministicBriefResult {
@@ -127,7 +128,13 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   }
 
   if (opts.hasWearable) {
-    return `${wearableFact ?? "Recovery signals are in"} this ${opts.window}.`;
+    // Spec Pattern 5: wearable only, no calendar. Must reach the 15-word floor.
+    // wearableFact is null when HRV and sleep data are unavailable (stale wearable).
+    const factPhrase = wearableFact ?? "Recovery signals are in";
+    if (opts.isWeekend) {
+      return `${factPhrase} this ${opts.window} with no work calendar — the physiological read is the anchor for the weekend.`;
+    }
+    return `${factPhrase} this ${opts.window} with no calendar demand in view — the physiological edge is the signal.`;
   }
 
   if (opts.checkInOutcome && hasHighStakes) {
@@ -226,17 +233,37 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     return "Route the presence and stakeholder conversations through the physical runway; defer anything needing full processing";
   }
   if (opts.cognitivePillTier === "green" && opts.physicalPillTier === "green") {
-    return hasHighStakes
-      ? `Open with ${shortRef(opts.todayHighStakes[0])} while both pillars are clear`
-      : "Use this for the one decision or analysis that compounds most";
+    if (hasHighStakes) {
+      return `Open with ${
+        shortRef(opts.todayHighStakes[0])
+      } while both pillars are clear`;
+    }
+    return opts.isWeekend
+      ? "Use this clarity on the one thing that genuinely compounds — planning or preparation only, not reactive output"
+      : "Use this for the one decision or analysis that compounds most and protect the most important block";
   }
   if (opts.band === "depleted" || opts.band === "stretched") {
     return "Pick the one priority that cannot wait and do only that";
   }
-  return "Keep pace and protect the most important block";
+  if (opts.isWeekend) {
+    // Weekend with no calendar events: frame around the week ahead,
+    // not reactive output.
+    return "Use this clarity on the one thing that genuinely compounds — planning or preparation only, not reactive output";
+  }
+  return "Use this for the one decision or analysis that compounds most and protect the most important block";
 }
 
 function closeFor(opts: DeterministicBriefFallbackOpts): string {
+  // Weekend override — applies regardless of band or window.
+  if (opts.isWeekend) {
+    if (opts.band === "firing" || opts.band === "sharp") {
+      return "and make sure today genuinely recovers, not just overflows.";
+    }
+    if (opts.band === "depleted") {
+      return "and protect tomorrow's start — that's what today is for.";
+    }
+    return "and let this window close so the week starts from a full position.";
+  }
   if (
     opts.window === "evening" &&
     (opts.band === "steady" || opts.band === "stretched" ||

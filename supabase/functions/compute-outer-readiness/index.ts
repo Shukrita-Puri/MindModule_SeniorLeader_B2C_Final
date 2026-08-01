@@ -8759,6 +8759,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   ? sleepScoreVal
                   : null,
                 hasBackToBack: !!hasBackToBack,
+                isWeekend: isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry),
               });
               // DETERMINISTIC BYPASS: the validator runs for observability only.
               // deterministic-brief.ts is validated by construction — every string
