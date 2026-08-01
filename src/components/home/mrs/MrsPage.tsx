@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOuterReadiness, type OuterReadinessData } from '@/hooks/useOuterReadiness';
@@ -16,6 +17,8 @@ import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_MRS } from '@/components/onboarding/tourMockData';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
 
 type MrsOuterReadiness = OuterReadinessData & {
   readinessEligibility?: {
