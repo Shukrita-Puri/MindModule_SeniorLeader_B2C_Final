@@ -9,6 +9,7 @@ import TourMockPlan from "@/components/onboarding/TourMockPlan";
 import { useTourMock } from "@/components/onboarding/useTourMock";
 import WeekAheadPriorities from "@/components/home/WeekAheadPriorities";
 import { useWeekAheadMode } from "@/hooks/useWeekAheadMode";
+import { usePlanLocaleContext } from "@/hooks/usePlanLocaleContext";
 import { useWeekAheadServerDecision } from "@/hooks/useWeekAheadServerDecision";
 
 import TodayHero from "@/components/today/TodayHero";
@@ -38,7 +39,11 @@ const PlanPage = () => {
   // logic stay untouched.
   const { shouldRenderMock: showTourMockPlan } = useTourMock();
   const serverWeekAheadDecision = useWeekAheadServerDecision();
-  const weekAhead = useWeekAheadMode(serverWeekAheadDecision);
+  const planLocale = usePlanLocaleContext();
+  const weekAhead = useWeekAheadMode(
+    serverWeekAheadDecision,
+    planLocale?.userHomeCountry,
+  );
 
   useEffect(() => {
     setShowGuide(isTourActiveForUser(effectiveId) || isRetakeForUser(effectiveId));
