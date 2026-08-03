@@ -5,6 +5,7 @@ import {
   loadLeaderProfile,
 } from "../_shared/leader-profile-loader.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
@@ -4610,27 +4611,8 @@ serve(async (req) => {
         ],
       };
 
-      // Derive country from timezone
-      const tzToCountry: Record<string, string> = {
-        "Europe/London": "GB",
-        "Europe/Belfast": "GB",
-        "America/New_York": "US",
-        "America/Chicago": "US",
-        "America/Denver": "US",
-        "America/Los_Angeles": "US",
-        "America/Phoenix": "US",
-        "America/Anchorage": "US",
-        "Pacific/Honolulu": "US",
-        "Asia/Dubai": "AE",
-        "Asia/Abu_Dhabi": "AE",
-        "Asia/Singapore": "SG",
-        "Australia/Sydney": "AU",
-        "Australia/Melbourne": "AU",
-        "Australia/Brisbane": "AU",
-        "Australia/Perth": "AU",
-        "Australia/Adelaide": "AU",
-      };
-
+      // Country is derived from timezone via the shared canonical map
+      // (`_shared/plan/tz-to-country.ts`).
       try {
         // Read persisted IANA zones (added in 2026-04 migration). Fall back to
         // values sent in the request body if the columns aren't populated yet.
@@ -4650,9 +4632,8 @@ serve(async (req) => {
         // fall back to home zone for holidays — a UK user travelling in the US
         // is more relevantly subject to US holidays than UK ones.
         const userTz = effectiveCurrentTz || effectiveHomeTz;
-        const userCountry = userTz ? tzToCountry[userTz] || null : null;
-        localeWeekendHomeCountry = userCountry ??
-          (effectiveHomeTz ? tzToCountry[effectiveHomeTz] || null : null);
+        const userCountry = tzToCountry(userTz);
+        localeWeekendHomeCountry = userCountry ?? tzToCountry(effectiveHomeTz);
         const localDate = userTime.toISOString().split("T")[0];
         const tomorrowDate =
           new Date(userTime.getTime() + 86400000).toISOString().split("T")[0];
