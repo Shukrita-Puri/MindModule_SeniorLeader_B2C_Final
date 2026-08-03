@@ -235,6 +235,11 @@ Deno.serve(async (req) => {
               ts?.state !== "returning";
             if (sustainedRelocation) {
               const relocatedCountry = tzToCountry(clientCurrentTz);
+              // Keep the pending upsert in sync so the home-timezone backfill
+              // above cannot clobber the relocation-derived country.
+              if (relocatedCountry && !(existingTz as any)?.country) {
+                upsertData.country = relocatedCountry;
+              }
               await supabaseAdmin
                 .from("profiles")
                 .update({
