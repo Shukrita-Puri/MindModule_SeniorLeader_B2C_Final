@@ -8220,6 +8220,7 @@ export function deriveStructuralDayFlags(
       realMeetingCount >= 3);
   const weekAhead = evaluateWeekAheadMode({
     dayOfWeek,
+    homeCountry: opts?.userLocale?.homeCountry ?? null,
     localHour: localNow.getUTCHours(),
     travelDay: hasTravelDay,
     fullWorkingWeekend: isFullWorkingWeekend,
