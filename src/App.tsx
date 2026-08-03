@@ -323,6 +323,7 @@ const Layout = () => {
     <AuthProvider>
       <ImpersonationProvider>
         <ImpersonationBanner />
+        <RelocationPromptBanner />
         <ScrollToTop />
         <TravelWatcher />
         <AppleCalendarWatcher />
