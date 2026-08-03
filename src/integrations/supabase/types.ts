@@ -4427,6 +4427,7 @@ export type Database = {
           created_at: string | null
           current_streak: number | null
           current_timezone: string | null
+          current_timezone_changed_at: string | null
           display_name: string | null
           email: string
           energy_regulation_response: string | null
@@ -4520,6 +4521,7 @@ export type Database = {
           created_at?: string | null
           current_streak?: number | null
           current_timezone?: string | null
+          current_timezone_changed_at?: string | null
           display_name?: string | null
           email: string
           energy_regulation_response?: string | null
@@ -4613,6 +4615,7 @@ export type Database = {
           created_at?: string | null
           current_streak?: number | null
           current_timezone?: string | null
+          current_timezone_changed_at?: string | null
           display_name?: string | null
           email?: string
           energy_regulation_response?: string | null
