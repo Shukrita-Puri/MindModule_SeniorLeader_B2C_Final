@@ -63,8 +63,9 @@ export function tzOffsetDiffHours(tz1: string, tz2: string, atMs = Date.now()): 
     new Intl.DateTimeFormat("en", { timeZone: tz, timeZoneName: "shortOffset" })
       .formatToParts(new Date(atMs))
       .find((p) => p.type === "timeZoneName")?.value ?? "UTC+0";
+  // Runtimes emit either "UTC+4" or "GMT+4" (and bare "GMT" for zero offset).
   const parse = (s: string) => {
-    const m = s.match(/UTC([+-]\d+(?::\d+)?)?/);
+    const m = s.match(/(?:UTC|GMT)([+-]\d+(?::\d+)?)?/);
     if (!m?.[1]) return 0;
     const [h, min = "0"] = m[1].split(":");
     return parseInt(h) + (parseInt(min) / 60) * Math.sign(parseInt(h));
