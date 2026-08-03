@@ -13,6 +13,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -187,6 +188,9 @@ Deno.serve(async (req) => {
       last_known_accuracy_m: accuracy_m ?? undefined,
       last_location_at: lat !== null && lng !== null ? captured_at : undefined,
       last_known_timezone: tz ?? prevTz ?? undefined,
+      current_country: (newState === "arrived" || newState === "en_route")
+        ? tzToCountry(tz)
+        : null,
       last_timezone_change_at: tzChanged ? now : undefined,
       last_state_change_at: stateChanged ? now : undefined,
       distance_from_home_km: distance ?? undefined,
