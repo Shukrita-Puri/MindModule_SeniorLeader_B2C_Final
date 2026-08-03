@@ -11,6 +11,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { tzOffsetDiffHours } from "../_shared/plan/tz-to-country.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -163,6 +164,46 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!existingTz?.home_timezone) {
         upsertData.home_timezone = clientCurrentTz;
+      }
+
+      // Best-effort sustained-relocation detection. Never blocks login.
+      if (
+        existingTz?.home_timezone &&
+        clientCurrentTz !== existingTz.home_timezone
+      ) {
+        const diffHours = tzOffsetDiffHours(clientCurrentTz, existingTz.home_timezone);
+        if (diffHours > 3) {
+          try {
+            const { data: ts } = await supabaseAdmin
+              .from("travel_state")
+              .select("last_timezone_change_at, state")
+              .eq("user_id", userId)
+              .maybeSingle();
+            const changeDate = ts?.last_timezone_change_at
+              ? new Date(ts.last_timezone_change_at)
+              : null;
+            const daysSinceChange = changeDate
+              ? (Date.now() - changeDate.getTime()) / 86_400_000
+              : null;
+            const sustainedRelocation =
+              daysSinceChange !== null &&
+              daysSinceChange > 30 &&
+              ts?.state !== "en_route" &&
+              ts?.state !== "returning";
+            if (sustainedRelocation) {
+              await supabaseAdmin
+                .from("profiles")
+                .update({
+                  possible_relocation_detected: true,
+                  relocation_candidate_tz: clientCurrentTz,
+                  relocation_first_detected_at: new Date().toISOString(),
+                })
+                .eq("id", userId);
+            }
+          } catch (e) {
+            console.warn("[sync-profile] relocation check failed (non-fatal)", e);
+          }
+        }
       }
     }
 

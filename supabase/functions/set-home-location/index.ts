@@ -30,6 +30,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { decideHomeLocation } from "./decide.ts";
+import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,7 +130,16 @@ Deno.serve(async (req) => {
     home_location_set_at: now,
     updated_at: now,
   };
-  if (decision.timezone) patch.home_timezone = decision.timezone;
+  if (decision.timezone) {
+    patch.home_timezone = decision.timezone;
+    // Keep the country anchor in sync with the new home timezone, and clear any
+    // pending relocation prompt — the user has just confirmed where home is.
+    const newCountry = tzToCountry(decision.timezone);
+    if (newCountry) patch.country = newCountry;
+    patch.possible_relocation_detected = false;
+    patch.relocation_candidate_tz = null;
+    patch.relocation_first_detected_at = null;
+  }
 
   const { error } = await db.from("profiles").update(patch).eq("id", userId);
   if (error) {
