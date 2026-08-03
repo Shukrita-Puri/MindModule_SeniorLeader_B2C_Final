@@ -4643,15 +4643,15 @@ serve(async (req) => {
         const tomorrowDate =
           new Date(userTime.getTime() + 86400000).toISOString().split("T")[0];
 
-        if (userCountry && HOLIDAYS[userCountry]) {
-          const todayHol = HOLIDAYS[userCountry].find((h) =>
+        if (currentLocationCountry && HOLIDAYS[currentLocationCountry]) {
+          const todayHol = HOLIDAYS[currentLocationCountry].find((h) =>
             h.date === localDate
           );
           if (todayHol) {
             isPublicHoliday = true;
             holidayName = todayHol.name;
           }
-          const tomorrowHol = HOLIDAYS[userCountry].find((h) =>
+          const tomorrowHol = HOLIDAYS[currentLocationCountry].find((h) =>
             h.date === tomorrowDate
           );
           if (tomorrowHol) isDayBeforeRestDay = true;
