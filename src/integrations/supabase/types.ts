@@ -4457,6 +4457,7 @@ export type Database = {
           onboarding_completed_at: string | null
           onboarding_insight: string | null
           onboarding_session_id: string | null
+          possible_relocation_detected: boolean | null
           practice_priority_tag: string | null
           preferred_practice_window: string | null
           pressure_context_tag: string | null
@@ -4470,6 +4471,8 @@ export type Database = {
           q4_self_assessed_strength: string | null
           referral_code_entered_at: string | null
           referral_code_used: string | null
+          relocation_candidate_tz: string | null
+          relocation_first_detected_at: string | null
           self_check_ins_enabled: boolean
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -4547,6 +4550,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           onboarding_insight?: string | null
           onboarding_session_id?: string | null
+          possible_relocation_detected?: boolean | null
           practice_priority_tag?: string | null
           preferred_practice_window?: string | null
           pressure_context_tag?: string | null
@@ -4560,6 +4564,8 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           referral_code_entered_at?: string | null
           referral_code_used?: string | null
+          relocation_candidate_tz?: string | null
+          relocation_first_detected_at?: string | null
           self_check_ins_enabled?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -4637,6 +4643,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           onboarding_insight?: string | null
           onboarding_session_id?: string | null
+          possible_relocation_detected?: boolean | null
           practice_priority_tag?: string | null
           preferred_practice_window?: string | null
           pressure_context_tag?: string | null
@@ -4650,6 +4657,8 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           referral_code_entered_at?: string | null
           referral_code_used?: string | null
+          relocation_candidate_tz?: string | null
+          relocation_first_detected_at?: string | null
           self_check_ins_enabled?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -5407,6 +5416,7 @@ export type Database = {
       travel_state: {
         Row: {
           created_at: string
+          current_country: string | null
           distance_from_home_km: number | null
           last_known_accuracy_m: number | null
           last_known_lat: number | null
@@ -5423,6 +5433,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          current_country?: string | null
           distance_from_home_km?: number | null
           last_known_accuracy_m?: number | null
           last_known_lat?: number | null
@@ -5439,6 +5450,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          current_country?: string | null
           distance_from_home_km?: number | null
           last_known_accuracy_m?: number | null
           last_known_lat?: number | null
