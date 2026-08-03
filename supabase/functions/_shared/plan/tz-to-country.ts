@@ -32,7 +32,7 @@ export const TZ_TO_COUNTRY: Record<string, string> = {
   // Asia-Pacific (Sat-Sun weekend)
   "Asia/Singapore": "SG", "Asia/Hong_Kong": "HK",
   "Asia/Tokyo": "JP", "Asia/Seoul": "KR",
-  "Asia/Kolkata": "IN", "Asia/Mumbai": "IN",
+  "Asia/Kolkata": "IN", "Asia/Mumbai": "IN", "Asia/Calcutta": "IN",
   "Asia/Karachi": "PK", "Asia/Dhaka": "BD",
   "Asia/Bangkok": "TH", "Asia/Jakarta": "ID",
   "Asia/Kuala_Lumpur": "MY", "Asia/Manila": "PH",
