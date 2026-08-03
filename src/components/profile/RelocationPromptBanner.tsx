@@ -24,18 +24,41 @@ export default function RelocationPromptBanner() {
       setVisible(false);
       return;
     }
+    const evaluate = (row: any) =>
+      row?.possible_relocation_detected === true && row?.home_location_set_at != null;
+
     void (async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('possible_relocation_detected')
+        .select('possible_relocation_detected, home_location_set_at')
         .eq('id', user.id)
         .maybeSingle();
       if (!cancelled) {
-        setVisible((data as any)?.possible_relocation_detected === true);
+        setVisible(evaluate(data));
       }
     })();
+
+    // Own-row live updates so the prompt appears in the same session that
+    // sync-profile writes the flag, rather than one login later.
+    const channel = supabase
+      .channel(`relocation-flag-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (!cancelled) setVisible(evaluate(payload.new));
+        },
+      )
+      .subscribe();
+
     return () => {
       cancelled = true;
+      void supabase.removeChannel(channel);
     };
   }, [user?.id]);
 
