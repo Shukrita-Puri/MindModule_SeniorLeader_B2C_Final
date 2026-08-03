@@ -1858,11 +1858,18 @@ async function buildNudgeContext(
   try {
     const { data: prof } = await supabase
       .from("profiles")
-      .select("country")
+      .select("country, home_country, home_timezone")
       .eq("id", userId)
       .maybeSingle();
-    userHomeCountry = (prof as { country?: string | null } | null)?.country ??
-      null;
+    const pRow = prof as
+      | {
+        country?: string | null;
+        home_country?: string | null;
+        home_timezone?: string | null;
+      }
+      | null;
+    userHomeCountry = pRow?.country ?? pRow?.home_country ??
+      tzToCountry(pRow?.home_timezone ?? null) ?? null;
   } catch (_e) { /* best-effort — classifier degrades gracefully */ }
   const weekendDays = weekendDaysForHomeCountry(userHomeCountry);
   const planningDay = planningDayOfWeek(userHomeCountry);
