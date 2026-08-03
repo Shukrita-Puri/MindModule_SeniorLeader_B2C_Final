@@ -262,7 +262,7 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     if (opts.band === "depleted") {
       return "and protect tomorrow's start — that's what today is for.";
     }
-    return "and let this window close so the week starts from a full position.";
+    return "and let this window close so the week starts clean.";
   }
   if (
     opts.window === "evening" &&
