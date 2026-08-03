@@ -34,6 +34,7 @@ import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
+import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
@@ -1857,11 +1858,18 @@ async function buildNudgeContext(
   try {
     const { data: prof } = await supabase
       .from("profiles")
-      .select("country")
+      .select("country, home_country, home_timezone")
       .eq("id", userId)
       .maybeSingle();
-    userHomeCountry = (prof as { country?: string | null } | null)?.country ??
-      null;
+    const pRow = prof as
+      | {
+        country?: string | null;
+        home_country?: string | null;
+        home_timezone?: string | null;
+      }
+      | null;
+    userHomeCountry = pRow?.country ?? pRow?.home_country ??
+      tzToCountry(pRow?.home_timezone ?? null) ?? null;
   } catch (_e) { /* best-effort — classifier degrades gracefully */ }
   const weekendDays = weekendDaysForHomeCountry(userHomeCountry);
   const planningDay = planningDayOfWeek(userHomeCountry);

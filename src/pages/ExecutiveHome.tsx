@@ -24,6 +24,7 @@ import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import WeekAheadPriorities from "@/components/home/WeekAheadPriorities";
 import { useWeekAheadMode } from "@/hooks/useWeekAheadMode";
+import { usePlanLocaleContext } from "@/hooks/usePlanLocaleContext";
 import { useWeekAheadServerDecision } from "@/hooks/useWeekAheadServerDecision";
 import HomeSwipeShell from "@/components/home/swipe/HomeSwipeShell";
 import MrsPage from "@/components/home/mrs/MrsPage";
@@ -68,7 +69,11 @@ const ExecutiveHome = () => {
   const { data: mrsSnapshot } = useMrsSnapshot();
   const { data: briefSnapshot } = useCurrentBriefSnapshot();
   const serverWeekAheadDecision = useWeekAheadServerDecision();
-  const weekAhead = useWeekAheadMode(serverWeekAheadDecision);
+  const planLocale = usePlanLocaleContext();
+  const weekAhead = useWeekAheadMode(
+    serverWeekAheadDecision,
+    planLocale?.userHomeCountry,
+  );
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);

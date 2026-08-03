@@ -7,7 +7,7 @@
  * Returns `null` while in flight (and on hard failure) so the caller can
  * fall back to the local DoW heuristic inside `useWeekAheadMode`.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getAuthToken } from "@/services/authTokenService";
@@ -20,14 +20,18 @@ export interface ServerWeekAheadDecision {
   mode?: "week_ahead" | "day_of";
 }
 
+function localDateKey(): string {
+  return new Date().toLocaleDateString("en-CA");
+}
+
 export function useWeekAheadServerDecision(): ServerWeekAheadDecision | null {
   const [searchParams] = useSearchParams();
   const manualOverride = searchParams.get("mode") === "week-ahead";
   const [decision, setDecision] = useState<ServerWeekAheadDecision | null>(null);
+  const [fetchedOnDate, setFetchedOnDate] = useState<string>(() => localDateKey());
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+  const runFetch = useCallback(async (isCancelled?: () => boolean) => {
+    const cancelled = () => isCancelled?.() === true;
       try {
         const headers: Record<string, string> = {};
         const token = await getAuthToken().catch(() => null);
@@ -40,7 +44,7 @@ export function useWeekAheadServerDecision(): ServerWeekAheadDecision | null {
           "evaluate-week-ahead-mode",
           { headers, body: {} },
         );
-        if (cancelled) return;
+        if (cancelled()) return;
         if (error) {
           console.warn("[useWeekAheadServerDecision] invoke error:", error);
           return;
@@ -54,13 +58,35 @@ export function useWeekAheadServerDecision(): ServerWeekAheadDecision | null {
             lookaheadDays: d.lookaheadDays,
             mode: d.mode,
           });
+          setFetchedOnDate(localDateKey());
         }
       } catch (e) {
-        if (!cancelled) console.warn("[useWeekAheadServerDecision] failed:", e);
+        if (!cancelled()) console.warn("[useWeekAheadServerDecision] failed:", e);
       }
-    })();
-    return () => { cancelled = true; };
   }, [manualOverride]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void runFetch(() => cancelled);
+    return () => { cancelled = true; };
+  }, [runFetch]);
+
+  // Day rollover: re-ask the server when the app regains focus on a new
+  // local calendar date. Event-driven only — no polling.
+  useEffect(() => {
+    const maybeRefetch = () => {
+      if (localDateKey() !== fetchedOnDate) void runFetch();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") maybeRefetch();
+    };
+    window.addEventListener("focus", maybeRefetch);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", maybeRefetch);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [runFetch, fetchedOnDate]);
 
   return decision;
 }
