@@ -4631,22 +4631,27 @@ serve(async (req) => {
         // Derive country from CURRENT zone first (where the user is now), then
         // fall back to home zone for holidays — a UK user travelling in the US
         // is more relevantly subject to US holidays than UK ones.
-        const userTz = effectiveCurrentTz || effectiveHomeTz;
-        const userCountry = tzToCountry(userTz);
-        localeWeekendHomeCountry = userCountry ?? tzToCountry(effectiveHomeTz);
+        // Weekend and planning day always derive from HOME country (D1).
+        // A UK user in Dubai keeps a Saturday-Sunday weekend — their planning cycle
+        // does not change because they are travelling.
+        // currentLocationCountry is kept separately for public holiday lookups only.
+        const profileHomeCountry = leaderProfile?.preferences?.home_country ?? null;
+        const homeTzCountry = tzToCountry(effectiveHomeTz);
+        localeWeekendHomeCountry = profileHomeCountry ?? homeTzCountry;
+        const currentLocationCountry = tzToCountry(effectiveCurrentTz) ?? homeTzCountry;
         const localDate = userTime.toISOString().split("T")[0];
         const tomorrowDate =
           new Date(userTime.getTime() + 86400000).toISOString().split("T")[0];
 
-        if (userCountry && HOLIDAYS[userCountry]) {
-          const todayHol = HOLIDAYS[userCountry].find((h) =>
+        if (currentLocationCountry && HOLIDAYS[currentLocationCountry]) {
+          const todayHol = HOLIDAYS[currentLocationCountry].find((h) =>
             h.date === localDate
           );
           if (todayHol) {
             isPublicHoliday = true;
             holidayName = todayHol.name;
           }
-          const tomorrowHol = HOLIDAYS[userCountry].find((h) =>
+          const tomorrowHol = HOLIDAYS[currentLocationCountry].find((h) =>
             h.date === tomorrowDate
           );
           if (tomorrowHol) isDayBeforeRestDay = true;
