@@ -34,7 +34,34 @@ Gap 2 (login-only evaluation) needs no separate work: the login-level clock from
 6. Also select `home_location_set_at`; show the banner only when `possible_relocation_detected === true` **and** `home_location_set_at != null`. Without a confirmed home anchor, `HomeLocationCard` would silently adopt the current GPS location as home. (Gap 5)
 7. Add a Realtime `postgres_changes` UPDATE subscription on the user's own `profiles` row (`filter: id=eq.<user.id>`), re-evaluating visibility from `payload.new` with the same two conditions, torn down on unmount. The banner then appears in the session the flag is written, not the next one. (Gap 7)
 
-Realtime must be enabled for `public.profiles` for item 7 to fire; if the publication does not already include it, the migration adds it.
+### Realtime enablement (exact SQL in the migration)
+
+Confirmed live: the `supabase_realtime` publication currently contains **zero** tables, and `public.profiles` has `relreplident = 'd'` (DEFAULT). So the migration must add both the column and the publication entry:
+
+```sql
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS current_timezone_changed_at timestamptz;
+
+COMMENT ON COLUMN public.profiles.current_timezone_changed_at IS
+  'Set at login when current_timezone changes value. Primary clock for relocation detection. Immune to GPS ping resets (unlike travel_state.last_timezone_change_at). Only updated from sync-profile.';
+
+-- Realtime enablement for RelocationPromptBanner (item 7)
+ALTER TABLE public.profiles REPLICA IDENTITY DEFAULT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'profiles'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+END $$;
+```
+
+`REPLICA IDENTITY DEFAULT` is sufficient here: the `id=eq.<user.id>` filter and the callback both read `payload.new`, which carries every column on an UPDATE under DEFAULT. `FULL` is only needed to receive the *old* row, which this banner does not use — and it doubles WAL volume on a 91-column table, so we keep DEFAULT. Existing row-level access rules on `profiles` continue to apply to the Realtime stream, so a user only ever receives their own row.
 
 ## Verification
 
