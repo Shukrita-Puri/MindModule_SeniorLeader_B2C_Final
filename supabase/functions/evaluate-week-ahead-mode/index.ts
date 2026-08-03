@@ -16,6 +16,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
+import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -61,11 +62,18 @@ serve(async (req) => {
           const admin = createClient(supaUrl, serviceKey);
           const { data } = await admin
             .from("profiles")
-            .select("country")
+            .select("country, home_country, home_timezone")
             .eq("id", userId)
             .maybeSingle();
-          homeCountry = (data as { country?: string | null } | null)?.country ??
-            null;
+          const row = data as
+            | {
+              country?: string | null;
+              home_country?: string | null;
+              home_timezone?: string | null;
+            }
+            | null;
+          homeCountry = row?.country ?? row?.home_country ??
+            tzToCountry(row?.home_timezone ?? null) ?? null;
         }
       } catch (_e) { /* best-effort */ }
     }
@@ -102,10 +110,11 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("[evaluate-week-ahead-mode] fatal:", err);
-    // Safe fallback — never block routing.
+    // Fail-open: return a null decision so the client falls back to its own
+    // local heuristic instead of being told authoritatively "not week-ahead".
     return new Response(
       JSON.stringify({
-        weekAheadDecision: { active: false, reason: null, lookaheadDays: 0, mode: "day_of" },
+        weekAheadDecision: null,
         error: "internal_error",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
