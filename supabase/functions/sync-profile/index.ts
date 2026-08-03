@@ -159,14 +159,51 @@ Deno.serve(async (req) => {
       // Set home_timezone if missing (new profile OR existing profile without one yet).
       const { data: existingTz } = await supabaseAdmin
         .from("profiles")
-        .select("home_timezone")
+        .select("home_timezone, current_timezone, current_timezone_changed_at, country")
         .eq("id", userId)
         .maybeSingle();
       if (!existingTz?.home_timezone) {
         upsertData.home_timezone = clientCurrentTz;
       }
 
+      // Login-level relocation clock. Only stamped when the stored timezone
+      // actually changes value — immune to GPS pings resetting
+      // travel_state.last_timezone_change_at on a short trip.
+      const tzActuallyChanged =
+        !!(existingTz as any)?.current_timezone &&
+        (existingTz as any).current_timezone !== clientCurrentTz;
+      if (tzActuallyChanged) {
+        upsertData.current_timezone_changed_at = new Date().toISOString();
+      }
+
+      // Self-healing backfill: derive country from home_timezone when it is
+      // still null (pre-v8 users, or anyone who skipped the onboarding field).
+      if (!(existingTz as any)?.country) {
+        const derivedCountry = tzToCountry(
+          (existingTz as any)?.home_timezone ?? upsertData.home_timezone as string ?? null,
+        );
+        if (derivedCountry) {
+          upsertData.country = derivedCountry;
+        }
+      }
+
       // Best-effort sustained-relocation detection. Never blocks login.
+      // Convergence clear: back home means any stale flag goes away.
+      if (clientCurrentTz === existingTz?.home_timezone) {
+        try {
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              possible_relocation_detected: false,
+              relocation_candidate_tz: null,
+            })
+            .eq("id", userId)
+            .eq("possible_relocation_detected", true);
+        } catch (e) {
+          console.warn("[sync-profile] relocation convergence clear failed (non-fatal)", e);
+        }
+      }
+
       if (
         existingTz?.home_timezone &&
         clientCurrentTz !== existingTz.home_timezone
@@ -179,11 +216,17 @@ Deno.serve(async (req) => {
               .select("last_timezone_change_at, state")
               .eq("user_id", userId)
               .maybeSingle();
-            const changeDate = ts?.last_timezone_change_at
+            // Primary clock is the login-level stamp; travel_state is only a
+            // fallback for users flagged before that column existed.
+            const primaryChangeDate = (existingTz as any)?.current_timezone_changed_at
+              ? new Date((existingTz as any).current_timezone_changed_at)
+              : null;
+            const secondaryChangeDate = ts?.last_timezone_change_at
               ? new Date(ts.last_timezone_change_at)
               : null;
-            const daysSinceChange = changeDate
-              ? (Date.now() - changeDate.getTime()) / 86_400_000
+            const earliestChangeDate = primaryChangeDate ?? secondaryChangeDate;
+            const daysSinceChange = earliestChangeDate
+              ? (Date.now() - earliestChangeDate.getTime()) / 86_400_000
               : null;
             const sustainedRelocation =
               daysSinceChange !== null &&
@@ -191,12 +234,17 @@ Deno.serve(async (req) => {
               ts?.state !== "en_route" &&
               ts?.state !== "returning";
             if (sustainedRelocation) {
+              const relocatedCountry = tzToCountry(clientCurrentTz);
               await supabaseAdmin
                 .from("profiles")
                 .update({
                   possible_relocation_detected: true,
                   relocation_candidate_tz: clientCurrentTz,
                   relocation_first_detected_at: new Date().toISOString(),
+                  // Only fill a null country — never overwrite a confirmed one.
+                  ...(relocatedCountry && !(existingTz as any)?.country
+                    ? { country: relocatedCountry }
+                    : {}),
                 })
                 .eq("id", userId);
             }
