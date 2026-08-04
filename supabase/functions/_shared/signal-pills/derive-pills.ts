@@ -388,6 +388,8 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
         sleepDuration,
         sleepScore: sleepScoreVal,
         clarityLevel,
+        // Only surfaced when the RHR proxy actually drove the tier.
+        ...(cognitiveFallbackUsed === "rhr_proxy" ? { rhrValue } : {}),
       },
       sourceTypes: [],
       isScoreBearing: false,
@@ -395,6 +397,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       hiddenReason: null,
       detail: null,
       contributedByCheckIn: false,
+      fallbackUsed: cognitiveFallbackUsed,
     },
     {
       key: "physical_reserves",
@@ -409,6 +412,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       hiddenReason: null,
       detail: null,
       contributedByCheckIn: false,
+      fallbackUsed: null,
     },
     {
       key: "resilience_capacity",
@@ -418,6 +422,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       coldStartLabel: pillColdStart,
       contributors: {
         sleepEfficiency,
+        ...(resilienceFallbackUsed === "hr_elevated_proxy" ? { rhrValue } : {}),
         emotionLevel,
         regulationLevel,
         pressureLevel,
@@ -431,12 +436,18 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       hiddenReason: null,
       detail: null,
       contributedByCheckIn: false,
+      fallbackUsed: resilienceFallbackUsed,
     },
   ];
 
   // ── Per-pill source-of-truth metadata (V4). ──
   const decisionSources: PillSource[] = [];
-  if (hrvValue != null || sleepDuration != null || sleepScoreVal != null) {
+  if (
+    hrvValue != null ||
+    sleepDuration != null ||
+    sleepScoreVal != null ||
+    cognitiveFallbackUsed === "rhr_proxy"
+  ) {
     decisionSources.push("wearable");
   }
   if (clarityLevel != null) decisionSources.push("checkin");
@@ -450,7 +461,9 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     physicalSources.push("pattern");
   }
   const resilienceSources: PillSource[] = [];
-  if (sleepEfficiency != null) resilienceSources.push("wearable");
+  if (sleepEfficiency != null || resilienceFallbackUsed === "hr_elevated_proxy") {
+    resilienceSources.push("wearable");
+  }
   if (
     emotionLevel != null ||
     regulationLevel != null ||
