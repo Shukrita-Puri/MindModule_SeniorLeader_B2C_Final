@@ -55,6 +55,20 @@ const serverArchetype = resolveArchetypeSlug(profileRes.data?.user_archetype ?? 
 
 This makes existing rows with free-text names work immediately, without waiting for a re-synthesis. Same treatment at the `generate-mastery-plan` L4939 read so Plan and Brief agree on the archetype dimension.
 
+```ts
+// generate-mastery-plan/index.ts L4939
+req.archetype = resolveArchetypeSlug((profileRes.data as any).user_archetype) ?? "";
+```
+
+### 3b. Distinguish the fallback label
+
+Today both the archetype-matrix hit and the tier-only fallback surface as `· ARCHETYPE`. Change it so:
+
+- matrix hit (resolver returned a slug and the matrix had an entry for slug x tier) → `· ARCHETYPE`
+- matrix miss (resolver returned null, or no entry for that slug x tier) → `· TIER`
+
+The tier-fallback branches already return a distinct internal source, so this is a display-label mapping: `archetype-tier` → `ARCHETYPE`, tier fallback → `TIER`.
+
 ### 4. Backfill existing rows
 
 One data pass: for every profile whose `user_archetype` is null or non-canonical and whose `onboarding_v8_responses.cos_profile_status = 'ready'`, map `provisional_archetype.name` through the resolver and write the slug. Rows that resolve to null are left null.
@@ -68,9 +82,10 @@ New `supabase/functions/_shared/archetype-slug.test.ts`:
 - `"The Juggler (Provisional)"` → `adaptive-navigator` (suffix stripping)
 - unknown text → `null`
 - a `compute-outer-readiness` guard test asserting the resolver is applied at the profile read
+- source-label test: matrix hit → `ARCHETYPE`, resolver-null / matrix-miss → `TIER`
 
 ## Notes
 
 - No schema change. `profiles.user_archetype` keeps holding a slug, as it always has.
 - Priority order for Lean On / Watch For is unchanged — coach and pattern sources still win over the archetype matrix.
-- The `· ARCHETYPE` label will stay on tier-only fallbacks; if you'd prefer that fallback to be labelled distinctly (e.g. `· TIER`), say so and I'll fold that in.
+- Tier-only fallbacks are labelled `· TIER` so it is visible at a glance whether content was archetype-personalised.
