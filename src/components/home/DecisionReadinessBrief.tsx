@@ -210,8 +210,8 @@ const getSourceLabel = (source: string | undefined): string => {
     case 'cc-modifier-with-context': return 'From Mental Energy';
     case 'coach-partial-strength':
     case 'coach-partial-growth': return 'Coach + archetype';
-    case 'archetype-tier': return 'From archetype';
-    case 'tier-fallback': return 'From readiness';
+    case 'archetype-tier': return 'Archetype';
+    case 'tier-fallback': return 'Tier';
     case 'dow-pattern': return 'From pattern';
     case 'hrv-correlation': return 'From data';
     case 'score-trajectory': return 'From pattern';
