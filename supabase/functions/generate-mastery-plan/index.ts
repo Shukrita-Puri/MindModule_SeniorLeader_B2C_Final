@@ -4936,7 +4936,7 @@ async function buildSharedContext(
   if (profileRes.data) {
     req.practicePriorityTag = profileRes.data.practice_priority_tag || "";
     req.pressureContextTag = profileRes.data.pressure_context_tag || "";
-    req.archetype = (profileRes.data as any).user_archetype || "";
+    req.archetype = resolveArchetypeSlug((profileRes.data as any).user_archetype) ?? "";
     req.componentScores = profileRes.data.component_scores || null;
   }
   req.preferredTimes = {
