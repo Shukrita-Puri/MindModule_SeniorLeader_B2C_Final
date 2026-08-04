@@ -2646,6 +2646,17 @@ function getLeanOnWatchFor(
   checkInOutcome: string | null = null,
   hrvDeviation: number | null = null,
 ): LeanOnWatchForResult {
+  // COACH source: deferred until the coach feature is live for all users.
+  // Rather than deleting the coach branches (they stay intact for re-enable),
+  // we neutralise the inputs so every coach precondition is false and the
+  // resolver jumps straight to PATTERN, then ARCHETYPE, then TIER.
+  const COACH_SOURCE_ENABLED = false;
+  if (!COACH_SOURCE_ENABLED) {
+    coachStrength = null;
+    coachGrowth = null;
+    coachInsightCreatedAt = null;
+  }
+
   // ── Coach insight age + tier ──
   let coachDaysOld = 0;
   let coachTier: CoachInsightTier = "archived";
@@ -3622,6 +3633,15 @@ serve(async (req) => {
     );
 
     const coachUsed = leanOnResult.source.startsWith("coach");
+    console.log(
+      `[lean-on] source=${leanOnResult.source} archetype=${
+        serverArchetype ?? "none"
+      } rawArchetype=${
+        profileRes.data?.user_archetype ?? "null"
+      } tier=${safeTier} matrixHit=${
+        !!(serverArchetype && archetypeMatrix[serverArchetype]?.[safeTier])
+      } leanOn="${leanOnResult.leanOn}"`,
+    );
     const wearableUsed = !!wearableContext;
     const dataSources = buildDataSources(
       calendarResult.state,
