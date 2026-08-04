@@ -29,7 +29,7 @@ Deno.test("legacy underscore ids map through", () => {
 });
 
 Deno.test("unknown text returns null so the tier fallback stays honest", () => {
-  assertEquals(resolveArchetypeSlug("The Provisional Executive Operator zzz"), null);
+  assertEquals(resolveArchetypeSlug("The Lighthouse Keeper"), null);
   assertEquals(resolveArchetypeSlug(""), null);
   assertEquals(resolveArchetypeSlug(null), null);
   assertEquals(resolveArchetypeSlug(undefined), null);
