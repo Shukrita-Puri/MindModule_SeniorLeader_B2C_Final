@@ -7,11 +7,12 @@ import { describe, it, expect } from 'vitest';
  * two implementations will be caught by the acceptance tests.
  */
 const DISPLAYABLE_KEYS: Record<string, string[]> = {
-  decision_readiness: ['hrvValue', 'sleepDuration', 'sleepScore', 'clarityLevel'],
+  decision_readiness: ['hrvValue', 'sleepDuration', 'sleepScore', 'clarityLevel', 'rhrValue'],
   physical_reserves: ['sleepDuration', 'sleepScore', 'rhrValue', 'hrValue'],
   resilience_capacity: [
     'sleepEfficiency',
     'sleep_efficiency',
+    'rhrValue',
     'emotionLevel',
     'regulationLevel',
     'pressureLevel',
