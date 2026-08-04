@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { CANONICAL_ARCHETYPES, resolveArchetypeSlug } from "../_shared/archetype-slug.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
 const corsHeaders = {
@@ -489,6 +490,12 @@ const COS_TOOL = {
           type: "object",
           properties: {
             name: { type: "string" },
+            canonical_slug: {
+              type: "string",
+              enum: [...CANONICAL_ARCHETYPES],
+              description:
+                "The closest canonical archetype slug for this leader. Must be one of the listed values.",
+            },
             subtitle: { type: "string" },
             description: { type: "string" },
             to_be_confirmed_after: { type: "string" },
@@ -667,7 +674,10 @@ Deno.serve(async (req) => {
       // Write AI-derived personality fields to profiles (richer overwrite of chip-derived values)
       try {
         const profileUpdate: Record<string, unknown> = {
-          user_archetype: profile.provisional_archetype?.name ?? null,
+          user_archetype: resolveArchetypeSlug(
+            profile.provisional_archetype?.canonical_slug ??
+              profile.provisional_archetype?.name ?? null,
+          ),
           archetype_title: profile.provisional_archetype?.subtitle ?? null,
           archetype_description: profile.provisional_archetype?.description ?? null,
           identity_role: profile.identity?.role ?? null,
