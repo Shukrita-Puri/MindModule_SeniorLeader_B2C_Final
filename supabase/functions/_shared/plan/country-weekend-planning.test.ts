@@ -202,3 +202,29 @@ Deno.test("evaluateWeekAheadMode: null homeCountry on Sunday → active (safe de
   assertEquals(result.active, true); // Sunday is correct default for most users
   assertEquals(result.reason, "weekly_planning");
 });
+// ── null profiles.country → timezone fallback ────────────────────────────────
+
+Deno.test("null country + home_timezone Asia/Riyadh resolves to SA / Saturday planning", () => {
+  const country: string | null = null;
+  const homeTimezone = "Asia/Riyadh";
+  const resolved = country ?? tzToCountry(homeTimezone) ?? null;
+  assertEquals(resolved, "SA");
+  assertEquals(planningDayOfWeek(resolved), 6);
+
+  const ctx = resolveUserLocaleContext({
+    localDate: "2026-08-08", // Saturday
+    utcNowMs: Date.UTC(2026, 7, 8, 8),
+    homeCountry: resolved,
+    timezone: homeTimezone,
+    timezoneOffsetMinutes: -180,
+  });
+  assertEquals(ctx.homeCountry, "SA");
+  assertEquals(ctx.weekendDays, [5, 6]);
+  assertEquals(ctx.planningDayOfWeek, 6);
+});
+
+Deno.test("null country + home_timezone Europe/London resolves to GB / Sunday planning", () => {
+  const resolved = null ?? tzToCountry("Europe/London") ?? null;
+  assertEquals(resolved, "GB");
+  assertEquals(planningDayOfWeek(resolved), 0);
+});

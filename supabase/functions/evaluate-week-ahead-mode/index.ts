@@ -62,20 +62,21 @@ serve(async (req) => {
           const admin = createClient(supaUrl, serviceKey);
           const { data } = await admin
             .from("profiles")
-            .select("country, home_country, home_timezone")
+            .select("country, home_timezone")
             .eq("id", userId)
             .maybeSingle();
           const row = data as
             | {
               country?: string | null;
-              home_country?: string | null;
               home_timezone?: string | null;
             }
             | null;
-          homeCountry = row?.country ?? row?.home_country ??
+          homeCountry = row?.country ??
             tzToCountry(row?.home_timezone ?? null) ?? null;
         }
-      } catch (_e) { /* best-effort */ }
+      } catch (e) {
+        console.warn("[evaluate-week-ahead-mode] profile country lookup failed", e);
+      }
     }
 
     const localNow = new Date(Date.now() - offsetMinutes * 60_000);
