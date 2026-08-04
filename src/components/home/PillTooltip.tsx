@@ -438,6 +438,15 @@ export default function PillDetailContent({
     });
   } catch {}
 
+  const fallbackNote =
+    pill.fallbackUsed === 'rhr_proxy'
+      ? 'RHR proxy — no HRV or sleep today'
+      : pill.fallbackUsed === 'hr_elevated_proxy'
+        ? 'Heart-rate proxy — no sleep efficiency today'
+        : pill.freshness === 'checkin_only'
+          ? "Check-in read only — wearable hasn't synced yet"
+          : null;
+
   return (
     <div className="flex flex-col gap-3">
       {useNeutralFallback ? (
@@ -466,6 +475,11 @@ export default function PillDetailContent({
       ) : (
         <span className="text-xs text-muted-foreground/55 font-body italic">
           Awaiting signals.
+        </span>
+      )}
+      {fallbackNote && (
+        <span className="text-[12px] text-muted-foreground/70 font-body italic">
+          {fallbackNote}
         </span>
       )}
     </div>
