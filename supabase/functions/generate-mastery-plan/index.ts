@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { resolveArchetypeSlug } from "../_shared/archetype-slug.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   canonicalEventTag,
@@ -4936,7 +4937,7 @@ async function buildSharedContext(
   if (profileRes.data) {
     req.practicePriorityTag = profileRes.data.practice_priority_tag || "";
     req.pressureContextTag = profileRes.data.pressure_context_tag || "";
-    req.archetype = (profileRes.data as any).user_archetype || "";
+    req.archetype = resolveArchetypeSlug((profileRes.data as any).user_archetype) ?? "";
     req.componentScores = profileRes.data.component_scores || null;
   }
   req.preferredTimes = {
