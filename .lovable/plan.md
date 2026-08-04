@@ -39,13 +39,36 @@ This explains both Project monitoring findings. The earlier pure-logic tests pas
 - `compute-outer-readiness` — uses the onboarding-sourced leader profile plus
   `tzToCountry(effectiveHomeTz)`.
 
+## Observability additions
+
+- `planLocaleContext.ts`: log in the catch —
+  `console.warn('[planLocaleContext] profile query failed, using device fallback', err)` before returning `base`.
+- `evaluate-week-ahead-mode` and `smart-nudges`: replace the silent
+  `/* best-effort */` catches with `console.warn` so future schema mismatches
+  surface in edge function logs.
+
+## Regression tests
+
+1. Contract test (pattern of `snapshotContractGuards.test.ts`): assert none of the
+   four profile selects contain the string `home_country`.
+2. `complete-onboarding` test: `onboarding_v8_responses.home_country = 'SA'` maps to
+   `profiles.country = 'SA'`, and the update payload contains no `home_country` key.
+3. Extend `country-weekend-planning.test.ts`: `country = null` with
+   `home_timezone = 'Asia/Riyadh'` resolves via `tzToCountry` to `'SA'`, and
+   `planningDayOfWeek('SA')` returns `6`.
+
 ## Verification
 
 - Run `tsgo` over the changed files; require zero TypeScript errors.
+- Run the new and existing country/weekend/planning and relocation suites.
 - Redeploy `complete-onboarding`, `evaluate-week-ahead-mode`, `smart-nudges`.
 - Re-confirm the live `profiles` schema has no `home_country`.
+- End-to-end read-path checks after deploy:
+  - `shukrita@mindmodule.me` → expect `country = 'GB'`.
+  - `joydeepcha75@gmail.com` → expect `country = 'US'` from `home_timezone = America/New_York`;
+    if still null, note that the self-healing backfill runs on his next login.
 - Resolve the two Project monitoring findings after deployment succeeds.
-- Report the exact lines changed per file.
+- Report exact lines changed per file, test results, and both read-path checks.
 
 ## No schema migration
 
