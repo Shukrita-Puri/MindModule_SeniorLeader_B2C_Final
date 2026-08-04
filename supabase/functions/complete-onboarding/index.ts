@@ -160,6 +160,9 @@ Deno.serve(async (req) => {
       updateData.practice_priority_tag = practiceTag;
       updateData.pressure_context_tag = pressureTag;
       updateData.growth_priority = goals[0] ?? null;
+      if (goals.length > 0) {
+        updateData.protection_goals = goals;
+      }
       updateData.user_archetype = cosProfile?.provisional_archetype?.name ?? null;
       updateData.archetype_title = cosProfile?.provisional_archetype?.subtitle ?? null;
       updateData.archetype_description = cosProfile?.provisional_archetype?.description ?? null;

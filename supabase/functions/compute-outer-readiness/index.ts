@@ -5559,6 +5559,17 @@ serve(async (req) => {
           } else if (pg && typeof pg === "object") {
             protectionGoals = Object.keys(pg);
           }
+          if (protectionGoals.length === 0) {
+            const v8Goals = await db.from("onboarding_v8_responses")
+              .select("goals")
+              .eq("user_id", userId)
+              .maybeSingle()
+              .then((r: any) => r, () => ({ data: null }));
+            const g = (v8Goals as any)?.data?.goals;
+            if (Array.isArray(g) && g.length > 0) {
+              protectionGoals = g.filter((x: any) => typeof x === "string");
+            }
+          }
         } catch (resErr) {
           console.warn(
             "[mrs-v2:resilience-inputs] fetch failed:",
