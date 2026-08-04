@@ -644,3 +644,110 @@ Deno.test("XP-43: clarity is check-in (self-report), never wearable", () => {
   assertEquals(dr.sourceTypes.includes("checkin"), true);
   assertEquals(dr.sourceTypes.includes("wearable"), false);
 });
+
+// ── Fallback signals for no-sleep / HRV-late wearables (Q3) ────────────
+
+Deno.test("FB-01: RHR proxy drives Cognitive when HRV and sleep are absent", () => {
+  const r = derivePills(
+    baseInput({
+      wearableFreshForGate: true,
+      hasWearable: true,
+      rhrValue: 85,
+      rhrDeviation: null,
+    }),
+  );
+  const dr = pill(r.pills, "decision_readiness");
+  assertEquals(dr.fallbackUsed, "rhr_proxy");
+  assertEquals(dr.contributors.rhrValue, 85);
+  assertEquals(dr.sourceTypes.includes("wearable"), true);
+  assertNotEquals(dr.tier, "neutral");
+});
+
+Deno.test("FB-02: RHR proxy does NOT fire when HRV is present", () => {
+  const r = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrvValue: 55, rhrValue: 95 }),
+  );
+  const dr = pill(r.pills, "decision_readiness");
+  assertEquals(dr.fallbackUsed ?? null, null);
+  assertEquals(dr.contributors.rhrValue ?? null, null);
+});
+
+Deno.test("FB-03: RHR proxy does NOT fire when sleep is present", () => {
+  const r = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, sleepDuration: 430, rhrValue: 95 }),
+  );
+  assertEquals(pill(r.pills, "decision_readiness").fallbackUsed ?? null, null);
+});
+
+Deno.test("FB-04: RHR deviation thresholds are ordered worst-first", () => {
+  const red = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 70, rhrDeviation: 30 }),
+  );
+  const amber = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 70, rhrDeviation: 20 }),
+  );
+  const green = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 70, rhrDeviation: 2 }),
+  );
+  assertEquals(red.cognitiveTier, "red");
+  assertEquals(amber.cognitiveTier, "amber");
+  assertEquals(green.cognitiveTier, "green");
+});
+
+Deno.test("FB-05: HR-elevated proxy fires only when sleep efficiency is null", () => {
+  const fired = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 85 }),
+  );
+  const rcFired = pill(fired.pills, "resilience_capacity");
+  assertEquals(rcFired.fallbackUsed, "hr_elevated_proxy");
+  assertEquals(rcFired.contributors.rhrValue, 85);
+
+  const notFired = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 85, sleepEfficiency: 90 }),
+  );
+  assertEquals(pill(notFired.pills, "resilience_capacity").fallbackUsed ?? null, null);
+});
+
+Deno.test("FB-06: HR-elevated proxy stays silent when RHR is normal", () => {
+  const r = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 60, rhrDeviation: 2 }),
+  );
+  assertEquals(pill(r.pills, "resilience_capacity").fallbackUsed ?? null, null);
+});
+
+Deno.test("FB-07: check-in-only read replaces Unread and is never score-bearing", () => {
+  const r = derivePills(
+    baseInput({
+      wearableFreshForGate: false,
+      checkInFreshForGate: true,
+      hasWearable: true,
+      clarityLevel: 4,
+      emotionLevel: 4,
+      regulationLevel: 4,
+      pressureLevel: 2,
+    }),
+  );
+  const dr = pill(r.pills, "decision_readiness");
+  const rc = pill(r.pills, "resilience_capacity");
+  const pr = pill(r.pills, "physical_reserves");
+  assertEquals(dr.freshness, "checkin_only");
+  assertEquals(dr.isScoreBearing, false);
+  assertEquals(dr.hiddenReason, null);
+  assertNotEquals(dr.tierLabel, PILL_NEUTRAL_LABELS.decision_readiness);
+  assertEquals(rc.freshness, "checkin_only");
+  assertEquals(rc.isScoreBearing, false);
+  // Physical Reserves has no check-in source: stays Unread.
+  assertEquals(pr.tier, "neutral");
+  assertEquals(pr.tierLabel, PILL_NEUTRAL_LABELS.physical_reserves);
+});
+
+Deno.test("FB-08: no wearable and no check-in still yields Unread everywhere", () => {
+  const r = derivePills(
+    baseInput({ wearableFreshForGate: false, checkInFreshForGate: false, hasWearable: false }),
+  );
+  for (const p of r.pills) {
+    assertEquals(p.tier, "neutral");
+    assertEquals(p.isScoreBearing, false);
+    assertEquals(p.detail, DETAIL_AWAITING);
+  }
+});

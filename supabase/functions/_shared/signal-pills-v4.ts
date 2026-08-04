@@ -10,7 +10,12 @@ export type PillKey =
   | 'resilience_capacity';
 export type PillTier = 'green' | 'amber' | 'red' | 'neutral';
 export type SourceType = 'wearable' | 'checkin' | 'pattern';
-export type Freshness = 'fresh' | 'stale' | 'missing' | 'non_score_bearing';
+export type Freshness =
+  | 'fresh'
+  | 'stale'
+  | 'missing'
+  | 'non_score_bearing'
+  | 'checkin_only';
 
 export interface PillInput {
   key: PillKey;
@@ -40,6 +45,8 @@ export const DETAIL_AWAITING =
   'Sync your wearable and then complete a quick check-in to sharpen the picture.';
 export const DETAIL_EARLY_READ =
   'Wearable read only. Complete a check-in to refine this pill.';
+export const DETAIL_CHECKIN_ONLY =
+  "Check-in read only. Wearable data hasn't synced yet.";
 
 export interface AnnotateContext {
   wearableFresh: boolean;
@@ -75,8 +82,15 @@ export function annotatePill(
   let detail: string | null = null;
   let tier: PillTier = pill.tier;
   let tierLabel = pill.tierLabel;
+  let checkinOnly = false;
 
-  if (!wearableFresh) {
+  if (!wearableFresh && checkInFresh && hasCheckinSrc) {
+    // Fallback C — keep the check-in-derived tier as a non-score-bearing read.
+    checkinOnly = true;
+    isScoreBearing = false;
+    contributedByCheckIn = true;
+    detail = DETAIL_CHECKIN_ONLY;
+  } else if (!wearableFresh) {
     hiddenReason = 'no_fresh_wearable';
     isScoreBearing = false;
     contributedByCheckIn = false;
@@ -101,6 +115,7 @@ export function annotatePill(
 
   let freshness: Freshness;
   if (isScoreBearing) freshness = 'fresh';
+  else if (checkinOnly) freshness = 'checkin_only';
   else if (!hasWearable) freshness = 'missing';
   else if (!wearableFresh) freshness = 'stale';
   else freshness = 'non_score_bearing';
@@ -124,6 +139,9 @@ export function enforcePillInvariants(
   ctx: AnnotateContext,
 ): AnnotatedPill[] {
   return pills.map((p) => {
+    if (!ctx.wearableFresh && p.freshness === 'checkin_only') {
+      return p.isScoreBearing ? { ...p, isScoreBearing: false } : p;
+    }
     if (!ctx.wearableFresh) {
       return {
         ...p,

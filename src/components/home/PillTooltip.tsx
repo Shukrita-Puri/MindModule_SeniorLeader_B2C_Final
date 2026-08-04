@@ -51,10 +51,12 @@ export interface PillTooltipPill {
   // `hiddenReason` explains why (no fresh wearable / no check-in).
   sourceTypes?: Array<'wearable' | 'checkin' | 'pattern'>;
   isScoreBearing?: boolean;
-  freshness?: 'fresh' | 'stale' | 'missing' | 'non_score_bearing';
+  freshness?: 'fresh' | 'stale' | 'missing' | 'non_score_bearing' | 'checkin_only';
   hiddenReason?: 'no_fresh_wearable' | 'no_checkin' | null;
   detail?: string | null;
   contributedByCheckIn?: boolean;
+  /** Set when a secondary wearable signal stood in for the primaries. */
+  fallbackUsed?: 'rhr_proxy' | 'hr_elevated_proxy' | null;
 }
 
 /* ── Humanisation ────────────────────────────────────────────────────── */
@@ -130,11 +132,15 @@ const ALLOWED_CONTRIBUTORS: Record<PillTooltipPill['key'], Set<string>> = {
     'sleepDuration',
     'sleepScore',
     'clarityLevel',
+    // Secondary fallback signal: only ever present when the backend used
+    // the RHR proxy (no HRV and no sleep today).
+    'rhrValue',
   ]),
   physical_reserves: new Set(['rhrValue', 'hrValue']),
   resilience_capacity: new Set([
     'sleepEfficiency',
     'sleep_efficiency',
+    'rhrValue',
     'emotionLevel',
     'regulationLevel',
     'pressureLevel',
@@ -432,6 +438,15 @@ export default function PillDetailContent({
     });
   } catch {}
 
+  const fallbackNote =
+    pill.fallbackUsed === 'rhr_proxy'
+      ? 'RHR proxy — no HRV or sleep today'
+      : pill.fallbackUsed === 'hr_elevated_proxy'
+        ? 'Heart-rate proxy — no sleep efficiency today'
+        : pill.freshness === 'checkin_only'
+          ? "Check-in read only — wearable hasn't synced yet"
+          : null;
+
   return (
     <div className="flex flex-col gap-3">
       {useNeutralFallback ? (
@@ -460,6 +475,11 @@ export default function PillDetailContent({
       ) : (
         <span className="text-xs text-muted-foreground/55 font-body italic">
           Awaiting signals.
+        </span>
+      )}
+      {fallbackNote && (
+        <span className="text-[12px] text-muted-foreground/70 font-body italic">
+          {fallbackNote}
         </span>
       )}
     </div>

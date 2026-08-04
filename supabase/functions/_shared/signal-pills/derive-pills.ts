@@ -33,8 +33,16 @@ export type PillKey =
   | "physical_reserves"
   | "resilience_capacity";
 export type PillSource = "wearable" | "checkin" | "pattern";
-export type PillFreshness = "fresh" | "stale" | "missing" | "non_score_bearing";
+export type PillFreshness =
+  | "fresh"
+  | "stale"
+  | "missing"
+  | "non_score_bearing"
+  | "checkin_only";
 export type PillHiddenReason = "no_fresh_wearable" | "no_checkin" | null;
+
+/** Provenance marker set when a secondary (fallback) wearable signal was used. */
+export type PillFallbackUsed = "rhr_proxy" | "hr_elevated_proxy" | null;
 
 export interface CooccurrenceSignal {
   cooccurrence_count: number;
@@ -121,6 +129,7 @@ export interface SignalPill {
   detail: string | null;
   contributedByCheckIn: boolean;
   qualifiers?: Record<string, unknown>;
+  fallbackUsed?: PillFallbackUsed;
 }
 
 export interface DerivePillsResult {
@@ -182,6 +191,8 @@ export const DETAIL_AWAITING =
   "Sync your wearable and then complete a quick check-in to sharpen the picture.";
 export const DETAIL_EARLY_READ =
   "Wearable read only. Complete a check-in to refine this pill.";
+export const DETAIL_CHECKIN_ONLY =
+  "Check-in read only. Wearable data hasn't synced yet.";
 
 const STATE_RANK: Record<PillTier, number> = {
   neutral: 0,
@@ -259,6 +270,27 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     else if (sleepDuration != null && sleepDuration < 420) cogTiers.push("amber");
     else cogTiers.push("green");
   }
+  // ── Fallback A (secondary signal only) — RHR as a cognitive-load proxy.
+  // Fires ONLY when both primary wearable signals (HRV and sleep) are absent,
+  // e.g. an older Apple Watch with no sleep tracking and no HRV yet synced.
+  // Elevated RHR indicates sympathetic dominance, which impairs cognition.
+  let cognitiveFallbackUsed: PillFallbackUsed = null;
+  if (
+    cogTiers.length === 0 &&
+    hrvValue == null &&
+    sleepDuration == null &&
+    sleepScoreVal == null &&
+    rhrValue != null
+  ) {
+    if (rhrDeviation != null) {
+      cogTiers.push(
+        rhrDeviation > 25 ? "red" : rhrDeviation > 15 ? "amber" : "green",
+      );
+    } else {
+      cogTiers.push(rhrValue > 90 ? "red" : rhrValue > 80 ? "amber" : "green");
+    }
+    cognitiveFallbackUsed = "rhr_proxy";
+  }
   if (clarityLevel != null) {
     cogTiers.push(
       clarityLevel <= 2 ? "red" : clarityLevel === 3 ? "amber" : "green",
@@ -305,6 +337,18 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       sleepEfficiency >= 85 ? "green" : sleepEfficiency >= 70 ? "amber" : "red",
     );
   }
+  // ── Fallback B (secondary signal only) — HR elevation as a recovery proxy.
+  // Fires ONLY when the primary anchor (sleep efficiency) is unavailable.
+  let resilienceFallbackUsed: PillFallbackUsed = null;
+  if (resTiers.length === 0 && sleepEfficiency == null) {
+    if (rhrDeviation != null && rhrDeviation > 10) {
+      resTiers.push("amber");
+      resilienceFallbackUsed = "hr_elevated_proxy";
+    } else if (rhrValue != null && rhrValue > 80) {
+      resTiers.push("amber");
+      resilienceFallbackUsed = "hr_elevated_proxy";
+    }
+  }
   if (emotionLevel != null) {
     resTiers.push(emotionLevel <= 2 ? "amber" : "green");
   }
@@ -346,6 +390,8 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
         sleepDuration,
         sleepScore: sleepScoreVal,
         clarityLevel,
+        // Only surfaced when the RHR proxy actually drove the tier.
+        ...(cognitiveFallbackUsed === "rhr_proxy" ? { rhrValue } : {}),
       },
       sourceTypes: [],
       isScoreBearing: false,
@@ -353,6 +399,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       hiddenReason: null,
       detail: null,
       contributedByCheckIn: false,
+      fallbackUsed: cognitiveFallbackUsed,
     },
     {
       key: "physical_reserves",
@@ -367,6 +414,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       hiddenReason: null,
       detail: null,
       contributedByCheckIn: false,
+      fallbackUsed: null,
     },
     {
       key: "resilience_capacity",
@@ -376,6 +424,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       coldStartLabel: pillColdStart,
       contributors: {
         sleepEfficiency,
+        ...(resilienceFallbackUsed === "hr_elevated_proxy" ? { rhrValue } : {}),
         emotionLevel,
         regulationLevel,
         pressureLevel,
@@ -389,12 +438,18 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       hiddenReason: null,
       detail: null,
       contributedByCheckIn: false,
+      fallbackUsed: resilienceFallbackUsed,
     },
   ];
 
   // ── Per-pill source-of-truth metadata (V4). ──
   const decisionSources: PillSource[] = [];
-  if (hrvValue != null || sleepDuration != null || sleepScoreVal != null) {
+  if (
+    hrvValue != null ||
+    sleepDuration != null ||
+    sleepScoreVal != null ||
+    cognitiveFallbackUsed === "rhr_proxy"
+  ) {
     decisionSources.push("wearable");
   }
   if (clarityLevel != null) decisionSources.push("checkin");
@@ -408,7 +463,9 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     physicalSources.push("pattern");
   }
   const resilienceSources: PillSource[] = [];
-  if (sleepEfficiency != null) resilienceSources.push("wearable");
+  if (sleepEfficiency != null || resilienceFallbackUsed === "hr_elevated_proxy") {
+    resilienceSources.push("wearable");
+  }
   if (
     emotionLevel != null ||
     regulationLevel != null ||
@@ -438,7 +495,15 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       (hasWearableSrc || (hasCheckinSrc && checkInFreshForGate));
     let hiddenReason: PillHiddenReason = null;
     let detail: string | null = null;
-    if (!wearableFreshForGate) {
+    let checkinOnly = false;
+    if (!wearableFreshForGate && checkInFreshForGate && hasCheckinSrc) {
+      // Fallback C — a same-day check-in is a legitimate (non-score-bearing)
+      // read. Keep the check-in-derived tier instead of showing "Unread".
+      checkinOnly = true;
+      isScoreBearing = false;
+      hiddenReason = null;
+      detail = DETAIL_CHECKIN_ONLY;
+    } else if (!wearableFreshForGate) {
       hiddenReason = "no_fresh_wearable";
       isScoreBearing = false;
       p.tier = "neutral";
@@ -461,6 +526,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     }
     let freshnessStr: PillFreshness;
     if (isScoreBearing) freshnessStr = "fresh";
+    else if (checkinOnly) freshnessStr = "checkin_only";
     else if (!hasWearable) freshnessStr = "missing";
     else if (!wearableFreshForGate) freshnessStr = "stale";
     else freshnessStr = "non_score_bearing";
@@ -469,12 +535,16 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     p.freshness = freshnessStr;
     p.hiddenReason = hiddenReason;
     p.detail = detail;
-    p.contributedByCheckIn = contributedByCheckIn;
+    p.contributedByCheckIn = checkinOnly ? true : contributedByCheckIn;
   }
 
   // ── V4 invariant (defensive normalisation). ──
   for (const p of pills) {
-    if (!wearableFreshForGate) {
+    if (!wearableFreshForGate && p.freshness === "checkin_only") {
+      // Fallback C carve-out: check-in-only reads stay visible but must
+      // never be score-bearing.
+      if (p.isScoreBearing) p.isScoreBearing = false;
+    } else if (!wearableFreshForGate) {
       if (p.isScoreBearing || p.tier !== "neutral" || p.contributedByCheckIn) {
         diagnostics.push({
           key: p.key,
