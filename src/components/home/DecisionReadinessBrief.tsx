@@ -1911,7 +1911,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           resilience_capacity: [
             'sleepEfficiency',
             'sleep_efficiency',
-            'rhrValue',
+            // HR-elevation fallback evidence (active HR, not RHR — RHR is
+            // owned by Physical Reserves).
+            'hrValue',
             'emotionLevel',
             'regulationLevel',
             'pressureLevel',
