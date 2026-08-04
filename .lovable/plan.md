@@ -1,47 +1,76 @@
-# Why-line validator: resolve the "calm" / "productive" contradiction
+# Lean On / Watch For — make the ARCHETYPE source actually archetype-aware
 
-## What the failure actually is
+## What I found (verified against code and live data)
 
-The Plan engine writes a one-line "why" for each practice slot. Before that line is shown, `validateWhyLine` checks it. Four of its 27 tests fail — and they fail because two rules inside the app now contradict each other, not because of a stale test.
+The fix you proposed is **already implemented** in two places:
 
-1. The validator's **state vocabulary** treats `calm` as a legitimate "steady" word — proof the line is grounded in the user's actual state.
-2. The shared **forbidden-word list** (the wellness-trope ban used by Notifications and the Brief) lists `calm` as banned copy.
+- `complete-onboarding/index.ts` L163 writes `user_archetype = cos_profile.provisional_archetype.name`
+- `synthesize-cos-profile/index.ts` L670 writes the same field (richer overwrite)
 
-The forbidden-word check runs first, so any why-line containing `calm` is rejected as `forbidden_word_calm` before the state check ever sees it. The word can never do the job the state vocabulary assigns to it.
+So the write is not the gap. The real gap is a **vocabulary mismatch**.
 
-Failing cases:
+The archetype matrix in `compute-outer-readiness/index.ts` (L2374) is keyed on nine fixed slugs:
 
-| Test | Expected | Actual |
-|---|---|---|
-| generic-rejection test | `generic` | `forbidden_word_productive` |
-| steady synonym "calm" accepted | accept | `forbidden_word_calm` |
-| dedupe threshold (0.85) still holds | accept, then dedupe | `forbidden_word_calm` |
-| 35-word boundary accepted | accept | `forbidden_word_calm` |
+```text
+grounded-leader, resilient-performer, clear-thinker, intensity-driver,
+adaptive-navigator, natural-regulator, high-octane-performer,
+strategic-pauser, awareness-builder
+```
 
-Only the first is a genuine fixture problem: its sample text uses the banned word "productive", so it is rejected for a stricter, earlier reason than the test names. The other three are the real contradiction — they exercise unrelated behaviour (state synonyms, dedupe, word ceiling) but happen to use `calm` as filler.
+But the CoS profile produces free-text LLM names. Live rows today:
 
-## Impact today
+```text
+"The Architect-Commander"   "The Athlete"   "The Juggler (Provisional)"
+```
 
-No user-facing breakage. Rejected why-lines fall back to the deterministic repair path in `generate-mastery-plan`, so a valid line is always shown. The cost is silent: `calm` lines are quietly discarded, the dedupe and word-ceiling rules are effectively untested, and a permanently red suite masks future regressions in those paths.
+None of these match a matrix key, so `archetypeMatrix[archetype]?.[tier]` misses and every v8 user falls through to `tierFallbacks[tier]` — the exact tier-only outcome the fix was meant to avoid. Legacy beta users still hold valid slugs (grounded-leader x14, adaptive-navigator x13), so they do get archetype-aware content.
 
-## Recommendation
+Secondary observation: one completed v8 user with `cos_profile_status = 'ready'` still has `user_archetype` null, so the write also needs a backfill sweep.
 
-Treat the forbidden-word list as authoritative. Brand rules already ban wellness tropes in user copy, and the Brief guidance explicitly says to use "settle" / "steady" instead of "calm". The state vocabulary is the side that is wrong.
+## The plan
 
-### Changes
+### 1. Add a canonical archetype resolver (shared module)
 
-1. `supabase/functions/_shared/plan/why-llm.ts` — remove `calm` from the `steady` state-token regex. `steady`, `holding`, `on track`, `even`, `settled`, `on pace`, `in rhythm` remain, so grounding coverage is unaffected.
-2. `supabase/functions/_shared/plan/why-llm-validator.test.ts` — in the three tests that use `calm` only as filler, swap it for `settled` so each test measures what it names (synonym acceptance, dedupe, word ceiling).
-3. Same test file — replace `productive` in the generic-rejection sample with neutral, non-banned wording so the assertion genuinely exercises the `generic` grounding rejection rather than the earlier forbidden-word gate.
-4. Add one new test asserting `calm` is rejected as `forbidden_word_calm`, locking the resolved precedence in place so the contradiction cannot silently return.
+New file `supabase/functions/_shared/archetype-slug.ts`:
 
-### Explicitly not doing
+- Exports the nine canonical slugs as the single source of truth.
+- `resolveArchetypeSlug(raw: string | null): CanonicalArchetype | null`
+  - passes canonical slugs through unchanged (legacy beta users keep working)
+  - lowercases, strips `The `, `(Provisional)`, punctuation
+  - keyword-maps free-text CoS names onto the nearest canonical slug
+    (e.g. architect/strategist/planner → `strategic-pauser`; commander/driver/operator → `intensity-driver`; athlete/performer → `resilient-performer`; juggler/navigator → `adaptive-navigator`; analyst/thinker → `clear-thinker`; steward/anchor → `grounded-leader`; regulator/steady → `natural-regulator`; sprinter/high-output → `high-octane-performer`; learner/builder → `awareness-builder`)
+  - returns `null` when nothing matches (tier fallback stays the honest default)
 
-- Not weakening or forking the forbidden-word list for the Plan engine. One vocabulary across Brief, Nudges, and Plan is the point.
-- Not reordering the validator gates. Forbidden-word first is correct — banned copy should never reach grounding.
+### 2. Ask the CoS synthesis for the slug directly
 
-## Verification
+In `synthesize-cos-profile/index.ts`, extend the `emit_cos_profile` tool schema so `provisional_archetype` also carries a `canonical_slug` enum constrained to the nine values, and persist `user_archetype = resolveArchetypeSlug(canonical_slug ?? name)`. The display name stays in `archetype_title` / `archetype_description`, which is what the UI and the LLM voice layer already read.
 
-- Run the shared plan Deno suite: expect 27/27 in `why-llm-validator.test.ts` and a fully green suite.
-- Run `tsgo --noEmit`.
-- No migration needed. Redeploy `generate-mastery-plan` so the tightened vocabulary takes effect in production.
+### 3. Normalise at read time too
+
+In `compute-outer-readiness/index.ts` L3386, wrap the read:
+
+```ts
+const serverArchetype = resolveArchetypeSlug(profileRes.data?.user_archetype ?? null);
+```
+
+This makes existing rows with free-text names work immediately, without waiting for a re-synthesis. Same treatment at the `generate-mastery-plan` L4939 read so Plan and Brief agree on the archetype dimension.
+
+### 4. Backfill existing rows
+
+One data pass: for every profile whose `user_archetype` is null or non-canonical and whose `onboarding_v8_responses.cos_profile_status = 'ready'`, map `provisional_archetype.name` through the resolver and write the slug. Rows that resolve to null are left null.
+
+### 5. Tests
+
+New `supabase/functions/_shared/archetype-slug.test.ts`:
+
+- the nine canonical slugs round-trip unchanged
+- the three live free-text names resolve to a canonical slug
+- `"The Juggler (Provisional)"` → `adaptive-navigator` (suffix stripping)
+- unknown text → `null`
+- a `compute-outer-readiness` guard test asserting the resolver is applied at the profile read
+
+## Notes
+
+- No schema change. `profiles.user_archetype` keeps holding a slug, as it always has.
+- Priority order for Lean On / Watch For is unchanged — coach and pattern sources still win over the archetype matrix.
+- The `· ARCHETYPE` label will stay on tier-only fallbacks; if you'd prefer that fallback to be labelled distinctly (e.g. `· TIER`), say so and I'll fold that in.
