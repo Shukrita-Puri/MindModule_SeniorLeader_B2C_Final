@@ -277,6 +277,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   let cognitiveFallbackUsed: PillFallbackUsed = null;
   if (
     cogTiers.length === 0 &&
+    wearableFreshForGate &&
     hrvValue == null &&
     sleepDuration == null &&
     sleepScoreVal == null &&
@@ -338,13 +339,15 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     );
   }
   // ── Fallback B (secondary signal only) — HR elevation as a recovery proxy.
-  // Fires ONLY when the primary anchor (sleep efficiency) is unavailable.
+  // Fires ONLY when the primary anchor (sleep efficiency) is unavailable and
+  // the wearable is fresh. Uses ACTIVE heart-rate elevation, never RHR — RHR
+  // is the primary Physical Reserves signal and must not be double-counted.
   let resilienceFallbackUsed: PillFallbackUsed = null;
-  if (resTiers.length === 0 && sleepEfficiency == null) {
-    if (rhrDeviation != null && rhrDeviation > 10) {
+  if (resTiers.length === 0 && sleepEfficiency == null && wearableFreshForGate) {
+    if (hrDeviation != null && hrDeviation > 10) {
       resTiers.push("amber");
       resilienceFallbackUsed = "hr_elevated_proxy";
-    } else if (rhrValue != null && rhrValue > 80) {
+    } else if (hrDeviation == null && hrValue != null && hrValue > 80) {
       resTiers.push("amber");
       resilienceFallbackUsed = "hr_elevated_proxy";
     }
@@ -424,7 +427,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       coldStartLabel: pillColdStart,
       contributors: {
         sleepEfficiency,
-        ...(resilienceFallbackUsed === "hr_elevated_proxy" ? { rhrValue } : {}),
+        ...(resilienceFallbackUsed === "hr_elevated_proxy" ? { hrValue } : {}),
         emotionLevel,
         regulationLevel,
         pressureLevel,

@@ -140,7 +140,10 @@ const ALLOWED_CONTRIBUTORS: Record<PillTooltipPill['key'], Set<string>> = {
   resilience_capacity: new Set([
     'sleepEfficiency',
     'sleep_efficiency',
-    'rhrValue',
+    // Secondary fallback signal: only ever present when the backend used the
+    // HR-elevation proxy (no sleep efficiency today). RHR belongs to Physical
+    // Reserves and must never surface here.
+    'hrValue',
     'emotionLevel',
     'regulationLevel',
     'pressureLevel',

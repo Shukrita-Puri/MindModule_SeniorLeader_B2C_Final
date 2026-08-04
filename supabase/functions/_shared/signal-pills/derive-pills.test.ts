@@ -694,24 +694,69 @@ Deno.test("FB-04: RHR deviation thresholds are ordered worst-first", () => {
   assertEquals(green.cognitiveTier, "green");
 });
 
-Deno.test("FB-05: HR-elevated proxy fires only when sleep efficiency is null", () => {
+Deno.test("FB-05: HR-elevated proxy fires on HR elevation only when sleep efficiency is null", () => {
   const fired = derivePills(
-    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 85 }),
+    baseInput({
+      wearableFreshForGate: true,
+      hasWearable: true,
+      hrValue: 92,
+      hrDeviation: 18,
+    }),
   );
   const rcFired = pill(fired.pills, "resilience_capacity");
   assertEquals(rcFired.fallbackUsed, "hr_elevated_proxy");
-  assertEquals(rcFired.contributors.rhrValue, 85);
+  assertEquals(rcFired.contributors.hrValue, 92);
+  // RHR must never leak into the Resilience tooltip.
+  assertEquals(rcFired.contributors.rhrValue ?? null, null);
 
   const notFired = derivePills(
-    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 85, sleepEfficiency: 90 }),
+    baseInput({
+      wearableFreshForGate: true,
+      hasWearable: true,
+      hrValue: 92,
+      hrDeviation: 18,
+      sleepEfficiency: 90,
+    }),
   );
   assertEquals(pill(notFired.pills, "resilience_capacity").fallbackUsed ?? null, null);
 });
 
-Deno.test("FB-06: HR-elevated proxy stays silent when RHR is normal", () => {
-  const r = derivePills(
-    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 60, rhrDeviation: 2 }),
+Deno.test("FB-06: HR-elevated proxy never fires on RHR alone", () => {
+  const rhrOnly = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 85, rhrDeviation: 20 }),
   );
+  assertEquals(pill(rhrOnly.pills, "resilience_capacity").fallbackUsed ?? null, null);
+
+  const normalHr = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 62, hrDeviation: 2 }),
+  );
+  assertEquals(pill(normalHr.pills, "resilience_capacity").fallbackUsed ?? null, null);
+});
+
+Deno.test("FB-06b: HR value fallback applies only when deviation is unavailable", () => {
+  const fired = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 88, hrDeviation: null }),
+  );
+  assertEquals(pill(fired.pills, "resilience_capacity").fallbackUsed, "hr_elevated_proxy");
+
+  // Deviation present and benign wins over the raw-value branch.
+  const suppressed = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 88, hrDeviation: 3 }),
+  );
+  assertEquals(pill(suppressed.pills, "resilience_capacity").fallbackUsed ?? null, null);
+});
+
+Deno.test("FB-08: neither proxy fires when the wearable is stale", () => {
+  const r = derivePills(
+    baseInput({
+      wearableFreshForGate: false,
+      hasWearable: true,
+      rhrValue: 95,
+      hrValue: 95,
+      hrDeviation: 25,
+    }),
+  );
+  assertEquals(pill(r.pills, "decision_readiness").fallbackUsed ?? null, null);
   assertEquals(pill(r.pills, "resilience_capacity").fallbackUsed ?? null, null);
 });
 
