@@ -191,6 +191,8 @@ export const DETAIL_AWAITING =
   "Sync your wearable and then complete a quick check-in to sharpen the picture.";
 export const DETAIL_EARLY_READ =
   "Wearable read only. Complete a check-in to refine this pill.";
+export const DETAIL_CHECKIN_ONLY =
+  "Check-in read only. Wearable data hasn't synced yet.";
 
 const STATE_RANK: Record<PillTier, number> = {
   neutral: 0,
@@ -493,7 +495,15 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       (hasWearableSrc || (hasCheckinSrc && checkInFreshForGate));
     let hiddenReason: PillHiddenReason = null;
     let detail: string | null = null;
-    if (!wearableFreshForGate) {
+    let checkinOnly = false;
+    if (!wearableFreshForGate && checkInFreshForGate && hasCheckinSrc) {
+      // Fallback C — a same-day check-in is a legitimate (non-score-bearing)
+      // read. Keep the check-in-derived tier instead of showing "Unread".
+      checkinOnly = true;
+      isScoreBearing = false;
+      hiddenReason = null;
+      detail = DETAIL_CHECKIN_ONLY;
+    } else if (!wearableFreshForGate) {
       hiddenReason = "no_fresh_wearable";
       isScoreBearing = false;
       p.tier = "neutral";
@@ -516,6 +526,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     }
     let freshnessStr: PillFreshness;
     if (isScoreBearing) freshnessStr = "fresh";
+    else if (checkinOnly) freshnessStr = "checkin_only";
     else if (!hasWearable) freshnessStr = "missing";
     else if (!wearableFreshForGate) freshnessStr = "stale";
     else freshnessStr = "non_score_bearing";
@@ -524,12 +535,16 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     p.freshness = freshnessStr;
     p.hiddenReason = hiddenReason;
     p.detail = detail;
-    p.contributedByCheckIn = contributedByCheckIn;
+    p.contributedByCheckIn = checkinOnly ? true : contributedByCheckIn;
   }
 
   // ── V4 invariant (defensive normalisation). ──
   for (const p of pills) {
-    if (!wearableFreshForGate) {
+    if (!wearableFreshForGate && p.freshness === "checkin_only") {
+      // Fallback C carve-out: check-in-only reads stay visible but must
+      // never be score-bearing.
+      if (p.isScoreBearing) p.isScoreBearing = false;
+    } else if (!wearableFreshForGate) {
       if (p.isScoreBearing || p.tier !== "neutral" || p.contributedByCheckIn) {
         diagnostics.push({
           key: p.key,
