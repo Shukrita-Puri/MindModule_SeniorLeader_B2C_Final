@@ -1900,7 +1900,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         // (score/tier authority). Stale previous-window snapshots are already
         // filtered upstream by `snapshotIsRenderable`.
         const DISPLAYABLE_KEYS: Record<string, string[]> = {
-          decision_readiness: ['hrvValue', 'sleepDuration', 'sleepScore', 'clarityLevel'],
+          // `rhrValue` appears here only when the backend RHR fallback fired
+          // (no HRV and no sleep) — it is real evidence, so it must count.
+          decision_readiness: ['hrvValue', 'sleepDuration', 'sleepScore', 'clarityLevel', 'rhrValue'],
           // W1: Physical Reserves owns RHR + HR only. Legacy snapshots that
           // still carry sleepDuration/sleepScore under physical_reserves
           // must NOT boost live-vs-snapshot richness — the tooltip ignores
@@ -1909,6 +1911,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           resilience_capacity: [
             'sleepEfficiency',
             'sleep_efficiency',
+            'rhrValue',
             'emotionLevel',
             'regulationLevel',
             'pressureLevel',
