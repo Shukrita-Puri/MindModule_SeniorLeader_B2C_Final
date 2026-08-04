@@ -46,7 +46,7 @@ export async function resolveStrategicContext(
     let fallbackPressure: string[] | null = null;
     let fallbackGoals: string[] | null = null;
 
-    if (!data.user_archetype || !data.pressure_profile) {
+    if (!data.user_archetype || !data.pressure_profile || !data.protection_goals) {
       try {
         const { data: v8 } = await db
           .from('onboarding_v8_responses')
