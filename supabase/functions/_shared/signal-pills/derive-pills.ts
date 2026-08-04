@@ -33,8 +33,16 @@ export type PillKey =
   | "physical_reserves"
   | "resilience_capacity";
 export type PillSource = "wearable" | "checkin" | "pattern";
-export type PillFreshness = "fresh" | "stale" | "missing" | "non_score_bearing";
+export type PillFreshness =
+  | "fresh"
+  | "stale"
+  | "missing"
+  | "non_score_bearing"
+  | "checkin_only";
 export type PillHiddenReason = "no_fresh_wearable" | "no_checkin" | null;
+
+/** Provenance marker set when a secondary (fallback) wearable signal was used. */
+export type PillFallbackUsed = "rhr_proxy" | "hr_elevated_proxy" | null;
 
 export interface CooccurrenceSignal {
   cooccurrence_count: number;
@@ -121,6 +129,7 @@ export interface SignalPill {
   detail: string | null;
   contributedByCheckIn: boolean;
   qualifiers?: Record<string, unknown>;
+  fallbackUsed?: PillFallbackUsed;
 }
 
 export interface DerivePillsResult {
