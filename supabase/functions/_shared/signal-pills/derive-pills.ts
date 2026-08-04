@@ -335,6 +335,18 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       sleepEfficiency >= 85 ? "green" : sleepEfficiency >= 70 ? "amber" : "red",
     );
   }
+  // ── Fallback B (secondary signal only) — HR elevation as a recovery proxy.
+  // Fires ONLY when the primary anchor (sleep efficiency) is unavailable.
+  let resilienceFallbackUsed: PillFallbackUsed = null;
+  if (resTiers.length === 0 && sleepEfficiency == null) {
+    if (rhrDeviation != null && rhrDeviation > 10) {
+      resTiers.push("amber");
+      resilienceFallbackUsed = "hr_elevated_proxy";
+    } else if (rhrValue != null && rhrValue > 80) {
+      resTiers.push("amber");
+      resilienceFallbackUsed = "hr_elevated_proxy";
+    }
+  }
   if (emotionLevel != null) {
     resTiers.push(emotionLevel <= 2 ? "amber" : "green");
   }
