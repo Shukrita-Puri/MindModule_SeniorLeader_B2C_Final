@@ -268,6 +268,27 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     else if (sleepDuration != null && sleepDuration < 420) cogTiers.push("amber");
     else cogTiers.push("green");
   }
+  // ── Fallback A (secondary signal only) — RHR as a cognitive-load proxy.
+  // Fires ONLY when both primary wearable signals (HRV and sleep) are absent,
+  // e.g. an older Apple Watch with no sleep tracking and no HRV yet synced.
+  // Elevated RHR indicates sympathetic dominance, which impairs cognition.
+  let cognitiveFallbackUsed: PillFallbackUsed = null;
+  if (
+    cogTiers.length === 0 &&
+    hrvValue == null &&
+    sleepDuration == null &&
+    sleepScoreVal == null &&
+    rhrValue != null
+  ) {
+    if (rhrDeviation != null) {
+      cogTiers.push(
+        rhrDeviation > 25 ? "red" : rhrDeviation > 15 ? "amber" : "green",
+      );
+    } else {
+      cogTiers.push(rhrValue > 90 ? "red" : rhrValue > 80 ? "amber" : "green");
+    }
+    cognitiveFallbackUsed = "rhr_proxy";
+  }
   if (clarityLevel != null) {
     cogTiers.push(
       clarityLevel <= 2 ? "red" : clarityLevel === 3 ? "amber" : "green",
