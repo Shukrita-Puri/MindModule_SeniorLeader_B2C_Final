@@ -6,6 +6,7 @@ import {
 } from "../_shared/leader-profile-loader.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
+import { resolveArchetypeSlug } from "../_shared/archetype-slug.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
@@ -3383,7 +3384,12 @@ serve(async (req) => {
 
     const coachInsights = coachRes.data || [];
     const recentCheckIns = checkInRes.data || [];
-    const serverArchetype = profileRes.data?.user_archetype || null;
+    // Normalise at read time: v8 CoS profiles store free-text names
+    // ("The Architect-Commander"), which must map onto a canonical slug before
+    // the archetype x tier matrix can be keyed on it. Null => tier fallback.
+    const serverArchetype = resolveArchetypeSlug(
+      profileRes.data?.user_archetype ?? null,
+    );
     const serverComponentScores = (profileRes.data as any)?.component_scores ||
       body.componentScores || null;
     const serverPracticePriorityTag =
@@ -8850,7 +8856,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // Map source key to uppercase single-word label
       const sourceLabels: Record<string, string> = {
         "archetype-tier": "ARCHETYPE",
-        "tier-fallback": "PATTERN",
+        "tier-fallback": "TIER",
         "coach-insights-recent": "COACH",
         "coach-insights-grace": "COACH",
         "coach-partial-strength": "COACH",
