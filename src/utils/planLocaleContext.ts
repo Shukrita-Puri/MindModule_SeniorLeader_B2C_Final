@@ -84,7 +84,7 @@ export async function getPlanLocaleContext(
     const [{ data: profile }, { data: travel }] = await Promise.all([
       supabase
         .from('profiles')
-        .select('home_timezone, current_timezone, country, home_country')
+        .select('home_timezone, current_timezone, country')
         .eq('id', userId)
         .maybeSingle(),
       (supabase as any)
@@ -104,16 +104,15 @@ export async function getPlanLocaleContext(
         (p.current_timezone as string | null) ??
         base.currentTimezone,
       homeTimezone: (p.home_timezone as string | null) ?? base.homeTimezone,
-      userHomeCountry: (p.country as string | null)
-        ?? (p.home_country as string | null)
-        ?? base.userHomeCountry,
+      userHomeCountry: (p.country as string | null) ?? base.userHomeCountry,
       userCurrentCountry: base.userCurrentCountry,
       travelState: (t.state as string | null) ?? base.travelState,
     };
 
     cache = { userId, at: Date.now(), value };
     return value;
-  } catch {
+  } catch (err) {
+    console.warn('[planLocaleContext] profile query failed, using device fallback', err);
     return base;
   }
 }
