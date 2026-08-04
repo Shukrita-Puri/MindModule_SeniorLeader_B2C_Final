@@ -414,11 +414,29 @@ serve(async (req) => {
 
     // Load memory / relationships / pattern context (READ-ONLY: used to
     // annotate, never to exclude).
+    // Load user goals for event-to-goal alignment tagging (read-only:
+    // affects goalAlignment score only, never excludes events).
+    let jitGoals: { protectGoals: string[] } | null = null;
+    try {
+      const goalsRes = await supabase
+        .from("profiles")
+        .select("protection_goals")
+        .eq("id", userId)
+        .maybeSingle();
+      const pg = (goalsRes.data as any)?.protection_goals;
+      const protectGoals = Array.isArray(pg)
+        ? pg.filter((x: any) => typeof x === "string")
+        : [];
+      if (protectGoals.length > 0) {
+        jitGoals = { protectGoals };
+      }
+    } catch { /* best-effort: tagging is additive, never blocking */ }
+
     const { input, ctx } = await loadJitContextForEvents(
       supabase,
       userId,
       selectorRows,
-      { nowMs: Date.now() },
+      { nowMs: Date.now(), goals: jitGoals },
     );
     const inputById = new Map(input.map((i) => [i.id, i]));
     const liveSelector = selectJitCandidates(input, {
