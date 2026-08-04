@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { resolveArchetypeSlug } from "../_shared/archetype-slug.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   canonicalEventTag,
