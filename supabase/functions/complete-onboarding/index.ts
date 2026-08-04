@@ -179,7 +179,6 @@ Deno.serve(async (req) => {
       const homeCountry = typeof v8Row.home_country === 'string' ? v8Row.home_country.trim() : null;
       if (homeCountry) {
         updateData.country = homeCountry;
-        updateData.home_country = homeCountry;
       }
 
       // Forward v8 connector selections to user_integrations
