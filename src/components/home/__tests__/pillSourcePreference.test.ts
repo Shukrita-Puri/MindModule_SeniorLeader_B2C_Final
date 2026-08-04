@@ -12,7 +12,7 @@ const DISPLAYABLE_KEYS: Record<string, string[]> = {
   resilience_capacity: [
     'sleepEfficiency',
     'sleep_efficiency',
-    'rhrValue',
+    'hrValue',
     'emotionLevel',
     'regulationLevel',
     'pressureLevel',
