@@ -3633,6 +3633,15 @@ serve(async (req) => {
     );
 
     const coachUsed = leanOnResult.source.startsWith("coach");
+    console.log(
+      `[lean-on] source=${leanOnResult.source} archetype=${
+        serverArchetype ?? "none"
+      } rawArchetype=${
+        profileRes.data?.user_archetype ?? "null"
+      } tier=${safeTier} matrixHit=${
+        !!(serverArchetype && archetypeMatrix[serverArchetype]?.[safeTier])
+      } leanOn="${leanOnResult.leanOn}"`,
+    );
     const wearableUsed = !!wearableContext;
     const dataSources = buildDataSources(
       calendarResult.state,
