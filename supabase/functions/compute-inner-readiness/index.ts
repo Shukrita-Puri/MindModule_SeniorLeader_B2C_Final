@@ -780,10 +780,13 @@ function normalizeMrsSubScores(value: unknown): SubScore[] {
     const id = typeof candidate.id === 'string' ? candidate.id as SubComponentId : null;
     if (!id) continue;
     const score = coerceFiniteNumber(candidate.score) ?? 0;
+    const rawDemand = coerceFiniteNumber(candidate.rawDemand);
     out.push({
       id,
       score: Math.max(0, Math.min(100, Math.round(score))),
       available: candidate.available === true,
+      ...(rawDemand != null ? { rawDemand } : {}),
+      ...(candidate.zeroDemandCredit === true ? { zeroDemandCredit: true } : {}),
     });
   }
   return out;
