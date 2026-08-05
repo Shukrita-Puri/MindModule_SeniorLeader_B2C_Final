@@ -2584,10 +2584,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {showNeutralAwaitingCopy && (
         <>
           <p className="mt-4 text-quote text-foreground">
-            {awaitingCopy}
+            {READINESS_AWAITING_MESSAGE}
           </p>
         </>
       )}
+
 
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
