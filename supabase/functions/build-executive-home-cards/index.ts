@@ -675,7 +675,14 @@ async function buildForUser(db: any, args: {
             : "stable"
         : null;
 
-    const demandScore = eventCount > 0 ? context.calendarDemandScore : null;
+    const calendarState = await resolveCalendarState(db, userId, eventCount);
+    // Earned zero: a connected calendar with no events scores demand 0.
+    // Not connected: demand is genuinely missing and the pillar stays unmet.
+    const demandScore = eventCount > 0
+      ? context.calendarDemandScore
+      : calendarState === "connected_no_events"
+        ? 0
+        : null;
     const mrsSubScores = buildMrsV4SubScores(window, {
       hrvValue: hasFreshWearable ? latest?.hrv ?? null : null,
       hrvDeviationPct,
@@ -689,7 +696,7 @@ async function buildForUser(db: any, args: {
       todayRealizedDemand: demandScore,
       tomorrowOpeningDemand: demandScore,
       patternScore: null,
-      yesterdayCarryoverDemand: null,
+      yesterdayCarryoverDemand: yesterdayDemandScore,
     });
 
     console.log("[build-executive-home-cards] compute-inner-readiness input:", {
@@ -722,7 +729,8 @@ async function buildForUser(db: any, args: {
       rhrElevated: rhrTrend === "rising",
       wearableStatus: hasFreshWearable ? "fresh" : latest ? "stale" : "missing",
       demandScore,
-      hasCalendarSignal: eventCount > 0,
+      hasCalendarSignal: calendarState !== "not_connected",
+      calendarState,
       patternSignals: context.patternSignals,
       mrsWindow: window,
       mrsSubScores,
