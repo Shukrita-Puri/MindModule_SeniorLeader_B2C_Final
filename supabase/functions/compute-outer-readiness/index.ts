@@ -8820,18 +8820,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 return "unread";
               };
               const deterministicCheckIn = mapDeterministicCheckInOutcome(
-                checkInOutcome ?? null,
-                typeof clarityLevel === "number" ? clarityLevel : null,
-                typeof confidenceLevel === "number" ? confidenceLevel : null,
+                currentCheckInOutcome,
+                currentClarityLevel,
+                currentConfidenceLevel,
               );
               const scoreForBand = assessmentContext?.readiness.score ??
                 (typeof innerReadinessScore === "number"
                   ? innerReadinessScore
                   : null);
-              const hrvForBand = typeof hrvDeviation === "number"
+              const hrvForBand = briefWearableUsable &&
+                  typeof hrvDeviation === "number"
                 ? hrvDeviation
                 : null;
-              const wearableFactForSpec = hrvForBand != null
+              const wearableFactForSpec = !briefWearableUsable
+                ? null
+                : hrvForBand != null
                 ? (hrvForBand >= 10
                   ? "Recovery is running above its usual range"
                   : hrvForBand <= -20
@@ -8853,7 +8856,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   deterministicCheckIn,
                   hrvForBand,
                 ),
-                hasWearable: !!wearableContext,
+                hasWearable: briefWearableUsable,
+                hasCurrentWearable: briefWearableUsable,
+                hasCurrentCheckIn: checkInCurrentForWindow,
                 checkInOutcome: deterministicCheckIn,
                 cognitivePillTier: normalizeTier(
                   pillContext?.decisionReadiness,
@@ -8870,7 +8875,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   : null,
                 meetingCount: calendarResult?.meetingCount ??
                   calendarResult?.eventCount ?? 0,
-                sleepScore: typeof sleepScoreVal === "number"
+                sleepScore: briefWearableUsable &&
+                    typeof sleepScoreVal === "number"
                   ? sleepScoreVal
                   : null,
                 hasBackToBack: !!hasBackToBack,
