@@ -238,7 +238,7 @@ Deno.test("deterministic brief — weekday wearable-only path keeps calendar-fre
   assertEquals(result.body.split(".")[0].trim().split(/\s+/).length >= 15, true);
 });
 
-Deno.test("deterministic brief — stale wearable + stale check-in emit no current claims", () => {
+Deno.test("deterministic brief — stale wearable + stale check-in returns null", () => {
   const out = buildDeterministicBriefFallback({
     band: "depleted",
     hasWearable: true,
@@ -255,25 +255,9 @@ Deno.test("deterministic brief — stale wearable + stale check-in emit no curre
     sleepScore: 48,
     hasBackToBack: false,
   });
-  const text = `${out.phrase} ${out.body}`.toLowerCase();
-  for (
-    const forbidden of [
-      "hrv",
-      "recovery is",
-      "sleep ran short",
-      "checked in",
-      "clarity",
-      "evenly matched",
-    ]
-  ) {
-    if (text.includes(forbidden)) {
-      throw new Error(`stale claim leaked into brief: "${forbidden}" in ${text}`);
-    }
-  }
-  if (!text.includes("current read")) {
-    throw new Error(`expected thin-signal read, got: ${text}`);
-  }
+  assertEquals(out, null);
 });
+
 
 Deno.test("deterministic brief — one unread pillar never produces a two-pillar comparison", () => {
   const out = buildDeterministicBriefFallback({
