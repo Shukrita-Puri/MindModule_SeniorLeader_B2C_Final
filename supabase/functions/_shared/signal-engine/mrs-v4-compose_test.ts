@@ -393,7 +393,7 @@ Deno.test('morning: yesterday carryover carries yesterday value, not today (X !=
   assertEquals(yday.rawDemand, X);
   assertEquals(today.rawDemand, Y);
 
-  const r = composeBaselineV4('morning', subs);
+  const r = redistribute('morning', subs);
   assertEquals(r.finalWeights.yesterdayCarryover, 10);
   assertEquals(r.finalWeights.todayFullDayDemand, 20);
   assertEquals(
