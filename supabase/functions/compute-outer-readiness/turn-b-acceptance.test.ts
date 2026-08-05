@@ -388,11 +388,13 @@ Deno.test("Turn B divergence generation path: valid evidence-backed copy stays v
     hasBackToBack: false,
   });
 
+  assert(built, "expected deterministic brief to be built");
   assert(context.divergence !== null);
   assertEquals(context.pills.finalized.find((pill) => pill.key === "decision_readiness")?.tier, "green");
   assertStringIncludes(section, "wearable_objective positive");
   assertStringIncludes(section, "self_report negative");
   assertStringIncludes(built.body, "Recovery is running above its usual range but you've checked in drained");
+
 
   const invalid = validatePillBodyConsistency(
     "The mind feels spent going into the board review, so protect the first hour and pace the calls.",
