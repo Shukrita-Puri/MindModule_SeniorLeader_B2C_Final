@@ -6117,7 +6117,7 @@ serve(async (req) => {
           }`;
 
           // Wearable confidence
-          const wearableConfidence = !hasWearable
+          const wearableConfidence = !briefWearableUsable
             ? null
             : (wearableDaysConnected ?? 0) >= 14
             ? "high"
@@ -6704,16 +6704,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
 
           userPrompt += `\n\n=== DATA AVAILABILITY CONTRACT ===`;
-          if (hasWearable) {
+          if (briefWearableUsable) {
             userPrompt +=
               `\nWearable signals are present. You may reference ONLY the wearable fields explicitly printed in the WEARABLE section below.`;
           } else {
             userPrompt +=
               `\nNo wearable signal exists for this brief. Do NOT mention HRV, RHR, heart rate, sleep, baseline, recovery metrics, or imply that the body is recovered / rested / under-recovered from wearable evidence.`;
+            if (signalFreshness.wearableHistoricalOnly) {
+              userPrompt +=
+                `\nOlder wearable rows exist (age ${
+                  signalFreshness.wearableSourceAgeDays ?? "unknown"
+                } days) but they are NOT current for the ${briefWindow} window. They may only inform baselines/trends and must never be stated as today's physiology.`;
+            }
           }
           if (
-            checkInOutcome || mentalSharpnessLevel != null ||
-            clarityLevel != null || confidenceLevel != null
+            currentCheckInOutcome || currentMentalSharpnessLevel != null ||
+            currentClarityLevel != null || currentConfidenceLevel != null
           ) {
             userPrompt +=
               `\nCurrent-period check-in is present. You may reference ONLY the check-in fields explicitly printed in the READINESS section above.`;
@@ -6726,7 +6732,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           if (assessmentPromptSection) userPrompt += assessmentPromptSection;
 
           // === WEARABLE ===
-          if (hasWearable) {
+          if (briefWearableUsable) {
             userPrompt += `\n\n=== WEARABLE ===`;
             if (hrvValue != null) {
               userPrompt += `\nHRV: ${hrvValue}ms · Baseline: ${
@@ -7246,7 +7252,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // CEO rules, event taxonomy, or window logic lands in
           // _shared/* and propagates here automatically.
           try {
-            const wearableForCtx = hasWearable
+            const wearableForCtx = briefWearableUsable
               ? {
                 hrvDeviationPct: hrvDeviation ?? null,
                 hrvUnusual: !!hrvUnusual,
