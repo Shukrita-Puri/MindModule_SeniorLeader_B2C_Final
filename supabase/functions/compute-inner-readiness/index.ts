@@ -926,12 +926,16 @@ serve(async (req) => {
     // never gates.
     const DEMAND_SUBCOMPONENTS: SubComponentId[] = [
       'todayFullDayDemand',
-      'yesterdayCarryover',
       'remainingDayDemand',
       'realizedSoFarCost',
       'todayRealizedDemand',
-      'tomorrowOpeningDemand',
     ];
+    // NOTE: `yesterdayCarryover` and `tomorrowOpeningDemand` are deliberately
+    // NOT back-fillable from today's demand. They are day-specific cells fed
+    // by their own calendar day upstream. Filling them with today's value
+    // would silently fabricate a different day's load. When genuinely
+    // missing they stay unavailable and §8.3 intra-pillar redistribution
+    // applies (no new gate, MRS still forms).
     const rawDemandScore = body.demandScore;
     const numericDemandScore = coerceFiniteNumber(rawDemandScore);
     // MRS score-bearing signals only: a connected calendar without a
