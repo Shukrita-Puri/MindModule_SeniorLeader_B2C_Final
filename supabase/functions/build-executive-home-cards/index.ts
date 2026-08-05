@@ -712,6 +712,21 @@ async function buildForUser(db: any, args: {
       : calendarState === "connected_no_events"
         ? 0
         : null;
+    // MRS v4 — tomorrow's opening demand must come from TOMORROW's own events,
+    // never from a copy of today's demand. Zero/null semantics are preserved:
+    // not connected -> null (unearned); connected with no tomorrow events -> 0
+    // (earned, zero-demand credit); events -> calculated demand.
+    const tomorrowDemandScore = window === "evening"
+      ? (calendarState === "not_connected" || dayTypeSlices == null
+          ? null
+          : computeCalendarDemand((dayTypeSlices.tomorrowEvents || []) as any).demandScore)
+      : null;
+    // MRS v4 — independent evening physiological read (local 18:00–04:59 HR
+    // samples vs the 30-day RHR baseline). Without this the evening 32.5pt
+    // cell reused the morning HRV deviation already scored at 8.75.
+    const eveningPhysio = window === "evening" && hasFreshWearable
+      ? deriveEveningPhysioSource((latest as any)?.hr_samples ?? null, wearable.rhrBaseline, offset * 60)
+      : { eveningHrDeviationPct: null, bodyLoadElevated: null, sampleCount: 0 };
     const mrsSubScores = buildMrsV4SubScores(window, {
       hrvValue: hasFreshWearable ? latest?.hrv ?? null : null,
       hrvDeviationPct,
@@ -723,7 +738,9 @@ async function buildForUser(db: any, args: {
       remainingDayDemand: demandScore,
       realizedSoFarCost: demandScore,
       todayRealizedDemand: demandScore,
-      tomorrowOpeningDemand: demandScore,
+      tomorrowOpeningDemand: tomorrowDemandScore,
+      eveningHrDeviationPct: eveningPhysio.eveningHrDeviationPct,
+      bodyLoadElevated: eveningPhysio.bodyLoadElevated,
       patternScore: null,
       yesterdayCarryoverDemand: yesterdayDemandScore,
     });
@@ -734,6 +751,10 @@ async function buildForUser(db: any, args: {
       window,
       latestWearableDate: latest?.summary_date ?? null,
       hasFreshWearable,
+      yesterdayDemandScore,
+      todayDemandScore: demandScore,
+      tomorrowDemandScore,
+      eveningPhysioSampleCount: eveningPhysio.sampleCount,
       mrsSubScores,
     });
 
