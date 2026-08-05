@@ -163,6 +163,10 @@ import {
   finalizePills,
 } from "../_shared/signal-pills/derive-pills.ts";
 import {
+  resolveSignalFreshness,
+  type SignalWindow,
+} from "../_shared/signal-engine/signal-freshness.ts";
+import {
   type AssessmentContext,
   buildAssessmentContext,
   buildPillContextFromAssessment,
@@ -5725,10 +5729,10 @@ serve(async (req) => {
               : null,
           wearableContextPoorSleep: !!wearableContext?.poorSleep,
           wearableContextHrvElevated: !!wearableContext?.hrvElevated,
-          clarityLevel,
-          emotionLevel,
-          regulationLevel,
-          pressureLevel,
+          clarityLevel: currentClarityLevel,
+          emotionLevel: checkInCurrentForWindow ? emotionLevel : null,
+          regulationLevel: checkInCurrentForWindow ? regulationLevel : null,
+          pressureLevel: checkInCurrentForWindow ? pressureLevel : null,
           calendarLoad,
           calendarPressure,
           highStakesEventsCount: calendarResult.highStakesEvents?.length ?? 0,
