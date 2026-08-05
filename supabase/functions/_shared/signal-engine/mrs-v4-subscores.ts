@@ -6,7 +6,7 @@
 // owns the math. No neutral-50 fallback is introduced here.
 
 import type { SubScore } from './mrs-v4-compose.ts';
-import type { SubComponentId, Window } from './mrs-v4-weights.ts';
+import { ZERO_DEMAND_CREDIT, type SubComponentId, type Window } from './mrs-v4-weights.ts';
 
 type RhrTrend = 'declining' | 'falling' | 'stable' | 'rising' | 'unknown' | null;
 
@@ -56,9 +56,25 @@ function fromAbsoluteRhr(rhr: number | null | undefined): number | null {
   return 25;
 }
 
-function fromDemand(demandScore: number | null | undefined): number | null {
+/**
+ * Demand → readiness inversion.
+ *
+ * Staging is explicit:
+ *   raw calendar demand = 0  -> cell is EARNED (available: true)
+ *                            -> zero-demand recovery rule applies
+ *                            -> bounded positive contribution
+ * `null`/non-finite = unavailable, and only that case is unearned.
+ */
+function fromDemand(
+  demandScore: number | null | undefined,
+): { score: number; rawDemand: number; zeroCredit: boolean } | null {
   if (typeof demandScore !== 'number' || !Number.isFinite(demandScore)) return null;
-  return clampScore(100 - demandScore);
+  const raw = Math.max(0, Math.min(100, demandScore));
+  if (raw === 0) {
+    // Measured zero demand: bounded recovery credit, never the full maximum.
+    return { score: clampScore(ZERO_DEMAND_CREDIT * 100), rawDemand: 0, zeroCredit: true };
+  }
+  return { score: clampScore(100 - raw), rawDemand: raw, zeroCredit: false };
 }
 
 function fromSleep(signals: MrsV4SubscoreSignals): number | null {
@@ -104,6 +120,18 @@ function sub(id: SubComponentId, score: number | null): SubScore {
   };
 }
 
+function demandSub(id: SubComponentId, demandScore: number | null | undefined): SubScore {
+  const derived = fromDemand(demandScore);
+  if (derived == null) return { id, score: 0, available: false, rawDemand: null };
+  return {
+    id,
+    score: derived.score,
+    available: true,
+    rawDemand: derived.rawDemand,
+    zeroDemandCredit: derived.zeroCredit,
+  };
+}
+
 export function buildMrsV4SubScores(window: Window, signals: MrsV4SubscoreSignals): SubScore[] {
   const base = {
     hrvMorningDeviation: sub(
@@ -120,9 +148,9 @@ export function buildMrsV4SubScores(window: Window, signals: MrsV4SubscoreSignal
       base.hrvMorningDeviation,
       base.sleepDeviation,
       base.rhrTrend,
-      sub('todayFullDayDemand', fromDemand(signals.todayFullDayDemand)),
+      demandSub('todayFullDayDemand', signals.todayFullDayDemand),
+      demandSub('yesterdayCarryover', signals.yesterdayCarryoverDemand),
       base.patternEngineComposite,
-      sub('yesterdayCarryover', fromDemand(signals.yesterdayCarryoverDemand)),
     ];
   }
 
@@ -132,8 +160,8 @@ export function buildMrsV4SubScores(window: Window, signals: MrsV4SubscoreSignal
       base.sleepDeviation,
       base.rhrTrend,
       sub('intradayHrDeviation', fromDeviation(signals.intradayHrDeviationPct, true)),
-      sub('remainingDayDemand', fromDemand(signals.remainingDayDemand)),
-      sub('realizedSoFarCost', fromDemand(signals.realizedSoFarCost)),
+      demandSub('remainingDayDemand', signals.remainingDayDemand),
+      demandSub('realizedSoFarCost', signals.realizedSoFarCost),
       base.patternEngineComposite,
     ];
   }
@@ -143,8 +171,8 @@ export function buildMrsV4SubScores(window: Window, signals: MrsV4SubscoreSignal
     base.sleepDeviation,
     base.rhrTrend,
     sub('eveningPhysioRead', fromEveningPhysio(signals) ?? fromAbsoluteHrv(signals.hrvValue)),
-    sub('todayRealizedDemand', fromDemand(signals.todayRealizedDemand)),
-    sub('tomorrowOpeningDemand', fromDemand(signals.tomorrowOpeningDemand)),
+    demandSub('todayRealizedDemand', signals.todayRealizedDemand),
+    demandSub('tomorrowOpeningDemand', signals.tomorrowOpeningDemand),
     base.patternEngineComposite,
   ];
 }
