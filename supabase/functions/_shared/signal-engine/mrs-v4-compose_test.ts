@@ -20,8 +20,10 @@ Deno.test('mrs-v4-subscores: demand cells are readiness-oriented', () => {
   });
   const remaining = subs.find((s) => s.id === 'remainingDayDemand');
   const realized = subs.find((s) => s.id === 'realizedSoFarCost');
-  assertEquals(remaining, { id: 'remainingDayDemand', score: 20, available: true });
-  assertEquals(realized, { id: 'realizedSoFarCost', score: 80, available: true });
+  assertEquals(remaining?.score, 20);
+  assertEquals(remaining?.available, true);
+  assertEquals(realized?.score, 80);
+  assertEquals(realized?.available, true);
 });
 
 Deno.test('mrs-v4-subscores: missing components stay unavailable for redistribution audit', () => {
@@ -35,6 +37,26 @@ Deno.test('mrs-v4-subscores: missing components stay unavailable for redistribut
   assertEquals(eveningPhysio, { id: 'eveningPhysioRead', score: 0, available: false });
 });
 
+// Zero demand is EARNED data with a bounded recovery credit — never missing.
+Deno.test('zero demand is earned and receives the recovery credit', () => {
+  const subs = buildMrsV4SubScores('afternoon', {
+    remainingDayDemand: 0,
+    realizedSoFarCost: 0,
+  });
+  const remaining = subs.find((s) => s.id === 'remainingDayDemand')!;
+  assertEquals(remaining.available, true);
+  assertEquals(remaining.rawDemand, 0);
+  assertEquals(remaining.zeroDemandCredit, true);
+  assertEquals(remaining.score, Math.round(ZERO_DEMAND_CREDIT * 100));
+});
+
+Deno.test('null demand is unearned — distinct from zero', () => {
+  const subs = buildMrsV4SubScores('afternoon', { remainingDayDemand: null });
+  const remaining = subs.find((s) => s.id === 'remainingDayDemand')!;
+  assertEquals(remaining.available, false);
+  assertEquals(remaining.rawDemand, null);
+});
+
 function allMorningSubs(opts: Partial<Record<SubComponentId, SubScore>> = {}): SubScore[] {
   const defaults: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
     id: c.id,
@@ -44,16 +66,83 @@ function allMorningSubs(opts: Partial<Record<SubComponentId, SubScore>> = {}): S
   return defaults.map((s) => opts[s.id] ?? s);
 }
 
-// Day 1 — calendar alone unlocks an early baseline via redistribution.
-Deno.test('day-1: only calendar available → baseline numeric, awaiting=false', () => {
+// Scenario D — wearable absent, demand available ⇒ MRS null.
+Deno.test('scenario D: calendar only (no physiology) → MRS null', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
     id: c.id,
     score: c.id === 'todayFullDayDemand' ? 60 : 0,
     available: c.id === 'todayFullDayDemand',
   }));
   const r = composeBaselineV4('morning', subs);
+  assertEquals(r.awaitingSignals, true);
+  assertEquals(r.baseline, null);
+  assertEquals(r.weightProvenance.physiological_available, false);
+  assertEquals(r.weightProvenance.demand_available, true);
+});
+
+// Scenario C — physiology available, calendar unavailable ⇒ MRS null.
+Deno.test('scenario C: physiology only (no demand) → MRS null', () => {
+  const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => ({
+    id: c.id,
+    score: c.id === 'hrvMorningDeviation' ? 60 : 0,
+    available: c.id === 'hrvMorningDeviation',
+  }));
+  const r = composeBaselineV4('morning', subs);
+  assertEquals(r.awaitingSignals, true);
+  assertEquals(r.baseline, null);
+  assertEquals(r.weightProvenance.physiological_available, true);
+  assertEquals(r.weightProvenance.demand_available, false);
+});
+
+// Scenario E — both demand cells measured zero ⇒ MRS forms, no cross-pillar move.
+Deno.test('scenario E: both demand cells zero → MRS forms, physio weight untouched', () => {
+  const subs: SubScore[] = [
+    { id: 'hrvMorningDeviation', score: 40, available: true },
+    { id: 'sleepDeviation', score: 0, available: false },
+    { id: 'rhrTrend', score: 0, available: false },
+    { id: 'todayFullDayDemand', score: 60, available: true, rawDemand: 0, zeroDemandCredit: true },
+    { id: 'yesterdayCarryover', score: 60, available: true, rawDemand: 0, zeroDemandCredit: true },
+    { id: 'patternEngineComposite', score: 0, available: false },
+  ];
+  const r = redistribute('morning', subs);
   assertEquals(r.awaitingSignals, false);
-  assert(r.baseline != null);
+  // Missing physio weight stays inside physiology (all 50 on HRV).
+  assertEquals(Math.round(r.finalWeights.hrvMorningDeviation), 50);
+  assertEquals(Math.round(r.finalWeights.todayFullDayDemand), 20);
+  assertEquals(Math.round(r.finalWeights.yesterdayCarryover), 10);
+  assertEquals(r.weightProvenance.zero_demand_credit?.length, 2);
+});
+
+// Scenario F — one demand cell null ⇒ redistribute WITHIN demand only.
+Deno.test('scenario F: one demand cell null → intra-pillar redistribution only', () => {
+  const subs: SubScore[] = [
+    { id: 'hrvMorningDeviation', score: 55, available: true },
+    { id: 'sleepDeviation', score: 55, available: true },
+    { id: 'rhrTrend', score: 55, available: true },
+    { id: 'todayFullDayDemand', score: 40, available: true },
+    { id: 'yesterdayCarryover', score: 0, available: false },
+    { id: 'patternEngineComposite', score: 0, available: false },
+  ];
+  const r = redistribute('morning', subs);
+  assertEquals(Math.round(r.finalWeights.todayFullDayDemand), 30); // 20 + 10
+  assertEquals(r.finalWeights.hrvMorningDeviation, 25);            // untouched
+  assertEquals(r.finalWeights.patternEngineComposite, 0);
+});
+
+// Scenario G — one demand cell zero, one non-zero ⇒ no redistribution at all.
+Deno.test('scenario G: zero + non-zero demand → both earned, no redistribution', () => {
+  const subs: SubScore[] = [
+    { id: 'hrvMorningDeviation', score: 55, available: true },
+    { id: 'sleepDeviation', score: 55, available: true },
+    { id: 'rhrTrend', score: 55, available: true },
+    { id: 'todayFullDayDemand', score: 40, available: true },
+    { id: 'yesterdayCarryover', score: 60, available: true, rawDemand: 0, zeroDemandCredit: true },
+    { id: 'patternEngineComposite', score: 0, available: false },
+  ];
+  const r = redistribute('morning', subs);
+  assertEquals(r.weightProvenance.redistributed_to.length, 0);
+  assertEquals(r.finalWeights.todayFullDayDemand, 20);
+  assertEquals(r.finalWeights.yesterdayCarryover, 10);
 });
 
 // Check-in-only callers may pass an anchor, but without a calendar/wearable
@@ -82,8 +171,8 @@ Deno.test('afternoon: pattern-only sub available → awaiting signals', () => {
   assertEquals(r.baseline, null);
 });
 
-// Pattern may be present as context, but only immediate demand earns MRS.
-Deno.test('afternoon: demand+pattern available → baseline numeric from demand only', () => {
+// Pattern is additive context only — it can never unlock a baseline.
+Deno.test('afternoon: demand+pattern but no physiology → awaiting', () => {
   const earnedIds = new Set(['remainingDayDemand', 'realizedSoFarCost', 'patternEngineComposite']);
   const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
     id: c.id,
@@ -91,63 +180,79 @@ Deno.test('afternoon: demand+pattern available → baseline numeric from demand 
     available: earnedIds.has(c.id),
   }));
   const r = composeBaselineV4('afternoon', subs);
-  assertEquals(r.awaitingSignals, false);
-  assertEquals(r.baseline, 55);
+  assertEquals(r.awaitingSignals, true);
+  assertEquals(r.baseline, null);
   assertEquals(r.weightProvenance.earned.some((c) => c.id === 'patternEngineComposite'), false);
 });
 
-// Day 1 with a single wearable sub + demand is a valid early read.
+// Pattern availability never changes the gate.
+Deno.test('pattern availability does not gate MRS', () => {
+  const withPattern: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
+    id: c.id, score: 55,
+    available: c.pillar !== 'pattern' ? true : true,
+  }));
+  const withoutPattern: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
+    id: c.id, score: 55, available: c.pillar !== 'pattern',
+  }));
+  assertEquals(
+    composeBaselineV4('afternoon', withPattern).baseline,
+    composeBaselineV4('afternoon', withoutPattern).baseline,
+  );
+});
+
+// Scenario B — a single wearable sub + demand is a valid early read.
 Deno.test('§4.15 day-1: single wearable sub + demand → baseline available', () => {
   const subs: SubScore[] = [
     { id: 'hrvMorningDeviation', score: 55, available: true },
     { id: 'sleepDeviation', score: 0, available: false },
     { id: 'rhrTrend', score: 0, available: false },
     { id: 'todayFullDayDemand', score: 80, available: true },
-    { id: 'patternEngineComposite', score: 0, available: false },
     { id: 'yesterdayCarryover', score: 0, available: false },
+    { id: 'patternEngineComposite', score: 0, available: false },
   ];
   const result = composeBaselineV4('morning', subs);
   assertEquals(result.awaitingSignals, false);
   assert(result.baseline != null);
 });
 
-// §8.4 Day 4 — rhrTrend joins; yesterdayCarryover is pattern context only.
-Deno.test('§8.4 day-4: rhrTrend earned, yesterdayCarryover ignored, others flow to demand', () => {
+// Day 4 — rhrTrend is the only earned physio cell: it absorbs the full 50
+// physio allocation, and demand keeps its own 30. No cross-pillar movement.
+Deno.test('day-4: missing physio weight stays inside physiology', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.morning.map((c) => {
     const earned = c.id === 'todayFullDayDemand' || c.id === 'rhrTrend' || c.id === 'yesterdayCarryover';
     return { id: c.id, score: 50, available: earned };
   });
   const r = redistribute('morning', subs);
-  assertEquals(r.earnedWeight, 37.5);
-  // todayFullDayDemand should have absorbed 62.5 (it's the sole demand reservoir).
-  assertEquals(Math.round(r.finalWeights.todayFullDayDemand), 93); // 30 + 62.5 = 92.5 → rounded
-  assertEquals(r.finalWeights.yesterdayCarryover, 0);
+  assertEquals(Math.round(r.finalWeights.rhrTrend), 50);
+  assertEquals(r.finalWeights.todayFullDayDemand, 20);
+  assertEquals(r.finalWeights.yesterdayCarryover, 10);
+  assertEquals(r.earnedWeight, 80);
 });
 
-// §8.4 day-30 — all immediate signals available; pattern remains non-scoring.
-Deno.test('§8.4 day-30 afternoon: immediate weights redistribute pattern weight', () => {
+// Day 30 — everything available; pattern weight is simply not score-bearing.
+Deno.test('day-30 afternoon: pattern weight is dropped, never absorbed', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
     id: c.id, score: 55, available: true,
   }));
   const r = redistribute('afternoon', subs);
   assertEquals(r.earnedWeight, 80);
   assertEquals(r.finalWeights.patternEngineComposite, 0);
-  assertEquals(Math.round(r.finalWeights.remainingDayDemand), 35); // 21 + 20*(21/30)
-  assertEquals(Math.round(r.finalWeights.realizedSoFarCost), 15); // 9 + 20*(9/30)
+  assertEquals(r.finalWeights.remainingDayDemand, 21);
+  assertEquals(r.finalWeights.realizedSoFarCost, 9);
 });
 
-// §8.4 wearable-dies-at-2pm — intradayHrDeviation and pattern weight flow to demand.
-Deno.test('§8.4 wearable dies at 2pm: missing immediate + pattern weight flows to demand 70:30', () => {
+// Wearable dies at 2pm — the missing physio weight stays inside physiology.
+Deno.test('wearable dies at 2pm: no physio → demand leakage', () => {
   const subs: SubScore[] = MRS_V4_WEIGHTS.afternoon.map((c) => ({
     id: c.id, score: 55,
     available: c.id !== 'intradayHrDeviation',
   }));
   const r = redistribute('afternoon', subs);
-  assertEquals(r.earnedWeight, 60);
-  // 40 pts → demand reservoir (remainingDayDemand 21, realizedSoFarCost 9, total 30).
-  // pro-rata: remainingDay gets 40 * 21/30 = 28, realized gets 40 * 9/30 = 12.
-  assertEquals(Math.round(r.finalWeights.remainingDayDemand), 49); // 21+28
-  assertEquals(Math.round(r.finalWeights.realizedSoFarCost), 21); // 9+12
+  assertEquals(r.earnedWeight, 80);
+  assertEquals(r.finalWeights.remainingDayDemand, 21);
+  assertEquals(r.finalWeights.realizedSoFarCost, 9);
+  // 20 pts of intraday weight redistributed across the three earned physio cells.
+  assertEquals(Math.round(r.finalWeights.hrvMorningDeviation), 25);
   assertEquals(r.finalWeights.patternEngineComposite, 0);
 });
 
