@@ -1,35 +1,39 @@
 # MRS Week-over-Week: plain weekly averages
 
-Keep the card exactly as it is (This week / Last week / Progress). Only the numbers behind it change: they become straightforward weekly averages of whatever MRS scores exist, with no composition gating.
+Keep the existing card, hook and edge function exactly as they are structurally. Only the window and averaging semantics change. No new component, hook, API, table, or UI.
 
-## What changes
+## Consumers confirmed
 
-**Server — `supabase/functions/mental-fitness-scores/index.ts`**
+`summarizeWeek` / `computeWeeklyDeltaComparison` are used only by `mental-fitness-scores/index.ts` and its Deno test. `thisWeekAvg` / `lastWeekAvg` / `baselineDelta` / `refinedDelta` / `reason` flow only through `useWeeklyMrsDelta.ts` → `MrsPage.tsx` → `WeeklyDeltaDial.tsx` (+ its Vitest file). `App.tsx:240` already invalidates `['mrs-weekly-delta']`, so the existing refresh path is reused.
 
-1. Rewrite `summarizeWeek()` to be a pure average:
-   - Per row, the usable score is `readiness_score_refined ?? readiness_score_baseline`.
-   - Rows with `readiness_state === 'awaiting'` or both scores null are excluded (never counted as 0).
-   - Return `{ average, scoredDays, totalDays }` plus the existing `composition`/`metric` fields (kept for response compatibility, no longer used to null the average).
-   - Remove the `if (mixed || firstComposition === 'unknown') return { average: null }` branch.
-2. Rewrite `computeWeeklyDeltaComparison()`:
-   - Compute `thisWeekAvg` (Mon→today) and `lastWeekAvg` (last Mon→last Sun) from the new summaries, unrounded internally, rounded for output.
-   - `delta = round(thisWeekAvg - lastWeekAvg)` and `percentChange` when both exist; otherwise both null with `reason = 'not_enough_history'`.
-   - Never emit `composition_mismatch` or `awaiting_signals` as a suppression reason for the averages. Keep the fields in the response so nothing breaks, but they no longer gate.
-   - Keep populating `baselineDelta`/`refinedDelta` from the same single delta (so the existing client contract still resolves a value) and add an explicit `delta` field.
-3. `GET_WEEKLY_DELTA` handler: accept `lastSunday` as the end of the previous week window (still accept `lastToday` as a fallback for older clients) and pass it to the comparison. The DB fetch already spans `lastMonday → today`.
+## Server — `supabase/functions/mental-fitness-scores/index.ts`
 
-**Client — `src/hooks/useWeeklyMrsDelta.ts`**
+1. `summarizeWeek()` becomes a plain average over the supplied date range:
+   - Row score = `readiness_score_refined ?? readiness_score_baseline`, kept only when finite.
+   - `readiness_state === 'awaiting'` and both-null rows are excluded (never zero).
+   - Returns `{ average, scoredDays, totalDays }`; `composition` stays only as diagnostic metadata and no longer nulls the average. The `mixed || unknown → average: null` branch is deleted.
+2. `computeWeeklyDeltaComparison()` takes explicit calendar-week boundaries — `thisMonday → today` and `lastMonday → lastSunday` — and returns one authoritative value per concept: `thisWeekAvg`, `lastWeekAvg`, `delta`. Full precision internally, rounded at the output edge.
+   - `delta` is set whenever both averages exist, regardless of composition. Otherwise `delta = null` with `reason = 'not_enough_history'`.
+   - `composition_mismatch` / `awaiting_signals` are no longer produced as suppression reasons.
+   - `baselineDelta` / `refinedDelta` are removed from the comparison result and the response, since the only consumers are the hook and tests updated in this change — no misleading duplicate semantics kept.
+3. `GET_WEEKLY_DELTA` accepts `lastSunday` (falling back to `lastMonday + 6` when an older client omits it). `lastToday` is no longer used for the window at all, so weekday truncation is structurally impossible; it is accepted and ignored for request compatibility.
 
-- Send `lastSunday` (last Monday + 6 days) alongside the existing anchors.
-- Read `delta` from the new top-level field, falling back to refined/baseline delta.
-- Stop treating `reason` as a reason to blank `thisWeekAvg` / `lastWeekAvg`; only null values suppress.
-- Add today's local date to the query key so the week refreshes when today flips from awaiting to scored, and invalidate `['mrs-weekly-delta']` where the MRS snapshot query is invalidated.
+## Client — `src/hooks/useWeeklyMrsDelta.ts`
 
-**Client — `src/components/home/mrs/WeeklyDeltaDial.tsx`**
+- Sends `lastSunday` alongside the existing anchors.
+- Reads the single top-level `delta`; `mode` continues to come from `todayState` for the existing "Read" label.
+- `thisWeekAvg` / `lastWeekAvg` are passed through whenever numeric — `reason` no longer blanks them.
+- Query key gains today's local date (`['mrs-weekly-delta', userId, todayISO]`), reusing the existing `App.tsx` invalidation rather than adding a second refresh mechanism.
 
-- Show `thisWeekAvg` / `lastWeekAvg` whenever present, independent of `reason`.
-- Progress shows the delta whenever both averages exist; otherwise `—`.
-- No layout, styling, or copy-structure redesign.
+## Client — `src/components/home/mrs/WeeklyDeltaDial.tsx`
+
+- Renders `thisWeekAvg` / `lastWeekAvg` when present, independent of `reason`.
+- Progress shows the delta when both averages exist, otherwise `—`.
+- No layout, copy-system, icon, or state changes.
+
+## Provenance
+
+Source table `daily_context_snapshot`; score `readiness_score_refined ?? readiness_score_baseline`; this week `Monday → today`; last week `previous Monday → previous Sunday`. No schema change, no new persistence.
 
 ## Expected result for the current data
 
@@ -41,8 +45,9 @@ Progress                                        -> +9
 
 ## Verification
 
-- New Deno tests in `supabase/functions/mental-fitness-scores/index.test.ts` covering acceptance tests A–F (the existing composition-suppression tests are replaced, since that behaviour is intentionally retired).
-- Existing Deno + Vitest suites, plus `tsgo` typecheck.
-- Live `GET_WEEKLY_DELTA` call for the affected account, reporting scored-day counts, both averages, delta and trend, plus files changed.
+- Deno tests in `mental-fitness-scores/index.test.ts` covering: full previous week Mon→Sun (mandatory anti-truncation regression), awaiting rows excluded, mixed composition within a week, baseline-week vs refined-week, missing previous week, today's score changing the current-week average, and the real-data case (87 / ~78 / ~+9). The existing composition-suppression tests are replaced, since that behaviour is intentionally retired.
+- Vitest update for `WeeklyDeltaDial.test.tsx` (last-week value renders with mismatched composition), plus the existing suites and `tsgo` typecheck.
+- Live DB read confirming Aug 3/4 = 87, Aug 5 awaiting, Jul 30/31/Aug 1 = 65/94/74, then a live `GET_WEEKLY_DELTA` call reporting each week's dates, scored days, average, and the delta.
+- Report commit SHA, files changed, and files intentionally unchanged.
 
 Nothing in MRS scoring, gates, tiers, redistribution, Brief, Plan, or Nudges is touched.
