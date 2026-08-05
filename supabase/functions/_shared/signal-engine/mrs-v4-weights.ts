@@ -45,14 +45,22 @@ export interface WeightCell {
  * receives a bounded positive readiness contribution — deliberately not the
  * full maximum, so an empty calendar can never manufacture a "peak" read.
  *
- * Value selected from the scenario model in `mrs-v4-modelling.ts`.
+ * Value selected from the scenario model in `mrs-v4-modelling.ts`:
+ *   40% — empty calendar scores BELOW a normal-demand day (wrong direction)
+ *   50% — only +3 vs normal demand (too weak to be meaningful)
+ *   60% — SELECTED: meaningful lift, strong physiology tops out at 74 (strong)
+ *   75% — strong physiology + empty calendar reaches 80 (peak) — rejected
  */
-export const ZERO_DEMAND_CREDIT = 0.5;
+export const ZERO_DEMAND_CREDIT = 0.6;
 
 /**
  * Morning Demand split across the fixed 30-point Morning Demand allocation.
  * `today + yesterday` MUST equal 30 — the MRS scale never grows.
- * Value selected from the scenario model in `mrs-v4-modelling.ts`.
+ * Value selected from the scenario model in `mrs-v4-modelling.ts`:
+ *   25/5  — yesterday barely registers
+ *   20/10 — SELECTED: today stays ~2:1 dominant, yesterday clearly moves the read
+ *   15/15 — yesterday equals today (overpowers today's actual schedule)
+ *   10/20 — yesterday dominates — rejected
  */
 export const MORNING_DEMAND_SPLIT: { today: number; yesterday: number } = {
   today: 20,
