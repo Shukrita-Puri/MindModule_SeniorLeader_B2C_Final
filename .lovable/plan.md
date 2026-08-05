@@ -10,6 +10,7 @@ Keep the existing card, hook and edge function exactly as they are structurally.
 
 1. `summarizeWeek()` becomes a plain average over the supplied date range:
    - Row score = `readiness_score_refined ?? readiness_score_baseline`, kept only when finite.
+   - This keeps the metric continuous as a day evolves: a day counted at baseline in the morning is automatically counted at its refined value once the check-in refines it. Baseline days, refined days and mixed weeks all average together — no week is blanked because its days are of different kinds.
    - `readiness_state === 'awaiting'` and both-null rows are excluded (never zero).
    - Returns `{ average, scoredDays, totalDays }`; `composition` stays only as diagnostic metadata and no longer nulls the average. The `mixed || unknown → average: null` branch is deleted.
 2. `computeWeeklyDeltaComparison()` takes explicit calendar-week boundaries — `thisMonday → today` and `lastMonday → lastSunday` — and returns one authoritative value per concept: `thisWeekAvg`, `lastWeekAvg`, `delta`. Full precision internally, rounded at the output edge.
