@@ -207,7 +207,7 @@ async function loadDayTypeEventSlices(
   };
 }
 
-async function latestWearable(db: any, userId: string) {
+async function latestWearable(db: any, userId: string, localDate?: string) {
   const { data: latest } = await db
     .from("wearable_data")
     .select("summary_date,hrv,resting_heart_rate,sleep_score,total_sleep_minutes")
@@ -216,12 +216,20 @@ async function latestWearable(db: any, userId: string) {
     .limit(1)
     .maybeSingle();
 
+  // MRS v4 — baselines must be a true 30-DAY window, not "last 30 rows".
+  // A row-count limit silently reaches back months for sparse syncers and
+  // produces a different HRV baseline than the signal-pill path.
+  const anchor = localDate ?? (latest?.summary_date as string | undefined) ??
+    new Date().toISOString().slice(0, 10);
+  const windowStart = new Date(`${anchor}T00:00:00Z`);
+  windowStart.setUTCDate(windowStart.getUTCDate() - 29);
   const { data: rows } = await db
     .from("wearable_data")
     .select("hrv,resting_heart_rate")
     .eq("user_id", userId)
-    .order("summary_date", { ascending: false })
-    .limit(30);
+    .gte("summary_date", windowStart.toISOString().slice(0, 10))
+    .lte("summary_date", anchor)
+    .order("summary_date", { ascending: false });
 
   const hrvRows = (rows ?? []).map((r: any) => Number(r.hrv)).filter(Number.isFinite);
   const rhrRows = (rows ?? []).map((r: any) => Number(r.resting_heart_rate)).filter(Number.isFinite);
