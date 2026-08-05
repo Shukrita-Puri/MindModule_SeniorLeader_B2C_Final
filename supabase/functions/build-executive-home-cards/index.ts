@@ -813,7 +813,7 @@ async function buildForUser(db: any, args: {
     const scoreToWrite = typeof mrs?.score === "number" ? mrs.score : typeof mrs?.scoreBaseline === "number" ? mrs.scoreBaseline : null;
     if (scoreToWrite != null) {
       try {
-        const { error: irsErr } = await supabase
+        const { error: irsErr } = await db
           .from("inner_readiness_scores")
           .upsert(
             {
