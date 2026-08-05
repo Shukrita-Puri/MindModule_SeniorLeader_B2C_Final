@@ -2066,7 +2066,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const currentBriefId =
     (outerBrief as any)?.briefId ?? currentBriefSnapshot?.briefId ?? null;
   const lastGoodBriefRef = useRef<{ key: string; payload: any } | null>(null);
+  const { user } = useAuth();
   const currentIsRenderable =
+
     hasRenderableBriefCopy(outerBrief) || hasRenderableBriefScore(outerBrief);
   if (currentIsRenderable) {
     const key = `${currentWindowKey}|${currentBriefId ?? 'no-id'}`;
