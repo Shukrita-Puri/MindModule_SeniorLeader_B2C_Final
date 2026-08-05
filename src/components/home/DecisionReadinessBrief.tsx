@@ -2127,7 +2127,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // mount time, this is a *revisit* — skip the scripted narration loader and
   // the 5s CTA delay entirely so the brief renders instantly.
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+
   const [hadCacheAtMount] = useState(() => {
     try {
       const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
