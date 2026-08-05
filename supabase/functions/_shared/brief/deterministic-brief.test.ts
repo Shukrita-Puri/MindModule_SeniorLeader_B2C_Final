@@ -31,7 +31,16 @@ function base(
   };
 }
 
+function build(
+  opts: DeterministicBriefFallbackOpts,
+): DeterministicBriefResult {
+  const out = buildDeterministicBriefFallback(opts);
+  if (!out) throw new Error("expected deterministic brief");
+  return out;
+}
+
 Deno.test("deterministic brief — A1 phrase bank follows five-band spec", () => {
+
   assertEquals(buildDeterministicBriefFallback(base({ band: "firing" })).phrase, "Go get them");
   assertEquals(buildDeterministicBriefFallback(base({ band: "sharp" })).phrase, "Better than it feels");
   assertEquals(buildDeterministicBriefFallback(base({ band: "steady" })).phrase, "Holding steady");
