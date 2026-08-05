@@ -8891,42 +8891,45 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               // deterministicBrief = null and the user seeing the awaiting-signals
               // placeholder even when all signals existed. The validator continues
               // to gate all LLM output at the first validateBrief call site.
-              const specValidation = validateBrief(
-                specBuilt.phrase,
-                specBuilt.body,
-                {
-                  signals: {
-                    highStakesEventInNext24h: nextHighStakesEvent
-                      ? {
-                        title: nextHighStakesEvent.title,
-                        minutesUntil: nextHighStakesEvent.minutesUntil,
-                      }
-                      : null,
-                    emotionalDrainEventInNext4h: null,
+              if (specBuilt) {
+                const specValidation = validateBrief(
+                  specBuilt.phrase,
+                  specBuilt.body,
+                  {
+                    signals: {
+                      highStakesEventInNext24h: nextHighStakesEvent
+                        ? {
+                          title: nextHighStakesEvent.title,
+                          minutesUntil: nextHighStakesEvent.minutesUntil,
+                        }
+                        : null,
+                      emotionalDrainEventInNext4h: null,
+                    },
+                    behaviourFlags: [
+                      ...(briefBehaviourSnapshot?.flagsBrief ?? []),
+                      ...(briefBehaviourSnapshot?.flagsPlan ?? []),
+                    ],
+                    lexiconClusters: [],
+                    forbiddenWords: [],
+                    allowedPatternKeywords: [],
+                  } as any,
+                  {
+                    mrsScore: scoreForBand,
+                    pillContext,
                   },
-                  behaviourFlags: [
-                    ...(briefBehaviourSnapshot?.flagsBrief ?? []),
-                    ...(briefBehaviourSnapshot?.flagsPlan ?? []),
-                  ],
-                  lexiconClusters: [],
-                  forbiddenWords: [],
-                  allowedPatternKeywords: [],
-                } as any,
-                {
-                  mrsScore: scoreForBand,
-                  pillContext,
-                },
-              );
-              // Always accept deterministic output regardless of validator result.
-              deterministicBrief = specBuilt;
-              console.log(
-                `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase} | validatorOk=${specValidation.ok} | validatorReason=${specValidation.reason ?? "none"}`,
-              );
-              if (!specValidation.ok) {
-                console.warn(
-                  `[compute-outer-readiness] [DETERMINISTIC] note: validator would have rejected | reason=${specValidation.reason} | body="${specBuilt.body.slice(0, 80)}..."`,
                 );
+                // Always accept deterministic output regardless of validator result.
+                deterministicBrief = specBuilt;
+                console.log(
+                  `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase} | validatorOk=${specValidation.ok} | validatorReason=${specValidation.reason ?? "none"}`,
+                );
+                if (!specValidation.ok) {
+                  console.warn(
+                    `[compute-outer-readiness] [DETERMINISTIC] note: validator would have rejected | reason=${specValidation.reason} | body="${specBuilt.body.slice(0, 80)}..."`,
+                  );
+                }
               }
+
             } catch (detSpecErr) {
               console.error(
                 "[compute-outer-readiness] [DETERMINISTIC] A8 build error:",
@@ -9059,6 +9062,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       const hasStage1Signal = hasFreshWearable || hasCalendarSignal;
       const briefSignalContractMet = hasStage1Signal;
       const awaitingSignals = !briefSignalContractMet;
+      // Personal-signal entry condition for the Brief prose only.
+      // Calendar demand can feed MRS, Plan and Nudges, but it must NEVER
+      // alone satisfy the Brief's current-state claim. Either a window-fresh
+      // wearable read OR a window-fresh check-in is required before any
+      // baseline or refined brief may form.
+      const briefHasCurrentPersonalSignal = briefWearableUsable ||
+        checkInCurrentForWindow;
+      const briefAwaitingSignals = !briefHasCurrentPersonalSignal;
+
       const awaitingReason: string | null = awaitingSignals
         ? "cold-start-no-context"
         : null;
@@ -9114,9 +9126,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // A valid deterministic brief or an adopted canonical score means the user
       // should always see content — never force awaiting when either exists.
       const hasDeterministicBrief = deterministicBrief !== null;
-      const briefMustAwait = (awaitingSignals || innerStateIsAwaiting) &&
-        !hasDeterministicBrief &&
-        typeof canonicalInnerScore !== "number";
+      // The Brief is forced to awaiting when no current personal signal exists,
+      // regardless of a cached LLM/deterministic brief or a canonical score.
+      // This preserves MRS/Plan/Calendar signals while preventing calendar-only
+      // or stale-cache brief prose from reaching the user.
+      const briefMustAwait = briefAwaitingSignals ||
+        ((awaitingSignals || innerStateIsAwaiting) &&
+          !hasDeterministicBrief &&
+          typeof canonicalInnerScore !== "number");
+
       const briefIsAwaiting = briefMustAwait ||
         (!cachedSnapshot && !llmBrief && !deterministicBrief);
       const briefSource: "llm" | "deterministic" | "awaiting" = briefMustAwait
@@ -9972,7 +9990,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
               const existingHasCopy = !!existingPhrase && !!existingBody;
               const newHasCopy = !!persistPhrase && !!persistBody;
-              if (existingHasCopy && !newHasCopy) {
+              if (briefAwaitingSignals) {
+                // Personal-signal contract is not met for this window. Force an
+                // explicit awaiting row and do NOT preserve a prior LLM or
+                // deterministic brief — the frontend must not restore stale
+                // prose when the server has decided the signal is missing.
+                persistPhrase = null;
+                persistBody = null;
+                persistLeanOn = null;
+                persistWatchFor = null;
+                persistLeanOnSource = null;
+                persistWatchForSource = null;
+                effectiveBriefSource = "awaiting";
+                overwriteDecision = "overwrite_forced_awaiting";
+              } else if (existingHasCopy && !newHasCopy) {
                 // Prevent wipe — keep prior copy and brief_source.
                 persistPhrase = existingPhrase;
                 persistBody = existingBody;
@@ -9998,6 +10029,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 effectiveBriefSource = "awaiting";
                 overwriteDecision = "none";
               }
+
               console.log("[brief-cache][copy-persist]", {
                 userId,
                 localDate: userLocalDate,
@@ -10350,16 +10382,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           })
           : null,
         // briefMode is the canonical client-facing signal source contract.
-        //   • 'cold-start' — no baseline / no check-in / no usable inner score
-        //   • 'baseline'   — wearable and/or calendar demand present, no check-in for today
+        //   • 'cold-start' — no current personal signal (wearable/check-in) OR
+        //                    no usable inner score. Calendar-only is cold-start
+        //                    for the Brief, even though MRS/Plan still use it.
+        //   • 'baseline'   — window-fresh wearable present, no check-in for today
         //   • 'refined'    — check-in present (with or without wearable/calendar)
         // Client rule: only render skeleton when briefMode === 'cold-start'.
         // In baseline mode pills, score, brief and Plan must all render.
         briefMode: (
-          awaitingSignals || innerStateIsAwaiting
+          awaitingSignals || briefAwaitingSignals || innerStateIsAwaiting
             ? "cold-start"
             : (hasTodayCheckIn ? "refined" : "baseline")
         ) as "cold-start" | "baseline" | "refined",
+
         // Source provenance + pill↔MRS coherence + baseline-only score.
         // Surfaced for client audit chips and so MRS + pills are not
         // operating in isolation. `pillCoherence.inSync === false` means

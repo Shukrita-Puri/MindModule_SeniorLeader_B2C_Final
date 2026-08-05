@@ -26,7 +26,7 @@ import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_BRIEF } from '@/components/onboarding/tourMockData';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
-import { read as readPersistent, cacheKeys, localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
+import { read as readPersistent, clear as clearPersistent, cacheKeys, localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -42,6 +42,8 @@ import {
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
+import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
+
 
 // ─── TYPES ───
 interface SignalChip {
@@ -2066,7 +2068,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const currentBriefId =
     (outerBrief as any)?.briefId ?? currentBriefSnapshot?.briefId ?? null;
   const lastGoodBriefRef = useRef<{ key: string; payload: any } | null>(null);
+  const { user } = useAuth();
   const currentIsRenderable =
+
     hasRenderableBriefCopy(outerBrief) || hasRenderableBriefScore(outerBrief);
   if (currentIsRenderable) {
     const key = `${currentWindowKey}|${currentBriefId ?? 'no-id'}`;
@@ -2084,12 +2088,25 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     }
   }
   const lastGood = lastGoodBriefRef.current;
+  // If the live server explicitly returned an awaiting payload for the
+  // current window, clear any last-good / persistent-cache state so we never
+  // restore an older LLM or deterministic brief while signals are missing.
+  const incomingIsAwaiting = isTrueAwaitingBrief(outerBriefReal);
+  if (incomingIsAwaiting) {
+    lastGoodBriefRef.current = null;
+    const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
+    if (effectiveUserId) {
+      clearPersistent(cacheKeys.brief(effectiveUserId, currentPeriodLocal(), localISODate()));
+    }
+  }
   const canReuseLastGood =
     !!lastGood &&
     lastGood.key.startsWith(`${currentWindowKey}|`) &&
     !currentIsRenderable &&
+    !incomingIsAwaiting &&
     !tourMockBriefActive;
   if (canReuseLastGood) {
+
     // Reassign so all downstream reads (score, tier, chips, pills,
     // copy) draw from the last-good payload for this window.
     outerBrief = lastGood!.payload;
@@ -2112,7 +2129,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // mount time, this is a *revisit* — skip the scripted narration loader and
   // the 5s CTA delay entirely so the brief renders instantly.
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+
   const [hadCacheAtMount] = useState(() => {
     try {
       const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
@@ -2239,8 +2256,12 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // slot renders `--` while the copy stays stable.
   const copyRenderable = hasRenderableBriefCopy(outerBrief);
   const scoreRenderable = hasRenderableBriefScore(outerBrief);
+  // Brief awaiting state is independent of the MRS score. Calendar-only
+  // signals feed MRS/Plan/Nudges, but the Brief prose must not form without
+  // a current personal signal (wearable or check-in).
   const showNeutralAwaitingCopy =
-    !showFailureBlock && cardsAwaiting && !copyRenderable && !scoreRenderable;
+    !showFailureBlock && cardsAwaiting && !copyRenderable;
+
   // Copy-only awaiting: score payload is present but the LLM never delivered
   // phrase/body (e.g. validation reject or provider 402). Show neutral prose
   // in the copy slot so the card is never blank, while keeping the score,
@@ -2565,10 +2586,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {showNeutralAwaitingCopy && (
         <>
           <p className="mt-4 text-quote text-foreground">
-            {awaitingCopy}
+            {READINESS_AWAITING_MESSAGE}
           </p>
         </>
       )}
+
 
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
