@@ -12,8 +12,10 @@ function base(
 ): DeterministicBriefFallbackOpts {
   return {
     band: "steady",
-    hasWearable: false,
+    hasWearable: true,
+    hasCurrentWearable: true,
     checkInOutcome: null,
+
     cognitivePillTier: "unread",
     physicalPillTier: "unread",
     wearableFact: null,
