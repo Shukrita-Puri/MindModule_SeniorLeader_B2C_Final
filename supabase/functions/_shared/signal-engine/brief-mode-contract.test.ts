@@ -13,6 +13,8 @@ function deriveBriefMode(input: {
   hasCalendarSignal: boolean;
   hasCalendarConnected: boolean;
   hasTodayCheckIn: boolean;
+  briefWearableUsable?: boolean;
+  checkInCurrentForWindow?: boolean;
 }): BriefMode {
   const hasState1Input =
     input.hasFreshWearable ||
@@ -20,8 +22,15 @@ function deriveBriefMode(input: {
     input.hasCalendarConnected ||
     input.hasTodayCheckIn;
   if (!hasState1Input) return "cold-start";
+  // Personal-signal entry condition for the Brief prose: calendar demand alone
+  // must not satisfy the brief contract.
+  const briefHasCurrentPersonalSignal =
+    (input.briefWearableUsable ?? input.hasFreshWearable) ||
+    (input.checkInCurrentForWindow ?? input.hasTodayCheckIn);
+  if (!briefHasCurrentPersonalSignal) return "cold-start";
   return input.hasTodayCheckIn ? "refined" : "baseline";
 }
+
 
 Deno.test("briefMode: baseline-only Brief — wearable + calendar, no check-in", () => {
   const m = deriveBriefMode({
