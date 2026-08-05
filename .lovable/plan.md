@@ -36,10 +36,20 @@ Tomorrow demand:
 - Tomorrow tests with X ≠ Y: tomorrow with events, tomorrow zero-events-connected, calendar unavailable, and today-demand ≠ tomorrow-demand asserting the two cells differ.
 - Re-assert unchanged invariants: dual-pillar gate, `ZERO_DEMAND_CREDIT = 0.6`, morning 20/10 split, weight sums = 100.
 
+### 4. Morning yesterday-carryover regression check (verification only, no code change)
+- Prove at runtime, not by weight definition, that Morning Demand receives a *real* yesterday value:
+  - Construct a scenario where yesterday demand X ≠ today demand Y and assert `yesterdayCarryover.rawDemand === X` while the today cell carries Y.
+  - Assert `yesterdayCarryover` is `pillar: 'demand'` with a 10-point allocation, and Morning Demand totals 30 (20 today + 10 yesterday).
+  - Trace the value back through `yesterdayDemand()` → `computeCalendarDemand()` on yesterday's own calendar events.
+- Verify zero/null semantics for yesterday: connected + zero events → `0` earned (60% credit); calendar unavailable → `null` unearned; events present → calculated number.
+- Evidence in the report: the relevant source lines plus live `weight_provenance` JSON showing the distinct yesterday value.
+- No change to the 20/10 weighting and no new gate.
+
 ## Verification and report
 - Run the Deno MRS composer tests, Deno checks on the touched functions, full Vitest suite and `tsgo`.
 - Redeploy `compute-inner-readiness` and `build-executive-home-cards`; re-run scenarios A–I against the live backend using real rows, reporting actual provenance JSON (`weight_provenance`) as evidence.
 - Report: files changed, diffs, commit SHA, per-scenario evidence, and an explicit answer to the four final check questions. Deployed-bundle SHAs are not exposed by the platform — that limitation will be stated rather than claimed as cryptographic proof.
+- The report will state explicitly: "Yesterday's realised demand is still actively contributing to Morning Demand; it has not merely remained as a weight definition." — backed by source and runtime/provenance evidence.
 
 ## Out of scope
 Yesterday-carryover comment/grouping in `mrs-v4-weights.ts` stays as is (functionally correct: `pillar: 'demand'`, 10 pts, fed from yesterday's own events). No tier, anchor or eligibility changes. `remainingDayDemand` / `realizedSoFarCost` afternoon aliasing is noted but left untouched unless you want it in scope.
