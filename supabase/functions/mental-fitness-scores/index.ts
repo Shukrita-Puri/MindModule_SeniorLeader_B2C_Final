@@ -320,8 +320,8 @@ if (import.meta.main) {
         }
 
         case "GET_WEEKLY_DELTA": {
-          const { thisMonday, lastMonday, lastToday, today } = reqBody;
-          if (!thisMonday || !lastMonday || !lastToday || !today) {
+          const { thisMonday, lastMonday, today } = reqBody;
+          if (!thisMonday || !lastMonday || !today) {
             return new Response(
               JSON.stringify({ error: "Missing week anchors" }),
               {
@@ -330,6 +330,13 @@ if (import.meta.main) {
               },
             );
           }
+          // Full previous calendar week (Mon -> Sun). `lastToday` is accepted
+          // for request compatibility but never used as a window bound.
+          const lastSunday = reqBody.lastSunday ??
+            new Date(
+              new Date(`${lastMonday}T00:00:00Z`).getTime() +
+                6 * 86400000,
+            ).toISOString().slice(0, 10);
           // Phase 2 — snapshot is window-scoped; collapse to one row per
           // local_date by keeping the most recently updated window.
           const { data, error } = await supabase
@@ -369,7 +376,7 @@ if (import.meta.main) {
             rows,
             thisMonday,
             lastMonday,
-            lastToday,
+            lastSunday,
             today,
           );
 
@@ -378,6 +385,7 @@ if (import.meta.main) {
               data: {
                 baselineDelta: comparison.baselineDelta,
                 refinedDelta: comparison.refinedDelta,
+                delta: comparison.delta,
                 todayState: comparison.todayState,
                 reason: comparison.reason,
                 thisWeekComposition: comparison.thisWeekComposition,
@@ -385,6 +393,8 @@ if (import.meta.main) {
                 comparisonMetric: comparison.comparisonMetric,
                 thisWeekAvg: comparison.thisWeekAvg,
                 lastWeekAvg: comparison.lastWeekAvg,
+                thisWeekScoredDays: comparison.thisWeekScoredDays,
+                lastWeekScoredDays: comparison.lastWeekScoredDays,
               },
             }),
             {
