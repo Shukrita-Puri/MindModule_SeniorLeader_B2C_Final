@@ -242,6 +242,34 @@ async function latestWearable(db: any, userId: string, localDate?: string) {
 }
 
 async function latestCheckin(db: any, userId: string, localDate: string, window: TimeWindow) {
+  return await _latestCheckin(db, userId, localDate, window);
+}
+
+/**
+ * MRS v4 — calendar availability is a PILLAR, not an event count.
+ * `connected_no_events` is earned data (a genuinely empty day);
+ * `not_connected` is missing data and must block MRS formation.
+ */
+async function resolveCalendarState(
+  db: any,
+  userId: string,
+  eventCount: number,
+): Promise<"active" | "connected_no_events" | "not_connected"> {
+  if (eventCount > 0) return "active";
+  try {
+    const { data } = await db
+      .from("calendar_connections")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .limit(1);
+    return Array.isArray(data) && data.length > 0 ? "connected_no_events" : "not_connected";
+  } catch {
+    return "not_connected";
+  }
+}
+
+async function _latestCheckin(db: any, userId: string, localDate: string, window: TimeWindow) {
   const { data } = await db
     .from("daily_checkins")
     .select("clarity_level,confidence_level,emotion_level,pressure_level,regulation_level,outcome")
