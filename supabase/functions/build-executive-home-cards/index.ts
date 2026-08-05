@@ -700,6 +700,9 @@ async function buildForUser(db: any, args: {
         : null;
 
     const calendarState = await resolveCalendarState(db, userId, eventCount);
+    const yesterdayDemandScore = window === "morning"
+      ? (calendarState === "not_connected" ? null : await yesterdayDemand(db, userId, localDate))
+      : null;
     // Earned zero: a connected calendar with no events scores demand 0.
     // Not connected: demand is genuinely missing and the pillar stays unmet.
     const demandScore = eventCount > 0
