@@ -64,19 +64,21 @@ export function useWeeklyMrsDelta() {
   const userId = user?.id ?? null;
 
   return useQuery<WeeklyMrsDelta>({
-    queryKey: ['mrs-weekly-delta', userId],
+    queryKey: ['mrs-weekly-delta', userId, isoLocal(new Date())],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const today = new Date();
       const thisMon = mondayOf(today);
       const lastMon = addDays(thisMon, -7);
       const lastToday = addDays(today, -7);
+      const lastSun = addDays(thisMon, -1);
 
       const body = {
         action: 'GET_WEEKLY_DELTA' as const,
         thisMonday: isoLocal(thisMon),
         lastMonday: isoLocal(lastMon),
         lastToday: isoLocal(lastToday),
+        lastSunday: isoLocal(lastSun),
         today: isoLocal(today),
       };
 
@@ -89,8 +91,6 @@ export function useWeeklyMrsDelta() {
         if (error) throw error;
         const payload = data?.data || {};
         const todayState = (payload.todayState as string) === 'refined' ? 'refined' : 'baseline';
-        const refinedDelta = typeof payload.refinedDelta === 'number' ? payload.refinedDelta : null;
-        const baselineDelta = typeof payload.baselineDelta === 'number' ? payload.baselineDelta : null;
         const reason = (payload.reason as WeeklyMrsDeltaReason) ?? null;
         const thisWeekComposition = (payload.thisWeekComposition as ReadinessComposition) ?? 'unknown';
         const lastWeekComposition = (payload.lastWeekComposition as ReadinessComposition) ?? 'unknown';
@@ -98,12 +98,16 @@ export function useWeeklyMrsDelta() {
         const lastWeekAvg = typeof payload.lastWeekAvg === 'number' ? payload.lastWeekAvg : null;
         const comparisonMetric = (payload.comparisonMetric as 'baseline' | 'refined' | undefined)
           ?? (todayState === 'refined' ? 'refined' : 'baseline');
-        // Prefer the input matching the comparison metric; fall back to baseline.
-        const mode: 'baseline' | 'refined' =
-          comparisonMetric === 'refined' && refinedDelta !== null ? 'refined' : 'baseline';
-        const delta = mode === 'refined' ? refinedDelta : baselineDelta;
+        const mode: 'baseline' | 'refined' = comparisonMetric === 'refined' ? 'refined' : 'baseline';
+        // Authoritative top-level delta; legacy fields kept as a fallback.
+        const legacyDelta = mode === 'refined' ? payload.refinedDelta : payload.baselineDelta;
+        const delta = typeof payload.delta === 'number'
+          ? payload.delta
+          : typeof legacyDelta === 'number'
+            ? legacyDelta
+            : null;
         const label =
-          delta === null || reason !== null
+          delta === null
             ? null
             : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} pts`;
         return { delta, thisWeekAvg, lastWeekAvg, mode, label, reason, thisWeekComposition, lastWeekComposition };
