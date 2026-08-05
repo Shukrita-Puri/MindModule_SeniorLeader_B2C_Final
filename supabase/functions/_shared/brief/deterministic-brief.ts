@@ -314,12 +314,20 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
 
 export function buildDeterministicBriefFallback(
   rawOpts: DeterministicBriefFallbackOpts,
-): DeterministicBriefResult {
+): DeterministicBriefResult | null {
   // Enforce the freshness contract at the boundary: a signal that is not
   // current for this window cannot reach any sentence builder.
   const wearableCurrent = rawOpts.hasCurrentWearable ?? rawOpts.hasWearable;
   const checkInCurrent = rawOpts.hasCurrentCheckIn ??
     (rawOpts.checkInOutcome != null);
+
+  // Personal-signal entry condition: a deterministic brief is only built when
+  // at least one current personal signal exists. Calendar demand alone must
+  // not produce deterministic prose; the caller falls back to awaiting.
+  if (!wearableCurrent && !checkInCurrent) {
+    return null;
+  }
+
   const opts: DeterministicBriefFallbackOpts = {
     ...rawOpts,
     hasWearable: rawOpts.hasWearable && wearableCurrent,
@@ -338,3 +346,4 @@ export function buildDeterministicBriefFallback(
     topSignal: "baseline_quiet",
   };
 }
+
