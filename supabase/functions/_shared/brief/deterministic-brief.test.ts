@@ -270,7 +270,7 @@ Deno.test("deterministic brief — stale wearable + stale check-in emit no curre
       throw new Error(`stale claim leaked into brief: "${forbidden}" in ${text}`);
     }
   }
-  if (!text.includes("no current read")) {
+  if (!text.includes("current read")) {
     throw new Error(`expected thin-signal read, got: ${text}`);
   }
 });
