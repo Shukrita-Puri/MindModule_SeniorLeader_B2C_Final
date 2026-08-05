@@ -1,15 +1,12 @@
 import {
-  buildDeterministicBriefFallback,
   assertEquals,
   assertStringIncludes,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   buildDeterministicBriefFallback,
-  buildDeterministicBriefFallback,
   type DeterministicBriefFallbackOpts,
   type DeterministicBriefResult,
 } from "./deterministic-brief.ts";
-
 
 function base(
   overrides: Partial<DeterministicBriefFallbackOpts> = {},
@@ -19,7 +16,6 @@ function base(
     hasWearable: true,
     hasCurrentWearable: true,
     checkInOutcome: null,
-
     cognitivePillTier: "unread",
     physicalPillTier: "unread",
     wearableFact: null,
@@ -33,13 +29,14 @@ function base(
   };
 }
 
-function buildDeterministicBriefFallback(
+function build(
   opts: DeterministicBriefFallbackOpts,
 ): DeterministicBriefResult {
   const out = buildDeterministicBriefFallback(opts);
   if (!out) throw new Error("expected deterministic brief");
   return out;
 }
+
 
 Deno.test("deterministic brief — A1 phrase bank follows five-band spec", () => {
 
