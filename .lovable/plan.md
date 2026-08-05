@@ -29,6 +29,15 @@ When it is false:
 
 This gate is scoped strictly to the Brief. MRS scoring, gating, tiers, pills, Plan and Nudges are untouched — the MRS score continues to display exactly as today.
 
+**Existing baseline/refined rule is preserved, not redefined.** Brief formation stays exactly as built today:
+
+- **Baseline brief** — formed from wearable (+ calendar context) signals, no check-in.
+- **Refined brief** — baseline plus the current-window check-in.
+
+The only thing this change adds is an entry condition: at least one *current* personal signal (a wearable row fresh for this window, or a check-in for today + this window) must exist before either mode may form. Calendar alone must NEVER make the Brief form. Calendar keeps feeding its own signal pill, MRS, Plan and Nudges exactly as before — no change there.
+
+Explicitly out of scope this run: MRS week-over-week, and any MRS scoring, gate, tier, eligibility, redistribution or frontend suppression change.
+
 ### 2. Retire the thin-signal deterministic copy
 
 In `_shared/brief/deterministic-brief.ts`, remove the "Signal is thin this {window} - no wearable and no check-in yet." phrase/body path and the paired "Neither Mind nor body has a current read today…" read. With no current personal signal the builder returns `null` rather than prose, so the awaiting state is the only possible outcome.
@@ -36,7 +45,11 @@ In `_shared/brief/deterministic-brief.ts`, remove the "Signal is thin this {wind
 ### 3. Stale rows must not keep rendering
 
 - Overwrite the existing `2026-08-05` deterministic rows for this user to the awaiting shape (null copy, `brief_source='awaiting'`) so the cache path cannot re-serve them.
-- Confirm the client-side `persistentBriefCache` / last-good retention in `DecisionReadinessBrief` does not resurrect a previously cached deterministic body once the server returns awaiting for the same `localDate + timeWindow`; clear last-good on an awaiting payload for the same key.
+- **Frontend cache path — explicit verification and fix.** Trace every restore route in `DecisionReadinessBrief`: `persistentBriefCache.read(cacheKeys.brief(...))`, the `cacheKeys.briefAwaiting(...)` flag, in-memory last-good/previous-brief state, and any React Query cached payload. When the server returns an awaiting payload for the same `localDate + timeWindow`, all of them must yield awaiting:
+  - `persistentBriefCache.clear()` the `prb-cache-v2:` key for that user/period/date and write the awaiting flag key instead.
+  - Reset the last-good/previous-brief state rather than falling back to it when the incoming payload has null copy.
+  - Never treat "server returned no prose" as "keep showing what we had".
+  This is verified by reload, not by inspection alone.
 
 ### 4. One awaiting copy, matching Plan and MRS
 
@@ -52,7 +65,11 @@ That is `READINESS_AWAITING_MESSAGE` (`src/constants/awaitingSignals.ts`). For t
 ## Verification before declaring done
 
 - Live re-run of `compute-outer-readiness` for shukrita (evening, 5 Aug): response has `awaitingSignals: true`, null phrase/body, `brief_source='awaiting'`; DB row for 5 Aug evening rewritten to awaiting.
-- Reload the app: Brief card shows only the awaiting line above; pills stay Mind/Body/Reserve unread; MRS still renders its score.
-- Positive control: with a current-window check-in or a same-day wearable row, the Brief renders prose as before.
-- New tests: gate matrix (wearable-only / check-in-only / calendar-only / neither), deterministic builder returns null with no current personal signal.
+- Cache/reload test: with the awaiting response in place, hard-reload with the pre-existing deterministic entry seeded in `localStorage`; the Brief card must show only the awaiting line — no resurrected LLM or deterministic body.
+- Positive controls, respecting the existing formation rule:
+  - Same-day (window-fresh) wearable row, no check-in → **baseline** brief forms exactly as before.
+  - That plus a current-window check-in → **refined** brief forms exactly as before.
+  - Calendar events only, no wearable, no check-in → awaiting (this is the corrected case), while the calendar pill, MRS, Plan and Nudges are unchanged.
+- New tests: gate matrix (wearable-only → baseline / wearable+check-in → refined / check-in-only / calendar-only → awaiting / neither → awaiting), deterministic builder returns null with no current personal signal, and a frontend test that an awaiting payload clears the cached brief for the same key.
 - Existing Deno + Vitest + `tsgo` suites re-run.
+- Completion report: commit SHA and the exact list of files changed, alongside the results above. Not declared complete until every item passes.
