@@ -272,7 +272,8 @@ Deno.test("deterministic brief — stale wearable + stale check-in returns null"
 
 
 Deno.test("deterministic brief — one unread pillar never produces a two-pillar comparison", () => {
-  const out = buildDeterministicBriefFallback({
+  const out = build({
+
     band: "steady",
     hasWearable: false,
     hasCurrentWearable: false,
