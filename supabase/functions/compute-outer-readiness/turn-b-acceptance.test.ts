@@ -432,7 +432,9 @@ Deno.test("Turn B divergence generation path: valid evidence-backed copy stays v
     forbiddenWords: [],
     allowedPatternKeywords: [],
   };
+  if (!built) throw new Error("expected deterministic brief");
   const valid = validateBrief(built.phrase, built.body, detCtx, {
+
     mrsScore: context.readiness.score,
     pillContext,
   });
