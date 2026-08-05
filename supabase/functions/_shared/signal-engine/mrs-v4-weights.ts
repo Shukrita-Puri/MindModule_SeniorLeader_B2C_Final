@@ -4,8 +4,10 @@
 // Every weight is expressed in "points out of 100". Sums per window MUST
 // equal 100 — the redistribution algorithm relies on this invariant.
 //
-// `pillar` is used by `mrs-v4-redistribute.ts` to identify the always-on
-// Demand reservoir (§8.3 step 3).
+// `pillar` keeps redistribution INTRA-PILLAR: unearned Physiological weight
+// can only move to earned Physiological cells, unearned Demand weight can
+// only move to earned Demand cells, and Pattern never gives or receives
+// weight (additive context only, never score-bearing).
 
 export type Window = 'morning' | 'afternoon' | 'evening';
 export type Pillar = 'physiological' | 'demand' | 'pattern';
@@ -34,14 +36,37 @@ export interface WeightCell {
   weight: number;
 }
 
+/**
+ * Zero-demand recovery credit — fraction of a Demand cell's maximum score
+ * awarded when raw calendar demand is a MEASURED zero.
+ *
+ * A connected calendar with genuinely zero scheduled demand is earned data,
+ * not missing data. Zero load creates real recovery capacity, so the cell
+ * receives a bounded positive readiness contribution — deliberately not the
+ * full maximum, so an empty calendar can never manufacture a "peak" read.
+ *
+ * Value selected from the scenario model in `mrs-v4-modelling.ts`.
+ */
+export const ZERO_DEMAND_CREDIT = 0.5;
+
+/**
+ * Morning Demand split across the fixed 30-point Morning Demand allocation.
+ * `today + yesterday` MUST equal 30 — the MRS scale never grows.
+ * Value selected from the scenario model in `mrs-v4-modelling.ts`.
+ */
+export const MORNING_DEMAND_SPLIT: { today: number; yesterday: number } = {
+  today: 20,
+  yesterday: 10,
+};
+
 export const MRS_V4_WEIGHTS: Record<Window, WeightCell[]> = {
   morning: [
     { id: 'hrvMorningDeviation',    pillar: 'physiological', weight: 25 },
     { id: 'sleepDeviation',         pillar: 'physiological', weight: 17.5 },
     { id: 'rhrTrend',               pillar: 'physiological', weight: 7.5 },
-    { id: 'todayFullDayDemand',     pillar: 'demand',        weight: 30 },
-    { id: 'patternEngineComposite', pillar: 'pattern',       weight: 14 },
-    { id: 'yesterdayCarryover',     pillar: 'pattern',       weight: 6 },
+    { id: 'todayFullDayDemand',     pillar: 'demand',        weight: MORNING_DEMAND_SPLIT.today },
+    { id: 'yesterdayCarryover',     pillar: 'demand',        weight: MORNING_DEMAND_SPLIT.yesterday },
+    { id: 'patternEngineComposite', pillar: 'pattern',       weight: 20 },
   ],
   afternoon: [
     { id: 'hrvMorningDeviation',    pillar: 'physiological', weight: 15 },
