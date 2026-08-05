@@ -334,8 +334,9 @@ Deno.test("deterministic brief — current wearable-only forms a valid brief", (
   });
   if (!out) throw new Error("expected a brief for current wearable-only");
   assertEquals(out.phrase, "Better than it feels");
-  assertStringIncludes(out.body, "HRV is running above baseline");
+  assertStringIncludes(out.body, "Recovery is running above usual range");
 });
+
 
 Deno.test("deterministic brief — current check-in-only forms a valid brief", () => {
   const out = buildDeterministicBriefFallback({
