@@ -42,15 +42,28 @@ Deno.test("briefMode: baseline-only Brief — wearable + calendar, no check-in",
   assertEquals(m, "baseline");
 });
 
-Deno.test("briefMode: baseline-only Brief — calendar connected, no events, no wearable, no check-in", () => {
+Deno.test("briefMode: cold-start — calendar connected, no events, no wearable, no check-in", () => {
   const m = deriveBriefMode({
     hasFreshWearable: false,
     hasCalendarSignal: false,
     hasCalendarConnected: true,
     hasTodayCheckIn: false,
   });
-  assertEquals(m, "baseline");
+  assertEquals(m, "cold-start");
 });
+
+Deno.test("briefMode: cold-start — calendar events present but no wearable and no check-in", () => {
+  const m = deriveBriefMode({
+    hasFreshWearable: false,
+    hasCalendarSignal: true,
+    hasCalendarConnected: true,
+    hasTodayCheckIn: false,
+    briefWearableUsable: false,
+    checkInCurrentForWindow: false,
+  });
+  assertEquals(m, "cold-start");
+});
+
 
 Deno.test("briefMode: refined — check-in present (with baseline)", () => {
   const m = deriveBriefMode({
