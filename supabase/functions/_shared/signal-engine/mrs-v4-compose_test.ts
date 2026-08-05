@@ -5,7 +5,7 @@
 
 import { assertEquals, assert } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
 import { composeBaselineV4, redistribute, isSevereSleepDeficit, type SubScore } from './mrs-v4-compose.ts';
-import { MRS_V4_WEIGHTS, assertWeightSumInvariant, type SubComponentId } from './mrs-v4-weights.ts';
+import { MRS_V4_WEIGHTS, ZERO_DEMAND_CREDIT, assertWeightSumInvariant, type SubComponentId } from './mrs-v4-weights.ts';
 import { buildMrsV4SubScores } from './mrs-v4-subscores.ts';
 
 // All windows' weights must sum to 100.
