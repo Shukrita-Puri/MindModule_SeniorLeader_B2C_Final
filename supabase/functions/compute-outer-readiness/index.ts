@@ -163,6 +163,10 @@ import {
   finalizePills,
 } from "../_shared/signal-pills/derive-pills.ts";
 import {
+  resolveSignalFreshness,
+  type SignalWindow,
+} from "../_shared/signal-engine/signal-freshness.ts";
+import {
   type AssessmentContext,
   buildAssessmentContext,
   buildPillContextFromAssessment,
@@ -4026,7 +4030,83 @@ serve(async (req) => {
     const calendarUsableForGate = calendarResult.state === "active" ||
       calendarResult.state === "connected_no_events";
     const stageOneSignalForGate = wearableFreshForGate || calendarUsableForGate;
-    const checkInFreshForGate = !!checkInOutcome;
+
+    // ── Current-signal freshness contract (shared by pills + Executive Brief)
+    // The brief must never make a current-state claim from a signal the pills
+    // consider unavailable for this window. Morning may use the overnight /
+    // prior-day wearable row (its existing design); Afternoon and Evening
+    // require a same-day row. Check-in values forwarded by the caller are
+    // validated against an actual row for today + this window.
+    const briefWindow = getTimeOfDay(hour) as SignalWindow;
+    let checkInRowCurrentForWindow = false;
+    try {
+      const { data: _ciRow } = await db
+        .from("daily_checkins")
+        .select("id,time_window,timestamp")
+        .eq("user_id", userId)
+        .eq("checkin_date", userLocalDate)
+        .eq("skipped", false)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (_ciRow) {
+        const rowTs = (_ciRow as any).timestamp
+          ? new Date((_ciRow as any).timestamp).getTime()
+          : null;
+        // Accept the row when it belongs to this window, or when it was
+        // submitted moments ago (write/read race on a just-saved check-in).
+        const justSubmitted = rowTs != null &&
+          Date.now() - rowTs < 90 * 60 * 1000;
+        checkInRowCurrentForWindow =
+          (_ciRow as any).time_window === briefWindow || justSubmitted;
+      }
+    } catch (e) {
+      console.warn(
+        "[compute-outer-readiness] window check-in lookup failed:",
+        e instanceof Error ? e.message : e,
+      );
+      // Fail closed for current-state claims; MRS scoring is unaffected.
+      checkInRowCurrentForWindow = false;
+    }
+    const signalFreshness = resolveSignalFreshness({
+      window: briefWindow,
+      wearableSourceAgeDays,
+      hasWearableData,
+      hasCheckInRowForWindow: checkInRowCurrentForWindow,
+    });
+    const briefWearableUsable = signalFreshness.wearableCurrent;
+    const checkInCurrentForWindow = signalFreshness.checkInCurrent;
+    const currentCheckInOutcome = checkInCurrentForWindow
+      ? (checkInOutcome ?? null)
+      : null;
+    const currentClarityLevel = checkInCurrentForWindow
+      ? (typeof clarityLevel === "number" ? clarityLevel : null)
+      : null;
+    const currentConfidenceLevel = checkInCurrentForWindow
+      ? (typeof confidenceLevel === "number" ? confidenceLevel : null)
+      : null;
+    const currentMentalSharpnessLevel = checkInCurrentForWindow
+      ? (typeof mentalSharpnessLevel === "number" ? mentalSharpnessLevel : null)
+      : null;
+    if (
+      !checkInCurrentForWindow &&
+      (checkInOutcome != null || clarityLevel != null ||
+        confidenceLevel != null || mentalSharpnessLevel != null)
+    ) {
+      console.log(
+        `[brief][stale-checkin-dropped] window=${briefWindow} date=${userLocalDate} forwardedOutcome=${
+          checkInOutcome ?? "null"
+        } forwardedClarity=${clarityLevel ?? "null"}`,
+      );
+    }
+    if (hasWearableData && !briefWearableUsable) {
+      console.log(
+        `[brief][stale-wearable-dropped] window=${briefWindow} ageDays=${
+          wearableSourceAgeDays ?? "null"
+        } maxAge=${signalFreshness.maxWearableAgeDays}`,
+      );
+    }
+    const checkInFreshForGate = !!currentCheckInOutcome;
     const readinessEligibilityMode:
       | "awaiting_signals"
       | "early_read"
@@ -5649,10 +5729,10 @@ serve(async (req) => {
               : null,
           wearableContextPoorSleep: !!wearableContext?.poorSleep,
           wearableContextHrvElevated: !!wearableContext?.hrvElevated,
-          clarityLevel,
-          emotionLevel,
-          regulationLevel,
-          pressureLevel,
+          clarityLevel: currentClarityLevel,
+          emotionLevel: checkInCurrentForWindow ? emotionLevel : null,
+          regulationLevel: checkInCurrentForWindow ? regulationLevel : null,
+          pressureLevel: checkInCurrentForWindow ? pressureLevel : null,
           calendarLoad,
           calendarPressure,
           highStakesEventsCount: calendarResult.highStakesEvents?.length ?? 0,
@@ -6037,7 +6117,7 @@ serve(async (req) => {
           }`;
 
           // Wearable confidence
-          const wearableConfidence = !hasWearable
+          const wearableConfidence = !briefWearableUsable
             ? null
             : (wearableDaysConnected ?? 0) >= 14
             ? "high"
@@ -6605,16 +6685,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
           // Mental Energy = /daily-check-in outcome (emotional self-declared); Mental Sharpness = /check-in-detail slider
           userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${
-            checkInOutcome ?? "null"
+            currentCheckInOutcome ?? "null"
           }`;
           userPrompt += `\nMental Sharpness (slider, /check-in-detail): ${
-            mentalSharpnessLevel ?? "null"
-          }/5 · Clarity: ${clarityLevel ?? "null"}/5 · Confidence: ${
-            confidenceLevel ?? "null"
+            currentMentalSharpnessLevel ?? "null"
+          }/5 · Clarity: ${currentClarityLevel ?? "null"}/5 · Confidence: ${
+            currentConfidenceLevel ?? "null"
           }/5`;
           userPrompt +=
             `\nEmotional self-declared (Decision Leakage trigger source): ${
-              checkInOutcome ?? "null"
+              currentCheckInOutcome ?? "null"
             }`;
           userPrompt +=
             `\nConsecutive low days: ${consecutiveLowDaysForPrompt}`;
@@ -6624,16 +6704,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
 
           userPrompt += `\n\n=== DATA AVAILABILITY CONTRACT ===`;
-          if (hasWearable) {
+          if (briefWearableUsable) {
             userPrompt +=
               `\nWearable signals are present. You may reference ONLY the wearable fields explicitly printed in the WEARABLE section below.`;
           } else {
             userPrompt +=
               `\nNo wearable signal exists for this brief. Do NOT mention HRV, RHR, heart rate, sleep, baseline, recovery metrics, or imply that the body is recovered / rested / under-recovered from wearable evidence.`;
+            if (signalFreshness.wearableHistoricalOnly) {
+              userPrompt +=
+                `\nOlder wearable rows exist (age ${
+                  signalFreshness.wearableSourceAgeDays ?? "unknown"
+                } days) but they are NOT current for the ${briefWindow} window. They may only inform baselines/trends and must never be stated as today's physiology.`;
+            }
           }
           if (
-            checkInOutcome || mentalSharpnessLevel != null ||
-            clarityLevel != null || confidenceLevel != null
+            currentCheckInOutcome || currentMentalSharpnessLevel != null ||
+            currentClarityLevel != null || currentConfidenceLevel != null
           ) {
             userPrompt +=
               `\nCurrent-period check-in is present. You may reference ONLY the check-in fields explicitly printed in the READINESS section above.`;
@@ -6646,7 +6732,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           if (assessmentPromptSection) userPrompt += assessmentPromptSection;
 
           // === WEARABLE ===
-          if (hasWearable) {
+          if (briefWearableUsable) {
             userPrompt += `\n\n=== WEARABLE ===`;
             if (hrvValue != null) {
               userPrompt += `\nHRV: ${hrvValue}ms · Baseline: ${
@@ -7166,7 +7252,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // CEO rules, event taxonomy, or window logic lands in
           // _shared/* and propagates here automatically.
           try {
-            const wearableForCtx = hasWearable
+            const wearableForCtx = briefWearableUsable
               ? {
                 hrvDeviationPct: hrvDeviation ?? null,
                 hrvUnusual: !!hrvUnusual,
@@ -7255,10 +7341,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               coverage: {
                 wearable: wearableForCtx,
                 checkIn: {
-                  emotionalSelfDeclared: checkInOutcome ?? null,
-                  mentalSharpness: mentalSharpnessLevel ?? null,
-                  confidence: confidenceLevel ?? null,
-                  clarity: clarityLevel ?? null,
+                  emotionalSelfDeclared: currentCheckInOutcome,
+                  mentalSharpness: currentMentalSharpnessLevel,
+                  confidence: currentConfidenceLevel,
+                  clarity: currentClarityLevel,
                 },
                 scoreToday: innerReadinessScore ?? null,
                 scoreYesterday: yesterdayScore ?? null,
@@ -8454,19 +8540,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   // Brief — never deterministic fallback prose.
                   const atomicCtx: any = {
                     signals: {
-                      hrvDeviationPct: hrvDeviation ?? null,
-                      hrvUnusual: !!hrvUnusual,
-                      sleepHours: sleepDuration != null
+                      hrvDeviationPct: briefWearableUsable
+                        ? (hrvDeviation ?? null)
+                        : null,
+                      hrvUnusual: briefWearableUsable && !!hrvUnusual,
+                      sleepHours: briefWearableUsable && sleepDuration != null
                         ? sleepDuration / 60
                         : null,
-                      sleepDeviationPct: sleepDeviation ?? null,
-                      sleepBelow6h: !!sleepHardFloor,
-                      rhrDeviationPct: rhrDeviation ?? null,
-                      hrElevatedProxy:
+                      sleepDeviationPct: briefWearableUsable
+                        ? (sleepDeviation ?? null)
+                        : null,
+                      sleepBelow6h: briefWearableUsable && !!sleepHardFloor,
+                      rhrDeviationPct: briefWearableUsable
+                        ? (rhrDeviation ?? null)
+                        : null,
+                      hrElevatedProxy: briefWearableUsable &&
                         (wearableContext as any)?.hrElevated === true,
-                      emotionalSelfDeclared: checkInOutcome ?? null,
-                      mentalSharpness: mentalSharpnessLevel ?? null,
-                      confidence: confidenceLevel ?? null,
+                      emotionalSelfDeclared: currentCheckInOutcome,
+                      mentalSharpness: currentMentalSharpnessLevel,
+                      confidence: currentConfidenceLevel,
                       timezoneOffsetMinutes: null,
                       timezoneShift48hHours: null,
                       travelDay: false,
@@ -8728,18 +8820,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 return "unread";
               };
               const deterministicCheckIn = mapDeterministicCheckInOutcome(
-                checkInOutcome ?? null,
-                typeof clarityLevel === "number" ? clarityLevel : null,
-                typeof confidenceLevel === "number" ? confidenceLevel : null,
+                currentCheckInOutcome,
+                currentClarityLevel,
+                currentConfidenceLevel,
               );
               const scoreForBand = assessmentContext?.readiness.score ??
                 (typeof innerReadinessScore === "number"
                   ? innerReadinessScore
                   : null);
-              const hrvForBand = typeof hrvDeviation === "number"
+              const hrvForBand = briefWearableUsable &&
+                  typeof hrvDeviation === "number"
                 ? hrvDeviation
                 : null;
-              const wearableFactForSpec = hrvForBand != null
+              const wearableFactForSpec = !briefWearableUsable
+                ? null
+                : hrvForBand != null
                 ? (hrvForBand >= 10
                   ? "Recovery is running above its usual range"
                   : hrvForBand <= -20
@@ -8761,7 +8856,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   deterministicCheckIn,
                   hrvForBand,
                 ),
-                hasWearable: !!wearableContext,
+                hasWearable: briefWearableUsable,
+                hasCurrentWearable: briefWearableUsable,
+                hasCurrentCheckIn: checkInCurrentForWindow,
                 checkInOutcome: deterministicCheckIn,
                 cognitivePillTier: normalizeTier(
                   pillContext?.decisionReadiness,
@@ -8778,7 +8875,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   : null,
                 meetingCount: calendarResult?.meetingCount ??
                   calendarResult?.eventCount ?? 0,
-                sleepScore: typeof sleepScoreVal === "number"
+                sleepScore: briefWearableUsable &&
+                    typeof sleepScoreVal === "number"
                   ? sleepScoreVal
                   : null,
                 hasBackToBack: !!hasBackToBack,
@@ -10005,6 +10103,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     ? "checkin"
                     : "unknown",
                   payload_json: {
+                    signal_freshness: {
+                      window: briefWindow,
+                      wearableCurrentForWindow: briefWearableUsable,
+                      checkInCurrentForWindow,
+                      wearableSourceAgeDays,
+                      maxWearableAgeDays: signalFreshness.maxWearableAgeDays,
+                      currentSignals: [
+                        ...(briefWearableUsable ? ["wearable"] : []),
+                        ...(checkInCurrentForWindow ? ["check_in"] : []),
+                      ],
+                    },
                     signals: {
                       checkInOutcome: checkInOutcome || null,
                       clarityLevel,

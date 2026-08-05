@@ -237,3 +237,63 @@ Deno.test("deterministic brief — weekday wearable-only path keeps calendar-fre
   assertEquals(result.body.includes("no calendar demand in view"), true);
   assertEquals(result.body.split(".")[0].trim().split(/\s+/).length >= 15, true);
 });
+
+Deno.test("deterministic brief — stale wearable + stale check-in emit no current claims", () => {
+  const out = buildDeterministicBriefFallback({
+    band: "depleted",
+    hasWearable: true,
+    hasCurrentWearable: false,
+    hasCurrentCheckIn: false,
+    checkInOutcome: "sharp",
+    cognitivePillTier: "unread",
+    physicalPillTier: "unread",
+    wearableFact: "Recovery is significantly under its usual range",
+    window: "afternoon",
+    todayHighStakes: [],
+    calendarLoad: null,
+    meetingCount: 0,
+    sleepScore: 48,
+    hasBackToBack: false,
+  });
+  const text = `${out.phrase} ${out.body}`.toLowerCase();
+  for (
+    const forbidden of [
+      "hrv",
+      "recovery is",
+      "sleep ran short",
+      "checked in",
+      "clarity",
+      "evenly matched",
+    ]
+  ) {
+    if (text.includes(forbidden)) {
+      throw new Error(`stale claim leaked into brief: "${forbidden}" in ${text}`);
+    }
+  }
+  if (!text.includes("current read")) {
+    throw new Error(`expected thin-signal read, got: ${text}`);
+  }
+});
+
+Deno.test("deterministic brief — one unread pillar never produces a two-pillar comparison", () => {
+  const out = buildDeterministicBriefFallback({
+    band: "steady",
+    hasWearable: false,
+    hasCurrentWearable: false,
+    hasCurrentCheckIn: true,
+    checkInOutcome: "holding",
+    cognitivePillTier: "amber",
+    physicalPillTier: "unread",
+    wearableFact: null,
+    window: "afternoon",
+    todayHighStakes: [],
+    calendarLoad: null,
+    meetingCount: 0,
+    sleepScore: null,
+    hasBackToBack: false,
+  });
+  const text = out.body.toLowerCase();
+  if (text.includes("evenly matched") || text.includes("physical stamina are")) {
+    throw new Error(`unexpected comparison: ${text}`);
+  }
+});

@@ -10,6 +10,18 @@ export type DeterministicBriefPillTier = "green" | "amber" | "red" | "unread";
 export interface DeterministicBriefFallbackOpts {
   band: DeterministicBriefBand;
   hasWearable: boolean;
+  /**
+   * Current-window freshness contract (see _shared/signal-engine/signal-freshness.ts).
+   * When false, no wearable-derived current claim may be emitted, regardless of
+   * whether historical rows exist. Defaults to `hasWearable` for back-compat.
+   */
+  hasCurrentWearable?: boolean;
+  /**
+   * True only when a check-in exists for today's local date and this window.
+   * When false, no felt-state / clarity claim may be emitted. Defaults to
+   * `checkInOutcome != null` for back-compat.
+   */
+  hasCurrentCheckIn?: boolean;
   checkInOutcome: "sharp" | "holding" | "drained" | null;
   cognitivePillTier: DeterministicBriefPillTier;
   physicalPillTier: DeterministicBriefPillTier;
@@ -164,6 +176,8 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
 function buildRead(opts: DeterministicBriefFallbackOpts): string {
   const hasHighStakes = opts.todayHighStakes.length > 0;
   const hasManyHighStakes = opts.todayHighStakes.length >= 2;
+  const cogUnread = opts.cognitivePillTier === "unread";
+  const physUnread = opts.physicalPillTier === "unread";
   const drainedIntoHighStakes = opts.checkInOutcome === "drained" &&
     hasHighStakes;
   const lowSleepIntoHighStakes =
@@ -177,10 +191,27 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   }
   if (lowSleepIntoHighStakes) return "That changes what preparation looks like.";
   if (opts.hasBackToBack && opts.physicalPillTier !== "green") {
+    if (physUnread) {
+      return "The calendar is compressed and there's no current physiological read to weigh against it.";
+    }
     return "Physiology is carrying more load going into a compressed calendar.";
   }
   if (hasHighStakes && opts.cognitivePillTier === "green") {
     return "Mind is clear and the calendar is stacked — use the edge.";
+  }
+
+  // Unread is not a tier. Never convert a missing signal into a neutral read
+  // or a two-pillar comparison.
+  if (cogUnread && physUnread) {
+    return hasHighStakes
+      ? "Neither Mind nor body has a current read today — the calendar is the only evidence in view."
+      : "Neither Mind nor body has a current read today — the signal is thin, so treat the day on its own terms.";
+  }
+  if (cogUnread) {
+    return "There's no current Mind read today, so the physical signal is the only one to work from.";
+  }
+  if (physUnread) {
+    return "There's no current physical read today, so the Mind signal is the only one to work from.";
   }
 
   const pillKey = `${opts.cognitivePillTier}+${opts.physicalPillTier}`;
@@ -282,8 +313,20 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
 }
 
 export function buildDeterministicBriefFallback(
-  opts: DeterministicBriefFallbackOpts,
+  rawOpts: DeterministicBriefFallbackOpts,
 ): DeterministicBriefResult {
+  // Enforce the freshness contract at the boundary: a signal that is not
+  // current for this window cannot reach any sentence builder.
+  const wearableCurrent = rawOpts.hasCurrentWearable ?? rawOpts.hasWearable;
+  const checkInCurrent = rawOpts.hasCurrentCheckIn ??
+    (rawOpts.checkInOutcome != null);
+  const opts: DeterministicBriefFallbackOpts = {
+    ...rawOpts,
+    hasWearable: rawOpts.hasWearable && wearableCurrent,
+    wearableFact: wearableCurrent ? rawOpts.wearableFact : null,
+    sleepScore: wearableCurrent ? rawOpts.sleepScore : null,
+    checkInOutcome: checkInCurrent ? rawOpts.checkInOutcome : null,
+  };
   const phrase = phraseFor(opts);
   const evidence = buildEvidence(opts);
   const read = buildRead(opts);
