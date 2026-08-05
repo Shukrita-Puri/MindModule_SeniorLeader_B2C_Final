@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
+import { deriveEveningPhysioSource } from "../_shared/signal-engine/evening-physio-source.ts";
 import { classifyDay } from "../_shared/availability/availability-classifier.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
@@ -234,7 +235,7 @@ async function loadDayTypeEventSlices(
 async function latestWearable(db: any, userId: string, localDate?: string) {
   const { data: latest } = await db
     .from("wearable_data")
-    .select("summary_date,hrv,resting_heart_rate,sleep_score,total_sleep_minutes")
+    .select("summary_date,hrv,resting_heart_rate,sleep_score,total_sleep_minutes,hr_samples")
     .eq("user_id", userId)
     .order("summary_date", { ascending: false })
     .limit(1)
@@ -725,7 +726,7 @@ async function buildForUser(db: any, args: {
     // samples vs the 30-day RHR baseline). Without this the evening 32.5pt
     // cell reused the morning HRV deviation already scored at 8.75.
     const eveningPhysio = window === "evening" && hasFreshWearable
-      ? deriveEveningPhysioSource((latest as any)?.hr_samples ?? null, wearable.rhrBaseline, offset * 60)
+      ? deriveEveningPhysioSource((latest as any)?.hr_samples ?? null, wearable.rhrBaseline, offset)
       : { eveningHrDeviationPct: null, bodyLoadElevated: null, sampleCount: 0 };
     const mrsSubScores = buildMrsV4SubScores(window, {
       hrvValue: hasFreshWearable ? latest?.hrv ?? null : null,
