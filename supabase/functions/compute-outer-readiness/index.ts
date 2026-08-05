@@ -10379,16 +10379,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           })
           : null,
         // briefMode is the canonical client-facing signal source contract.
-        //   • 'cold-start' — no baseline / no check-in / no usable inner score
-        //   • 'baseline'   — wearable and/or calendar demand present, no check-in for today
+        //   • 'cold-start' — no current personal signal (wearable/check-in) OR
+        //                    no usable inner score. Calendar-only is cold-start
+        //                    for the Brief, even though MRS/Plan still use it.
+        //   • 'baseline'   — window-fresh wearable present, no check-in for today
         //   • 'refined'    — check-in present (with or without wearable/calendar)
         // Client rule: only render skeleton when briefMode === 'cold-start'.
         // In baseline mode pills, score, brief and Plan must all render.
         briefMode: (
-          awaitingSignals || innerStateIsAwaiting
+          awaitingSignals || briefAwaitingSignals || innerStateIsAwaiting
             ? "cold-start"
             : (hasTodayCheckIn ? "refined" : "baseline")
         ) as "cold-start" | "baseline" | "refined",
+
         // Source provenance + pill↔MRS coherence + baseline-only score.
         // Surfaced for client audit chips and so MRS + pills are not
         // operating in isolation. `pillCoherence.inSync === false` means
