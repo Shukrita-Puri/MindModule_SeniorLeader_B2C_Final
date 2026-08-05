@@ -31,7 +31,7 @@ This gate is scoped strictly to the Brief. MRS scoring, gating, tiers, pills, Pl
 
 **Existing baseline/refined rule is preserved, not redefined.** Brief formation stays exactly as built today:
 
-- **Baseline brief** — formed from wearable (+ calendar context) signals, no check-in.
+- **Baseline brief** — formed from wearable (+ calendar context) signals, no check-in. In `compute-outer-readiness` (lines 9054–9060), `hasFreshWearable = wearableContext && hasTodayWearableData`, and `briefMode` is `refined` only when a check-in exists; otherwise it is `baseline` whenever a Stage-1 signal is present. So a window-fresh wearable row plus calendar with no check-in forms a baseline brief today — that positive control matches current logic and the plan does not change it.
 - **Refined brief** — baseline plus the current-window check-in.
 
 The only thing this change adds is an entry condition: at least one *current* personal signal (a wearable row fresh for this window, or a check-in for today + this window) must exist before either mode may form. Calendar alone must NEVER make the Brief form. Calendar keeps feeding its own signal pill, MRS, Plan and Nudges exactly as before — no change there.
