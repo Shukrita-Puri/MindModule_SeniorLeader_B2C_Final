@@ -2084,12 +2084,25 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     }
   }
   const lastGood = lastGoodBriefRef.current;
+  // If the live server explicitly returned an awaiting payload for the
+  // current window, clear any last-good / persistent-cache state so we never
+  // restore an older LLM or deterministic brief while signals are missing.
+  const incomingIsAwaiting = isTrueAwaitingBrief(outerBriefReal);
+  if (incomingIsAwaiting) {
+    lastGoodBriefRef.current = null;
+    const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
+    if (effectiveUserId) {
+      clearPersistent(cacheKeys.brief(effectiveUserId, currentPeriodLocal(), localISODate()));
+    }
+  }
   const canReuseLastGood =
     !!lastGood &&
     lastGood.key.startsWith(`${currentWindowKey}|`) &&
     !currentIsRenderable &&
+    !incomingIsAwaiting &&
     !tourMockBriefActive;
   if (canReuseLastGood) {
+
     // Reassign so all downstream reads (score, tier, chips, pills,
     // copy) draw from the last-good payload for this window.
     outerBrief = lastGood!.payload;
