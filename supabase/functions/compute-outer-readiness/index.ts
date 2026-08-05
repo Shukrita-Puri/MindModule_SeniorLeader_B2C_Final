@@ -9123,9 +9123,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // A valid deterministic brief or an adopted canonical score means the user
       // should always see content — never force awaiting when either exists.
       const hasDeterministicBrief = deterministicBrief !== null;
-      const briefMustAwait = (awaitingSignals || innerStateIsAwaiting) &&
-        !hasDeterministicBrief &&
-        typeof canonicalInnerScore !== "number";
+      // The Brief is forced to awaiting when no current personal signal exists,
+      // regardless of a cached LLM/deterministic brief or a canonical score.
+      // This preserves MRS/Plan/Calendar signals while preventing calendar-only
+      // or stale-cache brief prose from reaching the user.
+      const briefMustAwait = briefAwaitingSignals ||
+        ((awaitingSignals || innerStateIsAwaiting) &&
+          !hasDeterministicBrief &&
+          typeof canonicalInnerScore !== "number");
+
       const briefIsAwaiting = briefMustAwait ||
         (!cachedSnapshot && !llmBrief && !deterministicBrief);
       const briefSource: "llm" | "deterministic" | "awaiting" = briefMustAwait
