@@ -9987,7 +9987,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
               const existingHasCopy = !!existingPhrase && !!existingBody;
               const newHasCopy = !!persistPhrase && !!persistBody;
-              if (existingHasCopy && !newHasCopy) {
+              if (briefAwaitingSignals) {
+                // Personal-signal contract is not met for this window. Force an
+                // explicit awaiting row and do NOT preserve a prior LLM or
+                // deterministic brief — the frontend must not restore stale
+                // prose when the server has decided the signal is missing.
+                persistPhrase = null;
+                persistBody = null;
+                persistLeanOn = null;
+                persistWatchFor = null;
+                persistLeanOnSource = null;
+                persistWatchForSource = null;
+                effectiveBriefSource = "awaiting";
+                overwriteDecision = "overwrite_forced_awaiting";
+              } else if (existingHasCopy && !newHasCopy) {
                 // Prevent wipe — keep prior copy and brief_source.
                 persistPhrase = existingPhrase;
                 persistBody = existingBody;
@@ -10013,6 +10026,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 effectiveBriefSource = "awaiting";
                 overwriteDecision = "none";
               }
+
               console.log("[brief-cache][copy-persist]", {
                 userId,
                 localDate: userLocalDate,
