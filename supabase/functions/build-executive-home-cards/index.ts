@@ -577,6 +577,7 @@ async function buildForUser(db: any, args: {
   // admin replaying a failed run) is an explicit override of cadence.
   // ---------------------------------------------------------------------------
   let dayTypeDecision: DayTypeDecision | null = null;
+  let dayTypeSlices: { todayEvents: any[]; tomorrowEvents: any[]; consecutiveOffDaysBefore: number } | null = null;
   try {
     const slices = await loadDayTypeEventSlices(
       db,
@@ -585,6 +586,7 @@ async function buildForUser(db: any, args: {
       effectiveTimezone,
       profile?.country ?? null,
     );
+    dayTypeSlices = slices;
     dayTypeDecision = resolveDayTypeAndCadence({
       effectiveTimezone,
       now: new Date(),
