@@ -20,8 +20,16 @@ Only material gaps are changed. Rules already correct in code (per-window signal
 - §3.2a sleep-deficit cap kept exactly as-is.
 
 ### 2. Zero-demand recovery credit
-- New zero-demand credit constant alongside the weights module. A demand cell with a measured raw demand of 0 scores `ZERO_DEMAND_CREDIT × 100` instead of the raw inversion, flagged in `weightProvenance`.
-- Modelled at 40 / 50 / 60 / 75% across scenarios A–G before the constant is fixed; 60% is the starting hypothesis and the results are reported before finalising.
+The pipeline is explicit and staged in code, so raw measurement and scoring credit never collapse into each other:
+
+```text
+raw calendar demand = 0  ->  cell available = true (earned)
+                         ->  zero-demand recovery rule applied
+                         ->  bounded positive MRS contribution
+```
+
+- `rawDemand` stays 0 in the subscore inputs and in `weightProvenance`; the credit is applied only at the scoring step, tagged `zero_demand_credit` per cell.
+- `ZERO_DEMAND_CREDIT` is declared **provisional** in the weights module and is set only after the modelling run at 40 / 50 / 60 / 75% across scenarios A–G. 60% is a hypothesis, not a pre-approved value; the modelling table is reported before the constant is locked.
 
 ### 3. Calendar state as the demand gate
 - `build-executive-home-cards` resolves `calendarState` from an actual connection check plus `eventCount`:
@@ -32,7 +40,13 @@ Only material gaps are changed. Rules already correct in code (per-window signal
 - `compute-inner-readiness` stops inferring calendar availability from event truthiness and enforces the demand-pillar requirement.
 
 ### 4. Morning demand: add yesterday's realised demand
-- Move `yesterdayCarryover` from the pattern pillar to the **demand** pillar in `mrs-v4-weights.ts`, splitting the existing 30-point morning Demand allocation (proposed 20 today / 10 yesterday, confirmed by the modelling run). Morning total stays 100 — the MRS scale does not grow.
+- Move `yesterdayCarryover` from the pattern pillar to the **demand** pillar in `mrs-v4-weights.ts`. Morning Demand stays a fixed 30-point allocation and morning total stays 100 — the MRS scale does not grow (morning pattern becomes a single 20-point `patternEngineComposite` cell, matching the other windows).
+- The split is a `MORNING_DEMAND_SPLIT` constant marked **provisional**. It is not locked until modelled at:
+  - 25 / 5 — heavily favours today
+  - 20 / 10 — moderate carryover
+  - 15 / 15 — equal
+  - 10 / 20 — carryover-dominant
+- Each split is run through: yesterday high / today low; yesterday low / today high; both high; both zero; yesterday unavailable + today available; yesterday available + today unavailable. Acceptance: yesterday measurably shifts Morning readiness without ever outweighing today's actual scheduled demand, and the unavailable cases redistribute only within Demand.
 - `build-executive-home-cards` supplies a real yesterday realised-demand value from yesterday's events instead of `null`.
 - Afternoon and Evening demand structures are unchanged — no new signals.
 
@@ -55,4 +69,4 @@ Only material gaps are changed. Rules already correct in code (per-window signal
 - Final report covers: signal map per window, anchor confirmation (same-date/same-window for all three), calendar truth table, redistribution truth table, the 40/50/60/75 modelling results with the recommended constant, morning weight split, evening confirmation, and explicit confirmation that no tier veto was added.
 
 ## Open point
-The zero-demand credit stays a modelled decision rather than a hard-coded 60%, and the morning 20/10 split is provisional until the scenario run — both are reported before the constants land.
+Both constants (`ZERO_DEMAND_CREDIT`, `MORNING_DEMAND_SPLIT`) ship as explicitly provisional and are decided empirically from the modelling tables, which are reported before the values are locked.
