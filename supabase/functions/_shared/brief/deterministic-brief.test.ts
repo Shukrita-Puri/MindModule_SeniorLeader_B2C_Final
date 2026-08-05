@@ -5,7 +5,9 @@ import {
 import {
   buildDeterministicBriefFallback,
   type DeterministicBriefFallbackOpts,
+  type DeterministicBriefResult,
 } from "./deterministic-brief.ts";
+
 
 function base(
   overrides: Partial<DeterministicBriefFallbackOpts> = {},
