@@ -9,7 +9,11 @@ import {
   composeBaselineV4,
   type SubScore,
 } from "../_shared/signal-engine/mrs-v4-compose.ts";
-import type { SubComponentId, Window as MrsWindow } from "../_shared/signal-engine/mrs-v4-weights.ts";
+import {
+  ZERO_DEMAND_CREDIT,
+  type SubComponentId,
+  type Window as MrsWindow,
+} from "../_shared/signal-engine/mrs-v4-weights.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -729,6 +733,14 @@ interface ComputeRequest {
    */
   hasCalendarSignal?: boolean;
 
+  /**
+   * Authoritative calendar state from the caller.
+   *   'not_connected'       — no demand information at all → MRS cannot form
+   *   'connected_no_events' — demand measured and genuinely zero (earned)
+   *   'active'              — demand measured normally
+   */
+  calendarState?: 'active' | 'connected_no_events' | 'not_connected';
+
   // ─── MRS v4 — required window-aware baseline path ────────────────────
   // `weightingMode` is retained only as a label for audit/back-compat. It no
   // longer changes baseline math. State 1 must always come from the v4
@@ -780,10 +792,13 @@ function normalizeMrsSubScores(value: unknown): SubScore[] {
     const id = typeof candidate.id === 'string' ? candidate.id as SubComponentId : null;
     if (!id) continue;
     const score = coerceFiniteNumber(candidate.score) ?? 0;
+    const rawDemand = coerceFiniteNumber(candidate.rawDemand);
     out.push({
       id,
       score: Math.max(0, Math.min(100, Math.round(score))),
       available: candidate.available === true,
+      ...(rawDemand != null ? { rawDemand } : {}),
+      ...(candidate.zeroDemandCredit === true ? { zeroDemandCredit: true } : {}),
     });
   }
   return out;
@@ -905,12 +920,13 @@ serve(async (req) => {
     }
 
     // MRS v4 — Stage 1 calendar backfill.
-    // Calendar demand may populate demand-pillar cells when the caller has a
-    // real numeric demand score, but the composer still enforces the SSOT
-    // rule that a wearable pillar is required for availability. Demand/pattern
-    // can sharpen a wearable-backed read; they never unlock a baseline alone.
+    // Both required pillars must be present for MRS to form: wearable
+    // (physiological) AND calendar (demand). Zero demand is EARNED data —
+    // only `null`/not-connected is unearned. Pattern is additive context and
+    // never gates.
     const DEMAND_SUBCOMPONENTS: SubComponentId[] = [
       'todayFullDayDemand',
+      'yesterdayCarryover',
       'remainingDayDemand',
       'realizedSoFarCost',
       'todayRealizedDemand',
@@ -923,7 +939,13 @@ serve(async (req) => {
     const effectiveDemandScore = numericDemandScore;
     const calendarDemandScore =
       typeof effectiveDemandScore === 'number' && Number.isFinite(effectiveDemandScore)
-        ? Math.max(0, Math.min(100, Math.round(100 - effectiveDemandScore)))
+        ? (Math.max(0, Math.min(100, effectiveDemandScore)) === 0
+            ? Math.round(ZERO_DEMAND_CREDIT * 100)
+            : Math.max(0, Math.min(100, Math.round(100 - effectiveDemandScore))))
+        : null;
+    const calendarRawDemand =
+      typeof effectiveDemandScore === 'number' && Number.isFinite(effectiveDemandScore)
+        ? Math.max(0, Math.min(100, Math.round(effectiveDemandScore)))
         : null;
     const subsForCompose: SubScore[] = normalizedSubScores.map((s) => {
       if (
@@ -931,7 +953,13 @@ serve(async (req) => {
         calendarDemandScore != null &&
         DEMAND_SUBCOMPONENTS.includes(s.id)
       ) {
-        return { id: s.id, score: calendarDemandScore, available: true };
+        return {
+          id: s.id,
+          score: calendarDemandScore,
+          available: true,
+          rawDemand: calendarRawDemand,
+          ...(calendarRawDemand === 0 ? { zeroDemandCredit: true } : {}),
+        };
       }
       return s;
     });
@@ -945,6 +973,9 @@ serve(async (req) => {
     const wearablePillarMet = subsForCompose.some(
       (s) => WEARABLE_SUBCOMPONENT_IDS.has(s.id) && s.available === true,
     );
+    const demandPillarMet = subsForCompose.some(
+      (s) => DEMAND_SUBCOMPONENTS.includes(s.id) && s.available === true,
+    );
     const hasScoreBearingBaselineSignal = subsForCompose.some(
       (s) => s.available === true && s.id !== 'patternEngineComposite',
     );
@@ -952,10 +983,12 @@ serve(async (req) => {
       mrsWindow: body.mrsWindow,
       demandScore: body.demandScore,
       hasCalendarSignal: body.hasCalendarSignal === true,
+      calendarState: body.calendarState ?? null,
       effectiveDemandScore,
       calendarDemandScore,
       hasScoreBearingBaselineSignal,
       wearablePillarMet,
+      demandPillarMet,
       incomingSubScores: normalizedSubScores,
       subsForCompose,
     }));
@@ -966,10 +999,11 @@ serve(async (req) => {
       body.sleepDeficitMeasurement ?? { available: false },
     );
     const baselineAnchorScore = coerceFiniteNumber(body.baselineAnchorScore);
-    const normalizedAnchorScore = baselineAnchorScore == null || !hasScoreBearingBaselineSignal || !wearablePillarMet
+    const bothPillarsMet = wearablePillarMet && demandPillarMet;
+    const normalizedAnchorScore = baselineAnchorScore == null || !hasScoreBearingBaselineSignal || !bothPillarsMet
       ? null
       : Math.max(0, Math.min(100, Math.round(baselineAnchorScore)));
-    score = wearablePillarMet ? (normalizedAnchorScore ?? v4.baseline) : null;
+    score = bothPillarsMet ? (normalizedAnchorScore ?? v4.baseline) : null;
     mrsV4Provenance = normalizedAnchorScore == null
       ? v4.weightProvenance
       : {
@@ -984,9 +1018,11 @@ serve(async (req) => {
           },
         };
     mrsV4Window = body.mrsWindow;
-    mrsV4AwaitingSignals = !wearablePillarMet || (normalizedAnchorScore == null ? v4.awaitingSignals : false);
-    if (!wearablePillarMet) {
-      console.log('[compute-inner-readiness] wearable pillar absent -> awaiting', {
+    mrsV4AwaitingSignals = !bothPillarsMet || (normalizedAnchorScore == null ? v4.awaitingSignals : false);
+    if (!bothPillarsMet) {
+      console.log('[compute-inner-readiness] required pillar absent -> awaiting', {
+        wearablePillarMet,
+        demandPillarMet,
         subScoreIds: normalizedSubScores.map((s) => s.id),
       });
     }

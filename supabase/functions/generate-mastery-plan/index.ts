@@ -4905,11 +4905,17 @@ async function buildSharedContext(
     const w = wearableRes.data;
     let hrvDeviation: number | null = null;
     if (w.hrv != null) {
+      // MRS v4 — baselines are a true 30-DAY window, never "last 30 rows".
+      // Row-count limits reach back months for sparse syncers and diverge
+      // from the signal-pill baseline.
+      const baselineAnchor = new Date(`${String(w.summary_date).slice(0, 10)}T00:00:00Z`);
+      const baselineStart = new Date(baselineAnchor);
+      baselineStart.setUTCDate(baselineStart.getUTCDate() - 29);
       const { data: baselineRows } = await supabaseClient.from("wearable_data")
-        .select("hrv").eq("user_id", req.userId).not("hrv", "is", null).order(
-          "summary_date",
-          { ascending: false },
-        ).limit(30);
+        .select("hrv").eq("user_id", req.userId).not("hrv", "is", null)
+        .gte("summary_date", baselineStart.toISOString().slice(0, 10))
+        .lte("summary_date", baselineAnchor.toISOString().slice(0, 10))
+        .order("summary_date", { ascending: false });
       if (baselineRows && baselineRows.length >= 5) {
         const avgHRV = baselineRows.reduce((sum: number, r: any) =>
           sum + Number(r.hrv), 0) / baselineRows.length;

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
+import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { classifyDay } from "../_shared/availability/availability-classifier.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
@@ -119,6 +120,29 @@ async function countTodayEvents(db: any, userId: string, localDate: string) {
   return mergeCalendarEvents((data || []) as any[], "unknown").length;
 }
 
+/**
+ * MRS v4 — Morning demand is split between today's scheduled load and
+ * yesterday's realised load (carryover). Yesterday sits in the DEMAND
+ * pillar, not the pattern pillar.
+ */
+async function yesterdayDemand(db: any, userId: string, localDate: string): Promise<number | null> {
+  try {
+    const prev = new Date(`${localDate}T00:00:00Z`);
+    prev.setUTCDate(prev.getUTCDate() - 1);
+    const day = prev.toISOString().slice(0, 10);
+    const { data } = await db
+      .from("calendar_events")
+      .select("start_time,end_time,is_organizer,attendees_count,is_recurring,title,event_metadata,provider,external_id,id")
+      .eq("user_id", userId)
+      .gte("start_time", `${day}T00:00:00`)
+      .lte("start_time", `${day}T23:59:59`);
+    const merged = mergeCalendarEvents((data || []) as any[], "unknown") as any[];
+    return computeCalendarDemand(merged as any).demandScore;
+  } catch {
+    return null;
+  }
+}
+
 // Fetch merged (deduped) event slices for today + tomorrow, plus a small
 // 2-day lookback used to hydrate `consecutiveOffDaysBefore` for the day-type
 // resolver. Lookback "off day" classification is delegated to the canonical
@@ -207,7 +231,7 @@ async function loadDayTypeEventSlices(
   };
 }
 
-async function latestWearable(db: any, userId: string) {
+async function latestWearable(db: any, userId: string, localDate?: string) {
   const { data: latest } = await db
     .from("wearable_data")
     .select("summary_date,hrv,resting_heart_rate,sleep_score,total_sleep_minutes")
@@ -216,12 +240,20 @@ async function latestWearable(db: any, userId: string) {
     .limit(1)
     .maybeSingle();
 
+  // MRS v4 — baselines must be a true 30-DAY window, not "last 30 rows".
+  // A row-count limit silently reaches back months for sparse syncers and
+  // produces a different HRV baseline than the signal-pill path.
+  const anchor = localDate ?? (latest?.summary_date as string | undefined) ??
+    new Date().toISOString().slice(0, 10);
+  const windowStart = new Date(`${anchor}T00:00:00Z`);
+  windowStart.setUTCDate(windowStart.getUTCDate() - 29);
   const { data: rows } = await db
     .from("wearable_data")
     .select("hrv,resting_heart_rate")
     .eq("user_id", userId)
-    .order("summary_date", { ascending: false })
-    .limit(30);
+    .gte("summary_date", windowStart.toISOString().slice(0, 10))
+    .lte("summary_date", anchor)
+    .order("summary_date", { ascending: false });
 
   const hrvRows = (rows ?? []).map((r: any) => Number(r.hrv)).filter(Number.isFinite);
   const rhrRows = (rows ?? []).map((r: any) => Number(r.resting_heart_rate)).filter(Number.isFinite);
@@ -234,6 +266,34 @@ async function latestWearable(db: any, userId: string) {
 }
 
 async function latestCheckin(db: any, userId: string, localDate: string, window: TimeWindow) {
+  return await _latestCheckin(db, userId, localDate, window);
+}
+
+/**
+ * MRS v4 — calendar availability is a PILLAR, not an event count.
+ * `connected_no_events` is earned data (a genuinely empty day);
+ * `not_connected` is missing data and must block MRS formation.
+ */
+async function resolveCalendarState(
+  db: any,
+  userId: string,
+  eventCount: number,
+): Promise<"active" | "connected_no_events" | "not_connected"> {
+  if (eventCount > 0) return "active";
+  try {
+    const { data } = await db
+      .from("calendar_connections")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .limit(1);
+    return Array.isArray(data) && data.length > 0 ? "connected_no_events" : "not_connected";
+  } catch {
+    return "not_connected";
+  }
+}
+
+async function _latestCheckin(db: any, userId: string, localDate: string, window: TimeWindow) {
   const { data } = await db
     .from("daily_checkins")
     .select("clarity_level,confidence_level,emotion_level,pressure_level,regulation_level,outcome")
@@ -575,7 +635,7 @@ async function buildForUser(db: any, args: {
     const [context, eventCount, wearable, checkin, existingMrsSnapshot] = await Promise.all([
       composeDailyContext(db, userId, localDate, { dryRun: true, timezone: effectiveTimezone, mrsWindow: window }),
       countTodayEvents(db, userId, localDate),
-      latestWearable(db, userId),
+      latestWearable(db, userId, localDate),
       latestCheckin(db, userId, localDate, window),
       db
         .from("daily_context_snapshot")
@@ -639,7 +699,17 @@ async function buildForUser(db: any, args: {
             : "stable"
         : null;
 
-    const demandScore = eventCount > 0 ? context.calendarDemandScore : null;
+    const calendarState = await resolveCalendarState(db, userId, eventCount);
+    const yesterdayDemandScore = window === "morning"
+      ? (calendarState === "not_connected" ? null : await yesterdayDemand(db, userId, localDate))
+      : null;
+    // Earned zero: a connected calendar with no events scores demand 0.
+    // Not connected: demand is genuinely missing and the pillar stays unmet.
+    const demandScore = eventCount > 0
+      ? context.calendarDemandScore
+      : calendarState === "connected_no_events"
+        ? 0
+        : null;
     const mrsSubScores = buildMrsV4SubScores(window, {
       hrvValue: hasFreshWearable ? latest?.hrv ?? null : null,
       hrvDeviationPct,
@@ -653,7 +723,7 @@ async function buildForUser(db: any, args: {
       todayRealizedDemand: demandScore,
       tomorrowOpeningDemand: demandScore,
       patternScore: null,
-      yesterdayCarryoverDemand: null,
+      yesterdayCarryoverDemand: yesterdayDemandScore,
     });
 
     console.log("[build-executive-home-cards] compute-inner-readiness input:", {
@@ -686,7 +756,8 @@ async function buildForUser(db: any, args: {
       rhrElevated: rhrTrend === "rising",
       wearableStatus: hasFreshWearable ? "fresh" : latest ? "stale" : "missing",
       demandScore,
-      hasCalendarSignal: eventCount > 0,
+      hasCalendarSignal: calendarState !== "not_connected",
+      calendarState,
       patternSignals: context.patternSignals,
       mrsWindow: window,
       mrsSubScores,
@@ -742,7 +813,7 @@ async function buildForUser(db: any, args: {
     const scoreToWrite = typeof mrs?.score === "number" ? mrs.score : typeof mrs?.scoreBaseline === "number" ? mrs.scoreBaseline : null;
     if (scoreToWrite != null) {
       try {
-        const { error: irsErr } = await supabase
+        const { error: irsErr } = await db
           .from("inner_readiness_scores")
           .upsert(
             {

@@ -26,28 +26,45 @@ export interface SubScore {
   id: SubComponentId;
   score: number;       // 0..100
   available: boolean;
+  /**
+   * Raw measured calendar demand (0..100 load) for Demand cells, carried for
+   * the audit trail only. `0` means "measured, genuinely empty" — never
+   * "missing". Missing is expressed as `available: false`.
+   */
+  rawDemand?: number | null;
+  /** True when the score came from the zero-demand recovery rule. */
+  zeroDemandCredit?: boolean;
 }
 
 export interface RedistributeResult {
   finalWeights: Record<SubComponentId, number>;
   earnedWeight: number;
   awaitingSignals: boolean;
+  physiologicalAvailable: boolean;
+  demandAvailable: boolean;
   weightProvenance: {
     window: Window;
     earned: Array<{ id: SubComponentId; weight: number }>;
     redistributed_to: Array<{ id: SubComponentId; from: number; to: number }>;
     awaiting_signals: boolean;
+    physiological_available: boolean;
+    demand_available: boolean;
+    zero_demand_credit?: Array<{ id: SubComponentId; raw_demand: number | null; score: number }>;
   };
 }
 
 /**
- * §8.3 — per-cycle, per-sub-component weight redistribution.
+ * §8.3 — per-cycle, per-sub-component weight redistribution, INTRA-PILLAR.
  *
- * Demand sub-components are the always-on reservoir. Pattern components are
- * audit/context only for MRS v4: they cannot unlock a baseline and never carry
- * score-bearing weight. When some unavailable weight needs a home and no
- * Demand sub-component is available, it falls back to whichever non-pattern
- * sub-components ARE available, distributed pro-rata to their target weights.
+ * Unearned Physiological weight redistributes only across earned
+ * Physiological cells; unearned Demand weight only across earned Demand
+ * cells. Pattern is additive context: it never carries score-bearing weight,
+ * never absorbs another pillar's weight, and never donates its own.
+ *
+ * MRS requires BOTH required pillars. If either Physiological or Demand has
+ * zero earned cells, the baseline cannot form (`awaitingSignals = true`).
+ *
+ * Semantics: `number` = earned, `0` = earned, `available:false` = unearned.
  */
 export function redistribute(window: Window, subs: SubScore[]): RedistributeResult {
   const cells = MRS_V4_WEIGHTS[window];
@@ -55,8 +72,6 @@ export function redistribute(window: Window, subs: SubScore[]): RedistributeResu
 
   const scoreBearingCells = cells.filter((c) => c.pillar !== 'pattern');
   const earnedCells = scoreBearingCells.filter((c) => byId.get(c.id)?.available === true);
-  const earnedWeight = earnedCells.reduce((s, c) => s + c.weight, 0);
-  const unearnedWeight = Math.max(0, 100 - earnedWeight);
 
   const finalWeights = Object.fromEntries(
     cells.map((c) => [c.id, 0] as const),
@@ -65,33 +80,54 @@ export function redistribute(window: Window, subs: SubScore[]): RedistributeResu
 
   const redistributed_to: RedistributeResult['weightProvenance']['redistributed_to'] = [];
 
-  if (unearnedWeight > 0 && earnedCells.length > 0) {
-    // Prefer Demand as the reservoir.
-    const demand = earnedCells.filter((c) => c.pillar === 'demand');
-    const reservoir = demand.length > 0 ? demand : earnedCells;
-    const reservoirTotal = reservoir.reduce((s, c) => s + c.weight, 0);
-    for (const c of reservoir) {
-      const share = (c.weight / reservoirTotal) * unearnedWeight;
+  // Intra-pillar redistribution — strictly no cross-pillar transfer.
+  for (const pillar of ['physiological', 'demand'] as const) {
+    const pillarCells = scoreBearingCells.filter((c) => c.pillar === pillar);
+    if (pillarCells.length === 0) continue;
+    const pillarEarned = pillarCells.filter((c) => byId.get(c.id)?.available === true);
+    if (pillarEarned.length === 0) continue; // pillar unavailable — weight simply drops
+    const pillarUnearnedWeight = pillarCells
+      .filter((c) => byId.get(c.id)?.available !== true)
+      .reduce((s, c) => s + c.weight, 0);
+    if (pillarUnearnedWeight <= 0) continue;
+    const earnedTotal = pillarEarned.reduce((s, c) => s + c.weight, 0);
+    for (const c of pillarEarned) {
+      const share = (c.weight / earnedTotal) * pillarUnearnedWeight;
       const before = finalWeights[c.id];
       finalWeights[c.id] = before + share;
       redistributed_to.push({ id: c.id, from: before, to: finalWeights[c.id] });
     }
   }
 
-  // MRS awaits only when zero earned immediate signals exist. Calendar/demand
-  // and wearable/physiological signals can produce a baseline via
-  // redistribution; patterns cannot form or contribute to MRS.
-  const awaitingSignals = earnedCells.length === 0;
+  const physiologicalAvailable = earnedCells.some((c) => c.pillar === 'physiological');
+  const demandAvailable = earnedCells.some((c) => c.pillar === 'demand');
+  // MRS requires BOTH physiological and demand information. Pattern never
+  // gates and never unlocks a baseline.
+  const awaitingSignals = !physiologicalAvailable || !demandAvailable;
+  const earnedWeight = earnedCells.reduce((s, c) => s + finalWeights[c.id], 0);
+
+  const zeroDemandCredit = earnedCells
+    .filter((c) => c.pillar === 'demand' && byId.get(c.id)?.zeroDemandCredit === true)
+    .map((c) => ({
+      id: c.id,
+      raw_demand: byId.get(c.id)?.rawDemand ?? 0,
+      score: byId.get(c.id)?.score ?? 0,
+    }));
 
   return {
     finalWeights,
     earnedWeight,
     awaitingSignals,
+    physiologicalAvailable,
+    demandAvailable,
     weightProvenance: {
       window,
       earned: earnedCells.map((c) => ({ id: c.id, weight: c.weight })),
       redistributed_to,
       awaiting_signals: awaitingSignals,
+      physiological_available: physiologicalAvailable,
+      demand_available: demandAvailable,
+      ...(zeroDemandCredit.length > 0 ? { zero_demand_credit: zeroDemandCredit } : {}),
     },
   };
 }
@@ -139,9 +175,9 @@ export function composeBaselineV4(
   subs: SubScore[],
   sleep: SleepDeficitInput = { available: false },
 ): ComposeBaselineResult {
-  const { finalWeights, awaitingSignals, weightProvenance } = redistribute(window, subs);
+  const { finalWeights, earnedWeight, awaitingSignals, weightProvenance } = redistribute(window, subs);
 
-  if (awaitingSignals) {
+  if (awaitingSignals || earnedWeight <= 0) {
     return { baseline: null, awaitingSignals: true, weightProvenance };
   }
 
@@ -203,6 +239,11 @@ export function composeBaselineV4(
     }
   }
 
-  const baseline = Math.max(0, Math.min(100, Math.round(physContribution + otherContribution)));
+  // Pattern weight is never score-bearing, so the earned weight is < 100 by
+  // construction. Renormalise over earned weight — this is a scale
+  // correction, NOT a cross-pillar transfer: each pillar keeps its own
+  // relative share.
+  const raw = ((physContribution + otherContribution) * 100) / earnedWeight;
+  const baseline = Math.max(0, Math.min(100, Math.round(raw)));
   return { baseline, awaitingSignals: false, weightProvenance: provenance };
 }
