@@ -9,7 +9,11 @@ import {
   composeBaselineV4,
   type SubScore,
 } from "../_shared/signal-engine/mrs-v4-compose.ts";
-import type { SubComponentId, Window as MrsWindow } from "../_shared/signal-engine/mrs-v4-weights.ts";
+import {
+  ZERO_DEMAND_CREDIT,
+  type SubComponentId,
+  type Window as MrsWindow,
+} from "../_shared/signal-engine/mrs-v4-weights.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -728,6 +732,14 @@ interface ComputeRequest {
    * outer-readiness service.
    */
   hasCalendarSignal?: boolean;
+
+  /**
+   * Authoritative calendar state from the caller.
+   *   'not_connected'       — no demand information at all → MRS cannot form
+   *   'connected_no_events' — demand measured and genuinely zero (earned)
+   *   'active'              — demand measured normally
+   */
+  calendarState?: 'active' | 'connected_no_events' | 'not_connected';
 
   // ─── MRS v4 — required window-aware baseline path ────────────────────
   // `weightingMode` is retained only as a label for audit/back-compat. It no
