@@ -393,7 +393,11 @@ Deno.test("Turn B divergence generation path: valid evidence-backed copy stays v
   assertEquals(context.pills.finalized.find((pill) => pill.key === "decision_readiness")?.tier, "green");
   assertStringIncludes(section, "wearable_objective positive");
   assertStringIncludes(section, "self_report negative");
-  assertStringIncludes(built.body, "Recovery is running above its usual range but you've checked in drained");
+  assertStringIncludes(
+    built.body,
+    "Recovery signals are clear but the Mind checked in drained",
+  );
+
 
 
   const invalid = validatePillBodyConsistency(
