@@ -42,6 +42,8 @@ import {
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
+import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
+
 
 // ─── TYPES ───
 interface SignalChip {
