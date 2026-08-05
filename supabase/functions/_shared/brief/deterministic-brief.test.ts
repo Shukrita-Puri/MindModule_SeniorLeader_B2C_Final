@@ -281,3 +281,68 @@ Deno.test("deterministic brief — one unread pillar never produces a two-pillar
     throw new Error(`unexpected comparison: ${text}`);
   }
 });
+
+Deno.test("deterministic brief — calendar-only with no personal signal returns null", () => {
+  const out = buildDeterministicBriefFallback({
+    band: "steady",
+    hasWearable: false,
+    hasCurrentWearable: false,
+    hasCurrentCheckIn: false,
+    checkInOutcome: null,
+    cognitivePillTier: "unread",
+    physicalPillTier: "unread",
+    wearableFact: null,
+    window: "afternoon",
+    todayHighStakes: ["Board Call"],
+    calendarLoad: "high",
+    meetingCount: 5,
+    sleepScore: null,
+    hasBackToBack: true,
+  });
+  assertEquals(out, null);
+});
+
+Deno.test("deterministic brief — current wearable-only forms a valid brief", () => {
+  const out = buildDeterministicBriefFallback({
+    band: "sharp",
+    hasWearable: true,
+    hasCurrentWearable: true,
+    hasCurrentCheckIn: false,
+    checkInOutcome: null,
+    cognitivePillTier: "green",
+    physicalPillTier: "green",
+    wearableFact: "HRV is running above baseline",
+    window: "morning",
+    todayHighStakes: [],
+    calendarLoad: null,
+    meetingCount: 0,
+    sleepScore: 82,
+    hasBackToBack: false,
+  });
+  if (!out) throw new Error("expected a brief for current wearable-only");
+  assertEquals(out.phrase, "Better than it feels");
+  assertStringIncludes(out.body, "HRV is running above baseline");
+});
+
+Deno.test("deterministic brief — current check-in-only forms a valid brief", () => {
+  const out = buildDeterministicBriefFallback({
+    band: "steady",
+    hasWearable: false,
+    hasCurrentWearable: false,
+    hasCurrentCheckIn: true,
+    checkInOutcome: "holding",
+    cognitivePillTier: "amber",
+    physicalPillTier: "unread",
+    wearableFact: null,
+    window: "afternoon",
+    todayHighStakes: [],
+    calendarLoad: null,
+    meetingCount: 0,
+    sleepScore: null,
+    hasBackToBack: false,
+  });
+  if (!out) throw new Error("expected a brief for current check-in-only");
+  assertEquals(out.phrase, "Holding steady");
+  assertStringIncludes(out.body, "checked in steady");
+});
+
