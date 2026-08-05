@@ -66,6 +66,16 @@ Audit `useMrsSnapshot`, `useCurrentBriefSnapshot`, `DecisionReadinessBrief` and 
 
 ## Verification before declaring done
 
+### Acceptance conditions (agreed)
+
+- Aug 5 afternoon case (no Aug 5 wearable row, no Aug 5 afternoon check-in): the brief forms **no** current-data narrative — no HRV claim or number, no current RHR/sleep claim, no "you're feeling focused" or current outcome claim, no current "Clarity 5/5". Body Unread, Mind/Clarity Unread.
+- "Deterministic brief still renders" is **not** permission to generate a generic physiological or check-in narrative from stale data — the deterministic fallback obeys the same freshness contract.
+- The Morning `age <= 1` exception is strictly Morning-only; it never makes yesterday's row current for Afternoon or Evening.
+- Historical data stays available only for explicitly labelled historical/trend context.
+- Reuse existing surfaces: `EngravedLoader` for processing states, existing connect/sync and awaiting copy for no-data states. No new UI, no new copy systems.
+- No MRS week-over-week changes in this run. No new MRS gate, blocker, veto, eligibility rule, scoring change, or frontend suppression that could stop MRS from displaying.
+- Change nothing that does not need to change — material correctness fixes only.
+
 - Scenarios A–G from the request, run against `compute-outer-readiness` via live invocation (synthetic inputs where real data is absent), reporting actual `phrase`, `body`, pill tiers and freshness for each.
 - Live re-run for `shukrita@mindmodule.me` (afternoon, 5 Aug) proving: no HRV claim, no "feeling focused", Clarity unread, Body Unread, and the brief still renders via the deterministic path.
 - New Deno tests: freshness resolver window matrix, deterministic-brief unread-pillar cases, stale-check-in drop.
