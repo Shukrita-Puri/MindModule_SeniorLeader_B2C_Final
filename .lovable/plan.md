@@ -17,7 +17,7 @@ Keep the existing card, hook and edge function exactly as they are structurally.
 2. `computeWeeklyDeltaComparison()` takes explicit calendar-week boundaries — `thisMonday → today` and `lastMonday → lastSunday` — resolves the active metric from today's row (`refined` when today has a refined score, otherwise `baseline`), and returns one authoritative value per concept: `thisWeekAvg`, `lastWeekAvg`, `delta`, plus the existing `comparisonMetric`. Both weeks are always summarised with the same metric so the comparison is like-for-like. Full precision internally, rounded at the output edge.
    - `delta` is set whenever both averages exist, regardless of composition. Otherwise `delta = null` with `reason = 'not_enough_history'`.
    - `composition_mismatch` / `awaiting_signals` are no longer produced as suppression reasons.
-   - `baselineDelta` / `refinedDelta` are **kept** in the comparison result and the response for backward compatibility. They now mirror the authoritative `delta` (same value, same nullability) rather than carrying separate composition-specific semantics. No existing response field is removed in this change.
+   - `baselineDelta` / `refinedDelta` are **kept** in the comparison result and the response for backward compatibility: whichever matches the active `comparisonMetric` carries the delta, the other is null — exactly the shape today's hook already reads. No existing response field is removed.
 3. `GET_WEEKLY_DELTA` accepts `lastSunday` (falling back to `lastMonday + 6` when an older client omits it). `lastToday` is no longer used for the window at all, so weekday truncation is structurally impossible; it is accepted and ignored for request compatibility.
 
 ## Client — `src/hooks/useWeeklyMrsDelta.ts`
@@ -36,6 +36,17 @@ Keep the existing card, hook and edge function exactly as they are structurally.
 ## Provenance
 
 Source table `daily_context_snapshot`; score `readiness_score_refined ?? readiness_score_baseline`; this week `Monday → today`; last week `previous Monday → previous Sunday`. No schema change, no new persistence.
+
+## Metric switch example
+
+```text
+Before check-in (today = baseline read)
+  This week 87  Last week 65  Progress +22   Read: Baseline
+
+After check-in (today = refined read)
+  This week / Last week / Progress recompute on refined scores
+  Read: Refined
+```
 
 ## Expected result for the current data
 
