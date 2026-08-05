@@ -6685,16 +6685,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
           // Mental Energy = /daily-check-in outcome (emotional self-declared); Mental Sharpness = /check-in-detail slider
           userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${
-            checkInOutcome ?? "null"
+            currentCheckInOutcome ?? "null"
           }`;
           userPrompt += `\nMental Sharpness (slider, /check-in-detail): ${
-            mentalSharpnessLevel ?? "null"
-          }/5 · Clarity: ${clarityLevel ?? "null"}/5 · Confidence: ${
-            confidenceLevel ?? "null"
+            currentMentalSharpnessLevel ?? "null"
+          }/5 · Clarity: ${currentClarityLevel ?? "null"}/5 · Confidence: ${
+            currentConfidenceLevel ?? "null"
           }/5`;
           userPrompt +=
             `\nEmotional self-declared (Decision Leakage trigger source): ${
-              checkInOutcome ?? "null"
+              currentCheckInOutcome ?? "null"
             }`;
           userPrompt +=
             `\nConsecutive low days: ${consecutiveLowDaysForPrompt}`;
@@ -7341,10 +7341,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               coverage: {
                 wearable: wearableForCtx,
                 checkIn: {
-                  emotionalSelfDeclared: checkInOutcome ?? null,
-                  mentalSharpness: mentalSharpnessLevel ?? null,
-                  confidence: confidenceLevel ?? null,
-                  clarity: clarityLevel ?? null,
+                  emotionalSelfDeclared: currentCheckInOutcome,
+                  mentalSharpness: currentMentalSharpnessLevel,
+                  confidence: currentConfidenceLevel,
+                  clarity: currentClarityLevel,
                 },
                 scoreToday: innerReadinessScore ?? null,
                 scoreYesterday: yesterdayScore ?? null,
