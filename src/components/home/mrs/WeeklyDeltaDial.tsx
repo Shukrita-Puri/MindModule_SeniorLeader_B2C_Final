@@ -19,32 +19,29 @@ const WeeklyDeltaDial = ({
   mode,
   reason = null,
 }: WeeklyDeltaDialProps) => {
-  const progressLabel =
-    delta == null || reason !== null
-      ? '—'
-      : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)}`;
-  const progressTone =
-    delta == null || reason !== null
-      ? 'text-muted-foreground/70'
-      : delta > 1
+  const hasDelta = delta != null;
+  const progressLabel = !hasDelta
+    ? '—'
+    : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)}`;
+  const progressTone = !hasDelta
+    ? 'text-muted-foreground/70'
+    : delta > 1
         ? 'text-[hsl(var(--tier-strong))]'
         : delta < -1
           ? 'text-[hsl(var(--tier-low))]'
           : 'text-foreground/80';
-  const statusText =
-    delta == null || reason !== null
-      ? reason === 'awaiting_signals'
-        ? 'Awaiting fresh signals'
-        : 'Building your trend'
-      : delta > 1
+  const statusText = !hasDelta
+    ? reason === 'awaiting_signals'
+      ? 'Awaiting fresh signals'
+      : 'Building your trend'
+    : delta > 1
         ? 'Trending up'
         : delta < -1
           ? 'Trending down'
           : 'Holding steady';
-  const supportingText =
-    delta == null || reason !== null
-      ? 'Week over week comparison will appear once enough matching history exists.'
-      : `Compared with last week using your ${mode} read.`;
+  const supportingText = !hasDelta
+    ? 'Week over week comparison will appear once enough matching history exists.'
+    : `Compared with last week using your ${mode} read.`;
 
   return (
     <div
@@ -67,7 +64,7 @@ const WeeklyDeltaDial = ({
             <div className="text-[28px] font-semibold tabular-nums leading-none text-foreground">
               {typeof thisWeekAvg === 'number'
                 ? thisWeekAvg
-                : typeof currentScore === 'number' && delta !== null && reason === null
+                : typeof currentScore === 'number' && hasDelta
                   ? currentScore
                   : '—'}
             </div>

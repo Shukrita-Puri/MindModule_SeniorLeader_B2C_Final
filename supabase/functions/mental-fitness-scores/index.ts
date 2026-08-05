@@ -17,6 +17,7 @@ interface RequestBody {
   thisMonday?: string; // YYYY-MM-DD
   lastMonday?: string; // YYYY-MM-DD
   lastToday?: string; // YYYY-MM-DD
+  lastSunday?: string; // YYYY-MM-DD
   today?: string; // YYYY-MM-DD
   scoreData?: {
     score_date: string;
@@ -81,17 +82,25 @@ export function summarizeWeek(
   rows: SnapshotRow[],
   startISO: string,
   endISO: string,
+  metric: "baseline" | "refined",
 ): {
   composition: ReadinessComposition;
   metric: "baseline" | "refined" | null;
   average: number | null;
   rowCount: number;
+  scoredDays: number;
 } {
   const weekRows = rows.filter((row) =>
     inRange(row.local_date, startISO, endISO)
   );
   if (weekRows.length === 0) {
-    return { composition: "unknown", metric: null, average: null, rowCount: 0 };
+    return {
+      composition: "unknown",
+      metric,
+      average: null,
+      rowCount: 0,
+      scoredDays: 0,
+    };
   }
 
   const nonAwaiting = weekRows.filter((row) =>
@@ -100,9 +109,10 @@ export function summarizeWeek(
   if (nonAwaiting.length === 0) {
     return {
       composition: "awaiting",
-      metric: null,
+      metric,
       average: null,
       rowCount: weekRows.length,
+      scoredDays: 0,
     };
   }
 
@@ -110,31 +120,22 @@ export function summarizeWeek(
   const mixed = nonAwaiting.some((row) =>
     classifyComposition(row) !== firstComposition
   );
-  if (mixed || firstComposition === "unknown") {
-    return {
-      composition: "unknown",
-      metric: null,
-      average: null,
-      rowCount: weekRows.length,
-    };
-  }
-
-  const metric: "baseline" | "refined" = firstComposition === "baseline-only"
-    ? "baseline"
-    : "refined";
+  // Composition is diagnostic only — a mixed week still averages.
+  const composition: ReadinessComposition = mixed ? "unknown" : firstComposition;
   const values = nonAwaiting
     .map((row) =>
       metric === "baseline"
-        ? row.readiness_score_baseline
-        : row.readiness_score_refined
+        ? (row.readiness_score_baseline ?? row.readiness_score_refined)
+        : (row.readiness_score_refined ?? row.readiness_score_baseline)
     )
     .filter((value): value is number => typeof value === "number");
 
   return {
-    composition: firstComposition,
+    composition,
     metric,
     average: avg(values),
     rowCount: weekRows.length,
+    scoredDays: values.length,
   };
 }
 
@@ -142,48 +143,45 @@ export function computeWeeklyDeltaComparison(
   rows: SnapshotRow[],
   thisMonday: string,
   lastMonday: string,
-  lastToday: string,
+  lastSunday: string,
   today: string,
 ): {
   baselineDelta: number | null;
   refinedDelta: number | null;
+  delta: number | null;
   reason: WeeklyDeltaReason;
   thisWeekComposition: ReadinessComposition;
   lastWeekComposition: ReadinessComposition;
   comparisonMetric: "baseline" | "refined" | null;
   thisWeekAvg: number | null;
   lastWeekAvg: number | null;
+  thisWeekScoredDays: number;
+  lastWeekScoredDays: number;
   todayState: string;
 } {
-  const thisWeek = summarizeWeek(rows, thisMonday, today);
-  const lastWeek = summarizeWeek(rows, lastMonday, lastToday);
   const todayRow = rows.find((r) => r.local_date === today) || null;
   const todayState = todayRow?.readiness_state || "baseline";
+  // Active metric follows today's MRS read: baseline until the check-in
+  // refines it, refined thereafter. Both weeks use the same metric.
+  const metric: "baseline" | "refined" =
+    typeof todayRow?.readiness_score_refined === "number" ||
+      todayState === "refined"
+      ? "refined"
+      : "baseline";
+
+  const thisWeek = summarizeWeek(rows, thisMonday, today, metric);
+  const lastWeek = summarizeWeek(rows, lastMonday, lastSunday, metric);
 
   let reason: WeeklyDeltaReason = null;
   let baselineDelta: number | null = null;
   let refinedDelta: number | null = null;
+  let delta: number | null = null;
 
-  if (thisWeek.rowCount === 0 || lastWeek.rowCount === 0) {
-    reason = "not_enough_history";
-  } else if (
-    thisWeek.composition === "awaiting" || lastWeek.composition === "awaiting"
-  ) {
-    reason = "awaiting_signals";
-  } else if (
-    thisWeek.composition === "unknown" || lastWeek.composition === "unknown"
-  ) {
-    reason = "composition_mismatch";
-  } else if (thisWeek.composition !== lastWeek.composition) {
-    reason = "composition_mismatch";
-  } else if (
-    thisWeek.metric != null &&
-    lastWeek.metric != null &&
-    thisWeek.average != null &&
-    lastWeek.average != null
-  ) {
-    const delta = Math.round(thisWeek.average - lastWeek.average);
-    if (thisWeek.metric === "baseline") {
+  if (thisWeek.average != null && lastWeek.average != null) {
+    delta = Math.round(thisWeek.average - lastWeek.average);
+    // Backward compatibility: the field matching the active metric carries
+    // the delta, the other stays null (the shape existing clients read).
+    if (metric === "baseline") {
       baselineDelta = delta;
     } else {
       refinedDelta = delta;
@@ -195,12 +193,15 @@ export function computeWeeklyDeltaComparison(
   return {
     baselineDelta,
     refinedDelta,
+    delta,
     reason,
     thisWeekComposition: thisWeek.composition,
     lastWeekComposition: lastWeek.composition,
-    comparisonMetric: thisWeek.metric,
+    comparisonMetric: metric,
     thisWeekAvg: thisWeek.average == null ? null : Math.round(thisWeek.average),
     lastWeekAvg: lastWeek.average == null ? null : Math.round(lastWeek.average),
+    thisWeekScoredDays: thisWeek.scoredDays,
+    lastWeekScoredDays: lastWeek.scoredDays,
     todayState,
   };
 }
@@ -319,8 +320,8 @@ if (import.meta.main) {
         }
 
         case "GET_WEEKLY_DELTA": {
-          const { thisMonday, lastMonday, lastToday, today } = reqBody;
-          if (!thisMonday || !lastMonday || !lastToday || !today) {
+          const { thisMonday, lastMonday, today } = reqBody;
+          if (!thisMonday || !lastMonday || !today) {
             return new Response(
               JSON.stringify({ error: "Missing week anchors" }),
               {
@@ -329,6 +330,13 @@ if (import.meta.main) {
               },
             );
           }
+          // Full previous calendar week (Mon -> Sun). `lastToday` is accepted
+          // for request compatibility but never used as a window bound.
+          const lastSunday = reqBody.lastSunday ??
+            new Date(
+              new Date(`${lastMonday}T00:00:00Z`).getTime() +
+                6 * 86400000,
+            ).toISOString().slice(0, 10);
           // Phase 2 — snapshot is window-scoped; collapse to one row per
           // local_date by keeping the most recently updated window.
           const { data, error } = await supabase
@@ -357,18 +365,25 @@ if (import.meta.main) {
             mrs_window?: string | null;
             updated_at?: string | null;
           }>;
-          // Keep first occurrence per date (already ordered by updated_at DESC).
-          const seen = new Set<string>();
-          const rows = allRows.filter((r) => {
-            if (seen.has(r.local_date)) return false;
-            seen.add(r.local_date);
-            return true;
-          });
+          // Collapse to one row per date: prefer a scored window over an
+          // awaiting one, then the most recently updated (already ordered
+          // by updated_at DESC).
+          const byDate = new Map<string, typeof allRows[number]>();
+          const isScored = (r: typeof allRows[number]) =>
+            typeof r.readiness_score_refined === "number" ||
+            typeof r.readiness_score_baseline === "number";
+          for (const r of allRows) {
+            const existing = byDate.get(r.local_date);
+            if (!existing || (!isScored(existing) && isScored(r))) {
+              byDate.set(r.local_date, r);
+            }
+          }
+          const rows = [...byDate.values()];
           const comparison = computeWeeklyDeltaComparison(
             rows,
             thisMonday,
             lastMonday,
-            lastToday,
+            lastSunday,
             today,
           );
 
@@ -377,6 +392,7 @@ if (import.meta.main) {
               data: {
                 baselineDelta: comparison.baselineDelta,
                 refinedDelta: comparison.refinedDelta,
+                delta: comparison.delta,
                 todayState: comparison.todayState,
                 reason: comparison.reason,
                 thisWeekComposition: comparison.thisWeekComposition,
@@ -384,6 +400,8 @@ if (import.meta.main) {
                 comparisonMetric: comparison.comparisonMetric,
                 thisWeekAvg: comparison.thisWeekAvg,
                 lastWeekAvg: comparison.lastWeekAvg,
+                thisWeekScoredDays: comparison.thisWeekScoredDays,
+                lastWeekScoredDays: comparison.lastWeekScoredDays,
               },
             }),
             {
