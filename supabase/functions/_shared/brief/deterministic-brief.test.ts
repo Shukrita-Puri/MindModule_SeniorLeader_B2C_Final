@@ -1,8 +1,10 @@
 import {
+  buildDeterministicBriefFallback,
   assertEquals,
   assertStringIncludes,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  buildDeterministicBriefFallback,
   buildDeterministicBriefFallback,
   type DeterministicBriefFallbackOpts,
   type DeterministicBriefResult,
@@ -31,7 +33,7 @@ function base(
   };
 }
 
-function build(
+function buildDeterministicBriefFallback(
   opts: DeterministicBriefFallbackOpts,
 ): DeterministicBriefResult {
   const out = buildDeterministicBriefFallback(opts);
@@ -41,15 +43,15 @@ function build(
 
 Deno.test("deterministic brief — A1 phrase bank follows five-band spec", () => {
 
-  assertEquals(buildDeterministicBriefFallback(base({ band: "firing" })).phrase, "Go get them");
-  assertEquals(buildDeterministicBriefFallback(base({ band: "sharp" })).phrase, "Better than it feels");
-  assertEquals(buildDeterministicBriefFallback(base({ band: "steady" })).phrase, "Holding steady");
-  assertEquals(buildDeterministicBriefFallback(base({ band: "stretched" })).phrase, "Steady and selective");
-  assertEquals(buildDeterministicBriefFallback(base({ band: "depleted" })).phrase, "Pace it today");
+  assertEquals(build(base({ band: "firing" })).phrase, "Go get them");
+  assertEquals(build(base({ band: "sharp" })).phrase, "Better than it feels");
+  assertEquals(build(base({ band: "steady" })).phrase, "Holding steady");
+  assertEquals(build(base({ band: "stretched" })).phrase, "Steady and selective");
+  assertEquals(build(base({ band: "depleted" })).phrase, "Pace it today");
 });
 
 Deno.test("deterministic brief — drained board and strategy day uses A7 event-aware fallback", () => {
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "stretched",
     checkInOutcome: "drained",
     todayHighStakes: ["Board Call", "5-year Strategy Session"],
@@ -64,7 +66,7 @@ Deno.test("deterministic brief — drained board and strategy day uses A7 event-
 });
 
 Deno.test("deterministic brief — low sleep into strategy uses preparation window", () => {
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "stretched",
     hasWearable: true,
     wearableFact: "Sleep ran short last night",
@@ -78,7 +80,7 @@ Deno.test("deterministic brief — low sleep into strategy uses preparation wind
 });
 
 Deno.test("deterministic brief — wearable plus stacked calendar uses calendar-load evidence", () => {
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "steady",
     hasWearable: true,
     wearableFact: "Recovery signals are in",
@@ -93,7 +95,7 @@ Deno.test("deterministic brief — wearable plus stacked calendar uses calendar-
 });
 
 Deno.test("deterministic brief — firing plus drained check-in uses divergence phrase", () => {
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "firing",
     hasWearable: true,
     checkInOutcome: "drained",
@@ -118,7 +120,7 @@ Deno.test("deterministic brief — FIX 1a: evening check-in holding with meeting
   // Before the fix: evidence produced "You've checked in holding and there's
   // no wearable read yet this evening." — neither a number nor a
   // STATE_QUALITY_WORDS_RE match → validator rejected → deterministicBrief = null.
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "steady",
     hasWearable: false,
     checkInOutcome: "holding",
@@ -145,7 +147,7 @@ Deno.test("deterministic brief — FIX 1b: check-in holding with no meetings map
   // Before the fix: "You've checked in holding and there's no wearable read yet
   // this morning." — "holding" not in STATE_QUALITY_WORDS_RE → validator failed.
   // After the fix: "holding" → "steady", which IS in STATE_QUALITY_WORDS_RE.
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "steady",
     hasWearable: false,
     checkInOutcome: "holding",
@@ -165,7 +167,7 @@ Deno.test("deterministic brief — FIX 2: depleted no-calendar directive uses pi
   // rejected with "body missing WORK DIRECTIVE beat".
   // After the fix: "Pick the one priority…" — "pick" IS in WORK_DIRECTIVE_TOKENS,
   // "priority" IS in WORK_CONTEXT_TOKENS.
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "depleted",
     hasWearable: false,
     checkInOutcome: "drained",
@@ -185,7 +187,7 @@ Deno.test("deterministic brief — FIX 3: drained multi-high-stakes read stays u
   // opposite directions - sequencing is the day's real decision." combined with
   // the two-event evidence and directive pushed the body to ~68 words, exceeding
   // the 60-word ceiling → validator rejected.
-  const built = buildDeterministicBriefFallback(base({
+  const built = build(base({
     band: "stretched",
     hasWearable: false,
     checkInOutcome: "drained",
@@ -206,7 +208,7 @@ Deno.test("deterministic brief — FIX 3: drained multi-high-stakes read stays u
 });
 
 Deno.test("deterministic brief — weekend + wearable-only path expands beats and closes for recovery", () => {
-  const result = buildDeterministicBriefFallback({
+  const result = build({
     band: "sharp",
     hasWearable: true,
     checkInOutcome: null,
@@ -232,7 +234,7 @@ Deno.test("deterministic brief — weekend + wearable-only path expands beats an
 });
 
 Deno.test("deterministic brief — weekday wearable-only path keeps calendar-free framing", () => {
-  const result = buildDeterministicBriefFallback({
+  const result = build({
     band: "sharp",
     hasWearable: true,
     checkInOutcome: null,
