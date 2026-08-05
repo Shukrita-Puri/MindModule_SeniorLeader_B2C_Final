@@ -4,11 +4,19 @@ import WeeklyDeltaDial from './WeeklyDeltaDial';
 
 describe('WeeklyDeltaDial', () => {
   it('renders suppression text when comparison is unavailable', () => {
-    render(<WeeklyDeltaDial currentScore={64} delta={null} lastWeekAvg={null} mode="baseline" reason="composition_mismatch" />);
+    render(<WeeklyDeltaDial currentScore={64} delta={null} lastWeekAvg={null} mode="baseline" reason="not_enough_history" />);
 
     expect(screen.getAllByText('—')).toHaveLength(3);
     expect(screen.getByText('Building your trend')).toBeInTheDocument();
     expect(screen.getByText('baseline')).toBeInTheDocument();
+  });
+
+  it('renders averages and delta even when a legacy reason is present', () => {
+    render(<WeeklyDeltaDial currentScore={64} thisWeekAvg={87} delta={9} lastWeekAvg={78} mode="baseline" reason="composition_mismatch" />);
+
+    expect(screen.getByText('87')).toBeInTheDocument();
+    expect(screen.getByText('78')).toBeInTheDocument();
+    expect(screen.getByText('+9')).toBeInTheDocument();
   });
 
   it('renders numeric progress when a delta exists', () => {
