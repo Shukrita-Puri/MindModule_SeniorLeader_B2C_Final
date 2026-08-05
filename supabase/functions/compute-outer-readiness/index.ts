@@ -9059,6 +9059,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       const hasStage1Signal = hasFreshWearable || hasCalendarSignal;
       const briefSignalContractMet = hasStage1Signal;
       const awaitingSignals = !briefSignalContractMet;
+      // Personal-signal entry condition for the Brief prose only.
+      // Calendar demand can feed MRS, Plan and Nudges, but it must NEVER
+      // alone satisfy the Brief's current-state claim. Either a window-fresh
+      // wearable read OR a window-fresh check-in is required before any
+      // baseline or refined brief may form.
+      const briefHasCurrentPersonalSignal = briefWearableUsable ||
+        checkInCurrentForWindow;
+      const briefAwaitingSignals = !briefHasCurrentPersonalSignal;
+
       const awaitingReason: string | null = awaitingSignals
         ? "cold-start-no-context"
         : null;
