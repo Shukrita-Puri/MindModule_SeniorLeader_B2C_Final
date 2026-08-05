@@ -352,7 +352,7 @@ Deno.test('evening: no evening signal at all -> unavailable, MRS still forms', (
   });
   assertEquals(subs.find((s) => s.id === 'eveningPhysioRead')!.available, false);
   const r = composeBaselineV4('evening', subs);
-  assert(r.score != null);
+  assert(r.baseline != null);
 });
 
 Deno.test('evening: tomorrowOpeningDemand is independent of today (X !== Y)', () => {
