@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.ts";
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
+import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { classifyDay } from "../_shared/availability/availability-classifier.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
@@ -117,6 +118,29 @@ async function countTodayEvents(db: any, userId: string, localDate: string) {
     .gte("start_time", start)
     .lte("start_time", end);
   return mergeCalendarEvents((data || []) as any[], "unknown").length;
+}
+
+/**
+ * MRS v4 — Morning demand is split between today's scheduled load and
+ * yesterday's realised load (carryover). Yesterday sits in the DEMAND
+ * pillar, not the pattern pillar.
+ */
+async function yesterdayDemand(db: any, userId: string, localDate: string): Promise<number | null> {
+  try {
+    const prev = new Date(`${localDate}T00:00:00Z`);
+    prev.setUTCDate(prev.getUTCDate() - 1);
+    const day = prev.toISOString().slice(0, 10);
+    const { data } = await db
+      .from("calendar_events")
+      .select("start_time,end_time,is_organizer,attendees_count,is_recurring,title,event_metadata,provider,external_id,id")
+      .eq("user_id", userId)
+      .gte("start_time", `${day}T00:00:00`)
+      .lte("start_time", `${day}T23:59:59`);
+    const merged = mergeCalendarEvents((data || []) as any[], "unknown") as any[];
+    return computeCalendarDemand(merged as any).demandScore;
+  } catch {
+    return null;
+  }
 }
 
 // Fetch merged (deduped) event slices for today + tomorrow, plus a small
