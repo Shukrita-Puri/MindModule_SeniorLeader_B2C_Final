@@ -302,3 +302,123 @@ Deno.test('§3.2a end-to-end: HRV cannot mask measured severe sleep deficit', ()
   // Without measurement, the override must NOT be recorded.
   assertEquals((withoutCap.weightProvenance as any).sleep_deficit_override, undefined);
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// MRS v4 — evening double-count + tomorrow demand + yesterday regression
+// ───────────────────────────────────────────────────────────────────────────
+
+Deno.test('evening: morning HRV deviation cannot appear in two score-bearing cells', () => {
+  const subs = buildMrsV4SubScores('evening', {
+    hrvDeviationPct: -20,
+    hrvValue: 42,
+    todayRealizedDemand: 40,
+    tomorrowOpeningDemand: 10,
+  });
+  const morning = subs.find((s) => s.id === 'hrvMorningDeviation')!;
+  const evening = subs.find((s) => s.id === 'eveningPhysioRead')!;
+  assertEquals(morning.available, true);
+  // No independent evening signal supplied -> cell unavailable (redistribution).
+  assertEquals(evening.available, false);
+});
+
+Deno.test('evening: independent evening HRV earns eveningPhysioRead', () => {
+  const subs = buildMrsV4SubScores('evening', {
+    hrvDeviationPct: -20,
+    eveningHrvDeviationPct: 10,
+    todayRealizedDemand: 40,
+  });
+  const evening = subs.find((s) => s.id === 'eveningPhysioRead')!;
+  const morning = subs.find((s) => s.id === 'hrvMorningDeviation')!;
+  assertEquals(evening.available, true);
+  assert(evening.score !== morning.score);
+});
+
+Deno.test('evening: evening HR elevation earns eveningPhysioRead (inverse)', () => {
+  const elevated = buildMrsV4SubScores('evening', { eveningHrDeviationPct: 20 })
+    .find((s) => s.id === 'eveningPhysioRead')!;
+  const calm = buildMrsV4SubScores('evening', { eveningHrDeviationPct: -5 })
+    .find((s) => s.id === 'eveningPhysioRead')!;
+  assertEquals(elevated.available, true);
+  assert(elevated.score < calm.score);
+});
+
+Deno.test('evening: no evening signal at all -> unavailable, MRS still forms', () => {
+  const subs = buildMrsV4SubScores('evening', {
+    hrvDeviationPct: -5,
+    sleepDeviationPct: 0,
+    rhrTrend: 'stable',
+    todayRealizedDemand: 30,
+    tomorrowOpeningDemand: 20,
+  });
+  assertEquals(subs.find((s) => s.id === 'eveningPhysioRead')!.available, false);
+  const r = composeBaselineV4('evening', subs);
+  assert(r.score != null);
+});
+
+Deno.test('evening: tomorrowOpeningDemand is independent of today (X !== Y)', () => {
+  const subs = buildMrsV4SubScores('evening', {
+    todayRealizedDemand: 80,
+    tomorrowOpeningDemand: 20,
+  });
+  const today = subs.find((s) => s.id === 'todayRealizedDemand')!;
+  const tomorrow = subs.find((s) => s.id === 'tomorrowOpeningDemand')!;
+  assertEquals(today.rawDemand, 80);
+  assertEquals(tomorrow.rawDemand, 20);
+  assert(today.score !== tomorrow.score);
+});
+
+Deno.test('evening: tomorrow zero/null semantics', () => {
+  const zero = buildMrsV4SubScores('evening', { tomorrowOpeningDemand: 0 })
+    .find((s) => s.id === 'tomorrowOpeningDemand')!;
+  assertEquals(zero.available, true);
+  assertEquals(zero.rawDemand, 0);
+  assertEquals(zero.zeroDemandCredit, true);
+  assertEquals(zero.score, Math.round(ZERO_DEMAND_CREDIT * 100));
+
+  const missing = buildMrsV4SubScores('evening', { tomorrowOpeningDemand: null })
+    .find((s) => s.id === 'tomorrowOpeningDemand')!;
+  assertEquals(missing.available, false);
+  assertEquals(missing.rawDemand, null);
+});
+
+Deno.test('morning: yesterday carryover carries yesterday value, not today (X !== Y)', () => {
+  const X = 70; // yesterday
+  const Y = 25; // today
+  const subs = buildMrsV4SubScores('morning', {
+    todayFullDayDemand: Y,
+    yesterdayCarryoverDemand: X,
+  });
+  const yday = subs.find((s) => s.id === 'yesterdayCarryover')!;
+  const today = subs.find((s) => s.id === 'todayFullDayDemand')!;
+  assertEquals(yday.rawDemand, X);
+  assertEquals(today.rawDemand, Y);
+
+  const r = composeBaselineV4('morning', subs);
+  assertEquals(r.finalWeights.yesterdayCarryover, 10);
+  assertEquals(r.finalWeights.todayFullDayDemand, 20);
+  assertEquals(
+    MRS_V4_WEIGHTS.morning.find((c) => c.id === 'yesterdayCarryover')!.pillar,
+    'demand',
+  );
+  assertEquals(
+    r.finalWeights.yesterdayCarryover + r.finalWeights.todayFullDayDemand,
+    30,
+  );
+});
+
+Deno.test('morning: yesterday zero/null semantics', () => {
+  const zero = buildMrsV4SubScores('morning', { yesterdayCarryoverDemand: 0 })
+    .find((s) => s.id === 'yesterdayCarryover')!;
+  assertEquals(zero.available, true);
+  assertEquals(zero.rawDemand, 0);
+  assertEquals(zero.zeroDemandCredit, true);
+
+  const missing = buildMrsV4SubScores('morning', { yesterdayCarryoverDemand: null })
+    .find((s) => s.id === 'yesterdayCarryover')!;
+  assertEquals(missing.available, false);
+
+  const real = buildMrsV4SubScores('morning', { yesterdayCarryoverDemand: 55 })
+    .find((s) => s.id === 'yesterdayCarryover')!;
+  assertEquals(real.rawDemand, 55);
+  assertEquals(real.score, 45);
+});
