@@ -365,13 +365,20 @@ if (import.meta.main) {
             mrs_window?: string | null;
             updated_at?: string | null;
           }>;
-          // Keep first occurrence per date (already ordered by updated_at DESC).
-          const seen = new Set<string>();
-          const rows = allRows.filter((r) => {
-            if (seen.has(r.local_date)) return false;
-            seen.add(r.local_date);
-            return true;
-          });
+          // Collapse to one row per date: prefer a scored window over an
+          // awaiting one, then the most recently updated (already ordered
+          // by updated_at DESC).
+          const byDate = new Map<string, typeof allRows[number]>();
+          const isScored = (r: typeof allRows[number]) =>
+            typeof r.readiness_score_refined === "number" ||
+            typeof r.readiness_score_baseline === "number";
+          for (const r of allRows) {
+            const existing = byDate.get(r.local_date);
+            if (!existing || (!isScored(existing) && isScored(r))) {
+              byDate.set(r.local_date, r);
+            }
+          }
+          const rows = [...byDate.values()];
           const comparison = computeWeeklyDeltaComparison(
             rows,
             thisMonday,
