@@ -10103,6 +10103,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     ? "checkin"
                     : "unknown",
                   payload_json: {
+                    signal_freshness: {
+                      window: briefWindow,
+                      wearableCurrentForWindow: briefWearableUsable,
+                      checkInCurrentForWindow,
+                      wearableSourceAgeDays,
+                      maxWearableAgeDays: signalFreshness.maxWearableAgeDays,
+                      currentSignals: [
+                        ...(briefWearableUsable ? ["wearable"] : []),
+                        ...(checkInCurrentForWindow ? ["check_in"] : []),
+                      ],
+                    },
                     signals: {
                       checkInOutcome: checkInOutcome || null,
                       clarityLevel,
