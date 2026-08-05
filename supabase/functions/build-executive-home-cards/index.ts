@@ -635,7 +635,7 @@ async function buildForUser(db: any, args: {
     const [context, eventCount, wearable, checkin, existingMrsSnapshot] = await Promise.all([
       composeDailyContext(db, userId, localDate, { dryRun: true, timezone: effectiveTimezone, mrsWindow: window }),
       countTodayEvents(db, userId, localDate),
-      latestWearable(db, userId),
+      latestWearable(db, userId, localDate),
       latestCheckin(db, userId, localDate, window),
       db
         .from("daily_context_snapshot")
