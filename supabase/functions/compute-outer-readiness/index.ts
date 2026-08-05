@@ -8540,19 +8540,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   // Brief — never deterministic fallback prose.
                   const atomicCtx: any = {
                     signals: {
-                      hrvDeviationPct: hrvDeviation ?? null,
-                      hrvUnusual: !!hrvUnusual,
-                      sleepHours: sleepDuration != null
+                      hrvDeviationPct: briefWearableUsable
+                        ? (hrvDeviation ?? null)
+                        : null,
+                      hrvUnusual: briefWearableUsable && !!hrvUnusual,
+                      sleepHours: briefWearableUsable && sleepDuration != null
                         ? sleepDuration / 60
                         : null,
-                      sleepDeviationPct: sleepDeviation ?? null,
-                      sleepBelow6h: !!sleepHardFloor,
-                      rhrDeviationPct: rhrDeviation ?? null,
-                      hrElevatedProxy:
+                      sleepDeviationPct: briefWearableUsable
+                        ? (sleepDeviation ?? null)
+                        : null,
+                      sleepBelow6h: briefWearableUsable && !!sleepHardFloor,
+                      rhrDeviationPct: briefWearableUsable
+                        ? (rhrDeviation ?? null)
+                        : null,
+                      hrElevatedProxy: briefWearableUsable &&
                         (wearableContext as any)?.hrElevated === true,
-                      emotionalSelfDeclared: checkInOutcome ?? null,
-                      mentalSharpness: mentalSharpnessLevel ?? null,
-                      confidence: confidenceLevel ?? null,
+                      emotionalSelfDeclared: currentCheckInOutcome,
+                      mentalSharpness: currentMentalSharpnessLevel,
+                      confidence: currentConfidenceLevel,
                       timezoneOffsetMinutes: null,
                       timezoneShift48hHours: null,
                       travelDay: false,
