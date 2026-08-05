@@ -20,6 +20,8 @@ export interface MrsV4SubscoreSignals {
   rhrTrend?: RhrTrend;
   intradayHrDeviationPct?: number | null;
   eveningHrvDeviationPct?: number | null;
+  /** Evening-window mean HR vs RHR baseline (positive = elevated = worse). */
+  eveningHrDeviationPct?: number | null;
   bodyLoadElevated?: boolean | null;
   todayFullDayDemand?: number | null;
   remainingDayDemand?: number | null;
@@ -104,12 +106,15 @@ function fromRhrTrend(trend: RhrTrend): number | null {
 }
 
 function fromEveningPhysio(signals: MrsV4SubscoreSignals): number | null {
-  const hrvScore = fromDeviation(signals.eveningHrvDeviationPct ?? signals.hrvDeviationPct);
+  // MRS v4 — this cell must be EARNED from genuinely evening-window signals.
+  // The morning HRV deviation is already scored in `hrvMorningDeviation`;
+  // reusing it here would double-count one measurement across 41.25 points.
+  const hrvScore = fromDeviation(signals.eveningHrvDeviationPct);
+  const hrScore = fromDeviation(signals.eveningHrDeviationPct, true);
   const bodyScore = signals.bodyLoadElevated === true ? 35 : signals.bodyLoadElevated === false ? 65 : null;
-  if (hrvScore == null && bodyScore == null) return null;
-  if (hrvScore == null) return bodyScore;
-  if (bodyScore == null) return hrvScore;
-  return clampScore((hrvScore + bodyScore) / 2);
+  const parts = [hrvScore, hrScore ?? bodyScore].filter((v): v is number => v != null);
+  if (parts.length === 0) return null;
+  return clampScore(parts.reduce((a, b) => a + b, 0) / parts.length);
 }
 
 function sub(id: SubComponentId, score: number | null): SubScore {
@@ -170,7 +175,8 @@ export function buildMrsV4SubScores(window: Window, signals: MrsV4SubscoreSignal
     base.hrvMorningDeviation,
     base.sleepDeviation,
     base.rhrTrend,
-    sub('eveningPhysioRead', fromEveningPhysio(signals) ?? fromAbsoluteHrv(signals.hrvValue)),
+    // No morning-HRV fallback: unavailable is correct, §8.3 redistributes.
+    sub('eveningPhysioRead', fromEveningPhysio(signals)),
     demandSub('todayRealizedDemand', signals.todayRealizedDemand),
     demandSub('tomorrowOpeningDemand', signals.tomorrowOpeningDemand),
     base.patternEngineComposite,
