@@ -8891,42 +8891,45 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               // deterministicBrief = null and the user seeing the awaiting-signals
               // placeholder even when all signals existed. The validator continues
               // to gate all LLM output at the first validateBrief call site.
-              const specValidation = validateBrief(
-                specBuilt.phrase,
-                specBuilt.body,
-                {
-                  signals: {
-                    highStakesEventInNext24h: nextHighStakesEvent
-                      ? {
-                        title: nextHighStakesEvent.title,
-                        minutesUntil: nextHighStakesEvent.minutesUntil,
-                      }
-                      : null,
-                    emotionalDrainEventInNext4h: null,
+              if (specBuilt) {
+                const specValidation = validateBrief(
+                  specBuilt.phrase,
+                  specBuilt.body,
+                  {
+                    signals: {
+                      highStakesEventInNext24h: nextHighStakesEvent
+                        ? {
+                          title: nextHighStakesEvent.title,
+                          minutesUntil: nextHighStakesEvent.minutesUntil,
+                        }
+                        : null,
+                      emotionalDrainEventInNext4h: null,
+                    },
+                    behaviourFlags: [
+                      ...(briefBehaviourSnapshot?.flagsBrief ?? []),
+                      ...(briefBehaviourSnapshot?.flagsPlan ?? []),
+                    ],
+                    lexiconClusters: [],
+                    forbiddenWords: [],
+                    allowedPatternKeywords: [],
+                  } as any,
+                  {
+                    mrsScore: scoreForBand,
+                    pillContext,
                   },
-                  behaviourFlags: [
-                    ...(briefBehaviourSnapshot?.flagsBrief ?? []),
-                    ...(briefBehaviourSnapshot?.flagsPlan ?? []),
-                  ],
-                  lexiconClusters: [],
-                  forbiddenWords: [],
-                  allowedPatternKeywords: [],
-                } as any,
-                {
-                  mrsScore: scoreForBand,
-                  pillContext,
-                },
-              );
-              // Always accept deterministic output regardless of validator result.
-              deterministicBrief = specBuilt;
-              console.log(
-                `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase} | validatorOk=${specValidation.ok} | validatorReason=${specValidation.reason ?? "none"}`,
-              );
-              if (!specValidation.ok) {
-                console.warn(
-                  `[compute-outer-readiness] [DETERMINISTIC] note: validator would have rejected | reason=${specValidation.reason} | body="${specBuilt.body.slice(0, 80)}..."`,
                 );
+                // Always accept deterministic output regardless of validator result.
+                deterministicBrief = specBuilt;
+                console.log(
+                  `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase} | validatorOk=${specValidation.ok} | validatorReason=${specValidation.reason ?? "none"}`,
+                );
+                if (!specValidation.ok) {
+                  console.warn(
+                    `[compute-outer-readiness] [DETERMINISTIC] note: validator would have rejected | reason=${specValidation.reason} | body="${specBuilt.body.slice(0, 80)}..."`,
+                  );
+                }
               }
+
             } catch (detSpecErr) {
               console.error(
                 "[compute-outer-readiness] [DETERMINISTIC] A8 build error:",
