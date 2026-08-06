@@ -215,6 +215,7 @@ const CheckInDetail = () => {
         queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
         queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
         queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['mrs-weekly-delta'] }),
       ]);
 
       navigate('/executive-home');
