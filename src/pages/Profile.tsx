@@ -25,6 +25,7 @@ import PushNotificationTestDialog from '@/components/profile/PushNotificationTes
 import HomeLocationCard from '@/components/profile/HomeLocationCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ShieldCheck } from 'lucide-react';
+import { SHOW_REFERRAL_PROGRAM } from '@/config/referralConfig';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -353,14 +354,16 @@ const Profile = () => {
             </Button>
 
             {/* Refer */}
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={() => navigate('/refer')}
-            >
-              <Gift className="h-4 w-4" />
-              Refer a Friend
-            </Button>
+            {SHOW_REFERRAL_PROGRAM && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => navigate('/refer')}
+              >
+                <Gift className="h-4 w-4" />
+                Refer a Friend
+              </Button>
+            )}
 
             {/* Retake Tour */}
             <Button

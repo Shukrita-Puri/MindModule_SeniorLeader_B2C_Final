@@ -1,16 +1,12 @@
 /**
- * Apple In-App Purchase paywall — the ONLY purchase surface rendered inside
- * the iOS/iPadOS shell (App Store Review Guideline 3.1.1).
+ * Apple In-App Purchase paywall — Executive Edition Specification.
+ * Rendered inside the iOS/iPadOS shell (App Store Review Guideline 3.1.1 & 3.1.2).
  *
  * Rules encoded here:
- *  - Prices, titles and periods come from StoreKit, never from our own table.
- *  - Intro/trial copy renders only when Apple actually returns an intro offer.
- *  - Restore Purchases is always visible.
- *  - Manage Subscription points at Apple, never Stripe.
- *  - A user who already holds a non-Apple (Stripe) paid entitlement sees a
- *    read-only status message and NO purchase button, so they are never asked
- *    to repurchase through Apple, and they are not pointed to a web purchase
- *    or billing flow from inside the app.
+ *  - Prices, currencies, billing periods, and introductory offers come from StoreKit.
+ *  - Intro/trial copy renders only when Apple returns an eligible intro offer.
+ *  - Restore Purchases and Manage Subscription are always visible.
+ *  - Apple ID Terms of Use & Privacy Policy links included with explicit renewal disclosures.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -28,7 +24,7 @@ import {
   type IapProduct,
   type IapLoadDiagnostics,
 } from '@/services/iap';
-import { planSortOrder } from '@/config/iapProducts';
+import { planSortOrder, planForProductId } from '@/config/iapProducts';
 import { isNonApplePaidEntitlement } from '@/config/purchasePlatform';
 import { hasValidAccess, type AccessUser } from '@/utils/subscriptionHelpers';
 import { describeTrial, describeIntroDiscount, billingFrequencyLabel } from '@/utils/introOffer';
@@ -52,9 +48,6 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
 
   const alreadyEntitled = hasValidAccess(user);
   const stripeLegacy = isNonApplePaidEntitlement(user) && alreadyEntitled;
-  // An Apple subscriber who lands back on /upgrade (deep link, back-nav, stale
-  // route) must never be shown another "Subscribe" button — that invites a
-  // duplicate purchase for a plan they already hold.
   const appleEntitled = alreadyEntitled && !stripeLegacy;
 
   const refresh = useCallback(async () => {
@@ -87,8 +80,6 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       const list = [...fetched].sort(
         (a, b) => planSortOrder(a.id) - planSortOrder(b.id),
       );
-      // A partial return must still render what StoreKit gave us — collapsing
-      // to the generic empty state would hide a purchasable plan.
       if (list.length === 0) {
         setProductError('No subscription options are available right now. Please try again later.');
       }
@@ -109,8 +100,6 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
     void refresh();
   }, [refresh, stripeLegacy, appleEntitled]);
 
-  // Out-of-band transactions (Ask to Buy approval, interrupted purchase,
-  // renewal while backgrounded) land here.
   useEffect(() => {
     let dispose: (() => void) | undefined;
     void onIapTransactionUpdate(() => {
@@ -126,7 +115,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       switch (result.status) {
         case 'purchased':
           await onRefreshProfile();
-          toast.success('You\u2019re in. Welcome to Pro.');
+          toast.success('Welcome to Mind Module Executive Edition.');
           onEntitled();
           break;
         case 'pending':
@@ -171,23 +160,29 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
     }
   };
 
+  // Dynamic StoreKit pricing labels for terms disclosure to prevent drift across international storefronts
+  const monthlyProduct = products.find((p) => planForProductId(p.id) === 'monthly');
+  const annualProduct = products.find((p) => planForProductId(p.id) === 'annual');
+  const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : 'the monthly plan rate';
+  const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : 'the annual plan rate';
+
   // Existing Stripe subscriber inside the iOS app: status only, no CTA.
   if (stripeLegacy) {
     return (
       <div className="max-w-md mx-auto px-4 py-8 space-y-4" data-testid="apple-paywall-stripe-status">
-        <h1 className="text-[20px] font-headline font-bold">Your subscription</h1>
+        <h1 className="text-xl font-headline font-bold">Your subscription</h1>
         <div className="rounded-2xl border border-border bg-card p-5 space-y-2">
           <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-saffron" />
-            <p className="text-[15px] font-medium">Pro access is active</p>
+            <Check className="w-4 h-4 text-emerald-500" />
+            <p className="text-sm font-medium">Executive Pro access is active</p>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Your subscription was purchased outside the App Store and remains active here.
             Nothing to do right now — you have full access in the app.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Need help with that subscription? Email support@mindmodule.me and we&apos;ll help.
+          Need help? Email support@mindmodule.me and we&apos;ll assist you.
         </p>
       </div>
     );
@@ -197,13 +192,13 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   if (appleEntitled) {
     return (
       <div className="max-w-md mx-auto px-4 py-8 space-y-4" data-testid="apple-paywall-active">
-        <h1 className="text-[20px] font-headline font-bold">Your subscription</h1>
+        <h1 className="text-xl font-headline font-bold">Your subscription</h1>
         <div className="rounded-2xl border border-border bg-card p-5 space-y-2">
           <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-saffron" />
-            <p className="text-[15px] font-medium">Mind Module Pro is active</p>
+            <Check className="w-4 h-4 text-emerald-500" />
+            <p className="text-sm font-medium">Mind Module Pro is active</p>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Billed through your Apple ID. Change your plan or cancel any time in your Apple ID
             subscription settings.
           </p>
@@ -234,12 +229,53 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-4" data-testid="apple-paywall">
-      <h1 className="text-[20px] font-headline font-bold">Mind Module Pro</h1>
-      <p className="text-sm text-muted-foreground">
-        Full access to your daily Brief, Mastery Plan, Reset Studio, JIT prep and AI coach.
-      </p>
+    <div className="max-w-md mx-auto px-4 py-6 space-y-5" data-testid="apple-paywall">
+      {/* Header Section */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/80">
+          MIND MODULE EXECUTIVE EDITION
+        </p>
+        <h1 className="text-2xl font-headline font-bold text-foreground tracking-tight">
+          Mind Module Executive Edition
+        </h1>
+        <p className="text-sm font-medium text-foreground/90 leading-snug">
+          Your mind runs everything. Now it has a chief of staff.
+        </p>
+        <p className="text-xs text-muted-foreground leading-relaxed pt-1">
+          Not generic wellness. Your daily mental performance system - built around your day, your signals and your real decision load. Prepared before the moments that define you.
+        </p>
+      </div>
 
+      {/* What's Included (Clean list, no icons, minimal weight) */}
+      <div className="space-y-2 py-3 border-y border-border/40">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          WHAT&apos;S INCLUDED
+        </p>
+        <ul className="space-y-1.5 text-xs text-foreground/85 leading-snug">
+          <li className="flex items-start gap-1.5">
+            <span className="text-muted-foreground">•</span>
+            <span>Daily Briefs to know where you stand before the day runs you</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-muted-foreground">•</span>
+            <span>Short Performance plan built around your day, your signals, your patterns</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-muted-foreground">•</span>
+            <span>Quick Protocols that work under real pressure</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-muted-foreground">•</span>
+            <span>Weekly Intelligence on what&apos;s quietly draining or restoring you</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-muted-foreground">•</span>
+            <span>Connected to your world - not your memory</span>
+          </li>
+        </ul>
+      </div>
+
+      {/* Product Loading & Error States */}
       {loadingProducts && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -249,8 +285,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       {!loadingProducts && storeUnavailable && (
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="text-sm">
-            Purchases are disabled on this device. Check Screen Time › Content &amp; Privacy
-            Restrictions, then try again.
+            Purchases are disabled on this device. Check Screen Time › Content &amp; Privacy Restrictions, then try again.
           </p>
         </div>
       )}
@@ -258,102 +293,149 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       {!loadingProducts && productError && (
         <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
           <p className="text-sm">{productError}</p>
-          {import.meta.env.DEV && diagnostics && (
-            <p className="text-[11px] font-mono text-muted-foreground break-all" data-testid="apple-paywall-diagnostics">
-              {describeIapLoadDiagnostics(diagnostics)}
-              {looksLikeAppStoreConnectIssue(diagnostics) ? ' · likely App Store Connect state' : ''}
-            </p>
+          {diagnostics && (
+            <details className="text-[11px] font-mono text-muted-foreground break-all cursor-pointer">
+              <summary className="hover:underline focus:outline-none">Technical Diagnostics</summary>
+              <div className="mt-2 p-2 rounded bg-muted/40 space-y-1" data-testid="apple-paywall-diagnostics">
+                <p>{describeIapLoadDiagnostics(diagnostics)}</p>
+                {looksLikeAppStoreConnectIssue(diagnostics) && (
+                  <p className="text-amber-500/90 font-sans text-xs pt-1">
+                    StoreKit returned 0 products from Apple. Check App Store Connect → Paid Applications Agreement is active and product IDs (me.mindmodule.pro.monthly, me.mindmodule.pro.annual) are in Ready to Submit status.
+                  </p>
+                )}
+              </div>
+            </details>
           )}
           <Button variant="outline" size="sm" onClick={() => void refresh()}>Try again</Button>
         </div>
       )}
 
+      {/* Plan Cards */}
       {!loadingProducts && products.map((product) => {
         const trial = describeTrial(product);
         const introDiscount = describeIntroDiscount(product);
+        const plan = planForProductId(product.id);
+        const isAnnual = plan === 'annual';
+
         return (
-        <div
-          key={product.id}
-          className="rounded-2xl border border-border bg-card p-5 space-y-3"
-          data-testid={`apple-plan-${product.id}`}
-        >
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-[17px] font-headline font-bold">{product.title}</h2>
-            <div className="text-right">
-              <p className="text-2xl font-bold">{product.displayPrice}</p>
-              {periodLabel(product) && (
-                <p className="text-xs text-muted-foreground">{periodLabel(product)}</p>
-              )}
-            </div>
-          </div>
-          {product.description && (
-            <p className="text-sm text-muted-foreground">{product.description}</p>
-          )}
-          {/* Trial copy renders ONLY when StoreKit returns an eligible
-              free-trial introductory offer for this Apple ID. */}
-          {trial.isFreeTrial && (
-            <div className="space-y-1" data-testid={`apple-trial-${product.id}`}>
-              <p className="text-sm font-medium text-saffron">{trial.headline}</p>
-              <p className="text-xs text-muted-foreground">{trial.postTrialLine}</p>
-            </div>
-          )}
-          {introDiscount && (
-            <p className="text-xs text-saffron">{introDiscount}</p>
-          )}
-          <Button
-            className="w-full h-11"
-            variant="critical"
-            disabled={busyProductId !== null}
-            onClick={() => void handlePurchase(product.id)}
+          <div
+            key={product.id}
+            className={`rounded-2xl p-5 space-y-3 relative overflow-hidden transition-all ${
+              isAnnual
+                ? 'border-2 border-amber-500/60 bg-gradient-to-br from-amber-500/10 via-card to-card shadow-md'
+                : 'border border-border bg-card'
+            }`}
+            data-testid={`apple-plan-${product.id}`}
           >
-            {busyProductId === product.id ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Processing…
-              </span>
-            ) : (
-              trial.ctaLabel
+            {/* Card Header & Title */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+                    {isAnnual ? 'Mind Module Pro Annual' : 'Mind Module Pro Monthly'}
+                  </span>
+                  {isAnnual && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-500 text-amber-950 shadow-sm">
+                      FOUNDING MEMBER
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold text-foreground">{product.displayPrice}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {isAnnual ? 'per year' : 'per month'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Trial Subtitle Line */}
+            {trial.isFreeTrial && (
+              <div className="space-y-0.5" data-testid={`apple-trial-${product.id}`}>
+                <p className="text-xs font-semibold text-amber-500">
+                  {trial.headline ? `${trial.headline} then ${product.displayPrice}/${isAnnual ? 'year' : 'month'}` : trial.postTrialLine}
+                </p>
+              </div>
             )}
-          </Button>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            {trial.disclosure}
-          </p>
-        </div>
+            {introDiscount && (
+              <p className="text-xs text-amber-500 font-medium">{introDiscount}</p>
+            )}
+
+            {/* CTA Button */}
+            <Button
+              className="w-full h-11 font-medium text-sm"
+              variant={isAnnual ? 'default' : 'outline'}
+              disabled={busyProductId !== null}
+              onClick={() => void handlePurchase(product.id)}
+            >
+              {busyProductId === product.id ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Processing…
+                </span>
+              ) : (
+                trial.isFreeTrial ? 'Start 7-day free trial' : (isAnnual ? 'Subscribe Annual' : 'Subscribe Monthly')
+              )}
+            </Button>
+
+            {/* Tagline / Pitch */}
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {isAnnual
+                ? 'First 100 members only. Over 3 months free versus monthly. Your rate held for 2 years.'
+                : 'Full access. Cancel any time.'}
+            </p>
+          </div>
         );
       })}
 
-      <div className="space-y-2">
-        <Button
-          variant="outline"
-          className="w-full justify-center gap-2"
-          onClick={() => void handleRestore()}
-          disabled={restoring}
-          data-testid="restore-purchases"
-        >
-          <RotateCcw className="w-4 h-4" />
-          {restoring ? 'Restoring…' : 'Restore Purchases'}
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full justify-center gap-2"
-          onClick={() => void handleManage()}
-          data-testid="manage-apple-subscription"
-        >
-          <ExternalLink className="w-4 h-4" />
-          Manage Subscription
-        </Button>
-      </div>
+      {/* Compliance Terms Block */}
+      <div className="pt-2 space-y-3">
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Payment will be charged to your Apple ID at confirmation of purchase. Monthly plan renews at {monthlyPriceLabel}. Founding Executive Annual plan renews at {annualPriceLabel} for 2 years from purchase date, then at the prevailing full year price with minimum 60 days advance notice. Subscription renews automatically unless cancelled at least 24 hours before the current period ends. Manage or cancel in Apple ID settings. Cancelling during the free trial means you are not charged.
+        </p>
 
-      <div className="flex items-center justify-center gap-3 pt-2">
-        {/* Router links, not raw <a href>: inside the Capacitor webview a hard
-            navigation reloads the bundle and can strand the reviewer on a
-            blank screen. Apple requires both links to be reachable here. */}
-        <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground">
-          Privacy Policy
-        </Link>
-        <span className="text-muted-foreground/40 text-xs">·</span>
-        <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground">
-          Terms of Use
-        </Link>
+        {/* Action Controls & Legal Links */}
+        <div className="space-y-2 pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-center gap-2 text-xs"
+            onClick={() => void handleRestore()}
+            disabled={restoring}
+            data-testid="restore-purchases"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            {restoring ? 'Restoring…' : 'Restore Purchases'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-center gap-2 text-xs text-muted-foreground"
+            onClick={() => void handleManage()}
+            data-testid="manage-apple-subscription"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Manage Subscription
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-center gap-3 pt-1 text-[11px] text-muted-foreground">
+          <Link to="/privacy" className="hover:underline hover:text-foreground">
+            Privacy Policy
+          </Link>
+          <span>·</span>
+          <Link to="/terms" className="hover:underline hover:text-foreground">
+            Terms of Use
+          </Link>
+          <span>·</span>
+          <a
+            href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline hover:text-foreground inline-flex items-center gap-0.5"
+          >
+            Apple EULA <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+          </a>
+        </div>
       </div>
     </div>
   );

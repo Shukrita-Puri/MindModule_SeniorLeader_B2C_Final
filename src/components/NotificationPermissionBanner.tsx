@@ -50,7 +50,6 @@ function buildReason(
 ): BannerReason | null {
   if (!nativeStatus) return null;
   if (nativeStatus.authorizationStatus === 'denied') return 'denied';
-  if (nativeStatus.authorizationStatus === 'provisional') return 'provisional';
   if (nativeStatus.backgroundRefreshStatus !== 'available') return 'background_refresh_off';
 
   const staleAge = daysSince(health?.lastPersistSuccessAt);
@@ -59,13 +58,13 @@ function buildReason(
 }
 
 export function NotificationPermissionBanner() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [nativeStatus, setNativeStatus] = useState<NativeNotificationAuthorizationStatus | null>(null);
   const [health, setHealth] = useState<PushRegistrationHealth | null>(null);
   const [loadingAction, setLoadingAction] = useState<'full' | 'refresh' | 'settings' | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !isNativeIos()) {
+    if (!isAuthenticated || !user?.onboarding_completed_at || !isNativeIos()) {
       setNativeStatus(null);
       setHealth(null);
       return;
@@ -183,7 +182,7 @@ export function NotificationPermissionBanner() {
     }
   }, [health?.lastPersistSuccessAt, nativeStatus, reason]);
 
-  if (!isAuthenticated || !isNativeIos() || !bannerCopy || isDismissed) return null;
+  if (!isAuthenticated || !user?.onboarding_completed_at || !isNativeIos() || !bannerCopy || isDismissed) return null;
 
   const canDismiss = reason !== 'denied';
 

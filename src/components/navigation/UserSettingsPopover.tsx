@@ -22,8 +22,13 @@ import { cn } from '@/lib/utils';
 import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
+import { SHOW_REFERRAL_PROGRAM } from '@/config/referralConfig';
 
-const UserSettingsPopover = () => {
+interface UserSettingsPopoverProps {
+  variant?: 'sidebar' | 'header';
+}
+
+export function UserSettingsPopover({ variant = 'sidebar' }: UserSettingsPopoverProps) {
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
   const { state } = useSidebar();
@@ -36,12 +41,13 @@ const UserSettingsPopover = () => {
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
+
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
     ...(!PAYMENT_PAGE_SUPPRESSED && !isValidBeta(user) ? [
       { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/upgrade?source=profile-upgrade', source: 'profile_upgrade' },
     ] : []),
-    { icon: Share2, label: 'Refer to Friends', path: '/refer' },
+    ...(SHOW_REFERRAL_PROGRAM ? [{ icon: Share2, label: 'Refer to Friends', path: '/refer' }] : []),
   ];
 
   const handleRetakeTour = () => {
