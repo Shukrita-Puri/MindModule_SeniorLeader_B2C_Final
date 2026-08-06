@@ -164,6 +164,8 @@ describe('CheckInDetail', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/executive-home');
     });
+
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['mrs-weekly-delta'] });
   });
 
   it('does not navigate when the update response has no row', async () => {
