@@ -312,7 +312,14 @@ export async function purchaseIapProduct(productId: string): Promise<IapPurchase
     appAccountToken: getAppAccountToken(),
   });
   if (result.status === 'purchased' && result.signedTransaction) {
-    await verifyAppleTransactions([result.signedTransaction], 'purchase');
+    const verified = await verifyAppleTransactions([result.signedTransaction], 'purchase');
+    if (!verified.ok) {
+      console.error('[iap] Edge function verify-apple-purchase failed:', verified.error);
+      return {
+        status: 'failed',
+        message: `Purchase completed with Apple, but backend DB update failed: ${verified.error || 'Server error'}. Please tap Restore Purchases.`,
+      };
+    }
   }
   return result;
 }

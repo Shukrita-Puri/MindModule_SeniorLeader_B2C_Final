@@ -155,11 +155,18 @@ function extractSpkiFromCertificate(der: Uint8Array): Uint8Array {
   throw new Error('Could not extract EC public key from Apple certificate');
 }
 
+export function toEpochMs(ts?: number | null): number | undefined {
+  if (ts == null) return undefined;
+  // StoreKit JWS timestamps in seconds (< 1e11) must be converted to ms
+  return ts < 1e11 ? ts * 1000 : ts;
+}
+
 export function isTransactionActive(tx: AppleTransactionPayload, now = Date.now()): boolean {
   if (tx.revocationDate) return false;
   if (tx.isUpgraded) return false;
   if (!tx.expiresDate) return true; // non-expiring / lifetime
-  return tx.expiresDate > now;
+  const expiresMs = toEpochMs(tx.expiresDate);
+  return expiresMs ? expiresMs > now : true;
 }
 
 export function tierForProductId(productId: string): 'monthly_pro' | 'annual_pro' {
@@ -179,9 +186,10 @@ export function effectiveExpiry(
   tx: AppleTransactionPayload,
   renewal?: AppleRenewalInfo | null,
 ): number | undefined {
-  const grace = renewal?.gracePeriodExpiresDate;
-  if (grace && grace > (tx.expiresDate ?? 0)) return grace;
-  return tx.expiresDate;
+  const txExpiryMs = toEpochMs(tx.expiresDate);
+  const graceMs = toEpochMs(renewal?.gracePeriodExpiresDate);
+  if (graceMs && graceMs > (txExpiryMs ?? 0)) return graceMs;
+  return txExpiryMs;
 }
 
 /**
@@ -200,9 +208,10 @@ export async function applyAppleEntitlement(
   ctx: AppleEntitlementContext = {},
 ): Promise<{ entitled: boolean }> {
   const renewal = ctx.renewal ?? null;
+  const expiryMs = effectiveExpiry(tx, renewal);
   const withGrace: AppleTransactionPayload = {
     ...tx,
-    expiresDate: effectiveExpiry(tx, renewal),
+    expiresDate: expiryMs,
   };
   const active = isTransactionActive(withGrace);
 
@@ -218,20 +227,23 @@ export async function applyAppleEntitlement(
     (!profile?.subscription_current_period_end ||
       new Date(profile.subscription_current_period_end).getTime() > Date.now());
 
+  const revocationMs = toEpochMs(tx.revocationDate);
+
   const update: Record<string, unknown> = {
     apple_original_transaction_id: tx.originalTransactionId,
     apple_transaction_id: tx.transactionId,
     apple_product_id: tx.productId,
-    apple_expires_at: withGrace.expiresDate ? new Date(withGrace.expiresDate).toISOString() : null,
+    apple_expires_at: expiryMs ? new Date(expiryMs).toISOString() : null,
     apple_environment: tx.environment ?? null,
-    apple_revoked_at: tx.revocationDate ? new Date(tx.revocationDate).toISOString() : null,
+    apple_revoked_at: revocationMs ? new Date(revocationMs).toISOString() : null,
     apple_last_verified_at: new Date().toISOString(),
   };
 
   if (renewal) {
     update.apple_auto_renew = renewal.autoRenewStatus === 1;
-    update.apple_grace_period_expires_at = renewal.gracePeriodExpiresDate
-      ? new Date(renewal.gracePeriodExpiresDate).toISOString()
+    const graceMs = toEpochMs(renewal.gracePeriodExpiresDate);
+    update.apple_grace_period_expires_at = graceMs
+      ? new Date(graceMs).toISOString()
       : null;
     // Auto-renew switched off while still active = user cancelled.
     update.apple_cancellation_date =
@@ -243,8 +255,9 @@ export async function applyAppleEntitlement(
     update.apple_last_notification_type = ctx.notificationSubtype
       ? `${ctx.notificationType}.${ctx.notificationSubtype}`
       : ctx.notificationType;
-    update.apple_last_notification_at = ctx.signedDate
-      ? new Date(ctx.signedDate).toISOString()
+    const signedMs = toEpochMs(ctx.signedDate);
+    update.apple_last_notification_at = signedMs
+      ? new Date(signedMs).toISOString()
       : new Date().toISOString();
   }
 
@@ -253,13 +266,13 @@ export async function applyAppleEntitlement(
     update.subscription_status = 'active';
     update.subscription_tier = tierForProductId(tx.productId);
     update.subscription_plan = tx.productId;
-    update.subscription_current_period_end = withGrace.expiresDate
-      ? new Date(withGrace.expiresDate).toISOString()
+    update.subscription_current_period_end = expiryMs
+      ? new Date(expiryMs).toISOString()
       : null;
     if (renewal?.autoRenewStatus === 0) {
       // Still entitled until period end, but will not renew.
-      update.subscription_cancel_at = withGrace.expiresDate
-        ? new Date(withGrace.expiresDate).toISOString()
+      update.subscription_cancel_at = expiryMs
+        ? new Date(expiryMs).toISOString()
         : null;
     } else {
       update.subscription_canceled_at = null;
@@ -273,7 +286,11 @@ export async function applyAppleEntitlement(
     update.subscription_canceled_at = new Date().toISOString();
   }
 
-  await db.from('profiles').update(update).eq('id', userId);
+  const { error: updateError } = await db.from('profiles').update(update).eq('id', userId);
+  if (updateError) {
+    console.error(`[apple-entitlement] ❌ DB update failed for user ${userId}:`, updateError.message);
+    throw new Error(`Profile database update failed: ${updateError.message}`);
+  }
 
   return { entitled: Boolean(active || stripeStillActive) };
 }
