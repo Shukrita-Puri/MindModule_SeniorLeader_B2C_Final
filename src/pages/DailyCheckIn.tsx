@@ -332,10 +332,12 @@ const DailyCheckIn = () => {
       queryClient.removeQueries({ queryKey: ['mrs-snapshot'] });
       queryClient.removeQueries({ queryKey: ['current-brief-snapshot'] });
       queryClient.removeQueries({ queryKey: ['mastery-plan-snapshot'] });
+      queryClient.removeQueries({ queryKey: ['mrs-weekly-delta'] });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
         queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
         queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['mrs-weekly-delta'] }),
       ]);
 
       // Route to the next step based on the user's check-in mode:
