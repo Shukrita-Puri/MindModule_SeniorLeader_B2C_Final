@@ -1,6 +1,6 @@
-# 15-Minute Freshness: iOS Background Refresh, Oura, and Calendars
+# 15-Minute Freshness: iOS Background Refresh + Oura
 
-Goal: make every automatic data path refresh at least every 15 minutes so a user opening the app sees current Apple Watch, Oura, and calendar data within 60-90 seconds.
+Goal: bring the Apple Watch and Oura paths onto a 15-minute cadence so a user opening the app sees current data within 60-90 seconds. Calendars stay exactly as they are.
 
 ## 1. iOS background refresh: 30 -> 15 minutes
 
@@ -23,18 +23,14 @@ Note: Oura's cloud publishes daily summaries slowly, so this raises the freshnes
 
 ## 3. Calendars: every 30 -> every 15 minutes
 
-Verified: `sync-calendar-scheduled` runs `*/30 * * * *` and covers the OAuth-backed providers `google` and `microsoft`. `refresh-calendar-tokens` already runs every 10 minutes and stays as-is.
-
-Migration: re-schedule `sync-calendar-scheduled` to `*/15 * * * *` with the same command body.
-
-Apple Calendar has no server-side path — EventKit data lives only on the device. It already syncs natively on app activation, on every background refresh (now 15 min), and on network reconnect. Change 1 is what tightens Apple Calendar; nothing else is available server-side.
+No change. `sync-calendar-scheduled` stays on `*/30 * * * *` for Google and Microsoft, and `refresh-calendar-tokens` stays at every 10 minutes. Apple Calendar keeps its existing native triggers (app activation, background refresh, network reconnect) — no scheduling change is made for it.
 
 ## 4. Verification
 
 - Run `tsgo` (no TypeScript is touched, so this is a regression check only).
-- Re-query `cron.job` after the migration and report the resulting schedules.
+- Re-query `cron.job` after the migration and confirm Oura is `*/15` and the calendar jobs are unchanged.
 - Report the exact lines changed.
 
 ## Out of scope
 
-No change to MRS scoring, Brief, Plan, nudges (`smart-nudges-every-15m` stays), or the executive-home card job. No new functions, no payload changes.
+No calendar cadence changes. No change to MRS scoring, Brief, Plan, nudges (`smart-nudges-every-15m` stays), or the executive-home card job. No new functions, no payload changes.
