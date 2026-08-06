@@ -10,6 +10,8 @@ const OAUTH_DONE_PATTERNS = [
   'calendar_connected=',
   'oura_connected=',
   'connected=',
+  'oauth-done',
+  'oauth-complete',
   'onboarding/permissions',
   'connected-data',
   'reason=',

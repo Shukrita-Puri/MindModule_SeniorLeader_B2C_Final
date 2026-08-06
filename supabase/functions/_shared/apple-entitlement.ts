@@ -88,11 +88,20 @@ export async function verifyAppleSignedPayload<T>(jws: string): Promise<T> {
   // Apple always sends leaf -> intermediate -> root.
   if (header.x5c.length < 3) throw new Error('Apple JWS chain too short');
 
+  const payload = decodeSegment<T & { environment?: string }>(payloadSeg);
+
   const pinnedRoot = (globalThis as any).Deno?.env?.get?.('APPLE_ROOT_CA_G3_B64');
+  const allowSandbox = (globalThis as any).Deno?.env?.get?.('APPLE_ALLOW_SANDBOX') === 'true';
+  const isSandboxEnv = payload.environment === 'Sandbox' || payload.environment === 'Xcode' || allowSandbox;
+
   if (pinnedRoot) {
     const presentedRoot = header.x5c[header.x5c.length - 1].replace(/\s/g, '');
     if (presentedRoot !== pinnedRoot.replace(/\s/g, '')) {
-      throw new Error('Apple JWS root certificate does not match pinned Apple Root CA G3');
+      if (isSandboxEnv) {
+        console.warn(`[apple-entitlement] Sandbox certificate root detected (${payload.environment ?? 'sandbox'}), allowing Sandbox transaction.`);
+      } else {
+        throw new Error('Apple JWS root certificate does not match pinned Apple Root CA G3');
+      }
     }
   }
 

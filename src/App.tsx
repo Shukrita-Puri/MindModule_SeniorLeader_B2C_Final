@@ -90,6 +90,7 @@ const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
 const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro"));
 const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const OAuthDone = lazy(() => import("./pages/OAuthDone"));
 
 // v8 onboarding flow (replaces legacy questionnaire for new users)
 const StageLeadershipContext = lazy(() => import("./pages/onboarding/stages/v8/StageLeadershipContext"));
@@ -465,6 +466,10 @@ const router = createBrowserRouter([
       {
         path: "powered-by-ai",
         element: <Suspense fallback={<LoadingFallback />}><PoweredByAI /></Suspense>,
+      },
+      {
+        path: "oauth-done",
+        element: <Suspense fallback={<LoadingFallback />}><OAuthDone /></Suspense>,
       },
       {
         path: "onboarding",

@@ -17,11 +17,13 @@ const OURA_TOKEN = "https://api.ouraring.com/oauth/token";
 
 function appReturnUrl(success: boolean, reason?: string, redirectPath?: string): string {
   const frontend = Deno.env.get("FRONTEND_URL") || "https://mindmoduleme.lovable.app";
-  const path = redirectPath && redirectPath.startsWith("/") ? redirectPath : "/connected-data";
+  const path = redirectPath && redirectPath.startsWith("/") ? redirectPath : "/profile";
   const params = new URLSearchParams();
   params.set("oura_connected", success ? "true" : "false");
+  params.set("provider", "oura");
+  params.set("redirectPath", path);
   if (reason) params.set("reason", reason);
-  return `${frontend.replace(/\/$/, "")}${path}?${params.toString()}`;
+  return `${frontend.replace(/\/$/, "")}/oauth-done?${params.toString()}`;
 }
 
 Deno.serve(async (req) => {
