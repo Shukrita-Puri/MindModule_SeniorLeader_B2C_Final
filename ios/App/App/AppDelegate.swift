@@ -78,9 +78,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private func scheduleBackgroundRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: backgroundRefreshTaskId)
-        // Target half-hourly cadence. iOS may delay further based on usage,
+        // Target quarter-hourly cadence. iOS may delay further based on usage,
         // battery, and network — this is the *earliest* it will consider us.
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60) // 30 minutes
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // 15 minutes
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
