@@ -6151,8 +6151,11 @@ export type Database = {
           attendees_count: number | null
           created_at: string | null
           end_time: string | null
+          event_category: string | null
           event_metadata: Json | null
+          event_subcategory: string | null
           external_id: string | null
+          flight_duration_minutes: number | null
           id: string | null
           is_all_day: boolean | null
           is_organizer: boolean | null
@@ -6166,8 +6169,11 @@ export type Database = {
           attendees_count?: number | null
           created_at?: string | null
           end_time?: string | null
+          event_category?: string | null
           event_metadata?: Json | null
+          event_subcategory?: string | null
           external_id?: string | null
+          flight_duration_minutes?: number | null
           id?: string | null
           is_all_day?: boolean | null
           is_organizer?: boolean | null
@@ -6181,8 +6187,11 @@ export type Database = {
           attendees_count?: number | null
           created_at?: string | null
           end_time?: string | null
+          event_category?: string | null
           event_metadata?: Json | null
+          event_subcategory?: string | null
           external_id?: string | null
+          flight_duration_minutes?: number | null
           id?: string | null
           is_all_day?: boolean | null
           is_organizer?: boolean | null
