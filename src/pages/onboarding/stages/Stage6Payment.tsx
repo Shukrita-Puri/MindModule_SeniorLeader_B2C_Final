@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { hasValidAccess, isValidBeta, resolveOnboardingAccess } from "@/utils/subscriptionHelpers";
 import { isIosNativeShell } from "@/config/purchasePlatform";
 import { ApplePaywall } from "@/components/subscription/ApplePaywall";
+import { markV8Complete } from "@/utils/onboardingV8";
+import { startFirstSessionTour } from "@/utils/firstSessionTour";
 
 // Shared mobile-safe scroll shell for the pricing/upgrade page.
 //
@@ -363,12 +365,41 @@ export default function Stage6Payment() {
         </PaymentPageShell>
       );
     }
+    const handleEntitledNavigation = async () => {
+      console.log('[Stage6Payment] Purchase/Entitlement confirmed — initiating navigation to Executive Home');
+      try {
+        await refreshProfileRef.current();
+      } catch (err) {
+        console.warn('[Stage6Payment] refreshProfile warning:', err);
+      }
+
+      // If user subscribed during onboarding and has no onboarding_completed_at timestamp,
+      // complete onboarding so OnboardingGuard allows /executive-home access.
+      if (!user?.onboarding_completed_at) {
+        console.log('[Stage6Payment] Completing onboarding and triggering tour for fresh subscriber');
+        try {
+          await markV8Complete();
+          await refreshProfileRef.current();
+        } catch (err) {
+          console.warn('[Stage6Payment] markV8Complete warning:', err);
+        }
+        try {
+          startFirstSessionTour({ userId: user?.id, source: 'onboarding' });
+        } catch {
+          /* best-effort */
+        }
+      }
+
+      console.log('[Stage6Payment] Navigating to /executive-home');
+      navigate('/executive-home', { replace: true });
+    };
+
     return (
       <PaymentPageShell>
         <ApplePaywall
           user={user}
           onRefreshProfile={() => refreshProfileRef.current()}
-          onEntitled={() => navigate('/executive-home', { replace: true })}
+          onEntitled={() => void handleEntitledNavigation()}
         />
       </PaymentPageShell>
     );

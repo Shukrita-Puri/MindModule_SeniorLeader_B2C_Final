@@ -164,7 +164,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   const monthlyProduct = products.find((p) => planForProductId(p.id) === 'monthly');
   const annualProduct = products.find((p) => planForProductId(p.id) === 'annual');
   const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : 'the monthly plan rate';
-  const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : 'the annual plan rate';
+  const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : '299.99/year';
 
   // Existing Stripe subscriber inside the iOS app: status only, no CTA.
   if (stripeLegacy) {
@@ -230,46 +230,40 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-5" data-testid="apple-paywall">
-      {/* Header Section */}
+      {/* Header Section (Headline 2 sizes bigger) */}
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/80">
+        <h1 className="text-lg font-headline font-bold tracking-wider uppercase text-saffron">
           MIND MODULE EXECUTIVE EDITION
-        </p>
-        <h1 className="text-2xl font-headline font-bold text-foreground tracking-tight">
-          Mind Module Executive Edition
         </h1>
-        <p className="text-sm font-medium text-foreground/90 leading-snug">
+        <p className="text-base font-medium text-foreground/95 leading-snug">
           Your mind runs everything. Now it has a chief of staff.
-        </p>
-        <p className="text-xs text-muted-foreground leading-relaxed pt-1">
-          Not generic wellness. Your daily mental performance system - built around your day, your signals and your real decision load. Prepared before the moments that define you.
         </p>
       </div>
 
-      {/* What's Included (Clean list, no icons, minimal weight) */}
-      <div className="space-y-2 py-3 border-y border-border/40">
+      {/* What's Included (Clean list, minimal weight, no border lines) */}
+      <div className="space-y-2 py-1">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           WHAT&apos;S INCLUDED
         </p>
         <ul className="space-y-1.5 text-xs text-foreground/85 leading-snug">
           <li className="flex items-start gap-1.5">
-            <span className="text-muted-foreground">•</span>
+            <span className="text-saffron">•</span>
             <span>Daily Briefs to know where you stand before the day runs you</span>
           </li>
           <li className="flex items-start gap-1.5">
-            <span className="text-muted-foreground">•</span>
+            <span className="text-saffron">•</span>
             <span>Short Performance plan built around your day, your signals, your patterns</span>
           </li>
           <li className="flex items-start gap-1.5">
-            <span className="text-muted-foreground">•</span>
+            <span className="text-saffron">•</span>
             <span>Quick Protocols that work under real pressure</span>
           </li>
           <li className="flex items-start gap-1.5">
-            <span className="text-muted-foreground">•</span>
+            <span className="text-saffron">•</span>
             <span>Weekly Intelligence on what&apos;s quietly draining or restoring you</span>
           </li>
           <li className="flex items-start gap-1.5">
-            <span className="text-muted-foreground">•</span>
+            <span className="text-saffron">•</span>
             <span>Connected to your world - not your memory</span>
           </li>
         </ul>
@@ -322,7 +316,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
             key={product.id}
             className={`rounded-2xl p-5 space-y-3 relative overflow-hidden transition-all ${
               isAnnual
-                ? 'border-2 border-amber-500/60 bg-gradient-to-br from-amber-500/10 via-card to-card shadow-md'
+                ? 'border-2 border-saffron/60 bg-gradient-to-br from-saffron/10 via-card to-card shadow-md'
                 : 'border border-border bg-card'
             }`}
             data-testid={`apple-plan-${product.id}`}
@@ -335,7 +329,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
                     {isAnnual ? 'Mind Module Pro Annual' : 'Mind Module Pro Monthly'}
                   </span>
                   {isAnnual && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-500 text-amber-950 shadow-sm">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-saffron text-white shadow-sm">
                       FOUNDING MEMBER
                     </span>
                   )}
@@ -352,18 +346,20 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
             {/* Trial Subtitle Line */}
             {trial.isFreeTrial && (
               <div className="space-y-0.5" data-testid={`apple-trial-${product.id}`}>
-                <p className="text-xs font-semibold text-amber-500">
+                <p className="text-xs font-semibold text-saffron">
                   {trial.headline ? `${trial.headline} then ${product.displayPrice}/${isAnnual ? 'year' : 'month'}` : trial.postTrialLine}
                 </p>
               </div>
             )}
             {introDiscount && (
-              <p className="text-xs text-amber-500 font-medium">{introDiscount}</p>
+              <p className="text-xs text-saffron font-medium">{introDiscount}</p>
             )}
 
             {/* CTA Button */}
             <Button
-              className="w-full h-11 font-medium text-sm"
+              className={`w-full h-11 font-medium text-sm ${
+                isAnnual ? 'bg-saffron hover:bg-saffron/90 text-white' : ''
+              }`}
               variant={isAnnual ? 'default' : 'outline'}
               disabled={busyProductId !== null}
               onClick={() => void handlePurchase(product.id)}
