@@ -65,7 +65,9 @@ export function useWeeklyMrsDelta() {
 
   return useQuery<WeeklyMrsDelta>({
     queryKey: ['mrs-weekly-delta', userId, isoLocal(new Date())],
-    staleTime: 5 * 60 * 1000,
+    // No stale window: a check-in invalidation must always trigger a real
+    // refetch so the baseline -> refined switch shows immediately.
+    staleTime: 0,
     queryFn: async () => {
       const today = new Date();
       const thisMon = mondayOf(today);
