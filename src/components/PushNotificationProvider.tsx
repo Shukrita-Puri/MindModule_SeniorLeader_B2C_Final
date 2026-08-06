@@ -1,5 +1,6 @@
 import { useDeviceTokenRegistration } from '@/hooks/useDeviceTokenRegistration';
 import { usePushNotificationHandler } from '@/hooks/usePushNotificationHandler';
+import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 
 
 /**
@@ -8,7 +9,9 @@ import { usePushNotificationHandler } from '@/hooks/usePushNotificationHandler';
  */
 export function PushNotificationProvider() {
   useDeviceTokenRegistration();
-  return null;
+  // Surfaces the recovery CTAs (denied / provisional / background-refresh-off /
+  // stale token). The banner self-hides off native iOS and when healthy.
+  return <NotificationPermissionBanner />;
 }
 
 /**
