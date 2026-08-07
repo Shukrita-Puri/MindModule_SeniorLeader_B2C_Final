@@ -342,13 +342,17 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   // Fires ONLY when the primary anchor (sleep efficiency) is unavailable and
   // the wearable is fresh. Uses ACTIVE heart-rate elevation, never RHR — RHR
   // is the primary Physical Reserves signal and must not be double-counted.
+  // Assigns a full tier (not elevation-only) so a normal HR reads green
+  // instead of leaving the pill "Unread".
   let resilienceFallbackUsed: PillFallbackUsed = null;
   if (resTiers.length === 0 && sleepEfficiency == null && wearableFreshForGate) {
-    if (hrDeviation != null && hrDeviation > 10) {
-      resTiers.push("amber");
+    if (hrDeviation != null) {
+      resTiers.push(
+        hrDeviation > 20 ? "red" : hrDeviation > 10 ? "amber" : "green",
+      );
       resilienceFallbackUsed = "hr_elevated_proxy";
-    } else if (hrDeviation == null && hrValue != null && hrValue > 80) {
-      resTiers.push("amber");
+    } else if (hrValue != null) {
+      resTiers.push(hrValue > 90 ? "red" : hrValue > 80 ? "amber" : "green");
       resilienceFallbackUsed = "hr_elevated_proxy";
     }
   }

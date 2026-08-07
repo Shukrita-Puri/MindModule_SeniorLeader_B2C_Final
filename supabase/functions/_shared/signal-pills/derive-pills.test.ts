@@ -726,24 +726,43 @@ Deno.test("FB-06: HR-elevated proxy never fires on RHR alone", () => {
     baseInput({ wearableFreshForGate: true, hasWearable: true, rhrValue: 85, rhrDeviation: 20 }),
   );
   assertEquals(pill(rhrOnly.pills, "resilience_capacity").fallbackUsed ?? null, null);
-
-  const normalHr = derivePills(
-    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 62, hrDeviation: 2 }),
-  );
-  assertEquals(pill(normalHr.pills, "resilience_capacity").fallbackUsed ?? null, null);
 });
 
-Deno.test("FB-06b: HR value fallback applies only when deviation is unavailable", () => {
-  const fired = derivePills(
-    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 88, hrDeviation: null }),
+Deno.test("FB-06b: benign HR produces a green read, not an Unread pill", () => {
+  const benign = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 82, hrDeviation: -7 }),
   );
-  assertEquals(pill(fired.pills, "resilience_capacity").fallbackUsed, "hr_elevated_proxy");
+  const rc = pill(benign.pills, "resilience_capacity");
+  assertEquals(rc.fallbackUsed, "hr_elevated_proxy");
+  assertEquals(rc.contributors.hrValue, 82);
+  assertEquals(benign.resilienceTier, "green");
+});
 
-  // Deviation present and benign wins over the raw-value branch.
-  const suppressed = derivePills(
-    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 88, hrDeviation: 3 }),
+Deno.test("FB-06c: HR deviation thresholds tier worst-first", () => {
+  const red = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 100, hrDeviation: 25 }),
   );
-  assertEquals(pill(suppressed.pills, "resilience_capacity").fallbackUsed ?? null, null);
+  const amber = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 92, hrDeviation: 15 }),
+  );
+  assertEquals(red.resilienceTier, "red");
+  assertEquals(amber.resilienceTier, "amber");
+});
+
+Deno.test("FB-06d: raw HR thresholds apply when no deviation baseline exists", () => {
+  const green = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 75, hrDeviation: null }),
+  );
+  const amber = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 85, hrDeviation: null }),
+  );
+  const red = derivePills(
+    baseInput({ wearableFreshForGate: true, hasWearable: true, hrValue: 95, hrDeviation: null }),
+  );
+  assertEquals(green.resilienceTier, "green");
+  assertEquals(amber.resilienceTier, "amber");
+  assertEquals(red.resilienceTier, "red");
+  assertEquals(pill(green.pills, "resilience_capacity").fallbackUsed, "hr_elevated_proxy");
 });
 
 Deno.test("FB-08: neither proxy fires when the wearable is stale", () => {
