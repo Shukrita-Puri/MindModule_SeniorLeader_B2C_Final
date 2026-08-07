@@ -4035,13 +4035,10 @@ serve(async (req) => {
     // RULE: a 'refined' / Full Read state requires Stage 1 plus a current
     // check-in. If the inner pipeline forwarded `refined` without Stage 1,
     // downgrade it to `baseline`.
-    // Fresh means same-day wearable evidence only. Historical rows may still
-    // exist for context/audit, but they must NEVER qualify pills as fresh or
-    // score-bearing for the current window.
-    const wearableFreshForGate = hasTodayWearableData === true;
-    const calendarUsableForGate = calendarResult.state === "active" ||
-      calendarResult.state === "connected_no_events";
-    const stageOneSignalForGate = wearableFreshForGate || calendarUsableForGate;
+    // Freshness is window-aware and comes from the single canonical rule in
+    // `_shared/signal-engine/signal-freshness.ts` (morning accepts a 0- or
+    // 1-day-old row; afternoon/evening require same-day). The gate consts are
+    // declared just below, immediately after `signalFreshness` is resolved.
 
     // ── Current-signal freshness contract (shared by pills + Executive Brief)
     // The brief must never make a current-state claim from a signal the pills
