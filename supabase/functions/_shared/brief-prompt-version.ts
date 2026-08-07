@@ -17,4 +17,7 @@
 // PTO/OOO, travel by type with phase, conference, full-day events) plus a
 // matching persona directive. Bump invalidates cached v6.6 briefs so off-day
 // and travel days regenerate with the correct framing.
-export const BRIEF_PROMPT_VERSION = 'v6.7-day-shape-awareness';
+// v6.8 — COACH retired as a Lean On / Watch For source on the LLM path.
+// The deterministic path was already gated (COACH_SOURCE_ENABLED = false);
+// this bump invalidates cached v6.7 briefs that still carry "· COACH" pairs.
+export const BRIEF_PROMPT_VERSION = 'v6.8-coach-source-retired';

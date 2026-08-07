@@ -6552,8 +6552,8 @@ LEAN ON
   Job: Name the strategic RESOURCE, drawn from history, archetype, or development, that makes the body's directional move possible.
   Length: 2–4 words. Named noun phrase. Source tag after " · ".
   MUST: add information the body did not already say. If body said "use rested physiology", LEAN ON does NOT say "Rested Physiology", it says WHY that resource matters over time, e.g. "Post-rest decision window · PATTERN".
-  Sources allowed: PATTERN (7–30d DOW outcome, HRV×event correlation, post-coach-session lift, score trajectory, consecutive streak), ARCHETYPE (the leader's archetype strength), COACH (insight ≤7 days old).
-  FORBIDDEN: today's green pillar restated, today's score, today's calendar event names, today's wearable values, generic trait words ("Self-Honesty", "Self-Awareness", "Self-Discernment", "Discernment", "Alignment", "Conviction Strength", "Execution Confidence", "Clear Direction") UNLESS source is COACH and a coach insight ≤7d explicitly named that trait.
+  Sources allowed: PATTERN (7–30d DOW outcome, HRV×event correlation, score trajectory, consecutive streak), ARCHETYPE (the leader's archetype strength), GOALS (a stated protection goal).
+  FORBIDDEN: today's green pillar restated, today's score, today's calendar event names, today's wearable values, generic trait words ("Self-Honesty", "Self-Awareness", "Self-Discernment", "Discernment", "Alignment", "Conviction Strength", "Execution Confidence", "Clear Direction") in all cases.
   No-data fallback: archetype trait specific to this leader (NEVER generic).
   ✅ "Post-rest decision window · PATTERN" / "Recovery Intelligence · ARCHETYPE" / "Pre-board composure track · PATTERN" / "Sunday composure · PATTERN"
   ❌ "Self-Honesty · CHECK-IN" / "Rested Physiology · PHYSIOLOGY" (repeats body)
@@ -6562,12 +6562,12 @@ WATCH FOR
   Job: Name the recurring TRAP that today's state or pattern activates, the failure mode that makes today's risk worse than it appears.
   Length: 2–4 words. Named noun phrase. Source tag after " · ".
   MUST: add information the body did not already say. If body said "mind under strain", WATCH FOR does NOT say "Cognitive Load", it names the recurring trap, e.g. "Forcing clarity · PATTERN" or "Spending surplus early · PATTERN".
-  Sources allowed: PATTERN (recurring failure mode with ≥3 observations, HRV×event failure mode, friction trend, consecutive low streak), ARCHETYPE (the leader's archetype shadow), COACH (growth area ≤7d).
+  Sources allowed: PATTERN (recurring failure mode with ≥3 observations, HRV×event failure mode, friction trend, consecutive low streak), ARCHETYPE (the leader's archetype shadow), GOALS (a stated protection goal).
   FORBIDDEN: today's red pillar restated, today's score, today's wearable values, generic trait words.
   ✅ "Forcing clarity · PATTERN" / "Performing Resilience · ARCHETYPE" / "Spending surplus early · PATTERN" / "Over-adapting · ARCHETYPE" / "Back-to-back compounding · PATTERN"
   ❌ "Body Under Load · PHYSIOLOGY" (repeats body) / "Self-Honesty · CHECK-IN" (generic)
 
-FORMAT: Each leanOn/watchFor item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE ∈ {ARCHETYPE, COACH, PATTERN, GOALS}. DATA and CHECK-IN are NOT allowed sources. If no pattern/archetype/coach/goals data exists, return the archetype-specific trait, never generic, never empty.
+FORMAT: Each leanOn/watchFor item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE ∈ {ARCHETYPE, PATTERN, GOALS}. COACH, DATA and CHECK-IN are NOT allowed sources. If no pattern/archetype/goals data exists, return the archetype-specific trait, never generic, never empty.
 
 NON-REDUNDANCY TEST (run silently before emitting):
   1. Phrase orients without explaining? If it explains, shorten.
@@ -6649,7 +6649,7 @@ The pills below the body now apply Hardware Veto + Outcome Veto. Your body MUST 
   • If SLEEP is null/missing → body MUST NOT assert physiological recovery, rest, or "body is ready". Use language like "body partial read" or "sleep not captured".
   • Phrase MUST orient to the actual lever. "Sustain the pace" / "Steady ground" / "Hold the base" are FORBIDDEN when the user reports drained/overwhelmed or when consecutiveLowDays ≥ 3.
   • NEVER reproduce the deterministic-template phrases: "not a single bad night", "day's margins can provide", "system may need more than the days margine can provide". These are placeholder copy you are replacing.
-  • Lean On / Watch For: prefer PATTERN source when consecutiveLowDays ≥ 3, when Mental Energy is drained/overwhelmed, or when HRV deviation ≤ -20%. Do NOT use generic traits ("Full Alignment", "Self-Honesty", "Discernment") unless source=COACH and the coach insight is ≤7 days old.
+  • Lean On / Watch For: prefer PATTERN source when consecutiveLowDays ≥ 3, when Mental Energy is drained/overwhelmed, or when HRV deviation ≤ -20%. Do NOT use generic traits ("Full Alignment", "Self-Honesty", "Discernment") in any case.
 
 §2.22 ANTI-FALLBACK / DATA-FIRST MANDATE:
 Your priority is Evidence-Based Insight. If user data is thin (no calendar, no wearable), pivot to BASELINE INTELLIGENCE, never default to generic advice. Calendar-empty path orients The Stake to "Base-Level Readiness" (e.g., "Stabilizing the base for future load"), never rejected for missing calendar.
@@ -8268,10 +8268,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   return { valid: false, reason: `${label}_em_dash` };
                 }
 
-                // §2.18.5 Source must be ARCHETYPE | COACH | PATTERN | GOALS
+                // §2.18.5 Source must be ARCHETYPE | PATTERN | GOALS (COACH retired)
                 const sourceUpper = source.toUpperCase();
                 if (
-                  !["ARCHETYPE", "COACH", "PATTERN", "GOALS"].includes(
+                  !["ARCHETYPE", "PATTERN", "GOALS"].includes(
                     sourceUpper,
                   )
                 ) {
@@ -8281,10 +8281,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   };
                 }
 
-                // §2.18.5 Generic-trait blocklist (allowed only when source=COACH)
+                // §2.18.5 Generic-trait blocklist (no source exception — COACH retired)
                 const GENERIC_TRAIT =
                   /\b(self[- ]?honesty|self[- ]?awareness|self[- ]?discernment|discernment|alignment|conviction strength|execution confidence|clear direction)\b/i;
-                if (GENERIC_TRAIT.test(signal) && sourceUpper !== "COACH") {
+                if (GENERIC_TRAIT.test(signal)) {
                   return { valid: false, reason: `${label}_generic_trait` };
                 }
 
