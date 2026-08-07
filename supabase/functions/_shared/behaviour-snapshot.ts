@@ -18,12 +18,12 @@
 // The LLM contract is unchanged — consumers still see only the
 // `=== ACTIVE CEO BEHAVIOURS ===` and `=== EVENT TAXONOMY ===` strings.
 
-import type { BehaviourFlag, SlotBoost } from './brief-context.ts';
+import type { BehaviourFlag, SignalMatrix, SlotBoost } from './brief-context.ts';
 import {
   evaluateForScope,
   type RuleContextExtras,
 } from './behaviour-wiring.ts';
-import type { SignalCoverageInput } from './brief-signal-coverage.ts';
+import { buildSignalMatrix, type SignalCoverageInput } from './brief-signal-coverage.ts';
 import { formatEventTaxonomyBlock } from './events/format-taxonomy.ts';
 
 export interface BehaviourSnapshotInput {
@@ -42,6 +42,13 @@ export interface BehaviourSnapshotResult {
   promptBlockPlan: string;
   /** Pre-formatted "=== EVENT TAXONOMY ===" block — same for every surface. */
   taxonomyBlock: string;
+  /**
+   * The deterministic signal matrix the rules were evaluated from. Exposed so
+   * the Brief can read the SAME day-awareness signals the Plan uses (PTO,
+   * holiday, travel type, conference, full-day events) without recomputing or
+   * re-detecting anything. Null only when derivation failed.
+   */
+  signals: SignalMatrix | null;
   /** Stable signature of inputs — write onto brief_snapshots.input_signature. */
   signatureHash: string;
 }
@@ -64,6 +71,13 @@ export function buildBehaviourSnapshot(
     })),
   );
 
+  let signals: SignalMatrix | null = null;
+  try {
+    signals = buildSignalMatrix(input.coverage);
+  } catch (err) {
+    console.error('[behaviour-snapshot] signal matrix derivation failed:', err);
+  }
+
   return {
     flagsBrief: briefResult?.flags ?? [],
     flagsPlan: planResult?.flags ?? [],
@@ -71,6 +85,7 @@ export function buildBehaviourSnapshot(
     promptBlockBrief: briefResult?.promptBlock ?? '',
     promptBlockPlan: planResult?.promptBlock ?? '',
     taxonomyBlock,
+    signals,
     signatureHash: computeSignatureHash(input),
   };
 }
@@ -116,6 +131,7 @@ export function defaultBehaviourSnapshot(): BehaviourSnapshotResult {
     promptBlockBrief: '',
     promptBlockPlan: '',
     taxonomyBlock: '',
+    signals: null,
     signatureHash: '00000000',
   };
 }

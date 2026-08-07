@@ -52,6 +52,12 @@ import {
   type DeterministicBriefResult,
 } from "../_shared/brief/deterministic-brief.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
+import {
+  deriveDayShape,
+  formatDayShapeBlock,
+  type DayShape,
+  type TravelPhase,
+} from "../_shared/brief/day-shape.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
   buildBriefSystemPrompt,
@@ -4595,6 +4601,10 @@ serve(async (req) => {
     // brief_snapshots.payload_json.behaviour_snapshot so generate-mastery-plan
     // can read the SAME named events / stakes / slot boosts the Brief used.
     let briefBehaviourSnapshot: BehaviourSnapshotResult | null = null;
+    // Day shape derived from the snapshot below (holiday / PTO / travel type /
+    // conference). Declared here so the prompt scope can read it.
+    let briefDayShape: DayShape | null = null;
+    let briefTravelPhase: TravelPhase = null;
     let briefWindowContext: ReturnType<typeof buildWindowContext> | null = null;
 
     if (dataCompleteness !== "day1") {
@@ -6452,7 +6462,11 @@ serve(async (req) => {
           // `isWeekend` is the locale-aware flag computed above via
           // isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry) — Fri/Sat for
           // Gulf + Israel, Sat/Sun elsewhere.
-          const systemPrompt = buildBriefSystemPrompt({ bandValence, isWeekend });
+          // Day shape (holiday / PTO / travel-by-type / conference) is derived
+          // AFTER the behaviour snapshot is built further below, then the
+          // system prompt is re-assembled with the matching directive. This
+          // first build keeps the weekend-only behaviour as the safe default.
+          let systemPrompt = buildBriefSystemPrompt({ bandValence, isWeekend });
           // === LEADER VOICE === (from onboarding CoS profile)
           // Appended AFTER the shared persona/voice/constraint blocks so it
           // reads as a distinct, auditable calibration layer. Empty when the
@@ -6490,7 +6504,7 @@ serve(async (req) => {
           const leaderVoiceBlock = leaderVoiceParts.length > 0
             ? `\n\n=== LEADER VOICE ===\n${leaderVoiceParts.join("\n\n")}`
             : "";
-          const systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
+          let systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
           // Retain the legacy inline prompt only as a parked diff-bisection
           // literal during rollout. It is not part of the active prompt path.
           // Drift-protection: any new persona/voice/constraint change must
@@ -7541,6 +7555,40 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } catch (_e) {
               materialTravelContextActive = false;
               materialWorkEventTitles = [];
+            }
+
+            // ── DAY SHAPE (read-only projection of Plan/JIT v2 signals) ──
+            // No new detection: `briefBehaviourSnapshot.signals` is the SAME
+            // matrix the Plan reads (PTO / holiday / travel-by-type /
+            // conference / full-day events). The Brief now states the day
+            // shape explicitly and the system prompt gets the matching
+            // directive so Brief and Plan tell one story.
+            try {
+              const shape = deriveDayShape(briefBehaviourSnapshot.signals, {
+                isPublicHoliday,
+                holidayName,
+                isWeekend,
+              });
+              briefDayShape = shape.shape;
+              briefTravelPhase = shape.travelPhase;
+              userPrompt += formatDayShapeBlock(shape);
+              systemPrompt = buildBriefSystemPrompt({
+                bandValence,
+                isWeekend,
+                dayShape: shape.shape,
+                travelPhase: shape.travelPhase,
+              });
+              systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
+              console.log(
+                `[compute-outer-readiness] day-shape=${shape.shape} travelPhase=${
+                  shape.travelPhase ?? "none"
+                } reason="${shape.reason}"`,
+              );
+            } catch (e) {
+              console.warn(
+                "[compute-outer-readiness] day-shape derivation skipped:",
+                e instanceof Error ? e.message : e,
+              );
             }
 
             // Append shared event-coaching context first, then the taxonomy
@@ -8999,6 +9047,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   : null,
                 hasBackToBack: !!hasBackToBack,
                 isWeekend: isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry),
+                // Same day-awareness the Plan uses: holiday / PTO / personal
+                // travel take the non-workday copy branches.
+                isNonWorkday: briefDayShape === "public_holiday" ||
+                  briefDayShape === "pto" ||
+                  briefDayShape === "personal_holiday" ||
+                  briefDayShape === "personal_travel",
               });
               // DETERMINISTIC BYPASS: the validator runs for observability only.
               // deterministic-brief.ts is validated by construction — every string
