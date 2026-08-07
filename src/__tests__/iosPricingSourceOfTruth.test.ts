@@ -51,3 +51,68 @@ describe('no hardcoded subscription pricing on iOS-reachable surfaces', () => {
     expect(/['"`]7[- ]day/i.test(src)).toBe(false);
   });
 });
+
+import { describeTrial } from '../utils/introOffer';
+import type { IapProduct } from '../services/iap';
+
+describe('dynamic intro offer button label generator', () => {
+  it('correctly adapts button label to whatever trial period Apple returns', () => {
+    const baseProduct: IapProduct = {
+      id: 'me.mindmodule.pro.monthly',
+      price: 34.99,
+      displayPrice: '£34.99',
+      currency: 'GBP',
+      title: 'Mind Module Pro Monthly',
+      description: 'Monthly Plan',
+    };
+
+    // 1. 7-Day Free Trial returned by Apple
+    const p7Day: IapProduct = {
+      ...baseProduct,
+      isEligibleForIntroOffer: true,
+      introOffer: {
+        paymentMode: 'freeTrial',
+        periodValue: 7,
+        periodUnit: 'day',
+        periodCount: 1,
+        displayPrice: 'Free',
+      },
+    };
+    expect(describeTrial(p7Day).ctaLabel).toBe('Start 7-day free trial');
+
+    // 2. 14-Day Free Trial returned by Apple
+    const p14Day: IapProduct = {
+      ...baseProduct,
+      isEligibleForIntroOffer: true,
+      introOffer: {
+        paymentMode: 'freeTrial',
+        periodValue: 14,
+        periodUnit: 'day',
+        periodCount: 1,
+        displayPrice: 'Free',
+      },
+    };
+    expect(describeTrial(p14Day).ctaLabel).toBe('Start 14-day free trial');
+
+    // 3. 30-Day Free Trial returned by Apple
+    const p30Day: IapProduct = {
+      ...baseProduct,
+      isEligibleForIntroOffer: true,
+      introOffer: {
+        paymentMode: 'freeTrial',
+        periodValue: 30,
+        periodUnit: 'day',
+        periodCount: 1,
+        displayPrice: 'Free',
+      },
+    };
+    expect(describeTrial(p30Day).ctaLabel).toBe('Start 30-day free trial');
+
+    // 4. No Trial / Already used trial
+    const pNoTrial: IapProduct = {
+      ...baseProduct,
+      isEligibleForIntroOffer: false,
+    };
+    expect(describeTrial(pNoTrial).ctaLabel).toBe('Subscribe');
+  });
+});
