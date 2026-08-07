@@ -208,6 +208,7 @@ async function sendApnsPush(
       sound: "default",
       badge,
       "mutable-content": 1,
+      "interruption-level": "active",
     },
     ...customData,
   };

@@ -191,6 +191,7 @@ serve(async (req) => {
           sound: "default",
           badge: 1,
           "mutable-content": 1,
+          "interruption-level": "active",
         },
         notification_type: "test_push",
         notification_log_id: notificationLogId ?? '',
