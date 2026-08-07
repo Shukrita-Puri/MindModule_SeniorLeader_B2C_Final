@@ -2606,8 +2606,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {/* 4. PHRASE */}
       {phrase && (
         <p className={cn(
-          "text-quote text-foreground",
-          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+          "text-quote font-headline italic text-foreground",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"
         )}>
           {phrase}
         </p>
@@ -2620,8 +2620,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {showNeutralAwaitingCopy && (
         <>
           <p className={cn(
-            "text-quote text-foreground",
-            SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+            "text-quote font-headline italic text-foreground",
+            SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"
           )}>
             {READINESS_AWAITING_MESSAGE}
           </p>
@@ -2632,8 +2632,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
         <p className={cn(
-          "text-quote text-foreground",
-          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+          "text-quote font-headline italic text-foreground",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"
         )}>
           Read from your signals. Full brief prose is awaiting the latest signals.
         </p>
@@ -2646,9 +2646,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {showFailureBlock && (
         <div className={cn(
           "rounded-lg border border-border/40 bg-background/60 px-3 py-3",
-          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"
         )}>
-          <p className="text-quote text-foreground">
+          <p className="text-quote font-headline italic text-foreground">
             {engineStatus === 'auth-failure' || engineStatus === 'session-failure'
               ? 'We couldn\u2019t verify your session.'
               : 'Awaiting signals right now.'}
@@ -2679,7 +2679,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* 5. BODY COPY */}
       {bodyText && (
-        <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
+        <p className="mt-3 text-body leading-relaxed text-[hsl(var(--text-secondary))]">
           {renderBody(bodyText)}
         </p>
       )}
