@@ -84,7 +84,10 @@ import {
   divergenceProvenance,
   type MrsSource,
 } from "../_shared/signal-engine/divergence-flag.ts";
-import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
+import {
+  computeRhr3DayTrend,
+  computeSustainedDeficitSeverity,
+} from "../_shared/signal-engine/pattern-engine.ts";
 import {
   type CalendarMetricsResult,
   getServerCalendarMetrics,
@@ -5784,6 +5787,19 @@ serve(async (req) => {
           highStakesEventsCount: calendarResult.highStakesEvents?.length ?? 0,
           rhr3dTrend,
           sustainedDeficitFlag,
+          // Graded read of the same sustained-deficit signal — Resilience pill
+          // only. The boolean above is untouched and still drives MRS, plan and
+          // nudges. "unknown" contributes nothing and never blocks the pill.
+          sustainedDeficitSeverity:
+            (composedPatternSignals as any)?.sustained_deficit_severity ??
+              computeSustainedDeficitSeverity(
+                (wearableHistory14d ?? [])
+                  .filter((r: any) => r?.summary_date != null)
+                  .map((r: any) => ({
+                    date: String(r.summary_date),
+                    hrv: r.hrv == null ? null : Number(r.hrv),
+                  })),
+              ),
           cooccurrence7d,
           protectionGoals,
           wearableFreshForGate,
