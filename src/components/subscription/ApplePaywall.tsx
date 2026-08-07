@@ -423,14 +423,9 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
             Terms of Use
           </Link>
           <span>·</span>
-          <a
-            href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline hover:text-foreground inline-flex items-center gap-0.5"
-          >
-            Apple EULA <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
-          </a>
+          <Link to="/powered-by-ai" className="hover:underline hover:text-foreground">
+            Powered by AI
+          </Link>
         </div>
       </div>
     </div>
