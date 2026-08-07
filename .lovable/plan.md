@@ -25,14 +25,24 @@ That is exactly what produced the row behind the screenshot: `lean_on = "Clear D
 
 ## 2. Brief Phrase typography
 
-The phrase element still carries `.text-quote` (Cormorant Garamond, italic, 18/20px) and neither that class nor the markup has changed in git, so this is not a class swap. Two candidate causes, both unverified: the italic axis of Cormorant Garamond is **not** requested in `index.html` (`wght@400;500;600;700` only, no `ital`), so the browser has no true italic face to use; and hiding the score/tier row moved the phrase to the top of the card, where the missing italic reads as a different font.
+Frontend only, in `src/components/home/DecisionReadinessBrief.tsx` (plus one line of `index.html` if the font check confirms it). No logic, backend, or data changes.
 
-### Plan
-1. Verify first: inspect the rendered phrase's computed `font-family` and `font-style` on the live card and confirm which cause is real.
-2. Fix accordingly — the expected change is to load the italic axis (`family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700`) and, if needed, restate `font-headline italic` on the phrase element so it matches the reference screenshot.
-3. No logic, backend, or layout changes beyond the phrase's own typography.
+### 2A. Diagnose the phrase font properly
+The font-loading theory is not accepted as the cause — the italic face has always rendered before. So the fix starts with measurement, not a guess:
+
+- Open the live Brief card in a headless browser and read the phrase element's computed `font-family`, `font-style`, `font-size`, and which class actually won the cascade.
+- Compare that against the `.text-quote` definition in `src/index.css` (Cormorant Garamond, italic, 18px → 20px, weight 400).
+- Check whether the phrase node is still the `.text-quote` `<p>` at all, or whether a different branch is rendering (copy-only-awaiting line, deterministic fallback line, or the failure block) — those three also use `.text-quote` but sit in different places in the card.
+- Check whether any later rule (a card-level utility, `card-hero`, or a Tailwind class on the same element) is resetting `font-style` or `font-family`.
+
+Whatever the measurement shows, the fix is the same shape: make the phrase element render in Cormorant Garamond italic again at the reference size, restating `font-headline italic` explicitly on the element so no cascade change can silently flip it back. If — and only if — the computed style shows a synthesised italic, the `ital` axis gets added to the Google Fonts URL in `index.html`.
+
+### 2B. Spacing and body copy
+- Increase the gap between the eyebrow row ("PERFORMANCE READINESS BRIEF") and the phrase. With the score/tier row hidden the phrase currently sits at `mt-2`; it moves to a comfortable `mt-5` so the card opens with breathing room instead of stacking two lines together. The same spacing applies to the awaiting, copy-only, and failure variants so every state opens consistently.
+- Restore the body copy to its established treatment: `.text-body` (Inter, 16px → 17px, weight 400) with relaxed line height, in the secondary text token rather than the lighter muted token, so it reads as body prose again and sits clearly below the italic phrase rather than competing with it.
+- Keep the phrase → body gap slightly tighter than the eyebrow → phrase gap so the phrase visually belongs to the paragraph it introduces.
 
 ## Verification
 - `tsgo`, the brief prompt-contract Deno tests, and the home component suites.
 - Regenerate a live brief and confirm no `COACH` source appears.
-- Visual check of the phrase against the supplied reference screenshot.
+- Screenshot the Brief card before and after and compare the phrase, spacing, and body copy against the supplied reference (the 17:29 card).
