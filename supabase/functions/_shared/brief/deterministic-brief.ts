@@ -33,6 +33,12 @@ export interface DeterministicBriefFallbackOpts {
   sleepScore: number | null;
   hasBackToBack: boolean;
   isWeekend?: boolean;
+  /**
+   * Non-workday shapes other than the weekend (public holiday, PTO / OOO,
+   * personal holiday, personal travel). Reuses the existing weekend copy
+   * branches so the fallback never emits work-directive prose on an off day.
+   */
+  isNonWorkday?: boolean;
 }
 
 export interface DeterministicBriefResult {
