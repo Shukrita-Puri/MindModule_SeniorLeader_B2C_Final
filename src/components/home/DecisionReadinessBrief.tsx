@@ -213,12 +213,13 @@ const getSourceLabel = (source: string | undefined): string => {
   if (!source) return '';
   switch (source) {
     case 'llm-v4': return '';
+    // COACH retired as a source — never surface it in the UI.
     case 'coach-insights-recent':
-    case 'coach-insights-grace': return 'From coach';
+    case 'coach-insights-grace': return '';
     case 'cc-modifier':
     case 'cc-modifier-with-context': return 'From Mental Energy';
     case 'coach-partial-strength':
-    case 'coach-partial-growth': return 'Coach + archetype';
+    case 'coach-partial-growth': return 'Archetype';
     case 'archetype-tier': return 'Archetype';
     case 'tier-fallback': return 'Tier';
     case 'dow-pattern': return 'From pattern';
