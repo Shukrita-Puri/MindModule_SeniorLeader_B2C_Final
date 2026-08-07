@@ -1,46 +1,104 @@
-# Audit: three Resilience contributors for shukrita@mindmodule.me
+# Resilience Capacity — drop Protected Goals, loosen the two pattern signals
 
-All three values are arithmetically correct for the data this account has. None is a display bug. Two of them, though, are effectively unreachable for this user because their inputs are empty — that is the real finding.
+Scope: the Resilience Capacity pill only, inside `_shared/signal-pills/derive-pills.ts`. No other pill, no MRS scoring change, no brief/plan/nudge change.
 
-## 1. Sustained Deficit: No — correct
+## Verified current state
 
-Rule: HRV must sit at or below -20% of the 30-day baseline for two or more consecutive samples, walking back from the most recent.
-
-Live data (30-day HRV baseline 26.1 ms, 16 samples):
+In `derive-pills.ts`, Resilience today pushes tiers from:
 
 ```text
-07 Aug   no HRV        (skipped)
-06 Aug   18.3 ms   -30%   deficit
-05 Aug   no HRV        (skipped)
-04 Aug   24.3 ms    -7%   breaks the streak
+sleep efficiency  (primary anchor)      >=85 green, >=70 amber, else red
+HR-elevated proxy (fallback, no sleep)  full tier
+emotion / regulation / pressure         check-in overlays
+sustainedDeficitFlag                    -> red
+cooccurrence_count >= 3                 -> red ;  == 2 -> amber
+protectionGoals.length > 0 AND (calendar high OR high-stakes) -> amber
 ```
 
-Streak = 1, so the flag is No. Working as specified.
+The two pattern signals come from `_shared/signal-engine/pattern-engine.ts`:
 
-Caveat: the walk-back filters out days with no HRV rather than treating them as a break, so 6 Aug and 4 Aug count as "consecutive" despite the gap. It did not change the answer here, but on a sparse ring it can join non-adjacent days.
+- `detectSustainedDeficit`: HRV <= -20% of the **30-day** baseline for **2 consecutive samples**, walking back from the most recent. Days with no HRV are skipped rather than breaking the streak.
+- `computeHrvLoadCooccurrence`: joins HRV days to per-day calendar load over a **7-day** window; counts days where HRV <= **-10%** of the 30-day baseline **and** the load tier is exactly **`high`**. Anchors the window on days that have HRV.
 
-## 2. Protected Goals: 0 — correct number, empty source
+Important constraint confirmed by search: `sustained_deficit_flag` is **not** private to the pill. It is consumed by `compute-inner-readiness`, `generate-mastery-plan`, `smart-nudges`, and `compute-outer-readiness` (where it applies a -5 MRS penalty). So the global definition must not be loosened, or scores and nudges move. The plan therefore introduces a **separate, resilience-only strain read** and leaves the global flag byte-identical.
 
-The pill counts `profiles.protection_goals`, falling back to `onboarding_v8_responses.goals`. For this account:
+## 1. Remove Protected Goals from Resilience
 
-- `profiles.protection_goals` = null
-- `onboarding_v8_responses.goals` = `[]` (row created 15 Jul)
+- Delete the `protectionGoals.length > 0 && (calendarPressure === 'high' || hasStakesEarly)` amber push.
+- Remove `protectionGoalsCount` from the pill's `contributors` so the tooltip stops showing a permanently-zero line.
+- `protectionGoals` stays in the function signature and stays available to every other consumer — only Resilience stops reading it.
 
-So 0 is honest. The cause is upstream: onboarding finished with no goals selected, and `complete-onboarding` only writes `protection_goals` when `goals.length > 0`. The earlier backfill could not help an account whose source array is empty. Nothing in the pill needs fixing; the goal-capture step does.
+No tier can get *worse* from this change; a small number of green-to-amber demotions become green.
 
-## 3. HRV x High-Demand (7d): None observed — correct, but starved
+## 2. Sustained deficit -> a graded, shorter-window strain read
 
-The detector joins HRV days against per-day calendar load and counts days where HRV is at or below -10% of baseline and that day's load tier is `high`.
+Add a resilience-local helper (new export in `pattern-engine.ts`, additive, nothing renamed):
 
-Live data: the earliest calendar event stored for this user is 6 Aug 2026, and the day-of-week history query only reads days strictly before today. So the trailing-7-day join has at most one historical day carrying a load tier, and those days hold 2-3 small events (no high-attendee meetings) — nowhere near a `high` tier.
+```text
+computeHrvStrain(hrvRecent, baseline14d):
+  take the last 3 HRV samples within the trailing 5 calendar days
+  need >= 2 samples, else 'unknown' (no push)
+  avgDev = mean deviation of those samples vs the 14-day baseline
+  avgDev <= -15%  -> red
+  avgDev <= -7%   -> amber
+  else            -> green
+```
 
-Result: `days_observed` is effectively 0-1 and the count is 0. The signal is not broken; it has no calendar history to work with. It should start producing reads about a week after the calendar has been syncing continuously.
+Why this fixes the emptiness:
 
-## Verdict
+- **Averages, not streaks.** One good day no longer wipes out a genuinely depleted week. shukrita's 6 Aug (-30%) and 4 Aug (-7%) average to roughly -18% -> red, where the current rule reads "No".
+- **14-day baseline, not 30.** Reacts to the last fortnight rather than being anchored to data the user may not have; also becomes usable ~2 weeks after connecting instead of ~4.
+- **Gap-tolerant but bounded.** A 5-day lookback for 3 samples suits an intermittently-worn ring without silently joining month-old days.
+- **Graded.** Amber exists, so the signal contributes a read far more often than the current all-or-nothing red.
 
-No corrective code change is required for these three metrics. Two optional follow-ups, each fully isolated:
+Resilience switches to `computeHrvStrain`. **Physical Reserves keeps the existing `sustainedDeficitFlag` red push unchanged**, so nothing outside Resilience shifts.
 
-1. Make the sustained-deficit walk-back gap-aware — a missing HRV day breaks the streak instead of being skipped.
-2. Capture protection goals for accounts that finished onboarding with an empty goals array (a settings-side prompt), so the contributor stops reading 0 permanently.
+## 3. HRV x High-Demand -> wider window, softer thresholds, ratio-aware
 
-Say which one you want and I will plan it on its own.
+Loosen `computeHrvLoadCooccurrence` by parameter, keeping the same function and return shape:
+
+```text
+window            7d      -> 14d
+HRV deficit gate  -10%    -> -5%
+baseline          30d     -> 14d (same baseline as above, one definition)
+load tier         high    -> high OR medium
+```
+
+And re-tier on the ratio rather than the raw count, so a sparse calendar still produces a read:
+
+```text
+days_observed < 3            -> no push (honest "not enough history")
+ratio >= 0.40 or count >= 3  -> red
+ratio >= 0.20 or count == 2  -> amber
+else                          -> green
+```
+
+Also anchor the window on the union of HRV dates and load dates instead of HRV dates only, so calendar-only days count toward `days_observed` correctly.
+
+Effect for a user like shukrita: with a calendar that started 6 Aug, `days_observed` stays under 3 for about another week and the contributor honestly reads "not enough history" — but once a fortnight of data exists it will produce a real green/amber/red instead of a permanent "None observed", because medium-load days now count and the deficit gate is half as strict.
+
+## Net effect on the pill
+
+Resilience keeps four inputs: sleep efficiency (or HR proxy), the three check-in overlays, the HRV strain read, and the HRV-vs-demand read. Two of the four now produce a graded read on realistic data instead of firing almost never. Worst-tier-wins composition, the freshness gate, `checkin_only` handling, score-bearing rules and the `regulationRiskPill` override are all untouched.
+
+## Isolation guarantees
+
+- `sustained_deficit_flag` keeps its exact current definition and value everywhere: MRS penalty, inner-readiness, plan, nudges, Physical Reserves.
+- No MRS weight, subscore or redistribution change; the Resilience pill remains non-score-bearing in the same conditions as today.
+- No frontend change beyond `PillTooltip.tsx` dropping the Protected Goals line and relabelling the two pattern rows to their new windows.
+- No schema change.
+
+## Tests
+
+In `derive-pills.test.ts` and a new `pattern-engine` case set:
+
+- Protected goals present + high calendar pressure -> Resilience no longer ambers on that basis.
+- `protectionGoalsCount` absent from contributors.
+- Strain: two samples averaging -18% -> red; -9% -> amber; -3% -> green; one sample only -> no push.
+- Strain does not alter `sustainedDeficitFlag` or the Physical Reserves tier in the same input.
+- Co-occurrence: `days_observed` 2 -> no push; ratio 0.5 -> red; ratio 0.25 -> amber; medium-load day now counted.
+- Existing 39 resilience cases still pass.
+
+## Deploy
+
+Redeploy `compute-outer-readiness` (it bundles both shared modules). Verify against the affected account that Resilience shows a graded read and the Protected Goals row is gone.
