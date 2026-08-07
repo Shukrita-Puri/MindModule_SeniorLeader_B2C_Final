@@ -32,6 +32,18 @@ One block in `derive-pills.ts` — the Resilience fallback becomes a full tier a
 
 Nothing changes when sleep efficiency is present, when the wearable is stale, or for any other pill.
 
+## Isolation guarantees
+
+The edit is confined to the single `if (resTiers.length === 0 && sleepEfficiency == null && wearableFreshForGate)` block in `derive-pills.ts` — roughly ten lines. Explicitly untouched:
+
+- No other signal pill: Decision Readiness (including its `rhr_proxy` fallback) and Physical Reserves keep byte-identical logic.
+- No other Resilience input: sleep efficiency, emotion, regulation, pressure, sustained deficit, protected goals, HRV x high-demand and pattern overlays are unchanged. Only the HR fallback branch changes.
+- No scoring or calculation change: MRS, subscores, weights, redistribution and score-bearing rules are untouched. The fallback stays non-score-bearing exactly as today.
+- No edge-function logic change: no file in `compute-outer-readiness`, `compute-inner-readiness`, `build-executive-home-cards`, `generate-mastery-plan` or `smart-nudges` is edited. `compute-outer-readiness` is only re-deployed because it bundles the shared module.
+- No brief, plan, nudge, insights or MRS surface change; no prompt or prompt-version change.
+- No frontend change and no database or schema change.
+- Behaviour when the fallback previously fired (HR genuinely elevated) is preserved: still amber, still `hr_elevated_proxy`. The only new outcomes are the states that currently produce nothing.
+
 ## Tests
 
 In `derive-pills.test.ts`, extend the existing resilience-proxy cases:
