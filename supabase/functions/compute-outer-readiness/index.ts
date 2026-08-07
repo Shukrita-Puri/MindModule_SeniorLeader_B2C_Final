@@ -8275,16 +8275,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               timeoutMs: 10000,
               useGateway: false,
             },
-            // 2026-07-11 — Attempt 3 (Claude Sonnet, second pass). Uses the
-            // corrective-retry instruction seeded from attempt 2's reject
-            // reason. Reduces `awaiting` states caused by two back-to-back
-            // validator misses (e.g. tier-word on attempt 1, phrase-length
-            // soft-reject on attempt 2) before we fall through to awaiting.
-            {
-              model: CLAUDE_MODELS.SONNET,
-              timeoutMs: 10000,
-              useGateway: false,
-            },
+            // 2026-08-07 — Attempt 3 (second Claude Sonnet pass) removed.
+            // Ladder is now exactly one attempt per provider:
+            // Gemini -> Claude -> deterministic/awaiting. A third paid call
+            // repeating the same validator failure is pure cost.
           ];
 
           // §2.18 stricter retry instruction appended on soft-reject (legacy
