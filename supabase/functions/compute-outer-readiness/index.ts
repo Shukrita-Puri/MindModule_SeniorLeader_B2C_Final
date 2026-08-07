@@ -6418,6 +6418,35 @@ serve(async (req) => {
             if (s < 65) return "mid";
             return "high";
           })();
+          // ── Pre-LLM signal-pill tiers ──
+          // The Brief must never contradict the pill tiers the user can
+          // literally see on the same card. Derive the same labels here, in
+          // the outer prompt scope (see mem://reliability/brief-prompt-variable-scoping).
+          const preLLMDecisionTier: string =
+            (wearableFreshForGate && hrvValue != null)
+              ? (((hrvDeviation ?? 0) < -15 ||
+                  (clarityLevel != null && clarityLevel <= 2))
+                ? "MIND FOGGY"
+                : ((hrvDeviation ?? 0) > 10 ||
+                    (clarityLevel != null && clarityLevel >= 4))
+                ? "MIND SHARP"
+                : "MIND MIXED")
+              : (clarityLevel != null
+                ? (clarityLevel <= 2
+                  ? "MIND FOGGY"
+                  : clarityLevel >= 4
+                  ? "MIND SHARP"
+                  : "MIND MIXED")
+                : "MIND UNREAD");
+
+          const preLLMPhysicalTier: string =
+            (wearableFreshForGate && rhrValue != null)
+              ? ((rhrDeviation ?? 0) > 15
+                ? "BODY STRAINED"
+                : (rhrDeviation ?? 0) > 8
+                ? "BODY MIXED"
+                : "BODY STEADY")
+              : "BODY UNREAD";
           const systemPrompt = buildBriefSystemPrompt({ bandValence });
           // === LEADER VOICE === (from onboarding CoS profile)
           // Appended AFTER the shared persona/voice/constraint blocks so it
