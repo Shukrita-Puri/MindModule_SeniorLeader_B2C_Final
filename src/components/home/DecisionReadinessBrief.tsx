@@ -2641,7 +2641,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           infrastructure rather than a real cold start. Suppressed when a
           renderable current-window Brief snapshot is already displayed. */}
       {showFailureBlock && (
-        <div className="mt-4 rounded-lg border border-border/40 bg-background/60 px-3 py-3">
+        <div className={cn(
+          "rounded-lg border border-border/40 bg-background/60 px-3 py-3",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+        )}>
           <p className="text-quote text-foreground">
             {engineStatus === 'auth-failure' || engineStatus === 'session-failure'
               ? 'We couldn\u2019t verify your session.'
