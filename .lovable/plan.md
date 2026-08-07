@@ -18,9 +18,10 @@ The Plan why-line does **not** have a Claude fallback. Its ladder is one Gemini 
 
 Optional, only if you want it: wrap the gateway call in a two-entry attempt ladder inside `generateWhyStatement` — attempt 1 `google/gemini-3-flash-preview` via the gateway, attempt 2 Claude via the existing `_shared/anthropic.ts` helper — each with the same 10s abort timeout and the same null-on-failure contract, so the deterministic repair path stays untouched. It costs extra only when Gemini fails, and it would mean redeploying `generate-mastery-plan` as well. Excluded from the scope below unless you ask for it.
 
-## Ordering note
+## Confirmed scope
 
-You asked for "Claude first, then Gemini". The current order is Gemini first, then Claude. Gemini is the cheaper call and currently succeeds most often, so putting Claude first would raise cost rather than cut it. The plan keeps the existing Gemini → Claude order and just removes the duplicate third attempt. Say the word if you want the order flipped anyway.
+- Brief: exactly one attempt per provider — Gemini -> Claude -> deterministic/awaiting.
+- Plan why-line: unchanged — Gemini -> deterministic. No Claude tier added.
 
 ## Technical detail
 
