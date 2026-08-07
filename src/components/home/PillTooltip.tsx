@@ -75,9 +75,7 @@ const CONTRIBUTORS: Record<string, ContribSpec> = {
   hrValue:                     { label: 'HR',               fmt: (v) => num(v, 'bpm') },
   sustainedDeficit:            { label: 'Sustained Deficit', fmt: (v) => boolYesNo(v) },
   sustained_deficit_flag:      { label: 'Sustained Deficit', fmt: (v) => boolYesNo(v) },
-  hrvHighDemandCooccurrence7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => cooccurrence(v) },
-  hrv_low_high_demand_cooccurrence_7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => cooccurrence(v) },
-  protectionGoalsCount:        { label: 'Protected Goals',  fmt: (v) => num(v) },
+  sustainedDeficitSeverity:    { label: 'Sustained Deficit', fmt: (v) => deficitSeverity(v) },
   clarityLevel:                { label: 'Clarity',          fmt: (v) => num(v, '/5') },
   emotionLevel:                { label: 'Emotion',          fmt: (v) => num(v, '/5') },
   regulationLevel:             { label: 'Regulation',       fmt: (v) => num(v, '/5') },
@@ -107,6 +105,11 @@ const EXPECTED_CONTRIBUTORS: Record<PillTooltipPill['key'], Array<{ key: string;
 const SUPPRESS = new Set<string>([
   'calendarLoad',
   'calendarPressure',
+  // Retired from Resilience: planning context, not recovery capacity.
+  'protectionGoalsCount',
+  // Retired from Resilience: duplicates the HRV strain signal.
+  'hrvHighDemandCooccurrence7d',
+  'hrv_low_high_demand_cooccurrence_7d',
   'consecutive_high_load_days',
   'typical_load_for_dow',
   'cognitive_fragmentation_score',
@@ -149,9 +152,7 @@ const ALLOWED_CONTRIBUTORS: Record<PillTooltipPill['key'], Set<string>> = {
     'pressureLevel',
     'sustainedDeficit',
     'sustained_deficit_flag',
-    'hrvHighDemandCooccurrence7d',
-    'hrv_low_high_demand_cooccurrence_7d',
-    'protectionGoalsCount',
+    'sustainedDeficitSeverity',
   ]),
 };
 
