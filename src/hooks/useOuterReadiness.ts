@@ -149,6 +149,11 @@ export interface OuterReadinessData {
   calendarLoad?: string;
   meetingCount?: number;
   highStakesEvents?: string[];
+  highStakesEventsDetailed?: Array<{
+    title: string;
+    localTime: string | null;
+    category: string | null;
+  }>;
   remainingHighStakes?: string[];
   nextHighStakesEvent?: { title: string; minutesUntil: number } | null;
   checkInCountTotal?: number;
@@ -334,6 +339,27 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+function asHighStakesDetailed(
+  value: unknown,
+): Array<{ title: string; localTime: string | null; category: string | null }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const rec = asRecord(item);
+      if (!rec) return null;
+      const title = asString(rec.title);
+      if (!title) return null;
+      return {
+        title,
+        localTime: asString(rec.localTime),
+        category: asString(rec.category),
+      };
+    })
+    .filter((x): x is { title: string; localTime: string | null; category: string | null } =>
+      x !== null
+    );
+}
+
 function asIsoString(value: unknown): string | null {
   if (typeof value !== 'string' || value.trim() === '') return null;
   const parsed = new Date(value);
@@ -480,6 +506,7 @@ export function normalizeOuterReadinessPayload(input: unknown): OuterReadinessDa
         }
       : undefined,
     highStakesEvents: asStringArray(raw.highStakesEvents),
+    highStakesEventsDetailed: asHighStakesDetailed(raw.highStakesEventsDetailed),
     remainingHighStakes: asStringArray(raw.remainingHighStakes),
     nextHighStakesEvent: nextHighStakesEvent
       ? {

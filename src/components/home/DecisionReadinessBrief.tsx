@@ -1720,6 +1720,12 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const calendarState = outerBrief?.calendarState;
   const nextHS = outerBrief?.nextHighStakesEvent;
   const remainingHS: string[] = outerBrief?.remainingHighStakes ?? [];
+  const detailedHS: Array<{ title: string; localTime: string | null; category: string | null }> =
+    outerBrief?.highStakesEventsDetailed ?? [];
+  const categoryForTitle = (title?: string | null): string | null => {
+    if (!title) return null;
+    return detailedHS.find((d) => d.title === title)?.category ?? null;
+  };
   const calLoad = outerBrief?.calendarLoad ?? 'low';
   const loadLabel = calLoad === 'high' ? 'HEAVY' : calLoad === 'medium' ? 'MODERATE' : 'LIGHT';
   const loadState: PillState = calLoad === 'high' ? 'red' : calLoad === 'medium' ? 'amber' : 'green';
@@ -1796,6 +1802,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   // High-stakes event within 90 mins — urgent variant
   if (nextHS?.title && nextHS?.minutesUntil != null && nextHS.minutesUntil <= 90) {
     const timeLabel = formatEventTime(nextHS.minutesUntil, nextHS?.startTimeUTC);
+    const category = categoryForTitle(nextHS.title);
     pills.push(
       <CalendarPillCapsule
         key="next-up-urgent"
@@ -1803,11 +1810,12 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
         Icon={Clock}
         headline="NEXT UP"
         signalWord={nextHS.title}
-        qualifier={timeLabel}
+        qualifier={category ? `${timeLabel} · ${category}` : timeLabel}
       />
     );
   } else if (remainingHS.length > 0 && nextHS?.title) {
     const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil, nextHS?.startTimeUTC) : 'ahead';
+    const category = categoryForTitle(remainingHS[0]);
     pills.push(
       <CalendarPillCapsule
         key="next-up"
@@ -1815,10 +1823,11 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
         Icon={Clock}
         headline="NEXT UP"
         signalWord={remainingHS[0]}
-        qualifier={timeLabel}
+        qualifier={category ? `${timeLabel} · ${category}` : timeLabel}
       />
     );
   } else if (remainingHS.length > 0) {
+    const category = categoryForTitle(remainingHS[0]);
     pills.push(
       <CalendarPillCapsule
         key="next-up-fallback"
@@ -1826,7 +1835,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
         Icon={Clock}
         headline="NEXT UP"
         signalWord={remainingHS[0]}
-        qualifier="ahead"
+        qualifier={category ?? 'ahead'}
       />
     );
   }
