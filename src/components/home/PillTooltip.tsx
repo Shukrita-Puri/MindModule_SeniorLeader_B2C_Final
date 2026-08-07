@@ -173,26 +173,17 @@ function num(v: unknown, suffix = ''): string | null {
   return `${rounded}${suffix}`;
 }
 /**
- * HRV × High-Demand co-occurrence is delivered as either a bare count or
- * an object: { cooccurrence_count, cooccurrence_ratio, days_observed }.
- * Render a human label or return null (suppress) when nothing meaningful.
+ * Graded sustained-deficit read. 'unknown' renders nothing so an absent
+ * signal never occupies a row (and never implies a problem).
  */
-function cooccurrence(v: unknown): string | null {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v) || v <= 0) return null;
-    return `${v} day${v === 1 ? '' : 's'}`;
+function deficitSeverity(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  switch (v) {
+    case 'red': return 'Marked';
+    case 'amber': return 'Mild';
+    case 'green': return 'None';
+    default: return null;
   }
-  if (v && typeof v === 'object') {
-    const o = v as Record<string, unknown>;
-    const count = typeof o.cooccurrence_count === 'number' ? o.cooccurrence_count : null;
-    const days = typeof o.days_observed === 'number' ? o.days_observed : null;
-    if (count != null && count > 0) {
-      return days != null && days > 0 ? `${count} of ${days} days` : `${count} day${count === 1 ? '' : 's'}`;
-    }
-    if (days != null && days > 0 && count === 0) return 'None observed';
-    return null;
-  }
-  return null;
 }
 function sleepMinutes(v: unknown): string | null {
   if (typeof v !== 'number' || Number.isNaN(v)) return null;
