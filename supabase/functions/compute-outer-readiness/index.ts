@@ -6452,7 +6452,11 @@ serve(async (req) => {
           // `isWeekend` is the locale-aware flag computed above via
           // isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry) — Fri/Sat for
           // Gulf + Israel, Sat/Sun elsewhere.
-          const systemPrompt = buildBriefSystemPrompt({ bandValence, isWeekend });
+          // Day shape (holiday / PTO / travel-by-type / conference) is derived
+          // AFTER the behaviour snapshot is built further below, then the
+          // system prompt is re-assembled with the matching directive. This
+          // first build keeps the weekend-only behaviour as the safe default.
+          let systemPrompt = buildBriefSystemPrompt({ bandValence, isWeekend });
           // === LEADER VOICE === (from onboarding CoS profile)
           // Appended AFTER the shared persona/voice/constraint blocks so it
           // reads as a distinct, auditable calibration layer. Empty when the
@@ -6490,7 +6494,7 @@ serve(async (req) => {
           const leaderVoiceBlock = leaderVoiceParts.length > 0
             ? `\n\n=== LEADER VOICE ===\n${leaderVoiceParts.join("\n\n")}`
             : "";
-          const systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
+          let systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
           // Retain the legacy inline prompt only as a parked diff-bisection
           // literal during rollout. It is not part of the active prompt path.
           // Drift-protection: any new persona/voice/constraint change must
