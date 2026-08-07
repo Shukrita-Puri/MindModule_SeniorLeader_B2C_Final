@@ -52,6 +52,12 @@ import {
   type DeterministicBriefResult,
 } from "../_shared/brief/deterministic-brief.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
+import {
+  deriveDayShape,
+  formatDayShapeBlock,
+  type DayShape,
+  type TravelPhase,
+} from "../_shared/brief/day-shape.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
   buildBriefSystemPrompt,
@@ -4595,6 +4601,10 @@ serve(async (req) => {
     // brief_snapshots.payload_json.behaviour_snapshot so generate-mastery-plan
     // can read the SAME named events / stakes / slot boosts the Brief used.
     let briefBehaviourSnapshot: BehaviourSnapshotResult | null = null;
+    // Day shape derived from the snapshot below (holiday / PTO / travel type /
+    // conference). Declared here so the prompt scope can read it.
+    let briefDayShape: DayShape | null = null;
+    let briefTravelPhase: TravelPhase = null;
     let briefWindowContext: ReturnType<typeof buildWindowContext> | null = null;
 
     if (dataCompleteness !== "day1") {
