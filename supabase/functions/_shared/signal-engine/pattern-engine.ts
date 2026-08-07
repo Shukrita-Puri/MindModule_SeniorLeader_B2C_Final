@@ -17,6 +17,16 @@ const HRV_TREND_BAND_PCT = 5;       // ±5% defines improving / declining
 const SUSTAINED_DEFICIT_PCT = -20;  // > 20% below baseline
 const SUSTAINED_DEFICIT_MIN_DAYS = 2;
 
+// Sustained-deficit GRADED read (Resilience pill only). Same signal as the
+// boolean flag, computed with a shorter, gap-tolerant window so it can
+// actually produce a value on an intermittently-worn ring.
+const DEFICIT_SEVERITY_BASELINE_DAYS = 14;
+const DEFICIT_SEVERITY_LOOKBACK_DAYS = 5;
+const DEFICIT_SEVERITY_MAX_SAMPLES = 3;
+const DEFICIT_SEVERITY_MIN_SAMPLES = 2;
+const DEFICIT_SEVERITY_RED_PCT = -15;
+const DEFICIT_SEVERITY_AMBER_PCT = -7;
+
 // MRS v2 §3.5 — Resilience co-occurrence thresholds.
 const COOCCURRENCE_HRV_DEFICIT_PCT = -10; // HRV ≤ −10% vs 30-day baseline
 const COOCCURRENCE_WINDOW_DAYS = 7;
