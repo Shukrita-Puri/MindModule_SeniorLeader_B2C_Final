@@ -682,7 +682,17 @@ async function buildForUser(db: any, args: {
     }
 
     const latest = wearable.latest;
-    const hasFreshWearable = !!latest && latest.summary_date === localDate;
+    // Window-aware freshness: morning accepts a 0- or 1-day-old row,
+    // afternoon/evening require same-day. Same canonical rule as the pills.
+    const maxWearableAge = maxWearableAgeDaysForWindow(window as SignalWindow);
+    const wearableAgeDays = latest?.summary_date
+      ? Math.round(
+        (new Date(localDate + "T00:00:00Z").getTime() -
+          new Date(latest.summary_date + "T00:00:00Z").getTime()) / 86400000,
+      )
+      : null;
+    const hasFreshWearable = !!latest && wearableAgeDays !== null &&
+      wearableAgeDays >= 0 && wearableAgeDays <= maxWearableAge;
     const hrvDeviationPct =
       hasFreshWearable &&
       typeof latest?.hrv === "number" &&
