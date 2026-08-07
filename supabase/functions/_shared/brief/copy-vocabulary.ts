@@ -178,6 +178,7 @@ export function mrsConsistencyLine(valence: ReadinessValence | null | undefined)
 }
 
 export const PRE_COMPUTED_NOTICE = `THE INPUTS ARE PRE-COMPUTED
+`.trim() + `
 Everything in the user message has already been worked out by the system —
 deviations, classifications, risk flags, day type, and patterns. Do NOT
 re-derive numbers or re-check the logic. Trust the inputs. Your only job is
