@@ -336,6 +336,9 @@ export function buildDeterministicBriefFallback(
 
   const opts: DeterministicBriefFallbackOpts = {
     ...rawOpts,
+    // Any non-workday shape takes the weekend copy branches: no meetings, no
+    // calls, no workday tasks in the directive.
+    isWeekend: rawOpts.isWeekend === true || rawOpts.isNonWorkday === true,
     hasWearable: rawOpts.hasWearable && wearableCurrent,
     wearableFact: wearableCurrent ? rawOpts.wearableFact : null,
     sleepScore: wearableCurrent ? rawOpts.sleepScore : null,
