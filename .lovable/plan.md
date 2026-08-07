@@ -81,3 +81,9 @@ In `derive-pills.test.ts`:
 ## Deploy
 
 Redeploy `compute-outer-readiness` only, because it bundles the two shared modules. Then confirm on the affected account that Resilience shows a graded read and the two removed rows are gone from the tooltip.
+
+## Explicitly unchanged
+
+- **Check-in refinement**: emotion, regulation and pressure keep their exact current role in the pill, and the baseline-then-refined behaviour is untouched.
+- **Sustained Deficit's contribution to MRS**: the boolean flag keeps its current definition and value, so the -5 MRS penalty, inner-readiness, plan and nudges behave identically. Only the pill's own read of that signal becomes graded.
+- **Non-blocking**: exactly as today, Sustained Deficit reading no / 0 / unknown blocks nothing — not the Resilience pill, not any downstream surface.
