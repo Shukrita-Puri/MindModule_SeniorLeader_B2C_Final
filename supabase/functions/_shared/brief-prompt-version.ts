@@ -12,4 +12,9 @@
 // 'deterministic' rows that would have leaked banned phrases like
 // "Close strong." / "Steady the system ahead of the day ahead" /
 // "protecting the edge" via the COALESCE generated columns).
-export const BRIEF_PROMPT_VERSION = 'v6.6-replacement-vocabulary';
+// v6.7 — Brief day-shape awareness: the prompt now carries the same
+// deterministic day-shape signals the Plan (JIT v2) reads (public holiday,
+// PTO/OOO, travel by type with phase, conference, full-day events) plus a
+// matching persona directive. Bump invalidates cached v6.6 briefs so off-day
+// and travel days regenerate with the correct framing.
+export const BRIEF_PROMPT_VERSION = 'v6.7-day-shape-awareness';
