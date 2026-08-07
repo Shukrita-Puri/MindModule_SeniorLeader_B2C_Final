@@ -62,8 +62,9 @@ describe('signal pills backend contract · extracted ownership', () => {
     expect(INDEX_SRC).toContain('const finalPillContext = assessmentContext');
   });
 
-  it('index.ts still treats only same-day wearable data as fresh for pill scoring', () => {
-    expect(INDEX_SRC).toContain('const wearableFreshForGate = hasTodayWearableData === true;');
+  it('index.ts derives pill wearable freshness from the canonical window-aware resolver', () => {
+    expect(INDEX_SRC).toContain('const wearableFreshForGate = signalFreshness.wearableCurrent;');
+    expect(INDEX_SRC).not.toContain('const wearableFreshForGate = hasTodayWearableData === true;');
     expect(INDEX_SRC).not.toContain('const wearableFreshForGate = hasWearableData === true;');
   });
 });
