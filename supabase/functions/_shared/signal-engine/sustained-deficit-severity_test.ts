@@ -55,7 +55,8 @@ Deno.test("SDS-06: averages, not streaks -- one good day does not erase strain",
     { date: day(2), hrv: 26 },   // near baseline, would break a streak
     ...[6, 7, 8, 9, 10].map((n) => ({ date: day(n), hrv: 30 })),
   ];
-  assertEquals(computeSustainedDeficitSeverity(rows, day(0)), "amber");
+  // The streak rule reads "no deficit" here; the averaged read still sees strain.
+  assertEquals(computeSustainedDeficitSeverity(rows, day(0)), "red");
 });
 
 Deno.test("SDS-07: samples older than the 5-day lookback are ignored", () => {
