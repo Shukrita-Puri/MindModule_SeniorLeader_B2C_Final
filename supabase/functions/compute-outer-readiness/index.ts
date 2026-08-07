@@ -6766,6 +6766,33 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               ` · State shift today: yes · Direction: ${stateShiftDirection}`;
           }
 
+          // === SIGNAL PILL TIERS ===
+          userPrompt += `\n\n=== SIGNAL PILL TIERS ===`;
+          userPrompt +=
+            `\nDecision Readiness pill the user will see: ${preLLMDecisionTier}`;
+          userPrompt +=
+            `\nPhysical Reserves pill the user will see: ${preLLMPhysicalTier}`;
+          userPrompt +=
+            `\nPILL CONSISTENCY RULE (hard): body must never contradict these tiers.`;
+          userPrompt +=
+            `\nMIND FOGGY → never write "sharp", "clear", "decision power high".`;
+          userPrompt +=
+            `\nMIND SHARP → never write "spent", "taxed", "foggy", "mind is carrying".`;
+          userPrompt +=
+            `\nBODY STRAINED/BODY DEPLETED → never write "body is recovered", "physical runway clear".`;
+          userPrompt +=
+            `\nWhen pill tier and felt-state contradict: name both in beat (a) without resolving — the tension IS the story.`;
+          // MRS awareness — reasoning context only, never displayed.
+          userPrompt += `\nMRS the user will see: ${
+            typeof innerReadinessScore === "number"
+              ? innerReadinessScore
+              : "awaiting"
+          }/100 · band: ${bandValence ?? "unknown"} · tier: ${safeTier}`;
+          userPrompt +=
+            `\nMRS CONSISTENCY RULE (hard): never state or imply the numeric score or the tier word in the output, but the prose direction must match the band — low = constrained/protective, mid = selective/uneven, high = capacity available.`;
+          userPrompt +=
+            `\nIf the MRS band and the pill tiers disagree, lead beat (a) with the pill tier the user can literally see and let the band shape posture only.`;
+
           userPrompt += `\n\n=== DATA AVAILABILITY CONTRACT ===`;
           if (briefWearableUsable) {
             userPrompt +=
