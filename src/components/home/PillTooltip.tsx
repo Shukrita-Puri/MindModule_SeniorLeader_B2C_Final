@@ -345,12 +345,24 @@ export default function PillDetailContent({
   const contributorKeysPresent: string[] = [];
   const contributorKeysSuppressed: string[] = [];
   const allowed = ALLOWED_CONTRIBUTORS[pill.key];
+  // The graded sustained-deficit read supersedes the legacy yes/no row so the
+  // same signal never renders twice.
+  const hasDeficitSeverity =
+    (pill.contributors as Record<string, unknown> | undefined)
+      ?.sustainedDeficitSeverity != null;
 
   // 1) Real contributors echoed by the server — humanised, suppressed if legacy.
   for (const [k, raw] of Object.entries(pill.contributors ?? {})) {
     if (raw == null) continue;
     contributorKeysPresent.push(k);
     if (SUPPRESS.has(k)) {
+      contributorKeysSuppressed.push(k);
+      continue;
+    }
+    if (
+      hasDeficitSeverity &&
+      (k === 'sustainedDeficit' || k === 'sustained_deficit_flag')
+    ) {
       contributorKeysSuppressed.push(k);
       continue;
     }
