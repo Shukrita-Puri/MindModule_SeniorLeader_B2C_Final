@@ -254,15 +254,15 @@ If two beats say the same thing, cut one. No abstract system phrase. No
 score, no band, no one-line state read echoed inside the body.
 
 LEAN ON / WATCH FOR — short signal phrase (not a raw data label), tied to a real source.
-- Preferred source order: PATTERN, GOALS, ARCHETYPE, COACH.
+- Preferred source order: PATTERN, GOALS, ARCHETYPE.
 - When source is PATTERN, GOALS, or ARCHETYPE, write a specific resource or trap the person is facing, not a broad personality trait.
-- Generic trait labels such as Self-Awareness, Self-Honesty, Discernment, Alignment, Clear Direction, or Execution Confidence are only acceptable when source = COACH.
+- Generic trait labels such as Self-Awareness, Self-Honesty, Discernment, Alignment, Clear Direction, or Execution Confidence are never acceptable.
 - Positive examples:
   • Post-board composure · PATTERN
   • Recovery discipline · GOALS
-  • Strategic patience · COACH
+  • Strategic patience · PATTERN
   • Spending early · PATTERN
-- Negative examples (these will be rejected unless source = COACH):
+- Negative examples (these will always be rejected):
   • Self-Awareness · ARCHETYPE
   • Discernment · PATTERN
   • Alignment · GOALS`;
@@ -282,8 +282,8 @@ export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no prea
 {
   "phrase": "2–4 word human headline (target 3), or null",
   "body": "one to three short human sentences with the orientation beat, or null",
-  "leanOn":  [{ "signal": "short signal phrase", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }],
-  "watchFor":[{ "signal": "short signal phrase", "source": "ARCHETYPE|COACH|PATTERN|GOALS" }]
+  "leanOn":  [{ "signal": "short signal phrase", "source": "ARCHETYPE|PATTERN|GOALS" }],
+  "watchFor":[{ "signal": "short signal phrase", "source": "ARCHETYPE|PATTERN|GOALS" }]
 }`;
 
 /**
@@ -324,17 +324,17 @@ BODY
 
 LEAN ON / WATCH FOR
 - Return valid non-empty arrays.
-- \`source\` must be one of exactly: ARCHETYPE, COACH, PATTERN, GOALS
+- \`source\` must be one of exactly: ARCHETYPE, PATTERN, GOALS
   (uppercase, no other values).
-- Preferred source order: PATTERN, GOALS, ARCHETYPE, COACH.
+- Preferred source order: PATTERN, GOALS, ARCHETYPE.
 - When source is PATTERN, GOALS, or ARCHETYPE, the signal must be a specific resource or trap the person is facing, not a broad personality trait.
-- Generic trait labels (Self-Awareness, Self-Honesty, Discernment, Alignment, Clear Direction, Execution Confidence) are only acceptable when source = COACH.
+- Generic trait labels (Self-Awareness, Self-Honesty, Discernment, Alignment, Clear Direction, Execution Confidence) are never acceptable.
 - Positive examples:
     • Post-board composure · PATTERN
     • Recovery discipline · GOALS
-    • Strategic patience · COACH
+    • Strategic patience · PATTERN
     • Spending early · PATTERN
-- Negative examples (will be rejected unless source = COACH):
+- Negative examples (these will always be rejected):
     • Self-Awareness · ARCHETYPE
     • Discernment · PATTERN
     • Alignment · GOALS
