@@ -163,7 +163,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   // Dynamic StoreKit pricing labels for terms disclosure to prevent drift across international storefronts
   const monthlyProduct = products.find((p) => planForProductId(p.id) === 'monthly');
   const annualProduct = products.find((p) => planForProductId(p.id) === 'annual');
-  const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : 'the monthly plan rate';
+  const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : '34.99/month';
   const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : '299.99/year';
 
   // Existing Stripe subscriber inside the iOS app: status only, no CTA.
@@ -386,7 +386,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       {/* Compliance Terms Block */}
       <div className="pt-2 space-y-3">
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Payment will be charged to your Apple ID at confirmation of purchase. Monthly plan renews at {monthlyPriceLabel}. Founding Executive Annual plan renews at {annualPriceLabel} for 2 years from purchase date, then at the prevailing full year price with minimum 60 days advance notice. Subscription renews automatically unless cancelled at least 24 hours before the current period ends. Manage or cancel in Apple ID settings. Cancelling during the free trial means you are not charged.
+          Payment will be charged to your Apple ID at confirmation of purchase. Monthly plan renews at {monthlyPriceLabel}. Founding Member Annual plan renews at {annualPriceLabel} for 2 years from purchase date, then at the prevailing full year price with minimum 60 days advance notice. Subscription renews automatically unless cancelled at least 24 hours before the current period ends. Manage or cancel in Apple ID settings. Cancelling during the free trial means you are not charged.
         </p>
 
         {/* Action Controls & Legal Links */}
