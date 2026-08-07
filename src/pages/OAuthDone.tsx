@@ -1,11 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { isNativeApp } from '@/utils/healthKitCapacitor';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function OAuthDone() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const hasTriggeredRef = useRef(false);
 
   const calendarConnected = searchParams.get('calendar_connected') === 'true';
   const ouraConnected = searchParams.get('oura_connected') === 'true';
@@ -13,39 +16,7 @@ export default function OAuthDone() {
   const provider = searchParams.get('provider') || 'provider';
   const reason = searchParams.get('reason');
   const rawRedirectPath = searchParams.get('redirectPath');
-  const redirectPath = rawRedirectPath && rawRedirectPath.startsWith('/') ? rawRedirectPath : '/profile';
-
-  useEffect(() => {
-    // 1. Notify any active listeners in the background (web or main WebView)
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('mm:connections-changed'));
-    }
-
-    // 2. On native iOS, redirecting to the custom app scheme instructs iOS to
-    //    close SFSafariViewController and fire appUrlOpen in the native shell.
-    if (isNativeApp()) {
-      const schemeUrl = `app.mindmodule.me://oauth-complete?${searchParams.toString()}`;
-      console.log('[OAuthDone] Triggering native app scheme return:', schemeUrl);
-      try {
-        window.location.href = schemeUrl;
-      } catch (e) {
-        console.warn('[OAuthDone] Custom scheme return failed:', e);
-      }
-    }
-  }, [searchParams]);
-
-  const handleReturnToApp = () => {
-    if (isNativeApp()) {
-      const schemeUrl = `app.mindmodule.me://oauth-complete?${searchParams.toString()}`;
-      try {
-        window.location.href = schemeUrl;
-      } catch {
-        navigate(redirectPath, { replace: true });
-      }
-    } else {
-      navigate(redirectPath, { replace: true });
-    }
-  };
+  const redirectPath = rawRedirectPath && rawRedirectPath.startsWith('/') ? rawRedirectPath : '/connected-data';
 
   const providerName =
     provider === 'google'
@@ -58,9 +29,71 @@ export default function OAuthDone() {
       ? 'Apple Calendar'
       : provider;
 
+  const targetUrl = `${redirectPath}${redirectPath.includes('?') ? '&' : '?'}${searchParams.toString()}`;
+
+  useEffect(() => {
+    if (hasTriggeredRef.current) return;
+    hasTriggeredRef.current = true;
+
+    // 1. Dispatch global event for active UI components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mm:connections-changed'));
+    }
+
+    // 2. Display success/failure toast and trigger immediate initial sync
+    if (connected) {
+      toast.success(`${providerName} connected successfully!`);
+
+      // Trigger immediate initial data sync in background (bypassing 15-30min cron wait)
+      if (provider === 'oura') {
+        void supabase.functions.invoke('oura-sync').catch((err) => {
+          console.warn('[OAuthDone] Initial Oura sync warning:', err);
+        });
+      } else if (['google', 'microsoft', 'apple'].includes(provider)) {
+        void supabase.functions.invoke('sync-calendar').catch((err) => {
+          console.warn('[OAuthDone] Initial Calendar sync warning:', err);
+        });
+      }
+    } else {
+      toast.error(reason ? `Connection error: ${reason}` : `Could not connect ${providerName}.`);
+    }
+
+    // 3. On native iOS, redirecting to the custom app scheme instructs iOS to
+    //    close SFSafariViewController and fire appUrlOpen in the native shell.
+    if (isNativeApp()) {
+      const schemeUrl = `app.mindmodule.me://oauth-complete?${searchParams.toString()}`;
+      console.log('[OAuthDone] Triggering native app scheme return:', schemeUrl);
+      try {
+        window.location.href = schemeUrl;
+      } catch (e) {
+        console.warn('[OAuthDone] Custom scheme return failed:', e);
+      }
+    }
+
+    // 4. Automatic return timer (1.2s delay to display confirmation tick & toast)
+    const timer = setTimeout(() => {
+      navigate(targetUrl, { replace: true });
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [connected, provider, providerName, reason, searchParams, redirectPath, targetUrl, navigate]);
+
+  const handleReturnToApp = () => {
+    if (isNativeApp()) {
+      const schemeUrl = `app.mindmodule.me://oauth-complete?${searchParams.toString()}`;
+      try {
+        window.location.href = schemeUrl;
+      } catch {
+        navigate(targetUrl, { replace: true });
+      }
+    } else {
+      navigate(targetUrl, { replace: true });
+    }
+  };
+
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
-      <div className="max-w-md w-full p-6 rounded-2xl bg-card border border-border/50 shadow-xl text-center space-y-6">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4" data-testid="oauth-done-page">
+      <div className="max-w-md w-full p-6 rounded-2xl bg-card border border-border/50 shadow-xl text-center space-y-6 animate-fade-in">
         {connected ? (
           <div className="space-y-3">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center">
@@ -69,8 +102,9 @@ export default function OAuthDone() {
             <h2 className="text-xl font-bold tracking-tight text-foreground">
               {providerName} Connected!
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Your connection has been saved successfully. Returning to Mind Module...
+            <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+              Syncing initial data &amp; returning to Mind Module…
             </p>
           </div>
         ) : (
@@ -91,7 +125,7 @@ export default function OAuthDone() {
           <button
             type="button"
             onClick={handleReturnToApp}
-            className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors inline-flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors inline-flex items-center justify-center gap-2 text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Return to Mind Module</span>
