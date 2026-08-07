@@ -50,6 +50,9 @@ export interface CooccurrenceSignal {
   days_observed: number;
 }
 
+/** Graded read of the sustained-deficit signal (Resilience pill only). */
+export type SustainedDeficitSeverity = "red" | "amber" | "green" | "unknown";
+
 /**
  * Inputs consumed by phases A + B (tier math, payload construction,
  * source/freshness metadata, V4 invariants, Physical-Reserves displayable
@@ -87,6 +90,12 @@ export interface DerivePillsInput {
   // Pattern signals.
   rhr3dTrend: "declining" | "stable" | "rising" | "unknown";
   sustainedDeficitFlag: boolean;
+  /**
+   * Graded severity of the SAME sustained-deficit signal. Optional — when
+   * absent or "unknown" the pill falls back to the legacy boolean push.
+   * Never blocks: an absent read simply contributes nothing.
+   */
+  sustainedDeficitSeverity?: SustainedDeficitSeverity;
   cooccurrence7d: CooccurrenceSignal;
 
   // Framing.
@@ -111,8 +120,7 @@ export interface SignalPillContributors {
   regulationLevel?: number | null;
   pressureLevel?: number | null;
   sustainedDeficit?: boolean;
-  hrvHighDemandCooccurrence7d?: CooccurrenceSignal;
-  protectionGoalsCount?: number;
+  sustainedDeficitSeverity?: SustainedDeficitSeverity;
 }
 
 export interface SignalPill {
@@ -230,6 +238,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     highStakesEventsCount,
     rhr3dTrend,
     sustainedDeficitFlag,
+    sustainedDeficitSeverity,
     cooccurrence7d,
     protectionGoals,
     wearableFreshForGate,
