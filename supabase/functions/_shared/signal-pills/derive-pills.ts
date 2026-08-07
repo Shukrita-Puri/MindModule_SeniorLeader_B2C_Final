@@ -374,16 +374,21 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   if (pressureLevel != null) {
     resTiers.push(pressureLevel >= 4 ? "amber" : "green");
   }
-  if (sustainedDeficitFlag) resTiers.push("red");
-  if (cooccurrence7d.cooccurrence_count >= 3) resTiers.push("red");
-  else if (cooccurrence7d.cooccurrence_count === 2) resTiers.push("amber");
-  const hasStakesEarly = highStakesEventsCount > 0;
+  // ── Persistent strain — sustained deficit, graded.
+  // Same signal as the boolean flag, read as a tier so it contributes on
+  // realistic data. "unknown" pushes nothing and never blocks the pill; the
+  // legacy boolean remains the fallback when no graded read is supplied.
   if (
-    protectionGoals.length > 0 &&
-    (calendarPressure === "high" || hasStakesEarly)
+    sustainedDeficitSeverity != null &&
+    sustainedDeficitSeverity !== "unknown"
   ) {
-    resTiers.push("amber");
+    resTiers.push(sustainedDeficitSeverity);
+  } else if (sustainedDeficitFlag) {
+    resTiers.push("red");
   }
+  // Protected Goals and HRV × High-Demand are intentionally NOT read here:
+  // the first is planning context rather than recovery capacity, the second
+  // duplicates the HRV strain signal above.
   let resilienceTier: PillTier =
     resTiers.length === 0
       ? "neutral"
