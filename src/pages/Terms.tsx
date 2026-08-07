@@ -24,6 +24,9 @@ const Terms = () => {
           <p className="mb-4">
             These Terms of Use ("Terms") govern your access to and use of the Mind Module mobile application and website at mindmodule.me (collectively, the "Service"), operated by Mind Module ("we," "our," or "us"). By creating an account or using the Service, you agree to these Terms. If you do not agree, do not use the Service.
           </p>
+          <p>
+            This application is distributed through the Apple App Store. Your use of the app is also subject to Apple's Licensed Application End User License Agreement (Standard EULA), available at <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener noreferrer" className="text-primary underline">https://www.apple.com/legal/internet-services/itunes/dev/stdeula/</a>, which applies in addition to these Terms.
+          </p>
         </section>
 
         <section>
