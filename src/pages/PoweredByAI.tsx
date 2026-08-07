@@ -32,6 +32,7 @@ const PoweredByAI = () => {
             <p className="mb-4">Mind Module integrates with the following AI services:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>Google Gemini</strong> (via Lovable's AI gateway) — our primary AI model, used for natural language generation, contextual analysis, pattern recognition, and personalised content generation across the features listed below.</li>
+              <li><strong>Anthropic Claude</strong> — used as an additional large language model for natural language generation and contextual analysis, with equivalent data handling, server-side routing, and security safeguards as described in this disclosure.</li>
               <li><strong>Other large language model providers</strong> may be used as a fallback or for specific functions, with equivalent data handling and security safeguards as described in this disclosure.</li>
             </ul>
             <p>All AI requests are routed through a secure server-side backend gateway. No direct API calls are made from the client application to any AI provider.</p>
