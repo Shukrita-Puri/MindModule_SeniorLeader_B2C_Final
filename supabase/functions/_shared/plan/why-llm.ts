@@ -575,6 +575,11 @@ function buildPrompt(inp: WhyLLMInput): string {
       : "unknown");
 
   const hasAnchor = !!(evtTitle && evtTitle.trim());
+  const importanceGuide =
+    `Event importance (A highest → H lowest): A=High-Stakes Governance, B=Influence & Persuasion, C=Visibility & Communication, D=People & Difficult Conversations, E=Deep Work & Strategy, F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline.`;
+  const selectionReason = inp.patternSummary
+    ? `Selected because: ${inp.patternSummary}`
+    : "Selected because: highest-priority event in this slot by category and time.";
   const eventBlock = hasAnchor
     ? [
       `=== THE EVENT ===`,
@@ -584,6 +589,8 @@ function buildPrompt(inp: WhyLLMInput): string {
       `Why it's a moment: ${
         preventsBuilds || selfReg || "high-leverage moment for this leader"
       }`,
+      importanceGuide,
+      selectionReason,
     ].join("\n")
     : `=== ELSE (no event anchor) ===\nState-management practice — justify by the day's state, not a calendar moment.`;
 

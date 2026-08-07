@@ -3145,15 +3145,19 @@ serve(async (req) => {
       userId,
     );
 
-    // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
-    // Fetch tomorrow's calendar for any evening (≥18:00), not just late evening
+    // ── Server-side calendar metrics: today + tomorrow (for evening forward-look)
+    // + yesterday (for morning brief pattern context). ──
     const lateEvening = isLateEvening(hour);
     const isEvening = hour >= 18 || lateEvening;
     const needTomorrow = isEvening;
-    const [calendarResult, tomorrowResult] = await Promise.all([
+    const isMorning = hour >= 5 && hour < 12;
+    const [calendarResult, tomorrowResult, yesterdayResult] = await Promise.all([
       getServerCalendarMetrics(db as any, userId, timezoneOffset, 0),
       needTomorrow
         ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1)
+        : Promise.resolve(null),
+      isMorning
+        ? getServerCalendarMetrics(db as any, userId, timezoneOffset, -1)
         : Promise.resolve(null),
     ]);
     const calendarLoad: CalendarLevel | null = calendarResult.state === "active"
@@ -3184,9 +3188,17 @@ serve(async (req) => {
           remainingMeetings: calendarResult.remainingMeetings ?? null,
           remainingHighStakes: calendarResult.remainingHighStakes ?? [],
           todayHighStakes,
+          todayHighStakesDetailed: todayHighStakes.map((title) => {
+            const cat = classifyEvent(title);
+            return { title, localTime: null, category: cat?.category ?? null };
+          }),
           tomorrowLoad,
           tomorrowPressure,
           tomorrowHighStakes,
+          tomorrowHighStakesDetailed: tomorrowHighStakes.map((title) => {
+            const cat = classifyEvent(title);
+            return { title, localTime: null, category: cat?.category ?? null };
+          }),
         }),
         {
           status: 200,
@@ -4522,6 +4534,7 @@ serve(async (req) => {
     // (same indexes as todayHighStakes). Lets the prompt emit a paired clock
     // time so the LLM never invents or rounds it.
     let todayHighStakesEventTimes: string[] = [];
+    let todayHighStakesCategories: string[] = [];
     let practicesCompletedThisWeek = 0;
     let practiceCompletionRate = 0;
     let daysSinceCoachSession: number | null = null;
@@ -4545,6 +4558,7 @@ serve(async (req) => {
     // tomorrowHighStakesTitles). Allows the prompt to emit "14:30 — Intro Call …"
     // structured pairs instead of two free-floating lines the LLM can mis-glue.
     let tomorrowHighStakesEventTimes: string[] = [];
+    let tomorrowHighStakesCategories: string[] = [];
     let tomorrowFirstMeetingPair: string | null = null; // e.g. "14:30, Intro Call …"
     // Effective IANA timezone strings — resolved in the holiday block below
     // from request body / profiles columns; nullable when neither is available.
@@ -5292,6 +5306,15 @@ serve(async (req) => {
               if (!match) return "";
               return fmtLocalHHmmToday(new Date(match.start_time));
             });
+            todayHighStakesCategories = todayHighStakes.map((title) => {
+              const match = meetingEventsToday.find((e: any) =>
+                (e.title || "").trim() === title.trim()
+              );
+              const cat = match
+                ? classifyEvent(match.title || "")
+                : classifyEvent(title);
+              return cat?.category ?? "";
+            });
             // Also re-format nextHighStakesEvent / nextEventAny clock time using
             // the same IANA-aware formatter so downstream consumers (UI + prompt)
             // share one source of truth.
@@ -5413,6 +5436,17 @@ serve(async (req) => {
                 );
                 if (!match) return "";
                 return fmtLocalHHmm(new Date(match.start_time));
+              },
+            );
+            tomorrowHighStakesCategories = tomorrowHighStakesTitles.map(
+              (title) => {
+                const match = meetingEvents.find((e) =>
+                  (e.title || "").trim() === title.trim()
+                );
+                const cat = match
+                  ? classifyEvent(match.title || "")
+                  : classifyEvent(title);
+                return cat?.category ?? "";
               },
             );
           } catch (e) { /* ignore */ }
@@ -6792,15 +6826,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\n\n=== CALENDAR TODAY ===`;
             userPrompt +=
               `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}`;
-            // Pair every high-stakes title with its own local HH:mm so the LLM
-            // never invents or rounds the clock. If a title's time is unknown
-            // (no exact match), omit time for that one event.
+            // Pair every high-stakes title with its own local HH:mm and A-H
+            // category suffix so the LLM never invents or rounds the clock and
+            // understands the relative importance of each moment.
             if (todayHighStakes.length > 0) {
               const pairedToday = todayHighStakes.map((t, i) => {
                 const tm = todayHighStakesEventTimes[i];
-                return tm ? `${tm} ${t}` : t;
+                const cat = todayHighStakesCategories[i];
+                const suffix = cat ? ` [${cat}]` : "";
+                return tm ? `${tm} ${t}${suffix}` : `${t}${suffix}`;
               }).join("; ");
-              userPrompt += `\nHigh-stakes (local time, title): ${pairedToday}`;
+              userPrompt += `\nHigh-stakes (local time, title [category]): ${pairedToday}`;
             }
             userPrompt += `\nTotal meetings: ${
               calendarResult.meetingCount ?? 0
@@ -6817,12 +6853,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
             if (nextHighStakesEvent) {
               const t = (nextHighStakesEvent as any).localHHmm;
-              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${
+              const nextCat = classifyEvent(nextHighStakesEvent.title || "");
+              const nextSuffix = nextCat?.category
+                ? ` [${nextCat.category}]`
+                : "";
+              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${nextSuffix}${
                 t ? ` at ${t}` : ""
               } (in ${nextHighStakesEvent.minutesUntil}mins)`;
             }
             userPrompt +=
               `\nCLOCK TIME RULE: When referencing any event time in the body, use ONLY the HH:mm strings provided above, character-for-character. Never invent, round, shift, or reformat clock times. If no time is provided for an event, omit the time entirely rather than guessing.`;
+            userPrompt +=
+              `\nEVENT IMPORTANCE GUIDE (A highest → H lowest): A=High-Stakes Governance (board, audit, regulatory), B=Influence & Persuasion (pitch, investor, key negotiation), C=Visibility & Communication (media, town hall, keynote), D=People & Difficult Conversations (1:1 hard talk, performance, layoff), E=Deep Work & Strategy (planning, review, writing), F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline. Focus beat (c) on the highest-category event.`;
           }
 
           // === TOMORROW === (evenings, Friday, Sunday)
@@ -6842,16 +6884,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
             userPrompt += `\n\n=== TOMORROW ===`;
             userPrompt += `\nDay: ${tomorrowDayName} · Load: ${tomorrowLoad}`;
-            // Pair every high-stakes title with its own local time so the LLM
-            // cannot mis-glue a title to an unrelated line's time. If a title's
-            // time is unknown (no exact match), omit time for that one event.
+            // Pair every high-stakes title with its own local time and A-H
+            // category suffix so the LLM cannot mis-glue a title to an unrelated
+            // line's time and understands relative importance.
             if (tomorrowHighStakesTitles.length > 0) {
               const paired = tomorrowHighStakesTitles.map((t, i) => {
                 const tm = tomorrowHighStakesEventTimes[i];
-                return tm ? `${tm}, ${t}` : t;
+                const cat = tomorrowHighStakesCategories[i];
+                const suffix = cat ? ` [${cat}]` : "";
+                return tm ? `${tm}, ${t}${suffix}` : `${t}${suffix}`;
               }).join(", ");
               userPrompt +=
-                `\nHigh-stakes meetings (with local times): ${paired}`;
+                `\nHigh-stakes meetings (with local times [category]): ${paired}`;
             }
             if (tomorrowFirstMeetingPair) {
               userPrompt +=
@@ -7287,6 +7331,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
             const tomorrowEventsForCtx = (tomorrowResult as any)?.briefEvents ??
               [];
+            const yesterdayEventsForCtx = (yesterdayResult as any)?.briefEvents ??
+              [];
 
             // Part 1 — hydrate travel_state so awayFromHome / travelTier are
             // populated on the matrix. Fail-open: any error leaves the
@@ -7507,6 +7553,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 now: promptLocalNow,
                 todayEvents: toClassified(eventsForCtx),
                 tomorrowEvents: toClassified(tomorrowEventsForCtx),
+                yesterdayEvents: toClassified(yesterdayEventsForCtx),
                 wearable: {
                   hrvToday: typeof hrvValue === "number" ? hrvValue : null,
                   hrvBaseline30d: typeof hrvBaseline === "number"
@@ -7535,6 +7582,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   userPrompt += `\nyesterday_had_high_stakes: ${
                     w.yesterdayHadHighStakes ? "yes" : "no"
                   }`;
+                  if (yesterdayEventsForCtx.length > 0 && w.yesterdayHadHighStakes) {
+                    const yHighStakes = yesterdayEventsForCtx
+                      .filter((e: any) => {
+                        const cat = classifyEvent(e.title || "");
+                        return cat && cat.category;
+                      })
+                      .slice(0, 3)
+                      .map((e: any) => {
+                        const cat = classifyEvent(e.title || "");
+                        return `${e.title} [${cat?.category}]`;
+                      })
+                      .join("; ");
+                    if (yHighStakes) {
+                      userPrompt += `\nyesterday_high_stakes_events: ${yHighStakes}`;
+                    }
+                  }
                   userPrompt += `\nsleep_quality: ${
                     w.sleepQuality ?? "unknown"
                   }`;
@@ -10458,6 +10521,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         calendarLoad: calendarLoad || "low",
         meetingCount: calendarResult.meetingCount,
         highStakesEvents: todayHighStakes,
+        highStakesEventsDetailed: todayHighStakes.map((title, i) => ({
+          title,
+          localTime: todayHighStakesEventTimes[i] || null,
+          category: todayHighStakesCategories[i] || null,
+        })),
         remainingHighStakes: calendarResult.remainingHighStakes ?? [],
         nextHighStakesEvent,
         checkInCountTotal,
