@@ -369,12 +369,109 @@ Beat (d) — THE CLOSING CLAUSE — on weekends, closes toward recovery or the c
   - "…and keep tonight offline."`;
 
 /**
+ * Day-shape overrides. These carry the SAME day-awareness the Plan (JIT v2)
+ * uses — public holiday, PTO / OOO, travel by type, conference — so Brief and
+ * Plan never tell two different stories. Exactly ONE of these (or the weekend
+ * directive) is appended per call by `buildBriefSystemPrompt`.
+ */
+export const NON_WORKDAY_DIRECTIVE =
+  `NON-WORKDAY CONTEXT — today is a public holiday, PTO, or personal leave.
+Beat (c) — THE WORK DIRECTIVE — must NOT reference meetings, calls, deliverables or workday tasks.
+Reframe it as: how to spend today's state given the physiological read.
+Acceptable directives:
+  - "This is a genuine off day — let the system settle rather than half-work it"
+  - "Take the day at the pace it deserves; the return will ask for the edge"
+  - "Give the mind the space you never schedule"
+NOT acceptable:
+  - anything implying meetings, calls, the team, the org, or "the room"
+If ONE meeting still breaks the day, you may reference that single commitment
+and nothing else about work.
+Beat (d) — THE CLOSING CLAUSE — closes toward recovery or the return to work:
+  - "…and let the return start clean."
+  - "…and keep the day yours."`;
+
+export const PERSONAL_TRAVEL_DIRECTIVE =
+  `PERSONAL TRAVEL CONTEXT — today's travel is personal, not work.
+No work framing, no performance push, no "protect the edge for the room".
+Beat (c) — THE WORK DIRECTIVE — becomes how to carry the body through the
+journey: hydration of attention, patience with delay, arriving intact.
+Beat (d) closes toward the trip, not the calendar:
+  - "…and let the trip actually land."`;
+
+export const CONFERENCE_DIRECTIVE =
+  `CONFERENCE CONTEXT — today is a conference / summit day.
+The demand is sustained social and attentional load, not a single meeting.
+Beat (c) — THE WORK DIRECTIVE — orients around where to spend presence across
+the day (which sessions, which rooms, which conversations earn the attention)
+and where to let the day pass through you. Reference speaking load when it exists.
+Beat (d) closes toward carrying the state into the next conference day or re-entry.`;
+
+/**
+ * Work travel is phase-aware. The Plan carries the actual prevention /
+ * recovery protocols; the Brief stays at direction level and never prescribes
+ * a practice, a protocol name, or a duration.
+ */
+export function workTravelDirective(
+  phase: 'pre' | 'in_transit' | 'post' | null | undefined,
+): string {
+  const head =
+    `WORK TRAVEL CONTEXT — today's travel is for work; a commitment follows the journey.
+Travel is a cognitive load, not just a logistics item. Name it as part of the day.
+The Plan carries the prevention and recovery protocols — the Brief gives DIRECTION only.
+Never prescribe a practice, a protocol, or a duration.`;
+  if (phase === 'pre') {
+    return `${head}
+Phase: BEFORE DEPARTURE. Beat (c) reads the current cognitive state and gives a
+high-level protect-before-you-fly direction — what to spend now and what to bank
+for the other end. Beat (d) closes toward arriving usable.`;
+  }
+  if (phase === 'in_transit') {
+    return `${head}
+Phase: IN TRANSIT / JUST LANDED. Beat (c) orients around arrival state — what
+condition to walk off the journey in, given the read. Beat (d) closes toward the
+first commitment on the other side.`;
+  }
+  if (phase === 'post') {
+    return `${head}
+Phase: POST-TRIP RE-ENTRY. Beat (c) acknowledges the lag the travel left behind
+and directs how to sequence the first work block against it. Beat (d) closes
+toward getting the rhythm back rather than pushing through it.`;
+  }
+  return head;
+}
+
+/** Pick the single directive that matches the day shape. */
+export function dayShapeDirective(
+  shape: string | null | undefined,
+  travelPhase?: 'pre' | 'in_transit' | 'post' | null,
+): string {
+  switch (shape) {
+    case 'weekend':
+      return WEEKEND_DIRECTIVE;
+    case 'public_holiday':
+    case 'pto':
+    case 'personal_holiday':
+      return NON_WORKDAY_DIRECTIVE;
+    case 'personal_travel':
+      return PERSONAL_TRAVEL_DIRECTIVE;
+    case 'work_travel':
+      return workTravelDirective(travelPhase ?? null);
+    case 'conference':
+      return CONFERENCE_DIRECTIVE;
+    default:
+      return '';
+  }
+}
+
+/**
  * Build the complete SYSTEM role for the Brief LLM call. Pure — same inputs,
  * same string, every time. Cached upstream by input-signature.
  */
 export function buildBriefSystemPrompt(opts?: {
   bandValence?: ReadinessValence | null;
   isWeekend?: boolean;
+  dayShape?: string | null;
+  travelPhase?: 'pre' | 'in_transit' | 'post' | null;
 }): string {
   const valenceBlock = bandValenceDirective(opts?.bandValence ?? null);
   const base = [
@@ -407,7 +504,11 @@ export function buildBriefSystemPrompt(opts?: {
     '',
     OUTPUT_CONTRACT,
   ].join('\n');
-  return opts?.isWeekend ? `${base}\n\n${WEEKEND_DIRECTIVE}` : base;
+  // Exactly ONE day-shape directive. The day shape (when supplied) wins; the
+  // weekend flag remains the fallback so existing callers are unchanged.
+  const shapeBlock = dayShapeDirective(opts?.dayShape ?? null, opts?.travelPhase ?? null);
+  const directive = shapeBlock || (opts?.isWeekend ? WEEKEND_DIRECTIVE : '');
+  return directive ? `${base}\n\n${directive}` : base;
 }
 
 /**
