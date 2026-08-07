@@ -10,7 +10,13 @@ Only one thing changes: the Executive Brief's LLM attempt ladder in `compute-out
   1. `google/gemini-2.5-flash` via gateway, 15s
   2. Claude Sonnet, 10s
   3. Claude Sonnet again, 10s (corrective-retry pass)
-- The Plan "Why this matters" LLM (`supabase/functions/_shared/plan/why-llm.ts`, called once at `generate-mastery-plan/index.ts:7872`) already makes exactly **one** call to a single model, with a 10s abort timeout and a deterministic repair fallback. No retry loop exists there, so no change is needed.
+- The Plan "Why this matters" LLM (`supabase/functions/_shared/plan/why-llm.ts`, called once at `generate-mastery-plan/index.ts:7872`) makes exactly **one** call to a single model (`google/gemini-3-flash-preview`) with a 10s abort timeout. On any failure — missing key, non-OK response, timeout, unparseable or too-short output — it returns null and the caller falls straight to the deterministic repair line. No retry loop exists there.
+
+### Plan ladder today: Gemini -> Deterministic (no Claude tier)
+
+The Plan why-line does **not** have a Claude fallback. Its ladder is one Gemini attempt, then deterministic. To match the Brief's Gemini -> Claude -> Deterministic shape, a second attempt would have to be added.
+
+Optional, only if you want it: wrap the gateway call in a two-entry attempt ladder inside `generateWhyStatement` — attempt 1 `google/gemini-3-flash-preview` via the gateway, attempt 2 Claude via the existing `_shared/anthropic.ts` helper — each with the same 10s abort timeout and the same null-on-failure contract, so the deterministic repair path stays untouched. It costs extra only when Gemini fails, and it would mean redeploying `generate-mastery-plan` as well. Excluded from the scope below unless you ask for it.
 
 ## Ordering note
 
