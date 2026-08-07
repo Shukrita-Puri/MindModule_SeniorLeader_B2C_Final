@@ -112,6 +112,12 @@ const isCardsAwaitingPayload = (payload: any): boolean => {
     || payload.briefMode === 'cold-start';
 };
 
+// Feature flag: the MRS score and tier one-liner are duplicated on the
+// dedicated MRS card, so they are hidden here by default. Keep the code
+// in place so it can be resurfaced quickly if the Brief card ever needs
+// to carry the score again.
+const SHOW_BRIEF_SCORE_AND_TIER = false;
+
 // ─── SPRINT A HELPERS — SEPARATE COPY vs SCORE vs TRUE-AWAITING ───
 // The legacy `isCardsAwaitingPayload` conflates missing score with
 // awaiting. That causes the PRB to flash back to the awaiting state when
