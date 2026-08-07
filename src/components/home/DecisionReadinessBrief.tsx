@@ -2602,7 +2602,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* 4. PHRASE */}
       {phrase && (
-        <p className="mt-4 text-quote text-foreground">
+        <p className={cn(
+          "text-quote text-foreground",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+        )}>
           {phrase}
         </p>
       )}
@@ -2613,7 +2616,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           State 2 refiner, never as the gate. */}
       {showNeutralAwaitingCopy && (
         <>
-          <p className="mt-4 text-quote text-foreground">
+          <p className={cn(
+            "text-quote text-foreground",
+            SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+          )}>
             {READINESS_AWAITING_MESSAGE}
           </p>
         </>
@@ -2622,7 +2628,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
-        <p className="mt-4 text-quote text-foreground">
+        <p className={cn(
+          "text-quote text-foreground",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+        )}>
           Read from your signals. Full brief prose is awaiting the latest signals.
         </p>
       )}
