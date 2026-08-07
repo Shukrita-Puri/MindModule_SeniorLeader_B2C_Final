@@ -6418,6 +6418,35 @@ serve(async (req) => {
             if (s < 65) return "mid";
             return "high";
           })();
+          // ── Pre-LLM signal-pill tiers ──
+          // The Brief must never contradict the pill tiers the user can
+          // literally see on the same card. Derive the same labels here, in
+          // the outer prompt scope (see mem://reliability/brief-prompt-variable-scoping).
+          const preLLMDecisionTier: string =
+            (wearableFreshForGate && hrvValue != null)
+              ? (((hrvDeviation ?? 0) < -15 ||
+                  (clarityLevel != null && clarityLevel <= 2))
+                ? "MIND FOGGY"
+                : ((hrvDeviation ?? 0) > 10 ||
+                    (clarityLevel != null && clarityLevel >= 4))
+                ? "MIND SHARP"
+                : "MIND MIXED")
+              : (clarityLevel != null
+                ? (clarityLevel <= 2
+                  ? "MIND FOGGY"
+                  : clarityLevel >= 4
+                  ? "MIND SHARP"
+                  : "MIND MIXED")
+                : "MIND UNREAD");
+
+          const preLLMPhysicalTier: string =
+            (wearableFreshForGate && rhrValue != null)
+              ? ((rhrDeviation ?? 0) > 15
+                ? "BODY STRAINED"
+                : (rhrDeviation ?? 0) > 8
+                ? "BODY MIXED"
+                : "BODY STEADY")
+              : "BODY UNREAD";
           const systemPrompt = buildBriefSystemPrompt({ bandValence });
           // === LEADER VOICE === (from onboarding CoS profile)
           // Appended AFTER the shared persona/voice/constraint blocks so it
@@ -6736,6 +6765,33 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt +=
               ` · State shift today: yes · Direction: ${stateShiftDirection}`;
           }
+
+          // === SIGNAL PILL TIERS ===
+          userPrompt += `\n\n=== SIGNAL PILL TIERS ===`;
+          userPrompt +=
+            `\nDecision Readiness pill the user will see: ${preLLMDecisionTier}`;
+          userPrompt +=
+            `\nPhysical Reserves pill the user will see: ${preLLMPhysicalTier}`;
+          userPrompt +=
+            `\nPILL CONSISTENCY RULE (hard): body must never contradict these tiers.`;
+          userPrompt +=
+            `\nMIND FOGGY → never write "sharp", "clear", "decision power high".`;
+          userPrompt +=
+            `\nMIND SHARP → never write "spent", "taxed", "foggy", "mind is carrying".`;
+          userPrompt +=
+            `\nBODY STRAINED/BODY DEPLETED → never write "body is recovered", "physical runway clear".`;
+          userPrompt +=
+            `\nWhen pill tier and felt-state contradict: name both in beat (a) without resolving — the tension IS the story.`;
+          // MRS awareness — reasoning context only, never displayed.
+          userPrompt += `\nMRS the user will see: ${
+            typeof innerReadinessScore === "number"
+              ? innerReadinessScore
+              : "awaiting"
+          }/100 · band: ${bandValence ?? "unknown"} · tier: ${safeTier}`;
+          userPrompt +=
+            `\nMRS CONSISTENCY RULE (hard): never state or imply the numeric score or the tier word in the output, but the prose direction must match the band — low = constrained/protective, mid = selective/uneven, high = capacity available.`;
+          userPrompt +=
+            `\nIf the MRS band and the pill tiers disagree, lead beat (a) with the pill tier the user can literally see and let the band shape posture only.`;
 
           userPrompt += `\n\n=== DATA AVAILABILITY CONTRACT ===`;
           if (briefWearableUsable) {
