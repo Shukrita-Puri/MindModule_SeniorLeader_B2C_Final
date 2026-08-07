@@ -3,6 +3,10 @@ import { buildMrsV4SubScores } from "../_shared/signal-engine/mrs-v4-subscores.t
 import { composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { deriveEveningPhysioSource } from "../_shared/signal-engine/evening-physio-source.ts";
+import {
+  maxWearableAgeDaysForWindow,
+  type SignalWindow,
+} from "../_shared/signal-engine/signal-freshness.ts";
 import { classifyDay } from "../_shared/availability/availability-classifier.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
