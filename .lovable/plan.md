@@ -19,6 +19,15 @@ Remove the duplicated MRS score (`51/100`) and tier one-liner from the **Perform
    - When `true`, keep the existing margins unchanged.
 4. Add a short inline comment explaining why the block is retained and how to re-enable it.
 
+## Downstream Impact Assessment
+Hiding the score is a pure UI change. No downstream client reads the MRS value **from the Brief card itself**:
+- **MRS card** (`MrsPage.tsx`) renders from `useMrsSnapshot()` and falls back to `outerBrief?.innerReadinessScore` from the `useOuterReadiness` payload — never from the Brief card DOM.
+- **Plan / TodayThreePriorities** sends `mrsReadinessScore` to `generate-mastery-plan`, sourced from the MRS snapshot or `useOuterReadiness`, not from Brief card UI.
+- **Insights InnerReadinessDial** reads `innerReadinessScore` directly from `useOuterReadiness`.
+- **Inner readiness computation** lives in `compute-inner-readiness` / `mrs-v4-compose.ts` and is unaffected by whether the Brief card displays the number.
+
+Therefore, no clients need to be moved to the MRS card, and inner readiness logic is not impacted.
+
 ## Verification
 - Run `tsgo` (TypeScript typecheck) to confirm no type errors.
 - Run the existing frontend test suite, especially `briefFlickerGuard.test.ts`, to ensure helper exports still work.
