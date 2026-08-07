@@ -234,7 +234,7 @@ Deno.test("RC-24: regulation-risk floor (regulation 2 + pressure 4) -> amber", (
   assertEquals(r.resilienceTier, "amber");
 });
 
-Deno.test("RC-25: cooccurrence count 3 -> red", () => {
+Deno.test("RC-25: cooccurrence is retired -- count 3 no longer tiers Resilience", () => {
   const r = derivePills(
     baseInput({
       sleepEfficiency: 90,
@@ -245,12 +245,13 @@ Deno.test("RC-25: cooccurrence count 3 -> red", () => {
       },
     }),
   );
-  assertEquals(r.resilienceTier, "red");
+  assertEquals(r.resilienceTier, "green");
   const rc = pill(r.pills, "resilience_capacity");
-  assertEquals(rc.sourceTypes.includes("pattern"), true);
+  assertEquals(rc.sourceTypes.includes("pattern"), false);
+  assertEquals("hrvHighDemandCooccurrence7d" in rc.contributors, false);
 });
 
-Deno.test("RC-26: protection goals + calendarPressure high -> amber framing", () => {
+Deno.test("RC-26: protected goals are retired -- no amber from goals + pressure", () => {
   const r = derivePills(
     baseInput({
       sleepEfficiency: 90,
@@ -258,7 +259,63 @@ Deno.test("RC-26: protection goals + calendarPressure high -> amber framing", ()
       calendarPressure: "high",
     }),
   );
-  assertEquals(r.resilienceTier, "amber");
+  assertEquals(r.resilienceTier, "green");
+  const rc = pill(r.pills, "resilience_capacity");
+  assertEquals("protectionGoalsCount" in rc.contributors, false);
+});
+
+Deno.test("RC-26b: graded sustained deficit tiers Resilience red/amber/green", () => {
+  const red = derivePills(
+    baseInput({ sleepEfficiency: 90, sustainedDeficitSeverity: "red" }),
+  );
+  const amber = derivePills(
+    baseInput({ sleepEfficiency: 90, sustainedDeficitSeverity: "amber" }),
+  );
+  const green = derivePills(
+    baseInput({ sleepEfficiency: 90, sustainedDeficitSeverity: "green" }),
+  );
+  assertEquals(red.resilienceTier, "red");
+  assertEquals(amber.resilienceTier, "amber");
+  assertEquals(green.resilienceTier, "green");
+  const rc = pill(red.pills, "resilience_capacity");
+  assertEquals(rc.contributors.sustainedDeficitSeverity, "red");
+  assertEquals(rc.sourceTypes.includes("pattern"), true);
+});
+
+Deno.test("RC-26c: unknown deficit read never blocks -- sleep efficiency still tiers", () => {
+  const r = derivePills(
+    baseInput({ sleepEfficiency: 69, sustainedDeficitSeverity: "unknown" }),
+  );
+  assertEquals(r.resilienceTier, "red");
+  const rc = pill(r.pills, "resilience_capacity");
+  assertEquals(rc.sourceTypes.includes("pattern"), false);
+});
+
+Deno.test("RC-26d: legacy boolean still reds Resilience when no graded read supplied", () => {
+  const r = derivePills(
+    baseInput({ sleepEfficiency: 90, sustainedDeficitFlag: true }),
+  );
+  assertEquals(r.resilienceTier, "red");
+});
+
+Deno.test("RC-26e: graded read leaves Physical Reserves untouched", () => {
+  const withGrade = derivePills(
+    baseInput({
+      rhrValue: 60,
+      rhrDeviation: 0,
+      sleepEfficiency: 90,
+      sustainedDeficitFlag: false,
+      sustainedDeficitSeverity: "red",
+    }),
+  );
+  const without = derivePills(
+    baseInput({ rhrValue: 60, rhrDeviation: 0, sleepEfficiency: 90 }),
+  );
+  assertEquals(withGrade.physicalTier, without.physicalTier);
+  assertEquals(
+    JSON.stringify(pill(withGrade.pills, "physical_reserves").contributors),
+    JSON.stringify(pill(without.pills, "physical_reserves").contributors),
+  );
 });
 
 // ── Freshness / cold-start ─────────────────────────────────────────────
