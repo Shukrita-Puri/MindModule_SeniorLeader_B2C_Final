@@ -9047,6 +9047,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   : null,
                 hasBackToBack: !!hasBackToBack,
                 isWeekend: isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry),
+                // Same day-awareness the Plan uses: holiday / PTO / personal
+                // travel take the non-workday copy branches.
+                isNonWorkday: briefDayShape === "public_holiday" ||
+                  briefDayShape === "pto" ||
+                  briefDayShape === "personal_holiday" ||
+                  briefDayShape === "personal_travel",
               });
               // DETERMINISTIC BYPASS: the validator runs for observability only.
               // deterministic-brief.ts is validated by construction — every string
