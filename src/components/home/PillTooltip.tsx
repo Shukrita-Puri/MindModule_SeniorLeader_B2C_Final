@@ -75,9 +75,7 @@ const CONTRIBUTORS: Record<string, ContribSpec> = {
   hrValue:                     { label: 'HR',               fmt: (v) => num(v, 'bpm') },
   sustainedDeficit:            { label: 'Sustained Deficit', fmt: (v) => boolYesNo(v) },
   sustained_deficit_flag:      { label: 'Sustained Deficit', fmt: (v) => boolYesNo(v) },
-  hrvHighDemandCooccurrence7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => cooccurrence(v) },
-  hrv_low_high_demand_cooccurrence_7d: { label: 'HRV × High-Demand (7d)', fmt: (v) => cooccurrence(v) },
-  protectionGoalsCount:        { label: 'Protected Goals',  fmt: (v) => num(v) },
+  sustainedDeficitSeverity:    { label: 'Sustained Deficit', fmt: (v) => deficitSeverity(v) },
   clarityLevel:                { label: 'Clarity',          fmt: (v) => num(v, '/5') },
   emotionLevel:                { label: 'Emotion',          fmt: (v) => num(v, '/5') },
   regulationLevel:             { label: 'Regulation',       fmt: (v) => num(v, '/5') },
@@ -107,6 +105,11 @@ const EXPECTED_CONTRIBUTORS: Record<PillTooltipPill['key'], Array<{ key: string;
 const SUPPRESS = new Set<string>([
   'calendarLoad',
   'calendarPressure',
+  // Retired from Resilience: planning context, not recovery capacity.
+  'protectionGoalsCount',
+  // Retired from Resilience: duplicates the HRV strain signal.
+  'hrvHighDemandCooccurrence7d',
+  'hrv_low_high_demand_cooccurrence_7d',
   'consecutive_high_load_days',
   'typical_load_for_dow',
   'cognitive_fragmentation_score',
@@ -149,9 +152,7 @@ const ALLOWED_CONTRIBUTORS: Record<PillTooltipPill['key'], Set<string>> = {
     'pressureLevel',
     'sustainedDeficit',
     'sustained_deficit_flag',
-    'hrvHighDemandCooccurrence7d',
-    'hrv_low_high_demand_cooccurrence_7d',
-    'protectionGoalsCount',
+    'sustainedDeficitSeverity',
   ]),
 };
 
@@ -172,26 +173,17 @@ function num(v: unknown, suffix = ''): string | null {
   return `${rounded}${suffix}`;
 }
 /**
- * HRV × High-Demand co-occurrence is delivered as either a bare count or
- * an object: { cooccurrence_count, cooccurrence_ratio, days_observed }.
- * Render a human label or return null (suppress) when nothing meaningful.
+ * Graded sustained-deficit read. 'unknown' renders nothing so an absent
+ * signal never occupies a row (and never implies a problem).
  */
-function cooccurrence(v: unknown): string | null {
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v) || v <= 0) return null;
-    return `${v} day${v === 1 ? '' : 's'}`;
+function deficitSeverity(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  switch (v) {
+    case 'red': return 'Marked';
+    case 'amber': return 'Mild';
+    case 'green': return 'None';
+    default: return null;
   }
-  if (v && typeof v === 'object') {
-    const o = v as Record<string, unknown>;
-    const count = typeof o.cooccurrence_count === 'number' ? o.cooccurrence_count : null;
-    const days = typeof o.days_observed === 'number' ? o.days_observed : null;
-    if (count != null && count > 0) {
-      return days != null && days > 0 ? `${count} of ${days} days` : `${count} day${count === 1 ? '' : 's'}`;
-    }
-    if (days != null && days > 0 && count === 0) return 'None observed';
-    return null;
-  }
-  return null;
 }
 function sleepMinutes(v: unknown): string | null {
   if (typeof v !== 'number' || Number.isNaN(v)) return null;
@@ -344,12 +336,24 @@ export default function PillDetailContent({
   const contributorKeysPresent: string[] = [];
   const contributorKeysSuppressed: string[] = [];
   const allowed = ALLOWED_CONTRIBUTORS[pill.key];
+  // The graded sustained-deficit read supersedes the legacy yes/no row so the
+  // same signal never renders twice.
+  const hasDeficitSeverity =
+    (pill.contributors as Record<string, unknown> | undefined)
+      ?.sustainedDeficitSeverity != null;
 
   // 1) Real contributors echoed by the server — humanised, suppressed if legacy.
   for (const [k, raw] of Object.entries(pill.contributors ?? {})) {
     if (raw == null) continue;
     contributorKeysPresent.push(k);
     if (SUPPRESS.has(k)) {
+      contributorKeysSuppressed.push(k);
+      continue;
+    }
+    if (
+      hasDeficitSeverity &&
+      (k === 'sustainedDeficit' || k === 'sustained_deficit_flag')
+    ) {
       contributorKeysSuppressed.push(k);
       continue;
     }

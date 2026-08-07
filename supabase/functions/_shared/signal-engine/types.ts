@@ -64,6 +64,13 @@ export interface PatternSignals {
   };
   sustained_deficit_flag: boolean;
   /**
+   * Graded read of the SAME sustained-deficit signal, consumed only by the
+   * Resilience Capacity pill. Additive: `sustained_deficit_flag` keeps its
+   * original definition and value for every other consumer (MRS penalty,
+   * inner-readiness, plan, nudges, Physical Reserves).
+   */
+  sustained_deficit_severity?: 'red' | 'amber' | 'green' | 'unknown';
+  /**
    * MRS v2 §3.5 — Resilience-Capacity primary signal.
    *
    * Number of days in the trailing 7-day window where HRV was meaningfully

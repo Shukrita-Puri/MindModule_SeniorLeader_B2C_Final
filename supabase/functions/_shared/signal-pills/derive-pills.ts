@@ -50,6 +50,9 @@ export interface CooccurrenceSignal {
   days_observed: number;
 }
 
+/** Graded read of the sustained-deficit signal (Resilience pill only). */
+export type SustainedDeficitSeverity = "red" | "amber" | "green" | "unknown";
+
 /**
  * Inputs consumed by phases A + B (tier math, payload construction,
  * source/freshness metadata, V4 invariants, Physical-Reserves displayable
@@ -87,6 +90,12 @@ export interface DerivePillsInput {
   // Pattern signals.
   rhr3dTrend: "declining" | "stable" | "rising" | "unknown";
   sustainedDeficitFlag: boolean;
+  /**
+   * Graded severity of the SAME sustained-deficit signal. Optional — when
+   * absent or "unknown" the pill falls back to the legacy boolean push.
+   * Never blocks: an absent read simply contributes nothing.
+   */
+  sustainedDeficitSeverity?: SustainedDeficitSeverity;
   cooccurrence7d: CooccurrenceSignal;
 
   // Framing.
@@ -111,8 +120,7 @@ export interface SignalPillContributors {
   regulationLevel?: number | null;
   pressureLevel?: number | null;
   sustainedDeficit?: boolean;
-  hrvHighDemandCooccurrence7d?: CooccurrenceSignal;
-  protectionGoalsCount?: number;
+  sustainedDeficitSeverity?: SustainedDeficitSeverity;
 }
 
 export interface SignalPill {
@@ -230,6 +238,7 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     highStakesEventsCount,
     rhr3dTrend,
     sustainedDeficitFlag,
+    sustainedDeficitSeverity,
     cooccurrence7d,
     protectionGoals,
     wearableFreshForGate,
@@ -365,16 +374,21 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   if (pressureLevel != null) {
     resTiers.push(pressureLevel >= 4 ? "amber" : "green");
   }
-  if (sustainedDeficitFlag) resTiers.push("red");
-  if (cooccurrence7d.cooccurrence_count >= 3) resTiers.push("red");
-  else if (cooccurrence7d.cooccurrence_count === 2) resTiers.push("amber");
-  const hasStakesEarly = highStakesEventsCount > 0;
+  // ── Persistent strain — sustained deficit, graded.
+  // Same signal as the boolean flag, read as a tier so it contributes on
+  // realistic data. "unknown" pushes nothing and never blocks the pill; the
+  // legacy boolean remains the fallback when no graded read is supplied.
   if (
-    protectionGoals.length > 0 &&
-    (calendarPressure === "high" || hasStakesEarly)
+    sustainedDeficitSeverity != null &&
+    sustainedDeficitSeverity !== "unknown"
   ) {
-    resTiers.push("amber");
+    resTiers.push(sustainedDeficitSeverity);
+  } else if (sustainedDeficitFlag) {
+    resTiers.push("red");
   }
+  // Protected Goals and HRV × High-Demand are intentionally NOT read here:
+  // the first is planning context rather than recovery capacity, the second
+  // duplicates the HRV strain signal above.
   let resilienceTier: PillTier =
     resTiers.length === 0
       ? "neutral"
@@ -436,8 +450,9 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
         regulationLevel,
         pressureLevel,
         sustainedDeficit: sustainedDeficitFlag,
-        hrvHighDemandCooccurrence7d: cooccurrence7d,
-        protectionGoalsCount: protectionGoals.length,
+        ...(sustainedDeficitSeverity != null
+          ? { sustainedDeficitSeverity }
+          : {}),
       },
       sourceTypes: [],
       isScoreBearing: false,
@@ -480,7 +495,10 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   ) {
     resilienceSources.push("checkin");
   }
-  if (sustainedDeficitFlag || (cooccurrence7d?.cooccurrence_count ?? 0) > 0) {
+  if (
+    sustainedDeficitFlag ||
+    (sustainedDeficitSeverity != null && sustainedDeficitSeverity !== "unknown")
+  ) {
     resilienceSources.push("pattern");
   }
   const pillSourceMap: Record<PillKey, PillSource[]> = {
