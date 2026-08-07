@@ -82,6 +82,9 @@ export function buildPatternSignals(
 
   // ── D. sustained_deficit_flag ─────────────────────────────────────
   const sustained_deficit_flag = detectSustainedDeficit(raw);
+  // Graded read of the same signal (Resilience pill only). Never feeds the
+  // boolean above, so no existing consumer changes.
+  const sustained_deficit_severity = computeSustainedDeficitSeverity(raw.hrvRecent ?? []);
 
   // ── E. hrv_low_high_demand_cooccurrence_7d ────────────────────────
   // Resilience-Capacity primary signal: how often the body is under-
@@ -98,6 +101,7 @@ export function buildPatternSignals(
       samples: dowRows.length,
     },
     sustained_deficit_flag,
+    sustained_deficit_severity,
     hrv_low_high_demand_cooccurrence_7d,
   };
 }
@@ -136,6 +140,71 @@ function detectSustainedDeficit(raw: RawSignals): boolean {
     else break;
   }
   return streak >= SUSTAINED_DEFICIT_MIN_DAYS;
+}
+
+export type SustainedDeficitSeverity = 'red' | 'amber' | 'green' | 'unknown';
+
+/**
+ * Graded sustained-deficit read used by the Resilience Capacity pill.
+ *
+ * Same signal as `detectSustainedDeficit` — persistent physiological strain —
+ * but measured as an average rather than a streak so a single good day cannot
+ * erase a depleted week, and against a 14-day baseline so it becomes usable
+ * roughly a fortnight after the wearable connects.
+ *
+ *   last 3 HRV samples within the trailing 5 calendar days
+ *   fewer than 2 samples          -> 'unknown' (push nothing; never blocks)
+ *   mean deviation vs 14d baseline:
+ *     <= -15% -> 'red' ; <= -7% -> 'amber' ; else 'green'
+ *
+ * Pure, null-safe, never throws. The anchor defaults to the most recent
+ * sample date so the function is deterministic in tests.
+ */
+export function computeSustainedDeficitSeverity(
+  samples: Array<{ date: string; hrv: number | null | undefined }>,
+  anchorIsoDate?: string | null,
+): SustainedDeficitSeverity {
+  const valid = (samples ?? [])
+    .filter((s) =>
+      s && typeof s.date === 'string' && s.date &&
+      s.hrv != null && Number.isFinite(Number(s.hrv)) && Number(s.hrv) > 0
+    )
+    .map((s) => ({ date: s.date, hrv: Number(s.hrv) }))
+    .sort((a, b) => (new Date(b.date).getTime() - new Date(a.date).getTime()));
+  if (valid.length === 0) return 'unknown';
+
+  const anchorMs = anchorIsoDate
+    ? new Date(`${anchorIsoDate}T00:00:00Z`).getTime()
+    : new Date(`${valid[0].date}T00:00:00Z`).getTime();
+  if (!Number.isFinite(anchorMs)) return 'unknown';
+
+  // 14-day baseline from whatever samples the window holds.
+  const baselineCutoff = anchorMs - (DEFICIT_SEVERITY_BASELINE_DAYS - 1) * 86400000;
+  const baselineSamples = valid.filter((s) => {
+    const t = new Date(`${s.date}T00:00:00Z`).getTime();
+    return Number.isFinite(t) && t >= baselineCutoff && t <= anchorMs;
+  });
+  if (baselineSamples.length === 0) return 'unknown';
+  const baseline = baselineSamples.reduce((a, b) => a + b.hrv, 0) / baselineSamples.length;
+  if (!(baseline > 0)) return 'unknown';
+
+  // Recent window: up to 3 samples inside the trailing 5 calendar days.
+  const recentCutoff = anchorMs - (DEFICIT_SEVERITY_LOOKBACK_DAYS - 1) * 86400000;
+  const recent = valid
+    .filter((s) => {
+      const t = new Date(`${s.date}T00:00:00Z`).getTime();
+      return Number.isFinite(t) && t >= recentCutoff && t <= anchorMs;
+    })
+    .slice(0, DEFICIT_SEVERITY_MAX_SAMPLES);
+  if (recent.length < DEFICIT_SEVERITY_MIN_SAMPLES) return 'unknown';
+
+  const avgDev = recent
+    .map((s) => ((s.hrv - baseline) / baseline) * 100)
+    .reduce((a, b) => a + b, 0) / recent.length;
+
+  if (avgDev <= DEFICIT_SEVERITY_RED_PCT) return 'red';
+  if (avgDev <= DEFICIT_SEVERITY_AMBER_PCT) return 'amber';
+  return 'green';
 }
 
 /**
