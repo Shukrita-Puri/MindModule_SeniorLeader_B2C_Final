@@ -112,6 +112,12 @@ const isCardsAwaitingPayload = (payload: any): boolean => {
     || payload.briefMode === 'cold-start';
 };
 
+// Feature flag: the MRS score and tier one-liner are duplicated on the
+// dedicated MRS card, so they are hidden here by default. Keep the code
+// in place so it can be resurfaced quickly if the Brief card ever needs
+// to carry the score again.
+const SHOW_BRIEF_SCORE_AND_TIER = false;
+
 // ─── SPRINT A HELPERS — SEPARATE COPY vs SCORE vs TRUE-AWAITING ───
 // The legacy `isCardsAwaitingPayload` conflates missing score with
 // awaiting. That causes the PRB to flash back to the awaiting state when
@@ -2538,61 +2544,68 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         </div>
       )}
 
-      {/* 2. SCORE ROW — renders off State 1 (wearable + calendar). Check-in
-          toggles the badge from "Baseline" to "Refined" but never gates the
-          number. The `--` placeholder only appears in the residual cold-start
-          case (no wearable AND no calendar). */}
-      <div className="flex items-baseline gap-2 mt-3">
-        {score != null ? (
-          <>
-            <span className="text-[40px] font-medium leading-none text-foreground">
-              {score}
-            </span>
-            <span className="text-[16px] text-muted-foreground/40">/100</span>
-            {(() => {
-              // When a numeric score is displayed, never render cold-start
-              // "Awaiting signals" wording next to it — force the label to
-              // reflect the score-backed state (baseline → Early read,
-              // refined → Full read).
-              const scoreBackedSignal = score != null || hasCurrentPeriodSignal;
-              const stateLabel = getReadinessStateLabel(readinessState, scoreBackedSignal);
-              const stateSubtitle =
-                stateLabel.label === 'Awaiting signals' && score == null
-                  ? awaitingCopy
-                  : stateLabel.subtitle;
-              return (
-                <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
-                  {stateLabel.label}
-                  <span className="ml-1 normal-case tracking-normal text-muted-foreground/50">
-                    · {stateSubtitle}
-                  </span>
+      {SHOW_BRIEF_SCORE_AND_TIER && (
+        <>
+          {/* 2. SCORE ROW — renders off State 1 (wearable + calendar). Check-in
+              toggles the badge from "Baseline" to "Refined" but never gates the
+              number. The `--` placeholder only appears in the residual cold-start
+              case (no wearable AND no calendar). */}
+          <div className="flex items-baseline gap-2 mt-3">
+            {score != null ? (
+              <>
+                <span className="text-[40px] font-medium leading-none text-foreground">
+                  {score}
                 </span>
-              );
-            })()}
-          </>
-        ) : (
-          <>
-            <span className="text-[40px] font-medium leading-none text-muted-foreground/30">—</span>
-          </>
-        )}
-      </div>
+                <span className="text-[16px] text-muted-foreground/40">/100</span>
+                {(() => {
+                  // When a numeric score is displayed, never render cold-start
+                  // "Awaiting signals" wording next to it — force the label to
+                  // reflect the score-backed state (baseline → Early read,
+                  // refined → Full read).
+                  const scoreBackedSignal = score != null || hasCurrentPeriodSignal;
+                  const stateLabel = getReadinessStateLabel(readinessState, scoreBackedSignal);
+                  const stateSubtitle =
+                    stateLabel.label === 'Awaiting signals' && score == null
+                      ? awaitingCopy
+                      : stateLabel.subtitle;
+                  return (
+                    <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
+                      {stateLabel.label}
+                      <span className="ml-1 normal-case tracking-normal text-muted-foreground/50">
+                        · {stateSubtitle}
+                      </span>
+                    </span>
+                  );
+                })()}
+              </>
+            ) : (
+              <>
+                <span className="text-[40px] font-medium leading-none text-muted-foreground/30">—</span>
+              </>
+            )}
+          </div>
 
-      {/* One-line read derived from score — replaces user-facing tier word. */}
-      {score != null && (() => {
-        const oneLiner = getReadinessOneLiner(score);
-        if (!oneLiner) return null;
-        return (
-          <p className={cn("mt-2 text-[15px] font-medium", getTierColor(tier))}>
-            {oneLiner}
-          </p>
-        );
-      })()}
+          {/* One-line read derived from score — replaces user-facing tier word. */}
+          {score != null && (() => {
+            const oneLiner = getReadinessOneLiner(score);
+            if (!oneLiner) return null;
+            return (
+              <p className={cn("mt-2 text-[15px] font-medium", getTierColor(tier))}>
+                {oneLiner}
+              </p>
+            );
+          })()}
+        </>
+      )}
 
       {/* 3. CALENDAR PILLS — moved into "Based on your signals" section */}
 
       {/* 4. PHRASE */}
       {phrase && (
-        <p className="mt-4 text-quote text-foreground">
+        <p className={cn(
+          "text-quote text-foreground",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+        )}>
           {phrase}
         </p>
       )}
@@ -2603,7 +2616,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           State 2 refiner, never as the gate. */}
       {showNeutralAwaitingCopy && (
         <>
-          <p className="mt-4 text-quote text-foreground">
+          <p className={cn(
+            "text-quote text-foreground",
+            SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+          )}>
             {READINESS_AWAITING_MESSAGE}
           </p>
         </>
@@ -2612,7 +2628,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
-        <p className="mt-4 text-quote text-foreground">
+        <p className={cn(
+          "text-quote text-foreground",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+        )}>
           Read from your signals. Full brief prose is awaiting the latest signals.
         </p>
       )}
@@ -2622,7 +2641,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           infrastructure rather than a real cold start. Suppressed when a
           renderable current-window Brief snapshot is already displayed. */}
       {showFailureBlock && (
-        <div className="mt-4 rounded-lg border border-border/40 bg-background/60 px-3 py-3">
+        <div className={cn(
+          "rounded-lg border border-border/40 bg-background/60 px-3 py-3",
+          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-2"
+        )}>
           <p className="text-quote text-foreground">
             {engineStatus === 'auth-failure' || engineStatus === 'session-failure'
               ? 'We couldn\u2019t verify your session.'
