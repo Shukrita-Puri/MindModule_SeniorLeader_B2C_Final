@@ -42,7 +42,7 @@ Slot ordering is untouched: slots stay ordered by event start time (9am board me
 The THE EVENT block already prints `Category: A — High-Stakes Governance` (line 582). Two additions, both prompt-side:
 
 1. **Importance ordering** — one line in the same block giving the `A > B > C > D > E > F > G > H` hierarchy with canonical names from `EVENT_CATEGORIES`, so the LLM knows where this event sits on a multi-event day.
-2. **Why this event was chosen** — a short `Selected because:` line assembled from data the orchestrator already computes in `generate-mastery-plan` (lines 7751-7801): the category rank, the allocator's `priorityRank`, and the existing `patternSummary` (e.g. "HRV drops ~12% around board meetings (n=4)"), which is exactly the "struggled three times in a row" signal. New optional `selectionRationale?: string | null` field on `WhyLLMInput`; omitted entirely when nothing is available, so behaviour is unchanged for events with no history.
+2. **Why this event was chosen** — a short `Selected because:` line assembled from data the orchestrator already computes in `generate-mastery-plan` (lines 7751-7801): the category rank, the allocator's `priorityRank`, and the existing `patternSummary` (e.g. "HRV drops ~12% around board meetings (n=4)"), which is exactly the "struggled three times in a row" signal.
 
 ## Wiring: server → payload → frontend
 
