@@ -450,8 +450,9 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
         regulationLevel,
         pressureLevel,
         sustainedDeficit: sustainedDeficitFlag,
-        hrvHighDemandCooccurrence7d: cooccurrence7d,
-        protectionGoalsCount: protectionGoals.length,
+        ...(sustainedDeficitSeverity != null
+          ? { sustainedDeficitSeverity }
+          : {}),
       },
       sourceTypes: [],
       isScoreBearing: false,
@@ -494,7 +495,10 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   ) {
     resilienceSources.push("checkin");
   }
-  if (sustainedDeficitFlag || (cooccurrence7d?.cooccurrence_count ?? 0) > 0) {
+  if (
+    sustainedDeficitFlag ||
+    (sustainedDeficitSeverity != null && sustainedDeficitSeverity !== "unknown")
+  ) {
     resilienceSources.push("pattern");
   }
   const pillSourceMap: Record<PillKey, PillSource[]> = {
