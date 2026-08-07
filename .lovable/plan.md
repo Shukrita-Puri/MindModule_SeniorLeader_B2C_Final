@@ -28,15 +28,21 @@ Apply the `[A]` suffix to all three day blocks.
 **Tomorrow** (=== TOMORROW ===, lines 6848-6855)
 - Same derivation over `tomorrowHighStakesTitles`; render `HH:mm, Title [B]`.
 
-**Yesterday** (new block)
-- Today the prompt only carries the boolean `yesterday_had_high_stakes` (line 7535). Add a small `=== YESTERDAY ===` block that lists yesterday's high-stakes titles with local time and category, sourced the same way as today: query `primary_calendar_events` for yesterday's local-day window, run it through `mergeCalendarEvents` + the existing high-stakes filter, then `classifyEvent` for the category. The existing boolean stays as-is so nothing downstream changes.
-- The block is emitted only when yesterday actually had high-stakes events (keeps token cost flat on quiet days).
+**Yesterday** (existing block — reused, nothing new created)
+- A yesterday surface already exists: `=== WINDOW CONTEXT (morning) ===` prints `yesterday_load` and `yesterday_had_high_stakes` (index.ts lines 7533-7537), fed by `buildWindowContext` → `morning-context.ts`, which already accepts `yesterdayEvents` (`window-context-types.ts:71`).
+- The gap is data, not structure: the `buildWindowContext(...)` call at line 7506 passes `todayEvents` and `tomorrowEvents` only — `yesterdayEvents` is never supplied, so those two lines are currently computed off an empty array.
+- Fix inside the existing block: widen the existing local-day calendar fetch by one day back (same query, same `mergeCalendarEvents` path, split client-side by local day — no second query), pass `yesterdayEvents` into `buildWindowContext`, and add the high-stakes titles with local time + `[A]` category suffix to the same WINDOW CONTEXT morning lines. No new `=== YESTERDAY ===` section.
 
 **Importance guide** — appended once, after the CLOCK TIME RULE line: built from `EVENT_CATEGORIES` with the canonical names and the ordering `A > B > C > D > E > F > G > H`, plus "Focus beat (c) on the highest-category event."
 
 ## Change 2 — Plan "Why this matters": `_shared/plan/why-llm.ts`
 
-The THE EVENT block already prints `Category: A — High-Stakes Governance` (line 582), so no data wiring is needed. Only addition: one importance-ordering line in the same block, so the LLM knows where the event sits in the hierarchy on a multi-event day.
+Slot ordering is untouched: slots stay ordered by event start time (9am board meeting → slot 1, 10am town hall → slot 2). Category only informs the copy, never the sequence.
+
+The THE EVENT block already prints `Category: A — High-Stakes Governance` (line 582). Two additions, both prompt-side:
+
+1. **Importance ordering** — one line in the same block giving the `A > B > C > D > E > F > G > H` hierarchy with canonical names from `EVENT_CATEGORIES`, so the LLM knows where this event sits on a multi-event day.
+2. **Why this event was chosen** — a short `Selected because:` line assembled from data the orchestrator already computes in `generate-mastery-plan` (lines 7751-7801): the category rank, the allocator's `priorityRank`, and the existing `patternSummary` (e.g. "HRV drops ~12% around board meetings (n=4)"), which is exactly the "struggled three times in a row" signal. New optional `selectionRationale?: string | null` field on `WhyLLMInput`; omitted entirely when nothing is available, so behaviour is unchanged for events with no history.
 
 ## Wiring: server → payload → frontend
 
