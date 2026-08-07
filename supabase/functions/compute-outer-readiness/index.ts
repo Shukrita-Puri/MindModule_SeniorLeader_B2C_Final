@@ -4084,6 +4084,11 @@ serve(async (req) => {
       hasCheckInRowForWindow: checkInRowCurrentForWindow,
     });
     const briefWearableUsable = signalFreshness.wearableCurrent;
+    // Canonical, window-aware wearable freshness for pills / MRS score / plan.
+    const wearableFreshForGate = signalFreshness.wearableCurrent;
+    const calendarUsableForGate = calendarResult.state === "active" ||
+      calendarResult.state === "connected_no_events";
+    const stageOneSignalForGate = wearableFreshForGate || calendarUsableForGate;
     const checkInCurrentForWindow = signalFreshness.checkInCurrent;
     const currentCheckInOutcome = checkInCurrentForWindow
       ? (checkInOutcome ?? null)
