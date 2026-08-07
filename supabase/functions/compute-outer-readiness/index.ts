@@ -6449,7 +6449,10 @@ serve(async (req) => {
                 ? "BODY MIXED"
                 : "BODY STEADY")
               : "BODY UNREAD";
-          const systemPrompt = buildBriefSystemPrompt({ bandValence });
+          // `isWeekend` is the locale-aware flag computed above via
+          // isBriefWeekendDay(dayOfWeek, localeWeekendHomeCountry) — Fri/Sat for
+          // Gulf + Israel, Sat/Sun elsewhere.
+          const systemPrompt = buildBriefSystemPrompt({ bandValence, isWeekend });
           // === LEADER VOICE === (from onboarding CoS profile)
           // Appended AFTER the shared persona/voice/constraint blocks so it
           // reads as a distinct, auditable calibration layer. Empty when the
