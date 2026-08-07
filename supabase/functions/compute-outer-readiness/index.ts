@@ -7547,6 +7547,40 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               materialWorkEventTitles = [];
             }
 
+            // ── DAY SHAPE (read-only projection of Plan/JIT v2 signals) ──
+            // No new detection: `briefBehaviourSnapshot.signals` is the SAME
+            // matrix the Plan reads (PTO / holiday / travel-by-type /
+            // conference / full-day events). The Brief now states the day
+            // shape explicitly and the system prompt gets the matching
+            // directive so Brief and Plan tell one story.
+            try {
+              const shape = deriveDayShape(briefBehaviourSnapshot.signals, {
+                isPublicHoliday,
+                holidayName,
+                isWeekend,
+              });
+              briefDayShape = shape.shape;
+              briefTravelPhase = shape.travelPhase;
+              userPrompt += formatDayShapeBlock(shape);
+              systemPrompt = buildBriefSystemPrompt({
+                bandValence,
+                isWeekend,
+                dayShape: shape.shape,
+                travelPhase: shape.travelPhase,
+              });
+              systemPromptWithLeader = systemPrompt + leaderVoiceBlock;
+              console.log(
+                `[compute-outer-readiness] day-shape=${shape.shape} travelPhase=${
+                  shape.travelPhase ?? "none"
+                } reason="${shape.reason}"`,
+              );
+            } catch (e) {
+              console.warn(
+                "[compute-outer-readiness] day-shape derivation skipped:",
+                e instanceof Error ? e.message : e,
+              );
+            }
+
             // Append shared event-coaching context first, then the taxonomy
             // block (pure event labelling), then the behaviour block
             // (rule outputs, deterministic). Order matters: behaviour rules
