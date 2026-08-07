@@ -2544,55 +2544,59 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         </div>
       )}
 
-      {/* 2. SCORE ROW — renders off State 1 (wearable + calendar). Check-in
-          toggles the badge from "Baseline" to "Refined" but never gates the
-          number. The `--` placeholder only appears in the residual cold-start
-          case (no wearable AND no calendar). */}
-      <div className="flex items-baseline gap-2 mt-3">
-        {score != null ? (
-          <>
-            <span className="text-[40px] font-medium leading-none text-foreground">
-              {score}
-            </span>
-            <span className="text-[16px] text-muted-foreground/40">/100</span>
-            {(() => {
-              // When a numeric score is displayed, never render cold-start
-              // "Awaiting signals" wording next to it — force the label to
-              // reflect the score-backed state (baseline → Early read,
-              // refined → Full read).
-              const scoreBackedSignal = score != null || hasCurrentPeriodSignal;
-              const stateLabel = getReadinessStateLabel(readinessState, scoreBackedSignal);
-              const stateSubtitle =
-                stateLabel.label === 'Awaiting signals' && score == null
-                  ? awaitingCopy
-                  : stateLabel.subtitle;
-              return (
-                <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
-                  {stateLabel.label}
-                  <span className="ml-1 normal-case tracking-normal text-muted-foreground/50">
-                    · {stateSubtitle}
-                  </span>
+      {SHOW_BRIEF_SCORE_AND_TIER && (
+        <>
+          {/* 2. SCORE ROW — renders off State 1 (wearable + calendar). Check-in
+              toggles the badge from "Baseline" to "Refined" but never gates the
+              number. The `--` placeholder only appears in the residual cold-start
+              case (no wearable AND no calendar). */}
+          <div className="flex items-baseline gap-2 mt-3">
+            {score != null ? (
+              <>
+                <span className="text-[40px] font-medium leading-none text-foreground">
+                  {score}
                 </span>
-              );
-            })()}
-          </>
-        ) : (
-          <>
-            <span className="text-[40px] font-medium leading-none text-muted-foreground/30">—</span>
-          </>
-        )}
-      </div>
+                <span className="text-[16px] text-muted-foreground/40">/100</span>
+                {(() => {
+                  // When a numeric score is displayed, never render cold-start
+                  // "Awaiting signals" wording next to it — force the label to
+                  // reflect the score-backed state (baseline → Early read,
+                  // refined → Full read).
+                  const scoreBackedSignal = score != null || hasCurrentPeriodSignal;
+                  const stateLabel = getReadinessStateLabel(readinessState, scoreBackedSignal);
+                  const stateSubtitle =
+                    stateLabel.label === 'Awaiting signals' && score == null
+                      ? awaitingCopy
+                      : stateLabel.subtitle;
+                  return (
+                    <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
+                      {stateLabel.label}
+                      <span className="ml-1 normal-case tracking-normal text-muted-foreground/50">
+                        · {stateSubtitle}
+                      </span>
+                    </span>
+                  );
+                })()}
+              </>
+            ) : (
+              <>
+                <span className="text-[40px] font-medium leading-none text-muted-foreground/30">—</span>
+              </>
+            )}
+          </div>
 
-      {/* One-line read derived from score — replaces user-facing tier word. */}
-      {score != null && (() => {
-        const oneLiner = getReadinessOneLiner(score);
-        if (!oneLiner) return null;
-        return (
-          <p className={cn("mt-2 text-[15px] font-medium", getTierColor(tier))}>
-            {oneLiner}
-          </p>
-        );
-      })()}
+          {/* One-line read derived from score — replaces user-facing tier word. */}
+          {score != null && (() => {
+            const oneLiner = getReadinessOneLiner(score);
+            if (!oneLiner) return null;
+            return (
+              <p className={cn("mt-2 text-[15px] font-medium", getTierColor(tier))}>
+                {oneLiner}
+              </p>
+            );
+          })()}
+        </>
+      )}
 
       {/* 3. CALENDAR PILLS — moved into "Based on your signals" section */}
 
