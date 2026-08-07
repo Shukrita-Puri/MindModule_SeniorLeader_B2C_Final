@@ -1716,26 +1716,37 @@ function CalendarPillCapsule({
 
 // ─── CALENDAR PILLS (logic preserved verbatim — only presentation changed) ───
 function CalendarPills({ outerBrief }: { outerBrief: any }) {
-  const hasCalendar = outerBrief?.hasCalendar ?? (outerBrief?.calendarState === 'active');
-  const calendarState = outerBrief?.calendarState;
+  // ── Snapshot-only fallback ──────────────────────────────────────────
+  // Home renders the Brief from `brief_snapshots`, whose payload carries no
+  // calendar fields, and the live compute query is disabled. Without a
+  // fallback the pill reads "unknown" and wrongly renders CONNECT. Fetch the
+  // same canonical server metrics via the read-only contextOnly mode.
+  const payloadHasCalendarFields =
+    outerBrief?.calendarState != null || outerBrief?.hasCalendar != null;
+  const { data: calendarFallback, isLoading: calendarFallbackLoading } =
+    useCalendarPillContext(!payloadHasCalendarFields && !!outerBrief);
+  const cal = payloadHasCalendarFields ? outerBrief : (calendarFallback ?? {});
+
+  const hasCalendar = cal?.hasCalendar ?? (cal?.calendarState === 'active');
+  const calendarState = cal?.calendarState;
   const nextHS = outerBrief?.nextHighStakesEvent;
-  const remainingHS: string[] = outerBrief?.remainingHighStakes ?? [];
-  const detailedHS: Array<{ title: string; localTime: string | null; category: string | null }> =
-    outerBrief?.highStakesEventsDetailed ?? [];
-  const categoryForTitle = (title?: string | null): string | null => {
-    if (!title) return null;
-    return detailedHS.find((d) => d.title === title)?.category ?? null;
-  };
-  const calLoad = outerBrief?.calendarLoad ?? 'low';
+  const remainingHS: string[] = cal?.remainingHighStakes ?? [];
+  const calLoad = cal?.calendarLoad ?? 'low';
   const loadLabel = calLoad === 'high' ? 'HEAVY' : calLoad === 'medium' ? 'MODERATE' : 'LIGHT';
   const loadState: PillState = calLoad === 'high' ? 'red' : calLoad === 'medium' ? 'amber' : 'green';
-  const meetingCount = outerBrief?.meetingCount ?? 0;
-  const remainingMeetings = outerBrief?.remainingMeetings ?? meetingCount;
+  const meetingCount = cal?.meetingCount ?? 0;
+  const remainingMeetings = cal?.remainingMeetings ?? meetingCount;
   const meetingLabel = remainingMeetings > 0
     ? `${remainingMeetings} meeting${remainingMeetings !== 1 ? 's' : ''} ahead`
     : meetingCount > 0
       ? `${meetingCount} meeting${meetingCount !== 1 ? 's' : ''} done`
       : '0 meetings';
+
+  // While the fallback is still resolving, render nothing rather than a
+  // possibly-wrong CONNECT prompt.
+  if (!payloadHasCalendarFields && (calendarFallbackLoading || !calendarFallback)) {
+    return null;
+  }
 
   // Connect-calendar prompt
   // Show whenever the calendar is not actively connected. Includes the case
@@ -1802,7 +1813,6 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   // High-stakes event within 90 mins — urgent variant
   if (nextHS?.title && nextHS?.minutesUntil != null && nextHS.minutesUntil <= 90) {
     const timeLabel = formatEventTime(nextHS.minutesUntil, nextHS?.startTimeUTC);
-    const category = categoryForTitle(nextHS.title);
     pills.push(
       <CalendarPillCapsule
         key="next-up-urgent"
@@ -1810,12 +1820,11 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
         Icon={Clock}
         headline="NEXT UP"
         signalWord={nextHS.title}
-        qualifier={category ? `${timeLabel} · ${category}` : timeLabel}
+        qualifier={timeLabel}
       />
     );
   } else if (remainingHS.length > 0 && nextHS?.title) {
     const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil, nextHS?.startTimeUTC) : 'ahead';
-    const category = categoryForTitle(remainingHS[0]);
     pills.push(
       <CalendarPillCapsule
         key="next-up"
@@ -1823,11 +1832,10 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
         Icon={Clock}
         headline="NEXT UP"
         signalWord={remainingHS[0]}
-        qualifier={category ? `${timeLabel} · ${category}` : timeLabel}
+        qualifier={timeLabel}
       />
     );
   } else if (remainingHS.length > 0) {
-    const category = categoryForTitle(remainingHS[0]);
     pills.push(
       <CalendarPillCapsule
         key="next-up-fallback"
@@ -1835,7 +1843,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
         Icon={Clock}
         headline="NEXT UP"
         signalWord={remainingHS[0]}
-        qualifier={category ?? 'ahead'}
+        qualifier="ahead"
       />
     );
   }
