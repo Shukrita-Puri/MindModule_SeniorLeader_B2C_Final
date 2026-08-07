@@ -247,7 +247,9 @@ function parseSignalSourcePairs(text: unknown): SignalSourcePair[] | null {
       // Enforce max 5 words on signal — 2-4 word Chief of Staff signals + buffer
       const words = signal.split(/\s+/);
       if (words.length > 5) signal = words.slice(0, 5).join(' ');
-      pairs.push({ signal, source });
+      // COACH is retired as a source (not a shipped feature). Legacy rows may
+      // still carry "· COACH" — render the signal with no source label.
+      pairs.push({ signal, source: source.toUpperCase() === 'COACH' ? '' : source });
     } else if (line.length > 40) {
       // Prose guard: truncate long lines without separator
       const words = line.trim().split(/\s+/).slice(0, 8).join(' ');
