@@ -369,7 +369,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
                   <Loader2 className="w-4 h-4 animate-spin" /> Processing…
                 </span>
               ) : (
-                trial.isFreeTrial ? 'Start 7-day free trial' : (isAnnual ? 'Subscribe Annual' : 'Subscribe Monthly')
+                trial.isFreeTrial ? trial.ctaLabel : (isAnnual ? 'Subscribe Annual' : 'Subscribe Monthly')
               )}
             </Button>
 
