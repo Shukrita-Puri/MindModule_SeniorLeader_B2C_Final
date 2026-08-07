@@ -61,7 +61,7 @@ describe('dynamic intro offer button label generator', () => {
       id: 'me.mindmodule.pro.monthly',
       price: 34.99,
       displayPrice: '£34.99',
-      currency: 'GBP',
+      currencyCode: 'GBP',
       title: 'Mind Module Pro Monthly',
       description: 'Monthly Plan',
     };

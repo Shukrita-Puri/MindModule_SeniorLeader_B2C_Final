@@ -346,12 +346,38 @@ SAFE EXAMPLES (passing first-attempt shape)
   watchFor: [{"signal": "Spending early", "source": "PATTERN"}]`;
 
 /**
+ * Weekend override. Injected ONLY when the caller's locale-aware weekend flag
+ * is true — the weekend definition itself lives in
+ * `_shared/plan/user-locale.ts` (`planningDayOfWeek` / SATURDAY_WEEKLY_COUNTRIES),
+ * so Gulf + Israel resolve Fri/Sat and the rest of the world Sat/Sun.
+ * This block never redefines the weekend; it only reshapes beats (c) and (d).
+ */
+export const WEEKEND_DIRECTIVE = `WEEKEND CONTEXT — today is a non-workday.
+Beat (c) — THE WORK DIRECTIVE — must NOT reference meetings, calls, or workday tasks.
+Reframe "work directive" as: how to orient energy TODAY given the physiological read.
+Acceptable weekend work directives:
+  - "Use this window for the one thing you'd normally not have time to think about"
+  - "This is a recovery day — protect the physical runway so Monday opens clean"
+  - "Let the mind idle — the pattern shows forced rest pays forward"
+NOT acceptable on weekends:
+  - "Use the clear runway for the hard call" (implies meetings)
+  - "Don't let the smaller calls chip at what's there" (implies calls)
+  - "Lead from the front today" (implies team/org context)
+Beat (d) — THE CLOSING CLAUSE — on weekends, closes toward recovery or the coming week:
+  - "…and let the week start clean."
+  - "…and protect tomorrow's opening."
+  - "…and keep tonight offline."`;
+
+/**
  * Build the complete SYSTEM role for the Brief LLM call. Pure — same inputs,
  * same string, every time. Cached upstream by input-signature.
  */
-export function buildBriefSystemPrompt(opts?: { bandValence?: ReadinessValence | null }): string {
+export function buildBriefSystemPrompt(opts?: {
+  bandValence?: ReadinessValence | null;
+  isWeekend?: boolean;
+}): string {
   const valenceBlock = bandValenceDirective(opts?.bandValence ?? null);
-  return [
+  const base = [
     CHIEF_OF_STAFF_PERSONA,
     '',
     HOW_YOU_SPEAK,
@@ -381,6 +407,7 @@ export function buildBriefSystemPrompt(opts?: { bandValence?: ReadinessValence |
     '',
     OUTPUT_CONTRACT,
   ].join('\n');
+  return opts?.isWeekend ? `${base}\n\n${WEEKEND_DIRECTIVE}` : base;
 }
 
 /**
