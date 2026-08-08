@@ -253,14 +253,17 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     const allGreen = tiers.every((t) => t === "green");
 
     if (anyStrained || lowBand) {
-      return "Let today actually recover — the read says the system is still paying down, not building";
+      // System is still paying down. Recovery is the only productive move.
+      // No work language. Direction only.
+      return "The system is still paying down from the week. Let today actually recover — that is the productive move";
     }
     if (allGreen || opts.band === "firing" || opts.band === "sharp") {
-      return "Reserves are there — spend a little of it setting up the week rather than reacting to it";
+      // Green on a non-workday = strategic asset to protect, not spend.
+      // Light forward thinking allowed. Reactive output is not.
+      return "Reserves are holding — protect them. A small amount of forward thinking is fine; reactive output is not what today is for";
     }
-    // Mixed / partially unread reads: a light, non-prescriptive steer that
-    // still avoids workday framing.
-    return "Keep the day light and let the reserve rebuild before the week opens";
+    // Mixed / partially unread: non-prescriptive, no work framing.
+    return "Keep the pace light. The week ahead will ask for what today preserves";
   }
 
   const hasHighStakes = opts.todayHighStakes.length > 0;
