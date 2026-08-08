@@ -240,6 +240,29 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
 }
 
 function buildDirective(opts: DeterministicBriefFallbackOpts): string {
+  // ── Non-workday branch runs FIRST, before any pillar/high-stakes branch.
+  // Weekend, long weekend, public holiday, PTO / OOO, personal leave and
+  // personal travel all collapse into `isWeekend` upstream, so this single
+  // gate covers every off-day shape. Beat (c) must carry no work language:
+  // no meetings, calls, deliverables, team or "the room". Direction only —
+  // never a practice, duration or protocol (that stays the Plan's job).
+  if (opts.isWeekend) {
+    const tiers = [opts.cognitivePillTier, opts.physicalPillTier];
+    const anyStrained = tiers.some((t) => t === "amber" || t === "red");
+    const lowBand = opts.band === "stretched" || opts.band === "depleted";
+    const allGreen = tiers.every((t) => t === "green");
+
+    if (anyStrained || lowBand) {
+      return "Let today actually recover — the read says the system is still paying down, not building";
+    }
+    if (allGreen || opts.band === "firing" || opts.band === "sharp") {
+      return "Reserves are there — spend a little of it setting up the week rather than reacting to it";
+    }
+    // Mixed / partially unread reads: a light, non-prescriptive steer that
+    // still avoids workday framing.
+    return "Keep the day light and let the reserve rebuild before the week opens";
+  }
+
   const hasHighStakes = opts.todayHighStakes.length > 0;
   const hasManyHighStakes = opts.todayHighStakes.length >= 2;
   const drainedIntoHighStakes = opts.checkInOutcome === "drained" &&
@@ -275,17 +298,10 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
         shortRef(opts.todayHighStakes[0])
       } while both pillars are clear`;
     }
-    return opts.isWeekend
-      ? "Use this clarity on the one thing that genuinely compounds — planning or preparation only, not reactive output"
-      : "Use this for the one decision or analysis that compounds most and protect the most important block";
+    return "Use this for the one decision or analysis that compounds most and protect the most important block";
   }
   if (opts.band === "depleted" || opts.band === "stretched") {
     return "Pick the one priority that cannot wait and do only that";
-  }
-  if (opts.isWeekend) {
-    // Weekend with no calendar events: frame around the week ahead,
-    // not reactive output.
-    return "Use this clarity on the one thing that genuinely compounds — planning or preparation only, not reactive output";
   }
   return "Use this for the one decision or analysis that compounds most and protect the most important block";
 }
