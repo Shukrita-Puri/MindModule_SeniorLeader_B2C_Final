@@ -13,7 +13,7 @@ A third Sonnet pass was already removed (comment dated 2026-08-07). No flag.
 
 **A4 — Deterministic brief path:** Confirmed `supabase/functions/_shared/brief/deterministic-brief.ts` (374 lines).
 
-**A5 — `closeFor()`:** `sharp` band reads exactly `"and don't let the smaller calls chip at what's there."` (line ~330). And **yes**, `closeFor()` already branches on `opts.isWeekend` first (line 311) with three weekend-specific closes. It is on the untouchable list, so it stays as-is.
+**A5 — `closeFor()`:** `sharp` band reads exactly `"and don't let the smaller calls chip at what's there."` (line ~330) — a workday close. "Calls" has no place on a non-workday. And **yes**, `closeFor()` already branches on `opts.isWeekend` first (line 311) and returns before any weekday map lookup, so that line can never reach a weekend brief. The three existing weekend closes are, however, softer than the Chief-of-Staff register the spec sets: stated conclusion, short sentence, hard stop, no explanation. `closeFor()` is on the spec's untouchable list, so the plan leaves it byte-identical and instead carries the register in the Step 4 weekend directive strings and the Step 2 prompt text. If you want the three weekend closes retightened to that register too, say so and I will add it to Step 4 as an explicit, named exception to the untouchable list — I will not touch them otherwise.
 
 **A6 — beat-(d) closing-clause rule in `brief-validators.ts`:** **Yes — already exists** (lines ~485-527): it splits sentences, matches `CLOSING_CONNECTOR_RE`, allows a directive-led final sentence, rejects with "body missing SELF-REGULATION closing clause", and caps the close length. Spec Change 4 is therefore already satisfied by an equivalent rule.
 
