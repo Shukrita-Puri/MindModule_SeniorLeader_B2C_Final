@@ -75,11 +75,15 @@ selected by signal quality:
   is still paying down, not building."
 - **Signals green** → light-touch proactive prep, e.g. "Reserves are there —
   spend a little of it setting up the week rather than reacting to it."
-- **Signals unread** → neutral, e.g. "No current read to work from — take the
-  day at the pace it asks for."
+- **Signals unread** → no change. When no current personal signal exists the
+  builder already returns `null` and the card falls through to the existing
+  "Awaiting signals" state. No new copy, no new branch — behaviour untouched.
 
 Rules held:
-- No meetings, calls, deliverables, team or "the room" language on a weekend.
+- Beat (c) carries **no work language at all** — no meetings, calls,
+  deliverables, team or "the room" — on every non-workday shape: weekend, long
+  weekend, public holiday, PTO, OOO, personal leave and personal travel. All of
+  these route through the same weekend/non-workday directive.
 - No practice, duration or protocol prescription — the Brief stays at direction
   level. The Plan still runs on off days (a morning or evening slot, per the
   user's onboarding preference) so habit-building continues; the Brief just
