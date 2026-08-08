@@ -53,15 +53,17 @@ Replace the bodies of `SILENT_REASONING`, `BODY_FOUR_BEAT_CONTRACT`, `WORKED_EXA
 **Step 4 — `_shared/brief/deterministic-brief.ts`, deploy + smoke test**
 Replace only the three return strings inside the existing `if (opts.isWeekend)` block of `buildDirective()`. Branching, `closeFor()`, and every other builder untouched. Smoke test Saturday depleted and Saturday all-green.
 
+The deterministic path is treated as a first-class output, not a degraded fallback: if Gemini and Claude are both unavailable or out of credit, the brief the user reads must still hold quality on its own. So the three replacement strings are taken **verbatim from the shared spec file** — its directive wording, Chief-of-Staff register (stated conclusion, short sentences, hard stops, no explanation), sentence structure, and worked examples — not paraphrased. Each string is checked against the spec's banned-vocabulary list before it lands: no "meetings", "calls", "the room", "deliverables", "the team", "stakeholder", "presence", "runway", and no wellness vocabulary; direction only, never a practice, protocol, or duration.
+
 **Step 5 — validator**
 Skipped: the beat-(d) rule already exists. Full `vitest` run here as the regression gate for Steps 2-4.
 
 **Step 6 — version bump**
-`BRIEF_PROMPT_VERSION` lives in `supabase/functions/_shared/brief-prompt-version.ts` (currently `v6.9-weekend-work-directive`) with a hand-maintained frontend mirror at `src/constants/briefPromptVersion.ts`. Bump to `v7.0-brief-copy-buckets` and update the mirror in the same step, then redeploy `compute-outer-readiness`.
+`BRIEF_PROMPT_VERSION` is a matched pair and both halves move together in one atomic commit:
+- `supabase/functions/_shared/brief-prompt-version.ts` — `v6.9-weekend-work-directive` → `v7.0-brief-copy-buckets`
+- `src/constants/briefPromptVersion.ts` (required frontend mirror read by `useCurrentBriefSnapshot`) → same value
 
-## Clarification needed before Step 6
-
-The mirror constant is a fifth file (and a frontend file). Leaving it stale would make `useCurrentBriefSnapshot` filter for a version no longer written, blanking the Brief card. The plan assumes the mirror is updated in lockstep as part of Change 5 — confirm, or the bump is dropped entirely.
+Updating one without the other blanks the Brief card. Two files, one commit, one deploy of `compute-outer-readiness`. If anything beyond these two files would be touched in Step 6, stop.
 
 ## Rollback
 Any regression (blank brief card, pill change, MRS change, other card change) → revert that single step's file and stop before the next step.
