@@ -11,4 +11,4 @@
  * could legitimately be the most-recently-updated row for the window
  * and would otherwise be served to the UI.
  */
-export const BRIEF_PROMPT_VERSION = 'v6.9-weekend-work-directive';
+export const BRIEF_PROMPT_VERSION = 'v7.0-brief-copy-buckets';
