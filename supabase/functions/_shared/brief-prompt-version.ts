@@ -20,4 +20,10 @@
 // v6.8 — COACH retired as a Lean On / Watch For source on the LLM path.
 // The deterministic path was already gated (COACH_SOURCE_ENABLED = false);
 // this bump invalidates cached v6.7 briefs that still carry "· COACH" pairs.
-export const BRIEF_PROMPT_VERSION = 'v6.8-coach-source-retired';
+// v6.9 — Weekend / non-workday awareness for beat (c). The deterministic
+// builder now routes every off-day shape (weekend, long weekend, public
+// holiday, PTO/OOO, personal leave, personal travel) through a recovery or
+// light week-prep directive before any pillar branch, so no off-day brief can
+// emit meeting / call / stakeholder language. Bump invalidates cached v6.8
+// weekend briefs carrying the workday directive.
+export const BRIEF_PROMPT_VERSION = 'v6.9-weekend-work-directive';

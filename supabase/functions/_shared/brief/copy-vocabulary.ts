@@ -363,6 +363,13 @@ NOT acceptable on weekends:
   - "Use the clear runway for the hard call" (implies meetings)
   - "Don't let the smaller calls chip at what's there" (implies calls)
   - "Lead from the front today" (implies team/org context)
+Choose the shape of beat (c) from the physiological read:
+  - Signals mixed or poor (any pill amber/red, or a stretched/depleted band) →
+    recovery-first. The day is for paying the deficit down, not building.
+  - Signals green → light-touch proactive prep: a little of the reserve spent
+    setting the coming week up, never reactive output.
+  Direction only — never a practice, a duration or a protocol; the Plan still
+  runs its off-day slot and owns that.
 Beat (d) — THE CLOSING CLAUSE — on weekends, closes toward recovery or the coming week:
   - "…and let the week start clean."
   - "…and protect tomorrow's opening."

@@ -360,3 +360,85 @@ Deno.test("deterministic brief — current check-in-only forms a valid brief", (
   assertStringIncludes(out.body, "checked in steady");
 });
 
+
+// ── Weekend / non-workday awareness for beat (c) ───────────────────────
+
+const WEEKEND_BASE = {
+  hasWearable: true,
+  hasCurrentWearable: true,
+  hasCurrentCheckIn: false,
+  checkInOutcome: null,
+  wearableFact: "HRV is running below baseline",
+  window: "morning" as const,
+  todayHighStakes: [] as string[],
+  calendarLoad: null,
+  meetingCount: 0,
+  sleepScore: null,
+  hasBackToBack: false,
+  isWeekend: true,
+};
+
+const WORK_VOCAB = /meeting|call|stakeholder|deliverable|the room|all-hands|board/i;
+
+Deno.test("weekend + strained pills → recovery-first beat (c), no work language", () => {
+  const out = buildDeterministicBriefFallback({
+    ...WEEKEND_BASE,
+    band: "steady",
+    cognitivePillTier: "amber",
+    physicalPillTier: "green",
+  });
+  if (!out) throw new Error("expected a weekend brief");
+  assertStringIncludes(out.body, "Let today actually recover");
+  assertEquals(WORK_VOCAB.test(out.body), false);
+});
+
+Deno.test("weekend + green pills → light week-prep beat (c)", () => {
+  const out = buildDeterministicBriefFallback({
+    ...WEEKEND_BASE,
+    band: "firing",
+    cognitivePillTier: "green",
+    physicalPillTier: "green",
+    wearableFact: "HRV is running above baseline",
+  });
+  if (!out) throw new Error("expected a weekend brief");
+  assertStringIncludes(out.body, "setting up the week");
+  assertEquals(WORK_VOCAB.test(out.body), false);
+});
+
+Deno.test("weekend + depleted band → recovery-first, not 'one priority that cannot wait'", () => {
+  const out = buildDeterministicBriefFallback({
+    ...WEEKEND_BASE,
+    band: "depleted",
+    cognitivePillTier: "red",
+    physicalPillTier: "red",
+  });
+  if (!out) throw new Error("expected a weekend brief");
+  assertStringIncludes(out.body, "Let today actually recover");
+  assertEquals(out.body.includes("priority that cannot wait"), false);
+});
+
+Deno.test("non-workday (PTO / holiday) inherits the same weekend beat (c)", () => {
+  const out = buildDeterministicBriefFallback({
+    ...WEEKEND_BASE,
+    isWeekend: false,
+    isNonWorkday: true,
+    band: "steady",
+    cognitivePillTier: "green",
+    physicalPillTier: "amber",
+  });
+  if (!out) throw new Error("expected a non-workday brief");
+  assertStringIncludes(out.body, "Let today actually recover");
+  assertEquals(WORK_VOCAB.test(out.body), false);
+});
+
+Deno.test("weekday branches are unchanged", () => {
+  const out = buildDeterministicBriefFallback({
+    ...WEEKEND_BASE,
+    isWeekend: false,
+    band: "steady",
+    cognitivePillTier: "amber",
+    physicalPillTier: "green",
+  });
+  if (!out) throw new Error("expected a weekday brief");
+  assertStringIncludes(out.body, "Route the presence and stakeholder conversations");
+});
