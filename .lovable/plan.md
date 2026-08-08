@@ -1,105 +1,67 @@
-# Signal Pill Divergence + Weekend Beat (c)
+# Brief Copy Prompt — Audit Report + Scoped Implementation Plan
 
-## Part 1 — Why the same HR reads green in one pill and red in another (audit, no change proposed yet)
+## Step 1 — Audit (complete, no code written)
 
-Verified against this morning's data for the account in the screenshot:
-HRV 20.5, RHR 69, HR 85–95, sleep score / duration / efficiency all null.
+**A1 — `llmAttempts`:** Exactly 2 entries (index.ts:8453).
+1. `google/gemini-2.5-flash`, 15000 ms, via gateway
+2. `CLAUDE_MODELS.SONNET`, 10000 ms, direct
+A third Sonnet pass was already removed (comment dated 2026-08-07). No flag.
 
-**Physical Reserves → "Body Steady" (green)**
-Inputs it actually reads (`_shared/signal-pills/derive-pills.ts`):
-- RHR absolute or RHR deviation → 69 is normal → green
-- Heart rate **only via `hrDeviation`** — and there is no HR baseline for this
-  user, so `hrDeviation` is null and the HR branch is skipped entirely. It then
-  falls back to a *second* RHR-deviation read → green again.
-- 3-day RHR trend, sustained-deficit flag → nothing pushing worse than green
+**A2 — `SIGNAL PILL TIERS` in userPrompt:** **Yes — already exists** (index.ts:6804-6828). `preLLMDecisionTier` / `preLLMPhysicalTier` are already declared in outer prompt scope (6453 / 6469) with exactly the tier thresholds the spec asks for, and the pill-consistency rule lines are already emitted. The MRS score/tier line is also already injected (6820-6828) plus `=== READINESS ===` Score/Tier at 6768. So spec Change 2a and both "NEW injections" are already in place.
 
-Net: the pill never sees the 95bpm number at all. It is effectively an
-RHR-only pill today.
+**A3 — `[A]` category suffix on high-stakes titles:** **Yes** (index.ts:6915-6960). Titles print as `HH:mm Title [A]`, next high-stakes carries a suffix too, and an A–H importance guide is appended.
 
-**Resilience Capacity → "Reserve Spent" (red)**
-- Primary anchor is sleep efficiency → null, so Fallback B fires
-- Fallback B prefers `hrDeviation`; that is null, so it uses **absolute HR**:
-  `>90 red, >80 amber, else green` → 95 → **red**
-- Any-worst-wins means that single red sets the pill, regardless of the amber
-  check-in overlays around it
+**A4 — Deterministic brief path:** Confirmed `supabase/functions/_shared/brief/deterministic-brief.ts` (374 lines).
 
-**So the divergence is structural, not a bug in either pill on its own:**
+**A5 — `closeFor()`:** `sharp` band reads exactly `"and don't let the smaller calls chip at what's there."` (line ~330). And **yes**, `closeFor()` already branches on `opts.isWeekend` first (line 311) with three weekend-specific closes. It is on the untouchable list, so it stays as-is.
 
-| | Physical Reserves | Resilience Capacity |
-|---|---|---|
-| Reads absolute HR? | No — deviation only | Yes — absolute fallback |
-| HR thresholds | dev >10 amber / >20 red | dev >10/>20 **or** abs >80/>90 |
-| Behaviour when no HR baseline | HR silently dropped | HR becomes the whole pill |
+**A6 — beat-(d) closing-clause rule in `brief-validators.ts`:** **Yes — already exists** (lines ~485-527): it splits sentences, matches `CLOSING_CONNECTOR_RE`, allows a directive-led final sentence, rejects with "body missing SELF-REGULATION closing clause", and caps the close length. Spec Change 4 is therefore already satisfied by an equivalent rule.
 
-Two further points worth naming:
-1. `heart_rate` here is a spot/ambient reading, not resting. Judging it on an
-   80/90 absolute scale is close to a resting-HR scale, so a normal active
-   reading reads as "spent".
-2. The user has **zero sleep rows for 10+ days** — no sleep score, duration or
-   efficiency ever persisted. So Resilience is permanently on its fallback and
-   Decision Readiness is running on HRV alone.
+**A7 — window context / causality:**
+- Window context is computed as `briefWindowContext` and appended **mid-assembly** (index.ts ~7700-7775), i.e. after the userPrompt string is opened at 6753 but before the LLM call. It is *not* fully computed before assembly begins.
+- The prompt **does** already reference `vetoRisk`, `recoveryNote`, and the other window fields (7734, 7763).
+- `causality_findings` / `signal_summary` are **not** queried anywhere in `compute-outer-readiness`. This is the one genuinely missing input.
 
-Options if you want this fixed later (not implemented in this pass):
-- A: give the HR fallback a personal baseline (trailing 14-day mean of
-  `heart_rate`) so it compares like-for-like instead of using 80/90 absolutes.
-- B: raise the absolute-HR thresholds for the fallback (e.g. >100 amber /
-  >110 red) to reflect that this is not a resting measure.
-- C: make the two pills symmetric — either both read absolute HR or neither.
-- D: investigate why no sleep data reaches `wearable_data` at all, which is
-  the actual root cause of both pills being on fallbacks.
+**Observations logged, not acted on:** `brief-validators.ts` is imported and `validateBrief` is called at 8776/9083, alongside the inline `validateV61Output`; `mem://architecture/brief/validator-ownership` says the shared file is not wired — memory is stale.
 
-## Part 2 — Weekend awareness missing from beat (c)
+## What the audit changes about the spec
 
-The brief **does** know it is the weekend: the read line and the closing beat
-both took their weekend branches ("no work calendar — the physiological read is
-the anchor for the weekend", "let this window close so the week starts clean").
+Three of the five changes are already implemented in production code. Re-applying them verbatim would be a rewrite of working code for no behavioural gain, which the safety prompt forbids. Proposed scope:
 
-The gap is in `buildDirective()` in
-`supabase/functions/_shared/brief/deterministic-brief.ts`. Only two of its
-branches check `opts.isWeekend`. The branch that fired for this brief —
-physical green + cognitive not green — returns a fixed workday string:
+| Spec change | Status | Action |
+| --- | --- | --- |
+| 1 — copy-vocabulary strings | Not applied | Apply in full |
+| 2a pill tiers, 2c MRS injection | Already present | Skip |
+| 2b causality `signal_summary` read | Missing | Apply |
+| 2c three-bucket restructure | Not applied | Apply (reorganise existing lines only) |
+| 3 — weekend directive strings | Not applied | Apply |
+| 4 — beat (d) validator rule | Equivalent rule already present | Skip |
+| 5 — version bump | Needed | Apply |
 
-> "Route the presence and stakeholder conversations through the physical
-> runway; defer anything needing full processing"
+## Implementation steps (one deploy at a time)
 
-which is exactly what `WEEKEND_DIRECTIVE` forbids on the LLM path.
+**Step 2 — `_shared/brief/copy-vocabulary.ts` (strings only, no deploy)**
+Replace the bodies of `SILENT_REASONING`, `BODY_FOUR_BEAT_CONTRACT`, `WORKED_EXAMPLES`, `OUTPUT_CONTRACT`, `WEEKEND_DIRECTIVE`, `NON_WORKDAY_DIRECTIVE`, `PERSONAL_TRAVEL_DIRECTIVE`, and the body of `workTravelDirective()` with the spec text verbatim. Signatures unchanged. All other exports untouched. Run `tsgo`.
 
-### Change
+**Step 3 — `compute-outer-readiness/index.ts` (userPrompt only), deploy alone**
+- Add the non-blocking `causality_findings.signal_summary` read before assembly, using the in-scope admin client / user id / local-date variable names (verified at write time, no new client).
+- Re-label and regroup the existing prompt sections into `=== BUCKET 1: PHYSIOLOGICAL STATE ===`, `=== BUCKET 2: CALENDAR & DAY SHAPE ===`, `=== BUCKET 3: PATTERNS & HISTORY ===`. Existing pill-tier, MRS, wearable, check-in, calendar, window-context and pattern lines move under the right header unchanged; nothing is dropped.
+- Append the causality pattern rendering (HR × event primary, RHR next-morning, HRV overnight, cognition × event, sleep → PRS, consecutive load, performance lift) inside Bucket 3, gated on the summary being present.
+- No change to `input_signature`, response shape, scoring, or gating.
+- `tsgo`, deploy `compute-outer-readiness`, verify in logs: three bucket headers, existing pill/MRS lines still present, causality query runs (null is fine).
 
-Restructure `buildDirective` so the weekend / non-workday check happens
-**first**, before any pillar branch, and returns a recovery-shaped directive
-selected by signal quality:
+**Step 4 — `_shared/brief/deterministic-brief.ts`, deploy + smoke test**
+Replace only the three return strings inside the existing `if (opts.isWeekend)` block of `buildDirective()`. Branching, `closeFor()`, and every other builder untouched. Smoke test Saturday depleted and Saturday all-green.
 
-- **Signals mixed or poor** (any pill amber/red, or band stretched/depleted) →
-  recovery-first, e.g. "Let today actually recover — the read says the system
-  is still paying down, not building."
-- **Signals green** → light-touch proactive prep, e.g. "Reserves are there —
-  spend a little of it setting up the week rather than reacting to it."
-- **Signals unread** → no change. When no current personal signal exists the
-  builder already returns `null` and the card falls through to the existing
-  "Awaiting signals" state. No new copy, no new branch — behaviour untouched.
+**Step 5 — validator**
+Skipped: the beat-(d) rule already exists. Full `vitest` run here as the regression gate for Steps 2-4.
 
-Rules held:
-- Beat (c) carries **no work language at all** — no meetings, calls,
-  deliverables, team or "the room" — on every non-workday shape: weekend, long
-  weekend, public holiday, PTO, OOO, personal leave and personal travel. All of
-  these route through the same weekend/non-workday directive.
-- No practice, duration or protocol prescription — the Brief stays at direction
-  level. The Plan still runs on off days (a morning or evening slot, per the
-  user's onboarding preference) so habit-building continues; the Brief just
-  points at recovery or light week-prep without claiming the whole day.
-- Beat (d) closing logic is already weekend-correct and is left untouched.
+**Step 6 — version bump**
+`BRIEF_PROMPT_VERSION` lives in `supabase/functions/_shared/brief-prompt-version.ts` (currently `v6.9-weekend-work-directive`) with a hand-maintained frontend mirror at `src/constants/briefPromptVersion.ts`. Bump to `v7.0-brief-copy-buckets` and update the mirror in the same step, then redeploy `compute-outer-readiness`.
 
-Non-workday shapes (holiday / PTO / personal travel) already collapse into
-`isWeekend` at the top of `buildDeterministicBriefFallback`, so they inherit
-the same fix.
+## Clarification needed before Step 6
 
-### Technical notes
-- Single file: `supabase/functions/_shared/brief/deterministic-brief.ts`.
-- Add tests covering: weekend + amber/red pills → recovery language; weekend +
-  green pills → week-prep language; weekend never emits meeting/call/stakeholder
-  vocabulary from any branch; weekday branches unchanged.
-- Bump `BRIEF_PROMPT_VERSION` in `_shared/brief-prompt-version.ts` so cached
-  weekend briefs carrying the workday directive are invalidated.
-- Redeploy `compute-outer-readiness`.
-- No pill logic, MRS, Plan or frontend changes in this pass.
+The mirror constant is a fifth file (and a frontend file). Leaving it stale would make `useCurrentBriefSnapshot` filter for a version no longer written, blanking the Brief card. The plan assumes the mirror is updated in lockstep as part of Change 5 — confirm, or the bump is dropped entirely.
+
+## Rollback
+Any regression (blank brief card, pill change, MRS change, other card change) → revert that single step's file and stop before the next step.
