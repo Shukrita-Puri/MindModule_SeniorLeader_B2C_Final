@@ -9,7 +9,7 @@ A third Sonnet pass was already removed (comment dated 2026-08-07). No flag.
 
 **A2 — `SIGNAL PILL TIERS` in userPrompt:** **Yes — already exists** (index.ts:6804-6828). `preLLMDecisionTier` / `preLLMPhysicalTier` are already declared in outer prompt scope (6453 / 6469) with exactly the tier thresholds the spec asks for, and the pill-consistency rule lines are already emitted. The MRS score/tier line is also already injected (6820-6828) plus `=== READINESS ===` Score/Tier at 6768. So spec Change 2a and both "NEW injections" are already in place.
 
-**A3 — `[A]` category suffix on high-stakes titles:** **Yes** (index.ts:6915-6960). Titles print as `HH:mm Title [A]`, next high-stakes carries a suffix too, and an A–H importance guide is appended.
+**A3 — `[A]` category suffix on high-stakes titles:** **Yes** (index.ts:6915-6960). This is backend-only — the suffix exists solely inside the LLM `userPrompt` string and is never rendered to users. Titles print as `HH:mm Title [A]`, next high-stakes carries a suffix too, and an A–H importance guide is appended. No UI surfaces the category suffix and none will.
 
 **A4 — Deterministic brief path:** Confirmed `supabase/functions/_shared/brief/deterministic-brief.ts` (374 lines).
 
