@@ -45,7 +45,7 @@ function json(body: unknown, status = 200) {
 }
 
 function getWindow(hour: number): TimeWindow {
-  if (hour >= 5 && hour < 12) return "morning";
+  if (hour >= 4 && hour < 12) return "morning";
   if (hour >= 12 && hour < 18) return "afternoon";
   return "evening";
 }
@@ -518,6 +518,38 @@ async function buildForUser(db: any, args: {
   // so a failing user never gets retried every 15 minutes.
   let claimedRunRowId: string | null = null;
   if (mode === "scheduled") {
+    // Fix 3: skipIfAlreadyReady logic
+    const [{ data: existingSnapshot }, { data: existingBrief }] = await Promise.all([
+      db
+        .from("daily_context_snapshot")
+        .select("readiness_state")
+        .eq("user_id", userId)
+        .eq("local_date", localDate)
+        .eq("mrs_window", window)
+        .maybeSingle(),
+      db
+        .from("brief_snapshots")
+        .select("baseline_state, refined_state")
+        .eq("user_id", userId)
+        .eq("local_date", localDate)
+        .eq("time_window", window)
+        .maybeSingle()
+    ]);
+
+    const mrsReady = existingSnapshot?.readiness_state === "published" || existingSnapshot?.readiness_state === "partial";
+    const briefReady = existingBrief?.baseline_state === "baseline" || existingBrief?.refined_state === "refined";
+    
+    if (mrsReady && briefReady) {
+      return {
+        userId,
+        localDate,
+        window,
+        status: "skipped",
+        skippedReason: "already_ready_from_client",
+        effectiveTimezone,
+      };
+    }
+
     claimedRunRowId = await claimScheduledSlot(db, baseLog, jobConfig);
     if (!claimedRunRowId) {
       return {
@@ -920,9 +952,11 @@ async function buildForUser(db: any, args: {
     // hasStageOneSignal is false. Scheduled/backfill/replay/dry_run keep
     // the existing stage-one gating.
     const shouldForcePlanOnManualRefresh = mode === "manual_refresh";
-    const skippedStageOneGate = shouldForcePlanOnManualRefresh && !hasStageOneSignal;
-    if (!hasStageOneSignal && !shouldForcePlanOnManualRefresh) {
-      planStatus = "skipped_no_stage_one_signal";
+    const planCanForm = mrsIsReady && briefStatus === "ready";
+    const skippedStageOneGate = shouldForcePlanOnManualRefresh && !planCanForm;
+    
+    if (!planCanForm && !shouldForcePlanOnManualRefresh) {
+      planStatus = "skipped_upstream_not_ready";
     } else {
       if (shouldForcePlanOnManualRefresh) {
         console.log('[build-executive-home-cards][manual-refresh-plan]', JSON.stringify({

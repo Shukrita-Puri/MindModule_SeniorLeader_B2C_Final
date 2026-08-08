@@ -165,5 +165,8 @@ export function useMasteryPlanSnapshot() {
 
       return snapshot;
     },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 15 * 60 * 1000,
+    refetchOnMount: true,
   });
 }

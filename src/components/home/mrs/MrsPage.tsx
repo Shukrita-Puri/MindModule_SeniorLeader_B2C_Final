@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useOuterReadiness, type OuterReadinessData } from '@/hooks/useOuterReadiness';
 import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
 import { useWeeklyMrsDelta } from '@/hooks/useWeeklyMrsDelta';
+import { useWearableSync } from '@/hooks/useWearableSync';
 import { useExecutiveHomeCardsRefresh } from '@/hooks/useExecutiveHomeCardsRefresh';
 import MrsGauge, { tierColorVar } from './MrsGauge';
 import WeeklyDeltaDial from './WeeklyDeltaDial';
@@ -44,6 +45,7 @@ const MrsPage = () => {
   // `daily_context_snapshot` when present; otherwise fall through to
   // the live `useOuterReadiness` payload (unchanged).
   const { data: mrsSnapshot, isLoading: mrsLoading } = useMrsSnapshot();
+  const { isBackfilling } = useWearableSync();
   const snapshotRenderable = !!mrsSnapshot?.isRenderable;
 
   const liveScore = snapshotRenderable
@@ -213,6 +215,18 @@ const MrsPage = () => {
             <span className="mt-0.5 text-[11px] text-muted-foreground/60">
               {stateLabel.label === 'Awaiting signals' ? awaitingCopy : stateLabel.subtitle}
             </span>
+          </div>
+        )}
+
+        {/* Historical Backfill UI */}
+        {isBackfilling && (
+          <div className="mt-6 flex justify-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/40 border border-muted/60 animate-in fade-in slide-in-from-bottom-2">
+              <RefreshCw className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
+              <span className="text-[11px] font-medium tracking-[0.08em] uppercase text-muted-foreground">
+                Syncing your health history…
+              </span>
+            </div>
           </div>
         )}
 

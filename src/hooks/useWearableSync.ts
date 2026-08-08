@@ -10,6 +10,7 @@
  * - error: unexpected unrecoverable failure
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { isNativeApp, requestHealthKitPermissions, verifyHealthKitAccess, getHealthKitAuthorization } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, isHealthKitPermissionGranted, type WearableConnectionState } from '@/services/wearableSyncService';
@@ -31,6 +32,7 @@ interface WearableSyncState {
   dbPersistFailed: boolean;
   hrv: number | null;
   error: string | null;
+  isBackfilling: boolean;
   triggerSync: () => Promise<boolean>;
 }
 
@@ -39,6 +41,7 @@ const AUTO_SYNC_INTERVAL_MS = 30 * 60 * 1000;
 
 export function useWearableSync(): WearableSyncState {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [connectionState, setConnectionState] = useState<WearableConnectionState>('disconnected');
   const [hasData, setHasData] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -141,6 +144,10 @@ export function useWearableSync(): WearableSyncState {
           try {
             clearEnergyStateCache();
             clearOuterReadinessCache(user?.id);
+            queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+            queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] });
+            queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] });
+            queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] });
           } catch (cacheErr) {
             console.warn('[useWearableSync] cache invalidation failed:', cacheErr);
           }
@@ -303,5 +310,5 @@ export function useWearableSync(): WearableSyncState {
     && (connectionState === 'connected' || connectionState === 'connected_but_waiting_for_data' || connectionState === 'sync_delayed')
     && lastVerifiedAt === null;
 
-  return { connectionState, hasWearable, hasData, isSyncing, lastSync, lastVerifiedAt, isStale, dbPersistFailed, hrv, error, triggerSync };
+  return { connectionState, hasWearable, hasData, isSyncing, lastSync, lastVerifiedAt, isStale, dbPersistFailed, hrv, error, isBackfilling: isSyncing && !hasData, triggerSync };
 }

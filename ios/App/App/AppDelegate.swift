@@ -20,6 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // BGTaskScheduler identifier — must also be listed in Info.plist under
     // BGTaskSchedulerPermittedIdentifiers.
     private let backgroundRefreshTaskId = "com.moonshot.mindmoduleapp.refresh"
+    private let earlyMorningSyncTaskId = "me.mindmodule.early-morning-sync"
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Set notification center delegate for foreground notifications
@@ -53,6 +54,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // legacy performFetchWithCompletionHandler path below as a belt-and-
         // braces fallback on older iOS versions.
         registerBackgroundRefreshTask()
+        registerEarlyMorningSyncTask()
         scheduleBackgroundRefresh()
 
         // Start the reconnect monitor.
@@ -73,6 +75,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 return
             }
             self?.handleBackgroundRefresh(task: refreshTask)
+        }
+    }
+
+    private func registerEarlyMorningSyncTask() {
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: earlyMorningSyncTaskId,
+            using: nil
+        ) { [weak self] task in
+            guard let processingTask = task as? BGProcessingTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.handleEarlyMorningSync(task: processingTask)
         }
     }
 
@@ -108,6 +123,61 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         task.expirationHandler = {
             // iOS will kill us shortly — flag failure so it retries sooner.
+            completeOnce(false)
+        }
+
+        group.notify(queue: .main) {
+            completeOnce(true)
+        }
+    }
+
+    private func scheduleEarlyMorningSync() {
+        let request = BGProcessingTaskRequest(identifier: earlyMorningSyncTaskId)
+        request.requiresNetworkConnectivity = true
+        request.requiresExternalPower = false
+
+        // Calculate next 04:30 local time
+        let calendar = Calendar.current
+        let now = Date()
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = 4
+        components.minute = 30
+        components.second = 0
+        
+        var targetDate = calendar.date(from: components)!
+        if targetDate <= now {
+            targetDate = calendar.date(byAdding: .day, value: 1, to: targetDate)!
+        }
+        
+        request.earliestBeginDate = targetDate
+
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            NSLog("[AppDelegate] Scheduled early-morning-sync for \(targetDate)")
+        } catch {
+            NSLog("[AppDelegate] Failed to schedule early-morning-sync: \(error)")
+        }
+    }
+
+    private func handleEarlyMorningSync(task: BGProcessingTask) {
+        // Reschedule for tomorrow
+        scheduleEarlyMorningSync()
+
+        let group = DispatchGroup()
+        var completed = false
+        let completeOnce: (Bool) -> Void = { success in
+            guard !completed else { return }
+            completed = true
+            task.setTaskCompleted(success: success)
+        }
+
+        group.enter()
+        WearableSyncBridge.shared.fetchAndPersist { group.leave() }
+        
+        group.enter()
+        AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist { group.leave() }
+
+        task.expirationHandler = {
             completeOnce(false)
         }
 
@@ -201,6 +271,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func applicationDidEnterBackground(_ application: UIApplication) {
         scheduleBackgroundRefresh()
+        scheduleEarlyMorningSync()
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {

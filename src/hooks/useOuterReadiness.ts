@@ -991,7 +991,8 @@ export function useOuterReadiness(options?: UseOuterReadinessOptions) {
       return data ?? cached ?? null;
     },
     enabled: !!effectiveUserId && !snapshotOnlyDisabled,
-    staleTime: 15 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 15 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     // Executive Home now reads via snapshot hooks; the live compute path is
     // reserved for non-home surfaces (Insights, Coach) and manual refresh.
@@ -1001,7 +1002,7 @@ export function useOuterReadiness(options?: UseOuterReadinessOptions) {
     // calendar_events, daily_context_snapshot, daily-checkins,
     // compute-inner-readiness). Snapshot mode disables the query outright;
     // non-snapshot callers get the standard staleTime-driven behaviour.
-    refetchOnMount: snapshotOnlyDisabled ? false : 'always',
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     // IMPORTANT: do NOT use placeholderData here. Keeping the previous

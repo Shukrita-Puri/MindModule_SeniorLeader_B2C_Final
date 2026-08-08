@@ -11,6 +11,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp, verifyHealthKitAccess, getHealthKitAuthorization } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
 import { startOuraOAuth, triggerOuraSync } from '@/services/ouraSyncService';
+import { useWearableSync } from '@/hooks/useWearableSync';
+import { Badge } from '@/components/ui/badge';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { clear as clearPersistent, cacheKeys, localISODate } from '@/utils/persistentBriefCache';
 import { clearLocalCalendarData, clearLocalWearableData } from '@/services/localDataStore';
@@ -197,6 +199,7 @@ const ConnectedData = () => {
   const { user } = useAuth();
   const { wearableConnected, selfCheckInsEnabled } = useCheckInMode();
   const [updatingSelfCheckIns, setUpdatingSelfCheckIns] = useState(false);
+  const { isBackfilling: appleHealthBackfilling } = useWearableSync();
 
   // Visible to ALL wearable-connected users so they can toggle the preference either way.
   const showSelfCheckInToggle = wearableConnected;
@@ -1498,6 +1501,14 @@ const ConnectedData = () => {
                 <div className="text-[10px] tracking-[2px] uppercase text-muted-foreground font-medium mb-2">
                   Wearable
                 </div>
+                {appleHealthBackfilling && (
+                  <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-muted/60">
+                    <RefreshCw className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
+                    <span className="text-[11px] font-medium tracking-[0.08em] uppercase text-muted-foreground">
+                      Syncing your health history…
+                    </span>
+                  </div>
+                )}
                 {wearableConnections.map(renderRow)}
               </section>
             )}

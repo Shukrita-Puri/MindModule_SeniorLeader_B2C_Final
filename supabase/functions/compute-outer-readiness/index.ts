@@ -9244,19 +9244,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       }
       hasTodayCheckIn = hasTodayCheckInDB;
       hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
-      hasCalendarSignal = calendarResult?.state === "active";
+      hasCalendarSignal = calendarResult?.state === "active" || calendarResult?.state === "connected_no_events";
       hasCalendarConnected = !!calendarResult?.state &&
         calendarResult.state !== "not_connected";
-      const hasStage1Signal = hasFreshWearable || hasCalendarSignal;
+      const hasStage1Signal = hasFreshWearable && hasCalendarSignal;
       const briefSignalContractMet = hasStage1Signal;
       const awaitingSignals = !briefSignalContractMet;
-      // Personal-signal entry condition for the Brief prose only.
-      // Calendar demand can feed MRS, Plan and Nudges, but it must NEVER
-      // alone satisfy the Brief's current-state claim. Either a window-fresh
-      // wearable read OR a window-fresh check-in is required before any
-      // baseline or refined brief may form.
-      const briefHasCurrentPersonalSignal = briefWearableUsable ||
-        checkInCurrentForWindow;
+      // Brief Gate Alignment (Fix 4)
+      // Brief gate: needs Physiology (fresh wearable) AND Demand (calendar connected)
+      // Check-in data is ADDITIVE ONLY and upgrades Baseline -> Refined.
+      const briefHasCurrentPersonalSignal = briefWearableUsable && hasCalendarConnected;
       const briefAwaitingSignals = !briefHasCurrentPersonalSignal;
 
       const awaitingReason: string | null = awaitingSignals

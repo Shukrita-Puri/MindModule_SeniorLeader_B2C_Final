@@ -176,9 +176,34 @@ export async function upsertDailyContextSnapshot(
       (row as any).readiness_state = 'awaiting';
     }
 
+    if (input.readinessState !== undefined) {
+      const { data: existing } = await db
+        .from('daily_context_snapshot')
+        .select('readiness_state')
+        .eq('user_id', input.userId)
+        .eq('local_date', input.localDate)
+        .eq('mrs_window', input.mrsWindow)
+        .maybeSingle();
+
+      if (existing?.readiness_state) {
+        // State precedence: published > partial > awaiting = early_read > not_connected > empty
+        const STATE_RANK: Record<string, number> = { published: 3, partial: 2, awaiting: 1, early_read: 1, not_connected: 0 };
+        const oldRank = STATE_RANK[existing.readiness_state] ?? -1;
+        const newRank = STATE_RANK[input.readinessState] ?? -1;
+        
+        if (oldRank > newRank) {
+          console.log(
+            `[snapshot-guard] Skipping write for ${input.userId}: new state '${input.readinessState}' (${newRank}) < existing state '${existing.readiness_state}' (${oldRank})`
+          );
+          return;
+        }
+      }
+    }
+
     const { error } = await db
       .from('daily_context_snapshot')
       .upsert(row, { onConflict: 'user_id,local_date,mrs_window' });
+
 
     if (error) {
       console.warn('[daily_context_snapshot] upsert failed:', error.message ?? error);
