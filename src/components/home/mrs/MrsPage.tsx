@@ -19,7 +19,7 @@ import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_MRS } from '@/components/onboarding/tourMockData';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, RefreshCw } from 'lucide-react';
 
 type MrsOuterReadiness = OuterReadinessData & {
   readinessEligibility?: {
