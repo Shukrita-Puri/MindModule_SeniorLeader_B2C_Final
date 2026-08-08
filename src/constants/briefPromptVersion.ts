@@ -11,4 +11,4 @@
  * could legitimately be the most-recently-updated row for the window
  * and would otherwise be served to the UI.
  */
-export const BRIEF_PROMPT_VERSION = 'v6.8-coach-source-retired';
+export const BRIEF_PROMPT_VERSION = 'v6.9-weekend-work-directive';
