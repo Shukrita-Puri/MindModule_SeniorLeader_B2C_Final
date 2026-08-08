@@ -80,7 +80,10 @@ selected by signal quality:
 
 Rules held:
 - No meetings, calls, deliverables, team or "the room" language on a weekend.
-- No practice, duration or protocol prescription (that is the Plan's job).
+- No practice, duration or protocol prescription — the Brief stays at direction
+  level. The Plan still runs on off days (a morning or evening slot, per the
+  user's onboarding preference) so habit-building continues; the Brief just
+  points at recovery or light week-prep without claiming the whole day.
 - Beat (d) closing logic is already weekend-correct and is left untouched.
 
 Non-workday shapes (holiday / PTO / personal travel) already collapse into
