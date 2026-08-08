@@ -6743,6 +6743,77 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             else break;
           }
 
+          // Persisted causality patterns for Bucket 3 — read-only, non-blocking.
+          // signal_summary is computed daily by cause-effect-engine and cached
+          // in causality_findings. Missing row = brief proceeds without it.
+          let causalitySignalSummary:
+            | {
+              event_to_hrv?: Array<
+                { event_type: string; n: number; hrvDeltaPct: number; confidence: string }
+              >;
+              event_to_rhr?: Array<
+                { event_type: string; n: number; rhrDeltaPct: number; confidence: string }
+              >;
+              event_to_cognition?: Array<
+                {
+                  event_type: string;
+                  dim: string;
+                  tierDelta: number;
+                  n: number;
+                  confidence: string;
+                }
+              >;
+              sleep_to_prs?:
+                | { lowSleepPrsDeltaPct: number; n: number; confidence: string }
+                | null;
+              consecutive_load?:
+                | { tailDeltaPct: number; n: number; confidence: string }
+                | null;
+              performance_lift?: {
+                hr_event_lift?: Array<
+                  {
+                    bucket: string;
+                    categoryName: string;
+                    hrDeltaBpm: number;
+                    n: number;
+                    confidence: string;
+                  }
+                >;
+                category_lift?: Array<
+                  {
+                    categoryName: string;
+                    compositeLift: number;
+                    n: number;
+                    confidence: string;
+                  }
+                >;
+              };
+            }
+            | null = null;
+          {
+            const _causalityT0 = Date.now();
+            try {
+              const { data: causalityRow } = await db
+                .from("causality_findings")
+                .select("signal_summary")
+                .eq("user_id", userId)
+                .eq("pattern_kind", "cause_effect_v2")
+                .eq("computed_for_date", userLocalDate)
+                .maybeSingle();
+              if ((causalityRow as any)?.signal_summary) {
+                causalitySignalSummary =
+                  (causalityRow as any).signal_summary as typeof causalitySignalSummary;
+              }
+            } catch (_e) {
+              causalitySignalSummary = null;
+            }
+            console.log(
+              `[brief][causality] read ms=${
+                Date.now() - _causalityT0
+              } hit=${causalitySignalSummary ? "yes" : "no"}`,
+            );
+          }
+
           // §8 canonical block header — replaces the legacy `=== TIME ===`
           // block. `dayKind` (travel / PTO / holiday / weekend / conference)
           // is carried inside this CONTEXT block via the shared
@@ -6763,6 +6834,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }\nIs public holiday: ${isPublicHoliday ? "yes" : "no"}${
               holidayName ? " · Holiday: " + holidayName : ""
             }\nHours remaining in workday: ${hoursRemaining ?? "null"}`;
+
+          // ══════════════════════════════════════════════════════════════
+          // BUCKET 1 — PHYSIOLOGICAL STATE
+          // "What is the body and mind doing right now?"
+          // ══════════════════════════════════════════════════════════════
+          userPrompt += `\n\n=== BUCKET 1: PHYSIOLOGICAL STATE ===`;
+          userPrompt += `\nWhat the body and mind are doing right now.`;
 
           // === READINESS ===
           userPrompt += `\n\n=== READINESS ===\nScore: ${
