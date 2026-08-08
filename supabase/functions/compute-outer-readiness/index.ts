@@ -6746,8 +6746,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // Persisted causality patterns for Bucket 3 — read-only, non-blocking.
           // signal_summary is computed daily by cause-effect-engine and cached
           // in causality_findings. Missing row = brief proceeds without it.
-          let causalitySignalSummary:
-            | {
+          type CausalitySignalSummary = {
               event_to_hrv?: Array<
                 { event_type: string; n: number; hrvDeltaPct: number; confidence: string }
               >;
@@ -6788,8 +6787,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   }
                 >;
               };
-            }
-            | null = null;
+          };
+          let causalitySignalSummary: CausalitySignalSummary | null = null;
           {
             const _causalityT0 = Date.now();
             try {
@@ -6802,7 +6801,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 .maybeSingle();
               if ((causalityRow as any)?.signal_summary) {
                 causalitySignalSummary =
-                  (causalityRow as any).signal_summary as typeof causalitySignalSummary;
+                  (causalityRow as any).signal_summary as CausalitySignalSummary;
               }
             } catch (_e) {
               causalitySignalSummary = null;
