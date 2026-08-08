@@ -49,11 +49,14 @@ Replace the bodies of `SILENT_REASONING`, `BODY_FOUR_BEAT_CONTRACT`, `WORKED_EXA
 - Append the causality pattern rendering (HR × event primary, RHR next-morning, HRV overnight, cognition × event, sleep → PRS, consecutive load, performance lift) inside Bucket 3, gated on the summary being present.
 - No change to `input_signature`, response shape, scoring, or gating.
 - `tsgo`, deploy `compute-outer-readiness`, verify in logs: three bucket headers, existing pill/MRS lines still present, causality query runs (null is fine).
+- **Latency gate before the production deploy:** the causality read is the only net-new DB call. Index check already done — `causality_findings` has a primary key on `(user_id, pattern_kind, computed_for_date)` plus `idx_causality_findings_user_kind_recent` on the same triple, so the `maybeSingle()` lookup is an index hit, not a scan. Still measured: if the query adds more than ~50 ms to the `compute-outer-readiness` response time in logs, pause and flag — do not ship a latency regression.
 
 **Step 4 — `_shared/brief/deterministic-brief.ts`, deploy + smoke test**
 Replace only the three return strings inside the existing `if (opts.isWeekend)` block of `buildDirective()`. Branching, `closeFor()`, and every other builder untouched. Smoke test Saturday depleted and Saturday all-green.
 
 The deterministic path is treated as a first-class output, not a degraded fallback: if Gemini and Claude are both unavailable or out of credit, the brief the user reads must still hold quality on its own. So the three replacement strings are taken **verbatim from the shared spec file** — its directive wording, Chief-of-Staff register (stated conclusion, short sentences, hard stops, no explanation), sentence structure, and worked examples — not paraphrased. Each string is checked against the spec's banned-vocabulary list before it lands: no "meetings", "calls", "the room", "deliverables", "the team", "stakeholder", "presence", "runway", and no wellness vocabulary; direction only, never a practice, protocol, or duration.
+
+`closeFor()` stays byte-identical. Logged as a named post-launch item: **"Retighten the three weekend closes in `closeFor()` to the Chief-of-Staff register"** — not wrong today, just softer than the spec, and out of scope here.
 
 **Step 5 — validator**
 Skipped: the beat-(d) rule already exists. Full `vitest` run here as the regression gate for Steps 2-4.
