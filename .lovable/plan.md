@@ -1,44 +1,98 @@
-# Resilience HR Fallback — Audit Result
+# Signal Pill Divergence + Weekend Beat (c)
 
-## Verdict: the HR fallback is working. Neither Claude hypothesis needs a code fix.
+## Part 1 — Why the same HR reads green in one pill and red in another (audit, no change proposed yet)
 
-I checked the live data and the persisted pill payload for this account, not just the source.
+Verified against this morning's data for the account in the screenshot:
+HRV 20.5, RHR 69, HR 85–95, sleep score / duration / efficiency all null.
 
-The most recent evening snapshot (07 Aug, 20:49 UTC) for Resilience Capacity contains:
+**Physical Reserves → "Body Steady" (green)**
+Inputs it actually reads (`_shared/signal-pills/derive-pills.ts`):
+- RHR absolute or RHR deviation → 69 is normal → green
+- Heart rate **only via `hrDeviation`** — and there is no HR baseline for this
+  user, so `hrDeviation` is null and the HR branch is skipped entirely. It then
+  falls back to a *second* RHR-deviation read → green again.
+- 3-day RHR trend, sustained-deficit flag → nothing pushing worse than green
 
-```text
-tier:          green  ("Reserve Strong")
-fallbackUsed:  hr_elevated_proxy
-contributors:  hrValue = 82, sleepEfficiency = null
-freshness:     fresh
-sourceTypes:   ["wearable"]
-```
+Net: the pill never sees the 95bpm number at all. It is effectively an
+RHR-only pill today.
 
-So the deployed function is running the new `derive-pills.ts`, the fallback fired, and HR is in the payload. The tooltip whitelist already allows `hrValue` on `resilience_capacity`, so it renders as an "HR — 82 bpm" row.
+**Resilience Capacity → "Reserve Spent" (red)**
+- Primary anchor is sleep efficiency → null, so Fallback B fires
+- Fallback B prefers `hrDeviation`; that is null, so it uses **absolute HR**:
+  `>90 red, >80 amber, else green` → 95 → **red**
+- Any-worst-wins means that single red sets the pill, regardless of the amber
+  check-in overlays around it
 
-## Why it looked broken
+**So the divergence is structural, not a bug in either pill on its own:**
 
-The snapshot generated earlier the same day (17:00 UTC) shows:
+| | Physical Reserves | Resilience Capacity |
+|---|---|---|
+| Reads absolute HR? | No — deviation only | Yes — absolute fallback |
+| HR thresholds | dev >10 amber / >20 red | dev >10/>20 **or** abs >80/>90 |
+| Behaviour when no HR baseline | HR silently dropped | HR becomes the whole pill |
 
-```text
-tier: neutral ("Reserve Unread")
-hiddenReason: no_fresh_wearable
-fallbackUsed: null
-```
+Two further points worth naming:
+1. `heart_rate` here is a spot/ambient reading, not resting. Judging it on an
+   80/90 absolute scale is close to a resting-HR scale, so a normal active
+   reading reads as "spent".
+2. The user has **zero sleep rows for 10+ days** — no sleep score, duration or
+   efficiency ever persisted. So Resilience is permanently on its fallback and
+   Decision Readiness is running on HRV alone.
 
-The Apple HealthKit rows for 07 Aug were only written at 19:51 UTC. Before that there was no same-day wearable row, so `wearableFreshForGate` was false and the fallback correctly did not run. That is Claude's hypothesis 2 — but it was a timing condition, not a defect, and it has already resolved. Hypothesis 1 (stale deploy) is wrong: the deployed bundle clearly contains the fallback.
+Options if you want this fixed later (not implemented in this pass):
+- A: give the HR fallback a personal baseline (trailing 14-day mean of
+  `heart_rate`) so it compares like-for-like instead of using 80/90 absolutes.
+- B: raise the absolute-HR thresholds for the fallback (e.g. >100 amber /
+  >110 red) to reflect that this is not a resting measure.
+- C: make the two pills symmetric — either both read absolute HR or neither.
+- D: investigate why no sleep data reaches `wearable_data` at all, which is
+  the actual root cause of both pills being on fallbacks.
 
-If "Reserve Unread" is still on screen, it is the client-side cached payload from the 17:00 snapshot. A refresh or app reopen pulls the 20:49 snapshot.
+## Part 2 — Weekend awareness missing from beat (c)
 
-## Proposed change: none to logic
+The brief **does** know it is the weekend: the read line and the closing beat
+both took their weekend branches ("no work calendar — the physiological read is
+the anchor for the weekend", "let this window close so the week starts clean").
 
-No edits to `derive-pills.ts`, `compute-outer-readiness`, the tooltip, or any other surface. The requested behaviour is already live and verified against real data.
+The gap is in `buildDirective()` in
+`supabase/functions/_shared/brief/deterministic-brief.ts`. Only two of its
+branches check `opts.isWeekend`. The branch that fired for this brief —
+physical green + cognitive not green — returns a fixed workday string:
 
-## One observation, not proposed for change now
+> "Route the presence and stakeholder conversations through the physical
+> runway; defer anything needing full processing"
 
-`wearableFreshForGate` requires a same-day wearable row for afternoon/evening windows. Because HealthKit for this user syncs late (19:51 UTC), Resilience reads "Unread" for most of the day and only turns on in the evening. Loosening that gate would touch MRS, the brief and the other pills, so it is out of scope here. Flagging it so you can decide separately whether late-syncing wearables deserve a wider acceptance window.
+which is exactly what `WEEKEND_DIRECTIVE` forbids on the LLM path.
 
-## Verification on device
+### Change
 
-1. Force a manual refresh on the home screen.
-2. Open the Resilience Capacity tooltip — expect "HR 82 bpm" and "Reserve Strong".
+Restructure `buildDirective` so the weekend / non-workday check happens
+**first**, before any pillar branch, and returns a recovery-shaped directive
+selected by signal quality:
+
+- **Signals mixed or poor** (any pill amber/red, or band stretched/depleted) →
+  recovery-first, e.g. "Let today actually recover — the read says the system
+  is still paying down, not building."
+- **Signals green** → light-touch proactive prep, e.g. "Reserves are there —
+  spend a little of it setting up the week rather than reacting to it."
+- **Signals unread** → neutral, e.g. "No current read to work from — take the
+  day at the pace it asks for."
+
+Rules held:
+- No meetings, calls, deliverables, team or "the room" language on a weekend.
+- No practice, duration or protocol prescription (that is the Plan's job).
+- Beat (d) closing logic is already weekend-correct and is left untouched.
+
+Non-workday shapes (holiday / PTO / personal travel) already collapse into
+`isWeekend` at the top of `buildDeterministicBriefFallback`, so they inherit
+the same fix.
+
+### Technical notes
+- Single file: `supabase/functions/_shared/brief/deterministic-brief.ts`.
+- Add tests covering: weekend + amber/red pills → recovery language; weekend +
+  green pills → week-prep language; weekend never emits meeting/call/stakeholder
+  vocabulary from any branch; weekday branches unchanged.
+- Bump `BRIEF_PROMPT_VERSION` in `_shared/brief-prompt-version.ts` so cached
+  weekend briefs carrying the workday directive are invalidated.
+- Redeploy `compute-outer-readiness`.
+- No pill logic, MRS, Plan or frontend changes in this pass.
