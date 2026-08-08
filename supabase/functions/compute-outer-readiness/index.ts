@@ -6990,6 +6990,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }`;
           }
 
+          // ══════════════════════════════════════════════════════════════
+          // BUCKET 2 — CALENDAR & DAY SHAPE
+          // "What does today, yesterday, and tomorrow demand?"
+          // ══════════════════════════════════════════════════════════════
+          userPrompt += `\n\n=== BUCKET 2: CALENDAR & DAY SHAPE ===`;
+          userPrompt +=
+            `\nWhat today, yesterday, and tomorrow demand — and what kind of day this is.`;
+
           // === CALENDAR TODAY ===
           if (calendarLoad) {
             userPrompt += `\n\n=== CALENDAR TODAY ===`;
@@ -7095,6 +7103,134 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }`;
             if (wa.lightDaysNextWeek?.length > 0) {
               userPrompt += ` · Light days: ${wa.lightDaysNextWeek.join(", ")}`;
+            }
+          }
+
+          // ══════════════════════════════════════════════════════════════
+          // BUCKET 3 — PATTERNS & HISTORY
+          // "What has this person's history taught us?"
+          // ══════════════════════════════════════════════════════════════
+          userPrompt += `\n\n=== BUCKET 3: PATTERNS & HISTORY ===`;
+          userPrompt +=
+            `\nWhat this person's own history has taught us. Never state a pattern without its confidence tag and a tie to today.`;
+
+          // Causality patterns from cause-effect-engine's cached signal_summary.
+          // Personalised event→physiology / event→cognition correlations so the
+          // brief can name a pattern that is true for THIS person.
+          if (causalitySignalSummary) {
+            const todayEventTypes = new Set(
+              (todayHighStakes ?? [])
+                .map((t: string) => classifyEvent(t)?.bucket ?? null)
+                .filter(Boolean) as string[],
+            );
+
+            // HR × event — the PRIMARY event-level signal (intraday, measured
+            // during the event window). HRV is overnight recovery, not in-event.
+            const sortedHrCorr =
+              (causalitySignalSummary.performance_lift?.hr_event_lift ?? [])
+                .filter((f) => f.n >= 3 && Math.abs(f.hrDeltaBpm) >= 8)
+                .sort((a, b) => Math.abs(b.hrDeltaBpm) - Math.abs(a.hrDeltaBpm));
+            const todayHrCorr = sortedHrCorr.filter((f) =>
+              todayEventTypes.has(f.bucket)
+            );
+            const hrCorrToShow = [
+              ...todayHrCorr,
+              ...sortedHrCorr.filter((f) => !todayEventTypes.has(f.bucket)),
+            ].slice(0, 2);
+            if (hrCorrToShow.length > 0) {
+              userPrompt +=
+                `\n\nHeart Rate × event correlations (what happens to your body DURING these events):`;
+              userPrompt +=
+                `\nNote: HR is the intraday signal — measured in real time during the event window, not overnight.`;
+              for (const f of hrCorrToShow) {
+                const todayFlag = todayEventTypes.has(f.bucket) ? " ← TODAY" : "";
+                userPrompt += `\n${f.categoryName}: peak HR rises +${
+                  Math.round(f.hrDeltaBpm)
+                } bpm above resting · n=${f.n} · ${f.confidence}${todayFlag}`;
+              }
+              if (todayHrCorr.length > 0) {
+                userPrompt +=
+                  `\nIf today contains a ← TODAY event: name this pattern in beat (c).`;
+              }
+            }
+
+            // RHR × event — next-morning recovery signal.
+            const sortedRhrCorr = (causalitySignalSummary.event_to_rhr ?? [])
+              .filter((f) => f.n >= 3 && f.rhrDeltaPct > 10)
+              .sort((a, b) => b.rhrDeltaPct - a.rhrDeltaPct)
+              .slice(0, 2);
+            if (sortedRhrCorr.length > 0) {
+              userPrompt +=
+                `\n\nRecovery after events (next-morning RHR elevation = body still recovering):`;
+              for (const f of sortedRhrCorr) {
+                const todayFlag = todayEventTypes.has(f.event_type)
+                  ? " ← TODAY"
+                  : "";
+                userPrompt += `\n${f.event_type}: next-morning RHR elevated +${
+                  Math.round(f.rhrDeltaPct)
+                }% · n=${f.n} · ${f.confidence}${todayFlag}`;
+              }
+            }
+
+            // HRV × event — overnight recovery only, max one line.
+            const sortedHrvCorr = (causalitySignalSummary.event_to_hrv ?? [])
+              .filter((f) => f.n >= 3 && Math.abs(f.hrvDeltaPct) >= 15)
+              .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))
+              .slice(0, 1);
+            for (const f of sortedHrvCorr) {
+              const todayFlag = todayEventTypes.has(f.event_type) ? " ← TODAY" : "";
+              userPrompt +=
+                `\n\nPost-event overnight recovery (HRV next morning — recovery signal only, not in-event):`;
+              userPrompt += `\n${f.event_type}: next-morning HRV ${
+                f.hrvDeltaPct < 0 ? "lower" : "higher"
+              } by ~${Math.abs(Math.round(f.hrvDeltaPct))}% · n=${f.n} · ${f.confidence}${todayFlag}`;
+            }
+
+            // Cognition × event — which events drain clarity / sharpness.
+            const sortedCogCorr = (causalitySignalSummary.event_to_cognition ?? [])
+              .filter((f) => f.n >= 3 && f.tierDelta < -0.4)
+              .sort((a, b) => a.tierDelta - b.tierDelta)
+              .slice(0, 2);
+            if (sortedCogCorr.length > 0) {
+              userPrompt +=
+                `\n\nCognition × event correlations (documented clarity/sharpness impact):`;
+              for (const f of sortedCogCorr) {
+                const todayFlag = todayEventTypes.has(f.event_type)
+                  ? " ← TODAY"
+                  : "";
+                userPrompt += `\n${f.event_type}: ${f.dim} drops ~${
+                  Math.abs(f.tierDelta).toFixed(1)
+                } tiers · n=${f.n} · ${f.confidence}${todayFlag}`;
+              }
+            }
+
+            const sp = causalitySignalSummary.sleep_to_prs;
+            if (sp && Math.abs(sp.lowSleepPrsDeltaPct) >= 8) {
+              userPrompt +=
+                `\nSleep → next-day score: low-sleep nights reduce next-day score by ~${
+                  Math.abs(Math.round(sp.lowSleepPrsDeltaPct))
+                }% · n=${sp.n} · ${sp.confidence}`;
+            }
+
+            const cl = causalitySignalSummary.consecutive_load;
+            if (cl && Math.abs(cl.tailDeltaPct) >= 8) {
+              userPrompt +=
+                `\nBack-to-back heavy days: recovery drops ~${
+                  Math.abs(Math.round(cl.tailDeltaPct))
+                }% after 2+ heavy calendar days · n=${cl.n} · ${cl.confidence}`;
+            }
+
+            const positiveCategories =
+              (causalitySignalSummary.performance_lift?.category_lift ?? [])
+                .filter((c) => c.compositeLift > 5)
+                .slice(0, 2);
+            if (positiveCategories.length > 0) {
+              userPrompt +=
+                `\nEvents that correlate with better performance for this person: ${
+                  positiveCategories.map((c) =>
+                    `${c.categoryName} (+${c.compositeLift.toFixed(0)}% PRS, n=${c.n})`
+                  ).join("; ")
+                }`;
             }
           }
 
