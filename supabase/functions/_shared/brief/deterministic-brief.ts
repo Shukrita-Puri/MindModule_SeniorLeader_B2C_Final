@@ -265,6 +265,32 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   const lowSleepIntoHighStakes =
     opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
 
+  // ── Day-shape read runs before the pillar map. On a travel or conference
+  // day the shape is the story; a workday pillar comparison misreads it.
+  if (isTravelShape(opts.dayShape)) {
+    const strained = opts.cognitivePillTier === "amber" ||
+      opts.cognitivePillTier === "red" ||
+      opts.physicalPillTier === "amber" || opts.physicalPillTier === "red" ||
+      opts.band === "stretched" || opts.band === "depleted";
+    if (opts.travelPhase === "post") {
+      return "The transit has already been paid for — what's left is re-entry, and that costs more than it looks.";
+    }
+    if (opts.travelPhase === "in_transit") {
+      return "The day belongs to the journey — arriving intact is the outcome that matters.";
+    }
+    if (opts.dayShape === "personal_travel") {
+      return "The journey is the shape of the day, not the work around it.";
+    }
+    return strained
+      ? "Travel takes more than the timetable shows, and the reserves going in are already thin."
+      : "Travel takes more than the timetable shows — the reserves going in are what the other side gets.";
+  }
+  if (isConferenceShape(opts.dayShape)) {
+    return opts.conferenceDayNumber != null && opts.conferenceDayNumber > 1
+      ? "Attention load accumulates across conference days — that carry is the real signal today."
+      : "A conference day asks for sustained attention rather than bursts of output.";
+  }
+
   if (drainedIntoHighStakes && hasManyHighStakes) {
     return "The felt state and the calendar don't match — sequencing is the day's real decision.";
   }
