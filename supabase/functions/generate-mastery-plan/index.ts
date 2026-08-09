@@ -75,6 +75,11 @@ import { classifyAvailability } from "../_shared/availability/availability-class
 import { resolveUserLocaleContext, type UserLocaleContext } from "../_shared/plan/user-locale.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
+  loadLearningContext,
+  recordConfirmation,
+  stampCalendarEventCategory,
+} from "../_shared/events/learning-store.ts";
+import {
   type RankedJitCandidate,
 } from "../_shared/events/jit-candidates.ts";
 import {
