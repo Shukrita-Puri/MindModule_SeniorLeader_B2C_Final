@@ -120,7 +120,9 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
           endTime: String(it.endTime ?? ""),
           localDay: String(it.localDay ?? (it.startTime ? String(it.startTime).slice(0, 10) : "")),
           period: String(it.period ?? ""),
-          category: String(it.category ?? "Meeting"),
+          // No blanket "Meeting" fallback — an unresolved event renders
+          // without a category chip rather than being mislabelled.
+          category: String(it.category ?? ""),
           typeKey: String(it.typeKey ?? "generic"),
           stakesLevel: it.stakesLevel ?? null,
           score: typeof it.score === "number" ? it.score : 0,
