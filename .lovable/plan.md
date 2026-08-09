@@ -40,15 +40,31 @@ Resilience takes the worst tier across all contributors (`stateMax`). `sustained
 
 ### B. Give the check-in proportional influence over the Resilience tier
 
-Keep worst-of for the physiological inputs (sleep efficiency / HR fallback / sustained deficit), then apply the check-in as a graded overlay instead of one more equal vote:
+**What Decision Readiness actually does with the check-in (audited, lines 264-312).** There is no weighting to copy. Clarity is pushed into the same `cogTiers` array as HRV and sleep and the tier is the worst of them:
 
-- Compute a check-in composite from the dimensions present: emotion, regulation, and polarity-corrected pressure, averaged on their 1-5 scale.
-- Composite >= 4.0 (a clearly strong self-report) softens a physiological RED by one step to amber, and an AMBER to green — one step only, never two, and never past green.
-- Composite <= 2.0 hardens one step in the other direction (green -> amber, amber -> red).
-- Between 2.0 and 4.0 the physiological tier stands.
-- The overlay only applies when at least two check-in dimensions are present, and only when the wearable is fresh (unchanged gate). `contributedByCheckIn` and `sourceTypes` are unchanged.
+```text
+clarity <= 2 -> red,  clarity == 3 -> amber,  clarity >= 4 -> green
+tier = worst(hrv, sleep, clarity)
+```
 
-The tooltip's "why this tier" line gains the composite so the softening or hardening is visible rather than mysterious.
+So a strong clarity read can only ever *fail to worsen* the pill — it can never lift it. Resilience already behaves the same way (equal worst-of vote). Decision Readiness looked like it "used the check-in" only because its `(Refined)` badge rendered correctly, which is defect 3 above; its tier was set by HRV, not by clarity 5/5.
+
+That means the honest answer to "use the same weightage" is: the same weighting is already in place, and it is the thing producing the dead-end. The fix is to give the check-in a real, bounded refining role.
+
+**The refining overlay.** Keep worst-of for the physiological inputs (sleep efficiency / HR fallback / sustained deficit) — the wearable stays the main signal. Then apply the check-in on top, once, as a refinement:
+
+- Per-dimension banding mirrors Decision Readiness exactly, so both pills read the check-in on one scale: `<= 2` weak, `== 3` neutral, `>= 4` strong — with pressure polarity-corrected first (5 Spacious is strong, 1 Overloaded is weak).
+- Average the dimensions present into a 1-5 composite.
+- Composite >= 4.0 softens the physiological tier by one step (red -> amber, amber -> green). One step only, never two, never past green.
+- Composite <= 2.0 hardens by one step (green -> amber, amber -> red).
+- Composite between 2.0 and 4.0 leaves the physiological tier untouched.
+- Requires at least two dimensions present and a fresh wearable (existing gate unchanged). `contributedByCheckIn` and `sourceTypes` are unchanged.
+
+This is deliberately capped at one step so the check-in refines rather than overrides — a genuinely depleted body can still only reach amber on a great self-report.
+
+The tooltip's "why this tier" line gains the composite and the direction ("check-in softened this one step"), so the influence is visible rather than mysterious.
+
+Decision Readiness keeps its current worst-of behaviour this round, per the isolation constraint. If the overlay reads well on Resilience, the same helper can be applied to clarity later as a one-line change.
 
 ### C. Make the badge follow the pill, not a separately gated field
 
@@ -63,11 +79,14 @@ No change to MRS scoring, weights, the brief prompt or copy, the plan, nudges, i
 
 In `derive-pills.test.ts`:
 - pressure 5 (Spacious) → green, does not arm the regulation-risk floor; pressure 1 → amber
-- sustained deficit red + strong check-in (4/5/5) → amber, not red
+- sustained deficit red + strong check-in (emotion 4, regulation 5, pressure 5 → composite 4.67) → amber, not red
 - sustained deficit red + weak check-in (2/2/2) → stays red
 - green physiology + weak check-in → amber
+- composite 3.0 → physiological tier unchanged
+- softening never exceeds one step: red + composite 5.0 → amber, never green
 - fewer than two check-in dimensions → no overlay
 - stale wearable → unchanged behaviour
+- Decision Readiness cases unchanged (regression guard that clarity still uses worst-of)
 
 Frontend: a case asserting the Resilience badge renders "(Refined)" when the server pill has `contributedByCheckIn: true` and the top-level check-in fields are null.
 
