@@ -70,6 +70,25 @@ export interface DeterministicBriefResult {
 }
 
 function shortRef(title: string): string {
+  return shortRefImpl(title);
+}
+
+/** True for the two travel day shapes. */
+function isTravelShape(shape: DayShape | null | undefined): boolean {
+  return shape === "work_travel" || shape === "personal_travel";
+}
+
+function isConferenceShape(shape: DayShape | null | undefined): boolean {
+  return shape === "conference";
+}
+
+/** Public holiday / PTO / personal holiday — off days that are not weekends. */
+function isOffDayShape(shape: DayShape | null | undefined): boolean {
+  return shape === "public_holiday" || shape === "pto" ||
+    shape === "personal_holiday";
+}
+
+function shortRefImpl(title: string): string {
   const clean = title.replace(/^\d{1,2}:\d{2}\s+/, "").trim();
   // Travel first: flight titles carry airport codes and flight numbers that
   // truncate into unreadable fragments ("the flight to new york (ba...").
