@@ -92,14 +92,16 @@ const PRIOR_SIGNALS: ReadonlySet<PriorSignal> = new Set([
   "never",
 ]);
 
-/** User-friendly bucket label aligned with the Plan card vocabulary. */
+/** User-friendly bucket label aligned with the Plan card vocabulary.
+ *  Returns "" when the taxonomy cannot resolve the event — a blank chip is
+ *  honest, a blanket "Meeting" is not (a national holiday is not a meeting). */
 function categoryLabelFor(title: string, categoryId: string | null): string {
   const subtype = classifyEvent(title);
   if (subtype) return subtype.bucket;
   return (
-    categoryId &&
-      EVENT_CATEGORIES[categoryId as keyof typeof EVENT_CATEGORIES]?.name
-  ) || "Meeting";
+    (categoryId &&
+      EVENT_CATEGORIES[categoryId as keyof typeof EVENT_CATEGORIES]?.name) || ""
+  );
 }
 
 /** All-day OOO / holiday block: full-day duration AND PTO-flavoured title. */
