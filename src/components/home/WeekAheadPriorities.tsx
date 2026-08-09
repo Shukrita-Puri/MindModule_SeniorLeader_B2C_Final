@@ -333,7 +333,8 @@ const WeekAheadPriorities = ({ reason, manualOverride }: Props) => {
                         {it.title}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {TIME_LABEL(it.startTime)} · {it.category}
+                        {TIME_LABEL(it.startTime)}
+                        {it.category ? ` · ${it.category}` : ""}
                         {it.subcategoryId && (
                           <span
                             className="ml-1.5 text-muted-foreground/70"
