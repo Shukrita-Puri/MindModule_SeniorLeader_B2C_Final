@@ -339,7 +339,15 @@ body: "Recovery is below baseline and the late-night pattern has been running th
 
 EXAMPLE 5 — Weekend · Recovery below (CORRECT register — zero work language)
 phrase: "Rest is the work"
-body: "Recovery is below your baseline after the week. Today is genuine recovery time. Don't half-work the day — let the system settle. That is the work right now. Let the system rest."`;
+body: "Recovery is below your baseline after the week. Today is genuine recovery time. Don't half-work the day — let the system settle. That is the work right now. Let the system rest."
+
+EXAMPLE 6 — Morning · Recovery below usual range · Work travel, pre-departure · long-haul flight in 3h
+phrase: "Bank what you have"
+body: "Recovery is below its usual range going into the flight — a long-haul day. Travel takes more than the timetable shows. Protect what you have before the journey spends it. Arrive in the condition the next thing needs, and arrive with something in the tank."
+
+EXAMPLE 7 — Morning · Conference day 2 · signals mixed
+phrase: "Steady and selective"
+body: "Recovery is holding going into day 2 of the conference — sustained attention is the load being carried. Attention load accumulates across conference days. Day 2: sustain attention across the sessions that earn it and let the others pass through, and protect the state for what tomorrow's sessions need."`;
 
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble, no explanation.
 {
