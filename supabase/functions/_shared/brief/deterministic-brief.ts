@@ -1,3 +1,5 @@
+import type { DayShape } from "./day-shape.ts";
+
 export type DeterministicBriefBand =
   | "firing"
   | "sharp"
@@ -39,6 +41,26 @@ export interface DeterministicBriefFallbackOpts {
    * branches so the fallback never emits work-directive prose on an off day.
    */
   isNonWorkday?: boolean;
+  /**
+   * Canonical day shape derived from the same signal matrix the Plan uses.
+   * When present it takes priority over isWeekend / isNonWorkday for the
+   * directive, read, evidence and close. Covers work_travel, personal_travel,
+   * conference, public_holiday, pto, personal_holiday, weekend, workday.
+   */
+  dayShape?: DayShape | null;
+  /** Travel phase for work_travel / personal_travel shapes. */
+  travelPhase?: "pre" | "in_transit" | "post" | null;
+  /** True when today's travel event is long-haul (>=6h). */
+  longHaulFlight?: boolean;
+  /** Conference day number when dayShape === 'conference'. */
+  conferenceDayNumber?: number | null;
+  /** Conference title when dayShape === 'conference'. */
+  conferenceTitle?: string | null;
+  /**
+   * Title of today's travel event. The flight never appears in
+   * todayHighStakes (category G is excluded), so it is passed separately.
+   */
+  travelEventTitle?: string | null;
 }
 
 export interface DeterministicBriefResult {
@@ -49,6 +71,13 @@ export interface DeterministicBriefResult {
 
 function shortRef(title: string): string {
   const clean = title.replace(/^\d{1,2}:\d{2}\s+/, "").trim();
+  // Travel first: flight titles carry airport codes and flight numbers that
+  // truncate into unreadable fragments ("the flight to new york (ba...").
+  if (/\bflight\b|\bdeparture\b|\bboarding\b/i.test(clean)) return "the flight";
+  if (/\b[A-Z]{2}\s?\d{2,4}\b/.test(clean) && /\bto\b|\bfrom\b/i.test(clean)) {
+    return "the flight";
+  }
+  if (/\btrain\b|\beurostar\b/i.test(clean)) return "the journey";
   if (/board|governance/i.test(clean)) return "the board call";
   if (/strategy|5.year|planning|deep work/i.test(clean)) {
     return "the strategy session";
