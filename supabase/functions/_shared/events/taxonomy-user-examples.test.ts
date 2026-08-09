@@ -17,7 +17,7 @@ const CASES: Array<[string, string, string]> = [
   ["Flight to New York (BA 183)", "G", "flight"],
   ["Weekly team sync", "E", "routine_sync"],
   ["Keynote at Founder Summit", "C", "speaking"],
-  ["Speaking at the AI governance roundtable", "C", "roundtable"],
+  ["Speaking at the AI leaders roundtable", "C", "roundtable"],
   ["3-year strategy planning", "A", "strategy"],
   ["Production incident escalation", "D", "crisis_decision"],
   ["Queen's Gate School open evening", "F", "workshop"],

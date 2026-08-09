@@ -507,6 +507,36 @@ const ROWS: RawSubtype[] = [
   },
 
   // ── Category C · Visibility & Communication ──
+  // Spec C.roundtable — user is SPEAKING / PRESENTING at a roundtable.
+  // Must precede str.community, which owns the "member of" case.
+  {
+    id: "vis.roundtable",
+    label: "Roundtable (speaking)",
+    bucket: "Visibility & Communication",
+    categoryId: "C",
+    group: "D_visibility",
+    primaryPillar: 2,
+    demandProfile: D(1, 1, 3, 1, 1, 2, 0, 2),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Pause",
+    keywords: [
+      "speaking at roundtable",
+      "roundtable panel",
+      "moderating roundtable",
+      "chairing roundtable",
+      "roundtable keynote",
+    ],
+    keywordGroups: [
+      ["roundtable", "speaking"],
+      ["roundtable", "moderat"],
+      ["roundtable", "chairing"],
+      ["roundtable", "presenting"],
+    ],
+    masteryModules: ["regulate", "align", "prepare"],
+    jitLeadTimeMinutes: 720,
+  },
+
   // v2 additive — internal stakeholder / results communication. Insert BEFORE vis.media/all_hands
   // so titles like "Q2 results to leadership" route here rather than to media or fundraising.
   {
@@ -591,36 +621,6 @@ const ROWS: RawSubtype[] = [
     masteryModules: ["regulate", "align"],
     jitLeadTimeMinutes: 240,
   },
-  // Spec C.roundtable — user is SPEAKING / PRESENTING at a roundtable.
-  // Must precede str.community, which owns the "member of" case.
-  {
-    id: "vis.roundtable",
-    label: "Roundtable (speaking)",
-    bucket: "Visibility & Communication",
-    categoryId: "C",
-    group: "D_visibility",
-    primaryPillar: 2,
-    demandProfile: D(1, 1, 3, 1, 1, 2, 0, 2),
-    timingMatrix: { pre: true, during: false, post: true },
-    regulationObjective: "PREPARE",
-    interventionType: "Pause",
-    keywords: [
-      "speaking at roundtable",
-      "roundtable panel",
-      "moderating roundtable",
-      "chairing roundtable",
-      "roundtable keynote",
-    ],
-    keywordGroups: [
-      ["roundtable", "speaking"],
-      ["roundtable", "moderat"],
-      ["roundtable", "chairing"],
-      ["roundtable", "presenting"],
-    ],
-    masteryModules: ["regulate", "align", "prepare"],
-    jitLeadTimeMinutes: 720,
-  },
-
   // ── Category D · People & Difficult Conversations ──
   {
     id: "lead.executive_1on1",
