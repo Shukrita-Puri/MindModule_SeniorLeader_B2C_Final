@@ -430,7 +430,7 @@ interface CanonicalGroup {
 function canMergeIntoGroup(row: CalendarMergeInput, group: CanonicalGroup): boolean {
   const rowTitle = normalizeForClassify(row.title);
   if (!rowTitle) return false;
-  if (rowTitle !== group.normalizedTitle) return false;
+  if (!titlesMatch(rowTitle, group.normalizedTitle)) return false;
 
   const start = startMsFor(row);
   const duration = durationMinutes(row);
