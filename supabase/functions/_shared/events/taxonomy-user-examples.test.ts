@@ -12,6 +12,9 @@ const CASES: Array<[string, string, string]> = [
   ["Stay: DoubleTree by Hilton", "G", "accommodation"],
   ["Weekly AI Forum", "E", "community"],
   ["Statue of Liberty and Ellis Island tour", "G", "travel"],
+  // Real calendar title: no "tour" token, misspelt island name.
+  ["Statue of Liberty and Elise Island New York", "G", "travel"],
+  ["Day trip to the Hamptons", "G", "travel"],
   ["Reservation at Yoshoku", "H", "recreation"],
   ["Chief AI Thursday connects", "E", "community"],
   ["Flight to New York (BA 183)", "G", "flight"],
