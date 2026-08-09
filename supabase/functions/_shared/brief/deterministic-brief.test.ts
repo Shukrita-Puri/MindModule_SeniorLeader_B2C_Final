@@ -401,8 +401,110 @@ Deno.test("weekend + green pills → light week-prep beat (c)", () => {
     wearableFact: "HRV is running above baseline",
   });
   if (!out) throw new Error("expected a weekend brief");
-  assertStringIncludes(out.body, "setting up the week");
+  assertStringIncludes(out.body, "forward thinking is fine");
   assertEquals(WORK_VOCAB.test(out.body), false);
+});
+
+// ── Day-shape routing (travel, conference, off-day) ──────────────────────
+
+const SUNDAY_FLIGHT_BASE = {
+  ...WEEKEND_BASE,
+  band: "steady" as const,
+  cognitivePillTier: "amber" as const,
+  physicalPillTier: "green" as const,
+  travelEventTitle: "Flight to New York (BA 183)",
+};
+
+Deno.test("work_travel pre-departure on a Sunday routes to travel, not weekend", () => {
+  const out = build({
+    ...SUNDAY_FLIGHT_BASE,
+    dayShape: "work_travel",
+    travelPhase: "pre",
+  });
+  assertStringIncludes(out.body, "The journey will cost more than the timetable shows");
+  assertStringIncludes(out.body, "arrive with something in the tank");
+  assertEquals(out.body.includes("Let today actually recover"), false);
+});
+
+Deno.test("work_travel names the flight without truncating the title", () => {
+  const out = build({
+    ...SUNDAY_FLIGHT_BASE,
+    cognitivePillTier: "green",
+    dayShape: "work_travel",
+    travelPhase: "pre",
+    longHaulFlight: true,
+  });
+  assertStringIncludes(out.body, "the flight");
+  assertStringIncludes(out.body, "long-haul");
+  assertEquals(out.body.includes("..."), false);
+});
+
+Deno.test("work_travel post-arrival gives a re-entry directive", () => {
+  const out = build({
+    ...SUNDAY_FLIGHT_BASE,
+    dayShape: "work_travel",
+    travelPhase: "post",
+  });
+  assertStringIncludes(out.body, "The trip left a lag");
+  assertStringIncludes(out.body, "let the system settle before pushing");
+});
+
+Deno.test("personal_travel carries no work framing", () => {
+  const out = build({
+    ...SUNDAY_FLIGHT_BASE,
+    dayShape: "personal_travel",
+    travelPhase: "pre",
+  });
+  assertStringIncludes(out.body, "The journey is the day");
+  assertEquals(WORK_VOCAB.test(out.body), false);
+});
+
+Deno.test("conference day 2 sustains attention across sessions", () => {
+  const out = build({
+    ...WEEKEND_BASE,
+    isWeekend: false,
+    band: "steady",
+    cognitivePillTier: "amber",
+    physicalPillTier: "green",
+    dayShape: "conference",
+    conferenceDayNumber: 2,
+    conferenceTitle: "SaaStr Annual",
+  });
+  assertStringIncludes(out.body, "Day 2: sustain attention");
+  assertStringIncludes(out.body, "tomorrow's sessions need");
+});
+
+Deno.test("pto asks for genuine recovery, not half-work", () => {
+  const out = build({
+    ...WEEKEND_BASE,
+    isWeekend: false,
+    isNonWorkday: true,
+    band: "depleted",
+    cognitivePillTier: "amber",
+    physicalPillTier: "amber",
+    dayShape: "pto",
+  });
+  assertStringIncludes(out.body, "The system needs this day to actually recover");
+  assertEquals(WORK_VOCAB.test(out.body), false);
+});
+
+Deno.test("workday with no dayShape is unchanged by day-shape routing", () => {
+  const withoutShape = build(base({
+    band: "depleted",
+    checkInOutcome: "drained",
+    cognitivePillTier: "amber",
+    physicalPillTier: "red",
+    todayHighStakes: ["Board Call"],
+  }));
+  const withWorkday = build(base({
+    band: "depleted",
+    checkInOutcome: "drained",
+    cognitivePillTier: "amber",
+    physicalPillTier: "red",
+    todayHighStakes: ["Board Call"],
+    dayShape: "workday",
+  }));
+  assertEquals(withWorkday.body, withoutShape.body);
 });
 
 Deno.test("weekend + depleted band → recovery-first, not 'one priority that cannot wait'", () => {
