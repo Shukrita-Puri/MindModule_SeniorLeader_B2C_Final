@@ -611,6 +611,24 @@ serve(async (req) => {
     }
 
     // No per-category cap, no top-N truncation. Return everything.
+    // Learning loop write-back: stamp every confident resolve as a confirmed
+    // classification so Brief / pills / Plan / Nudges / Insights read the
+    // same value next pass. Best-effort, never blocks the response.
+    try {
+      for (const row of scored) {
+        if (!row.eventCategory) continue;
+        await recordConfirmation(supabase, {
+          userId,
+          title: row.title,
+          category: row.eventCategory,
+          subcategory: row.eventSubcategory ?? null,
+          source: "resolver",
+          resolvedBy: "week_ahead_resolver",
+          confidence: "medium",
+        });
+      }
+    } catch (_e) { /* best-effort */ }
+
     // Emphasis order handled by score; final list stays chronological for UI.
     const picked = scored.slice().sort(
       (a, b) =>
