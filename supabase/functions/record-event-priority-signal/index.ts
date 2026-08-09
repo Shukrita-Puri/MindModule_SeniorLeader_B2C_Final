@@ -20,6 +20,10 @@ import { authenticateRequest } from "../_shared/auth.ts";
 import { coarseEventType } from "../_shared/events/event-classifier.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
+  recordConfirmation,
+  stampCalendarEventCategory,
+} from "../_shared/events/learning-store.ts";
+import {
   normalizeEventTitleMemoryKey,
   TITLE_SPECIFIC_MEMORY_CATEGORY,
 } from "../_shared/plan/event-priority-memory.ts";
@@ -167,7 +171,23 @@ serve(async (req) => {
     // v2 taxonomy: capture the fine-grained subcategory (e.g. "deep_work",
     // "long_haul") once so downstream Plan / Insights / Nudges can read it
     // without re-classifying. Nullable — safe if classifier returns no match.
-    const subcategory = enrichEvent({ title: resolvedTitle }).subcategory;
+    const enrichedSignal = enrichEvent({ title: resolvedTitle });
+    const subcategory = enrichedSignal.subcategory;
+
+    // ─── Learning loop: user override → confirmed classification ───
+    // An explicit A–H category from the client wins; otherwise the act of
+    // categorising/acting on the event confirms the current resolution for
+    // this title. Best-effort — never blocks the signal write.
+    const clientCategoryRaw = typeof body?.eventCategory === "string"
+      ? body.eventCategory.trim().toUpperCase().slice(0, 1)
+      : null;
+    const confirmedCategory =
+      (clientCategoryRaw && "ABCDEFGH".includes(clientCategoryRaw)
+        ? clientCategoryRaw
+        : null) ?? enrichedSignal.categoryId ?? null;
+    const confirmationSource = clientCategoryRaw
+      ? "user_override" as const
+      : (source === "post_plan_feedback" ? "plan_slot" as const : "user_override" as const);
 
     // ─── SSOT exclusion scope: compute the target week + resolve identity ───
     const scope = scopeForSignal(signal);
