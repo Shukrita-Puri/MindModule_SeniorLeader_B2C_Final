@@ -104,6 +104,9 @@ type AnySupabase = {
 const PUBLIC_HOLIDAY_RX =
   /\b(public holiday|bank holiday|national holiday|statutory holiday|holiday observed|observed holiday)\b/i;
 
+/** All-day accommodation legs the classifier doesn't tag as travel. */
+const STAY_RX = /\b(hotel|airbnb|check[- ]?in|check[- ]?out|stay at|accommodation)\b/i;
+
 export function isAllDayEvent(e: any): boolean {
   if (e?.is_all_day === true || e?.isAllDay === true || e?.all_day === true) return true;
   const startMs = new Date(e?.start_time ?? e?.startTime).getTime();
@@ -126,6 +129,7 @@ export function isLoadBearingEvent(e: any): boolean {
   const title = String(e?.title ?? '');
   if (!title) return false;
   if (PUBLIC_HOLIDAY_RX.test(title)) return false;
+  if (STAY_RX.test(title) && isAllDayEvent(e)) return false;
   const { categoryId } = enrichEvent(e);
   if (categoryId === 'G') return false;
   if (categoryId === 'H' && isAllDayEvent(e)) return false;
