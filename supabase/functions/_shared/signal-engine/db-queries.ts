@@ -18,6 +18,7 @@ import { computeCalendarDemand } from './demand-scorer.ts';
 import { computeCognitiveFragmentation } from './cognitive-fragmentation.ts';
 import type { CalendarLevel } from './context-builder.ts';
 import { coarseEventType } from '../events/event-classifier.ts';
+import { enrichEvent } from '../events/enrich-event.ts';
 import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
 
 export interface CalendarMetricsResult {
@@ -99,6 +100,37 @@ export function toBriefEvents(events: any[]): BriefEventLite[] {
 type AnySupabase = {
   from: (table: string) => any;
 };
+
+const PUBLIC_HOLIDAY_RX =
+  /\b(public holiday|bank holiday|national holiday|statutory holiday|holiday observed|observed holiday)\b/i;
+
+export function isAllDayEvent(e: any): boolean {
+  if (e?.is_all_day === true || e?.isAllDay === true || e?.all_day === true) return true;
+  const startMs = new Date(e?.start_time ?? e?.startTime).getTime();
+  const endMs = new Date(e?.end_time ?? e?.endTime ?? e?.start_time ?? e?.startTime).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return false;
+  return (endMs - startMs) / 60000 >= 23 * 60;
+}
+
+/**
+ * Category-aware load filter for the user-facing meeting count.
+ *
+ * Excluded from the count (but still present in the Brief / Next Up):
+ *   - Category G — all travel and logistics (flights, transfers, hotel legs).
+ *   - Category H all-day blocks — personal rhythm, stays, weigh days.
+ *   - Public holidays.
+ *
+ * A flight is real, but it is not a meeting; counting it inflates the load pill.
+ */
+export function isLoadBearingEvent(e: any): boolean {
+  const title = String(e?.title ?? '');
+  if (!title) return false;
+  if (PUBLIC_HOLIDAY_RX.test(title)) return false;
+  const { categoryId } = enrichEvent(e);
+  if (categoryId === 'G') return false;
+  if (categoryId === 'H' && isAllDayEvent(e)) return false;
+  return true;
+}
 
 const EMPTY_DISCONNECTED: CalendarMetricsResult = {
   load: 'low', pressure: 'low',
@@ -198,6 +230,7 @@ export async function getServerCalendarMetrics(
   // Filtered meeting count for user-facing text.
   const isMeeting = (e: any): boolean => {
     if (isNoiseTitle(e.title)) return false;
+    if (!isLoadBearingEvent(e)) return false;
     return survivesAttendeeOrDurationFloor(e);
   };
   const meetingList = eventList.filter(isMeeting);
