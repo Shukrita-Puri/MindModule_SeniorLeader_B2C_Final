@@ -12,7 +12,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { authenticateRequest } from "../_shared/auth.ts";
 import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 
 const corsHeaders = {
@@ -108,7 +108,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await verifyAuth0JWT(req.headers.get("Authorization"), req);
+    const authResult = await authenticateRequest(req, corsHeaders);
+    if (authResult.errorResponse) return authResult.errorResponse;
+    const userId = authResult.userId;
+
     const body = await req.json().catch(() => ({}));
 
     const lat = typeof body.lat === "number" ? body.lat : null;

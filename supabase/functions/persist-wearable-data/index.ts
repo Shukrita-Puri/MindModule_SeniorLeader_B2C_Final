@@ -11,14 +11,29 @@ import { atomicMergeUpsertWearable } from "../_shared/wearable/atomic-upsert.ts"
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-mm-client-platform",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-mm-client-platform, x-outbox-item-id",
 };
+
+// Prevent OOM during iOS outbox retry storms. Edge functions share the same
+// V8 isolate (150MB limit). Processing >5 heavy Apple HealthKit JSON payloads
+// concurrently will reliably crash the isolate yielding 502 Bad Gateway.
+let activeRequests = 0;
+const MAX_CONCURRENT_REQUESTS = 5;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+    console.warn(`[persist-wearable-data] 429 Too Many Requests (Concurrency limit ${MAX_CONCURRENT_REQUESTS} reached). Shedding load to prevent OOM.`);
+    return new Response(
+      JSON.stringify({ error: "too_many_requests", detail: "Concurrency limit reached. Please retry later." }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "5" } }
+    );
+  }
+
+  activeRequests++;
   try {
     const authResult = await authenticateRequest(req, corsHeaders);
     if (authResult.errorResponse) return authResult.errorResponse;
@@ -322,5 +337,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: "Internal error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+  } finally {
+    activeRequests--;
   }
 });
