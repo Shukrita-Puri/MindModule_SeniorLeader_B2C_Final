@@ -478,6 +478,13 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
         emotionLevel,
         regulationLevel,
         pressureLevel,
+        ...(resilienceCheckInComposite != null
+          ? {
+            checkInComposite:
+              Math.round(resilienceCheckInComposite * 10) / 10,
+            checkInEffect: resilienceCheckInEffect,
+          }
+          : {}),
         sustainedDeficit: sustainedDeficitFlag,
         ...(sustainedDeficitSeverity != null
           ? { sustainedDeficitSeverity }

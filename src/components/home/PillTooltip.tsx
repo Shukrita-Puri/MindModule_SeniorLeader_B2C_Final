@@ -80,6 +80,8 @@ const CONTRIBUTORS: Record<string, ContribSpec> = {
   emotionLevel:                { label: 'Emotion',          fmt: (v) => num(v, '/5') },
   regulationLevel:             { label: 'Regulation',       fmt: (v) => num(v, '/5') },
   pressureLevel:               { label: 'Pressure',         fmt: (v) => num(v, '/5') },
+  checkInComposite:            { label: 'Check-in read',    fmt: (v) => num(v, '/5') },
+  checkInEffect:               { label: 'Check-in effect',  fmt: (v) => checkInEffect(v) },
 };
 
 const EXPECTED_CONTRIBUTORS: Record<PillTooltipPill['key'], Array<{ key: string; label: string; missing: string }>> = {
@@ -153,6 +155,8 @@ const ALLOWED_CONTRIBUTORS: Record<PillTooltipPill['key'], Set<string>> = {
     'sustainedDeficit',
     'sustained_deficit_flag',
     'sustainedDeficitSeverity',
+    'checkInComposite',
+    'checkInEffect',
   ]),
 };
 
