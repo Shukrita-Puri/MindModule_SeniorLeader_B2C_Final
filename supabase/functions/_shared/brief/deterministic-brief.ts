@@ -123,6 +123,35 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   const lowSleepIntoHighStakes =
     opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
 
+  // ── Travel evidence. The flight is the day's dominant demand but never
+  // reaches todayHighStakes, so without this branch beat (a) reads as if the
+  // calendar were empty.
+  if (isTravelShape(opts.dayShape) && opts.travelEventTitle) {
+    const ref = shortRef(opts.travelEventTitle);
+    const haul = opts.longHaulFlight ? "long-haul " : "";
+    if (opts.hasWearable) {
+      return `${
+        wearableFact ?? "Recovery signals are in"
+      } going into ${haul ? `a ${haul}day — ` : ""}${ref}.`;
+    }
+    if (opts.checkInOutcome) {
+      const felt = opts.checkInOutcome === "holding"
+        ? "steady"
+        : opts.checkInOutcome;
+      return `You've checked in ${felt} with ${ref} ahead this ${opts.window} — the transit is the demand, not the calendar.`;
+    }
+  }
+  if (isConferenceShape(opts.dayShape)) {
+    const dayRef = opts.conferenceDayNumber != null
+      ? `Day ${opts.conferenceDayNumber} of the conference`
+      : "A full conference day";
+    if (opts.hasWearable) {
+      return `${
+        wearableFact ?? "Recovery signals are in"
+      } going into ${dayRef.toLowerCase()} — sustained attention is the load being carried.`;
+    }
+  }
+
   if (drainedIntoHighStakes) {
     const eventRef = hasManyHighStakes
       ? opts.todayHighStakes.slice(0, 2).map(shortRef).join(" and ")
