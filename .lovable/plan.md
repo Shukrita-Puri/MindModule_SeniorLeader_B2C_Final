@@ -1,4 +1,6 @@
-# One Event Taxonomy, Correct Tags, and a Learning Loop
+# One Event Taxonomy, One Resolver, One Learning Loop
+
+You are right — nothing gets reinvented. Your A–H schema is the specification; the existing `_shared/events/*` files are the implementation of it. This pass reconciles the implementation to your document, wires every surface through one resolver, and makes the learning loop shared rather than per-feature.
 
 ## What I verified first
 
@@ -9,54 +11,86 @@ Flight to New York (BA 183)           -> G  trv.flight        OK
 Flight to JFK (BA 183)                -> G  trv.flight        OK
 Flight: BA 183 from LHR to JFK        -> G  trv.flight        OK
 Chief AI Thursday connects            -> E  str.community     OK
-Stay: DoubleTree by Hilton New York   -> (no match)           WRONG
-National Day / National Day observed  -> (no match)           WRONG
-1 day liquid fast                     -> (no match)           WRONG
-Reservation at Yoshoku                -> (no match)           WRONG
-Statue of Liberty and Ellis Island    -> (no match)           WRONG
-Weekly AI Forum - Personal            -> H  rhy.catchup       WRONG (should be E.community)
+Stay: DoubleTree by Hilton New York   -> (no match)           MISS
+National Day / National Day observed  -> (no match)           MISS
+1 day liquid fast                     -> (no match)           MISS
+Reservation at Yoshoku                -> (no match)           MISS
+Statue of Liberty and Ellis Island    -> (no match)           MISS
+Weekly AI Forum - Personal            -> H  rhy.catchup       MIS-ROUTED
 ```
 
-So flights are already correct end-to-end. The visible failures are (a) missing keywords for accommodation / holiday / self-care / recreation, (b) a precedence bug where the generic "weekly" keyword on `rhy.catchup` beats the community row, and (c) Week-Ahead printing the word "Meeting" whenever nothing matched.
+Every one of those misses already has a home in your schema — `G.accommodation`, `H.holiday`, `H.wellness_self_care`, `H.recreation`, `G.travel_day`, `E.community`. No new subtype is needed anywhere. The rows exist; they are simply not being reached.
 
 ## A — Is there one TypeScript source of truth?
 
-Yes, and it is already the only one in use. `_shared/events/event-categories.ts` owns A–H; `_shared/events/event-subtypes.ts` owns the 30 subtypes; `event-classifier.ts` does the matching; `enrich-event.ts` is the single read adapter. Brief (LLM + deterministic), calendar signal pills / load count (`signal-engine/db-queries.ts`), Week-Ahead, Plan, JIT v2, Nudges and Insights all resolve through that same path — no forked copy exists. `src/utils/rules/calendarEvents.ts` does not classify; it only ranks importance and picks "Next Up", so it stays untouched.
+Yes, and it is the only classifier any surface uses today:
 
-One real duplication to note: `classify-event-v2.ts` is a second, richer classifier that currently only shadow-runs. It stays additive in this pass; no engine switch.
+```text
+event-categories.ts   A–H pillars
+event-subtypes.ts     the subcategory rows + matching cues
+event-classifier.ts   title -> subtype
+enrich-event.ts       the one adapter every surface reads
+```
 
-## B — Make that one file complete
+Brief (LLM and deterministic), calendar load / signal pills (`signal-engine/db-queries.ts`), Week-Ahead, Plan, JIT v2, Smart Nudges, Insights and `event_priority_memory` all resolve through that chain. There is no competing taxonomy file. `src/utils/rules/calendarEvents.ts` does not classify — it only ranks importance and picks "Next Up", so it stays out of scope.
 
-Edit `event-subtypes.ts` only (no new taxonomy file):
+`classify-event-v2.ts` is the richer layered resolver (status, user tags, presentation verbs, attendee roles, travel, acronyms) that currently only shadow-runs. It is the right place for the learning layers, and it already falls back to the same dictionary — so adopting it is a wiring change, not a second taxonomy.
 
-- `trv.accommodation` (G): add `stay:`, `stay at`, `hotel`, `doubletree`, `marriott`, `hilton`, `airbnb`, `guesthouse`, `narrowboat stay`.
-- `trv.travel_day` (G): add `tour`, `sightseeing`, `excursion`, so "Statue of Liberty and Ellis Island Tour" lands in G rather than nowhere.
-- `rhy.holiday` (H): add `national day`, `day observed`, `observed`, alongside the existing all-day gate.
-- `rhy.wellness_self_care` (H): add `liquid fast`, `fast`, `detox`, `massage`, `spa`, `salon`.
-- `rhy.recreation` (H): add `reservation at`, `dinner at`, `booking at`, `museum`, `exhibition`.
-- `str.community` (E): add `forum`, `roundtable`, `connects`, `breakfast club`, and move the row so it is evaluated **before** `rhy.catchup`; add `forum`, `roundtable`, `community` to `rhy.catchup.excludeKeywords` so "Weekly AI Forum" no longer collapses into a catch-up.
+## B — Reconcile the implementation to your schema (no new subcategories)
 
-Every added keyword gets a matching case in `event-tagging-v2.test.ts` using the exact titles above.
+I compared your 28 subcategories against the rows that exist. The overwhelming majority already match one-for-one. Only these need reconciling, and each is a **mapping** decision, not a new invention:
 
-## C — Stop the blanket "Meeting" tag
+| Your schema | Current implementation | Action |
+|---|---|---|
+| `E.routine_sync` | `rhy.catchup` sits under **H** | Re-home to E, subcategory `routine_sync` |
+| `C.town_hall` | `vis.all_hands` | Keep row, emit subcategory `town_hall` |
+| `C.roundtable` | "roundtable" owned by `str.community` | Split on the speaking gate you defined: speaking/presenting → `C.roundtable`, member-of → `E.community` |
+| `C.speaking` | `conf.speaking` under **F** | Speaking-at-event → C; multi-day attendance stays F |
+| `F.workshop`, `F.event` | no row | Map onto the existing F rows (`conf.customer_summit`, `conf.award`, offsite) and label per your names |
+| `A.strategy` | `str.strategy_planning` under **E** | Multi-hour strategic decision session → `A.strategy`; strategy *review/analysis* stays `E.deep_work` per your doc |
+| `D.crisis_decision` | `gov.crisis` under **A** | Re-home to D |
 
-`list-week-ahead-priorities/index.ts` line 96 ends with `|| "Meeting"`. That is what stamps "Meeting" on National Day, hotel stays and the liquid fast. Change it to return `null` when nothing classifies, and have `WeekAheadPriorities.tsx` render no chip at all in that case (it currently defaults `category` to `"Meeting"` too — that default goes as well). Consumer-facing labels stay as today: bucket name plus the bare subcategory, e.g. `Travel · accommodation`, `Deep Work & Strategy · community` — never `E.community`.
+Matching cues come **verbatim from the Examples in your document** — "Stay at Marriott…", "Narrowboat stay", "Reservation at Hakkasan Mayfair", "Racial Harmony Day", "Traditional Thai Massage", "Chief AI Thursday connects", "Banking on Breakfast", "Visit west reservoir". Nothing is authored from scratch; the doc's examples become the row's cues. The `rhy.catchup` "weekly" cue that swallowed "Weekly AI Forum" gets an exclusion so the community gate wins, exactly as your `E.community vs E.routine_sync` distinction requires.
 
-Load count moves in the right direction for free: `isLoadBearingEvent` already drops G, all-day H, and public holidays, so once the hotel stay and National Day actually classify, they finally leave the meeting count instead of inflating it.
+Naming: `subcategoryFromSubtypeId` becomes the single alias table that emits **your** spec names (`deep_work`, `learning`, `community`, `routine_sync`, `accommodation`, `flight`, `travel_day`, `holiday`, `recreation`, `wellness_self_care`, `social`, `family`, `pto`, `stakeholder_communication`, `town_hall`, `roundtable`, `crisis_decision`, `trustee`, `strategy`, `client_presentation`, `pitch_competitive`, `hiring_interview`, `difficult_conversation`, `review`, `compliance`, `workshop`, `event`, `wellness_*`). Internal ids stay stable so no historical row breaks. One test asserts the emitted set equals your 28 names exactly — that is the anti-drift guard.
 
-## D — How the system learns instead of being hand-fed
+Your 12 verification cases become the acceptance test file, plus the six titles from today's screenshots.
 
-Three layers, cheapest first:
+## C — One resolver, so every surface is identical by construction
 
-1. **Persist what was decided.** `event_priority_memory` already carries `event_category` / `event_subcategory` per `event_id`, and Week-Ahead already prefers the persisted value over a fresh classify. Extend the writer so every classified event stamps its category — not only the ones that reach a plan — so a title is resolved once and reused.
-2. **Learn from user corrections.** Add a small `event_category_overrides` table keyed by `(user_id, normalized_title_key)` holding `category`, `subcategory`, `source`. Insert on any explicit user tag, then read it as the top layer of `classifyEventV2` (Layer 1 already accepts `userTags` — this feeds it from the database). One correction fixes that event forever on every surface, because all surfaces share the classifier.
-3. **Generalise across new names.** Nightly, roll overrides up by token: when the same corrected category appears for three or more distinct titles sharing a distinctive token (`doubletree`, `yoshoku`, `forum`), promote that token to a per-user learned keyword consulted after the shared dictionary and before "unknown". Unknown stays unknown — the system never guesses "Meeting".
+New `_shared/events/resolve-event-category.ts` — the only entry point:
 
-If you would rather not add a user-visible "change category" control in Week-Ahead this pass, layers 1 and 3 still work off implicit signals; say so and I will scope the UI separately.
+```text
+1 user override        (explicit, per user)
+2 learned token map    (rolled up from confirmed history)
+3 persisted class.     (calendar_events.event_category / event_priority_memory)
+4 layered classifier   (classify-event-v2 -> dictionary)
+5 unresolved           (internal best guess + confidence, label hidden)
+```
 
-## Technical notes
+`enrichEvent` calls it and returns `{ categoryId, subcategory, confidence, source }`. Brief, load pill, Week-Ahead, Plan/JIT v2, Nudges, Insights and `event_priority_memory` already read `enrichEvent`, so they inherit every layer without individual changes. A repo guard test fails the build if any surface imports `classifyEvent` directly again — that is what stops the drift you are describing.
 
-- Files touched: `_shared/events/event-subtypes.ts`, `_shared/events/event-tagging-v2.test.ts`, `list-week-ahead-priorities/index.ts`, `src/components/home/WeekAheadPriorities.tsx`, plus one migration and a small override reader in `classify-event-v2.ts`.
-- No change to the Calendar "Next" pill, to travel arc logic, or to MRS scoring.
-- Verification: Deno tests for the ten titles above, then live calls to `list-week-ahead-priorities` and `compute-outer-readiness` to confirm identical tags on both surfaces.
-- Deploy order: keyword + test change first (isolated), then the Week-Ahead label change, then the learning-loop migration.
+**User-facing vs internal, per your instruction:** when confidence is low the internal category is still assigned and stored (so allocation, arcs and load counting keep working), but the visible chip renders **blank** — never "Meeting". `list-week-ahead-priorities` drops its `|| "Meeting"` default and `WeekAheadPriorities.tsx` drops its client-side `"Meeting"` fallback. Labels stay as they read today: `Travel · accommodation`, `Deep Work & Strategy · community` — no `E.` prefixes.
+
+Load counting improves for free: `isLoadBearingEvent` already excludes G, all-day H and public holidays, so once the hotel stay and National Day actually resolve, they leave the meeting count instead of inflating it.
+
+## D — Learning that feeds every feature, not just JIT v2
+
+Because all surfaces read one resolver, learning only has to be written once to reach all of them. Three shared stores, all read at layers 1–3 above:
+
+1. **Confirmed classifications** — every resolve writes back `event_category` / `event_subcategory` on `calendar_events` and `event_priority_memory`. A title resolved once is never re-derived, and Brief, pills, Week-Ahead, Nudges and Insights all read the same stamped value on the next pass.
+2. **Signals from the day's 3 plan slots** — as you asked, Week-Ahead stays read-only for category (users only mark importance there). When an event surfaces in one of the day's three slots and the user categorises or acts on it, that becomes a confirmed observation for that title. No new Week-Ahead UI.
+3. **Token generalisation** — nightly, when the same confirmed category recurs across three or more distinct titles sharing a distinctive token (`doubletree`, `forum`, `yoshoku`), the token is promoted to a learned cue for that user, consulted at layer 2. That is how new hotel names and new forum names classify themselves without you populating anything again.
+
+Everything is keyed per user, with a `source` and `confidence` column so a learned guess can be told apart from a dictionary hit and shown or hidden accordingly.
+
+## Safe deployment
+
+Four isolated steps, each independently verifiable and reversible:
+
+1. **Taxonomy reconciliation + spec-name alias table + acceptance tests.** Pure classifier change, no surface behaviour flip. Verified by your 12 cases plus today's six titles.
+2. **Resolver + `enrichEvent` rewire, run in shadow.** Both old and new results logged to `event_classifier_parity_log`; I review divergence before flipping. No user-visible change.
+3. **Flip the resolver on and remove the "Meeting" fallback.** Deploy Brief / Week-Ahead / Nudges / Plan / Insights together in one pass so no two surfaces disagree for even a minute, then re-run the backfill script over the last 30 days.
+4. **Learning-loop migration and nightly roll-up.** Additive tables; layers 1–3 degrade to the dictionary if empty.
+
+I will report the exact classification of every event in your screenshots on each surface before calling it done.
