@@ -342,7 +342,45 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
 }
 
 function buildDirective(opts: DeterministicBriefFallbackOpts): string {
-  // ── Non-workday branch runs FIRST, before any pillar/high-stakes branch.
+  const tiersForShape = [opts.cognitivePillTier, opts.physicalPillTier];
+  const shapeStrained = tiersForShape.some((t) => t === "amber" || t === "red") ||
+    opts.band === "stretched" || opts.band === "depleted";
+
+  // ── DAY SHAPE ROUTING — runs before the weekend and pillar branches so a
+  // Sunday flight reads as travel, not as a plain weekend.
+  if (opts.dayShape === "work_travel") {
+    if (opts.travelPhase === "in_transit") {
+      return "The transit has already taken something. Focus on arriving intact before thinking about what comes next";
+    }
+    if (opts.travelPhase === "post") {
+      return "The trip left a lag — sequence the first block against it, not through it";
+    }
+    if (shapeStrained) {
+      return "The journey will cost more than the timetable shows. Protect what's there before it spends what's left";
+    }
+    if (opts.longHaulFlight) {
+      return "Long-haul takes more than it looks — bank what you have before boarding, so the other side gets you intact";
+    }
+    return "Protect what you have before the journey spends it. Arrive in the condition the next thing needs";
+  }
+  if (opts.dayShape === "personal_travel") {
+    return "The journey is the day. Arriving whole is the outcome — nothing else needs to be produced";
+  }
+  if (opts.dayShape === "conference") {
+    const dayRef = opts.conferenceDayNumber != null
+      ? `Day ${opts.conferenceDayNumber}`
+      : "Today";
+    return shapeStrained
+      ? `${dayRef}: sustain attention in the sessions that earn it and let the rest pass through — the accumulated load is real`
+      : `${dayRef}: sustain attention across the sessions that earn it and let the others pass through`;
+  }
+  if (isOffDayShape(opts.dayShape)) {
+    return shapeStrained
+      ? "The system needs this day to actually recover — not half-work it. Let today be what it is"
+      : "Reserves are holding. Protect them rather than spending them; a little forward thinking is fine";
+  }
+
+  // ── Non-workday branch, before any pillar/high-stakes branch.
   // Weekend, long weekend, public holiday, PTO / OOO, personal leave and
   // personal travel all collapse into `isWeekend` upstream, so this single
   // gate covers every off-day shape. Beat (c) must carry no work language:
