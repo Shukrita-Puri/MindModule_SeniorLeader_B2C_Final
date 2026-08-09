@@ -333,6 +333,31 @@ serve(async (req) => {
     }
 
     // ─── Snapshot invalidation ───
+    // Learning loop write-back (fire-and-forget ordering: awaited but guarded).
+    if (confirmedCategory) {
+      await recordConfirmation(supabase, {
+        userId,
+        title: resolvedTitle,
+        category: confirmedCategory,
+        subcategory,
+        subtypeId: enrichedSignal.subtype?.id ?? null,
+        source: confirmationSource,
+        resolvedBy: clientCategoryRaw ? "user_category" : "user_action",
+        confidence: "high",
+      });
+      const stampId = resolvedEventUuid ?? eventId;
+      if (stampId) {
+        await stampCalendarEventCategory(supabase, {
+          userId,
+          eventId: stampId,
+          category: confirmedCategory,
+          subcategory,
+          resolvedBy: clientCategoryRaw ? "user_category" : "user_action",
+          confidence: "high",
+        });
+      }
+    }
+
     // A signal change means any pre-existing plan / daily-context / weekly-plan
     // snapshot covering the target window may still surface the excluded event.
     // We proactively delete them; the next fetch regenerates against the new
