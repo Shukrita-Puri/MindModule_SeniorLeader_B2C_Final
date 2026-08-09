@@ -41,3 +41,10 @@ Deno.test("real meetings still count", () => {
     true,
   );
 });
+
+Deno.test("all-day category H rhythm blocks are excluded, timed ones still count", () => {
+  const allDay = ev("Weigh day", "2026-08-09T00:00:00Z", "2026-08-10T00:00:00Z");
+  assertEquals(isLoadBearingEvent(allDay), false);
+  const timedGym = ev("Gym", "2026-08-09T07:00:00Z", "2026-08-09T08:00:00Z");
+  assertEquals(isLoadBearingEvent(timedGym), true);
+});
