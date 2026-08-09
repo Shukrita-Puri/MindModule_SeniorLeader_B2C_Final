@@ -23,11 +23,14 @@ import { classifyEvent } from "./event-classifier.ts";
 import { detectTravelFromTitle, extractBareAirportCodes } from "./travel-patterns.ts";
 import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
+import { lookupLearned, type LearningContext } from "./learning-store.ts";
 
 export type ResolvedBy =
   | 'layer0_status'
   | 'layer1_tags'
+  | 'layer1_confirmed_title'
   | 'layer2_verbs'
+  | 'layer2_learned_token'
   | 'layer3_roles'
   | 'layer4_travel_regex'
   | 'layer4_travel_state'
@@ -45,6 +48,11 @@ export interface ClassifyV2Input {
   userTags?: string[];
   travelState?: 'home' | 'travelling' | 'arriving' | 'returning';
   eventMetadata?: Record<string, unknown> | null;
+  /**
+   * Per-user learning stores (confirmed titles + promoted tokens). Optional —
+   * when absent or empty the resolver behaves exactly as before.
+   */
+  learned?: LearningContext | null;
 }
 
 export interface ClassifyV2Result {
@@ -196,6 +204,21 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
   // to correct the "Mind Module - Beta test feedback" mis-route into D.
   if (isDeepWorkFeedback(title, input.isOrganizer)) {
     return resultFromSubtype('str.deep_work', 'layer2_verbs', 'high');
+  }
+
+  // L1c / L2c: learning loop. A title this user has already confirmed is
+  // never re-derived; a distinctive token promoted by the nightly roll-up
+  // classifies new-but-similar titles (new hotel, new forum name).
+  const learnedHit = lookupLearned(input.learned, title);
+  if (learnedHit?.category) {
+    return {
+      category: learnedHit.category,
+      subtypeId: learnedHit.subtypeId ?? null,
+      confidence: learnedHit.confidence,
+      resolvedBy: learnedHit.via === 'confirmed_title'
+        ? 'layer1_confirmed_title'
+        : 'layer2_learned_token',
+    };
   }
 
   // L3: attendee roles (only when caller passed them).
