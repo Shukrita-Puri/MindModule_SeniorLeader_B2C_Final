@@ -41,6 +41,10 @@ import {
 import { loadJitContextForEvents } from "../_shared/jit/load-jit-context.ts";
 import { selectJitCandidates } from "../_shared/jit/select-jit.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
+import {
+  loadLearningContext,
+  recordConfirmation,
+} from "../_shared/events/learning-store.ts";
 import { patternHit } from "../_shared/jit/tactical-signals.ts";
 import { PTO_TITLE_RX } from "../_shared/availability/availability-classifier.ts";
 
@@ -512,8 +516,11 @@ serve(async (req) => {
     };
 
     const scored: Scored[] = [];
+    // Learning loop: per-user confirmed titles + promoted tokens outrank the
+    // dictionary. Degrades silently to the dictionary when empty.
+    const learned = await loadLearningContext(supabase, userId);
     for (const [eventId, meta] of metaById.entries()) {
-      const enriched = enrichEvent({ title: meta.title });
+      const enriched = enrichEvent({ title: meta.title, learned });
       const categoryId = enriched.categoryId;
       const stakesRank = categoryId ? (STAKES_RANK[categoryId] ?? 0) : 0;
       const stakesLevel = categoryId === "A"
@@ -604,6 +611,24 @@ serve(async (req) => {
     }
 
     // No per-category cap, no top-N truncation. Return everything.
+    // Learning loop write-back: stamp every confident resolve as a confirmed
+    // classification so Brief / pills / Plan / Nudges / Insights read the
+    // same value next pass. Best-effort, never blocks the response.
+    try {
+      for (const row of scored) {
+        if (!row.eventCategory) continue;
+        await recordConfirmation(supabase, {
+          userId,
+          title: row.title,
+          category: row.eventCategory,
+          subcategory: row.eventSubcategory ?? null,
+          source: "resolver",
+          resolvedBy: "week_ahead_resolver",
+          confidence: "medium",
+        });
+      }
+    } catch (_e) { /* best-effort */ }
+
     // Emphasis order handled by score; final list stays chronological for UI.
     const picked = scored.slice().sort(
       (a, b) =>

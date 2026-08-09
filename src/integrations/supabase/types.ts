@@ -727,6 +727,9 @@ export type Database = {
       calendar_events: {
         Row: {
           attendees_count: number | null
+          category_confidence: string | null
+          category_resolved_at: string | null
+          category_resolved_by: string | null
           created_at: string
           end_time: string
           event_category: string | null
@@ -746,6 +749,9 @@ export type Database = {
         }
         Insert: {
           attendees_count?: number | null
+          category_confidence?: string | null
+          category_resolved_at?: string | null
+          category_resolved_by?: string | null
           created_at?: string
           end_time: string
           event_category?: string | null
@@ -765,6 +771,9 @@ export type Database = {
         }
         Update: {
           attendees_count?: number | null
+          category_confidence?: string | null
+          category_resolved_at?: string | null
+          category_resolved_by?: string | null
           created_at?: string
           end_time?: string
           event_category?: string | null
@@ -2521,6 +2530,57 @@ export type Database = {
           },
         ]
       }
+      event_category_confirmations: {
+        Row: {
+          confidence: string
+          created_at: string
+          event_category: string | null
+          event_subcategory: string | null
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          observation_count: number
+          resolved_by: string | null
+          source: string
+          subtype_id: string | null
+          title_norm: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence?: string
+          created_at?: string
+          event_category?: string | null
+          event_subcategory?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          observation_count?: number
+          resolved_by?: string | null
+          source?: string
+          subtype_id?: string | null
+          title_norm: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          event_category?: string | null
+          event_subcategory?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          observation_count?: number
+          resolved_by?: string | null
+          source?: string
+          subtype_id?: string | null
+          title_norm?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_classifier_parity_log: {
         Row: {
           created_at: string
@@ -2560,6 +2620,54 @@ export type Database = {
           v2_confidence?: string
           v2_resolved_by?: string
           v2_subtype_id?: string | null
+        }
+        Relationships: []
+      }
+      event_learned_tokens: {
+        Row: {
+          confidence: string
+          created_at: string
+          distinct_title_count: number
+          event_category: string
+          event_subcategory: string | null
+          id: string
+          promoted_at: string
+          retired_at: string | null
+          source: string
+          subtype_id: string | null
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence?: string
+          created_at?: string
+          distinct_title_count?: number
+          event_category: string
+          event_subcategory?: string | null
+          id?: string
+          promoted_at?: string
+          retired_at?: string | null
+          source?: string
+          subtype_id?: string | null
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          distinct_title_count?: number
+          event_category?: string
+          event_subcategory?: string | null
+          id?: string
+          promoted_at?: string
+          retired_at?: string | null
+          source?: string
+          subtype_id?: string | null
+          token?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -6272,6 +6380,10 @@ export type Database = {
       }
       migrate_calendar_tokens: { Args: never; Returns: undefined }
       migrate_oura_tokens: { Args: never; Returns: undefined }
+      promote_learned_event_tokens: {
+        Args: { p_min_titles?: number }
+        Returns: Json
+      }
       store_calendar_access_token: {
         Args: { _connection_id: string; _token: string }
         Returns: undefined

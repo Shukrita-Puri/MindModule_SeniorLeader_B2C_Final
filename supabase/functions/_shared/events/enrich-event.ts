@@ -15,7 +15,9 @@ import {
   type DemandProfile,
   EVENT_TYPE_TO_SCENARIO_ID,
   type EventType,
+  EVENT_TYPES,
 } from "./event-subtypes.ts";
+import { lookupLearned, type LearningContext } from "./learning-store.ts";
 
 /**
  * Travel arc classification for G.flight events.
@@ -116,15 +118,28 @@ export interface EnrichedEvent {
 
 export function enrichEvent(raw: any): EnrichedEvent {
   const title = String(raw?.title ?? raw?.event?.title ?? "").trim();
-  const subtype = classifyEvent(title);
-  const categoryId = subtype?.categoryId ?? null;
+  // Learning loop (optional): a per-user confirmed title or promoted token
+  // outranks the dictionary. Absent/empty context → unchanged behaviour.
+  const learnedCtx: LearningContext | null = raw?.learned ?? null;
+  const learned = lookupLearned(learnedCtx, title);
+  const dictSubtype = classifyEvent(title);
+  const learnedSubtype = learned?.subtypeId
+    ? (EVENT_TYPES.find((e) => e.id === learned.subtypeId) ?? null)
+    : null;
+  const subtype = learnedSubtype ??
+    (learned?.category && learned.category !== dictSubtype?.categoryId
+      ? null
+      : dictSubtype);
+  const categoryId = (learned?.category as EventCategoryId | undefined) ??
+    subtype?.categoryId ?? null;
   const category = categoryId ? EVENT_CATEGORIES[categoryId] : null;
   const scenarioId = subtype
     ? (EVENT_TYPE_TO_SCENARIO_ID[subtype.id] ?? null)
     : null;
   const durationMinutes = computeDurationMinutes(raw);
   const travelArc = computeTravelArc(subtype?.id ?? null, durationMinutes);
-  const subcategory = subcategoryFromSubtypeId(subtype?.id ?? null);
+  const subcategory = subcategoryFromSubtypeId(subtype?.id ?? null) ??
+    (learned?.subcategory ?? null);
   const phases: EnrichedEvent["phases"] = {};
   if (categoryId) {
     const timingMatrix = subtype?.timingMatrix;

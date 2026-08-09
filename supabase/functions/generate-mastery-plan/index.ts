@@ -75,6 +75,11 @@ import { classifyAvailability } from "../_shared/availability/availability-class
 import { resolveUserLocaleContext, type UserLocaleContext } from "../_shared/plan/user-locale.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
+  loadLearningContext,
+  recordConfirmation,
+  stampCalendarEventCategory,
+} from "../_shared/events/learning-store.ts";
+import {
   type RankedJitCandidate,
 } from "../_shared/events/jit-candidates.ts";
 import {
@@ -4731,6 +4736,46 @@ async function buildSharedContext(
         new Date(b.start_time).getTime();
     });
     ctx.rawCalendarEvents = prioritizedEvents;
+    // ── Learning loop ──
+    // One resolve per event against the shared taxonomy + this user's
+    // confirmed titles / promoted tokens. The result is stamped back onto
+    // calendar_events and confirmed, so Brief, pills, Week-Ahead, Nudges and
+    // Insights all read the same category on the next pass. Best-effort.
+    try {
+      const learnedCtx = await loadLearningContext(supabaseClient, req.userId);
+      for (const e of prioritizedEvents as any[]) {
+        const resolved = enrichEvent({ title: e.title, learned: learnedCtx });
+        if (!resolved.categoryId) continue;
+        const inSlotSelection = selectedIds.has(e.id);
+        if (
+          e.event_category !== resolved.categoryId ||
+          e.event_subcategory !== resolved.subcategory
+        ) {
+          e.event_category = resolved.categoryId;
+          e.event_subcategory = resolved.subcategory;
+          await stampCalendarEventCategory(supabaseClient, {
+            userId: req.userId,
+            eventId: e.id,
+            category: resolved.categoryId,
+            subcategory: resolved.subcategory,
+            resolvedBy: "plan_resolver",
+            confidence: "medium",
+          });
+        }
+        await recordConfirmation(supabaseClient, {
+          userId: req.userId,
+          title: e.title,
+          category: resolved.categoryId,
+          subcategory: resolved.subcategory,
+          subtypeId: resolved.subtype?.id ?? null,
+          // An event the user pulled into one of the day's three slots is a
+          // stronger observation than a passive resolve.
+          source: inSlotSelection ? "plan_slot" : "resolver",
+          resolvedBy: "plan_resolver",
+          confidence: inSlotSelection ? "high" : "medium",
+        });
+      }
+    } catch (_e) { /* degrade to dictionary */ }
     req.calendarEvents = ctx.rawCalendarEvents.map((e: any) => ({
       id: e.id,
       title: e.title,
