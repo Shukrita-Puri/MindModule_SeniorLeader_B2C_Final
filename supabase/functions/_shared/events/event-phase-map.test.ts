@@ -34,9 +34,9 @@ Deno.test("every phase carries goal + at least one prevents/builds bullet", () =
 });
 
 Deno.test("phaseForEvent returns enriched record with resolvedCombo", () => {
-  const post = phaseForEvent("Keynote at Money2020", "post");
+  const post = phaseForEvent("Industry conference", "post");
   assert(post);
-  // Keynote → category F (Conferences). F.post = somatic.reenergise per framework doc.
+  // Conference → category F (Conferences). F.post = somatic.reenergise per framework doc.
   assertEquals(post.combo, "somatic.reenergise");
   assertEquals(post.resolvedCombo.protocol, "somatic");
   assertEquals(post.resolvedCombo.mode, "reenergise");

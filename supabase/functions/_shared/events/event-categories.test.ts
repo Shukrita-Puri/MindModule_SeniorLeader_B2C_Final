@@ -41,10 +41,11 @@ Deno.test("classifyEvent → categoryId maps canonical titles to categories", ()
   assertEquals(classifyEvent("Q2 Board Review")?.categoryId, "A");
   assertEquals(classifyEvent("1:1 with Sara")?.categoryId, "D");
   assertEquals(classifyEvent("Term sheet negotiation")?.categoryId, "B");
-  assertEquals(classifyEvent("Keynote at Money2020")?.categoryId, "F");
+  assertEquals(classifyEvent("Keynote at Money2020")?.categoryId, "C");
+  assertEquals(classifyEvent("Industry conference")?.categoryId, "F");
   assertEquals(classifyEvent("Deep work block")?.categoryId, "E");
   assertEquals(classifyEvent("Flight LHR to JFK")?.categoryId, "G");
-  assertEquals(classifyEvent("Weekly team sync")?.categoryId, "H");
+  assertEquals(classifyEvent("Weekly team sync")?.categoryId, "E");
 });
 
 Deno.test("classifyEvent returns null on unknown title", () => {

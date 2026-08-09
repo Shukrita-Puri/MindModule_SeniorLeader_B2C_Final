@@ -28,12 +28,12 @@ Deno.test("emits pre + post for a board meeting at T+2h", () => {
   assertEquals(ranked[0].phase, "pre");
 });
 
-Deno.test("keynote (category F) emits pre + during + post", () => {
+Deno.test("conference (category F) emits pre + post", () => {
   const ranked = rankJitCandidates(
     [{
       event: {
         id: "f1",
-        title: "Industry keynote",
+        title: "Industry conference",
         start_time: inHours(6),
         end_time: inHours(7),
       },
@@ -43,7 +43,7 @@ Deno.test("keynote (category F) emits pre + during + post", () => {
   );
   const fPhases = ranked.filter((r) => r.categoryId === "F").map((r) => r.phase)
     .sort();
-  assertEquals(fPhases, ["during", "post", "pre"]);
+  assertEquals(fPhases, ["post", "pre"]);
 });
 
 Deno.test("long-haul flight (category G) emits pre + during + post candidates", () => {
