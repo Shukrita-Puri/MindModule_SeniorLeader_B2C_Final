@@ -128,11 +128,10 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   // calendar were empty.
   if (isTravelShape(opts.dayShape) && opts.travelEventTitle) {
     const ref = shortRef(opts.travelEventTitle);
-    const haul = opts.longHaulFlight ? "long-haul " : "";
     if (opts.hasWearable) {
       return `${
         wearableFact ?? "Recovery signals are in"
-      } going into ${haul ? `a ${haul}day — ` : ""}${ref}.`;
+      } going into ${ref}${opts.longHaulFlight ? " — a long-haul day" : ""}.`;
     }
     if (opts.checkInOutcome) {
       const felt = opts.checkInOutcome === "holding"
