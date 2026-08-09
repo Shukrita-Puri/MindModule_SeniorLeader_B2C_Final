@@ -58,8 +58,12 @@ export function classifyEvent(
   if (!title) return null;
   const lower = title.toLowerCase();
   for (const et of EVENT_TYPES) {
-    if (et.keywords.length === 0) continue;
-    if (!et.keywords.some((kw) => lower.includes(kw))) continue;
+    const groups = (et as { keywordGroups?: string[][] }).keywordGroups;
+    const groupHit = groups?.some((g) => g.every((tok) => lower.includes(tok)));
+    if (!groupHit) {
+      if (et.keywords.length === 0) continue;
+      if (!et.keywords.some((kw) => lower.includes(kw))) continue;
+    }
     const excludes = (et as { excludeKeywords?: string[] }).excludeKeywords;
     if (excludes && excludes.some((kw) => lower.includes(kw))) continue;
     return et;

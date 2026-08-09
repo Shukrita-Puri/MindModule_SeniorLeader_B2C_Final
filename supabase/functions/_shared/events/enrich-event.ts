@@ -69,6 +69,19 @@ export function subcategoryFromSubtypeId(
     // subcategory names in snapshots, Week-Ahead, and Insights.
     "vis.stakeholder_comm": "stakeholder_communication",
     "trv.long_haul": "flight",
+    "vis.all_hands": "town_hall",
+    "vis.roundtable": "roundtable",
+    "conf.keynote": "speaking",
+    "gov.crisis": "crisis_decision",
+    "str.strategy_planning": "strategy",
+    "rhy.catchup": "routine_sync",
+    "conf.workshop": "workshop",
+    "conf.event": "event",
+    "rhy.wellness_self_care": "wellness_self_care",
+    "rhy.wellness_fitness": "wellness_fitness",
+    "rhy.wellness_health_check": "wellness_health_check",
+    "trv.accommodation": "accommodation",
+    "trv.travel_day": "travel",
   };
   if (aliases[id]) return aliases[id];
   const idx = id.indexOf(".");

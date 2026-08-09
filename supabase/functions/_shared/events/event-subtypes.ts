@@ -166,6 +166,13 @@ export interface EventType {
    * `classifyEvent` ignores it for backwards compatibility.
    */
   excludeKeywords?: string[];
+  /**
+   * Optional AND-matching cues. Each group is a list of tokens that must ALL
+   * be present in the (lowercased) title for the row to match. Used where a
+   * single substring is ambiguous — e.g. "roundtable" is E.community when the
+   * user is a member but C.roundtable when they are speaking at it.
+   */
+  keywordGroups?: string[][];
 }
 
 // Helper to keep rows compact + auto-mirror categoryId/frameworkPillar.
@@ -378,8 +385,8 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.crisis",
     label: "Crisis / Incident",
-    bucket: "High-Stakes Governance",
-    categoryId: "A",
+    bucket: "People & Difficult Conversations",
+    categoryId: "D",
     group: "F_operational",
     primaryPillar: 4,
     secondaryPillar: 3,
@@ -583,6 +590,35 @@ const ROWS: RawSubtype[] = [
     ],
     masteryModules: ["regulate", "align"],
     jitLeadTimeMinutes: 240,
+  },
+  // Spec C.roundtable — user is SPEAKING / PRESENTING at a roundtable.
+  // Must precede str.community, which owns the "member of" case.
+  {
+    id: "vis.roundtable",
+    label: "Roundtable (speaking)",
+    bucket: "Visibility & Communication",
+    categoryId: "C",
+    group: "D_visibility",
+    primaryPillar: 2,
+    demandProfile: D(1, 1, 3, 1, 1, 2, 0, 2),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Pause",
+    keywords: [
+      "speaking at roundtable",
+      "roundtable panel",
+      "moderating roundtable",
+      "chairing roundtable",
+      "roundtable keynote",
+    ],
+    keywordGroups: [
+      ["roundtable", "speaking"],
+      ["roundtable", "moderat"],
+      ["roundtable", "chairing"],
+      ["roundtable", "presenting"],
+    ],
+    masteryModules: ["regulate", "align", "prepare"],
+    jitLeadTimeMinutes: 720,
   },
 
   // ── Category D · People & Difficult Conversations ──
@@ -829,6 +865,10 @@ const ROWS: RawSubtype[] = [
       "member group",
       "members meeting",
       "roundtable",
+      "forum",
+      "connects",
+      "power sisters",
+      "diversity & inclusion",
     ],
     classificationOnly: true,
   },
@@ -890,8 +930,8 @@ const ROWS: RawSubtype[] = [
   {
     id: "str.strategy_planning",
     label: "Strategy planning",
-    bucket: "Deep Work & Strategy",
-    categoryId: "E",
+    bucket: "High-Stakes Governance",
+    categoryId: "A",
     group: "C_strategic",
     primaryPillar: 1,
     demandProfile: D(3, 0, 1, 1, 1, 1, 0, 1),
@@ -907,6 +947,8 @@ const ROWS: RawSubtype[] = [
       "3-year plan",
       "3 year plan",
     ],
+    // Deep-work blocks that merely mention strategy stay in E.
+    excludeKeywords: ["deep work", "focus block", "writing time"],
     masteryModules: ["align", "prepare"],
     jitLeadTimeMinutes: 1440,
   },
@@ -957,8 +999,8 @@ const ROWS: RawSubtype[] = [
   {
     id: "conf.keynote",
     label: "Keynote",
-    bucket: "Conferences & External Events",
-    categoryId: "F",
+    bucket: "Visibility & Communication",
+    categoryId: "C",
     group: "D_visibility",
     primaryPillar: 2,
     demandProfile: D(1, 1, 3, 1, 0, 3, 0, 3),
@@ -1058,6 +1100,46 @@ const ROWS: RawSubtype[] = [
     ],
     classificationOnly: true,
   },
+  // Spec F.workshop — all-day / multi-day workshop, open evening, open day.
+  {
+    id: "conf.workshop",
+    label: "Workshop / Open day",
+    bucket: "Conferences & External Events",
+    categoryId: "F",
+    group: "D_visibility",
+    primaryPillar: 2,
+    demandProfile: D(1, 1, 1, 0, 2, 2, 0, 1),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Pause",
+    keywords: [
+      "open evening",
+      "open day",
+      "all-day workshop",
+      "multi-day workshop",
+    ],
+    classificationOnly: true,
+  },
+  // Spec F.event — multi-day event (expo, festival, show, fair).
+  {
+    id: "conf.event",
+    label: "Multi-day event",
+    bucket: "Conferences & External Events",
+    categoryId: "F",
+    group: "D_visibility",
+    primaryPillar: 2,
+    demandProfile: D(1, 1, 1, 0, 2, 2, 0, 1),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Pause",
+    keywords: [
+      "expo",
+      "schools show",
+      "summer fair",
+      "trade show",
+    ],
+    classificationOnly: true,
+  },
 
   // ── Category G · Travel ──
   {
@@ -1136,6 +1218,13 @@ const ROWS: RawSubtype[] = [
       "staying at",
       "accommodation",
       "hotel reservation",
+      "stay at",
+      "stay:",
+      "hotel",
+      "resort",
+      "guesthouse",
+      "narrowboat stay",
+      "check-in hotel",
     ],
     classificationOnly: true,
   },
@@ -1156,6 +1245,11 @@ const ROWS: RawSubtype[] = [
       "in transit day",
       "all-day travel",
       "all day travel",
+      "travel to",
+      "sightseeing",
+      "guided tour",
+      "city tour",
+      "island tour",
     ],
     classificationOnly: true,
   },
@@ -1179,6 +1273,14 @@ const ROWS: RawSubtype[] = [
       "public holiday",
       "national holiday",
       "federal holiday",
+      "national day",
+      "day observed",
+      "harmony day",
+      "flag day",
+      "vesak",
+      "ashura",
+      "armed forces day",
+      "ratha yatra",
     ],
     classificationOnly: true,
   },
@@ -1223,6 +1325,12 @@ const ROWS: RawSubtype[] = [
       "pedicure",
       "facial appointment",
       "salon appointment",
+      "spa day",
+      "liquid fast",
+      "water fast",
+      "fasting",
+      "day fast",
+      "detox",
     ],
     classificationOnly: true,
   },
@@ -1334,14 +1442,20 @@ const ROWS: RawSubtype[] = [
       "theater show",
       "festival",
       "stars on ice",
+      "reservation at",
+      "dinner at",
+      "table at",
+      "museum",
+      "exhibition",
+      "cinema",
     ],
     classificationOnly: true,
   },
   {
     id: "rhy.catchup",
-    label: "Catch-up / Sync",
-    bucket: "Daily Rhythm & Baseline",
-    categoryId: "H",
+    label: "Routine sync / Catch-up",
+    bucket: "Deep Work & Strategy",
+    categoryId: "E",
     group: "F_operational",
     primaryPillar: 4,
     demandProfile: D(1, 1, 0, 0, 2, 1, 0, 0),
@@ -1358,6 +1472,12 @@ const ROWS: RawSubtype[] = [
       "weekly",
       "standup",
       "stand-up",
+    ],
+    excludeKeywords: [
+      "forum",
+      "roundtable",
+      "community",
+      "connects",
     ],
   },
   {

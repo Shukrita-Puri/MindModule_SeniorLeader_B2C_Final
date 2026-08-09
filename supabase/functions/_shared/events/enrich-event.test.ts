@@ -28,7 +28,7 @@ Deno.test("enrichEvent classifies Long-haul flight to category G with circadian-
 
 Deno.test("enrichEvent maps Keynote subtype to a scenarioId", () => {
   const e = enrichEvent({ title: "Keynote at Money2020" });
-  assertEquals(e.categoryId, "F");
+  assertEquals(e.categoryId, "C");
   assertEquals(e.scenarioId, "pre-speaking-engagement");
 });
 
@@ -53,9 +53,9 @@ Deno.test("enrichEvent respects timingMatrix to prevent arc fabrication for no-a
   assertEquals(learning.phases.during, undefined);
   assertEquals(learning.phases.post, undefined);
 
-  // H.catchup has timingMatrix: { pre: false, during: false, post: false }
+  // E.routine_sync (catchup) has timingMatrix: { pre: false, during: false, post: false }
   const catchup = enrichEvent({ title: "Weekly sync" });
-  assertEquals(catchup.categoryId, "H");
+  assertEquals(catchup.categoryId, "E");
   assertEquals(catchup.phases.pre, undefined);
   assertEquals(catchup.phases.during, undefined);
   assertEquals(catchup.phases.post, undefined);

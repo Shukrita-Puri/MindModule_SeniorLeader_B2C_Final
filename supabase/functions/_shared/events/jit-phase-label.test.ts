@@ -31,8 +31,8 @@ Deno.test("Conference category F is During-notification-only by §3 contract", (
   assertEquals(EVENT_CATEGORIES.F.protocol.duringNotificationOnly, true);
 });
 
-Deno.test("Keynote classifies to F and has both pre and post phases", () => {
-  const sub = classifyEvent("Keynote at Money2020");
+Deno.test("Conference classifies to F and has both pre and post phases", () => {
+  const sub = classifyEvent("Industry conference");
   assert(sub);
   assertEquals(sub!.categoryId, "F");
   assert(EVENT_PHASE_MAP.F.pre, "F.pre must be defined");

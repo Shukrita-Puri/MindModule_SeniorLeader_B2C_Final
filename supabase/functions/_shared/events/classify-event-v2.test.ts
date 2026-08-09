@@ -100,7 +100,7 @@ const FIXTURES: Fixture[] = [
   { name: 'attendee presenting does NOT trigger L2',
     input: { title: 'Presenting strategy to team', isOrganizer: false },
     // Falls to L6 dictionary — "strategy" keyword matches str.strategy_planning
-    expect: { category: 'E', subtypeId: 'str.strategy_planning', resolvedBy: 'layer6_dictionary' } },
+    expect: { category: 'A', subtypeId: 'str.strategy_planning', resolvedBy: 'layer6_dictionary' } },
 
   // ── Attendee roles (Layer 3) ──
   { name: 'board attendees',
@@ -121,7 +121,7 @@ const FIXTURES: Fixture[] = [
     expect: { category: 'A', subtypeId: 'gov.board_meeting', resolvedBy: 'layer6_dictionary' } },
   { name: 'social media does NOT trip vis.media',
     input: { title: 'Social media strategy' },
-    expect: { category: 'E', subtypeId: 'str.strategy_planning', resolvedBy: 'layer6_dictionary' } },
+    expect: { category: 'A', subtypeId: 'str.strategy_planning', resolvedBy: 'layer6_dictionary' } },
 
   // ── Status gate (Layer 0) ──
   { name: 'cancelled status',
