@@ -259,7 +259,8 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
   })();
   const regulationRiskPill =
     (regulationLevel != null && regulationLevel <= 2) ||
-    (pressureLevel != null && pressureLevel >= 4);
+    // Pressure is scored 1 Overloaded → 5 Spacious, so LOW is the risk state.
+    (pressureLevel != null && pressureLevel <= 2);
 
   // ── Cognitive (Decision Readiness): HRV + Sleep(Duration|Score) + Clarity ──
   const cogTiers: PillTier[] = [];
@@ -365,15 +366,6 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
       resilienceFallbackUsed = "hr_elevated_proxy";
     }
   }
-  if (emotionLevel != null) {
-    resTiers.push(emotionLevel <= 2 ? "amber" : "green");
-  }
-  if (regulationLevel != null) {
-    resTiers.push(regulationLevel <= 2 ? "amber" : "green");
-  }
-  if (pressureLevel != null) {
-    resTiers.push(pressureLevel >= 4 ? "amber" : "green");
-  }
   // ── Persistent strain — sustained deficit, graded.
   // Same signal as the boolean flag, read as a tier so it contributes on
   // realistic data. "unknown" pushes nothing and never blocks the pill; the
@@ -393,6 +385,43 @@ export function derivePills(input: DerivePillsInput): DerivePillsResult {
     resTiers.length === 0
       ? "neutral"
       : resTiers.reduce<PillTier>((a, b) => stateMax(a, b), "neutral");
+  // ── Check-in refining overlay (Resilience only). ──────────────────────
+  // The wearable stays the main signal: physiological inputs above are
+  // reduced worst-of first. The check-in then refines that read by AT MOST
+  // one step in either direction, so a strong self-report can lift a red to
+  // amber but never to green, and a weak one can drag a green to amber.
+  // Pressure is polarity-corrected (5 Spacious = strong, 1 Overloaded = weak)
+  // and every dimension is read on the same 1–5 scale Decision Readiness
+  // uses for clarity.
+  const checkInDims: number[] = [];
+  if (emotionLevel != null) checkInDims.push(emotionLevel);
+  if (regulationLevel != null) checkInDims.push(regulationLevel);
+  if (pressureLevel != null) checkInDims.push(pressureLevel);
+  const resilienceCheckInComposite: number | null = checkInDims.length >= 2
+    ? checkInDims.reduce((a, b) => a + b, 0) / checkInDims.length
+    : null;
+  let resilienceCheckInEffect: "softened" | "hardened" | "none" = "none";
+  if (
+    resilienceCheckInComposite != null &&
+    wearableFreshForGate &&
+    resilienceTier !== "neutral"
+  ) {
+    const softenOne: Record<string, PillTier> = { red: "amber", amber: "green" };
+    const hardenOne: Record<string, PillTier> = { green: "amber", amber: "red" };
+    if (resilienceCheckInComposite >= 4) {
+      const next = softenOne[resilienceTier];
+      if (next) {
+        resilienceTier = next;
+        resilienceCheckInEffect = "softened";
+      }
+    } else if (resilienceCheckInComposite <= 2) {
+      const next = hardenOne[resilienceTier];
+      if (next) {
+        resilienceTier = next;
+        resilienceCheckInEffect = "hardened";
+      }
+    }
+  }
   if (regulationRiskPill && resilienceTier === "green") resilienceTier = "amber";
 
   // ── Payload build ─────────────────────────────────────────────────────
