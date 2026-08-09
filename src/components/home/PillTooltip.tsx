@@ -80,6 +80,8 @@ const CONTRIBUTORS: Record<string, ContribSpec> = {
   emotionLevel:                { label: 'Emotion',          fmt: (v) => num(v, '/5') },
   regulationLevel:             { label: 'Regulation',       fmt: (v) => num(v, '/5') },
   pressureLevel:               { label: 'Pressure',         fmt: (v) => num(v, '/5') },
+  checkInComposite:            { label: 'Check-in read',    fmt: (v) => num(v, '/5') },
+  checkInEffect:               { label: 'Check-in effect',  fmt: (v) => checkInEffect(v) },
 };
 
 const EXPECTED_CONTRIBUTORS: Record<PillTooltipPill['key'], Array<{ key: string; label: string; missing: string }>> = {
@@ -153,6 +155,8 @@ const ALLOWED_CONTRIBUTORS: Record<PillTooltipPill['key'], Set<string>> = {
     'sustainedDeficit',
     'sustained_deficit_flag',
     'sustainedDeficitSeverity',
+    'checkInComposite',
+    'checkInEffect',
   ]),
 };
 
@@ -186,6 +190,15 @@ function deficitSeverity(v: unknown): string | null {
   }
 }
 function sleepMinutes(v: unknown): string | null {
+  return sleepMinutesImpl(v);
+}
+function checkInEffect(v: unknown): string | null {
+  if (v === 'softened') return 'Lifted one step';
+  if (v === 'hardened') return 'Lowered one step';
+  if (v === 'none') return 'No change';
+  return null;
+}
+function sleepMinutesImpl(v: unknown): string | null {
   if (typeof v !== 'number' || Number.isNaN(v)) return null;
   const h = Math.floor(v / 60);
   const m = Math.round(v % 60);

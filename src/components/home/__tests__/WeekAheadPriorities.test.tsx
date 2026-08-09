@@ -105,8 +105,9 @@ describe("WeekAheadPriorities", () => {
       expect(screen.getByText("Mystery Event")).toBeInTheDocument();
       expect(screen.getByText("Another")).toBeInTheDocument();
     });
-    // Default category fallback rendered, no crash on null scoreReasons.
-    expect(screen.getAllByText(/Meeting/).length).toBeGreaterThan(0);
+    // The blanket "Meeting" category fallback is retired — uncategorised
+    // events render without a chip and must not crash on null scoreReasons.
+    expect(screen.queryAllByText(/Meeting/).length).toBe(0);
   });
 
   it("renders a recoverable error state when the invoke fails", async () => {

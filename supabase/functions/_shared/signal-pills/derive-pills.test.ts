@@ -219,16 +219,103 @@ Deno.test("RC-22: sleep_efficiency 69 (< 70 -> red)", () => {
   assertEquals(r.resilienceTier, "red");
 });
 
-Deno.test("RC-23: emotionLevel 2 -> amber (self-report overlay)", () => {
-  const r = derivePills(baseInput({ sleepEfficiency: 90, emotionLevel: 2 }));
+Deno.test("RC-23: weak check-in (emotion 2 + regulation 2) hardens green -> amber", () => {
+  const r = derivePills(
+    baseInput({ sleepEfficiency: 90, emotionLevel: 2, regulationLevel: 2 }),
+  );
   assertEquals(r.resilienceTier, "amber");
   const rc = pill(r.pills, "resilience_capacity");
   assertEquals(rc.sourceTypes.includes("checkin"), true);
+  assertEquals(rc.contributors.checkInEffect, "hardened");
 });
 
-Deno.test("RC-24: regulation-risk floor (regulation 2 + pressure 4) -> amber", () => {
+Deno.test("RC-23a: a single check-in dimension does not apply the overlay", () => {
+  const r = derivePills(baseInput({ sleepEfficiency: 90, emotionLevel: 2 }));
+  assertEquals(r.resilienceTier, "green");
+  const rc = pill(r.pills, "resilience_capacity");
+  assertEquals("checkInEffect" in rc.contributors, false);
+});
+
+Deno.test("RC-23b: pressure 5 (Spacious) is a strong read, pressure 1 is weak", () => {
+  const spacious = derivePills(
+    baseInput({ sleepEfficiency: 90, pressureLevel: 5, regulationLevel: 5 }),
+  );
+  assertEquals(spacious.regulationRiskPill, false);
+  assertEquals(spacious.resilienceTier, "green");
+  const overloaded = derivePills(
+    baseInput({ sleepEfficiency: 90, pressureLevel: 1, regulationLevel: 1 }),
+  );
+  assertEquals(overloaded.regulationRiskPill, true);
+  assertEquals(overloaded.resilienceTier, "amber");
+});
+
+Deno.test("RC-23c: strong check-in softens a deficit red to amber, never green", () => {
   const r = derivePills(
-    baseInput({ sleepEfficiency: 90, regulationLevel: 2, pressureLevel: 4 }),
+    baseInput({
+      sustainedDeficitSeverity: "red",
+      emotionLevel: 4,
+      regulationLevel: 5,
+      pressureLevel: 5,
+    }),
+  );
+  assertEquals(r.resilienceTier, "amber");
+  const rc = pill(r.pills, "resilience_capacity");
+  assertEquals(rc.contributors.checkInEffect, "softened");
+  assertEquals(rc.contributors.checkInComposite, 4.7);
+
+  const perfect = derivePills(
+    baseInput({
+      sustainedDeficitSeverity: "red",
+      emotionLevel: 5,
+      regulationLevel: 5,
+      pressureLevel: 5,
+    }),
+  );
+  assertEquals(perfect.resilienceTier, "amber");
+});
+
+Deno.test("RC-23d: weak check-in leaves a deficit red red", () => {
+  const r = derivePills(
+    baseInput({
+      sustainedDeficitSeverity: "red",
+      emotionLevel: 2,
+      regulationLevel: 2,
+      pressureLevel: 2,
+    }),
+  );
+  assertEquals(r.resilienceTier, "red");
+});
+
+Deno.test("RC-23e: neutral composite (3.0) leaves the physiological tier alone", () => {
+  const r = derivePills(
+    baseInput({
+      sleepEfficiency: 84,
+      emotionLevel: 3,
+      regulationLevel: 3,
+      pressureLevel: 3,
+    }),
+  );
+  assertEquals(r.resilienceTier, "amber");
+  const rc = pill(r.pills, "resilience_capacity");
+  assertEquals(rc.contributors.checkInEffect, "none");
+});
+
+Deno.test("RC-23f: stale wearable -- no check-in overlay is applied", () => {
+  const r = derivePills(
+    baseInput({
+      wearableFreshForGate: false,
+      sleepEfficiency: 90,
+      emotionLevel: 2,
+      regulationLevel: 2,
+    }),
+  );
+  const rc = pill(r.pills, "resilience_capacity");
+  assertEquals(rc.contributors.checkInEffect, "none");
+});
+
+Deno.test("RC-24: regulation-risk floor (regulation 2 + pressure 2) -> amber", () => {
+  const r = derivePills(
+    baseInput({ sleepEfficiency: 90, regulationLevel: 2, pressureLevel: 2 }),
   );
   assertEquals(r.regulationRiskPill, true);
   assertEquals(r.resilienceTier, "amber");

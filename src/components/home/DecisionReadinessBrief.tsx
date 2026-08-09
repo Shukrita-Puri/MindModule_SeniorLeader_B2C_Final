@@ -816,8 +816,26 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   // Resilience refines on emotion/regulation/pressure; Physiology never
   // refines (wearable-only by design).
   const cogRefined: 'baseline' | 'refined' = clarity != null ? 'refined' : 'baseline';
+  // Server pill is authoritative: `contributedByCheckIn` (or check-in
+  // contributors on the payload) proves the check-in reached the pill even
+  // when the top-level echo fields are suppressed upstream. The top-level
+  // fields remain the fallback when no server pill exists.
+  const resServerPill = Array.isArray((outerBrief as any)?.signalPills)
+    ? ((outerBrief as any).signalPills as any[]).find(
+        (p) => p?.key === 'resilience_capacity',
+      )
+    : null;
+  const resPillHasCheckIn = !!resServerPill && (
+    resServerPill.contributedByCheckIn === true ||
+    ['emotionLevel', 'regulationLevel', 'pressureLevel'].some(
+      (k) => typeof resServerPill?.contributors?.[k] === 'number',
+    )
+  );
   const resRefined: 'baseline' | 'refined' =
-    (emotion != null || regulation != null || pressure != null) ? 'refined' : 'baseline';
+    resPillHasCheckIn ||
+    emotion != null || regulation != null || pressure != null
+      ? 'refined'
+      : 'baseline';
   const physRefined: 'baseline' | 'refined' =
     outerBrief?.wearableStatus?.hasTodayData === true &&
     outerBrief?.wearableStatus?.isStale !== true
