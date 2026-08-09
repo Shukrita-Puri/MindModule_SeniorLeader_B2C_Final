@@ -518,7 +518,12 @@ export function buildDeterministicBriefFallback(
     ...rawOpts,
     // Any non-workday shape takes the weekend copy branches: no meetings, no
     // calls, no workday tasks in the directive.
-    isWeekend: rawOpts.isWeekend === true || rawOpts.isNonWorkday === true,
+    // A travel or conference day is never routed as a weekend, even when it
+    // falls on Saturday or Sunday — the shape outranks the calendar day.
+    isWeekend: isTravelShape(rawOpts.dayShape) ||
+        isConferenceShape(rawOpts.dayShape)
+      ? false
+      : rawOpts.isWeekend === true || rawOpts.isNonWorkday === true,
     hasWearable: rawOpts.hasWearable && wearableCurrent,
     wearableFact: wearableCurrent ? rawOpts.wearableFact : null,
     sleepScore: wearableCurrent ? rawOpts.sleepScore : null,
