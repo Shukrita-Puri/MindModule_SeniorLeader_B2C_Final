@@ -450,6 +450,27 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
 }
 
 function closeFor(opts: DeterministicBriefFallbackOpts): string {
+  // Day-shape closes run before the weekend override.
+  if (opts.dayShape === "work_travel") {
+    if (opts.travelPhase === "in_transit") {
+      return "and land in the condition the next thing needs.";
+    }
+    if (opts.travelPhase === "post") {
+      return "and let the system settle before pushing.";
+    }
+    return "and arrive with something in the tank.";
+  }
+  if (opts.dayShape === "personal_travel") {
+    return "and let the trip actually land.";
+  }
+  if (opts.dayShape === "conference") {
+    return opts.band === "depleted" || opts.band === "stretched"
+      ? "and protect what's left for the sessions that matter."
+      : "and protect the state for what tomorrow's sessions need.";
+  }
+  if (isOffDayShape(opts.dayShape)) {
+    return "and let the return start with something in the tank.";
+  }
   // Weekend override — applies regardless of band or window.
   if (opts.isWeekend) {
     if (opts.band === "firing" || opts.band === "sharp") {
