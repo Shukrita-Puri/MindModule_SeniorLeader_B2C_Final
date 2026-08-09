@@ -9282,6 +9282,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   briefDayShape === "pto" ||
                   briefDayShape === "personal_holiday" ||
                   briefDayShape === "personal_travel",
+                // Full day-shape context so the deterministic path mirrors the
+                // LLM path (travel, conference, off-day) instead of collapsing
+                // a Sunday flight into plain weekend copy.
+                dayShape: briefDayShape ?? null,
+                travelPhase: briefTravelPhase ?? null,
+                longHaulFlight:
+                  !!briefBehaviourSnapshot?.signals?.longHaulFlight,
+                conferenceDayNumber:
+                  briefBehaviourSnapshot?.signals?.conferenceDayNumber ?? null,
+                conferenceTitle:
+                  briefBehaviourSnapshot?.signals?.conferenceEventTitle ?? null,
+                travelEventTitle:
+                  briefBehaviourSnapshot?.signals?.nextTravelEventTitle ?? null,
               });
               // DETERMINISTIC BYPASS: the validator runs for observability only.
               // deterministic-brief.ts is validated by construction — every string
