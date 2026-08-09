@@ -10891,10 +10891,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         mentalSharpnessLevel: mentalSharpnessLevel,
         // Signal Pills v3 — Mind Check-in dimensions echoed verbatim so the
         // Resilience + Cognitive pills can compute their refined-state tier
-        // client-side without re-querying daily_checkins.
-        emotionLevel: awaitingSignals ? null : emotionLevel,
-        pressureLevel: awaitingSignals ? null : pressureLevel,
-        regulationLevel: awaitingSignals ? null : regulationLevel,
+        // client-side without re-querying daily_checkins. Emitted on the same
+        // terms as `clarityLevel` above — awaiting-state suppression happens
+        // downstream in the pill freshness gate, not here, so the Resilience
+        // badge cannot disagree with Decision Readiness.
+        emotionLevel: emotionLevel,
+        pressureLevel: pressureLevel,
+        regulationLevel: regulationLevel,
         // Wearable anchor for the Resilience pill — overnight restoration
         // quality (0–100). Null when provider does not expose it.
         sleepEfficiency: wearableContext?.sleepEfficiency ?? null,
