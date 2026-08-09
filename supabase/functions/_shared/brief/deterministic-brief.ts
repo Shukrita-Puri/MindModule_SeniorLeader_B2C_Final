@@ -1,3 +1,5 @@
+import type { DayShape } from "./day-shape.ts";
+
 export type DeterministicBriefBand =
   | "firing"
   | "sharp"
@@ -39,6 +41,26 @@ export interface DeterministicBriefFallbackOpts {
    * branches so the fallback never emits work-directive prose on an off day.
    */
   isNonWorkday?: boolean;
+  /**
+   * Canonical day shape derived from the same signal matrix the Plan uses.
+   * When present it takes priority over isWeekend / isNonWorkday for the
+   * directive, read, evidence and close. Covers work_travel, personal_travel,
+   * conference, public_holiday, pto, personal_holiday, weekend, workday.
+   */
+  dayShape?: DayShape | null;
+  /** Travel phase for work_travel / personal_travel shapes. */
+  travelPhase?: "pre" | "in_transit" | "post" | null;
+  /** True when today's travel event is long-haul (>=6h). */
+  longHaulFlight?: boolean;
+  /** Conference day number when dayShape === 'conference'. */
+  conferenceDayNumber?: number | null;
+  /** Conference title when dayShape === 'conference'. */
+  conferenceTitle?: string | null;
+  /**
+   * Title of today's travel event. The flight never appears in
+   * todayHighStakes (category G is excluded), so it is passed separately.
+   */
+  travelEventTitle?: string | null;
 }
 
 export interface DeterministicBriefResult {
@@ -48,7 +70,33 @@ export interface DeterministicBriefResult {
 }
 
 function shortRef(title: string): string {
+  return shortRefImpl(title);
+}
+
+/** True for the two travel day shapes. */
+function isTravelShape(shape: DayShape | null | undefined): boolean {
+  return shape === "work_travel" || shape === "personal_travel";
+}
+
+function isConferenceShape(shape: DayShape | null | undefined): boolean {
+  return shape === "conference";
+}
+
+/** Public holiday / PTO / personal holiday — off days that are not weekends. */
+function isOffDayShape(shape: DayShape | null | undefined): boolean {
+  return shape === "public_holiday" || shape === "pto" ||
+    shape === "personal_holiday";
+}
+
+function shortRefImpl(title: string): string {
   const clean = title.replace(/^\d{1,2}:\d{2}\s+/, "").trim();
+  // Travel first: flight titles carry airport codes and flight numbers that
+  // truncate into unreadable fragments ("the flight to new york (ba...").
+  if (/\bflight\b|\bdeparture\b|\bboarding\b/i.test(clean)) return "the flight";
+  if (/\b[A-Z]{2}\s?\d{2,4}\b/.test(clean) && /\bto\b|\bfrom\b/i.test(clean)) {
+    return "the flight";
+  }
+  if (/\btrain\b|\beurostar\b/i.test(clean)) return "the journey";
   if (/board|governance/i.test(clean)) return "the board call";
   if (/strategy|5.year|planning|deep work/i.test(clean)) {
     return "the strategy session";
@@ -93,6 +141,34 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     hasHighStakes;
   const lowSleepIntoHighStakes =
     opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
+
+  // ── Travel evidence. The flight is the day's dominant demand but never
+  // reaches todayHighStakes, so without this branch beat (a) reads as if the
+  // calendar were empty.
+  if (isTravelShape(opts.dayShape) && opts.travelEventTitle) {
+    const ref = shortRef(opts.travelEventTitle);
+    if (opts.hasWearable) {
+      return `${
+        wearableFact ?? "Recovery signals are in"
+      } going into ${ref}${opts.longHaulFlight ? " — a long-haul day" : ""}.`;
+    }
+    if (opts.checkInOutcome) {
+      const felt = opts.checkInOutcome === "holding"
+        ? "steady"
+        : opts.checkInOutcome;
+      return `You've checked in ${felt} with ${ref} ahead this ${opts.window} — the transit is the demand, not the calendar.`;
+    }
+  }
+  if (isConferenceShape(opts.dayShape)) {
+    const dayRef = opts.conferenceDayNumber != null
+      ? `Day ${opts.conferenceDayNumber} of the conference`
+      : "A full conference day";
+    if (opts.hasWearable) {
+      return `${
+        wearableFact ?? "Recovery signals are in"
+      } going into ${dayRef.toLowerCase()} — sustained attention is the load being carried.`;
+    }
+  }
 
   if (drainedIntoHighStakes) {
     const eventRef = hasManyHighStakes
@@ -189,6 +265,32 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   const lowSleepIntoHighStakes =
     opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
 
+  // ── Day-shape read runs before the pillar map. On a travel or conference
+  // day the shape is the story; a workday pillar comparison misreads it.
+  if (isTravelShape(opts.dayShape)) {
+    const strained = opts.cognitivePillTier === "amber" ||
+      opts.cognitivePillTier === "red" ||
+      opts.physicalPillTier === "amber" || opts.physicalPillTier === "red" ||
+      opts.band === "stretched" || opts.band === "depleted";
+    if (opts.travelPhase === "post") {
+      return "The transit has already been paid for — what's left is re-entry, and that costs more than it looks.";
+    }
+    if (opts.travelPhase === "in_transit") {
+      return "The day belongs to the journey — arriving intact is the outcome that matters.";
+    }
+    if (opts.dayShape === "personal_travel") {
+      return "The journey is the shape of the day, not the work around it.";
+    }
+    return strained
+      ? "Travel takes more than the timetable shows, and the reserves going in are already thin."
+      : "Travel takes more than the timetable shows — the reserves going in are what the other side gets.";
+  }
+  if (isConferenceShape(opts.dayShape)) {
+    return opts.conferenceDayNumber != null && opts.conferenceDayNumber > 1
+      ? "Attention load accumulates across conference days — that carry is the real signal today."
+      : "A conference day asks for sustained attention rather than bursts of output.";
+  }
+
   if (drainedIntoHighStakes && hasManyHighStakes) {
     return "The felt state and the calendar don't match — sequencing is the day's real decision.";
   }
@@ -240,7 +342,45 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
 }
 
 function buildDirective(opts: DeterministicBriefFallbackOpts): string {
-  // ── Non-workday branch runs FIRST, before any pillar/high-stakes branch.
+  const tiersForShape = [opts.cognitivePillTier, opts.physicalPillTier];
+  const shapeStrained = tiersForShape.some((t) => t === "amber" || t === "red") ||
+    opts.band === "stretched" || opts.band === "depleted";
+
+  // ── DAY SHAPE ROUTING — runs before the weekend and pillar branches so a
+  // Sunday flight reads as travel, not as a plain weekend.
+  if (opts.dayShape === "work_travel") {
+    if (opts.travelPhase === "in_transit") {
+      return "The transit has already taken something. Focus on arriving intact before thinking about what comes next";
+    }
+    if (opts.travelPhase === "post") {
+      return "The trip left a lag — sequence the first block against it, not through it";
+    }
+    if (shapeStrained) {
+      return "The journey will cost more than the timetable shows. Protect what's there before it spends what's left";
+    }
+    if (opts.longHaulFlight) {
+      return "Long-haul takes more than it looks — bank what you have before boarding, so the other side gets you intact";
+    }
+    return "Protect what you have before the journey spends it. Arrive in the condition the next thing needs";
+  }
+  if (opts.dayShape === "personal_travel") {
+    return "The journey is the day. Arriving whole is the outcome — nothing else needs to be produced";
+  }
+  if (opts.dayShape === "conference") {
+    const dayRef = opts.conferenceDayNumber != null
+      ? `Day ${opts.conferenceDayNumber}`
+      : "Today";
+    return shapeStrained
+      ? `${dayRef}: sustain attention in the sessions that earn it and let the rest pass through — the accumulated load is real`
+      : `${dayRef}: sustain attention across the sessions that earn it and let the others pass through`;
+  }
+  if (isOffDayShape(opts.dayShape)) {
+    return shapeStrained
+      ? "The system needs this day to actually recover — not half-work it. Let today be what it is"
+      : "Reserves are holding. Protect them rather than spending them; a little forward thinking is fine";
+  }
+
+  // ── Non-workday branch, before any pillar/high-stakes branch.
   // Weekend, long weekend, public holiday, PTO / OOO, personal leave and
   // personal travel all collapse into `isWeekend` upstream, so this single
   // gate covers every off-day shape. Beat (c) must carry no work language:
@@ -310,6 +450,27 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
 }
 
 function closeFor(opts: DeterministicBriefFallbackOpts): string {
+  // Day-shape closes run before the weekend override.
+  if (opts.dayShape === "work_travel") {
+    if (opts.travelPhase === "in_transit") {
+      return "and land in the condition the next thing needs.";
+    }
+    if (opts.travelPhase === "post") {
+      return "and let the system settle before pushing.";
+    }
+    return "and arrive with something in the tank.";
+  }
+  if (opts.dayShape === "personal_travel") {
+    return "and let the trip actually land.";
+  }
+  if (opts.dayShape === "conference") {
+    return opts.band === "depleted" || opts.band === "stretched"
+      ? "and protect what's left for the sessions that matter."
+      : "and protect the state for what tomorrow's sessions need.";
+  }
+  if (isOffDayShape(opts.dayShape)) {
+    return "and let the return start with something in the tank.";
+  }
   // Weekend override — applies regardless of band or window.
   if (opts.isWeekend) {
     if (opts.band === "firing" || opts.band === "sharp") {
@@ -357,7 +518,12 @@ export function buildDeterministicBriefFallback(
     ...rawOpts,
     // Any non-workday shape takes the weekend copy branches: no meetings, no
     // calls, no workday tasks in the directive.
-    isWeekend: rawOpts.isWeekend === true || rawOpts.isNonWorkday === true,
+    // A travel or conference day is never routed as a weekend, even when it
+    // falls on Saturday or Sunday — the shape outranks the calendar day.
+    isWeekend: isTravelShape(rawOpts.dayShape) ||
+        isConferenceShape(rawOpts.dayShape)
+      ? false
+      : rawOpts.isWeekend === true || rawOpts.isNonWorkday === true,
     hasWearable: rawOpts.hasWearable && wearableCurrent,
     wearableFact: wearableCurrent ? rawOpts.wearableFact : null,
     sleepScore: wearableCurrent ? rawOpts.sleepScore : null,

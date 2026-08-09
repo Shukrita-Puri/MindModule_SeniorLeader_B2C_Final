@@ -494,13 +494,95 @@ interface CanonicalGroup {
   peopleKeys: Set<string>;
 }
 
+/**
+ * Travel-title clustering.
+ *
+ * Providers (and iOS in particular) mirror the same flight under drifting
+ * titles — "Flight: BA 183 from LHR to JFK", "Flight to JFK (BA 183)",
+ * "Flight to New York (BA 183)". Exact normalized-title equality splits those
+ * into three "meetings". We anchor on the flight/train code when present, and
+ * otherwise allow high token overlap for travel-shaped titles only. Non-travel
+ * titles keep the strict exact-match rule: a false merge is worse than a
+ * false split.
+ */
+const TRAVEL_TITLE_RX =
+  /\b(flight|flights|fly|flying|depart|departure|departing|arrive|arrival|arriving|train|eurostar|ferry|transfer)\b/;
+
+const TRANSPORT_CODE_RX = /\b([a-z]{2}[a-z0-9]?)\s?(\d{1,4})\b/g;
+
+const TITLE_STOPWORDS = new Set([
+  "to",
+  "from",
+  "the",
+  "a",
+  "an",
+  "and",
+  "with",
+  "at",
+  "on",
+  "for",
+  "of",
+  "in",
+  "via",
+  "my",
+]);
+
+function isTravelTitle(title: string): boolean {
+  return TRAVEL_TITLE_RX.test(title);
+}
+
+function transportCodes(title: string): Set<string> {
+  const out = new Set<string>();
+  if (!isTravelTitle(title)) return out;
+  for (const match of title.matchAll(TRANSPORT_CODE_RX)) {
+    const carrier = match[1];
+    if (/^\d/.test(carrier)) continue;
+    out.add(`${carrier}${match[2]}`);
+  }
+  return out;
+}
+
+function contentTokens(title: string): Set<string> {
+  const out = new Set<string>();
+  for (const token of title.split(" ")) {
+    if (!token || token.length < 2) continue;
+    if (TITLE_STOPWORDS.has(token)) continue;
+    out.add(token);
+  }
+  return out;
+}
+
+function titleOverlap(a: string, b: string): number {
+  const left = contentTokens(a);
+  const right = contentTokens(b);
+  if (left.size === 0 || right.size === 0) return 0;
+  let shared = 0;
+  for (const token of left) if (right.has(token)) shared += 1;
+  return (2 * shared) / (left.size + right.size);
+}
+
+export function titlesMatch(rowTitle: string, groupTitle: string): boolean {
+  if (rowTitle === groupTitle) return true;
+
+  const rowCodes = transportCodes(rowTitle);
+  const groupCodes = transportCodes(groupTitle);
+  if (rowCodes.size > 0 && groupCodes.size > 0) {
+    for (const code of rowCodes) if (groupCodes.has(code)) return true;
+    // Both sides name a transport code and they disagree: distinct journeys.
+    return false;
+  }
+
+  if (!isTravelTitle(rowTitle) || !isTravelTitle(groupTitle)) return false;
+  return titleOverlap(rowTitle, groupTitle) >= 0.6;
+}
+
 function canMergeIntoGroup(
   row: CalendarMergeInput,
   group: CanonicalGroup,
 ): boolean {
   const rowTitle = normalizeForClassify(row.title);
   if (!rowTitle) return false;
-  if (rowTitle !== group.normalizedTitle) return false;
+  if (!titlesMatch(rowTitle, group.normalizedTitle)) return false;
 
   const start = startMsFor(row);
   const duration = durationMinutes(row);
