@@ -19,7 +19,7 @@ import { computeCognitiveFragmentation } from './cognitive-fragmentation.ts';
 import type { CalendarLevel } from './context-builder.ts';
 import { coarseEventType } from '../events/event-classifier.ts';
 import { enrichEvent } from '../events/enrich-event.ts';
-import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
+import { countLoadUnits, mergeCalendarEvents } from '../rules/calendarEvents.ts';
 
 export interface CalendarMetricsResult {
   load: CalendarLevel;
@@ -161,6 +161,7 @@ export async function getServerCalendarMetrics(
   userId: string,
   timezoneOffset: number = 0,
   dayOffset: number = 0,
+  platform: 'ios' | 'web' = 'web',
 ): Promise<CalendarMetricsResult> {
   const now = new Date();
   const userNow = new Date(now.getTime() - timezoneOffset * 60000);
@@ -211,7 +212,7 @@ export async function getServerCalendarMetrics(
     console.error('[db-queries] Calendar events query error:', error);
   }
 
-  const eventList = mergeCalendarEvents((events || []) as any[], 'unknown');
+  const eventList = mergeCalendarEvents((events || []) as any[], platform);
 
   if (eventList.length === 0) {
     return { ...EMPTY_NO_EVENTS };
@@ -238,10 +239,21 @@ export async function getServerCalendarMetrics(
     return survivesAttendeeOrDurationFloor(e);
   };
   const meetingList = eventList.filter(isMeeting);
-  const meetingCount = meetingList.length;
-  const remainingMeetings = meetingList.filter(
+  const meetingCount = countLoadUnits(meetingList.map((e: any) => ({
+    id: e.id ?? e.external_id ?? e.title,
+    title: e.title,
+    startTime: e.start_time,
+    endTime: e.end_time,
+  }))).loadUnits;
+  const remainingMeetingList = meetingList.filter(
     (e: any) => new Date(e.start_time) > new Date(now.getTime()),
-  ).length;
+  );
+  const remainingMeetings = countLoadUnits(remainingMeetingList.map((e: any) => ({
+    id: e.id ?? e.external_id ?? e.title,
+    title: e.title,
+    startTime: e.start_time,
+    endTime: e.end_time,
+  }))).loadUnits;
 
   const filteredOut = eventList.filter((e: any) => !isMeeting(e));
   if (filteredOut.length > 0) {

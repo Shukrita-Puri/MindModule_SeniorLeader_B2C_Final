@@ -32,7 +32,8 @@ import {
   periodFor,
 } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
-import { classifyEvent } from "../_shared/events/event-classifier.ts";
+import { EVENT_TYPES } from "../_shared/events/event-subtypes.ts";
+import { resolveEventCategory } from "../_shared/events/resolve-event-category.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import {
   evaluateWeekAheadMode,
@@ -99,12 +100,13 @@ const PRIOR_SIGNALS: ReadonlySet<PriorSignal> = new Set([
 /** User-friendly bucket label aligned with the Plan card vocabulary.
  *  Returns "" when the taxonomy cannot resolve the event — a blank chip is
  *  honest, a blanket "Meeting" is not (a national holiday is not a meeting). */
-function categoryLabelFor(title: string, categoryId: string | null): string {
-  const subtype = classifyEvent(title);
-  if (subtype) return subtype.bucket;
+function categoryLabelFor(enriched: any): string {
+  if (enriched.subtype) {
+    return enriched.subtype.bucket;
+  }
   return (
-    (categoryId &&
-      EVENT_CATEGORIES[categoryId as keyof typeof EVENT_CATEGORIES]?.name) || ""
+    (enriched.categoryId &&
+      EVENT_CATEGORIES[enriched.categoryId as keyof typeof EVENT_CATEGORIES]?.name) || ""
   );
 }
 
@@ -586,7 +588,7 @@ serve(async (req) => {
         endTime: meta.endTime,
         localDay: meta.localDay,
         period: meta.period,
-        category: categoryLabelFor(meta.title, categoryId),
+        category: categoryLabelFor(enriched),
         typeKey: meta.typeKey,
         stakesLevel,
         score: orderScore,

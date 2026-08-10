@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     // was causing DNS errors on every login.
     const token = authHeader!.replace("Bearer ", "");
     const rawDomain =
-      Deno.env.get("AUTH0_DOMAIN") || Deno.env.get("VITE_AUTH0_DOMAIN") || "";
+      Deno.env.get("AUTH0_DOMAIN") || Deno.env.get("VITE_AUTH0_DOMAIN") || "auth.mindmodule.me";
     const domain =
       rawDomain && !rawDomain.toLowerCase().includes("placeholder")
         ? rawDomain.replace(/^https?:\/\//, "").replace(/\/+$/, "")

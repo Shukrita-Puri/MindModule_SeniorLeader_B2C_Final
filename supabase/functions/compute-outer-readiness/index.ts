@@ -3161,12 +3161,12 @@ serve(async (req) => {
     const needTomorrow = isEvening;
     const isMorning = hour >= 5 && hour < 12;
     const [calendarResult, tomorrowResult, yesterdayResult] = await Promise.all([
-      getServerCalendarMetrics(db as any, userId, timezoneOffset, 0),
+      getServerCalendarMetrics(db as any, userId, timezoneOffset, 0, platform),
       needTomorrow
-        ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1)
+        ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1, platform)
         : Promise.resolve(null),
       isMorning
-        ? getServerCalendarMetrics(db as any, userId, timezoneOffset, -1)
+        ? getServerCalendarMetrics(db as any, userId, timezoneOffset, -1, platform)
         : Promise.resolve(null),
     ]);
     const calendarLoad: CalendarLevel | null = calendarResult.state === "active"
@@ -4461,7 +4461,7 @@ serve(async (req) => {
           .limit(20);
         const mergedUpcoming = mergeCalendarEvents(
           (upcoming || []) as any[],
-          "unknown",
+          platform,
         );
         logMergeStats(
           "brief.upcoming-24h",
@@ -4834,7 +4834,7 @@ serve(async (req) => {
             .lte("start_time", tEndUTC.toISOString());
           const mergedTomorrowEvents = mergeCalendarEvents(
             (tomorrowEvents || []) as any[],
-            "unknown",
+            platform,
           );
           if (mergedTomorrowEvents.length > 0) {
             for (const ev of mergedTomorrowEvents) {
@@ -5024,7 +5024,7 @@ serve(async (req) => {
               .order("start_time", { ascending: true });
             const mergedSortedEvts = mergeCalendarEvents(
               (sortedEvts || []) as any[],
-              "unknown",
+              platform,
             );
             if (mergedSortedEvts.length > 1) {
               let maxBlock = 0;
@@ -5062,7 +5062,7 @@ serve(async (req) => {
         if (nextEventRes.data) {
           const ev = mergeCalendarEvents(
             (nextEventRes.data || []) as any[],
-            "unknown",
+            platform,
           )[0];
           if (ev) {
             const mins = Math.round(
@@ -5308,7 +5308,7 @@ serve(async (req) => {
             };
             const meetingEventsToday = mergeCalendarEvents(
               (todayEvts || []) as any[],
-              "unknown",
+              platform,
             ).filter((e: any) => {
               const dur = (new Date(e.end_time).getTime() -
                 new Date(e.start_time).getTime()) / 3600000;
@@ -5431,7 +5431,7 @@ serve(async (req) => {
 
             const meetingEvents = mergeCalendarEvents(
               (tEvts || []) as any[],
-              "unknown",
+              platform,
             ).filter(isMeetingLike);
             if (meetingEvents.length > 0) {
               const first = meetingEvents[0];
@@ -5480,6 +5480,7 @@ serve(async (req) => {
                 userId,
                 timezoneOffset,
                 d,
+                platform,
               );
               const targetDate = new Date(userTime.getTime() + d * 86400000);
               const dayName = dayNames[targetDate.getDay()];
@@ -5542,7 +5543,7 @@ serve(async (req) => {
                 .maybeSingle();
               const monFirst = mergeCalendarEvents(
                 monFirstRaw ? [monFirstRaw as any] : [],
-                "unknown",
+                platform,
               )[0] ?? null;
               if (monFirst) {
                 const evTime = new Date(
@@ -5605,7 +5606,7 @@ serve(async (req) => {
                 .lt("start_time", new Date().toISOString());
               const mergedSimilarEvents = mergeCalendarEvents(
                 (similarEvents || []) as any[],
-                "unknown",
+                platform,
               );
               if (mergedSimilarEvents.length >= 3) {
                 const eventDates = mergedSimilarEvents.map((e) =>
@@ -10078,7 +10079,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 ? ((existingWindowMrs!.readiness_state as any) ?? "baseline")
                 : (suppressIncomingMrsSnapshot
                   ? "awaiting"
-                  : (clientReadinessState ?? "baseline")),
+                  : (clientReadinessState ?? (hasTodayCheckIn ? "refined" : "baseline"))),
               refinedContribution: shouldPreserveExistingMrs
                 ? (existingWindowMrs!.refined_contribution ?? null)
                 : (suppressIncomingMrsSnapshot
@@ -10121,7 +10122,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   ? ((existingWindowMrs!.readiness_state as any) ?? "baseline")
                   : (suppressIncomingMrsSnapshot
                     ? "awaiting"
-                    : (clientReadinessState ?? "baseline")),
+                    : (clientReadinessState ?? (hasTodayCheckIn ? "refined" : "baseline"))),
               }),
             );
             // Phase 2 — morning anchor lives on the MORNING-window row. When
@@ -10401,11 +10402,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
               const existingHasCopy = !!existingPhrase && !!existingBody;
               const newHasCopy = !!persistPhrase && !!persistBody;
-              if (briefAwaitingSignals) {
-                // Personal-signal contract is not met for this window. Force an
-                // explicit awaiting row and do NOT preserve a prior LLM or
+              if (suppressBriefCopy) {
+                // Personal-signal contract is not met for this window, or inner state is awaiting.
+                // Force an explicit awaiting row and do NOT preserve a prior LLM or
                 // deterministic brief — the frontend must not restore stale
-                // prose when the server has decided the signal is missing.
+                // prose when the server has decided the signal is missing or being suppressed.
                 persistPhrase = null;
                 persistBody = null;
                 persistLeanOn = null;

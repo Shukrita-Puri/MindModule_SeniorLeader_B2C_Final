@@ -18,33 +18,45 @@ const corsHeaders = {
 // V8 isolate (150MB limit). Processing >5 heavy Apple HealthKit JSON payloads
 // concurrently will reliably crash the isolate yielding 502 Bad Gateway.
 let activeRequests = 0;
-const MAX_CONCURRENT_REQUESTS = 5;
+const MAX_CONCURRENT_REQUESTS = 3;
+const activeOutboxIds = new Set<string>();
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
-    console.warn(`[persist-wearable-data] 429 Too Many Requests (Concurrency limit ${MAX_CONCURRENT_REQUESTS} reached). Shedding load to prevent OOM.`);
-    return new Response(
-      JSON.stringify({ error: "too_many_requests", detail: "Concurrency limit reached. Please retry later." }),
-      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "5" } }
-    );
+  const outboxItemId = req.headers.get("x-outbox-item-id") || req.headers.get("X-Outbox-Item-Id");
+  if (outboxItemId) {
+    if (activeOutboxIds.has(outboxItemId)) {
+      console.warn(`[persist-wearable-data] 429 Shedding concurrent duplicate outbox item: ${outboxItemId}`);
+      return new Response(
+        JSON.stringify({ error: "too_many_requests", detail: "Duplicate request currently processing. Shedding load." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "2" } }
+      );
+    }
+    activeOutboxIds.add(outboxItemId);
   }
 
-  activeRequests++;
   try {
-    const authResult = await authenticateRequest(req, corsHeaders);
-    if (authResult.errorResponse) return authResult.errorResponse;
-    const userId = authResult.userId;
+    if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+      console.warn(`[persist-wearable-data] 429 Too Many Requests (Concurrency limit ${MAX_CONCURRENT_REQUESTS} reached). Shedding load to prevent OOM.`);
+      return new Response(
+        JSON.stringify({ error: "too_many_requests", detail: "Concurrency limit reached. Please retry later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "5" } }
+      );
+    }
 
-    const body = await req.json();
+    activeRequests++;
+    try {
+      const authResult = await authenticateRequest(req, corsHeaders);
+      if (authResult.errorResponse) return authResult.errorResponse;
+      const userId = authResult.userId;
 
-    const db = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+      const db = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
 
     // Per-request cache: one context load per unique summary_date.
     const ctxCache = new Map<string, WearableMergeContext>();
@@ -76,25 +88,8 @@ Deno.serve(async (req) => {
 
     // ===== IDEMPOTENCY (X-Outbox-Item-Id) =====
     // Native iOS outbox + JS retry orchestrator both attach an item id.
-    // If we have already processed this id, return success immediately
-    // so retried/duplicate background uploads cannot create duplicate work.
-    const outboxItemId = req.headers.get("x-outbox-item-id") || req.headers.get("X-Outbox-Item-Id");
+    // We insert it BEFORE parsing the body to act as a distributed lock.
     if (outboxItemId) {
-      const { data: existing } = await db
-        .from("processed_outbox_items")
-        .select("outbox_item_id")
-        .eq("outbox_item_id", outboxItemId)
-        .maybeSingle();
-      if (existing) {
-        console.log("[persist-wearable-data] Duplicate outbox item ignored:", outboxItemId);
-        return new Response(
-          JSON.stringify({ success: true, deduplicated: true, outbox_item_id: outboxItemId }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-    const recordProcessed = async () => {
-      if (!outboxItemId) return;
       try {
         await db.from("processed_outbox_items").insert({
           outbox_item_id: outboxItemId,
@@ -102,8 +97,12 @@ Deno.serve(async (req) => {
           function_name: "persist-wearable-data",
         });
       } catch (e) {
-        // Unique-violation = a concurrent retry already inserted; safe to ignore.
-        console.warn("[persist-wearable-data] processed_outbox_items insert noop:", (e as Error)?.message);
+        // Unique-violation = a concurrent retry already inserted it (or it succeeded previously).
+        console.log(`[persist-wearable-data] Duplicate outbox item ignored (insert failed):`, outboxItemId);
+        return new Response(
+          JSON.stringify({ success: true, deduplicated: true, outbox_item_id: outboxItemId }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
       // Best-effort cleanup of rows older than 14 days (low probability per call).
       if (Math.random() < 0.02) {
@@ -112,7 +111,10 @@ Deno.serve(async (req) => {
           await db.from("processed_outbox_items").delete().lt("created_at", cutoff);
         } catch { /* */ }
       }
-    };
+    }
+
+    // Now safe to parse the potentially large JSON body
+    const body = await req.json();
 
     /**
      * Helper: upsert integration status.
@@ -303,7 +305,6 @@ Deno.serve(async (req) => {
       });
 
       console.log(`[persist-wearable-data] Bulk result (${syncSource}):`, results);
-      await recordProcessed();
       return new Response(
         JSON.stringify({ success: true, ...results }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -331,13 +332,23 @@ Deno.serve(async (req) => {
       }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err) {
-    console.error("[persist-wearable-data] Error:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    } catch (err) {
+      if (outboxItemId) {
+        // On failure, release the distributed lock so the native retry orchestrator can try again
+        try {
+          const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+          await db.from("processed_outbox_items").delete().eq("outbox_item_id", outboxItemId);
+        } catch { /* */ }
+      }
+      console.error("[persist-wearable-data] Error:", err);
+      return new Response(
+        JSON.stringify({ error: "Internal error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } finally {
+      activeRequests--;
+    }
   } finally {
-    activeRequests--;
+    if (outboxItemId) activeOutboxIds.delete(outboxItemId);
   }
 });

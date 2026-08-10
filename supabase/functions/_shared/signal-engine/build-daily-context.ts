@@ -186,8 +186,8 @@ export async function upsertDailyContextSnapshot(
         .maybeSingle();
 
       if (existing?.readiness_state) {
-        // State precedence: published > partial > awaiting = early_read > not_connected > empty
-        const STATE_RANK: Record<string, number> = { published: 3, partial: 2, awaiting: 1, early_read: 1, not_connected: 0 };
+        // State precedence: refined > baseline > partial > awaiting = early_read > not_connected > empty
+        const STATE_RANK: Record<string, number> = { refined: 3, baseline: 2, partial: 2, awaiting: 1, early_read: 1, not_connected: 0 };
         const oldRank = STATE_RANK[existing.readiness_state] ?? -1;
         const newRank = STATE_RANK[input.readinessState] ?? -1;
         

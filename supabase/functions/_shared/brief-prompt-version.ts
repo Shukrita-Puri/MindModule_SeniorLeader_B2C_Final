@@ -26,4 +26,4 @@
 // light week-prep directive before any pillar branch, so no off-day brief can
 // emit meeting / call / stakeholder language. Bump invalidates cached v6.8
 // weekend briefs carrying the workday directive.
-export const BRIEF_PROMPT_VERSION = 'v7.0-brief-copy-buckets';
+export const BRIEF_PROMPT_VERSION = 'v7.1-travel-and-dayshape';

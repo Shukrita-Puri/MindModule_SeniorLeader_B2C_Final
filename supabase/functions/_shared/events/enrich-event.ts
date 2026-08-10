@@ -9,7 +9,8 @@ import {
   type EventCategory,
   type EventCategoryId,
 } from "./event-categories.ts";
-import { classifyEvent } from "./event-classifier.ts";
+import { resolveEventCategory } from "./resolve-event-category.ts";
+import type { Confidence, ResolvedBy } from "./classify-event-v2.ts";
 import { EVENT_PHASE_MAP, phaseForEvent } from "./event-phase-map.ts";
 import {
   type DemandProfile,
@@ -77,8 +78,10 @@ export function subcategoryFromSubtypeId(
     "gov.crisis": "crisis_decision",
     "str.strategy_planning": "strategy",
     "rhy.catchup": "routine_sync",
-    "conf.workshop": "workshop",
-    "conf.event": "event",
+    "conf.offsite": "workshop",
+    "conf.customer_summit": "event",
+    "conf.award": "event",
+    "conf.networking": "event",
     "rhy.wellness_self_care": "wellness_self_care",
     "rhy.wellness_fitness": "wellness_fitness",
     "rhy.wellness_health_check": "wellness_health_check",
@@ -114,32 +117,28 @@ export interface EnrichedEvent {
     during?: ReturnType<typeof phaseForEvent>;
     post?: ReturnType<typeof phaseForEvent>;
   };
+  confidence: Confidence;
+  source: ResolvedBy | 'layer3_persisted';
 }
 
 export function enrichEvent(raw: any): EnrichedEvent {
   const title = String(raw?.title ?? raw?.event?.title ?? "").trim();
   // Learning loop (optional): a per-user confirmed title or promoted token
-  // outranks the dictionary. Absent/empty context → unchanged behaviour.
   const learnedCtx: LearningContext | null = raw?.learned ?? null;
-  const learned = lookupLearned(learnedCtx, title);
-  const dictSubtype = classifyEvent(title);
-  const learnedSubtype = learned?.subtypeId
-    ? (EVENT_TYPES.find((e) => e.id === learned.subtypeId) ?? null)
+  
+  const resolved = resolveEventCategory(title, raw, { learned: learnedCtx });
+  const subtype = resolved.subtypeId 
+    ? (EVENT_TYPES.find((e) => e.id === resolved.subtypeId) ?? null)
     : null;
-  const subtype = learnedSubtype ??
-    (learned?.category && learned.category !== dictSubtype?.categoryId
-      ? null
-      : dictSubtype);
-  const categoryId = (learned?.category as EventCategoryId | undefined) ??
-    subtype?.categoryId ?? null;
+
+  const categoryId = resolved.categoryId;
   const category = categoryId ? EVENT_CATEGORIES[categoryId] : null;
   const scenarioId = subtype
     ? (EVENT_TYPE_TO_SCENARIO_ID[subtype.id] ?? null)
     : null;
   const durationMinutes = computeDurationMinutes(raw);
   const travelArc = computeTravelArc(subtype?.id ?? null, durationMinutes);
-  const subcategory = subcategoryFromSubtypeId(subtype?.id ?? null) ??
-    (learned?.subcategory ?? null);
+  const subcategory = subcategoryFromSubtypeId(subtype?.id ?? null) ?? null;
   const phases: EnrichedEvent["phases"] = {};
   if (categoryId) {
     const timingMatrix = subtype?.timingMatrix;
@@ -166,5 +165,7 @@ export function enrichEvent(raw: any): EnrichedEvent {
     demandProfile: subtype?.demandProfile ?? null,
     scenarioId,
     phases,
+    confidence: resolved.confidence,
+    source: resolved.source,
   };
 }
