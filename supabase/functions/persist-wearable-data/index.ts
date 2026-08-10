@@ -90,18 +90,36 @@ Deno.serve(async (req) => {
     // Native iOS outbox + JS retry orchestrator both attach an item id.
     // We insert it BEFORE parsing the body to act as a distributed lock.
     if (outboxItemId) {
+      let lockError: { code?: string; message?: string } | null = null;
       try {
-        await db.from("processed_outbox_items").insert({
+        const { error } = await db.from("processed_outbox_items").insert({
           outbox_item_id: outboxItemId,
           user_id: userId,
           function_name: "persist-wearable-data",
         });
+        lockError = (error as { code?: string; message?: string } | null) ?? null;
       } catch (e) {
-        // Unique-violation = a concurrent retry already inserted it (or it succeeded previously).
-        console.log(`[persist-wearable-data] Duplicate outbox item ignored (insert failed):`, outboxItemId);
+        lockError = { message: (e as Error)?.message };
+      }
+      if (lockError) {
+        // ONLY a unique violation means "already processed". Anything else is a
+        // genuine failure and must surface as 5xx so the client retries —
+        // returning 200 here would drop the batch permanently.
+        if (lockError.code === "23505") {
+          console.log(`[persist-wearable-data] Duplicate outbox item ignored:`, outboxItemId);
+          return new Response(
+            JSON.stringify({ success: true, deduplicated: true, outbox_item_id: outboxItemId }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        console.error(
+          `[persist-wearable-data] Outbox lock insert failed (retryable):`,
+          lockError.code,
+          lockError.message,
+        );
         return new Response(
-          JSON.stringify({ success: true, deduplicated: true, outbox_item_id: outboxItemId }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "outbox_lock_failed", retryable: true }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       // Best-effort cleanup of rows older than 14 days (low probability per call).
