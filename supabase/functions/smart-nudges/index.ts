@@ -6490,7 +6490,7 @@ serve(async (req) => {
               .from("daily_ritual_completions")
               .select("plan_ledger")
               .eq("user_id", userId)
-              .eq("local_date", todayStr)
+              .eq("ritual_date", todayStr)
               .limit(1)
               .maybeSingle();
             const hasPlan = planRow &&
