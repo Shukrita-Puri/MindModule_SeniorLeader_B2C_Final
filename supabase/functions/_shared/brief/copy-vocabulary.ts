@@ -349,10 +349,25 @@ EXAMPLE 7 — Morning · Conference day 2 · signals mixed
 phrase: "Steady and selective"
 body: "Recovery is holding going into day 2 of the conference — sustained attention is the load being carried. Attention load accumulates across conference days. Day 2: sustain attention across the sessions that earn it and let the others pass through, and protect the state for what tomorrow's sessions need."
 
-EXAMPLE 8 — Afternoon · Personal travel · Recovery below usual range · Long-haul · No check-in · Pills unread
+EXAMPLE 8 — Personal travel · Afternoon · Recovery below usual range · Long-haul · travelPreFlightMandatory fires
 phrase: "Holding steady"
 body: "Recovery is below its usual range with the flight still ahead — a long-haul day. Travel draws on the same system whether it's personal or not. Arriving intact is the outcome — protect what's there, not the output. Arrive with something left."
-NOTE ON BEATS: (a) names the signal + the journey. (b) names the honest cost judgment. (c) gives the direction — protect, not produce. (d) is four words, arrival-oriented. Beats (b) and (c) do not repeat the same idea.`;
+RULE: travelPreFlightMandatory (personal_travel shape). Beat (a): signal + flight. Beat (b): honest cost judgment — does not say "nothing needs to be produced". Beat (c): protect what's there. Beat (d): arrival-oriented, 4 words. No repetition across beats.
+
+EXAMPLE 9 — Back-to-back 5h · Afternoon · Recovery below usual range · backToBackLoadOverride fires
+phrase: "Steady and selective"
+body: "Recovery is below its usual range and the day has been running compressed back-to-back for five hours. The body is working harder than the calendar admits. One priority for the next block — nothing else gets added to the load. Protect the close."
+RULE: backToBackLoadOverride. Beat (a): signal + back-to-back hours. Beat (b): the body is working harder than it looks — the judgment. Beat (c): single priority; nothing added. Beat (d): 3 words.
+
+EXAMPLE 10 — Decision density ≥4 · Morning · Signals clear · decisionDensity fires
+phrase: "Go get them"
+body: "Four decision-weight calls cluster between now and 1pm — that's the real load today, not any single one. The cost is the switching between them, not the decisions themselves. Use the clearest window at the front; protect the edge for where decisions actually land. Don't spend it before the room that earns it."
+RULE: decisionDensity. Beat (a): names the cluster (four calls), not any single call. Beat (b): the switching is the cost — distinct judgment. Beat (c): front-load the clear window. Beat (d): 9 words, protective.
+
+EXAMPLE 11 — Context switching D → A → B · Afternoon · Signals strained · contextSwitchingCost fires
+phrase: "Steady and selective"
+body: "A difficult conversation, then governance, then a pitch — three different modes in three hours. Each mode-switch costs more than the meeting does. Protect the transitions: the gaps between them are where composure holds or leaks. Protect the close."
+RULE: contextSwitchingCost. Beat (a): names the sequence, not any single meeting. Beat (b): the switches cost more than the meetings — the insight. Beat (c): protect the gaps. Beat (d): 3 words.`;
 
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble, no explanation.
 {
