@@ -275,7 +275,7 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   }
 
   if (shape === "personal_travel") {
-    return "The journey draws on the same system that runs the working week. Let it be the day's only demand.";
+    return "Travel draws on the system whether it's personal or not. The journey is the day's real demand.";
   }
 
   if (shape === "conference") {
@@ -295,26 +295,8 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   const lowSleepIntoHighStakes =
     opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
 
-  // ── Day-shape read runs before the pillar map. On a travel or conference
-  // day the shape is the story; a workday pillar comparison misreads it.
-  if (isTravelShape(opts.dayShape)) {
-    const strained = opts.cognitivePillTier === "amber" ||
-      opts.cognitivePillTier === "red" ||
-      opts.physicalPillTier === "amber" || opts.physicalPillTier === "red" ||
-      opts.band === "stretched" || opts.band === "depleted";
-    if (opts.travelPhase === "post") {
-      return "The transit has already been paid for — what's left is re-entry, and that costs more than it looks.";
-    }
-    if (opts.travelPhase === "in_transit") {
-      return "The day belongs to the journey — arriving intact is the outcome that matters.";
-    }
-    if (opts.dayShape === "personal_travel") {
-      return "The journey is the shape of the day, not the work around it.";
-    }
-    return strained
-      ? "Travel takes more than the timetable shows, and the reserves going in are already thin."
-      : "Travel takes more than the timetable shows — the reserves going in are what the other side gets.";
-  }
+  // ── Conference day-shape read runs before the pillar map; a workday
+  // pillar comparison misreads it. Travel shapes are handled above.
   if (isConferenceShape(opts.dayShape)) {
     return opts.conferenceDayNumber != null && opts.conferenceDayNumber > 1
       ? "Attention load accumulates across conference days — that carry is the real signal today."
@@ -408,7 +390,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
 
   // ── PERSONAL TRAVEL (no work commitment after landing) ──
   if (shape === "personal_travel") {
-    return "The journey is the day. Arriving whole is the outcome — let the trip be what it is";
+    return "The journey draws on the same system that runs the week. Arriving intact is the outcome — protect that, not the output";
   }
 
   // ── CONFERENCE (sustained attention load across sessions) ──
@@ -492,7 +474,7 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     return "and arrive intact.";
   }
   if (shape === "personal_travel") {
-    return "and let the trip actually land.";
+    return "and arrive with something left.";
   }
 
   // ── Conference close ──
