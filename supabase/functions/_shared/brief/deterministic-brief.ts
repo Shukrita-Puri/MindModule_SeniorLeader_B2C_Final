@@ -357,6 +357,27 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
       : "A conference day asks for sustained attention rather than bursts of output.";
   }
 
+  // ── CEO behaviour flag read — workday only ──
+  if (!isTravelShape(opts.dayShape) && !isConferenceShape(opts.dayShape)) {
+    const flag = topCeoFlag(opts);
+    if (flag) {
+      switch (flag.rule) {
+        case "decisionDensity":
+          return "The cost is the switching between high-weight calls, not the calls themselves.";
+        case "contextSwitchingCost":
+          return "The transitions between different modes of work are where the load accumulates.";
+        case "backToBackLoadOverride":
+          return "The body is working harder than the timetable admits.";
+        case "stackedStakes":
+          return "The sequencing between the two demands is the real decision today.";
+        case "vetoRisk":
+          return "The felt state is ahead of where the body actually is — one is masking the other.";
+        case "decisionLeakageGuard":
+          return "What came before will carry into what comes next unless it's cleared.";
+      }
+    }
+  }
+
   if (drainedIntoHighStakes && hasManyHighStakes) {
     return "The felt state and the calendar don't match — sequencing is the day's real decision.";
   }
@@ -481,6 +502,29 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
   }
 
   // ── WORKDAY — pillar-based routing (unchanged from current code) ──
+  // ── CEO behaviour flag directive — workday only ──
+  {
+    const flag = topCeoFlag(opts);
+    if (flag) {
+      switch (flag.rule) {
+        case "decisionDensity":
+          return "The decision cluster is the load — not any single call. Use the clearest cognitive window at the front of it and protect the edge for where decisions actually land";
+        case "contextSwitchingCost":
+          return "Each mode-switch costs more than the meeting does. Protect the transitions — the gaps between different demands are where composure holds or leaks";
+        case "backToBackLoadOverride":
+          return "The day is compressed. One priority for the next block — nothing else gets added to the load";
+        case "stackedStakes":
+          return "Two high-weight demands on the same day — protect the gap between them. The second needs what the first doesn't spend";
+        case "vetoRisk":
+          return "The felt state is ahead of where the body actually is. Protect the gap between the two so the next high-stakes block gets what it needs";
+        case "decisionLeakageGuard":
+          return "Emotional residue will leak into the next commitment unless it's cleared. Protect the transition — that is what this window is for";
+        case "postTripReentry":
+          return "The trip left a lag — sequence the first work block against it, not through it. One priority only, then protect tonight";
+      }
+    }
+  }
+
   const hasHighStakes = opts.todayHighStakes.length > 0;
   const hasManyHighStakes = opts.todayHighStakes.length >= 2;
   const drainedIntoHighStakes =
