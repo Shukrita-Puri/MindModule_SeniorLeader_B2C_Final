@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, X, Loader2, ArrowLeft } from "lucide-react";
@@ -365,7 +365,7 @@ export default function Stage6Payment() {
         </PaymentPageShell>
       );
     }
-    const handleEntitledNavigation = async () => {
+    const handleEntitledNavigation = useCallback(async () => {
       console.log('[Stage6Payment] Purchase/Entitlement confirmed — initiating navigation to Executive Home');
       try {
         await refreshProfileRef.current();
@@ -392,14 +392,14 @@ export default function Stage6Payment() {
 
       console.log('[Stage6Payment] Navigating to /executive-home');
       navigate('/executive-home', { replace: true });
-    };
+    }, [user?.id, user?.onboarding_completed_at, navigate]);
 
     return (
       <PaymentPageShell>
         <ApplePaywall
           user={user}
-          onRefreshProfile={() => refreshProfileRef.current()}
-          onEntitled={() => void handleEntitledNavigation()}
+          onRefreshProfile={useCallback(() => refreshProfileRef.current(), [])}
+          onEntitled={handleEntitledNavigation}
         />
       </PaymentPageShell>
     );

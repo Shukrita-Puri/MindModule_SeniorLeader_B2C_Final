@@ -8,7 +8,7 @@
  *  - Restore Purchases and Manage Subscription are always visible.
  *  - Apple ID Terms of Use & Privacy Policy links included with explicit renewal disclosures.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, RotateCcw, ExternalLink } from 'lucide-react';
@@ -92,6 +92,14 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
     }
   }, []);
 
+  const onRefreshProfileRef = useRef(onRefreshProfile);
+  const onEntitledRef = useRef(onEntitled);
+
+  useEffect(() => {
+    onRefreshProfileRef.current = onRefreshProfile;
+    onEntitledRef.current = onEntitled;
+  }, [onRefreshProfile, onEntitled]);
+
   useEffect(() => {
     if (stripeLegacy || appleEntitled) {
       setLoadingProducts(false);
@@ -103,10 +111,10 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   useEffect(() => {
     let dispose: (() => void) | undefined;
     void onIapTransactionUpdate(() => {
-      void onRefreshProfile().then(() => onEntitled());
+      void onRefreshProfileRef.current().then(() => onEntitledRef.current());
     }).then((fn) => { dispose = fn; });
     return () => { dispose?.(); };
-  }, [onEntitled, onRefreshProfile]);
+  }, []);
 
   const handlePurchase = async (productId: string) => {
     setBusyProductId(productId);
@@ -204,6 +212,13 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
           </p>
         </div>
         <div className="space-y-2">
+          <Button
+            className="w-full justify-center"
+            onClick={() => void onEntitled()}
+            data-testid="apple-paywall-continue"
+          >
+            Continue to App
+          </Button>
           <Button
             variant="outline"
             className="w-full justify-center gap-2"
