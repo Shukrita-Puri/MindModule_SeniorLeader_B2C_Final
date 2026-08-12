@@ -79,17 +79,33 @@ export function contextSwitchingCost(ctx: RuleContext): BehaviourFlag | null {
 
   const inWindow = ctx.upcomingEvents
     .filter((e) => e.minutesUntil >= 0 && e.minutesUntil <= 4 * 60)
-    .filter((e) => !!e.categoryId);
+    .filter((e) => !!e.categoryId && e.categoryId !== "H");
+
   const distinct = new Set(inWindow.map((e) => e.categoryId!));
   if (distinct.size < 3) return null;
 
+  const hasEmotional = distinct.has("D");
+  const hasHighCognitive = distinct.has("A") || distinct.has("B") || distinct.has("C");
+  const severity: BehaviourFlag["severity"] =
+    (hasEmotional && hasHighCognitive) ? "high" : "medium";
+
+  const nameMap: Record<string, string> = {
+    A: "governance", B: "pitch/influence", C: "visibility",
+    D: "people/difficult", E: "deep work", F: "conference", G: "travel",
+  };
+  const categoryNames = Array.from(distinct).map((c) => nameMap[c] ?? c);
+  const sequenceStr = categoryNames.join(" → ");
+
   return {
     rule: "contextSwitchingCost",
-    severity: "medium",
-    evidence: [`${distinct.size} distinct event categories in next 4h`],
+    severity,
+    evidence: [
+      `${distinct.size} distinct event categories in next 4h`,
+      `sequence: ${sequenceStr}`,
+    ],
     stake: "Mental Bandwidth",
     copyHint:
-      "context-switch tax · name the cognitive transitions, insert 2-3 min Mindset-Pause between blocks of different categories · open-plan",
+      `context-switch tax: ${sequenceStr} sequence in the next 4h. Beat (a): name the signal + the sequence of distinct modes. Beat (b): each mode-switch costs more than the meeting does — the transitions are the real load. Beat (c): protect the gaps between distinct demands; that is where composure holds or leaks. Beat (d): 3–5 word close. Never name any single meeting as the problem — the sequence is the problem.`,
   };
 }
 
