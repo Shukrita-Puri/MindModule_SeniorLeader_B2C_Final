@@ -9296,6 +9296,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   briefBehaviourSnapshot?.signals?.conferenceEventTitle ?? null,
                 travelEventTitle:
                   briefBehaviourSnapshot?.signals?.nextTravelEventTitle ?? null,
+                ceoFlags: (briefBehaviourSnapshot?.flagsBrief ?? [])
+                  // deno-lint-ignore no-explicit-any
+                  .map((f: any) => ({
+                    rule: String(f?.rule ?? ""),
+                    severity: (f?.severity ?? "medium") as "high" | "medium" | "low",
+                  }))
+                  .filter((f) => !!f.rule),
               });
               // DETERMINISTIC BYPASS: the validator runs for observability only.
               // deterministic-brief.ts is validated by construction — every string

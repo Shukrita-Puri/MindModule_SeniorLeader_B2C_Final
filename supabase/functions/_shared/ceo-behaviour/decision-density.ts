@@ -117,6 +117,6 @@ export function decisionDensity(ctx: RuleContext): BehaviourFlag | null {
     anchorEvent: contributing[0],
     stake: "Decision Power",
     copyHint:
-      "name the cluster, not any single call — the cost is the switching between high-weight calls; prime focus once, then protect it; avoid invitations to 'just think it through'",
+      "The decision cluster is the load, not any single call. Beat (a): name the signal + the cluster ('X decision-weight calls in the next Y hours'). Beat (b): the cost is the switching between them, not the decisions themselves — name that distinction. Beat (c): use the clearest cognitive window at the front of the cluster; protect the edge for where decisions actually land. Beat (d): 3–5 word close. Never invite 'thinking through' — that adds to the load.",
   };
 }

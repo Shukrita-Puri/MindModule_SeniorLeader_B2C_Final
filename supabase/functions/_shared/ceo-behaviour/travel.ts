@@ -186,7 +186,7 @@ export function travelPreFlightMandatory(ctx: RuleContext): BehaviourFlag | null
     anchorEvent: title,
     stake: "Operational Drive",
     copyHint:
-      "anchor to pre-flight self-regulation — one somatic + one orientation pass; protect arrival state, not departure speed",
+      "The journey will cost more than the timetable shows. Beat (a): name the wearable signal + the flight as the day's real demand. Beat (b): travel takes more from the system than it appears — name that honestly. Beat (c): direction is protecting what's there before the journey spends it. Beat (d): arrival-oriented close (3–6 words). Never 'the journey is the day' alone — that is not a direction.",
   };
 }
 
@@ -213,7 +213,7 @@ export function travelLandingOffload(ctx: RuleContext): BehaviourFlag | null {
     ],
     stake: "Internal Buffer",
     copyHint:
-      "decompression frame — immigration/transit overhead is real; one body-down practice, no app-open CTA inside the protected window",
+      "The transit has already been paid for. Beat (a): name the signal + the fact of landing. Beat (b): the journey cost is already in the system — the body is still catching up even if the diary has moved on. Beat (c): sequence the first work block against the lag, not through it. Beat (d): close toward the rhythm returning.",
     landingDeliveryMode: insideWindow ? 'in_app_practice' : 'standard',
   };
 }
@@ -264,7 +264,7 @@ export function longHaulRecovery(ctx: RuleContext): BehaviourFlag | null {
     evidence: [`long-haul ${lh.durationHours}h`],
     stake: "Operational Drive",
     copyHint:
-      "long-haul carries a multi-day cost — evening practice is non-negotiable; sleep window > performance theatre tonight",
+      "Long-haul compounds everything: timezone, logistics, decision load at the other end. Beat (a): name the signal + the long-haul fact. Beat (b): the cost starts before boarding — name it. Beat (c): bank what you have now; the other side needs you intact. Beat (d): arrival-oriented close. Never a practice prescription.",
   };
 }
 
@@ -278,7 +278,7 @@ export function postTripReentry(ctx: RuleContext): BehaviourFlag | null {
     evidence: ["post-trip reentry", "tomorrow heavy"],
     stake: "Mental Bandwidth",
     copyHint:
-      "reentry is its own load — do not treat today as a normal workday; protect the first 90 minutes tomorrow with a hard orientation block",
+      "The trip left a lag that often goes unacknowledged. Beat (a): name the signal + the reentry fact. Beat (b): the body is still catching up even when the diary assumes normal service. Beat (c): sequence the first work block against the lag, not through it — one priority only. Beat (d): close toward protecting tonight so tomorrow doesn't start behind.",
   };
 }
 

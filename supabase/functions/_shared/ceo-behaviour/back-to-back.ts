@@ -65,7 +65,7 @@ export function backToBackLoadOverride(ctx: RuleContext): BehaviourFlag | null {
     evidence: [`back-to-back ${hours}h`],
     stake: "Mental Bandwidth",
     copyHint:
-      "the day is compressed - single in-body cue, no app open; notification IS the value, gap arithmetic decides the timing",
+      "The day has been running compressed. Beat (a): name the wearable signal + the back-to-back load (X hours). Beat (b): the body is working harder than the calendar admits — no recovery window has existed. Beat (c): single priority for the next block; nothing else gets added to the load. Beat (d): 3–5 word close. Never 'the day is compressed' as the directive — that is evidence, not direction.",
   };
 }
 
