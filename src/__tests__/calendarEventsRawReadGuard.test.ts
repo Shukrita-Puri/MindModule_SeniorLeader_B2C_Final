@@ -33,6 +33,7 @@ const APPROVED_WRITERS = new Set<string>([
   'supabase/functions/analyze-calendar-identity-duplicates/index.ts',
   'supabase/functions/backfill-calendar-identity-keys/index.ts',
   'scripts/backfill-event-tags.ts',
+  'supabase/functions/_shared/events/learning-store.ts',
 ]);
 
 // Grandfathered: raw reads tracked in .lovable/plan.md (calendar dedupe

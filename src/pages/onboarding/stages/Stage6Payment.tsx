@@ -373,12 +373,10 @@ export default function Stage6Payment() {
         console.warn('[Stage6Payment] refreshProfile warning:', err);
       }
 
-      // If user subscribed during onboarding and has no onboarding_completed_at timestamp,
-      // complete onboarding so OnboardingGuard allows /executive-home access.
       if (!user?.onboarding_completed_at) {
         console.log('[Stage6Payment] Completing onboarding and triggering tour for fresh subscriber');
         try {
-          await markV8Complete();
+          await markV8Complete({ forceBypassValidation: true });
           await refreshProfileRef.current();
         } catch (err) {
           console.warn('[Stage6Payment] markV8Complete warning:', err);
@@ -390,9 +388,14 @@ export default function Stage6Payment() {
         }
       }
 
-      console.log('[Stage6Payment] Navigating to /executive-home');
-      navigate('/executive-home', { replace: true });
-    }, [user?.id, user?.onboarding_completed_at, navigate]);
+      if (hasExplicitUpgradeSource) {
+        console.log('[Stage6Payment] Navigating back to /profile');
+        navigate('/profile', { replace: true });
+      } else {
+        console.log('[Stage6Payment] Navigating to /executive-home');
+        navigate('/executive-home', { replace: true });
+      }
+    }, [user?.id, user?.onboarding_completed_at, navigate, hasExplicitUpgradeSource]);
 
     return (
       <PaymentPageShell>

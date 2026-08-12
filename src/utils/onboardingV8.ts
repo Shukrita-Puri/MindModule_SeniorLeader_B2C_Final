@@ -61,8 +61,11 @@ export async function loadV8Row<T = Record<string, unknown>>() {
 }
 
 /** Mark the v8 onboarding as complete (sets completed_at) and derive personality fields. */
-export async function markV8Complete() {
-  return postEdge("complete-onboarding", { onboarding_version: "v8" });
+export async function markV8Complete(options?: { forceBypassValidation?: boolean }) {
+  return postEdge("complete-onboarding", {
+    onboarding_version: "v8",
+    force_bypass_validation: options?.forceBypassValidation,
+  });
 }
 
 /** Seed event priority memory from onboarding goals. Best-effort. */

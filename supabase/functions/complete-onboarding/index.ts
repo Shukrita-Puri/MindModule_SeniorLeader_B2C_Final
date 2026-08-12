@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       mental_clarity_response,
       growth_intention,
       skip_completion,
+      force_bypass_validation,
       onboarding_insight,
       archetype_description,
       archetype_title,
@@ -103,26 +104,36 @@ Deno.serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      const force_bypass_validation = body.force_bypass_validation === true;
+
       if (!v8Row) {
-        return new Response(
-          JSON.stringify({ error: "missing_v8_row" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        if (force_bypass_validation) {
+          v8Row = { user_id: userId, step_status: {} };
+        } else {
+          return new Response(
+            JSON.stringify({ error: "missing_v8_row" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       const sanitized = sanitizePayload(v8Row as Record<string, unknown>);
-      const validationErrors = validateForCompletion(sanitized);
-      if (validationErrors.length > 0) {
-        return new Response(
-          JSON.stringify({ error: "validation_failed", errors: validationErrors }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      
+      if (!force_bypass_validation) {
+        const validationErrors = validateForCompletion(sanitized);
+        if (validationErrors.length > 0) {
+          return new Response(
+            JSON.stringify({ error: "validation_failed", errors: validationErrors }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       const completedAt = existing?.onboarding_completed_at ?? new Date().toISOString();
       const { error: v8UpdateError } = await supabaseAdmin
         .from("onboarding_v8_responses")
-        .update({
+        .upsert({
+          user_id: userId,
           completed_at: v8Row.completed_at ?? completedAt,
           step_status: {
             ...((v8Row.step_status as Record<string, unknown> | null) ?? {}),
