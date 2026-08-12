@@ -184,6 +184,45 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     }
   }
 
+  // ── CEO behaviour flag evidence — uses existing flagsBrief from the snapshot ──
+  // Only fires when no travel shape has already produced evidence (travel wins).
+  if (!isTravelShape(opts.dayShape) && !isConferenceShape(opts.dayShape)) {
+    const flag = topCeoFlag(opts);
+    if (flag) {
+      switch (flag.rule) {
+        case "decisionDensity":
+          return opts.hasWearable && wearableFact
+            ? `${wearableFact} going into a decision-dense window — decision-weight calls are clustering in a way that compounds the load.`
+            : `Decision-weight calls are clustering in the next few hours — the cognitive cost is in the switching, not any single one.`;
+
+        case "contextSwitchingCost":
+          return opts.hasWearable && wearableFact
+            ? `${wearableFact} with ${opts.meetingCount} distinct-mode demands ahead — each mode-switch carries a transition cost beyond the meetings themselves.`
+            : `Different types of demands are stacked in the next few hours — each switch between them costs more than the meeting does.`;
+
+        case "backToBackLoadOverride":
+          return opts.hasWearable && wearableFact
+            ? `${wearableFact} and the day has been running compressed back-to-back.`
+            : `The day has been back-to-back. No natural recovery window has existed to reset the system.`;
+
+        case "stackedStakes":
+          return opts.hasWearable && wearableFact
+            ? `${wearableFact} with two high-weight demands on the same day — the second needs what the first doesn't spend.`
+            : `Two high-weight events on the same day — the sequencing between them is the real risk.`;
+
+        case "vetoRisk":
+          return opts.hasWearable && wearableFact
+            ? `${wearableFact} — but the felt state is ahead of where the body actually is. One is masking the other.`
+            : `The felt state and the body signals aren't saying the same thing.`;
+
+        case "decisionLeakageGuard":
+          return opts.hasWearable && wearableFact
+            ? `${wearableFact} going into an emotionally loaded commitment — the residue between events is the risk.`
+            : `Emotional load is running ahead of the next commitment. What came before will leak into what comes next unless it's cleared.`;
+      }
+    }
+  }
+
   if (drainedIntoHighStakes) {
     const eventRef = hasManyHighStakes
       ? opts.todayHighStakes.slice(0, 2).map(shortRef).join(" and ")
