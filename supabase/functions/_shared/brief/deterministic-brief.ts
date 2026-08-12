@@ -61,6 +61,13 @@ export interface DeterministicBriefFallbackOpts {
    * todayHighStakes (category G is excluded), so it is passed separately.
    */
   travelEventTitle?: string | null;
+  /**
+   * Active CEO behaviour flags from the Brief snapshot.
+   * The deterministic path reads rule name + severity to produce
+   * behaviour-aware copy when the LLM fails.
+   * Source: briefBehaviourSnapshot.flagsBrief at the call site.
+   */
+  ceoFlags?: Array<{ rule: string; severity: "high" | "medium" | "low" }> | null;
 }
 
 export interface DeterministicBriefResult {
@@ -130,6 +137,14 @@ function sanitizeWearableFact(fact: string | null): string | null {
     .replace(/Recovery is significantly below baseline/gi, "Recovery is significantly under its usual range")
     .replace(/\bHRV\b/g, "Recovery")
     .replace(/\bbaseline\b/gi, "usual range");
+}
+
+function topCeoFlag(
+  opts: DeterministicBriefFallbackOpts,
+): { rule: string; severity: "high" | "medium" | "low" } | null {
+  return (opts.ceoFlags ?? [])
+    .filter((f) => f.severity === "high" || f.severity === "medium")
+    .sort((a, b) => (a.severity === "high" ? -1 : 1))[0] ?? null;
 }
 
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
