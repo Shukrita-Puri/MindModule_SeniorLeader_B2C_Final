@@ -347,7 +347,12 @@ body: "Recovery is below its usual range going into the flight — a long-haul d
 
 EXAMPLE 7 — Morning · Conference day 2 · signals mixed
 phrase: "Steady and selective"
-body: "Recovery is holding going into day 2 of the conference — sustained attention is the load being carried. Attention load accumulates across conference days. Day 2: sustain attention across the sessions that earn it and let the others pass through, and protect the state for what tomorrow's sessions need."`;
+body: "Recovery is holding going into day 2 of the conference — sustained attention is the load being carried. Attention load accumulates across conference days. Day 2: sustain attention across the sessions that earn it and let the others pass through, and protect the state for what tomorrow's sessions need."
+
+EXAMPLE 8 — Afternoon · Personal travel · Recovery below usual range · Long-haul · No check-in · Pills unread
+phrase: "Holding steady"
+body: "Recovery is below its usual range with the flight still ahead — a long-haul day. Travel draws on the same system whether it's personal or not. Arriving intact is the outcome — protect what's there, not the output. Arrive with something left."
+NOTE ON BEATS: (a) names the signal + the journey. (b) names the honest cost judgment. (c) gives the direction — protect, not produce. (d) is four words, arrival-oriented. Beats (b) and (c) do not repeat the same idea.`;
 
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble, no explanation.
 {
@@ -488,21 +493,30 @@ Beat (d) closes toward the return:
   - "…and keep the day yours."`;
 
 export const PERSONAL_TRAVEL_DIRECTIVE =
-  `PERSONAL TRAVEL CONTEXT — today's travel is personal, not for work.
-The frame is full recovery. No work framing, no performance push.
+  `PERSONAL TRAVEL CONTEXT — today's travel is personal, not for a work commitment at the destination.
 
-Travel depletes more than it appears to — change of environment, navigating logistics,
-being in transit — all of this draws on the same system that runs the working week.
-Name the journey as part of the day's cost.
+THE FRAME: recovery — but not passive. For a C-suite leader, personal travel still draws on the
+same system that runs the working week. Timezone change, logistics, unfamiliar environment, being
+on in social contexts — all of this costs the same physiological reserves as the working week does.
+Name the journey honestly as part of the day's real cost. Do not frame it as a holiday unless the
+person is not a leader context. The frame is: arriving intact is the productive outcome.
 
-Beat (c): how to carry the body through the journey and arrive intact.
-Never a practice, protocol, or duration — direction only.
-  e.g. "The journey is the day. Arrive intact — that is the job."
-       "Let the travel be what it is. Arriving whole is the outcome."
+Beat (c) — THE DIRECTIVE: arriving intact, not producing output. Direction only.
+  CORRECT: "The journey draws on the same system that runs the week. Arriving intact is the outcome — protect that, not the output."
+  CORRECT: "Travel costs more than it looks, even when it's personal. The job today is to arrive with something left."
+  WRONG: "Let the travel be what it is. Arriving whole is the outcome." — too passive, sounds like permission to check out
+  WRONG: "Nothing else needs to be produced." — implies nothing is at stake
+  WRONG: "The journey is the day." — too abstract, does not name the cost or give a direction
 
-Beat (d) closes toward the trip or the return:
-  - "…and let the trip actually land."
-  - "…and arrive with something left."`;
+Beat (d): closes toward arriving or returning — not toward work that follows.
+  - "…and arrive with something left."
+  - "…and land intact."
+  - "…and let the journey be what it costs."
+
+CRITICAL FOUR-BEAT RULE: beats (b) and (c) must not say the same thing in different words.
+  - If beat (b) names the cost of travel ("travel draws on the same system"), beat (c) must give a direction ("protect what's there, not the output") — not restate the cost.
+  - If beat (a) already said "going into the flight," beat (b) must add a judgment — not echo "the flight is ahead."
+  - Test before writing: if you removed beat (b) and nothing was lost, rewrite it.`;
 
 export const CONFERENCE_DIRECTIVE =
   `CONFERENCE CONTEXT — today is a conference / summit day.
