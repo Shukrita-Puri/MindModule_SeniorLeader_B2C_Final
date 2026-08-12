@@ -510,28 +510,34 @@ Beat (d) closes toward the return:
 export const PERSONAL_TRAVEL_DIRECTIVE =
   `PERSONAL TRAVEL CONTEXT — today's travel is personal, not for a work commitment at the destination.
 
-THE FRAME: recovery — but not passive. For a C-suite leader, personal travel still draws on the
-same system that runs the working week. Timezone change, logistics, unfamiliar environment, being
-on in social contexts — all of this costs the same physiological reserves as the working week does.
-Name the journey honestly as part of the day's real cost. Do not frame it as a holiday unless the
-person is not a leader context. The frame is: arriving intact is the productive outcome.
+THE FRAME: the journey is recovery — but recovery with a cost, not passive rest. For a C-suite leader,
+personal travel draws on the same physiological and cognitive reserves as the working week. Timezone
+change, logistics, unfamiliar environment, sustained low-level alertness — all of it costs the same
+system. The frame is: arriving intact is the productive outcome. Not checking out. Not performing.
+Arriving with something left.
 
-Beat (c) — THE DIRECTIVE: arriving intact, not producing output. Direction only.
-  CORRECT: "The journey draws on the same system that runs the week. Arriving intact is the outcome — protect that, not the output."
-  CORRECT: "Travel costs more than it looks, even when it's personal. The job today is to arrive with something left."
-  WRONG: "Let the travel be what it is. Arriving whole is the outcome." — too passive, sounds like permission to check out
-  WRONG: "Nothing else needs to be produced." — implies nothing is at stake
-  WRONG: "The journey is the day." — too abstract, does not name the cost or give a direction
+BEAT (a) — name the wearable signal + the flight as the day's real demand:
+  CORRECT: "Recovery is below its usual range with the flight still ahead — a long-haul day."
+  WRONG: "Recovery is below its usual range." (misses the travel anchor)
 
-Beat (d): closes toward arriving or returning — not toward work that follows.
-  - "…and arrive with something left."
-  - "…and land intact."
-  - "…and let the journey be what it costs."
+BEAT (b) — name the honest cost judgment. This must add something beat (a) did not say:
+  CORRECT: "Travel draws on the same system whether it's personal or not."
+  CORRECT: "The journey costs the system whether the destination is work or not."
+  WRONG: "The journey is the day." (abstract, no cost named)
+  WRONG: "Nothing else needs to be produced." (passive, implies nothing is at stake)
 
-CRITICAL FOUR-BEAT RULE: beats (b) and (c) must not say the same thing in different words.
-  - If beat (b) names the cost of travel ("travel draws on the same system"), beat (c) must give a direction ("protect what's there, not the output") — not restate the cost.
-  - If beat (a) already said "going into the flight," beat (b) must add a judgment — not echo "the flight is ahead."
-  - Test before writing: if you removed beat (b) and nothing was lost, rewrite it.`;
+BEAT (c) — direction toward arriving intact. Must add something beats (a) and (b) did not say:
+  CORRECT: "Arriving intact is the outcome — protect what's there, not the output."
+  CORRECT: "Protect what's there before the transit spends it."
+  WRONG: "Let the travel be what it is." (no direction)
+  WRONG: Repeating that travel costs the system (that was beat b)
+
+BEAT (d) — arrival-oriented close, 3–6 words:
+  CORRECT: "Arrive with something left." · "Land intact." · "Arrive intact."
+  WRONG: "and let the trip actually land." (passive, no agency)
+
+CRITICAL: beats (b) and (c) must not say the same thing in different words.
+Test: if you removed beat (b) and nothing was lost, rewrite it.`;
 
 export const CONFERENCE_DIRECTIVE =
   `CONFERENCE CONTEXT — today is a conference / summit day.
