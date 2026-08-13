@@ -45,9 +45,6 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   const [restoring, setRestoring] = useState(false);
   const [storeUnavailable, setStoreUnavailable] = useState(false);
   const [diagnostics, setDiagnostics] = useState<IapLoadDiagnostics | null>(null);
-  
-  // Debug state requested by user to track what is failing
-  const [purchaseDebug, setPurchaseDebug] = useState<string | null>(null);
 
   const alreadyEntitled = hasValidAccess(user);
   const stripeLegacy = isNonApplePaidEntitlement(user) && alreadyEntitled;
@@ -121,16 +118,11 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
 
   const handlePurchase = async (productId: string) => {
     setBusyProductId(productId);
-    setPurchaseDebug('⏳ Processing payment with Apple...');
     try {
       const result = await purchaseIapProduct(productId);
-      setPurchaseDebug(`📦 StoreKit Response: ${result.status}\nMessage: ${result.message || 'none'}\nTxID: ${result.transactionId || 'none'}`);
-      
       switch (result.status) {
         case 'purchased':
-          setPurchaseDebug(prev => prev + '\n⏳ Syncing with database...');
           await onRefreshProfile();
-          setPurchaseDebug(prev => prev + '\n✅ Sync complete. Redirecting...');
           toast.success('Welcome to Mind Module Executive Edition.');
           onEntitled();
           break;
@@ -138,14 +130,11 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
           toast.info('Your purchase is awaiting approval. Access unlocks automatically once it completes.');
           break;
         case 'cancelled':
-          setPurchaseDebug(prev => prev + '\n❌ User cancelled payment sheet.');
           break;
         default:
-          setPurchaseDebug(prev => prev + `\n❌ Purchase Failed: ${result.message || 'Unknown error'}`);
           toast.error(result.message || 'Purchase could not be completed.');
       }
     } catch (err) {
-      setPurchaseDebug(`❌ Exception: ${(err as Error)?.message ?? 'Purchase failed.'}`);
       toast.error((err as Error)?.message ?? 'Purchase failed.');
     } finally {
       setBusyProductId(null);
@@ -256,12 +245,6 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-5" data-testid="apple-paywall">
-      {purchaseDebug && (
-        <div className="p-3 bg-zinc-900 border border-zinc-700 rounded-lg text-xs font-mono text-zinc-300 whitespace-pre-wrap">
-          <div className="font-bold text-zinc-100 mb-1">IAP Debug Log:</div>
-          {purchaseDebug}
-        </div>
-      )}
       {/* Header Section (Headline 2 sizes bigger) */}
       <div className="space-y-2">
         <h1 className="text-lg font-headline font-bold tracking-wider uppercase text-saffron">
