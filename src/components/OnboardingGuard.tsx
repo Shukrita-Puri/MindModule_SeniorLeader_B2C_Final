@@ -86,7 +86,15 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
           return;
         }
 
-        await refreshProfile();
+        const didRefresh = await refreshProfile();
+        // Return without navigating if we just refreshed the profile — 
+        // the state update will trigger this effect to run again with the fresh user object!
+        // This avoids the stale closure bug where `user` is still false from when the effect started.
+        if (didRefresh) {
+            setResolving(false);
+            return;
+        }
+
         if (!user?.onboarding_completed_at) {
           console.log('[OnboardingGuard] ⏳ User onboarding incomplete, resolving resume route...');
           const resumeRoute = await getResumeRoute();

@@ -373,7 +373,9 @@ export default function Stage6Payment() {
         console.warn('[Stage6Payment] refreshProfile warning:', err);
       }
 
-      if (!user?.onboarding_completed_at) {
+      // Check current completion state dynamically to avoid stale closure issues
+      let isCompleted = user?.onboarding_completed_at;
+      if (!isCompleted) {
         console.log('[Stage6Payment] Completing onboarding and triggering tour for fresh subscriber');
         try {
           await markV8Complete({ forceBypassValidation: true });
@@ -387,6 +389,9 @@ export default function Stage6Payment() {
           /* best-effort */
         }
       }
+
+      // Wait a moment for React state and DB replication to settle before routing
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       if (hasExplicitUpgradeSource) {
         console.log('[Stage6Payment] Navigating back to /profile');
