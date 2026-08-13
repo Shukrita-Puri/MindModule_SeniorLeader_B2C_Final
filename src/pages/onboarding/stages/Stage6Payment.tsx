@@ -406,48 +406,11 @@ export default function Stage6Payment() {
         </PaymentPageShell>
       );
     }
-    const handleEntitledNavigation = useCallback(async () => {
-      console.log('[Stage6Payment] Purchase/Entitlement confirmed — initiating navigation to Executive Home');
-      try {
-        await refreshProfileRef.current();
-      } catch (err) {
-        console.warn('[Stage6Payment] refreshProfile warning:', err);
-      }
-
-      // Check current completion state dynamically to avoid stale closure issues
-      let isCompleted = user?.onboarding_completed_at;
-      if (!isCompleted) {
-        console.log('[Stage6Payment] Completing onboarding and triggering tour for fresh subscriber');
-        try {
-          await markV8Complete({ forceBypassValidation: true });
-          await refreshProfileRef.current();
-        } catch (err) {
-          console.warn('[Stage6Payment] markV8Complete warning:', err);
-        }
-        try {
-          startFirstSessionTour({ userId: user?.id, source: 'onboarding' });
-        } catch {
-          /* best-effort */
-        }
-      }
-
-      // Wait a moment for React state and DB replication to settle before routing
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      if (hasExplicitUpgradeSource) {
-        console.log('[Stage6Payment] Navigating back to /profile');
-        navigate('/profile', { replace: true });
-      } else {
-        console.log('[Stage6Payment] Navigating to /executive-home');
-        navigate('/executive-home', { replace: true });
-      }
-    }, [user?.id, user?.onboarding_completed_at, navigate, hasExplicitUpgradeSource]);
-
     return (
       <PaymentPageShell>
         <ApplePaywall
           user={user}
-          onRefreshProfile={useCallback(() => refreshProfileRef.current(), [])}
+          onRefreshProfile={handleRefreshProfile}
           onEntitled={handleEntitledNavigation}
         />
       </PaymentPageShell>
