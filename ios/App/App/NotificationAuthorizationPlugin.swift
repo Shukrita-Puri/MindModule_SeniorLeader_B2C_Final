@@ -52,17 +52,19 @@ public class NotificationAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func resolveSettings(call: CAPPluginCall) {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            call.resolve([
-                "authorizationStatus": self.authorizationStatusLabel(settings.authorizationStatus),
-                "alertSetting": self.settingLabel(settings.alertSetting),
-                "badgeSetting": self.settingLabel(settings.badgeSetting),
-                "soundSetting": self.settingLabel(settings.soundSetting),
-                "notificationCenterSetting": self.settingLabel(settings.notificationCenterSetting),
-                "lockScreenSetting": self.settingLabel(settings.lockScreenSetting),
-                "backgroundRefreshStatus": self.backgroundRefreshStatusLabel(UIApplication.shared.backgroundRefreshStatus),
-                "quietAuthorization": settings.authorizationStatus == .provisional,
-                "canRequestFullPrompt": settings.authorizationStatus == .notDetermined || settings.authorizationStatus == .provisional,
-            ])
+            DispatchQueue.main.async {
+                call.resolve([
+                    "authorizationStatus": self.authorizationStatusLabel(settings.authorizationStatus),
+                    "alertSetting": self.settingLabel(settings.alertSetting),
+                    "badgeSetting": self.settingLabel(settings.badgeSetting),
+                    "soundSetting": self.settingLabel(settings.soundSetting),
+                    "notificationCenterSetting": self.settingLabel(settings.notificationCenterSetting),
+                    "lockScreenSetting": self.settingLabel(settings.lockScreenSetting),
+                    "backgroundRefreshStatus": self.backgroundRefreshStatusLabel(UIApplication.shared.backgroundRefreshStatus),
+                    "quietAuthorization": settings.authorizationStatus == .provisional,
+                    "canRequestFullPrompt": settings.authorizationStatus == .notDetermined || settings.authorizationStatus == .provisional,
+                ])
+            }
         }
     }
 
