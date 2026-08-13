@@ -6212,11 +6212,19 @@ export type Database = {
       primary_calendar_events: {
         Row: {
           attendees_count: number | null
+          category_confidence: string | null
+          category_resolved_at: string | null
+          category_resolved_by: string | null
           created_at: string | null
           end_time: string | null
+          event_category: string | null
           event_metadata: Json | null
+          event_subcategory: string | null
           external_id: string | null
+          flight_duration_minutes: number | null
           id: string | null
+          identity_key: string | null
+          is_all_day: boolean | null
           is_organizer: boolean | null
           is_recurring: boolean | null
           provider: string | null
@@ -6226,11 +6234,19 @@ export type Database = {
         }
         Insert: {
           attendees_count?: number | null
+          category_confidence?: string | null
+          category_resolved_at?: string | null
+          category_resolved_by?: string | null
           created_at?: string | null
           end_time?: string | null
+          event_category?: string | null
           event_metadata?: Json | null
+          event_subcategory?: string | null
           external_id?: string | null
+          flight_duration_minutes?: number | null
           id?: string | null
+          identity_key?: string | null
+          is_all_day?: boolean | null
           is_organizer?: boolean | null
           is_recurring?: boolean | null
           provider?: string | null
@@ -6240,11 +6256,19 @@ export type Database = {
         }
         Update: {
           attendees_count?: number | null
+          category_confidence?: string | null
+          category_resolved_at?: string | null
+          category_resolved_by?: string | null
           created_at?: string | null
           end_time?: string | null
+          event_category?: string | null
           event_metadata?: Json | null
+          event_subcategory?: string | null
           external_id?: string | null
+          flight_duration_minutes?: number | null
           id?: string | null
+          identity_key?: string | null
+          is_all_day?: boolean | null
           is_organizer?: boolean | null
           is_recurring?: boolean | null
           provider?: string | null
