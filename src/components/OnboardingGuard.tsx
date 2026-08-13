@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { DEV_MODE } from "@/config/devMode";
@@ -44,6 +44,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
   const location = useLocation();
   const [resolving, setResolving] = useState(false);
   const [resolved, setResolved] = useState(false);
+  const refreshAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (loading || !user) return;
@@ -86,13 +87,15 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
           return;
         }
 
-        const didRefresh = await refreshProfile();
-        // Return without navigating if we just refreshed the profile — 
-        // the state update will trigger this effect to run again with the fresh user object!
-        // This avoids the stale closure bug where `user` is still false from when the effect started.
-        if (didRefresh) {
-            setResolving(false);
-            return;
+        // Refresh the profile at most once so a fresh completion flag can land.
+        // refreshProfile() returns true whenever the network call succeeded —
+        // NOT "the user is now complete" — so it must never gate navigation on
+        // repeat passes, otherwise the guard loops forever on the loader.
+        if (!refreshAttemptedRef.current) {
+          refreshAttemptedRef.current = true;
+          await refreshProfile();
+          setResolving(false);
+          return;
         }
 
         if (!user?.onboarding_completed_at) {
