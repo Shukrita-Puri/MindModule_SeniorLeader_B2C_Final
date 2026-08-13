@@ -320,6 +320,13 @@ export async function purchaseIapProduct(productId: string): Promise<IapPurchase
         message: `Purchase completed with Apple, but backend DB update failed: ${verified.error || 'Server error'}. Please tap Restore Purchases.`,
       };
     }
+    if (!verified.entitled) {
+      console.warn('[iap] verify-apple-purchase succeeded but transaction was inactive/expired');
+      return {
+        status: 'failed',
+        message: 'Purchase completed, but the subscription appears inactive or expired. This can happen in Sandbox testing if max renewals are reached. Please use a fresh Sandbox account.',
+      };
+    }
   }
   return result;
 }
