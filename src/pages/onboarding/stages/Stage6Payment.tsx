@@ -281,7 +281,7 @@ export default function Stage6Payment() {
 
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
-  const [currency, setCurrency] = useState<'USD' | 'GBP'>('USD');
+  const [currency, setCurrency] = useState<'GBP'>('GBP');
 
   // Auto-select the first available plan
   useEffect(() => {
@@ -289,20 +289,6 @@ export default function Stage6Payment() {
       setSelectedPlan(availablePlans[0]);
     }
   }, [availablePlans, selectedPlan]);
-
-  useEffect(() => {
-    detectCurrency();
-  }, []);
-
-  const detectCurrency = async () => {
-    try {
-      const res = await fetch('https://ipapi.co/json/');
-      const data = await res.json();
-      if (data.country_code === 'GB') setCurrency('GBP');
-    } catch {
-      // Default USD
-    }
-  };
 
   const prices = {
     USD: { monthly: '$29', annual: '$24', annualTotal: '$289', crossed: '$29', savings: '17%', perSession: '$1', coachRange: '$300–$500' },
@@ -397,7 +383,7 @@ export default function Stage6Payment() {
         </PaymentPageShell>
       );
     }
-    if (isBetaValid && !hasExplicitUpgradeSource) {
+    if ((isBetaValid || hasValidUserAccess) && !hasExplicitUpgradeSource && !showUpgradeMode) {
       return (
         <PaymentPageShell showBack={false}>
           <div className="min-h-[60vh] flex items-center justify-center">
