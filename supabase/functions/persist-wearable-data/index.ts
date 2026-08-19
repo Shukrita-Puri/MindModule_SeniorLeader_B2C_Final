@@ -21,7 +21,17 @@ let activeRequests = 0;
 const MAX_CONCURRENT_REQUESTS = 3;
 const activeOutboxIds = new Set<string>();
 
+// Wall-clock budget for the bulk sample loop. The edge gateway kills the
+// request well before 60s; we stop merging at 40s, release the outbox lock
+// and report the remainder so the client resends it instead of the batch
+// being silently swallowed by the 23505 dedup path after a 504.
+const SAMPLE_TIME_BUDGET_MS = 40_000;
+// Distinct summary_dates merge independently (per-row CAS), so a small
+// amount of parallelism is safe and cuts total latency substantially.
+const SAMPLE_CONCURRENCY = 4;
+
 Deno.serve(async (req) => {
+  const requestStartedAt = Date.now();
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -59,13 +69,13 @@ Deno.serve(async (req) => {
       );
 
     // Per-request cache: one context load per unique summary_date.
-    const ctxCache = new Map<string, WearableMergeContext>();
+    const ctxCache = new Map<string, Promise<WearableMergeContext>>();
     const getCtx = async (summaryDate: string): Promise<WearableMergeContext> => {
       const hit = ctxCache.get(summaryDate);
       if (hit) return hit;
-      const ctx = await loadWearableMergeContext(db, userId, summaryDate);
-      ctxCache.set(summaryDate, ctx);
-      return ctx;
+      const pending = loadWearableMergeContext(db, userId, summaryDate);
+      ctxCache.set(summaryDate, pending);
+      return await pending;
     };
     const logReconciliation = async (summaryDate: string, rec: ReconciliationRecord) => {
       try {
@@ -220,13 +230,14 @@ Deno.serve(async (req) => {
       const syncSource: string = body.source === 'ios-background' ? 'ios-background' : 'foreground';
       console.log(`[persist-wearable-data] Bulk sync source: ${syncSource}, samples: ${body.samples.length}`);
 
-      for (const sample of body.samples) {
+      // deno-lint-ignore no-explicit-any
+      const processSample = async (sample: any): Promise<void> => {
         // Allow rows where at least one metric exists (partial availability)
         const hasAnyMetric = sample.hrv != null || sample.resting_heart_rate != null
           || sample.heart_rate != null || sample.total_sleep_minutes != null;
         if (!sample.summary_date || !hasAnyMetric) {
           results.errors++;
-          continue;
+          return;
         }
 
         latestSummaryDate = latestSummaryDate && latestSummaryDate > sample.summary_date
@@ -303,13 +314,42 @@ Deno.serve(async (req) => {
         } else {
           results.inserted++;  // upsert – counted as write
         }
+      };
+
+      // Deadline-aware, bounded-parallel processing. Without this a large
+      // HealthKit backfill exceeded the gateway timeout (504), which skipped
+      // the catch block and left the outbox lock row in place — every retry
+      // then short-circuited on 23505 and the batch was lost.
+      const pendingSamples = body.samples as unknown[];
+      let processedCount = 0;
+      let timedOut = false;
+      for (let i = 0; i < pendingSamples.length; i += SAMPLE_CONCURRENCY) {
+        if (Date.now() - requestStartedAt > SAMPLE_TIME_BUDGET_MS) {
+          timedOut = true;
+          break;
+        }
+        const chunk = pendingSamples.slice(i, i + SAMPLE_CONCURRENCY);
+        await Promise.all(chunk.map((s) => processSample(s)));
+        processedCount += chunk.length;
+      }
+      const remainingSamples = pendingSamples.length - processedCount;
+      if (timedOut) {
+        console.warn(
+          `[persist-wearable-data] Time budget reached: processed ${processedCount}/${pendingSamples.length}, remaining ${remainingSamples}`,
+        );
+        // Release the idempotency lock so the client can resend the remainder.
+        if (outboxItemId) {
+          try {
+            await db.from("processed_outbox_items").delete().eq("outbox_item_id", outboxItemId);
+          } catch { /* */ }
+        }
       }
 
       await upsertIntegrationStatus({
         watch_type: "apple",
         watch_connected_at: new Date().toISOString(),
         watch_connection_status: "connected",
-        watch_sync_status: results.errors > 0 ? "sync_delayed" : "synced",
+        watch_sync_status: (results.errors > 0 || timedOut) ? "sync_delayed" : "synced",
         watch_last_sync_at: new Date().toISOString(),
         watch_last_sample_at: latestSummaryDate ? new Date(`${latestSummaryDate}T00:00:00.000Z`).toISOString() : null,
         watch_last_error: results.errors > 0 ? `partial_persist_errors:${results.errors}` : null,
@@ -324,7 +364,11 @@ Deno.serve(async (req) => {
 
       console.log(`[persist-wearable-data] Bulk result (${syncSource}):`, results);
       return new Response(
-        JSON.stringify({ success: true, ...results }),
+        JSON.stringify({
+          success: true,
+          ...results,
+          ...(timedOut ? { partial: true, processed: processedCount, remaining: remainingSamples, retryable: true } : {}),
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
