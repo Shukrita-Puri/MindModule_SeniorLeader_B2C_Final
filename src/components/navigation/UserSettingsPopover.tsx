@@ -21,7 +21,11 @@ import { Button } from '@/components/ui/button';
 import { SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
-import { isValidBeta } from '@/utils/subscriptionHelpers';
+import {
+  isValidBeta,
+  resolveManageSubscriptionTarget,
+  MANAGE_SUBSCRIPTION_UPGRADE_PATH,
+} from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import { SHOW_REFERRAL_PROGRAM } from '@/config/referralConfig';
@@ -178,7 +182,11 @@ export function UserSettingsPopover({ variant = 'sidebar' }: UserSettingsPopover
           </button>
           <button
             className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
-            onClick={() => handleNavigate('/profile#subscription')}
+            onClick={() =>
+              resolveManageSubscriptionTarget(user) === 'payment_page'
+                ? handleNavigate(MANAGE_SUBSCRIPTION_UPGRADE_PATH, 'profile_upgrade')
+                : handleNavigate('/profile#subscription')
+            }
           >
             <CreditCard className="h-4 w-4 text-muted-foreground" />
             Subscription
