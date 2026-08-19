@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { useAuth } from '@/hooks/useAuth';
+import { DEV_MODE } from '@/config/devMode';
 
 interface HomeStatus {
   isSet: boolean;
@@ -57,28 +58,36 @@ export default function HomeLocationCard() {
 
   const loadStatus = async () => {
     if (!user?.id) return;
-    const [{ data: profile }, { data: travel }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('home_lat, home_lng, home_timezone, home_location_set_at')
-        .eq('id', user.id)
-        .maybeSingle(),
-      (supabase as any)
-        .from('travel_state')
-        .select('state, meta')
-        .eq('user_id', user.id)
-        .maybeSingle(),
-    ]);
-    setStatus({
-      // Sprint 14: explicit null-check. 0.0 lat/lng (equator / prime meridian)
-      // is a valid coordinate; truthiness would mis-classify it as unset.
-      isSet:
-        (profile as any)?.home_lat != null && (profile as any)?.home_lng != null,
-      setAt: (profile as any)?.home_location_set_at ?? null,
-      timezone: (profile as any)?.home_timezone ?? null,
-      lastSyncAt: (travel as any)?.meta?.last_sync_at ?? null,
-      travelState: (travel as any)?.state ?? null,
-    });
+    // Read through the authenticated `profile-account` edge function. The
+    // browser client is publishable-key only, so a direct `profiles` /
+    // `travel_state` read carries no Auth0 identity, matches no RLS policy,
+    // and always came back empty — the card kept showing "Not set" even
+    // after a successful save.
+    try {
+      const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
+      const { data, error } = await supabase.functions.invoke('profile-account', {
+        body: { action: 'home_status' },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (error) throw error;
+      const res = data as {
+        isSet?: boolean;
+        setAt?: string | null;
+        timezone?: string | null;
+        lastSyncAt?: string | null;
+        travelState?: string | null;
+      } | null;
+      setStatus({
+        // Explicit null-check upstream: 0.0 lat/lng is a valid coordinate.
+        isSet: !!res?.isSet,
+        setAt: res?.setAt ?? null,
+        timezone: res?.timezone ?? null,
+        lastSyncAt: res?.lastSyncAt ?? null,
+        travelState: res?.travelState ?? null,
+      });
+    } catch (err) {
+      console.error('[HomeLocationCard] status load failed:', err);
+    }
   };
 
   useEffect(() => {

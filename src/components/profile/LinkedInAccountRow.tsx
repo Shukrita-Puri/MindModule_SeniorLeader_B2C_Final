@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { useAuth } from '@/hooks/useAuth';
+import { DEV_MODE } from '@/config/devMode';
 
 type ExternalProfileRow = {
   profile_url: string;
@@ -48,6 +49,22 @@ function displayHandle(url: string): string {
   }
 }
 
+/**
+ * All reads/writes go through the authenticated `profile-account` edge
+ * function. The browser client carries only the publishable key, so direct
+ * PostgREST calls run without an Auth0 identity and match no RLS policy —
+ * that is why the saved URL never appeared before.
+ */
+async function callProfileAccount<T>(body: Record<string, unknown>): Promise<T> {
+  const token = DEV_MODE ? null : await getAuthToken().catch(() => null);
+  const { data, error } = await supabase.functions.invoke('profile-account', {
+    body,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (error) throw error;
+  return data as T;
+}
+
 export default function LinkedInAccountRow() {
   const { user } = useAuth();
   const [existing, setExisting] = useState<ExternalProfileRow | null>(null);
@@ -59,33 +76,22 @@ export default function LinkedInAccountRow() {
     let cancelled = false;
     async function load() {
       if (!user?.id) return;
-      const { data, error } = await supabase
-        .from('user_external_profiles')
-        .select('profile_url, scrape_status, scraped_at')
-        .eq('user_id', user.id)
-        .eq('source', 'linkedin_public_profile')
-        .order('scraped_at', { ascending: false, nullsFirst: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (cancelled) return;
-      if (!error && data?.profile_url) {
-        setExisting(data as ExternalProfileRow);
-      } else {
-        // Fallback check on profiles table
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('linkedin_url')
-          .eq('id', user.id)
-          .maybeSingle();
+      try {
+        const res = await callProfileAccount<{
+          profileUrl: string | null;
+          scrapeStatus: string | null;
+          scrapedAt: string | null;
+        }>({ action: 'linkedin_get' });
         if (cancelled) return;
-        if (prof?.linkedin_url) {
+        if (res?.profileUrl) {
           setExisting({
-            profile_url: prof.linkedin_url,
-            scrape_status: 'url_saved',
-            scraped_at: null,
+            profile_url: res.profileUrl,
+            scrape_status: res.scrapeStatus ?? 'url_saved',
+            scraped_at: res.scrapedAt ?? null,
           });
         }
+      } catch (err) {
+        console.error('[LinkedInAccountRow] load failed:', err);
       }
     }
     load();
@@ -111,41 +117,17 @@ export default function LinkedInAccountRow() {
     }
     setLoading(true);
     try {
-      // 1. Persist directly to user_external_profiles table
-      const { error: extErr } = await supabase
-        .from('user_external_profiles')
-        .upsert(
-          {
-            user_id: user.id,
-            source: 'linkedin_public_profile',
-            profile_url: normalized,
-            scrape_status: 'url_saved',
-            scraped_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,source,profile_url' }
-        );
-
-      if (extErr) {
-        console.error('[LinkedInAccountRow] user_external_profiles upsert error:', extErr);
-        toast.error('Could not save LinkedIn profile. Please try again.');
-        return;
-      }
-
-      // 2. Also update profiles.linkedin_url for consistency
-      await supabase
-        .from('profiles')
-        .update({
-          linkedin_url: normalized,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+      const res = await callProfileAccount<{
+        profileUrl: string;
+        scrapeStatus: string | null;
+        scrapedAt: string | null;
+      }>({ action: 'linkedin_set', profileUrl: normalized });
 
       toast.success('LinkedIn profile saved.');
       setExisting({
-        profile_url: normalized,
-        scrape_status: 'url_saved',
-        scraped_at: new Date().toISOString(),
+        profile_url: res?.profileUrl ?? normalized,
+        scrape_status: res?.scrapeStatus ?? 'url_saved',
+        scraped_at: res?.scrapedAt ?? new Date().toISOString(),
       });
       setDialogOpen(false);
     } catch (err) {
