@@ -150,7 +150,7 @@ export function UserSettingsPopover({ variant = 'sidebar' }: UserSettingsPopover
             <button
               key={item.path}
               className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
-              onClick={() => handleNavigate(item.path, item.source)}
+              onClick={() => handleNavigate(item.path)}
             >
               <item.icon className="h-4 w-4 text-muted-foreground" />
               <span>{item.label}</span>
