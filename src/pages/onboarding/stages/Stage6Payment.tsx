@@ -387,6 +387,8 @@ export default function Stage6Payment() {
           user={user}
           onRefreshProfile={handleRefreshProfile}
           onEntitled={handleEntitledNavigation}
+          upgradeIntent={hasExplicitUpgradeSource || showUpgradeMode}
+          restrictToPlan={isMonthlySubscriber ? 'annual' : undefined}
         />
       </PaymentPageShell>
     );
