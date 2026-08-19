@@ -7,6 +7,7 @@
 
 import type {
   BehaviourFlag,
+  BehaviourRule,
   RuleContext,
   RuleScope,
   Severity,
@@ -16,6 +17,45 @@ import { ALL_RULES } from "./ceo-behaviour/index.ts";
 import { PRACTICE_TYPE_TO_COMBO } from "./protocols/protocol-combos.ts";
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 3, medium: 2, low: 1 };
+
+/** Editorial priority tier for a rule. Used by consumers to decide which flags
+ *  should be treated as the LEAD narrative vs supporting CONTEXT in brief copy.
+ *  Travel, veto/crisis, and stacked-stakes dominate; decision/interpersonal/
+ *  switching provide supporting texture; prep/recovery/rhythm are ambient. */
+export type BehaviourPriority = "lead" | "context" | "ambient";
+
+const PRIORITY_MAP: Record<string, BehaviourPriority> = {
+  // LEAD — these override the narrative if they fire.
+  travelPreFlightMandatory: "lead",
+  travelLandingOffload: "lead",
+  travelLandingPlusHighStakes: "lead",
+  longHaulRecovery: "lead",
+  postTripReentry: "lead",
+  travelDayArrivalFraming: "lead",
+  travelDayDuringPushOnly: "lead",
+  travelDayReturnRecovery: "lead",
+  vetoRisk: "lead",
+  crisisInjection: "lead",
+  stackedStakes: "lead",
+  boardLevelOutcome: "lead",
+  // CONTEXT — active demand signals that shape but do not override the lead.
+  decisionDensity: "context",
+  contextSwitchingCost: "context",
+  interpersonalMeetingContext: "context",
+  backToBackLoadOverride: "context",
+  meetingPrepCliff: "context",
+  advancePrep24h: "context",
+  influencePersuasionPrep: "context",
+  visibilityCommsPrep: "context",
+  deepWorkProtection: "context",
+  postGovernanceOffload: "context",
+  // Everything else defaults to AMBIENT (rhythm, recovery, weekend, etc.).
+};
+
+/** Return the editorial priority tier for a rule. */
+export function behaviourPriority(rule: BehaviourRule): BehaviourPriority {
+  return PRIORITY_MAP[rule] ?? "ambient";
+}
 
 /**
  * Run all CEO behaviour rules over the context. Returns flags sorted by

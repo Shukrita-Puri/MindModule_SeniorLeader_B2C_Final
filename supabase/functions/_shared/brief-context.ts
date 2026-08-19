@@ -355,6 +355,38 @@ export interface SignalMatrix {
 }
 
 /**
+ * Evidence bucket exposed to deterministic copy builders. Populated from the
+ * leading behaviour flag and the day's signal matrix so each beat can render
+ * concrete numbers without re-deriving them from raw events.
+ */
+export interface BriefCopyEvidence {
+  /** Pre-formatted category sequence for context-switching copy, e.g. "product → finance → people". */
+  categorySequence?: string;
+  /** Attendee count for the anchor event or decision cluster. */
+  attendeeCount?: number;
+  /** Number of decision-weight moments in the current window. */
+  decisionCount?: number;
+  /** Timezone shift in hours for circadian copy. */
+  timezoneShiftHours?: number;
+  /** Conference day number for multi-day event copy. */
+  conferenceDayNumber?: number;
+  /** Hours of back-to-back meetings for load copy. */
+  backToBackHours?: number;
+}
+
+/**
+ * Context passed to each of the four beat builders in the deterministic
+ * CEO behaviour copy pack. Kept intentionally narrow so copy stays testable
+ * in isolation and cannot accidentally reach raw signal internals.
+ */
+export interface BriefCopyContext {
+  /** The calendar event the leading flag binds to, if any. */
+  anchorEvent?: { title?: string };
+  /** Normalised evidence values for the leading flag. */
+  evidence?: BriefCopyEvidence;
+}
+
+/**
  * The full payload the LLM and downstream consumers see.
  * Serialised as JSON into the slim brief prompt Block 2.
  */

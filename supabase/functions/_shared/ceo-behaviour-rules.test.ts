@@ -164,3 +164,49 @@ Deno.test("plan scope excludes personalFrictionInference (brief-only stub)", () 
   const flags = evaluate(ctx(emptySignals()), { scope: "plan" });
   assertEquals(flags.find((f) => f.rule === "personalFrictionInference"), undefined);
 });
+
+// --- Batch 3: enriched upcomingEvents (categoryId + attendeeCount) ----------
+Deno.test("contextSwitchingCost fires on A+B+C sequence in next 4h", () => {
+  const flags = evaluate({
+    ...ctx(emptySignals(), 10),
+    upcomingEvents: [
+      { title: "Board review", minutesUntil: 30, categoryId: "A" },
+      { title: "Investor pitch", minutesUntil: 90, categoryId: "B" },
+      { title: "Town hall prep", minutesUntil: 150, categoryId: "C" },
+    ],
+  });
+  const csc = flags.find((f) => f.rule === "contextSwitchingCost");
+  assert(csc !== undefined);
+  assertEquals(csc?.severity, "medium");
+  assert(csc?.evidence.some((e) => e.includes("governance → pitch/influence → visibility")));
+});
+
+Deno.test("interpersonalMeetingContext fires on category D event within 60m", () => {
+  const flags = evaluate({
+    ...ctx(emptySignals(), 10),
+    upcomingEvents: [
+      { title: "Difficult 1:1", minutesUntil: 45, categoryId: "D", attendeeCount: 2 },
+    ],
+  });
+  const imc = flags.find((f) => f.rule === "interpersonalMeetingContext");
+  assert(imc !== undefined);
+  assertEquals(imc?.severity, "high");
+  assertEquals(imc?.anchorEvent, "Difficult 1:1");
+});
+
+Deno.test("decisionDensity attendee weighting crosses threshold only with committee size", () => {
+  const lowFlags = evaluate({
+    ...ctx(emptySignals(), 10),
+    upcomingEvents: [{ title: "Board decision review", minutesUntil: 60, categoryId: "A" as const, attendeeCount: 1 }],
+  });
+  assertEquals(lowFlags.find((f) => f.rule === "decisionDensity"), undefined);
+
+  const highFlags = evaluate({
+    ...ctx(emptySignals(), 10),
+    upcomingEvents: [{ title: "Board decision review", minutesUntil: 60, categoryId: "A" as const, attendeeCount: 6 }],
+  });
+  const dd = highFlags.find((f) => f.rule === "decisionDensity");
+  assert(dd !== undefined);
+  assertEquals(dd?.severity, "medium");
+  assert(dd?.evidence.some((e) => e.includes("2.7")));
+});

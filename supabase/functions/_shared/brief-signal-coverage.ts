@@ -14,7 +14,7 @@
 // generate-mastery-plan) is responsible for fetching and passes raw blocks in.
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
-import { classifyEvent } from "./executive-state-taxonomy.ts";
+import { classifyEvent } from "./events/event-classifier.ts";
 import {
   isTravelTitle,
   isAwayFromHome,
@@ -23,6 +23,10 @@ import {
   LONG_HAUL_MIN_HOURS,
 } from "./ceo-behaviour/travel.ts";
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
+import {
+  titleDecisionScore,
+  attendeeWeight,
+} from "./ceo-behaviour/decision-density.ts";
 import {
   classifyAvailability,
   type AvailabilityResult,
@@ -961,17 +965,55 @@ export function buildRuleContext(
       calendarSummary: (e as any).calendarSummary ?? null,
     })),
   });
-  return {
-    signals,
-    upcomingEvents: input.events
-      .map((e) => ({
+
+  // Enrich upcoming events with canonical A-H classification and mechanical
+  // fields that Batch-3 rules read. This is the same window used by the
+  // decision-density rule, so we keep the score pre-computed here.
+  const upcomingEvents = input.events
+    .map((e) => {
+      const et = classifyEvent(e.title);
+      const rawDuration = eventDurationMin(e);
+      const durationMinutes = rawDuration == null ? undefined : rawDuration;
+      return {
         title: e.title,
         minutesUntil: minutesUntil(e.startTime, input.now),
         stakesLevel: e.stakesLevel ?? null,
         isEmotionalDrain: isEmotionalDrainEvent(e.title),
-      }))
-      .filter((e) => e.minutesUntil >= 0)
-      .sort((a, b) => a.minutesUntil - b.minutesUntil),
+        attendeeCount: Number((e as any).attendeesCount ?? 0) || 0,
+        durationMinutes,
+        categoryId: et?.categoryId ?? null,
+        isInterpersonal: et?.categoryId === "D",
+        source: (e as any).source ?? null,
+      };
+    })
+    .filter((e) => e.minutesUntil >= 0)
+    .sort((a, b) => a.minutesUntil - b.minutesUntil);
+
+  // Pre-compute decision density score for the next 4h window. Mirrors the
+  // logic in ceo-behaviour/decision-density.ts so the rule can short-circuit.
+  const decisionWindow = upcomingEvents.filter((e) => e.minutesUntil <= 240);
+  let decisionDensityScore: number | null = null;
+  let decisionDensityAccumulator = 0;
+  for (const e of decisionWindow) {
+    const layer1 = titleDecisionScore({
+      title: e.title,
+      attendeeCount: e.attendeeCount,
+      durationMinutes: e.durationMinutes,
+    });
+    if (layer1 <= 0) continue;
+    decisionDensityAccumulator += layer1 * attendeeWeight(e.attendeeCount);
+  }
+  if (decisionDensityAccumulator >= 2.5) {
+    decisionDensityScore = Math.round(decisionDensityAccumulator * 10) / 10;
+  }
+
+  return {
+    signals: {
+      ...signals,
+      decisionDensityScore,
+      decisionDensityWindow: decisionDensityScore != null ? "next-4h" : null,
+    },
+    upcomingEvents,
     localHour,
     availability,
     homeCountry: input.userHomeCountry ?? null,

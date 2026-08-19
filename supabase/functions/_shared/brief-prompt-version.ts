@@ -26,4 +26,9 @@
 // light week-prep directive before any pillar branch, so no off-day brief can
 // emit meeting / call / stakeholder language. Bump invalidates cached v6.8
 // weekend briefs carrying the workday directive.
-export const BRIEF_PROMPT_VERSION = 'v7.1-travel-and-dayshape';
+// v7.2 — CEO behaviour flags now carry an editorial priority tier (LEAD /
+// CONTEXT / AMBIENT) and the prompt block prefixes each flag accordingly.
+// This tells the LLM which deterministic signals must drive the brief's
+// primary narrative and which provide supporting texture. Bump invalidates
+// cached v7.1 briefs that lack the LEAD/CONTEXT marker.
+export const BRIEF_PROMPT_VERSION = 'v7.2-behaviour-priority-lead-context';

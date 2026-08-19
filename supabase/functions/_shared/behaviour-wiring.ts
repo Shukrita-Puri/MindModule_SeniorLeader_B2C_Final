@@ -19,7 +19,11 @@ import type {
   RuleScope,
   SlotBoost,
 } from "./brief-context.ts";
-import { deriveSlotBoosts, evaluate } from "./behaviour-evaluator.ts";
+import {
+  behaviourPriority,
+  deriveSlotBoosts,
+  evaluate,
+} from "./behaviour-evaluator.ts";
 import {
   buildRuleContext,
   type SignalCoverageInput,
@@ -84,10 +88,12 @@ export function evaluateForScope(
 function formatPromptBlock(flags: BehaviourFlag[]): string {
   if (!flags.length) return "";
   const lines = flags.map((f) => {
+    const priority = behaviourPriority(f.rule);
+    const prefix = priority === "lead" ? "[LEAD]" : "[CONTEXT]";
     const anchor = f.anchorEvent ? ` @"${f.anchorEvent}"` : "";
     const stake = f.stake ? ` (${f.stake})` : "";
     const evidence = f.evidence.length ? ` — evidence: ${f.evidence.join(", ")}` : "";
-    return `- ${f.rule} [${f.severity}]${anchor}${stake}: ${f.copyHint}${evidence}`;
+    return `- ${prefix} ${f.rule} [${f.severity}]${anchor}${stake}: ${f.copyHint}${evidence}`;
   });
   return [
     "",

@@ -470,8 +470,8 @@ Deno.test("conference day 2 sustains attention across sessions", () => {
     conferenceDayNumber: 2,
     conferenceTitle: "SaaStr Annual",
   });
-  assertStringIncludes(out.body, "Day 2: sustain attention");
-  assertStringIncludes(out.body, "tomorrow's sessions need");
+  assertStringIncludes(out.body, "Day 2: sustain presence");
+  assertStringIncludes(out.body, "tomorrow opens with");
 });
 
 Deno.test("pto asks for genuine recovery, not half-work", () => {
@@ -529,7 +529,7 @@ Deno.test("non-workday (PTO / holiday) inherits the same weekend beat (c)", () =
     physicalPillTier: "amber",
   });
   if (!out) throw new Error("expected a non-workday brief");
-  assertStringIncludes(out.body, "Let today actually recover");
+  assertStringIncludes(out.body, "Keep the pace light");
   assertEquals(WORK_VOCAB.test(out.body), false);
 });
 
