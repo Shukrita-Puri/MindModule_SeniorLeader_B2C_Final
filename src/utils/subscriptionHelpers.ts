@@ -70,6 +70,13 @@ export function isValidBeta(user: AccessUser | null): boolean {
 export function resolveSubscriptionAccess(user: AccessUser | null): SubscriptionAccessDecision {
   if (!user) return 'pending';
 
+  // 1. Active beta access is a full entitlement on every platform. Keep this
+  // ahead of subscription status checks because beta profiles commonly retain
+  // `subscription_status: 'none'` and `subscription_tier: 'none'`.
+  if (isValidBeta(user)) {
+    return 'allow';
+  }
+
   const status = user.subscription_status;
 
   // 2. Active subscription – allowed unless Stripe has given us a period end

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveSubscriptionAccess } from './subscriptionHelpers';
+import { resolveManageSubscriptionTarget, resolveSubscriptionAccess } from './subscriptionHelpers';
 
 describe('resolveSubscriptionAccess', () => {
   const now = new Date('2026-07-20T10:00:00.000Z');
@@ -25,6 +25,33 @@ describe('resolveSubscriptionAccess', () => {
       subscription_tier: 'annual_pro',
       subscription_current_period_end: future,
     })).toBe('allow');
+  });
+
+  it('allows an active beta tester even when subscription fields are explicitly none', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const betaUser = {
+      beta_user: true,
+      beta_expires_at: future,
+      subscription_status: 'none',
+      subscription_tier: 'none',
+    };
+
+    expect(resolveSubscriptionAccess(betaUser)).toBe('allow');
+    expect(resolveManageSubscriptionTarget(betaUser)).toBe('payment_page');
+  });
+
+  it('blocks an expired beta tester without another valid entitlement', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    expect(resolveSubscriptionAccess({
+      beta_user: true,
+      beta_expires_at: past,
+      subscription_status: 'none',
+      subscription_tier: 'none',
+    })).toBe('block');
   });
 
   it('blocks an active subscription when the recorded period end is already past', () => {
