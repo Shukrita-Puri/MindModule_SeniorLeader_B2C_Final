@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
         watch_type: "apple",
         watch_connected_at: new Date().toISOString(),
         watch_connection_status: "connected",
-        watch_sync_status: results.errors > 0 ? "sync_delayed" : "synced",
+        watch_sync_status: (results.errors > 0 || timedOut) ? "sync_delayed" : "synced",
         watch_last_sync_at: new Date().toISOString(),
         watch_last_sample_at: latestSummaryDate ? new Date(`${latestSummaryDate}T00:00:00.000Z`).toISOString() : null,
         watch_last_error: results.errors > 0 ? `partial_persist_errors:${results.errors}` : null,
