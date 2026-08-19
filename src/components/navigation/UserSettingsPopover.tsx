@@ -46,7 +46,7 @@ export function UserSettingsPopover({ variant = 'sidebar' }: UserSettingsPopover
 
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
-    ...(!PAYMENT_PAGE_SUPPRESSED && !isValidBeta(user) ? [
+    ...(!PAYMENT_PAGE_SUPPRESSED ? [
       { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/upgrade?source=profile-upgrade', source: 'profile_upgrade' },
     ] : []),
     ...(SHOW_REFERRAL_PROGRAM ? [{ icon: Share2, label: 'Refer to Friends', path: '/refer' }] : []),

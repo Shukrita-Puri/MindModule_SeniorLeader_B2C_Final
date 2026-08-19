@@ -249,17 +249,6 @@ export default function Stage6Payment() {
   }, [hasValidUserAccess, navigate]);
 
   useEffect(() => {
-    // Never auto-redirect while the access decision is still resolving.
-    if (accessPending) return;
-    if (!isBetaValid) return;
-    // Honor explicit upgrade clicks even for beta users
-    if (hasExplicitUpgradeSource) return;
-    console.log('[Stage6Payment] Beta valid + no upgrade source → skipping payment');
-    recordStep('payment', { skipped: true, reason: 'beta_user' });
-    navigate(hasCompletedOnboarding ? '/executive-home' : '/onboarding/app-intro', { replace: true });
-  }, [accessPending, isBetaValid, hasExplicitUpgradeSource, hasCompletedOnboarding, navigate, recordStep]);
-
-  useEffect(() => {
     if (accessPending) return;
     if (!user) return;
     // Only auto-redirect if user has no explicit reason to be on this page
@@ -383,7 +372,7 @@ export default function Stage6Payment() {
         </PaymentPageShell>
       );
     }
-    if ((isBetaValid || hasValidUserAccess) && !hasExplicitUpgradeSource && !showUpgradeMode) {
+    if (hasValidUserAccess && !hasExplicitUpgradeSource && !showUpgradeMode) {
       return (
         <PaymentPageShell showBack={false}>
           <div className="min-h-[60vh] flex items-center justify-center">
@@ -479,7 +468,7 @@ export default function Stage6Payment() {
     );
   }
 
-  if (accessPending || (isBetaValid && !hasExplicitUpgradeSource)) {
+  if (accessPending || (hasValidUserAccess && !hasExplicitUpgradeSource)) {
     return (
       <PaymentPageShell showBack={false}>
         <div className="min-h-[60vh] flex items-center justify-center">

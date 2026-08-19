@@ -70,11 +70,6 @@ export function isValidBeta(user: AccessUser | null): boolean {
 export function resolveSubscriptionAccess(user: AccessUser | null): SubscriptionAccessDecision {
   if (!user) return 'pending';
 
-  // 1. Beta access
-  if (user.beta_user && user.beta_expires_at) {
-    if (isFutureDate(user.beta_expires_at)) return 'allow';
-  }
-
   const status = user.subscription_status;
 
   // 2. Active subscription – allowed unless Stripe has given us a period end

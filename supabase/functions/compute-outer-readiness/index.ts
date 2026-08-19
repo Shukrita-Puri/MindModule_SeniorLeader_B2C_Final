@@ -10339,6 +10339,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             | "no_existing"
             | "overwrite_applied"
             | "overwrite_prevented"
+            | "overwrite_forced_awaiting"
             | "none" = "none";
           try {
             // Overwrite protection is scoped to (user_id, local_date,
@@ -10479,38 +10480,48 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const awaitingStateLabel = suppressScorePayload
             ? "awaiting"
             : (canonicalReadinessState ?? "baseline");
+            
+          // Brief Gate: The Brief requires BOTH a fresh wearable and calendar.
+          // Even if MRS has a score (e.g. calendar only), the Brief must await
+          // if its stricter gate (briefMustAwait) fails.
+          const briefAwaitingStateLabel = (suppressScorePayload || briefMustAwait)
+            ? "awaiting"
+            : awaitingStateLabel;
+            
+          const briefSuppressScore = suppressScorePayload || briefMustAwait;
+
           const stateColumns = isRefinedWrite
             ? {
-              refined_state: awaitingStateLabel,
+              refined_state: briefAwaitingStateLabel,
               refined_phrase: persistPhrase,
               refined_body_text: persistBody,
               refined_lean_on: persistLeanOn,
               refined_lean_on_source: persistLeanOnSource,
               refined_watch_for: persistWatchFor,
               refined_watch_for_source: persistWatchForSource,
-              refined_score: suppressScorePayload
+              refined_score: briefSuppressScore
                 ? null
                 : (canonicalInnerScore ?? null),
-              refined_tier: suppressScorePayload
+              refined_tier: briefSuppressScore
                 ? null
                 : (canonicalTier ?? null),
-              refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,
+              refined_signal_pills: briefSuppressScore ? null : signalPillsPayload,
             }
             : {
-              baseline_state: awaitingStateLabel,
+              baseline_state: briefAwaitingStateLabel,
               baseline_phrase: persistPhrase,
               baseline_body_text: persistBody,
               baseline_lean_on: persistLeanOn,
               baseline_lean_on_source: persistLeanOnSource,
               baseline_watch_for: persistWatchFor,
               baseline_watch_for_source: persistWatchForSource,
-              baseline_score: suppressScorePayload
+              baseline_score: briefSuppressScore
                 ? null
                 : (canonicalInnerScore ?? null),
-              baseline_tier: suppressScorePayload
+              baseline_tier: briefSuppressScore
                 ? null
                 : (canonicalTier ?? null),
-              baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,
+              baseline_signal_pills: briefSuppressScore ? null : signalPillsPayload,
             };
           const { data: upsertRow, error: upsertError } = await db
             .from("brief_snapshots")
