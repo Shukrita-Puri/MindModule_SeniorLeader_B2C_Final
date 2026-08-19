@@ -1,6 +1,7 @@
 import type { DayShape } from "./day-shape.ts";
 import type { BriefCopyContext } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
+import { behaviourPriority } from "../behaviour-evaluator.ts";
 
 export type DeterministicBriefBand =
   | "firing"
@@ -69,7 +70,16 @@ export interface DeterministicBriefFallbackOpts {
    * behaviour-aware copy when the LLM fails.
    * Source: briefBehaviourSnapshot.flagsBrief at the call site.
    */
-  ceoFlags?: Array<{ rule: string; severity: "high" | "medium" | "low" }> | null;
+  ceoFlags?:
+    | Array<{
+      rule: string;
+      severity: "high" | "medium" | "low";
+      copyHint?: string;
+      stake?: string;
+      evidence?: string[];
+      anchorEvent?: string;
+    }>
+    | null;
 }
 
 export interface DeterministicBriefResult {
@@ -143,10 +153,15 @@ function sanitizeWearableFact(fact: string | null): string | null {
 
 function topCeoFlag(
   opts: DeterministicBriefFallbackOpts,
-): { rule: string; severity: "high" | "medium" | "low" } | null {
+): NonNullable<DeterministicBriefFallbackOpts["ceoFlags"]>[number] | null {
+  const SEV: Record<string, number> = { high: 3, medium: 2, low: 1 };
   return (opts.ceoFlags ?? [])
     .filter((f) => f.severity === "high" || f.severity === "medium")
-    .sort((a, b) => (a.severity === "high" ? -1 : 1))[0] ?? null;
+    .sort(
+      (a, b) =>
+        (SEV[b.severity] ?? 0) - (SEV[a.severity] ?? 0) ||
+        behaviourPriority(a.rule) - behaviourPriority(b.rule),
+    )[0] ?? null;
 }
 
 /**
@@ -156,15 +171,24 @@ function topCeoFlag(
  */
 function buildBriefCopyContext(
   opts: DeterministicBriefFallbackOpts,
-  flag: { rule: string; anchorEvent?: string },
+  flag: { rule: string; anchorEvent?: string; evidence?: string[] },
 ): BriefCopyContext {
   const anchorTitle = flag.anchorEvent ??
     opts.todayHighStakes[0] ??
     opts.travelEventTitle ??
     undefined;
+  // The classifier-derived sequence is emitted by the rule as an evidence
+  // string ("sequence: governance → finance → people"). Reuse it verbatim so
+  // copy never re-derives categories.
+  const seqLine = (flag.evidence ?? []).find((e) =>
+    e.toLowerCase().startsWith("sequence:")
+  );
   return {
     anchorEvent: anchorTitle ? { title: anchorTitle } : undefined,
     evidence: {
+      categorySequence: seqLine
+        ? seqLine.slice(seqLine.indexOf(":") + 1).trim()
+        : undefined,
       attendeeCount: opts.meetingCount,
       decisionCount: opts.meetingCount,
       conferenceDayNumber: opts.conferenceDayNumber ?? undefined,

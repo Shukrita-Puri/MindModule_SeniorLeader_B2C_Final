@@ -31,4 +31,9 @@
 // This tells the LLM which deterministic signals must drive the brief's
 // primary narrative and which provide supporting texture. Bump invalidates
 // cached v7.1 briefs that lack the LEAD/CONTEXT marker.
-export const BRIEF_PROMPT_VERSION = 'v7.2-behaviour-priority-lead-context';
+// v7.3 — Priority ladder is now a 0–11 numeric rank; exactly one flag is
+// marked [LEAD] (top-ranked after severity) and all others [CONTEXT], with an
+// explicit instruction not to split attention. Deterministic fallback flags now
+// carry copyHint / stake / evidence / anchorEvent end-to-end so all four beats
+// can be populated from the CEO copy pack. Bump invalidates cached v7.2 briefs.
+export const BRIEF_PROMPT_VERSION = 'v7.3-behaviour-lead-rank';

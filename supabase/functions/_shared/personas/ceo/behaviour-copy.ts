@@ -565,11 +565,37 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
  *   expect(missingCopyEntries(ALL_RULES)).toEqual([]);
  * });
  */
+/**
+ * Rules whose deterministic copy is owned by the day-shape branches in
+ * `brief/deterministic-brief.ts` (travel, conference, weekend, PTO, evening
+ * shutdown). Those branches run BEFORE the copy-pack lookup and their copy is
+ * intentionally not duplicated here. Exempt from the CI contract.
+ */
+export const DAY_SHAPE_OWNED_RULES: readonly string[] = [
+  'conferenceNightBeforeSummit',
+  'conferenceDayWithSpeaking',
+  'dropInSpeakingHighStakes',
+  'conferenceCarryFatigue',
+  'postConferenceReentry',
+  'fullWorkingWeekend',
+  'weekendDeepWorkBlock',
+  'weekendMorningLightTouch',
+  'ptoWithMeetingFallback',
+  'travelPreFlightMandatory',
+  'travelLandingOffload',
+  'travelLandingPlusHighStakes',
+  'longHaulRecovery',
+  'travelDayArrivalFraming',
+  'travelDayReturnRecovery',
+  'eveningShutdown',
+];
+
 export function missingCopyEntries(
   allRules: Array<{ rule: string; scopes: string[] }>
 ): string[] {
   return allRules
     .filter((r) => r.scopes.includes('brief'))
     .map((r) => r.rule)
+    .filter((rule) => !DAY_SHAPE_OWNED_RULES.includes(rule))
     .filter((rule) => !(rule in BEHAVIOUR_COPY));
 }

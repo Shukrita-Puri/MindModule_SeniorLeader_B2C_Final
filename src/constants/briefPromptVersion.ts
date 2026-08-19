@@ -11,4 +11,4 @@
  * could legitimately be the most-recently-updated row for the window
  * and would otherwise be served to the UI.
  */
-export const BRIEF_PROMPT_VERSION = 'v7.2-behaviour-priority-lead-context';
+export const BRIEF_PROMPT_VERSION = 'v7.3-behaviour-lead-rank';

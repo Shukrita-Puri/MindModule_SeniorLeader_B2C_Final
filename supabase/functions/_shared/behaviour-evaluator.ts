@@ -18,43 +18,46 @@ import { PRACTICE_TYPE_TO_COMBO } from "./protocols/protocol-combos.ts";
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 3, medium: 2, low: 1 };
 
-/** Editorial priority tier for a rule. Used by consumers to decide which flags
- *  should be treated as the LEAD narrative vs supporting CONTEXT in brief copy.
- *  Travel, veto/crisis, and stacked-stakes dominate; decision/interpersonal/
- *  switching provide supporting texture; prep/recovery/rhythm are ambient. */
-export type BehaviourPriority = "lead" | "context" | "ambient";
-
-const PRIORITY_MAP: Record<string, BehaviourPriority> = {
-  // LEAD — these override the narrative if they fire.
-  travelPreFlightMandatory: "lead",
-  travelLandingOffload: "lead",
-  travelLandingPlusHighStakes: "lead",
-  longHaulRecovery: "lead",
-  postTripReentry: "lead",
-  travelDayArrivalFraming: "lead",
-  travelDayDuringPushOnly: "lead",
-  travelDayReturnRecovery: "lead",
-  vetoRisk: "lead",
-  crisisInjection: "lead",
-  stackedStakes: "lead",
-  boardLevelOutcome: "lead",
-  // CONTEXT — active demand signals that shape but do not override the lead.
-  decisionDensity: "context",
-  contextSwitchingCost: "context",
-  interpersonalMeetingContext: "context",
-  backToBackLoadOverride: "context",
-  meetingPrepCliff: "context",
-  advancePrep24h: "context",
-  influencePersuasionPrep: "context",
-  visibilityCommsPrep: "context",
-  deepWorkProtection: "context",
-  postGovernanceOffload: "context",
-  // Everything else defaults to AMBIENT (rhythm, recovery, weekend, etc.).
+/** Editorial priority ladder (0 = strongest claim on the narrative, 11 = ambient).
+ *  Consumers use this to decide which flag is the LEAD story and which are
+ *  supporting CONTEXT. Travel dominates; veto/crisis/stacked stakes follow;
+ *  demand signals provide texture; prep/recovery/rhythm are ambient.
+ *
+ *  Exported so the Plan / JIT v2 can adopt the same ordering later without
+ *  duplicating it. Not wired into the Plan today. */
+const PRIORITY_MAP: Record<string, number> = {
+  // 0 — travel overrides everything.
+  travelPreFlightMandatory: 0,
+  travelLandingOffload: 0,
+  travelLandingPlusHighStakes: 0,
+  longHaulRecovery: 0,
+  postTripReentry: 0,
+  travelDayArrivalFraming: 0,
+  travelDayDuringPushOnly: 0,
+  travelDayReturnRecovery: 0,
+  // 1–4 — acute risk / stacked stakes.
+  crisisInjection: 1,
+  vetoRisk: 2,
+  stackedStakes: 3,
+  boardLevelOutcome: 4,
+  // 5–8 — active demand signals.
+  decisionDensity: 5,
+  contextSwitchingCost: 6,
+  interpersonalMeetingContext: 7,
+  backToBackLoadOverride: 8,
+  // 9–10 — preparation and protection.
+  meetingPrepCliff: 9,
+  advancePrep24h: 9,
+  influencePersuasionPrep: 9,
+  visibilityCommsPrep: 9,
+  deepWorkProtection: 10,
+  postGovernanceOffload: 10,
+  // 11 — everything else (rhythm, recovery, weekend, ambient).
 };
 
-/** Return the editorial priority tier for a rule. */
-export function behaviourPriority(rule: BehaviourRule): BehaviourPriority {
-  return PRIORITY_MAP[rule] ?? "ambient";
+/** Return the editorial priority rank for a rule. Lower wins. */
+export function behaviourPriority(rule: BehaviourRule | string): number {
+  return PRIORITY_MAP[rule as string] ?? 11;
 }
 
 /**
@@ -75,7 +78,9 @@ export function evaluate(
     if (flag) flags.push(flag);
   }
   return flags.sort(
-    (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity],
+    (a, b) =>
+      SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] ||
+      behaviourPriority(a.rule) - behaviourPriority(b.rule),
   );
 }
 

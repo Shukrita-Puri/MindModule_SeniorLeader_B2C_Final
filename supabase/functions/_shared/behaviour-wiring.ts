@@ -87,9 +87,16 @@ export function evaluateForScope(
  */
 function formatPromptBlock(flags: BehaviourFlag[]): string {
   if (!flags.length) return "";
+  // `flags` arrives sorted by severity then behaviourPriority — the first entry
+  // is the LEAD; everything else is supporting CONTEXT.
+  const leadRule = [...flags].sort(
+    (a, b) => behaviourPriority(a.rule) - behaviourPriority(b.rule),
+  )[0]?.rule;
+  let leadMarked = false;
   const lines = flags.map((f) => {
-    const priority = behaviourPriority(f.rule);
-    const prefix = priority === "lead" ? "[LEAD]" : "[CONTEXT]";
+    const isLead = !leadMarked && f.rule === leadRule;
+    if (isLead) leadMarked = true;
+    const prefix = isLead ? "[LEAD]" : "[CONTEXT]";
     const anchor = f.anchorEvent ? ` @"${f.anchorEvent}"` : "";
     const stake = f.stake ? ` (${f.stake})` : "";
     const evidence = f.evidence.length ? ` — evidence: ${f.evidence.join(", ")}` : "";
@@ -99,6 +106,7 @@ function formatPromptBlock(flags: BehaviourFlag[]): string {
     "",
     "",
     "=== ACTIVE CEO BEHAVIOURS (deterministic; execute the copyHint, never echo verbatim) ===",
+    "The [LEAD] behaviour is the story of this brief. [CONTEXT] behaviours are supporting colour. Do not split attention equally across all of them.",
     ...lines,
   ].join("\n");
 }
