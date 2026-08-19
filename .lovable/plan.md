@@ -50,3 +50,7 @@ Fix: move both reads and the LinkedIn write onto authenticated edge functions.
 - Files: `src/pages/Profile.tsx`, `src/components/subscription/AppleSubscriptionCard.tsx` (add Plan/Renewal rows + icon), `src/components/navigation/UserSettingsPopover.tsx`, `src/components/profile/LinkedInAccountRow.tsx`, `src/components/profile/HomeLocationCard.tsx`, plus one new edge function (or two small ones) for profile-side reads/writes.
 - Restructure is presentation-only and gated on `isIosNativeShell()`; no billing, routing, or entitlement logic changes.
 - New endpoints validate the Auth0 bearer token and act on the caller's own user id only — no service-role data exposed to the client.
+
+## Scope guardrail
+
+Parts 1 and 2 are pure re-arrangement: sections and rows move position, gain icons, and get consistent text styles. No functionality, logic, gating, routing, or edge-function behaviour changes anywhere in the restructure — the same components render the same data with the same handlers, just in a different order. The only behavioural changes in this plan are the Part 3 save-bug fixes.
