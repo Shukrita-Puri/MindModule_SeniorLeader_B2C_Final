@@ -7,7 +7,9 @@ import {
   LogOut,
   ChevronUp,
   ArrowUpCircle,
-  Compass
+  Compass,
+  Link2,
+  CreditCard
 } from 'lucide-react';
 import {
   Popover,
@@ -164,6 +166,22 @@ export function UserSettingsPopover({ variant = 'sidebar' }: UserSettingsPopover
           >
             <Compass className="h-4 w-4 text-muted-foreground" />
             Retake Tour
+          </button>
+          {/* Same destinations the Profile page uses: the full Manage
+              Connections experience, and the Subscription card in place. */}
+          <button
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
+            onClick={() => handleNavigate('/connected-data')}
+          >
+            <Link2 className="h-4 w-4 text-muted-foreground" />
+            Manage Connections
+          </button>
+          <button
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
+            onClick={() => handleNavigate('/profile#subscription')}
+          >
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            Subscription
           </button>
           <button
             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-destructive hover:bg-destructive/10 transition-colors text-left"
