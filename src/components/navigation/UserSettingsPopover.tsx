@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { 
-  User, 
-  Share2, 
+import {
+  User,
+  Share2,
   LogOut,
   ChevronUp,
-  ArrowUpCircle,
   Compass,
   Link2,
   CreditCard
@@ -50,9 +49,6 @@ export function UserSettingsPopover({ variant = 'sidebar' }: UserSettingsPopover
 
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
-    ...(!PAYMENT_PAGE_SUPPRESSED ? [
-      { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/upgrade?source=profile-upgrade', source: 'profile_upgrade' },
-    ] : []),
     ...(SHOW_REFERRAL_PROGRAM ? [{ icon: Share2, label: 'Refer to Friends', path: '/refer' }] : []),
   ];
 
@@ -154,7 +150,7 @@ export function UserSettingsPopover({ variant = 'sidebar' }: UserSettingsPopover
             <button
               key={item.path}
               className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
-              onClick={() => handleNavigate(item.path, item.source)}
+              onClick={() => handleNavigate(item.path)}
             >
               <item.icon className="h-4 w-4 text-muted-foreground" />
               <span>{item.label}</span>
