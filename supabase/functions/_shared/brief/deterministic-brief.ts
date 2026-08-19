@@ -1,4 +1,6 @@
 import type { DayShape } from "./day-shape.ts";
+import type { BriefCopyContext } from "../brief-context.ts";
+import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 
 export type DeterministicBriefBand =
   | "firing"
@@ -147,6 +149,30 @@ function topCeoFlag(
     .sort((a, b) => (a.severity === "high" ? -1 : 1))[0] ?? null;
 }
 
+/**
+ * Build the narrow context the deterministic CEO behaviour copy pack expects.
+ * Falls back to reasonable defaults when a field is not available on the
+ * fallback options — the copy helpers already embed their own floor values.
+ */
+function buildBriefCopyContext(
+  opts: DeterministicBriefFallbackOpts,
+  flag: { rule: string; anchorEvent?: string },
+): BriefCopyContext {
+  const anchorTitle = flag.anchorEvent ??
+    opts.todayHighStakes[0] ??
+    opts.travelEventTitle ??
+    undefined;
+  return {
+    anchorEvent: anchorTitle ? { title: anchorTitle } : undefined,
+    evidence: {
+      attendeeCount: opts.meetingCount,
+      decisionCount: opts.meetingCount,
+      conferenceDayNumber: opts.conferenceDayNumber ?? undefined,
+      backToBackHours: opts.hasBackToBack ? 4 : undefined,
+    },
+  };
+}
+
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   const wearableFact = sanitizeWearableFact(opts.wearableFact);
   const hasHighStakes = opts.todayHighStakes.length > 0;
@@ -184,41 +210,14 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     }
   }
 
-  // ── CEO behaviour flag evidence — uses existing flagsBrief from the snapshot ──
+  // ── CEO behaviour flag evidence ─ uses existing flagsBrief from the snapshot ──
   // Only fires when no travel shape has already produced evidence (travel wins).
   if (!isTravelShape(opts.dayShape) && !isConferenceShape(opts.dayShape)) {
     const flag = topCeoFlag(opts);
     if (flag) {
-      switch (flag.rule) {
-        case "decisionDensity":
-          return opts.hasWearable && wearableFact
-            ? `${wearableFact} going into a decision-dense window — decision-weight calls are clustering in a way that compounds the load.`
-            : `Decision-weight calls are clustering in the next few hours — the cognitive cost is in the switching, not any single one.`;
-
-        case "contextSwitchingCost":
-          return opts.hasWearable && wearableFact
-            ? `${wearableFact} with ${opts.meetingCount} distinct-mode demands ahead — each mode-switch carries a transition cost beyond the meetings themselves.`
-            : `Different types of demands are stacked in the next few hours — each switch between them costs more than the meeting does.`;
-
-        case "backToBackLoadOverride":
-          return opts.hasWearable && wearableFact
-            ? `${wearableFact} and the day has been running compressed back-to-back.`
-            : `The day has been back-to-back. No natural recovery window has existed to reset the system.`;
-
-        case "stackedStakes":
-          return opts.hasWearable && wearableFact
-            ? `${wearableFact} with two high-weight demands on the same day — the second needs what the first doesn't spend.`
-            : `Two high-weight events on the same day — the sequencing between them is the real risk.`;
-
-        case "vetoRisk":
-          return opts.hasWearable && wearableFact
-            ? `${wearableFact} — but the felt state is ahead of where the body actually is. One is masking the other.`
-            : `The felt state and the body signals aren't saying the same thing.`;
-
-        case "decisionLeakageGuard":
-          return opts.hasWearable && wearableFact
-            ? `${wearableFact} going into an emotionally loaded commitment — the residue between events is the risk.`
-            : `Emotional load is running ahead of the next commitment. What came before will leak into what comes next unless it's cleared.`;
+      const entry = BEHAVIOUR_COPY[flag.rule];
+      if (entry) {
+        return entry.evidence(buildBriefCopyContext(opts, flag));
       }
     }
   }
@@ -361,19 +360,9 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   if (!isTravelShape(opts.dayShape) && !isConferenceShape(opts.dayShape)) {
     const flag = topCeoFlag(opts);
     if (flag) {
-      switch (flag.rule) {
-        case "decisionDensity":
-          return "The cost is the switching between high-weight calls, not the calls themselves.";
-        case "contextSwitchingCost":
-          return "The transitions between different modes of work are where the load accumulates.";
-        case "backToBackLoadOverride":
-          return "The body is working harder than the timetable admits.";
-        case "stackedStakes":
-          return "The sequencing between the two demands is the real decision today.";
-        case "vetoRisk":
-          return "The felt state is ahead of where the body actually is — one is masking the other.";
-        case "decisionLeakageGuard":
-          return "What came before will carry into what comes next unless it's cleared.";
+      const entry = BEHAVIOUR_COPY[flag.rule];
+      if (entry) {
+        return entry.read(buildBriefCopyContext(opts, flag));
       }
     }
   }
@@ -506,21 +495,9 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
   {
     const flag = topCeoFlag(opts);
     if (flag) {
-      switch (flag.rule) {
-        case "decisionDensity":
-          return "The decision cluster is the load — not any single call. Use the clearest cognitive window at the front of it and protect the edge for where decisions actually land";
-        case "contextSwitchingCost":
-          return "Each mode-switch costs more than the meeting does. Protect the transitions — the gaps between different demands are where composure holds or leaks";
-        case "backToBackLoadOverride":
-          return "The day is compressed. One priority for the next block — nothing else gets added to the load";
-        case "stackedStakes":
-          return "Two high-weight demands on the same day — protect the gap between them. The second needs what the first doesn't spend";
-        case "vetoRisk":
-          return "The felt state is ahead of where the body actually is. Protect the gap between the two so the next high-stakes block gets what it needs";
-        case "decisionLeakageGuard":
-          return "Emotional residue will leak into the next commitment unless it's cleared. Protect the transition — that is what this window is for";
-        case "postTripReentry":
-          return "The trip left a lag — sequence the first work block against it, not through it. One priority only, then protect tonight";
+      const entry = BEHAVIOUR_COPY[flag.rule];
+      if (entry) {
+        return entry.directive(buildBriefCopyContext(opts, flag));
       }
     }
   }
@@ -600,6 +577,20 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
   }
 
   // ── Workday close (existing logic — unchanged) ──
+  // CEO behaviour flag close — workday only, when no off-day branch fired.
+  {
+    const flag = topCeoFlag(opts);
+    if (flag) {
+      const entry = BEHAVIOUR_COPY[flag.rule];
+      if (entry) {
+        const close = entry.close(buildBriefCopyContext(opts, flag));
+        // Copy pack closes are standalone clauses; prefix with "and" so the
+        // final body sentence flows: "... directive, and close."
+        return close.startsWith("and ") ? close : `and ${close}`;
+      }
+    }
+  }
+
   if (
     opts.window === "evening" &&
     (opts.band === "steady" || opts.band === "stretched" || opts.band === "depleted")

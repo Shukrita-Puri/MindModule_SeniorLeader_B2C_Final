@@ -470,8 +470,8 @@ Deno.test("conference day 2 sustains attention across sessions", () => {
     conferenceDayNumber: 2,
     conferenceTitle: "SaaStr Annual",
   });
-  assertStringIncludes(out.body, "Day 2: sustain attention");
-  assertStringIncludes(out.body, "tomorrow's sessions need");
+  assertStringIncludes(out.body, "Day 2: sustain presence");
+  assertStringIncludes(out.body, "tomorrow opens with");
 });
 
 Deno.test("pto asks for genuine recovery, not half-work", () => {
@@ -529,7 +529,7 @@ Deno.test("non-workday (PTO / holiday) inherits the same weekend beat (c)", () =
     physicalPillTier: "amber",
   });
   if (!out) throw new Error("expected a non-workday brief");
-  assertStringIncludes(out.body, "Let today actually recover");
+  assertStringIncludes(out.body, "The system needs this day to actually recover");
   assertEquals(WORK_VOCAB.test(out.body), false);
 });
 
@@ -543,4 +543,20 @@ Deno.test("weekday branches are unchanged", () => {
   });
   if (!out) throw new Error("expected a weekday brief");
   assertStringIncludes(out.body, "Route the presence and stakeholder conversations");
+});
+
+Deno.test("CEO behaviour flag wires the deterministic copy pack for all four beats", () => {
+  const out = buildDeterministicBriefFallback({
+    ...WEEKEND_BASE,
+    isWeekend: false,
+    band: "steady",
+    cognitivePillTier: "green",
+    physicalPillTier: "green",
+    ceoFlags: [{ rule: "decisionDensity", severity: "high" }],
+  });
+  if (!out) throw new Error("expected a CEO-flag brief");
+  assertStringIncludes(out.body, "decision moments today");
+  assertStringIncludes(out.body, "Decision fatigue is dose-dependent");
+  assertStringIncludes(out.body, "Run reversible decisions first");
+  assertStringIncludes(out.body, "sequence the irreversible last");
 });
