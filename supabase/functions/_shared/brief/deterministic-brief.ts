@@ -1,6 +1,7 @@
 import type { DayShape } from "./day-shape.ts";
 import type { BriefCopyContext } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
+import { behaviourPriority } from "../behaviour-evaluator.ts";
 
 export type DeterministicBriefBand =
   | "firing"
