@@ -20,7 +20,12 @@ import { RotateCcw, ExternalLink, Sparkles, CreditCard, Calendar } from 'lucide-
 import { toast } from 'sonner';
 import { restoreIapPurchases, openAppleManageSubscriptions } from '@/services/iap';
 import { isNonApplePaidEntitlement } from '@/config/purchasePlatform';
-import { hasValidAccess, type AccessUser } from '@/utils/subscriptionHelpers';
+import {
+  hasValidAccess,
+  resolveManageSubscriptionTarget,
+  MANAGE_SUBSCRIPTION_UPGRADE_PATH,
+  type AccessUser,
+} from '@/utils/subscriptionHelpers';
 
 interface Props {
   user: (AccessUser & { subscription_provider?: string | null; stripe_customer_id?: string | null }) | null;
@@ -55,6 +60,11 @@ export function AppleSubscriptionCard({ user, onRefreshProfile, planLabel, expir
   };
 
   const handleManage = async () => {
+    // Beta testers and active monthly Pro users manage/upgrade in-app.
+    if (resolveManageSubscriptionTarget(user) === 'payment_page') {
+      navigate(MANAGE_SUBSCRIPTION_UPGRADE_PATH, { state: { source: 'profile_upgrade' } });
+      return;
+    }
     const opened = await openAppleManageSubscriptions();
     if (!opened) toast.info('Open Settings › Apple ID › Subscriptions to manage your plan.');
   };

@@ -212,6 +212,29 @@ export function resolveOnboardingAccessFromSnapshot(
 export const hasValidSubscription = hasValidAccess;
 
 /**
+ * Canonical destination for the "Manage Subscription" entry points.
+ *
+ * Navigation only – this does NOT grant or revoke access. Access gating stays
+ * owned by {@link resolveSubscriptionAccess} / SubscriptionGuard.
+ *
+ * - 'payment_page'  → send the user to the in-app payment/upgrade page
+ *                     (valid beta testers, and active monthly Pro users who
+ *                     should be offered the annual upgrade).
+ * - 'native_manage' → keep today's behaviour (Apple subscription sheet on iOS,
+ *                     Stripe billing portal on web).
+ */
+export type ManageSubscriptionTarget = 'payment_page' | 'native_manage';
+
+export function resolveManageSubscriptionTarget(user: AccessUser | null): ManageSubscriptionTarget {
+  if (isValidBeta(user)) return 'payment_page';
+  if (user?.subscription_tier === 'monthly_pro' && hasValidAccess(user)) return 'payment_page';
+  return 'native_manage';
+}
+
+/** Canonical path used by every "Manage Subscription" → payment page hop. */
+export const MANAGE_SUBSCRIPTION_UPGRADE_PATH = '/upgrade?source=profile-upgrade';
+
+/**
  * Check if user canceled within the last 60 days.
  */
 export function isWithin60DaysOfCancellation(user: AccessUser | null): boolean {

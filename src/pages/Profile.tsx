@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { CancellationFlow } from '@/components/subscription/CancellationFlow';
 import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStore';
-import { isValidBeta } from '@/utils/subscriptionHelpers';
+import { isValidBeta, resolveManageSubscriptionTarget, MANAGE_SUBSCRIPTION_UPGRADE_PATH } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import { canShowStripePurchaseUi, isIosNativeShell } from '@/config/purchasePlatform';
@@ -86,6 +86,11 @@ const Profile = () => {
   }
 
   const handleManageBilling = async () => {
+    // Beta testers and active monthly Pro users manage/upgrade in-app.
+    if (resolveManageSubscriptionTarget(user) === 'payment_page') {
+      navigate(MANAGE_SUBSCRIPTION_UPGRADE_PATH, { state: { source: 'profile_upgrade' } });
+      return;
+    }
     if (!hasStripeAccount) {
       navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } });
       return;
