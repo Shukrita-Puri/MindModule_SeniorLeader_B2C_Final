@@ -33,11 +33,25 @@ interface ApplePaywallProps {
   user: (AccessUser & { subscription_provider?: string | null; stripe_customer_id?: string | null }) | null;
   onEntitled: () => void;
   onRefreshProfile: () => Promise<unknown>;
+  /**
+   * True when the user deliberately arrived here to change their plan
+   * (e.g. "Manage Subscription" from Profile). An already-entitled user then
+   * sees the purchase surface instead of the read-only status screen.
+   */
+  upgradeIntent?: boolean;
+  /** Restrict the plan cards to a single plan (e.g. annual upgrade path). */
+  restrictToPlan?: 'monthly' | 'annual';
 }
 
 const periodLabel = billingFrequencyLabel;
 
-export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywallProps) {
+export function ApplePaywall({
+  user,
+  onEntitled,
+  onRefreshProfile,
+  upgradeIntent = false,
+  restrictToPlan,
+}: ApplePaywallProps) {
   const [products, setProducts] = useState<IapProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
@@ -197,7 +211,7 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
   }
 
   // Active Apple subscriber: manage/restore only, never a purchase CTA.
-  if (appleEntitled) {
+  if (appleEntitled && !upgradeIntent) {
     return (
       <div className="max-w-md mx-auto px-4 py-8 space-y-4" data-testid="apple-paywall-active">
         <h1 className="text-xl font-headline font-bold">Your subscription</h1>
@@ -291,7 +305,9 @@ export function ApplePaywall({ user, onEntitled, onRefreshProfile }: ApplePaywal
       )}
 
       {/* Plan Cards */}
-      {!loadingProducts && products.map((product) => {
+      {!loadingProducts && products
+        .filter((product) => !restrictToPlan || planForProductId(product.id) === restrictToPlan)
+        .map((product) => {
         const trial = describeTrial(product);
         const introDiscount = describeIntroDiscount(product);
         const plan = planForProductId(product.id);
