@@ -1,47 +1,52 @@
-# Profile page restructure + popover shortcuts
+# Profile restructure (iOS only) + LinkedIn / Home-location save bugs
 
-## 1. Profile page section order
+## Part 1 — Profile page restructure, iOS native shell only
 
-Reorder into four clearly-titled cards, each with a leading icon:
+All layout changes below are gated behind `isIosNativeShell()`. The web/desktop Profile page keeps its current structure and order exactly as it is today.
+
+iOS section order:
 
 ```text
 [ Avatar / name / email header card ]
-1. Account Details   (User icon)      — Admin Console, Email, LinkedIn, Status
-2. Subscription      (CreditCard icon)— Plan (+ actions menu), Renewal, Upgrade/Manage Plan, Apple IAP card on iOS
-3. Home Location     (Home icon)      — existing HomeLocationCard, moved up
-4. Settings          (Settings icon)  — Manage Connections, Privacy & Security, Refer,
-                                        Retake Tour, Push Test, Send Feedback,
-                                        Delete Local Data, Delete Account, Sign Out
+1. Account Details  (User icon)        — Email, LinkedIn, Status
+                                         (Admin Console row stays web/desktop only)
+2. Subscription     (CreditCard icon)  — Plan, Renewal, Restore Purchases, Manage Subscription
+3. Home Location    (Home icon)        — unchanged card
+4. Settings         (Settings icon)    — Manage Connections, Privacy & Security, Retake Tour,
+                                         Push Test, Send Feedback, Delete Local Data,
+                                         Delete Account, Sign Out
 ```
 
-Plan/Status/Renewal rows currently sit inside Account Details; Plan and Renewal move into the new Subscription card (Status stays in Account Details as an account attribute). The Upgrade/Manage Plan button moves out of Settings into Subscription. The iOS Apple subscription card renders inside the Subscription section instead of at the page bottom.
+The Subscription section on iOS is the existing Apple subscription card (Restore Purchases + Manage Subscription, plus the Upgrade CTA when not entitled), with the Plan and Renewal rows moved into it out of Account Details. It moves from the bottom of the page to directly after Account Details. Its title gains a CreditCard icon; Settings gains a Settings icon. Guideline 3.1.1 gating is untouched — no Stripe CTA appears inside the iOS shell.
 
-The Subscription card gets `id="subscription"` so it can be deep-linked and scrolled to.
+On web, Plan and Renewal stay in Account Details as today.
 
-## 2. Profile popover additions
+Typography on the Profile page is normalised to the Inter sans styles already used by the Email row (consistent card titles, row labels, values, and button labels) — this pass applies to the shared Profile page so both platforms read consistently.
 
-In the lower box of the user popover (the one holding Retake Tour / Sign Out), add two entries directly after Profile-group items:
+## Part 2 — Popover shortcuts
 
-- **Manage Connections** → navigates to `/connected-data` (the same full experience the Profile page button opens).
-- **Subscription** → navigates to `/profile#subscription`, landing the user on the Profile page scrolled to the Subscription card.
+In the user popover box holding Retake Tour / Sign Out, add:
 
-Each with a matching Lucide icon (Link2, CreditCard), same row styling as existing entries.
+- **Manage Connections** → `/connected-data` (the same full experience the Profile button opens).
+- **Subscription** → `/profile#subscription`, landing on the Profile page scrolled to the Subscription card.
 
-## 3. Icons
+## Part 3 — The save bugs (root cause confirmed)
 
-Add icons to the section headers that lack them: Settings (`Settings`) and Subscription (`CreditCard`), matching the existing Account Details (`User`) and Home Location (`Home`) treatment — same size, muted colour, same gap.
+Both rows fail for the same reason. The browser database client (`src/integrations/supabase/client.ts`) is created with the publishable key only, and nothing attaches the Auth0 token to database calls — only edge-function calls are token-aware (`authRetryInterceptor` patches `functions.invoke` alone). Every row-level policy on `profiles`, `user_external_profiles`, and `travel_state` requires `auth.jwt() ->> 'sub'` to equal the user id, so direct table calls from the page run with no identity and match nothing.
 
-## 4. Typography consistency
+Effect:
 
-Normalise all Profile page text to the Inter sans styles already used by the Email row:
+- **LinkedIn row**: the direct write to `user_external_profiles` / `profiles` is rejected by policy, and the read on load returns nothing — so the URL never appears, before or after saving.
+- **Home location**: the save itself works (it goes through the `set-home-location` function with the token), but the status read afterwards queries `profiles` and `travel_state` directly, gets nothing back, and the card keeps showing "Not set" — matching the screenshot.
 
-- Page title and name header: drop `font-headline` serif usage below 24px, use Inter (design-system rule: no serif below 24px). Page title stays as the one large heading.
-- Card titles: single consistent size/weight across all four cards.
-- Row labels and values: consistent `text-sm`, muted label / foreground value.
-- Buttons and descriptions: consistent sizes; no ad-hoc pixel sizes.
+Fix: move both reads and the LinkedIn write onto authenticated edge functions.
+
+- Home location card reads its status from a small authenticated endpoint (or an extended `set-home-location` GET) that returns `isSet`, timezone, last sync, travel state for the caller — then refreshes after a successful save.
+- LinkedIn row reads and writes through an authenticated endpoint that upserts `user_external_profiles` and mirrors `profiles.linkedin_url`, returning the saved URL so the row renders it immediately and after reload.
+- Errors surface real messages instead of silently rendering an empty state.
 
 ## Technical notes
 
-- Files: `src/pages/Profile.tsx` (restructure + typography), `src/components/navigation/UserSettingsPopover.tsx` (two new menu entries), `src/components/profile/HomeLocationCard.tsx` (header icon/typography alignment only).
-- Profile page adds a small effect to scroll to `#subscription` when the hash is present.
-- No backend, routing, billing, or subscription-logic changes — presentation and navigation only. Existing gating flags (`PAYMENT_PAGE_SUPPRESSED`, `canShowStripePurchaseUi`, `isIosNativeShell`) are preserved exactly.
+- Files: `src/pages/Profile.tsx`, `src/components/subscription/AppleSubscriptionCard.tsx` (add Plan/Renewal rows + icon), `src/components/navigation/UserSettingsPopover.tsx`, `src/components/profile/LinkedInAccountRow.tsx`, `src/components/profile/HomeLocationCard.tsx`, plus one new edge function (or two small ones) for profile-side reads/writes.
+- Restructure is presentation-only and gated on `isIosNativeShell()`; no billing, routing, or entitlement logic changes.
+- New endpoints validate the Auth0 bearer token and act on the caller's own user id only — no service-role data exposed to the client.
