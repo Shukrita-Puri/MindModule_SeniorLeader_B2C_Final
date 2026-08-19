@@ -12,8 +12,8 @@ The test asserts the Apple manage-subscriptions sheet is NOT opened for those tw
 
 ## 3. Currency on the payment page: GBP base
 Per your answer, Apple's live StoreKit price stays authoritative (a UK Apple ID correctly shows £; the $299.99 in the screenshot is a US-region test account). The work here is to make GBP the base everywhere the app supplies the number itself:
-- `ApplePaywall` fallback labels stay GBP and are aligned to the current GBP amounts used by the web pricing table (£29/month, £289/year), including the compliance-terms sentence which renders those labels.
-- Web pricing in `Stage6Payment` is already GBP-only; the `USD` row in its price map is dead code and gets removed so no path can render `$`.
+- `ApplePaywall` fallback labels stay GBP and use the canonical amounts you specified: **£34.99/month** and **£299.99/year**, including the compliance-terms sentence which renders those labels.
+- Web pricing in `Stage6Payment` is already GBP-only; the `USD` row in its price map is dead code and gets removed so no path can render `$`. The GBP row is updated to **£34.99/month**, **£299.99/year** (≈ £25/month), and the derived savings/crossed values are corrected.
 - Add a test asserting no `$`-prefixed price literal exists in the payment-page or paywall source.
 
 ## 4. Move "What's included" up
