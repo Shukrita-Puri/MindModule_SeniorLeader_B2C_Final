@@ -544,3 +544,19 @@ Deno.test("weekday branches are unchanged", () => {
   if (!out) throw new Error("expected a weekday brief");
   assertStringIncludes(out.body, "Route the presence and stakeholder conversations");
 });
+
+Deno.test("CEO behaviour flag wires the deterministic copy pack for all four beats", () => {
+  const out = buildDeterministicBriefFallback({
+    ...WEEKEND_BASE,
+    isWeekend: false,
+    band: "steady",
+    cognitivePillTier: "green",
+    physicalPillTier: "green",
+    ceoFlags: [{ rule: "decisionDensity", severity: "high" }],
+  });
+  if (!out) throw new Error("expected a CEO-flag brief");
+  assertStringIncludes(out.body, "decision moments today");
+  assertStringIncludes(out.body, "Decision fatigue is dose-dependent");
+  assertStringIncludes(out.body, "Run reversible decisions first");
+  assertStringIncludes(out.body, "sequence the irreversible last");
+});
