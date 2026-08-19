@@ -30,3 +30,8 @@ The web Profile "Manage Billing" handler (`handleManageBilling`) gets the same g
 
 ## Non-goals
 No changes to entitlement/access logic, `SubscriptionGuard`, IAP purchase or restore flows, or Stripe checkout. Presentation and routing only.
+
+## Explicitly not gating
+This change is navigation-only. Both flows start from the user already inside the app: an active beta tester and an active monthly Pro user (still inside their paid period, including month-to-month auto-renew) keep full app access and only reach the payment page when they tap "Manage Subscription" in Profile or the "Subscription" item under Retake Tour.
+
+Existing gating stays exactly as it is: `resolveSubscriptionAccess` already blocks a monthly Pro user whose period end has passed without renewal, and `SubscriptionGuard` already acts on that verdict. That logic is correct today and will not be re-implemented, duplicated, or modified.
