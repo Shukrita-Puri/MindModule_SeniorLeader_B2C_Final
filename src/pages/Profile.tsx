@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2, Bell, MessageSquare } from 'lucide-react';
+import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Link2, Bell, MessageSquare, Settings as SettingsIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -49,6 +49,12 @@ const Profile = () => {
   // Guideline 3.1.1: no Stripe checkout / billing-portal CTA inside the iOS app.
   const allowStripeUi = canShowStripePurchaseUi();
   const showBillingMenu = !PAYMENT_PAGE_SUPPRESSED && allowStripeUi;
+  /**
+   * Section layout is re-ordered for the native iOS shell only. Web/desktop
+   * keeps the historical order. Presentation only — no logic differences.
+   */
+  const isIos = isIosNativeShell();
+  const showAppleSubscription = isIos && !PAYMENT_PAGE_SUPPRESSED;
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -169,6 +175,16 @@ const Profile = () => {
     navigate(target);
   };
 
+  // Deep link support: /profile#subscription scrolls to the Subscription card.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#subscription') return;
+    const t = window.setTimeout(() => {
+      document.getElementById('subscription')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <ProfilePageLayout backPath="/executive-home">
         <h1 className="text-[28px] font-headline font-semibold">Profile</h1>
@@ -184,12 +200,12 @@ const Profile = () => {
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-[20px] font-headline font-medium">{user?.name || 'User'}</h2>
+                  <h2 className="text-[20px] font-sans font-medium">{user?.name || 'User'}</h2>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleEditName}>
                     <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
                 </div>
-                <p className="text-muted-foreground">{user?.email}</p>
+                <p className="text-sm font-sans text-muted-foreground">{user?.email}</p>
               </div>
             </div>
           </CardContent>
@@ -198,13 +214,13 @@ const Profile = () => {
         {/* Account Details */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px] font-medium flex items-center gap-2">
+            <CardTitle className="text-[15px] font-sans font-medium flex items-center gap-2">
               <User className="h-5 w-5 text-muted-foreground" />
               Account Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {canAccessAdmin && (
+            {canAccessAdmin && !isIos && (
               <button
                 type="button"
                 onClick={() => navigate('/admin')}
@@ -232,7 +248,7 @@ const Profile = () => {
               </div>
               <span className="text-sm capitalize">{statusLabel}</span>
             </div>
-            <div className="flex items-center justify-between py-2 border-b border-border">
+            {!isIos && <div className="flex items-center justify-between py-2 border-b border-border">
               <div className="flex items-center gap-3">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Plan</span>
@@ -286,8 +302,8 @@ const Profile = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>}
               </div>
-            </div>
-            {expiryLabel && (
+            </div>}
+            {!isIos && expiryLabel && (
               <div className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -299,11 +315,26 @@ const Profile = () => {
           </CardContent>
         </Card>
 
+        {/* iOS order: Subscription and Home location sit directly after
+            Account Details. Same components, same behaviour — position only. */}
+        {showAppleSubscription && (
+          <AppleSubscriptionCard
+            user={user}
+            onRefreshProfile={refreshProfile}
+            planLabel={planLabel}
+            expiryLabel={expiryLabel}
+          />
+        )}
+        {isIos && <HomeLocationCard />}
+
         {/* Settings */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px] font-medium">Settings</CardTitle>
-            <CardDescription>Manage your account preferences</CardDescription>
+            <CardTitle className="text-[15px] font-sans font-medium flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4 text-muted-foreground" />
+              Settings
+            </CardTitle>
+            <CardDescription className="font-sans">Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {!PAYMENT_PAGE_SUPPRESSED && allowStripeUi && (
