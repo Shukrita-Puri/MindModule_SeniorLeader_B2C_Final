@@ -529,7 +529,7 @@ Deno.test("non-workday (PTO / holiday) inherits the same weekend beat (c)", () =
     physicalPillTier: "amber",
   });
   if (!out) throw new Error("expected a non-workday brief");
-  assertStringIncludes(out.body, "Keep the pace light");
+  assertStringIncludes(out.body, "The system needs this day to actually recover");
   assertEquals(WORK_VOCAB.test(out.body), false);
 });
 
