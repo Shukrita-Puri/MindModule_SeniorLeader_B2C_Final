@@ -182,11 +182,12 @@ export function ApplePaywall({
     }
   };
 
-  // Dynamic StoreKit pricing labels for terms disclosure to prevent drift across international storefronts
+  // Dynamic StoreKit pricing labels for terms disclosure to prevent drift across international storefronts.
+  // GBP is the canonical base currency; Apple still charges in the storefront's local currency.
   const monthlyProduct = products.find((p) => planForProductId(p.id) === 'monthly');
   const annualProduct = products.find((p) => planForProductId(p.id) === 'annual');
-  const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : '£29.00/month';
-  const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : '£289.00/year';
+  const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : '£34.99/month';
+  const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : '£299.99/year';
 
   // Existing Stripe subscriber inside the iOS app: status only, no CTA.
   if (stripeLegacy) {
@@ -267,6 +268,35 @@ export function ApplePaywall({
         <p className="text-base font-medium text-foreground/95 leading-snug">
           Your mind runs everything. Now it has a chief of staff.
         </p>
+      </div>
+
+      {/* What's Included (Clean list, minimal weight, no border lines) */}
+      <div className="space-y-2 py-2 px-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          WHAT&apos;S INCLUDED
+        </p>
+        <ul className="space-y-1.5 text-xs text-foreground/85 leading-snug">
+          <li className="flex items-start gap-1.5">
+            <span className="text-saffron">•</span>
+            <span>Daily Briefs to know where you stand before the day runs you</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-saffron">•</span>
+            <span>Short Performance plan built around your day, your signals, your patterns</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-saffron">•</span>
+            <span>Quick Protocols that work under real pressure</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-saffron">•</span>
+            <span>Weekly Intelligence on what&apos;s quietly draining or restoring you</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-saffron">•</span>
+            <span>Connected to your world - not your memory</span>
+          </li>
+        </ul>
       </div>
 
       {/* Product Loading & Error States */}
