@@ -230,13 +230,14 @@ Deno.serve(async (req) => {
       const syncSource: string = body.source === 'ios-background' ? 'ios-background' : 'foreground';
       console.log(`[persist-wearable-data] Bulk sync source: ${syncSource}, samples: ${body.samples.length}`);
 
-      for (const sample of body.samples) {
+      // deno-lint-ignore no-explicit-any
+      const processSample = async (sample: any): Promise<void> => {
         // Allow rows where at least one metric exists (partial availability)
         const hasAnyMetric = sample.hrv != null || sample.resting_heart_rate != null
           || sample.heart_rate != null || sample.total_sleep_minutes != null;
         if (!sample.summary_date || !hasAnyMetric) {
           results.errors++;
-          continue;
+          return;
         }
 
         latestSummaryDate = latestSummaryDate && latestSummaryDate > sample.summary_date
@@ -313,6 +314,35 @@ Deno.serve(async (req) => {
         } else {
           results.inserted++;  // upsert – counted as write
         }
+      };
+
+      // Deadline-aware, bounded-parallel processing. Without this a large
+      // HealthKit backfill exceeded the gateway timeout (504), which skipped
+      // the catch block and left the outbox lock row in place — every retry
+      // then short-circuited on 23505 and the batch was lost.
+      const pendingSamples = body.samples as unknown[];
+      let processedCount = 0;
+      let timedOut = false;
+      for (let i = 0; i < pendingSamples.length; i += SAMPLE_CONCURRENCY) {
+        if (Date.now() - requestStartedAt > SAMPLE_TIME_BUDGET_MS) {
+          timedOut = true;
+          break;
+        }
+        const chunk = pendingSamples.slice(i, i + SAMPLE_CONCURRENCY);
+        await Promise.all(chunk.map((s) => processSample(s)));
+        processedCount += chunk.length;
+      }
+      const remainingSamples = pendingSamples.length - processedCount;
+      if (timedOut) {
+        console.warn(
+          `[persist-wearable-data] Time budget reached: processed ${processedCount}/${pendingSamples.length}, remaining ${remainingSamples}`,
+        );
+        // Release the idempotency lock so the client can resend the remainder.
+        if (outboxItemId) {
+          try {
+            await db.from("processed_outbox_items").delete().eq("outbox_item_id", outboxItemId);
+          } catch { /* */ }
+        }
       }
 
       await upsertIntegrationStatus({
@@ -334,7 +364,11 @@ Deno.serve(async (req) => {
 
       console.log(`[persist-wearable-data] Bulk result (${syncSource}):`, results);
       return new Response(
-        JSON.stringify({ success: true, ...results }),
+        JSON.stringify({
+          success: true,
+          ...results,
+          ...(timedOut ? { partial: true, processed: processedCount, remaining: remainingSamples, retryable: true } : {}),
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
