@@ -147,10 +147,10 @@ export default function HomeLocationCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-[15px] font-medium flex items-center gap-2">
-          <Home className="h-4 w-4 text-primary" /> Home location
+        <CardTitle className="text-[15px] font-sans font-medium flex items-center gap-2">
+          <Home className="h-4 w-4 text-muted-foreground" /> Home location
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="font-sans">
           Used to tell local days from travel days. We never show or share your address.
         </CardDescription>
       </CardHeader>

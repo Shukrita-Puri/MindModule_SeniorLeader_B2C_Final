@@ -62,11 +62,11 @@ export function AppleSubscriptionCard({ user, onRefreshProfile, planLabel, expir
   return (
     <Card id="subscription" data-testid="apple-subscription-card">
       <CardHeader>
-        <CardTitle className="text-[15px] font-medium flex items-center gap-2">
+        <CardTitle className="text-[15px] font-sans font-medium flex items-center gap-2">
           <CreditCard className="h-4 w-4 text-muted-foreground" />
           Subscription
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="font-sans">
           {stripeLegacy
             ? 'Your Pro access is active.'
             : appleSubscriber

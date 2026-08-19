@@ -474,14 +474,8 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Home location — Sprint 10 / Phase 9B */}
-        <HomeLocationCard />
-
-      {/* iOS-only subscription surface (Apple IAP). Replaces the Stripe
-          billing entries above, which are hidden inside the native shell. */}
-      {isIosNativeShell() && !PAYMENT_PAGE_SUPPRESSED && (
-        <AppleSubscriptionCard user={user} onRefreshProfile={refreshProfile} />
-      )}
+        {/* Home location — Sprint 10 / Phase 9B (web order; iOS renders it above) */}
+        {!isIos && <HomeLocationCard />}
 
       {/* Edit Name Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
