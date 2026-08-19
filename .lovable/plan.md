@@ -50,18 +50,29 @@ Add a `behaviourPriority(rule)` ordering in `behaviour-evaluator.ts` (travel > c
 
 ### C. Turn the deterministic switch into a persona copy pack
 
-Replace the hardcoded switch in `deterministic-brief.ts` with a lookup into a new `_shared/personas/ceo/behaviour-copy.ts`:
+The four-beat contract is unchanged and is the shape the pack must fill. Canonical source: `BODY_FOUR_BEAT_CONTRACT` in `copy-vocabulary.ts`, mirrored by `buildEvidence` / `buildRead` / `buildDirective` / `closeFor` in `deterministic-brief.ts`:
+
+```text
+(a) EVIDENCE                    — 2 signals from different buckets
+(b) THE READ                    — the judgment those signals add up to
+(c) THE WORK DIRECTIVE          — the cognitive posture for today's real demand
+(d) SELF-REGULATION DIRECTIVE   — the 3-8 word closing clause
+```
+
+Replace the hardcoded switch in `deterministic-brief.ts` with a lookup into a new `_shared/personas/ceo/behaviour-copy.ts`, keyed on those exact beats:
 
 ```text
 BEHAVIOUR_COPY[rule] = {
-  read:      (c) => string,   // beat (a) — name the signal
-  directive: (c) => string,   // beat (b) — the one orientation posture
-  matters:   (c) => string,   // beat (c) — why it matters today
-  close:     (c) => string,   // beat (d) — 3-5 words
+  evidence:  (c) => string,   // beat (a) — EVIDENCE
+  read:      (c) => string,   // beat (b) — THE READ
+  directive: (c) => string,   // beat (c) — THE WORK DIRECTIVE
+  close:     (c) => string,   // beat (d) — SELF-REGULATION DIRECTIVE
 }
 ```
 
-Populate it for every brief-scoped rule in `ALL_RULES`, deriving the prose from each rule's existing `copyHint` (they already read like chief-of-staff lines) so there is a single review pass and nothing is invented. Rules with no entry fall through to today's generic copy, so there is no regression risk. The same pack is what the Plan can later read for its "Why this matters" line.
+Each of the four existing builders consults the pack for the leading flag before falling through to its current logic — so today the behaviour only shapes beat (a), and after this it shapes all four, exactly as the travel branch already does. The weekend / non-workday rule (zero work language in beats c and d) and the "beats (b) and (c) must not say the same thing" test stay enforced as they are today.
+
+Populate the pack for every brief-scoped rule in `ALL_RULES`, deriving the prose from each rule's existing `copyHint` (several already spell out their beats — `contextSwitchingCost` names beats a–d verbatim in its hint) so there is a single review pass and nothing is invented. Rules with no entry fall through to today's generic copy, so there is no regression risk. The same pack is what the Plan can later read for its "Why this matters" line.
 
 ### D. Modularity seam for future personas
 
