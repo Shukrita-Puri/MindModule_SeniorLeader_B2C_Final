@@ -35,11 +35,11 @@ Tests added to `ceo-behaviour-rules.test.ts`:
 
 ## Prompt 2 — Priority ranking + LEAD marker
 
-Add `behaviourPriority(rule: string): number` to `_shared/behaviour-evaluator.ts` using the supplied 0–11 ladder (travel 0 → all others 11), exported so the Plan can adopt the identical ordering.
+Add `behaviourPriority(rule: string): number` to `_shared/behaviour-evaluator.ts` using the supplied 0–11 ladder (travel 0 → all others 11). **Export it** so the Plan/JIT v2 can later import the same ordering without duplicating it. Do **not** wire it into Plan or JIT v2 in this change — keep this prompt scoped to Brief only.
 
 - `evaluate()` sorts by severity first, then by `behaviourPriority` ascending inside each severity band. Severity always wins.
 - `formatPromptBlock` (in `behaviour-wiring.ts`, which owns the block) marks the top-ranked flag `[LEAD]` and every other flag `[CONTEXT]`, and prepends: "The [LEAD] behaviour is the story of this brief. [CONTEXT] behaviours are supporting colour. Do not split attention equally across all of them."
-- `deterministic-brief.ts` replaces its ad-hoc `topCeoFlag` sort with the same shared function.
+- `deterministic-brief.ts` replaces its ad-hoc `topCeoFlag` sort with the same shared function (imported from `behaviour-evaluator.ts`).
 - `BRIEF_PROMPT_VERSION` bumped, mirrored in `src/constants/briefPromptVersion.ts`.
 
 ---
