@@ -9301,6 +9301,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   .map((f: any) => ({
                     rule: String(f?.rule ?? ""),
                     severity: (f?.severity ?? "medium") as "high" | "medium" | "low",
+                    copyHint: typeof f?.copyHint === "string" ? f.copyHint : undefined,
+                    stake: typeof f?.stake === "string" ? f.stake : undefined,
+                    evidence: Array.isArray(f?.evidence)
+                      ? f.evidence.map((e: unknown) => String(e))
+                      : undefined,
+                    anchorEvent: typeof f?.anchorEvent === "string"
+                      ? f.anchorEvent
+                      : undefined,
                   }))
                   .filter((f) => !!f.rule),
               });
