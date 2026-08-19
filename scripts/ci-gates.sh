@@ -19,4 +19,7 @@ grep -A5 'deriveStructuralDayFlags' supabase/functions/generate-mastery-plan/ind
 # Gate 5: After parity week, legacy shadow flag is false
 # (activated in post-parity CI config)
 
-echo "✅ All 5 core gates passed"
+# Gate 6: every brief-scoped CEO behaviour rule has deterministic copy
+deno test --allow-all supabase/functions/_shared/personas/ceo/behaviour-copy.contract.test.ts
+
+echo "✅ All 6 core gates passed"
