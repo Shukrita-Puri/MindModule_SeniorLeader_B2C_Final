@@ -21,7 +21,17 @@ let activeRequests = 0;
 const MAX_CONCURRENT_REQUESTS = 3;
 const activeOutboxIds = new Set<string>();
 
+// Wall-clock budget for the bulk sample loop. The edge gateway kills the
+// request well before 60s; we stop merging at 40s, release the outbox lock
+// and report the remainder so the client resends it instead of the batch
+// being silently swallowed by the 23505 dedup path after a 504.
+const SAMPLE_TIME_BUDGET_MS = 40_000;
+// Distinct summary_dates merge independently (per-row CAS), so a small
+// amount of parallelism is safe and cuts total latency substantially.
+const SAMPLE_CONCURRENCY = 4;
+
 Deno.serve(async (req) => {
+  const requestStartedAt = Date.now();
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -59,13 +69,13 @@ Deno.serve(async (req) => {
       );
 
     // Per-request cache: one context load per unique summary_date.
-    const ctxCache = new Map<string, WearableMergeContext>();
+    const ctxCache = new Map<string, Promise<WearableMergeContext>>();
     const getCtx = async (summaryDate: string): Promise<WearableMergeContext> => {
       const hit = ctxCache.get(summaryDate);
       if (hit) return hit;
-      const ctx = await loadWearableMergeContext(db, userId, summaryDate);
-      ctxCache.set(summaryDate, ctx);
-      return ctx;
+      const pending = loadWearableMergeContext(db, userId, summaryDate);
+      ctxCache.set(summaryDate, pending);
+      return await pending;
     };
     const logReconciliation = async (summaryDate: string, rec: ReconciliationRecord) => {
       try {
