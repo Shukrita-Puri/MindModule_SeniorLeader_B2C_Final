@@ -170,6 +170,12 @@ export async function postWearableDirect(payload: WearablePersistPayload, idempo
       const text = await res.text().catch(() => '');
       return { ok: false, status: res.status, error: text || `http_${res.status}` };
     }
+    // 200 + { partial: true } means the server hit its wall-clock budget and
+    // released the dedupe lock. Treat as retryable so the remainder is resent.
+    const body = await res.json().catch(() => null) as { partial?: boolean } | null;
+    if (body?.partial) {
+      return { ok: false, status: res.status, error: 'partial_persist_retryable' };
+    }
     return { ok: true, status: res.status };
   } catch (err) {
     return { ok: false, status: 0, error: err instanceof Error ? err.message : 'network_error' };

@@ -471,7 +471,9 @@ import Security
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 30
+        // Must exceed the server-side sample time budget (40s) so a partial
+        // response can be read instead of the client aborting first.
+        request.timeoutInterval = 60
         request.setValue(item.id, forHTTPHeaderField: "X-Outbox-Item-Id") // server-side dedupe hint
 
         do {
@@ -483,7 +485,7 @@ import Security
         }
 
         let startedAt = Date()
-        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
             let latencyMs = Int(Date().timeIntervalSince(startedAt) * 1000.0)
             if let error = error {
                 NSLog("[WearableSyncBridge] outbox POST failed: \(error.localizedDescription)")
@@ -494,8 +496,22 @@ import Security
             }
             if let http = response as? HTTPURLResponse {
                 if (200..<300).contains(http.statusCode) {
-                    NSLog("[WearableSyncBridge] outbox POST ok: \(http.statusCode), item \(item.id)")
-                    NativeOutbox.shared.remove(id: item.id, provider: .appleHealth)
+                    // The server returns 200 + { partial: true } when it ran out
+                    // of wall-clock budget mid-batch. It releases the dedupe lock
+                    // in that case, so the item must stay queued for a retry —
+                    // removing it here would silently drop the remainder.
+                    var partial = false
+                    if let data = data,
+                       let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                        partial = (json["partial"] as? Bool) ?? false
+                    }
+                    if partial {
+                        NSLog("[WearableSyncBridge] outbox POST partial: item \(item.id) stays queued")
+                        NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: "partial_persist")
+                    } else {
+                        NSLog("[WearableSyncBridge] outbox POST ok: \(http.statusCode), item \(item.id)")
+                        NativeOutbox.shared.remove(id: item.id, provider: .appleHealth)
+                    }
                     NativeSyncDiagnostics.shared.recordHealthUpload()
                     NativeSyncDiagnostics.shared.recordUploadLatency(ms: latencyMs)
                 } else {
