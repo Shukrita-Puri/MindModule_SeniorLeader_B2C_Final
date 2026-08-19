@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { RotateCcw, ExternalLink, Sparkles } from 'lucide-react';
+import { RotateCcw, ExternalLink, Sparkles, CreditCard, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { restoreIapPurchases, openAppleManageSubscriptions } from '@/services/iap';
 import { isNonApplePaidEntitlement } from '@/config/purchasePlatform';
@@ -25,9 +25,13 @@ import { hasValidAccess, type AccessUser } from '@/utils/subscriptionHelpers';
 interface Props {
   user: (AccessUser & { subscription_provider?: string | null; stripe_customer_id?: string | null }) | null;
   onRefreshProfile: () => Promise<unknown>;
+  /** Current plan label (e.g. "Free", "Annual Pro"). Rendered as a row. */
+  planLabel?: string;
+  /** Renewal / expiry sentence. Rendered as a row when present. */
+  expiryLabel?: string | null;
 }
 
-export function AppleSubscriptionCard({ user, onRefreshProfile }: Props) {
+export function AppleSubscriptionCard({ user, onRefreshProfile, planLabel, expiryLabel }: Props) {
   const navigate = useNavigate();
   const [restoring, setRestoring] = useState(false);
 
@@ -56,10 +60,13 @@ export function AppleSubscriptionCard({ user, onRefreshProfile }: Props) {
   };
 
   return (
-    <Card data-testid="apple-subscription-card">
+    <Card id="subscription" data-testid="apple-subscription-card">
       <CardHeader>
-        <CardTitle className="text-[15px] font-medium">Subscription</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-[15px] font-sans font-medium flex items-center gap-2">
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+          Subscription
+        </CardTitle>
+        <CardDescription className="font-sans">
           {stripeLegacy
             ? 'Your Pro access is active.'
             : appleSubscriber
@@ -68,6 +75,26 @@ export function AppleSubscriptionCard({ user, onRefreshProfile }: Props) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {planLabel && (
+          <div className="flex items-center justify-between py-2 border-b border-border">
+            <div className="flex items-center gap-3">
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Plan</span>
+            </div>
+            <span className="text-sm">{planLabel}</span>
+          </div>
+        )}
+
+        {expiryLabel && (
+          <div className="flex items-center justify-between py-2 border-b border-border">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Renewal</span>
+            </div>
+            <span className="text-sm">{expiryLabel}</span>
+          </div>
+        )}
+
         {!entitled && (
           <Button
             variant="outline"
