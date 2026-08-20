@@ -385,51 +385,6 @@ const PatternAnalysisSection = ({
   );
 };
 
-const CategoryBar = ({
-
-  name,
-  lift,
-  hrDelta,
-  n,
-  conf,
-  maxAbs,
-  direction,
-}: {
-  name: string;
-  lift: number;
-  hrDelta: number;
-  n: number;
-  conf: LiftConfidence;
-  maxAbs: number;
-  direction: 'thrive' | 'drain';
-}) => {
-  const pct = Math.min(100, Math.round((Math.abs(lift) / maxAbs) * 100));
-  const isThrive = direction === 'thrive';
-  return (
-    <div className={cn('flex items-center gap-2', conf === 'emerging' && 'opacity-60')}>
-      <div className="w-32 text-xs text-foreground/80 truncate" title={name}>
-        {name}
-      </div>
-      <div className="flex-1 h-2 rounded-full bg-muted/40 overflow-hidden">
-        <div
-          className={cn(
-            'h-full rounded-full transition-all',
-            isThrive ? 'bg-emerald-500/70' : 'bg-[#D85A30]/70',
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <div className="w-20 text-right text-[10px] tabular-nums text-muted-foreground/80">
-        <span className={cn('font-medium', isThrive ? 'text-emerald-700/80 dark:text-emerald-400/80' : 'text-[#993C1D]')}>
-          {lift >= 0 ? '+' : ''}{lift}%
-        </span>
-        <span className="ml-1 text-muted-foreground/60">· {hrDelta >= 0 ? '+' : ''}{hrDelta}bpm</span>
-      </div>
-      <div className="w-8 text-right text-[10px] text-muted-foreground/50 tabular-nums">n={n}</div>
-    </div>
-  );
-};
-
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
   const [loading, setLoading] = useState(true);
