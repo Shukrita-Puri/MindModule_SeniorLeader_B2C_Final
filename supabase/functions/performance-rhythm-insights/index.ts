@@ -112,7 +112,7 @@ serve(async (req) => {
         sb.from("jit_preferences").select("event_title, action, event_start_time")
           .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
         sb.from("wearable_data")
-          .select("summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency")
+          .select("summary_date, hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency")
           .eq("user_id", userId).gte("summary_date", thirtyDaysAgoStr),
         // v4 — read pre-projected positive correlations from the unified
         // pattern store. cause-effect-engine writes signal_summary nightly;
@@ -715,7 +715,41 @@ serve(async (req) => {
     // guard below (≤2 per dim, ≤2 per kind) so the top-3 stays balanced.
     type RhythmDimension =
       | 'clarity' | 'emotion' | 'pressure' | 'regulation'
-      | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
+      | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency'
+      | 'rhr' | 'hr';
+
+    /**
+     * v4 — structured evidence behind every finding. Additive: the app now
+     * assembles sentences from these numbers (perform-best templates), while
+     * `text` / `longText` stay for backwards-compatible consumers.
+     */
+    interface RhythmStats {
+      /** 0=Mon … 6=Sun for day-scoped findings. */
+      day?: number;
+      comparisonDay?: number;
+      /** 0=Morning, 1=Afternoon, 2=Evening for window-scoped findings. */
+      window?: number;
+      comparisonWindow?: number;
+      /** Positive rate (0–100) at the peak bucket / comparison bucket. */
+      bestPct?: number;
+      comparePct?: number;
+      /** Percentage-point gap between best and comparison. */
+      gapPp?: number;
+      /** Consecutive same-DOW run length. */
+      runLength?: number;
+      lastDate?: string;
+      /** Observations behind the finding (bucket n, or run length). */
+      n: number;
+      /** Observation dates used in the calculation (capped at 12). */
+      dates: string[];
+      /** Raw values used, when the series carries them (wearable dims). */
+      rawValues?: number[];
+      /** 'check-in' | 'wearable'. */
+      source: 'check-in' | 'wearable';
+      /** Polarity of the dimension: 'high' = higher is better. */
+      polarity: 'high' | 'low';
+    }
+
     interface RhythmFinding {
       kind: RhythmKind;
       dimension: RhythmDimension;
@@ -728,9 +762,13 @@ serve(async (req) => {
       observations: number;
       /** Chief-of-Staff priority score; higher wins. */
       priorityScore: number;
+      /** v4 — evidence block (see RhythmStats). */
+      stats?: RhythmStats;
     }
 
-    type SeriesPoint = { dateStr: string; di: number; tw: number; positive: boolean; negative: boolean };
+    type SeriesPoint = { dateStr: string; di: number; tw: number; positive: boolean; negative: boolean; value?: number };
+
+    const INVERTED_DIMS = new Set<RhythmDimension>(['pressure', 'rhr', 'hr']);
 
     const positiveOutcomeSet = new Set(['focused', 'steady']);
     const negativeOutcomeSet = new Set(['drained', 'overwhelmed']);
@@ -771,6 +809,7 @@ serve(async (req) => {
           tw: ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2,
           positive,
           negative,
+          value: typeof v === 'number' ? v : undefined,
         });
       }
       return out;
@@ -786,52 +825,76 @@ serve(async (req) => {
       vocab: { dimension: RhythmDimension; appLabel: string; positivePhrase: string; negativePhrase: string; longPositiveLabel: string; longNegativeLabel: string }
     ): RhythmFinding[] => {
       const findings: RhythmFinding[] = [];
-      if (series.length < 7) return findings;
+      // v4: emission floor is the EMERGING tier (n≥3). The perform-best card
+      // applies the authoritative observation guard client-side using `stats`.
+      if (series.length < 3) return findings;
+
+      const isWearable = !['clarity', 'emotion', 'pressure', 'regulation'].includes(vocab.dimension);
+      const polarity: 'high' | 'low' = INVERTED_DIMS.has(vocab.dimension) ? 'low' : 'high';
+      const baseStats = (pts: SeriesPoint[], n: number): Pick<RhythmStats, 'n' | 'dates' | 'rawValues' | 'source' | 'polarity'> => ({
+        n,
+        dates: pts.slice(-12).map(p => p.dateStr),
+        rawValues: pts.some(p => typeof p.value === 'number')
+          ? pts.slice(-12).map(p => (typeof p.value === 'number' ? p.value : NaN)).filter(v => !Number.isNaN(v))
+          : undefined,
+        source: isWearable ? 'wearable' : 'check-in',
+        polarity,
+      });
 
       // ── Time-of-day (positive rate) ──
-      const twBuckets: Record<number, { pos: number; n: number }> = { 0: { pos: 0, n: 0 }, 1: { pos: 0, n: 0 }, 2: { pos: 0, n: 0 } };
-      for (const p of series) { twBuckets[p.tw].n++; if (p.positive) twBuckets[p.tw].pos++; }
+      const twBuckets: Record<number, { pos: number; n: number; pts: SeriesPoint[] }> = {
+        0: { pos: 0, n: 0, pts: [] }, 1: { pos: 0, n: 0, pts: [] }, 2: { pos: 0, n: 0, pts: [] },
+      };
+      for (const p of series) { twBuckets[p.tw].n++; twBuckets[p.tw].pts.push(p); if (p.positive) twBuckets[p.tw].pos++; }
       const twRates = Object.entries(twBuckets)
         .filter(([, v]) => v.n >= 3)
-        .map(([tw, v]) => ({ tw: +tw, pct: v.pos / v.n, n: v.n }));
+        .map(([tw, v]) => ({ tw: +tw, pct: v.pos / v.n, n: v.n, pts: v.pts }));
       if (twRates.length >= 2) {
         twRates.sort((a, b) => b.pct - a.pct);
         const best = twRates[0];
         const worst = twRates[twRates.length - 1];
-        if (best.pct - worst.pct >= 0.20 && best.pct >= 0.5) {
+        if (best.pct - worst.pct >= 0.15) {
           const pctBest = Math.round(best.pct * 100);
           const pctWorst = Math.round(worst.pct * 100);
           findings.push({
             kind: 'peak-window',
             dimension: vocab.dimension,
-            text: `${TIME_LABELS[best.tw]}s are your peak ${vocab.appLabel} window — ${pctBest}% vs ${pctWorst}% in the ${TIME_LABELS[worst.tw].toLowerCase()} (n=${best.n + worst.n}).`,
+            text: `${TIME_LABELS[best.tw]}s are your peak ${vocab.appLabel} window — ${pctBest}% vs ${pctWorst}% in the ${TIME_LABELS[worst.tw].toLowerCase()}.`,
             longText: `${TIME_LABELS[best.tw]}s are your ${vocab.longPositiveLabel} window (${pctBest}% across ${best.n} check-ins) – ${TIME_LABELS[worst.tw]}s sit at ${pctWorst}%.`,
             confidence: Math.min(1, (best.pct - worst.pct) + best.n / 30),
             observations: best.n + worst.n,
             priorityScore: 0,
+            stats: {
+              ...baseStats([...best.pts, ...worst.pts], best.n + worst.n),
+              window: best.tw,
+              comparisonWindow: worst.tw,
+              bestPct: pctBest,
+              comparePct: pctWorst,
+              gapPp: pctBest - pctWorst,
+            },
           });
         }
       }
 
       // ── Day-of-week (positive rate) ──
-      const doBuckets: Record<number, { pos: number; n: number }> = {};
+      const doBuckets: Record<number, { pos: number; n: number; pts: SeriesPoint[] }> = {};
       for (const p of series) {
-        if (!doBuckets[p.di]) doBuckets[p.di] = { pos: 0, n: 0 };
+        if (!doBuckets[p.di]) doBuckets[p.di] = { pos: 0, n: 0, pts: [] };
         doBuckets[p.di].n++;
+        doBuckets[p.di].pts.push(p);
         if (p.positive) doBuckets[p.di].pos++;
       }
       const doRates = Object.entries(doBuckets)
         .filter(([, v]) => v.n >= 2)
-        .map(([di, v]) => ({ di: +di, pct: v.pos / v.n, n: v.n }));
+        .map(([di, v]) => ({ di: +di, pct: v.pos / v.n, n: v.n, pts: v.pts }));
       if (doRates.length >= 2) {
         doRates.sort((a, b) => b.pct - a.pct);
         const best = doRates[0];
         const worst = doRates[doRates.length - 1];
-        if (best.pct - worst.pct >= 0.30 && best.n >= 2 && worst.n >= 2) {
+        if (best.pct - worst.pct >= 0.20 && best.n >= 2 && worst.n >= 2) {
           const pctBest = Math.round(best.pct * 100);
           const pctWorst = Math.round(worst.pct * 100);
           // Pull the trough out as its own finding when the worst day is bad enough.
-          // Otherwise emit a paired peak/trough headline.
           if (worst.pct <= 0.30) {
             findings.push({
               kind: 'low-day',
@@ -841,26 +904,43 @@ serve(async (req) => {
               confidence: Math.min(1, (best.pct - worst.pct) + (best.n + worst.n) / 20),
               observations: best.n + worst.n,
               priorityScore: 0,
+              stats: {
+                ...baseStats([...worst.pts, ...best.pts], best.n + worst.n),
+                day: worst.di,
+                comparisonDay: best.di,
+                bestPct: pctWorst,
+                comparePct: pctBest,
+                gapPp: pctBest - pctWorst,
+              },
             });
           }
           findings.push({
             kind: 'peak-day',
             dimension: vocab.dimension,
-            text: `${DAYS_FULL[best.di]}s run sharpest on ${vocab.appLabel} (${pctBest}%); ${DAYS_FULL[worst.di]}s drop to ${pctWorst}% (n=${best.n + worst.n}).`,
+            text: `${DAYS_FULL[best.di]}s run highest on ${vocab.appLabel} — ${pctBest}% vs ${pctWorst}% on ${DAYS_FULL[worst.di]}s.`,
             longText: `${DAYS_FULL[best.di]}s land ${vocab.longPositiveLabel} ${pctBest}% of the time vs ${DAYS_FULL[worst.di]}s at ${pctWorst}%.`,
             confidence: Math.min(1, (best.pct - worst.pct) + (best.n + worst.n) / 20),
             observations: best.n + worst.n,
             priorityScore: 0,
+            stats: {
+              ...baseStats([...best.pts, ...worst.pts], best.n + worst.n),
+              day: best.di,
+              comparisonDay: worst.di,
+              bestPct: pctBest,
+              comparePct: pctWorst,
+              gapPp: pctBest - pctWorst,
+            },
           });
         }
       }
 
       // ── Cell-level peak (DOW × TW) ──
-      const cellBuckets: Map<string, { pos: number; n: number; di: number; tw: number }> = new Map();
+      const cellBuckets: Map<string, { pos: number; n: number; di: number; tw: number; pts: SeriesPoint[] }> = new Map();
       for (const p of series) {
         const key = `${p.di}-${p.tw}`;
-        const cur = cellBuckets.get(key) || { pos: 0, n: 0, di: p.di, tw: p.tw };
+        const cur = cellBuckets.get(key) || { pos: 0, n: 0, di: p.di, tw: p.tw, pts: [] as SeriesPoint[] };
         cur.n++;
+        cur.pts.push(p);
         if (p.positive) cur.pos++;
         cellBuckets.set(key, cur);
       }
@@ -868,71 +948,76 @@ serve(async (req) => {
       const cellArr = [...cellBuckets.values()].filter(c => c.n >= 2);
       cellArr.sort((a, b) => (b.pos / b.n) - (a.pos / a.n));
       const topCell = cellArr[0];
-      if (topCell && topCell.pos / topCell.n - meanRate >= 0.30) {
+      if (topCell && topCell.pos / topCell.n - meanRate >= 0.20) {
         const pctCell = Math.round((topCell.pos / topCell.n) * 100);
+        const pctMean = Math.round(meanRate * 100);
         findings.push({
           kind: 'cell-peak',
           dimension: vocab.dimension,
-          text: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest ${vocab.appLabel} window — ${pctCell}% across ${topCell.n} check-ins. Protect it.`,
-          longText: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest cell (${pctCell}% ${vocab.longPositiveLabel} across ${topCell.n} check-ins).`,
+          text: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your peak ${vocab.appLabel} window — ${pctCell}% across ${topCell.n} check-ins.`,
+          longText: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your strongest cell (${pctCell}% ${vocab.longPositiveLabel} across ${topCell.n} check-ins).`,
           confidence: Math.min(1, (topCell.pos / topCell.n - meanRate) + topCell.n / 10),
           observations: topCell.n,
           priorityScore: 0,
+          stats: {
+            ...baseStats(topCell.pts, topCell.n),
+            day: topCell.di,
+            window: topCell.tw,
+            bestPct: pctCell,
+            comparePct: pctMean,
+            gapPp: pctCell - pctMean,
+          },
         });
       }
 
       // ── Consecutive same-DOW runs in the positive OR negative band ──
-      // Group by DOW, sort by date, walk runs of length ≥3.
       const byDOW: Map<number, SeriesPoint[]> = new Map();
       for (const p of series) {
         if (!byDOW.has(p.di)) byDOW.set(p.di, []);
         byDOW.get(p.di)!.push(p);
       }
+      const pushRun = (
+        band: 'positive' | 'negative',
+        di: number,
+        run: number,
+        lastDate: string,
+        pts: SeriesPoint[],
+      ) => {
+        findings.push({
+          kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
+          dimension: vocab.dimension,
+          text: band === 'negative'
+            ? `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
+            : `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`,
+          longText: `${run}+ consecutive ${DAYS_FULL[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel} (most recent ${formatShortDate(lastDate)}).`,
+          confidence: Math.min(1, 0.4 + run / 10),
+          observations: run,
+          priorityScore: 0,
+          stats: {
+            ...baseStats(pts, run),
+            day: di,
+            runLength: run,
+            lastDate,
+          },
+        });
+      };
       for (const [di, pts] of byDOW) {
         const sorted = pts.slice().sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-        // Walk positive runs
         for (const band of ['positive', 'negative'] as const) {
-          let run = 0;
-          let lastDate = '';
+          let runPts: SeriesPoint[] = [];
           for (const p of sorted) {
             if (p[band]) {
-              run++;
-              lastDate = p.dateStr;
+              runPts.push(p);
             } else {
-              if (run >= 3) {
-                findings.push({
-                  kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
-                  dimension: vocab.dimension,
-                  text: band === 'negative'
-                    ? `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
-                    : `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`,
-                  longText: `${run}+ consecutive ${DAYS_FULL[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel} (most recent ${formatShortDate(lastDate)}).`,
-                  confidence: Math.min(1, 0.4 + run / 10),
-                  observations: run,
-                  priorityScore: 0,
-                });
-              }
-              run = 0;
-              lastDate = '';
+              if (runPts.length >= 2) pushRun(band, di, runPts.length, runPts[runPts.length - 1].dateStr, runPts);
+              runPts = [];
             }
           }
-          if (run >= 3) {
-            findings.push({
-              kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
-              dimension: vocab.dimension,
-              text: band === 'negative'
-                ? `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
-                : `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`,
-              longText: `${run}+ consecutive ${DAYS_FULL[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel} (most recent ${formatShortDate(lastDate)}).`,
-              confidence: Math.min(1, 0.4 + run / 10),
-              observations: run,
-              priorityScore: 0,
-            });
-          }
+          if (runPts.length >= 2) pushRun(band, di, runPts.length, runPts[runPts.length - 1].dateStr, runPts);
         }
       }
 
-      // Order, dedupe by text, cap at 2.
+      // Order, dedupe by text, cap at 3 per dimension.
       findings.sort((a, b) => b.confidence - a.confidence);
       const seenTexts = new Set<string>();
       const deduped: RhythmFinding[] = [];
@@ -940,7 +1025,7 @@ serve(async (req) => {
         if (seenTexts.has(f.text)) continue;
         seenTexts.add(f.text);
         deduped.push(f);
-        if (deduped.length >= 2) break;
+        if (deduped.length >= 3) break;
       }
       return deduped;
     };
@@ -980,7 +1065,7 @@ serve(async (req) => {
     const baselines = computeWearableBaselines(wearableRowsTyped);
     const mkWearableSeries = (dim: WearableDim): SeriesPoint[] =>
       buildWearableDailySeries(wearableRowsTyped, dim, baselines).map(p => ({
-        dateStr: p.dateStr, di: p.di, tw: p.tw, positive: p.positive, negative: p.negative,
+        dateStr: p.dateStr, di: p.di, tw: p.tw, positive: p.positive, negative: p.negative, value: p.value,
       }));
 
     const hrvFindings = mineSeries(mkWearableSeries('hrv'), {
@@ -1002,6 +1087,17 @@ serve(async (req) => {
       dimension: 'sleep_efficiency', appLabel: 'Sleep Efficiency',
       positivePhrase: 'efficient', negativePhrase: 'restless',
       longPositiveLabel: 'efficiency ≥85%', longNegativeLabel: 'efficiency ≤75%',
+    });
+    // Inverted dims — lower is better; phrasing already reflects that.
+    const rhrFindings = mineSeries(mkWearableSeries('rhr'), {
+      dimension: 'rhr', appLabel: 'Resting Heart Rate',
+      positivePhrase: 'well-recovered', negativePhrase: 'elevated',
+      longPositiveLabel: 'RHR at/below baseline', longNegativeLabel: 'RHR ≥5% above baseline',
+    });
+    const hrFindings = mineSeries(mkWearableSeries('hr'), {
+      dimension: 'hr', appLabel: 'Heart Rate',
+      positivePhrase: 'settled', negativePhrase: 'elevated',
+      longPositiveLabel: 'HR at/below baseline', longNegativeLabel: 'HR ≥5% above baseline',
     });
 
     // ── Performance Patterns prioritization ──
@@ -1030,11 +1126,14 @@ serve(async (req) => {
       sleep_score: 0.11,
       sleep_duration: 0.11,
       sleep_efficiency: 0.09,
+      rhr: 0.12,
+      hr: 0.07,
     };
 
     const allFindings: RhythmFinding[] = [
       ...clarityFindings, ...emotionFindings, ...pressureFindings, ...regulationFindings,
       ...hrvFindings, ...sleepScoreFindings, ...sleepDurationFindings, ...sleepEfficiencyFindings,
+      ...rhrFindings, ...hrFindings,
     ].map(f => ({
       ...f,
       priorityScore: KIND_WEIGHT[f.kind] + (f.confidence * 0.3) + DIMENSION_BONUS[f.dimension],

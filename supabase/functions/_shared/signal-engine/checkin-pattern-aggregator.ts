@@ -38,6 +38,7 @@ export interface WearableRow {
   sleep_score?: number | null;
   total_sleep_minutes?: number | null;
   sleep_efficiency?: number | null;
+  heart_rate?: number | null;      // daily average HR
 }
 
 /** Compact qualifier returned per Mind dim. All fields nullable. */
@@ -307,7 +308,11 @@ export type CoherencePill = { key: string; tier: PillTier };
 //   sleep_duration    positive: ≥ 420 min (7h)             negative: ≤ 360 min (6h)
 //   sleep_efficiency  positive: ≥ 85                       negative: ≤ 75
 
-export type WearableDim = 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
+// v4 additions (perform-best card):
+//   rhr  (inverted)   positive: value ≤ baseline           negative: value ≥ baseline × 1.05
+//   hr   (inverted)   positive: value ≤ baseline           negative: value ≥ baseline × 1.05
+export type WearableDim =
+  | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency' | 'rhr' | 'hr';
 
 export interface WearableSeriesPoint {
   dateStr: string;
@@ -323,6 +328,8 @@ export interface WearableBaselines {
   sleep_score?: number | null;
   sleep_duration?: number | null;   // minutes
   sleep_efficiency?: number | null;
+  rhr?: number | null;
+  hr?: number | null;
 }
 
 function getDayIndex(dayOfWeek: number): number {
@@ -336,6 +343,8 @@ function valueForDim(row: WearableRow, dim: WearableDim): number | null {
     case 'sleep_score':      return typeof row.sleep_score === 'number' ? row.sleep_score : null;
     case 'sleep_duration':   return typeof row.total_sleep_minutes === 'number' ? row.total_sleep_minutes : null;
     case 'sleep_efficiency': return typeof row.sleep_efficiency === 'number' ? row.sleep_efficiency : null;
+    case 'rhr':              return typeof row.resting_heart_rate === 'number' ? row.resting_heart_rate : null;
+    case 'hr':               return typeof row.heart_rate === 'number' ? row.heart_rate : null;
   }
 }
 
@@ -352,6 +361,17 @@ function classify(value: number, dim: WearableDim, baselines: WearableBaselines)
       return { positive: value >= 420, negative: value <= 360 };
     case 'sleep_efficiency':
       return { positive: value >= 85, negative: value <= 75 };
+    // Inverted dims — lower is better ("well-recovered").
+    case 'rhr': {
+      const base = baselines.rhr ?? null;
+      if (base == null || base <= 0) return { positive: false, negative: false };
+      return { positive: value <= base, negative: value >= base * 1.05 };
+    }
+    case 'hr': {
+      const base = baselines.hr ?? null;
+      if (base == null || base <= 0) return { positive: false, negative: false };
+      return { positive: value <= base, negative: value >= base * 1.05 };
+    }
   }
 }
 
@@ -397,6 +417,8 @@ export function computeWearableBaselines(rows: WearableRow[]): WearableBaselines
     sleep_score: collect((r) => r.sleep_score),
     sleep_duration: collect((r) => r.total_sleep_minutes),
     sleep_efficiency: collect((r) => r.sleep_efficiency),
+    rhr: collect((r) => r.resting_heart_rate),
+    hr: collect((r) => r.heart_rate),
   };
 }
 

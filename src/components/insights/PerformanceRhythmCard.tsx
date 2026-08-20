@@ -95,22 +95,28 @@ interface PerformanceRhythmData {
   observations?: string[];
 }
 
-interface RhythmFinding {
-  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
-  // 4 Mind check-in dims + 4 wearable dims (Body Rhythm). All compete in
-  // the same ranked list; diversity guard on the server keeps the top-3
-  // balanced. See mem://architecture/signal-engine/checkin-pattern-aggregator.
-  dimension:
-    | 'clarity' | 'emotion' | 'pressure' | 'regulation'
-    | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
-  /** Crisp app-facing copy (≤ ~110 chars). */
-  text: string;
-  /** Verbose long-form with stats — reserved for the weekly insights email. */
-  longText: string;
-  confidence: number;
-  observations: number;
-  priorityScore: number;
-}
+import type { RhythmFinding } from '@/lib/insights/patternSentences';
+import {
+  buildSection,
+  CHECK_IN_DIMS as CHECK_IN_DIM_SET,
+  DIM_LABELS as RHYTHM_DIM_LABELS,
+  EMPTY_STATE,
+} from '@/lib/insights/patternSentences';
+
+/**
+ * Founder-only reliability audit: traces every rendered sentence back to its
+ * raw observations. Enabled for founder accounts, or for anyone who sets
+ * `localStorage.patternDebug = '1'` (support/debug escape hatch).
+ */
+const FOUNDER_DEBUG_USER_IDS = new Set<string>([
+  'google-oauth2|111878424918915566691',
+]);
+const isPatternDebugEnabled = (userId?: string | null): boolean => {
+  try {
+    if (localStorage.getItem('patternDebug') === '1') return true;
+  } catch { /* storage unavailable */ }
+  return !!userId && FOUNDER_DEBUG_USER_IDS.has(userId);
+};
 
 type LiftConfidence = 'strong' | 'emerging';
 type LiftWindow = 'morning' | 'afternoon' | 'evening';
@@ -254,28 +260,28 @@ function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boole
   return lines;
 }
 
-const CHECK_IN_DIMS = new Set(['clarity', 'emotion', 'pressure', 'regulation']);
-const DIM_LABELS: Record<RhythmFinding['dimension'], string> = {
-  clarity: 'Clarity', emotion: 'Emotion', pressure: 'Pressure', regulation: 'Regulation',
-  hrv: 'HRV', sleep_score: 'Sleep Score', sleep_duration: 'Sleep Duration', sleep_efficiency: 'Sleep Efficiency',
+const CHECK_IN_DIMS = CHECK_IN_DIM_SET;
+const DIM_LABELS = RHYTHM_DIM_LABELS;
+
+/** Reliability audit — traces one rendered sentence back to its raw observations. */
+const PatternDebugRow = ({ row }: { row: { text: string; tier: string; dimension: string; finding: RhythmFinding } }) => {
+  const s = row.finding.stats;
+  return (
+    <li className="text-[10px] font-mono text-muted-foreground/80 leading-relaxed break-words">
+      <span className="text-foreground/70">{row.dimension}</span>
+      {' · '}{row.finding.kind}{' · '}tier={row.tier}{' · '}n={s?.n ?? 0}
+      {' · '}best={s?.bestPct ?? '—'}%{' vs '}{s?.comparePct ?? '—'}%
+      {' · '}gap={s?.gapPp ?? '—'}pp{' · '}src={s?.source ?? '—'}{' · '}pol={s?.polarity ?? '—'}
+      {s?.runLength ? ` · run=${s.runLength}` : ''}
+      <br />
+      dates: {(s?.dates ?? []).join(', ') || '—'}
+      {s?.rawValues?.length ? <> <br />values: {s.rawValues.map((v) => Math.round(v * 10) / 10).join(', ')}</> : null}
+      <br />
+      out: {row.text}
+    </li>
+  );
 };
 
-const findingDirection = (f: RhythmFinding) =>
-  f.kind === 'low-window' || f.kind === 'low-day' || f.kind === 'consecutive-neg' ? 'neg' : 'pos';
-
-/** Keep the richest finding per dimension+direction; never repeat the same insight. */
-function dedupeFindings(findings: RhythmFinding[], cap: number): RhythmFinding[] {
-  const seen = new Set<string>();
-  const out: RhythmFinding[] = [];
-  for (const f of [...findings].sort((a, b) => b.priorityScore - a.priorityScore)) {
-    const key = `${f.dimension}:${findingDirection(f)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(f);
-    if (out.length >= cap) break;
-  }
-  return out;
-}
 
 const PatternLine = ({ text, dim }: { text: string; dim?: string }) => (
   <li className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
@@ -294,6 +300,7 @@ const PatternAnalysisSection = ({
   hasCalendar,
   calendarInsight,
   bestWindowLabel,
+  userId,
 }: {
   findings: RhythmFinding[];
   activeTrend: 'clarity' | 'emotion' | 'pressure' | 'regulation';
@@ -301,19 +308,17 @@ const PatternAnalysisSection = ({
   hasCalendar: boolean;
   calendarInsight: string | null;
   bestWindowLabel: string | null;
+  userId?: string | null;
 }) => {
   const [checkInOpen, setCheckInOpen] = useState(true);
+  const showDebug = isPatternDebugEnabled(userId);
+  // Positive-only card scope + observation guard + soft cap live in
+  // buildSection (src/lib/insights/patternSentences.ts).
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
-  // Tab-scoped: each of the 4 trends surfaces its own dimension's findings so
-  // no sentence repeats across cards. Fall back to the ranked list when the
-  // active dimension has none.
   const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
-  const checkInLines = dedupeFindings(scoped.length > 0 ? scoped : checkInAll, 3);
+  const checkInLines = buildSection(scoped.length > 0 ? scoped : checkInAll, 'check-in', 3);
+  const baselineFindingLines = buildSection(findings, 'wearable', 3);
 
-  const baselineFindingLines = dedupeFindings(
-    findings.filter((f) => !CHECK_IN_DIMS.has(f.dimension)),
-    2,
-  );
   const liftLines = buildBaselineLiftLines(lift, hasCalendar);
   const extraBaseline = [
     ...(bestWindowLabel ? [`Sharpest window: ${bestWindowLabel}.`] : []),
@@ -323,63 +328,83 @@ const PatternAnalysisSection = ({
 
   const hasCheckIn = checkInLines.length > 0;
   const hasBaseline = baselineFindingLines.length > 0 || extraBaseline.length > 0;
-  if (!hasCheckIn && !hasBaseline) return null;
 
   return (
     <div className="space-y-4">
-      {hasCheckIn && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => setCheckInOpen((v) => !v)}
-            className="w-full flex justify-center py-1"
-            aria-label="Toggle analysis"
-            aria-expanded={checkInOpen}
-          >
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200',
-                checkInOpen && 'rotate-180',
-              )}
-            />
-          </button>
-          {checkInOpen && (
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setCheckInOpen((v) => !v)}
+          className="w-full flex justify-center py-1"
+          aria-label="Toggle analysis"
+          aria-expanded={checkInOpen}
+        >
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200',
+              checkInOpen && 'rotate-180',
+            )}
+          />
+        </button>
+        {checkInOpen && (
+          hasCheckIn ? (
             <ul className="pl-2 space-y-1.5">
-              {checkInLines.map((f, i) => (
-                <PatternLine key={`ci-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+              {checkInLines.map((r, i) => (
+                <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
               ))}
             </ul>
-          )}
-        </div>
-      )}
+          ) : (
+            <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE['check-in']}</p>
+          )
+        )}
+      </div>
 
-      {hasCheckIn && hasBaseline && <div className="h-px bg-border/40" />}
+      <div className="h-px bg-border/40" />
 
-      {hasBaseline && (
-        <div className="space-y-2">
-          <div className="flex items-start gap-2">
-            <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                Mental Performance Patterns When You Perform Best
-              </p>
-              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                Based on physiology and demand data (wearable + calendar)
-              </p>
-            </div>
-            <InsightInfoModal
-              title="Mental Performance Patterns"
-              explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
-            />
+      <div className="space-y-2">
+        <div className="flex items-start gap-2">
+          <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+              Mental Performance Patterns When You Perform Best
+            </p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+              Based on physiology and demand data (wearable + calendar)
+            </p>
           </div>
+          <InsightInfoModal
+            title="Mental Performance Patterns"
+            explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
+          />
+        </div>
+        {hasBaseline ? (
           <ul className="pl-2 space-y-1.5">
-            {baselineFindingLines.map((f, i) => (
-              <PatternLine key={`bl-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+            {baselineFindingLines.map((r, i) => (
+              <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
             ))}
             {extraBaseline.map((line, i) => (
               <PatternLine key={`lift-${i}`} text={line} />
             ))}
           </ul>
+        ) : (
+          <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE.wearable}</p>
+        )}
+      </div>
+
+      {showDebug && (
+        <div className="space-y-1 rounded-md border border-dashed border-border/60 p-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+            Reliability audit · {findings.length} raw findings
+          </p>
+          <ul className="space-y-1.5">
+            {[...checkInLines, ...baselineFindingLines].map((r, i) => (
+              <PatternDebugRow key={`dbg-${i}`} row={r} />
+            ))}
+          </ul>
+          <p className="text-[10px] font-mono text-muted-foreground/60 break-words">
+            dropped: {findings.filter((f) => !f.stats || f.stats.n < 3).length} (no stats / n&lt;3) ·{' '}
+            {findings.filter((f) => f.stats && f.stats.n >= 3 && !['peak-day', 'peak-window', 'cell-peak', 'consecutive-pos'].includes(f.kind)).length} (negative scope)
+          </p>
         </div>
       )}
     </div>
@@ -1401,7 +1426,9 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 hasCalendar={data.hasCalendar}
                 calendarInsight={data.calendarInsight ?? null}
                 bestWindowLabel={data.bestReadinessWindow?.label ?? null}
+                userId={userId}
               />
+
             )}
 
             {/* Empty-state when ≥7 check-ins but no findings yet */}
