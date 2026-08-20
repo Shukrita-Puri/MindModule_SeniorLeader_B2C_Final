@@ -56,50 +56,6 @@ interface DayDot {
   isFuture: boolean;
 }
 
-// Local composite mirroring the spirit of energyStateEngine.overallBalance:
-// average of the four dimensions on a 0–100 scale, with pressure inverted
-// (low pressure_level = overloaded → low score).
-function checkinComposite(c: {
-  clarity_level?: number | null;
-  emotion_level?: number | null;
-  pressure_level?: number | null;
-  regulation_level?: number | null;
-}): number | null {
-  const toPct = (v: number | null | undefined) =>
-    typeof v === 'number' ? ((v - 1) / 4) * 100 : null;
-  const pressureInverted = typeof c.pressure_level === 'number'
-    ? ((5 - c.pressure_level) / 4) * 100
-    : null;
-  const parts = [toPct(c.clarity_level), toPct(c.emotion_level), pressureInverted, toPct(c.regulation_level)]
-    .filter((v): v is number => typeof v === 'number');
-  if (parts.length === 0) return null;
-  return parts.reduce((a, b) => a + b, 0) / parts.length;
-}
-
-type CheckinRow = {
-  checkin_date?: string | null;
-  clarity_level?: number | null;
-  emotion_level?: number | null;
-  pressure_level?: number | null;
-  regulation_level?: number | null;
-};
-
-/** Collapse multiple check-ins on a date into one 0–100 composite. */
-function aggregateCheckins(rows: CheckinRow[]): Record<string, number> {
-  const buckets: Record<string, number[]> = {};
-  for (const r of rows) {
-    const d = r?.checkin_date;
-    if (!d) continue;
-    const c = checkinComposite(r);
-    if (c === null) continue;
-    (buckets[d] ||= []).push(c);
-  }
-  const out: Record<string, number> = {};
-  for (const [d, vals] of Object.entries(buckets)) {
-    out[d] = vals.reduce((a, b) => a + b, 0) / vals.length;
-  }
-  return out;
-}
 
 const InnerReadinessDial = () => {
   const { user } = useAuth();
