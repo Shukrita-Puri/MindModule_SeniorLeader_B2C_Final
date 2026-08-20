@@ -351,12 +351,20 @@ const InnerReadinessDial = () => {
           id="trajectory-trend-panel"
           className="mt-3"
         >
-          <div className="flex items-baseline justify-between mb-3">
-            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              Trend
-            </span>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <span className="block text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                Average
+              </span>
+              <span className="block font-headline text-[30px] leading-none text-foreground mt-1">
+                {trend.data?.average ?? '—'}
+              </span>
+              <span className="block text-[11px] text-muted-foreground/80 mt-1">
+                {trend.data?.rangeLabel ?? ''}
+              </span>
+            </div>
             <div className="flex items-center gap-1 rounded-full bg-muted/40 p-0.5">
-              {([7, 30, 180] as const).map((r) => (
+              {([30, 180, 365] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -368,17 +376,18 @@ const InnerReadinessDial = () => {
                       : 'text-muted-foreground hover:text-foreground/80'
                   )}
                 >
-                  {r === 7 ? '1W' : r === 30 ? '1M' : '6M'}
+                  {r === 30 ? '1M' : r === 180 ? '6M' : '1Y'}
                 </button>
               ))}
             </div>
           </div>
-          <MrsSparkline history={trend.data?.history ?? []} height={84} />
+          <MrsSparkline history={trend.data?.history ?? []} height={96} showMarkers />
           <p className="mt-3 text-[11px] text-muted-foreground/80 text-left">
-            {range === 180
-              ? trend.data?.trajectoryCaption ?? 'Building your 6-month trajectory'
-              : trend.data?.caption ?? 'Building your trend history'}
+            {range === 30
+              ? trend.data?.caption ?? 'Building your trend history'
+              : trend.data?.trajectoryCaption ?? 'Building your trajectory'}
           </p>
+
         </div>
       )}
     </div>
