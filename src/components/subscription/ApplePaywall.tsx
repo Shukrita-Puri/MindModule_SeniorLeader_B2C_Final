@@ -182,11 +182,12 @@ export function ApplePaywall({
     }
   };
 
-  // Dynamic StoreKit pricing labels for terms disclosure to prevent drift across international storefronts
+  // Dynamic StoreKit pricing labels for terms disclosure to prevent drift across international storefronts.
+  // GBP is the canonical base currency; Apple still charges in the storefront's local currency.
   const monthlyProduct = products.find((p) => planForProductId(p.id) === 'monthly');
   const annualProduct = products.find((p) => planForProductId(p.id) === 'annual');
-  const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : '£29.00/month';
-  const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : '£289.00/year';
+  const monthlyPriceLabel = monthlyProduct ? `${monthlyProduct.displayPrice}/month` : '£34.99/month';
+  const annualPriceLabel = annualProduct ? `${annualProduct.displayPrice}/year` : '£299.99/year';
 
   // Existing Stripe subscriber inside the iOS app: status only, no CTA.
   if (stripeLegacy) {
