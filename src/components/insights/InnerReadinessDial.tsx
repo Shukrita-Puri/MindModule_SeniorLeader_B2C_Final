@@ -7,7 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getAuthToken } from '@/services/authTokenService';
-import { useMrsTrend } from '@/hooks/useMrsTrend';
+import { useMrsTrend, type MrsRangeDays } from '@/hooks/useMrsTrend';
+import { fetchMrsDailySeries } from '@/services/mrsDailySeries';
 import MrsSparkline from '@/components/home/mrs/MrsSparkline';
 
 type Tier = 'green' | 'amber' | 'red' | null;
