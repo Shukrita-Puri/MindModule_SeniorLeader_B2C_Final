@@ -1088,6 +1088,17 @@ serve(async (req) => {
       positivePhrase: 'efficient', negativePhrase: 'restless',
       longPositiveLabel: 'efficiency ≥85%', longNegativeLabel: 'efficiency ≤75%',
     });
+    // Inverted dims — lower is better; phrasing already reflects that.
+    const rhrFindings = mineSeries(mkWearableSeries('rhr'), {
+      dimension: 'rhr', appLabel: 'Resting Heart Rate',
+      positivePhrase: 'well-recovered', negativePhrase: 'elevated',
+      longPositiveLabel: 'RHR at/below baseline', longNegativeLabel: 'RHR ≥5% above baseline',
+    });
+    const hrFindings = mineSeries(mkWearableSeries('hr'), {
+      dimension: 'hr', appLabel: 'Heart Rate',
+      positivePhrase: 'settled', negativePhrase: 'elevated',
+      longPositiveLabel: 'HR at/below baseline', longNegativeLabel: 'HR ≥5% above baseline',
+    });
 
     // ── Performance Patterns prioritization ──
     // Surface the strongest day-of-week, time-of-day, and their intersection
