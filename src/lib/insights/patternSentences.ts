@@ -142,12 +142,12 @@ export function buildSentence(f: RhythmFinding): { text: string; tier: Confidenc
     core = `${noun.charAt(0).toUpperCase()}${noun.slice(1)} sits ${s.polarity === 'low' ? 'lowest' : 'highest'} on ${pluralDay(s.day)} — ${s.bestPct}% of those nights in your best band`;
   } else if (f.kind === 'peak-window' && s.window != null && !isWearable) {
     const cmp = s.comparisonWindow != null ? ` vs ${s.comparePct}% in the ${(WINDOW_LABELS[s.comparisonWindow] ?? '').toLowerCase()}` : '';
-    core = `${WINDOW_LABELS[s.window]}s are your ${adj} ${noun} window — ${s.bestPct}%${cmp}`;
+    core = `${WINDOW_LABELS[s.window]}s are your ${adj} window — ${s.bestPct}%${cmp}`;
   } else if (f.kind === 'peak-day' && s.day != null) {
     const cmp = s.comparisonDay != null ? ` vs ${s.comparePct}% on ${pluralDay(s.comparisonDay)}` : '';
     core = isWearable
       ? `${noun.charAt(0).toUpperCase()}${noun.slice(1)} runs ${s.polarity === 'low' ? 'lowest' : 'highest'} on ${pluralDay(s.day)} — ${s.bestPct}% of them in your best band${cmp}`
-      : `${pluralDay(s.day)} run your ${adj} ${noun} — ${s.bestPct}%${cmp}`;
+      : `${pluralDay(s.day)} run your ${adj} — ${s.bestPct}%${cmp}`;
   } else if (f.kind === 'consecutive-pos' && s.day != null && s.runLength) {
     core = `${s.runLength} ${pluralDay(s.day)} in a row in your ${adj} band`;
   }
