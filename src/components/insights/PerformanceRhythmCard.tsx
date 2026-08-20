@@ -95,22 +95,16 @@ interface PerformanceRhythmData {
   observations?: string[];
 }
 
-interface RhythmFinding {
-  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
-  // 4 Mind check-in dims + 4 wearable dims (Body Rhythm). All compete in
-  // the same ranked list; diversity guard on the server keeps the top-3
-  // balanced. See mem://architecture/signal-engine/checkin-pattern-aggregator.
-  dimension:
-    | 'clarity' | 'emotion' | 'pressure' | 'regulation'
-    | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
-  /** Crisp app-facing copy (≤ ~110 chars). */
-  text: string;
-  /** Verbose long-form with stats — reserved for the weekly insights email. */
-  longText: string;
-  confidence: number;
-  observations: number;
-  priorityScore: number;
-}
+import type { RhythmFinding } from '@/lib/insights/patternSentences';
+import {
+  buildSection,
+  CHECK_IN_DIMS as CHECK_IN_DIM_SET,
+  DIM_LABELS as RHYTHM_DIM_LABELS,
+  EMPTY_STATE,
+} from '@/lib/insights/patternSentences';
+
+/** Founder-only reliability audit: traces every sentence back to raw observations. */
+const SHOW_PATTERN_DEBUG = false;
 
 type LiftConfidence = 'strong' | 'emerging';
 type LiftWindow = 'morning' | 'afternoon' | 'evening';
