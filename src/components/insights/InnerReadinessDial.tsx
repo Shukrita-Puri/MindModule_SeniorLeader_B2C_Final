@@ -331,10 +331,24 @@ const InnerReadinessDial = () => {
           First reading of the day is in.
         </p>
       )}
+      {/* Toggle sits directly above the panel it controls, so it is obvious
+          what opens and closes. */}
+      <button
+        type="button"
+        onClick={toggleExpanded}
+        aria-expanded={expanded}
+        aria-controls="trajectory-trend-panel"
+        className="mt-4 w-full flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground/80 transition-colors"
+      >
+        {expanded ? 'Hide trend' : 'Show trend'}
+        <ChevronDown
+          className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')}
+        />
+      </button>
       {expanded && (
         <div
           id="trajectory-trend-panel"
-          className="mt-4 pt-4 border-t border-border/40"
+          className="mt-3"
         >
           <div className="flex items-baseline justify-between mb-3">
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
