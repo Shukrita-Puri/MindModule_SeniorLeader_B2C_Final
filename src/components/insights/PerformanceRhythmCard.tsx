@@ -251,22 +251,25 @@ function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boole
 const CHECK_IN_DIMS = CHECK_IN_DIM_SET;
 const DIM_LABELS = RHYTHM_DIM_LABELS;
 
-const findingDirection = (f: RhythmFinding) =>
-  f.kind === 'low-window' || f.kind === 'low-day' || f.kind === 'consecutive-neg' ? 'neg' : 'pos';
+/** Reliability audit — traces one rendered sentence back to its raw observations. */
+const PatternDebugRow = ({ row }: { row: { text: string; tier: string; dimension: string; finding: RhythmFinding } }) => {
+  const s = row.finding.stats;
+  return (
+    <li className="text-[10px] font-mono text-muted-foreground/80 leading-relaxed break-words">
+      <span className="text-foreground/70">{row.dimension}</span>
+      {' · '}{row.finding.kind}{' · '}tier={row.tier}{' · '}n={s?.n ?? 0}
+      {' · '}best={s?.bestPct ?? '—'}%{' vs '}{s?.comparePct ?? '—'}%
+      {' · '}gap={s?.gapPp ?? '—'}pp{' · '}src={s?.source ?? '—'}{' · '}pol={s?.polarity ?? '—'}
+      {s?.runLength ? ` · run=${s.runLength}` : ''}
+      <br />
+      dates: {(s?.dates ?? []).join(', ') || '—'}
+      {s?.rawValues?.length ? <> <br />values: {s.rawValues.map((v) => Math.round(v * 10) / 10).join(', ')}</> : null}
+      <br />
+      out: {row.text}
+    </li>
+  );
+};
 
-/** Keep the richest finding per dimension+direction; never repeat the same insight. */
-function dedupeFindings(findings: RhythmFinding[], cap: number): RhythmFinding[] {
-  const seen = new Set<string>();
-  const out: RhythmFinding[] = [];
-  for (const f of [...findings].sort((a, b) => b.priorityScore - a.priorityScore)) {
-    const key = `${f.dimension}:${findingDirection(f)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(f);
-    if (out.length >= cap) break;
-  }
-  return out;
-}
 
 const PatternLine = ({ text, dim }: { text: string; dim?: string }) => (
   <li className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
