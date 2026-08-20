@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-syntax -- grandfathered raw calendar_events reads. Tracked in .lovable/plan.md for wiring through mergeCalendarEvents(). Remove this directive once every .from('calendar_events') read below has been replaced. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
+import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import InsightShareSlot from '@/components/insights/InsightShareSlot';
