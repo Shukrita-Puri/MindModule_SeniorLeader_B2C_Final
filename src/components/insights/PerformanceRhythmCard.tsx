@@ -391,7 +391,7 @@ const PatternAnalysisSection = ({
         )}
       </div>
 
-      {SHOW_PATTERN_DEBUG && (
+      {showDebug && (
         <div className="space-y-1 rounded-md border border-dashed border-border/60 p-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
             Reliability audit · {findings.length} raw findings
