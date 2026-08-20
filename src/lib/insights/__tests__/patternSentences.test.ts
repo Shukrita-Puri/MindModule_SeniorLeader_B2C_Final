@@ -77,7 +77,7 @@ describe('templates', () => {
 
   it('renders a cell peak', () => {
     const r = buildSentence(mk({ kind: 'cell-peak', stats: { day: 1, window: 0 } }));
-    expect(r?.text).toContain('Tuesday mornings are your sharpest window');
+    expect(r?.text).toContain('Tuesday mornings are your sharpest clarity window');
   });
 
   it('renders a positive run', () => {
