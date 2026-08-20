@@ -270,7 +270,7 @@ export default function Stage6Payment() {
 
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
-  const [currency, setCurrency] = useState<'GBP'>('GBP');
+  const currency: 'GBP' = 'GBP';
 
   // Auto-select the first available plan
   useEffect(() => {
@@ -280,8 +280,15 @@ export default function Stage6Payment() {
   }, [availablePlans, selectedPlan]);
 
   const prices = {
-    USD: { monthly: '$29', annual: '$24', annualTotal: '$289', crossed: '$29', savings: '17%', perSession: '$1', coachRange: '$300–$500' },
-    GBP: { monthly: '£29', annual: '£24', annualTotal: '£289', crossed: '£29', savings: '17%', perSession: '£1', coachRange: '£300–£500' },
+    GBP: {
+      monthly: '£34.99',
+      annual: '£25',
+      annualTotal: '£299.99',
+      crossed: '£34.99',
+      savings: '29%',
+      perSession: '£1',
+      coachRange: '£300–£500',
+    },
   };
 
   const p = prices[currency];
