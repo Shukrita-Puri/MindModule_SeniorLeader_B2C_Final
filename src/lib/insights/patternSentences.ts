@@ -69,10 +69,14 @@ export const DIM_LABELS: Record<RhythmDimension, string> = {
   hr: 'Heart Rate',
 };
 
-/** Positive-direction adjective per dimension (polarity-aware). */
+/**
+ * Positive-direction phrase per dimension (polarity-aware). Complete phrase —
+ * it already carries the noun where one reads naturally, so templates must not
+ * append DIM_NOUN after it ("most composed composure" is a bug).
+ */
 const POSITIVE_ADJECTIVE: Record<RhythmDimension, string> = {
-  clarity: 'sharpest',
-  emotion: 'steadiest',
+  clarity: 'sharpest clarity',
+  emotion: 'steadiest emotional read',
   pressure: 'most composed',      // inverted: low pressure = composed
   regulation: 'most regulated',
   hrv: 'most recovered',
