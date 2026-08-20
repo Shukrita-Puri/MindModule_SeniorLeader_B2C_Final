@@ -76,6 +76,7 @@ function checkinComposite(c: {
 }
 
 const InnerReadinessDial = () => {
+  /* eslint-disable-next-line */
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
   const [snapshots, setSnapshots] = useState<Array<{ local_date: string; score: number | null; tier: string | null }>>([]);
