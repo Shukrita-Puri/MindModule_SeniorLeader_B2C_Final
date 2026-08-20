@@ -1126,11 +1126,14 @@ serve(async (req) => {
       sleep_score: 0.11,
       sleep_duration: 0.11,
       sleep_efficiency: 0.09,
+      rhr: 0.12,
+      hr: 0.07,
     };
 
     const allFindings: RhythmFinding[] = [
       ...clarityFindings, ...emotionFindings, ...pressureFindings, ...regulationFindings,
       ...hrvFindings, ...sleepScoreFindings, ...sleepDurationFindings, ...sleepEfficiencyFindings,
+      ...rhrFindings, ...hrFindings,
     ].map(f => ({
       ...f,
       priorityScore: KIND_WEIGHT[f.kind] + (f.confidence * 0.3) + DIMENSION_BONUS[f.dimension],
