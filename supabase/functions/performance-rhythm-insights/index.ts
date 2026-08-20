@@ -1065,7 +1065,7 @@ serve(async (req) => {
     const baselines = computeWearableBaselines(wearableRowsTyped);
     const mkWearableSeries = (dim: WearableDim): SeriesPoint[] =>
       buildWearableDailySeries(wearableRowsTyped, dim, baselines).map(p => ({
-        dateStr: p.dateStr, di: p.di, tw: p.tw, positive: p.positive, negative: p.negative,
+        dateStr: p.dateStr, di: p.di, tw: p.tw, positive: p.positive, negative: p.negative, value: p.value,
       }));
 
     const hrvFindings = mineSeries(mkWearableSeries('hrv'), {
