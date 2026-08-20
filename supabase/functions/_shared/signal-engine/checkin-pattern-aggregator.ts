@@ -416,6 +416,8 @@ export function computeWearableBaselines(rows: WearableRow[]): WearableBaselines
     sleep_score: collect((r) => r.sleep_score),
     sleep_duration: collect((r) => r.total_sleep_minutes),
     sleep_efficiency: collect((r) => r.sleep_efficiency),
+    rhr: collect((r) => r.resting_heart_rate),
+    hr: collect((r) => r.heart_rate),
   };
 }
 
