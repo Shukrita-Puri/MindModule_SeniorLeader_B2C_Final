@@ -6,7 +6,7 @@ Scope: layout and structure only, inside `PerformanceRhythmCard.tsx`. No edge fu
 
 ### 1. New section header above the chart
 - Insert a full-width header between the card title "When You Perform Best" and the tab pills.
-- Header text: `MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST`
+- Header text: `MENTAL PERFORMANCE PATTERNS`
 - Sub-label: `Based on check-in data`
 - Use the same Sparkles icon + uppercase tracking style already used in the pattern sections.
 
