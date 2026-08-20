@@ -190,7 +190,7 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
           <div className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
             What&apos;s measurably shifting
           </div>
-          <div className="divide-y divide-border/50 rounded-md border border-border/50 overflow-hidden bg-card/40">
+          <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20">
             {measurableShiftRows.map((dim) => (
               <PhysiologyRow key={dim.label} dim={dim} />
             ))}
