@@ -11,6 +11,7 @@ import { Loader2, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
+import InsightShareSlot from '@/components/insights/InsightShareSlot';
 import { cn } from '@/lib/utils';
 
 type Stage = 'early' | 'building' | 'deepening';
@@ -141,6 +142,7 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
             title="What Restores Your Performance"
             explanation="Which practices are measurably helping you recover or lift state, using one evidence source per row and sample counts for confidence."
           />
+          <InsightShareSlot />
         </div>
         <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground whitespace-nowrap">
           {STATUS_LABEL[stage]}
@@ -155,7 +157,7 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
           : 'Log practices to reveal what restores your performance'}
       </div>
 
-      <div className="divide-y divide-border/50 rounded-md border border-border/50 overflow-hidden bg-card/40">
+      <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20">
         {planRows.map((practice) => (
           <FindingRow
             key={`plan-${practice.contentId}`}
