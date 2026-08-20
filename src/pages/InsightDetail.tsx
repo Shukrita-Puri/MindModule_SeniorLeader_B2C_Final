@@ -3,7 +3,7 @@ import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import ShareCardButton from '@/components/insights/ShareCardButton';
+import { InsightShareProvider } from '@/components/insights/InsightShareSlot';
 
 const LeadershipPatternsCard = lazy(() => import('@/components/insights/LeadershipPatternsCard'));
 const PerformanceRhythmCard = lazy(() => import('@/components/insights/PerformanceRhythmCard'));
@@ -31,7 +31,7 @@ const CARDS: Record<string, CardDef> = {
   'practice-effectiveness': {
     title: 'What Restores Your Performance',
     render: (userId) => (
-      <div className="rounded-2xl bg-card/80 backdrop-blur-md border border-border/40 p-4">
+      <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-4">
         <PracticeEffectiveness userId={userId} />
       </div>
     ),
@@ -53,7 +53,7 @@ const InsightDetail = () => {
     <div className="min-h-[100dvh] w-full bg-transparent">
       {/* Header — back only; title moved out, share lives inside each card */}
       <header
-        className="sticky top-0 z-40 flex items-center justify-between px-3 backdrop-blur-md bg-background/40 border-b border-border/30"
+        className="sticky top-0 z-40 flex items-center justify-between px-3 backdrop-blur-md bg-background/40"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)', paddingBottom: '0.5rem' }}
       >
         <Button
@@ -65,13 +65,6 @@ const InsightDetail = () => {
         >
           <ChevronLeft className="w-5 h-5" />
         </Button>
-        <div data-share-hide>
-          <ShareCardButton
-            targetRef={captureRef}
-            title={card.title}
-            fileName={`mind-module-${cardId}.png`}
-          />
-        </div>
       </header>
 
       <div
@@ -84,6 +77,9 @@ const InsightDetail = () => {
             captureRef wraps the card so any toggle / tab state currently
             visible is what gets exported. */}
         <div ref={captureRef} className="relative">
+          <InsightShareProvider
+            value={{ targetRef: captureRef, title: card.title, fileName: `mind-module-${cardId}.png` }}
+          >
           <Suspense
             fallback={
               <div className="flex items-center justify-center py-16">
@@ -93,10 +89,11 @@ const InsightDetail = () => {
           >
             {card.render(user?.id)}
           </Suspense>
+          </InsightShareProvider>
           <div
             data-share-only
             style={{ display: 'none' }}
-            className="mt-3 pt-2 border-t border-border/30 flex items-center justify-between"
+            className="mt-3 pt-2 flex items-center justify-between"
           >
             <span className="text-[10px] text-muted-foreground font-body">Mind Module</span>
             <span className="text-[10px] text-muted-foreground font-body">mindmodule.me</span>

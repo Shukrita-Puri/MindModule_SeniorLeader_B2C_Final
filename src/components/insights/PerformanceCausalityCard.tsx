@@ -19,6 +19,7 @@ import { Loader2, AlertTriangle, Calendar as CalendarIcon, Watch } from 'lucide-
 import { CardContent, CardHeader } from '@/components/ui/card';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
+import InsightShareSlot from '@/components/insights/InsightShareSlot';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { shouldUsePreviewMock, isPreviewContext } from '@/utils/previewAuth';
@@ -295,7 +296,7 @@ function LockedTile({
     : null;
 
   return (
-    <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-4 space-y-2">
+    <div className="rounded-xl bg-muted/20 px-3 py-4 space-y-2">
       <div className="text-sm font-medium text-foreground">{title}</div>
       <div className="text-xs text-muted-foreground">{message}</div>
       {progress && pct !== null && (
@@ -454,7 +455,7 @@ function StressLoadTab({
         );
         if (eligible.length === 0) return null;
         return (
-          <div className="space-y-1 pt-2 border-t border-border/40">
+          <div className="space-y-1 pt-2 border-t border-border/0">
             {eligible.map(([rowLabel, entries]) => (
               <div key={rowLabel} className="text-[11px] text-muted-foreground">
                 <span className="text-muted-foreground/80">{rowLabel}:</span>{' '}
@@ -801,6 +802,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 Preview
               </span>
             )}
+            <InsightShareSlot />
             <InsightInfoModal
               title="What Drains Your Performance"
               explanation="How your meeting types and weekly load are showing up in your body. Patterns only appear once there is enough wearable + calendar data."

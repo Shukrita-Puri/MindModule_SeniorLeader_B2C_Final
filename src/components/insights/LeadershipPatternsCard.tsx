@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
+import InsightShareSlot from '@/components/insights/InsightShareSlot';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
@@ -393,10 +394,13 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
             Your Trajectory
           </span>
-          <InsightInfoModal
-            title="Your Trajectory"
-            explanation="A scorecard view of how you’re evolving — your archetype, your Performance Readiness Score, and your friction pattern over the past month."
-          />
+          <div className="flex items-center gap-1">
+            <InsightShareSlot />
+            <InsightInfoModal
+              title="Your Trajectory"
+              explanation="A scorecard view of how you’re evolving — your archetype, your Performance Readiness Score, and your friction pattern over the past month."
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
