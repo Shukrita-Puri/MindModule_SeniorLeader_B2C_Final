@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { 
-  User, 
-  Share2, 
+import {
+  User,
+  Share2,
   LogOut,
   ChevronUp,
-  ArrowUpCircle,
   Compass,
   Link2,
   CreditCard
