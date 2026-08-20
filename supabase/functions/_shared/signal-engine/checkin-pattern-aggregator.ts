@@ -327,6 +327,8 @@ export interface WearableBaselines {
   sleep_score?: number | null;
   sleep_duration?: number | null;   // minutes
   sleep_efficiency?: number | null;
+  rhr?: number | null;
+  hr?: number | null;
 }
 
 function getDayIndex(dayOfWeek: number): number {
