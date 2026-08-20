@@ -183,10 +183,8 @@ describe('Manage Subscription → Stage6Payment on iOS (beta + monthly Pro)', ()
     await waitFor(() => expect(screen.getByTestId('apple-paywall')).toBeInTheDocument());
 
     // restrictToPlan='annual' means only the annual plan card should render.
-    const planCards = screen.getAllByTestId(/plan-card/);
-    expect(planCards).toHaveLength(1);
-    expect(screen.getByText(/Mind Module Pro Annual/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Mind Module Pro Monthly/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('apple-plan-me.mindmodule.pro.monthly')).not.toBeInTheDocument();
+    expect(screen.getByTestId('apple-plan-me.mindmodule.pro.annual')).toBeInTheDocument();
   });
 
   it('passes upgradeIntent=true and no restriction for an active beta user', async () => {
@@ -195,7 +193,7 @@ describe('Manage Subscription → Stage6Payment on iOS (beta + monthly Pro)', ()
 
     await waitFor(() => expect(screen.getByTestId('apple-paywall')).toBeInTheDocument());
 
-    const planCards = screen.getAllByTestId(/plan-card/);
-    expect(planCards).toHaveLength(2);
+    expect(screen.getByTestId('apple-plan-me.mindmodule.pro.monthly')).toBeInTheDocument();
+    expect(screen.getByTestId('apple-plan-me.mindmodule.pro.annual')).toBeInTheDocument();
   });
 });
