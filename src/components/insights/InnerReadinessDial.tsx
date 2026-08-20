@@ -12,6 +12,13 @@ import MrsSparkline from '@/components/home/mrs/MrsSparkline';
 
 type Tier = 'green' | 'amber' | 'red' | null;
 
+/**
+ * The half dial duplicates the MRS score already shown on the executive home
+ * cards, so it is suppressed here. Geometry + render code kept intact so it
+ * can be resurfaced by flipping this flag.
+ */
+const SHOW_INNER_READINESS_DIAL = false;
+
 // Score → tier ranges (canonical, also shown to the user in copy):
 //   Red    (Depleted)  : score <  40
 //   Amber  (Recovering): 40 ≤ score < 67
@@ -72,6 +79,7 @@ const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
   const [snapshots, setSnapshots] = useState<Array<{ local_date: string; score: number | null; tier: string | null }>>([]);
+  const [checkinDays, setCheckinDays] = useState<Record<string, number>>({});
   const [showFirstReadingNotice, setShowFirstReadingNotice] = useState(false);
   const [expanded, setExpanded] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -115,7 +123,11 @@ const InnerReadinessDial = () => {
         // Sprint 1 (Phase 1): trend must only aggregate briefs actually
         // delivered to the user. Undelivered snapshot rows (generated but
         // never rendered) must NOT leak into weekly readiness trend.
-        const url = `${base}?startDate=${mondayISO}&endDate=${sundayISO}&limit=100&delivered=1`;
+        // Weekly dots colour from any snapshot that carries a numeric score.
+        // The delivered-only rule still governs the Trend panel + brief
+        // history; here a generated-but-unopened brief is still a real
+        // reading of that day and must not blank the dot.
+        const url = `${base}?startDate=${mondayISO}&endDate=${sundayISO}&limit=100`;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (DEV_MODE) {
           const anon = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -135,6 +147,31 @@ const InnerReadinessDial = () => {
         }
       } catch (err) {
         console.error('[InnerReadinessDial] brief-history fetch failed:', err);
+      }
+
+      // Secondary source: days that only carry a self check-in still deserve
+      // a colour. Composite mirrors energyStateEngine.overallBalance.
+      try {
+        if (DEV_MODE) {
+          const { data } = await supabase
+            .from('daily_checkins')
+            .select('checkin_date, clarity_level, emotion_level, pressure_level, regulation_level')
+            .eq('user_id', uid)
+            .gte('checkin_date', mondayISO)
+            .lte('checkin_date', sundayISO);
+          setCheckinDays(aggregateCheckins(data || []));
+        } else {
+          const token = await getAuthToken();
+          if (token) {
+            const { data } = await supabase.functions.invoke('daily-checkins', {
+              headers: { Authorization: `Bearer ${token}` },
+              body: { action: 'GET_MONTHLY_LEVELS', startDate: mondayISO, endDate: sundayISO },
+            });
+            setCheckinDays(aggregateCheckins(data?.data || []));
+          }
+        }
+      } catch (err) {
+        console.error('[InnerReadinessDial] check-in fetch failed:', err);
       }
     })();
   }, [uid]);
