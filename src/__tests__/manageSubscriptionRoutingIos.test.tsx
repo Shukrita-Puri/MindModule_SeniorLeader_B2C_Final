@@ -62,7 +62,7 @@ vi.mock('@/services/iap', () => ({
   purchaseIapProduct: vi.fn(async () => ({ status: 'purchased' })),
   restoreIapPurchases: vi.fn(async () => ({ restored: 0, entitled: false })),
   openAppleManageSubscriptions: (...a: unknown[]) => openAppleManageSubscriptions(...(a as [])),
-  onIapTransactionUpdate: vi.fn(() => Promise.resolve({ remove: vi.fn() })),
+  onIapTransactionUpdate: vi.fn(() => Promise.resolve(vi.fn())),
 }));
 
 vi.mock('@/hooks/useOnboardingProgress', () => ({
