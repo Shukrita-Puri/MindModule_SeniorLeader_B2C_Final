@@ -393,10 +393,13 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
             Your Trajectory
           </span>
-          <InsightInfoModal
-            title="Your Trajectory"
-            explanation="A scorecard view of how you’re evolving — your archetype, your Performance Readiness Score, and your friction pattern over the past month."
-          />
+          <div className="flex items-center gap-1">
+            <InsightShareSlot />
+            <InsightInfoModal
+              title="Your Trajectory"
+              explanation="A scorecard view of how you’re evolving — your archetype, your Performance Readiness Score, and your friction pattern over the past month."
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
