@@ -302,6 +302,7 @@ const PatternAnalysisSection = ({
   calendarInsight: string | null;
   bestWindowLabel: string | null;
 }) => {
+  const [checkInOpen, setCheckInOpen] = useState(true);
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
   // Tab-scoped: each of the 4 trends surfaces its own dimension's findings so
   // no sentence repeats across cards. Fall back to the ranked list when the
