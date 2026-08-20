@@ -166,24 +166,6 @@ interface PerformanceDiagnostics {
   };
 }
 
-const GATE_REASON_COPY: Record<GateReason, string> = {
-  ok: '',
-  no_sleep_score_rows: 'Awaiting sleep score data from Apple Health.',
-  insufficient_sleep_days: 'Need at least 7 nights of sleep score to compute.',
-  no_prs_baseline: 'Awaiting more check-ins to establish a baseline.',
-  insufficient_next_day_prs: 'Awaiting more morning briefs after high-sleep nights.',
-  no_rhr_rows: 'Awaiting resting heart rate data from Apple Health.',
-  insufficient_rhr_days: 'Need at least 7 days of resting heart rate.',
-  no_recovered_days_after_filter: 'No well-recovered days detected in this window.',
-  bucket_below_min_occurrences: 'Recovered days exist but not enough briefs in any single window yet.',
-  no_positive_lift: 'Recovered days did not show a measurable lift this window.',
-  no_hr_samples: 'Awaiting minute-level heart rate from Apple Watch.',
-  no_resting_baseline: 'Awaiting more resting heart rate readings.',
-  no_event_day_overlap: 'Heart-rate data and calendar events have not overlapped yet.',
-  all_subtypes_below_min_occurrences: 'Not enough events per type to compute lift.',
-  all_categories_below_min_occurrences: 'Not enough events per category to compute lift.',
-};
-
 interface PerformanceRhythmCardProps {
   userId?: string;
 }
@@ -231,207 +213,156 @@ function windowLabel(w: 'morning' | 'afternoon' | 'evening' | null | undefined):
   return w.charAt(0).toUpperCase() + w.slice(1);
 }
 
-const PerformanceLiftBlocks = ({
-  lift,
-  hasCalendar,
-  diagnostics,
-}: {
-  lift: PerformanceLift;
-  hasCalendar: boolean;
-  diagnostics?: PerformanceDiagnostics | null;
-}) => {
+// Collapsed to plain text lines (no charts, no "awaiting data" placeholders).
+// Empty array = render nothing.
+function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boolean): string[] {
+  if (!lift) return [];
+  const lines: string[] = [];
   const sleep = lift.sleep_to_peak;
   const rec = lift.rhr_recovery_window;
   const streak = lift.recovery_streak_to_peak;
-  // Thriving = positive composite lift. Draining = negative. Mirror them.
-  const thriving = lift.category_lift.filter((c) => c.compositeLift > 0).slice(0, 4);
-  const draining = lift.category_lift.filter((c) => c.compositeLift < 0).slice(0, 4);
-  const maxAbs = Math.max(
-    1,
-    ...thriving.map((c) => Math.abs(c.compositeLift)),
-    ...draining.map((c) => Math.abs(c.compositeLift)),
-  );
 
-  const anyToShow = !!sleep || !!rec || !!streak || thriving.length > 0 || draining.length > 0;
-  const reasons = diagnostics?.gateReasons;
-  const reasonLines: string[] = [];
-  if (reasons) {
-    if (!sleep && reasons.sleep_to_peak !== 'ok') {
-      const copy = GATE_REASON_COPY[reasons.sleep_to_peak];
-      if (copy) reasonLines.push(`Sleep → Next-Day Peak — ${copy}`);
+  if (sleep) {
+    lines.push(
+      `On your best-sleep nights, next-day readiness runs ${sleep.deltaPct >= 0 ? '+' : ''}${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowLabel(sleep.bestWindow).toLowerCase()}` : ''}.`,
+    );
+  }
+  if (rec) {
+    lines.push(
+      `On well-recovered days your ${windowLabel(rec.window).toLowerCase()} leads by ${rec.liftPct >= 0 ? '+' : ''}${rec.liftPct}%.`,
+    );
+  }
+  if (streak) {
+    lines.push(
+      `Your peak days typically follow ${streak.avgStreakLength} consecutive low-RHR day${streak.avgStreakLength === 1 ? '' : 's'}.`,
+    );
+  }
+  if (hasCalendar) {
+    const thriving = lift.category_lift.filter((c) => c.compositeLift > 0).slice(0, 2);
+    const draining = lift.category_lift.filter((c) => c.compositeLift < 0).slice(0, 2);
+    if (thriving.length > 0) {
+      lines.push(
+        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts ${thriving[0].compositeLift >= 0 ? '+' : ''}${thriving[0].compositeLift}% on those days.`,
+      );
     }
-    if (!rec && reasons.rhr_recovery_window !== 'ok') {
-      const copy = GATE_REASON_COPY[reasons.rhr_recovery_window];
-      if (copy) reasonLines.push(`Recovery → Best Window — ${copy}`);
-    }
-    if (thriving.length === 0 && draining.length === 0 && reasons.hr_event_lift !== 'ok') {
-      const copy = GATE_REASON_COPY[reasons.hr_event_lift];
-      if (copy) reasonLines.push(`Event Categories — ${copy}`);
+    if (draining.length > 0) {
+      lines.push(
+        `${draining.map((c) => c.categoryName).join(' and ')} cost you the most — ${draining[0].compositeLift}% on readiness.`,
+      );
     }
   }
-  if (!anyToShow && reasonLines.length === 0) return null;
+  return lines;
+}
 
-  return (
-    <div className="space-y-3">
-      {/* A — Sleep → Next-Day Peak */}
-      {sleep && (
-        <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/5 via-emerald-500/3 to-transparent border border-emerald-500/15 space-y-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-600/70 dark:text-emerald-400/70" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body">
-              Sleep → Next-Day Peak
-            </span>
-            <InsightInfoModal
-              title="Sleep → Next-Day Peak"
-              explanation="On nights your sleep clears your personal P70, this is how much your readiness lifts the following day — and which window peaks first."
-            />
-          </div>
-          <p className="text-sm text-foreground/85 leading-relaxed pl-6">
-            On your best-sleep nights, next-day readiness runs{' '}
-            <span className="font-medium tabular-nums">
-              {sleep.deltaPct >= 0 ? '+' : ''}{sleep.deltaPct}%
-            </span>{' '}
-            above your baseline
-            {sleep.bestWindow ? <> — peak window: <span className="font-medium">{windowLabel(sleep.bestWindow)}</span></> : null}
-            <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
-              · n={sleep.n} · {sleep.confidence}
-            </span>
-          </p>
-        </div>
-      )}
-
-      {/* B — Recovery → Best Window */}
-      {(rec || streak) && (
-        <div className="p-4 rounded-xl bg-gradient-to-br from-sky-500/5 via-sky-500/3 to-transparent border border-sky-500/15 space-y-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-sky-600/70 dark:text-sky-400/70" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-sky-700/70 dark:text-sky-400/70 font-body">
-              Recovery → Best Window
-            </span>
-            <InsightInfoModal
-              title="Recovery → Best Window"
-              explanation="Days where your resting heart rate is well below baseline (≤ −1σ) → the window of day where your check-ins peak the most."
-            />
-          </div>
-          {rec && (
-            <p className="text-sm text-foreground/85 leading-relaxed pl-6">
-              On well-recovered days, your{' '}
-              <span className="font-medium">{windowLabel(rec.window)}</span> readiness leads by{' '}
-              <span className="font-medium tabular-nums">
-                {rec.liftPct >= 0 ? '+' : ''}{rec.liftPct}%
-              </span>
-              <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
-                · n={rec.n} · {rec.confidence}
-              </span>
-            </p>
-          )}
-          {streak && (
-            <p className="text-xs text-muted-foreground/85 leading-relaxed pl-6">
-              Your peak days typically follow{' '}
-              <span className="font-medium tabular-nums">{streak.avgStreakLength}</span>{' '}
-              consecutive low-RHR day{streak.avgStreakLength === 1 ? '' : 's'}
-              <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
-                · n={streak.n} · {streak.confidence}
-              </span>
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* C — Event Categories Where You Thrive */}
-      {(thriving.length > 0 || draining.length > 0) && hasCalendar && (
-        <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary/70" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-              Event Categories Where You Thrive
-            </span>
-            <InsightInfoModal
-              title="Event Categories Where You Thrive"
-              explanation="Rolled to the A–H executive categories: lower peak heart-rate during the event window paired with higher same-day readiness = a category you handle well."
-            />
-          </div>
-          <div className="pl-6 space-y-2">
-            {thriving.map((c) => (
-              <CategoryBar
-                key={`thrive-${c.categoryId}`}
-                name={c.categoryName}
-                lift={c.compositeLift}
-                hrDelta={c.hrDeltaBpm}
-                n={c.n}
-                conf={c.confidence}
-                maxAbs={maxAbs}
-                direction="thrive"
-              />
-            ))}
-            {draining.map((c) => (
-              <CategoryBar
-                key={`drain-${c.categoryId}`}
-                name={c.categoryName}
-                lift={c.compositeLift}
-                hrDelta={c.hrDeltaBpm}
-                n={c.n}
-                conf={c.confidence}
-                maxAbs={maxAbs}
-                direction="drain"
-              />
-            ))}
-          </div>
-        </div>
-      )}
-      {reasonLines.length > 0 && (
-        <div className="p-3 rounded-xl bg-muted/15 space-y-1">
-          {reasonLines.map((line, i) => (
-            <p key={i} className="text-[11px] text-muted-foreground/80 leading-relaxed">
-              {line}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+const CHECK_IN_DIMS = new Set(['clarity', 'emotion', 'pressure', 'regulation']);
+const DIM_LABELS: Record<RhythmFinding['dimension'], string> = {
+  clarity: 'Clarity', emotion: 'Emotion', pressure: 'Pressure', regulation: 'Regulation',
+  hrv: 'HRV', sleep_score: 'Sleep Score', sleep_duration: 'Sleep Duration', sleep_efficiency: 'Sleep Efficiency',
 };
 
-const CategoryBar = ({
-  name,
+const findingDirection = (f: RhythmFinding) =>
+  f.kind === 'low-window' || f.kind === 'low-day' || f.kind === 'consecutive-neg' ? 'neg' : 'pos';
+
+/** Keep the richest finding per dimension+direction; never repeat the same insight. */
+function dedupeFindings(findings: RhythmFinding[], cap: number): RhythmFinding[] {
+  const seen = new Set<string>();
+  const out: RhythmFinding[] = [];
+  for (const f of [...findings].sort((a, b) => b.priorityScore - a.priorityScore)) {
+    const key = `${f.dimension}:${findingDirection(f)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(f);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+const PatternLine = ({ text, dim }: { text: string; dim?: string }) => (
+  <li className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
+    <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
+    <span>
+      {text}
+      {dim && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">· {dim}</span>}
+    </span>
+  </li>
+);
+
+const PatternAnalysisSection = ({
+  findings,
+  activeTrend,
   lift,
-  hrDelta,
-  n,
-  conf,
-  maxAbs,
-  direction,
+  hasCalendar,
+  calendarInsight,
+  bestWindowLabel,
 }: {
-  name: string;
-  lift: number;
-  hrDelta: number;
-  n: number;
-  conf: LiftConfidence;
-  maxAbs: number;
-  direction: 'thrive' | 'drain';
+  findings: RhythmFinding[];
+  activeTrend: 'clarity' | 'emotion' | 'pressure' | 'regulation';
+  lift: PerformanceLift | null;
+  hasCalendar: boolean;
+  calendarInsight: string | null;
+  bestWindowLabel: string | null;
 }) => {
-  const pct = Math.min(100, Math.round((Math.abs(lift) / maxAbs) * 100));
-  const isThrive = direction === 'thrive';
+  const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
+  // Tab-scoped: each of the 4 trends surfaces its own dimension's findings so
+  // no sentence repeats across cards. Fall back to the ranked list when the
+  // active dimension has none.
+  const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
+  const checkInLines = dedupeFindings(scoped.length > 0 ? scoped : checkInAll, 3);
+
+  const baselineFindingLines = dedupeFindings(
+    findings.filter((f) => !CHECK_IN_DIMS.has(f.dimension)),
+    2,
+  );
+  const liftLines = buildBaselineLiftLines(lift, hasCalendar);
+  const extraBaseline = [
+    ...(bestWindowLabel ? [`Sharpest window: ${bestWindowLabel}.`] : []),
+    ...(calendarInsight ? [calendarInsight] : []),
+    ...liftLines,
+  ];
+
+  const hasCheckIn = checkInLines.length > 0;
+  const hasBaseline = baselineFindingLines.length > 0 || extraBaseline.length > 0;
+  if (!hasCheckIn && !hasBaseline) return null;
+
   return (
-    <div className={cn('flex items-center gap-2', conf === 'emerging' && 'opacity-60')}>
-      <div className="w-32 text-xs text-foreground/80 truncate" title={name}>
-        {name}
-      </div>
-      <div className="flex-1 h-2 rounded-full bg-muted/40 overflow-hidden">
-        <div
-          className={cn(
-            'h-full rounded-full transition-all',
-            isThrive ? 'bg-emerald-500/70' : 'bg-[#D85A30]/70',
-          )}
-          style={{ width: `${pct}%` }}
+    <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary/70" />
+        <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+          Performance Patterns
+        </span>
+        <InsightInfoModal
+          title="Performance Patterns"
+          explanation="The strongest day-of-week × time-of-day patterns across your check-ins, kept separate from the wearable and calendar baseline patterns."
         />
       </div>
-      <div className="w-20 text-right text-[10px] tabular-nums text-muted-foreground/80">
-        <span className={cn('font-medium', isThrive ? 'text-emerald-700/80 dark:text-emerald-400/80' : 'text-[#993C1D]')}>
-          {lift >= 0 ? '+' : ''}{lift}%
-        </span>
-        <span className="ml-1 text-muted-foreground/60">· {hrDelta >= 0 ? '+' : ''}{hrDelta}bpm</span>
-      </div>
-      <div className="w-8 text-right text-[10px] text-muted-foreground/50 tabular-nums">n={n}</div>
+
+      {hasCheckIn && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/70">Check-in patterns</p>
+          <ul className="pl-2 space-y-1.5">
+            {checkInLines.map((f, i) => (
+              <PatternLine key={`ci-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hasCheckIn && hasBaseline && <div className="h-px bg-border/40" />}
+
+      {hasBaseline && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/70">Baseline patterns</p>
+          <ul className="pl-2 space-y-1.5">
+            {baselineFindingLines.map((f, i) => (
+              <PatternLine key={`bl-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+            ))}
+            {extraBaseline.map((line, i) => (
+              <PatternLine key={`lift-${i}`} text={line} />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
@@ -1427,46 +1358,15 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               />
             )}
 
-            {/* 1A – Your Rhythm Signals: top-3 Chief-of-Staff prioritized findings */}
-            {data.checkInCount >= 7 && data.mindRhythmPatterns && data.mindRhythmPatterns.topThree.length > 0 && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary/70" />
-                  <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Performance Patterns
-                  </span>
-                  <InsightInfoModal
-                    title="Performance Patterns"
-                    explanation="The strongest day-of-week × time-of-day patterns across your check-ins — when you peak, when you slip, and the repeating rhythm behind it."
-                  />
-                </div>
-                <ul className="pl-6 space-y-1.5">
-                  {data.mindRhythmPatterns.topThree.map((f, i) => {
-                    const DIM_LABELS: Record<RhythmFinding['dimension'], string> = {
-                      clarity: 'Clarity', emotion: 'Emotion', pressure: 'Pressure', regulation: 'Regulation',
-                      hrv: 'HRV', sleep_score: 'Sleep Score', sleep_duration: 'Sleep Duration', sleep_efficiency: 'Sleep Efficiency',
-                    };
-                    const dimLabel = DIM_LABELS[f.dimension] ?? f.dimension;
-                    return (
-                      <li key={i} className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
-                        <span>
-                          {f.text}
-                          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">· {dimLabel}</span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-
-            {/* v4 — Performance Lift blocks (wearable + calendar fusion) */}
-            {data.performanceLift && (
-              <PerformanceLiftBlocks
-                lift={data.performanceLift}
+            {/* Pattern Analysis — check-in patterns vs baseline patterns */}
+            {data.checkInCount >= 7 && (
+              <PatternAnalysisSection
+                findings={data.mindRhythmPatterns?.all ?? []}
+                activeTrend={activeTrend}
+                lift={data.performanceLift ?? null}
                 hasCalendar={data.hasCalendar}
-                diagnostics={data.performanceDiagnostics ?? null}
+                calendarInsight={data.calendarInsight ?? null}
+                bestWindowLabel={data.bestReadinessWindow?.label ?? null}
               />
             )}
 
@@ -1479,30 +1379,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* Elevated: Your Sharpest Window */}
-            {data.bestReadinessWindow && (
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
-                <p className="text-xs font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
-                  Your Sharpest Window
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {data.bestReadinessWindow.label}
-                </p>
-              </div>
-            )}
-
-            {/* 1B – Calendar Pattern */}
-            {data.checkInCount >= 7 && data.calendarInsight && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary/70" />
-                  <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Calendar Pattern
-                  </span>
-                </div>
-                <p className="text-sm text-foreground/85 leading-relaxed pl-6">{data.calendarInsight}</p>
-              </div>
-            )}
 
             {/* Insight unlock incentives */}
             {getInsightUnlockMessages().length > 0 && !data.presenceLabel && !data.calendarInsight && !data.causeEffectInsight && (
