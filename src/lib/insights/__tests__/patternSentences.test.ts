@@ -110,3 +110,22 @@ describe('section assembly', () => {
     expect(buildSection(findings, 'wearable').map((r) => r.dimension)).toEqual(['hrv']);
   });
 });
+
+describe('wearable time-of-day guard', () => {
+  it('never claims a time-of-day window for nightly wearable data', () => {
+    const r = buildSentence(mk({
+      dimension: 'hr', kind: 'cell-peak',
+      stats: { source: 'wearable', polarity: 'low', day: 4, window: 0, n: 4, bestPct: 100 },
+    }));
+    expect(r?.text).not.toContain('morning');
+    expect(r?.text).toContain('Fridays');
+    expect(r?.text).toContain('nights');
+  });
+
+  it('drops wearable peak-window findings entirely', () => {
+    expect(buildSentence(mk({
+      dimension: 'hrv', kind: 'peak-window',
+      stats: { source: 'wearable', polarity: 'high', window: 0, n: 6 },
+    }))).toBeNull();
+  });
+});
