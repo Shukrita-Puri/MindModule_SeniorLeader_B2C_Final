@@ -235,29 +235,27 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
     if (!el) return;
     const days = daysRef.current;
     if (!days || days.length === 0) return;
-    const mobile = isMobileRef.current;
-    if (mobile) {
-      const colW = Math.floor(el.clientWidth / 7);
-      if (colW > 0) {
-        el.querySelectorAll('[data-day-col]').forEach((c) => {
-          (c as HTMLElement).style.width = `${colW}px`;
-          (c as HTMLElement).style.minWidth = `${colW}px`;
-        });
-      }
+    // Exactly 7 day columns visible at every breakpoint (matches iOS).
+    const colW = Math.floor(el.clientWidth / 7);
+    if (colW > 0) {
+      el.querySelectorAll('[data-day-col]').forEach((c) => {
+        (c as HTMLElement).style.width = `${colW}px`;
+        (c as HTMLElement).style.minWidth = `${colW}px`;
+      });
     }
     const todayIdx = days.findIndex((d) => d.isToday);
-    if (todayIdx >= 0) {
+    if (todayIdx >= 0 && colW > 0) {
       const todayDate = new Date(days[todayIdx].date);
       const dow = todayDate.getDay();
       const mondayOffset = dow === 0 ? 6 : dow - 1;
       const mondayIdx = Math.max(0, todayIdx - mondayOffset);
-      const colWidth = mobile ? Math.floor(el.clientWidth / 7) : 27;
-      const scrollTo = mondayIdx * colWidth;
+      const scrollTo = mondayIdx * colW;
       if (scrollTo > 0) {
         setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
       }
     }
   }, []);
+
 
   const setScrollRef = useCallback((el: HTMLDivElement | null) => {
     scrollElRef.current = el;
