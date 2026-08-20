@@ -300,6 +300,7 @@ const PatternAnalysisSection = ({
   hasCalendar,
   calendarInsight,
   bestWindowLabel,
+  userId,
 }: {
   findings: RhythmFinding[];
   activeTrend: 'clarity' | 'emotion' | 'pressure' | 'regulation';
@@ -307,8 +308,10 @@ const PatternAnalysisSection = ({
   hasCalendar: boolean;
   calendarInsight: string | null;
   bestWindowLabel: string | null;
+  userId?: string | null;
 }) => {
   const [checkInOpen, setCheckInOpen] = useState(true);
+  const showDebug = isPatternDebugEnabled(userId);
   // Positive-only card scope + observation guard + soft cap live in
   // buildSection (src/lib/insights/patternSentences.ts).
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
