@@ -715,7 +715,41 @@ serve(async (req) => {
     // guard below (≤2 per dim, ≤2 per kind) so the top-3 stays balanced.
     type RhythmDimension =
       | 'clarity' | 'emotion' | 'pressure' | 'regulation'
-      | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
+      | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency'
+      | 'rhr' | 'hr';
+
+    /**
+     * v4 — structured evidence behind every finding. Additive: the app now
+     * assembles sentences from these numbers (perform-best templates), while
+     * `text` / `longText` stay for backwards-compatible consumers.
+     */
+    interface RhythmStats {
+      /** 0=Mon … 6=Sun for day-scoped findings. */
+      day?: number;
+      comparisonDay?: number;
+      /** 0=Morning, 1=Afternoon, 2=Evening for window-scoped findings. */
+      window?: number;
+      comparisonWindow?: number;
+      /** Positive rate (0–100) at the peak bucket / comparison bucket. */
+      bestPct?: number;
+      comparePct?: number;
+      /** Percentage-point gap between best and comparison. */
+      gapPp?: number;
+      /** Consecutive same-DOW run length. */
+      runLength?: number;
+      lastDate?: string;
+      /** Observations behind the finding (bucket n, or run length). */
+      n: number;
+      /** Observation dates used in the calculation (capped at 12). */
+      dates: string[];
+      /** Raw values used, when the series carries them (wearable dims). */
+      rawValues?: number[];
+      /** 'check-in' | 'wearable'. */
+      source: 'check-in' | 'wearable';
+      /** Polarity of the dimension: 'high' = higher is better. */
+      polarity: 'high' | 'low';
+    }
+
     interface RhythmFinding {
       kind: RhythmKind;
       dimension: RhythmDimension;
@@ -728,9 +762,13 @@ serve(async (req) => {
       observations: number;
       /** Chief-of-Staff priority score; higher wins. */
       priorityScore: number;
+      /** v4 — evidence block (see RhythmStats). */
+      stats?: RhythmStats;
     }
 
-    type SeriesPoint = { dateStr: string; di: number; tw: number; positive: boolean; negative: boolean };
+    type SeriesPoint = { dateStr: string; di: number; tw: number; positive: boolean; negative: boolean; value?: number };
+
+    const INVERTED_DIMS = new Set<RhythmDimension>(['pressure', 'rhr', 'hr']);
 
     const positiveOutcomeSet = new Set(['focused', 'steady']);
     const negativeOutcomeSet = new Set(['drained', 'overwhelmed']);
