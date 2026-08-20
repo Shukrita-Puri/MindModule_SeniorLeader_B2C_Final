@@ -115,12 +115,14 @@ export function ApplePaywall({
   }, [onRefreshProfile, onEntitled]);
 
   useEffect(() => {
-    if (stripeLegacy || appleEntitled) {
+    // When the user deliberately arrived to change their plan we still need
+    // StoreKit products, even if they already have an active entitlement.
+    if ((stripeLegacy || appleEntitled) && !upgradeIntent) {
       setLoadingProducts(false);
       return;
     }
     void refresh();
-  }, [refresh, stripeLegacy, appleEntitled]);
+  }, [refresh, stripeLegacy, appleEntitled, upgradeIntent]);
 
   useEffect(() => {
     let dispose: (() => void) | undefined;
