@@ -1052,11 +1052,11 @@ const Insights = () => {
                       return (
                         <>
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
+                          <div className="p-3 rounded-xl bg-muted/20 text-center">
                             <p className="text-[20px] font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
                             <p className="text-xs text-muted-foreground tracking-wider uppercase">Total Wins Recorded</p>
                           </div>
-                           <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
+                           <div className="p-3 rounded-xl bg-muted/20 text-center">
                             <p className="text-[20px] font-headline text-foreground truncate">
                               {dominantCount > 0 ? dominantDomain : '—'}
                             </p>
@@ -1112,7 +1112,7 @@ const Insights = () => {
                         }
 
                         return (
-                          <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/10 border border-border/10">
+                          <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/10">
                             <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5', dotColor)} />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>

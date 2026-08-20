@@ -380,7 +380,7 @@ const PerformanceLiftBlocks = ({
         </div>
       )}
       {reasonLines.length > 0 && (
-        <div className="p-3 rounded-xl bg-muted/15 border border-border/30 space-y-1">
+        <div className="p-3 rounded-xl bg-muted/15 space-y-1">
           {reasonLines.map((line, i) => (
             <p key={i} className="text-[11px] text-muted-foreground/80 leading-relaxed">
               {line}
@@ -1358,7 +1358,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   </div>
 
                   {/* Legend */}
-                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20">
+                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3">
                     {Object.entries(stateColors).map(([state, style]) => (
                       <div key={state} className="flex items-center gap-1.5">
                         <div
@@ -1472,7 +1472,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
             {/* Empty-state when ≥7 check-ins but no findings yet */}
             {data.checkInCount >= 7 && data.mindRhythmPatterns !== null && data.mindRhythmPatterns?.topThree.length === 0 && (
-              <div className="p-3 rounded-xl bg-muted/15 border border-border/30">
+              <div className="p-3 rounded-xl bg-muted/15">
                 <p className="text-xs text-muted-foreground/80 leading-relaxed text-center">
                   Patterns will sharpen as your check-ins accumulate across more days and times.
                 </p>
@@ -1518,7 +1518,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
             {data.checkInCount >= 7 && !data.hasCalendar && !data.calendarInsight && (
-              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 flex items-center gap-3">
+              <div className="p-4 rounded-xl bg-muted/20 flex items-center gap-3">
                 <Calendar className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
                 <p className="text-sm text-muted-foreground">
                   Connect your calendar to see how your outer world affects your inner state.
