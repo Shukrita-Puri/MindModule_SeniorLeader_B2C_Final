@@ -38,6 +38,7 @@ export interface WearableRow {
   sleep_score?: number | null;
   total_sleep_minutes?: number | null;
   sleep_efficiency?: number | null;
+  heart_rate?: number | null;      // daily average HR
 }
 
 /** Compact qualifier returned per Mind dim. All fields nullable. */
