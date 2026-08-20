@@ -495,8 +495,6 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
               </div>
             ))}
 
-              </div>
-            ))}
           </div>
         </div>
       </div>
