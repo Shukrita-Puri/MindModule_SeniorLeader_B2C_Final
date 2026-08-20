@@ -1,26 +1,20 @@
 /**
  * Sprint 1 (Phase 1) guard.
  *
- * Two insights surfaces aggregate historical Brief snapshots for the weekly
- * readiness dial + baseline/current comparison:
- *   - src/components/insights/InnerReadinessDial.tsx
- *   - src/components/insights/LeadershipPatternsCard.tsx
+ * `src/components/insights/LeadershipPatternsCard.tsx` aggregates historical
+ * Brief snapshots for baseline / friction comparisons and MUST request only
+ * DELIVERED briefs from the `brief-history` edge function.
  *
- * Both MUST request only DELIVERED briefs from the `brief-history` edge
- * function. Undelivered snapshot rows (generated but never rendered to the
- * user) must not leak into trend/baseline/friction calculations.
- *
- * The edge function reads `delivered=1` from the query string. This test
- * proves both call sites include that flag in the URL they build.
+ * Documented exception: `src/services/mrsDailySeries.ts` powers the weekly
+ * streak dots and the Insights trend chart. There a generated-but-unopened
+ * brief is still a real reading of that day, so it deliberately does NOT pass
+ * delivered=1.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
-const CALL_SITES = [
-  'src/components/insights/InnerReadinessDial.tsx',
-  'src/components/insights/LeadershipPatternsCard.tsx',
-];
+const CALL_SITES = ['src/components/insights/LeadershipPatternsCard.tsx'];
 
 describe('brief-history delivered-only guard', () => {
   for (const rel of CALL_SITES) {
@@ -43,4 +37,10 @@ describe('brief-history delivered-only guard', () => {
       ).toBe(0);
     });
   }
+
+  it('the shared MRS daily series intentionally includes undelivered briefs', () => {
+    const src = readFileSync(join(process.cwd(), 'src/services/mrsDailySeries.ts'), 'utf8');
+    expect(src).toMatch(/brief-history/);
+    expect(src).not.toMatch(/delivered=1/);
+  });
 });

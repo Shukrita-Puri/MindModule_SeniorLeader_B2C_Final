@@ -13,3 +13,13 @@ type: feature
 - Weekly dot attribution: any brief snapshot with a numeric score counts (delivered or not); if no snapshot exists, fall back to the day's check-in composite. Delivered-only still governs brief history + trend panel.
 - Share button lives inline in each detail card's title row next to the (i) icon via `InsightShareSlot` — never in the detail page top nav.
 - No line borders on Insights cards or the detail header (shadow-only elevation).
+
+Trend panel v4 (2026-08-20):
+- Ranges are 1M / 6M / 1Y (1W removed — the streak dots already cover the week). Default 1M.
+  Bucketing: 1M daily, 6M weekly, 1Y monthly; empty buckets are gaps, never zeros.
+- Header shows AVERAGE + value + range label instead of the word "Trend".
+- Chart (`MrsSparkline` with `showMarkers`): open-circle markers on measured points, solid
+  line between adjacent points, dotted connector across gaps, dotted baseline for empty ends.
+- Single data source: `src/services/mrsDailySeries.ts` (brief snapshot scores averaged per
+  local date, else the day's check-in composite) feeds BOTH the weekly dots and the chart.
+  `mental_fitness_scores` is no longer read by the trend hook.
