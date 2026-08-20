@@ -112,7 +112,7 @@ serve(async (req) => {
         sb.from("jit_preferences").select("event_title, action, event_start_time")
           .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
         sb.from("wearable_data")
-          .select("summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency")
+          .select("summary_date, hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency")
           .eq("user_id", userId).gte("summary_date", thirtyDaysAgoStr),
         // v4 — read pre-projected positive correlations from the unified
         // pattern store. cause-effect-engine writes signal_summary nightly;
