@@ -440,7 +440,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         {/* Fixed row labels */}
         <div className="flex flex-col gap-1.5 mr-2.5 pt-[38px]">
           {['Morning', 'Midday', 'Evening'].map((label) => (
-            <div key={label} className="h-[18px] flex items-center justify-end">
+            <div key={label} className="h-9 flex items-center justify-end">
               <span className="text-xs text-muted-foreground whitespace-nowrap w-[44px] text-right">{label}</span>
             </div>
           ))}
@@ -448,23 +448,19 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
 
         <div
           ref={setScrollRef}
-          className="overflow-x-auto flex-1 pb-1"
+          className="overflow-x-auto flex-1 pb-4"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div
             className="inline-flex"
-            style={{ minWidth: 'max-content', gap: isMobile ? 0 : '4px' }}
+            style={{ minWidth: 'max-content', gap: 0 }}
           >
             {days.map((day) => (
               <div
                 key={day.date}
                 data-day-col
-                className="flex flex-col items-center gap-1.5"
-                style={{
-                  width: isMobile ? undefined : '26px',
-                  minWidth: isMobile ? undefined : '26px',
-                  flexShrink: 0,
-                }}
+                className="flex flex-col items-center gap-1.5 px-[2px]"
+                style={{ flexShrink: 0 }}
               >
                 <div className="flex flex-col items-center h-[34px] justify-end pb-1">
                   <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
@@ -480,7 +476,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
                     <div
                       key={tw}
                       className={cn(
-                        'w-[24px] h-[16px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
+                        'w-full h-9 rounded-md flex-shrink-0 relative overflow-hidden transition-all duration-200',
                         day.isFuture
                           ? 'border border-dashed border-border/40 bg-transparent'
                           : hasValue
@@ -496,6 +492,9 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
                     />
                   );
                 })}
+              </div>
+            ))}
+
               </div>
             ))}
           </div>
