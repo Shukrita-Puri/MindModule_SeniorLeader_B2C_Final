@@ -103,8 +103,20 @@ import {
   EMPTY_STATE,
 } from '@/lib/insights/patternSentences';
 
-/** Founder-only reliability audit: traces every sentence back to raw observations. */
-const SHOW_PATTERN_DEBUG = false;
+/**
+ * Founder-only reliability audit: traces every rendered sentence back to its
+ * raw observations. Enabled for founder accounts, or for anyone who sets
+ * `localStorage.patternDebug = '1'` (support/debug escape hatch).
+ */
+const FOUNDER_DEBUG_USER_IDS = new Set<string>([
+  'google-oauth2|111878424918915566691',
+]);
+const isPatternDebugEnabled = (userId?: string | null): boolean => {
+  try {
+    if (localStorage.getItem('patternDebug') === '1') return true;
+  } catch { /* storage unavailable */ }
+  return !!userId && FOUNDER_DEBUG_USER_IDS.has(userId);
+};
 
 type LiftConfidence = 'strong' | 'emerging';
 type LiftWindow = 'morning' | 'afternoon' | 'evening';
