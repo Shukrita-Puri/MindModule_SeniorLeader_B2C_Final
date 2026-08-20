@@ -1426,7 +1426,9 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 hasCalendar={data.hasCalendar}
                 calendarInsight={data.calendarInsight ?? null}
                 bestWindowLabel={data.bestReadinessWindow?.label ?? null}
+                userId={userId}
               />
+
             )}
 
             {/* Empty-state when ≥7 check-ins but no findings yet */}
