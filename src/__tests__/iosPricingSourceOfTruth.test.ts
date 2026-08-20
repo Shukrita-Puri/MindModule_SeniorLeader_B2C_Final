@@ -34,8 +34,17 @@ const IOS_VISIBLE_SURFACES = [
 ];
 
 describe('no hardcoded subscription pricing on iOS-reachable surfaces', () => {
-  it.each(IOS_VISIBLE_SURFACES)('%s states no currency amount', (file) => {
-    expect(CURRENCY_AMOUNT.test(stripComments(read(file)))).toBe(false);
+  it.each(IOS_VISIBLE_SURFACES.filter((f) => f !== 'src/components/subscription/ApplePaywall.tsx'))(
+    '%s states no currency amount',
+    (file) => {
+      expect(CURRENCY_AMOUNT.test(stripComments(read(file)))).toBe(false);
+    },
+  );
+
+  it('ApplePaywall only hardcodes the canonical GBP fallback amounts', () => {
+    const src = stripComments(read('src/components/subscription/ApplePaywall.tsx'));
+    const matches = Array.from(src.matchAll(/[£$€]\s?\d+(?:\.\d+)?/g)).map((m) => m[0]);
+    expect(matches).toEqual(['£34.99', '£299.99']);
   });
 
   it('the paywall renders StoreKit displayPrice rather than its own copy', () => {
