@@ -4,7 +4,8 @@ import {
   type RhythmFinding,
 } from '../patternSentences';
 
-const mk = (over: Partial<RhythmFinding> & { stats?: Partial<RhythmFinding['stats']> }): RhythmFinding => ({
+type StatsPatch = Partial<NonNullable<RhythmFinding['stats']>>;
+const mk = (over: Omit<Partial<RhythmFinding>, 'stats'> & { stats?: StatsPatch }): RhythmFinding => ({
   kind: 'peak-day',
   dimension: 'clarity',
   text: 'legacy',
