@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
+import InsightShareSlot from '@/components/insights/InsightShareSlot';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import LevelTrendCalendar from '@/components/insights/LevelTrendCalendar';
 import StreakWreath from '@/components/insights/StreakWreath';
@@ -1158,10 +1159,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
             When You Perform Best
           </span>
-          <InsightInfoModal
-            title="When You Perform Best"
-            explanation="When you’re at your sharpest, and what your outer world is doing to your inner state — patterns you can’t see without zooming out."
-          />
+          <div className="flex items-center gap-1">
+            <InsightShareSlot />
+            <InsightInfoModal
+              title="When You Perform Best"
+              explanation="When you’re at your sharpest, and what your outer world is doing to your inner state — patterns you can’t see without zooming out."
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
