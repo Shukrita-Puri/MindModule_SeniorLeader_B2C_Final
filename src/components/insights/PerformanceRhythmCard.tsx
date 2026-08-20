@@ -272,8 +272,121 @@ function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boole
   return lines;
 }
 
+const CHECK_IN_DIMS = new Set(['clarity', 'emotion', 'pressure', 'regulation']);
+const DIM_LABELS: Record<RhythmFinding['dimension'], string> = {
+  clarity: 'Clarity', emotion: 'Emotion', pressure: 'Pressure', regulation: 'Regulation',
+  hrv: 'HRV', sleep_score: 'Sleep Score', sleep_duration: 'Sleep Duration', sleep_efficiency: 'Sleep Efficiency',
+};
+
+const findingDirection = (f: RhythmFinding) =>
+  f.kind === 'low-window' || f.kind === 'low-day' || f.kind === 'consecutive-neg' ? 'neg' : 'pos';
+
+/** Keep the richest finding per dimension+direction; never repeat the same insight. */
+function dedupeFindings(findings: RhythmFinding[], cap: number): RhythmFinding[] {
+  const seen = new Set<string>();
+  const out: RhythmFinding[] = [];
+  for (const f of [...findings].sort((a, b) => b.priorityScore - a.priorityScore)) {
+    const key = `${f.dimension}:${findingDirection(f)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(f);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+const PatternLine = ({ text, dim }: { text: string; dim?: string }) => (
+  <li className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
+    <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
+    <span>
+      {text}
+      {dim && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">· {dim}</span>}
+    </span>
+  </li>
+);
+
+const PatternAnalysisSection = ({
+  findings,
+  activeTrend,
+  lift,
+  hasCalendar,
+  calendarInsight,
+  bestWindowLabel,
+}: {
+  findings: RhythmFinding[];
+  activeTrend: 'clarity' | 'emotion' | 'pressure' | 'regulation';
+  lift: PerformanceLift | null;
+  hasCalendar: boolean;
+  calendarInsight: string | null;
+  bestWindowLabel: string | null;
+}) => {
+  const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
+  // Tab-scoped: each of the 4 trends surfaces its own dimension's findings so
+  // no sentence repeats across cards. Fall back to the ranked list when the
+  // active dimension has none.
+  const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
+  const checkInLines = dedupeFindings(scoped.length > 0 ? scoped : checkInAll, 3);
+
+  const baselineFindingLines = dedupeFindings(
+    findings.filter((f) => !CHECK_IN_DIMS.has(f.dimension)),
+    2,
+  );
+  const liftLines = buildBaselineLiftLines(lift, hasCalendar);
+  const extraBaseline = [
+    ...(bestWindowLabel ? [`Sharpest window: ${bestWindowLabel}.`] : []),
+    ...(calendarInsight ? [calendarInsight] : []),
+    ...liftLines,
+  ];
+
+  const hasCheckIn = checkInLines.length > 0;
+  const hasBaseline = baselineFindingLines.length > 0 || extraBaseline.length > 0;
+  if (!hasCheckIn && !hasBaseline) return null;
+
+  return (
+    <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary/70" />
+        <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+          Performance Patterns
+        </span>
+        <InsightInfoModal
+          title="Performance Patterns"
+          explanation="The strongest day-of-week × time-of-day patterns across your check-ins, kept separate from the wearable and calendar baseline patterns."
+        />
+      </div>
+
+      {hasCheckIn && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/70">Check-in patterns</p>
+          <ul className="pl-2 space-y-1.5">
+            {checkInLines.map((f, i) => (
+              <PatternLine key={`ci-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hasCheckIn && hasBaseline && <div className="h-px bg-border/40" />}
+
+      {hasBaseline && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/70">Baseline patterns</p>
+          <ul className="pl-2 space-y-1.5">
+            {baselineFindingLines.map((f, i) => (
+              <PatternLine key={`bl-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+            ))}
+            {extraBaseline.map((line, i) => (
+              <PatternLine key={`lift-${i}`} text={line} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CategoryBar = ({
+
   name,
   lift,
   hrDelta,
