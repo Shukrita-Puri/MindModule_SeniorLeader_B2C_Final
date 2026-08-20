@@ -81,6 +81,8 @@ as zero). If no point exists in the range the block shows an em dash and the exi
   stretches. Used by the home MRS card too, so the new props stay optional and the current
   look is preserved when no gap info is passed.
 - `src/components/insights/InnerReadinessDial.tsx` — swap the "Trend" label for the
-  AVERAGE + range block, feed the shared series to both the dot row and the chart.
-- Bucketing for 1M (weekly) and 6M (monthly) lives in the hook, not the SVG.
+  AVERAGE + range block, replace the 1W/1M/6M picker with 1M/6M/1Y (1M default), feed the
+  shared series to both the dot row and the chart.
+- Bucketing (1M daily, 6M weekly, 1Y monthly) lives in the hook, not the SVG; `useMrsTrend`
+  accepts `30 | 180 | 365`.
 - No edge function, no schema, no scoring or tier changes.
