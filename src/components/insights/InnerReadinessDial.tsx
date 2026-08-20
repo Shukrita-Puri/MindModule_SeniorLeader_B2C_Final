@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { useAuth } from '@/hooks/useAuth';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { getAuthToken } from '@/services/authTokenService';
 import { useMrsTrend, type MrsRangeDays } from '@/hooks/useMrsTrend';
 import { fetchMrsDailySeries } from '@/services/mrsDailySeries';
 import MrsSparkline from '@/components/home/mrs/MrsSparkline';
