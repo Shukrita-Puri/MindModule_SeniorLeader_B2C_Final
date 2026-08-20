@@ -15,11 +15,11 @@ Today there is one boxed "PERFORMANCE PATTERNS" block with two small sub-labels 
 
 [thin full-width divider — same weight as existing card dividers]
 
-### Section 2 — MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST
+### Section 2 — MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST (physiology and demand data)
 - Sits below the divider.
 - Not tab-scoped; always renders regardless of the active tab.
 - Label: `MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST`
-- Sub-label, small and muted: `Based on physiology & demand (wearable + calendar)`
+- Sub-label, small and muted: `Based on physiology and demand data (wearable + calendar)`
 - Not collapsible (always open).
 - Content is exactly today's "Baseline patterns": wearable findings plus the sharpest-window, calendar and category-lift lines.
 
