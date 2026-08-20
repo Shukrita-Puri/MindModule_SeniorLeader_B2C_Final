@@ -134,73 +134,17 @@ const InnerReadinessDial = () => {
   const uid = DEV_MODE ? DEV_USER.id : user?.id;
 
   useEffect(() => {
-    if (!uid) return;
     const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
     const mondayISO = format(monday, 'yyyy-MM-dd');
     const sundayISO = format(addDays(monday, 6), 'yyyy-MM-dd');
     (async () => {
-      // Canonical source: brief_snapshots via brief-history edge function.
-      // Same table that powers the "past briefs" side panel — one row per
-      // generated brief carries the score/tier that already drove the dial
-      // at that moment in time.
-      try {
-        const projectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID;
-        const base = `https://${projectId}.supabase.co/functions/v1/brief-history`;
-        // Sprint 1 (Phase 1): trend must only aggregate briefs actually
-        // delivered to the user. Undelivered snapshot rows (generated but
-        // never rendered) must NOT leak into weekly readiness trend.
-        // Weekly dots colour from any snapshot that carries a numeric score.
-        // The delivered-only rule still governs the Trend panel + brief
-        // history; here a generated-but-unopened brief is still a real
-        // reading of that day and must not blank the dot.
-        const url = `${base}?startDate=${mondayISO}&endDate=${sundayISO}&limit=100`;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (DEV_MODE) {
-          const anon = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY;
-          if (anon) headers['Authorization'] = `Bearer ${anon}`;
-        } else {
-          const token = await getAuthToken();
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-        }
-        const res = await fetch(url, { headers });
-        if (res.ok) {
-          const json = await res.json();
-          setSnapshots((json?.briefs || []).map((b: any) => ({
-            local_date: b.local_date,
-            score: typeof b.score === 'number' ? b.score : null,
-            tier: b.tier ?? null,
-          })));
-        }
-      } catch (err) {
-        console.error('[InnerReadinessDial] brief-history fetch failed:', err);
-      }
-
-      // Secondary source: days that only carry a self check-in still deserve
-      // a colour. Composite mirrors energyStateEngine.overallBalance.
-      try {
-        if (DEV_MODE) {
-          const { data } = await supabase
-            .from('daily_checkins')
-            .select('checkin_date, clarity_level, emotion_level, pressure_level, regulation_level')
-            .eq('user_id', uid)
-            .gte('checkin_date', mondayISO)
-            .lte('checkin_date', sundayISO);
-          setCheckinDays(aggregateCheckins(data || []));
-        } else {
-          const token = await getAuthToken();
-          if (token) {
-            const { data } = await supabase.functions.invoke('daily-checkins', {
-              headers: { Authorization: `Bearer ${token}` },
-              body: { action: 'GET_MONTHLY_LEVELS', startDate: mondayISO, endDate: sundayISO },
-            });
-            setCheckinDays(aggregateCheckins(data?.data || []));
-          }
-        }
-      } catch (err) {
-        console.error('[InnerReadinessDial] check-in fetch failed:', err);
-      }
+      // Single source of truth shared with the trend chart: brief snapshot
+      // scores for the day, falling back to the day's check-in composite.
+      const { byDate } = await fetchMrsDailySeries(uid, mondayISO, sundayISO);
+      setWeekScores(byDate);
     })();
   }, [uid]);
+
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
