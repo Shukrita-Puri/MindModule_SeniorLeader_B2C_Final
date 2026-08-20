@@ -248,11 +248,8 @@ function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boole
   return lines;
 }
 
-const CHECK_IN_DIMS = new Set(['clarity', 'emotion', 'pressure', 'regulation']);
-const DIM_LABELS: Record<RhythmFinding['dimension'], string> = {
-  clarity: 'Clarity', emotion: 'Emotion', pressure: 'Pressure', regulation: 'Regulation',
-  hrv: 'HRV', sleep_score: 'Sleep Score', sleep_duration: 'Sleep Duration', sleep_efficiency: 'Sleep Efficiency',
-};
+const CHECK_IN_DIMS = CHECK_IN_DIM_SET;
+const DIM_LABELS = RHYTHM_DIM_LABELS;
 
 const findingDirection = (f: RhythmFinding) =>
   f.kind === 'low-window' || f.kind === 'low-day' || f.kind === 'consecutive-neg' ? 'neg' : 'pos';
