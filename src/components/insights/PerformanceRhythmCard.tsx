@@ -166,24 +166,6 @@ interface PerformanceDiagnostics {
   };
 }
 
-const GATE_REASON_COPY: Record<GateReason, string> = {
-  ok: '',
-  no_sleep_score_rows: 'Awaiting sleep score data from Apple Health.',
-  insufficient_sleep_days: 'Need at least 7 nights of sleep score to compute.',
-  no_prs_baseline: 'Awaiting more check-ins to establish a baseline.',
-  insufficient_next_day_prs: 'Awaiting more morning briefs after high-sleep nights.',
-  no_rhr_rows: 'Awaiting resting heart rate data from Apple Health.',
-  insufficient_rhr_days: 'Need at least 7 days of resting heart rate.',
-  no_recovered_days_after_filter: 'No well-recovered days detected in this window.',
-  bucket_below_min_occurrences: 'Recovered days exist but not enough briefs in any single window yet.',
-  no_positive_lift: 'Recovered days did not show a measurable lift this window.',
-  no_hr_samples: 'Awaiting minute-level heart rate from Apple Watch.',
-  no_resting_baseline: 'Awaiting more resting heart rate readings.',
-  no_event_day_overlap: 'Heart-rate data and calendar events have not overlapped yet.',
-  all_subtypes_below_min_occurrences: 'Not enough events per type to compute lift.',
-  all_categories_below_min_occurrences: 'Not enough events per category to compute lift.',
-};
-
 interface PerformanceRhythmCardProps {
   userId?: string;
 }
