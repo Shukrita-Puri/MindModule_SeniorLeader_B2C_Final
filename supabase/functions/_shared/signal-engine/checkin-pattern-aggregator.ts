@@ -342,6 +342,8 @@ function valueForDim(row: WearableRow, dim: WearableDim): number | null {
     case 'sleep_score':      return typeof row.sleep_score === 'number' ? row.sleep_score : null;
     case 'sleep_duration':   return typeof row.total_sleep_minutes === 'number' ? row.total_sleep_minutes : null;
     case 'sleep_efficiency': return typeof row.sleep_efficiency === 'number' ? row.sleep_efficiency : null;
+    case 'rhr':              return typeof row.resting_heart_rate === 'number' ? row.resting_heart_rate : null;
+    case 'hr':               return typeof row.heart_rate === 'number' ? row.heart_rate : null;
   }
 }
 
@@ -358,10 +360,20 @@ function classify(value: number, dim: WearableDim, baselines: WearableBaselines)
       return { positive: value >= 420, negative: value <= 360 };
     case 'sleep_efficiency':
       return { positive: value >= 85, negative: value <= 75 };
+    // Inverted dims — lower is better ("well-recovered").
+    case 'rhr': {
+      const base = baselines.rhr ?? null;
+      if (base == null || base <= 0) return { positive: false, negative: false };
+      return { positive: value <= base, negative: value >= base * 1.05 };
+    }
+    case 'hr': {
+      const base = baselines.hr ?? null;
+      if (base == null || base <= 0) return { positive: false, negative: false };
+      return { positive: value <= base, negative: value >= base * 1.05 };
+    }
   }
 }
 
-/**
  * Build a per-day series for one wearable dim. Caller passes the last 30d
  * of wearable_data rows (any order). Output is one entry per `summary_date`
  * with a non-null value for the requested dim.
