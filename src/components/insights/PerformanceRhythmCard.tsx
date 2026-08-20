@@ -332,21 +332,13 @@ const PatternAnalysisSection = ({
           <button
             type="button"
             onClick={() => setCheckInOpen((v) => !v)}
-            className="w-full flex items-start gap-2 text-left"
+            className="w-full flex justify-center py-1"
+            aria-label="Toggle analysis"
             aria-expanded={checkInOpen}
           >
-            <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
-            <span className="flex-1 min-w-0">
-              <span className="block text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                Mental Performance Patterns When You Perform Best
-              </span>
-              <span className="block text-[10px] text-muted-foreground/70 mt-0.5">
-                Based on check-in data
-              </span>
-            </span>
             <ChevronDown
               className={cn(
-                'h-4 w-4 text-muted-foreground/60 flex-shrink-0 mt-0.5 transition-transform duration-200',
+                'h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200',
                 checkInOpen && 'rotate-180',
               )}
             />
@@ -1145,6 +1137,21 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               <p className="text-xs text-muted-foreground/70 text-center">
                 {getProgressiveMessage()}
               </p>
+            )}
+
+            {/* Section header for check-in patterns */}
+            {data.checkInCount >= 5 && (
+              <div className="flex items-start gap-2">
+                <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    Mental Performance Patterns
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                    Based on check-in data
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* Tab switcher: one chart at a time */}
