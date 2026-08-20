@@ -241,12 +241,16 @@ const InnerReadinessDial = () => {
       } else if (dayRows.length > 0) {
         const avg = dayRows.reduce((a, b) => a + (b.score as number), 0) / dayRows.length;
         t = tierFor(avg, dayRows[dayRows.length - 1].tier);
+      } else if (typeof checkinDays[ds] === 'number') {
+        // No brief for that day, but the user did self-assess — colour from
+        // the check-in composite rather than leaving the day blank.
+        t = tierFor(checkinDays[ds]);
       } else {
         t = null;
       }
       return { date: ds, label: format(d, 'EEEEE'), tier: t, isToday, isFuture };
     });
-  }, [snapshots, todayTier]);
+  }, [snapshots, todayTier, checkinDays]);
 
   // Semicircular dial geometry
   const W = 180, H = 100, CX = 90, CY = 90, R = 72, STROKE = 10;
