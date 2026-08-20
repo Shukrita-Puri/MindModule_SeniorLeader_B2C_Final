@@ -415,35 +415,6 @@ export function ApplePaywall({
         );
       })}
 
-      {/* What's Included (Clean list, minimal weight, no border lines) */}
-      <div className="space-y-2 py-2 px-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          WHAT&apos;S INCLUDED
-        </p>
-        <ul className="space-y-1.5 text-xs text-foreground/85 leading-snug">
-          <li className="flex items-start gap-1.5">
-            <span className="text-saffron">•</span>
-            <span>Daily Briefs to know where you stand before the day runs you</span>
-          </li>
-          <li className="flex items-start gap-1.5">
-            <span className="text-saffron">•</span>
-            <span>Short Performance plan built around your day, your signals, your patterns</span>
-          </li>
-          <li className="flex items-start gap-1.5">
-            <span className="text-saffron">•</span>
-            <span>Quick Protocols that work under real pressure</span>
-          </li>
-          <li className="flex items-start gap-1.5">
-            <span className="text-saffron">•</span>
-            <span>Weekly Intelligence on what&apos;s quietly draining or restoring you</span>
-          </li>
-          <li className="flex items-start gap-1.5">
-            <span className="text-saffron">•</span>
-            <span>Connected to your world - not your memory</span>
-          </li>
-        </ul>
-      </div>
-
       {/* Compliance Terms Block */}
       <div className="pt-2 space-y-3">
         <p className="text-[11px] text-muted-foreground leading-relaxed">
