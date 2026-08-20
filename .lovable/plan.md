@@ -27,11 +27,23 @@ The trend series moves onto the exact same daily value the dots already use:
 2. the day's check-in composite, else
 3. no value for that day (a real gap — never invented).
 
-Result: if a day earns a coloured dot, it also gets a point on the 1W/1M/6M chart.
-1M and 6M aggregate the same daily values into weekly (1M) and monthly (6M) buckets so
-the x-axis stays readable, matching the Apple Health pattern.
+Result: if a day earns a coloured dot, it also gets a point in the chart's aggregation.
 
-## 3. Chart rendering — Apple Health style
+## 3. Ranges become 1M / 6M / 1Y
+
+The weekly view is already covered by the streak circles, so 1W is dropped from the
+range picker. The chart now offers:
+
+```text
+1M  -> one point per day        (30 days)
+6M  -> one point per week       (~26 points)
+1Y  -> one point per month      (12 points)
+```
+
+Default selection is 1M. Bucket values are the mean of the measured days inside the
+bucket; buckets with no measured day are gaps.
+
+## 4. Chart rendering — Apple Health style
 
 - Points that have data: **open circle markers** on the line, so it is obvious which
   days/weeks/months were measured.
@@ -40,21 +52,22 @@ the x-axis stays readable, matching the Apple Health pattern.
 - Fully missing stretches: dotted baseline instead of blank white space.
 - Empty state stays as is when there is genuinely nothing in the range.
 
-## 4. Header: Avg instead of "Trend"
+## 5. Header: Avg instead of "Trend"
 
 The panel header replaces the word "Trend" with an Apple-style average block:
 
 ```text
 AVERAGE
-64            <- mean of the measured points in the selected range
-13 - 19 Aug 2026   <- range label
-                                      [1W] [1M] [6M]
+64                 <- mean of the measured points in the selected range
+20 Jul - 19 Aug 2026   <- range label
+                                      [1M] [6M] [1Y]
 ```
 
 Recommendation: yes, this is worth doing — the average gives the number the chart is
-otherwise only implying, and it makes 1M/6M meaningful at a glance. Days without data
-are excluded from the mean (never counted as zero). If no point exists in the range the
-block shows an em dash and the existing "Building your trend history" caption.
+otherwise only implying. Periods without data are excluded from the mean (never counted
+as zero). If no point exists in the range the block shows an em dash and the existing
+"Building your trend history" caption.
+
 
 ## Technical notes
 
