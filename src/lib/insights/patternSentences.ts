@@ -130,9 +130,13 @@ export function buildSentence(f: RhythmFinding): { text: string; tier: Confidenc
   const isWearable = s.source === 'wearable';
   let core: string | null = null;
 
-  if (f.kind === 'cell-peak' && s.day != null && s.window != null) {
+  // Wearables write one row per night (tw is always 0), so time-of-day
+  // phrasing would be a lie for them — day-scoped copy only.
+  if (f.kind === 'cell-peak' && s.day != null && s.window != null && !isWearable) {
     core = `${DAYS_FULL[s.day]} ${(WINDOW_LABELS[s.window] ?? '').toLowerCase()}s are your ${adj} window — ${s.bestPct}% across ${s.n} check-ins`;
-  } else if (f.kind === 'peak-window' && s.window != null) {
+  } else if (f.kind === 'cell-peak' && s.day != null && isWearable) {
+    core = `${noun.charAt(0).toUpperCase()}${noun.slice(1)} sits ${s.polarity === 'low' ? 'lowest' : 'highest'} on ${pluralDay(s.day)} — ${s.bestPct}% of those nights in your best band`;
+  } else if (f.kind === 'peak-window' && s.window != null && !isWearable) {
     const cmp = s.comparisonWindow != null ? ` vs ${s.comparePct}% in the ${(WINDOW_LABELS[s.comparisonWindow] ?? '').toLowerCase()}` : '';
     core = `${WINDOW_LABELS[s.window]}s are your ${adj} ${noun} window — ${s.bestPct}%${cmp}`;
   } else if (f.kind === 'peak-day' && s.day != null) {
