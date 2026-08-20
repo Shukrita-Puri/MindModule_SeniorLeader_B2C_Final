@@ -45,6 +45,12 @@ const SHOW_DAILY_SHOW_UP_CALENDAR = false;
 // Trajectory summary row. Suppressed because the Inner Readiness dial already
 // deep-links to /insights/leadership-patterns. Owner: Insights product.
 const SHOW_TRAJECTORY_SUMMARY_ROW = false;
+/**
+ * Performance Streak · This Month card is suppressed for now (user feedback:
+ * too much content on /insights). Component + data intact — flip to true to
+ * resurface.
+ */
+const SHOW_PERFORMANCE_STREAKS = false;
 // "Your Momentum" Tiny Wins luxury card. Retained for re-enable once the copy
 // shifts to a more text-based framing. Owner: Insights product.
 const SHOW_MOMENTUM_LUXURY_CARD = false;
@@ -966,7 +972,7 @@ const Insights = () => {
 
           {/* Inner Readiness dial (resets weekly) + Performance Streaks (resets monthly) */}
           <InnerReadinessDial />
-          <PerformanceStreaks />
+          {SHOW_PERFORMANCE_STREAKS && <PerformanceStreaks />}
 
           {/* Trajectory row suppressed via SHOW_TRAJECTORY_SUMMARY_ROW — dial taps already deep-link to /insights/leadership-patterns */}
           {SHOW_TRAJECTORY_SUMMARY_ROW && (
