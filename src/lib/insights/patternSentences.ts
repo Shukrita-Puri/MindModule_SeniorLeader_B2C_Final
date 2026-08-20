@@ -128,6 +128,9 @@ export function buildSentence(f: RhythmFinding): { text: string; tier: Confidenc
   const tier = confidenceTier(s.n);
   if (tier === 'insufficient') return null;
   if (!isPositiveFinding(f)) return null;
+  // A "peak" must actually be good in absolute terms, not merely the least-bad
+  // bucket. Anything under a 50% positive rate is a relative gap, not a peak.
+  if (s.bestPct != null && s.bestPct < 50) return null;
 
   const adj = POSITIVE_ADJECTIVE[f.dimension];
   const noun = DIM_NOUN[f.dimension];
