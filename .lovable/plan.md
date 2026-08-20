@@ -6,20 +6,20 @@ Scope: layout and structure only, inside `PerformanceRhythmCard.tsx`. No edge fu
 
 Today there is one boxed "PERFORMANCE PATTERNS" block with two small sub-labels inside it. It becomes two separate, visually distinct sections.
 
-### Section 1 — CHECK-IN PATTERNS
+### Section 1 — MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST (check-in data)
 - Sits directly below the pill chart (Clarity / Emotion / Pressure / Regulation tabs and the trend grid).
 - Stays scoped to the active tab's dimension, as it is now.
-- Label: `CHECK-IN PATTERNS`
-- Sub-label, small and muted: `Based on your self-reported check-ins`
+- Label: `MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST`
+- Sub-label, small and muted: `Based on check-in data`
 - Collapsible: a chevron toggle on the header row using the same chevron pattern used elsewhere in the app (rotating `ChevronDown`, 200ms transition). Default state: expanded.
 
 [thin full-width divider — same weight as existing card dividers]
 
-### Section 2 — MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST
+### Section 2 — MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST (physiology and demand data)
 - Sits below the divider.
 - Not tab-scoped; always renders regardless of the active tab.
 - Label: `MENTAL PERFORMANCE PATTERNS WHEN YOU PERFORM BEST`
-- Sub-label, small and muted: `Based on physiology & demand (wearable + calendar)`
+- Sub-label, small and muted: `Based on physiology and demand data (wearable + calendar)`
 - Not collapsible (always open).
 - Content is exactly today's "Baseline patterns": wearable findings plus the sharpest-window, calendar and category-lift lines.
 
