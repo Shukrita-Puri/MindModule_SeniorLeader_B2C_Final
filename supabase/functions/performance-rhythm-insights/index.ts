@@ -809,6 +809,7 @@ serve(async (req) => {
           tw: ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2,
           positive,
           negative,
+          value: typeof v === 'number' ? v : undefined,
         });
       }
       return out;
