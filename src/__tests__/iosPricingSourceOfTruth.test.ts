@@ -44,7 +44,7 @@ describe('no hardcoded subscription pricing on iOS-reachable surfaces', () => {
   it('ApplePaywall only hardcodes the canonical GBP fallback amounts', () => {
     const src = stripComments(read('src/components/subscription/ApplePaywall.tsx'));
     const matches = Array.from(src.matchAll(/[£$€]\s?\d+(?:\.\d+)?/g)).map((m) => m[0]);
-    expect(matches).toEqual(['£34.99', '£299.99', '£34.99', '£299.99']);
+    expect(matches).toEqual(['£34.99', '£299.99']);
   });
 
   it('the paywall renders StoreKit displayPrice rather than its own copy', () => {
