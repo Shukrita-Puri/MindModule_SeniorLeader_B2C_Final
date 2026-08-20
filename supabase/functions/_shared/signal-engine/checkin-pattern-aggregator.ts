@@ -307,7 +307,11 @@ export type CoherencePill = { key: string; tier: PillTier };
 //   sleep_duration    positive: ≥ 420 min (7h)             negative: ≤ 360 min (6h)
 //   sleep_efficiency  positive: ≥ 85                       negative: ≤ 75
 
-export type WearableDim = 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
+// v4 additions (perform-best card):
+//   rhr  (inverted)   positive: value ≤ baseline           negative: value ≥ baseline × 1.05
+//   hr   (inverted)   positive: value ≤ baseline           negative: value ≥ baseline × 1.05
+export type WearableDim =
+  | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency' | 'rhr' | 'hr';
 
 export interface WearableSeriesPoint {
   dateStr: string;
