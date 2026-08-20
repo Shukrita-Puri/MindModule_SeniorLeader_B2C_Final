@@ -104,8 +104,7 @@ function aggregateCheckins(rows: CheckinRow[]): Record<string, number> {
 const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
-  const [snapshots, setSnapshots] = useState<Array<{ local_date: string; score: number | null; tier: string | null }>>([]);
-  const [checkinDays, setCheckinDays] = useState<Record<string, number>>({});
+  const [weekScores, setWeekScores] = useState<Record<string, number>>({});
   const [showFirstReadingNotice, setShowFirstReadingNotice] = useState(false);
   const [expanded, setExpanded] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
