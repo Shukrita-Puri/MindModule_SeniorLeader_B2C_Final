@@ -1421,46 +1421,15 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               />
             )}
 
-            {/* 1A – Your Rhythm Signals: top-3 Chief-of-Staff prioritized findings */}
-            {data.checkInCount >= 7 && data.mindRhythmPatterns && data.mindRhythmPatterns.topThree.length > 0 && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary/70" />
-                  <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Performance Patterns
-                  </span>
-                  <InsightInfoModal
-                    title="Performance Patterns"
-                    explanation="The strongest day-of-week × time-of-day patterns across your check-ins — when you peak, when you slip, and the repeating rhythm behind it."
-                  />
-                </div>
-                <ul className="pl-6 space-y-1.5">
-                  {data.mindRhythmPatterns.topThree.map((f, i) => {
-                    const DIM_LABELS: Record<RhythmFinding['dimension'], string> = {
-                      clarity: 'Clarity', emotion: 'Emotion', pressure: 'Pressure', regulation: 'Regulation',
-                      hrv: 'HRV', sleep_score: 'Sleep Score', sleep_duration: 'Sleep Duration', sleep_efficiency: 'Sleep Efficiency',
-                    };
-                    const dimLabel = DIM_LABELS[f.dimension] ?? f.dimension;
-                    return (
-                      <li key={i} className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
-                        <span>
-                          {f.text}
-                          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">· {dimLabel}</span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-
-            {/* v4 — Performance Lift blocks (wearable + calendar fusion) */}
-            {data.performanceLift && (
-              <PerformanceLiftBlocks
-                lift={data.performanceLift}
+            {/* Pattern Analysis — check-in patterns vs baseline patterns */}
+            {data.checkInCount >= 7 && (
+              <PatternAnalysisSection
+                findings={data.mindRhythmPatterns?.all ?? []}
+                activeTrend={activeTrend}
+                lift={data.performanceLift ?? null}
                 hasCalendar={data.hasCalendar}
-                diagnostics={data.performanceDiagnostics ?? null}
+                calendarInsight={data.calendarInsight ?? null}
+                bestWindowLabel={data.bestReadinessWindow?.label ?? null}
               />
             )}
 
@@ -1473,30 +1442,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* Elevated: Your Sharpest Window */}
-            {data.bestReadinessWindow && (
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
-                <p className="text-xs font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
-                  Your Sharpest Window
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {data.bestReadinessWindow.label}
-                </p>
-              </div>
-            )}
-
-            {/* 1B – Calendar Pattern */}
-            {data.checkInCount >= 7 && data.calendarInsight && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary/70" />
-                  <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Calendar Pattern
-                  </span>
-                </div>
-                <p className="text-sm text-foreground/85 leading-relaxed pl-6">{data.calendarInsight}</p>
-              </div>
-            )}
 
             {/* Insight unlock incentives */}
             {getInsightUnlockMessages().length > 0 && !data.presenceLabel && !data.calendarInsight && !data.causeEffectInsight && (
