@@ -297,17 +297,13 @@ const PatternAnalysisSection = ({
   bestWindowLabel: string | null;
 }) => {
   const [checkInOpen, setCheckInOpen] = useState(true);
+  // Positive-only card scope + observation guard + soft cap live in
+  // buildSection (src/lib/insights/patternSentences.ts).
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
-  // Tab-scoped: each of the 4 trends surfaces its own dimension's findings so
-  // no sentence repeats across cards. Fall back to the ranked list when the
-  // active dimension has none.
   const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
-  const checkInLines = dedupeFindings(scoped.length > 0 ? scoped : checkInAll, 3);
+  const checkInLines = buildSection(scoped.length > 0 ? scoped : checkInAll, 'check-in', 3);
+  const baselineFindingLines = buildSection(findings, 'wearable', 3);
 
-  const baselineFindingLines = dedupeFindings(
-    findings.filter((f) => !CHECK_IN_DIMS.has(f.dimension)),
-    2,
-  );
   const liftLines = buildBaselineLiftLines(lift, hasCalendar);
   const extraBaseline = [
     ...(bestWindowLabel ? [`Sharpest window: ${bestWindowLabel}.`] : []),
@@ -317,63 +313,83 @@ const PatternAnalysisSection = ({
 
   const hasCheckIn = checkInLines.length > 0;
   const hasBaseline = baselineFindingLines.length > 0 || extraBaseline.length > 0;
-  if (!hasCheckIn && !hasBaseline) return null;
 
   return (
     <div className="space-y-4">
-      {hasCheckIn && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => setCheckInOpen((v) => !v)}
-            className="w-full flex justify-center py-1"
-            aria-label="Toggle analysis"
-            aria-expanded={checkInOpen}
-          >
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200',
-                checkInOpen && 'rotate-180',
-              )}
-            />
-          </button>
-          {checkInOpen && (
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setCheckInOpen((v) => !v)}
+          className="w-full flex justify-center py-1"
+          aria-label="Toggle analysis"
+          aria-expanded={checkInOpen}
+        >
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200',
+              checkInOpen && 'rotate-180',
+            )}
+          />
+        </button>
+        {checkInOpen && (
+          hasCheckIn ? (
             <ul className="pl-2 space-y-1.5">
-              {checkInLines.map((f, i) => (
-                <PatternLine key={`ci-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+              {checkInLines.map((r, i) => (
+                <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
               ))}
             </ul>
-          )}
-        </div>
-      )}
+          ) : (
+            <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE['check-in']}</p>
+          )
+        )}
+      </div>
 
-      {hasCheckIn && hasBaseline && <div className="h-px bg-border/40" />}
+      <div className="h-px bg-border/40" />
 
-      {hasBaseline && (
-        <div className="space-y-2">
-          <div className="flex items-start gap-2">
-            <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                Mental Performance Patterns When You Perform Best
-              </p>
-              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                Based on physiology and demand data (wearable + calendar)
-              </p>
-            </div>
-            <InsightInfoModal
-              title="Mental Performance Patterns"
-              explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
-            />
+      <div className="space-y-2">
+        <div className="flex items-start gap-2">
+          <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+              Mental Performance Patterns When You Perform Best
+            </p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+              Based on physiology and demand data (wearable + calendar)
+            </p>
           </div>
+          <InsightInfoModal
+            title="Mental Performance Patterns"
+            explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
+          />
+        </div>
+        {hasBaseline ? (
           <ul className="pl-2 space-y-1.5">
-            {baselineFindingLines.map((f, i) => (
-              <PatternLine key={`bl-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+            {baselineFindingLines.map((r, i) => (
+              <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
             ))}
             {extraBaseline.map((line, i) => (
               <PatternLine key={`lift-${i}`} text={line} />
             ))}
           </ul>
+        ) : (
+          <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE.wearable}</p>
+        )}
+      </div>
+
+      {SHOW_PATTERN_DEBUG && (
+        <div className="space-y-1 rounded-md border border-dashed border-border/60 p-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+            Reliability audit · {findings.length} raw findings
+          </p>
+          <ul className="space-y-1.5">
+            {[...checkInLines, ...baselineFindingLines].map((r, i) => (
+              <PatternDebugRow key={`dbg-${i}`} row={r} />
+            ))}
+          </ul>
+          <p className="text-[10px] font-mono text-muted-foreground/60 break-words">
+            dropped: {findings.filter((f) => !f.stats || f.stats.n < 3).length} (no stats / n&lt;3) ·{' '}
+            {findings.filter((f) => f.stats && f.stats.n >= 3 && !['peak-day', 'peak-window', 'cell-peak', 'consecutive-pos'].includes(f.kind)).length} (negative scope)
+          </p>
         </div>
       )}
     </div>
