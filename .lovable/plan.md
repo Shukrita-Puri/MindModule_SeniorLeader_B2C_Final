@@ -71,3 +71,15 @@ A `SHOW_PATTERN_DEBUG` flag, default off and never user-visible, renders a colla
 - Frontend: `src/components/insights/PerformanceRhythmCard.tsx` plus new modules under `src/components/insights/patterns/` for polarity map, observation guard, card-scope filter, reweighting, sentence templates, empty states and the debug panel.
 - Existing layout (header above the tabs, chevron-only check-in analysis, divider, physiology section) is preserved.
 - Verification: unit tests for the guard, scope filter, reweighting and every template/tier pair; `tsgo` typecheck; visual pass at iPhone width across all four tabs, including empty-state and debug-on runs.
+
+## Founder debug run (data integrity check, before the task closes)
+
+With `SHOW_PATTERN_DEBUG` enabled on your account, I will run the card and share a dump covering at least one finding from each source:
+
+- a check-in finding (Section 1)
+- a wearable finding (Section 2, Pipeline A)
+- an event or category lift finding (Pipeline B)
+
+Each entry will show observation count and the dates used, the raw values behind it, the gap in pp or percent delta, the confidence tier assigned, and the card-scope result with the reason when suppressed.
+
+I will also state which empty-state rule, if any, is currently firing on your account and why. The task is not closed until that output is shared.
