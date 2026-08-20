@@ -129,3 +129,10 @@ describe('wearable time-of-day guard', () => {
     }))).toBeNull();
   });
 });
+
+describe('absolute peak floor', () => {
+  it('drops "peaks" below a 50% positive rate', () => {
+    expect(buildSentence(mk({ stats: { n: 6, bestPct: 33, comparePct: 0 } }))).toBeNull();
+    expect(buildSentence(mk({ stats: { n: 6, bestPct: 60, comparePct: 20 } }))).not.toBeNull();
+  });
+});
