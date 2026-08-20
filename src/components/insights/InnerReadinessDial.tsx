@@ -110,7 +110,7 @@ const InnerReadinessDial = () => {
     if (typeof window === 'undefined') return true;
     return window.sessionStorage.getItem('insights.trajectory.expanded') !== '0';
   });
-  const [range, setRange] = useState<7 | 30 | 180>(7);
+  const [range, setRange] = useState<MrsRangeDays>(30);
   const todayScoreForTrend =
     typeof outer?.innerReadinessScore === 'number' ? Math.round(outer.innerReadinessScore) : null;
   const trend = useMrsTrend(todayScoreForTrend, range);
