@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
+import InsightShareSlot from '@/components/insights/InsightShareSlot';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
