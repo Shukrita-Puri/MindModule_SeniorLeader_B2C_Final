@@ -175,26 +175,21 @@ const InnerReadinessDial = () => {
       const ds = format(d, 'yyyy-MM-dd');
       const isToday = ds === todayStr;
       const isFuture = d.getTime() > Date.now() && !isToday;
-      // Average every brief snapshot recorded for that local date — if the
-      // user got multiple briefs (morning / afternoon / evening) we collapse
-      // them to one daily colour.
-      const dayRows = snapshots.filter(s => s.local_date === ds && typeof s.score === 'number' && Number.isFinite(s.score as number));
+      // One daily value per date (brief scores averaged, else the check-in
+      // composite) — identical to what feeds the trend chart.
+      const dayValue = weekScores[ds];
       let t: Tier;
       if (isToday) {
         t = todayTier;
-      } else if (dayRows.length > 0) {
-        const avg = dayRows.reduce((a, b) => a + (b.score as number), 0) / dayRows.length;
-        t = tierFor(avg, dayRows[dayRows.length - 1].tier);
-      } else if (typeof checkinDays[ds] === 'number') {
-        // No brief for that day, but the user did self-assess — colour from
-        // the check-in composite rather than leaving the day blank.
-        t = tierFor(checkinDays[ds]);
+      } else if (typeof dayValue === 'number' && Number.isFinite(dayValue)) {
+        t = tierFor(dayValue);
       } else {
         t = null;
       }
       return { date: ds, label: format(d, 'EEEEE'), tier: t, isToday, isFuture };
     });
-  }, [snapshots, todayTier, checkinDays]);
+  }, [weekScores, todayTier]);
+
 
   // Semicircular dial geometry
   const W = 180, H = 100, CX = 90, CY = 90, R = 72, STROKE = 10;
