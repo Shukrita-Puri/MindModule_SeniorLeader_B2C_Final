@@ -325,34 +325,60 @@ const PatternAnalysisSection = ({
   if (!hasCheckIn && !hasBaseline) return null;
 
   return (
-    <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-4">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-primary/70" />
-        <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-          Performance Patterns
-        </span>
-        <InsightInfoModal
-          title="Performance Patterns"
-          explanation="The strongest day-of-week × time-of-day patterns across your check-ins, kept separate from the wearable and calendar baseline patterns."
-        />
-      </div>
-
+    <div className="space-y-4">
       {hasCheckIn && (
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/70">Check-in patterns</p>
-          <ul className="pl-2 space-y-1.5">
-            {checkInLines.map((f, i) => (
-              <PatternLine key={`ci-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
-            ))}
-          </ul>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setCheckInOpen((v) => !v)}
+            className="w-full flex items-start gap-2 text-left"
+            aria-expanded={checkInOpen}
+          >
+            <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+                Mental Performance Patterns When You Perform Best
+              </span>
+              <span className="block text-[10px] text-muted-foreground/70 mt-0.5">
+                Based on check-in data
+              </span>
+            </span>
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 text-muted-foreground/60 flex-shrink-0 mt-0.5 transition-transform duration-200',
+                checkInOpen && 'rotate-180',
+              )}
+            />
+          </button>
+          {checkInOpen && (
+            <ul className="pl-2 space-y-1.5">
+              {checkInLines.map((f, i) => (
+                <PatternLine key={`ci-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
       {hasCheckIn && hasBaseline && <div className="h-px bg-border/40" />}
 
       {hasBaseline && (
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/70">Baseline patterns</p>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+                Mental Performance Patterns When You Perform Best
+              </p>
+              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                Based on physiology and demand data (wearable + calendar)
+              </p>
+            </div>
+            <InsightInfoModal
+              title="Mental Performance Patterns"
+              explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
+            />
+          </div>
           <ul className="pl-2 space-y-1.5">
             {baselineFindingLines.map((f, i) => (
               <PatternLine key={`bl-${i}`} text={f.text} dim={DIM_LABELS[f.dimension]} />
