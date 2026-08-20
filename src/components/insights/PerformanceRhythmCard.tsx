@@ -231,166 +231,47 @@ function windowLabel(w: 'morning' | 'afternoon' | 'evening' | null | undefined):
   return w.charAt(0).toUpperCase() + w.slice(1);
 }
 
-const PerformanceLiftBlocks = ({
-  lift,
-  hasCalendar,
-  diagnostics,
-}: {
-  lift: PerformanceLift;
-  hasCalendar: boolean;
-  diagnostics?: PerformanceDiagnostics | null;
-}) => {
+// Collapsed to plain text lines (no charts, no "awaiting data" placeholders).
+// Empty array = render nothing.
+function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boolean): string[] {
+  if (!lift) return [];
+  const lines: string[] = [];
   const sleep = lift.sleep_to_peak;
   const rec = lift.rhr_recovery_window;
   const streak = lift.recovery_streak_to_peak;
-  // Thriving = positive composite lift. Draining = negative. Mirror them.
-  const thriving = lift.category_lift.filter((c) => c.compositeLift > 0).slice(0, 4);
-  const draining = lift.category_lift.filter((c) => c.compositeLift < 0).slice(0, 4);
-  const maxAbs = Math.max(
-    1,
-    ...thriving.map((c) => Math.abs(c.compositeLift)),
-    ...draining.map((c) => Math.abs(c.compositeLift)),
-  );
 
-  const anyToShow = !!sleep || !!rec || !!streak || thriving.length > 0 || draining.length > 0;
-  const reasons = diagnostics?.gateReasons;
-  const reasonLines: string[] = [];
-  if (reasons) {
-    if (!sleep && reasons.sleep_to_peak !== 'ok') {
-      const copy = GATE_REASON_COPY[reasons.sleep_to_peak];
-      if (copy) reasonLines.push(`Sleep → Next-Day Peak — ${copy}`);
+  if (sleep) {
+    lines.push(
+      `On your best-sleep nights, next-day readiness runs ${sleep.deltaPct >= 0 ? '+' : ''}${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowLabel(sleep.bestWindow).toLowerCase()}` : ''}.`,
+    );
+  }
+  if (rec) {
+    lines.push(
+      `On well-recovered days your ${windowLabel(rec.window).toLowerCase()} leads by ${rec.liftPct >= 0 ? '+' : ''}${rec.liftPct}%.`,
+    );
+  }
+  if (streak) {
+    lines.push(
+      `Your peak days typically follow ${streak.avgStreakLength} consecutive low-RHR day${streak.avgStreakLength === 1 ? '' : 's'}.`,
+    );
+  }
+  if (hasCalendar) {
+    const thriving = lift.category_lift.filter((c) => c.compositeLift > 0).slice(0, 2);
+    const draining = lift.category_lift.filter((c) => c.compositeLift < 0).slice(0, 2);
+    if (thriving.length > 0) {
+      lines.push(
+        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts ${thriving[0].compositeLift >= 0 ? '+' : ''}${thriving[0].compositeLift}% on those days.`,
+      );
     }
-    if (!rec && reasons.rhr_recovery_window !== 'ok') {
-      const copy = GATE_REASON_COPY[reasons.rhr_recovery_window];
-      if (copy) reasonLines.push(`Recovery → Best Window — ${copy}`);
-    }
-    if (thriving.length === 0 && draining.length === 0 && reasons.hr_event_lift !== 'ok') {
-      const copy = GATE_REASON_COPY[reasons.hr_event_lift];
-      if (copy) reasonLines.push(`Event Categories — ${copy}`);
+    if (draining.length > 0) {
+      lines.push(
+        `${draining.map((c) => c.categoryName).join(' and ')} cost you the most — ${draining[0].compositeLift}% on readiness.`,
+      );
     }
   }
-  if (!anyToShow && reasonLines.length === 0) return null;
+  return lines;
+}
 
-  return (
-    <div className="space-y-3">
-      {/* A — Sleep → Next-Day Peak */}
-      {sleep && (
-        <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/5 via-emerald-500/3 to-transparent border border-emerald-500/15 space-y-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-600/70 dark:text-emerald-400/70" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body">
-              Sleep → Next-Day Peak
-            </span>
-            <InsightInfoModal
-              title="Sleep → Next-Day Peak"
-              explanation="On nights your sleep clears your personal P70, this is how much your readiness lifts the following day — and which window peaks first."
-            />
-          </div>
-          <p className="text-sm text-foreground/85 leading-relaxed pl-6">
-            On your best-sleep nights, next-day readiness runs{' '}
-            <span className="font-medium tabular-nums">
-              {sleep.deltaPct >= 0 ? '+' : ''}{sleep.deltaPct}%
-            </span>{' '}
-            above your baseline
-            {sleep.bestWindow ? <> — peak window: <span className="font-medium">{windowLabel(sleep.bestWindow)}</span></> : null}
-            <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
-              · n={sleep.n} · {sleep.confidence}
-            </span>
-          </p>
-        </div>
-      )}
-
-      {/* B — Recovery → Best Window */}
-      {(rec || streak) && (
-        <div className="p-4 rounded-xl bg-gradient-to-br from-sky-500/5 via-sky-500/3 to-transparent border border-sky-500/15 space-y-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-sky-600/70 dark:text-sky-400/70" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-sky-700/70 dark:text-sky-400/70 font-body">
-              Recovery → Best Window
-            </span>
-            <InsightInfoModal
-              title="Recovery → Best Window"
-              explanation="Days where your resting heart rate is well below baseline (≤ −1σ) → the window of day where your check-ins peak the most."
-            />
-          </div>
-          {rec && (
-            <p className="text-sm text-foreground/85 leading-relaxed pl-6">
-              On well-recovered days, your{' '}
-              <span className="font-medium">{windowLabel(rec.window)}</span> readiness leads by{' '}
-              <span className="font-medium tabular-nums">
-                {rec.liftPct >= 0 ? '+' : ''}{rec.liftPct}%
-              </span>
-              <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
-                · n={rec.n} · {rec.confidence}
-              </span>
-            </p>
-          )}
-          {streak && (
-            <p className="text-xs text-muted-foreground/85 leading-relaxed pl-6">
-              Your peak days typically follow{' '}
-              <span className="font-medium tabular-nums">{streak.avgStreakLength}</span>{' '}
-              consecutive low-RHR day{streak.avgStreakLength === 1 ? '' : 's'}
-              <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
-                · n={streak.n} · {streak.confidence}
-              </span>
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* C — Event Categories Where You Thrive */}
-      {(thriving.length > 0 || draining.length > 0) && hasCalendar && (
-        <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary/70" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-              Event Categories Where You Thrive
-            </span>
-            <InsightInfoModal
-              title="Event Categories Where You Thrive"
-              explanation="Rolled to the A–H executive categories: lower peak heart-rate during the event window paired with higher same-day readiness = a category you handle well."
-            />
-          </div>
-          <div className="pl-6 space-y-2">
-            {thriving.map((c) => (
-              <CategoryBar
-                key={`thrive-${c.categoryId}`}
-                name={c.categoryName}
-                lift={c.compositeLift}
-                hrDelta={c.hrDeltaBpm}
-                n={c.n}
-                conf={c.confidence}
-                maxAbs={maxAbs}
-                direction="thrive"
-              />
-            ))}
-            {draining.map((c) => (
-              <CategoryBar
-                key={`drain-${c.categoryId}`}
-                name={c.categoryName}
-                lift={c.compositeLift}
-                hrDelta={c.hrDeltaBpm}
-                n={c.n}
-                conf={c.confidence}
-                maxAbs={maxAbs}
-                direction="drain"
-              />
-            ))}
-          </div>
-        </div>
-      )}
-      {reasonLines.length > 0 && (
-        <div className="p-3 rounded-xl bg-muted/15 space-y-1">
-          {reasonLines.map((line, i) => (
-            <p key={i} className="text-[11px] text-muted-foreground/80 leading-relaxed">
-              {line}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const CategoryBar = ({
   name,
