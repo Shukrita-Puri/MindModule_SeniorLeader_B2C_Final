@@ -75,6 +75,31 @@ function checkinComposite(c: {
   return parts.reduce((a, b) => a + b, 0) / parts.length;
 }
 
+type CheckinRow = {
+  checkin_date?: string | null;
+  clarity_level?: number | null;
+  emotion_level?: number | null;
+  pressure_level?: number | null;
+  regulation_level?: number | null;
+};
+
+/** Collapse multiple check-ins on a date into one 0–100 composite. */
+function aggregateCheckins(rows: CheckinRow[]): Record<string, number> {
+  const buckets: Record<string, number[]> = {};
+  for (const r of rows) {
+    const d = r?.checkin_date;
+    if (!d) continue;
+    const c = checkinComposite(r);
+    if (c === null) continue;
+    (buckets[d] ||= []).push(c);
+  }
+  const out: Record<string, number> = {};
+  for (const [d, vals] of Object.entries(buckets)) {
+    out[d] = vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+  return out;
+}
+
 const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
