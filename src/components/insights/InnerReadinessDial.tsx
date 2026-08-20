@@ -275,29 +275,16 @@ const InnerReadinessDial = () => {
       )}
       aria-label="Your performance trajectory this week"
     >
-      <button
-        type="button"
-        onClick={toggleExpanded}
-        aria-expanded={expanded}
-        aria-controls="trajectory-trend-panel"
-        className="w-full text-left mb-2 flex items-start justify-between gap-3"
-      >
-        <div>
-          <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
-            Your Performance Trajectory
-          </span>
-          <span className="block text-[11px] tracking-[0.12em] uppercase text-muted-foreground/80 mt-0.5">
-            Inner Readiness Streak · This Week
-          </span>
-        </div>
-        <ChevronDown
-          className={cn(
-            'h-4 w-4 mt-1 text-muted-foreground transition-transform',
-            expanded && 'rotate-180'
-          )}
-        />
-      </button>
-      <div className="flex items-center gap-4">
+      <div className="mb-3">
+        <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
+          Your Performance Trajectory
+        </span>
+        <span className="block text-[11px] tracking-[0.12em] uppercase text-muted-foreground/80 mt-0.5">
+          Mental Readiness Streak · This Week
+        </span>
+      </div>
+      <div className={cn('flex items-center', SHOW_INNER_READINESS_DIAL && 'gap-4')}>
+        {SHOW_INNER_READINESS_DIAL && (
         <div className="flex-shrink-0">
           <svg viewBox={`0 0 ${W} ${H}`} width="160" height="92" aria-hidden>
             <path d={arcPath(aStart, aStart + seg)} stroke={tierColor.red} strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={todayTier === 'red' ? 1 : 0.28} />
@@ -315,13 +302,14 @@ const InnerReadinessDial = () => {
                 : (todayTier ? tierLabel[todayTier] : 'Awaiting check-in')}
           </div>
         </div>
+        )}
         <div className="flex-1">
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-7 gap-2">
             {days.map(d => (
-              <div key={d.date} className="flex flex-col items-center gap-1">
-                <span className={cn('text-[10px] uppercase tracking-wider', d.isToday ? 'text-foreground font-semibold' : 'text-muted-foreground/70')}>{d.label}</span>
+              <div key={d.date} className="flex flex-col items-center gap-2">
+                <span className={cn('text-[13px] uppercase tracking-wider', d.isToday ? 'text-foreground font-semibold' : 'text-muted-foreground/70')}>{d.label}</span>
                 <span
-                  className={cn('block w-3.5 h-3.5 rounded-full border', d.isToday ? 'ring-2 ring-offset-1 ring-foreground/40' : '')}
+                  className={cn('block w-7 h-7 rounded-full border', d.isToday ? 'ring-2 ring-offset-2 ring-foreground/40' : '')}
                   style={{
                     background: d.tier ? tierColor[d.tier] : 'transparent',
                     borderColor: d.tier ? tierColor[d.tier] : 'hsl(var(--muted-foreground) / 0.35)',
