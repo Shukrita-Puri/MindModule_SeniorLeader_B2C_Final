@@ -374,6 +374,7 @@ function classify(value: number, dim: WearableDim, baselines: WearableBaselines)
   }
 }
 
+/**
  * Build a per-day series for one wearable dim. Caller passes the last 30d
  * of wearable_data rows (any order). Output is one entry per `summary_date`
  * with a non-null value for the requested dim.
