@@ -220,7 +220,8 @@ function windowLabel(w: 'morning' | 'afternoon' | 'evening' | null | undefined):
 }
 
 // Collapsed to plain text lines (no charts, no "awaiting data" placeholders).
-// Empty array = render nothing.
+// Card scope is POSITIVE-ONLY (spec 3): drains, costs and non-positive deltas
+// never render here. Empty array = render nothing.
 function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boolean): string[] {
   if (!lift) return [];
   const lines: string[] = [];
@@ -228,37 +229,32 @@ function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boole
   const rec = lift.rhr_recovery_window;
   const streak = lift.recovery_streak_to_peak;
 
-  if (sleep) {
+  if (sleep && sleep.deltaPct > 0) {
     lines.push(
-      `On your best-sleep nights, next-day readiness runs ${sleep.deltaPct >= 0 ? '+' : ''}${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowLabel(sleep.bestWindow).toLowerCase()}` : ''}.`,
+      `On your best-sleep nights, next-day readiness runs +${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowLabel(sleep.bestWindow).toLowerCase()}` : ''}.`,
     );
   }
-  if (rec) {
+  if (rec && rec.liftPct > 0) {
     lines.push(
-      `On well-recovered days your ${windowLabel(rec.window).toLowerCase()} leads by ${rec.liftPct >= 0 ? '+' : ''}${rec.liftPct}%.`,
+      `On well-recovered days your ${windowLabel(rec.window).toLowerCase()} leads by +${rec.liftPct}%.`,
     );
   }
-  if (streak) {
+  if (streak && streak.avgStreakLength > 0) {
     lines.push(
       `Your peak days typically follow ${streak.avgStreakLength} consecutive low-RHR day${streak.avgStreakLength === 1 ? '' : 's'}.`,
     );
   }
   if (hasCalendar) {
     const thriving = lift.category_lift.filter((c) => c.compositeLift > 0).slice(0, 2);
-    const draining = lift.category_lift.filter((c) => c.compositeLift < 0).slice(0, 2);
     if (thriving.length > 0) {
       lines.push(
-        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts ${thriving[0].compositeLift >= 0 ? '+' : ''}${thriving[0].compositeLift}% on those days.`,
-      );
-    }
-    if (draining.length > 0) {
-      lines.push(
-        `${draining.map((c) => c.categoryName).join(' and ')} cost you the most — ${draining[0].compositeLift}% on readiness.`,
+        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts +${thriving[0].compositeLift}% on those days.`,
       );
     }
   }
   return lines;
 }
+
 
 const CHECK_IN_DIMS = CHECK_IN_DIM_SET;
 const DIM_LABELS = RHYTHM_DIM_LABELS;
