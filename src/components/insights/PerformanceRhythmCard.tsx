@@ -101,22 +101,22 @@ import {
   CHECK_IN_DIMS as CHECK_IN_DIM_SET,
   DIM_LABELS as RHYTHM_DIM_LABELS,
   EMPTY_STATE,
+  NO_DATA_STATE,
+  EARLY_PATTERN_NOTE,
 } from '@/lib/insights/patternSentences';
 
 /**
- * Founder-only reliability audit: traces every rendered sentence back to its
- * raw observations. Enabled for founder accounts, or for anyone who sets
- * `localStorage.patternDebug = '1'` (support/debug escape hatch).
+ * Internal reliability audit — never user-visible. Off by default; enabled
+ * only by manually setting `localStorage.patternDebug = '1'` (dev/support).
  */
-const FOUNDER_DEBUG_USER_IDS = new Set<string>([
-  'google-oauth2|111878424918915566691',
-]);
-const isPatternDebugEnabled = (userId?: string | null): boolean => {
+const isPatternDebugEnabled = (_userId?: string | null): boolean => {
   try {
-    if (localStorage.getItem('patternDebug') === '1') return true;
-  } catch { /* storage unavailable */ }
-  return !!userId && FOUNDER_DEBUG_USER_IDS.has(userId);
+    return localStorage.getItem('patternDebug') === '1';
+  } catch {
+    return false;
+  }
 };
+
 
 type LiftConfidence = 'strong' | 'emerging';
 type LiftWindow = 'morning' | 'afternoon' | 'evening';
@@ -220,7 +220,8 @@ function windowLabel(w: 'morning' | 'afternoon' | 'evening' | null | undefined):
 }
 
 // Collapsed to plain text lines (no charts, no "awaiting data" placeholders).
-// Empty array = render nothing.
+// Card scope is POSITIVE-ONLY (spec 3): drains, costs and non-positive deltas
+// never render here. Empty array = render nothing.
 function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boolean): string[] {
   if (!lift) return [];
   const lines: string[] = [];
@@ -228,37 +229,32 @@ function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boole
   const rec = lift.rhr_recovery_window;
   const streak = lift.recovery_streak_to_peak;
 
-  if (sleep) {
+  if (sleep && sleep.deltaPct > 0) {
     lines.push(
-      `On your best-sleep nights, next-day readiness runs ${sleep.deltaPct >= 0 ? '+' : ''}${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowLabel(sleep.bestWindow).toLowerCase()}` : ''}.`,
+      `On your best-sleep nights, next-day readiness runs +${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowLabel(sleep.bestWindow).toLowerCase()}` : ''}.`,
     );
   }
-  if (rec) {
+  if (rec && rec.liftPct > 0) {
     lines.push(
-      `On well-recovered days your ${windowLabel(rec.window).toLowerCase()} leads by ${rec.liftPct >= 0 ? '+' : ''}${rec.liftPct}%.`,
+      `On well-recovered days your ${windowLabel(rec.window).toLowerCase()} leads by +${rec.liftPct}%.`,
     );
   }
-  if (streak) {
+  if (streak && streak.avgStreakLength > 0) {
     lines.push(
       `Your peak days typically follow ${streak.avgStreakLength} consecutive low-RHR day${streak.avgStreakLength === 1 ? '' : 's'}.`,
     );
   }
   if (hasCalendar) {
     const thriving = lift.category_lift.filter((c) => c.compositeLift > 0).slice(0, 2);
-    const draining = lift.category_lift.filter((c) => c.compositeLift < 0).slice(0, 2);
     if (thriving.length > 0) {
       lines.push(
-        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts ${thriving[0].compositeLift >= 0 ? '+' : ''}${thriving[0].compositeLift}% on those days.`,
-      );
-    }
-    if (draining.length > 0) {
-      lines.push(
-        `${draining.map((c) => c.categoryName).join(' and ')} cost you the most — ${draining[0].compositeLift}% on readiness.`,
+        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts +${thriving[0].compositeLift}% on those days.`,
       );
     }
   }
   return lines;
 }
+
 
 const CHECK_IN_DIMS = CHECK_IN_DIM_SET;
 const DIM_LABELS = RHYTHM_DIM_LABELS;
@@ -312,7 +308,7 @@ const PatternAnalysisSection = ({
 }) => {
   const [checkInOpen, setCheckInOpen] = useState(true);
   const showDebug = isPatternDebugEnabled(userId);
-  // Positive-only card scope + observation guard + soft cap live in
+  // Positive-only card scope + observation guard + hard cap live in
   // buildSection (src/lib/insights/patternSentences.ts).
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
   const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
@@ -325,9 +321,20 @@ const PatternAnalysisSection = ({
     ...(calendarInsight ? [calendarInsight] : []),
     ...liftLines,
   ];
+  // Hard cap 3 for the whole physiology/demand section (findings + lift lines).
+  const baselineFindingsCapped = baselineFindingLines.slice(0, 3);
+  const extraBaselineCapped = extraBaseline.slice(0, Math.max(0, 3 - baselineFindingsCapped.length));
 
   const hasCheckIn = checkInLines.length > 0;
-  const hasBaseline = baselineFindingLines.length > 0 || extraBaseline.length > 0;
+  const hasBaseline = baselineFindingsCapped.length > 0 || extraBaselineCapped.length > 0;
+  // Nothing recorded at all vs. data present but nothing clearing the guard.
+  const checkInEmptyCopy = checkInAll.length === 0 ? NO_DATA_STATE['check-in'] : EMPTY_STATE['check-in'];
+  const baselineEmptyCopy =
+    findings.every((f) => CHECK_IN_DIMS.has(f.dimension)) && !lift
+      ? NO_DATA_STATE.wearable
+      : EMPTY_STATE.wearable;
+  const checkInEmerging = hasCheckIn && checkInLines.every((r) => r.tier === 'emerging');
+
 
   return (
     <div className="space-y-4">
@@ -348,15 +355,21 @@ const PatternAnalysisSection = ({
         </button>
         {checkInOpen && (
           hasCheckIn ? (
-            <ul className="pl-2 space-y-1.5">
-              {checkInLines.map((r, i) => (
-                <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
-              ))}
-            </ul>
+            <>
+              {checkInEmerging && (
+                <p className="pl-2 text-[11px] text-muted-foreground/60 leading-relaxed">{EARLY_PATTERN_NOTE}</p>
+              )}
+              <ul className="pl-2 space-y-1.5">
+                {checkInLines.map((r, i) => (
+                  <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
+                ))}
+              </ul>
+            </>
           ) : (
-            <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE['check-in']}</p>
+            <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{checkInEmptyCopy}</p>
           )
         )}
+
       </div>
 
       <div className="h-px bg-border/40" />
@@ -379,16 +392,17 @@ const PatternAnalysisSection = ({
         </div>
         {hasBaseline ? (
           <ul className="pl-2 space-y-1.5">
-            {baselineFindingLines.map((r, i) => (
+            {baselineFindingsCapped.map((r, i) => (
               <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
             ))}
-            {extraBaseline.map((line, i) => (
+            {extraBaselineCapped.map((line, i) => (
               <PatternLine key={`lift-${i}`} text={line} />
             ))}
           </ul>
         ) : (
-          <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE.wearable}</p>
+          <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{baselineEmptyCopy}</p>
         )}
+
       </div>
 
       {showDebug && (

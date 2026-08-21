@@ -32,10 +32,24 @@ describe('confidence guard', () => {
     expect(buildSentence(mk({ stats: { n: 2 } }))).toBeNull();
   });
 
+  it('drops findings whose gap is too small', () => {
+    expect(buildSentence(mk({ stats: { n: 8, gapPp: 10 } }))).toBeNull();
+  });
+
+  it('requires n>=6 and 30pp for a strong peak-day', () => {
+    expect(buildSentence(mk({ stats: { n: 6, gapPp: 33 } }))?.tier).toBe('strong');
+    expect(buildSentence(mk({ stats: { n: 5, gapPp: 33 } }))?.tier).toBe('emerging');
+  });
+
   it('hedges emerging findings', () => {
-    const r = buildSentence(mk({ stats: { n: 3 } }));
+    const r = buildSentence(mk({ stats: { n: 3, gapPp: 22 } }));
     expect(r?.tier).toBe('emerging');
     expect(r?.text.startsWith('Early signal —')).toBe(true);
+    expect(r?.text).toContain('Pattern still forming');
+  });
+
+  it('never prints observation counts in user copy', () => {
+    expect(buildSentence(mk({}))?.text).not.toContain('n=');
   });
 });
 
@@ -67,7 +81,7 @@ describe('polarity', () => {
 
 describe('templates', () => {
   it('renders a day peak with comparison', () => {
-    expect(buildSentence(mk({}))?.text).toBe('Tuesdays run your sharpest clarity — 78% vs 45% on Fridays (n=6).');
+    expect(buildSentence(mk({}))?.text).toBe('Tuesdays run your sharpest clarity — 78% vs 45% on Fridays.');
   });
 
   it('renders a window peak', () => {
@@ -89,7 +103,7 @@ describe('templates', () => {
 describe('section assembly', () => {
   it('caps at 3, one per dimension, strong before emerging', () => {
     const findings = [
-      mk({ dimension: 'clarity', stats: { n: 3 }, priorityScore: 5 }),
+      mk({ dimension: 'clarity', stats: { n: 3, gapPp: 25 }, priorityScore: 5 }),
       mk({ dimension: 'emotion', stats: { n: 8 }, priorityScore: 1 }),
       mk({ dimension: 'regulation', stats: { n: 6 }, priorityScore: 2 }),
       mk({ dimension: 'pressure', stats: { n: 6, polarity: 'low' }, priorityScore: 0.5 }),
@@ -115,7 +129,7 @@ describe('wearable time-of-day guard', () => {
   it('never claims a time-of-day window for nightly wearable data', () => {
     const r = buildSentence(mk({
       dimension: 'hr', kind: 'cell-peak',
-      stats: { source: 'wearable', polarity: 'low', day: 4, window: 0, n: 4, bestPct: 100 },
+      stats: { source: 'wearable', polarity: 'low', day: 4, window: 0, n: 4, bestPct: 100, gapPp: 40 },
     }));
     expect(r?.text).not.toContain('morning');
     expect(r?.text).toContain('Fridays');

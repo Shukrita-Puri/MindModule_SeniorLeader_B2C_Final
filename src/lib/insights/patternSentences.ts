@@ -117,6 +117,41 @@ export function confidenceTier(n: number): ConfidenceTier {
   return 'strong';
 }
 
+/**
+ * Observation guard (spec 4): tier is driven by BOTH observation count and the
+ * size of the gap, per pattern shape. Anything below emerging is dropped.
+ */
+export function guardTier(f: RhythmFinding): ConfidenceTier {
+  const s = f.stats;
+  if (!s) return 'insufficient';
+  const n = s.n;
+  const gap = s.gapPp ?? 0;
+
+  if (f.kind === 'consecutive-pos') {
+    const run = s.runLength ?? 0;
+    if (run >= 3) return 'strong';
+    if (run >= 2) return 'emerging';
+    return 'insufficient';
+  }
+  if (f.kind === 'cell-peak') {
+    if (n >= 5 && gap >= 30) return 'strong';
+    if (n >= 3 && gap >= 20) return 'emerging';
+    return 'insufficient';
+  }
+  // peak-day / peak-window
+  if (n >= 6 && gap >= 30) return 'strong';
+  if (n >= 3 && gap >= 20) return 'emerging';
+  return 'insufficient';
+}
+
+/** Card-only ranking overrides (spec 6). Shared backend weights untouched. */
+export const CARD_KIND_WEIGHT: Partial<Record<RhythmKind, number>> = {
+  'cell-peak': 1.0,
+  'consecutive-pos': 0.95,
+  'peak-day': 0.85,
+  'peak-window': 0.78,
+};
+
 function pluralDay(di: number): string {
   return `${DAYS_FULL[di] ?? 'Day'}s`;
 }
@@ -125,12 +160,13 @@ function pluralDay(di: number): string {
 export function buildSentence(f: RhythmFinding): { text: string; tier: ConfidenceTier } | null {
   const s = f.stats;
   if (!s) return null;
-  const tier = confidenceTier(s.n);
-  if (tier === 'insufficient') return null;
   if (!isPositiveFinding(f)) return null;
+  const tier = guardTier(f);
+  if (tier === 'insufficient') return null;
   // A "peak" must actually be good in absolute terms, not merely the least-bad
   // bucket. Anything under a 50% positive rate is a relative gap, not a peak.
   if (s.bestPct != null && s.bestPct < 50) return null;
+
 
   const adj = POSITIVE_ADJECTIVE[f.dimension];
   const noun = DIM_NOUN[f.dimension];
@@ -156,9 +192,11 @@ export function buildSentence(f: RhythmFinding): { text: string; tier: Confidenc
   }
 
   if (!core) return null;
+  // No observation counts in user-facing copy (spec 8) — they live in the
+  // reliability audit panel only.
   const text = tier === 'emerging'
-    ? `Early signal — ${core.charAt(0).toLowerCase()}${core.slice(1)} (${s.n} observations so far).`
-    : `${core} (n=${s.n}).`;
+    ? `Early signal — ${core.charAt(0).toLowerCase()}${core.slice(1)}. Pattern still forming.`
+    : `${core}.`;
   return { text, tier };
 }
 
@@ -172,8 +210,9 @@ export interface PatternSentence {
 
 /**
  * Build the renderable sentences for one section.
- * Reweighting: Strong tier always outranks Emerging; ties break on priorityScore.
- * One sentence per dimension, soft cap 3.
+ * Reweighting: Strong tier always outranks Emerging; ties break on the
+ * card-only kind weight, then on the backend priority score.
+ * One sentence per dimension, hard cap 3.
  */
 export function buildSection(
   findings: RhythmFinding[],
@@ -192,6 +231,8 @@ export function buildSection(
     const tierRank = (t: ConfidenceTier) => (t === 'strong' ? 1 : 0);
     const d = tierRank(b.tier) - tierRank(a.tier);
     if (d !== 0) return d;
+    const w = (CARD_KIND_WEIGHT[b.finding.kind] ?? 0) - (CARD_KIND_WEIGHT[a.finding.kind] ?? 0);
+    if (w !== 0) return w;
     return b.finding.priorityScore - a.finding.priorityScore;
   });
   const seenDim = new Set<RhythmDimension>();
@@ -205,8 +246,16 @@ export function buildSection(
   return out;
 }
 
-/** Empty-state copy per section. */
+/** Empty-state copy (spec 9). `no-data` = nothing recorded yet. */
 export const EMPTY_STATE: Record<'check-in' | 'wearable', string> = {
-  'check-in': 'Not enough check-ins yet to call a pattern. Three on the same day or window unlocks the first read.',
-  wearable: 'Not enough wearable nights yet to call a pattern. Keep syncing — three comparable nights unlocks the first read.',
+  'check-in': 'No clear positive check-in patterns yet for this window — your data is building.',
+  wearable: 'No clear performance signals yet for this window — patterns will surface as your data grows.',
 };
+
+export const NO_DATA_STATE: Record<'check-in' | 'wearable', string> = {
+  'check-in': 'Patterns surface after a few check-ins. Keep going — your first signals are forming.',
+  wearable: 'Wearable and calendar patterns will appear here once your data builds.',
+};
+
+export const EARLY_PATTERN_NOTE = 'Early patterns — building confidence with each check-in.';
+
