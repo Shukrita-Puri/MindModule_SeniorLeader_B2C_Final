@@ -101,22 +101,22 @@ import {
   CHECK_IN_DIMS as CHECK_IN_DIM_SET,
   DIM_LABELS as RHYTHM_DIM_LABELS,
   EMPTY_STATE,
+  NO_DATA_STATE,
+  EARLY_PATTERN_NOTE,
 } from '@/lib/insights/patternSentences';
 
 /**
- * Founder-only reliability audit: traces every rendered sentence back to its
- * raw observations. Enabled for founder accounts, or for anyone who sets
- * `localStorage.patternDebug = '1'` (support/debug escape hatch).
+ * Internal reliability audit — never user-visible. Off by default; enabled
+ * only by manually setting `localStorage.patternDebug = '1'` (dev/support).
  */
-const FOUNDER_DEBUG_USER_IDS = new Set<string>([
-  'google-oauth2|111878424918915566691',
-]);
-const isPatternDebugEnabled = (userId?: string | null): boolean => {
+const isPatternDebugEnabled = (_userId?: string | null): boolean => {
   try {
-    if (localStorage.getItem('patternDebug') === '1') return true;
-  } catch { /* storage unavailable */ }
-  return !!userId && FOUNDER_DEBUG_USER_IDS.has(userId);
+    return localStorage.getItem('patternDebug') === '1';
+  } catch {
+    return false;
+  }
 };
+
 
 type LiftConfidence = 'strong' | 'emerging';
 type LiftWindow = 'morning' | 'afternoon' | 'evening';
