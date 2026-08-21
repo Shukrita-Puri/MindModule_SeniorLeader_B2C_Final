@@ -308,7 +308,7 @@ const PatternAnalysisSection = ({
 }) => {
   const [checkInOpen, setCheckInOpen] = useState(true);
   const showDebug = isPatternDebugEnabled(userId);
-  // Positive-only card scope + observation guard + soft cap live in
+  // Positive-only card scope + observation guard + hard cap live in
   // buildSection (src/lib/insights/patternSentences.ts).
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
   const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
@@ -321,9 +321,20 @@ const PatternAnalysisSection = ({
     ...(calendarInsight ? [calendarInsight] : []),
     ...liftLines,
   ];
+  // Hard cap 3 for the whole physiology/demand section (findings + lift lines).
+  const baselineFindingsCapped = baselineFindingLines.slice(0, 3);
+  const extraBaselineCapped = extraBaseline.slice(0, Math.max(0, 3 - baselineFindingsCapped.length));
 
   const hasCheckIn = checkInLines.length > 0;
-  const hasBaseline = baselineFindingLines.length > 0 || extraBaseline.length > 0;
+  const hasBaseline = baselineFindingsCapped.length > 0 || extraBaselineCapped.length > 0;
+  // Nothing recorded at all vs. data present but nothing clearing the guard.
+  const checkInEmptyCopy = checkInAll.length === 0 ? NO_DATA_STATE['check-in'] : EMPTY_STATE['check-in'];
+  const baselineEmptyCopy =
+    findings.every((f) => CHECK_IN_DIMS.has(f.dimension)) && !lift
+      ? NO_DATA_STATE.wearable
+      : EMPTY_STATE.wearable;
+  const checkInEmerging = hasCheckIn && checkInLines.every((r) => r.tier === 'emerging');
+
 
   return (
     <div className="space-y-4">
