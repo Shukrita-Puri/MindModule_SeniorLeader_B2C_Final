@@ -748,6 +748,17 @@ const ConnectedData = () => {
         meta: { optimisticConnectedAt },
       });
       console.log('[ConnectedData] Apple Calendar sync started after connect');
+      // Ensure native Keychain has the current auth token BEFORE triggering
+      // the native calendar sync — fresh installs may not have it yet.
+      try {
+        const token = await getAuthToken();
+        if (token) {
+          const { updateNativeBackgroundAuthToken } = await import('@/utils/nativeBackgroundSync');
+          await updateNativeBackgroundAuthToken(token);
+        }
+      } catch (e) {
+        console.warn('[ConnectedData] pre-sync token flush failed (non-fatal):', e);
+      }
       const result = await syncAppleCalendarToBackend({ reason: 'connect' });
       console.log('[ConnectedData] Apple Calendar initial sync result:', JSON.stringify(result));
       if (result.success) {

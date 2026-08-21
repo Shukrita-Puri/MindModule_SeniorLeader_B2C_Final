@@ -184,6 +184,18 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
           toast.error('Calendar permission denied. Enable in Settings → Privacy → Calendars.');
           return;
         }
+        // Ensure native Keychain has the current auth token BEFORE triggering
+        // the native calendar sync — fresh installs may not have it yet.
+        try {
+          const { getAuthToken } = await import('@/services/authTokenService');
+          const token = await getAuthToken();
+          if (token) {
+            const { updateNativeBackgroundAuthToken } = await import('@/utils/nativeBackgroundSync');
+            await updateNativeBackgroundAuthToken(token);
+          }
+        } catch (e) {
+          console.warn('[CalendarProviderPicker] pre-sync token flush failed (non-fatal):', e);
+        }
         const result = await syncAppleCalendarToBackend();
         if (result?.success !== false) {
           toast.success('Apple Calendar connected');

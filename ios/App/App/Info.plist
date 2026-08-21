@@ -45,6 +45,8 @@
 	<string>Mind Module reads your upcoming calendar events to tailor daily readiness and nudges.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Mind Module reads your upcoming calendar events to tailor daily readiness and nudges.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Mind Module does not write to your calendar.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Mind Module uses your location to detect when you're travelling so it can adapt your readiness brief and notification timing to your current time zone.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

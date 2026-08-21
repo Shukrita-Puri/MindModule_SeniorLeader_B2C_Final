@@ -91,7 +91,7 @@ export async function openUrl(url: string): Promise<void> {
       console.warn('[openUrl] Browser listeners warning:', e);
     }
 
-    await Browser.open({ url, presentationStyle: 'popover' });
+    await Browser.open({ url, presentationStyle: 'fullscreen' });
   } else {
     window.location.href = url;
   }
