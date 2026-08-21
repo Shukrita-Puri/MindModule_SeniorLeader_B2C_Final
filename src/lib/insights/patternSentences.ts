@@ -117,6 +117,41 @@ export function confidenceTier(n: number): ConfidenceTier {
   return 'strong';
 }
 
+/**
+ * Observation guard (spec 4): tier is driven by BOTH observation count and the
+ * size of the gap, per pattern shape. Anything below emerging is dropped.
+ */
+export function guardTier(f: RhythmFinding): ConfidenceTier {
+  const s = f.stats;
+  if (!s) return 'insufficient';
+  const n = s.n;
+  const gap = s.gapPp ?? 0;
+
+  if (f.kind === 'consecutive-pos') {
+    const run = s.runLength ?? 0;
+    if (run >= 3) return 'strong';
+    if (run >= 2) return 'emerging';
+    return 'insufficient';
+  }
+  if (f.kind === 'cell-peak') {
+    if (n >= 5 && gap >= 30) return 'strong';
+    if (n >= 3 && gap >= 20) return 'emerging';
+    return 'insufficient';
+  }
+  // peak-day / peak-window
+  if (n >= 6 && gap >= 30) return 'strong';
+  if (n >= 3 && gap >= 20) return 'emerging';
+  return 'insufficient';
+}
+
+/** Card-only ranking overrides (spec 6). Shared backend weights untouched. */
+export const CARD_KIND_WEIGHT: Partial<Record<RhythmKind, number>> = {
+  'cell-peak': 1.0,
+  'consecutive-pos': 0.95,
+  'peak-day': 0.85,
+  'peak-window': 0.78,
+};
+
 function pluralDay(di: number): string {
   return `${DAYS_FULL[di] ?? 'Day'}s`;
 }
@@ -125,12 +160,13 @@ function pluralDay(di: number): string {
 export function buildSentence(f: RhythmFinding): { text: string; tier: ConfidenceTier } | null {
   const s = f.stats;
   if (!s) return null;
-  const tier = confidenceTier(s.n);
-  if (tier === 'insufficient') return null;
   if (!isPositiveFinding(f)) return null;
+  const tier = guardTier(f);
+  if (tier === 'insufficient') return null;
   // A "peak" must actually be good in absolute terms, not merely the least-bad
   // bucket. Anything under a 50% positive rate is a relative gap, not a peak.
   if (s.bestPct != null && s.bestPct < 50) return null;
+
 
   const adj = POSITIVE_ADJECTIVE[f.dimension];
   const noun = DIM_NOUN[f.dimension];
