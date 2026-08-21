@@ -355,15 +355,21 @@ const PatternAnalysisSection = ({
         </button>
         {checkInOpen && (
           hasCheckIn ? (
-            <ul className="pl-2 space-y-1.5">
-              {checkInLines.map((r, i) => (
-                <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
-              ))}
-            </ul>
+            <>
+              {checkInEmerging && (
+                <p className="pl-2 text-[11px] text-muted-foreground/60 leading-relaxed">{EARLY_PATTERN_NOTE}</p>
+              )}
+              <ul className="pl-2 space-y-1.5">
+                {checkInLines.map((r, i) => (
+                  <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
+                ))}
+              </ul>
+            </>
           ) : (
-            <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE['check-in']}</p>
+            <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{checkInEmptyCopy}</p>
           )
         )}
+
       </div>
 
       <div className="h-px bg-border/40" />
