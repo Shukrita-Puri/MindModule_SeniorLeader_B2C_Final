@@ -119,8 +119,9 @@ export async function fetchCalendarProvidersState(): Promise<CalendarProvidersFe
 async function startOAuthConnect(provider: 'google' | 'microsoft', redirectPath: string) {
   const token = await getAuthToken();
   if (!token) throw new Error('Not authenticated');
+  const { isNativeApp } = await import('@/utils/healthKitCapacitor');
   const { data, error } = await supabase.functions.invoke('calendar-auth', {
-    body: { action: 'connect', provider, redirectPath },
+    body: { action: 'connect', provider, redirectPath, platform: isNativeApp() ? 'native' : 'web' },
     headers: { Authorization: `Bearer ${token}` },
   });
   if (error) throw error;

@@ -582,6 +582,7 @@ const ConnectedData = () => {
             action: 'connect',
             provider: targetProvider,
             redirectPath: '/connected-data',
+            platform: isNativeApp() ? 'native' : 'web',
           }),
         }
       );

@@ -50,12 +50,13 @@ Deno.serve(async (req) => {
     if (stateParts[2]) {
       try { customRedirectPath = decodeURIComponent(stateParts[2]); } catch {}
     }
+    const platform = stateParts[3] || "web";
 
     const clientId = Deno.env.get("OURA_CLIENT_ID");
     const clientSecret = Deno.env.get("OURA_CLIENT_SECRET");
     const redirectUri = Deno.env.get("OURA_REDIRECT_URI");
     if (!clientId || !clientSecret || !redirectUri) {
-      return Response.redirect(appReturnUrl(false, "not_configured", customRedirectPath), 302);
+      return Response.redirect(appReturnUrl(false, "not_configured", customRedirectPath, platform), 302);
     }
 
     const db = createClient(
@@ -74,10 +75,10 @@ Deno.serve(async (req) => {
 
     if (!row || row.oauth_state !== nonce) {
       console.warn("[oura-oauth-callback] state mismatch for user", redactUserId(userId));
-      return Response.redirect(appReturnUrl(false, "state_mismatch"), 302);
+      return Response.redirect(appReturnUrl(false, "state_mismatch", customRedirectPath, platform), 302);
     }
     if (row.oauth_state_expires_at && new Date(row.oauth_state_expires_at) < new Date()) {
-      return Response.redirect(appReturnUrl(false, "state_expired"), 302);
+      return Response.redirect(appReturnUrl(false, "state_expired", customRedirectPath, platform), 302);
     }
 
     // Exchange code -> tokens
@@ -96,7 +97,7 @@ Deno.serve(async (req) => {
     if (!tokenRes.ok) {
       const text = await tokenRes.text().catch(() => "");
       console.error("[oura-oauth-callback] token exchange failed:", tokenRes.status, text);
-      return Response.redirect(appReturnUrl(false, `token_exchange_${tokenRes.status}`), 302);
+      return Response.redirect(appReturnUrl(false, `token_exchange_${tokenRes.status}`, customRedirectPath, platform), 302);
     }
 
     const tok = await tokenRes.json() as {
@@ -152,9 +153,9 @@ Deno.serve(async (req) => {
       console.warn("[oura-oauth-callback] initial sync kick threw:", e);
     }
 
-    return Response.redirect(appReturnUrl(true, undefined, customRedirectPath), 302);
+    return Response.redirect(appReturnUrl(true, undefined, customRedirectPath, platform), 302);
   } catch (err) {
     console.error("[oura-oauth-callback] error:", err);
-    return Response.redirect(appReturnUrl(false, "internal_error"), 302);
+    return Response.redirect(appReturnUrl(false, "internal_error", customRedirectPath, platform), 302);
   }
 });

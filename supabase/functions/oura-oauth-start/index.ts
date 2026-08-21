@@ -47,9 +47,10 @@ Deno.serve(async (req) => {
 
     const reqBody = await req.json().catch(() => ({}));
     const redirectPath = typeof reqBody?.redirectPath === 'string' ? reqBody.redirectPath : '/connected-data';
+    const platform = typeof reqBody?.platform === 'string' ? reqBody.platform : 'web';
 
     const nonce = genNonce();
-    const state = `${userId}:${nonce}:${encodeURIComponent(redirectPath)}`;
+    const state = `${userId}:${nonce}:${encodeURIComponent(redirectPath)}:${platform}`;
     const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString(); // 10 min
 
     // Upsert a (possibly-pending) row so the callback can find it. Keep is_active=false

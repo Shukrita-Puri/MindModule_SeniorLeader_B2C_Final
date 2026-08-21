@@ -154,6 +154,7 @@ serve(async (req) => {
         const statePayload = JSON.stringify({
           userId: authenticatedUserId,
           redirectPath: (body.redirectPath as string) || '/connected-data',
+          platform: (body.platform as string) || 'web',
         });
         const encodedState = btoa(statePayload);
         authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&include_granted_scopes=true&state=${encodeURIComponent(encodedState)}`;
@@ -170,6 +171,7 @@ serve(async (req) => {
           userId: authenticatedUserId,
           redirectPath: (body.redirectPath as string) || '/connected-data',
           provider: 'microsoft',
+          platform: (body.platform as string) || 'web',
         });
         const encodedState = btoa(statePayload);
         authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(encodedState)}&prompt=consent`;
@@ -225,12 +227,14 @@ serve(async (req) => {
       let validUserId: string;
       let redirectPath = '/connected-data';
       let stateProvider: string | null = null;
-
+      let platform = 'web';
+      
       try {
         const stateData = JSON.parse(atob(decodeURIComponent(stateUserId)));
         validUserId = stateData.userId;
         redirectPath = stateData.redirectPath || redirectPath;
         stateProvider = stateData.provider || null;
+        platform = stateData.platform || 'web';
       } catch {
         validUserId = decodeURIComponent(stateUserId);
       }
@@ -368,7 +372,13 @@ serve(async (req) => {
       if (!frontendUrl) throw new Error('FRONTEND_URL not configured');
       const cleanFrontendUrl = frontendUrl.replace(/\/$/, '');
       const cleanRedirectPath = redirectPath && redirectPath.startsWith('/') ? redirectPath : '/profile';
-      const redirectUrl = `${cleanFrontendUrl}/oauth-done?calendar_connected=true&provider=${validCallbackProvider}&redirectPath=${encodeURIComponent(cleanRedirectPath)}`;
+      
+      let redirectUrl = '';
+      if (platform === 'native') {
+        redirectUrl = `app.mindmodule.me://oauth-complete?calendar_connected=true&provider=${validCallbackProvider}&redirectPath=${encodeURIComponent(cleanRedirectPath)}`;
+      } else {
+        redirectUrl = `${cleanFrontendUrl}/oauth-done?calendar_connected=true&provider=${validCallbackProvider}&redirectPath=${encodeURIComponent(cleanRedirectPath)}`;
+      }
 
       // Fire-and-forget: register the Google push-notification watch channel for this user.
       // Failure is non-fatal — the daily cron will pick it up.

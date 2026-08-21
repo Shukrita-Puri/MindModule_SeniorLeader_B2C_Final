@@ -17,10 +17,11 @@ export async function startOuraOAuth(redirectPath?: string): Promise<{ url?: str
   if (!token || !base) return { error: 'missing_auth_or_project' };
   emitIntegrationEvent({ provider: 'oura', event: 'connect_started' });
   try {
+    const { isNativeApp } = await import('@/utils/healthKitCapacitor');
     const res = await fetch(`${base}/functions/v1/oura-oauth-start`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ redirectPath }),
+      body: JSON.stringify({ redirectPath, platform: isNativeApp() ? 'native' : 'web' }),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
