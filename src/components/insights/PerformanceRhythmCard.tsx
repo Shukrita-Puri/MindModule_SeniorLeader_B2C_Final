@@ -392,16 +392,17 @@ const PatternAnalysisSection = ({
         </div>
         {hasBaseline ? (
           <ul className="pl-2 space-y-1.5">
-            {baselineFindingLines.map((r, i) => (
+            {baselineFindingsCapped.map((r, i) => (
               <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
             ))}
-            {extraBaseline.map((line, i) => (
+            {extraBaselineCapped.map((line, i) => (
               <PatternLine key={`lift-${i}`} text={line} />
             ))}
           </ul>
         ) : (
-          <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{EMPTY_STATE.wearable}</p>
+          <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{baselineEmptyCopy}</p>
         )}
+
       </div>
 
       {showDebug && (
