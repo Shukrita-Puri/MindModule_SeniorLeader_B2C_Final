@@ -57,7 +57,7 @@ import Security
     /// Returns true when the observer fire actually corresponds to new sample data.
     /// Updates the per-type anchor on every successful query so the next probe
     /// only sees newer samples — incremental and battery-friendly.
-    private func hasNewSamplesSinceAnchor(type: HKSampleType, completion: @escaping (Bool) -> Void) {
+    private func hasNewSamplesSinceAnchor(type: HKSampleType, completion: @escaping (Bool, HKQueryAnchor?) -> Void) {
         let anchor = loadAnchor(for: type)
         let q = HKAnchoredObjectQuery(
             type: type,
@@ -68,34 +68,34 @@ import Security
             if let error = error {
                 NSLog("[WearableSyncBridge] Anchored probe failed for \(type.identifier): \(error.localizedDescription)")
                 // Fail-open: assume there might be new data so we don't lose syncs.
-                completion(true)
+                completion(true, nil)
                 return
             }
-            if let newAnchor = newAnchor { self?.saveAnchor(newAnchor, for: type) }
             let added = samples?.count ?? 0
             let removed = deleted?.count ?? 0
-            completion((added + removed) > 0)
+            completion((added + removed) > 0, newAnchor)
         }
         healthStore.execute(q)
     }
 
-    /// Probes all observed types in parallel; calls completion(true) as soon as
-    /// any type reports new data, otherwise false after all probes finish.
-    private func anyNewSamples(completion: @escaping (Bool) -> Void) {
+    /// Probes all observed types in parallel; calls completion(anyNew, nextAnchors).
+    private func anyNewSamples(completion: @escaping (Bool, [HKSampleType: HKQueryAnchor]) -> Void) {
         let group = DispatchGroup()
         var anyNew = false
+        var nextAnchors: [HKSampleType: HKQueryAnchor] = [:]
         let lock = NSLock()
         for t in observedTypes {
             group.enter()
-            hasNewSamplesSinceAnchor(type: t) { isNew in
+            hasNewSamplesSinceAnchor(type: t) { isNew, newAnchor in
                 lock.lock()
                 if isNew { anyNew = true }
+                if let a = newAnchor { nextAnchors[t] = a }
                 lock.unlock()
                 group.leave()
             }
         }
         group.notify(queue: .global(qos: .background)) {
-            completion(anyNew)
+            completion(anyNew, nextAnchors)
         }
     }
 
@@ -162,7 +162,7 @@ import Security
     /// Reads HRV/RHR/HR/Sleep for the past 7 days and POSTs to the edge function.
     /// Designed for background execution — must call `done()` when finished.
     public func fetchAndPersist(done: @escaping () -> Void) {
-        guard let token = readKeychain(key: kKeychainTokenKey), !token.isEmpty else {
+        guard let token = NativeAuth0Refresher.getValidAccessToken() else {
             NSLog("[WearableSyncBridge] No auth token in Keychain — skipping sync")
             done()
             return
@@ -172,15 +172,16 @@ import Security
         // last successful read?". If not, skip the heavy 7-day aggregation +
         // upload entirely and just drain any pending outbox items. This is the
         // single biggest battery / network reduction for noisy observer fires.
-        anyNewSamples { [weak self] anyNew in
+        anyNewSamples { [weak self] anyNew, nextAnchors in
             guard let self = self else { done(); return }
             if !anyNew {
                 NSLog("[WearableSyncBridge] Anchored probe — no new samples; draining outbox only")
+                for (type, anchor) in nextAnchors { self.saveAnchor(anchor, for: type) }
                 NativeSyncDiagnostics.shared.recordAnchorShortCircuit()
                 self.drainOutbox(token: token, done: done)
                 return
             }
-            self.fetchAndPersistFull(token: token, done: done)
+            self.fetchAndPersistFull(token: token, anchors: nextAnchors, done: done)
         }
     }
 
@@ -189,16 +190,20 @@ import Security
     /// granted device can backfill the last 7 days even if observer anchors
     /// were initialized before Health permissions or watch data were ready.
     @objc public func forceFetchAndPersist(done: @escaping () -> Void) {
-        guard let token = readKeychain(key: kKeychainTokenKey), !token.isEmpty else {
+        forceFetchAndPersistWithResult { _ in done() }
+    }
+
+    public func forceFetchAndPersistWithResult(done: @escaping (Bool) -> Void) {
+        guard let token = NativeAuth0Refresher.getValidAccessToken() else {
             NSLog("[WearableSyncBridge] forceFetchAndPersist: no auth token — skipping")
-            done()
+            done(false)
             return
         }
         NSLog("[WearableSyncBridge] forceFetchAndPersist: bypassing anchor probe")
-        fetchAndPersistFull(token: token, done: done)
+        fetchAndPersistFull(token: token, anchors: [:]) { done(true) }
     }
 
-    private func fetchAndPersistFull(token: String, done: @escaping () -> Void) {
+    private func fetchAndPersistFull(token: String, anchors: [HKSampleType: HKQueryAnchor], done: @escaping () -> Void) {
         let endDate = Date()
         let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate) ?? endDate
 
@@ -350,6 +355,7 @@ import Security
             } else {
                 NSLog("[WearableSyncBridge] No new samples — will still drain any pending outbox items")
             }
+            for (type, anchor) in anchors { self.saveAnchor(anchor, for: type) }
             // Drain ALL pending health items (including the one we just enqueued + any
             // previous items that failed on prior launches). Each successful upload
             // removes the item; each failure bumps retry metadata.
@@ -398,7 +404,7 @@ import Security
     /// Public entry point used by the plugin and AppDelegate to drain the outbox
     /// without first re-querying HealthKit (e.g. on app launch / resume / reconnect).
     @objc public func flushOutbox(done: @escaping () -> Void) {
-        guard let token = readKeychain(key: kKeychainTokenKey), !token.isEmpty else {
+        guard let token = NativeAuth0Refresher.getValidAccessToken() else {
             NSLog("[WearableSyncBridge] flushOutbox: no token — skipping")
             done()
             return
@@ -468,62 +474,12 @@ import Security
 
     private func postOutboxItem(_ item: NativeOutbox.Item, token: String, done: @escaping () -> Void) {
         var request = URLRequest(url: edgeFunctionURL)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        // Must exceed the server-side sample time budget (40s) so a partial
-        // response can be read instead of the client aborting first.
         request.timeoutInterval = 60
         request.setValue(item.id, forHTTPHeaderField: "X-Outbox-Item-Id") // server-side dedupe hint
 
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: item.payload)
-        } catch {
-            NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: "serialize: \(error.localizedDescription)")
-            done()
-            return
-        }
-
-        let startedAt = Date()
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            let latencyMs = Int(Date().timeIntervalSince(startedAt) * 1000.0)
-            if let error = error {
-                NSLog("[WearableSyncBridge] outbox POST failed: \(error.localizedDescription)")
-                NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: error.localizedDescription)
-                NativeSyncDiagnostics.shared.recordUploadError("apple-health: \(error.localizedDescription)")
-                done()
-                return
-            }
-            if let http = response as? HTTPURLResponse {
-                if (200..<300).contains(http.statusCode) {
-                    // The server returns 200 + { partial: true } when it ran out
-                    // of wall-clock budget mid-batch. It releases the dedupe lock
-                    // in that case, so the item must stay queued for a retry —
-                    // removing it here would silently drop the remainder.
-                    var partial = false
-                    if let data = data,
-                       let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
-                        partial = (json["partial"] as? Bool) ?? false
-                    }
-                    if partial {
-                        NSLog("[WearableSyncBridge] outbox POST partial: item \(item.id) stays queued")
-                        NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: "partial_persist")
-                    } else {
-                        NSLog("[WearableSyncBridge] outbox POST ok: \(http.statusCode), item \(item.id)")
-                        NativeOutbox.shared.remove(id: item.id, provider: .appleHealth)
-                    }
-                    NativeSyncDiagnostics.shared.recordHealthUpload()
-                    NativeSyncDiagnostics.shared.recordUploadLatency(ms: latencyMs)
-                } else {
-                    let msg = "http \(http.statusCode)"
-                    NSLog("[WearableSyncBridge] outbox POST non-2xx: \(msg), item \(item.id)")
-                    NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: msg)
-                    NativeSyncDiagnostics.shared.recordUploadError("apple-health: \(msg)")
-                }
-            }
-            done()
-        }
-        task.resume()
+        BackgroundUploadManager.shared.enqueueUpload(item: item, provider: .appleHealth, request: request)
+        done()
     }
 
     // MARK: - HealthKit query helpers

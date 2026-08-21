@@ -160,6 +160,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func handleEarlyMorningSync(task: BGProcessingTask) {
+        NativeSyncDiagnostics.shared.recordBGProcessingTask()
         // Reschedule for tomorrow
         scheduleEarlyMorningSync()
 
@@ -243,6 +244,47 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             name: .capacitorDidFailToRegisterForRemoteNotifications,
             object: error
         )
+    }
+
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        // Forward to Capacitor plugin for normal push notifications
+        NotificationCenter.default.post(
+            name: .capacitorDidReceiveRemoteNotification,
+            object: userInfo
+        )
+        
+        // Handle silent sync push
+        if let action = userInfo["action"] as? String, action == "sync_all" {
+            NSLog("[AppDelegate] Silent push received: sync_all")
+            NativeSyncDiagnostics.shared.recordBackgroundFetch()
+            
+            let group = DispatchGroup()
+            
+            group.enter()
+            WearableSyncBridge.shared.fetchAndPersist {
+                group.leave()
+            }
+            
+            group.enter()
+            AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist {
+                group.leave()
+            }
+            
+            group.notify(queue: .main) {
+                completionHandler(.newData)
+            }
+            return
+        }
+        
+        completionHandler(.noData)
+    }
+
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
+        if identifier == "me.mindmodule.background-upload" {
+            BackgroundUploadManager.shared.setCompletionHandler(completionHandler)
+        } else {
+            completionHandler()
+        }
     }
 
     // MARK: - UNUserNotificationCenterDelegate

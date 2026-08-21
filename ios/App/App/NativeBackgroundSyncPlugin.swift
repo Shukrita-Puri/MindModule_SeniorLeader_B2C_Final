@@ -29,6 +29,9 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private let tokenKey = "mindmodule.auth0_token"
     private let tokenExpiryKey = "mindmodule.auth0_token_expires_at"
+    private let refreshTokenKey = "mindmodule.auth0_refresh_token"
+    private let domainKey = "mindmodule.auth0_domain"
+    private let clientIdKey = "mindmodule.auth0_client_id"
 
     @objc func updateAuthToken(_ call: CAPPluginCall) {
         guard let token = call.getString("token"), !token.isEmpty else {
@@ -40,6 +43,15 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         do {
             try saveKeychain(key: tokenKey, value: token)
             if expiresAt > 0 {
+            if let refresh = call.getString("refreshToken"), !refresh.isEmpty {
+                try saveKeychain(key: refreshTokenKey, value: refresh)
+            }
+            if let domain = call.getString("domain"), !domain.isEmpty {
+                try saveKeychain(key: domainKey, value: domain)
+            }
+            if let clientId = call.getString("clientId"), !clientId.isEmpty {
+                try saveKeychain(key: clientIdKey, value: clientId)
+            }
                 try saveKeychain(key: tokenExpiryKey, value: String(Int(expiresAt)))
             }
             // Forward the token to the in-memory provider used by the
@@ -157,7 +169,7 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         ]
         let attrs: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
 
         let status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)

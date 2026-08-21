@@ -123,7 +123,22 @@ public final class SupabaseAuthTokenProvider {
 
     public func currentToken() -> String? {
         lock.lock(); defer { lock.unlock() }
-        return token
+        if let memToken = token { return memToken }
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "supabase_auth_token",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+           let data = item as? Data,
+           let str = String(data: data, encoding: .utf8) {
+            self.token = str
+            return str
+        }
+        return nil
     }
 
     public func supabaseURL() -> String? {

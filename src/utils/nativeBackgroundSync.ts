@@ -52,10 +52,22 @@ function isNativeIos(): boolean {
   }
 }
 
-export async function updateNativeBackgroundAuthToken(token: string, expiresAt?: number): Promise<void> {
+export async function updateNativeBackgroundAuthToken(
+  token: string, 
+  expiresAt?: number, 
+  refreshToken?: string, 
+  domain?: string, 
+  clientId?: string
+): Promise<void> {
   if (!isNativeIos() || !token) return;
   try {
-    await NativeBackgroundSync.updateAuthToken({ token, expiresAt });
+    await NativeBackgroundSync.updateAuthToken({ 
+      token, 
+      expiresAt,
+      refreshToken,
+      domain,
+      clientId 
+    });
   } catch (err) {
     console.warn('[NativeBackgroundSync] Failed to update native auth token:', err);
   }

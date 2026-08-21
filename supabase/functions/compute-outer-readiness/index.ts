@@ -4094,21 +4094,14 @@ serve(async (req) => {
     });
     const briefWearableUsable = signalFreshness.wearableCurrent;
     // Canonical, window-aware wearable freshness for pills / MRS score / plan.
-    const wearableFreshForGate = signalFreshness.wearableCurrent;
+    // The agreed Gating Rule requires the *existence* of Physiology and Demand, not
+    // strict same-window freshness (which is handled by prose/historical rules).
+    const wearableUsableForGate = hasWearableData;
     const calendarUsableForGate = calendarResult.state === "active" ||
       calendarResult.state === "connected_no_events";
-    const isWearableConnected = wearableIntegration?.watch_connection_status === "connected";
-    const isCalendarConnected = calendarConnections && calendarConnections.length > 0;
-    
-    // Consistent strict gating rule across ALL cards (MRS, Brief, Plan).
-    // The user requested that if multiple integrations are connected, we must wait 
-    // for all of them to provide data before forming the daily contextual cards. 
-    // This prevents inconsistent UI where one card loads (e.g. from calendar) 
-    // while another is stuck awaiting (e.g. wearable delayed).
-    const stageOneSignalForGate = 
-      (isWearableConnected ? wearableFreshForGate : true) &&
-      (isCalendarConnected ? calendarUsableForGate : true) &&
-      (wearableFreshForGate || calendarUsableForGate);
+    // Agreed Gating Rule (Feature Tier 0):
+    // Baseline requires BOTH Physiology (any wearable data) AND Demand (valid calendar query)
+    const stageOneSignalForGate = wearableUsableForGate && calendarUsableForGate;
     const checkInCurrentForWindow = signalFreshness.checkInCurrent;
     const currentCheckInOutcome = checkInCurrentForWindow
       ? (checkInOutcome ?? null)
@@ -9496,27 +9489,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         hasTodayCheckInDB = !!checkInOutcome;
       }
       hasTodayCheckIn = hasTodayCheckInDB;
-      hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
+      hasFreshWearable = !!wearableContext; // Presence of data, not strict freshness
       hasCalendarSignal = calendarResult?.state === "active" || calendarResult?.state === "connected_no_events";
       hasCalendarConnected = !!calendarResult?.state &&
         calendarResult.state !== "not_connected";
-      const isWearableConnected = wearableIntegration?.watch_connection_status === "connected";
-      const isCalendarConnected = calendarConnections && calendarConnections.length > 0;
+      // Brief Gate: needs Physiology (any wearable data) AND Demand (calendar connected/usable)
+      const hasStage1Signal = hasFreshWearable && hasCalendarSignal;
       
-      const hasStage1Signal = 
-        (isWearableConnected ? hasFreshWearable : true) &&
-        (isCalendarConnected ? hasCalendarSignal : true) &&
-        (hasFreshWearable || hasCalendarSignal);
-        
       const briefSignalContractMet = hasStage1Signal;
       const awaitingSignals = !briefSignalContractMet;
       
-      // Brief Has Current Personal Signal:
-      // Uses the same logic. If they connected it, they must have data.
-      const briefHasCurrentPersonalSignal = 
-        (isWearableConnected ? briefWearableUsable : true) &&
-        (isCalendarConnected ? hasCalendarConnected : true) &&
-        (briefWearableUsable || hasCalendarConnected);
+      // Brief Has Current Personal Signal: uses same logic
+      const briefHasCurrentPersonalSignal = briefWearableUsable && hasCalendarConnected;
         
       const briefAwaitingSignals = !briefHasCurrentPersonalSignal;
 

@@ -128,17 +128,8 @@ import Security
             return
         }
 
-        guard let token = readKeychain(key: tokenKey), !token.isEmpty else {
-            NSLog("[AppleCalendarBackgroundSync] No auth token in Keychain — skipping")
-            endSync(trigger: trigger)
-            done()
-            return
-        }
-
-        if let expiryRaw = readKeychain(key: tokenExpiryKey),
-           let expiry = Double(expiryRaw),
-           expiry < Date().timeIntervalSince1970 + 60 {
-            NSLog("[AppleCalendarBackgroundSync] Auth token expired — skipping")
+        guard let token = NativeAuth0Refresher.getValidAccessToken() else {
+            NSLog("[AppleCalendarBackgroundSync] No valid auth token (expired or missing) — skipping")
             endSync(trigger: trigger)
             done()
             return
@@ -177,8 +168,8 @@ import Security
     }
 
     @objc public func flushOutbox(done: @escaping () -> Void) {
-        guard let token = readKeychain(key: tokenKey), !token.isEmpty else {
-            NSLog("[AppleCalendarBackgroundSync] flushOutbox: no token — skipping")
+        guard let token = NativeAuth0Refresher.getValidAccessToken() else {
+            NSLog("[AppleCalendarBackgroundSync] flushOutbox: no valid token — skipping")
             done()
             return
         }
@@ -209,38 +200,12 @@ import Security
 
     private func postOutboxItem(_ item: NativeOutbox.Item, token: String, done: @escaping () -> Void) {
         var request = URLRequest(url: edgeFunctionURL)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(item.id, forHTTPHeaderField: "X-Outbox-Item-Id")
         request.timeoutInterval = 30
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: item.payload)
-        } catch {
-            NativeOutbox.shared.markFailure(id: item.id, provider: .appleCalendar, error: "serialize: \(error.localizedDescription)")
-            done(); return
-        }
-        let task = URLSession.shared.dataTask(with: request) { _, response, error in
-            if let error = error {
-                NSLog("[AppleCalendarBackgroundSync] outbox POST failed: \(error.localizedDescription)")
-                NativeOutbox.shared.markFailure(id: item.id, provider: .appleCalendar, error: error.localizedDescription)
-                NativeSyncDiagnostics.shared.recordUploadError("apple-calendar: \(error.localizedDescription)")
-                done(); return
-            }
-            if let http = response as? HTTPURLResponse {
-                if (200..<300).contains(http.statusCode) {
-                    NSLog("[AppleCalendarBackgroundSync] outbox POST ok: \(http.statusCode), item \(item.id)")
-                    NativeOutbox.shared.remove(id: item.id, provider: .appleCalendar)
-                    NativeSyncDiagnostics.shared.recordCalendarUpload()
-                } else {
-                    let msg = "http \(http.statusCode)"
-                    NativeOutbox.shared.markFailure(id: item.id, provider: .appleCalendar, error: msg)
-                    NativeSyncDiagnostics.shared.recordUploadError("apple-calendar: \(msg)")
-                }
-            }
-            done()
-        }
-        task.resume()
+
+        BackgroundUploadManager.shared.enqueueUpload(item: item, provider: .appleCalendar, request: request)
+        done()
     }
 
     private func isCalendarAuthorized() -> Bool {

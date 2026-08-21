@@ -22,6 +22,7 @@
 		7B8A3F172DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F162DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift */; };
 		7B8A3F192DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F182DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift */; };
 		7B8A3F1B2DB0A00600AA0001 /* NativeOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1A2DB0A00600AA0001 /* NativeOutbox.swift */; };
+		7B8A3F2B2DB0A00600AA0001 /* BackgroundUploadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F2A2DB0A00600AA0001 /* BackgroundUploadManager.swift */; };
 		7B8A3F1D2DB0A00700AA0001 /* LocationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */; };
 		7B8A3F1F2DB0A00800AA0001 /* LocationBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */; };
 		7B8A3F212DB0A00900AA0001 /* InAppPurchasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8A3F202DB0A00900AA0001 /* InAppPurchasePlugin.swift */; };
@@ -78,6 +79,7 @@
 		7B8A3F162DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBackgroundSyncPlugin.swift; sourceTree = "<group>"; };
 		7B8A3F182DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCalendarBackgroundSyncBridge.swift; sourceTree = "<group>"; };
 		7B8A3F1A2DB0A00600AA0001 /* NativeOutbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOutbox.swift; sourceTree = "<group>"; };
+		7B8A3F2A2DB0A00600AA0001 /* BackgroundUploadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundUploadManager.swift; sourceTree = "<group>"; };
 		7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridge.swift; sourceTree = "<group>"; };
 		7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationBridgePlugin.swift; sourceTree = "<group>"; };
 		7B8A3F202DB0A00900AA0001 /* InAppPurchasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppPurchasePlugin.swift; sourceTree = "<group>"; };
@@ -150,6 +152,7 @@
 				7B8A3F162DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift */,
 				7B8A3F182DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift */,
 				7B8A3F1A2DB0A00600AA0001 /* NativeOutbox.swift */,
+				7B8A3F2A2DB0A00600AA0001 /* BackgroundUploadManager.swift */,
 				7B8A3F1C2DB0A00700AA0001 /* LocationBridge.swift */,
 				7B8A3F1E2DB0A00800AA0001 /* LocationBridgePlugin.swift */,
 				7B8A3F202DB0A00900AA0001 /* InAppPurchasePlugin.swift */,
@@ -311,6 +314,7 @@
 				7B8A3F172DB0A00400AA0001 /* NativeBackgroundSyncPlugin.swift in Sources */,
 				7B8A3F192DB0A00500AA0001 /* AppleCalendarBackgroundSyncBridge.swift in Sources */,
 				7B8A3F1B2DB0A00600AA0001 /* NativeOutbox.swift in Sources */,
+				7B8A3F2B2DB0A00600AA0001 /* BackgroundUploadManager.swift in Sources */,
 				7B8A3F1D2DB0A00700AA0001 /* LocationBridge.swift in Sources */,
 				7B8A3F1F2DB0A00800AA0001 /* LocationBridgePlugin.swift in Sources */,
 				7B8A3F212DB0A00900AA0001 /* InAppPurchasePlugin.swift in Sources */,

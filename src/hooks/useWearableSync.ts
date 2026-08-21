@@ -140,7 +140,7 @@ export function useWearableSync(): WearableSyncState {
         // Stale-state recovery: when fresh wearable data lands, proactively
         // invalidate MRS + outer readiness caches so the next read picks up
         // the new bundle immediately (instead of waiting up to 30s).
-        if (result.hasData && result.dbPersisted) {
+        if (result.dbPersisted || result.connectionState === 'connected_but_waiting_for_data') {
           try {
             clearEnergyStateCache();
             clearOuterReadinessCache(user?.id);

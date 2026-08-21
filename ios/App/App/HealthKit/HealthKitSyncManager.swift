@@ -202,16 +202,21 @@ public final class HealthKitSyncManager {
             // shapes daily summaries exactly as persist-wearable-data expects.
             // We intentionally reuse that path instead of uploading raw
             // per-sample records from this manager.
-            self.bridge.forceFetchAndPersist {
-                self.commitAnchors(nextAnchors)
-                // Success: write authoritative synced status. lastSampleAt lets the
-                // backend advance the truthful staleness timestamp.
-                self.writer.write(
-                    status: .synced,
-                    lastSampleAt: latestSample,
-                    counts: perMetricCounts,
-                ) { _ in }
-                completion(.synced(counts: perMetricCounts, lastSampleAt: latestSample))
+            self.bridge.forceFetchAndPersistWithResult { success in
+                if success {
+                    self.commitAnchors(nextAnchors)
+                    // Success: write authoritative synced status. lastSampleAt lets the
+                    // backend advance the truthful staleness timestamp.
+                    self.writer.write(
+                        status: .synced,
+                        lastSampleAt: latestSample,
+                        counts: perMetricCounts,
+                    ) { _ in }
+                    completion(.synced(counts: perMetricCounts, lastSampleAt: latestSample))
+                } else {
+                    self.writer.write(status: .syncDelayed, errorCode: "auth_failed_bridge") { _ in }
+                    completion(.readFailed("Auth failed in WearableSyncBridge"))
+                }
             }
         }
     }

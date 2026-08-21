@@ -89,7 +89,10 @@ export function useMrsSnapshot() {
     // 15 min — matches the `build-executive-home-cards` cron cadence. The DB
     // value cannot be fresher than the last cron write, so shorter windows
     // only create pointless refetches that can visibly change the score.
-    staleTime: 15 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 3 * 60 * 1000,
     queryFn: async () => {
       if (!effectiveUserId) return null;
 

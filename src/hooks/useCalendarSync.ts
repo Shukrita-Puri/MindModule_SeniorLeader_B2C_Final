@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax -- grandfathered raw calendar_events reads. Tracked in .lovable/plan.md for wiring through mergeCalendarEvents(). Remove this directive once every .from('calendar_events') read below has been replaced. */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/hooks/useAuth';
 import { type CalendarEvent } from '@/utils/historicalPatternEngine';
 import { clearLocalCalendarData, saveCalendarEventsLocally } from '@/services/localDataStore';
@@ -40,6 +41,7 @@ const APPLE_STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 min — native fetch is c
 
 export function useCalendarSync(): UseCalendarSyncResult {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -564,6 +566,12 @@ export function useCalendarSync(): UseCalendarSyncResult {
           if (res.success) {
             void fetchEvents();
             void triggerCalendarRelationshipLearning();
+            
+            // Invalidate Executive Cards to instantly reflect new demand data
+            queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+            queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] });
+            queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] });
+            queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] });
           }
         })
         .catch((err) => console.warn('[useCalendarSync] Apple instant sync failed:', err));

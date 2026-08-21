@@ -242,12 +242,14 @@ import Foundation
     private let kUploadFailureCount = "mm.diag.uploadFailureCount"
     private let kLastOuraSampleAt = "mm.diag.lastOuraSampleAt"
     private let kOuraDetected = "mm.diag.ouraDetected"
+    private let kLastBGProcessingTaskAt = "mm.diag.lastBGProcessingTaskAt"
 
     public func recordHealthObserver() { defaults.set(Date().timeIntervalSince1970, forKey: kLastHealthObserver) }
     public func recordHealthUpload() { defaults.set(Date().timeIntervalSince1970, forKey: kLastHealthUpload) }
     public func recordCalendarBackground() { defaults.set(Date().timeIntervalSince1970, forKey: kLastCalendarBackground) }
     public func recordCalendarUpload() { defaults.set(Date().timeIntervalSince1970, forKey: kLastCalendarUpload) }
     public func recordBackgroundFetch() { defaults.set(Date().timeIntervalSince1970, forKey: kLastBackgroundFetch) }
+    public func recordBGProcessingTask() { defaults.set(Date().timeIntervalSince1970, forKey: kLastBGProcessingTaskAt) }
     public func recordUploadError(_ message: String) {
         defaults.set(["at": Date().timeIntervalSince1970, "message": String(message.prefix(500))], forKey: kLastUploadError)
         defaults.set(defaults.integer(forKey: kUploadFailureCount) + 1, forKey: kUploadFailureCount)
@@ -278,6 +280,7 @@ import Foundation
             "lastCalendarBackgroundAt": defaults.object(forKey: kLastCalendarBackground) ?? NSNull(),
             "lastCalendarUploadAt": defaults.object(forKey: kLastCalendarUpload) ?? NSNull(),
             "lastBackgroundFetchAt": defaults.object(forKey: kLastBackgroundFetch) ?? NSNull(),
+            "lastBGProcessingTaskAt": defaults.object(forKey: kLastBGProcessingTaskAt) ?? NSNull(),
             "lastUploadError": defaults.object(forKey: kLastUploadError) ?? NSNull(),
             "anchorShortCircuits": defaults.integer(forKey: kAnchorShortCircuits),
             "reconnectDrains": defaults.integer(forKey: kReconnectDrains),

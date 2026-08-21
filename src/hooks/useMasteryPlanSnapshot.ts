@@ -68,7 +68,10 @@ export function useMasteryPlanSnapshot() {
   return useQuery<MasteryPlanSnapshot | null>({
     queryKey: ['mastery-plan-snapshot', effectiveUserId, planDate, mrsWindow],
     enabled: !!effectiveUserId,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 3 * 60 * 1000,
     queryFn: async () => {
       if (!effectiveUserId) return null;
 

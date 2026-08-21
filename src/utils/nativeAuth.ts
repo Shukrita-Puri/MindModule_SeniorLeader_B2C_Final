@@ -166,7 +166,9 @@ export function storeNativeTokens(tokens: {
     expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
   };
   localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
-  updateNativeBackgroundAuthToken(entry.access_token, entry.expires_at);
+  const domain = import.meta.env.VITE_AUTH0_DOMAIN || '';
+  const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID || '';
+  updateNativeBackgroundAuthToken(entry.access_token, entry.expires_at, entry.refresh_token, domain, clientId);
   console.log('[NativeAuth] Tokens stored, expires_at:', entry.expires_at);
 }
 
@@ -346,7 +348,9 @@ export async function refreshNativeTokens(): Promise<boolean> {
           expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 86400),
         };
         localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
-        updateNativeBackgroundAuthToken(entry.access_token, entry.expires_at);
+        const domain = import.meta.env.VITE_AUTH0_DOMAIN || '';
+        const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID || '';
+        updateNativeBackgroundAuthToken(entry.access_token, entry.expires_at, entry.refresh_token, domain, clientId);
         console.log('[NativeAuth] ✅ Native tokens refreshed successfully');
         return true;
       } else {

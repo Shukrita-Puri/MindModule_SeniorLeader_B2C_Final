@@ -5512,6 +5512,7 @@ async function generateMasteryPlan(
   const hasStage1Signal = hasWearableData || hasCalendarSignal ||
     hasCalendarConnected;
   let snapshotMrsAwaiting: boolean | null = null;
+  let mrsSnapState: string | null = null;
   try {
     const { data: mrsSnap } = await supabaseClient
       .from("daily_context_snapshot")
@@ -5523,6 +5524,7 @@ async function generateMasteryPlan(
       .eq("mrs_window", timeOfDay)
       .maybeSingle();
     if (mrsSnap) {
+      mrsSnapState = mrsSnap.readiness_state;
       snapshotMrsAwaiting = mrsSnap.readiness_state === "awaiting" ||
         (mrsSnap.readiness_score_baseline == null &&
           mrsSnap.readiness_score_refined == null);
@@ -5538,11 +5540,9 @@ async function generateMasteryPlan(
     outerReadinessCache?.awaitingSignals === true ||
     outerReadinessCache?.briefMode === "cold-start";
   const mrsCardsAwaiting = snapshotMrsAwaiting === true || requestMrsAwaiting;
-  const readinessStage = hasStage1Signal && hasTodayCheckIn
+  const readinessStage = mrsSnapState === "refined"
     ? "full"
-    : hasStage1Signal
-    ? "early"
-    : "cold_start";
+    : (hasStage1Signal && !mrsCardsAwaiting ? "early" : "cold_start");
   // Sprint 8 / Phase 10 guardrail:
   // Stage-1 signal (wearable OR calendar event OR calendar-connected) is
   // NECESSARY but NOT SUFFICIENT to unlock the Plan. Calendar-only cannot
