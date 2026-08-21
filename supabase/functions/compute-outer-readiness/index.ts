@@ -4097,7 +4097,18 @@ serve(async (req) => {
     const wearableFreshForGate = signalFreshness.wearableCurrent;
     const calendarUsableForGate = calendarResult.state === "active" ||
       calendarResult.state === "connected_no_events";
-    const stageOneSignalForGate = wearableFreshForGate || calendarUsableForGate;
+    const isWearableConnected = wearableIntegration?.watch_connection_status === "connected";
+    const isCalendarConnected = calendarConnections && calendarConnections.length > 0;
+    
+    // Consistent strict gating rule across ALL cards (MRS, Brief, Plan).
+    // The user requested that if multiple integrations are connected, we must wait 
+    // for all of them to provide data before forming the daily contextual cards. 
+    // This prevents inconsistent UI where one card loads (e.g. from calendar) 
+    // while another is stuck awaiting (e.g. wearable delayed).
+    const stageOneSignalForGate = 
+      (isWearableConnected ? wearableFreshForGate : true) &&
+      (isCalendarConnected ? calendarUsableForGate : true) &&
+      (wearableFreshForGate || calendarUsableForGate);
     const checkInCurrentForWindow = signalFreshness.checkInCurrent;
     const currentCheckInOutcome = checkInCurrentForWindow
       ? (checkInOutcome ?? null)
@@ -9489,13 +9500,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       hasCalendarSignal = calendarResult?.state === "active" || calendarResult?.state === "connected_no_events";
       hasCalendarConnected = !!calendarResult?.state &&
         calendarResult.state !== "not_connected";
-      const hasStage1Signal = hasFreshWearable && hasCalendarSignal;
+      const isWearableConnected = wearableIntegration?.watch_connection_status === "connected";
+      const isCalendarConnected = calendarConnections && calendarConnections.length > 0;
+      
+      const hasStage1Signal = 
+        (isWearableConnected ? hasFreshWearable : true) &&
+        (isCalendarConnected ? hasCalendarSignal : true) &&
+        (hasFreshWearable || hasCalendarSignal);
+        
       const briefSignalContractMet = hasStage1Signal;
       const awaitingSignals = !briefSignalContractMet;
-      // Brief Gate Alignment (Fix 4)
-      // Brief gate: needs Physiology (fresh wearable) AND Demand (calendar connected)
-      // Check-in data is ADDITIVE ONLY and upgrades Baseline -> Refined.
-      const briefHasCurrentPersonalSignal = briefWearableUsable && hasCalendarConnected;
+      
+      // Brief Has Current Personal Signal:
+      // Uses the same logic. If they connected it, they must have data.
+      const briefHasCurrentPersonalSignal = 
+        (isWearableConnected ? briefWearableUsable : true) &&
+        (isCalendarConnected ? hasCalendarConnected : true) &&
+        (briefWearableUsable || hasCalendarConnected);
+        
       const briefAwaitingSignals = !briefHasCurrentPersonalSignal;
 
       const awaitingReason: string | null = awaitingSignals
