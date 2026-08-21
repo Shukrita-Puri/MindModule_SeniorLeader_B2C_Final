@@ -192,9 +192,11 @@ export function buildSentence(f: RhythmFinding): { text: string; tier: Confidenc
   }
 
   if (!core) return null;
+  // No observation counts in user-facing copy (spec 8) — they live in the
+  // reliability audit panel only.
   const text = tier === 'emerging'
-    ? `Early signal — ${core.charAt(0).toLowerCase()}${core.slice(1)} (${s.n} observations so far).`
-    : `${core} (n=${s.n}).`;
+    ? `Early signal — ${core.charAt(0).toLowerCase()}${core.slice(1)}. Pattern still forming.`
+    : `${core}.`;
   return { text, tier };
 }
 
@@ -208,8 +210,9 @@ export interface PatternSentence {
 
 /**
  * Build the renderable sentences for one section.
- * Reweighting: Strong tier always outranks Emerging; ties break on priorityScore.
- * One sentence per dimension, soft cap 3.
+ * Reweighting: Strong tier always outranks Emerging; ties break on the
+ * card-only kind weight, then on the backend priority score.
+ * One sentence per dimension, hard cap 3.
  */
 export function buildSection(
   findings: RhythmFinding[],
@@ -228,6 +231,8 @@ export function buildSection(
     const tierRank = (t: ConfidenceTier) => (t === 'strong' ? 1 : 0);
     const d = tierRank(b.tier) - tierRank(a.tier);
     if (d !== 0) return d;
+    const w = (CARD_KIND_WEIGHT[b.finding.kind] ?? 0) - (CARD_KIND_WEIGHT[a.finding.kind] ?? 0);
+    if (w !== 0) return w;
     return b.finding.priorityScore - a.finding.priorityScore;
   });
   const seenDim = new Set<RhythmDimension>();
@@ -241,8 +246,16 @@ export function buildSection(
   return out;
 }
 
-/** Empty-state copy per section. */
+/** Empty-state copy (spec 9). `no-data` = nothing recorded yet. */
 export const EMPTY_STATE: Record<'check-in' | 'wearable', string> = {
-  'check-in': 'Not enough check-ins yet to call a pattern. Three on the same day or window unlocks the first read.',
-  wearable: 'Not enough wearable nights yet to call a pattern. Keep syncing — three comparable nights unlocks the first read.',
+  'check-in': 'No clear positive check-in patterns yet for this window — your data is building.',
+  wearable: 'No clear performance signals yet for this window — patterns will surface as your data grows.',
 };
+
+export const NO_DATA_STATE: Record<'check-in' | 'wearable', string> = {
+  'check-in': 'Patterns surface after a few check-ins. Keep going — your first signals are forming.',
+  wearable: 'Wearable and calendar patterns will appear here once your data builds.',
+};
+
+export const EARLY_PATTERN_NOTE = 'Early patterns — building confidence with each check-in.';
+
