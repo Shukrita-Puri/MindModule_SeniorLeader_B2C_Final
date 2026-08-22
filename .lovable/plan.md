@@ -31,3 +31,7 @@ Adopt the 1M / 6M / 1Y switcher style from the Performance Trajectory card as th
 
 - `src/utils/nativeBackgroundSync.ts` line 33: the `updateAuthToken` plugin interface is missing `refreshToken`, `domain`, `clientId`, which the caller at line 64 passes. Widen the interface to include those optional fields.
 - `src/hooks/useWearableSync.ts` line 143: inside a branch already narrowed to `connectionState === 'connected'`, the code re-compares against `'connected_but_waiting_for_data'` — an impossible comparison. Reduce that condition to `result.dbPersisted`, preserving current runtime behaviour.
+
+## Scope guarantee
+
+Presentation-only. No changes to data fetching, gating rules, thresholds, copy templates, backend, or edge functions. The same tab/range state variables drive the same content — only the control's markup and styling change. The two build fixes above are type-level only and preserve existing runtime behaviour.
