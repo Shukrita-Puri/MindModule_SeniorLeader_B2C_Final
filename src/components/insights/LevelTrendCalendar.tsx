@@ -7,6 +7,8 @@ import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useShareCapture } from '@/utils/shareCaptureMode';
+
 
 type LevelField =
   | 'clarity_level'
