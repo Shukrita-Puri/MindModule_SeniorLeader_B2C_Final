@@ -10182,29 +10182,39 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             (awaitingSignals || innerStateIsAwaiting) && !hasCanonicalScore;
 
           // Mirror into inner_readiness_scores for Insights historical timeseries (MRS Fix I1)
-          if (!suppressScorePayload && typeof effectiveInnerScore === "number") {
+          // Values come from the canonical MRS bindings in this handler scope.
+          const mirrorScore: number | null =
+            typeof canonicalInnerScore === "number"
+              ? canonicalInnerScore
+              : (typeof innerReadinessScore === "number"
+                ? innerReadinessScore
+                : null);
+          if (!suppressScorePayload && typeof mirrorScore === "number") {
             try {
               await db.from("inner_readiness_scores").upsert(
                 {
                   user_id: userId,
                   score_date: snapshotLocalDate,
-                  composite_score: Math.round(effectiveInnerScore),
-                  energy_tier: tierDisplayed ?? innerReadinessTier ?? "managing",
-                  time_of_day: timeOfDayStr,
+                  composite_score: Math.round(mirrorScore),
+                  energy_tier: innerReadinessTier ?? "managing",
+                  time_of_day: getTimeOfDay(hour),
                   check_in_outcome: checkInOutcome ?? null,
                   clarity_level: clarityLevel ?? null,
                   confidence_level: confidenceLevel ?? null,
-                  full_context_statement: contextStatementText ?? null,
-                  divergence_overlay: layer3StatementText ?? null,
-                  divergence_flag: divergenceFlagValue ?? "ALIGNED",
-                  hrv_deviation: hrvDeviationValue ?? null,
-                  layers_active: layersActiveArray ?? ["base"],
-                  data_sources: dataSourcesArray ?? [],
-                  confidence: readinessConfidence ?? "low",
+                  hrv_deviation: typeof hrvDeviation === "number"
+                    ? hrvDeviation
+                    : null,
                   updated_at: new Date().toISOString(),
                 },
                 { onConflict: "user_id,score_date,time_of_day" }
               );
+            } catch (irsErr) {
+              console.warn(
+                "[compute-outer-readiness] inner_readiness_scores upsert failed:",
+                irsErr instanceof Error ? irsErr.message : irsErr
+              );
+            }
+
             } catch (irsErr) {
               console.warn(
                 "[compute-outer-readiness] inner_readiness_scores upsert failed:",
