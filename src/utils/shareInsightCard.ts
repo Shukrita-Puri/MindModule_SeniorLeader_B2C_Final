@@ -6,6 +6,8 @@
 import { toPng } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
 import { toast } from '@/hooks/use-toast';
+import { setShareCapture, nextPaint } from '@/utils/shareCaptureMode';
+
 
 interface ShareOpts {
   node: HTMLElement;
@@ -65,7 +67,22 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
     (el.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = 'none';
   });
 
+  // Coloured pill glows ("boxShadow: 0 2px 6px rgba(...)") and inline pinned
+  // day-column widths are tuned for the on-screen scrolling strip. Once the
+  // scroller is expanded for capture they trail sideways and read as a washed
+  // out / ghosted chart in the exported PNG. Neutralise both for the snapshot.
+  const glowEls = Array.from(node.querySelectorAll<HTMLElement>('*')).filter(
+    (el) => !!el.style.boxShadow,
+  );
+  const prevGlow = glowEls.map((el) => el.style.boxShadow);
+  glowEls.forEach((el) => { el.style.boxShadow = 'none'; });
+
+  const pinnedCols = Array.from(node.querySelectorAll<HTMLElement>('[data-day-col]'));
+  const prevPinned = pinnedCols.map((el) => ({ width: el.style.width, minWidth: el.style.minWidth }));
+  pinnedCols.forEach((el) => { el.style.width = ''; el.style.minWidth = ''; });
+
   const restoreCssVars = inlineCssVariables(node);
+
 
   // Expand real scroll containers inside the captured tree so the snapshot
   // includes the FULL intrinsic content (e.g. the entire month-wide Rhythm
@@ -144,9 +161,15 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
       el.scrollLeft = p.scrollLeft;
       el.scrollTop = p.scrollTop;
     });
+    pinnedCols.forEach((el, i) => {
+      el.style.width = prevPinned[i].width;
+      el.style.minWidth = prevPinned[i].minWidth;
+    });
+    glowEls.forEach((el, i) => { el.style.boxShadow = prevGlow[i]; });
     hidden.forEach((el, i) => { el.style.visibility = prevVisibility[i]; });
   }
 }
+
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -157,9 +180,24 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([buf], { type: mime });
 }
 
+let shareInFlight = false;
+
 export async function shareInsightCard({ node, title, text, fileName = 'mind-module-insight.png' }: ShareOpts) {
+  // Single-flight: a second activation while a capture/share is running would
+  // produce a duplicate attachment in the share sheet.
+  if (shareInFlight) return;
+  shareInFlight = true;
   try {
-    const dataUrl = await snapshotPng(node);
+    // Switch cards into their export layout (e.g. vertical month calendar),
+    // let React paint, then snapshot.
+    setShareCapture(true);
+    await nextPaint();
+    let dataUrl: string;
+    try {
+      dataUrl = await snapshotPng(node);
+    } finally {
+      setShareCapture(false);
+    }
 
     // Native (iOS / Android): write to filesystem then invoke native share sheet
     if (Capacitor.isNativePlatform()) {
@@ -173,9 +211,10 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
         directory: Directory.Cache,
       });
 
+      // Exactly ONE attachment: the image. Passing `text` alongside `files`
+      // makes some targets (WhatsApp) render a second item.
       await Share.share({
         title,
-        text: text ?? title,
         files: [written.uri],
         dialogTitle: 'Share insight',
       });
@@ -192,9 +231,10 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
     };
 
     if (nav.share && nav.canShare?.({ files: [file] })) {
-      await nav.share({ title, text: text ?? title, files: [file] });
+      await nav.share({ title, files: [file] });
       return;
     }
+
 
     // Clipboard fallback
     if (navigator.clipboard && 'write' in navigator.clipboard) {
@@ -214,5 +254,9 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
     console.error('[shareInsightCard] error:', err);
     if ((err as { message?: string })?.message?.toLowerCase?.().includes('cancel')) return;
     toast({ title: 'Share failed', description: 'Please try again.', variant: 'destructive' });
+  } finally {
+    setShareCapture(false);
+    shareInFlight = false;
   }
 }
+

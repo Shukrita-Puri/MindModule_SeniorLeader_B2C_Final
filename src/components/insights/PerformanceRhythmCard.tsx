@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-syntax -- grandfathered raw calendar_events reads. Tracked in .lovable/plan.md for wiring through mergeCalendarEvents(). Remove this directive once every .from('calendar_events') read below has been replaced. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
+import { Loader2, Calendar, AlertTriangle, Sparkles, ChevronDown } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import InsightShareSlot from '@/components/insights/InsightShareSlot';
@@ -281,14 +281,15 @@ const PatternDebugRow = ({ row }: { row: { text: string; tier: string; dimension
 
 
 const PatternLine = ({ text, dim }: { text: string; dim?: string }) => (
-  <li className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
-    <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
+  <li className="text-[13px] text-foreground/85 leading-relaxed flex items-start gap-2.5">
+    <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-foreground/40 flex-shrink-0" aria-hidden />
     <span>
       {text}
       {dim && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">· {dim}</span>}
     </span>
   </li>
 );
+
 
 const PatternAnalysisSection = ({
   findings,
@@ -313,8 +314,13 @@ const PatternAnalysisSection = ({
   // buildSection (src/lib/insights/patternSentences.ts).
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
   const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
-  const checkInLines = buildSection(scoped.length > 0 ? scoped : checkInAll, 'check-in', 3);
+  // Scoped to the active tab: dedupe by pattern shape so day / window / streak
+  // findings for that dimension can all surface (up to the cap of 3).
+  const checkInLines = scoped.length > 0
+    ? buildSection(scoped, 'check-in', 3, 'kind')
+    : buildSection(checkInAll, 'check-in', 3);
   const baselineFindingLines = buildSection(findings, 'wearable', 3);
+
 
   const liftLines = buildBaselineLiftLines(lift, hasCalendar);
   const extraBaseline = [
@@ -377,13 +383,13 @@ const PatternAnalysisSection = ({
 
       <div className="space-y-2">
         <div className="flex items-start gap-2">
-          <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+          <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">B.</span>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-              Mental Performance Patterns When You Perform Best
+            <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
+              Mental Performance Patterns
             </p>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-              Based on physiology and demand data (wearable + calendar)
+            <p className="text-xs text-muted-foreground mt-1">
+              Based on physiology and demand data
             </p>
           </div>
           <InsightInfoModal
@@ -391,6 +397,7 @@ const PatternAnalysisSection = ({
             explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
           />
         </div>
+
         {hasBaseline ? (
           <ul className="pl-2 space-y-1.5">
             {baselineFindingsCapped.map((r, i) => (
@@ -1182,17 +1189,18 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             {/* Section header for check-in patterns */}
             {data.checkInCount >= 5 && (
               <div className="flex items-start gap-2">
-                <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+                <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">A.</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+                  <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
                     Mental Performance Patterns
                   </p>
-                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Based on check-in data
                   </p>
                 </div>
               </div>
             )}
+
 
             {/* Tab switcher: one chart at a time */}
             {data.checkInCount >= 5 && (
