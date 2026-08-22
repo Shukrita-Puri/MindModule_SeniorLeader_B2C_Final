@@ -146,8 +146,9 @@ describe('wearable time-of-day guard', () => {
 });
 
 describe('absolute peak floor', () => {
-  it('drops "peaks" below a 50% positive rate', () => {
-    expect(buildSentence(mk({ stats: { n: 6, bestPct: 33, comparePct: 0 } }))).toBeNull();
+  it('drops sub-50% peaks unless the gap is wide, then hedges them', () => {
+    expect(buildSentence(mk({ stats: { n: 6, bestPct: 33, comparePct: 22, gapPp: 11 } }))).toBeNull();
+    expect(buildSentence(mk({ stats: { n: 8, bestPct: 33, comparePct: 0, gapPp: 33 } }))?.tier).toBe('emerging');
     expect(buildSentence(mk({ stats: { n: 6, bestPct: 60, comparePct: 20 } }))).not.toBeNull();
   });
 });
@@ -171,7 +172,7 @@ describe('pipeline B lift lines', () => {
   const lift: PerformanceLiftPayload = {
     sleep_to_peak: { deltaPct: 18, n: 7, bestWindow: 'morning' },
     hr_event_lift: [{ categoryName: 'Deep Work', hrDeltaBpm: -6, compositeLift: 16, n: 6 }],
-    rhr_recovery_window: { window: 'afternoon', liftPct: 14, n: 6 },
+    rhr_recovery_window: { window: 'afternoon', liftPct: 17, n: 6 },
     recovery_streak_to_peak: { avgStreakLength: 2, n: 5 },
     category_lift: [{ categoryName: 'Strategy', compositeLift: 12, n: 4 }],
   };
