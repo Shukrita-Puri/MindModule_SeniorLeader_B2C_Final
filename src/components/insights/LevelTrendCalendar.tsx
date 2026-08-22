@@ -481,13 +481,14 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
                           ? 'border border-dashed border-border/40 bg-transparent'
                           : hasValue
                             ? 'shadow-sm'
-                            : 'bg-white/90 dark:bg-white/15',
+                            : 'border border-border/60 bg-white/90 dark:bg-white/15',
                         day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
                       )}
                       style={hasValue && tier ? {
                         background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})`,
                         boxShadow: `0 2px 6px ${tier.glow}`,
                       } : undefined}
+
                       title={slot.value != null && tier ? `${labelFor(tier.value)} (${slot.value}/5)` : undefined}
                     />
                   );
