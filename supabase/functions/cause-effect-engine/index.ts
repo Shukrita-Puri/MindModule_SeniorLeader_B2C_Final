@@ -560,7 +560,10 @@ serve(async (req) => {
       const d = ymd(new Date(e.start_time));
       if (!eventsByDay.has(d)) eventsByDay.set(d, []);
       eventsByDay.get(d)!.push(e);
-      const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
+      // Canonical A–H first (honours overrides / learned tokens / persisted
+      // category), then the keyword bucket, then attendee-count fallback.
+      const label = canonicalCategoryName(e) ?? classifyEvent(e.title) ??
+        classifyByAttendees(e.attendees_count);
       if (!eventTypeDays.has(label)) eventTypeDays.set(label, new Set());
       eventTypeDays.get(label)!.add(d);
     });
