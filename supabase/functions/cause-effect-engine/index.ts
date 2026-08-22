@@ -89,7 +89,8 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * existing gate is loosened. See _diagnostics.ts and
  * mem://reliability/wearable-signal-diagnostics.
  */
-const ENGINE_VERSION = 6;
+// v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
+const ENGINE_VERSION = 7;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
