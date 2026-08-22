@@ -287,18 +287,21 @@ const PatternAnalysisSection = ({
   const checkInLines = scoped.length > 0
     ? buildSection(scoped, 'check-in', 3, 'kind')
     : buildSection(checkInAll, 'check-in', 3);
-  const baselineFindingLines = buildSection(findings, 'wearable', 3);
+  // Section B stays global (all wearable + calendar findings eligible on every
+  // tab) but ranking is tab-aware, so each tab surfaces a different slice.
+  const baselineFindingLines = buildSection(findings, 'wearable', 3, 'dimension', activeTrend);
 
+  const liftLines = buildLiftLines(
+    lift as PerformanceLiftPayload | null,
+    { hasCalendar, tab: activeTrend, bestWindowLabel, calendarInsight },
+    3,
+  );
+  // Hard cap 3 for the whole physiology/demand section (findings + lift lines):
+  // leave room for at least one lift line when any exist.
+  const findingSlots = liftLines.length > 0 ? Math.min(2, 3 - Math.min(liftLines.length, 1)) : 3;
+  const baselineFindingsCapped = baselineFindingLines.slice(0, findingSlots);
+  const extraBaselineCapped = liftLines.slice(0, Math.max(0, 3 - baselineFindingsCapped.length));
 
-  const liftLines = buildBaselineLiftLines(lift, hasCalendar);
-  const extraBaseline = [
-    ...(bestWindowLabel ? [`Sharpest window: ${bestWindowLabel}.`] : []),
-    ...(calendarInsight ? [calendarInsight] : []),
-    ...liftLines,
-  ];
-  // Hard cap 3 for the whole physiology/demand section (findings + lift lines).
-  const baselineFindingsCapped = baselineFindingLines.slice(0, 3);
-  const extraBaselineCapped = extraBaseline.slice(0, Math.max(0, 3 - baselineFindingsCapped.length));
 
   const hasCheckIn = checkInLines.length > 0;
   const hasBaseline = baselineFindingsCapped.length > 0 || extraBaselineCapped.length > 0;
