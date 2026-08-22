@@ -281,14 +281,15 @@ const PatternDebugRow = ({ row }: { row: { text: string; tier: string; dimension
 
 
 const PatternLine = ({ text, dim }: { text: string; dim?: string }) => (
-  <li className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
-    <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
+  <li className="text-[13px] text-foreground/85 leading-relaxed flex items-start gap-2.5">
+    <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-foreground/40 flex-shrink-0" aria-hidden />
     <span>
       {text}
       {dim && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">· {dim}</span>}
     </span>
   </li>
 );
+
 
 const PatternAnalysisSection = ({
   findings,
