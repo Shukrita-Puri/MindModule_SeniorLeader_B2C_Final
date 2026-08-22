@@ -30,7 +30,7 @@ const FILES = walk(FUNCTIONS_DIR).filter((f) => !f.startsWith(EVENTS_DIR));
 
 describe('single A–H entry point', () => {
   it('the canonical resolver exists and re-exports the full struct', () => {
-    const src = readFileSync(join(EVENTS_DIR, 'resolve-event.ts'), 'utf8');
+    const src = readFileSync(join(EVENTS_DIR, 'resolve-event-category.ts'), 'utf8');
     expect(src).toContain('export function resolveEvent');
     expect(src).toContain('enrichEvent(');
   });
