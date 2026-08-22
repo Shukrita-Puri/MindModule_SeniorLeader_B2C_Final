@@ -203,7 +203,7 @@ function DrainHeatmapGrid({
         <table className="w-max min-w-full text-[11px] border-separate border-spacing-1">
           <thead>
             <tr>
-              <th className="text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
+              <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
               {columns.map((column) => (
                 <th
                   key={column}
@@ -218,9 +218,17 @@ function DrainHeatmapGrid({
           <tbody>
             {rows.map((row) => (
               <tr key={row}>
-                <td className="text-muted-foreground/80 font-medium pr-2">
-                  <span className="block whitespace-nowrap" title={row}>{row}</span>
+                <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2">
+                  {/* Frozen label column: stays put while the day columns scroll,
+                      and scrolls on its own axis so long names read in full. */}
+                  <span
+                    className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] scrollbar-none"
+                    title={row}
+                  >
+                    {row}
+                  </span>
                 </td>
+
                 {columns.map((column) => {
                   const cell = cellMap.get(`${row}::${column}`);
                   const value = cell?.value ?? null;
