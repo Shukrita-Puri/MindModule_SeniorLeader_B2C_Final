@@ -1135,11 +1135,13 @@ serve(async (req) => {
 
     const stressMatrix: StressMatrix = {
       events: topEventTypes,
-      categoryNames: topEventTypes.map((label) => eventTypeCategoryNames.get(label) ?? label),
+      categoryNames: topEventTypes,
       days: DAY_LABELS,
       cells: stressCells,
       n: stressN,
+      subLabels: stressSubLabels,
       confidence: stressConf,
+
       maxObserved,
       topCell,
       lowCell,
