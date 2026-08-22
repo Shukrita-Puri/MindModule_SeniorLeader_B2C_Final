@@ -1111,13 +1111,23 @@ serve(async (req) => {
       }
     });
 
-    // ── Stress Load matrix: per-event-window peak HR − resting baseline ─
-    // Resting baseline = mean of resting_heart_rate over the window.
-    // (Trailing 30-day mean is equivalent here because window === 30d.)
-    const restingVals: number[] = (wearable as any[])
-      .map((w) => (typeof w.resting_heart_rate === "number" ? w.resting_heart_rate : null))
-      .filter((v) => typeof v === "number" && v > 0) as number[];
-    const restingBaseline = restingVals.length >= 3 ? mean(restingVals) : null;
+    // ── Stress Load matrix: per-event-window mean HR − trailing baseline ─
+    // v12 changes:
+    // 1. Baseline is a per-event trailing mean (14d → 30d → whole window),
+    //    not a single window average, so travel/rest days don't dilute an event's
+    //    own baseline.
+    // 2. Delta uses mean HR over the event window, not peak HR, so a single
+    //    adrenaline spike no longer dominates the metric.
+    // 3. Events >90 minutes use only the first 45 minutes (focus window) to
+    //    avoid drift from breaks, travel, or post-event noise.
+    const restingHrByDay = new Map<string, number>();
+    (wearableExt || []).forEach((w: any) => {
+      if (typeof w.resting_heart_rate === "number" && w.resting_heart_rate > 0) {
+        restingHrByDay.set(w.summary_date as string, w.resting_heart_rate as number);
+      }
+    });
+    const restingVals = [...restingHrByDay.values()];
+    const windowBaseline = restingVals.length >= 3 ? mean(restingVals) : null;
 
     // Full Mon–Sun week: Sunday is a working day in Israel and the Gulf, and
     // weekend events carry real load, so they are bucketed like any other day.
@@ -1155,8 +1165,7 @@ serve(async (req) => {
       .slice(0, 7)
       .map(([label]) => label);
 
-
-    // Accumulators for each (day, event) cell: arrays of per-event peak deltas.
+    // Accumulators for each (day, event) cell: arrays of per-event mean deltas.
     const stressAcc: Array<Array<number[]>> = DAY_LABELS.map(() =>
       topEventTypes.map(() => [] as number[]),
     );
@@ -1164,7 +1173,19 @@ serve(async (req) => {
     const stressTop: Array<Array<{ label: string | null; delta: number } | null>> =
       DAY_LABELS.map(() => topEventTypes.map(() => null));
 
-    if (restingBaseline !== null && topEventTypes.length > 0) {
+    const stressLoadEvents: Array<{
+      date: string;
+      day: string;
+      event: string;
+      meanHr: number;
+      baselineUsed: number;
+      baselineSource: BaselineSource;
+      delta: number;
+      longBlock: boolean;
+      sampleCount: number;
+    }> = [];
+
+    if (windowBaseline !== null && topEventTypes.length > 0) {
       for (const e of events as any[]) {
         if (!e.start_time || !e.end_time) continue;
         const dIdx = dayIndex(e.start_time);
@@ -1175,23 +1196,27 @@ serve(async (req) => {
         const dayKey = ymd(new Date(e.start_time));
         const samples = hrSamplesByDay.get(dayKey);
         if (!samples || samples.length === 0) continue; // honest: omit cell, no day-max proxy
-        const startMs = new Date(e.start_time).getTime();
-        const endMs = new Date(e.end_time).getTime();
-        let peak = 0;
-        for (const s of samples) {
-          const t = new Date(s.t).getTime();
-          if (t >= startMs && t <= endMs && typeof s.v === "number" && s.v > peak) {
-            peak = s.v;
-          }
-        }
-        if (peak <= 0) continue;
-        const delta = peak - restingBaseline;
-        if (!Number.isFinite(delta)) continue;
-        stressAcc[dIdx][colIdx].push(delta);
+
+        const result = eventHrDelta(e, samples, restingHrByDay, windowBaseline);
+        if (!result) continue;
+
+        stressAcc[dIdx][colIdx].push(result.delta);
         const cur = stressTop[dIdx][colIdx];
-        if (!cur || delta > cur.delta) {
-          stressTop[dIdx][colIdx] = { label: subtypeLabelOf(e), delta };
+        if (!cur || result.delta > cur.delta) {
+          stressTop[dIdx][colIdx] = { label: subtypeLabelOf(e), delta: result.delta };
         }
+
+        stressLoadEvents.push({
+          date: dayKey,
+          day: DAY_LABELS[dIdx],
+          event: e.title ?? "Untitled",
+          meanHr: Math.round(result.meanHr * 10) / 10,
+          baselineUsed: Math.round(result.baselineUsed * 10) / 10,
+          baselineSource: result.baselineSource,
+          delta: Math.round(result.delta),
+          longBlock: result.longBlock,
+          sampleCount: result.sampleCount,
+        });
       }
     }
 
