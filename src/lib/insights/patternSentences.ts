@@ -120,6 +120,8 @@ export function confidenceTier(n: number): ConfidenceTier {
 /**
  * Observation guard (spec 4): tier is driven by BOTH observation count and the
  * size of the gap, per pattern shape. Anything below emerging is dropped.
+ * Emerging gap floor is 15pp so real, still-forming trends surface hedged
+ * instead of disappearing.
  */
 export function guardTier(f: RhythmFinding): ConfidenceTier {
   const s = f.stats;
@@ -135,12 +137,12 @@ export function guardTier(f: RhythmFinding): ConfidenceTier {
   }
   if (f.kind === 'cell-peak') {
     if (n >= 5 && gap >= 30) return 'strong';
-    if (n >= 3 && gap >= 20) return 'emerging';
+    if (n >= 3 && gap >= 15) return 'emerging';
     return 'insufficient';
   }
   // peak-day / peak-window
   if (n >= 6 && gap >= 30) return 'strong';
-  if (n >= 3 && gap >= 20) return 'emerging';
+  if (n >= 3 && gap >= 15) return 'emerging';
   return 'insufficient';
 }
 
@@ -152,6 +154,28 @@ export const CARD_KIND_WEIGHT: Partial<Record<RhythmKind, number>> = {
   'peak-window': 0.78,
 };
 
+export type CheckInDimension = 'clarity' | 'emotion' | 'pressure' | 'regulation';
+
+/**
+ * Section B stays global (nothing is excluded), but each check-in tab prefers
+ * the physiology dimensions most relevant to it, so the four tabs don't all
+ * read identically.
+ */
+export const TAB_AFFINITY: Record<CheckInDimension, RhythmDimension[]> = {
+  clarity: ['sleep_score', 'sleep_duration', 'hrv'],
+  emotion: ['hrv', 'rhr', 'sleep_efficiency'],
+  pressure: ['rhr', 'hr', 'hrv'],
+  regulation: ['hrv', 'rhr', 'sleep_score'],
+};
+
+/** Affinity bonus: first preference 0.30, then 0.20, 0.10; others 0. */
+export function affinityBonus(dim: RhythmDimension, tab?: CheckInDimension | null): number {
+  if (!tab) return 0;
+  const idx = TAB_AFFINITY[tab].indexOf(dim);
+  return idx === -1 ? 0 : 0.3 - idx * 0.1;
+}
+
+
 function pluralDay(di: number): string {
   return `${DAYS_FULL[di] ?? 'Day'}s`;
 }
@@ -161,11 +185,17 @@ export function buildSentence(f: RhythmFinding): { text: string; tier: Confidenc
   const s = f.stats;
   if (!s) return null;
   if (!isPositiveFinding(f)) return null;
-  const tier = guardTier(f);
+  let tier = guardTier(f);
   if (tier === 'insufficient') return null;
-  // A "peak" must actually be good in absolute terms, not merely the least-bad
-  // bucket. Anything under a 50% positive rate is a relative gap, not a peak.
-  if (s.bestPct != null && s.bestPct < 50) return null;
+  // A "peak" under a 50% positive rate is a relative gap, not an absolute peak.
+  // It still carries signal when the gap is wide, so keep it — but only ever in
+  // hedged, emerging wording.
+  if (s.bestPct != null && s.bestPct < 50) {
+    if ((s.gapPp ?? 0) < 20) return null;
+    tier = 'emerging';
+  }
+
+
 
 
   const adj = POSITIVE_ADJECTIVE[f.dimension];

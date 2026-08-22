@@ -1017,17 +1017,25 @@ serve(async (req) => {
         }
       }
 
-      // Order, dedupe by text, cap at 3 per dimension.
+      // Order, dedupe by text, cap at 6 per dimension. Positive kinds get
+      // reserved slots first so the "When You Perform Best" card is never
+      // starved by low/negative findings (which belong to the Drains surface).
       findings.sort((a, b) => b.confidence - a.confidence);
+      const POSITIVE_KINDS: RhythmKind[] = ['cell-peak', 'peak-day', 'peak-window', 'consecutive-pos'];
       const seenTexts = new Set<string>();
-      const deduped: RhythmFinding[] = [];
+      const unique: RhythmFinding[] = [];
       for (const f of findings) {
         if (seenTexts.has(f.text)) continue;
         seenTexts.add(f.text);
-        deduped.push(f);
-        if (deduped.length >= 3) break;
+        unique.push(f);
       }
+      const positives = unique.filter(f => POSITIVE_KINDS.includes(f.kind)).slice(0, 3);
+      const rest = unique.filter(f => !positives.includes(f));
+      const deduped = [...positives, ...rest.slice(0, Math.max(0, 6 - positives.length))]
+        .sort((a, b) => b.confidence - a.confidence);
+
       return deduped;
+
     };
 
     const claritySeries    = buildLevelSeries('clarity_level');
