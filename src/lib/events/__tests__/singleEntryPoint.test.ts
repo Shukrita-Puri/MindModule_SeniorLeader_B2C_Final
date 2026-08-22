@@ -56,4 +56,29 @@ describe('single A–H entry point', () => {
     });
     expect(offenders).toEqual([]);
   });
+
+  it('no surface imports the keyword-only bucket/label helpers', () => {
+    const BANNED = /\b(classifyEvent|classifyEventLabel|classifyEventBucket|classifyPatternBucket|classifyByLegacyTable|scenarioIdFor)\b/;
+    const offenders = FILES.filter((f) => {
+      const src = readFileSync(f, 'utf8');
+      const importBlocks = src.match(
+        /import\s*\{[^}]*\}\s*from\s*["'][^"']*event-classifier\.ts["']/g,
+      ) ?? [];
+      return importBlocks.some((b) => BANNED.test(b));
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it('the keyword-only helpers are no longer exported from event-classifier', () => {
+    const src = readFileSync(join(EVENTS_DIR, 'event-classifier.ts'), 'utf8');
+    for (const name of ['classifyEventLabel', 'classifyEventBucket', 'classifyPatternBucket', 'classifyByLegacyTable', 'scenarioIdFor']) {
+      expect(src.includes(`export function ${name}(`)).toBe(false);
+    }
+  });
+
+  it('canonical bucket helpers resolve through enrichEvent', () => {
+    const src = readFileSync(join(EVENTS_DIR, 'pattern-bucket.ts'), 'utf8');
+    expect(src).toContain('enrichEvent(');
+    expect(src).toContain('export function patternBucketFor');
+  });
 });
