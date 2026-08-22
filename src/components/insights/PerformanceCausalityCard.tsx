@@ -222,7 +222,7 @@ function DrainHeatmapGrid({
                   {/* Frozen label column: stays put while the day columns scroll,
                       and scrolls on its own axis so long names read in full. */}
                   <span
-                    className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] scrollbar-none"
+                    className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     title={row}
                   >
                     {row}
