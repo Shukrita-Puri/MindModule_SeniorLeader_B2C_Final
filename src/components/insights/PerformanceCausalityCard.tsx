@@ -880,7 +880,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 Need a few more wearable days after meetings to measure recovery time.
               </p>
             )}
-          </>
+          </div>
         )}
       </CardContent>
     </LuxuryInsightCard>
