@@ -161,9 +161,15 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
       el.scrollLeft = p.scrollLeft;
       el.scrollTop = p.scrollTop;
     });
+    pinnedCols.forEach((el, i) => {
+      el.style.width = prevPinned[i].width;
+      el.style.minWidth = prevPinned[i].minWidth;
+    });
+    glowEls.forEach((el, i) => { el.style.boxShadow = prevGlow[i]; });
     hidden.forEach((el, i) => { el.style.visibility = prevVisibility[i]; });
   }
 }
+
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
