@@ -241,14 +241,18 @@ function DrainHeatmapGrid({
                         : unit === 'days'
                           ? `${value}`
                           : `${Math.round(value)}`;
+                  // The row category is already visible on the left, so the
+                  // tooltip explains the sample size and names the event
+                  // subtype behind the cell's peak instead of repeating it.
                   const topLine =
                     value === null || !cell
-                      ? `${row} · ${column} — ${emptyLabel}`
-                      : `${row} · ${column} · n=${cell.n}`;
+                      ? `${column} — ${emptyLabel}`
+                      : `${column} · ${cell.n} event${cell.n === 1 ? '' : 's'} with HR samples`;
                   const eventLine =
                     cell?.topEventLabel && cell.topEventValue != null
-                      ? `\n${cell.topEventLabel} · ${unit === 'bpm' ? '+' : ''}${cell.topEventValue}${unit}`
+                      ? `\n${cell.topEventLabel} · ${unit === 'bpm' ? '+' : ''}${cell.topEventValue} ${unit}`
                       : '';
+
 
                   return (
                     <td key={`${row}-${column}`} className="p-0">
