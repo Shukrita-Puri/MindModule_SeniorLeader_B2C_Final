@@ -8,12 +8,12 @@ Wrap the existing Section A and Section B elements each in their own subtle sub-
 
 ### Section A sub-card
 
-Contains the existing Section A elements verbatim:
+Contains the existing Section A elements in their current order, verbatim:
 - "A. Mental Performance Patterns / Based on check-in data" header.
-- Collapsible `ChevronDown` toggle and its existing open/close behaviour.
-- The pattern bullet list, early-pattern note, or empty-state copy.
 - The `SegmentedToggle` tabs (Clarity / Emotion / Pressure / Regulation).
 - The active `LevelTrendCalendar` chart.
+- Collapsible `ChevronDown` toggle and its existing open/close behaviour.
+- The pattern bullet list, early-pattern note, or empty-state copy.
 
 Wrap these elements in a single container with the project's card surface tokens (`--surface-card-v2`, `--border-strong`, `--elev-1`, `rounded-xl`, `p-3.5` or the equivalent `.card-standard` utility). No visual restyling of the child elements.
 
@@ -22,18 +22,19 @@ Wrap these elements in a single container with the project's card surface tokens
 Contains the existing Section B elements verbatim:
 - "B. Mental Performance Patterns / Based on physiology and demand data" header.
 - Existing `InsightInfoModal` tooltip.
-- The global baseline pattern bullet list or empty-state copy.
+- The global-but-tab-aware baseline pattern bullet list or empty-state copy.
 
-Wrap these in an identical sub-card container. No changes to the header, bullets, or info modal.
+Wrap these in an identical sub-card container. No changes to the header, bullets, info modal, or the tab-aware ranking that already makes Section B read differently per tab.
 
 ### Between the sub-cards
 
-- Keep a clear vertical gap (`space-y-4`) between the two sub-cards. The current `h-px` divider lives inside `PatternAnalysisSection`; it will be removed because the two boxes now provide the separation.
+- Keep a clear vertical gap (`space-y-4`) between the two sub-cards. The current `h-px` divider inside `PatternAnalysisSection` is removed because the two boxes now provide the separation.
 
 ### What stays exactly the same
 
 - All text, labels, icons, bullets, toggle behaviour, tab switcher, chart, progressive messages, unlock incentives, and debug panel remain unchanged.
-- Section A stays scoped to the active tab; Section B stays global and non-collapsible.
+- Section A stays scoped to the active tab.
+- Section B stays global but tab-aware (existing `buildSection` / `buildLiftLines` ranking and affinity weights are untouched).
 - The outer `LuxuryInsightCard` remains the single capture boundary for sharing.
 - No logic in `patternSentences.ts` is touched.
 
@@ -49,5 +50,7 @@ Wrap these in an identical sub-card container. No changes to the header, bullets
   - Section A and Section B each sit in their own sub-card.
   - All existing child elements (header, toggle, tabs, chart, bullets, info icon) look unchanged apart from the wrapper.
   - Section A still collapses/expands; Section B does not.
+  - Section B content still varies per tab through the existing ranking.
   - Share capture still exports the whole card as one image.
+
 
