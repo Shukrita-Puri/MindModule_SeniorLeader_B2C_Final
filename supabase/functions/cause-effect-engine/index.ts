@@ -1054,13 +1054,16 @@ serve(async (req) => {
     const stressAcc: Array<Array<number[]>> = DAY_LABELS.map(() =>
       topEventTypes.map(() => [] as number[]),
     );
+    // Subtype label of the single event with the highest delta in each cell.
+    const stressTop: Array<Array<{ label: string | null; delta: number } | null>> =
+      DAY_LABELS.map(() => topEventTypes.map(() => null));
 
     if (restingBaseline !== null && topEventTypes.length > 0) {
       for (const e of events as any[]) {
         if (!e.start_time || !e.end_time) continue;
         const dIdx = dayIndex(e.start_time);
         if (dIdx < 0) continue;
-        const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
+        const label = categoryLabelOf(e);
         const colIdx = topEventTypes.indexOf(label);
         if (colIdx < 0) continue;
         const dayKey = ymd(new Date(e.start_time));
@@ -1079,6 +1082,10 @@ serve(async (req) => {
         const delta = peak - restingBaseline;
         if (!Number.isFinite(delta)) continue;
         stressAcc[dIdx][colIdx].push(delta);
+        const cur = stressTop[dIdx][colIdx];
+        if (!cur || delta > cur.delta) {
+          stressTop[dIdx][colIdx] = { label: subtypeLabelOf(e), delta };
+        }
       }
     }
 
@@ -1090,6 +1097,10 @@ serve(async (req) => {
       }),
     );
     const stressN: number[][] = stressAcc.map((row) => row.map((arr) => arr.length));
+    const stressSubLabels: (string | null)[][] = stressTop.map((row) =>
+      row.map((entry) => entry?.label ?? null),
+    );
+
     const stressConf: (Confidence | null)[][] = stressAcc.map((row) =>
       row.map((arr) =>
         arr.length >= MIN_OCCURRENCES_STRONG ? "strong" :
