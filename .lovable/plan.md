@@ -1,6 +1,6 @@
 # Chevron back buttons everywhere
 
-Make every back button in the app use the chevron icon (like the Insights sub-pages and the practice players already do). Icon swap only — same button, same size, same colour, same hover, same navigation behaviour.
+Make every back button in the app use the chevron icon (like the Insights sub-pages already do). Icon swap only — same button, same size, same colour, same hover, same navigation behaviour.
 
 ## What changes
 
@@ -13,6 +13,7 @@ Shared components (covers most sub-pages at once)
 - Simulation top navigation (keeps its white/foreground colour switch)
 
 Pages with their own back button
+- Practice players (`MicroPracticePlayerCards`, `GuidedPracticePlayer`)
 - Onboarding: context/connections stage and payment stage
 - Onboarding first-session guide ("Back" step control)
 - Nudge Settings, Nudge Simulator
@@ -23,9 +24,10 @@ Pages with their own back button
 
 - Main pages' menu/side-panel buttons — untouched.
 - Carousel previous/next arrows and keyboard `ArrowLeft` handlers — not back buttons, untouched.
-- Any already-chevron screens (Insights detail, practice players) — untouched.
+- Any already-chevron screens (Insights detail) — untouched.
 - No changes to colours, sizes, spacing, hover states, routing, or logic.
 
 ## Technical notes
 
 Each edit is a two-line change per file: swap the `ArrowLeft` import for `ChevronLeft` and swap the JSX tag, keeping all existing props (`size`, `className`, colour classes) exactly as they are. Verified afterwards with a typecheck and build.
+
