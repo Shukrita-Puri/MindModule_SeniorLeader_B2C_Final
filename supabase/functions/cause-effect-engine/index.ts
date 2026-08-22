@@ -29,7 +29,7 @@ import {
   dedupeCalendarEvents,
 } from "../_shared/events/event-classifier.ts";
 import { PILLAR_META, type Pillar } from "../_shared/events/event-subtypes.ts";
-import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import { type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 import { enrich as enrichCalendarEvent, patternBucketFor } from "../_shared/events/pattern-bucket.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 import {
@@ -89,7 +89,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * mem://reliability/wearable-signal-diagnostics.
  */
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
-const ENGINE_VERSION = 10;
+const ENGINE_VERSION = 11;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
