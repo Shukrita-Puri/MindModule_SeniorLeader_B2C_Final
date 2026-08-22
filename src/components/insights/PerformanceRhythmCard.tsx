@@ -396,6 +396,13 @@ const PatternAnalysisSection = ({
               <PatternDebugRow key={`dbg-${i}`} row={r} />
             ))}
           </ul>
+          <ul className="space-y-1">
+            {liftLines.map((l, i) => (
+              <li key={`dbgB-${i}`} className="text-[10px] font-mono text-muted-foreground/80 break-words">
+                B · {l.key} · tier={l.tier} · w={Math.round(l.weight * 100) / 100} · out: {l.text}
+              </li>
+            ))}
+          </ul>
           <p className="text-[10px] font-mono text-muted-foreground/60 break-words">
             dropped: {findings.filter((f) => !f.stats || f.stats.n < 3).length} (no stats / n&lt;3) ·{' '}
             {findings.filter((f) => f.stats && f.stats.n >= 3 && !['peak-day', 'peak-window', 'cell-peak', 'consecutive-pos'].includes(f.kind)).length} (negative scope)
