@@ -233,11 +233,14 @@ function DrainHeatmapGrid({
                   const cell = cellMap.get(`${row}::${column}`);
                   const value = cell?.value ?? null;
                   const { bg, fg } = coralFor(value, maxValue);
+                  // Signed formatting: mean-HR deltas can be negative (an
+                  // event that sat below the trailing resting baseline).
+                  const signed = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v)}`;
                   const displayValue =
                     value === null
                       ? '·'
                       : unit === 'bpm'
-                        ? `+${Math.round(value)}`
+                        ? signed(value)
                         : unit === 'days'
                           ? `${value}`
                           : `${Math.round(value)}`;
@@ -250,7 +253,7 @@ function DrainHeatmapGrid({
                       : `${column} · ${cell.n} event${cell.n === 1 ? '' : 's'} with HR samples`;
                   const eventLine =
                     cell?.topEventLabel && cell.topEventValue != null
-                      ? `\n${cell.topEventLabel} · ${unit === 'bpm' ? '+' : ''}${cell.topEventValue} ${unit}`
+                      ? `\n${cell.topEventLabel} · ${unit === 'bpm' ? signed(cell.topEventValue) : cell.topEventValue} ${unit}`
                       : '';
 
 
