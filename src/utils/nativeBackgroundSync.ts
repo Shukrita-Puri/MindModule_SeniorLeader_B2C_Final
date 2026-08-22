@@ -30,7 +30,7 @@ export interface NativeOutboxItem {
 }
 
 interface NativeBackgroundSyncPlugin {
-  updateAuthToken(opts: { token: string; expiresAt?: number }): Promise<{ success: boolean }>;
+  updateAuthToken(opts: { token: string; expiresAt?: number; refreshToken?: string; domain?: string; clientId?: string }): Promise<{ success: boolean }>;
   clearAuthToken(): Promise<{ success: boolean }>;
   runNow(): Promise<{ success: boolean; wearableDone?: boolean; calendarDone?: boolean }>;
   forceHealthSync(): Promise<{ success: boolean }>;
