@@ -344,7 +344,7 @@ function StressLoadTab({
   matrix: StressMatrix;
   subcategoryLift?: SubcategoryLiftEntry[];
 }) {
-  const { events, categoryNames, days, cells, n, maxObserved, topDay } = matrix;
+  const { events, categoryNames, days, cells, n, subLabels, maxObserved, topDay } = matrix;
   // Always render a full Mon–Sun week: Sunday is a working day in Israel and
   // the Gulf. Days the payload doesn't cover render as neutral empty cells.
   const WEEK_COLUMNS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -367,6 +367,8 @@ function StressLoadTab({
       const value = cells[dayIndex]?.[eventIndex] ?? null;
       const categoryId = categoryForEvent(event, eventIndex);
       const count = n[dayIndex]?.[eventIndex] ?? 0;
+      // Prefer the resolved event subtype; fall back to the column label.
+      const subLabel = subLabels?.[dayIndex]?.[eventIndex] || event;
       const key = `${categoryId}::${day}`;
       const existing = aggregatedCells.get(key);
       if (!existing) {
@@ -375,7 +377,7 @@ function StressLoadTab({
           bucketLabel: day,
           value,
           n: count,
-          topEventLabel: event,
+          topEventLabel: subLabel,
           topEventValue: value ?? undefined,
         });
         return;
@@ -383,11 +385,12 @@ function StressLoadTab({
       existing.n += count;
       if (value !== null && (existing.value === null || value > existing.value)) {
         existing.value = value;
-        existing.topEventLabel = event;
+        existing.topEventLabel = subLabel;
         existing.topEventValue = value;
       }
     });
   });
+
   const gridCells = Array.from(aggregatedCells.values());
 
   const categoryCounts = new Map<string, number>();
