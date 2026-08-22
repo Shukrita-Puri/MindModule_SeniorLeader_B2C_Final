@@ -35,12 +35,15 @@ interface StressMatrix {
   days: string[];
   cells: (number | null)[][];
   n: number[][];
+  /** Subtype label of the event that produced each cell's peak value. */
+  subLabels?: (string | null)[][];
   confidence: (Confidence | null)[][];
   maxObserved: number;
   topCell: { event: string; day: string; value: number } | null;
   lowCell: { event: string; day: string; value: number } | null;
   topDay: { day: string; total: number } | null;
 }
+
 interface BurnoutMatrix {
   weeks: string[];
   dims: Array<{
