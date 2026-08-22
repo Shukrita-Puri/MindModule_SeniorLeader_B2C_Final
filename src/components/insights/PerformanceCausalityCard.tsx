@@ -125,44 +125,41 @@ interface DrainHeatmapGridProps {
   emptyLabel?: string;
 }
 
-// Legacy alias → canonical A–H pillar name (see src/lib/events/categories.ts,
-// mirrored from the backend SSOT and guarded by a conformance test).
+// Legacy alias → canonical A–H pillar name. Canonical names come from the
+// single frontend mirror (src/lib/events/categories.ts), which is generated
+// from the backend SSOT and guarded by a conformance test — never hardcode
+// a pillar name here.
+const C = EVENT_CATEGORY_NAMES;
 const CATEGORY_LABELS: Record<string, string> = {
-  'Board reviews': 'High-Stakes Governance',
-  'Board / governance': 'High-Stakes Governance',
-  'Board governance': 'High-Stakes Governance',
-  Governance: 'High-Stakes Governance',
-  'Investor calls': 'High-Stakes Governance',
-  'Sales / pitches': 'Influence & Persuasion',
-  'Town halls': 'Visibility & Communication',
-  'Client meetings': 'Visibility & Communication',
-  'Small-group session': 'Visibility & Communication',
-  'Small-group sessions': 'Visibility & Communication',
-  Visibility: 'Visibility & Communication',
-  '1:1s': 'People & Difficult Conversations',
-  'Catch-up': 'People & Difficult Conversations',
-  'Catch-ups': 'People & Difficult Conversations',
-  'Catch-ups & syncs': 'People & Difficult Conversations',
-  'Relationship / 1:1': 'People & Difficult Conversations',
-  Networking: 'People & Difficult Conversations',
-  'Networking & com...': 'People & Difficult Conversations',
-  Interviews: 'People & Difficult Conversations',
-  Hiring: 'People & Difficult Conversations',
-  'Deep work': 'Deep Work & Strategy',
-  'Solo work block': 'Deep Work & Strategy',
-  'Solo work blocks': 'Deep Work & Strategy',
-  'Deep Work': 'Deep Work & Strategy',
-  Conferences: 'Conferences & External Events',
-  'School & family': 'Daily Rhythm & Baseline',
-  Personal: 'Daily Rhythm & Baseline',
-  'High-Stakes Governance': 'High-Stakes Governance',
-  'Influence & Persuasion': 'Influence & Persuasion',
-  'Visibility & Communication': 'Visibility & Communication',
-  'People & Difficult Conversations': 'People & Difficult Conversations',
-  'Deep Work & Strategy': 'Deep Work & Strategy',
-  'Conferences & External Events': 'Conferences & External Events',
-  Travel: 'Travel',
-  'Daily Rhythm & Baseline': 'Daily Rhythm & Baseline',
+  'Board reviews': C.A,
+  'Board / governance': C.A,
+  'Board governance': C.A,
+  Governance: C.A,
+  'Investor calls': C.A,
+  'Sales / pitches': C.B,
+  'Town halls': C.C,
+  'Client meetings': C.C,
+  'Small-group session': C.C,
+  'Small-group sessions': C.C,
+  Visibility: C.C,
+  '1:1s': C.D,
+  'Catch-up': C.D,
+  'Catch-ups': C.D,
+  'Catch-ups & syncs': C.D,
+  'Relationship / 1:1': C.D,
+  Networking: C.D,
+  'Networking & com...': C.D,
+  Interviews: C.D,
+  Hiring: C.D,
+  'Deep work': C.E,
+  'Solo work block': C.E,
+  'Solo work blocks': C.E,
+  'Deep Work': C.E,
+  Conferences: C.F,
+  'School & family': C.H,
+  Personal: C.H,
+  // Canonical names map to themselves.
+  ...Object.fromEntries(CANONICAL_CATEGORY_LABELS.map((n) => [n, n])),
 };
 
 const RECOVERY_BUCKETS = [
