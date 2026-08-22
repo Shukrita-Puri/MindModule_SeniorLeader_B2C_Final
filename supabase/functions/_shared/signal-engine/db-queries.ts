@@ -161,7 +161,7 @@ export async function getServerCalendarMetrics(
   userId: string,
   timezoneOffset: number = 0,
   dayOffset: number = 0,
-  platform: 'ios' | 'web' = 'web',
+  platform: 'ios' | 'web' | 'unknown' = 'web',
 ): Promise<CalendarMetricsResult> {
   const now = new Date();
   const userNow = new Date(now.getTime() - timezoneOffset * 60000);
