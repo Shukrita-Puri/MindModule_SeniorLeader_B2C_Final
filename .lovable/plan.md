@@ -1,14 +1,18 @@
 # Stress Load — mean HR, trailing baseline, long-block focus window
 
-## First, the question: what is "Calm" and what is "Acute"
+## Approved addition: ramp label rename
 
-They are not thresholds. The Stress Load grid uses a 7-stop coral ramp that is scaled **relative to the user's own highest cell in the window**:
+In the Stress Load legend, rename the two ends from **"Calm" / "Acute"** to **"Lower" / "Higher"**. No formula, colour, calculation, or threshold change — only the text labels in `PerformanceCausalityCard.tsx` (`rampLabel={{ low: 'Lower', high: 'Higher' }}`).
+
+## What the ramp actually represents
+
+The Stress Load grid uses a 7-stop coral ramp that is scaled **relative to the user's own highest cell in the window**:
 
 - Every cell value is `delta bpm` = (event-window HR) − (resting baseline), rounded.
 - `maxObserved` = the largest cell value in the whole grid.
-- Colour index = `floor(value / maxObserved * 7)` — so the palest stop ("Calm") is a delta near 0 bpm and the darkest ("Acute") is a delta at or near that user's own maximum.
+- Colour index = `floor(value / maxObserved * 7)` — so the palest stop ("Lower") is a delta near 0 bpm and the darkest ("Higher") is a delta at or near that user's own maximum.
 
-So "Acute" means "your heaviest bucket this window", not a clinical band, and the same +25 bpm cell can look pale for one user and dark for another. Empty cells (no HR samples overlapping the event) stay neutral. No change proposed to this — flagging it because the labels imply absolute meaning they don't have.
+"Higher" therefore means "your heaviest bucket this window", not a clinical band, and the same +25 bpm cell can look pale for one user and dark for another. Empty cells (no HR samples overlapping the event) stay neutral.
 
 ## The three changes (Stress Load delta path only)
 
