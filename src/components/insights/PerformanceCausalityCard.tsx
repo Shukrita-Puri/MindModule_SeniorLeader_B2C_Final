@@ -35,12 +35,15 @@ interface StressMatrix {
   days: string[];
   cells: (number | null)[][];
   n: number[][];
+  /** Subtype label of the event that produced each cell's peak value. */
+  subLabels?: (string | null)[][];
   confidence: (Confidence | null)[][];
   maxObserved: number;
   topCell: { event: string; day: string; value: number } | null;
   lowCell: { event: string; day: string; value: number } | null;
   topDay: { day: string; total: number } | null;
 }
+
 interface BurnoutMatrix {
   weeks: string[];
   dims: Array<{
@@ -200,7 +203,7 @@ function DrainHeatmapGrid({
         <table className="w-max min-w-full text-[11px] border-separate border-spacing-1">
           <thead>
             <tr>
-              <th className="text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
+              <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
               {columns.map((column) => (
                 <th
                   key={column}
@@ -215,9 +218,17 @@ function DrainHeatmapGrid({
           <tbody>
             {rows.map((row) => (
               <tr key={row}>
-                <td className="text-muted-foreground/80 font-medium pr-2">
-                  <span className="block whitespace-nowrap" title={row}>{row}</span>
+                <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2">
+                  {/* Frozen label column: stays put while the day columns scroll,
+                      and scrolls on its own axis so long names read in full. */}
+                  <span
+                    className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    title={row}
+                  >
+                    {row}
+                  </span>
                 </td>
+
                 {columns.map((column) => {
                   const cell = cellMap.get(`${row}::${column}`);
                   const value = cell?.value ?? null;
@@ -230,14 +241,18 @@ function DrainHeatmapGrid({
                         : unit === 'days'
                           ? `${value}`
                           : `${Math.round(value)}`;
+                  // The row category is already visible on the left, so the
+                  // tooltip explains the sample size and names the event
+                  // subtype behind the cell's peak instead of repeating it.
                   const topLine =
                     value === null || !cell
-                      ? `${row} · ${column} — ${emptyLabel}`
-                      : `${row} · ${column} · n=${cell.n}`;
+                      ? `${column} — ${emptyLabel}`
+                      : `${column} · ${cell.n} event${cell.n === 1 ? '' : 's'} with HR samples`;
                   const eventLine =
                     cell?.topEventLabel && cell.topEventValue != null
-                      ? `\n${cell.topEventLabel} · ${unit === 'bpm' ? '+' : ''}${cell.topEventValue}${unit}`
+                      ? `\n${cell.topEventLabel} · ${unit === 'bpm' ? '+' : ''}${cell.topEventValue} ${unit}`
                       : '';
+
 
                   return (
                     <td key={`${row}-${column}`} className="p-0">
@@ -329,7 +344,7 @@ function StressLoadTab({
   matrix: StressMatrix;
   subcategoryLift?: SubcategoryLiftEntry[];
 }) {
-  const { events, categoryNames, days, cells, n, maxObserved, topDay } = matrix;
+  const { events, categoryNames, days, cells, n, subLabels, maxObserved, topDay } = matrix;
   // Always render a full Mon–Sun week: Sunday is a working day in Israel and
   // the Gulf. Days the payload doesn't cover render as neutral empty cells.
   const WEEK_COLUMNS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -352,6 +367,8 @@ function StressLoadTab({
       const value = cells[dayIndex]?.[eventIndex] ?? null;
       const categoryId = categoryForEvent(event, eventIndex);
       const count = n[dayIndex]?.[eventIndex] ?? 0;
+      // Prefer the resolved event subtype; fall back to the column label.
+      const subLabel = subLabels?.[dayIndex]?.[eventIndex] || event;
       const key = `${categoryId}::${day}`;
       const existing = aggregatedCells.get(key);
       if (!existing) {
@@ -360,7 +377,7 @@ function StressLoadTab({
           bucketLabel: day,
           value,
           n: count,
-          topEventLabel: event,
+          topEventLabel: subLabel,
           topEventValue: value ?? undefined,
         });
         return;
@@ -368,11 +385,12 @@ function StressLoadTab({
       existing.n += count;
       if (value !== null && (existing.value === null || value > existing.value)) {
         existing.value = value;
-        existing.topEventLabel = event;
+        existing.topEventLabel = subLabel;
         existing.topEventValue = value;
       }
     });
   });
+
   const gridCells = Array.from(aggregatedCells.values());
 
   const categoryCounts = new Map<string, number>();

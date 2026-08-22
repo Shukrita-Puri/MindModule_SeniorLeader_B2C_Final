@@ -90,7 +90,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * mem://reliability/wearable-signal-diagnostics.
  */
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
-const ENGINE_VERSION = 7;
+const ENGINE_VERSION = 8;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -171,17 +171,20 @@ interface Payload {
 
 // ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
 interface StressMatrix {
-  events: string[];               // column headers (event-type buckets)
+  events: string[];               // column headers (A–H category names)
   categoryNames?: string[];        // canonical A-H category names, parallel to events
   days: string[];                 // row headers (Mon..Sun)
   cells: (number | null)[][];     // value to render (e.g. peak HR delta in bpm); null = no data
   n: number[][];                  // sample size per cell
+  /** Subtype label of the event that produced the cell's peak value. */
+  subLabels?: (string | null)[][];
   confidence: (Confidence | null)[][];
   maxObserved: number;            // for client-side ramp scaling
   topCell: { event: string; day: string; value: number } | null;
   lowCell: { event: string; day: string; value: number } | null;
   topDay: { day: string; total: number } | null;
 }
+
 interface BurnoutMatrix {
   weeks: string[];                                  // 5 labels: '4 wks ago' .. 'This week'
   dims: Array<{
@@ -1022,31 +1025,45 @@ serve(async (req) => {
       return (d + 6) % 7; // 0=Mon..6=Sun
     };
 
-    // Build column set: top event types by occurrence (max 7).
-    const eventTypeCounts = new Map<string, number>();
-    eventTypeDays.forEach((set, label) => eventTypeCounts.set(label, set.size));
-    const topEventTypes = [...eventTypeCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
+    // Build column set from the canonical A–H resolver, per event. The legacy
+    // pattern bucket + attendee fallback mis-filed titles the keyword list
+    // doesn't know (a flight landed under "Small-group meetings"), so the row
+    // an event lands in is now its own resolved category, not the category of
+    // whichever event first carried the same legacy bucket label.
+    const categoryLabelOf = (e: any): string =>
+      canonicalCategoryName(e.title) ?? classifyByAttendees(e.attendees_count);
+    const subtypeLabelOf = (e: any): string | null => {
+      const et = classifyEventCanonical(e.title) as any;
+      return et?.name ?? et?.bucket ?? null;
+    };
+
+    const categoryDays = new Map<string, Set<string>>();
+    for (const e of events as any[]) {
+      if (!e.start_time) continue;
+      const label = categoryLabelOf(e);
+      if (!categoryDays.has(label)) categoryDays.set(label, new Set());
+      categoryDays.get(label)!.add(ymd(new Date(e.start_time)));
+    }
+    const topEventTypes = [...categoryDays.entries()]
+      .sort((a, b) => b[1].size - a[1].size)
       .slice(0, 7)
       .map(([label]) => label);
-    const eventTypeCategoryNames = new Map<string, string>();
-    for (const e of events as any[]) {
-      const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
-      if (!label || eventTypeCategoryNames.has(label)) continue;
-      eventTypeCategoryNames.set(label, canonicalCategoryName(e.title) ?? label);
-    }
+
 
     // Accumulators for each (day, event) cell: arrays of per-event peak deltas.
     const stressAcc: Array<Array<number[]>> = DAY_LABELS.map(() =>
       topEventTypes.map(() => [] as number[]),
     );
+    // Subtype label of the single event with the highest delta in each cell.
+    const stressTop: Array<Array<{ label: string | null; delta: number } | null>> =
+      DAY_LABELS.map(() => topEventTypes.map(() => null));
 
     if (restingBaseline !== null && topEventTypes.length > 0) {
       for (const e of events as any[]) {
         if (!e.start_time || !e.end_time) continue;
         const dIdx = dayIndex(e.start_time);
         if (dIdx < 0) continue;
-        const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
+        const label = categoryLabelOf(e);
         const colIdx = topEventTypes.indexOf(label);
         if (colIdx < 0) continue;
         const dayKey = ymd(new Date(e.start_time));
@@ -1065,6 +1082,10 @@ serve(async (req) => {
         const delta = peak - restingBaseline;
         if (!Number.isFinite(delta)) continue;
         stressAcc[dIdx][colIdx].push(delta);
+        const cur = stressTop[dIdx][colIdx];
+        if (!cur || delta > cur.delta) {
+          stressTop[dIdx][colIdx] = { label: subtypeLabelOf(e), delta };
+        }
       }
     }
 
@@ -1076,6 +1097,10 @@ serve(async (req) => {
       }),
     );
     const stressN: number[][] = stressAcc.map((row) => row.map((arr) => arr.length));
+    const stressSubLabels: (string | null)[][] = stressTop.map((row) =>
+      row.map((entry) => entry?.label ?? null),
+    );
+
     const stressConf: (Confidence | null)[][] = stressAcc.map((row) =>
       row.map((arr) =>
         arr.length >= MIN_OCCURRENCES_STRONG ? "strong" :
@@ -1110,11 +1135,13 @@ serve(async (req) => {
 
     const stressMatrix: StressMatrix = {
       events: topEventTypes,
-      categoryNames: topEventTypes.map((label) => eventTypeCategoryNames.get(label) ?? label),
+      categoryNames: topEventTypes,
       days: DAY_LABELS,
       cells: stressCells,
       n: stressN,
+      subLabels: stressSubLabels,
       confidence: stressConf,
+
       maxObserved,
       topCell,
       lowCell,
