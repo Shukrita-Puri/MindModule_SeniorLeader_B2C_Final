@@ -1031,9 +1031,9 @@ serve(async (req) => {
       }
       const positives = unique.filter(f => POSITIVE_KINDS.includes(f.kind)).slice(0, 3);
       const rest = unique.filter(f => !positives.includes(f));
-      const deduped = [...positives, ...rest]
-        .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, 6);
+      const deduped = [...positives, ...rest.slice(0, Math.max(0, 6 - positives.length))]
+        .sort((a, b) => b.confidence - a.confidence);
+
       return deduped;
 
     };
