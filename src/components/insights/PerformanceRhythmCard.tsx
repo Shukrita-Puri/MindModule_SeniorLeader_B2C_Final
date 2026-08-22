@@ -314,8 +314,13 @@ const PatternAnalysisSection = ({
   // buildSection (src/lib/insights/patternSentences.ts).
   const checkInAll = findings.filter((f) => CHECK_IN_DIMS.has(f.dimension));
   const scoped = checkInAll.filter((f) => f.dimension === activeTrend);
-  const checkInLines = buildSection(scoped.length > 0 ? scoped : checkInAll, 'check-in', 3);
+  // Scoped to the active tab: dedupe by pattern shape so day / window / streak
+  // findings for that dimension can all surface (up to the cap of 3).
+  const checkInLines = scoped.length > 0
+    ? buildSection(scoped, 'check-in', 3, 'kind')
+    : buildSection(checkInAll, 'check-in', 3);
   const baselineFindingLines = buildSection(findings, 'wearable', 3);
+
 
   const liftLines = buildBaselineLiftLines(lift, hasCalendar);
   const extraBaseline = [
