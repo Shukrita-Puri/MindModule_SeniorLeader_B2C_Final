@@ -8274,7 +8274,7 @@ export function deriveStructuralDayFlags(
       realMeetingCount >= 3);
   const weekAhead = evaluateWeekAheadMode({
     dayOfWeek,
-    homeCountry: opts?.userLocale?.homeCountry ?? null,
+    homeCountry: (planReq as any)?.userLocale?.homeCountry ?? null,
     localHour: localNow.getUTCHours(),
     travelDay: hasTravelDay,
     fullWorkingWeekend: isFullWorkingWeekend,
@@ -9508,7 +9508,7 @@ if (import.meta.main) {
         const _localNow = new Date(Date.now() - _tzOffset * 60000);
         const _wam = evaluateWeekAheadMode({
           dayOfWeek: _localNow.getUTCDay(),
-          homeCountry: opts?.userLocale?.homeCountry ?? null,
+          homeCountry: (planReq as any)?.userLocale?.homeCountry ?? null,
           localHour: _localNow.getUTCHours(),
           manualOverride: (body as any)?.weekAheadOverride === true ||
             req.headers.get("x-week-ahead-override") === "1",
