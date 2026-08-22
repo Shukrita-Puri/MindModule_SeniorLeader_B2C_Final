@@ -278,27 +278,24 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
   useEffect(() => {
     if (!userId && !DEV_MODE) return;
     let cancelled = false;
-    (async () => {
+    const windowDays = Math.max(7, Math.min(lookbackDays ?? 30, 30));
+
+    const load = async (attempt: number): Promise<void> => {
       setLoading(true);
       try {
-        // Full current calendar month (day 1 → last day of month). This mirrors
-        // the Energy Trend strip exactly so all four calendars share the same
-        // date range and "remaining days/weeks" rendering (future days are
-        // shown as dashed-empty cells).
+        // Fixed 30-day window ending today. The share export uses exactly the
+        // same range, so the strip and the exported calendar always agree.
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayStr = today.toLocaleDateString('en-CA');
-        const currentYear = today.getFullYear();
-        const currentMonth = today.getMonth();
-        const monthStart = new Date(currentYear, currentMonth, 1);
-        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
-        const startDate = monthStart.toLocaleDateString('en-CA');
-        const endDate = monthEnd.toLocaleDateString('en-CA');
+        const firstVisible = new Date(today.getTime() - (windowDays - 1) * 24 * 60 * 60 * 1000);
+        firstVisible.setHours(0, 0, 0, 0);
+        const startDate = firstVisible.toLocaleDateString('en-CA');
+        const endDate = todayStr;
 
         const accessToken = DEV_MODE ? null : await getAuthToken();
         if (!DEV_MODE && !accessToken) {
-          if (!cancelled) { setDays([]); setLoading(false); }
-          return;
+          throw new Error('auth-token-unavailable');
         }
 
         // Production must go through the `level-trend-calendar` Edge Function:
@@ -313,9 +310,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
             .from('daily_checkins')
             .select(`checkin_date, time_window, created_at, ${field}`)
             .eq('user_id', DEV_USER.id)
-            .gte('checkin_date', lookbackDays
-              ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-              : startDate)
+            .gte('checkin_date', startDate)
             .lte('checkin_date', endDate);
           if (error) throw error;
           data = (rows || []).map((row: Record<string, unknown>) => ({
@@ -327,7 +322,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         } else {
           const { data: result, error } = await supabase.functions.invoke('level-trend-calendar', {
             headers: { Authorization: `Bearer ${accessToken}` },
-            body: { field, startDate, endDate, lookbackDays: lookbackDays ?? null },
+            body: { field, startDate, endDate, lookbackDays: windowDays },
           });
           if (error) throw error;
           data = (result?.rows || []) as typeof data;
@@ -348,13 +343,8 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
           }
         });
 
-        const firstVisible = lookbackDays
-          ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
-          : monthStart;
-        firstVisible.setHours(0, 0, 0, 0);
-        const totalDays = Math.max(1, Math.ceil((monthEnd.getTime() - firstVisible.getTime()) / (24 * 60 * 60 * 1000)) + 1);
         const out: DayCell[] = [];
-        for (let i = 0; i < totalDays; i++) {
+        for (let i = 0; i < windowDays; i++) {
           const d = new Date(firstVisible.getTime() + i * 24 * 60 * 60 * 1000);
           const dateStr = d.toLocaleDateString('en-CA');
           const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
@@ -377,18 +367,32 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         if (!cancelled) setDays(out);
       } catch (err) {
         console.error('[LevelTrendCalendar]', field, 'error:', err);
-        if (!cancelled) setDays([]);
+        // A failed request / missing auth token is NOT "no data" — keep any
+        // previously loaded days and retry once before showing an empty state.
+        if (cancelled) return;
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 900));
+          if (cancelled) return;
+          return load(1);
+        }
+        if (daysRef.current == null) setDays([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    };
+
+    void load(0);
     return () => { cancelled = true; };
   }, [userId, field, lookbackDays]);
 
   // After data arrives, re-apply layout once we know the strip element exists.
+  // Also re-runs when a share capture ends, because the capture clears the
+  // pinned inline column widths and would otherwise leave the strip parked
+  // on an earlier week.
   useEffect(() => {
     applyLayout(scrollElRef.current);
-  }, [days, isMobile, applyLayout]);
+  }, [days, isMobile, applyLayout, shareCapturing]);
+
 
   if (loading) {
     return (
