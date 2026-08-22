@@ -89,7 +89,8 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * existing gate is loosened. See _diagnostics.ts and
  * mem://reliability/wearable-signal-diagnostics.
  */
-const ENGINE_VERSION = 6;
+// v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
+const ENGINE_VERSION = 7;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -172,7 +173,7 @@ interface Payload {
 interface StressMatrix {
   events: string[];               // column headers (event-type buckets)
   categoryNames?: string[];        // canonical A-H category names, parallel to events
-  days: string[];                 // row headers (Mon..Fri)
+  days: string[];                 // row headers (Mon..Sun)
   cells: (number | null)[][];     // value to render (e.g. peak HR delta in bpm); null = no data
   n: number[][];                  // sample size per cell
   confidence: (Confidence | null)[][];
@@ -1009,14 +1010,16 @@ serve(async (req) => {
       .filter((v) => typeof v === "number" && v > 0) as number[];
     const restingBaseline = restingVals.length >= 3 ? mean(restingVals) : null;
 
-    const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    // Full Mon–Sun week: Sunday is a working day in Israel and the Gulf, and
+    // weekend events carry real load, so they are bucketed like any other day.
+    const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const dayIndex = (iso: string): number => {
       // Event timestamps already carry the user's local calendar date in the
       // ISO date portion, so derive DOW from that instead of reinterpreting
       // the timestamp through UTC.
-      const d = dayOfWeekFromIsoDate(iso.slice(0, 10));
-      if (d === 0 || d === 6) return -1;
-      return d - 1;
+      const d = dayOfWeekFromIsoDate(iso.slice(0, 10)); // 0=Sun..6=Sat
+      if (!Number.isFinite(d) || d < 0 || d > 6) return -1;
+      return (d + 6) % 7; // 0=Mon..6=Sun
     };
 
     // Build column set: top event types by occurrence (max 7).
