@@ -662,7 +662,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
   const [isMock, setIsMock] = useState(false);
-  const [tab, setTab] = useState<'stress' | 'burnout' | 'recovery'>('stress');
+  const [tab, setTab] = useState<'stress' | 'burnout'>('stress');
 
   useEffect(() => {
     let cancelled = false;
