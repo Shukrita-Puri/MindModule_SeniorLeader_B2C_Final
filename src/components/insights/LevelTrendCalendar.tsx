@@ -175,6 +175,8 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
   const [days, setDays] = useState<DayCell[] | null>(null);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
+  const shareCapturing = useShareCapture();
+
   const scrollElRef = useRef<HTMLDivElement | null>(null);
   const daysRef = useRef<DayCell[] | null>(null);
   const isMobileRef = useRef(isMobile);
