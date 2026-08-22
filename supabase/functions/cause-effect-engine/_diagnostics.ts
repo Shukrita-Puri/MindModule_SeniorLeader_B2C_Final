@@ -75,7 +75,7 @@ export interface DiagnosticsInput {
   events: Array<{ start_time?: string | null }>;
   briefs: Array<{ local_date?: string | null; time_window?: string | null; score?: number | null }>;
   hrSamplesByDay: Map<string, unknown[]>;
-  restingBaseline: number | null;
+  windowBaseline: number | null;
   prsBaseline: number | null;
   performanceLift: {
     hr_event_lift: unknown[];
@@ -83,7 +83,11 @@ export interface DiagnosticsInput {
     sleep_to_peak: unknown | null;
     rhr_recovery_window: unknown | null;
   };
+  stressLoadEvents?: DiagnosticsInput["stressLoadEvents"];
 }
+
+// Re-export under the old name so existing imports don't break during migration.
+export type DiagnosticsInputStressLoadEvent = NonNullable<DiagnosticsInput["stressLoadEvents"]>[number];
 
 export interface DiagnosticsOptions {
   windowDays: number;
