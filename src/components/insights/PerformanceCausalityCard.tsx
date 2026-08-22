@@ -805,20 +805,38 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
         ) : showGating ? (
           <GatingPrompt hasWearable={!!cov?.hasWearable} hasCalendar={!!cov?.hasCalendar} />
         ) : (
-          <>
-            {/* Tab bar */}
-            <SegmentedToggle
-              ariaLabel="Drain lens"
-              value={tab}
-              onChange={(v) => setTab(v)}
-              options={[
-                { value: 'stress', label: 'Stress Load' },
-                { value: 'burnout', label: 'Burnout Risk' },
-                { value: 'recovery', label: 'Recovery Time' },
-              ]}
-            />
+          <div className="space-y-4">
+            {/* Shared section title sits above the sub-card, below the card header */}
+            <div className="flex items-start gap-2">
+              <span className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
+                Mental Performance Patterns
+              </span>
+            </div>
 
-            {tab === 'stress' ? (
+            {/* Section A — physiology and demand patterns */}
+            <div className="rounded-xl p-3.5 space-y-4 bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+              <div className="flex items-start gap-2">
+                <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">A.</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Based on Physiology x Demand data
+                  </p>
+                </div>
+              </div>
+
+              {/* Tab bar */}
+              <SegmentedToggle
+                ariaLabel="Drain lens"
+                value={tab}
+                onChange={(v) => setTab(v)}
+                options={[
+                  { value: 'stress', label: 'Stress Load' },
+                  { value: 'burnout', label: 'Burnout Risk' },
+                  { value: 'recovery', label: 'Recovery Time' },
+                ]}
+              />
+
+              {tab === 'stress' ? (
               !tabStates.stress.unlocked ? (
                 <LockedTile
                   title={tabStates.stress.title}
