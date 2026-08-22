@@ -49,14 +49,21 @@ Missing source behaviour: a cell with no overlapping HR samples is **omitted**, 
 
 ### 4.1 Stress Load (heart rate x events — no HRV anywhere)
 
+ENGINE_VERSION 12 changes are in **bold**.
+
 ```text
-resting baseline = mean(wearable_data.resting_heart_rate) over the window   (needs >= 3 days)
+resting baseline (per event) =
+    mean(resting_heart_rate) over the 14 days immediately before the event date,
+    falling back to 30 days, then to the whole-window mean
+    (needs >= 3 readings in the chosen lookback)
 
 per calendar event with start_time and end_time:
     samples = wearable_data.hr_samples for the event's local date
     if none -> event skipped
-    peak    = max(v) for samples where start <= t <= end
-    delta   = peak - resting baseline
+    **mean_hr = mean(v) for samples where start <= t <= end**
+    **if event duration > 90 minutes, use only the first 45 minutes (focus window)**
+    **if the focus window has fewer than 3 samples, fall back to the full window**
+    **delta   = mean_hr - per-event trailing baseline**
 
 cell(day-of-week, event category) = round(mean(all deltas in that bucket))
 n                                  = number of contributing events
@@ -64,7 +71,7 @@ Peak / Quietest                    = extreme eligible cells (category needs n >=
 Heaviest day                       = day-of-week with the highest mean cell value
 ```
 
-Columns are the top 7 event types by number of distinct days they occur on. The subcategory line under the grid uses the same per-event maths rolled up to `(categoryId, subcategoryId)`.
+Columns are the top 7 event types by number of distinct days they occur on. The subcategory line under the grid uses the same per-event maths rolled up to `(categoryId, subcategoryId`).
 
 ### 4.2 Burnout Risk
 
