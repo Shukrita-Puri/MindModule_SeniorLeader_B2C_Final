@@ -13,6 +13,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
+import SegmentedToggle from '@/components/insights/SegmentedToggle';
 
 interface HeatmapCell {
   outcome: string | null;
@@ -1195,27 +1196,17 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
             {/* Tab switcher: one chart at a time */}
             {data.checkInCount >= 5 && (
-              <div className="flex flex-wrap gap-1.5">
-                {([
-                  { k: 'clarity', label: 'Clarity' },
-                  { k: 'emotion', label: 'Emotion' },
-                  { k: 'pressure', label: 'Pressure' },
-                  { k: 'regulation', label: 'Regulation' },
-                ] as const).map(({ k, label }) => (
-                  <button
-                    key={k}
-                    onClick={() => setActiveTrend(k)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-full text-xs font-medium tracking-wide font-body transition-all',
-                      activeTrend === k
-                        ? 'bg-foreground text-background shadow-sm'
-                        : 'bg-muted/30 text-muted-foreground hover:bg-muted/50',
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedToggle
+                ariaLabel="Mental performance dimension"
+                value={activeTrend}
+                onChange={(v) => setActiveTrend(v)}
+                options={[
+                  { value: 'clarity', label: 'Clarity' },
+                  { value: 'emotion', label: 'Emotion' },
+                  { value: 'pressure', label: 'Pressure' },
+                  { value: 'regulation', label: 'Regulation' },
+                ]}
+              />
             )}
 
             {/* Energy Trend removed — mind dimensions only */}

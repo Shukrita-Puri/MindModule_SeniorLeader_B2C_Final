@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useMrsTrend, type MrsRangeDays } from '@/hooks/useMrsTrend';
 import { fetchMrsDailySeries } from '@/services/mrsDailySeries';
 import MrsSparkline from '@/components/home/mrs/MrsSparkline';
+import SegmentedToggle from '@/components/insights/SegmentedToggle';
 
 type Tier = 'green' | 'amber' | 'red' | null;
 
@@ -255,23 +256,18 @@ const InnerReadinessDial = () => {
                 {trend.data?.rangeLabel ?? ''}
               </span>
             </div>
-            <div className="flex items-center gap-1 rounded-full bg-muted/40 p-0.5">
-              {([30, 180, 365] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRange(r)}
-                  className={cn(
-                    'px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] rounded-full transition-colors',
-                    r === range
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground/80'
-                  )}
-                >
-                  {r === 30 ? '1M' : r === 180 ? '6M' : '1Y'}
-                </button>
-              ))}
-            </div>
+            <SegmentedToggle
+              size="compact"
+              uppercase
+              ariaLabel="Trend range"
+              value={range}
+              onChange={(v) => setRange(v)}
+              options={[
+                { value: 30, label: '1M' },
+                { value: 180, label: '6M' },
+                { value: 365, label: '1Y' },
+              ]}
+            />
           </div>
           <MrsSparkline history={trend.data?.history ?? []} height={96} showMarkers />
           <p className="mt-3 text-[11px] text-muted-foreground/80 text-left">
