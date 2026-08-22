@@ -25,6 +25,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { shouldUsePreviewMock, isPreviewContext } from '@/utils/previewAuth';
 import { MOCK_CAUSALITY_PAYLOAD } from '@/components/insights/causalityMockData';
 import { cn } from '@/lib/utils';
+import SegmentedToggle from '@/components/insights/SegmentedToggle';
 
 // ── Types (mirror engine output, payload-only fields) ────────────────
 type Confidence = 'strong' | 'emerging';
@@ -827,17 +828,16 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
         ) : (
           <>
             {/* Tab bar */}
-            <div className="flex items-center gap-2">
-              <TabPill active={tab === 'stress'} onClick={() => setTab('stress')}>
-                Stress Load
-              </TabPill>
-              <TabPill active={tab === 'burnout'} onClick={() => setTab('burnout')}>
-                Burnout Risk
-              </TabPill>
-              <TabPill active={tab === 'recovery'} onClick={() => setTab('recovery')}>
-                Recovery Time
-              </TabPill>
-            </div>
+            <SegmentedToggle
+              ariaLabel="Drain lens"
+              value={tab}
+              onChange={(v) => setTab(v)}
+              options={[
+                { value: 'stress', label: 'Stress Load' },
+                { value: 'burnout', label: 'Burnout Risk' },
+                { value: 'recovery', label: 'Recovery Time' },
+              ]}
+            />
 
             {tab === 'stress' ? (
               !tabStates.stress.unlocked ? (

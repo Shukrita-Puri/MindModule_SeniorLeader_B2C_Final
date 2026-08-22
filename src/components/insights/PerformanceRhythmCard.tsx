@@ -13,6 +13,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
+import SegmentedToggle from '@/components/insights/SegmentedToggle';
 
 interface HeatmapCell {
   outcome: string | null;
