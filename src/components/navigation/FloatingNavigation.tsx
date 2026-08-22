@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -33,7 +33,7 @@ const FloatingNavigation = ({
             onClick={() => navigate(backPath)}
             className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">

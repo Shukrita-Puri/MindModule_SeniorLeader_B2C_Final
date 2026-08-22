@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -28,7 +28,7 @@ const TopNavigation = ({ backPath, transparent = false }: TopNavigationProps) =>
           onClick={handleBack}
           className={transparent ? "hover:bg-white/10" : "hover:bg-muted/50"}
         >
-          <ArrowLeft size={20} className={transparent ? "text-white" : "text-foreground"} />
+          <ChevronLeft size={20} className={transparent ? "text-white" : "text-foreground"} />
         </Button>
         <div className="w-10" />
       </div>

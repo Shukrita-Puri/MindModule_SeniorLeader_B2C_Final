@@ -130,7 +130,7 @@ const NudgeSimulator = () => {
           onClick={() => navigate("/nudge-settings")}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-700 transition-colors"
         >
-          <ArrowLeft size={20} className="text-white" />
+          <ChevronLeft size={20} className="text-white" />
         </button>
         <h1 className="text-[15px] font-bold text-white uppercase">SMART NUDGE PREVIEW</h1>
         <Button onClick={nextNudge} variant="outline" size="sm" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
