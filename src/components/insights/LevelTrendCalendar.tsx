@@ -417,6 +417,55 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
     );
   }
 
+  // Export layout: while a share snapshot is being taken, the month renders
+  // as a vertical day-per-row list so the WHOLE month fits a portrait image
+  // (no horizontal scrolling for the recipient). On-screen behaviour unchanged.
+  if (shareCapturing) {
+    return (
+      <div className="space-y-3">
+        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
+        <div className="flex items-center gap-2 pl-[68px]">
+          {['Morning', 'Midday', 'Evening'].map((label) => (
+            <span key={label} className="flex-1 text-[10px] text-muted-foreground text-center">{label}</span>
+          ))}
+        </div>
+        <div className="space-y-1">
+          {days.filter((d) => !d.isFuture).map((day) => (
+            <div key={day.date} className="flex items-center gap-2">
+              <span className="w-[64px] text-[11px] text-muted-foreground text-right whitespace-nowrap">
+                {day.dayLabel} {day.dateNum}
+              </span>
+              {(['morning', 'midday', 'evening'] as const).map((tw) => {
+                const tier = tierFor(LEVEL_TIERS, day.slots[tw].value);
+                return (
+                  <div
+                    key={tw}
+                    className={cn(
+                      'flex-1 h-6 rounded-md',
+                      tier ? '' : 'border border-border/60 bg-white',
+                    )}
+                    style={tier ? { background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` } : undefined}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20">
+          {LEVEL_TIERS.slice().reverse().map((tier) => (
+            <div key={tier.value} className="flex items-center gap-1.5">
+              <div
+                className="w-3 h-2.5 rounded-sm"
+                style={{ background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` }}
+              />
+              <span>{labelFor(tier.value)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -435,6 +484,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
           </div>
         )}
       </div>
+
 
       <div className="flex">
         {/* Fixed row labels */}
