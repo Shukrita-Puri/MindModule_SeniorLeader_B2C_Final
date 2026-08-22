@@ -278,27 +278,24 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
   useEffect(() => {
     if (!userId && !DEV_MODE) return;
     let cancelled = false;
-    (async () => {
+    const windowDays = Math.max(7, Math.min(lookbackDays ?? 30, 30));
+
+    const load = async (attempt: number): Promise<void> => {
       setLoading(true);
       try {
-        // Full current calendar month (day 1 → last day of month). This mirrors
-        // the Energy Trend strip exactly so all four calendars share the same
-        // date range and "remaining days/weeks" rendering (future days are
-        // shown as dashed-empty cells).
+        // Fixed 30-day window ending today. The share export uses exactly the
+        // same range, so the strip and the exported calendar always agree.
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayStr = today.toLocaleDateString('en-CA');
-        const currentYear = today.getFullYear();
-        const currentMonth = today.getMonth();
-        const monthStart = new Date(currentYear, currentMonth, 1);
-        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
-        const startDate = monthStart.toLocaleDateString('en-CA');
-        const endDate = monthEnd.toLocaleDateString('en-CA');
+        const firstVisible = new Date(today.getTime() - (windowDays - 1) * 24 * 60 * 60 * 1000);
+        firstVisible.setHours(0, 0, 0, 0);
+        const startDate = firstVisible.toLocaleDateString('en-CA');
+        const endDate = todayStr;
 
         const accessToken = DEV_MODE ? null : await getAuthToken();
         if (!DEV_MODE && !accessToken) {
-          if (!cancelled) { setDays([]); setLoading(false); }
-          return;
+          throw new Error('auth-token-unavailable');
         }
 
         // Production must go through the `level-trend-calendar` Edge Function:
@@ -313,9 +310,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
             .from('daily_checkins')
             .select(`checkin_date, time_window, created_at, ${field}`)
             .eq('user_id', DEV_USER.id)
-            .gte('checkin_date', lookbackDays
-              ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-              : startDate)
+            .gte('checkin_date', startDate)
             .lte('checkin_date', endDate);
           if (error) throw error;
           data = (rows || []).map((row: Record<string, unknown>) => ({
@@ -327,7 +322,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         } else {
           const { data: result, error } = await supabase.functions.invoke('level-trend-calendar', {
             headers: { Authorization: `Bearer ${accessToken}` },
-            body: { field, startDate, endDate, lookbackDays: lookbackDays ?? null },
+            body: { field, startDate, endDate, lookbackDays: windowDays },
           });
           if (error) throw error;
           data = (result?.rows || []) as typeof data;
@@ -348,13 +343,8 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
           }
         });
 
-        const firstVisible = lookbackDays
-          ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
-          : monthStart;
-        firstVisible.setHours(0, 0, 0, 0);
-        const totalDays = Math.max(1, Math.ceil((monthEnd.getTime() - firstVisible.getTime()) / (24 * 60 * 60 * 1000)) + 1);
         const out: DayCell[] = [];
-        for (let i = 0; i < totalDays; i++) {
+        for (let i = 0; i < windowDays; i++) {
           const d = new Date(firstVisible.getTime() + i * 24 * 60 * 60 * 1000);
           const dateStr = d.toLocaleDateString('en-CA');
           const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
@@ -377,18 +367,32 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         if (!cancelled) setDays(out);
       } catch (err) {
         console.error('[LevelTrendCalendar]', field, 'error:', err);
-        if (!cancelled) setDays([]);
+        // A failed request / missing auth token is NOT "no data" — keep any
+        // previously loaded days and retry once before showing an empty state.
+        if (cancelled) return;
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 900));
+          if (cancelled) return;
+          return load(1);
+        }
+        if (daysRef.current == null) setDays([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    };
+
+    void load(0);
     return () => { cancelled = true; };
   }, [userId, field, lookbackDays]);
 
   // After data arrives, re-apply layout once we know the strip element exists.
+  // Also re-runs when a share capture ends, because the capture clears the
+  // pinned inline column widths and would otherwise leave the strip parked
+  // on an earlier week.
   useEffect(() => {
     applyLayout(scrollElRef.current);
-  }, [days, isMobile, applyLayout]);
+  }, [days, isMobile, applyLayout, shareCapturing]);
+
 
   if (loading) {
     return (
@@ -421,89 +425,95 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
     );
   }
 
-  // Export layout: while a share snapshot is being taken, the month renders
-  // as a compact calendar grid so the WHOLE month fits a portrait image
-  // (no horizontal scrolling for the recipient). On-screen behaviour unchanged.
+  // Export layout: while a share snapshot is being taken, the SAME 30-day
+  // window renders as compact Monday-aligned month blocks so the whole range
+  // fits a portrait image (no horizontal scrolling for the recipient).
+  // Every loaded day appears exactly once, under its true weekday column.
   if (shareCapturing) {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const firstOfMonth = new Date(year, month, 1);
-    const startDay = firstOfMonth.getDay();
-    const mondayStart = (startDay + 6) % 7;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const grid: (DayCell | null)[] = [];
-    for (let i = 0; i < mondayStart; i++) grid.push(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dDate = new Date(year, month, d);
-      const dateStr = dDate.toLocaleDateString('en-CA');
-      const existing = days.find((day) => day.date === dateStr);
-      grid.push(
-        existing ?? {
-          date: dateStr,
-          dayLabel: dDate.toLocaleDateString('en-US', { weekday: 'short' }),
-          dateNum: String(d),
-          isToday: dateStr === today.toLocaleDateString('en-CA'),
-          isFuture: dDate.getTime() > today.getTime(),
-          slots: { morning: { value: null }, midday: { value: null }, evening: { value: null } },
-        },
-      );
+    const blocks: { key: string; label: string; grid: (DayCell | null)[] }[] = [];
+    for (const day of days) {
+      const d = new Date(`${day.date}T00:00:00`);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      let block = blocks.find((b) => b.key === key);
+      if (!block) {
+        block = {
+          key,
+          label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          grid: [],
+        };
+        // Leading blanks: real weekday of this block's first rendered day,
+        // Monday-indexed (Sunday → 6).
+        const dow = d.getDay();
+        const mondayIdx = (dow + 6) % 7;
+        for (let i = 0; i < mondayIdx; i++) block.grid.push(null);
+        blocks.push(block);
+      }
+      block.grid.push(day);
     }
-    const trailing = (7 - (grid.length % 7)) % 7;
-    for (let i = 0; i < trailing; i++) grid.push(null);
+    blocks.forEach((b) => {
+      const trailing = (7 - (b.grid.length % 7)) % 7;
+      for (let i = 0; i < trailing; i++) b.grid.push(null);
+    });
 
     return (
       <div className="space-y-3">
         <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
-        <div className="grid grid-cols-7 gap-1">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => (
-            <div key={label} className="text-[9px] text-muted-foreground text-center pb-1">
-              {label}
-            </div>
-          ))}
-          {grid.map((day, idx) => {
-            if (!day) return <div key={`blank-${idx}`} className="h-12" />;
-            const hasAny =
-              day.slots.morning.value !== null ||
-              day.slots.midday.value !== null ||
-              day.slots.evening.value !== null;
-            return (
-              <div
-                key={day.date}
-                className={cn(
-                  'h-12 rounded-md p-1 flex flex-col gap-0.5 overflow-hidden',
-                  day.isFuture
-                    ? 'border border-dashed border-border/40 bg-transparent'
-                    : hasAny
-                      ? 'bg-white'
-                      : 'border border-foreground/40 bg-white',
-                )}
-              >
-                <span
-                  className={cn(
-                    'text-[9px] leading-none',
-                    day.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
-                  )}
-                >
-                  {day.dateNum}
-                </span>
-                <div className="flex-1 flex flex-col gap-px rounded-sm overflow-hidden">
-                  {(['morning', 'midday', 'evening'] as const).map((tw) => {
-                    const tier = tierFor(LEVEL_TIERS, day.slots[tw].value);
-                    return (
-                      <div
-                        key={tw}
-                        className="flex-1 w-full"
-                        style={tier ? { background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` } : undefined}
-                      />
-                    );
-                  })}
+        {blocks.map((block) => (
+          <div key={block.key} className="space-y-1">
+            <span className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground/80">
+              {block.label}
+            </span>
+            <div className="grid grid-cols-7 gap-1">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => (
+                <div key={label} className="text-[9px] text-muted-foreground text-center pb-1">
+                  {label}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              ))}
+              {block.grid.map((day, idx) => {
+                if (!day) return <div key={`blank-${block.key}-${idx}`} className="h-12" />;
+                const hasAny =
+                  day.slots.morning.value !== null ||
+                  day.slots.midday.value !== null ||
+                  day.slots.evening.value !== null;
+                return (
+                  <div
+                    key={day.date}
+                    className={cn(
+                      'h-12 rounded-md p-1 flex flex-col gap-0.5 overflow-hidden',
+                      day.isFuture
+                        ? 'border border-dashed border-border/40 bg-transparent'
+                        : hasAny
+                          ? 'bg-white'
+                          : 'border border-foreground/40 bg-white',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'text-[9px] leading-none',
+                        day.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
+                      )}
+                    >
+                      {day.dateNum}
+                    </span>
+                    <div className="flex-1 flex flex-col gap-px rounded-sm overflow-hidden">
+                      {(['morning', 'midday', 'evening'] as const).map((tw) => {
+                        const tier = tierFor(LEVEL_TIERS, day.slots[tw].value);
+                        return (
+                          <div
+                            key={tw}
+                            className="flex-1 w-full"
+                            style={tier ? { background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` } : undefined}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
         <div className="flex items-center justify-center gap-3 text-[10px] text-muted-foreground pt-2 border-t border-border/20">
           {['Morning', 'Midday', 'Evening'].map((label) => (
             <span key={label} className="flex items-center gap-1">
@@ -527,13 +537,22 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
     );
   }
 
+  const firstDay = days[0] ? new Date(`${days[0].date}T00:00:00`) : null;
+  const lastDay = days[days.length - 1] ? new Date(`${days[days.length - 1].date}T00:00:00`) : null;
+  const rangeLabel = firstDay && lastDay
+    ? firstDay.getMonth() === lastDay.getMonth()
+      ? firstDay.toLocaleDateString('en-US', { month: 'long' })
+      : `${firstDay.toLocaleDateString('en-US', { month: 'short' })} – ${lastDay.toLocaleDateString('en-US', { month: 'short' })}`
+    : '';
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
           <InsightInfoModal title={title} explanation={explanation} />
-          <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap">← scroll for past weeks</span>
+          <span className="text-[10px] text-muted-foreground/60 whitespace-nowrap">{rangeLabel}</span>
+          <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap">← scroll</span>
         </div>
         {!hideStreak && (
           <div className="flex-shrink-0">

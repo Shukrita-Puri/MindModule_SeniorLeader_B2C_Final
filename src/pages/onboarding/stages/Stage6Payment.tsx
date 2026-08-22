@@ -59,8 +59,7 @@ function PaymentPageShell({
             data-testid="payment-back-button"
             className="inline-flex items-center gap-1 -ml-1 py-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
           >
-            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-            <span>Back</span>
+            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
       )}
