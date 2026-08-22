@@ -13,7 +13,7 @@ Shared components (covers most sub-pages at once)
 - Simulation top navigation (keeps its white/foreground colour switch)
 
 Pages with their own back button
-- Practice players (`MicroPracticePlayerCards`, `GuidedPracticePlayer`)
+- Practice and soundscape players (`MicroPracticePlayerCards`, `GuidedPracticePlayer`, `SoundscapePlayer`)
 - Onboarding: context/connections stage and payment stage
 - Onboarding first-session guide ("Back" step control)
 - Nudge Settings, Nudge Simulator
