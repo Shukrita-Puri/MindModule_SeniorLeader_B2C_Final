@@ -254,5 +254,9 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
     console.error('[shareInsightCard] error:', err);
     if ((err as { message?: string })?.message?.toLowerCase?.().includes('cancel')) return;
     toast({ title: 'Share failed', description: 'Please try again.', variant: 'destructive' });
+  } finally {
+    setShareCapture(false);
+    shareInFlight = false;
   }
 }
+
