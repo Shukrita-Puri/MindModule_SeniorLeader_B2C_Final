@@ -429,9 +429,9 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
     );
   }
 
-  // Export layout: while a share snapshot is being taken, the SAME 30-day
-  // window renders as compact Monday-aligned month blocks so the whole range
-  // fits a portrait image (no horizontal scrolling for the recipient).
+  // Export layout: while a share snapshot is being taken, the SAME calendar
+  // month renders as a compact Monday-aligned block so the whole month fits a
+  // portrait image (no horizontal scrolling for the recipient).
   // Every loaded day appears exactly once, under its true weekday column.
   if (shareCapturing) {
     const blocks: { key: string; label: string; grid: (DayCell | null)[] }[] = [];
