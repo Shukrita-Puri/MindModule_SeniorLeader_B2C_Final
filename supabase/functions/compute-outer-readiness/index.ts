@@ -23,12 +23,14 @@ import {
 } from "../_shared/calendar-provider.ts";
 // A–H resolution goes through the single canonical entry point so the Brief
 // honours user overrides, learned tokens and persisted categories.
-import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
-const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
+import { type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import { enrichEvent } from "../_shared/events/enrich-event.ts";
+/** All A–H reads come off the EnrichedEvent returned by enrichEvent(). */
+const enrichOf = (input: ResolveEventInput) =>
+  enrichEvent(typeof input === "string" ? { title: input } : (input ?? { title: "" }));
 /** Canonical A–H pillar display name for an event (null when unresolved). */
 const categoryNameOf = (input: ResolveEventInput): string | null =>
-  resolveEvent(input).category?.name ?? null;
-import { enrichEvent } from "../_shared/events/enrich-event.ts";
+  enrichOf(input).category?.name ?? null;
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import {
   type Phase,
@@ -253,7 +255,7 @@ function buildEventCoachingBlock(
   const lines = events
     .slice(0, 6)
     .map((event) => {
-      const subtype = classifyEvent(event.title);
+      const subtype = enrichOf(event.title).subtype;
       if (!subtype) return null;
       const phase = resolvePromptEventPhase(event, now);
       const phaseMeta = phaseForEvent(
@@ -7124,7 +7126,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           if (causalitySignalSummary) {
             const todayEventTypes = new Set(
               (todayHighStakes ?? [])
-                .map((t: string) => classifyEvent(t)?.bucket ?? null)
+                .map((t: string) => enrichOf(t).subtype?.bucket ?? null)
                 .filter(Boolean) as string[],
             );
 

@@ -1286,7 +1286,7 @@ function findEventPattern(
 function suppressJitForNotificationOnlyCategory(
   eventTitle: string | null | undefined,
 ): boolean {
-  const category = resolveEvent(eventTitle).category;
+  const category = enrichForBucket(eventTitle).category;
   return category?.protocol.duringNotificationOnly === true;
 }
 
