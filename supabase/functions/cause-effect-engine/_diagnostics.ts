@@ -101,7 +101,7 @@ export function buildWearableDiagnostics(
   input: DiagnosticsInput,
   opts: DiagnosticsOptions,
 ): WearableDiagnostics {
-  const { wearable, events, briefs, hrSamplesByDay, restingBaseline, prsBaseline, performanceLift } = input;
+  const { wearable, events, briefs, hrSamplesByDay, windowBaseline, prsBaseline, performanceLift, stressLoadEvents } = input;
   const MIN = opts.minOccurrencesEmerging;
 
   // ── Raw counts ───────────────────────────────────────────────────────
