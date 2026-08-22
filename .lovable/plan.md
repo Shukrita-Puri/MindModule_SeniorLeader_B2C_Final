@@ -26,3 +26,8 @@ Adopt the 1M / 6M / 1Y switcher style from the Performance Trajectory card as th
 - `PerformanceCausalityCard.tsx`: replace `TabPill` usages (~line 830) with the shared control bound to `tab`; delete the now-unused `TabPill`.
 - `InnerReadinessDial.tsx` (~line 258): swap the inline range buttons for `<SegmentedToggle size="compact" uppercase />` — same rendered appearance.
 - Tokens only (`bg-muted`, `bg-background`, `text-muted-foreground`); no hardcoded colours. No data, gating, or backend logic touched.
+
+## Build fixes (blocking, included in this change)
+
+- `src/utils/nativeBackgroundSync.ts` line 33: the `updateAuthToken` plugin interface is missing `refreshToken`, `domain`, `clientId`, which the caller at line 64 passes. Widen the interface to include those optional fields.
+- `src/hooks/useWearableSync.ts` line 143: inside a branch already narrowed to `connectionState === 'connected'`, the code re-compares against `'connected_but_waiting_for_data'` — an impossible comparison. Reduce that condition to `result.dbPersisted`, preserving current runtime behaviour.
