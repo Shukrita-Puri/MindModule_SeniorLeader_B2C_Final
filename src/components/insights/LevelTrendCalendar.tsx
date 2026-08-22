@@ -543,7 +543,8 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
           <InsightInfoModal title={title} explanation={explanation} />
-          <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap">← scroll for past weeks</span>
+          <span className="text-[10px] text-muted-foreground/60 whitespace-nowrap">{rangeLabel}</span>
+          <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap">← scroll</span>
         </div>
         {!hideStreak && (
           <div className="flex-shrink-0">
