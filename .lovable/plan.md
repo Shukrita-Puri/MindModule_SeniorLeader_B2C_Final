@@ -22,17 +22,20 @@ Change (presentation only, inside `PerformanceRhythmCard.tsx`):
 
 Two separate defects to fix:
 
-**a. On-screen strip shows the wrong dates after sharing.** The strip loads a 90-day window (so it legitimately contains July as well as August) and pins column widths via inline styles. The share routine clears those inline widths for the snapshot and restores them afterwards, but the layout pass that re-pins widths and re-scrolls to the current week does not re-run, so the strip lands on an earlier week (e.g. "Wed 1" = 1 July) after the share sheet closes.
+**a. Lock both views to a single 30-day window.** The strip currently loads a 90-day window, so it legitimately contains July as well as August — which reads as "the wrong month" because the columns look like one month. Longer 3M/6M/1Y ranges are out of scope for now.
 
-Fix: re-run the layout/auto-scroll pass after a share capture ends, so the strip returns to the current week. Additionally show the month name in the strip header so a July column can never be mistaken for August.
+Fix:
+- Change all four tabs (Clarity, Emotion, Pressure, Regulation) to a 30-day lookback for both the on-screen strip and the share export, so the two always show the same days.
+- Auto-scroll the strip to the current week within that 30-day range on load, and re-run the layout/auto-scroll pass after a share capture ends (the share routine clears the pinned inline column widths and the re-pin pass does not currently re-run, leaving the strip parked on an earlier week).
+- Show the month name in the strip header so a column can never be mistaken for the wrong month.
 
-**b. Share grid drops data and mislabels cells.** The export grid is built only from the current calendar month, so any day in the loaded 90-day window that falls outside this month is silently omitted, and days present in `days` but outside the current month never render.
+**b. Share grid drops data and mislabels cells.** The export grid is built only from the current calendar month, so days inside the loaded window that fall in the previous month are silently omitted.
 
 Fix and audit:
-- Build the export grid from the full loaded range, rendering one Monday-aligned month block per month present in the data (each block labelled with its month), instead of a single hard-coded current-month grid.
-- Ensure every day cell resolves its three slot values from the same indexed data the on-screen strip uses, so a day coloured on screen is coloured identically in the export.
-- Verify the leading blank offset per month block against the real weekday of the 1st (1 Aug 2026 = Saturday) so numbers land under the correct weekday column.
-- Repeat the check across all four tabs (Clarity, Emotion, Pressure, Regulation) since they share this component.
+- Build the export grid from the same 30-day loaded range, rendering a Monday-aligned block per month present in that range (each labelled with its month) rather than a hard-coded current-month grid.
+- Ensure every day cell resolves its three slot values from the same indexed data the strip uses, so a day coloured on screen is coloured identically in the export.
+- Verify the leading blank offset per block against the real weekday of the 1st (1 Aug 2026 = Saturday) so numbers land under the correct weekday column.
+- Repeat the check across all four tabs since they share this component.
 
 ## 4. Momentary "no data" flash on the Clarity chart
 
