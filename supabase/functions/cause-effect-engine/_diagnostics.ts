@@ -176,7 +176,7 @@ export function buildWearableDiagnostics(
 
   const hrLiftReason: GateReason = (() => {
     if (hrSamplesDays === 0) return "no_hr_samples";
-    if (restingBaseline === null) return "no_resting_baseline";
+    if (windowBaseline === null) return "no_resting_baseline";
     if (prsBaseline === null) return "no_prs_baseline";
     if (eventDaysWithHr === 0) return "no_event_day_overlap";
     if (performanceLift.hr_event_lift.length > 0) return "ok";
