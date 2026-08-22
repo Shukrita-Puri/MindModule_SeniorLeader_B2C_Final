@@ -312,23 +312,6 @@ function LockedTile({
   );
 }
 
-// ── Tab pill button ──────────────────────────────────────────────────
-function TabPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-colors',
-        active
-          ? 'bg-foreground text-background shadow-sm'
-          : 'bg-muted/40 text-muted-foreground hover:bg-muted/60',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 // ── Stress Load tab ──────────────────────────────────────────────────
 type SubcategoryLiftEntry = {
