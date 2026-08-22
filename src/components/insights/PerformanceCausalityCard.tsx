@@ -389,10 +389,6 @@ function StressLoadTab({
 
   return (
     <div className="space-y-3">
-      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#FAECE7] text-[11px] text-[#993C1D]">
-        Heart-rate response during event windows
-      </div>
-
       <DrainHeatmapGrid
         rows={rows}
         columns={days}
