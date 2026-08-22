@@ -1591,7 +1591,7 @@ serve(async (req) => {
           const samples = hrSamplesByDay.get(dayKey);
           if (!samples || samples.length === 0) continue;
 
-          const result = eventHrDelta(e, samples, restingHrByDay, windowBaseline);
+          const result = eventHrDelta(e, samples, restingHrByDay, restingBaseline);
           if (!result) continue;
 
           const eventId = typeof e.id === "string" ? e.id : null;
