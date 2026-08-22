@@ -1,17 +1,20 @@
 # Share Export: One Image + Compact Month Grid
 
+Scope guard: this is a presentation-only change. No data fetching, scoring, gating, ranking, thresholds, pattern rules or edge functions are touched. Same `days` data, same sentences, same tiers — only how they are laid out for the export and how the share sheet is invoked.
+
 ## 1. Still two images in the share sheet
 
-The single-flight lock is already in place and the native call already passes only `files` — so the duplicate is coming from somewhere else. Unconfirmed until reproduced, so step one is diagnosis, not a blind fix.
+Confirmed on all four tabs of "When You Perform Best", and identical content in both attachments — so it is a duplicated invocation or a duplicated file, not two different parts of the card. The single-flight lock and the files-only native payload are already in place, so the cause is elsewhere and step one is diagnosis, not a blind fix.
 
 Candidates to check, in order:
-- Two share buttons wired to the same card (the inline title button and the shared share slot), each firing its own capture on one tap.
+- Two share controls bound to the same card (the inline title button and the shared share slot), so one tap runs two captures.
 - iOS firing both a touch and a click on the icon, with the lock already released because `Share.share` resolves as soon as the sheet is presented rather than after the send.
-- The cached file in `Directory.Cache` being re-attached alongside the new one because the filename is identical across cards.
+- The previous PNG still sitting in `Directory.Cache` under the same filename and being picked up alongside the new write.
 
-Fix approach once identified: one owner per card for the share action, a lock that is held until the share promise settles plus a short cool-down, and a unique per-capture filename with the previous cache file deleted before writing.
+Fix approach once identified: one share owner per card, a lock held until the share promise settles plus a short cool-down, and a unique per-capture filename with the prior cache file removed before writing.
 
-Verification: export each of the four cards on device and confirm exactly one attachment per share.
+Verification: export each tab of all four cards on device and confirm exactly one attachment per share.
+
 
 ## 2. Compressing the export calendar
 
