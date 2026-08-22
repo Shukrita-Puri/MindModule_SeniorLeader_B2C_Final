@@ -207,6 +207,7 @@ export function buildWearableDiagnostics(
       hr_event_lift: hrLiftReason,
       category_lift: categoryReason,
     },
+    stressLoadEvents,
   };
 }
 
