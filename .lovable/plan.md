@@ -38,3 +38,10 @@ Nothing about pricing logic changes. The only gap is that there is no way to con
 
 1. Set the sandbox tester's Country/Region to United Kingdom (or sign into a UK Apple ID) and relaunch — the paywall will then read `£34.99` / `£299.99`.
 2. Confirm in App Store Connect that the two subscriptions' base region price is the GBP tier you intend, and that GBP appears in the price schedule.
+
+## Two pre-existing build errors to clear first
+
+Unrelated to payments, but currently failing the typecheck:
+
+- `src/hooks/useWearableSync.ts:143` — inside a branch already narrowed to `connectionState === 'connected'`, the code re-tests `=== 'connected_but_waiting_for_data'`, which can never be true. Drop the dead comparison so the guard is just `if (result.dbPersisted)`.
+- `src/utils/nativeBackgroundSync.ts:33` — the `NativeBackgroundSync.updateAuthToken` interface declares only `{ token, expiresAt }`, but the caller passes `refreshToken`, `domain` and `clientId`. Widen the interface to include those three optional fields (the native plugin already accepts them).
