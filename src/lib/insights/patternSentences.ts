@@ -120,6 +120,8 @@ export function confidenceTier(n: number): ConfidenceTier {
 /**
  * Observation guard (spec 4): tier is driven by BOTH observation count and the
  * size of the gap, per pattern shape. Anything below emerging is dropped.
+ * Emerging gap floor is 15pp so real, still-forming trends surface hedged
+ * instead of disappearing.
  */
 export function guardTier(f: RhythmFinding): ConfidenceTier {
   const s = f.stats;
@@ -135,12 +137,12 @@ export function guardTier(f: RhythmFinding): ConfidenceTier {
   }
   if (f.kind === 'cell-peak') {
     if (n >= 5 && gap >= 30) return 'strong';
-    if (n >= 3 && gap >= 20) return 'emerging';
+    if (n >= 3 && gap >= 15) return 'emerging';
     return 'insufficient';
   }
   // peak-day / peak-window
   if (n >= 6 && gap >= 30) return 'strong';
-  if (n >= 3 && gap >= 20) return 'emerging';
+  if (n >= 3 && gap >= 15) return 'emerging';
   return 'insufficient';
 }
 
@@ -151,6 +153,28 @@ export const CARD_KIND_WEIGHT: Partial<Record<RhythmKind, number>> = {
   'peak-day': 0.85,
   'peak-window': 0.78,
 };
+
+export type CheckInDimension = 'clarity' | 'emotion' | 'pressure' | 'regulation';
+
+/**
+ * Section B stays global (nothing is excluded), but each check-in tab prefers
+ * the physiology dimensions most relevant to it, so the four tabs don't all
+ * read identically.
+ */
+export const TAB_AFFINITY: Record<CheckInDimension, RhythmDimension[]> = {
+  clarity: ['sleep_score', 'sleep_duration', 'hrv'],
+  emotion: ['hrv', 'rhr', 'sleep_efficiency'],
+  pressure: ['rhr', 'hr', 'hrv'],
+  regulation: ['hrv', 'rhr', 'sleep_score'],
+};
+
+/** Affinity bonus: first preference 0.30, then 0.20, 0.10; others 0. */
+export function affinityBonus(dim: RhythmDimension, tab?: CheckInDimension | null): number {
+  if (!tab) return 0;
+  const idx = TAB_AFFINITY[tab].indexOf(dim);
+  return idx === -1 ? 0 : 0.3 - idx * 0.1;
+}
+
 
 function pluralDay(di: number): string {
   return `${DAYS_FULL[di] ?? 'Day'}s`;
