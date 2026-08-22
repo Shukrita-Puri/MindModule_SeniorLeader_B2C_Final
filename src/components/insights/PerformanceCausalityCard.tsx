@@ -881,7 +881,8 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               </p>
             )}
           </div>
-        )}
+        </div>
+      )}
       </CardContent>
     </LuxuryInsightCard>
   );
