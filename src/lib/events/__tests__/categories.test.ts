@@ -42,12 +42,17 @@ describe('Insights causality card uses canonical A–H labels only', () => {
     'utf8',
   );
 
-  it('every alias in the legacy label map resolves to a canonical pillar name', () => {
+  it('sources canonical pillar names from the frontend mirror, not literals', () => {
+    expect(CARD_SRC).toMatch(
+      /import\s*\{[^}]*EVENT_CATEGORY_NAMES[^}]*\}\s*from\s*'@\/lib\/events\/categories'/,
+    );
     const start = CARD_SRC.indexOf('const CATEGORY_LABELS');
     expect(start).toBeGreaterThan(-1);
     const slice = CARD_SRC.slice(start, CARD_SRC.indexOf('};', start));
+    // No hardcoded pillar-name string literals may remain in the alias map.
     const values = [...slice.matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]);
-    expect(values.length).toBeGreaterThan(0);
-    for (const v of values) expect(isCanonicalCategoryLabel(v)).toBe(true);
+    for (const v of values) expect(isCanonicalCategoryLabel(v)).toBe(false);
+    // Every alias resolves through a mirror reference (C.A … C.H).
+    expect(slice).toMatch(/:\s*C\.[A-H]/);
   });
 });

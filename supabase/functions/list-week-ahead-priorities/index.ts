@@ -33,7 +33,6 @@ import {
 } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import { EVENT_TYPES } from "../_shared/events/event-subtypes.ts";
-import { resolveEventCategory } from "../_shared/events/resolve-event-category.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import {
   evaluateWeekAheadMode,

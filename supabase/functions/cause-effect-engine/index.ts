@@ -89,7 +89,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * mem://reliability/wearable-signal-diagnostics.
  */
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
-const ENGINE_VERSION = 9;
+const ENGINE_VERSION = 10;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -560,7 +560,10 @@ serve(async (req) => {
       const d = ymd(new Date(e.start_time));
       if (!eventsByDay.has(d)) eventsByDay.set(d, []);
       eventsByDay.get(d)!.push(e);
-      const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
+      // Canonical A–H first (honours overrides / learned tokens / persisted
+      // category), then the keyword bucket, then attendee-count fallback.
+      const label = canonicalCategoryName(e) ?? classifyEvent(e.title) ??
+        classifyByAttendees(e.attendees_count);
       if (!eventTypeDays.has(label)) eventTypeDays.set(label, new Set());
       eventTypeDays.get(label)!.add(d);
     });
