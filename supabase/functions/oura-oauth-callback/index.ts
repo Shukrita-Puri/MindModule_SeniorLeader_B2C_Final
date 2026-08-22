@@ -15,7 +15,7 @@ const corsHeaders = {
 
 const OURA_TOKEN = "https://api.ouraring.com/oauth/token";
 
-function appReturnUrl(success: boolean, reason?: string, redirectPath?: string): string {
+function appReturnUrl(success: boolean, reason?: string, redirectPath?: string, platform?: string): string {
   const frontend = Deno.env.get("FRONTEND_URL") || "https://mindmoduleme.lovable.app";
   const path = redirectPath && redirectPath.startsWith("/") ? redirectPath : "/profile";
   const params = new URLSearchParams();
@@ -23,12 +23,15 @@ function appReturnUrl(success: boolean, reason?: string, redirectPath?: string):
   params.set("provider", "oura");
   params.set("redirectPath", path);
   if (reason) params.set("reason", reason);
+  if (platform) params.set("platform", platform);
   return `${frontend.replace(/\/$/, "")}/oauth-done?${params.toString()}`;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let customRedirectPath: string | undefined = undefined;
+  let platform = "web";
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
@@ -46,11 +49,10 @@ Deno.serve(async (req) => {
     const stateParts = state.split(":");
     const userId = stateParts[0];
     const nonce = stateParts[1];
-    let customRedirectPath: string | undefined = undefined;
     if (stateParts[2]) {
       try { customRedirectPath = decodeURIComponent(stateParts[2]); } catch {}
     }
-    const platform = stateParts[3] || "web";
+    platform = stateParts[3] || "web";
 
     const clientId = Deno.env.get("OURA_CLIENT_ID");
     const clientSecret = Deno.env.get("OURA_CLIENT_SECRET");

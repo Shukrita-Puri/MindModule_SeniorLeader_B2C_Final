@@ -4097,6 +4097,10 @@ serve(async (req) => {
       hasCheckInRowForWindow: checkInRowCurrentForWindow,
     });
     const briefWearableUsable = signalFreshness.wearableCurrent;
+    // Canonical, window-aware wearable freshness used by the readiness gate,
+    // eligibility receipts, pill provenance and MRS contributor rules.
+    const wearableFreshForGate = signalFreshness.wearableCurrent;
+
     // Canonical, window-aware wearable freshness for pills / MRS score / plan.
     // The agreed Gating Rule requires the *existence* of Physiology and Demand, not
     // strict same-window freshness (which is handled by prose/historical rules).
@@ -10182,25 +10186,28 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             (awaitingSignals || innerStateIsAwaiting) && !hasCanonicalScore;
 
           // Mirror into inner_readiness_scores for Insights historical timeseries (MRS Fix I1)
-          if (!suppressScorePayload && typeof effectiveInnerScore === "number") {
+          // Values come from the canonical MRS bindings in this handler scope.
+          const mirrorScore: number | null =
+            typeof canonicalInnerScore === "number"
+              ? canonicalInnerScore
+              : (typeof innerReadinessScore === "number"
+                ? innerReadinessScore
+                : null);
+          if (!suppressScorePayload && typeof mirrorScore === "number") {
             try {
               await db.from("inner_readiness_scores").upsert(
                 {
                   user_id: userId,
                   score_date: snapshotLocalDate,
-                  composite_score: Math.round(effectiveInnerScore),
-                  energy_tier: tierDisplayed ?? innerReadinessTier ?? "managing",
-                  time_of_day: timeOfDayStr,
+                  composite_score: Math.round(mirrorScore),
+                  energy_tier: innerReadinessTier ?? "managing",
+                  time_of_day: getTimeOfDay(hour),
                   check_in_outcome: checkInOutcome ?? null,
                   clarity_level: clarityLevel ?? null,
                   confidence_level: confidenceLevel ?? null,
-                  full_context_statement: contextStatementText ?? null,
-                  divergence_overlay: layer3StatementText ?? null,
-                  divergence_flag: divergenceFlagValue ?? "ALIGNED",
-                  hrv_deviation: hrvDeviationValue ?? null,
-                  layers_active: layersActiveArray ?? ["base"],
-                  data_sources: dataSourcesArray ?? [],
-                  confidence: readinessConfidence ?? "low",
+                  hrv_deviation: typeof hrvDeviation === "number"
+                    ? hrvDeviation
+                    : null,
                   updated_at: new Date().toISOString(),
                 },
                 { onConflict: "user_id,score_date,time_of_day" }

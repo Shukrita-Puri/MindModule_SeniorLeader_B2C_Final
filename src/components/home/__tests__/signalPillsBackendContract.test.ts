@@ -49,9 +49,9 @@ describe('signal pills backend contract · extracted ownership', () => {
     expect(INDEX_SRC).toContain('assessmentSignalPillsPayload = assessmentContext.pills.finalized as any[];');
     expect(INDEX_SRC).toContain('echoedSignalPills = assessmentSignalPillsPayload;');
     expect(INDEX_SRC).toContain('const signalPillsPayload = assessmentSignalPillsPayload ?? echoedSignalPills ?? null;');
-    expect(INDEX_SRC).toContain('signalPills: signalPillsPayload,');
-    expect(INDEX_SRC).toContain('refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,');
-    expect(INDEX_SRC).toContain('baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,');
+    expect(INDEX_SRC).toContain('signalPills: echoedSignalPills,');
+    expect(INDEX_SRC).toContain('refined_signal_pills: briefSuppressScore ? null : signalPillsPayload,');
+    expect(INDEX_SRC).toContain('baseline_signal_pills: briefSuppressScore ? null : signalPillsPayload,');
   });
 
   it('index.ts carries finalized qualifiers and coherence into response and persistence validation', () => {
@@ -64,6 +64,7 @@ describe('signal pills backend contract · extracted ownership', () => {
 
   it('index.ts derives pill wearable freshness from the canonical window-aware resolver', () => {
     expect(INDEX_SRC).toContain('const wearableFreshForGate = signalFreshness.wearableCurrent;');
+    expect(INDEX_SRC).toContain('const briefWearableUsable = signalFreshness.wearableCurrent;');
     expect(INDEX_SRC).not.toContain('const wearableFreshForGate = hasTodayWearableData === true;');
     expect(INDEX_SRC).not.toContain('const wearableFreshForGate = hasWearableData === true;');
   });

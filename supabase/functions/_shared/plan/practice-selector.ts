@@ -380,7 +380,10 @@ export interface IntentScoreBreakdown {
   structuredTags: number;
   combo: number;
   leaderGoals: GoalAlignmentResult;
+  /** Time-of-day fit bonus applied by the slot window rules. */
+  windowBoost?: number;
   total: number;
+
 }
 
 function arr(v: string[] | null | undefined): string[] {

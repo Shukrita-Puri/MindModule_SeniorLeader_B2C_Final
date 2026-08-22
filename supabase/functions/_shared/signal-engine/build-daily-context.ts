@@ -189,7 +189,7 @@ export async function upsertDailyContextSnapshot(
         // State precedence: refined > baseline > partial > awaiting = early_read > not_connected > empty
         const STATE_RANK: Record<string, number> = { refined: 3, baseline: 2, partial: 2, awaiting: 1, early_read: 1, not_connected: 0 };
         const oldRank = STATE_RANK[existing.readiness_state] ?? -1;
-        const newRank = STATE_RANK[input.readinessState] ?? -1;
+        const newRank = STATE_RANK[input.readinessState ?? ''] ?? -1;
         
         if (oldRank > newRank) {
           console.log(
