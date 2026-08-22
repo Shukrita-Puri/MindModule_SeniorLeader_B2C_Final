@@ -7,10 +7,10 @@
 // `signal_summary` label set while resolving from canonical subtypes first,
 // so JIT writers/readers and the persisted causality store stay in sync
 // without a parallel taxonomy.
-import { classifyPatternBucket } from '../events/event-classifier.ts';
+import { patternBucketFor } from '../events/pattern-bucket.ts';
 
 export function classifyEventBucket(title: string | null | undefined): string | null {
-  return classifyPatternBucket(title);
+  return patternBucketFor(title);
 }
 
 export interface PatternSignal {

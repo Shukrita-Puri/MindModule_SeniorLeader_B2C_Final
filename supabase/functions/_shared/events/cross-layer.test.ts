@@ -36,3 +36,43 @@ Deno.test("every category exposes a non-empty §3 triggers inventory", () => {
     assert(cat.triggers.length >= 6, `${cat.id} triggers list too short`);
   }
 });
+
+// ── Single A–H entry-point import guard ──────────────────────────────
+// No module outside _shared/events/ may import the keyword-only classifier
+// helpers or the deleted executive-state-taxonomy shim. Every surface reads
+// A–H through enrichEvent() / pattern-bucket.ts so overrides, learned tokens
+// and persisted categories apply everywhere.
+const BANNED_NAMES =
+  /\b(classifyEvent|classifyEventLabel|classifyEventBucket|classifyPatternBucket|classifyByLegacyTable|scenarioIdFor)\b/;
+
+async function walkFunctions(dir: string, acc: string[] = []): Promise<string[]> {
+  for await (const entry of Deno.readDir(dir)) {
+    const full = `${dir}/${entry.name}`;
+    if (entry.isDirectory) {
+      if (entry.name === "node_modules") continue;
+      await walkFunctions(full, acc);
+    } else if (entry.name.endsWith(".ts")) {
+      acc.push(full);
+    }
+  }
+  return acc;
+}
+
+Deno.test("no module outside _shared/events imports the keyword-only classifier", async () => {
+  const root = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
+  const eventsDir = `${root}/_shared/events`;
+  const files = (await walkFunctions(root)).filter((f) => !f.startsWith(eventsDir));
+  const offenders: string[] = [];
+  for (const f of files) {
+    const src = await Deno.readTextFile(f);
+    if (/from\s+["'][^"']*executive-state-taxonomy\.ts["']/.test(src)) {
+      offenders.push(`${f} (executive-state-taxonomy)`);
+      continue;
+    }
+    const blocks = src.match(
+      /import\s*\{[^}]*\}\s*from\s*["'][^"']*event-classifier\.ts["']/g,
+    ) ?? [];
+    if (blocks.some((b) => BANNED_NAMES.test(b))) offenders.push(f);
+  }
+  assert(offenders.length === 0, `legacy A–H imports: ${offenders.join(", ")}`);
+});

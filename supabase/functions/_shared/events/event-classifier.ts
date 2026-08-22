@@ -71,19 +71,9 @@ export function classifyEvent(
   return null;
 }
 
-export function classifyEventLabel(title: string | null | undefined): string | null {
-  return classifyEvent(title)?.label ?? null;
-}
-
-export function classifyEventBucket(title: string | null | undefined): string | null {
-  return classifyEvent(title)?.bucket ?? null;
-}
-
-export function scenarioIdFor(title: string | null | undefined): string | null {
-  const et = classifyEvent(title);
-  if (!et) return null;
-  return EVENT_TYPE_TO_SCENARIO_ID[et.id] ?? null;
-}
+// classifyEventLabel / classifyEventBucket / scenarioIdFor were keyword-only
+// reads. Use eventLabelFor / eventBucketFor / scenarioIdForEvent from
+// ./pattern-bucket.ts instead — they resolve through enrichEvent().
 
 // ── Coarse downstream tokens & display labels ───────────────────────
 //
@@ -215,7 +205,7 @@ export const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
   { label: 'Internal builds',         words: ['debug','dashboard','engineering','sprint','planning','db ',' db'] },
 ];
 
-const SUBTYPE_TO_LEGACY_BUCKET: Partial<Record<string, string>> = {
+export const SUBTYPE_TO_LEGACY_BUCKET: Partial<Record<string, string>> = {
   'gov.board_meeting': 'Board / governance',
   'gov.board_committee': 'Board / governance',
   'gov.board_prep': 'Board / governance',
@@ -242,29 +232,9 @@ const SUBTYPE_TO_LEGACY_BUCKET: Partial<Record<string, string>> = {
   'rhy.catchup': 'Catch-ups & syncs',
 };
 
-/**
- * Pattern-store / tactical-signals bucket. Preserves the historical
- * `causality_findings.signal_summary` label set, but resolves from the
- * canonical subtype first so readers/writers gradually stop depending on
- * parallel keyword tables.
- */
-export function classifyPatternBucket(title: string | null | undefined): string | null {
-  const subtype = classifyEvent(title);
-  if (subtype) {
-    const mapped = SUBTYPE_TO_LEGACY_BUCKET[subtype.id];
-    if (mapped) return mapped;
-  }
-  if (!title) return null;
-  const t = title.toLowerCase();
-  for (const ec of EVENT_TYPE_KEYWORDS) {
-    if (ec.words.some((w) => t.includes(w))) return ec.label;
-  }
-  return null;
-}
-
-export function classifyByLegacyTable(title: string | null | undefined): string | null {
-  return classifyPatternBucket(title);
-}
+// Pattern-store buckets now live in ./pattern-bucket.ts, which resolves via
+// enrichEvent() so the learning loop applies. SUBTYPE_TO_LEGACY_BUCKET above
+// stays here as the id → legacy-label map it reads.
 
 // ── Stakes scoring ──────────────────────────────────────────────────
 

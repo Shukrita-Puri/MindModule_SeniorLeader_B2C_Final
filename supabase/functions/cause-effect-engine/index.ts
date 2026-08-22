@@ -26,11 +26,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import {
   EVENT_TYPE_KEYWORDS as SHARED_EVENT_TYPE_KEYWORDS,
-  classifyPatternBucket,
   dedupeCalendarEvents,
 } from "../_shared/events/event-classifier.ts";
 import { PILLAR_META, type Pillar } from "../_shared/events/event-subtypes.ts";
-import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import { type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import { enrich as enrichCalendarEvent, patternBucketFor } from "../_shared/events/pattern-bucket.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 import {
   getSubcategoryForEvent,
@@ -89,7 +89,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * mem://reliability/wearable-signal-diagnostics.
  */
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
-const ENGINE_VERSION = 10;
+const ENGINE_VERSION = 11;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -347,8 +347,9 @@ function impactScore(f: Finding): number {
 // Local re-export keeps downstream readers stable.
 const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
 
-function classifyEvent(title: string | null | undefined): string | null {
-  return classifyPatternBucket(title);
+/** Legacy pattern-bucket label, resolved through enrichEvent(). */
+function patternBucketLabel(title: string | null | undefined): string | null {
+  return patternBucketFor(title);
 }
 /**
  * Canonical A–H resolution for the Insights engines. Accepts the raw calendar
@@ -356,11 +357,11 @@ function classifyEvent(title: string | null | undefined): string | null {
  * category) or a bare title.
  */
 function classifyEventCanonical(input: ResolveEventInput) {
-  return resolveEvent(input).subtype;
+  return enrichCalendarEvent(input as any).subtype;
 }
 function canonicalCategoryName(input: ResolveEventInput): string | null {
-  const r = resolveEvent(input);
-  return r.category?.name ?? r.bucket ?? null;
+  const e = enrichCalendarEvent(input as any);
+  return e.category?.name ?? e.subtype?.bucket ?? null;
 }
 
 // Pillar swim-lane projection (Section K) — exposed so the Insights
@@ -562,7 +563,7 @@ serve(async (req) => {
       eventsByDay.get(d)!.push(e);
       // Canonical A–H first (honours overrides / learned tokens / persisted
       // category), then the keyword bucket, then attendee-count fallback.
-      const label = canonicalCategoryName(e) ?? classifyEvent(e.title) ??
+      const label = canonicalCategoryName(e) ?? patternBucketLabel(e.title) ??
         classifyByAttendees(e.attendees_count);
       if (!eventTypeDays.has(label)) eventTypeDays.set(label, new Set());
       eventTypeDays.get(label)!.add(d);

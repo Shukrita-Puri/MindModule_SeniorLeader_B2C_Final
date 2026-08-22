@@ -10,10 +10,12 @@ import {
   eventPressureFlag,
   isEducationalTitle,
   isNoiseTitle,
-  scenarioIdFor,
 } from "../_shared/events/event-classifier.ts";
 import {
-  classifyPatternBucket,
+  patternBucketFor,
+  scenarioIdForEvent as scenarioIdFor,
+} from "../_shared/events/pattern-bucket.ts";
+import {
   isHighStakesTitle,
 } from "../_shared/events/event-classifier.ts";
 import {
@@ -46,8 +48,7 @@ import {
   FRAMEWORK_PILLARS,
 } from "../_shared/events/event-categories.ts";
 // A–H resolution via the single canonical entry point.
-import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
-const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
+import { type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {
   CATEGORY_MAX_SLOTS,
@@ -5840,7 +5841,7 @@ async function generateMasteryPlan(
     );
     if (drainedBuckets.size > 0) {
       for (const se of scoredEvents) {
-        const bucket = classifyPatternBucket(se.event?.title || "");
+        const bucket = patternBucketFor(se.event?.title || "");
         if (!bucket || !drainedBuckets.has(bucket)) continue;
         const categoryId =
           enrichEvent({ title: se.event?.title || "" }).categoryId;
@@ -7735,7 +7736,7 @@ async function applyV51Enrichment(
       const evtMatch = eventByTitle.get(
         String(hm.jitEventTitle).toLowerCase().trim(),
       );
-      const subtype = classifyEvent(hm.jitEventTitle);
+      const subtype = enrichEvent({ title: hm.jitEventTitle }).subtype;
       // ── Shadow-run classifier v2 (diagnostic only; v1 still drives logic) ──
       shadowClassifyAndLog({
         userId: req.userId,
