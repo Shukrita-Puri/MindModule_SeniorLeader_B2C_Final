@@ -43,7 +43,23 @@ Fix:
 - Only render the unlock/empty state when a successful response genuinely contains no check-ins.
 - While switching tabs or retrying, keep the skeleton rather than falling through to the empty state.
 
+## 5. Audit: Clarity and Regulation patterns read identically
+
+The Clarity and Regulation tabs currently show word-for-word equivalent findings ("3 Fridays in a row…", "thursdays run your sharpest / most regulated — 100% vs 75% on Saturdays", "evenings … 100% vs 80%"), differing only in the dimension tag. This is unverified as either a genuine data coincidence or a tagging/reuse bug, so the first step is a data audit, not a code change.
+
+Audit steps (read-only, before any fix):
+- Pull the raw `daily_checkins` rows for the account and compare `clarity_level` against `regulation_level` day by day. If the two columns are literally the same values, the sentences are correct and the finding is real (the miner reduces each dimension to a "top band" flag, so two dimensions with identical values must produce identical percentages).
+- If the raw values differ but the output percentages match, trace the miner: confirm each dimension is mined from its own column via the dimension→column map, that the per-dimension results are keyed separately, and that no shared/mutated accumulator or cached series is being reused across dimensions.
+- Confirm nothing in the pipeline is falling back to placeholder or synthetic values when a dimension has sparse data.
+
+Outcome:
+- If it is a genuine coincidence, no code change; optionally suppress a duplicate line when two dimensions produce an identical sentence with identical numbers, so the card does not read as repeated.
+- If it is a tagging/reuse bug, fix the miner so each dimension is derived strictly from its own column, and add a unit test that feeds two clearly different dimension series and asserts the resulting sentences differ.
+
+Findings will be reported before any change is applied.
+
 ## Files touched
+
 
 - `src/components/navigation/UnifiedTopBar.tsx`
 - `src/pages/onboarding/stages/Stage6Payment.tsx`
