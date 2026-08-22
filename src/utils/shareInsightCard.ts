@@ -6,6 +6,8 @@
 import { toPng } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
 import { toast } from '@/hooks/use-toast';
+import { setShareCapture, nextPaint } from '@/utils/shareCaptureMode';
+
 
 interface ShareOpts {
   node: HTMLElement;
