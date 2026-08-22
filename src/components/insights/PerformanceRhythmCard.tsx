@@ -269,6 +269,8 @@ const PatternAnalysisSection = ({
   calendarInsight,
   bestWindowLabel,
   userId,
+  checkInCount,
+  onTrendChange,
 }: {
   findings: RhythmFinding[];
   activeTrend: 'clarity' | 'emotion' | 'pressure' | 'regulation';
@@ -277,6 +279,8 @@ const PatternAnalysisSection = ({
   calendarInsight: string | null;
   bestWindowLabel: string | null;
   userId?: string | null;
+  checkInCount: number;
+  onTrendChange: (v: 'clarity' | 'emotion' | 'pressure' | 'regulation') => void;
 }) => {
   const [checkInOpen, setCheckInOpen] = useState(true);
   const showDebug = isPatternDebugEnabled(userId);
@@ -315,103 +319,186 @@ const PatternAnalysisSection = ({
       : EMPTY_STATE.wearable;
   const checkInEmerging = hasCheckIn && checkInLines.every((r) => r.tier === 'emerging');
 
-
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={() => setCheckInOpen((v) => !v)}
-          className="w-full flex justify-center py-1"
-          aria-label="Toggle analysis"
-          aria-expanded={checkInOpen}
-        >
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200',
-              checkInOpen && 'rotate-180',
-            )}
-          />
-        </button>
-        {checkInOpen && (
-          hasCheckIn ? (
-            <>
-              {checkInEmerging && (
-                <p className="pl-2 text-[11px] text-muted-foreground/60 leading-relaxed">{EARLY_PATTERN_NOTE}</p>
-              )}
-              <ul className="pl-2 space-y-1.5">
-                {checkInLines.map((r, i) => (
-                  <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{checkInEmptyCopy}</p>
-          )
-        )}
-
-      </div>
-
-      <div className="h-px bg-border/40" />
-
-      <div className="space-y-2">
+      {/* Section A — check-in patterns */}
+      <div className="card-standard rounded-xl p-3.5 space-y-4">
         <div className="flex items-start gap-2">
-          <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">B.</span>
+          <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">A.</span>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
               Mental Performance Patterns
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Based on physiology and demand data
+              Based on check-in data
             </p>
           </div>
-          <InsightInfoModal
-            title="Mental Performance Patterns"
-            explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
-          />
         </div>
 
-        {hasBaseline ? (
-          <ul className="pl-2 space-y-1.5">
-            {baselineFindingsCapped.map((r, i) => (
-              <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
-            ))}
-            {extraBaselineCapped.map((line, i) => (
-              <PatternLine key={`lift-${line.key}-${i}`} text={line.text} />
-            ))}
-          </ul>
-        ) : (
-          <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{baselineEmptyCopy}</p>
+        <SegmentedToggle
+          ariaLabel="Mental performance dimension"
+          value={activeTrend}
+          onChange={(v) => onTrendChange(v)}
+          options={[
+            { value: 'clarity', label: 'Clarity' },
+            { value: 'emotion', label: 'Emotion' },
+            { value: 'pressure', label: 'Pressure' },
+            { value: 'regulation', label: 'Regulation' },
+          ]}
+        />
+
+        {activeTrend === 'clarity' && (
+          <LevelTrendCalendar
+            userId={userId}
+            field="clarity_level"
+            title="Clarity Trend"
+            explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
+            vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
+            palette="clarity"
+            streakLabel="Peak Clarity"
+            hideStreak
+            lookbackDays={90}
+          />
+        )}
+        {activeTrend === 'emotion' && (
+          <LevelTrendCalendar
+            userId={userId}
+            field="emotion_level"
+            title="Emotion Trend"
+            explanation="Each dot is your reported emotional state (1–5) at that time of day. Deeper tones mean more open and composed; empty dots mean no check-in for that slot."
+            vocabulary={{ 5: 'Open', 4: 'Composed', 3: 'Balanced', 2: 'Unsettled', 1: 'Reactive' }}
+            palette="emotion"
+            streakLabel="Open Days"
+            hideStreak
+            lookbackDays={90}
+          />
+        )}
+        {activeTrend === 'pressure' && (
+          <LevelTrendCalendar
+            userId={userId}
+            field="pressure_level"
+            title="Pressure Trend"
+            explanation="Each dot is your felt pressure (1–5) at that time of day. Deeper tones mean more spacious; lighter tones mean overloaded. Empty dots mean no check-in for that slot."
+            vocabulary={{ 5: 'Spacious', 4: 'Light', 3: 'Manageable', 2: 'Elevated', 1: 'Overloaded' }}
+            palette="pressure"
+            streakLabel="Spacious Days"
+            hideStreak
+            lookbackDays={90}
+          />
+        )}
+        {activeTrend === 'regulation' && (
+          <LevelTrendCalendar
+            userId={userId}
+            field="regulation_level"
+            title="Regulation Trend"
+            explanation="Each dot is your nervous-system regulation (1–5) at that time of day. Deeper tones mean stronger control; empty dots mean no check-in for that slot."
+            vocabulary={{ 5: 'In Control', 4: 'Strong', 3: 'Holding', 2: 'Low', 1: 'Reactive' }}
+            palette="regulation"
+            streakLabel="In-Control Days"
+            hideStreak
+            lookbackDays={90}
+          />
         )}
 
+        {checkInCount >= 7 && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setCheckInOpen((v) => !v)}
+              className="w-full flex justify-center py-1"
+              aria-label="Toggle analysis"
+              aria-expanded={checkInOpen}
+            >
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200',
+                  checkInOpen && 'rotate-180',
+                )}
+              />
+            </button>
+            {checkInOpen && (
+              hasCheckIn ? (
+                <>
+                  {checkInEmerging && (
+                    <p className="pl-2 text-[11px] text-muted-foreground/60 leading-relaxed">{EARLY_PATTERN_NOTE}</p>
+                  )}
+                  <ul className="pl-2 space-y-1.5">
+                    {checkInLines.map((r, i) => (
+                      <PatternLine key={`ci-${i}`} text={r.text} dim={r.dimLabel} />
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{checkInEmptyCopy}</p>
+              )
+            )}
+          </div>
+        )}
       </div>
 
-      {showDebug && (
-        <div className="space-y-1 rounded-md border border-dashed border-border/60 p-2">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-            Reliability audit · {findings.length} raw findings
-          </p>
-          <ul className="space-y-1.5">
-            {[...checkInLines, ...baselineFindingLines].map((r, i) => (
-              <PatternDebugRow key={`dbg-${i}`} row={r} />
-            ))}
-          </ul>
-          <ul className="space-y-1">
-            {liftLines.map((l, i) => (
-              <li key={`dbgB-${i}`} className="text-[10px] font-mono text-muted-foreground/80 break-words">
-                B · {l.key} · tier={l.tier} · w={Math.round(l.weight * 100) / 100} · out: {l.text}
-              </li>
-            ))}
-          </ul>
-          <p className="text-[10px] font-mono text-muted-foreground/60 break-words">
-            dropped: {findings.filter((f) => !f.stats || f.stats.n < 3).length} (no stats / n&lt;3) ·{' '}
-            {findings.filter((f) => f.stats && f.stats.n >= 3 && !['peak-day', 'peak-window', 'cell-peak', 'consecutive-pos'].includes(f.kind)).length} (negative scope)
-          </p>
+      {/* Section B — physiology and demand patterns */}
+      {checkInCount >= 7 && (
+        <div className="card-standard rounded-xl p-3.5 space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">B.</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
+                  Mental Performance Patterns
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Based on physiology and demand data
+                </p>
+              </div>
+              <InsightInfoModal
+                title="Mental Performance Patterns"
+                explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
+              />
+            </div>
+
+            {hasBaseline ? (
+              <ul className="pl-2 space-y-1.5">
+                {baselineFindingsCapped.map((r, i) => (
+                  <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
+                ))}
+                {extraBaselineCapped.map((line, i) => (
+                  <PatternLine key={`lift-${line.key}-${i}`} text={line.text} />
+                ))}
+              </ul>
+            ) : (
+              <p className="pl-2 text-xs text-muted-foreground/70 leading-relaxed">{baselineEmptyCopy}</p>
+            )}
+          </div>
+
+          {showDebug && (
+            <div className="space-y-1 rounded-md border border-dashed border-border/60 p-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                Reliability audit · {findings.length} raw findings
+              </p>
+              <ul className="space-y-1.5">
+                {[...checkInLines, ...baselineFindingLines].map((r, i) => (
+                  <PatternDebugRow key={`dbg-${i}`} row={r} />
+                ))}
+              </ul>
+              <ul className="space-y-1">
+                {liftLines.map((l, i) => (
+                  <li key={`dbgB-${i}`} className="text-[10px] font-mono text-muted-foreground/80 break-words">
+                    B · {l.key} · tier={l.tier} · w={Math.round(l.weight * 100) / 100} · out: {l.text}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[10px] font-mono text-muted-foreground/60 break-words">
+                dropped: {findings.filter((f) => !f.stats || f.stats.n < 3).length} (no stats / n&lt;3) ·{' '}
+                {findings.filter((f) => f.stats && f.stats.n >= 3 && !['peak-day', 'peak-window', 'cell-peak', 'consecutive-pos'].includes(f.kind)).length} (negative scope)
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+
 
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
