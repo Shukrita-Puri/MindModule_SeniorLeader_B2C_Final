@@ -1127,7 +1127,7 @@ serve(async (req) => {
       }
     });
     const restingVals = [...restingHrByDay.values()];
-    const windowBaseline = restingVals.length >= 3 ? mean(restingVals) : null;
+    const restingBaseline = restingVals.length >= 3 ? mean(restingVals) : null;
 
     // Full Mon–Sun week: Sunday is a working day in Israel and the Gulf, and
     // weekend events carry real load, so they are bucketed like any other day.
