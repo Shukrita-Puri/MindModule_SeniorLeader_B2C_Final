@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useSidebar } from '@/components/ui/sidebar';
-import { X, ArrowRight, ArrowLeft, Rocket, Loader2 } from 'lucide-react';
+import { X, ArrowRight, ChevronLeft, Rocket, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   FST_KEYS,

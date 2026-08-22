@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X, Loader2, ArrowLeft } from "lucide-react";
+import { Check, X, Loader2, ChevronLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 import { openUrl } from "@/utils/openUrl";

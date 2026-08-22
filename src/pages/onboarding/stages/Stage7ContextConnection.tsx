@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";

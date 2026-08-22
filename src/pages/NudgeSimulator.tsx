@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, RefreshCw, Wifi, Battery, Signal } from "lucide-react";
+import { ChevronLeft, RefreshCw, Wifi, Battery, Signal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import SmartNudge from "@/components/SmartNudge";

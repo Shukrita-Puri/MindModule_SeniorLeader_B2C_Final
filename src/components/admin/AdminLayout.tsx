@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, ArrowLeft, Activity, AlertTriangle, Bell, Gauge } from 'lucide-react';
+import { LayoutDashboard, Users, ChevronLeft, Activity, AlertTriangle, Bell, Gauge } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [

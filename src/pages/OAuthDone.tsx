@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isNativeApp } from '@/utils/healthKitCapacitor';
 import { supabase } from '@/integrations/supabase/client';
