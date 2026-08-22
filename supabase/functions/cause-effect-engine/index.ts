@@ -1579,8 +1579,10 @@ serve(async (req) => {
       // per event when available; fall back to canonical subtype id
       // (`str.deep_work` → `deep_work`). Additive; Insights Stress Load
       // reads this rollup directly.
+      // v12: uses the same eventHrDelta helper as the Stress Load matrix so
+      // the two surfaces cannot drift (mean HR, trailing baseline, 45-min focus).
       const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
-      if (restingBaseline !== null) {
+      if (windowBaseline !== null) {
         for (const e of events as any[]) {
           if (!e.start_time || !e.end_time) continue;
           const et = classifyEventCanonical(e);
@@ -1588,16 +1590,10 @@ serve(async (req) => {
           const dayKey = ymd(new Date(e.start_time));
           const samples = hrSamplesByDay.get(dayKey);
           if (!samples || samples.length === 0) continue;
-          const startMs = new Date(e.start_time).getTime();
-          const endMs = new Date(e.end_time).getTime();
-          let peak = 0;
-          for (const s of samples) {
-            const t = new Date(s.t).getTime();
-            if (t >= startMs && t <= endMs && typeof s.v === "number" && s.v > peak) peak = s.v;
-          }
-          if (peak <= 0) continue;
-          const hrDelta = peak - restingBaseline;
-          if (!Number.isFinite(hrDelta)) continue;
+
+          const result = eventHrDelta(e, samples, restingHrByDay, windowBaseline);
+          if (!result) continue;
+
           const eventId = typeof e.id === "string" ? e.id : null;
           const persistedSub = priorityMemoryIndex
             ? getSubcategoryForEvent(priorityMemoryIndex, eventId)
@@ -1609,7 +1605,7 @@ serve(async (req) => {
             subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
           }
           const slot = subAcc.get(key)!;
-          slot.hr.push(hrDelta);
+          slot.hr.push(result.delta);
           slot.n += 1;
         }
       }
