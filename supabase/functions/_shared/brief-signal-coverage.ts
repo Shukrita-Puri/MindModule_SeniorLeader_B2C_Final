@@ -16,7 +16,7 @@
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 // A–H resolution via the single canonical entry point (overrides + learned
 // tokens + persisted category + dictionary).
-import { resolveEvent, type ResolveEventInput } from "./events/resolve-event.ts";
+import { resolveEvent, type ResolveEventInput } from "./events/resolve-event-category.ts";
 const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
 import {
   isTravelTitle,

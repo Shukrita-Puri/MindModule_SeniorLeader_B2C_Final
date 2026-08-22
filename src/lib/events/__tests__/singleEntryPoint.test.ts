@@ -2,7 +2,7 @@
 //
 // Every feature surface (Brief, Plan, JIT v2, Week Ahead, Smart Nudges,
 // Insights, signal engine, frontend) must resolve categories through
-// `_shared/events/resolve-event.ts` (or `enrich-event.ts`), so user overrides,
+// `_shared/events/resolve-event-category.ts` (or `enrich-event.ts`), so user overrides,
 // learned tokens and persisted categories apply everywhere. Importing the
 // keyword-only `classifyEvent` outside `_shared/events/` bypasses the
 // learning loop and is a regression.

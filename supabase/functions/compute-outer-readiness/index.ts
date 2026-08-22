@@ -23,7 +23,7 @@ import {
 } from "../_shared/calendar-provider.ts";
 // A–H resolution goes through the single canonical entry point so the Brief
 // honours user overrides, learned tokens and persisted categories.
-import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event.ts";
+import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
 /** Canonical A–H pillar display name for an event (null when unresolved). */
 const categoryNameOf = (input: ResolveEventInput): string | null =>

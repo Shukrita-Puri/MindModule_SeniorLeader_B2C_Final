@@ -375,7 +375,7 @@ import {
   highStakesScore,
   isNoiseTitle,
 } from "../_shared/events/event-classifier.ts";
-import { resolveEvent } from "../_shared/events/resolve-event.ts";
+import { resolveEvent } from "../_shared/events/resolve-event-category.ts";
 import {
   detectClientPlatform,
   wrapDbWithCalendarPrimacy,

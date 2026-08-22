@@ -30,7 +30,7 @@ import {
   dedupeCalendarEvents,
 } from "../_shared/events/event-classifier.ts";
 import { PILLAR_META, type Pillar } from "../_shared/events/event-subtypes.ts";
-import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event.ts";
+import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 import {
   getSubcategoryForEvent,

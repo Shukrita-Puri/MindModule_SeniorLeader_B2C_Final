@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { isNoiseTitle, isEducationalTitle } from "../_shared/events/event-classifier.ts";
 import type { EventGroup } from "../_shared/events/event-subtypes.ts";
-import { resolveEvent } from "../_shared/events/resolve-event.ts";
+import { resolveEvent } from "../_shared/events/resolve-event-category.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";

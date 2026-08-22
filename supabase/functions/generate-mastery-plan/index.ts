@@ -46,7 +46,7 @@ import {
   FRAMEWORK_PILLARS,
 } from "../_shared/events/event-categories.ts";
 // A–H resolution via the single canonical entry point.
-import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event.ts";
+import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {

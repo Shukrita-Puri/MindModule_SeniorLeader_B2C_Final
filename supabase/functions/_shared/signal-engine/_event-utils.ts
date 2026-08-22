@@ -8,7 +8,7 @@ import type { ClassifiedEventLite, DemandLevel } from './types.ts';
 import type { EventLite, StakesCategory } from './window-context-types.ts';
 import { computeCalendarDemand } from './demand-scorer.ts';
 import { computeCognitiveFragmentation } from './cognitive-fragmentation.ts';
-import { resolveEvent, type ResolveEventInput } from '../events/resolve-event.ts';
+import { resolveEvent, type ResolveEventInput } from '../events/resolve-event-category.ts';
 
 /** A–C are externally-visible stakes; D is conflict/people; E is deep work. */
 export const HIGH_STAKES_CATEGORIES: ReadonlySet<StakesCategory> =
