@@ -58,12 +58,7 @@ export function resolveEventCategory(
 // ═════════════════════════════════════════════════════════════════════════
 import { enrichEvent, type EnrichedEvent } from "./enrich-event.ts";
 import type { EventCategory } from "./event-categories.ts";
-import type { EventType } from "./event-subtypes.ts";
-import { EVENT_TYPE_TO_SCENARIO_ID } from "./event-subtypes.ts";
-
-import type { EventCategory, EventCategoryId } from "./event-categories.ts";
-import type { EventType } from "./event-subtypes.ts";
-import { EVENT_TYPE_TO_SCENARIO_ID } from "./event-subtypes.ts";
+import { EVENT_TYPE_TO_SCENARIO_ID, type EventType } from "./event-subtypes.ts";
 
 export interface ResolvedEvent {
   /** Granular §3 subtype row when one matched, else null. */
