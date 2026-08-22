@@ -1025,19 +1025,30 @@ serve(async (req) => {
       return (d + 6) % 7; // 0=Mon..6=Sun
     };
 
-    // Build column set: top event types by occurrence (max 7).
-    const eventTypeCounts = new Map<string, number>();
-    eventTypeDays.forEach((set, label) => eventTypeCounts.set(label, set.size));
-    const topEventTypes = [...eventTypeCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
+    // Build column set from the canonical A–H resolver, per event. The legacy
+    // pattern bucket + attendee fallback mis-filed titles the keyword list
+    // doesn't know (a flight landed under "Small-group meetings"), so the row
+    // an event lands in is now its own resolved category, not the category of
+    // whichever event first carried the same legacy bucket label.
+    const categoryLabelOf = (e: any): string =>
+      canonicalCategoryName(e.title) ?? classifyByAttendees(e.attendees_count);
+    const subtypeLabelOf = (e: any): string | null => {
+      const et = classifyEventCanonical(e.title) as any;
+      return et?.name ?? et?.bucket ?? null;
+    };
+
+    const categoryDays = new Map<string, Set<string>>();
+    for (const e of events as any[]) {
+      if (!e.start_time) continue;
+      const label = categoryLabelOf(e);
+      if (!categoryDays.has(label)) categoryDays.set(label, new Set());
+      categoryDays.get(label)!.add(ymd(new Date(e.start_time)));
+    }
+    const topEventTypes = [...categoryDays.entries()]
+      .sort((a, b) => b[1].size - a[1].size)
       .slice(0, 7)
       .map(([label]) => label);
-    const eventTypeCategoryNames = new Map<string, string>();
-    for (const e of events as any[]) {
-      const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
-      if (!label || eventTypeCategoryNames.has(label)) continue;
-      eventTypeCategoryNames.set(label, canonicalCategoryName(e.title) ?? label);
-    }
+
 
     // Accumulators for each (day, event) cell: arrays of per-event peak deltas.
     const stressAcc: Array<Array<number[]>> = DAY_LABELS.map(() =>
