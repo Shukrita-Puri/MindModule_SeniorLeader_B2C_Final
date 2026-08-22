@@ -3,7 +3,7 @@
  *
  * While a card is being snapshotted for the iOS share sheet, components may
  * render an export-optimised layout (e.g. the month calendar switches from a
- * horizontally-scrolling week strip to a vertical day-per-row list so the whole
+ * horizontally-scrolling week strip to a compact 7-column grid so the whole
  * month fits a portrait image). Purely presentational — no data changes.
  */
 import { useSyncExternalStore } from 'react';

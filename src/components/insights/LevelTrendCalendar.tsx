@@ -422,44 +422,101 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
   }
 
   // Export layout: while a share snapshot is being taken, the month renders
-  // as a vertical day-per-row list so the WHOLE month fits a portrait image
+  // as a compact calendar grid so the WHOLE month fits a portrait image
   // (no horizontal scrolling for the recipient). On-screen behaviour unchanged.
   if (shareCapturing) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const startDay = firstOfMonth.getDay();
+    const mondayStart = (startDay + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const grid: (DayCell | null)[] = [];
+    for (let i = 0; i < mondayStart; i++) grid.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dDate = new Date(year, month, d);
+      const dateStr = dDate.toLocaleDateString('en-CA');
+      const existing = days.find((day) => day.date === dateStr);
+      grid.push(
+        existing ?? {
+          date: dateStr,
+          dayLabel: dDate.toLocaleDateString('en-US', { weekday: 'short' }),
+          dateNum: String(d),
+          isToday: dateStr === today.toLocaleDateString('en-CA'),
+          isFuture: dDate.getTime() > today.getTime(),
+          slots: { morning: { value: null }, midday: { value: null }, evening: { value: null } },
+        },
+      );
+    }
+    const trailing = (7 - (grid.length % 7)) % 7;
+    for (let i = 0; i < trailing; i++) grid.push(null);
+
     return (
       <div className="space-y-3">
         <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
-        <div className="flex items-center gap-2 pl-[68px]">
-          {['Morning', 'Midday', 'Evening'].map((label) => (
-            <span key={label} className="flex-1 text-[10px] text-muted-foreground text-center">{label}</span>
-          ))}
-        </div>
-        <div className="space-y-1">
-          {days.filter((d) => !d.isFuture).map((day) => (
-            <div key={day.date} className="flex items-center gap-2">
-              <span className="w-[64px] text-[11px] text-muted-foreground text-right whitespace-nowrap">
-                {day.dayLabel} {day.dateNum}
-              </span>
-              {(['morning', 'midday', 'evening'] as const).map((tw) => {
-                const tier = tierFor(LEVEL_TIERS, day.slots[tw].value);
-                return (
-                  <div
-                    key={tw}
-                    className={cn(
-                      'flex-1 h-6 rounded-md',
-                      tier ? '' : 'border border-border/60 bg-white',
-                    )}
-                    style={tier ? { background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` } : undefined}
-                  />
-                );
-              })}
+        <div className="grid grid-cols-7 gap-1">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => (
+            <div key={label} className="text-[9px] text-muted-foreground text-center pb-1">
+              {label}
             </div>
           ))}
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20">
-          {LEVEL_TIERS.slice().reverse().map((tier) => (
-            <div key={tier.value} className="flex items-center gap-1.5">
+          {grid.map((day, idx) => {
+            if (!day) return <div key={`blank-${idx}`} className="h-12" />;
+            const hasAny =
+              day.slots.morning.value !== null ||
+              day.slots.midday.value !== null ||
+              day.slots.evening.value !== null;
+            return (
               <div
-                className="w-3 h-2.5 rounded-sm"
+                key={day.date}
+                className={cn(
+                  'h-12 rounded-md p-1 flex flex-col gap-0.5 overflow-hidden',
+                  day.isFuture
+                    ? 'border border-dashed border-border/40 bg-transparent'
+                    : hasAny
+                      ? 'bg-white'
+                      : 'border border-foreground/40 bg-white',
+                )}
+              >
+                <span
+                  className={cn(
+                    'text-[9px] leading-none',
+                    day.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
+                  )}
+                >
+                  {day.dateNum}
+                </span>
+                <div className="flex-1 flex flex-col gap-px rounded-sm overflow-hidden">
+                  {(['morning', 'midday', 'evening'] as const).map((tw) => {
+                    const tier = tierFor(LEVEL_TIERS, day.slots[tw].value);
+                    return (
+                      <div
+                        key={tw}
+                        className="flex-1 w-full"
+                        style={tier ? { background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` } : undefined}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-center gap-3 text-[10px] text-muted-foreground pt-2 border-t border-border/20">
+          {['Morning', 'Midday', 'Evening'].map((label) => (
+            <span key={label} className="flex items-center gap-1">
+              <span className="h-1 w-4 rounded-full bg-foreground/30" />
+              {label}
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+          {LEVEL_TIERS.slice().reverse().map((tier) => (
+            <div key={tier.value} className="flex items-center gap-1">
+              <div
+                className="w-2.5 h-2.5 rounded-sm"
                 style={{ background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` }}
               />
               <span>{labelFor(tier.value)}</span>
