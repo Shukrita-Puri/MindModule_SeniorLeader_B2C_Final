@@ -108,10 +108,11 @@ Stated plainly rather than defended:
 
 1. **Burnout Risk has no event attribution at all.** It is a four-signal weekly rollup. It never says which events, day types, or categories drove the risk, and the weekly unit is an editorial choice, not something derived from the data. If the intent is "what causes my burnout", the tab currently cannot answer it — it would need the Stress Load per-event bucket joined to the weekly dims.
 2. **Burnout intensities are self-relative.** Every dimension is scaled against the same 5-week window, so a uniformly heavy five weeks still shows a mid-scale reading, and one extreme week compresses the others. There is no absolute reference.
-3. **Stress Load is correlation, not causation.** Nothing controls for exercise, caffeine, travel, or a second meeting inside the same window. The 8 Aug flight/hotel rows in the verification dump below are exactly this: high peak HR during a travel block, not meeting stress.
-4. **The resting baseline is a whole-window mean**, not a trailing pre-event baseline, so a drifting baseline flattens or inflates every delta equally.
-5. **Weekend events are now included** (resolved 22 Aug 2026, ENGINE_VERSION 7). The engine previously bucketed Mon–Fri only and discarded Saturday and Sunday events before any maths. It now buckets a full Mon–Sun week with the identical per-event formula, so Israel/Gulf working weeks are represented — and for this account the Sat 15 Aug and Sun 9 Aug deltas now appear in the grid. Note this makes weakness 3 more visible: the Sunday rows are a flight and a hotel block, i.e. activity, not meeting stress.
-6. **Recovery Time is HRV/RHR day-level**, while Stress Load is intraday HR. The two tabs therefore answer different questions on different granularities under one card.
+3. **Stress Load is correlation, not causation.** Nothing controls for exercise, caffeine, travel, or a second meeting inside the same window. Travel blocks still produce high deltas because they contain physical activity.
+4. **The resting baseline is now a per-event trailing baseline** (14d → 30d → window fallback), so a drifting baseline no longer flattens or inflates every delta equally.
+5. **Mean HR replaces peak HR** (ENGINE_VERSION 12). Single adrenaline spikes no longer dominate the metric; long blocks use a 45-minute focus window to reduce post-event noise.
+6. **Weekend events are included** (ENGINE_VERSION 7+). The engine buckets a full Mon–Sun week, so Israel/Gulf working weeks are represented.
+7. **Recovery Time is HRV/RHR day-level**, while Stress Load is intraday HR. The two tabs therefore answer different questions on different granularities under one card.
 
 ## 6. Verification appendix — per-event dump
 
