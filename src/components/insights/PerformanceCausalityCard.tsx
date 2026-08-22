@@ -197,7 +197,7 @@ function DrainHeatmapGrid({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto -mx-1 px-1">
-        <table className="w-full text-[11px] border-separate border-spacing-1">
+        <table className="w-max min-w-full text-[11px] border-separate border-spacing-1">
           <thead>
             <tr>
               <th className="text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
@@ -215,8 +215,8 @@ function DrainHeatmapGrid({
           <tbody>
             {rows.map((row) => (
               <tr key={row}>
-                <td className="text-muted-foreground/80 font-medium pr-2 max-w-[7rem]">
-                  <span className="block truncate" title={row}>{row}</span>
+                <td className="text-muted-foreground/80 font-medium pr-2">
+                  <span className="block whitespace-nowrap" title={row}>{row}</span>
                 </td>
                 {columns.map((column) => {
                   const cell = cellMap.get(`${row}::${column}`);
@@ -330,6 +330,10 @@ function StressLoadTab({
   subcategoryLift?: SubcategoryLiftEntry[];
 }) {
   const { events, categoryNames, days, cells, n, maxObserved, topDay } = matrix;
+  // Always render a full Mon–Sun week: Sunday is a working day in Israel and
+  // the Gulf. Days the payload doesn't cover render as neutral empty cells.
+  const WEEK_COLUMNS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const weekColumns = WEEK_COLUMNS.concat(days.filter((d) => !WEEK_COLUMNS.includes(d)));
   const hasAny = cells.some((row) => row.some((v) => v !== null));
   if (!hasAny) {
     return (
@@ -389,9 +393,12 @@ function StressLoadTab({
 
   return (
     <div className="space-y-3">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+        Heart Rate x Event trend
+      </div>
       <DrainHeatmapGrid
         rows={rows}
-        columns={days}
+        columns={weekColumns}
         cells={gridCells}
         maxValue={maxObserved}
         unit="bpm"
