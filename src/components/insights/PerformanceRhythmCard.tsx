@@ -1184,17 +1184,18 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             {/* Section header for check-in patterns */}
             {data.checkInCount >= 5 && (
               <div className="flex items-start gap-2">
-                <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+                <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">A.</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
+                  <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
                     Mental Performance Patterns
                   </p>
-                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Based on check-in data
                   </p>
                 </div>
               </div>
             )}
+
 
             {/* Tab switcher: one chart at a time */}
             {data.checkInCount >= 5 && (
