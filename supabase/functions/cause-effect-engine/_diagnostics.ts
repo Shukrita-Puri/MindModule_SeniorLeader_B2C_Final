@@ -42,6 +42,18 @@ export interface WearableSignalCounts {
   rhrWindowBucketCounts: { morning: number; afternoon: number; evening: number };
 }
 
+export interface StressLoadEvent {
+  date: string;
+  day: string;
+  event: string;
+  meanHr: number;
+  baselineUsed: number;
+  baselineSource: "14d" | "30d" | "window";
+  delta: number;
+  longBlock: boolean;
+  sampleCount: number;
+}
+
 export interface WearableDiagnostics {
   windowDays: number;
   engineVersion: number;
@@ -52,17 +64,7 @@ export interface WearableDiagnostics {
     hr_event_lift: GateReason;
     category_lift: GateReason;
   };
-  stressLoadEvents?: Array<{
-    date: string;
-    day: string;
-    event: string;
-    meanHr: number;
-    baselineUsed: number;
-    baselineSource: "14d" | "30d" | "window";
-    delta: number;
-    longBlock: boolean;
-    sampleCount: number;
-  }>;
+  stressLoadEvents?: StressLoadEvent[];
 }
 
 export interface DiagnosticsInput {
