@@ -1582,7 +1582,7 @@ serve(async (req) => {
       // v12: uses the same eventHrDelta helper as the Stress Load matrix so
       // the two surfaces cannot drift (mean HR, trailing baseline, 45-min focus).
       const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
-      if (windowBaseline !== null) {
+      if (restingBaseline !== null) {
         for (const e of events as any[]) {
           if (!e.start_time || !e.end_time) continue;
           const et = classifyEventCanonical(e);
