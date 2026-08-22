@@ -1,36 +1,47 @@
-# Audit: "When You Perform Best" — Mental Performance Patterns
+# When You Perform Best — more depth in Section A, varied Section B
 
-Verified against the current code (`src/components/insights/PerformanceRhythmCard.tsx`, `src/lib/insights/patternSentences.ts`).
+## What's wrong today (verified in code)
 
-## Already implemented (no work needed)
+1. **Section A usually shows one line.** The edge function mines each dimension, sorts by confidence, then keeps only the top 3 findings *per dimension including negative ones* (`performance-rhythm-insights`, dedupe loop). A low-day plus a negative streak can consume two of the three slots, so after the card's positive-only filter often a single line survives. The app-side guard then drops more: any peak with a positive rate under 50%, and peak-day/peak-window below a 20pp gap.
+2. **Section B is identical on every tab.** It is built from `buildSection(findings, 'wearable', 3)` plus the global performance-lift lines, with no dependence on the active tab.
 
-- Two visually separated sections with a single `h-px` divider, "A." check-in block (collapsible) and "B. Mental Performance Patterns / Based on physiology and demand data".
-- Section 1 scoped to the active tab dimension, deduped by pattern shape.
-- Positive-only card scope: only `peak-day`, `peak-window`, `cell-peak`, `consecutive-pos` survive; lows / negative deltas suppressed; `category_lift` filtered to `compositeLift > 0`.
-- Hard cap of 3 per section (6 total), no padding.
-- Observation guard with strong/emerging tiers and gap thresholds; below-emerging suppressed; 2-in-a-row = emerging, 3-in-a-row = strong.
-- Polarity phrasing per dimension (pressure, RHR, HR read as inverted); no `n=` in user-facing copy; one idea per sentence.
-- Empty states for no-data vs. below-threshold, per section; "Early patterns" note when all findings are emerging.
-- Debug panel hidden behind `localStorage.patternDebug === '1'`, never user-visible.
+## What changes
 
-## Gaps found
+### Section A — more real patterns per tab
 
-1. **`hr_event_lift` never renders.** The type exists and the backend returns it, but Section B only builds sentences from `sleep_to_peak`, `rhr_recovery_window`, `recovery_streak_to_peak` and `category_lift`. The spec's highest-weighted Pipeline B pattern (0.92) is missing entirely.
-2. **Pipeline B has no observation guard.** Lift lines render off backend `confidence` only — the spec's n ≥ 5 / |Δ| ≥ 15 (strong) and n ≥ 3 / |Δ| ≥ 10 (emerging) thresholds are not applied, and there is no emerging-tier softened wording for these lines.
-3. **Pipeline B is outside the reweighting.** `CARD_KIND_WEIGHT` covers only the four Pipeline A kinds. Lift lines are appended in fixed order (sleep → recovery → streak → categories) instead of ranked at 0.92 / 0.82 / 0.80 / 0.75 / 0.72 alongside Pipeline A wearable findings.
-4. **Sentence templates for Pipeline B diverge from spec.** e.g. current "On well-recovered days your afternoon leads by +31%." vs. spec "Well-recovered mornings (RHR ≤ baseline): afternoon readiness lifts +31% vs non-recovered days — your best performance window." Same for sleep, streak, category.
-5. **Two extra lines bypass the whole contract.** `Sharpest window: …` and `calendarInsight` are injected into Section B without a guard, tier, or ranking.
-6. **Debug panel is partial.** It lists Pipeline A rows only, and omits: pipeline label (A/B), cardScope kept/suppressed with reason, final post-reweight `priorityScore`, section assignment, rank before/after filter, which empty-state rule fired, total check-in count, and the console summary block.
-7. **Section labels differ from spec wording.** A reads "Mental Performance Patterns / Based on check-in data" (spec: "CHECK-IN PATTERNS / Based on your self-reported check-ins"). This was a later explicit request from you, so it is flagged, not changed.
+- Raise the per-dimension pool in the edge function so positive findings are not crowded out by negatives: keep up to 6 findings per dimension, and select them so at least 3 positive-kind findings (`cell-peak`, `peak-day`, `peak-window`, `consecutive-pos`) survive when they exist. Negative findings still flow to the Drains surface unchanged.
+- Relax the app-side observation guard slightly so genuine trends surface as *emerging* instead of being dropped:
+  - peak-day / peak-window / cell-peak: emerging at n >= 3 with a 15pp gap (was 20pp).
+  - Allow a peak with a positive rate below 50% only when its gap is >= 20pp, and always render it in emerging (hedged) wording.
+  - Strong tiers are unchanged.
+- Cap stays 3 per tab, dedupe still by pattern shape, so Clarity can show e.g. its evening window, its peak day, and its 3-in-a-row streak together.
 
-## Proposed work (presentation layer only)
+### Section B — global, but different per tab
 
-1. Extend `patternSentences.ts` with a Pipeline B finding type, tiering (`n`/`|Δ|` thresholds), spec sentence templates for `hr_event_lift`, `category_lift`, `rhr_recovery_window`, `sleep_to_peak`, `recovery_streak_to_peak`, plus emerging variants.
-2. Add Pipeline B weights to the card-only weight table and rank Pipeline A wearable findings and Pipeline B lift lines in one list before the cap of 3.
-3. Replace `buildBaselineLiftLines` with the new ranked builder; drop the ungated `Sharpest window` / `calendarInsight` lines from Section B (or route them through the same guard).
-4. Enrich `PatternDebugRow` and the debug container with pipeline, tier, kept/suppressed + reason, final score, section, rank before/after, empty-state trigger, check-in count; add the equivalent `console.groupCollapsed` summary when debug is on.
-5. Extend the existing unit tests to cover Pipeline B tiering, templates, ranking and caps.
+Section B stays non-tab-scoped (all wearable + calendar findings remain eligible on every tab), but ranking becomes tab-aware so each tab surfaces a different slice:
+
+```text
+Clarity     → sleep_score, sleep_duration, hrv
+Emotion     → hrv, rhr, sleep_efficiency
+Pressure    → rhr, hr, hrv
+Regulation  → hrv, rhr, sleep_score
+```
+
+A small affinity bonus is added to the card-only ranking weight for the active tab's dimensions. Nothing is excluded — a tab still falls back to whatever else is available, so the section never empties just because its preferred dimensions are missing. Same for the performance-lift lines: sleep-to-peak leads on Clarity, RHR recovery on Pressure, recovery streak on Regulation.
+
+### Other spec gaps closed at the same time
+
+- `hr_event_lift` (positive) finally renders — currently the payload is typed and fetched but never turned into a sentence, despite being the second-highest-weighted Pipeline B signal.
+- Pipeline B lines get the spec's observation guard (n >= 5 and >= 15% delta for strong, n >= 3 and >= 10% for emerging) and ranked ordering (0.92 / 0.82 / 0.80 / 0.75 / 0.72) instead of the current fixed order.
+- The ungated `Sharpest window:` and calendar-insight lines are routed through the same guard so every Section B line is traceable.
+
+## Technical notes
+
+- `supabase/functions/performance-rhythm-insights/index.ts`: per-dimension selection only — widen the cap and reserve slots for positive kinds. No change to scoring, weights, bands, or data sources; `stats` payload unchanged.
+- `src/lib/insights/patternSentences.ts`: guard thresholds, tab-affinity weights, Pipeline B finding type + templates + tiering.
+- `src/components/insights/PerformanceRhythmCard.tsx`: pass `activeTrend` into the Section B builder; replace `buildBaselineLiftLines` with the ranked, guarded builder.
+- Tests: extend `src/lib/insights/__tests__/patternSentences.test.ts` for the relaxed guard, multi-line Section A, tab-varied Section B ordering, and Pipeline B templates/caps.
 
 ## Constraints
 
-No edge function, scoring, gating or data-source changes. No new network calls. Section A wording and the current header placement stay as-is unless you say otherwise.
+No changes to MRS, gating, check-in scoring, or data sources. Section A/B labels and current layout stay as-is. Caps remain 3 per section (6 per tab).
