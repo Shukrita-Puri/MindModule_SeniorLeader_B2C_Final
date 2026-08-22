@@ -65,4 +65,5 @@ The trend strip and its share export currently load a rolling 30-day window endi
 
 - `src/components/insights/PerformanceCausalityCard.tsx` — add caption above the Stress Load grid; in `DrainHeatmapGrid`, swap the row-label `truncate`/`max-w-[7rem]` for `whitespace-nowrap` and let the table be content-width inside the existing `overflow-x-auto` wrapper.
 - `supabase/functions/cause-effect-engine/index.ts` — `DAY_LABELS` becomes 7 entries; `dayIndex` maps Sunday (0) to index 6 instead of returning -1, Saturday to index 5. Bump `ENGINE_VERSION` so each user recomputes once on next card load. Redeploy the function.
+- `src/components/insights/LevelTrendCalendar.tsx` — replace the rolling 30-day range with a calendar-month range (1st → month end), render future days as dotted placeholder pills, single Monday-aligned month block in share capture.
 - Verification: read-only SQL over `calendar_events` joined to `wearable_data.hr_samples` for your user, reproducing the cell maths day by day.
