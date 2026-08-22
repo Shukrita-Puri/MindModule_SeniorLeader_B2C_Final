@@ -50,7 +50,18 @@ Columns are the top 7 event types by number of distinct days, classified by the 
 
 Two honesty caveats worth naming: the value is a **correlation** (event-window peak HR elevation vs personal resting baseline), not proven causation — nothing controls for exercise, caffeine, or stacked meetings inside the same window; and the baseline is a window mean rather than a trailing pre-event baseline. As part of this task I will run a read-only query on your account dumping, per event: date, day of week, category, event window, peak HR in window, resting baseline, delta and sample count — so you can reconcile the numbers on screen against the raw rows before we call it verified.
 
+## 5. Correction to the previous run: calendar-month window, not rolling 30 days
+
+The trend strip and its share export currently load a rolling 30-day window ending today, which pulls in late-July days alongside August. Change both to the **current calendar month only**:
+
+- The window runs from the 1st of the current month (1 August 2026) to the end of that month — no previous-month days at all.
+- The share export renders a single Monday-aligned block for that month, so the 1st lands on its true weekday (Saturday for August 2026).
+- Days after today are shown as dotted/outline placeholder pills (the empty-day treatment) for the remainder of the month, on both the strip and the export.
+- Strip header shows the month name; the auto-scroll pass still re-runs after a share capture so the strip returns to the current week.
+- Applies identically to all four tabs (Clarity, Emotion, Pressure, Regulation) — presentation and windowing only, no scoring changes.
+
 ## Technical notes
+
 
 - `src/components/insights/PerformanceCausalityCard.tsx` — add caption above the Stress Load grid; in `DrainHeatmapGrid`, swap the row-label `truncate`/`max-w-[7rem]` for `whitespace-nowrap` and let the table be content-width inside the existing `overflow-x-auto` wrapper.
 - `supabase/functions/cause-effect-engine/index.ts` — `DAY_LABELS` becomes 7 entries; `dayIndex` maps Sunday (0) to index 6 instead of returning -1, Saturday to index 5. Bump `ENGINE_VERSION` so each user recomputes once on next card load. Redeploy the function.
