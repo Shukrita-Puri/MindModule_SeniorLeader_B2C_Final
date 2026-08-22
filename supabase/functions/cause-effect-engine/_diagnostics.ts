@@ -52,6 +52,17 @@ export interface WearableDiagnostics {
     hr_event_lift: GateReason;
     category_lift: GateReason;
   };
+  stressLoadEvents?: Array<{
+    date: string;
+    day: string;
+    event: string;
+    meanHr: number;
+    baselineUsed: number;
+    baselineSource: "14d" | "30d" | "window";
+    delta: number;
+    longBlock: boolean;
+    sampleCount: number;
+  }>;
 }
 
 export interface DiagnosticsInput {
