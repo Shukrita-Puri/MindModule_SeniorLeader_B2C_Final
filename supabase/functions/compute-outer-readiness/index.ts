@@ -4097,6 +4097,10 @@ serve(async (req) => {
       hasCheckInRowForWindow: checkInRowCurrentForWindow,
     });
     const briefWearableUsable = signalFreshness.wearableCurrent;
+    // Canonical, window-aware wearable freshness used by the readiness gate,
+    // eligibility receipts, pill provenance and MRS contributor rules.
+    const wearableFreshForGate = signalFreshness.wearableCurrent;
+
     // Canonical, window-aware wearable freshness for pills / MRS score / plan.
     // The agreed Gating Rule requires the *existence* of Physiology and Demand, not
     // strict same-window freshness (which is handled by prose/historical rules).
