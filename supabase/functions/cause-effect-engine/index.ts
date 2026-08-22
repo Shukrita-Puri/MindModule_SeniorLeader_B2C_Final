@@ -347,7 +347,8 @@ function impactScore(f: Finding): number {
 // Local re-export keeps downstream readers stable.
 const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
 
-function classifyEvent(title: string | null | undefined): string | null {
+/** Legacy pattern-bucket label, resolved through enrichEvent(). */
+function patternBucketLabel(title: string | null | undefined): string | null {
   return patternBucketFor(title);
 }
 /**
@@ -562,7 +563,7 @@ serve(async (req) => {
       eventsByDay.get(d)!.push(e);
       // Canonical A–H first (honours overrides / learned tokens / persisted
       // category), then the keyword bucket, then attendee-count fallback.
-      const label = canonicalCategoryName(e) ?? classifyEvent(e.title) ??
+      const label = canonicalCategoryName(e) ?? patternBucketLabel(e.title) ??
         classifyByAttendees(e.attendees_count);
       if (!eventTypeDays.has(label)) eventTypeDays.set(label, new Set());
       eventTypeDays.get(label)!.add(d);
