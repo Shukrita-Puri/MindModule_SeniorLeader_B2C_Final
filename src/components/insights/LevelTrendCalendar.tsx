@@ -278,20 +278,24 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
   useEffect(() => {
     if (!userId && !DEV_MODE) return;
     let cancelled = false;
-    const windowDays = Math.max(7, Math.min(lookbackDays ?? 30, 30));
 
     const load = async (attempt: number): Promise<void> => {
       setLoading(true);
       try {
-        // Fixed 30-day window ending today. The share export uses exactly the
-        // same range, so the strip and the exported calendar always agree.
+        // Current calendar month only (1st → month end). The share export uses
+        // exactly the same day list, so the strip and the exported calendar
+        // always agree and never bleed into the previous month.
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayStr = today.toLocaleDateString('en-CA');
-        const firstVisible = new Date(today.getTime() - (windowDays - 1) * 24 * 60 * 60 * 1000);
+        const firstVisible = new Date(today.getFullYear(), today.getMonth(), 1);
         firstVisible.setHours(0, 0, 0, 0);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        monthEnd.setHours(0, 0, 0, 0);
+        const windowDays = Math.round((monthEnd.getTime() - firstVisible.getTime()) / 86400000) + 1;
         const startDate = firstVisible.toLocaleDateString('en-CA');
         const endDate = todayStr;
+
 
         const accessToken = DEV_MODE ? null : await getAuthToken();
         if (!DEV_MODE && !accessToken) {
