@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -29,7 +29,7 @@ const ClearBackButton = () => {
         onClick={handleBack}
         className="bg-background/80 backdrop-blur-sm border border-border shadow-lg hover:bg-background/90"
       >
-        <ArrowLeft size={16} />
+        <ChevronLeft size={16} />
       </Button>
     </div>
   );

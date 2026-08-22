@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X, Loader2, ArrowLeft } from "lucide-react";
+import { Check, X, Loader2, ChevronLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 import { openUrl } from "@/utils/openUrl";
@@ -59,7 +59,7 @@ function PaymentPageShell({
             data-testid="payment-back-button"
             className="inline-flex items-center gap-1 -ml-1 py-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
           >
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             <span>Back</span>
           </button>
         </div>

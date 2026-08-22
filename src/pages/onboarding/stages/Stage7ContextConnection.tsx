@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -276,7 +276,7 @@ export default function Stage7ContextConnection() {
       <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-[#cfc7b8] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="flex items-center justify-between px-4 py-2">
           <Button variant="glass" size="sm" onClick={() => navigate("/onboarding/app-intro", { state: { resumeSlide: 2 } })}>
-            <ArrowLeft size={20} />
+            <ChevronLeft size={20} />
           </Button>
           <div />
         </div>

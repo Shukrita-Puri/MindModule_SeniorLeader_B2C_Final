@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import mmLogo from "@/assets/brand/mm-logo-circle.png";
@@ -28,7 +28,7 @@ const UnifiedTopBar = ({ backPath, onBack, showBrand }: UnifiedTopBarProps) => {
       <div className="flex items-center justify-between px-4 py-2">
         {/* Left: Back Button */}
         <Button variant="glass" size="sm" onClick={handleBack}>
-          <ArrowLeft size={20} />
+          <ChevronLeft size={20} />
         </Button>
         {showBrand ? (
           <div className="flex items-center gap-2 pr-1">

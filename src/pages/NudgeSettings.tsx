@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { ArrowLeft, Bell, Calendar, Compass, Heart, Zap, Eye } from "lucide-react";
+import { ChevronLeft, Bell, Calendar, Compass, Heart, Zap, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +65,7 @@ const NudgeSettings = () => {
             onClick={() => navigate("/")}
             className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <ArrowLeft size={20} className="text-gray-600" />
+            <ChevronLeft size={20} className="text-gray-600" />
           </button>
           <div className="text-center">
             <h1 className="text-[15px] font-bold text-gray-900 uppercase">SMART NUDGE SETTINGS</h1>

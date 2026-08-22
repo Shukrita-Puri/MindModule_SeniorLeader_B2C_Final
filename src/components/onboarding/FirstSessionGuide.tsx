@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useSidebar } from '@/components/ui/sidebar';
-import { X, ArrowRight, ArrowLeft, Rocket, Loader2 } from 'lucide-react';
+import { X, ArrowRight, ChevronLeft, Rocket, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   FST_KEYS,
@@ -717,7 +717,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           <div className="flex items-center gap-2 flex-shrink-0">
             {currentStep > 0 && (
               <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2 rounded-xl text-white/60 hover:text-white text-sm transition-colors" style={{ pointerEvents: 'auto' }}>
-                <ArrowLeft size={14} /> Back
+                <ChevronLeft size={14} /> Back
               </button>
             )}
             {isLastStep ? (

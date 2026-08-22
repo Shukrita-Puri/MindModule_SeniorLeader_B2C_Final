@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, ArrowLeft, Activity, AlertTriangle, Bell, Gauge } from 'lucide-react';
+import { LayoutDashboard, Users, ChevronLeft, Activity, AlertTriangle, Bell, Gauge } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
@@ -45,7 +45,7 @@ const AdminLayout = () => {
             to="/executive-home"
             className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
+            <ChevronLeft className="h-4 w-4" aria-hidden />
             Back to app
           </Link>
         </div>

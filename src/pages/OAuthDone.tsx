@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isNativeApp } from '@/utils/healthKitCapacitor';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,7 +127,7 @@ export default function OAuthDone() {
             onClick={handleReturnToApp}
             className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors inline-flex items-center justify-center gap-2 text-sm"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" />
             <span>Return to Mind Module</span>
           </button>
         </div>
