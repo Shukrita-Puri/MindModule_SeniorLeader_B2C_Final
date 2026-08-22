@@ -662,7 +662,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
   const [isMock, setIsMock] = useState(false);
-  const [tab, setTab] = useState<'stress' | 'burnout' | 'recovery'>('stress');
+  const [tab, setTab] = useState<'stress' | 'burnout'>('stress');
 
   useEffect(() => {
     let cancelled = false;
@@ -857,7 +857,6 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 options={[
                   { value: 'stress', label: 'Stress Load' },
                   { value: 'burnout', label: 'Burnout Risk' },
-                  { value: 'recovery', label: 'Recovery Time' },
                 ]}
               />
 
@@ -878,31 +877,17 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   Need a few more wearable days during meetings to populate.
                 </p>
               )
-            ) : tab === 'burnout' ? (
-              !tabStates.burnout.unlocked ? (
-                <LockedTile
-                  title={tabStates.burnout.title}
-                  message={tabStates.burnout.message}
-                  progress={tabStates.burnout.progress}
-                />
-              ) : data.burnoutMatrix ? (
-                <BurnoutRiskTab matrix={data.burnoutMatrix} />
-              ) : (
-                <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
-                  Burnout Risk is unlocked, but this chart is still waiting on enough HRV history to render.
-                </p>
-              )
-            ) : !tabStates.recovery.unlocked ? (
+            ) : !tabStates.burnout.unlocked ? (
               <LockedTile
-                title={tabStates.recovery.title}
-                message={tabStates.recovery.message}
-                progress={tabStates.recovery.progress}
+                title={tabStates.burnout.title}
+                message={tabStates.burnout.message}
+                progress={tabStates.burnout.progress}
               />
-            ) : data.recoveryByEvent ? (
-              <RecoveryTimeTab data={data.recoveryByEvent} />
+            ) : data.burnoutMatrix ? (
+              <BurnoutRiskTab matrix={data.burnoutMatrix} />
             ) : (
               <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
-                Need a few more wearable days after meetings to measure recovery time.
+                Burnout Risk is unlocked, but this chart is still waiting on enough HRV history to render.
               </p>
             )}
           </div>
