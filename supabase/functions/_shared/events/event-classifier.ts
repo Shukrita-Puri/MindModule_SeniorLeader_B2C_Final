@@ -71,19 +71,9 @@ export function classifyEvent(
   return null;
 }
 
-export function classifyEventLabel(title: string | null | undefined): string | null {
-  return classifyEvent(title)?.label ?? null;
-}
-
-export function classifyEventBucket(title: string | null | undefined): string | null {
-  return classifyEvent(title)?.bucket ?? null;
-}
-
-export function scenarioIdFor(title: string | null | undefined): string | null {
-  const et = classifyEvent(title);
-  if (!et) return null;
-  return EVENT_TYPE_TO_SCENARIO_ID[et.id] ?? null;
-}
+// classifyEventLabel / classifyEventBucket / scenarioIdFor were keyword-only
+// reads. Use eventLabelFor / eventBucketFor / scenarioIdForEvent from
+// ./pattern-bucket.ts instead — they resolve through enrichEvent().
 
 // ── Coarse downstream tokens & display labels ───────────────────────
 //
