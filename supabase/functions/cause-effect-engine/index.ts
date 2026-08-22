@@ -1197,7 +1197,7 @@ serve(async (req) => {
         const samples = hrSamplesByDay.get(dayKey);
         if (!samples || samples.length === 0) continue; // honest: omit cell, no day-max proxy
 
-        const result = eventHrDelta(e, samples, restingHrByDay, windowBaseline);
+        const result = eventHrDelta(e, samples, restingHrByDay, restingBaseline);
         if (!result) continue;
 
         stressAcc[dIdx][colIdx].push(result.delta);
