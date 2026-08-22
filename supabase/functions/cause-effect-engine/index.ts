@@ -343,6 +343,101 @@ function impactScore(f: Finding): number {
   return Math.abs(f.deltaPct) * Math.log2(1 + f.n) * tierBoost;
 }
 
+// ── Stress Load per-event delta helpers ─────────────────────────────────
+// v12: mean HR (not peak), per-event trailing baseline, 45-min focus window
+// for long blocks. Shared by the Stress Load matrix and the subcategory_lift
+// rollup so the two paths cannot drift.
+type BaselineSource = "14d" | "30d" | "window";
+
+interface EventHrDeltaResult {
+  delta: number; // mean HR − baseline (bpm)
+  meanHr: number;
+  baselineUsed: number;
+  baselineSource: BaselineSource;
+  longBlock: boolean;
+  sampleCount: number;
+}
+
+function trailingBaselineFor(
+  eventDateStr: string,
+  restingHrByDay: Map<string, number>,
+  windowBaseline: number | null,
+): { baseline: number; source: BaselineSource } | null {
+  const eventDate = new Date(eventDateStr);
+
+  const lookback = (days: number): number[] => {
+    const vals: number[] = [];
+    for (let i = 1; i <= days; i++) {
+      const d = ymd(addDays(eventDate, -i));
+      const v = restingHrByDay.get(d);
+      if (typeof v === "number" && v > 0) vals.push(v);
+    }
+    return vals;
+  };
+
+  const vals14 = lookback(14);
+  if (vals14.length >= 3) return { baseline: mean(vals14), source: "14d" };
+
+  const vals30 = lookback(30);
+  if (vals30.length >= 3) return { baseline: mean(vals30), source: "30d" };
+
+  if (windowBaseline !== null) return { baseline: windowBaseline, source: "window" };
+  return null;
+}
+
+function eventHrDelta(
+  e: any,
+  samples: Array<{ t: string; v: number }>,
+  restingHrByDay: Map<string, number>,
+  windowBaseline: number | null,
+): EventHrDeltaResult | null {
+  if (!e.start_time || !e.end_time) return null;
+  const startMs = new Date(e.start_time).getTime();
+  const endMs = new Date(e.end_time).getTime();
+  const durationMinutes = (endMs - startMs) / 60000;
+  const longBlock = durationMinutes > 90;
+  const focusEndMs = longBlock ? startMs + 45 * 60000 : endMs;
+
+  const selected: number[] = [];
+  for (const s of samples) {
+    const t = new Date(s.t).getTime();
+    if (t >= startMs && t <= focusEndMs && typeof s.v === "number") {
+      selected.push(s.v);
+    }
+  }
+
+  // Long blocks: if the 45-minute focus window has too few samples,
+  // fall back to the full event window (existing behaviour).
+  if (longBlock && selected.length < 3) {
+    for (const s of samples) {
+      const t = new Date(s.t).getTime();
+      if (t > focusEndMs && t <= endMs && typeof s.v === "number") {
+        selected.push(s.v);
+      }
+    }
+  }
+
+  if (selected.length === 0) return null;
+  const meanHr = mean(selected);
+  if (meanHr <= 0) return null;
+
+  const eventDateStr = ymd(new Date(e.start_time));
+  const baselineResult = trailingBaselineFor(eventDateStr, restingHrByDay, windowBaseline);
+  if (!baselineResult) return null;
+
+  const delta = meanHr - baselineResult.baseline;
+  if (!Number.isFinite(delta)) return null;
+
+  return {
+    delta,
+    meanHr,
+    baselineUsed: baselineResult.baseline,
+    baselineSource: baselineResult.source,
+    longBlock,
+    sampleCount: selected.length,
+  };
+}
+
 // Calendar event → coarse type label (now imported from shared taxonomy).
 // Local re-export keeps downstream readers stable.
 const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
