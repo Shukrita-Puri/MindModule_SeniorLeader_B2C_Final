@@ -1,42 +1,41 @@
-# "When You Perform Best" — visually separate Section A and Section B
+# "When You Perform Best" — wrap Section A and Section B in separate sub-cards
 
-Scope: UI-only presentation change inside `PerformanceRhythmCard.tsx`. No changes to ranking, sentence assembly, guards, caps, data fetching, or edge functions.
+Scope: UI-only layout change inside `PerformanceRhythmCard.tsx`. No changes to content, ranking, sentence assembly, guards, caps, data fetching, or edge functions.
 
-## Problem
+## What changes
 
-The tab switcher (Clarity / Emotion / Pressure / Regulation) changes the chart and Section A (check-in patterns), but Section B (physiology + demand patterns) is intentionally global. Because both sections currently sit in one continuous text block, users expect Section B to change when they toggle tabs.
+Wrap the existing Section A and Section B elements each in their own subtle sub-card, while keeping everything else on the card exactly as it is today.
 
-## Proposed solution
+### Section A sub-card
 
-Wrap each section in its own subtle sub-card within the existing `LuxuryInsightCard`. This keeps the whole surface as one shareable card while making the two sections visually self-contained.
+Contains the existing Section A elements verbatim:
+- "A. Mental Performance Patterns / Based on check-in data" header.
+- Collapsible `ChevronDown` toggle and its existing open/close behaviour.
+- The pattern bullet list, early-pattern note, or empty-state copy.
+- The `SegmentedToggle` tabs (Clarity / Emotion / Pressure / Regulation).
+- The active `LevelTrendCalendar` chart.
 
-### Section A sub-card — check-in patterns
+Wrap these elements in a single container with the project's card surface tokens (`--surface-card-v2`, `--border-strong`, `--elev-1`, `rounded-xl`, `p-3.5` or the equivalent `.card-standard` utility). No visual restyling of the child elements.
 
-- Container: `rounded-xl bg-[--surface-card-v2] border border-[--border-strong] shadow-[--elev-1] p-3.5` (or the equivalent `.card-standard` utility if available).
-- Header row inside the sub-card:
-  - Left: `A.` marker + "Mental Performance Patterns" + "Based on check-in data".
-  - Right: collapsible `ChevronDown` toggle (existing behaviour, existing 200ms rotation).
-- Body: the existing `checkInOpen` block — early-pattern note (when every line is emerging), bullet list, or empty-state copy.
+### Section B sub-card
 
-### Section B sub-card — physiology and demand patterns
+Contains the existing Section B elements verbatim:
+- "B. Mental Performance Patterns / Based on physiology and demand data" header.
+- Existing `InsightInfoModal` tooltip.
+- The global baseline pattern bullet list or empty-state copy.
 
-- Container: identical sub-card styling as Section A.
-- Header row:
-  - Left: `B.` marker + "Mental Performance Patterns" + "Based on physiology and demand data".
-  - Right: existing `InsightInfoModal` tooltip.
-- Body: the existing global baseline findings + ranked lift lines, or empty-state copy.
-- Not collapsible.
+Wrap these in an identical sub-card container. No changes to the header, bullets, or info modal.
 
 ### Between the sub-cards
 
-- Replace the current `h-px` divider with plain vertical spacing (`space-y-4` or `gap-4`). The two boxes already create separation; an extra line is redundant.
+- Keep a clear vertical gap (`space-y-4`) between the two sub-cards. The current `h-px` divider lives inside `PatternAnalysisSection`; it will be removed because the two boxes now provide the separation.
 
 ### What stays exactly the same
 
+- All text, labels, icons, bullets, toggle behaviour, tab switcher, chart, progressive messages, unlock incentives, and debug panel remain unchanged.
+- Section A stays scoped to the active tab; Section B stays global and non-collapsible.
 - The outer `LuxuryInsightCard` remains the single capture boundary for sharing.
-- Tab switcher, chart, progressive messages, unlock incentives, and debug panel stay untouched outside the sub-cards.
-- Section A stays scoped to the active tab; Section B stays global.
-- Existing logic in `patternSentences.ts` (`buildSection`, `buildLiftLines`, caps, guards, affinity weights) is not modified.
+- No logic in `patternSentences.ts` is touched.
 
 ## Files touched
 
@@ -46,7 +45,9 @@ Wrap each section in its own subtle sub-card within the existing `LuxuryInsightC
 
 - `tsgo` typecheck.
 - Existing insights test suite passes.
-- Playwright screenshots of `/insights/performance-rhythm` on desktop and mobile viewports, one per tab, confirming:
-  - Two clearly separated sub-cards.
-  - Section A collapses/expands; Section B does not.
+- Playwright screenshots of `/insights/performance-rhythm` on a mobile viewport (primary iOS frame) and desktop, one per tab, confirming:
+  - Section A and Section B each sit in their own sub-card.
+  - All existing child elements (header, toggle, tabs, chart, bullets, info icon) look unchanged apart from the wrapper.
+  - Section A still collapses/expands; Section B does not.
   - Share capture still exports the whole card as one image.
+
