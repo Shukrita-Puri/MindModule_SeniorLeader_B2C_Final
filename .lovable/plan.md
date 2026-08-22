@@ -1,20 +1,10 @@
-# Share Export: One Image + Compact Month Grid
+# Share Export: Compact Month Grid
 
-Scope guard: this is a presentation-only change. No data fetching, scoring, gating, ranking, thresholds, pattern rules or edge functions are touched. Same `days` data, same sentences, same tiers — only how they are laid out for the export and how the share sheet is invoked.
+Scope guard: this is a presentation-only change. No data fetching, scoring, gating, ranking, thresholds, pattern rules or edge functions are touched. Same `days` data, same sentences, same tiers — only how they are laid out for the export.
 
-## 1. Still two images in the share sheet
+## 1. Double screenshot on web only
 
-Confirmed on all four tabs of "When You Perform Best", and identical content in both attachments — so it is a duplicated invocation or a duplicated file, not two different parts of the card. The single-flight lock and the files-only native payload are already in place, so the cause is elsewhere and step one is diagnosis, not a blind fix.
-
-Candidates to check, in order:
-- Two share controls bound to the same card (the inline title button and the shared share slot), so one tap runs two captures.
-- iOS firing both a touch and a click on the icon, with the lock already released because `Share.share` resolves as soon as the sheet is presented rather than after the send.
-- The previous PNG still sitting in `Directory.Cache` under the same filename and being picked up alongside the new write.
-
-Fix approach once identified: one share owner per card, a lock held until the share promise settles plus a short cool-down, and a unique per-capture filename with the prior cache file removed before writing.
-
-Verification: export each tab of all four cards on device and confirm exactly one attachment per share.
-
+Confirmed: iOS shares exactly one image. The duplicate is web-only, so no change is needed there; iOS is the main platform.
 
 ## 2. Compressing the export calendar
 
@@ -47,6 +37,4 @@ If you would rather keep the day-list reading order, the fallback is a two-colum
 ## Technical notes
 
 - `src/components/insights/LevelTrendCalendar.tsx` — replace the `shareCapturing` vertical branch with a month-grid branch (presentation only, same `days` data).
-- `src/utils/shareInsightCard.ts` — hold the lock through the full share promise plus cool-down, unique cache filename per capture with cleanup of the prior file.
-- `src/components/insights/ShareCardButton.tsx` / share slot — ensure a single handler owner per card.
-- Verification: export all four cards, confirm one attachment each and a portrait image with the full month legible.
+- Verification: export all four cards on iOS and confirm a portrait image with the full month legible.
