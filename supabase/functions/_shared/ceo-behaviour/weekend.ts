@@ -26,7 +26,7 @@
  */
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
-import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
+import { isHighStakesTitle } from "../events/event-classifier.ts";
 import { planningDayOfWeek } from "../plan/user-locale.ts";
 
 function weekendDaysForCountry(homeCountry?: string | null): number[] {

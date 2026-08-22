@@ -1,7 +1,7 @@
 /**
  * Cross-calendar duplicate collapse for CEO-behaviour load aggregation.
  *
- * Complements (does not replace) executive-state-taxonomy.dedupeCalendarEvents,
+ * Complements (does not replace) events/event-classifier.dedupeCalendarEvents,
  * which keys strictly on (normalizedTitle | startMs). This helper adds:
  *   - title-agnostic timeslot match: |startA-startB| < 2min AND |endA-endB| < 2min
  *   - all-day event exclusion from back-to-back hour aggregation

@@ -367,14 +367,15 @@ function isCanonicalIosApnsToken(token: string): boolean {
 }
 
 // Noise filter, day-kind detection, and high-stakes scoring all live in
-// the shared executive-state-taxonomy module so every surface uses the
+// the shared _shared/events modules so every surface uses the
 // same vocabulary (Section L of the taxonomy plan).
 import {
   classifyEventBucket,
   detectDayKindFromEvents,
   highStakesScore,
   isNoiseTitle,
-} from "../_shared/executive-state-taxonomy.ts";
+} from "../_shared/events/event-classifier.ts";
+import { resolveEvent } from "../_shared/events/resolve-event-category.ts";
 import {
   detectClientPlatform,
   wrapDbWithCalendarPrimacy,
@@ -1185,7 +1186,6 @@ interface QualifiedNudge {
 // from canonical subtypes first, so writers/readers no longer drift on
 // parallel keyword tables.
 import {
-  classifyEvent,
   classifyPatternBucket as classifyEventForPattern,
   isHighStakesTitle,
 } from "../_shared/events/event-classifier.ts";
@@ -1283,9 +1283,7 @@ function findEventPattern(
 function suppressJitForNotificationOnlyCategory(
   eventTitle: string | null | undefined,
 ): boolean {
-  const subtype = classifyEvent(eventTitle);
-  if (!subtype) return false;
-  const category = EVENT_CATEGORIES[subtype.categoryId];
+  const category = resolveEvent(eventTitle).category;
   return category?.protocol.duringNotificationOnly === true;
 }
 
