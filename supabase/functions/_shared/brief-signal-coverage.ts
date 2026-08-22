@@ -14,7 +14,10 @@
 // generate-mastery-plan) is responsible for fetching and passes raw blocks in.
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
-import { classifyEvent } from "./events/event-classifier.ts";
+// A–H resolution via the single canonical entry point (overrides + learned
+// tokens + persisted category + dictionary).
+import { resolveEvent, type ResolveEventInput } from "./events/resolve-event.ts";
+const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
 import {
   isTravelTitle,
   isAwayFromHome,

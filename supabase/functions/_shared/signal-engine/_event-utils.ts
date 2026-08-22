@@ -8,7 +8,7 @@ import type { ClassifiedEventLite, DemandLevel } from './types.ts';
 import type { EventLite, StakesCategory } from './window-context-types.ts';
 import { computeCalendarDemand } from './demand-scorer.ts';
 import { computeCognitiveFragmentation } from './cognitive-fragmentation.ts';
-import { classifyEvent } from '../executive-state-taxonomy.ts';
+import { resolveEvent, type ResolveEventInput } from '../events/resolve-event.ts';
 
 /** A–C are externally-visible stakes; D is conflict/people; E is deep work. */
 export const HIGH_STAKES_CATEGORIES: ReadonlySet<StakesCategory> =
@@ -25,11 +25,16 @@ function safeTime(value: string | Date | undefined | null): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
-export function categoryOf(title: string | null | undefined): StakesCategory | null {
-  if (!title) return null;
-  const ev = classifyEvent(title);
-  if (!ev || !ev.categoryId) return null;
-  const id = String(ev.categoryId).toUpperCase();
+/**
+ * Canonical A–H resolution for the signal engine. Accepts either a bare title
+ * or the raw calendar row — pass the row when available so user overrides,
+ * learned tokens and the persisted category are honoured.
+ */
+export function categoryOf(input: ResolveEventInput): StakesCategory | null {
+  if (input == null) return null;
+  if (typeof input === 'string' && !input.trim()) return null;
+  const id = resolveEvent(input).categoryId;
+  if (!id) return null;
   return STAKES_RANK[id] ? (id as StakesCategory) : null;
 }
 
@@ -38,7 +43,7 @@ export function toEventLite(
   now?: Date,
 ): EventLite {
   const start = safeTime(e.start_time);
-  const cat = categoryOf(e.title);
+  const cat = categoryOf(e);
   const lite: EventLite = {
     title: e.title ?? '',
     startTime: typeof e.start_time === 'string' ? e.start_time : new Date(e.start_time).toISOString(),
@@ -83,7 +88,7 @@ export function loadScore(events: ClassifiedEventLite[]): {
 export function hasConflict(events: ClassifiedEventLite[]): boolean {
   // Conflict = any classified Category D event, or two events overlapping in time.
   for (const e of events) {
-    if (categoryOf(e.title) === 'D') return true;
+    if (categoryOf(e) === 'D') return true;
   }
   const sorted = events
     .map((e) => ({ s: safeTime(e.start_time), e: safeTime(e.end_time) }))
@@ -99,7 +104,7 @@ export function highestCategory(events: ClassifiedEventLite[]): StakesCategory |
   let best: StakesCategory | null = null;
   let bestRank = 0;
   for (const e of events) {
-    const c = categoryOf(e.title);
+    const c = categoryOf(e);
     if (!c) continue;
     const r = STAKES_RANK[c] ?? 0;
     if (r > bestRank) { best = c; bestRank = r; }
@@ -117,7 +122,7 @@ export function firstHighStakes(
     return ta - tb;
   });
   for (const e of sorted) {
-    const c = categoryOf(e.title);
+    const c = categoryOf(e);
     if (c && HIGH_STAKES_CATEGORIES.has(c)) return toEventLite(e, now);
   }
   return null;

@@ -27,11 +27,10 @@ import { verifyAuth0JWT } from "../_shared/auth.ts";
 import {
   EVENT_TYPE_KEYWORDS as SHARED_EVENT_TYPE_KEYWORDS,
   classifyPatternBucket,
-  classifyEvent as classifyEventCanonical,
-  PILLAR_META,
   dedupeCalendarEvents,
-  type Pillar,
-} from "../_shared/executive-state-taxonomy.ts";
+} from "../_shared/events/event-classifier.ts";
+import { PILLAR_META, type Pillar } from "../_shared/events/event-subtypes.ts";
+import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 import {
   getSubcategoryForEvent,
@@ -90,7 +89,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * mem://reliability/wearable-signal-diagnostics.
  */
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
-const ENGINE_VERSION = 8;
+const ENGINE_VERSION = 9;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -351,9 +350,17 @@ const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
 function classifyEvent(title: string | null | undefined): string | null {
   return classifyPatternBucket(title);
 }
-function canonicalCategoryName(title: string | null | undefined): string | null {
-  const eventType = classifyEventCanonical(title);
-  return eventType ? EVENT_CATEGORIES[eventType.categoryId]?.name ?? eventType.bucket : null;
+/**
+ * Canonical A–H resolution for the Insights engines. Accepts the raw calendar
+ * row (preferred — unlocks user overrides / learned tokens / persisted
+ * category) or a bare title.
+ */
+function classifyEventCanonical(input: ResolveEventInput) {
+  return resolveEvent(input).subtype;
+}
+function canonicalCategoryName(input: ResolveEventInput): string | null {
+  const r = resolveEvent(input);
+  return r.category?.name ?? r.bucket ?? null;
 }
 
 // Pillar swim-lane projection (Section K) — exposed so the Insights
@@ -1031,9 +1038,9 @@ serve(async (req) => {
     // an event lands in is now its own resolved category, not the category of
     // whichever event first carried the same legacy bucket label.
     const categoryLabelOf = (e: any): string =>
-      canonicalCategoryName(e.title) ?? classifyByAttendees(e.attendees_count);
+      canonicalCategoryName(e) ?? classifyByAttendees(e.attendees_count);
     const subtypeLabelOf = (e: any): string | null => {
-      const et = classifyEventCanonical(e.title) as any;
+      const et = classifyEventCanonical(e) as any;
       return et?.name ?? et?.bucket ?? null;
     };
 
@@ -1372,7 +1379,7 @@ serve(async (req) => {
       if (restingBaseline !== null && prsBaseline !== null) {
         for (const e of events as any[]) {
           if (!e.start_time || !e.end_time) continue;
-          const et = classifyEventCanonical(e.title);
+          const et = classifyEventCanonical(e);
           if (!et) continue;
           const dayKey = ymd(new Date(e.start_time));
           const samples = hrSamplesByDay.get(dayKey);
@@ -1452,7 +1459,7 @@ serve(async (req) => {
       if (restingBaseline !== null) {
         for (const e of events as any[]) {
           if (!e.start_time || !e.end_time) continue;
-          const et = classifyEventCanonical(e.title);
+          const et = classifyEventCanonical(e);
           if (!et) continue;
           const dayKey = ymd(new Date(e.start_time));
           const samples = hrSamplesByDay.get(dayKey);

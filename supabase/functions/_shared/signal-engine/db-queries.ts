@@ -13,7 +13,7 @@ import {
   isNoiseTitle,
   rankByStakes,
   survivesAttendeeOrDurationFloor,
-} from '../executive-state-taxonomy.ts';
+} from '../events/event-classifier.ts';
 import { computeCalendarDemand } from './demand-scorer.ts';
 import { computeCognitiveFragmentation } from './cognitive-fragmentation.ts';
 import type { CalendarLevel } from './context-builder.ts';

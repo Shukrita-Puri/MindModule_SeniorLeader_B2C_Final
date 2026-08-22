@@ -16,12 +16,18 @@ import {
   CLAUDE_MODELS,
 } from "../_shared/anthropic.ts";
 import { runAnthropicSmokeOnce } from "../_shared/anthropic-smoke.ts";
-import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
+import { selectLeadEvent } from "../_shared/events/event-classifier.ts";
 import {
   detectClientPlatform,
   wrapDbWithCalendarPrimacy,
 } from "../_shared/calendar-provider.ts";
-import { classifyEvent } from "../_shared/events/event-classifier.ts";
+// A–H resolution goes through the single canonical entry point so the Brief
+// honours user overrides, learned tokens and persisted categories.
+import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event.ts";
+const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
+/** Canonical A–H pillar display name for an event (null when unresolved). */
+const categoryNameOf = (input: ResolveEventInput): string | null =>
+  resolveEvent(input).category?.name ?? null;
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import {
@@ -3198,15 +3204,13 @@ serve(async (req) => {
           remainingHighStakes: calendarResult.remainingHighStakes ?? [],
           todayHighStakes,
           todayHighStakesDetailed: todayHighStakes.map((title) => {
-            const cat = classifyEvent(title);
-            return { title, localTime: null, category: cat?.category ?? null };
+            return { title, localTime: null, category: categoryNameOf(title) };
           }),
           tomorrowLoad,
           tomorrowPressure,
           tomorrowHighStakes,
           tomorrowHighStakesDetailed: tomorrowHighStakes.map((title) => {
-            const cat = classifyEvent(title);
-            return { title, localTime: null, category: cat?.category ?? null };
+            return { title, localTime: null, category: categoryNameOf(title) };
           }),
         }),
         {
@@ -5329,10 +5333,7 @@ serve(async (req) => {
               const match = meetingEventsToday.find((e: any) =>
                 (e.title || "").trim() === title.trim()
               );
-              const cat = match
-                ? classifyEvent(match.title || "")
-                : classifyEvent(title);
-              return cat?.category ?? "";
+              return categoryNameOf(match ? (match.title || "") : title) ?? "";
             });
             // Also re-format nextHighStakesEvent / nextEventAny clock time using
             // the same IANA-aware formatter so downstream consumers (UI + prompt)
@@ -5462,10 +5463,7 @@ serve(async (req) => {
                 const match = meetingEvents.find((e) =>
                   (e.title || "").trim() === title.trim()
                 );
-                const cat = match
-                  ? classifyEvent(match.title || "")
-                  : classifyEvent(title);
-                return cat?.category ?? "";
+                return categoryNameOf(match ? (match.title || "") : title) ?? "";
               },
             );
           } catch (e) { /* ignore */ }
@@ -7034,10 +7032,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
             if (nextHighStakesEvent) {
               const t = (nextHighStakesEvent as any).localHHmm;
-              const nextCat = classifyEvent(nextHighStakesEvent.title || "");
-              const nextSuffix = nextCat?.category
-                ? ` [${nextCat.category}]`
-                : "";
+              const nextCat = categoryNameOf(nextHighStakesEvent.title || "");
+              const nextSuffix = nextCat ? ` [${nextCat}]` : "";
               userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${nextSuffix}${
                 t ? ` at ${t}` : ""
               } (in ${nextHighStakesEvent.minutesUntil}mins)`;
@@ -7928,13 +7924,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   if (yesterdayEventsForCtx.length > 0 && w.yesterdayHadHighStakes) {
                     const yHighStakes = yesterdayEventsForCtx
                       .filter((e: any) => {
-                        const cat = classifyEvent(e.title || "");
-                        return cat && cat.category;
+                        return categoryNameOf(e.title || "") !== null;
                       })
                       .slice(0, 3)
                       .map((e: any) => {
-                        const cat = classifyEvent(e.title || "");
-                        return `${e.title} [${cat?.category}]`;
+                        return `${e.title} [${categoryNameOf(e.title || "")}]`;
                       })
                       .join("; ");
                     if (yHighStakes) {

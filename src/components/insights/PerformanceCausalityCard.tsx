@@ -125,6 +125,8 @@ interface DrainHeatmapGridProps {
   emptyLabel?: string;
 }
 
+// Legacy alias → canonical A–H pillar name (see src/lib/events/categories.ts,
+// mirrored from the backend SSOT and guarded by a conformance test).
 const CATEGORY_LABELS: Record<string, string> = {
   'Board reviews': 'High-Stakes Governance',
   'Board / governance': 'High-Stakes Governance',

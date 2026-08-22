@@ -5,7 +5,9 @@
 
 import type { EventCategoryId } from "../events/event-categories.ts";
 import type { Phase } from "../events/event-phase-map.ts";
-import { classifyEvent } from "../events/event-classifier.ts";
+// A–H resolution via the single canonical entry point.
+import { resolveEvent, type ResolveEventInput } from "../events/resolve-event.ts";
+const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
 
 const FRAMES: Record<EventCategoryId, Partial<Record<Phase, string>>> = {
   A: { pre: "Lock coherent boardroom presence", post: "Detach and capture the lesson" },

@@ -17,7 +17,7 @@
  */
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
-import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
+import { isHighStakesTitle } from "../events/event-classifier.ts";
 import {
   PTO_TITLE_RX as _PTO_TITLE_RX,
   PERSONAL_HOLIDAY_TITLE_RX as _PERSONAL_HOLIDAY_TITLE_RX,

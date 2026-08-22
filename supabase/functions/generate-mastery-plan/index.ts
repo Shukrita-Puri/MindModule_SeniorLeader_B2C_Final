@@ -11,7 +11,7 @@ import {
   isEducationalTitle,
   isNoiseTitle,
   scenarioIdFor,
-} from "../_shared/executive-state-taxonomy.ts";
+} from "../_shared/events/event-classifier.ts";
 import {
   classifyPatternBucket,
   isHighStakesTitle,
@@ -45,7 +45,9 @@ import {
   type EventCategoryId,
   FRAMEWORK_PILLARS,
 } from "../_shared/events/event-categories.ts";
-import { classifyEvent } from "../_shared/events/event-classifier.ts";
+// A–H resolution via the single canonical entry point.
+import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event.ts";
+const classifyEvent = (input: ResolveEventInput) => resolveEvent(input).subtype;
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {
   CATEGORY_MAX_SLOTS,
