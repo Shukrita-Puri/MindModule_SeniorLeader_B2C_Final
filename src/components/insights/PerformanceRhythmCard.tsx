@@ -321,15 +321,19 @@ const PatternAnalysisSection = ({
 
   return (
     <div className="space-y-4">
+      {/* Shared section title sits above both sub-cards, below the card header */}
+      <div className="flex items-start gap-2">
+        <span className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
+          Mental Performance Patterns
+        </span>
+      </div>
+
       {/* Section A — check-in patterns */}
       <div className="card-standard rounded-xl p-3.5 space-y-4">
         <div className="flex items-start gap-2">
           <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">A.</span>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
-              Mental Performance Patterns
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Based on check-in data
             </p>
           </div>
@@ -443,10 +447,7 @@ const PatternAnalysisSection = ({
             <div className="flex items-start gap-2">
               <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">B.</span>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
-                  Mental Performance Patterns
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Based on physiology and demand data
                 </p>
               </div>
