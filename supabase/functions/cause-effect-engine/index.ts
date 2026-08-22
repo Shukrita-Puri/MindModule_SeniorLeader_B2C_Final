@@ -173,7 +173,7 @@ interface Payload {
 interface StressMatrix {
   events: string[];               // column headers (event-type buckets)
   categoryNames?: string[];        // canonical A-H category names, parallel to events
-  days: string[];                 // row headers (Mon..Fri)
+  days: string[];                 // row headers (Mon..Sun)
   cells: (number | null)[][];     // value to render (e.g. peak HR delta in bpm); null = no data
   n: number[][];                  // sample size per cell
   confidence: (Confidence | null)[][];
