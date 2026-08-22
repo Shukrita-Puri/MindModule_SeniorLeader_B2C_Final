@@ -215,7 +215,7 @@ export const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
   { label: 'Internal builds',         words: ['debug','dashboard','engineering','sprint','planning','db ',' db'] },
 ];
 
-const SUBTYPE_TO_LEGACY_BUCKET: Partial<Record<string, string>> = {
+export const SUBTYPE_TO_LEGACY_BUCKET: Partial<Record<string, string>> = {
   'gov.board_meeting': 'Board / governance',
   'gov.board_committee': 'Board / governance',
   'gov.board_prep': 'Board / governance',
