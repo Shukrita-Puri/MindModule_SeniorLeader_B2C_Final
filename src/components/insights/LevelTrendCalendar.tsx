@@ -537,6 +537,14 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
     );
   }
 
+  const firstDay = days[0] ? new Date(`${days[0].date}T00:00:00`) : null;
+  const lastDay = days[days.length - 1] ? new Date(`${days[days.length - 1].date}T00:00:00`) : null;
+  const rangeLabel = firstDay && lastDay
+    ? firstDay.getMonth() === lastDay.getMonth()
+      ? firstDay.toLocaleDateString('en-US', { month: 'long' })
+      : `${firstDay.toLocaleDateString('en-US', { month: 'short' })} – ${lastDay.toLocaleDateString('en-US', { month: 'short' })}`
+    : '';
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
