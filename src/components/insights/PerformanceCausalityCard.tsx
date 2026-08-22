@@ -26,6 +26,7 @@ import { shouldUsePreviewMock, isPreviewContext } from '@/utils/previewAuth';
 import { MOCK_CAUSALITY_PAYLOAD } from '@/components/insights/causalityMockData';
 import { cn } from '@/lib/utils';
 import SegmentedToggle from '@/components/insights/SegmentedToggle';
+import { EVENT_CATEGORY_NAMES, CANONICAL_CATEGORY_LABELS } from '@/lib/events/categories';
 
 // ── Types (mirror engine output, payload-only fields) ────────────────
 type Confidence = 'strong' | 'emerging';
