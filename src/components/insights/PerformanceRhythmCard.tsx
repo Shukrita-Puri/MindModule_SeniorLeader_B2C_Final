@@ -378,13 +378,13 @@ const PatternAnalysisSection = ({
 
       <div className="space-y-2">
         <div className="flex items-start gap-2">
-          <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
+          <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">B.</span>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-              Mental Performance Patterns When You Perform Best
+            <p className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
+              Mental Performance Patterns
             </p>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-              Based on physiology and demand data (wearable + calendar)
+            <p className="text-xs text-muted-foreground mt-1">
+              Based on physiology and demand data
             </p>
           </div>
           <InsightInfoModal
@@ -392,6 +392,7 @@ const PatternAnalysisSection = ({
             explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
           />
         </div>
+
         {hasBaseline ? (
           <ul className="pl-2 space-y-1.5">
             {baselineFindingsCapped.map((r, i) => (
