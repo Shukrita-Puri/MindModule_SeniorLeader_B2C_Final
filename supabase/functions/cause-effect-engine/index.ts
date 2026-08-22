@@ -1813,7 +1813,7 @@ serve(async (req) => {
         events: events as any[],
         briefs: briefs as any[],
         hrSamplesByDay,
-        windowBaseline,
+        windowBaseline: restingBaseline,
         prsBaseline: (() => {
           const xs: number[] = [];
           (briefs as any[]).forEach((b) => { if (typeof b.score === "number") xs.push(b.score); });
