@@ -171,17 +171,20 @@ interface Payload {
 
 // ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
 interface StressMatrix {
-  events: string[];               // column headers (event-type buckets)
+  events: string[];               // column headers (A–H category names)
   categoryNames?: string[];        // canonical A-H category names, parallel to events
   days: string[];                 // row headers (Mon..Sun)
   cells: (number | null)[][];     // value to render (e.g. peak HR delta in bpm); null = no data
   n: number[][];                  // sample size per cell
+  /** Subtype label of the event that produced the cell's peak value. */
+  subLabels?: (string | null)[][];
   confidence: (Confidence | null)[][];
   maxObserved: number;            // for client-side ramp scaling
   topCell: { event: string; day: string; value: number } | null;
   lowCell: { event: string; day: string; value: number } | null;
   topDay: { day: string; total: number } | null;
 }
+
 interface BurnoutMatrix {
   weeks: string[];                                  // 5 labels: '4 wks ago' .. 'This week'
   dims: Array<{
