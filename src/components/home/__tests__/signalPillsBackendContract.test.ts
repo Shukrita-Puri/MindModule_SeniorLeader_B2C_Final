@@ -50,8 +50,8 @@ describe('signal pills backend contract · extracted ownership', () => {
     expect(INDEX_SRC).toContain('echoedSignalPills = assessmentSignalPillsPayload;');
     expect(INDEX_SRC).toContain('const signalPillsPayload = assessmentSignalPillsPayload ?? echoedSignalPills ?? null;');
     expect(INDEX_SRC).toContain('signalPills: echoedSignalPills,');
-    expect(INDEX_SRC).toContain('refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,');
-    expect(INDEX_SRC).toContain('baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,');
+    expect(INDEX_SRC).toContain('refined_signal_pills: briefSuppressScore ? null : signalPillsPayload,');
+    expect(INDEX_SRC).toContain('baseline_signal_pills: briefSuppressScore ? null : signalPillsPayload,');
   });
 
   it('index.ts carries finalized qualifiers and coherence into response and persistence validation', () => {
