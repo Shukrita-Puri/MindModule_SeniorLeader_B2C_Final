@@ -180,15 +180,9 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([buf], { type: mime });
 }
 
-let shareInFlight = false;
-
 export async function shareInsightCard({ node, title, text, fileName = 'mind-module-insight.png' }: ShareOpts) {
-  // Single-flight: a second activation while a capture/share is running would
-  // produce a duplicate attachment in the share sheet.
-  if (shareInFlight) return;
-  shareInFlight = true;
   try {
-    // Switch cards into their export layout (e.g. vertical month calendar),
+    // Switch cards into their export layout (e.g. a compact month grid),
     // let React paint, then snapshot.
     setShareCapture(true);
     await nextPaint();
@@ -211,10 +205,9 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
         directory: Directory.Cache,
       });
 
-      // Exactly ONE attachment: the image. Passing `text` alongside `files`
-      // makes some targets (WhatsApp) render a second item.
       await Share.share({
         title,
+        text,
         files: [written.uri],
         dialogTitle: 'Share insight',
       });
@@ -256,7 +249,6 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
     toast({ title: 'Share failed', description: 'Please try again.', variant: 'destructive' });
   } finally {
     setShareCapture(false);
-    shareInFlight = false;
   }
 }
 
