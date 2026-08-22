@@ -330,6 +330,10 @@ function StressLoadTab({
   subcategoryLift?: SubcategoryLiftEntry[];
 }) {
   const { events, categoryNames, days, cells, n, maxObserved, topDay } = matrix;
+  // Always render a full Mon–Sun week: Sunday is a working day in Israel and
+  // the Gulf. Days the payload doesn't cover render as neutral empty cells.
+  const WEEK_COLUMNS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const weekColumns = WEEK_COLUMNS.concat(days.filter((d) => !WEEK_COLUMNS.includes(d)));
   const hasAny = cells.some((row) => row.some((v) => v !== null));
   if (!hasAny) {
     return (
