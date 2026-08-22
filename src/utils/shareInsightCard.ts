@@ -67,7 +67,22 @@ async function snapshotPng(node: HTMLElement): Promise<string> {
     (el.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = 'none';
   });
 
+  // Coloured pill glows ("boxShadow: 0 2px 6px rgba(...)") and inline pinned
+  // day-column widths are tuned for the on-screen scrolling strip. Once the
+  // scroller is expanded for capture they trail sideways and read as a washed
+  // out / ghosted chart in the exported PNG. Neutralise both for the snapshot.
+  const glowEls = Array.from(node.querySelectorAll<HTMLElement>('*')).filter(
+    (el) => !!el.style.boxShadow,
+  );
+  const prevGlow = glowEls.map((el) => el.style.boxShadow);
+  glowEls.forEach((el) => { el.style.boxShadow = 'none'; });
+
+  const pinnedCols = Array.from(node.querySelectorAll<HTMLElement>('[data-day-col]'));
+  const prevPinned = pinnedCols.map((el) => ({ width: el.style.width, minWidth: el.style.minWidth }));
+  pinnedCols.forEach((el) => { el.style.width = ''; el.style.minWidth = ''; });
+
   const restoreCssVars = inlineCssVariables(node);
+
 
   // Expand real scroll containers inside the captured tree so the snapshot
   // includes the FULL intrinsic content (e.g. the entire month-wide Rhythm
