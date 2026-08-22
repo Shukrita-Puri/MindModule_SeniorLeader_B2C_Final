@@ -420,7 +420,7 @@ function StressLoadTab({
         cells={gridCells}
         maxValue={maxObserved}
         unit="bpm"
-        rampLabel={{ low: 'Calm', high: 'Acute' }}
+        rampLabel={{ low: 'Lower', high: 'Higher' }}
       />
 
       {(peakCell || quietCell || topDay) && (

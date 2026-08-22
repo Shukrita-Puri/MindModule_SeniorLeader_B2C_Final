@@ -89,7 +89,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * mem://reliability/wearable-signal-diagnostics.
  */
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
-const ENGINE_VERSION = 11;
+const ENGINE_VERSION = 12;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -341,6 +341,101 @@ function impactScore(f: Finding): number {
   // Cross-lens ranking. Strong findings outrank emerging at equal magnitude.
   const tierBoost = f.confidence === "strong" ? 1.4 : 1.0;
   return Math.abs(f.deltaPct) * Math.log2(1 + f.n) * tierBoost;
+}
+
+// ── Stress Load per-event delta helpers ─────────────────────────────────
+// v12: mean HR (not peak), per-event trailing baseline, 45-min focus window
+// for long blocks. Shared by the Stress Load matrix and the subcategory_lift
+// rollup so the two paths cannot drift.
+type BaselineSource = "14d" | "30d" | "window";
+
+interface EventHrDeltaResult {
+  delta: number; // mean HR − baseline (bpm)
+  meanHr: number;
+  baselineUsed: number;
+  baselineSource: BaselineSource;
+  longBlock: boolean;
+  sampleCount: number;
+}
+
+function trailingBaselineFor(
+  eventDateStr: string,
+  restingHrByDay: Map<string, number>,
+  windowBaseline: number | null,
+): { baseline: number; source: BaselineSource } | null {
+  const eventDate = new Date(eventDateStr);
+
+  const lookback = (days: number): number[] => {
+    const vals: number[] = [];
+    for (let i = 1; i <= days; i++) {
+      const d = ymd(addDays(eventDate, -i));
+      const v = restingHrByDay.get(d);
+      if (typeof v === "number" && v > 0) vals.push(v);
+    }
+    return vals;
+  };
+
+  const vals14 = lookback(14);
+  if (vals14.length >= 3) return { baseline: mean(vals14), source: "14d" };
+
+  const vals30 = lookback(30);
+  if (vals30.length >= 3) return { baseline: mean(vals30), source: "30d" };
+
+  if (windowBaseline !== null) return { baseline: windowBaseline, source: "window" };
+  return null;
+}
+
+function eventHrDelta(
+  e: any,
+  samples: Array<{ t: string; v: number }>,
+  restingHrByDay: Map<string, number>,
+  windowBaseline: number | null,
+): EventHrDeltaResult | null {
+  if (!e.start_time || !e.end_time) return null;
+  const startMs = new Date(e.start_time).getTime();
+  const endMs = new Date(e.end_time).getTime();
+  const durationMinutes = (endMs - startMs) / 60000;
+  const longBlock = durationMinutes > 90;
+  const focusEndMs = longBlock ? startMs + 45 * 60000 : endMs;
+
+  const selected: number[] = [];
+  for (const s of samples) {
+    const t = new Date(s.t).getTime();
+    if (t >= startMs && t <= focusEndMs && typeof s.v === "number") {
+      selected.push(s.v);
+    }
+  }
+
+  // Long blocks: if the 45-minute focus window has too few samples,
+  // fall back to the full event window (existing behaviour).
+  if (longBlock && selected.length < 3) {
+    for (const s of samples) {
+      const t = new Date(s.t).getTime();
+      if (t > focusEndMs && t <= endMs && typeof s.v === "number") {
+        selected.push(s.v);
+      }
+    }
+  }
+
+  if (selected.length === 0) return null;
+  const meanHr = mean(selected);
+  if (meanHr <= 0) return null;
+
+  const eventDateStr = ymd(new Date(e.start_time));
+  const baselineResult = trailingBaselineFor(eventDateStr, restingHrByDay, windowBaseline);
+  if (!baselineResult) return null;
+
+  const delta = meanHr - baselineResult.baseline;
+  if (!Number.isFinite(delta)) return null;
+
+  return {
+    delta,
+    meanHr,
+    baselineUsed: baselineResult.baseline,
+    baselineSource: baselineResult.source,
+    longBlock,
+    sampleCount: selected.length,
+  };
 }
 
 // Calendar event → coarse type label (now imported from shared taxonomy).
@@ -1016,12 +1111,22 @@ serve(async (req) => {
       }
     });
 
-    // ── Stress Load matrix: per-event-window peak HR − resting baseline ─
-    // Resting baseline = mean of resting_heart_rate over the window.
-    // (Trailing 30-day mean is equivalent here because window === 30d.)
-    const restingVals: number[] = (wearable as any[])
-      .map((w) => (typeof w.resting_heart_rate === "number" ? w.resting_heart_rate : null))
-      .filter((v) => typeof v === "number" && v > 0) as number[];
+    // ── Stress Load matrix: per-event-window mean HR − trailing baseline ─
+    // v12 changes:
+    // 1. Baseline is a per-event trailing mean (14d → 30d → whole window),
+    //    not a single window average, so travel/rest days don't dilute an event's
+    //    own baseline.
+    // 2. Delta uses mean HR over the event window, not peak HR, so a single
+    //    adrenaline spike no longer dominates the metric.
+    // 3. Events >90 minutes use only the first 45 minutes (focus window) to
+    //    avoid drift from breaks, travel, or post-event noise.
+    const restingHrByDay = new Map<string, number>();
+    (wearableExt || []).forEach((w: any) => {
+      if (typeof w.resting_heart_rate === "number" && w.resting_heart_rate > 0) {
+        restingHrByDay.set(w.summary_date as string, w.resting_heart_rate as number);
+      }
+    });
+    const restingVals = [...restingHrByDay.values()];
     const restingBaseline = restingVals.length >= 3 ? mean(restingVals) : null;
 
     // Full Mon–Sun week: Sunday is a working day in Israel and the Gulf, and
@@ -1060,14 +1165,25 @@ serve(async (req) => {
       .slice(0, 7)
       .map(([label]) => label);
 
-
-    // Accumulators for each (day, event) cell: arrays of per-event peak deltas.
+    // Accumulators for each (day, event) cell: arrays of per-event mean deltas.
     const stressAcc: Array<Array<number[]>> = DAY_LABELS.map(() =>
       topEventTypes.map(() => [] as number[]),
     );
     // Subtype label of the single event with the highest delta in each cell.
     const stressTop: Array<Array<{ label: string | null; delta: number } | null>> =
       DAY_LABELS.map(() => topEventTypes.map(() => null));
+
+    const stressLoadEvents: Array<{
+      date: string;
+      day: string;
+      event: string;
+      meanHr: number;
+      baselineUsed: number;
+      baselineSource: BaselineSource;
+      delta: number;
+      longBlock: boolean;
+      sampleCount: number;
+    }> = [];
 
     if (restingBaseline !== null && topEventTypes.length > 0) {
       for (const e of events as any[]) {
@@ -1080,23 +1196,27 @@ serve(async (req) => {
         const dayKey = ymd(new Date(e.start_time));
         const samples = hrSamplesByDay.get(dayKey);
         if (!samples || samples.length === 0) continue; // honest: omit cell, no day-max proxy
-        const startMs = new Date(e.start_time).getTime();
-        const endMs = new Date(e.end_time).getTime();
-        let peak = 0;
-        for (const s of samples) {
-          const t = new Date(s.t).getTime();
-          if (t >= startMs && t <= endMs && typeof s.v === "number" && s.v > peak) {
-            peak = s.v;
-          }
-        }
-        if (peak <= 0) continue;
-        const delta = peak - restingBaseline;
-        if (!Number.isFinite(delta)) continue;
-        stressAcc[dIdx][colIdx].push(delta);
+
+        const result = eventHrDelta(e, samples, restingHrByDay, restingBaseline);
+        if (!result) continue;
+
+        stressAcc[dIdx][colIdx].push(result.delta);
         const cur = stressTop[dIdx][colIdx];
-        if (!cur || delta > cur.delta) {
-          stressTop[dIdx][colIdx] = { label: subtypeLabelOf(e), delta };
+        if (!cur || result.delta > cur.delta) {
+          stressTop[dIdx][colIdx] = { label: subtypeLabelOf(e), delta: result.delta };
         }
+
+        stressLoadEvents.push({
+          date: dayKey,
+          day: DAY_LABELS[dIdx],
+          event: e.title ?? "Untitled",
+          meanHr: Math.round(result.meanHr * 10) / 10,
+          baselineUsed: Math.round(result.baselineUsed * 10) / 10,
+          baselineSource: result.baselineSource,
+          delta: Math.round(result.delta),
+          longBlock: result.longBlock,
+          sampleCount: result.sampleCount,
+        });
       }
     }
 
@@ -1459,6 +1579,8 @@ serve(async (req) => {
       // per event when available; fall back to canonical subtype id
       // (`str.deep_work` → `deep_work`). Additive; Insights Stress Load
       // reads this rollup directly.
+      // v12: uses the same eventHrDelta helper as the Stress Load matrix so
+      // the two surfaces cannot drift (mean HR, trailing baseline, 45-min focus).
       const subAcc = new Map<string, { hr: number[]; n: number; categoryId: EventCategoryId; subcategoryId: string }>();
       if (restingBaseline !== null) {
         for (const e of events as any[]) {
@@ -1468,16 +1590,10 @@ serve(async (req) => {
           const dayKey = ymd(new Date(e.start_time));
           const samples = hrSamplesByDay.get(dayKey);
           if (!samples || samples.length === 0) continue;
-          const startMs = new Date(e.start_time).getTime();
-          const endMs = new Date(e.end_time).getTime();
-          let peak = 0;
-          for (const s of samples) {
-            const t = new Date(s.t).getTime();
-            if (t >= startMs && t <= endMs && typeof s.v === "number" && s.v > peak) peak = s.v;
-          }
-          if (peak <= 0) continue;
-          const hrDelta = peak - restingBaseline;
-          if (!Number.isFinite(hrDelta)) continue;
+
+          const result = eventHrDelta(e, samples, restingHrByDay, restingBaseline);
+          if (!result) continue;
+
           const eventId = typeof e.id === "string" ? e.id : null;
           const persistedSub = priorityMemoryIndex
             ? getSubcategoryForEvent(priorityMemoryIndex, eventId)
@@ -1489,7 +1605,7 @@ serve(async (req) => {
             subAcc.set(key, { hr: [], n: 0, categoryId: et.categoryId, subcategoryId });
           }
           const slot = subAcc.get(key)!;
-          slot.hr.push(hrDelta);
+          slot.hr.push(result.delta);
           slot.n += 1;
         }
       }
@@ -1697,13 +1813,14 @@ serve(async (req) => {
         events: events as any[],
         briefs: briefs as any[],
         hrSamplesByDay,
-        restingBaseline,
+        windowBaseline: restingBaseline,
         prsBaseline: (() => {
           const xs: number[] = [];
           (briefs as any[]).forEach((b) => { if (typeof b.score === "number") xs.push(b.score); });
           return xs.length >= 3 ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
         })(),
         performanceLift: performance_lift,
+        stressLoadEvents,
       },
       {
         windowDays: days,

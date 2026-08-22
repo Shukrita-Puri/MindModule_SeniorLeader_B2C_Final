@@ -42,6 +42,18 @@ export interface WearableSignalCounts {
   rhrWindowBucketCounts: { morning: number; afternoon: number; evening: number };
 }
 
+export interface StressLoadEvent {
+  date: string;
+  day: string;
+  event: string;
+  meanHr: number;
+  baselineUsed: number;
+  baselineSource: "14d" | "30d" | "window";
+  delta: number;
+  longBlock: boolean;
+  sampleCount: number;
+}
+
 export interface WearableDiagnostics {
   windowDays: number;
   engineVersion: number;
@@ -52,6 +64,7 @@ export interface WearableDiagnostics {
     hr_event_lift: GateReason;
     category_lift: GateReason;
   };
+  stressLoadEvents?: StressLoadEvent[];
 }
 
 export interface DiagnosticsInput {
@@ -64,7 +77,7 @@ export interface DiagnosticsInput {
   events: Array<{ start_time?: string | null }>;
   briefs: Array<{ local_date?: string | null; time_window?: string | null; score?: number | null }>;
   hrSamplesByDay: Map<string, unknown[]>;
-  restingBaseline: number | null;
+  windowBaseline: number | null;
   prsBaseline: number | null;
   performanceLift: {
     hr_event_lift: unknown[];
@@ -72,6 +85,7 @@ export interface DiagnosticsInput {
     sleep_to_peak: unknown | null;
     rhr_recovery_window: unknown | null;
   };
+  stressLoadEvents?: StressLoadEvent[];
 }
 
 export interface DiagnosticsOptions {
@@ -86,7 +100,7 @@ export function buildWearableDiagnostics(
   input: DiagnosticsInput,
   opts: DiagnosticsOptions,
 ): WearableDiagnostics {
-  const { wearable, events, briefs, hrSamplesByDay, restingBaseline, prsBaseline, performanceLift } = input;
+  const { wearable, events, briefs, hrSamplesByDay, windowBaseline, prsBaseline, performanceLift, stressLoadEvents } = input;
   const MIN = opts.minOccurrencesEmerging;
 
   // ── Raw counts ───────────────────────────────────────────────────────
@@ -161,7 +175,7 @@ export function buildWearableDiagnostics(
 
   const hrLiftReason: GateReason = (() => {
     if (hrSamplesDays === 0) return "no_hr_samples";
-    if (restingBaseline === null) return "no_resting_baseline";
+    if (windowBaseline === null) return "no_resting_baseline";
     if (prsBaseline === null) return "no_prs_baseline";
     if (eventDaysWithHr === 0) return "no_event_day_overlap";
     if (performanceLift.hr_event_lift.length > 0) return "ok";
@@ -192,6 +206,7 @@ export function buildWearableDiagnostics(
       hr_event_lift: hrLiftReason,
       category_lift: categoryReason,
     },
+    stressLoadEvents,
   };
 }
 

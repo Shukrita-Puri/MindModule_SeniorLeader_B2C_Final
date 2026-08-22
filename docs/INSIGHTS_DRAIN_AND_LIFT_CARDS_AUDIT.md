@@ -7,7 +7,7 @@ Scope: the two Insights pattern cards —
 - **What Drains Your Performance** (`PerformanceCausalityCard`): Stress Load, Burnout Risk, Recovery Time
 - **When You Perform Best** (`PerformanceRhythmCard`): Section A check-in rhythm, Section B physiology x demand lift
 
-Everything below is read from the current source: `supabase/functions/cause-effect-engine/index.ts` (ENGINE_VERSION 6), `supabase/functions/performance-rhythm-insights/index.ts`, and `supabase/functions/_shared/signal-engine/checkin-pattern-aggregator.ts`.
+Everything below is read from the current source: `supabase/functions/cause-effect-engine/index.ts` (ENGINE_VERSION 12), `supabase/functions/performance-rhythm-insights/index.ts`, and `supabase/functions/_shared/signal-engine/checkin-pattern-aggregator.ts`.
 
 ---
 
@@ -49,14 +49,21 @@ Missing source behaviour: a cell with no overlapping HR samples is **omitted**, 
 
 ### 4.1 Stress Load (heart rate x events — no HRV anywhere)
 
+ENGINE_VERSION 12 changes are in **bold**.
+
 ```text
-resting baseline = mean(wearable_data.resting_heart_rate) over the window   (needs >= 3 days)
+resting baseline (per event) =
+    mean(resting_heart_rate) over the 14 days immediately before the event date,
+    falling back to 30 days, then to the whole-window mean
+    (needs >= 3 readings in the chosen lookback)
 
 per calendar event with start_time and end_time:
     samples = wearable_data.hr_samples for the event's local date
     if none -> event skipped
-    peak    = max(v) for samples where start <= t <= end
-    delta   = peak - resting baseline
+    **mean_hr = mean(v) for samples where start <= t <= end**
+    **if event duration > 90 minutes, use only the first 45 minutes (focus window)**
+    **if the focus window has fewer than 3 samples, fall back to the full window**
+    **delta   = mean_hr - per-event trailing baseline**
 
 cell(day-of-week, event category) = round(mean(all deltas in that bucket))
 n                                  = number of contributing events
@@ -64,7 +71,7 @@ Peak / Quietest                    = extreme eligible cells (category needs n >=
 Heaviest day                       = day-of-week with the highest mean cell value
 ```
 
-Columns are the top 7 event types by number of distinct days they occur on. The subcategory line under the grid uses the same per-event maths rolled up to `(categoryId, subcategoryId)`.
+Columns are the top 7 event types by number of distinct days they occur on. The subcategory line under the grid uses the same per-event maths rolled up to `(categoryId, subcategoryId`).
 
 ### 4.2 Burnout Risk
 
@@ -101,10 +108,11 @@ Stated plainly rather than defended:
 
 1. **Burnout Risk has no event attribution at all.** It is a four-signal weekly rollup. It never says which events, day types, or categories drove the risk, and the weekly unit is an editorial choice, not something derived from the data. If the intent is "what causes my burnout", the tab currently cannot answer it — it would need the Stress Load per-event bucket joined to the weekly dims.
 2. **Burnout intensities are self-relative.** Every dimension is scaled against the same 5-week window, so a uniformly heavy five weeks still shows a mid-scale reading, and one extreme week compresses the others. There is no absolute reference.
-3. **Stress Load is correlation, not causation.** Nothing controls for exercise, caffeine, travel, or a second meeting inside the same window. The 8 Aug flight/hotel rows in the verification dump below are exactly this: high peak HR during a travel block, not meeting stress.
-4. **The resting baseline is a whole-window mean**, not a trailing pre-event baseline, so a drifting baseline flattens or inflates every delta equally.
-5. **Weekend events are now included** (resolved 22 Aug 2026, ENGINE_VERSION 7). The engine previously bucketed Mon–Fri only and discarded Saturday and Sunday events before any maths. It now buckets a full Mon–Sun week with the identical per-event formula, so Israel/Gulf working weeks are represented — and for this account the Sat 15 Aug and Sun 9 Aug deltas now appear in the grid. Note this makes weakness 3 more visible: the Sunday rows are a flight and a hotel block, i.e. activity, not meeting stress.
-6. **Recovery Time is HRV/RHR day-level**, while Stress Load is intraday HR. The two tabs therefore answer different questions on different granularities under one card.
+3. **Stress Load is correlation, not causation.** Nothing controls for exercise, caffeine, travel, or a second meeting inside the same window. Travel blocks still produce high deltas because they contain physical activity.
+4. **The resting baseline is now a per-event trailing baseline** (14d → 30d → window fallback), so a drifting baseline no longer flattens or inflates every delta equally.
+5. **Mean HR replaces peak HR** (ENGINE_VERSION 12). Single adrenaline spikes no longer dominate the metric; long blocks use a 45-minute focus window to reduce post-event noise.
+6. **Weekend events are included** (ENGINE_VERSION 7+). The engine buckets a full Mon–Sun week, so Israel/Gulf working weeks are represented.
+7. **Recovery Time is HRV/RHR day-level**, while Stress Load is intraday HR. The two tabs therefore answer different questions on different granularities under one card.
 
 ## 6. Verification appendix — per-event dump
 
