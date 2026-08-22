@@ -85,11 +85,8 @@ export interface DiagnosticsInput {
     sleep_to_peak: unknown | null;
     rhr_recovery_window: unknown | null;
   };
-  stressLoadEvents?: DiagnosticsInput["stressLoadEvents"];
+  stressLoadEvents?: StressLoadEvent[];
 }
-
-// Re-export under the old name so existing imports don't break during migration.
-export type DiagnosticsInputStressLoadEvent = NonNullable<DiagnosticsInput["stressLoadEvents"]>[number];
 
 export interface DiagnosticsOptions {
   windowDays: number;
