@@ -1813,13 +1813,14 @@ serve(async (req) => {
         events: events as any[],
         briefs: briefs as any[],
         hrSamplesByDay,
-        restingBaseline,
+        windowBaseline,
         prsBaseline: (() => {
           const xs: number[] = [];
           (briefs as any[]).forEach((b) => { if (typeof b.score === "number") xs.push(b.score); });
           return xs.length >= 3 ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
         })(),
         performanceLift: performance_lift,
+        stressLoadEvents,
       },
       {
         windowDays: days,
