@@ -180,9 +180,24 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([buf], { type: mime });
 }
 
+let shareInFlight = false;
+
 export async function shareInsightCard({ node, title, text, fileName = 'mind-module-insight.png' }: ShareOpts) {
+  // Single-flight: a second activation while a capture/share is running would
+  // produce a duplicate attachment in the share sheet.
+  if (shareInFlight) return;
+  shareInFlight = true;
   try {
-    const dataUrl = await snapshotPng(node);
+    // Switch cards into their export layout (e.g. vertical month calendar),
+    // let React paint, then snapshot.
+    setShareCapture(true);
+    await nextPaint();
+    let dataUrl: string;
+    try {
+      dataUrl = await snapshotPng(node);
+    } finally {
+      setShareCapture(false);
+    }
 
     // Native (iOS / Android): write to filesystem then invoke native share sheet
     if (Capacitor.isNativePlatform()) {
@@ -196,9 +211,10 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
         directory: Directory.Cache,
       });
 
+      // Exactly ONE attachment: the image. Passing `text` alongside `files`
+      // makes some targets (WhatsApp) render a second item.
       await Share.share({
         title,
-        text: text ?? title,
         files: [written.uri],
         dialogTitle: 'Share insight',
       });
@@ -215,9 +231,10 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
     };
 
     if (nav.share && nav.canShare?.({ files: [file] })) {
-      await nav.share({ title, text: text ?? title, files: [file] });
+      await nav.share({ title, files: [file] });
       return;
     }
+
 
     // Clipboard fallback
     if (navigator.clipboard && 'write' in navigator.clipboard) {
