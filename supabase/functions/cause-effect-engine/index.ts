@@ -1185,7 +1185,7 @@ serve(async (req) => {
       sampleCount: number;
     }> = [];
 
-    if (windowBaseline !== null && topEventTypes.length > 0) {
+    if (restingBaseline !== null && topEventTypes.length > 0) {
       for (const e of events as any[]) {
         if (!e.start_time || !e.end_time) continue;
         const dIdx = dayIndex(e.start_time);
