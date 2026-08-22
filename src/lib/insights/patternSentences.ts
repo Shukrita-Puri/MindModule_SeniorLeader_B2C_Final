@@ -256,6 +256,12 @@ export function buildSection(
    * "3 Fridays in a row…").
    */
   dedupeBy: 'dimension' | 'kind' = 'dimension',
+  /**
+   * Active check-in tab. Nothing is excluded — it only adds a small ranking
+   * bonus to the physiology dimensions most relevant to that tab, so Section B
+   * reads differently per tab instead of repeating the same three lines.
+   */
+  tab?: CheckInDimension | null,
 ): PatternSentence[] {
   const rows: PatternSentence[] = [];
   for (const f of findings) {
@@ -265,11 +271,13 @@ export function buildSection(
     if (!built) continue;
     rows.push({ ...built, dimension: f.dimension, dimLabel: DIM_LABELS[f.dimension], finding: f });
   }
+  const score = (r: PatternSentence) =>
+    (CARD_KIND_WEIGHT[r.finding.kind] ?? 0) + affinityBonus(r.dimension, tab);
   rows.sort((a, b) => {
     const tierRank = (t: ConfidenceTier) => (t === 'strong' ? 1 : 0);
     const d = tierRank(b.tier) - tierRank(a.tier);
     if (d !== 0) return d;
-    const w = (CARD_KIND_WEIGHT[b.finding.kind] ?? 0) - (CARD_KIND_WEIGHT[a.finding.kind] ?? 0);
+    const w = score(b) - score(a);
     if (w !== 0) return w;
     return b.finding.priorityScore - a.finding.priorityScore;
   });
@@ -284,6 +292,179 @@ export function buildSection(
   }
   return out;
 }
+
+// ── Pipeline B: baseline / performance-lift lines ─────────────────────
+// Ranked and guarded the same way Pipeline A findings are, so every Section B
+// line is traceable. Positive-only, like the rest of the card.
+
+export type LiftConfidence = 'strong' | 'emerging';
+export type LiftWindow = 'morning' | 'afternoon' | 'evening';
+
+export interface PerformanceLiftPayload {
+  hr_event_lift?: Array<{
+    categoryId?: string;
+    categoryName: string;
+    hrDeltaBpm: number;
+    compositeLift: number;
+    n: number;
+  }> | null;
+  category_lift?: Array<{
+    categoryId?: string;
+    categoryName: string;
+    hrDeltaBpm?: number;
+    compositeLift: number;
+    n: number;
+  }> | null;
+  sleep_to_peak?: { deltaPct: number; n: number; bestWindow: LiftWindow | null } | null;
+  rhr_recovery_window?: { window: LiftWindow; liftPct: number; n: number } | null;
+  recovery_streak_to_peak?: { avgStreakLength: number; n: number } | null;
+}
+
+export type LiftKey =
+  | 'sleep_to_peak' | 'hr_event_lift' | 'rhr_recovery_window'
+  | 'recovery_streak_to_peak' | 'category_lift' | 'best_window' | 'calendar_insight';
+
+export interface LiftLine {
+  key: LiftKey;
+  text: string;
+  tier: 'strong' | 'emerging';
+  weight: number;
+}
+
+/** Base ranking weights (spec 6, Pipeline B). */
+export const LIFT_WEIGHT: Record<LiftKey, number> = {
+  sleep_to_peak: 0.92,
+  hr_event_lift: 0.82,
+  rhr_recovery_window: 0.80,
+  recovery_streak_to_peak: 0.75,
+  category_lift: 0.72,
+  best_window: 0.60,
+  calendar_insight: 0.55,
+};
+
+/** Per-tab affinity for Pipeline B lines (bonus only, never exclusion). */
+export const LIFT_AFFINITY: Record<CheckInDimension, Partial<Record<LiftKey, number>>> = {
+  clarity: { sleep_to_peak: 0.3, best_window: 0.1 },
+  emotion: { hr_event_lift: 0.3, rhr_recovery_window: 0.2 },
+  pressure: { rhr_recovery_window: 0.3, hr_event_lift: 0.2 },
+  regulation: { recovery_streak_to_peak: 0.3, hr_event_lift: 0.1 },
+};
+
+/**
+ * Observation guard for Pipeline B: strong at n >= 5 and >= 15% delta,
+ * emerging at n >= 3 and >= 10%. Anything else is dropped.
+ */
+export function liftTier(n: number, deltaPct: number): 'strong' | 'emerging' | null {
+  const d = Math.abs(deltaPct);
+  if (n >= 5 && d >= 15) return 'strong';
+  if (n >= 3 && d >= 10) return 'emerging';
+  return null;
+}
+
+function hedge(tier: 'strong' | 'emerging', core: string): string {
+  return tier === 'emerging'
+    ? `Early signal — ${core.charAt(0).toLowerCase()}${core.slice(1)}. Pattern still forming.`
+    : `${core}.`;
+}
+
+function windowWord(w?: LiftWindow | null): string {
+  return w ? w.toLowerCase() : '';
+}
+
+/**
+ * Build the ranked, guarded Pipeline B lines for the active tab.
+ * `bestWindowLabel` and `calendarInsight` are routed through the same ranking
+ * so no line bypasses the pipeline.
+ */
+export function buildLiftLines(
+  lift: PerformanceLiftPayload | null,
+  opts: {
+    hasCalendar?: boolean;
+    tab?: CheckInDimension | null;
+    bestWindowLabel?: string | null;
+    calendarInsight?: string | null;
+  } = {},
+  cap = 3,
+): LiftLine[] {
+  const { hasCalendar = false, tab = null, bestWindowLabel = null, calendarInsight = null } = opts;
+  const lines: LiftLine[] = [];
+  const push = (key: LiftKey, tier: 'strong' | 'emerging' | null, core: string) => {
+    if (!tier) return;
+    lines.push({ key, tier, text: hedge(tier, core), weight: LIFT_WEIGHT[key] + (tab ? (LIFT_AFFINITY[tab][key] ?? 0) : 0) });
+  };
+
+  const sleep = lift?.sleep_to_peak;
+  if (sleep && sleep.deltaPct > 0) {
+    push(
+      'sleep_to_peak',
+      liftTier(sleep.n, sleep.deltaPct),
+      `On your best-sleep nights, next-day readiness runs +${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowWord(sleep.bestWindow)}` : ''}`,
+    );
+  }
+
+  // hr_event_lift: the highest-weighted physiological demand signal after sleep.
+  const hrEvent = (lift?.hr_event_lift ?? []).filter((e) => e.compositeLift > 0)
+    .sort((a, b) => b.compositeLift - a.compositeLift)[0];
+  if (hrEvent) {
+    const bpm = Math.abs(Math.round(hrEvent.hrDeltaBpm));
+    push(
+      'hr_event_lift',
+      liftTier(hrEvent.n, hrEvent.compositeLift),
+      `You hold your physiology best around ${hrEvent.categoryName} — heart rate stays ${bpm} bpm steadier and readiness lifts +${hrEvent.compositeLift}%`,
+    );
+  }
+
+  const rec = lift?.rhr_recovery_window;
+  if (rec && rec.liftPct > 0) {
+    push(
+      'rhr_recovery_window',
+      liftTier(rec.n, rec.liftPct),
+      `On well-recovered days your ${windowWord(rec.window)} leads by +${rec.liftPct}%`,
+    );
+  }
+
+  const streak = lift?.recovery_streak_to_peak;
+  if (streak && streak.avgStreakLength > 0) {
+    // Streak length is not a percentage delta — guard on observations only.
+    const tier = streak.n >= 5 ? 'strong' : streak.n >= 3 ? 'emerging' : null;
+    push(
+      'recovery_streak_to_peak',
+      tier,
+      `Your peak days typically follow ${streak.avgStreakLength} consecutive low-RHR day${streak.avgStreakLength === 1 ? '' : 's'}`,
+    );
+  }
+
+  if (hasCalendar) {
+    const thriving = (lift?.category_lift ?? []).filter((c) => c.compositeLift > 0)
+      .sort((a, b) => b.compositeLift - a.compositeLift).slice(0, 2);
+    if (thriving.length > 0) {
+      push(
+        'category_lift',
+        liftTier(thriving[0].n, thriving[0].compositeLift),
+        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts +${thriving[0].compositeLift}% on those days`,
+      );
+    }
+  }
+
+  if (bestWindowLabel) {
+    lines.push({
+      key: 'best_window', tier: 'emerging', text: `Sharpest window: ${bestWindowLabel}.`,
+      weight: LIFT_WEIGHT.best_window + (tab ? (LIFT_AFFINITY[tab].best_window ?? 0) : 0),
+    });
+  }
+  if (calendarInsight) {
+    lines.push({ key: 'calendar_insight', tier: 'emerging', text: calendarInsight, weight: LIFT_WEIGHT.calendar_insight });
+  }
+
+  lines.sort((a, b) => {
+    const t = (a.tier === 'strong' ? 1 : 0);
+    const d = (b.tier === 'strong' ? 1 : 0) - t;
+    if (d !== 0) return d;
+    return b.weight - a.weight;
+  });
+  return lines.slice(0, cap);
+}
+
 
 
 /** Empty-state copy (spec 9). `no-data` = nothing recorded yet. */

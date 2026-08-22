@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildSentence, buildSection, confidenceTier, isPositiveFinding,
-  type RhythmFinding,
+  buildLiftLines, liftTier,
+  type RhythmFinding, type PerformanceLiftPayload,
 } from '../patternSentences';
 
 type StatsPatch = Partial<NonNullable<RhythmFinding['stats']>>;
@@ -145,8 +146,59 @@ describe('wearable time-of-day guard', () => {
 });
 
 describe('absolute peak floor', () => {
-  it('drops "peaks" below a 50% positive rate', () => {
-    expect(buildSentence(mk({ stats: { n: 6, bestPct: 33, comparePct: 0 } }))).toBeNull();
+  it('drops sub-50% peaks unless the gap is wide, then hedges them', () => {
+    expect(buildSentence(mk({ stats: { n: 6, bestPct: 33, comparePct: 22, gapPp: 11 } }))).toBeNull();
+    expect(buildSentence(mk({ stats: { n: 8, bestPct: 33, comparePct: 0, gapPp: 33 } }))?.tier).toBe('emerging');
     expect(buildSentence(mk({ stats: { n: 6, bestPct: 60, comparePct: 20 } }))).not.toBeNull();
+  });
+});
+
+describe('tab-aware Section B ranking', () => {
+  const wearable = (dimension: any, priorityScore: number) =>
+    mk({ dimension, priorityScore, stats: { n: 8, gapPp: 33, bestPct: 80, comparePct: 47, source: 'wearable', polarity: 'high', day: 2 } });
+
+  it('prefers the active tab affinity dimensions but excludes nothing', () => {
+    const findings = [wearable('rhr', 1), wearable('sleep_score', 1), wearable('hrv', 1)];
+    const clarity = buildSection(findings, 'wearable', 3, 'dimension', 'clarity');
+    const pressure = buildSection(findings, 'wearable', 3, 'dimension', 'pressure');
+    expect(clarity[0].dimension).toBe('sleep_score');
+    expect(pressure[0].dimension).toBe('rhr');
+    expect(clarity).toHaveLength(3);
+    expect(pressure).toHaveLength(3);
+  });
+});
+
+describe('pipeline B lift lines', () => {
+  const lift: PerformanceLiftPayload = {
+    sleep_to_peak: { deltaPct: 18, n: 7, bestWindow: 'morning' },
+    hr_event_lift: [{ categoryName: 'Deep Work', hrDeltaBpm: -6, compositeLift: 16, n: 6 }],
+    rhr_recovery_window: { window: 'afternoon', liftPct: 17, n: 6 },
+    recovery_streak_to_peak: { avgStreakLength: 2, n: 5 },
+    category_lift: [{ categoryName: 'Strategy', compositeLift: 12, n: 4 }],
+  };
+
+  it('renders hr_event_lift', () => {
+    const lines = buildLiftLines(lift, { tab: 'pressure' }, 5);
+    expect(lines.some((l) => l.key === 'hr_event_lift')).toBe(true);
+  });
+
+  it('applies the observation guard', () => {
+    expect(liftTier(6, 20)).toBe('strong');
+    expect(liftTier(3, 12)).toBe('emerging');
+    expect(liftTier(2, 40)).toBeNull();
+    expect(liftTier(9, 4)).toBeNull();
+  });
+
+  it('orders by tab affinity and caps at 3', () => {
+    const clarity = buildLiftLines(lift, { tab: 'clarity' }, 3);
+    const pressure = buildLiftLines(lift, { tab: 'pressure' }, 3);
+    expect(clarity).toHaveLength(3);
+    expect(clarity[0].key).toBe('sleep_to_peak');
+    expect(pressure[0].key).toBe('rhr_recovery_window');
+  });
+
+  it('routes best window and calendar insight through the same pipeline', () => {
+    const lines = buildLiftLines(null, { bestWindowLabel: 'Morning', calendarInsight: 'Light week ahead.' }, 3);
+    expect(lines.map((l) => l.key)).toEqual(['best_window', 'calendar_insight']);
   });
 });

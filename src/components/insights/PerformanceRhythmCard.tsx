@@ -104,6 +104,8 @@ import {
   EMPTY_STATE,
   NO_DATA_STATE,
   EARLY_PATTERN_NOTE,
+  buildLiftLines,
+  type PerformanceLiftPayload,
 } from '@/lib/insights/patternSentences';
 
 /**
@@ -220,41 +222,9 @@ function windowLabel(w: 'morning' | 'afternoon' | 'evening' | null | undefined):
   return w.charAt(0).toUpperCase() + w.slice(1);
 }
 
-// Collapsed to plain text lines (no charts, no "awaiting data" placeholders).
-// Card scope is POSITIVE-ONLY (spec 3): drains, costs and non-positive deltas
-// never render here. Empty array = render nothing.
-function buildBaselineLiftLines(lift: PerformanceLift | null, hasCalendar: boolean): string[] {
-  if (!lift) return [];
-  const lines: string[] = [];
-  const sleep = lift.sleep_to_peak;
-  const rec = lift.rhr_recovery_window;
-  const streak = lift.recovery_streak_to_peak;
+// Pipeline B lines (sleep→peak, hr event lift, recovery window, streak,
+// categories) are assembled, guarded and ranked in patternSentences.ts.
 
-  if (sleep && sleep.deltaPct > 0) {
-    lines.push(
-      `On your best-sleep nights, next-day readiness runs +${sleep.deltaPct}% above baseline${sleep.bestWindow ? ` — peaking in the ${windowLabel(sleep.bestWindow).toLowerCase()}` : ''}.`,
-    );
-  }
-  if (rec && rec.liftPct > 0) {
-    lines.push(
-      `On well-recovered days your ${windowLabel(rec.window).toLowerCase()} leads by +${rec.liftPct}%.`,
-    );
-  }
-  if (streak && streak.avgStreakLength > 0) {
-    lines.push(
-      `Your peak days typically follow ${streak.avgStreakLength} consecutive low-RHR day${streak.avgStreakLength === 1 ? '' : 's'}.`,
-    );
-  }
-  if (hasCalendar) {
-    const thriving = lift.category_lift.filter((c) => c.compositeLift > 0).slice(0, 2);
-    if (thriving.length > 0) {
-      lines.push(
-        `You thrive in ${thriving.map((c) => c.categoryName).join(' and ')} — readiness lifts +${thriving[0].compositeLift}% on those days.`,
-      );
-    }
-  }
-  return lines;
-}
 
 
 const CHECK_IN_DIMS = CHECK_IN_DIM_SET;
@@ -319,18 +289,21 @@ const PatternAnalysisSection = ({
   const checkInLines = scoped.length > 0
     ? buildSection(scoped, 'check-in', 3, 'kind')
     : buildSection(checkInAll, 'check-in', 3);
-  const baselineFindingLines = buildSection(findings, 'wearable', 3);
+  // Section B stays global (all wearable + calendar findings eligible on every
+  // tab) but ranking is tab-aware, so each tab surfaces a different slice.
+  const baselineFindingLines = buildSection(findings, 'wearable', 3, 'dimension', activeTrend);
 
+  const liftLines = buildLiftLines(
+    lift as PerformanceLiftPayload | null,
+    { hasCalendar, tab: activeTrend, bestWindowLabel, calendarInsight },
+    3,
+  );
+  // Hard cap 3 for the whole physiology/demand section (findings + lift lines):
+  // leave room for at least one lift line when any exist.
+  const findingSlots = liftLines.length > 0 ? Math.min(2, 3 - Math.min(liftLines.length, 1)) : 3;
+  const baselineFindingsCapped = baselineFindingLines.slice(0, findingSlots);
+  const extraBaselineCapped = liftLines.slice(0, Math.max(0, 3 - baselineFindingsCapped.length));
 
-  const liftLines = buildBaselineLiftLines(lift, hasCalendar);
-  const extraBaseline = [
-    ...(bestWindowLabel ? [`Sharpest window: ${bestWindowLabel}.`] : []),
-    ...(calendarInsight ? [calendarInsight] : []),
-    ...liftLines,
-  ];
-  // Hard cap 3 for the whole physiology/demand section (findings + lift lines).
-  const baselineFindingsCapped = baselineFindingLines.slice(0, 3);
-  const extraBaselineCapped = extraBaseline.slice(0, Math.max(0, 3 - baselineFindingsCapped.length));
 
   const hasCheckIn = checkInLines.length > 0;
   const hasBaseline = baselineFindingsCapped.length > 0 || extraBaselineCapped.length > 0;
@@ -404,7 +377,7 @@ const PatternAnalysisSection = ({
               <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
             ))}
             {extraBaselineCapped.map((line, i) => (
-              <PatternLine key={`lift-${i}`} text={line} />
+              <PatternLine key={`lift-${line.key}-${i}`} text={line.text} />
             ))}
           </ul>
         ) : (
@@ -421,6 +394,13 @@ const PatternAnalysisSection = ({
           <ul className="space-y-1.5">
             {[...checkInLines, ...baselineFindingLines].map((r, i) => (
               <PatternDebugRow key={`dbg-${i}`} row={r} />
+            ))}
+          </ul>
+          <ul className="space-y-1">
+            {liftLines.map((l, i) => (
+              <li key={`dbgB-${i}`} className="text-[10px] font-mono text-muted-foreground/80 break-words">
+                B · {l.key} · tier={l.tier} · w={Math.round(l.weight * 100) / 100} · out: {l.text}
+              </li>
             ))}
           </ul>
           <p className="text-[10px] font-mono text-muted-foreground/60 break-words">
