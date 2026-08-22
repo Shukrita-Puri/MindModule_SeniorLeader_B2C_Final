@@ -10,10 +10,12 @@ import {
   eventPressureFlag,
   isEducationalTitle,
   isNoiseTitle,
-  scenarioIdFor,
 } from "../_shared/events/event-classifier.ts";
 import {
-  classifyPatternBucket,
+  patternBucketFor,
+  scenarioIdForEvent as scenarioIdFor,
+} from "../_shared/events/pattern-bucket.ts";
+import {
   isHighStakesTitle,
 } from "../_shared/events/event-classifier.ts";
 import {
@@ -5840,7 +5842,7 @@ async function generateMasteryPlan(
     );
     if (drainedBuckets.size > 0) {
       for (const se of scoredEvents) {
-        const bucket = classifyPatternBucket(se.event?.title || "");
+        const bucket = patternBucketFor(se.event?.title || "");
         if (!bucket || !drainedBuckets.has(bucket)) continue;
         const categoryId =
           enrichEvent({ title: se.event?.title || "" }).categoryId;

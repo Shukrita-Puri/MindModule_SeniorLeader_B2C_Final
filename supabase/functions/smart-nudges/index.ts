@@ -370,12 +370,15 @@ function isCanonicalIosApnsToken(token: string): boolean {
 // the shared _shared/events modules so every surface uses the
 // same vocabulary (Section L of the taxonomy plan).
 import {
-  classifyEventBucket,
   detectDayKindFromEvents,
   highStakesScore,
   isNoiseTitle,
 } from "../_shared/events/event-classifier.ts";
 import { resolveEvent } from "../_shared/events/resolve-event-category.ts";
+import {
+  enrich as enrichForBucket,
+  eventBucketFor as classifyEventBucket,
+} from "../_shared/events/pattern-bucket.ts";
 import {
   detectClientPlatform,
   wrapDbWithCalendarPrimacy,
@@ -1186,9 +1189,9 @@ interface QualifiedNudge {
 // from canonical subtypes first, so writers/readers no longer drift on
 // parallel keyword tables.
 import {
-  classifyPatternBucket as classifyEventForPattern,
   isHighStakesTitle,
 } from "../_shared/events/event-classifier.ts";
+import { patternBucketFor as classifyEventForPattern } from "../_shared/events/pattern-bucket.ts";
 
 async function loadPatternSummary(
   supabase: SupabaseLoose,

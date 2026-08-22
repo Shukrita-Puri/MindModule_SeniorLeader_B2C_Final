@@ -26,11 +26,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import {
   EVENT_TYPE_KEYWORDS as SHARED_EVENT_TYPE_KEYWORDS,
-  classifyPatternBucket,
   dedupeCalendarEvents,
 } from "../_shared/events/event-classifier.ts";
 import { PILLAR_META, type Pillar } from "../_shared/events/event-subtypes.ts";
 import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import { enrich as enrichCalendarEvent, patternBucketFor } from "../_shared/events/pattern-bucket.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 import {
   getSubcategoryForEvent,
@@ -348,7 +348,7 @@ function impactScore(f: Finding): number {
 const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
 
 function classifyEvent(title: string | null | undefined): string | null {
-  return classifyPatternBucket(title);
+  return patternBucketFor(title);
 }
 /**
  * Canonical A–H resolution for the Insights engines. Accepts the raw calendar
@@ -356,11 +356,11 @@ function classifyEvent(title: string | null | undefined): string | null {
  * category) or a bare title.
  */
 function classifyEventCanonical(input: ResolveEventInput) {
-  return resolveEvent(input).subtype;
+  return enrichCalendarEvent(input as any).subtype;
 }
 function canonicalCategoryName(input: ResolveEventInput): string | null {
-  const r = resolveEvent(input);
-  return r.category?.name ?? r.bucket ?? null;
+  const e = enrichCalendarEvent(input as any);
+  return e.category?.name ?? e.subtype?.bucket ?? null;
 }
 
 // Pillar swim-lane projection (Section K) — exposed so the Insights
