@@ -1,47 +1,33 @@
-# Paywall currency audit: why iOS shows USD, and what (if anything) to change
+# Consistent segmented toggle across Insights cards
 
-## What the code actually does today
+Adopt the 1M / 6M / 1Y switcher style from the Performance Trajectory card as the single toggle pattern for all Insights cards, sized for mobile first.
 
-Two different payment surfaces, two different price sources:
+## What changes
 
-1. **Web / Stripe payment page** (`Stage6Payment.tsx`) — currency is hardcoded `GBP` and the price map is `£34.99` monthly / `£299.99` annual. This surface is already GBP-only, and a test asserts it contains no `$` literal.
-2. **iOS paywall** (`ApplePaywall.tsx`) — every price string is `product.displayPrice` returned by StoreKit through the native plugin (`InAppPurchasePlugin.swift` passes `product.displayPrice` and `product.priceFormatStyle.currencyCode` straight through). There is no currency conversion, no `$` literal, and the only hardcoded strings are the GBP fallbacks `£34.99` / `£299.99` used when StoreKit returns nothing.
+1. **New shared control** — a segmented toggle: one pill-shaped track (soft muted background), the active item as a white raised pill, inactive items as quiet grey labels. Same visual language as 1M / 6M / 1Y.
 
-Both the onboarding payment page and the Profile → Subscription route render the same components; the Profile route reaches `Stage6Payment`, which renders `ApplePaywall` first when inside the iOS shell.
+2. **When You Perform Best** — Clarity / Emotion / Pressure / Regulation become one full-width segmented track instead of four separate dark/grey pills that wrap onto two rows. Four equal segments spanning the screen width, so nothing wraps on an iPhone.
 
-## Root cause of the `$34.99` in the screenshot
+3. **What Drains Your Performance** — Stress Load / Burnout Risk / Recovery Time become the same full-width segmented track (three equal segments) instead of the current pills.
 
-`displayPrice` is formatted by Apple for the **storefront of the Apple ID signed into the device**, not the developer's App Store Connect base currency. The screenshot is a TestFlight build showing `$34.99` / `$299.99` — exactly the US-storefront rendering of the GBP base price tier. The sandbox / TestFlight Apple ID in use has a **US storefront (region United States)**, so StoreKit correctly returns USD.
+4. **Trajectory card** — keeps its current right-aligned compact 1M / 6M / 1Y, now rendered by the same shared control so all three cards stay visually identical going forward.
 
-This is not a bug in the app, and it must not be "fixed" in code: forcing `£` onto a US-storefront price would display a price the user will not be charged — an App Store review rejection (Guideline 3.1.2) and a consumer-law problem. The existing tests exist specifically to prevent that.
+## Mobile sizing
 
-To see GBP on device, the signed-in **sandbox tester account's country must be United Kingdom** (App Store Connect → Users and Access → Sandbox Testers → the tester's Country/Region), or the TestFlight tester must be on a UK Apple ID. Real UK customers will always see GBP.
+- Track: full width of the card content, `rounded-full`, ~4px inner padding.
+- Segments: equal width (`flex-1`), min touch height 32–36px.
+- Labels: 11–12px, medium weight, no uppercase tracking for word labels (kept uppercase only for 1M/6M/1Y), single line with tightened tracking so "Burnout Risk" and "Regulation" fit without truncation at 375px width.
+- Active segment: `bg-background` + subtle shadow; inactive: muted foreground.
 
-## Restore Purchases showing "[Sandbox] You do not have any subscriptions"
+## Technical notes
 
-Expected. The sheet is Apple's own sandbox subscriptions sheet, and it is empty because that sandbox Apple ID has never completed a purchase of this app's products. `[Sandbox]` is Apple's environment label; it disappears in production, and in production the sheet lists the user's real subscriptions. Restore itself is wired correctly: `restoreIapPurchases()` → `verify-apple-purchase` edge function → entitlement written server-side. No change needed.
+- New `src/components/insights/SegmentedToggle.tsx`: props `options: {value,label}[]`, `value`, `onChange`, `size?: 'compact' | 'full'`, `uppercase?: boolean`. Purely presentational.
+- `PerformanceRhythmCard.tsx` (~line 1197): replace the wrapping pill row with `<SegmentedToggle size="full" />` bound to `activeTrend`.
+- `PerformanceCausalityCard.tsx`: replace `TabPill` usages (~line 830) with the shared control bound to `tab`; delete the now-unused `TabPill`.
+- `InnerReadinessDial.tsx` (~line 258): swap the inline range buttons for `<SegmentedToggle size="compact" uppercase />` — same rendered appearance.
+- Tokens only (`bg-muted`, `bg-background`, `text-muted-foreground`); no hardcoded colours. No data, gating, or backend logic touched.
 
-## Proposed change (small, verification-focused)
+## Build fixes (blocking, included in this change)
 
-Nothing about pricing logic changes. The only gap is that there is no way to confirm the storefront from the device without console logs, which is why this looked like a code bug.
-
-- Surface the storefront/locale that StoreKit reported on the paywall's existing diagnostics block (`ApplePaywall.tsx` already renders `describeIapLoadDiagnostics(diagnostics)`, and `diagnostics.storefront` / `diagnostics.locale` are already plumbed through from the native plugin). Show a short line such as `Storefront: US · en_GB` under the plan cards in non-production builds only, so a tester can confirm at a glance which storefront is pricing the products.
-- Add a test asserting the paywall never renders a currency symbol it did not receive from StoreKit (i.e. the only hardcoded amounts stay the two GBP fallbacks) — this locks in the current, correct behaviour.
-
-## Explicitly not doing
-
-- No currency conversion, no forcing GBP onto `displayPrice`, no locale override in the native plugin.
-- No change to `Stage6Payment`'s GBP Stripe pricing (already correct).
-- No change to restore/entitlement flow.
-
-## Actions for you (outside the code)
-
-1. Set the sandbox tester's Country/Region to United Kingdom (or sign into a UK Apple ID) and relaunch — the paywall will then read `£34.99` / `£299.99`.
-2. Confirm in App Store Connect that the two subscriptions' base region price is the GBP tier you intend, and that GBP appears in the price schedule.
-
-## Two pre-existing build errors to clear first
-
-Unrelated to payments, but currently failing the typecheck:
-
-- `src/hooks/useWearableSync.ts:143` — inside a branch already narrowed to `connectionState === 'connected'`, the code re-tests `=== 'connected_but_waiting_for_data'`, which can never be true. Drop the dead comparison so the guard is just `if (result.dbPersisted)`.
-- `src/utils/nativeBackgroundSync.ts:33` — the `NativeBackgroundSync.updateAuthToken` interface declares only `{ token, expiresAt }`, but the caller passes `refreshToken`, `domain` and `clientId`. Widen the interface to include those three optional fields (the native plugin already accepts them).
+- `src/utils/nativeBackgroundSync.ts` line 33: the `updateAuthToken` plugin interface is missing `refreshToken`, `domain`, `clientId`, which the caller at line 64 passes. Widen the interface to include those optional fields.
+- `src/hooks/useWearableSync.ts` line 143: inside a branch already narrowed to `connectionState === 'connected'`, the code re-compares against `'connected_but_waiting_for_data'` — an impossible comparison. Reduce that condition to `result.dbPersisted`, preserving current runtime behaviour.
