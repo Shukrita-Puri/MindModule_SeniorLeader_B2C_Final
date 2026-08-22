@@ -1,47 +1,48 @@
-# Where A–H lives today, and how to make every feature use it
+# One A–H entry point for every feature; delete the legacy paths
 
-## The canonical taxonomy files
+## Where A–H lives today
 
-All of these are under `supabase/functions/_shared/events/`:
+Under `supabase/functions/_shared/events/`:
 
-| File | Owns |
-|---|---|
-| `event-categories.ts` | The eight pillars A–H: id, user-facing name, self-regulation focus, §3 trigger inventory, Pre/During/Post protocol. Single source for A–H. |
-| `event-subtypes.ts` | 55 subtypes (`gov.*`, `inf.*`, `vis.*`, `lead.*`, `str.*`, `conf.*`, `trv.*`, `rhy.*`), each with `categoryId`, keywords, demand profile, JIT lead time, scenario map. |
-| `classify-event-v2.ts` + `resolve-event-category.ts` | The intended 5-layer resolver: user override → learned tokens → persisted `event_category` → dictionary classifier → unresolved. |
-| `event-classifier.ts` | The older v1 keyword-only `classifyEvent(title)`. Still exported and still widely called. |
-| `enrich-event.ts` | The façade: `enrichEvent(raw)` → category + subcategory + phases + demand + scenario. Calls the 5-layer resolver. |
-| `event-phase-map.ts` | Per-category Pre/During/Post prescriptions. |
-| `learning-store.ts`, `acronym-dictionary.ts`, `travel-patterns.ts`, `presentation-verbs.ts`, `format-taxonomy.ts` | Supporting layers for the resolver. |
-| `executive-state-taxonomy.ts` (one level up) | Transitional re-export shim over the above. Slated for deletion. |
-
-## What each feature is actually wired to
-
-| Feature | Entry point | Path |
+| File | Owns | Keep? |
 |---|---|---|
-| Brief (`compute-outer-readiness`) | `enrichEvent` **and** raw `classifyEvent` v1 + `EVENT_CATEGORIES` + phase map; `selectLeadEvent` via the shim | mixed |
-| Plan (`generate-mastery-plan`) | `enrichEvent`, `classifyEvent` v1, subtypes, categories, phase map, learning store, shadow-classify; some imports via the shim | mixed |
-| Week Ahead (`list-week-ahead-priorities`) | `resolveEventCategory` + `enrichEvent` | canonical |
-| JIT (`generate-jit-events`) | `classifyEvent` v1 through the shim only | legacy |
-| Smart Nudges | `EVENT_CATEGORIES` + phase map + `classifyEvent` v1 through the shim | mixed |
-| Insights — Drains (`cause-effect-engine`) | `EVENT_CATEGORIES` + shim helpers | mixed |
-| Insights — Rhythm (`performance-rhythm-insights`) | only `dedupeCalendarEvents` from the shim; no classification | none |
-| Signal engine (`_shared/signal-engine/_event-utils.ts`) | `classifyEvent` v1 via the shim | legacy |
-| MRS (`compute-inner-readiness`) | imports no taxonomy at all | none |
-| Frontend | `src/components/insights/PerformanceCausalityCard.tsx` contains its own hardcoded A–H name strings | duplicate |
+| `event-categories.ts` | The eight pillars A–H: id, name, self-regulation focus, trigger inventory, Pre/During/Post protocol | keep — single pillar source |
+| `event-subtypes.ts` | 55 subtypes (`gov.*`, `inf.*`, `vis.*`, `lead.*`, `str.*`, `conf.*`, `trv.*`, `rhy.*`) with `categoryId`, keywords, demand profile, JIT lead time | keep — single subtype source |
+| `classify-event-v2.ts` + `resolve-event-category.ts` | 5-layer resolution: user override → learned tokens → persisted `event_category` → dictionary → unresolved | keep — internal layers |
+| `enrich-event.ts` | `enrichEvent(raw)` → category + subcategory + phases + demand + scenario. Already calls the resolver. | **keep — this becomes THE entry point** |
+| `event-phase-map.ts`, `learning-store.ts`, `acronym-dictionary.ts`, `travel-patterns.ts`, `presentation-verbs.ts`, `format-taxonomy.ts` | Supporting layers | keep |
+| `event-classifier.ts` → `classifyEvent(title)` | Keyword-only v1. Ignores overrides, learned tokens and persisted categories. | **demote to an internal dictionary layer; no external callers** |
+| `_shared/executive-state-taxonomy.ts` | Transitional re-export shim | **delete** |
 
-Only two call sites (`enrich-event.ts`, `list-week-ahead-priorities`) go through the 5-layer resolver. Everything else that classifies calls the keyword-only v1 path, so user overrides, learned tokens and persisted `event_category` are ignored on those surfaces — which is why Insights filed the New York flight and DoubleTree stay under "Daily Rhythm & Baseline".
+## What each feature is wired to right now
 
-## Proposed consolidation
+| Feature | Current entry point |
+|---|---|
+| Brief (`compute-outer-readiness`) | `enrichEvent` **and** raw `classifyEvent` v1 + shim `selectLeadEvent` |
+| Plan (`generate-mastery-plan`) | `enrichEvent`, `classifyEvent` v1, subtypes, phase map, learning store, shim imports |
+| Week Ahead (`list-week-ahead-priorities`) | `resolveEventCategory` + `enrichEvent` — already canonical |
+| JIT v2 (`generate-jit-events`, `_shared/jit/*`) | `classifyEvent` v1 via the shim only |
+| Smart Nudges | `EVENT_CATEGORIES` + phase map + `classifyEvent` v1 via the shim |
+| Insights — Drains (`cause-effect-engine`) | `EVENT_CATEGORIES` + shim helpers |
+| Insights — Rhythm (`performance-rhythm-insights`) | only `dedupeCalendarEvents` from the shim; no classification |
+| Signal engine (`_shared/signal-engine/_event-utils.ts`) | `classifyEvent` v1 via the shim |
+| Frontend | `src/components/insights/PerformanceCausalityCard.tsx` hardcodes A–H name strings |
 
-1. **Gap audit against the uploaded schema.** Diff `FINAL_A_to_H_Schema_Summary-2.md` (pillar names, every sub-category such as `A.trustee`, `B.client_presentation`, `C.town_hall`) against `event-subtypes.ts` + the alias map in `enrich-event.ts`. Produce a written gap list before touching code; add missing subtypes/aliases only where the doc names one that has no code row.
-2. **One resolver everywhere.** Replace direct `classifyEvent(title)` calls with `enrichEvent(raw)` (or `resolveEventCategory`) in: `generate-jit-events`, `smart-nudges`, `_shared/signal-engine/_event-utils.ts`, `cause-effect-engine`, and the remaining v1 call sites in Brief and Plan. Keep v1 exported only as the dictionary layer inside `classify-event-v2.ts`.
-3. **Retire the shim.** Repoint every `executive-state-taxonomy.ts` import at `events/*`, then delete the shim.
-4. **Frontend single source.** Replace the hardcoded A–H strings in `PerformanceCausalityCard.tsx` with a small FE mirror file (same pattern as `src/types/weekAhead.ts`) generated from the category list, so labels can't drift.
-5. **Guard.** Extend `cross-layer.test.ts` with a check that no module outside `events/` imports `classifyEvent` directly, and that every subtype in the doc has a code row.
+Only two call sites go through the 5-layer resolver. Everything else keyword-matches the title, which is why the New York flight and DoubleTree stay landed under "Daily Rhythm & Baseline" in Insights.
 
-## Notes
+## The change
 
-- Steps 2 and 3 change *which* category an event resolves to on legacy surfaces (that is the point), so each affected engine with a cached payload — `cause-effect-engine` in particular — needs a version bump to force a one-time recompute.
-- No scoring formula, threshold, weight or gate changes anywhere in this work.
-- Rollout order: audit (1) → shared plumbing (2, 3) → frontend (4) → guards (5), verifying build/tests between each.
+**Rule after this work: every feature calls `enrichEvent(raw)` and nothing else.** All category, subcategory, phase, demand, lead-time and scenario reads come off the `EnrichedEvent` it returns. No feature imports `classifyEvent`, the shim, or a hand-rolled A–H list.
+
+1. **Reconcile the taxonomy with the uploaded schema.** Diff `FINAL_A_to_H_Schema_Summary-2.md` (pillar names plus every sub-category: `A.trustee`, `A.strategy`, `B.client_presentation`, `B.pitch_competitive`, `C.speaking`, `C.stakeholder_communication`, `C.media`, `C.roundtable`, `C.town_hall`, and D–H) against `event-subtypes.ts` and the alias map in `enrich-event.ts`. Write the gap list first, then add only the missing subtype rows / alias names so code and document agree. Existing subtype ids stay stable; the doc-facing names come through the alias map.
+2. **Repoint every consumer to `enrichEvent`.** Brief, Plan, JIT v2, Smart Nudges, both Insights engines, and `_shared/signal-engine/_event-utils.ts`. Same behaviour contract, single resolution path, so overrides and learned tokens now apply everywhere.
+3. **Delete the legacy surface.** Remove `_shared/executive-state-taxonomy.ts` after the last import is repointed; move the still-needed helpers it re-exported (`selectLeadEvent`, `dedupeCalendarEvents`, `isNoiseTitle`, `isEducationalTitle`) into their proper `events/` homes. Stop exporting `classifyEvent`/`classifyEventLabel`/`classifyEventBucket` publicly — they become internals of the dictionary layer.
+4. **One frontend source.** Add `src/types/eventCategories.ts` as the FE mirror of the A–H ids and names (same pattern as `src/types/weekAhead.ts`) and consume it in `PerformanceCausalityCard.tsx` in place of hardcoded strings.
+5. **Guard it.** Extend `cross-layer.test.ts` with an import guard — no module outside `_shared/events/` may import `classifyEvent` or `executive-state-taxonomy.ts` — mirroring the Availability SSOT guard described in `.github/CONTRIBUTING.md`, plus a check that every sub-category in the schema document has a code row.
+
+## Technical notes
+
+- Steps 2 and 3 change *which* category some events resolve to on the legacy surfaces (that is the intent). Cached payloads must recompute: bump `ENGINE_VERSION` in `cause-effect-engine`, and equivalent cache keys for Plan/Brief snapshots.
+- No scoring formula, weight, threshold or gate changes anywhere in this work.
+- Rollout to keep launch risk low: (1) reconcile + tests → (2) repoint one consumer per step, running the suite between each, in order signal-engine → JIT → Nudges → Insights → Brief → Plan → (3) delete shim → (4) frontend → (5) guards.
+- Redeploy after each backend step: the touched edge functions only.
