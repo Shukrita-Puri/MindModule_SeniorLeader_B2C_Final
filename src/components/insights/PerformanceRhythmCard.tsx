@@ -329,7 +329,7 @@ const PatternAnalysisSection = ({
       </div>
 
       {/* Section A — check-in patterns */}
-      <div className="rounded-xl p-3.5 space-y-4 bg-[hsl(var(--surface-muted,var(--muted)))]/40 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <div className="rounded-xl p-3.5 space-y-4 bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="flex items-start gap-2">
           <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">A.</span>
           <div className="flex-1 min-w-0">
@@ -442,7 +442,7 @@ const PatternAnalysisSection = ({
 
       {/* Section B — physiology and demand patterns */}
       {checkInCount >= 7 && (
-        <div className="rounded-xl p-3.5 space-y-4 bg-[hsl(var(--surface-muted,var(--muted)))]/40 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="rounded-xl p-3.5 space-y-4 bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="space-y-2">
             <div className="flex items-start gap-2">
               <span className="text-sm font-semibold text-primary/80 leading-tight flex-shrink-0">B.</span>
