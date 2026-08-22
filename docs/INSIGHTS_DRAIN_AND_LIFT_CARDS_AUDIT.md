@@ -7,7 +7,7 @@ Scope: the two Insights pattern cards —
 - **What Drains Your Performance** (`PerformanceCausalityCard`): Stress Load, Burnout Risk, Recovery Time
 - **When You Perform Best** (`PerformanceRhythmCard`): Section A check-in rhythm, Section B physiology x demand lift
 
-Everything below is read from the current source: `supabase/functions/cause-effect-engine/index.ts` (ENGINE_VERSION 6), `supabase/functions/performance-rhythm-insights/index.ts`, and `supabase/functions/_shared/signal-engine/checkin-pattern-aggregator.ts`.
+Everything below is read from the current source: `supabase/functions/cause-effect-engine/index.ts` (ENGINE_VERSION 12), `supabase/functions/performance-rhythm-insights/index.ts`, and `supabase/functions/_shared/signal-engine/checkin-pattern-aggregator.ts`.
 
 ---
 
