@@ -104,6 +104,8 @@ import {
   EMPTY_STATE,
   NO_DATA_STATE,
   EARLY_PATTERN_NOTE,
+  buildLiftLines,
+  type PerformanceLiftPayload,
 } from '@/lib/insights/patternSentences';
 
 /**
@@ -375,7 +377,7 @@ const PatternAnalysisSection = ({
               <PatternLine key={`bl-${i}`} text={r.text} dim={r.dimLabel} />
             ))}
             {extraBaselineCapped.map((line, i) => (
-              <PatternLine key={`lift-${i}`} text={line} />
+              <PatternLine key={`lift-${line.key}-${i}`} text={line.text} />
             ))}
           </ul>
         ) : (
