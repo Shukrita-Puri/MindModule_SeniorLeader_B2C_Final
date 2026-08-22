@@ -185,11 +185,17 @@ export function buildSentence(f: RhythmFinding): { text: string; tier: Confidenc
   const s = f.stats;
   if (!s) return null;
   if (!isPositiveFinding(f)) return null;
-  const tier = guardTier(f);
+  let tier = guardTier(f);
   if (tier === 'insufficient') return null;
-  // A "peak" must actually be good in absolute terms, not merely the least-bad
-  // bucket. Anything under a 50% positive rate is a relative gap, not a peak.
-  if (s.bestPct != null && s.bestPct < 50) return null;
+  // A "peak" under a 50% positive rate is a relative gap, not an absolute peak.
+  // It still carries signal when the gap is wide, so keep it — but only ever in
+  // hedged, emerging wording.
+  if (s.bestPct != null && s.bestPct < 50) {
+    if ((s.gapPp ?? 0) < 20) return null;
+    tier = 'emerging';
+  }
+
+
 
 
   const adj = POSITIVE_ADJECTIVE[f.dimension];
