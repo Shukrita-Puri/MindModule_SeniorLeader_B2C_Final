@@ -218,6 +218,14 @@ export function buildSection(
   findings: RhythmFinding[],
   scope: 'check-in' | 'wearable',
   cap = 3,
+  /**
+   * 'dimension' — one sentence per dimension (mixed-dimension sections).
+   * 'kind' — one sentence per pattern shape, used when the section is already
+   * scoped to a single dimension so day / window / streak findings can all
+   * surface (e.g. "Evenings are your sharpest clarity window" alongside
+   * "3 Fridays in a row…").
+   */
+  dedupeBy: 'dimension' | 'kind' = 'dimension',
 ): PatternSentence[] {
   const rows: PatternSentence[] = [];
   for (const f of findings) {
@@ -235,16 +243,18 @@ export function buildSection(
     if (w !== 0) return w;
     return b.finding.priorityScore - a.finding.priorityScore;
   });
-  const seenDim = new Set<RhythmDimension>();
+  const seen = new Set<string>();
   const out: PatternSentence[] = [];
   for (const r of rows) {
-    if (seenDim.has(r.dimension)) continue;
-    seenDim.add(r.dimension);
+    const key = dedupeBy === 'kind' ? `${r.dimension}:${r.finding.kind}` : r.dimension;
+    if (seen.has(key)) continue;
+    seen.add(key);
     out.push(r);
     if (out.length >= cap) break;
   }
   return out;
 }
+
 
 /** Empty-state copy (spec 9). `no-data` = nothing recorded yet. */
 export const EMPTY_STATE: Record<'check-in' | 'wearable', string> = {
