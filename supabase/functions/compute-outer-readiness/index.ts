@@ -10218,13 +10218,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 irsErr instanceof Error ? irsErr.message : irsErr
               );
             }
-
-            } catch (irsErr) {
-              console.warn(
-                "[compute-outer-readiness] inner_readiness_scores upsert failed:",
-                irsErr instanceof Error ? irsErr.message : irsErr
-              );
-            }
           }
 
           // brief_snapshots was split into baseline_* + refined_* column sets.
