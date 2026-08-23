@@ -423,7 +423,7 @@ function classifyDominantDayType(events: any[], loadMinutes: number): DominantDa
   if (governanceGate) return out("Board & Governance");
 
   if (visibilityGate && pitchingGate) {
-    return out(totalMins("B") > totalMins("C") ? "Pitching" : "Visibility");
+    return out(totalMins("B") > totalMins("C") ? "Business Development" : "Visibility & Comms");
   }
   if (visibilityGate) return out("Visibility & Comms");
   if (pitchingGate) return out("Business Development");
