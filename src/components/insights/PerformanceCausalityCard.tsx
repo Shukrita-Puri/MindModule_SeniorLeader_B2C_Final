@@ -676,16 +676,28 @@ function DayTypeGrid({
   );
 }
 
+// Directional ramp for HRV cost: only meaningful negative deltas (<= -4ms)
+// climb the coral ramp. Zero/positive or near-baseline deltas stay palest.
+function hrvCostColor(delta: number, maxAbsDelta: number): { bg: string; fg: string } {
+  const palest = { bg: CORAL_RAMP[0], fg: '#5b2716' };
+  if (!Number.isFinite(delta) || delta > -4) return palest;
+  const magnitude = Math.abs(delta);
+  const max = Math.max(maxAbsDelta, 4);
+  const t = max > 4 ? Math.max(0, Math.min(1, (magnitude - 4) / (max - 4))) : 0;
+  const idx = 1 + Math.round(t * (CORAL_RAMP.length - 2)); // stop 2 .. stop 7
+  return { bg: CORAL_RAMP[idx], fg: idx >= 4 ? '#FFF5EE' : '#5b2716' };
+}
+
 function RampLegend() {
   return (
     <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-      <span>Lower Impact</span>
+      <span>No HRV cost</span>
       <div className="flex gap-1">
         {CORAL_RAMP.map((c) => (
           <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
         ))}
       </div>
-      <span>Higher Impact</span>
+      <span>High HRV cost</span>
     </div>
   );
 }
