@@ -717,6 +717,13 @@ function DayTypeHrvSection({
 
   const thisWeek = weekly.find((w) => w.weekLabel === 'This week');
 
+  const thisWeekMax = Math.max(
+    4,
+    ...(thisWeek?.rows ?? [])
+      .filter((r) => r.hasNextDayHrv && r.hrvDelta !== null && r.hrvDelta < -4)
+      .map((r) => Math.abs(r.hrvDelta as number)),
+  );
+
   const rowsOf = (weekRows: DayTypeWeekRow[]) => {
     const present = dayTypes.filter((t) => weekRows.some((r) => r.dayType === t));
     const extra = [...new Set(weekRows.map((r) => r.dayType))].filter((t) => !dayTypes.includes(t));
@@ -746,7 +753,7 @@ function DayTypeHrvSection({
           state: 'muted',
         };
       }
-      const { bg, fg } = hrvCostColor(row.hrvDelta, maxAbsDelta);
+      const { bg, fg } = hrvCostColor(row.hrvDelta, thisWeekMax);
       return {
         key,
         tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
