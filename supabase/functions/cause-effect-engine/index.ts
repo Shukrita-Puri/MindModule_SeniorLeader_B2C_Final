@@ -1261,8 +1261,9 @@ serve(async (req) => {
     // ════════════════════════════════════════════════════════════════════
 
     // Re-fetch the wearable rows with hr_samples + hrv (we already have
-    // wearable but it doesn't include hr_samples). Cheap query, scoped to
-    // the same window.
+    // wearable but it doesn't include hr_samples). Cheap query, scoped to the
+    // stress-load window (30 days) so the matrix stays recent and responsive.
+
     const { data: wearableExt } = await supabase
       .from("wearable_data")
       .select("summary_date, hr_samples, resting_heart_rate, hrv, sleep_score, total_sleep_minutes")
