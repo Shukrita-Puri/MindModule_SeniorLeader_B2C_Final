@@ -316,7 +316,7 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
     ],
     hrvBaseline: 62,
     maxAbsDelta: 18,
-    bannerCopy: 'Your body recovers least after Board & Governance days — the physiological cost carries into the next morning.',
+    bannerCopy: 'Your body recovers least after Board & Governance days — the physical toll carries into the next morning.',
     weeklyDeltas: [
       {
         weekLabel: '4 wks ago',
