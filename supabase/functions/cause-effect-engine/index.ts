@@ -1715,14 +1715,37 @@ serve(async (req) => {
         "Mixed":
           "Days where you switch between very different demands take the highest toll \u2014 your body recovers least the morning after these.",
       };
+      const worstType = typeMeans[0];
       let bannerCopy = "";
-      if (anyConfident && typeMeans.length > 0) {
-        const worst = typeMeans[0];
-        if (worst.meanDelta < 0) {
-          bannerCopy = DAY_TYPE_BANNERS[worst.type] ??
-            `Your body recovers least after ${worst.type} days \u2014 the physiological cost carries into the next morning.`;
+      if (worstType && worstType.meanDelta < 0) {
+        const t = worstType.type;
+        if (t === "Rhythm") {
+          bannerCopy = "Even your rest days aren't fully restoring your body \u2014 you're carrying physiological strain into the next morning.";
+        } else if (t === "Travel") {
+          bannerCopy = "Travel days take the longest toll on your body \u2014 your recovery the following morning is consistently lower after these.";
+        } else if (t === "Governance") {
+          bannerCopy = "Your body recovers least after Governance days \u2014 the physiological cost carries into the next morning.";
+        } else if (t === "High-Stakes") {
+          bannerCopy = "High-stakes days leave a lasting mark \u2014 your body's recovery the next morning is consistently lower after these.";
+        } else if (t === "Visibility") {
+          bannerCopy = "Visibility days take more out of you than they may feel \u2014 your body's recovery the next morning is consistently lower after these.";
+        } else if (t === "Pitching") {
+          bannerCopy = "Pitching days carry a real physiological cost \u2014 your body recovers less the morning after these than any other day type.";
+        } else if (t === "Conference") {
+          bannerCopy = "Conference days take a sustained toll \u2014 your body carries the cost into the next morning.";
+        } else if (t === "Deep Work") {
+          bannerCopy = "Even focused work days leave a physiological trace \u2014 your body recovers less the morning after these.";
+        } else if (t === "Learning") {
+          bannerCopy = "Learning-heavy days cost more than they appear to \u2014 your body's recovery the next morning is lower after these.";
+        } else if (t === "Mixed") {
+          bannerCopy = "Days where you switch between very different demands take the highest toll \u2014 your body recovers least the morning after these.";
+        } else {
+          bannerCopy = `Your body recovers least after ${t} days \u2014 the physiological cost carries into the next morning.`;
         }
+      } else {
+        bannerCopy = "";
       }
+
 
       // Current streak: consecutive calendar days ending today (or the most
       // recent day with events) sharing the same dominant day type.
