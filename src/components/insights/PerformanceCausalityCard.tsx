@@ -1028,18 +1028,33 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   Need a few more wearable days during meetings to populate.
                 </p>
               )
-            ) : !tabStates.burnout.unlocked ? (
-              <LockedTile
-                title={tabStates.burnout.title}
-                message={tabStates.burnout.message}
-                progress={tabStates.burnout.progress}
-              />
-            ) : data.burnoutMatrix ? (
-              <BurnoutRiskTab matrix={data.burnoutMatrix} />
             ) : (
-              <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
-                Burnout Risk is unlocked, but this chart is still waiting on enough HRV history to render.
-              </p>
+              <div className="space-y-4">
+                {/* A. Day Type × HRV Impact (v13, additive) */}
+                <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 mb-2.5">
+                    A. Day Type × HRV Impact
+                  </p>
+                  <DayTypeHrvSection matrix={data.dayTypeHrvMatrix} />
+                </div>
+
+                {/* B. Existing weekly HRV trend — untouched */}
+                <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
+                  {!tabStates.burnout.unlocked ? (
+                    <LockedTile
+                      title={tabStates.burnout.title}
+                      message={tabStates.burnout.message}
+                      progress={tabStates.burnout.progress}
+                    />
+                  ) : data.burnoutMatrix ? (
+                    <BurnoutRiskTab matrix={data.burnoutMatrix} />
+                  ) : (
+                    <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
+                      Burnout Risk is unlocked, but this chart is still waiting on enough HRV history to render.
+                    </p>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
