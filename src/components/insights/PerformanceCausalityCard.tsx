@@ -593,16 +593,6 @@ function DayTypeHrvSection({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
 
   return (
     <div className="space-y-3">
-      {bannerCopy && (
-        <p className="text-[11px] leading-snug text-foreground/80">{bannerCopy}</p>
-      )}
-      {streakSummary && streakSummary.currentStreakDays >= 2 && (
-        <p className="text-[11px] leading-snug text-muted-foreground/80">
-          {streakSummary.streakHrvDeltaMean === null
-            ? `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV not yet recorded.`
-            : `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV averaging ${signed(streakSummary.streakHrvDeltaMean)} vs your baseline.`}
-        </p>
-      )}
 
       <div className="space-y-3">
         <div className="overflow-x-auto -mx-1 px-1">
