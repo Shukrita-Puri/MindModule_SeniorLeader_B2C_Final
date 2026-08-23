@@ -1693,11 +1693,12 @@ serve(async (req) => {
       );
 
       
-      // v15: banner only surfaces NEGATIVE impact (suppression); pre-baked
-      // per day type, no formula reveal. No negative worst type => no banner.
+      // v15: banner only surfaces NEGATIVE impact (suppression) and only when
+      // the worst day type has at least 3 occurrences behind its mean.
       const worstType = typeMeans[0];
+      const worstN = worstType ? (acc.get(worstType.type) ?? []).flat().length : 0;
       let bannerCopy = "";
-      if (worstType && worstType.meanDelta < 0) {
+      if (worstType && worstType.meanDelta < 0 && worstN >= 3) {
         const t = worstType.type;
         const copy: Record<string, string> = {
           "Rhythm": "Even your rest days aren't fully restoring your body — you're carrying physiological strain into the next morning.",
