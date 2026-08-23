@@ -608,8 +608,9 @@ function DayTypeGrid({
   cellFor: (dayType: string, dayIdx: number, day: string) => GridCellRender;
 }) {
   return (
-    <div className="overflow-x-auto -mx-1 px-1">
-      <table className="w-max min-w-full text-[10px] border-separate border-spacing-1">
+    <div className="overflow-x-auto -mx-1 px-1 pb-2">
+      <table className="w-max min-w-full text-[10px] border-separate border-spacing-1 mb-1">
+
         <thead>
           <tr>
             <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
