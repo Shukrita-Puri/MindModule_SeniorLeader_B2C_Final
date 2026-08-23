@@ -56,7 +56,9 @@ const corsHeaders = {
 
 // ── Tunables ───────────────────────────────────────────────────────────
 const WINDOW_DAYS = 60;
+const STRESS_LOAD_WINDOW_DAYS = 30;
 const MIN_OCCURRENCES_EMERGING = 3;
+
 const MIN_OCCURRENCES_STRONG = 5;
 const MIN_DELTA_PCT_EMERGING = 10;
 const MIN_DELTA_PCT_STRONG = 15;
