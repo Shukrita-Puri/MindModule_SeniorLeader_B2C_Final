@@ -608,8 +608,9 @@ function DayTypeGrid({
   cellFor: (dayType: string, dayIdx: number, day: string) => GridCellRender;
 }) {
   return (
-    <div className="overflow-x-auto -mx-1 px-1">
-      <table className="w-max min-w-full text-[10px] border-separate border-spacing-1">
+    <div className="overflow-x-auto -mx-1 px-1 pb-2">
+      <table className="w-max min-w-full text-[10px] border-separate border-spacing-1 mb-1">
+
         <thead>
           <tr>
             <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
@@ -642,7 +643,8 @@ function DayTypeGrid({
                       title={cell.tooltip}
                       className={cn(
                         'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors text-[10px]',
-                        cell.state === 'empty' && 'bg-white/60 dark:bg-white/5 text-muted-foreground/30',
+                        cell.state === 'empty' && 'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
+
                         cell.state === 'muted' &&
                           'bg-muted/40 border border-border/60 text-muted-foreground/70',
                         cell.state === 'thin' && 'bg-muted/50 text-muted-foreground',
@@ -753,7 +755,10 @@ function DayTypeHrvSection({
           state: 'muted',
         };
       }
-      const { bg, fg } = hrvCostColor(row.hrvDelta, thisWeekMax);
+      const { bg, fg } = Math.abs(row.hrvDelta) < 4
+        ? { bg: CORAL_RAMP[0], fg: '#5b2716' }
+        : hrvCostColor(row.hrvDelta, thisWeekMax);
+
       return {
         key,
         tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
@@ -804,7 +809,10 @@ function DayTypeHrvSection({
     if (agg.n < 3) {
       return { key, tooltip, label: signedMs(agg.value), state: 'thin' };
     }
-    const { bg, fg } = hrvCostColor(agg.value, monthlyMax);
+    const { bg, fg } = Math.abs(agg.value) < 4
+      ? { bg: CORAL_RAMP[0], fg: '#5b2716' }
+      : hrvCostColor(agg.value, monthlyMax);
+
     return { key, tooltip, label: signedMs(agg.value), state: 'value', bg, fg };
   };
 
@@ -860,12 +868,12 @@ function DayTypeHrvSection({
 function DayTypeHrvCard({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
   const [view, setView] = useState<'day' | 'month'>('day');
   return (
-    <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
-      <div className="flex items-center justify-between gap-2 mb-2.5">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
             DAY TYPE IMPACT ON BURNOUT
-          </p>
+          </div>
           <InsightInfoModal
             title="Day type impact on burnout"
             explanation="This chart shows how different types of days affect your physiological recovery overnight. Each cell reflects the change in next-day HRV for that day type. Darker cells indicate greater impact on recovery."
@@ -886,6 +894,7 @@ function DayTypeHrvCard({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
     </div>
   );
 }
+
 
 
 // ── Recovery Time tab ────────────────────────────────────────────────
@@ -1209,13 +1218,14 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
                 <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
 
+                <div className="border-t border-border/30 my-2" />
 
                 {/* B. Existing weekly HRV trend — contents untouched */}
-                <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
                       WEEKLY BURNOUT TREND
-                    </p>
+                    </div>
                     <InsightInfoModal
                       title="Weekly burnout trend"
                       explanation="This chart tracks four weekly signals — calendar load, resting heart rate trend, HRV trend, and sleep deficit — to show how your burnout risk has shifted over the past five weeks. Higher intensity means that week sat deeper in your personal strain range. Each column is a past week, not a forecast."
@@ -1238,6 +1248,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 </div>
               </div>
             )}
+
           </div>
         </div>
       )}
