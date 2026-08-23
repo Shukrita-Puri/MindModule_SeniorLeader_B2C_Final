@@ -198,6 +198,28 @@ interface BurnoutMatrix {
   cardTrajectory: 'escalating' | 'stable' | 'improving';
   bannerCopy: string;                               // pre-baked, no formula reveal
 }
+
+// ── v13: Day Type × next-day HRV impact (additive) ─────────────────────
+interface DayTypeHrvCell {
+  hrvDelta: number | null;   // signed ms vs the user's own HRV baseline
+  n: number;
+  confidence: Confidence | null;
+  hasData: boolean;
+}
+interface DayTypeHrvMatrix {
+  dayTypes: string[];        // rows, most negative mean delta first
+  days: string[];            // Mon..Sun
+  cells: DayTypeHrvCell[][]; // [dayTypeIndex][dayIndex]
+  hrvBaseline: number | null;
+  maxAbsDelta: number;
+  bannerCopy: string;
+  streakSummary: {
+    currentStreakDays: number;
+    currentStreakType: string | null;
+    streakHrvDeltaMean: number | null;
+  } | null;
+}
+
 interface RecoveryTimeline {
   days: string[];                                   // ISO dates
   values: (number | null)[];                        // recovery-cost score per day
