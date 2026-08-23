@@ -388,7 +388,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.crisis",
     label: "Crisis / Incident",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "F_operational",
     primaryPillar: 4,
@@ -629,11 +629,11 @@ const ROWS: RawSubtype[] = [
     masteryModules: ["regulate", "align"],
     jitLeadTimeMinutes: 240,
   },
-  // ── Category D · Interpersonal & High-Stakes ──
+  // ── Category D · Interpersonal High-Stakes ──
   {
     id: "lead.executive_1on1",
     label: "Executive 1:1",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -649,7 +649,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.leadership_sync",
     label: "Leadership / Exec team sync",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -677,7 +677,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.performance_review",
     label: "Performance review",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -701,7 +701,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.difficult_conversation",
     label: "Difficult conversation / Escalation",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -740,7 +740,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.layoff",
     label: "Layoff / Restructure",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -765,7 +765,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.hiring_interview",
     label: "Hiring interview (candidate)",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -787,7 +787,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.hiring_committee",
     label: "Job interview / Hiring committee",
-    bucket: "Interpersonal & High-Stakes",
+    bucket: "Interpersonal High-Stakes",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
