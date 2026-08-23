@@ -93,7 +93,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // calculation, gate, or output field changed.
 // v15: `dayTypeHrvMatrix.bannerCopy` rewritten to surface suppression only,
 // with pre-baked per-day-type copy and no formula reveal.
-const ENGINE_VERSION = 15;
+const ENGINE_VERSION = 16;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -420,35 +420,35 @@ function classifyDominantDayType(events: any[], loadMinutes: number): DominantDa
   // P4 — Pitching
   const pitchingGate = inCat("B").length > 0;
 
-  if (governanceGate) return out("Governance");
+  if (governanceGate) return out("Board & Governance");
 
   if (visibilityGate && pitchingGate) {
-    return out(totalMins("B") > totalMins("C") ? "Pitching" : "Visibility");
+    return out(totalMins("B") > totalMins("C") ? "Business Development" : "Visibility & Comms");
   }
-  if (visibilityGate) return out("Visibility");
-  if (pitchingGate) return out("Pitching");
+  if (visibilityGate) return out("Visibility & Comms");
+  if (pitchingGate) return out("Business Development");
 
   // P5 — High-Stakes
-  if (inCat("D").some((r) => r.mins >= 30)) return out("High-Stakes");
+  if (inCat("D").some((r) => r.mins >= 30)) return out("People & Diff Conversations");
 
   // P6 — Conference (Visibility already returned above when gated)
-  if (totalMins("F") >= 120) return out("Conference");
+  if (totalMins("F") >= 120) return out("Conferences & Events");
 
   // P7 — Deep Work
   const deepMins = resolved
     .filter((r) => r.cat === "E" && (r.sub === "deep_work" || r.sub === "review"))
     .reduce((a, r) => a + r.mins, 0);
-  if (load > 0 && deepMins / load >= 0.4) return out("Deep Work");
+  if (load > 0 && deepMins / load >= 0.4) return out("Deep Work & Strategy");
 
   // P8 — Learning
   const learnMins = resolved
     .filter((r) => r.cat === "E" && (r.sub === "learning" || r.sub === "community"))
     .reduce((a, r) => a + r.mins, 0);
-  if (load > 0 && learnMins / load >= 0.4) return out("Learning");
+  if (load > 0 && learnMins / load >= 0.4) return out("Learning & Development");
 
   // P9 — Rhythm
   const hMins = totalMins("H");
-  if ((load > 0 && hMins / load >= 0.5) || load < 30) return out("Rhythm");
+  if ((load > 0 && hMins / load >= 0.5) || load < 30) return out("Daily Rhythm & Baseline");
 
   // P10 — Mixed: ≥2 categories each ≥25% of PROFESSIONAL load (excl. H),
   // spanning ≥2 different demand modes.
@@ -1701,15 +1701,15 @@ serve(async (req) => {
       if (worstType && worstType.meanDelta < 0 && worstN >= 3) {
         const t = worstType.type;
         const copy: Record<string, string> = {
-          "Rhythm": "Even your rest days aren't fully restoring your body — you're carrying physiological strain into the next morning.",
+          "Daily Rhythm & Baseline": "Even your rest days aren't fully restoring your body — you're carrying physiological strain into the next morning.",
           "Travel": "Travel days take the longest toll on your body — your recovery the following morning is consistently lower after these.",
-          "Governance": "Your body recovers least after Governance days — the physiological cost carries into the next morning.",
-          "High-Stakes": "High-stakes days leave a lasting mark — your body's recovery the next morning is consistently lower after these.",
-          "Visibility": "Visibility days take more out of you than they may feel — your body's recovery the next morning is consistently lower after these.",
-          "Pitching": "Pitching days carry a real physiological cost — your body recovers less the morning after these than any other day type.",
-          "Conference": "Conference days take a sustained toll — your body carries the cost into the next morning.",
-          "Deep Work": "Even focused work days leave a physiological trace — your body recovers less the morning after these.",
-          "Learning": "Learning-heavy days cost more than they appear to — your body's recovery the next morning is lower after these.",
+          "Board & Governance": "Your body recovers least after Board & Governance days — the physiological cost carries into the next morning.",
+          "People & Diff Conversations": "People and difficult-conversation days leave a lasting mark — your body's recovery the next morning is consistently lower after these.",
+          "Visibility & Comms": "Visibility days take more out of you than they may feel — your body's recovery the next morning is consistently lower after these.",
+          "Business Development": "Pitching days carry a real physiological cost — your body recovers less the morning after these than any other day type.",
+          "Conferences & Events": "Conference days take a sustained toll — your body carries the cost into the next morning.",
+          "Deep Work & Strategy": "Even focused work days leave a physiological trace — your body recovers less the morning after these.",
+          "Learning & Development": "Learning-heavy days cost more than they appear to — your body's recovery the next morning is lower after these.",
           "Mixed": "Days where you switch between very different demands take the highest toll — your body recovers least the morning after these.",
         };
         bannerCopy = copy[t] ?? `Your body recovers least after ${t} days — the physiological cost carries into the next morning.`;

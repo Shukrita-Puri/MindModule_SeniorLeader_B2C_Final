@@ -7047,7 +7047,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt +=
               `\nCLOCK TIME RULE: When referencing any event time in the body, use ONLY the HH:mm strings provided above, character-for-character. Never invent, round, shift, or reformat clock times. If no time is provided for an event, omit the time entirely rather than guessing.`;
             userPrompt +=
-              `\nEVENT IMPORTANCE GUIDE (A highest → H lowest): A=High-Stakes Governance (board, audit, regulatory), B=Influence & Persuasion (pitch, investor, key negotiation), C=Visibility & Communication (media, town hall, keynote), D=People & Difficult Conversations (1:1 hard talk, performance, layoff), E=Deep Work & Strategy (planning, review, writing), F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline. Focus beat (c) on the highest-category event.`;
+              `\nEVENT IMPORTANCE GUIDE (A highest → H lowest): A=Board & Governance (board, audit, regulatory), B=Influence & Persuasion (pitch, investor, key negotiation), C=Visibility & Communication (media, town hall, keynote), D=People & Diff Conversations (1:1 hard talk, performance, layoff), E=Deep Work & Strategy (planning, review, writing), F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline. Focus beat (c) on the highest-category event.`;
           }
 
           // === TOMORROW === (evenings, Friday, Sunday)
