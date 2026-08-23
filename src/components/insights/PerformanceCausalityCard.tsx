@@ -1038,8 +1038,11 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   <DayTypeHrvSection matrix={data.dayTypeHrvMatrix} />
                 </div>
 
-                {/* B. Existing weekly HRV trend — untouched */}
+                {/* B. Existing weekly HRV trend — contents untouched */}
                 <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 mb-2.5">
+                    B. Weekly HRV Trend
+                  </p>
                   {!tabStates.burnout.unlocked ? (
                     <LockedTile
                       title={tabStates.burnout.title}

@@ -304,7 +304,7 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
     streakSummary: {
       currentStreakDays: 3,
       currentStreakType: 'Governance',
-      streakHrvDeltaMean: -14,
+      streakHrvDeltaMean: -16,
     },
   },
 };
