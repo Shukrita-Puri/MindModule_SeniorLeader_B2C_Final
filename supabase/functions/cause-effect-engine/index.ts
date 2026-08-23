@@ -344,6 +344,116 @@ function addDays(d: Date, n: number): Date {
   x.setUTCDate(x.getUTCDate() + n);
   return x;
 }
+
+// ── v13: dominant day-type classifier (additive, read-only) ────────────
+// Category + subcategory come ONLY from the canonical A–H resolver
+// (`enrichCalendarEvent` → resolveEvent). No keyword matching here.
+interface DominantDayType {
+  dayType: string;
+  secondaryCategory: string | null; // diagnostics only — never rendered
+}
+
+function durationMinutesOf(e: any): number {
+  const s = e?.start_time ? new Date(e.start_time).getTime() : NaN;
+  const en = e?.end_time ? new Date(e.end_time).getTime() : NaN;
+  if (!Number.isFinite(s) || !Number.isFinite(en) || en <= s) return 0;
+  return Math.round((en - s) / 60000);
+}
+
+function classifyDominantDayType(events: any[], loadMinutes: number): DominantDayType {
+  const resolved = events.map((e) => {
+    const en = enrichCalendarEvent(e) as any;
+    return {
+      cat: (en?.categoryId ?? null) as string | null,
+      sub: (en?.subcategory ?? null) as string | null,
+      mins: durationMinutesOf(e),
+    };
+  });
+
+  const minutesByCategory = new Map<string, number>();
+  resolved.forEach((r) => {
+    if (!r.cat) return;
+    minutesByCategory.set(r.cat, (minutesByCategory.get(r.cat) ?? 0) + r.mins);
+  });
+  const rankedCats = [...minutesByCategory.entries()].sort((a, b) => b[1] - a[1]);
+  const secondaryCategory = rankedCats[1]?.[0] ?? null;
+  const out = (dayType: string): DominantDayType => ({ dayType, secondaryCategory });
+
+  const inCat = (c: string) => resolved.filter((r) => r.cat === c);
+  const totalMins = (c: string) => minutesByCategory.get(c) ?? 0;
+  const load = loadMinutes > 0 ? loadMinutes : resolved.reduce((a, r) => a + r.mins, 0);
+
+  // P1 — Travel (hard override)
+  if (resolved.some((r) => r.cat === "G" && (r.sub?.includes("flight") || r.sub?.includes("travel_day")))) {
+    return out("Travel");
+  }
+
+  // P2 — Governance
+  const aEvents = inCat("A");
+  const governanceGate = aEvents.some((r) => r.mins >= 45) || aEvents.length >= 2;
+
+  // P3 — Visibility
+  const performingSubs = ["speaking", "media", "roundtable", "town_hall"];
+  const visibilityGate = inCat("C").some(
+    (r) =>
+      (r.sub != null && performingSubs.includes(r.sub)) ||
+      (r.sub === "stakeholder_communication" && r.mins >= 45),
+  );
+
+  // P4 — Pitching
+  const pitchingGate = inCat("B").length > 0;
+
+  if (governanceGate) return out("Governance");
+
+  if (visibilityGate && pitchingGate) {
+    return out(totalMins("B") > totalMins("C") ? "Pitching" : "Visibility");
+  }
+  if (visibilityGate) return out("Visibility");
+  if (pitchingGate) return out("Pitching");
+
+  // P5 — High-Stakes
+  if (inCat("D").some((r) => r.mins >= 30)) return out("High-Stakes");
+
+  // P6 — Conference (Visibility already returned above when gated)
+  if (totalMins("F") >= 120) return out("Conference");
+
+  // P7 — Deep Work
+  const deepMins = resolved
+    .filter((r) => r.cat === "E" && (r.sub === "deep_work" || r.sub === "review"))
+    .reduce((a, r) => a + r.mins, 0);
+  if (load > 0 && deepMins / load >= 0.4) return out("Deep Work");
+
+  // P8 — Learning
+  const learnMins = resolved
+    .filter((r) => r.cat === "E" && (r.sub === "learning" || r.sub === "community"))
+    .reduce((a, r) => a + r.mins, 0);
+  if (load > 0 && learnMins / load >= 0.4) return out("Learning");
+
+  // P9 — Rhythm
+  const hMins = totalMins("H");
+  if ((load > 0 && hMins / load >= 0.5) || load < 30) return out("Rhythm");
+
+  // P10 — Mixed: ≥2 categories each ≥25% of PROFESSIONAL load (excl. H),
+  // spanning ≥2 different demand modes.
+  const professionalLoad = [...minutesByCategory.entries()]
+    .filter(([c]) => c !== "H")
+    .reduce((a, [, m]) => a + m, 0);
+  if (professionalLoad > 0) {
+    const competing = [...minutesByCategory.entries()].filter(
+      ([c, m]) => c !== "H" && m / professionalLoad >= 0.25,
+    );
+    const modeOf = (c: string): string | null =>
+      c === "B" || c === "C" ? "performance" :
+      c === "A" ? "governance" :
+      c === "D" ? "relational" :
+      c === "E" ? "cognitive" :
+      c === "F" || c === "G" ? "logistical" : null;
+    const modes = new Set(competing.map(([c]) => modeOf(c)).filter(Boolean));
+    if (competing.length >= 2 && modes.size >= 2) return out("Mixed");
+  }
+
+  return out("Mixed");
+}
 function mean(xs: number[]): number {
   if (xs.length === 0) return 0;
   return xs.reduce((a, b) => a + b, 0) / xs.length;
