@@ -755,7 +755,10 @@ function DayTypeHrvSection({
           state: 'muted',
         };
       }
-      const { bg, fg } = hrvCostColor(row.hrvDelta, thisWeekMax);
+      const { bg, fg } = Math.abs(row.hrvDelta) < 4
+        ? { bg: CORAL_RAMP[0], fg: '#5b2716' }
+        : hrvCostColor(row.hrvDelta, thisWeekMax);
+
       return {
         key,
         tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
