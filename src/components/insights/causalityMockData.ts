@@ -88,7 +88,39 @@ export interface MockCausalityPayload {
   stressMatrix?: MockStressMatrix;
   burnoutMatrix?: MockBurnoutMatrix;
   recoveryByEvent?: MockRecoveryByEvent | null;
+  dayTypeHrvMatrix?: MockDayTypeHrvMatrix | null;
 }
+
+interface MockDayTypeHrvCell {
+  hrvDelta: number | null;
+  n: number;
+  confidence: 'strong' | 'emerging' | null;
+  hasData: boolean;
+}
+interface MockDayTypeHrvMatrix {
+  dayTypes: string[];
+  days: string[];
+  cells: MockDayTypeHrvCell[][];
+  hrvBaseline: number | null;
+  maxAbsDelta: number;
+  bannerCopy: string;
+  streakSummary: {
+    currentStreakDays: number;
+    currentStreakType: string | null;
+    streakHrvDeltaMean: number | null;
+  } | null;
+}
+
+const mockCell = (
+  hrvDelta: number | null,
+  n: number,
+): MockDayTypeHrvCell => ({
+  hrvDelta,
+  n,
+  confidence: n >= 5 ? 'strong' : n >= 3 ? 'emerging' : null,
+  hasData: n >= 1,
+});
+const emptyCell = (): MockDayTypeHrvCell => ({ hrvDelta: null, n: 0, confidence: null, hasData: false });
 
 const lensA: MockFinding[] = [
   {
@@ -250,5 +282,30 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
     ],
     maxRecoveryDays: 3,
     topEntry: { eventType: 'Board reviews', recoveryDays: 3, rhrDeltaBpm: 7, n: 4, confidence: 'emerging', lastSeen: '2026-06-29' },
+  },
+  },
+  dayTypeHrvMatrix: {
+    dayTypes: ['Governance', 'Travel', 'Mixed', 'Deep Work', 'Rhythm'],
+    days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    cells: [
+      // Governance
+      [mockCell(-18, 5), emptyCell(), mockCell(-12, 3), emptyCell(), mockCell(-9, 2), emptyCell(), emptyCell()],
+      // Travel
+      [emptyCell(), mockCell(-15, 3), emptyCell(), emptyCell(), mockCell(-11, 1), mockCell(-7, 2), emptyCell()],
+      // Mixed
+      [emptyCell(), mockCell(-6, 4), mockCell(-4, 3), mockCell(-2, 1), emptyCell(), emptyCell(), emptyCell()],
+      // Deep Work
+      [emptyCell(), emptyCell(), mockCell(2, 3), mockCell(1, 2), emptyCell(), emptyCell(), emptyCell()],
+      // Rhythm
+      [emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), mockCell(6, 5), mockCell(4, 3)],
+    ],
+    hrvBaseline: 62,
+    maxAbsDelta: 18,
+    bannerCopy: 'Governance days suppress your next-day HRV the most (−18ms on average).',
+    streakSummary: {
+      currentStreakDays: 3,
+      currentStreakType: 'Governance',
+      streakHrvDeltaMean: -14,
+    },
   },
 };
