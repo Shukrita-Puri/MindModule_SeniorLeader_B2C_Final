@@ -571,6 +571,131 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
   );
 }
 
+// ── v13: Day Type × HRV Impact (Burnout Risk tab, section A) ─────────
+// Progressive by design: thin cells (n<3) are shown greyed with their
+// sample count rather than withheld, so the pattern builds in view.
+function DayTypeHrvSection({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
+  if (!matrix) {
+    return (
+      <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
+        Connect your wearable and check back in a few days — this chart needs at least 5 HRV
+        readings to start.
+      </p>
+    );
+  }
+
+  const { dayTypes, days, cells, hrvBaseline, maxAbsDelta, bannerCopy, streakSummary } = matrix;
+  const anyData = cells.some((row) => row.some((c) => c.hasData));
+  const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))}ms`;
+  // Cost-scaled ramp: suppression (negative delta) reads dark, recovery light.
+  const rampScore = (delta: number) =>
+    maxAbsDelta > 0 ? (maxAbsDelta - delta) / 2 : 0;
+
+  return (
+    <div className="space-y-3">
+      {bannerCopy && (
+        <p className="text-[11px] leading-snug text-foreground/80">{bannerCopy}</p>
+      )}
+      {streakSummary && streakSummary.currentStreakDays >= 2 && (
+        <p className="text-[11px] leading-snug text-muted-foreground/80">
+          {streakSummary.streakHrvDeltaMean === null
+            ? `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV not yet recorded.`
+            : `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV averaging ${signed(streakSummary.streakHrvDeltaMean)} vs your baseline.`}
+        </p>
+      )}
+
+      <div className="space-y-3">
+        <div className="overflow-x-auto -mx-1 px-1">
+          <table className="w-max min-w-full text-[11px] border-separate border-spacing-1">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
+                {days.map((d) => (
+                  <th
+                    key={d}
+                    className="text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom min-w-[3.4rem]"
+                  >
+                    {d}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {dayTypes.map((type, rowIdx) => (
+                <tr key={type}>
+                  <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2">
+                    <span
+                      className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      title={type}
+                    >
+                      {type}
+                    </span>
+                  </td>
+                  {days.map((day, colIdx) => {
+                    const cell = cells[rowIdx]?.[colIdx];
+                    const hasData = !!cell?.hasData && cell.hrvDelta !== null;
+                    const thin = hasData && cell!.confidence === null;
+                    const { bg, fg } = coralFor(
+                      hasData ? rampScore(cell!.hrvDelta as number) : null,
+                      maxAbsDelta,
+                    );
+                    const tooltip = hasData
+                      ? `${type} ${day}s — ${cell!.n} week${cell!.n === 1 ? '' : 's'} of data\nNext-day HRV: ${signed(cell!.hrvDelta as number)} vs your ${hrvBaseline ?? '—'}ms baseline`
+                      : `${type} ${day}s — no data yet`;
+
+                    return (
+                      <td key={`${type}-${day}`} className="p-0">
+                        <div
+                          title={tooltip}
+                          className={cn(
+                            'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors',
+                            !hasData && 'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
+                            thin && 'bg-muted/50 text-muted-foreground',
+                          )}
+                          style={hasData && !thin ? { background: bg, color: fg } : undefined}
+                        >
+                          {hasData ? (
+                            <>
+                              <span>{signed(cell!.hrvDelta as number)}</span>
+                              {thin && (
+                                <span className="text-[8px] text-muted-foreground/70 mt-0.5">
+                                  n={cell!.n}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            '·'
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+          <span>Recovery</span>
+          <div className="flex gap-1">
+            {CORAL_RAMP.map((c) => (
+              <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
+            ))}
+          </div>
+          <span>Cost</span>
+        </div>
+      </div>
+
+      {!anyData && (
+        <p className="text-[11px] leading-snug text-muted-foreground/80">
+          Your day type patterns will appear here as your week unfolds.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Recovery Time tab ────────────────────────────────────────────────
 // Shows event types (canonical A–H taxonomy) ranked by how long Heart Rate
 // takes to return within ±5% of baseline. Heart Rate (not HRV) is the
