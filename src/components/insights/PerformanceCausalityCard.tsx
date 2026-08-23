@@ -166,7 +166,7 @@ interface DrainHeatmapGridProps {
   unit: 'bpm' | 'days' | 'risk score';
   rampLabel: { low: string; high: string };
   emptyLabel?: string;
-  compact?: boolean;
+  isShareView?: boolean;
 }
 
 // Legacy alias → canonical A–H pillar name. Canonical names come from the
@@ -238,7 +238,7 @@ function DrainHeatmapGrid({
   unit,
   rampLabel,
   emptyLabel = 'No data yet',
-  compact = false,
+  isShareView = false,
 }: DrainHeatmapGridProps) {
   const cellMap = useMemo(() => {
     const map = new Map<string, DrainCell>();
@@ -249,7 +249,7 @@ function DrainHeatmapGrid({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto -mx-1 px-1">
-        <table className={cn('w-max min-w-full border-separate border-spacing-1', compact ? 'text-[9px]' : 'text-[11px]')}>
+        <table className={cn('w-max min-w-full border-separate border-spacing-1', isShareView ? 'text-[9px]' : 'text-[11px]')}>
           <thead>
             <tr>
               <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
@@ -259,7 +259,7 @@ function DrainHeatmapGrid({
                   title={column}
                   className={cn(
                     'text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom',
-                    compact ? 'min-w-[2.6rem]' : 'min-w-[3.4rem]',
+                    isShareView ? 'min-w-[2.4rem]' : 'min-w-[3.4rem]',
                   )}
                 >
                   <span className="block truncate max-w-[5rem]">{column}</span>
@@ -270,13 +270,16 @@ function DrainHeatmapGrid({
           <tbody>
             {rows.map((row) => (
               <tr key={row}>
-                <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2">
+                <td className={cn(
+                  'sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2',
+                  isShareView && 'text-[9px]',
+                )}>
                   {/* Frozen label column: stays put while the day columns scroll,
                       and scrolls on its own axis so long names read in full. */}
                   <span
                     className={cn(
                       'block whitespace-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-                      compact ? 'max-w-[5rem]' : 'max-w-[7.5rem]',
+                       isShareView ? 'max-w-[5rem]' : 'max-w-[7.5rem]',
                     )}
                     title={row}
                   >
@@ -398,11 +401,11 @@ type SubcategoryLiftEntry = {
 function StressLoadTab({
   matrix,
   subcategoryLift,
-  compact = false,
+  isShareView = false,
 }: {
   matrix: StressMatrix;
   subcategoryLift?: SubcategoryLiftEntry[];
-  compact?: boolean;
+  isShareView?: boolean;
 }) {
   const { events, categoryNames, days, cells, n, subLabels, maxObserved, topDay } = matrix;
   // Always render a full Mon–Sun week: Sunday is a working day in Israel and
@@ -481,7 +484,7 @@ function StressLoadTab({
         maxValue={maxObserved}
         unit="bpm"
         rampLabel={{ low: 'Lower', high: 'Higher' }}
-        compact={compact}
+        isShareView={isShareView}
       />
 
       {(peakCell || quietCell || topDay) && (
@@ -544,7 +547,7 @@ function StressLoadTab({
 }
 
 // ── Burnout Risk tab ─────────────────────────────────────────────────
-function BurnoutRiskTab({ matrix, compact = false }: { matrix: BurnoutMatrix; compact?: boolean }) {
+function BurnoutRiskTab({ matrix, isShareView = false }: { matrix: BurnoutMatrix; isShareView?: boolean }) {
   const { weeks, dims, bannerCopy } = matrix;
   const hrv = dims.find((d) => d.key === 'hrv');
 
@@ -587,7 +590,7 @@ function BurnoutRiskTab({ matrix, compact = false }: { matrix: BurnoutMatrix; co
         unit="risk score"
         rampLabel={{ low: 'Low risk', high: 'High risk' }}
         emptyLabel="insufficient HRV days"
-        compact={compact}
+        isShareView={isShareView}
       />
       {bannerCopy && (
         <p className="text-[11px] leading-snug text-foreground/80">{bannerCopy}</p>
@@ -618,16 +621,16 @@ function DayTypeGrid({
   dayTypes,
   days,
   cellFor,
-  compact = false,
+  isShareView = false,
 }: {
   dayTypes: string[];
   days: string[];
   cellFor: (dayType: string, dayIdx: number, day: string) => GridCellRender;
-  compact?: boolean;
+  isShareView?: boolean;
 }) {
   return (
     <div className="overflow-x-auto -mx-1 px-1 pb-2">
-      <table className={cn('w-max min-w-full border-separate border-spacing-1 mb-1', compact ? 'text-[9px]' : 'text-[10px]')}>
+      <table className={cn('w-max min-w-full border-separate border-spacing-1 mb-1', isShareView ? 'text-[9px]' : 'text-[10px]')}>
 
         <thead>
           <tr>
@@ -637,7 +640,7 @@ function DayTypeGrid({
                 key={d}
                 className={cn(
                   'text-[9px] text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom',
-                  compact ? 'min-w-[2.6rem]' : 'min-w-[3.4rem]',
+                  isShareView ? 'min-w-[2.4rem]' : 'min-w-[3.4rem]',
                 )}
               >
                 {d}
@@ -648,11 +651,14 @@ function DayTypeGrid({
         <tbody>
           {dayTypes.map((type) => (
             <tr key={type}>
-              <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2 text-[10px]">
+              <td className={cn(
+                'sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2',
+                isShareView ? 'text-[9px]' : 'text-[10px]',
+              )}>
                 <span
                   className={cn(
                     'block whitespace-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-                    compact ? 'max-w-[5rem]' : 'max-w-[7.5rem]',
+                    isShareView ? 'max-w-[5rem]' : 'max-w-[7.5rem]',
                   )}
                   title={type}
                 >
@@ -667,7 +673,7 @@ function DayTypeGrid({
                       title={cell.tooltip}
                       className={cn(
                         'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors',
-                        compact ? 'text-[9px]' : 'text-[10px]',
+                        isShareView ? 'text-[9px]' : 'text-[10px]',
                         (cell.state === 'empty' || cell.state === 'neutral') &&
                           'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
                         cell.state === 'thin' && 'bg-muted/50 text-muted-foreground',
@@ -727,11 +733,11 @@ function RampLegend() {
 function DayTypeHrvSection({
   matrix,
   view,
-  compact = false,
+  isShareView = false,
 }: {
   matrix?: DayTypeHrvMatrix | null;
   view: 'day' | 'month';
-  compact?: boolean;
+  isShareView?: boolean;
 }) {
   if (!matrix) {
     return (
@@ -850,7 +856,7 @@ function DayTypeHrvSection({
               dayTypes={rowsOf(thisWeek?.rows ?? [])}
               days={days}
               cellFor={dayWiseCell(thisWeek?.rows ?? [], true)}
-              compact={compact}
+              isShareView={isShareView}
             />
           </div>
           <RampLegend />
@@ -860,7 +866,7 @@ function DayTypeHrvSection({
           <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
             Last 30 days
           </p>
-          <DayTypeGrid dayTypes={monthlyTypes} days={days} cellFor={monthlyCell} compact={compact} />
+          <DayTypeGrid dayTypes={monthlyTypes} days={days} cellFor={monthlyCell} isShareView={isShareView} />
           <RampLegend />
         </div>
       )}
@@ -886,7 +892,7 @@ function DayTypeHrvSection({
 }
 
 /** Sub-card A shell: title + info + Day Wise / Monthly toggle on one line. */
-function DayTypeHrvCard({ matrix, compact = false }: { matrix?: DayTypeHrvMatrix | null; compact?: boolean }) {
+function DayTypeHrvCard({ matrix, isShareView = false }: { matrix?: DayTypeHrvMatrix | null; isShareView?: boolean }) {
   const [view, setView] = useState<'day' | 'month'>('day');
   return (
     <div className="space-y-3">
@@ -909,9 +915,10 @@ function DayTypeHrvCard({ matrix, compact = false }: { matrix?: DayTypeHrvMatrix
             { value: 'day' as const, label: 'Day' },
             { value: 'month' as const, label: 'Monthly' },
           ]}
+          className={cn(isShareView && 'shadow-none [&_button]:shadow-none')}
         />
       </div>
-      <DayTypeHrvSection matrix={matrix} view={view} compact={compact} />
+      <DayTypeHrvSection matrix={matrix} view={view} isShareView={isShareView} />
     </div>
   );
 }
@@ -1212,6 +1219,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   ariaLabel="Drain lens"
                   value={tab}
                   onChange={(v) => setTab(v)}
+                  className={cn(isShareCapture && 'shadow-none [&_button]:shadow-none')}
                   options={[
                     { value: 'stress', label: 'Stress Load' },
                     { value: 'burnout', label: 'Burnout Risk' },
@@ -1220,26 +1228,26 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               )}
 
               {isShareCapture ? (
-                <div className="space-y-4">
+                tab === 'stress' ? (
                   <div className="space-y-3">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">STRESS LOAD</div>
                     {!tabStates.stress.unlocked ? (
                       <LockedTile title={tabStates.stress.title} message={tabStates.stress.message} progress={tabStates.stress.progress} />
                     ) : data.stressMatrix ? (
-                      <StressLoadTab matrix={data.stressMatrix} subcategoryLift={data.signalSummary?.subcategory_lift} compact />
+                      <StressLoadTab
+                        matrix={data.stressMatrix}
+                        subcategoryLift={data.signalSummary?.subcategory_lift}
+                        isShareView
+                      />
                     ) : (
                       <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">Need a few more wearable days during meetings to populate.</p>
                     )}
                   </div>
-
-                  <div className="border-t border-border/30" />
-
+                ) : (
                   <div className="space-y-3">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">BURNOUT RISK</div>
-                    <div className="rounded-xl bg-muted/20 p-3">
-                      <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} compact />
+                    <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2">
+                      <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} isShareView />
                     </div>
-                    <div className="rounded-xl bg-muted/20 p-3 space-y-3">
+                    <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2 space-y-3">
                       <div className="flex items-center gap-1.5">
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">WEEKLY BURNOUT TREND</div>
                         <InsightInfoModal
@@ -1250,13 +1258,13 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                       {!tabStates.burnout.unlocked ? (
                         <LockedTile title={tabStates.burnout.title} message={tabStates.burnout.message} progress={tabStates.burnout.progress} />
                       ) : data.burnoutMatrix ? (
-                        <BurnoutRiskTab matrix={data.burnoutMatrix} compact />
+                        <BurnoutRiskTab matrix={data.burnoutMatrix} isShareView />
                       ) : (
                         <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">Burnout Risk is unlocked, but this chart is still waiting on enough HRV history to render.</p>
                       )}
                     </div>
                   </div>
-                </div>
+                )
               ) : tab === 'stress' ? (
               !tabStates.stress.unlocked ? (
                 <LockedTile
@@ -1277,12 +1285,12 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
             ) : (
               <div className="space-y-3">
                 {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
-                <div className="rounded-xl bg-muted/20 p-3">
+                <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2">
                   <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
                 </div>
 
                 {/* B. Existing weekly HRV trend — contents untouched */}
-                <div className="rounded-xl bg-muted/20 p-3 space-y-3">
+                <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2 space-y-3">
                   <div className="flex items-center gap-1.5">
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
                       WEEKLY BURNOUT TREND
