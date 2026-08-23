@@ -991,7 +991,6 @@ function RecoveryTimeTab({ data }: { data: RecoveryByEvent }) {
 // ── Gating prompt (no wearable AND no calendar) ──────────────────────
 function GatingPrompt({ hasWearable, hasCalendar }: { hasWearable: boolean; hasCalendar: boolean }) {
   const navigate = useNavigate();
-  const isShareCapture = useShareCapture();
   const both = !hasWearable && !hasCalendar;
   return (
     <div className="py-3 space-y-3">
