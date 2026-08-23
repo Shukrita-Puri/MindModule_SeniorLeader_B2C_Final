@@ -97,7 +97,9 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // with pre-baked per-day-type copy and no formula reveal.
 // v19: bannerCopy strings rewritten in plain human language.
 // v20: finalized bannerCopy strings for all canonical day types.
-const ENGINE_VERSION = 20;
+// v21: stress-load matrix window reduced to 30 days.
+const ENGINE_VERSION = 21;
+
 
 
 // ── Types ──────────────────────────────────────────────────────────────
