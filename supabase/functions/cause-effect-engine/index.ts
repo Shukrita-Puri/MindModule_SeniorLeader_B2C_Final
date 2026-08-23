@@ -1322,10 +1322,13 @@ serve(async (req) => {
     const categoryDays = new Map<string, Set<string>>();
     for (const e of events as any[]) {
       if (!e.start_time) continue;
+      const dayKey = ymd(new Date(e.start_time));
+      if (dayKey < stressStartStr) continue;
       const label = categoryLabelOf(e);
       if (!categoryDays.has(label)) categoryDays.set(label, new Set());
-      categoryDays.get(label)!.add(ymd(new Date(e.start_time)));
+      categoryDays.get(label)!.add(dayKey);
     }
+
     const topEventTypes = [...categoryDays.entries()]
       .sort((a, b) => b[1].size - a[1].size)
       .slice(0, 7)
