@@ -1219,6 +1219,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   ariaLabel="Drain lens"
                   value={tab}
                   onChange={(v) => setTab(v)}
+                  className={cn(isShareCapture && 'shadow-none [&_button]:shadow-none')}
                   options={[
                     { value: 'stress', label: 'Stress Load' },
                     { value: 'burnout', label: 'Burnout Risk' },
@@ -1227,26 +1228,26 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               )}
 
               {isShareCapture ? (
-                <div className="space-y-4">
+                tab === 'stress' ? (
                   <div className="space-y-3">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">STRESS LOAD</div>
                     {!tabStates.stress.unlocked ? (
                       <LockedTile title={tabStates.stress.title} message={tabStates.stress.message} progress={tabStates.stress.progress} />
                     ) : data.stressMatrix ? (
-                      <StressLoadTab matrix={data.stressMatrix} subcategoryLift={data.signalSummary?.subcategory_lift} compact />
+                      <StressLoadTab
+                        matrix={data.stressMatrix}
+                        subcategoryLift={data.signalSummary?.subcategory_lift}
+                        isShareView
+                      />
                     ) : (
                       <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">Need a few more wearable days during meetings to populate.</p>
                     )}
                   </div>
-
-                  <div className="border-t border-border/30" />
-
+                ) : (
                   <div className="space-y-3">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">BURNOUT RISK</div>
-                    <div className="rounded-xl bg-muted/20 p-3">
-                      <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} compact />
+                    <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2">
+                      <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} isShareView />
                     </div>
-                    <div className="rounded-xl bg-muted/20 p-3 space-y-3">
+                    <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2 space-y-3">
                       <div className="flex items-center gap-1.5">
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">WEEKLY BURNOUT TREND</div>
                         <InsightInfoModal
@@ -1257,13 +1258,13 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                       {!tabStates.burnout.unlocked ? (
                         <LockedTile title={tabStates.burnout.title} message={tabStates.burnout.message} progress={tabStates.burnout.progress} />
                       ) : data.burnoutMatrix ? (
-                        <BurnoutRiskTab matrix={data.burnoutMatrix} compact />
+                        <BurnoutRiskTab matrix={data.burnoutMatrix} isShareView />
                       ) : (
                         <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">Burnout Risk is unlocked, but this chart is still waiting on enough HRV history to render.</p>
                       )}
                     </div>
                   </div>
-                </div>
+                )
               ) : tab === 'stress' ? (
               !tabStates.stress.unlocked ? (
                 <LockedTile
@@ -1284,12 +1285,12 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
             ) : (
               <div className="space-y-3">
                 {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
-                <div className="rounded-xl bg-muted/20 p-3">
+                <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2">
                   <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
                 </div>
 
                 {/* B. Existing weekly HRV trend — contents untouched */}
-                <div className="rounded-xl bg-muted/20 p-3 space-y-3">
+                <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2 space-y-3">
                   <div className="flex items-center gap-1.5">
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
                       WEEKLY BURNOUT TREND
