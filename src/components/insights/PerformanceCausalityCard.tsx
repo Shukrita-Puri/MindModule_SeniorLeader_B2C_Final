@@ -1218,13 +1218,14 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
                 <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
 
+                <div className="border-t border-border/30 my-2" />
 
                 {/* B. Existing weekly HRV trend — contents untouched */}
-                <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
                       WEEKLY BURNOUT TREND
-                    </p>
+                    </div>
                     <InsightInfoModal
                       title="Weekly burnout trend"
                       explanation="This chart tracks four weekly signals — calendar load, resting heart rate trend, HRV trend, and sleep deficit — to show how your burnout risk has shifted over the past five weeks. Higher intensity means that week sat deeper in your personal strain range. Each column is a past week, not a forecast."
@@ -1247,6 +1248,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 </div>
               </div>
             )}
+
           </div>
         </div>
       )}
