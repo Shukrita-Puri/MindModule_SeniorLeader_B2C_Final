@@ -818,28 +818,15 @@ function DayTypeHrvSection({
     <div className="space-y-3">
       {view === 'day' ? (
         <div className="space-y-3">
-          <div className="overflow-x-auto flex snap-x snap-mandatory scroll-smooth -mx-1 px-1">
-            {[
-              { key: 'This week', label: 'This week', rows: thisWeek?.rows ?? [] },
-              ...previousWeeks
-                .filter((w) => w.rows.length > 0)
-                .map((w) => ({
-                  key: w.weekLabel,
-                  label: DAY_WISE_LABELS[w.weekLabel] ?? w.weekLabel,
-                  rows: w.rows,
-                })),
-            ].map((p) => (
-              <div key={p.key} className="w-full flex-shrink-0 snap-start space-y-1.5 px-1">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
-                  {p.label}
-                </p>
-                <DayTypeGrid
-                  dayTypes={rowsOf(p.rows)}
-                  days={days}
-                  cellFor={dayWiseCell(p.rows, p.key === 'This week')}
-                />
-              </div>
-            ))}
+          <div className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
+              This week
+            </p>
+            <DayTypeGrid
+              dayTypes={rowsOf(thisWeek?.rows ?? [])}
+              days={days}
+              cellFor={dayWiseCell(thisWeek?.rows ?? [], true)}
+            />
           </div>
           <RampLegend />
         </div>
