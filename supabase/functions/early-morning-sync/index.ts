@@ -19,6 +19,7 @@ serve(async (req) => {
 
   const apnsEnv = validateApnsEnvironment();
   if (!apnsEnv.ok) {
+    console.error(`[early-morning-sync] Config error: ${apnsEnv.reason}`);
     return new Response(JSON.stringify({ error: apnsEnv.reason }), { status: 500, headers: corsHeaders });
   }
 
@@ -26,6 +27,7 @@ serve(async (req) => {
   const keyId = Deno.env.get("APNS_KEY_ID");
   const teamId = Deno.env.get("APNS_TEAM_ID");
   if (!p8Key || !keyId || !teamId) {
+    console.error(`[early-morning-sync] Config error: APNs credentials missing (P8_KEY, KEY_ID, or TEAM_ID)`);
     return new Response(JSON.stringify({ error: "APNs credentials missing" }), { status: 500, headers: corsHeaders });
   }
 
