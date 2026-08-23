@@ -14,7 +14,7 @@ export const EVENT_CATEGORY_NAMES: Record<EventCategoryId, string> = {
   A: 'Board & Governance',
   B: 'Influence & Persuasion',
   C: 'Visibility & Communication',
-  D: 'People & Diff Conversations',
+  D: 'Interpersonal & High-Stakes',
   E: 'Deep Work & Strategy',
   F: 'Conferences & External Events',
   G: 'Travel',
