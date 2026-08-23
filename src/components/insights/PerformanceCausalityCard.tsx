@@ -574,12 +574,10 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
         rampLabel={{ low: 'Low risk', high: 'High risk' }}
         emptyLabel="insufficient HRV days"
       />
-      <div className={cn('rounded-md px-2.5 py-2 text-[11px] font-medium', bannerStyle)}>
-        {bannerCopy}
-      </div>
-      <p className="text-[11px] leading-snug text-muted-foreground/80">
-        Each column is a past week, not a forecast. Higher intensity means that week sat deeper in your own HRV strain range versus your personal baseline.
-      </p>
+      {bannerCopy && (
+        <p className="text-[11px] leading-snug text-foreground/80">{bannerCopy}</p>
+      )}
+
     </div>
   );
 }
