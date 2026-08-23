@@ -321,13 +321,6 @@ const PatternAnalysisSection = ({
 
   return (
     <div className="space-y-4">
-      {/* Shared section title sits above both sub-cards, below the card header */}
-      <div className="flex items-start gap-2">
-        <span className="text-[13px] font-semibold tracking-wide uppercase text-primary/80 font-body leading-tight">
-          Mental Performance Patterns
-        </span>
-      </div>
-
       {/* Section A — check-in patterns */}
       <div className="rounded-xl p-3.5 space-y-4 bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="flex items-start gap-2">
@@ -452,7 +445,7 @@ const PatternAnalysisSection = ({
                 </p>
               </div>
               <InsightInfoModal
-                title="Mental Performance Patterns"
+                title="Physiology and Demand Patterns"
                 explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
               />
             </div>
