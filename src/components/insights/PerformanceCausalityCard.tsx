@@ -259,7 +259,7 @@ function DrainHeatmapGrid({
                   title={column}
                   className={cn(
                     'text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom',
-                    isShareView ? 'min-w-[2.4rem]' : 'min-w-[3.4rem]',
+                    isShareView ? 'min-w-[2rem]' : 'min-w-[3.4rem]',
                   )}
                 >
                   <span className="block truncate max-w-[5rem]">{column}</span>
@@ -272,14 +272,14 @@ function DrainHeatmapGrid({
               <tr key={row}>
                 <td className={cn(
                   'sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2',
-                  isShareView && 'text-[9px]',
+                  isShareView && 'text-[8px]',
                 )}>
                   {/* Frozen label column: stays put while the day columns scroll,
                       and scrolls on its own axis so long names read in full. */}
                   <span
                     className={cn(
                       'block whitespace-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-                       isShareView ? 'max-w-[5rem]' : 'max-w-[7.5rem]',
+                       isShareView ? 'max-w-[4.5rem]' : 'max-w-[7.5rem]',
                     )}
                     title={row}
                   >
@@ -640,7 +640,7 @@ function DayTypeGrid({
                 key={d}
                 className={cn(
                   'text-[9px] text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom',
-                  isShareView ? 'min-w-[2.4rem]' : 'min-w-[3.4rem]',
+                  isShareView ? 'min-w-[2rem]' : 'min-w-[3.4rem]',
                 )}
               >
                 {d}
@@ -653,12 +653,12 @@ function DayTypeGrid({
             <tr key={type}>
               <td className={cn(
                 'sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2',
-                isShareView ? 'text-[9px]' : 'text-[10px]',
+                isShareView ? 'text-[8px]' : 'text-[10px]',
               )}>
                 <span
                   className={cn(
                     'block whitespace-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-                    isShareView ? 'max-w-[5rem]' : 'max-w-[7.5rem]',
+                    isShareView ? 'max-w-[4.5rem]' : 'max-w-[7.5rem]',
                   )}
                   title={type}
                 >
@@ -1213,7 +1213,10 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
         ) : (
           <div className="space-y-4">
             {/* Section A — physiology and demand patterns */}
-            <div className="rounded-xl p-3.5 space-y-4 bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className={cn(
+              'rounded-xl p-3.5 space-y-4 bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)]',
+              isShareCapture && 'overflow-x-hidden',
+            )}>
               {!isShareCapture && (
                 <SegmentedToggle
                   ariaLabel="Drain lens"
@@ -1244,10 +1247,10 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2">
+                    <div className="rounded-xl bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)] -mx-1 px-1 py-2">
                       <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} isShareView />
                     </div>
-                    <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2 space-y-3">
+                    <div className="rounded-xl bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)] -mx-1 px-1 py-2 space-y-3">
                       <div className="flex items-center gap-1.5">
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">WEEKLY BURNOUT TREND</div>
                         <InsightInfoModal
@@ -1285,12 +1288,12 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
             ) : (
               <div className="space-y-3">
                 {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
-                <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2">
+                <div className="rounded-xl bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)] -mx-1 px-1 py-2">
                   <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
                 </div>
 
                 {/* B. Existing weekly HRV trend — contents untouched */}
-                <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2 space-y-3">
+                <div className="rounded-xl bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)] -mx-1 px-1 py-2 space-y-3">
                   <div className="flex items-center gap-1.5">
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
                       WEEKLY BURNOUT TREND
