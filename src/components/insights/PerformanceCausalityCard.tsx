@@ -868,12 +868,12 @@ function DayTypeHrvSection({
 function DayTypeHrvCard({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
   const [view, setView] = useState<'day' | 'month'>('day');
   return (
-    <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
-      <div className="flex items-center justify-between gap-2 mb-2.5">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
             DAY TYPE IMPACT ON BURNOUT
-          </p>
+          </div>
           <InsightInfoModal
             title="Day type impact on burnout"
             explanation="This chart shows how different types of days affect your physiological recovery overnight. Each cell reflects the change in next-day HRV for that day type. Darker cells indicate greater impact on recovery."
@@ -894,6 +894,7 @@ function DayTypeHrvCard({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
     </div>
   );
 }
+
 
 
 // ── Recovery Time tab ────────────────────────────────────────────────
