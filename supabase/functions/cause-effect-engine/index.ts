@@ -212,6 +212,19 @@ interface DayTypeHrvCell {
   confidence: Confidence | null;
   hasData: boolean;
 }
+interface DayTypeWeekRow {
+  dayType: string;
+  dayOfWeek: number;         // 0=Mon..6=Sun
+  dayLabel: string;          // "Mon".."Sun"
+  date: string;              // ISO date of the actual day
+  hrvDelta: number | null;   // signed ms vs baseline; null if no next-day HRV
+  hasNextDayHrv: boolean;
+}
+interface DayTypeWeeklyDeltas {
+  weekLabel: string;
+  weekStart: string;         // ISO date of Monday of that week
+  rows: DayTypeWeekRow[];
+}
 interface DayTypeHrvMatrix {
   dayTypes: string[];        // rows, most negative mean delta first
   days: string[];            // Mon..Sun
@@ -219,6 +232,8 @@ interface DayTypeHrvMatrix {
   hrvBaseline: number | null;
   maxAbsDelta: number;
   bannerCopy: string;
+  /** v14 — additive: per-ISO-week layers so the pattern builds week on week. */
+  weeklyDeltas: DayTypeWeeklyDeltas[];
   streakSummary: {
     currentStreakDays: number;
     currentStreakType: string | null;
