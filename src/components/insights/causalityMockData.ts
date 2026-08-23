@@ -97,6 +97,20 @@ interface MockDayTypeHrvCell {
   confidence: 'strong' | 'emerging' | null;
   hasData: boolean;
 }
+interface MockDayTypeWeekRow {
+  dayType: string;
+  dayOfWeek: number;
+  dayLabel: string;
+  date: string;
+  hrvDelta: number | null;
+  hasNextDayHrv: boolean;
+  eventCount: number;
+}
+interface MockDayTypeWeeklyDeltas {
+  weekLabel: string;
+  weekStart: string;
+  rows: MockDayTypeWeekRow[];
+}
 interface MockDayTypeHrvMatrix {
   dayTypes: string[];
   days: string[];
@@ -104,12 +118,14 @@ interface MockDayTypeHrvMatrix {
   hrvBaseline: number | null;
   maxAbsDelta: number;
   bannerCopy: string;
+  weeklyDeltas: MockDayTypeWeeklyDeltas[];
   streakSummary: {
     currentStreakDays: number;
     currentStreakType: string | null;
     streakHrvDeltaMean: number | null;
   } | null;
 }
+
 
 const mockCell = (
   hrvDelta: number | null,
