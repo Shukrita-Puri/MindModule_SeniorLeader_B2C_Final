@@ -91,7 +91,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
 // v13: additive `dayTypeHrvMatrix` (Day Type × next-day HRV). No existing
 // calculation, gate, or output field changed.
-const ENGINE_VERSION = 13;
+const ENGINE_VERSION = 14;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -212,6 +212,19 @@ interface DayTypeHrvCell {
   confidence: Confidence | null;
   hasData: boolean;
 }
+interface DayTypeWeekRow {
+  dayType: string;
+  dayOfWeek: number;         // 0=Mon..6=Sun
+  dayLabel: string;          // "Mon".."Sun"
+  date: string;              // ISO date of the actual day
+  hrvDelta: number | null;   // signed ms vs baseline; null if no next-day HRV
+  hasNextDayHrv: boolean;
+}
+interface DayTypeWeeklyDeltas {
+  weekLabel: string;
+  weekStart: string;         // ISO date of Monday of that week
+  rows: DayTypeWeekRow[];
+}
 interface DayTypeHrvMatrix {
   dayTypes: string[];        // rows, most negative mean delta first
   days: string[];            // Mon..Sun
@@ -219,6 +232,8 @@ interface DayTypeHrvMatrix {
   hrvBaseline: number | null;
   maxAbsDelta: number;
   bannerCopy: string;
+  /** v14 — additive: per-ISO-week layers so the pattern builds week on week. */
+  weeklyDeltas: DayTypeWeeklyDeltas[];
   streakSummary: {
     currentStreakDays: number;
     currentStreakType: string | null;
@@ -1596,6 +1611,10 @@ serve(async (req) => {
 
       const acc = new Map<string, number[][]>();
       const dayTypeByDate = new Map<string, string>();
+      // v14: week-on-week layers — one row per calendar day with events,
+      // bucketed into the same 5-week window used by burnoutMatrix.
+      const weekBuckets: DayTypeWeekRow[][] = WEEK_LABELS.map(() => []);
+
 
       const dates = [...eventsByDay.keys()].sort();
       for (const dateStr of dates) {
@@ -1613,6 +1632,24 @@ serve(async (req) => {
         dayTypeDiagnostics.push({ date: dateStr, dayType, secondaryCategory, loadMinutes, hrvDelta: hrvDelta === null ? null : Math.round(hrvDelta) });
 
         const di = dowIndex(dateStr);
+
+        // v14: week-on-week layer — every day with events lands in its week,
+        // even when next-day HRV has not been recorded yet.
+        if (di >= 0) {
+          for (let wi = 0; wi < WEEK_LABELS.length; wi++) {
+            if (!inWeek(dateStr, wi)) continue;
+            weekBuckets[wi].push({
+              dayType,
+              dayOfWeek: di,
+              dayLabel: DAY_COLS[di],
+              date: dateStr,
+              hrvDelta: hrvDelta === null ? null : Math.round(hrvDelta),
+              hasNextDayHrv: hrvDelta !== null,
+            });
+            break;
+          }
+        }
+
         if (hrvDelta === null || di < 0) continue;
         if (!acc.has(dayType)) acc.set(dayType, DAY_COLS.map(() => [] as number[]));
         acc.get(dayType)![di].push(hrvDelta);
@@ -1697,6 +1734,12 @@ serve(async (req) => {
         };
       })();
 
+      const weeklyDeltas: DayTypeWeeklyDeltas[] = WEEK_LABELS.map((weekLabel, wi) => ({
+        weekLabel,
+        weekStart: ymd(weekStart(wi)),
+        rows: weekBuckets[wi].slice().sort((a, b) => a.dayOfWeek - b.dayOfWeek),
+      }));
+
       return {
         dayTypes,
         days: DAY_COLS,
@@ -1704,6 +1747,7 @@ serve(async (req) => {
         hrvBaseline,
         maxAbsDelta,
         bannerCopy,
+        weeklyDeltas,
         streakSummary,
       };
     })();
