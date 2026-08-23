@@ -1037,6 +1037,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
   const [errored, setErrored] = useState(false);
   const [isMock, setIsMock] = useState(false);
   const [tab, setTab] = useState<'stress' | 'burnout'>('stress');
+  const isShareCapture = useShareCapture();
 
   useEffect(() => {
     let cancelled = false;
@@ -1212,7 +1213,6 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   ariaLabel="Drain lens"
                   value={tab}
                   onChange={(v) => setTab(v)}
-                  className="shadow-none [&_[role=tab]]:shadow-none"
                   options={[
                     { value: 'stress', label: 'Stress Load' },
                     { value: 'burnout', label: 'Burnout Risk' },
@@ -1276,7 +1276,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 </p>
               )
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
                 <div className="rounded-xl bg-muted/20 p-3">
                   <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
