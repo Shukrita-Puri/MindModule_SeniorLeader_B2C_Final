@@ -249,7 +249,7 @@ function DrainHeatmapGrid({
   return (
     <div className="space-y-3">
       <div className={cn('-mx-1 px-1', isShareView ? 'overflow-x-hidden' : 'overflow-x-auto')}>
-        <table className={cn('w-max min-w-full border-separate border-spacing-1', isShareView ? 'text-[8px]' : 'text-[11px]')}>
+        <table className={cn('border-separate border-spacing-1', isShareView ? 'w-full table-fixed' : 'w-max min-w-full', isShareView ? 'text-[8px]' : 'text-[11px]')}>
           <thead>
             <tr>
               <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
@@ -630,7 +630,7 @@ function DayTypeGrid({
 }) {
   return (
     <div className={cn('-mx-1 px-1 pb-2', isShareView ? 'overflow-x-hidden' : 'overflow-x-auto')}>
-      <table className={cn('w-max min-w-full border-separate border-spacing-1 mb-1', isShareView ? 'text-[8px]' : 'text-[10px]')}>
+      <table className={cn('border-separate border-spacing-1 mb-1', isShareView ? 'w-full table-fixed' : 'w-max min-w-full', isShareView ? 'text-[8px]' : 'text-[10px]')}>
 
         <thead>
           <tr>
