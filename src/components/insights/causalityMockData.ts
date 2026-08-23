@@ -97,6 +97,20 @@ interface MockDayTypeHrvCell {
   confidence: 'strong' | 'emerging' | null;
   hasData: boolean;
 }
+interface MockDayTypeWeekRow {
+  dayType: string;
+  dayOfWeek: number;
+  dayLabel: string;
+  date: string;
+  hrvDelta: number | null;
+  hasNextDayHrv: boolean;
+  eventCount: number;
+}
+interface MockDayTypeWeeklyDeltas {
+  weekLabel: string;
+  weekStart: string;
+  rows: MockDayTypeWeekRow[];
+}
 interface MockDayTypeHrvMatrix {
   dayTypes: string[];
   days: string[];
@@ -104,12 +118,14 @@ interface MockDayTypeHrvMatrix {
   hrvBaseline: number | null;
   maxAbsDelta: number;
   bannerCopy: string;
+  weeklyDeltas: MockDayTypeWeeklyDeltas[];
   streakSummary: {
     currentStreakDays: number;
     currentStreakType: string | null;
     streakHrvDeltaMean: number | null;
   } | null;
 }
+
 
 const mockCell = (
   hrvDelta: number | null,
@@ -301,6 +317,54 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
     hrvBaseline: 62,
     maxAbsDelta: 18,
     bannerCopy: 'Governance days suppress your next-day HRV the most (−18ms on average).',
+    weeklyDeltas: [
+      {
+        weekLabel: '4 wks ago',
+        weekStart: '2026-07-27',
+        rows: [
+          { dayType: 'Governance', dayOfWeek: 0, dayLabel: 'Mon', date: '2026-07-27', hrvDelta: -17, hasNextDayHrv: true, eventCount: 6 },
+          { dayType: 'Rhythm', dayOfWeek: 5, dayLabel: 'Sat', date: '2026-08-01', hrvDelta: 5, hasNextDayHrv: true, eventCount: 1 },
+        ],
+      },
+      {
+        weekLabel: '3 wks ago',
+        weekStart: '2026-08-03',
+        rows: [
+          { dayType: 'Travel', dayOfWeek: 1, dayLabel: 'Tue', date: '2026-08-04', hrvDelta: -15, hasNextDayHrv: true, eventCount: 3 },
+          { dayType: 'Deep Work', dayOfWeek: 2, dayLabel: 'Wed', date: '2026-08-05', hrvDelta: 3, hasNextDayHrv: true, eventCount: 2 },
+          { dayType: 'Mixed', dayOfWeek: 3, dayLabel: 'Thu', date: '2026-08-06', hrvDelta: -5, hasNextDayHrv: true, eventCount: 5 },
+        ],
+      },
+      {
+        weekLabel: '2 wks ago',
+        weekStart: '2026-08-10',
+        rows: [
+          { dayType: 'Governance', dayOfWeek: 0, dayLabel: 'Mon', date: '2026-08-10', hrvDelta: -19, hasNextDayHrv: true, eventCount: 7 },
+          { dayType: 'Mixed', dayOfWeek: 1, dayLabel: 'Tue', date: '2026-08-11', hrvDelta: -6, hasNextDayHrv: true, eventCount: 4 },
+          { dayType: 'Rhythm', dayOfWeek: 6, dayLabel: 'Sun', date: '2026-08-16', hrvDelta: 4, hasNextDayHrv: true, eventCount: 1 },
+        ],
+      },
+      {
+        weekLabel: 'Last week',
+        weekStart: '2026-08-17',
+        rows: [
+          { dayType: 'Governance', dayOfWeek: 0, dayLabel: 'Mon', date: '2026-08-17', hrvDelta: -18, hasNextDayHrv: true, eventCount: 6 },
+          { dayType: 'Travel', dayOfWeek: 1, dayLabel: 'Tue', date: '2026-08-18', hrvDelta: -14, hasNextDayHrv: true, eventCount: 3 },
+          { dayType: 'Deep Work', dayOfWeek: 2, dayLabel: 'Wed', date: '2026-08-19', hrvDelta: 2, hasNextDayHrv: true, eventCount: 2 },
+          { dayType: 'Mixed', dayOfWeek: 3, dayLabel: 'Thu', date: '2026-08-20', hrvDelta: -4, hasNextDayHrv: true, eventCount: 5 },
+          { dayType: 'Governance', dayOfWeek: 4, dayLabel: 'Fri', date: '2026-08-21', hrvDelta: -9, hasNextDayHrv: true, eventCount: 4 },
+        ],
+      },
+      {
+        weekLabel: 'This week',
+        weekStart: '2026-08-24',
+        rows: [
+          { dayType: 'Governance', dayOfWeek: 0, dayLabel: 'Mon', date: '2026-08-24', hrvDelta: -16, hasNextDayHrv: true, eventCount: 6 },
+          { dayType: 'Deep Work', dayOfWeek: 1, dayLabel: 'Tue', date: '2026-08-25', hrvDelta: 6, hasNextDayHrv: true, eventCount: 2 },
+          { dayType: 'Travel', dayOfWeek: 2, dayLabel: 'Wed', date: '2026-08-26', hrvDelta: null, hasNextDayHrv: false, eventCount: 3 },
+        ],
+      },
+    ],
     streakSummary: {
       currentStreakDays: 3,
       currentStreakType: 'Governance',
