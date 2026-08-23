@@ -1734,6 +1734,12 @@ serve(async (req) => {
         };
       })();
 
+      const weeklyDeltas: DayTypeWeeklyDeltas[] = WEEK_LABELS.map((weekLabel, wi) => ({
+        weekLabel,
+        weekStart: ymd(weekStart(wi)),
+        rows: weekBuckets[wi].slice().sort((a, b) => a.dayOfWeek - b.dayOfWeek),
+      }));
+
       return {
         dayTypes,
         days: DAY_COLS,
@@ -1741,6 +1747,7 @@ serve(async (req) => {
         hrvBaseline,
         maxAbsDelta,
         bannerCopy,
+        weeklyDeltas,
         streakSummary,
       };
     })();
