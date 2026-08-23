@@ -26,6 +26,10 @@ vi.mock('@/components/home/mrs/MrsSparkline', () => ({
   default: () => null,
 }));
 
+vi.mock('@/services/mrsDailySeries', () => ({
+  fetchMrsDailySeries: async () => ({ byDate: {} }),
+}));
+
 vi.mock('@/services/authTokenService', () => ({
   getAuthToken: async () => null,
 }));
