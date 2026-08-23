@@ -89,7 +89,9 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
  * mem://reliability/wearable-signal-diagnostics.
  */
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
-const ENGINE_VERSION = 12;
+// v13: additive `dayTypeHrvMatrix` (Day Type × next-day HRV). No existing
+// calculation, gate, or output field changed.
+const ENGINE_VERSION = 13;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
