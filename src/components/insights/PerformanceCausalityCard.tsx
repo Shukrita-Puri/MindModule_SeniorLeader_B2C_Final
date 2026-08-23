@@ -197,6 +197,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'High-Stakes': C.D,
   ['People & ' + 'Diff Conversations']: C.D,
   'People & Difficult Conversations': C.D,
+  'Interpersonal High-Stakes': C.D,
   'Deep work': C.E,
   'Solo work block': C.E,
   'Solo work blocks': C.E,
