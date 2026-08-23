@@ -116,6 +116,22 @@ interface DayTypeHrvCell {
   confidence: Confidence | null;
   hasData: boolean;
 }
+/** v14 — one row per calendar day with events, bucketed by ISO week. */
+interface DayTypeWeekRow {
+  dayType: string;
+  dayOfWeek: number;
+  dayLabel: string;
+  date: string;
+  hrvDelta: number | null;
+  hasNextDayHrv: boolean;
+  /** Events on that date that fed the dominant-day-type classification. */
+  eventCount?: number;
+}
+interface DayTypeWeeklyDeltas {
+  weekLabel: string;
+  weekStart: string;
+  rows: DayTypeWeekRow[];
+}
 interface DayTypeHrvMatrix {
   dayTypes: string[];
   days: string[];
@@ -123,12 +139,14 @@ interface DayTypeHrvMatrix {
   hrvBaseline: number | null;
   maxAbsDelta: number;
   bannerCopy: string;
+  weeklyDeltas?: DayTypeWeeklyDeltas[];
   streakSummary: {
     currentStreakDays: number;
     currentStreakType: string | null;
     streakHrvDeltaMean: number | null;
   } | null;
 }
+
 
 type DrainCell = {
   categoryId: string;
