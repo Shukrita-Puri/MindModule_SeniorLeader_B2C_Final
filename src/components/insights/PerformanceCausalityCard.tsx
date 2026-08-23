@@ -528,14 +528,9 @@ function StressLoadTab({
 
 // ── Burnout Risk tab ─────────────────────────────────────────────────
 function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
-  const { weeks, dims, cardTrajectory, bannerCopy } = matrix;
+  const { weeks, dims, bannerCopy } = matrix;
   const hrv = dims.find((d) => d.key === 'hrv');
-  const bannerStyle =
-    cardTrajectory === 'escalating'
-      ? 'bg-[#FAECE7] text-[#993C1D]'
-      : cardTrajectory === 'improving'
-        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
-        : 'bg-muted/40 text-muted-foreground';
+
 
   if (!hrv) {
     return (
