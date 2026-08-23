@@ -56,7 +56,9 @@ const corsHeaders = {
 
 // ── Tunables ───────────────────────────────────────────────────────────
 const WINDOW_DAYS = 60;
+const STRESS_LOAD_WINDOW_DAYS = 30;
 const MIN_OCCURRENCES_EMERGING = 3;
+
 const MIN_OCCURRENCES_STRONG = 5;
 const MIN_DELTA_PCT_EMERGING = 10;
 const MIN_DELTA_PCT_STRONG = 15;
@@ -95,7 +97,9 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // with pre-baked per-day-type copy and no formula reveal.
 // v19: bannerCopy strings rewritten in plain human language.
 // v20: finalized bannerCopy strings for all canonical day types.
-const ENGINE_VERSION = 20;
+// v21: stress-load matrix window reduced to 30 days.
+const ENGINE_VERSION = 21;
+
 
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -732,7 +736,9 @@ serve(async (req) => {
 
     const startStr = ymd(addDays(today, -days));
     const startIso = new Date(startStr + "T00:00:00Z").toISOString();
+    const stressStartStr = ymd(addDays(today, -STRESS_LOAD_WINDOW_DAYS));
     const nowIso = new Date().toISOString();
+
 
     // Parallel reads ---------------------------------------------------
     const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes] = await Promise.all([
@@ -1257,13 +1263,15 @@ serve(async (req) => {
     // ════════════════════════════════════════════════════════════════════
 
     // Re-fetch the wearable rows with hr_samples + hrv (we already have
-    // wearable but it doesn't include hr_samples). Cheap query, scoped to
-    // the same window.
+    // wearable but it doesn't include hr_samples). Cheap query, scoped to the
+    // stress-load window (30 days) so the matrix stays recent and responsive.
+
     const { data: wearableExt } = await supabase
       .from("wearable_data")
       .select("summary_date, hr_samples, resting_heart_rate, hrv, sleep_score, total_sleep_minutes")
       .eq("user_id", userId)
-      .gte("summary_date", startStr);
+      .gte("summary_date", stressStartStr);
+
     const hrSamplesByDay = new Map<string, Array<{ t: string; v: number }>>();
     (wearableExt || []).forEach((w: any) => {
       if (Array.isArray(w.hr_samples) && w.hr_samples.length > 0) {
@@ -1316,10 +1324,13 @@ serve(async (req) => {
     const categoryDays = new Map<string, Set<string>>();
     for (const e of events as any[]) {
       if (!e.start_time) continue;
+      const dayKey = ymd(new Date(e.start_time));
+      if (dayKey < stressStartStr) continue;
       const label = categoryLabelOf(e);
       if (!categoryDays.has(label)) categoryDays.set(label, new Set());
-      categoryDays.get(label)!.add(ymd(new Date(e.start_time)));
+      categoryDays.get(label)!.add(dayKey);
     }
+
     const topEventTypes = [...categoryDays.entries()]
       .sort((a, b) => b[1].size - a[1].size)
       .slice(0, 7)
@@ -1348,14 +1359,16 @@ serve(async (req) => {
     if (restingBaseline !== null && topEventTypes.length > 0) {
       for (const e of events as any[]) {
         if (!e.start_time || !e.end_time) continue;
+        const dayKey = ymd(new Date(e.start_time));
+        if (dayKey < stressStartStr) continue;
         const dIdx = dayIndex(e.start_time);
         if (dIdx < 0) continue;
         const label = categoryLabelOf(e);
         const colIdx = topEventTypes.indexOf(label);
         if (colIdx < 0) continue;
-        const dayKey = ymd(new Date(e.start_time));
         const samples = hrSamplesByDay.get(dayKey);
         if (!samples || samples.length === 0) continue; // honest: omit cell, no day-max proxy
+
 
         const result = eventHrDelta(e, samples, restingHrByDay, restingBaseline);
         if (!result) continue;
