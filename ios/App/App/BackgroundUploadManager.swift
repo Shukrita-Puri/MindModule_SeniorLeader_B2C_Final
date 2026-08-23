@@ -112,7 +112,7 @@ import Foundation
                 NativeOutbox.shared.markFailure(id: id, provider: provider, error: "Partial success, requeued")
             } else {
                 NSLog("[BackgroundUploadManager] Task \(task.taskIdentifier) succeeded.")
-                NativeOutbox.shared.removeItem(id: id, provider: provider)
+                NativeOutbox.shared.remove(id: id, provider: provider)
                 
                 if provider == .appleHealth {
                     NativeSyncDiagnostics.shared.recordHealthUpload()

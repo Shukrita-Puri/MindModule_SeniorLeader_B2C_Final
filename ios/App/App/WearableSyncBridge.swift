@@ -64,7 +64,7 @@ import Security
             predicate: nil,
             anchor: anchor,
             limit: HKObjectQueryNoLimit
-        ) { [weak self] _, samples, deleted, newAnchor, error in
+        ) { _, samples, deleted, newAnchor, error in
             if let error = error {
                 NSLog("[WearableSyncBridge] Anchored probe failed for \(type.identifier): \(error.localizedDescription)")
                 // Fail-open: assume there might be new data so we don't lose syncs.

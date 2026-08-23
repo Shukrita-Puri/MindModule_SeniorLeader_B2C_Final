@@ -249,7 +249,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         // Forward to Capacitor plugin for normal push notifications
         NotificationCenter.default.post(
-            name: .capacitorDidReceiveRemoteNotification,
+            name: Notification.Name("capacitorDidReceiveRemoteNotification"),
             object: userInfo
         )
         
