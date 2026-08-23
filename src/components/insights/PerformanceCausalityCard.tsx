@@ -809,7 +809,10 @@ function DayTypeHrvSection({
     if (agg.n < 3) {
       return { key, tooltip, label: signedMs(agg.value), state: 'thin' };
     }
-    const { bg, fg } = hrvCostColor(agg.value, monthlyMax);
+    const { bg, fg } = Math.abs(agg.value) < 4
+      ? { bg: CORAL_RAMP[0], fg: '#5b2716' }
+      : hrvCostColor(agg.value, monthlyMax);
+
     return { key, tooltip, label: signedMs(agg.value), state: 'value', bg, fg };
   };
 
