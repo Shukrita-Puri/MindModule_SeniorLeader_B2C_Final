@@ -1574,6 +1574,142 @@ serve(async (req) => {
     payload.recoveryCostTimeline = recoveryCostTimeline;
 
     // ════════════════════════════════════════════════════════════════════
+    // v13: DAY TYPE × NEXT-DAY HRV IMPACT (additive)
+    // ════════════════════════════════════════════════════════════════════
+    // Progressive by design: thin cells (n<3) are returned with
+    // confidence:null and hasData:true so the grid populates week on week.
+    // Only bannerCopy is withheld until one cell reaches "emerging".
+    const dayTypeDiagnostics: Array<{ date: string; dayType: string; secondaryCategory: string | null; loadMinutes: number; hrvDelta: number | null }> = [];
+    const dayTypeHrvMatrix: DayTypeHrvMatrix | null = (() => {
+      const hrvValues = (wearable as any[])
+        .map((w) => (typeof w.hrv === "number" && w.hrv > 0 ? (w.hrv as number) : null))
+        .filter((v): v is number => v !== null);
+      if (hrvValues.length < 5) return null;
+      const hrvBaseline = Math.round(mean(hrvValues) * 10) / 10;
+
+      const DAY_COLS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const dowIndex = (dateStr: string): number => {
+        const d = dayOfWeekFromIsoDate(dateStr); // 0=Sun..6=Sat
+        if (!Number.isFinite(d) || d < 0 || d > 6) return -1;
+        return (d + 6) % 7; // 0=Mon..6=Sun
+      };
+
+      const acc = new Map<string, number[][]>();
+      const dayTypeByDate = new Map<string, string>();
+
+      const dates = [...eventsByDay.keys()].sort();
+      for (const dateStr of dates) {
+        const dayEvents = eventsByDay.get(dateStr) || [];
+        if (dayEvents.length === 0) continue;
+        const loadMinutes = dayEvents.reduce((a: number, e: any) => a + durationMinutesOf(e), 0);
+        const { dayType, secondaryCategory } = classifyDominantDayType(dayEvents as any[], loadMinutes);
+        dayTypeByDate.set(dateStr, dayType);
+
+        const nextDayStr = ymd(addDays(new Date(dateStr + "T00:00:00Z"), 1));
+        const nextRow: any = wearableByDay.get(nextDayStr);
+        const nextDayHrv = typeof nextRow?.hrv === "number" && nextRow.hrv > 0 ? (nextRow.hrv as number) : null;
+        const hrvDelta = nextDayHrv !== null ? nextDayHrv - hrvBaseline : null;
+
+        dayTypeDiagnostics.push({ date: dateStr, dayType, secondaryCategory, loadMinutes, hrvDelta: hrvDelta === null ? null : Math.round(hrvDelta) });
+
+        const di = dowIndex(dateStr);
+        if (hrvDelta === null || di < 0) continue;
+        if (!acc.has(dayType)) acc.set(dayType, DAY_COLS.map(() => [] as number[]));
+        acc.get(dayType)![di].push(hrvDelta);
+      }
+
+      const typeMeans: Array<{ type: string; meanDelta: number }> = [];
+      acc.forEach((rows, type) => {
+        const all = rows.flat();
+        if (all.length === 0) return;
+        typeMeans.push({ type, meanDelta: mean(all) });
+      });
+      typeMeans.sort((a, b) => a.meanDelta - b.meanDelta); // most negative (highest cost) first
+      const dayTypes = typeMeans.map((t) => t.type);
+
+      const cells: DayTypeHrvCell[][] = dayTypes.map((type) =>
+        DAY_COLS.map((_, di) => {
+          const vals = acc.get(type)![di];
+          if (vals.length === 0) {
+            return { hrvDelta: null, n: 0, confidence: null, hasData: false };
+          }
+          return {
+            hrvDelta: Math.round(mean(vals)),
+            n: vals.length,
+            confidence:
+              vals.length >= MIN_OCCURRENCES_STRONG ? "strong" :
+              vals.length >= MIN_OCCURRENCES_EMERGING ? "emerging" : null,
+            hasData: true,
+          } as DayTypeHrvCell;
+        }),
+      );
+
+      let maxAbsDelta = 0;
+      cells.forEach((row) =>
+        row.forEach((c) => {
+          if (c.hasData && c.hrvDelta !== null) {
+            maxAbsDelta = Math.max(maxAbsDelta, Math.abs(c.hrvDelta));
+          }
+        }),
+      );
+
+      const anyConfident = cells.some((row) => row.some((c) => c.confidence !== null));
+      let bannerCopy = "";
+      if (anyConfident && typeMeans.length > 0) {
+        const worst = typeMeans[0];
+        const best = typeMeans[typeMeans.length - 1];
+        if (worst.meanDelta < 0) {
+          bannerCopy = `${worst.type} days suppress your next-day HRV the most (−${Math.abs(Math.round(worst.meanDelta))}ms on average).`;
+        } else {
+          bannerCopy = `${best.type} days are your strongest next-day HRV recovery days (+${Math.round(best.meanDelta)}ms on average).`;
+        }
+      }
+
+      // Current streak: consecutive calendar days ending today (or the most
+      // recent day with events) sharing the same dominant day type.
+      const streakSummary = (() => {
+        const todayKey = ymd(today);
+        let cursor = dayTypeByDate.has(todayKey) ? todayKey : null;
+        if (!cursor) {
+          const prev = ymd(addDays(today, -1));
+          cursor = dayTypeByDate.has(prev) ? prev : null;
+        }
+        if (!cursor) return null;
+        const streakType = dayTypeByDate.get(cursor)!;
+        const streakDates: string[] = [];
+        let probe = cursor;
+        while (dayTypeByDate.get(probe) === streakType) {
+          streakDates.push(probe);
+          probe = ymd(addDays(new Date(probe + "T00:00:00Z"), -1));
+        }
+        if (streakDates.length < 2) return null;
+        const deltas = streakDates
+          .map((d) => {
+            const nd = ymd(addDays(new Date(d + "T00:00:00Z"), 1));
+            const row: any = wearableByDay.get(nd);
+            return typeof row?.hrv === "number" && row.hrv > 0 ? row.hrv - hrvBaseline : null;
+          })
+          .filter((v): v is number => v !== null);
+        return {
+          currentStreakDays: streakDates.length,
+          currentStreakType: streakType,
+          streakHrvDeltaMean: deltas.length ? Math.round(mean(deltas)) : null,
+        };
+      })();
+
+      return {
+        dayTypes,
+        days: DAY_COLS,
+        cells,
+        hrvBaseline,
+        maxAbsDelta,
+        bannerCopy,
+        streakSummary,
+      };
+    })();
+    payload.dayTypeHrvMatrix = dayTypeHrvMatrix;
+
+    // ════════════════════════════════════════════════════════════════════
     // v5: RECOVERY BY EVENT — Heart Rate based per A–H event taxonomy
     // ════════════════════════════════════════════════════════════════════
     // Surfaces "after which events does recovery take longest" inside the
