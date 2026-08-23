@@ -555,23 +555,20 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-          Weekly HRV trend
-        </div>
-        {earlyRead && (
+      {earlyRead && (
+        <div>
           <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
             Early read
           </span>
-        )}
-      </div>
+        </div>
+      )}
       <DrainHeatmapGrid
         rows={['Overall']}
         columns={weekLabels}
         cells={gridCells}
         maxValue={maxValue}
         unit="risk score"
-        rampLabel={{ low: 'Low risk', high: 'High risk' }}
+        rampLabel={{ low: 'Low HRV risk', high: 'High HRV risk' }}
         emptyLabel="insufficient HRV days"
       />
       {bannerCopy && (
@@ -593,9 +590,10 @@ type GridCellRender = {
   tooltip: string;
   label: string | null;
   sublabel?: string | null;
-  state: 'value' | 'thin' | 'muted' | 'empty';
+  state: 'value' | 'thin' | 'neutral' | 'empty';
   bg?: string;
   fg?: string;
+  opacity?: number;
 };
 
 function DayTypeGrid({
@@ -643,14 +641,14 @@ function DayTypeGrid({
                       title={cell.tooltip}
                       className={cn(
                         'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors text-[10px]',
-                        cell.state === 'empty' && 'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
-
-                        cell.state === 'muted' &&
-                          'bg-muted/40 border border-border/60 text-muted-foreground/70',
+                        (cell.state === 'empty' || cell.state === 'neutral') &&
+                          'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
                         cell.state === 'thin' && 'bg-muted/50 text-muted-foreground',
                       )}
                       style={
-                        cell.state === 'value' ? { background: cell.bg, color: cell.fg } : undefined
+                        cell.state === 'value'
+                          ? { background: cell.bg, color: cell.fg, opacity: cell.opacity }
+                          : undefined
                       }
                     >
                       {cell.label ?? ''}
@@ -671,16 +669,18 @@ function DayTypeGrid({
   );
 }
 
-// Directional ramp for HRV cost: only meaningful negative deltas (<= -4ms)
-// climb the coral ramp. Zero/positive or near-baseline deltas stay palest.
-function hrvCostColor(delta: number, maxAbsDelta: number): { bg: string; fg: string } {
-  const palest = { bg: CORAL_RAMP[0], fg: '#5b2716' };
-  if (!Number.isFinite(delta) || delta > -4) return palest;
-  const magnitude = Math.abs(delta);
-  const max = Math.max(maxAbsDelta, 4);
-  const t = max > 4 ? Math.max(0, Math.min(1, (magnitude - 4) / (max - 4))) : 0;
-  const idx = 1 + Math.round(t * (CORAL_RAMP.length - 2)); // stop 2 .. stop 7
-  return { bg: CORAL_RAMP[idx], fg: idx >= 4 ? '#FFF5EE' : '#5b2716' };
+// Fixed absolute severity bands for HRV cost. No window-relative scaling.
+// Neutral means no colour (same treatment as empty cells).
+function hrvBand(delta: number | null): { bg: string; fg: string; neutral: boolean } {
+  if (delta === null || !Number.isFinite(delta) || delta > -4) {
+    return { bg: '', fg: '', neutral: true };
+  }
+  if (delta >= -6) return { bg: CORAL_RAMP[1], fg: '#5b2716', neutral: false };
+  if (delta >= -9) return { bg: CORAL_RAMP[2], fg: '#5b2716', neutral: false };
+  if (delta >= -13) return { bg: CORAL_RAMP[3], fg: '#5b2716', neutral: false };
+  if (delta >= -18) return { bg: CORAL_RAMP[4], fg: '#FFF5EE', neutral: false };
+  if (delta >= -24) return { bg: CORAL_RAMP[5], fg: '#FFF5EE', neutral: false };
+  return { bg: CORAL_RAMP[6], fg: '#FFF5EE', neutral: false };
 }
 
 function RampLegend() {
@@ -713,18 +713,11 @@ function DayTypeHrvSection({
     );
   }
 
-  const { dayTypes, days, hrvBaseline, maxAbsDelta, bannerCopy, streakSummary } = matrix;
+  const { dayTypes, days, hrvBaseline, bannerCopy, streakSummary } = matrix;
   const weekly = matrix.weeklyDeltas ?? [];
   const baselineLabel = hrvBaseline ?? '—';
 
   const thisWeek = weekly.find((w) => w.weekLabel === 'This week');
-
-  const thisWeekMax = Math.max(
-    4,
-    ...(thisWeek?.rows ?? [])
-      .filter((r) => r.hasNextDayHrv && r.hrvDelta !== null && r.hrvDelta < -4)
-      .map((r) => Math.abs(r.hrvDelta as number)),
-  );
 
   const rowsOf = (weekRows: DayTypeWeekRow[]) => {
     const present = dayTypes.filter((t) => weekRows.some((r) => r.dayType === t));
@@ -752,20 +745,26 @@ function DayTypeHrvSection({
           tooltip: `${countLine}\nNext-day HRV: not yet recorded`,
           label: null,
           sublabel: 'pending',
-          state: 'muted',
+          state: 'thin',
         };
       }
-      const { bg, fg } = Math.abs(row.hrvDelta) < 4
-        ? { bg: CORAL_RAMP[0], fg: '#5b2716' }
-        : hrvCostColor(row.hrvDelta, thisWeekMax);
+      const band = hrvBand(row.hrvDelta);
+      if (band.neutral) {
+        return {
+          key,
+          tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
+          label: signedMs(row.hrvDelta),
+          state: 'neutral',
+        };
+      }
 
       return {
         key,
         tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
         label: signedMs(row.hrvDelta),
         state: 'value',
-        bg,
-        fg,
+        bg: band.bg,
+        fg: band.fg,
       };
     };
 
@@ -790,15 +789,7 @@ function DayTypeHrvSection({
     const present = dayTypes.filter((t) => days.some((_, i) => monthlyValue(t, i)));
     return present.length ? present : dayTypes;
   })();
-  const monthlyMax = Math.max(
-    0,
-    ...monthlyTypes.flatMap((t) =>
-      days.map((_, i) => {
-        const v = monthlyValue(t, i);
-        return v ? Math.abs(v.value) : 0;
-      }),
-    ),
-  );
+  // No window-relative scaling; hrvBand uses fixed absolute bands.
   const monthlyCell = (type: string, colIdx: number, day: string): GridCellRender => {
     const key = `${type}-${day}`;
     const agg = monthlyValue(type, colIdx);
@@ -806,14 +797,14 @@ function DayTypeHrvSection({
       return { key, tooltip: `${type} ${day}s — no data yet`, label: null, state: 'empty' };
     }
     const tooltip = `${type} ${day}s — ${agg.n} occurrence${agg.n === 1 ? '' : 's'}\nAverage next-day HRV: ${signedMs(agg.value)} vs your ${baselineLabel}ms baseline`;
-    if (agg.n < 3) {
-      return { key, tooltip, label: signedMs(agg.value), state: 'thin' };
+    const band = hrvBand(agg.value);
+    if (band.neutral) {
+      return { key, tooltip, label: signedMs(agg.value), state: 'neutral' };
     }
-    const { bg, fg } = Math.abs(agg.value) < 4
-      ? { bg: CORAL_RAMP[0], fg: '#5b2716' }
-      : hrvCostColor(agg.value, monthlyMax);
-
-    return { key, tooltip, label: signedMs(agg.value), state: 'value', bg, fg };
+    if (agg.n < 3) {
+      return { key, tooltip, label: signedMs(agg.value), state: 'value', bg: band.bg, fg: band.fg, opacity: 0.55 };
+    }
+    return { key, tooltip, label: signedMs(agg.value), state: 'value', bg: band.bg, fg: band.fg };
   };
 
   const anyData = weekly.some((w) => w.rows.length > 0);
