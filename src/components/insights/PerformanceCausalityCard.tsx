@@ -248,8 +248,8 @@ function DrainHeatmapGrid({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto -mx-1 px-1">
-        <table className={cn('w-max min-w-full border-separate border-spacing-1', isShareView ? 'text-[9px]' : 'text-[11px]')}>
+      <div className={cn('-mx-1 px-1', isShareView ? 'overflow-x-hidden' : 'overflow-x-auto')}>
+        <table className={cn('border-separate border-spacing-1', isShareView ? 'w-full table-fixed' : 'w-max min-w-full', isShareView ? 'text-[8px]' : 'text-[11px]')}>
           <thead>
             <tr>
               <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
@@ -629,8 +629,8 @@ function DayTypeGrid({
   isShareView?: boolean;
 }) {
   return (
-    <div className="overflow-x-auto -mx-1 px-1 pb-2">
-      <table className={cn('w-max min-w-full border-separate border-spacing-1 mb-1', isShareView ? 'text-[9px]' : 'text-[10px]')}>
+    <div className={cn('-mx-1 px-1 pb-2', isShareView ? 'overflow-x-hidden' : 'overflow-x-auto')}>
+      <table className={cn('border-separate border-spacing-1 mb-1', isShareView ? 'w-full table-fixed' : 'w-max min-w-full', isShareView ? 'text-[8px]' : 'text-[10px]')}>
 
         <thead>
           <tr>
@@ -673,7 +673,7 @@ function DayTypeGrid({
                       title={cell.tooltip}
                       className={cn(
                         'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors',
-                        isShareView ? 'text-[9px]' : 'text-[10px]',
+                        isShareView ? 'text-[8px]' : 'text-[10px]',
                         (cell.state === 'empty' || cell.state === 'neutral') &&
                           'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
                         cell.state === 'thin' && 'bg-muted/50 text-muted-foreground',
