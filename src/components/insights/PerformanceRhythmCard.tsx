@@ -445,7 +445,7 @@ const PatternAnalysisSection = ({
                 </p>
               </div>
               <InsightInfoModal
-                title="Mental Performance Patterns"
+                title="Physiology and Demand Patterns"
                 explanation="Patterns derived from your wearable and calendar data — physiology and demand — kept separate from your self-reported check-in patterns."
               />
             </div>
