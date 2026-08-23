@@ -474,13 +474,14 @@ function StressLoadTab({
 
   return (
     <div className="space-y-3">
-      <div>
+      <div className="space-y-0.5">
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-          STRESS LOAD TREND
+          Stress Load Trend
         </div>
         <p className="text-[10px] text-muted-foreground/60">Last 30 days</p>
       </div>
       <DrainHeatmapGrid
+
 
         rows={rows}
         columns={weekColumns}
