@@ -586,13 +586,6 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
 // Two views over `weeklyDeltas` only: Day Wise (current week + scrollable
 // history) and Monthly (client-side 30-day means). `cells` is not rendered.
 
-const DAY_WISE_LABELS: Record<string, string> = {
-  'Last week': 'Last week',
-  '2 wks ago': '2 weeks ago',
-  '3 wks ago': '3 weeks ago',
-  '4 wks ago': '4 weeks ago',
-};
-
 const signedMs = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))}ms`;
 
 type GridCellRender = {
@@ -722,11 +715,7 @@ function DayTypeHrvSection({
   const weekly = matrix.weeklyDeltas ?? [];
   const baselineLabel = hrvBaseline ?? '—';
 
-  // Cost-scaled ramp: suppression (negative delta) reads dark, recovery light.
-  const rampScore = (delta: number, max: number) => (max > 0 ? (max - delta) / 2 : 0);
-
   const thisWeek = weekly.find((w) => w.weekLabel === 'This week');
-  const previousWeeks = weekly.filter((w) => w.weekLabel !== 'This week').slice().reverse();
 
   const rowsOf = (weekRows: DayTypeWeekRow[]) => {
     const present = dayTypes.filter((t) => weekRows.some((r) => r.dayType === t));
@@ -757,7 +746,7 @@ function DayTypeHrvSection({
           state: 'muted',
         };
       }
-      const { bg, fg } = coralFor(rampScore(row.hrvDelta, maxAbsDelta), maxAbsDelta);
+      const { bg, fg } = hrvCostColor(row.hrvDelta, maxAbsDelta);
       return {
         key,
         tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
@@ -808,7 +797,7 @@ function DayTypeHrvSection({
     if (agg.n < 3) {
       return { key, tooltip, label: signedMs(agg.value), state: 'thin' };
     }
-    const { bg, fg } = coralFor(rampScore(agg.value, monthlyMax), monthlyMax);
+    const { bg, fg } = hrvCostColor(agg.value, monthlyMax);
     return { key, tooltip, label: signedMs(agg.value), state: 'value', bg, fg };
   };
 
