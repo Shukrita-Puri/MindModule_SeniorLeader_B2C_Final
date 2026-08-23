@@ -1267,7 +1267,8 @@ serve(async (req) => {
       .from("wearable_data")
       .select("summary_date, hr_samples, resting_heart_rate, hrv, sleep_score, total_sleep_minutes")
       .eq("user_id", userId)
-      .gte("summary_date", startStr);
+      .gte("summary_date", stressStartStr);
+
     const hrSamplesByDay = new Map<string, Array<{ t: string; v: number }>>();
     (wearableExt || []).forEach((w: any) => {
       if (Array.isArray(w.hr_samples) && w.hr_samples.length > 0) {
