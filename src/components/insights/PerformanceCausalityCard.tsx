@@ -589,10 +589,121 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
   );
 }
 
-// ── v13: Day Type × HRV Impact (Burnout Risk tab, section A) ─────────
-// Progressive by design: thin cells (n<3) are shown greyed with their
-// sample count rather than withheld, so the pattern builds in view.
-function DayTypeHrvSection({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
+// ── v14: Day Type × HRV Impact (Burnout Risk tab, section A) ─────────
+// Two views over `weeklyDeltas` only: Day Wise (current week + scrollable
+// history) and Monthly (client-side 30-day means). `cells` is not rendered.
+
+const DAY_WISE_LABELS: Record<string, string> = {
+  'Last week': 'Last week',
+  '2 wks ago': '2 weeks ago',
+  '3 wks ago': '3 weeks ago',
+  '4 wks ago': '4 weeks ago',
+};
+
+const signedMs = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))}ms`;
+
+type GridCellRender = {
+  key: string;
+  tooltip: string;
+  label: string | null;
+  sublabel?: string | null;
+  state: 'value' | 'thin' | 'muted' | 'empty';
+  bg?: string;
+  fg?: string;
+};
+
+function DayTypeGrid({
+  dayTypes,
+  days,
+  cellFor,
+}: {
+  dayTypes: string[];
+  days: string[];
+  cellFor: (dayType: string, dayIdx: number, day: string) => GridCellRender;
+}) {
+  return (
+    <div className="overflow-x-auto -mx-1 px-1">
+      <table className="w-max min-w-full text-[11px] border-separate border-spacing-1">
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
+            {days.map((d) => (
+              <th
+                key={d}
+                className="text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom min-w-[3.4rem]"
+              >
+                {d}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dayTypes.map((type) => (
+            <tr key={type}>
+              <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2">
+                <span
+                  className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  title={type}
+                >
+                  {type}
+                </span>
+              </td>
+              {days.map((day, colIdx) => {
+                const cell = cellFor(type, colIdx, day);
+                return (
+                  <td key={cell.key} className="p-0">
+                    <div
+                      title={cell.tooltip}
+                      className={cn(
+                        'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors',
+                        cell.state === 'empty' && 'bg-white/60 dark:bg-white/5 text-muted-foreground/30',
+                        cell.state === 'muted' &&
+                          'bg-muted/40 border border-border/60 text-muted-foreground/70',
+                        cell.state === 'thin' && 'bg-muted/50 text-muted-foreground',
+                      )}
+                      style={
+                        cell.state === 'value' ? { background: cell.bg, color: cell.fg } : undefined
+                      }
+                    >
+                      {cell.label ?? ''}
+                      {cell.sublabel && (
+                        <span className="text-[8px] text-muted-foreground/70 mt-0.5">
+                          {cell.sublabel}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RampLegend() {
+  return (
+    <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+      <span>Lower Impact</span>
+      <div className="flex gap-1">
+        {CORAL_RAMP.map((c) => (
+          <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
+        ))}
+      </div>
+      <span>Higher Impact</span>
+    </div>
+  );
+}
+
+function DayTypeHrvSection({
+  matrix,
+  view,
+}: {
+  matrix?: DayTypeHrvMatrix | null;
+  view: 'day' | 'month';
+}) {
   if (!matrix) {
     return (
       <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
@@ -602,98 +713,141 @@ function DayTypeHrvSection({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
     );
   }
 
-  const { dayTypes, days, cells, hrvBaseline, maxAbsDelta, bannerCopy, streakSummary } = matrix;
-  const anyData = cells.some((row) => row.some((c) => c.hasData));
-  const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))}ms`;
+  const { dayTypes, days, hrvBaseline, maxAbsDelta, bannerCopy, streakSummary } = matrix;
+  const weekly = matrix.weeklyDeltas ?? [];
+  const baselineLabel = hrvBaseline ?? '—';
+
   // Cost-scaled ramp: suppression (negative delta) reads dark, recovery light.
-  const rampScore = (delta: number) =>
-    maxAbsDelta > 0 ? (maxAbsDelta - delta) / 2 : 0;
+  const rampScore = (delta: number, max: number) => (max > 0 ? (max - delta) / 2 : 0);
+
+  const thisWeek = weekly.find((w) => w.weekLabel === 'This week');
+  const previousWeeks = weekly.filter((w) => w.weekLabel !== 'This week').slice().reverse();
+
+  const rowsOf = (weekRows: DayTypeWeekRow[]) => {
+    const present = dayTypes.filter((t) => weekRows.some((r) => r.dayType === t));
+    const extra = [...new Set(weekRows.map((r) => r.dayType))].filter((t) => !dayTypes.includes(t));
+    const list = [...present, ...extra];
+    return list.length ? list : dayTypes;
+  };
+
+  const dayWiseCell =
+    (weekRows: DayTypeWeekRow[], allowPending: boolean) =>
+    (type: string, colIdx: number, day: string): GridCellRender => {
+      const row = weekRows.find((r) => r.dayType === type && r.dayOfWeek === colIdx);
+      const key = `${type}-${day}`;
+      if (!row) {
+        return { key, tooltip: `${type} ${day}s — no data yet`, label: null, state: 'empty' };
+      }
+      const countLine =
+        typeof row.eventCount === 'number' ? `${type} — ${row.eventCount} events today` : type;
+      if (!row.hasNextDayHrv || row.hrvDelta === null) {
+        if (!allowPending) {
+          return { key, tooltip: `${type} ${day}s — no data yet`, label: null, state: 'empty' };
+        }
+        return {
+          key,
+          tooltip: `${countLine}\nNext-day HRV: not yet recorded`,
+          label: null,
+          sublabel: 'pending',
+          state: 'muted',
+        };
+      }
+      const { bg, fg } = coralFor(rampScore(row.hrvDelta, maxAbsDelta), maxAbsDelta);
+      return {
+        key,
+        tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
+        label: signedMs(row.hrvDelta),
+        state: 'value',
+        bg,
+        fg,
+      };
+    };
+
+  // ── Monthly view: client-side 30-day means over the four completed weeks ──
+  const monthlyRows = weekly
+    .filter((w) => w.weekLabel !== 'This week')
+    .flatMap((w) => w.rows)
+    .filter((r) => r.hasNextDayHrv && r.hrvDelta !== null);
+
+  const monthlyMap = new Map<string, { sum: number; n: number }>();
+  for (const r of monthlyRows) {
+    const k = `${r.dayType}|${r.dayOfWeek}`;
+    const prev = monthlyMap.get(k) ?? { sum: 0, n: 0 };
+    monthlyMap.set(k, { sum: prev.sum + (r.hrvDelta as number), n: prev.n + 1 });
+  }
+  const monthlyValue = (type: string, colIdx: number) => {
+    const agg = monthlyMap.get(`${type}|${colIdx}`);
+    if (!agg || agg.n === 0) return null;
+    return { value: Math.round(agg.sum / agg.n), n: agg.n };
+  };
+  const monthlyTypes = (() => {
+    const present = dayTypes.filter((t) => days.some((_, i) => monthlyValue(t, i)));
+    return present.length ? present : dayTypes;
+  })();
+  const monthlyMax = Math.max(
+    0,
+    ...monthlyTypes.flatMap((t) =>
+      days.map((_, i) => {
+        const v = monthlyValue(t, i);
+        return v ? Math.abs(v.value) : 0;
+      }),
+    ),
+  );
+  const monthlyCell = (type: string, colIdx: number, day: string): GridCellRender => {
+    const key = `${type}-${day}`;
+    const agg = monthlyValue(type, colIdx);
+    if (!agg) {
+      return { key, tooltip: `${type} ${day}s — no data yet`, label: null, state: 'empty' };
+    }
+    const tooltip = `${type} ${day}s — ${agg.n} occurrence${agg.n === 1 ? '' : 's'}\nAverage next-day HRV: ${signedMs(agg.value)} vs your ${baselineLabel}ms baseline`;
+    if (agg.n < 3) {
+      return { key, tooltip, label: signedMs(agg.value), state: 'thin' };
+    }
+    const { bg, fg } = coralFor(rampScore(agg.value, monthlyMax), monthlyMax);
+    return { key, tooltip, label: signedMs(agg.value), state: 'value', bg, fg };
+  };
+
+  const anyData = weekly.some((w) => w.rows.length > 0);
 
   return (
     <div className="space-y-3">
+      {view === 'day' ? (
+        <div className="space-y-3">
+          <DayTypeGrid
+            dayTypes={rowsOf(thisWeek?.rows ?? [])}
+            days={days}
+            cellFor={dayWiseCell(thisWeek?.rows ?? [], true)}
+          />
+          <RampLegend />
 
-      <div className="space-y-3">
-        <div className="overflow-x-auto -mx-1 px-1">
-          <table className="w-max min-w-full text-[11px] border-separate border-spacing-1">
-            <thead>
-              <tr>
-                <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
-                {days.map((d) => (
-                  <th
-                    key={d}
-                    className="text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom min-w-[3.4rem]"
-                  >
-                    {d}
-                  </th>
+          {previousWeeks.some((w) => w.rows.length > 0) && (
+            <div className="max-h-[20rem] overflow-y-auto space-y-4 pt-1 -mx-1 px-1">
+              {previousWeeks
+                .filter((w) => w.rows.length > 0)
+                .map((w) => (
+                  <div key={w.weekLabel} className="space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
+                      {DAY_WISE_LABELS[w.weekLabel] ?? w.weekLabel}
+                    </p>
+                    <DayTypeGrid
+                      dayTypes={rowsOf(w.rows)}
+                      days={days}
+                      cellFor={dayWiseCell(w.rows, false)}
+                    />
+                  </div>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {dayTypes.map((type, rowIdx) => (
-                <tr key={type}>
-                  <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2">
-                    <span
-                      className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                      title={type}
-                    >
-                      {type}
-                    </span>
-                  </td>
-                  {days.map((day, colIdx) => {
-                    const cell = cells[rowIdx]?.[colIdx];
-                    const hasData = !!cell?.hasData && cell.hrvDelta !== null;
-                    const thin = hasData && cell!.confidence === null;
-                    const { bg, fg } = coralFor(
-                      hasData ? rampScore(cell!.hrvDelta as number) : null,
-                      maxAbsDelta,
-                    );
-                    const tooltip = hasData
-                      ? `${type} ${day}s — ${cell!.n} week${cell!.n === 1 ? '' : 's'} of data\nNext-day HRV: ${signed(cell!.hrvDelta as number)} vs your ${hrvBaseline ?? '—'}ms baseline`
-                      : `${type} ${day}s — no data yet`;
-
-                    return (
-                      <td key={`${type}-${day}`} className="p-0">
-                        <div
-                          title={tooltip}
-                          className={cn(
-                            'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors',
-                            !hasData && 'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
-                            thin && 'bg-muted/50 text-muted-foreground',
-                          )}
-                          style={hasData && !thin ? { background: bg, color: fg } : undefined}
-                        >
-                          {hasData ? (
-                            <>
-                              <span>{signed(cell!.hrvDelta as number)}</span>
-                              {thin && (
-                                <span className="text-[8px] text-muted-foreground/70 mt-0.5">
-                                  n={cell!.n}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            '·'
-                          )}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
-
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-          <span>Lower HRV impact</span>
-          <div className="flex gap-1">
-            {CORAL_RAMP.map((c) => (
-              <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
-            ))}
-          </div>
-          <span>Higher HRV impact</span>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
+            Last 30 days
+          </p>
+          <DayTypeGrid dayTypes={monthlyTypes} days={days} cellFor={monthlyCell} />
+          <RampLegend />
         </div>
-      </div>
+      )}
 
       {bannerCopy && (
         <p className="text-[11px] leading-snug text-foreground/80">{bannerCopy}</p>
@@ -702,10 +856,9 @@ function DayTypeHrvSection({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
         <p className="text-[11px] leading-snug text-muted-foreground/80">
           {streakSummary.streakHrvDeltaMean === null
             ? `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV not yet recorded.`
-            : `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV averaging ${signed(streakSummary.streakHrvDeltaMean)} vs your baseline.`}
+            : `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV averaging ${signedMs(streakSummary.streakHrvDeltaMean)} vs your baseline.`}
         </p>
       )}
-
 
       {!anyData && (
         <p className="text-[11px] leading-snug text-muted-foreground/80">
@@ -715,6 +868,38 @@ function DayTypeHrvSection({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
     </div>
   );
 }
+
+/** Sub-card A shell: title + info + Day Wise / Monthly toggle on one line. */
+function DayTypeHrvCard({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
+  const [view, setView] = useState<'day' | 'month'>('day');
+  return (
+    <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+            DAY TYPE IMPACT ON BURNOUT
+          </p>
+          <InsightInfoModal
+            title="Day type impact on burnout"
+            explanation="This chart shows how different types of days affect your physiological recovery overnight. Each cell reflects the change in next-day HRV for that day type. Darker cells indicate greater impact on recovery."
+          />
+        </div>
+        <SegmentedToggle
+          size="compact"
+          value={view}
+          onChange={(v) => setView(v)}
+          ariaLabel="Day type view"
+          options={[
+            { value: 'day' as const, label: 'Day Wise' },
+            { value: 'month' as const, label: 'Monthly' },
+          ]}
+        />
+      </div>
+      <DayTypeHrvSection matrix={matrix} view={view} />
+    </div>
+  );
+}
+
 
 // ── Recovery Time tab ────────────────────────────────────────────────
 // Shows event types (canonical A–H taxonomy) ranked by how long Heart Rate
