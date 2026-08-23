@@ -283,7 +283,6 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
     maxRecoveryDays: 3,
     topEntry: { eventType: 'Board reviews', recoveryDays: 3, rhrDeltaBpm: 7, n: 4, confidence: 'emerging', lastSeen: '2026-06-29' },
   },
-  },
   dayTypeHrvMatrix: {
     dayTypes: ['Governance', 'Travel', 'Mixed', 'Deep Work', 'Rhythm'],
     days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
