@@ -717,6 +717,13 @@ function DayTypeHrvSection({
 
   const thisWeek = weekly.find((w) => w.weekLabel === 'This week');
 
+  const thisWeekMax = Math.max(
+    4,
+    ...(thisWeek?.rows ?? [])
+      .filter((r) => r.hasNextDayHrv && r.hrvDelta !== null && r.hrvDelta < -4)
+      .map((r) => Math.abs(r.hrvDelta as number)),
+  );
+
   const rowsOf = (weekRows: DayTypeWeekRow[]) => {
     const present = dayTypes.filter((t) => weekRows.some((r) => r.dayType === t));
     const extra = [...new Set(weekRows.map((r) => r.dayType))].filter((t) => !dayTypes.includes(t));
