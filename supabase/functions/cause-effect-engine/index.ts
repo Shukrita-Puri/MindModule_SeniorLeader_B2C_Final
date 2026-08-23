@@ -94,7 +94,9 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // v15: `dayTypeHrvMatrix.bannerCopy` rewritten to surface suppression only,
 // with pre-baked per-day-type copy and no formula reveal.
 // v19: bannerCopy strings rewritten in plain human language.
-const ENGINE_VERSION = 19;
+// v20: finalized bannerCopy strings for all canonical day types.
+const ENGINE_VERSION = 20;
+
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
