@@ -1693,28 +1693,6 @@ serve(async (req) => {
       
       // v15: banner only surfaces NEGATIVE impact (suppression); pre-baked
       // per day type, no formula reveal. No negative worst type => no banner.
-      const DAY_TYPE_BANNERS: Record<string, string> = {
-        "Rhythm":
-          "Even your rest days aren't fully restoring your body \u2014 you're carrying physiological strain into the next morning.",
-        "Travel":
-          "Travel days take the longest toll on your body \u2014 your recovery the following morning is consistently lower after these.",
-        "Governance":
-          "Your body recovers least after Governance days \u2014 the physiological cost carries into the next morning.",
-        "High-Stakes":
-          "High-stakes days leave a lasting mark \u2014 your body's recovery the next morning is consistently lower after these.",
-        "Visibility":
-          "Visibility days take more out of you than they may feel \u2014 your body's recovery the next morning is consistently lower after these.",
-        "Pitching":
-          "Pitching days carry a real physiological cost \u2014 your body recovers less the morning after these than any other day type.",
-        "Conference":
-          "Conference days take a sustained toll \u2014 your body carries the cost into the next morning.",
-        "Deep Work":
-          "Even focused work days leave a physiological trace \u2014 your body recovers less the morning after these.",
-        "Learning":
-          "Learning-heavy days cost more than they appear to \u2014 your body's recovery the next morning is lower after these.",
-        "Mixed":
-          "Days where you switch between very different demands take the highest toll \u2014 your body recovers least the morning after these.",
-      };
       const worstType = typeMeans[0];
       let bannerCopy = "";
       if (worstType && worstType.meanDelta < 0) {
@@ -1745,6 +1723,7 @@ serve(async (req) => {
       } else {
         bannerCopy = "";
       }
+
 
 
       // Current streak: consecutive calendar days ending today (or the most
