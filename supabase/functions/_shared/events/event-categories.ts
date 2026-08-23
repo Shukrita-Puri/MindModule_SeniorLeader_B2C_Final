@@ -102,7 +102,7 @@ export const EVENT_CATEGORIES: Record<EventCategoryId, EventCategory> = {
   },
   D: {
     id: "D",
-    name: "Interpersonal & High-Stakes",
+    name: "Interpersonal High-Stakes",
     selfRegulationFocus:
       "Emotional labour management. Prevent emotion hijack. Post: offload relational stress to protect the next interaction. Interpersonal context (who + why) drives classification — not attendee count.",
     triggers: [

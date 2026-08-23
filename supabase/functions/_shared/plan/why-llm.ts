@@ -576,7 +576,7 @@ function buildPrompt(inp: WhyLLMInput): string {
 
   const hasAnchor = !!(evtTitle && evtTitle.trim());
   const importanceGuide =
-    `Event importance (A highest → H lowest): A=Board & Governance, B=Influence & Persuasion, C=Visibility & Communication, D=Interpersonal & High-Stakes, E=Deep Work & Strategy, F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline.`;
+    `Event importance (A highest → H lowest): A=Board & Governance, B=Influence & Persuasion, C=Visibility & Communication, D=Interpersonal High-Stakes, E=Deep Work & Strategy, F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline.`;
   const selectionReason = inp.patternSummary
     ? `Selected because: ${inp.patternSummary}`
     : "Selected because: highest-priority event in this slot by category and time.";

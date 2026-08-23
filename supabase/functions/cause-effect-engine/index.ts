@@ -429,7 +429,7 @@ function classifyDominantDayType(events: any[], loadMinutes: number): DominantDa
   if (pitchingGate) return out("Business Development");
 
   // P5 — High-Stakes
-  if (inCat("D").some((r) => r.mins >= 30)) return out("Interpersonal & High-Stakes");
+  if (inCat("D").some((r) => r.mins >= 30)) return out("Interpersonal High-Stakes");
 
   // P6 — Conference (Visibility already returned above when gated)
   if (totalMins("F") >= 120) return out("Conferences & Events");
@@ -1704,7 +1704,7 @@ serve(async (req) => {
           "Daily Rhythm & Baseline": "Even your rest days aren't fully restoring your body — you're carrying physiological strain into the next morning.",
           "Travel": "Travel days take the longest toll on your body — your recovery the following morning is consistently lower after these.",
           "Board & Governance": "Your body recovers least after Board & Governance days — the physiological cost carries into the next morning.",
-          "Interpersonal & High-Stakes": "People and difficult-conversation days leave a lasting mark — your body's recovery the next morning is consistently lower after these.",
+          "Interpersonal High-Stakes": "People and difficult-conversation days leave a lasting mark — your body's recovery the next morning is consistently lower after these.",
           "Visibility & Comms": "Visibility days take more out of you than they may feel — your body's recovery the next morning is consistently lower after these.",
           "Business Development": "Pitching days carry a real physiological cost — your body recovers less the morning after these than any other day type.",
           "Conferences & Events": "Conference days take a sustained toll — your body carries the cost into the next morning.",
