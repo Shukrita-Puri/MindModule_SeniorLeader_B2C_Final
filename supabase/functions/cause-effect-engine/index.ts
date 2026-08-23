@@ -91,7 +91,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // v7: Stress Load buckets a full Mon–Sun week (weekend events no longer dropped).
 // v13: additive `dayTypeHrvMatrix` (Day Type × next-day HRV). No existing
 // calculation, gate, or output field changed.
-const ENGINE_VERSION = 13;
+const ENGINE_VERSION = 14;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
