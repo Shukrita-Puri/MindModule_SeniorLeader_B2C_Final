@@ -270,7 +270,7 @@ export const MIN_CANDIDATE_SCORE = 25;
 
 const STRONG_STAKES = new Set(['board', 'external', 'investor', 'critical', 'high']);
 // Structural pillars per event-categories.ts:
-//   A = High-Stakes Governance
+//   A = Board & Governance
 //   C = Visibility & Communication
 //   F = Conferences & External Events
 //   G = Travel

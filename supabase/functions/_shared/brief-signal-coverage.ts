@@ -361,7 +361,7 @@ function minutesUntil(start: string | Date, now: Date): number {
 function isEmotionalDrainEvent(title: string): boolean {
   const ev = classifyEvent(title);
   if (!ev) return false;
-  // Pillar D = People & Difficult Conversations (canonical categoryId).
+  // Pillar D = People & Diff Conversations (canonical categoryId).
   return ev.categoryId === "D" ||
     /1on1|layoff|review|escalation|town hall|townhall|difficult/i.test(ev.id + " " + (ev.label || ""));
 }

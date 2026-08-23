@@ -11,10 +11,10 @@
 export type EventCategoryId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 
 export const EVENT_CATEGORY_NAMES: Record<EventCategoryId, string> = {
-  A: 'High-Stakes Governance',
+  A: 'Board & Governance',
   B: 'Influence & Persuasion',
   C: 'Visibility & Communication',
-  D: 'People & Difficult Conversations',
+  D: 'People & Diff Conversations',
   E: 'Deep Work & Strategy',
   F: 'Conferences & External Events',
   G: 'Travel',

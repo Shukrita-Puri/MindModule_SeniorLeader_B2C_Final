@@ -49,7 +49,7 @@ export interface EventCategory {
 export const EVENT_CATEGORIES: Record<EventCategoryId, EventCategory> = {
   A: {
     id: "A",
-    name: "High-Stakes Governance",
+    name: "Board & Governance",
     selfRegulationFocus:
       "Emotional regulation + cognitive sharpness. Prevent decision leakage and emotional hijack before high-visibility moments. Every body copy must link physical/cognitive state to a Leadership Variable.",
     triggers: [
@@ -102,7 +102,7 @@ export const EVENT_CATEGORIES: Record<EventCategoryId, EventCategory> = {
   },
   D: {
     id: "D",
-    name: "People & Difficult Conversations",
+    name: "People & Diff Conversations",
     selfRegulationFocus:
       "Emotional labour management. Prevent emotion hijack. Post: offload relational stress to protect the next interaction. Interpersonal context (who + why) drives classification — not attendee count.",
     triggers: [

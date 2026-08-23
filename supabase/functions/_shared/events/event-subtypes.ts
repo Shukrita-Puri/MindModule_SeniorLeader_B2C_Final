@@ -180,13 +180,13 @@ type RawSubtype = Omit<EventType, "frameworkPillar"> & {
   categoryId: EventCategoryId;
 };
 const ROWS: RawSubtype[] = [
-  // ── Category A · High-Stakes Governance ──
+  // ── Category A · Board & Governance ──
   // v2 additive — school/nonprofit governance. MUST precede gov.board_meeting so
   // "school board" / "trustee" don't fall into the corporate board bucket.
   {
     id: "gov.trustee",
     label: "Trustee / School board / Nonprofit board",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "A_governance",
     primaryPillar: 3,
@@ -209,7 +209,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.board_meeting",
     label: "Board meeting",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "A_governance",
     primaryPillar: 1,
@@ -240,7 +240,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.board_committee",
     label: "Board committee",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "A_governance",
     primaryPillar: 1,
@@ -260,7 +260,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.board_prep",
     label: "Board prep",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "A_governance",
     primaryPillar: 1,
@@ -282,7 +282,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.nonexec_board",
     label: "Non-exec board / NED meeting",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "A_governance",
     primaryPillar: 1,
@@ -303,7 +303,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.investor_meeting",
     label: "Investor meeting",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "B_investor",
     primaryPillar: 2,
@@ -319,7 +319,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.earnings_call",
     label: "Earnings call",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "B_investor",
     primaryPillar: 2,
@@ -333,7 +333,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.qbr",
     label: "QBR / Quarterly review",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "C_strategic",
     primaryPillar: 1,
@@ -356,7 +356,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.budget_review",
     label: "Budget / forecast review",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "B_investor",
     primaryPillar: 1,
@@ -372,7 +372,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.ma_discussion",
     label: "M&A discussion",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "B_investor",
     primaryPillar: 1,
@@ -388,7 +388,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.crisis",
     label: "Crisis / Incident",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "F_operational",
     primaryPillar: 4,
@@ -629,11 +629,11 @@ const ROWS: RawSubtype[] = [
     masteryModules: ["regulate", "align"],
     jitLeadTimeMinutes: 240,
   },
-  // ── Category D · People & Difficult Conversations ──
+  // ── Category D · People & Diff Conversations ──
   {
     id: "lead.executive_1on1",
     label: "Executive 1:1",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -649,7 +649,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.leadership_sync",
     label: "Leadership / Exec team sync",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -677,7 +677,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.performance_review",
     label: "Performance review",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -701,7 +701,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.difficult_conversation",
     label: "Difficult conversation / Escalation",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -740,7 +740,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.layoff",
     label: "Layoff / Restructure",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -765,7 +765,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.hiring_interview",
     label: "Hiring interview (candidate)",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -787,7 +787,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.hiring_committee",
     label: "Job interview / Hiring committee",
-    bucket: "People & Difficult Conversations",
+    bucket: "People & Diff Conversations",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -938,7 +938,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "str.strategy_planning",
     label: "Strategy planning",
-    bucket: "High-Stakes Governance",
+    bucket: "Board & Governance",
     categoryId: "A",
     group: "C_strategic",
     primaryPillar: 1,
