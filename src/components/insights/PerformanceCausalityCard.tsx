@@ -890,7 +890,7 @@ function DayTypeHrvCard({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
           onChange={(v) => setView(v)}
           ariaLabel="Day type view"
           options={[
-            { value: 'day' as const, label: 'Day Wise' },
+            { value: 'day' as const, label: 'Day' },
             { value: 'month' as const, label: 'Monthly' },
           ]}
         />
