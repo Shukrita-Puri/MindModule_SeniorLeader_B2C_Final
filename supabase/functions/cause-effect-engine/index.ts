@@ -168,6 +168,12 @@ interface Payload {
    * a block is null. See `_diagnostics.ts` for the sentinel taxonomy.
    */
   diagnostics?: WearableDiagnostics;
+  /**
+   * v13 — Day Type × next-day HRV impact. Progressive: thin cells (n<3) are
+   * returned with `confidence: null` so the user watches the pattern form.
+   * Null when the window has < 5 HRV days.
+   */
+  dayTypeHrvMatrix?: DayTypeHrvMatrix | null;
 }
 
 // ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
