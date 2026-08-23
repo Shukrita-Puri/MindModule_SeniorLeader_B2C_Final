@@ -1632,6 +1632,24 @@ serve(async (req) => {
         dayTypeDiagnostics.push({ date: dateStr, dayType, secondaryCategory, loadMinutes, hrvDelta: hrvDelta === null ? null : Math.round(hrvDelta) });
 
         const di = dowIndex(dateStr);
+
+        // v14: week-on-week layer — every day with events lands in its week,
+        // even when next-day HRV has not been recorded yet.
+        if (di >= 0) {
+          for (let wi = 0; wi < WEEK_LABELS.length; wi++) {
+            if (!inWeek(dateStr, wi)) continue;
+            weekBuckets[wi].push({
+              dayType,
+              dayOfWeek: di,
+              dayLabel: DAY_COLS[di],
+              date: dateStr,
+              hrvDelta: hrvDelta === null ? null : Math.round(hrvDelta),
+              hasNextDayHrv: hrvDelta !== null,
+            });
+            break;
+          }
+        }
+
         if (hrvDelta === null || di < 0) continue;
         if (!acc.has(dayType)) acc.set(dayType, DAY_COLS.map(() => [] as number[]));
         acc.get(dayType)![di].push(hrvDelta);
