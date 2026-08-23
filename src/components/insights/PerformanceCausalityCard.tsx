@@ -667,15 +667,27 @@ function DayTypeHrvSection({ matrix }: { matrix?: DayTypeHrvMatrix | null }) {
         </div>
 
         <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-          <span>Recovery</span>
+          <span>Lower HRV impact</span>
           <div className="flex gap-1">
             {CORAL_RAMP.map((c) => (
               <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
             ))}
           </div>
-          <span>Cost</span>
+          <span>Higher HRV impact</span>
         </div>
       </div>
+
+      {bannerCopy && (
+        <p className="text-[11px] leading-snug text-foreground/80">{bannerCopy}</p>
+      )}
+      {streakSummary && streakSummary.currentStreakDays >= 2 && (
+        <p className="text-[11px] leading-snug text-muted-foreground/80">
+          {streakSummary.streakHrvDeltaMean === null
+            ? `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV not yet recorded.`
+            : `Currently on day ${streakSummary.currentStreakDays} of a ${streakSummary.currentStreakType} streak — next-day HRV averaging ${signed(streakSummary.streakHrvDeltaMean)} vs your baseline.`}
+        </p>
+      )}
+
 
       {!anyData && (
         <p className="text-[11px] leading-snug text-muted-foreground/80">
