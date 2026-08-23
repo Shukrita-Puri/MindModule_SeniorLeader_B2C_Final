@@ -528,14 +528,9 @@ function StressLoadTab({
 
 // ── Burnout Risk tab ─────────────────────────────────────────────────
 function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
-  const { weeks, dims, cardTrajectory, bannerCopy } = matrix;
+  const { weeks, dims, bannerCopy } = matrix;
   const hrv = dims.find((d) => d.key === 'hrv');
-  const bannerStyle =
-    cardTrajectory === 'escalating'
-      ? 'bg-[#FAECE7] text-[#993C1D]'
-      : cardTrajectory === 'improving'
-        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
-        : 'bg-muted/40 text-muted-foreground';
+
 
   if (!hrv) {
     return (
@@ -579,12 +574,10 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
         rampLabel={{ low: 'Low risk', high: 'High risk' }}
         emptyLabel="insufficient HRV days"
       />
-      <div className={cn('rounded-md px-2.5 py-2 text-[11px] font-medium', bannerStyle)}>
-        {bannerCopy}
-      </div>
-      <p className="text-[11px] leading-snug text-muted-foreground/80">
-        Each column is a past week, not a forecast. Higher intensity means that week sat deeper in your own HRV strain range versus your personal baseline.
-      </p>
+      {bannerCopy && (
+        <p className="text-[11px] leading-snug text-foreground/80">{bannerCopy}</p>
+      )}
+
     </div>
   );
 }
@@ -1230,7 +1223,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                     </p>
                     <InsightInfoModal
                       title="Weekly burnout trend"
-                      explanation="This chart tracks four weekly signals — calendar load, resting heart rate trend, HRV trend, and sleep deficit — to show how your burnout risk has shifted over the past five weeks. Higher intensity means that week sat deeper in your personal strain range."
+                      explanation="This chart tracks four weekly signals — calendar load, resting heart rate trend, HRV trend, and sleep deficit — to show how your burnout risk has shifted over the past five weeks. Higher intensity means that week sat deeper in your personal strain range. Each column is a past week, not a forecast."
                     />
                   </div>
 

@@ -316,7 +316,7 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
     ],
     hrvBaseline: 62,
     maxAbsDelta: 18,
-    bannerCopy: 'Governance days suppress your next-day HRV the most (−18ms on average).',
+    bannerCopy: 'Your body recovers least after Governance days — the physiological cost carries into the next morning.',
     weeklyDeltas: [
       {
         weekLabel: '4 wks ago',
