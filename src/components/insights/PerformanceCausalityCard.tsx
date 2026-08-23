@@ -586,13 +586,6 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
 // Two views over `weeklyDeltas` only: Day Wise (current week + scrollable
 // history) and Monthly (client-side 30-day means). `cells` is not rendered.
 
-const DAY_WISE_LABELS: Record<string, string> = {
-  'Last week': 'Last week',
-  '2 wks ago': '2 weeks ago',
-  '3 wks ago': '3 weeks ago',
-  '4 wks ago': '4 weeks ago',
-};
-
 const signedMs = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))}ms`;
 
 type GridCellRender = {
@@ -676,16 +669,28 @@ function DayTypeGrid({
   );
 }
 
+// Directional ramp for HRV cost: only meaningful negative deltas (<= -4ms)
+// climb the coral ramp. Zero/positive or near-baseline deltas stay palest.
+function hrvCostColor(delta: number, maxAbsDelta: number): { bg: string; fg: string } {
+  const palest = { bg: CORAL_RAMP[0], fg: '#5b2716' };
+  if (!Number.isFinite(delta) || delta > -4) return palest;
+  const magnitude = Math.abs(delta);
+  const max = Math.max(maxAbsDelta, 4);
+  const t = max > 4 ? Math.max(0, Math.min(1, (magnitude - 4) / (max - 4))) : 0;
+  const idx = 1 + Math.round(t * (CORAL_RAMP.length - 2)); // stop 2 .. stop 7
+  return { bg: CORAL_RAMP[idx], fg: idx >= 4 ? '#FFF5EE' : '#5b2716' };
+}
+
 function RampLegend() {
   return (
     <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-      <span>Lower Impact</span>
+      <span>No HRV cost</span>
       <div className="flex gap-1">
         {CORAL_RAMP.map((c) => (
           <span key={c} className="w-4 h-2.5 rounded-sm" style={{ background: c }} />
         ))}
       </div>
-      <span>Higher Impact</span>
+      <span>High HRV cost</span>
     </div>
   );
 }
@@ -710,11 +715,7 @@ function DayTypeHrvSection({
   const weekly = matrix.weeklyDeltas ?? [];
   const baselineLabel = hrvBaseline ?? '—';
 
-  // Cost-scaled ramp: suppression (negative delta) reads dark, recovery light.
-  const rampScore = (delta: number, max: number) => (max > 0 ? (max - delta) / 2 : 0);
-
   const thisWeek = weekly.find((w) => w.weekLabel === 'This week');
-  const previousWeeks = weekly.filter((w) => w.weekLabel !== 'This week').slice().reverse();
 
   const rowsOf = (weekRows: DayTypeWeekRow[]) => {
     const present = dayTypes.filter((t) => weekRows.some((r) => r.dayType === t));
@@ -745,7 +746,7 @@ function DayTypeHrvSection({
           state: 'muted',
         };
       }
-      const { bg, fg } = coralFor(rampScore(row.hrvDelta, maxAbsDelta), maxAbsDelta);
+      const { bg, fg } = hrvCostColor(row.hrvDelta, maxAbsDelta);
       return {
         key,
         tooltip: `${countLine}\nNext-day HRV: ${signedMs(row.hrvDelta)} vs your ${baselineLabel}ms baseline`,
@@ -796,7 +797,7 @@ function DayTypeHrvSection({
     if (agg.n < 3) {
       return { key, tooltip, label: signedMs(agg.value), state: 'thin' };
     }
-    const { bg, fg } = coralFor(rampScore(agg.value, monthlyMax), monthlyMax);
+    const { bg, fg } = hrvCostColor(agg.value, monthlyMax);
     return { key, tooltip, label: signedMs(agg.value), state: 'value', bg, fg };
   };
 
@@ -806,28 +807,15 @@ function DayTypeHrvSection({
     <div className="space-y-3">
       {view === 'day' ? (
         <div className="space-y-3">
-          <div className="overflow-x-auto flex snap-x snap-mandatory scroll-smooth -mx-1 px-1">
-            {[
-              { key: 'This week', label: 'This week', rows: thisWeek?.rows ?? [] },
-              ...previousWeeks
-                .filter((w) => w.rows.length > 0)
-                .map((w) => ({
-                  key: w.weekLabel,
-                  label: DAY_WISE_LABELS[w.weekLabel] ?? w.weekLabel,
-                  rows: w.rows,
-                })),
-            ].map((p) => (
-              <div key={p.key} className="w-full flex-shrink-0 snap-start space-y-1.5 px-1">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
-                  {p.label}
-                </p>
-                <DayTypeGrid
-                  dayTypes={rowsOf(p.rows)}
-                  days={days}
-                  cellFor={dayWiseCell(p.rows, p.key === 'This week')}
-                />
-              </div>
-            ))}
+          <div className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
+              This week
+            </p>
+            <DayTypeGrid
+              dayTypes={rowsOf(thisWeek?.rows ?? [])}
+              days={days}
+              cellFor={dayWiseCell(thisWeek?.rows ?? [], true)}
+            />
           </div>
           <RampLegend />
         </div>
