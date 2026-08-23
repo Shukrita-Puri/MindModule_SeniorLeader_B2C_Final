@@ -734,7 +734,9 @@ serve(async (req) => {
 
     const startStr = ymd(addDays(today, -days));
     const startIso = new Date(startStr + "T00:00:00Z").toISOString();
+    const stressStartStr = ymd(addDays(today, -STRESS_LOAD_WINDOW_DAYS));
     const nowIso = new Date().toISOString();
+
 
     // Parallel reads ---------------------------------------------------
     const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes] = await Promise.all([
