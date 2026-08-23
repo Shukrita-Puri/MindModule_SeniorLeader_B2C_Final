@@ -623,14 +623,14 @@ function DayTypeGrid({
 }) {
   return (
     <div className="overflow-x-auto -mx-1 px-1">
-      <table className="w-max min-w-full text-[11px] border-separate border-spacing-1">
+      <table className="w-max min-w-full text-[10px] border-separate border-spacing-1">
         <thead>
           <tr>
             <th className="sticky left-0 z-20 bg-background text-left text-muted-foreground/70 font-normal pr-2 align-bottom"> </th>
             {days.map((d) => (
               <th
                 key={d}
-                className="text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom min-w-[3.4rem]"
+                className="text-[9px] text-muted-foreground/70 font-medium tracking-wide px-1 pb-1 align-bottom min-w-[3.4rem]"
               >
                 {d}
               </th>
@@ -640,7 +640,7 @@ function DayTypeGrid({
         <tbody>
           {dayTypes.map((type) => (
             <tr key={type}>
-              <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2">
+              <td className="sticky left-0 z-10 bg-background text-muted-foreground/80 font-medium pr-2 text-[10px]">
                 <span
                   className="block whitespace-nowrap overflow-x-auto max-w-[7.5rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   title={type}
@@ -655,7 +655,7 @@ function DayTypeGrid({
                     <div
                       title={cell.tooltip}
                       className={cn(
-                        'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors',
+                        'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors text-[10px]',
                         cell.state === 'empty' && 'bg-white/60 dark:bg-white/5 text-muted-foreground/30',
                         cell.state === 'muted' &&
                           'bg-muted/40 border border-border/60 text-muted-foreground/70',
@@ -667,7 +667,7 @@ function DayTypeGrid({
                     >
                       {cell.label ?? ''}
                       {cell.sublabel && (
-                        <span className="text-[8px] text-muted-foreground/70 mt-0.5">
+                        <span className="text-[7px] text-muted-foreground/70 mt-0.5">
                           {cell.sublabel}
                         </span>
                       )}
