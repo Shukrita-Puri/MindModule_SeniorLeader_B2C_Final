@@ -1690,7 +1690,7 @@ serve(async (req) => {
         }),
       );
 
-      const anyConfident = cells.some((row) => row.some((c) => c.confidence !== null));
+      
       // v15: banner only surfaces NEGATIVE impact (suppression); pre-baked
       // per day type, no formula reveal. No negative worst type => no banner.
       const DAY_TYPE_BANNERS: Record<string, string> = {
