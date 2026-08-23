@@ -1699,32 +1699,23 @@ serve(async (req) => {
       let bannerCopy = "";
       if (worstType && worstType.meanDelta < 0) {
         const t = worstType.type;
-        if (t === "Rhythm") {
-          bannerCopy = "Even your rest days aren't fully restoring your body \u2014 you're carrying physiological strain into the next morning.";
-        } else if (t === "Travel") {
-          bannerCopy = "Travel days take the longest toll on your body \u2014 your recovery the following morning is consistently lower after these.";
-        } else if (t === "Governance") {
-          bannerCopy = "Your body recovers least after Governance days \u2014 the physiological cost carries into the next morning.";
-        } else if (t === "High-Stakes") {
-          bannerCopy = "High-stakes days leave a lasting mark \u2014 your body's recovery the next morning is consistently lower after these.";
-        } else if (t === "Visibility") {
-          bannerCopy = "Visibility days take more out of you than they may feel \u2014 your body's recovery the next morning is consistently lower after these.";
-        } else if (t === "Pitching") {
-          bannerCopy = "Pitching days carry a real physiological cost \u2014 your body recovers less the morning after these than any other day type.";
-        } else if (t === "Conference") {
-          bannerCopy = "Conference days take a sustained toll \u2014 your body carries the cost into the next morning.";
-        } else if (t === "Deep Work") {
-          bannerCopy = "Even focused work days leave a physiological trace \u2014 your body recovers less the morning after these.";
-        } else if (t === "Learning") {
-          bannerCopy = "Learning-heavy days cost more than they appear to \u2014 your body's recovery the next morning is lower after these.";
-        } else if (t === "Mixed") {
-          bannerCopy = "Days where you switch between very different demands take the highest toll \u2014 your body recovers least the morning after these.";
-        } else {
-          bannerCopy = `Your body recovers least after ${t} days \u2014 the physiological cost carries into the next morning.`;
-        }
+        const copy: Record<string, string> = {
+          "Rhythm": "Even your rest days aren't fully restoring your body — you're carrying physiological strain into the next morning.",
+          "Travel": "Travel days take the longest toll on your body — your recovery the following morning is consistently lower after these.",
+          "Governance": "Your body recovers least after Governance days — the physiological cost carries into the next morning.",
+          "High-Stakes": "High-stakes days leave a lasting mark — your body's recovery the next morning is consistently lower after these.",
+          "Visibility": "Visibility days take more out of you than they may feel — your body's recovery the next morning is consistently lower after these.",
+          "Pitching": "Pitching days carry a real physiological cost — your body recovers less the morning after these than any other day type.",
+          "Conference": "Conference days take a sustained toll — your body carries the cost into the next morning.",
+          "Deep Work": "Even focused work days leave a physiological trace — your body recovers less the morning after these.",
+          "Learning": "Learning-heavy days cost more than they appear to — your body's recovery the next morning is lower after these.",
+          "Mixed": "Days where you switch between very different demands take the highest toll — your body recovers least the morning after these.",
+        };
+        bannerCopy = copy[t] ?? `Your body recovers least after ${t} days — the physiological cost carries into the next morning.`;
       } else {
         bannerCopy = "";
       }
+
 
 
 
