@@ -1034,17 +1034,30 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               <div className="space-y-4">
                 {/* A. Day Type × HRV Impact (v13, additive) */}
                 <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 mb-2.5">
-                    A. Day Type × HRV Impact
-                  </p>
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                      Day type impact on burnout
+                    </p>
+                    <InsightInfoModal
+                      title="Day type impact on burnout"
+                      explanation="This chart shows how different types of days affect your physiological recovery overnight. Each cell shows the average change in next-day HRV for that day type on that day of the week. Darker cells indicate greater impact on recovery."
+                    />
+                  </div>
                   <DayTypeHrvSection matrix={data.dayTypeHrvMatrix} />
                 </div>
 
                 {/* B. Existing weekly HRV trend — contents untouched */}
                 <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 mb-2.5">
-                    B. Weekly HRV Trend
-                  </p>
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                      Weekly burnout trend
+                    </p>
+                    <InsightInfoModal
+                      title="Weekly burnout trend"
+                      explanation="This chart tracks four weekly signals — calendar load, resting heart rate trend, HRV trend, and sleep deficit — to show how your burnout risk has changed over the past five weeks. Higher intensity means that week sat deeper in your personal strain range."
+                    />
+                  </div>
+
                   {!tabStates.burnout.unlocked ? (
                     <LockedTile
                       title={tabStates.burnout.title}
