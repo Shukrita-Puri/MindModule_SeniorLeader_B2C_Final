@@ -2104,6 +2104,8 @@ serve(async (req) => {
         minOccurrencesEmerging: MIN_OCCURRENCES_EMERGING,
       },
     );
+    // v13: day-type attribution (incl. secondary category) is diagnostics-only.
+    (diagnostics as any).dayTypes = dayTypeDiagnostics;
     payload.diagnostics = diagnostics;
 
     // Log every run for edge-function-logs visibility.
