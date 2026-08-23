@@ -1611,6 +1611,10 @@ serve(async (req) => {
 
       const acc = new Map<string, number[][]>();
       const dayTypeByDate = new Map<string, string>();
+      // v14: week-on-week layers — one row per calendar day with events,
+      // bucketed into the same 5-week window used by burnoutMatrix.
+      const weekBuckets: DayTypeWeekRow[][] = WEEK_LABELS.map(() => []);
+
 
       const dates = [...eventsByDay.keys()].sort();
       for (const dateStr of dates) {
