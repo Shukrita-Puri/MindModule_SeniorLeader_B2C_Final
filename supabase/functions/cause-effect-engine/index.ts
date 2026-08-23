@@ -93,7 +93,8 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // calculation, gate, or output field changed.
 // v15: `dayTypeHrvMatrix.bannerCopy` rewritten to surface suppression only,
 // with pre-baked per-day-type copy and no formula reveal.
-const ENGINE_VERSION = 18;
+// v19: bannerCopy strings rewritten in plain human language.
+const ENGINE_VERSION = 19;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
