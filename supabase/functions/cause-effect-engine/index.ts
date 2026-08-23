@@ -1357,14 +1357,16 @@ serve(async (req) => {
     if (restingBaseline !== null && topEventTypes.length > 0) {
       for (const e of events as any[]) {
         if (!e.start_time || !e.end_time) continue;
+        const dayKey = ymd(new Date(e.start_time));
+        if (dayKey < stressStartStr) continue;
         const dIdx = dayIndex(e.start_time);
         if (dIdx < 0) continue;
         const label = categoryLabelOf(e);
         const colIdx = topEventTypes.indexOf(label);
         if (colIdx < 0) continue;
-        const dayKey = ymd(new Date(e.start_time));
         const samples = hrSamplesByDay.get(dayKey);
         if (!samples || samples.length === 0) continue; // honest: omit cell, no day-max proxy
+
 
         const result = eventHrDelta(e, samples, restingHrByDay, restingBaseline);
         if (!result) continue;
