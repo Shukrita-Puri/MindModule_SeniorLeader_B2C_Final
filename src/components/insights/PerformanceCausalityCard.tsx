@@ -1235,19 +1235,9 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               )
             ) : (
               <div className="space-y-4">
-                {/* A. Day Type × HRV Impact (v13, additive) */}
-                <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-                      DAY TYPE IMPACT ON BURNOUT
-                    </p>
-                    <InsightInfoModal
-                      title="Day type impact on burnout"
-                      explanation="This chart shows how different types of days affect your physiological recovery overnight. Each cell reflects the average change in next-day HRV for that day type on that day of the week. Darker cells indicate greater impact on recovery."
-                    />
-                  </div>
-                  <DayTypeHrvSection matrix={data.dayTypeHrvMatrix} />
-                </div>
+                {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
+                <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
+
 
                 {/* B. Existing weekly HRV trend — contents untouched */}
                 <div className="card-standard rounded-xl p-3.5 bg-surface-muted/40 shadow-sm border-0">
