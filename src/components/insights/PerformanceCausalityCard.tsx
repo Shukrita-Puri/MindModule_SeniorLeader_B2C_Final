@@ -103,8 +103,31 @@ interface CausalityPayload {
       n: number;
     }>;
   };
+  /** v13 — additive Day Type × next-day HRV impact. Optional so older cached payloads still render. */
+  dayTypeHrvMatrix?: DayTypeHrvMatrix | null;
   version?: number;
   cached?: boolean;
+}
+
+// ── v13: Day Type × HRV Impact ───────────────────────────────────────
+interface DayTypeHrvCell {
+  hrvDelta: number | null;
+  n: number;
+  confidence: Confidence | null;
+  hasData: boolean;
+}
+interface DayTypeHrvMatrix {
+  dayTypes: string[];
+  days: string[];
+  cells: DayTypeHrvCell[][];
+  hrvBaseline: number | null;
+  maxAbsDelta: number;
+  bannerCopy: string;
+  streakSummary: {
+    currentStreakDays: number;
+    currentStreakType: string | null;
+    streakHrvDeltaMean: number | null;
+  } | null;
 }
 
 type DrainCell = {
