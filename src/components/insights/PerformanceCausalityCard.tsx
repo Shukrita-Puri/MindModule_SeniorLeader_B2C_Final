@@ -643,7 +643,8 @@ function DayTypeGrid({
                       title={cell.tooltip}
                       className={cn(
                         'h-9 rounded-md flex flex-col items-center justify-center tabular-nums font-medium leading-none transition-colors text-[10px]',
-                        cell.state === 'empty' && 'bg-white/60 dark:bg-white/5 text-muted-foreground/30',
+                        cell.state === 'empty' && 'bg-white/80 dark:bg-white/10 text-muted-foreground/40',
+
                         cell.state === 'muted' &&
                           'bg-muted/40 border border-border/60 text-muted-foreground/70',
                         cell.state === 'thin' && 'bg-muted/50 text-muted-foreground',
