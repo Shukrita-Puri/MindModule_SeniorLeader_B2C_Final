@@ -1702,14 +1702,14 @@ serve(async (req) => {
         const t = worstType.type;
         const copy: Record<string, string> = {
           "Daily Rhythm & Baseline": "Even your rest days aren't giving your body enough time to recover — the fatigue is carrying into the next morning.",
-          "Travel": "Travel days take the longest toll on your body — your recovery the following morning is consistently lower after these.",
+          "Travel": "Travel days take the longest toll — your body consistently recovers less the morning after these.",
           "Board & Governance": "Your body recovers least after Board & Governance days — the physical toll carries into the next morning.",
-          "Interpersonal High-Stakes": "People and difficult-conversation days leave a lasting mark — your body's recovery the next morning is consistently lower after these.",
-          "Visibility & Comms": "Visibility days take more out of you than they may feel — your body's recovery the next morning is consistently lower after these.",
-          "Business Development": "Pitching days carry a real physical toll — your body recovers less the morning after these than any other day type.",
-          "Conferences & Events": "Conference days take a sustained toll — your body carries the cost into the next morning.",
-          "Deep Work & Strategy": "Even focused work days leave a physical trace — your body recovers less the morning after these.",
-          "Learning & Development": "Learning-heavy days cost more than they appear to — your body's recovery the next morning is lower after these.",
+          "Interpersonal High-Stakes": "High-stakes interpersonal days leave a mark — your body's recovery the next morning is consistently lower after these.",
+          "Visibility & Comms": "Visibility days take more out of you than they may feel — your body recovers less the morning after these.",
+          "Business Development": "Pitching days carry a real physical cost — your body recovers least the morning after these.",
+          "Conferences & Events": "Conference days take a sustained toll — the physical cost carries into the next morning.",
+          "Deep Work & Strategy": "Even focused work days leave a trace — your body recovers less the morning after these.",
+          "Learning & Development": "Learning-heavy days cost more than they appear to — your body recovers less the morning after these.",
           "Mixed": "Days where you switch between very different demands take the highest toll — your body recovers least the morning after these.",
         };
         bannerCopy = copy[t] ?? `Your body recovers least after ${t} days — the physical toll carries into the next morning.`;
