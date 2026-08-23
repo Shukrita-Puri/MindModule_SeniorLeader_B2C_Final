@@ -35,19 +35,40 @@ serve(async (req) => {
   );
 
   try {
-    // Fetch all users who have an iOS push token
-    const { data: users, error: usersErr } = await supabase
+    // Active iOS/iPadOS device tokens live in notification_device_tokens.
+    const { data: tokenRows, error: tokensErr } = await supabase
+      .from("notification_device_tokens")
+      .select("user_id, device_token, platform")
+      .eq("is_active", true)
+      .in("platform", ["ios", "ipados"]);
+
+    if (tokensErr) throw tokensErr;
+
+    const byUser = new Map<string, string[]>();
+    for (const row of tokenRows || []) {
+      if (!row.user_id || !row.device_token) continue;
+      const list = byUser.get(row.user_id) ?? [];
+      list.push(row.device_token);
+      byUser.set(row.user_id, list);
+    }
+
+    if (byUser.size === 0) {
+      return new Response(JSON.stringify({ success: true, sentCount: 0, results: [] }), { headers: corsHeaders });
+    }
+
+    const { data: profileRows, error: usersErr } = await supabase
       .from("profiles")
-      .select("id, home_timezone, current_timezone, push_tokens(token, platform)");
-      
+      .select("id, home_timezone, current_timezone")
+      .in("id", Array.from(byUser.keys()));
+
     if (usersErr) throw usersErr;
 
     const jwt = await createApnsJwt(p8Key, keyId, teamId);
     let sentCount = 0;
     const results = [];
 
-    for (const user of users || []) {
-      const iosTokens = (user.push_tokens || []).filter((t: any) => t.platform === "ios" || t.platform === "ipados");
+    for (const user of profileRows || []) {
+      const iosTokens = byUser.get(user.id) ?? [];
       if (iosTokens.length === 0) continue;
 
       const tzInfo = await resolveEffectiveTimezone(supabase as any, user.id, user);
@@ -79,9 +100,9 @@ serve(async (req) => {
         
         console.log(`[early-morning-sync] Triggering silent push for ${user.id} at local time ${parts.hour}:${parts.minute}`);
         
-        for (const tokenObj of iosTokens) {
+        for (const deviceToken of iosTokens) {
           // Use SHA-256 of the token to prevent storing raw APNs tokens in logs
-          const tokenData = new TextEncoder().encode(tokenObj.token);
+          const tokenData = new TextEncoder().encode(deviceToken);
           const hashBuffer = await crypto.subtle.digest('SHA-256', tokenData);
           const hashHex = Array.from(new Uint8Array(hashBuffer))
             .map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
@@ -91,15 +112,15 @@ serve(async (req) => {
           if (successfulTokens.has(dedupeKey)) continue;
           
           const res = await sendApnsSilentPush(
-            tokenObj.token,
+            deviceToken,
             apnsEnv.bundleId,
             jwt,
             { action: "sync_all" },
             apnsEnv.apnsHost
           );
           
-          const masked = tokenObj.token.length > 10 ? `${tokenObj.token.substring(0, 8)}...` : "***";
-          results.push({ userId: user.id, token: masked, success: res.success, reason: res.reason });
+          const masked = deviceToken.length > 10 ? `${deviceToken.substring(0, 8)}...` : "***";
+          results.push({ userId: user.id, success: res.success, reason: res.reason });
           
           if (res.success) {
             sentCount++;
@@ -107,15 +128,20 @@ serve(async (req) => {
               user_id: user.id,
               notification_type: dedupeKey,
               variant_id: "silent_sync",
-              outcome: "sent",
+              payload: { apns_status: res.status, apns_token_prefix: masked },
+              delivery_state: "accepted",
               delivered_at: new Date().toISOString()
             });
           } else if (res.status === 410 || res.reason === "BadDeviceToken") {
-            await supabase.from("push_tokens").delete().eq("token", tokenObj.token);
+            await supabase
+              .from("notification_device_tokens")
+              .update({ is_active: false })
+              .eq("device_token", deviceToken);
           }
         }
       }
     }
+
 
     return new Response(JSON.stringify({ success: true, sentCount, results }), { headers: corsHeaders });
   } catch (err) {
