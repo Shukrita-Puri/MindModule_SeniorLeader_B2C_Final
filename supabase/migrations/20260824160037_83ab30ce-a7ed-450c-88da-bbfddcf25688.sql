@@ -1,0 +1,2 @@
+ALTER TABLE public.daily_context_snapshot ADD COLUMN IF NOT EXISTS load_shape jsonb;
+COMMENT ON COLUMN public.daily_context_snapshot.load_shape IS 'Load Shape SSOT: written only by build-daily-context (classifyLoadShape). Read-only for all other surfaces.';

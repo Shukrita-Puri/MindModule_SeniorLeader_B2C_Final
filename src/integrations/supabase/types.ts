@@ -1852,6 +1852,7 @@ export type Database = {
           inner_score: number | null
           inner_tier: string | null
           last_check_in_window: string | null
+          load_shape: Json | null
           local_date: string
           morning_baseline_score: number | null
           mrs_window: string
@@ -1882,6 +1883,7 @@ export type Database = {
           inner_score?: number | null
           inner_tier?: string | null
           last_check_in_window?: string | null
+          load_shape?: Json | null
           local_date: string
           morning_baseline_score?: number | null
           mrs_window?: string
@@ -1912,6 +1914,7 @@ export type Database = {
           inner_score?: number | null
           inner_tier?: string | null
           last_check_in_window?: string | null
+          load_shape?: Json | null
           local_date?: string
           morning_baseline_score?: number | null
           mrs_window?: string
