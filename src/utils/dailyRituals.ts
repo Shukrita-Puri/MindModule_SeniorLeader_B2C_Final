@@ -428,7 +428,11 @@ export async function updateRitualCompletion(
   
   // Production: Single atomic COMPLETE_PRACTICE call via edge function
   try {
-    let accessToken = await getAccessToken();
+    let accessToken = options?.cachedToken ?? null;
+
+    if (!accessToken) {
+      accessToken = await getAccessToken();
+    }
 
     if (!accessToken) {
       // One retry — token refresh can be mid-flight right after a player unmounts.
