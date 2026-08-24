@@ -25,6 +25,10 @@ const APPROVED_WRITERS = new Set<string>([
   'supabase/functions/calendar-auth/index.ts',
   'supabase/functions/list-replacement-calendar-events/index.ts',
   'supabase/functions/list-week-ahead-priorities/index.ts',
+  // Practice-impact + post-event outcome reads: both raw selects are wrapped in
+  // mergeCalendarEvents() before any classification or prompting happens.
+  'supabase/functions/content-feedback/index.ts',
+
   // Admin-only identity/duplicate maintenance tools. These MUST read raw
   // calendar_events by design — mergeCalendarEvents() would hide the exact
   // cross-provider duplicates they exist to analyze/backfill. Both are
