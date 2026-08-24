@@ -198,8 +198,13 @@ function meetsEngagementGate(state: ReviewState): boolean {
  * decides whether to actually show it (Apple caps at 3 per 365 days per user).
  * Safe to call frequently — we throttle from our side too.
  */
-export async function maybeRequestReview(): Promise<void> {
+export async function maybeRequestReview(
+  opts: { delayMs?: number } = {},
+): Promise<void> {
   if (!isNativeMobile()) return;
+  if (opts.delayMs && opts.delayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, opts.delayMs));
+  }
   try {
     if (isReviewPromptSuppressedForPath(window.location.pathname)) return;
   } catch {
@@ -207,6 +212,7 @@ export async function maybeRequestReview(): Promise<void> {
   }
   const state = readState();
   if (!meetsEngagementGate(state)) return;
+
 
   try {
     const mod = await import("@capacitor-community/in-app-review");
