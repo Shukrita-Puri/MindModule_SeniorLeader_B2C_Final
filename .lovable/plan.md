@@ -11,6 +11,17 @@ This adds one shared Load Shape layer and lets the four existing surfaces (Insig
 - `contextSwitchingCost`, `backToBackLoadOverride`, `decisionDensity`, `dayTypeHrvMatrix`, `stressMatrix`, `burnoutMatrix`, MRS scoring, plan slot/eligibility logic and nudge scheduling keep their current inputs and behaviour untouched.
 - The Load Shape layer is read-only with respect to the rest of the system: it consumes `resolveEvent()` output and `computeCognitiveFragmentation()`, and produces one jsonb blob. It never writes back into any existing field.
 - Kill switch: if `load_shape` is not written, or the new copy blocks are disabled, the app is functionally identical to today. That makes the whole change revertible by removing one write and one render block.
+- The `load_shape` column write may be feature-flagged independently of the render blocks — so shape data can accumulate in production snapshots while no copy is user-visible, letting the `back_to_back` and `switching` thresholds be validated against real calendars before launch.
+
+## Step 0 (do first) — lock the 12 A–H ground-truth cases in a test
+
+The 12 verification events from `FINAL_A_to_H_Schema_Summary.md` are only partially covered today. Confirmed by search:
+
+- Already asserted: "Chief AI Thursday connects" → E.community (`taxonomy-user-examples.test.ts`); "Mind Module - Beta test feedback" → E, "Sales Assumptions Founders Make", "Cracking the US market + networking", "Intro Call > Isabel @ Karyon Partners" (`event-tagging-v2.test.ts`).
+- Not asserted anywhere as category+subcategory: "Board Prep Test" → E.deep_work, "Strategy Review Test" → E.deep_work, "Chat with Patrick" → H.social, "Flight to Singapore (SQ 735)" → G.flight, "Coca-Cola Client - Presentation" → B.client_presentation, "[L'Oreal] Q2 Presentation" → C.stakeholder_communication, "Pitch Deck - Review (Amazon)" → E.deep_work.
+- The ad-hoc script `test_events.ts` at the repo root exercises all 12 but is a console script, not a test — it runs in no suite and gates nothing.
+
+Action: add `supabase/functions/_shared/events/schema-verification-cases.test.ts` — one Deno table test over all 12 cases asserting `enrichEvent(raw).categoryId` and `.subcategory`, carrying the `isOrganizer` / `travelState` inputs the script uses. Existing tests and classifier code are not edited. If any case fails, stop and report before any Load Shape work begins; Load Shape reads `resolveEvent()` output, so these are its ground truth. The root `test_events.ts` script is left in place (deleting it is out of scope).
 
 
 ## Pre-flight checks (results already confirmed)
