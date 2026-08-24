@@ -29,6 +29,23 @@ import { computeCalendarDemand } from './demand-scorer.ts';
 import { resolveStrategicContext } from './strategic-context.ts';
 import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
 import { dayOfWeekFromIsoDate } from './day-kind-detector.ts';
+import { classifyLoadShape } from '../load-shape/classify.ts';
+import { toLoadShapeEvents } from '../load-shape/adapt.ts';
+import type { LoadShape } from '../load-shape/types.ts';
+
+/**
+ * Load Shape write flag — independent of any render flag (isolation
+ * contract). Set LOAD_SHAPE_WRITE_ENABLED=false to stop persisting the
+ * column; shape data accumulates in production before any copy ships.
+ */
+function loadShapeWriteEnabled(): boolean {
+  try {
+    const v = (globalThis as any)?.Deno?.env?.get?.('LOAD_SHAPE_WRITE_ENABLED');
+    return String(v ?? 'true').toLowerCase() !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 type AnySupabase = {
   from: (table: string) => any;
