@@ -824,8 +824,10 @@ serve(async (req) => {
           return meta?.title || eventCategoryMap.get(contentId) || 'Practice';
         };
         const practiceStarts = completedEvents
-          .map((e) => ({ id: e.content_id, t: +new Date(e.timestamp) }))
+          .filter((e) => !!e.timestamp)
+          .map((e) => ({ id: e.content_id, t: +new Date(e.timestamp as string) }))
           .filter((e) => Number.isFinite(e.t));
+
 
         // Overall mean HR across every calendar event window (fallback baseline)
         let overallSum = 0;
