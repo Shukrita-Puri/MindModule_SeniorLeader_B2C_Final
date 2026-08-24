@@ -571,6 +571,36 @@ function dayBoundsUtc(localDate: string): { start: string; end: string } {
   return { start, end };
 }
 
+/** Offset in minutes of `timezone` from UTC on `localDate` (0 when unknown). */
+function utcOffsetMinutes(timezone: string | undefined, localDate: string): number {
+  if (!timezone) return 0;
+  try {
+    const at = new Date(localDate + 'T12:00:00Z');
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).formatToParts(at);
+    const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+    const asUtc = Date.UTC(
+      get('year'),
+      get('month') - 1,
+      get('day'),
+      get('hour') % 24,
+      get('minute'),
+      get('second'),
+    );
+    return Math.round((asUtc - at.getTime()) / 60000);
+  } catch {
+    return 0;
+  }
+}
+
 // MRS v4 §8.2 — trailing 3-day RHR baseline. No schema change: computed
 // each cycle from existing `wearable_data.resting_heart_rate` rows.
 // Returns `null` when fewer than 3 days of RHR data exist; downstream
