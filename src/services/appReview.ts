@@ -108,7 +108,10 @@ function isNativeMobile(): boolean {
   }
 }
 
-/** Record a fresh app session if enough time has passed since the last one. */
+/**
+ * Record a fresh app session if enough time has passed since the last one.
+ * Counting only — launching or resuming the app never requests a review.
+ */
 export function recordAppOpen(): void {
   const state = readState();
   const now = Date.now();
@@ -120,26 +123,56 @@ export function recordAppOpen(): void {
   writeState(state);
 }
 
+/** Passive counter only — a completed check-in is not a rating moment. */
 export function recordCheckinCompleted(): void {
   const state = readState();
   state.checkins += 1;
   writeState(state);
-  void maybeRequestReview();
 }
 
+/** Passive counter only — merely viewing the plan is not a rating moment. */
 export function recordPlanViewed(): void {
   const state = readState();
   state.planViews += 1;
   writeState(state);
-  void maybeRequestReview();
+}
+
+/** Trigger: the user finished a practice. */
+export function recordPracticeCompleted(): void {
+  const state = readState();
+  state.practiceCompletions += 1;
+  writeState(state);
+  void maybeRequestReview({ delayMs: PROMPT_DELAY_MS });
+}
+
+/** Trigger: the user finished a plan / priority with practices done. */
+export function recordPlanCompleted(): void {
+  const state = readState();
+  state.planCompletions += 1;
+  writeState(state);
+  void maybeRequestReview({ delayMs: PROMPT_DELAY_MS });
+}
+
+/** Trigger: the readiness brief was read — fires from the 2nd read onward. */
+export function recordBriefRead(): void {
+  const state = readState();
+  state.briefReads += 1;
+  writeState(state);
+  if (state.briefReads >= MIN_BRIEF_READS) {
+    void maybeRequestReview({ delayMs: PROMPT_DELAY_MS });
+  }
 }
 
 function meetsEngagementGate(state: ReviewState): boolean {
   const now = Date.now();
   if (now - state.firstOpenAt < MIN_INSTALL_AGE_MS) return false;
-  if (state.checkins < MIN_CHECKINS) return false;
-  if (state.planViews < MIN_PLAN_VIEWS) return false;
   if (state.sessions < MIN_SESSIONS) return false;
+  // At least one genuine positive moment must have happened.
+  const hasPositiveMoment =
+    state.practiceCompletions > 0 ||
+    state.planCompletions > 0 ||
+    state.briefReads >= MIN_BRIEF_READS;
+  if (!hasPositiveMoment) return false;
   if (
     state.lastRequestedAt !== null &&
     now - state.lastRequestedAt < MIN_INTERVAL_BETWEEN_REQUESTS_MS
@@ -148,6 +181,7 @@ function meetsEngagementGate(state: ReviewState): boolean {
   }
   return true;
 }
+
 
 /**
  * Ask iOS/Android to *consider* showing its native rating prompt. The OS
