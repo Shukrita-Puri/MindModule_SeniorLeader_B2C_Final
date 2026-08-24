@@ -1,6 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
+import {
+  getSupabaseFunctionHeaders,
+  getSupabaseFunctionUrl,
+  readResponseBody,
+} from '@/utils/supabaseFunctions';
 
 // Alias for backward compat within this file
 const getAccessToken = getAuthToken;
@@ -432,9 +437,12 @@ export async function updateRitualCompletion(
 
     console.log(`[dailyRituals] Invoking COMPLETE_PRACTICE EF:`, { practiceType, practiceId, sessionPeriod: currentPeriod, isPlanPractice, planContext });
 
-    const { data, error } = await supabase.functions.invoke('daily-rituals', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: {
+    // Use an explicit request here. Unlike the SDK invoke path, this preserves
+    // the Auth0 Authorization header through the function gateway in production.
+    const response = await fetch(getSupabaseFunctionUrl('daily-rituals'), {
+      method: 'POST',
+      headers: getSupabaseFunctionHeaders(accessToken),
+      body: JSON.stringify({
         action: 'COMPLETE_PRACTICE',
         practiceType,
         practiceId,
@@ -444,13 +452,17 @@ export async function updateRitualCompletion(
         planContext,
         startedAt,
         completedAt,
-      }
+      }),
     });
 
-    if (error) {
-      console.error(`[dailyRituals] COMPLETE_PRACTICE error:`, error, { practiceId, practiceType, planContext });
-      return;
+    if (!response.ok) {
+      const responseBody = await readResponseBody(response);
+      throw new Error(
+        `daily-rituals COMPLETE_PRACTICE failed (${response.status}): ${responseBody || response.statusText}`,
+      );
     }
+
+    const data = await response.json();
 
     console.log(`[dailyRituals] COMPLETE_PRACTICE success:`, { 
       status: data?.data?.completion_status, 
