@@ -73,11 +73,12 @@ One additive nullable column: `daily_context_snapshot.load_shape jsonb`. No new 
 
 ## Tests / guards
 
-- Import guard (vitest + the existing Deno cross-layer guard): `LoadShape`, `ShapeId`, `DemandMode`, `EventSubcategory` may only be imported from `_shared/load-shape/types.ts`, and `CATEGORY_TO_MODE` only from `modes.ts` — mirroring the existing single-A–H-entry-point guard.
+- Import guard: `LoadShape`, `ShapeId`, `DemandMode`, `EventSubcategory` may only be imported from `_shared/load-shape/types.ts`; `CATEGORY_TO_MODE` only from `modes.ts`.
 - Unit tests for `classifyLoadShape` precedence, both launch-shape thresholds (including the relational shortcut), and null/garbage-event safety.
-- Contract test: FE mirror and backend agree on shape ids + labels; `EventSubcategory` values all exist in the subtype table.
+- Contract tests: FE mirror agrees with backend on shape ids + labels; `EventSubcategory` values all exist in the subtype table; `CATEGORY_TO_MODE` agrees with the engine's private map on the five shared labels.
+- Null-path regression test: with `load_shape = null`, Insights payload, brief context and nudge decisions match today's output exactly.
 - `getLoadShapeOrDefault(null)` returns the `light` default without throwing.
-- Existing behaviour-rule registry, brief-copy and A–H guards stay green unchanged.
+- Every existing suite (behaviour-rule registry, brief-copy, A–H single-entry-point, availability shim guard) must pass unchanged — no existing test may be edited as part of this work.
 
 ## Out of scope
 
