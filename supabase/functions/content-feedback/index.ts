@@ -5,6 +5,7 @@ import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
 import { enrich as enrichCalendarEvent } from "../_shared/events/pattern-bucket.ts";
+import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -212,6 +213,108 @@ serve(async (req) => {
         });
       }
 
+      // Post-event outcome prompt ("How did that go?") for high-demand events.
+      // Categories A–D are the demanding ones under the canonical A–H taxonomy.
+      case 'GET_EVENT_OUTCOME_CANDIDATE': {
+        const nowMs = Date.now();
+        const windowStartIso = new Date(nowMs - 6 * 60 * 60 * 1000).toISOString();
+        const endedBeforeIso = new Date(nowMs - 20 * 60 * 1000).toISOString();
+        const today = new Date().toISOString().slice(0, 10);
+
+        const [evRes, seenRes] = await Promise.all([
+          supabase
+            .from('calendar_events')
+            .select('id, title, start_time, end_time, attendees_count, status')
+            .eq('user_id', userId)
+            .gte('end_time', windowStartIso)
+            .lte('end_time', endedBeforeIso)
+            .order('end_time', { ascending: false }),
+          supabase
+            .from('event_outcome_feedback')
+            .select('event_id')
+            .eq('user_id', userId)
+            .gte('event_date', today),
+        ]);
+
+        if (evRes.error) throw evRes.error;
+        // Raw rows must go through the shared merge layer, otherwise the same
+        // meeting synced from two providers can prompt twice.
+        const mergedCandidates = mergeCalendarEvents((evRes.data ?? []) as any[], platform);
+        const seen = new Set((seenRes.data ?? []).map((r: any) => r.event_id).filter(Boolean));
+
+        let candidate: Record<string, unknown> | null = null;
+        for (const e of mergedCandidates as any[]) {
+          if (seen.has(e.id)) continue;
+          const status = String(e.status ?? '').toLowerCase();
+          if (status === 'cancelled' || status === 'tentative') continue;
+          const enriched = enrichCalendarEvent(e) as any;
+          const cat = enriched?.categoryId ?? null;
+          if (!cat || !['A', 'B', 'C', 'D'].includes(cat)) continue;
+          if (durationMinutesOf(e) < 20) continue;
+          candidate = {
+            eventId: e.id,
+            title: e.title,
+            categoryId: cat,
+            subcategory: enriched?.subcategory ?? null,
+            endTime: e.end_time,
+          };
+          break;
+        }
+
+        return new Response(JSON.stringify({ data: candidate }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'SUBMIT_EVENT_OUTCOME': {
+        const outcome = (body as any).eventOutcome as
+          | {
+              eventId?: string; title?: string; categoryId?: string;
+              eventDate?: string; rating?: number; openText?: string;
+              practiceIdsUsed?: string[]; triggerContext?: string;
+            }
+          | undefined;
+
+        if (!outcome || (outcome.rating == null && !outcome.openText)) {
+          return new Response(JSON.stringify({ error: 'Missing event outcome payload' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (outcome.rating != null && (outcome.rating < 1 || outcome.rating > 5)) {
+          return new Response(JSON.stringify({ error: 'rating must be between 1 and 5' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { data, error } = await supabase
+          .from('event_outcome_feedback')
+          .insert({
+            user_id: userId,
+            event_id: outcome.eventId ?? null,
+            event_title: outcome.title ?? null,
+            event_type: outcome.categoryId ?? null,
+            event_date: outcome.eventDate ?? new Date().toISOString().slice(0, 10),
+            rating: outcome.rating ?? null,
+            open_text: outcome.openText ? String(outcome.openText).slice(0, 500) : null,
+            practice_ids_used: outcome.practiceIdsUsed ?? null,
+            trigger_context: outcome.triggerContext ?? 'post_event_prompt',
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[content-feedback] SUBMIT_EVENT_OUTCOME error:', error);
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+
       case 'UPDATE_SESSION_RATING': {
         // Deprecated: practice ratings now write only to content_relevance_feedback (CRF).
         // Returning 410 Gone so any straggling clients fail loudly instead of silently
@@ -268,7 +371,9 @@ serve(async (req) => {
             .gte('summary_date', deltaSinceDate),
           supabase
             .from('user_favorites')
-            .select('content_id'),
+            .select('content_id')
+            .eq('user_id', userId),
+
           supabase
             .from('calendar_events')
             .select('title, start_time, end_time, attendees_count')
@@ -298,7 +403,7 @@ serve(async (req) => {
           hr_samples: unknown;
         }>;
         const favouriteIds = new Set((favRes.data ?? []).map((f: any) => f.content_id));
-        const calendarEvents = (calRes.data ?? []) as Array<{
+        const calendarEvents = mergeCalendarEvents((calRes.data ?? []) as any[], platform) as Array<{
           title: string | null; start_time: string | null; end_time: string | null;
           attendees_count: number | null;
         }>;
@@ -663,14 +768,16 @@ serve(async (req) => {
           }
         }
 
-        // Thumbs attribution per content_id. 5 = up, 1 = down, 3 = neutral and
-        // excluded from both numerator and denominator.
+        // Thumbs attribution per content_id. Thumbs-up writes 5, thumbs-down
+        // writes 1. Neutral (3) is excluded from numerator and denominator.
         for (const r of feedbackRows) {
           if (!r.content_id || r.star_rating == null) continue;
+          if (r.star_rating === 3) continue;
           const a = getAgg(r.content_id, r.content_id.startsWith('plan-'));
-          if (r.star_rating >= 5) a.thumbsUp += 1;
-          else if (r.star_rating <= 1) a.thumbsDown += 1;
+          if (r.star_rating > 3) a.thumbsUp += 1;
+          else a.thumbsDown += 1;
         }
+
 
         // ── Top up content metadata for rating-only ids ─────────
         const missingIds = Array.from(perContent.keys()).filter(

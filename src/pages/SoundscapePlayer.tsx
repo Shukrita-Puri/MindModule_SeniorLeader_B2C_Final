@@ -30,7 +30,6 @@ import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
-import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
 import { cn } from "@/lib/utils";
 
@@ -287,45 +286,33 @@ const SoundscapePlayer = () => {
       return;
     }
 
-    // Save practice session and track for insights
+    // Log the completion — every soundscape, plan-launched or ad-hoc.
     try {
       if (soundscape) {
-        // Check if this practice is in today's queue (source of truth for ritual membership)
+        // Queue membership is the source of truth for plan attribution.
         const currentQueue = JSON.parse(localStorage.getItem('practiceQueue') || '[]');
         const isInCurrentQueue = Array.isArray(currentQueue) && currentQueue.some((p: any) => p.id === id);
         const shouldTrackRitual = isInQueue || isInCurrentQueue;
+        const completedAt = new Date();
+        const playedSeconds = Number(displayDuration) || 0;
+        const startedAt = playedSeconds > 0
+          ? new Date(completedAt.getTime() - playedSeconds * 1000).toISOString()
+          : null;
 
-        // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
-        const result = await trackSanctuaryEvent({
-          eventType: 'session_complete',
-          contentId: soundscape.id,
-          contentType: 'soundbath',
-          category: soundscape.category as 'pause' | 'power-up' | 'presence',
-          tags: [],
-          duration: displayDuration,
-          timestamp: new Date().toISOString(),
-          contextData: {
-            timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening',
-            dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
-          },
-          partOfRitual: shouldTrackRitual,
-          metadata: { title: soundscape.title }
+        console.log('[SoundscapePlayer] Logging completion:', { id, plan: shouldTrackRitual });
+        await updateRitualCompletion('soundscape', id, practiceQueue, {
+          startedAt,
+          completedAt: completedAt.toISOString(),
+          isPlanPractice: shouldTrackRitual,
+          planContext: shouldTrackRitual
+            ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
+            : 'library',
         });
-
-        if (result.data?.practiceSessionId) {
-          setSessionId(result.data.practiceSessionId);
-        }
-
-        // Update ritual completion if part of recommended plan or queue
-        if (shouldTrackRitual) {
-          console.log('[SoundscapePlayer] Calling updateRitualCompletion:', { id, queueLength: practiceQueue?.length });
-          await updateRitualCompletion('soundscape', id, practiceQueue);
-          console.log('[SoundscapePlayer] updateRitualCompletion complete');
-        }
       }
     } catch (error) {
-      console.error('Failed to save practice session:', error);
+      console.error('Failed to log practice completion:', error);
     }
+
     
     // Skip individual rating modal when in a plan queue — plan-level feedback fires at the end
     if (isInQueue) {

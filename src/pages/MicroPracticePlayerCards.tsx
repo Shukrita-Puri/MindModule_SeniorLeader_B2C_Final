@@ -16,7 +16,6 @@ import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
-import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import { safeReadPracticeQueue, safeReadJitInterventionData, safeReadQueueIndex } from "@/utils/safeStorage";
@@ -1947,38 +1946,23 @@ const MicroPracticePlayerCards = () => {
       // Queue is source of truth for ritual membership
       const shouldTrackRitual = isPartOfRitual;
 
-      // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
-      const result = await trackSanctuaryEvent({
-        eventType: 'session_complete',
-        contentId: practice.id,
-        contentType: 'micro-practice',
-        category: practice.category as 'pause' | 'power-up' | 'presence',
-        tags: [],
-        duration: practice.duration * 60,
-        timestamp: new Date().toISOString(),
-        contextData: {
-          timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening',
-          dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
-        },
-        partOfRitual: shouldTrackRitual,
-        metadata: { title: practice.title }
+      // Log the completion — every practice, plan-launched or ad-hoc.
+      const completedAt = new Date();
+      const durationSeconds = (Number(practice.duration) || 0) * 60;
+      const startedAt = durationSeconds > 0
+        ? new Date(completedAt.getTime() - durationSeconds * 1000).toISOString()
+        : null;
+
+      console.log('[MicroPracticePlayerCards] Logging completion:', { id, plan: shouldTrackRitual });
+      await updateRitualCompletion('micro_exercise', id, practiceQueueLocal || undefined, {
+        startedAt,
+        completedAt: completedAt.toISOString(),
+        isPlanPractice: shouldTrackRitual,
+        planContext: shouldTrackRitual
+          ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
+          : 'library',
       });
 
-      if (result.data?.practiceSessionId) {
-        setSessionId(result.data.practiceSessionId);
-        // Re-link previously saved reflections (saved with tempSessionKey) to the real session id.
-        if (isMindset) {
-          try { await reflection.flush(undefined, result.data.practiceSessionId); } catch { /* noop */ }
-        }
-      }
-
-      // Update ritual completion if part of recommended plan or queue
-      if (shouldTrackRitual) {
-        const queue = safeReadPracticeQueue();
-        console.log('[MicroPracticePlayerCards] Calling updateRitualCompletion:', { id, queueLength: queue?.length });
-        await updateRitualCompletion('micro_exercise', id, queue || undefined);
-        console.log('[MicroPracticePlayerCards] updateRitualCompletion complete');
-      }
     } catch (error) {
       console.error("Failed to save completion:", error);
     }

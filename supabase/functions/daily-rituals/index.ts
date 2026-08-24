@@ -204,7 +204,10 @@ serve(async (req) => {
       }
 
       case 'COMPLETE_PRACTICE': {
-        const { practiceType, practiceId, practiceQueue, sessionPeriod } = body;
+        const {
+          practiceType, practiceId, practiceQueue, sessionPeriod,
+          isPlanPractice, planContext, startedAt, completedAt,
+        } = body;
         if (!practiceType || !practiceId) {
           return new Response(JSON.stringify({ error: 'Missing practiceType or practiceId' }), {
             status: 400,
@@ -215,6 +218,11 @@ serve(async (req) => {
         const today = new Date().toISOString().split('T')[0];
         const now = new Date().toISOString();
         const period = sessionPeriod || getServerTimeOfDay();
+        const finishedAt = typeof completedAt === 'string' && completedAt ? completedAt : now;
+        const inQueue = Array.isArray(practiceQueue)
+          ? practiceQueue.some((p: any) => p?.id === practiceId)
+          : false;
+        const planPractice = typeof isPlanPractice === 'boolean' ? isPlanPractice : inQueue;
 
         // 1. Get current ritual for this period (if exists)
         const { data: existing } = await supabase
@@ -236,18 +244,27 @@ serve(async (req) => {
           ritual_date: today,
           session_period: period,
           completed_practice_ids: newCompletedIds,
+          // Every completion is logged — plan-launched or ad-hoc from the library.
+          is_plan_practice: planPractice,
+          plan_context: typeof planContext === 'string' && planContext
+            ? planContext
+            : (planPractice ? 'plan' : 'library'),
+          practice_completed_at: finishedAt,
         };
+        if (typeof startedAt === 'string' && startedAt) {
+          updateData.practice_started_at = startedAt;
+        }
 
         // 3. Set boolean flag + timestamp for practiceType
         if (practiceType === 'soundscape') {
           updateData.soundscape_completed = true;
-          updateData.soundscape_completed_at = now;
+          updateData.soundscape_completed_at = finishedAt;
         } else if (practiceType === 'guided_practice') {
           updateData.guided_practice_completed = true;
-          updateData.guided_practice_completed_at = now;
+          updateData.guided_practice_completed_at = finishedAt;
         } else if (practiceType === 'micro_exercise') {
           updateData.micro_exercise_completed = true;
-          updateData.micro_exercise_completed_at = now;
+          updateData.micro_exercise_completed_at = finishedAt;
         }
 
         // Set recommended if provided via queue
@@ -255,6 +272,7 @@ serve(async (req) => {
           updateData.recommended_practice_ids = practiceQueue.map((p: any) => p.id);
           updateData.recommended_practices_count = practiceQueue.length;
         }
+
 
         // 4. Recalculate completion_status
         const totalRecommended = updateData.recommended_practices_count 
