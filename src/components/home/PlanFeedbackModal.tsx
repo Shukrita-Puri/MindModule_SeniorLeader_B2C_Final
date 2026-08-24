@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 import FeedbackCapture, { type FeedbackRating } from "@/components/feedback/FeedbackCapture";
+import { recordPlanCompleted } from "@/services/appReview";
 
 interface PlanFeedbackModalProps {
   planType: "tod" | "jit";
@@ -32,6 +33,12 @@ const PlanFeedbackModal = ({
   const [rating, setRating] = useState<FeedbackRating | null>(null);
   const [feedback, setFeedback] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // A completed plan (practices done) is a positive moment for the native
+  // rating prompt.
+  useEffect(() => {
+    recordPlanCompleted();
+  }, []);
 
   const isRecoveryState = energyTier === "depleted" || energyTier === "managing";
 

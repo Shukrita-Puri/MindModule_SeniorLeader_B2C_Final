@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 import FeedbackCapture, { type FeedbackRating } from "@/components/feedback/FeedbackCapture";
+import { recordPracticeCompleted } from "@/services/appReview";
 
 interface PracticeRatingModalProps {
   contentId: string;
@@ -32,6 +33,12 @@ const PracticeRatingModal = ({
   const [rating, setRating] = useState<FeedbackRating | null>(null);
   const [feedback, setFeedback] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // The practice itself is complete by the time this surfaces — a genuine
+  // positive moment for the native rating prompt.
+  useEffect(() => {
+    recordPracticeCompleted();
+  }, []);
 
   // Auto-skip if already rated
   useEffect(() => {
