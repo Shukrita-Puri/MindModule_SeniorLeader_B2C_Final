@@ -1317,9 +1317,13 @@ serve(async (req) => {
     const categoryLabelOf = (e: any): string =>
       canonicalCategoryName(e) ?? classifyByAttendees(e.attendees_count);
     const subtypeLabelOf = (e: any): string | null => {
-      const et = classifyEventCanonical(e) as any;
-      return et?.name ?? et?.bucket ?? null;
+      // `EventType` exposes `label` (specific subtype, e.g. "Board prep") and
+      // `bucket` (the A–H display name, already shown as the row label). Use
+      // `label` so the tooltip adds detail instead of repeating the category.
+      const et = classifyEventCanonical(e);
+      return et?.label ?? null;
     };
+
 
     const categoryDays = new Map<string, Set<string>>();
     for (const e of events as any[]) {
