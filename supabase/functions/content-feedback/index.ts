@@ -566,6 +566,8 @@ serve(async (req) => {
         for (const ev of completedEvents) {
           const a = getAgg(ev.content_id, ev.content_id.startsWith('plan-'));
           a.sessions += 1;
+          // No timestamp anchor → counts as a session, contributes no signal.
+          if (!ev.timestamp) continue;
 
           const next = findNextCheckin(ev.timestamp);
           const prior = findPriorCheckin(ev.timestamp);
@@ -599,9 +601,8 @@ serve(async (req) => {
           // ── Intraday HR triple around the practice ────────────
           const startMs = +new Date(ev.timestamp);
           if (Number.isFinite(startMs)) {
-            const durMs = ev.duration_seconds && ev.duration_seconds > 0
-              ? ev.duration_seconds * 1000
-              : 20 * 60 * 1000;
+            const durMs = durationSecondsOf(ev.content_id) * 1000;
+
             const endMs = startMs + durMs;
             const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
             const hrDuring = meanHrBetween(startMs, endMs);
