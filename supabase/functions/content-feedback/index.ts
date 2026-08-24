@@ -672,22 +672,20 @@ serve(async (req) => {
           else if (r.star_rating <= 1) a.thumbsDown += 1;
         }
 
-        // ── Build content title map ─────────────────────────────
-        const allIds = Array.from(perContent.keys());
-        const realIds = allIds.filter((id) => !id.startsWith('plan-'));
-        const { data: contentData } = realIds.length
-          ? await supabase
-              .from('sanctuary_content')
-              .select('id, title, category')
-              .in('id', realIds)
-          : { data: [] as any[] };
-        const contentMap = new Map((contentData ?? []).map((c: any) => [c.id, c]));
-        const eventCategoryMap = new Map<string, string>();
-        for (const e of completedEvents) {
-          if (e.content_id && e.category && !eventCategoryMap.has(e.content_id)) {
-            eventCategoryMap.set(e.content_id, e.category);
-          }
+        // ── Top up content metadata for rating-only ids ─────────
+        const missingIds = Array.from(perContent.keys()).filter(
+          (id) => !id.startsWith('plan-') && !contentMap.has(id),
+        );
+        if (missingIds.length) {
+          const { data: extra } = await supabase
+            .from('sanctuary_content')
+            .select('id, title, category, duration')
+            .in('id', missingIds);
+          for (const c of (extra ?? []) as any[]) contentMap.set(c.id, c);
         }
+        // Legacy fallback map (sanctuary_events categories) — retired source.
+        const eventCategoryMap = new Map<string, string>();
+
 
         // ── Category-aware wearable signal per practice ─────────
         type WearableSignal = {
