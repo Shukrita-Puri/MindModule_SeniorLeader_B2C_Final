@@ -100,6 +100,11 @@ export interface UpsertContextSnapshotInput {
   checkInCountToday?: number | null;
   lastCheckInWindow?: 'morning' | 'afternoon' | 'evening' | null;
   weightProvenance?: unknown | null;
+  /**
+   * Load Shape (SSOT). Written only by the build-daily-context orchestrator.
+   * Omitted when `undefined` so no other writer can clobber a stored shape.
+   */
+  loadShape?: LoadShape | null;
 }
 
 /**
