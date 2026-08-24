@@ -28,11 +28,15 @@ const SMART_NUDGES_SRC = readFileSync(
 );
 
 describe('Insights audit fixes', () => {
-  it('renders box3 physiology rows in Practice Effectiveness', () => {
-    expect(PRACTICE_SRC).toContain('What&apos;s measurably shifting');
-    expect(PRACTICE_SRC).toContain('function PhysiologyRow');
-    expect(PRACTICE_SRC).toContain('const measurableShiftRows = useMemo(');
+  it('drops box3 physiology rows in favour of per-practice wearable signals', () => {
+    // v5 replaced the aggregate "measurably shifting" block with a category-aware
+    // wearable signal on each practice row plus the Before Your Hardest Days section.
+    expect(PRACTICE_SRC).not.toContain('What&apos;s measurably shifting');
+    expect(PRACTICE_SRC).not.toContain('function PhysiologyRow');
+    expect(PRACTICE_SRC).toContain('function formatWearableSignal');
+    expect(PRACTICE_SRC).toContain('Before Your Hardest Days');
   });
+
 
   it('uses HRV and intraday HR sample counts for tab unlocks', () => {
     expect(CAUSALITY_SRC).toContain("const hrvDays = data?.diagnostics?.counts?.hrvDays ?? wearableDays;");

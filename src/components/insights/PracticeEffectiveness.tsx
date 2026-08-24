@@ -1,9 +1,10 @@
 /**
- * Practice Effectiveness Card v4
+ * Practice Effectiveness Card v5
  *
- * Flattened "What Restores Your Performance" surface. The server still owns
- * aggregation; this component only turns the existing impact payload into one
- * summary line plus finding rows.
+ * "What Restores Your Performance". Every practice with at least one session
+ * renders; each row carries the self-declared signal plus a category-aware
+ * wearable signal computed server-side. A second section shows what was used
+ * before the user's hardest day types.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -17,6 +18,15 @@ import { cn } from '@/lib/utils';
 type Stage = 'early' | 'building' | 'deepening';
 type LegacyStage = 'day_1_6' | 'day_7_29' | 'day_30_plus';
 
+interface WearableSignal {
+  primarySignalPct: number | null;
+  primarySignalLabel: string;
+  primarySignalIsPositive: boolean;
+  secondarySignalPct: number | null;
+  secondarySignalLabel: string;
+  n: number;
+}
+
 interface Box1Practice {
   contentId: string;
   title: string;
@@ -24,10 +34,21 @@ interface Box1Practice {
   sessions: number;
   thumbsUp: number;
   thumbsTotal: number;
+  thumbsRate: number | null;
   compositeScore: number;
-  clarityDelta: number;
   isFavourite: boolean;
   planBadge: string | null;
+  wearableSignal: WearableSignal | null;
+  dominantEventCategory: string | null;
+}
+
+interface Section2Entry {
+  eventType: string;
+  practicesUsed: string[];
+  hrDeltaPct: number | null;
+  hrDeltaN: number;
+  postEventRating: null;
+  postEventRatingN: number;
 }
 
 interface Box2Data {
@@ -52,6 +73,7 @@ interface ImpactPayload {
   box1: { practices: Box1Practice[] };
   box2: Box2Data;
   box3: { dims: Box3Dim[] };
+  section2: Section2Entry[];
 }
 
 interface PracticeEffectivenessProps {
@@ -110,18 +132,13 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
   }, [userId]);
 
   const practices = data?.box1?.practices ?? [];
-  const totalPractices = data?.totalPractices ?? 0;
-  const bestWindow = data?.box2?.best;
+  const section2 = data?.section2 ?? [];
   const stage = normalizeStage(data?.stage);
-  const measurableShiftRows = useMemo(
-    () => (data?.box3?.dims ?? []).filter((dim) => dim.n >= 2),
-    [data?.box3?.dims],
-  );
 
   const planRows = useMemo(() => practices.filter((practice) => !!practice.planBadge), [practices]);
   const standaloneRows = useMemo(() => practices.filter((practice) => !practice.planBadge), [practices]);
   const confirmedPractice = practices.find((practice) => practice.sessions >= 3);
-  const emergingPractice = practices[0];
+  const emergingPractice = practices.find((practice) => practice.sessions >= 1);
 
   if (loading) {
     return (
@@ -140,7 +157,7 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
           </span>
           <InsightInfoModal
             title="What Restores Your Performance"
-            explanation="Which practices are measurably helping you recover or lift state, using one evidence source per row and sample counts for confidence."
+            explanation="Which practices are measurably helping you recover or lift state, using your own rating plus the wearable signal that fits each practice type, with sample counts for confidence."
           />
           <InsightShareSlot />
         </div>
@@ -151,10 +168,10 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
 
       <div className="text-sm font-medium text-foreground leading-snug mb-3">
         {confirmedPractice
-          ? `Most effective: ${confirmedPractice.title}${bestWindow ? ` · usually ${bestWindowLabel(bestWindow)}` : ''}`
-          : emergingPractice && emergingPractice.sessions > 0
-            ? `Building signal: ${emergingPractice.title} — ${3 - emergingPractice.sessions} more session${3 - emergingPractice.sessions === 1 ? '' : 's'} to confirm`
-          : 'Log practices to reveal what restores your performance'}
+          ? `Most effective: ${confirmedPractice.title}`
+          : emergingPractice
+            ? `Building signal: ${emergingPractice.title}`
+            : 'Complete a practice session to see what restores your performance.'}
       </div>
 
       <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20">
@@ -162,74 +179,78 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
           <FindingRow
             key={`plan-${practice.contentId}`}
             title={practice.planBadge || 'Daily Plan'}
-            subtitle={`Plan practice: ${practice.title}`}
             practice={practice}
-            source="self-report"
           />
         ))}
 
         {standaloneRows.map((practice) => (
-          <FindingRow
-            key={practice.contentId}
-            title={practice.title}
-            subtitle={practice.category}
-            practice={practice}
-            source="self-report"
-          />
+          <FindingRow key={practice.contentId} title={practice.title} practice={practice} />
         ))}
 
         {practices.length === 0 && (
           <div className="px-3 py-4 text-xs text-muted-foreground">
-            Complete 3 practice sessions to see the first restoring signal.
+            Complete a practice session to see what restores your performance.
           </div>
         )}
       </div>
 
-      {measurableShiftRows.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <div className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
-            What&apos;s measurably shifting
+      {section2.length > 0 && (
+        <>
+          <div className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mt-4 mb-2">
+            Before Your Hardest Days
           </div>
-          <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20">
-            {measurableShiftRows.map((dim) => (
-              <PhysiologyRow key={dim.label} dim={dim} />
+          <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20 px-3 py-3">
+            {section2.map((entry) => (
+              <HardestDayRow key={entry.eventType} entry={entry} />
             ))}
           </div>
-        </div>
-      )}
-
-      {totalPractices > 0 && totalPractices < 3 && (
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Practice history — Log {3 - totalPractices} more session{3 - totalPractices === 1 ? '' : 's'} to see its effect
-        </p>
+        </>
       )}
     </div>
   );
 };
 
-function FindingRow({
-  title,
-  subtitle,
-  practice,
-  source,
-}: {
-  title: string;
-  subtitle: string;
-  practice: Box1Practice;
-  source: 'self-report' | 'physiology';
-}) {
-  const sessionsNeeded = Math.max(0, 3 - practice.sessions);
-  const locked = practice.sessions < 3;
-  const confidence = practice.sessions >= 5 ? 'strong' : 'emerging';
-  const evidence = source === 'physiology'
-    ? 'HR signal forming'
-    : `Outcome ${practice.clarityDelta >= 0 ? '+' : ''}${practice.clarityDelta}% vs baseline`;
+function categoryChipClass(category: string) {
+  const cat = (category || '').toLowerCase();
+  if (cat.includes('pause')) return 'bg-blue-100 text-blue-700';
+  if (cat.includes('flow')) return 'bg-emerald-100 text-emerald-700';
+  if (cat.includes('energise') || cat.includes('energize')) return 'bg-amber-100 text-amber-700';
+  return 'bg-muted text-muted-foreground';
+}
 
-  if (locked) {
-    return (
-      <div className="px-3 py-3 text-xs text-muted-foreground">
-        {title} — Log {sessionsNeeded} more session{sessionsNeeded === 1 ? '' : 's'} to see its effect
-      </div>
+function formatWearableSignal(signal: WearableSignal): { text: string; positive: boolean } | null {
+  const pct = signal.primarySignalPct;
+  if (pct == null || signal.n < 2) return null;
+  const abs = Math.abs(pct).toFixed(0);
+  // A "positive impact" reads as a rise for HRV / activation signals and as a
+  // drop for composing signals, so the sign follows the measured direction.
+  const rising = signal.primarySignalIsPositive;
+  const sign = rising ? (pct >= 0 ? '+' : '−') : pct >= 0 ? '−' : '+';
+  const positive = rising ? pct > 0 : pct > 0;
+  return { text: `${sign}${abs}% ${signal.primarySignalLabel}`, positive };
+}
+
+function FindingRow({ title, practice }: { title: string; practice: Box1Practice }) {
+  const wearable = practice.wearableSignal ? formatWearableSignal(practice.wearableSignal) : null;
+  const eventChip = practice.dominantEventCategory
+    ? practice.dominantEventCategory.length > 20
+      ? `${practice.dominantEventCategory.slice(0, 20)}…`
+      : practice.dominantEventCategory
+    : null;
+
+  const slots: React.ReactNode[] = [];
+  if (practice.thumbsTotal >= 1) {
+    slots.push(
+      <span key="thumbs">
+        👍 {practice.thumbsUp}/{practice.thumbsTotal}
+      </span>,
+    );
+  }
+  if (wearable) {
+    slots.push(
+      <span key="wearable" className={wearable.positive ? 'text-emerald-700' : 'text-muted-foreground'}>
+        {wearable.text}
+      </span>,
     );
   }
 
@@ -241,72 +262,62 @@ function FindingRow({
             <span className="text-sm font-medium text-foreground truncate">{title}</span>
             {practice.isFavourite && <Star className="h-3 w-3 flex-shrink-0 fill-saffron text-saffron" />}
           </div>
-          <div className="text-[11px] text-muted-foreground truncate">{subtitle}</div>
-        </div>
-        <span
-          className={cn(
-            'text-[10px] rounded-full px-2 py-0.5 whitespace-nowrap',
-            confidence === 'strong'
-              ? 'bg-foreground text-background'
-              : 'bg-muted text-muted-foreground',
-          )}
-        >
-          n={practice.sessions} {confidence}
-        </span>
-      </div>
-      <div className="mt-2 text-xs text-foreground/85 tabular-nums">
-        {evidence}
-      </div>
-    </div>
-  );
-}
-
-function bestWindowLabel(window: 'morning' | 'afternoon' | 'evening') {
-  if (window === 'morning') return 'AM';
-  if (window === 'afternoon') return 'afternoon';
-  return 'evening';
-}
-
-function PhysiologyRow({ dim }: { dim: Box3Dim }) {
-  const confidence = dim.n >= 5 ? 'strong' : 'emerging';
-  const liftPositive = dim.inverse ? dim.lift < 0 : dim.lift > 0;
-  const liftLabel = `${dim.lift > 0 ? '+' : ''}${dim.lift.toFixed(0)}%`;
-
-  return (
-    <div className="px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-foreground">{dim.label}</div>
-          <div className="text-[11px] text-muted-foreground">
-            Before {formatPhysiologyValue(dim.before)} to after {formatPhysiologyValue(dim.after)}
+          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+            <span className={cn('text-[9px] rounded-full px-1.5 py-0.5', categoryChipClass(practice.category))}>
+              {practice.category}
+            </span>
+            {eventChip && (
+              <span className="text-[9px] rounded-full px-1.5 py-0.5 bg-muted/60 text-muted-foreground">
+                {eventChip}
+              </span>
+            )}
           </div>
         </div>
-        <span
-          className={cn(
-            'text-[10px] rounded-full px-2 py-0.5 whitespace-nowrap',
-            confidence === 'strong'
-              ? 'bg-foreground text-background'
-              : 'bg-muted text-muted-foreground',
-          )}
-        >
-          n={dim.n} {confidence}
+        <span className="text-[10px] rounded-full px-2 py-0.5 whitespace-nowrap bg-muted text-muted-foreground">
+          n={practice.sessions}
         </span>
       </div>
-      <div
-        className={cn(
-          'mt-2 text-xs font-medium tabular-nums',
-          liftPositive ? 'text-emerald-700' : 'text-amber-700',
-        )}
-      >
-        {liftPositive ? 'Improving' : 'Monitoring'} {liftLabel} vs pre-practice baseline
-      </div>
+      {slots.length > 0 && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs tabular-nums text-foreground/80">
+          {slots.map((slot, i) => (
+            <span key={i} className="flex items-center gap-1.5">
+              {i > 0 && <span className="text-muted-foreground">·</span>}
+              {slot}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function formatPhysiologyValue(value: number) {
-  if (!Number.isFinite(value)) return '—';
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+function HardestDayRow({ entry }: { entry: Section2Entry }) {
+  let hrText = 'HR during event: — no wearable data yet';
+  let hrClass = 'text-muted-foreground';
+  if (entry.hrDeltaPct != null && entry.hrDeltaN >= 1) {
+    if (entry.hrDeltaN < 2) {
+      hrText = 'HR during event: — need more data';
+    } else if (Math.abs(entry.hrDeltaPct) < 3) {
+      hrText = 'HR during event: similar to your average';
+    } else if (entry.hrDeltaPct > 0) {
+      hrText = `HR during event: −${Math.abs(entry.hrDeltaPct).toFixed(0)}% vs your average`;
+      hrClass = 'text-emerald-700';
+    } else {
+      hrText = `HR during event: +${Math.abs(entry.hrDeltaPct).toFixed(0)}% vs your average`;
+    }
+  }
+
+  return (
+    <div className="py-2 first:pt-0 last:pb-0">
+      <div className="text-sm font-medium text-foreground">{entry.eventType}</div>
+      {entry.practicesUsed.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          Practices: {entry.practicesUsed.join(' · ')}
+        </div>
+      )}
+      <div className={cn('text-xs tabular-nums', hrClass)}>{hrText}</div>
+    </div>
+  );
 }
 
 export default PracticeEffectiveness;

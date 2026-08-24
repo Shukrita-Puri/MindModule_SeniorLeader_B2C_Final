@@ -4,11 +4,121 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
+import { enrich as enrichCalendarEvent } from "../_shared/events/pattern-bucket.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-mm-client-platform',
 };
+
+// Category + subcategory come ONLY from the canonical A–H resolver
+// (`enrichCalendarEvent` → resolveEvent). No keyword matching here.
+interface DominantDayType {
+  dayType: string;
+  secondaryCategory: string | null; // diagnostics only — never rendered
+}
+
+function durationMinutesOf(e: any): number {
+  const s = e?.start_time ? new Date(e.start_time).getTime() : NaN;
+  const en = e?.end_time ? new Date(e.end_time).getTime() : NaN;
+  if (!Number.isFinite(s) || !Number.isFinite(en) || en <= s) return 0;
+  return Math.round((en - s) / 60000);
+}
+
+function classifyDominantDayType(events: any[], loadMinutes: number): DominantDayType {
+  const resolved = events.map((e) => {
+    const en = enrichCalendarEvent(e) as any;
+    return {
+      cat: (en?.categoryId ?? null) as string | null,
+      sub: (en?.subcategory ?? null) as string | null,
+      mins: durationMinutesOf(e),
+    };
+  });
+
+  const minutesByCategory = new Map<string, number>();
+  resolved.forEach((r) => {
+    if (!r.cat) return;
+    minutesByCategory.set(r.cat, (minutesByCategory.get(r.cat) ?? 0) + r.mins);
+  });
+  const rankedCats = [...minutesByCategory.entries()].sort((a, b) => b[1] - a[1]);
+  const secondaryCategory = rankedCats[1]?.[0] ?? null;
+  const out = (dayType: string): DominantDayType => ({ dayType, secondaryCategory });
+
+  const inCat = (c: string) => resolved.filter((r) => r.cat === c);
+  const totalMins = (c: string) => minutesByCategory.get(c) ?? 0;
+  const load = loadMinutes > 0 ? loadMinutes : resolved.reduce((a, r) => a + r.mins, 0);
+
+  // P1 — Travel (hard override)
+  if (resolved.some((r) => r.cat === "G" && (r.sub?.includes("flight") || r.sub?.includes("travel_day")))) {
+    return out("Travel");
+  }
+
+  // P2 — Governance
+  const aEvents = inCat("A");
+  const governanceGate = aEvents.some((r) => r.mins >= 45) || aEvents.length >= 2;
+
+  // P3 — Visibility
+  const performingSubs = ["speaking", "media", "roundtable", "town_hall"];
+  const visibilityGate = inCat("C").some(
+    (r) =>
+      (r.sub != null && performingSubs.includes(r.sub)) ||
+      (r.sub === "stakeholder_communication" && r.mins >= 45),
+  );
+
+  // P4 — Pitching
+  const pitchingGate = inCat("B").length > 0;
+
+  if (governanceGate) return out("Board & Governance");
+
+  if (visibilityGate && pitchingGate) {
+    return out(totalMins("B") > totalMins("C") ? "Business Development" : "Visibility & Comms");
+  }
+  if (visibilityGate) return out("Visibility & Comms");
+  if (pitchingGate) return out("Business Development");
+
+  // P5 — High-Stakes
+  if (inCat("D").some((r) => r.mins >= 30)) return out("Interpersonal High-Stakes");
+
+  // P6 — Conference (Visibility already returned above when gated)
+  if (totalMins("F") >= 120) return out("Conferences & Events");
+
+  // P7 — Deep Work
+  const deepMins = resolved
+    .filter((r) => r.cat === "E" && (r.sub === "deep_work" || r.sub === "review"))
+    .reduce((a, r) => a + r.mins, 0);
+  if (load > 0 && deepMins / load >= 0.4) return out("Deep Work & Strategy");
+
+  // P8 — Learning
+  const learnMins = resolved
+    .filter((r) => r.cat === "E" && (r.sub === "learning" || r.sub === "community"))
+    .reduce((a, r) => a + r.mins, 0);
+  if (load > 0 && learnMins / load >= 0.4) return out("Learning & Development");
+
+  // P9 — Rhythm
+  const hMins = totalMins("H");
+  if ((load > 0 && hMins / load >= 0.5) || load < 30) return out("Daily Rhythm & Baseline");
+
+  // P10 — Mixed: ≥2 categories each ≥25% of PROFESSIONAL load (excl. H),
+  // spanning ≥2 different demand modes.
+  const professionalLoad = [...minutesByCategory.entries()]
+    .filter(([c]) => c !== "H")
+    .reduce((a, [, m]) => a + m, 0);
+  if (professionalLoad > 0) {
+    const competing = [...minutesByCategory.entries()].filter(
+      ([c, m]) => c !== "H" && m / professionalLoad >= 0.25,
+    );
+    const modeOf = (c: string): string | null =>
+      c === "B" || c === "C" ? "performance" :
+      c === "A" ? "governance" :
+      c === "D" ? "relational" :
+      c === "E" ? "cognitive" :
+      c === "F" || c === "G" ? "logistical" : null;
+    const modes = new Set(competing.map(([c]) => modeOf(c)).filter(Boolean));
+    if (competing.length >= 2 && modes.size >= 2) return out("Mixed");
+  }
+
+  return out("Mixed");
+}
 
 interface RequestBody {
   action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT';
@@ -129,7 +239,7 @@ serve(async (req) => {
         const deltaSinceDate = deltaSinceIso.slice(0, 10);
 
         // ── Pull all source data in parallel ─────────────────────
-        const [fbRes, evRes, ciRes, wdRes, favRes] = await Promise.all([
+        const [fbRes, evRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
           supabase
             .from('content_relevance_feedback')
             .select('content_id, content_type, star_rating, session_id, trigger_context, created_at')
@@ -139,7 +249,7 @@ serve(async (req) => {
             .gte('created_at', deltaSinceIso),
           supabase
             .from('sanctuary_events')
-            .select('content_id, category, timestamp')
+            .select('content_id, category, timestamp, duration_seconds')
             .eq('user_id', userId)
             .in('event_type', ['completed', 'session_complete'])
             .gte('timestamp', sessionSinceIso),
@@ -151,12 +261,18 @@ serve(async (req) => {
             .order('timestamp', { ascending: true }),
           supabase
             .from('wearable_data')
-            .select('summary_date, hrv, resting_heart_rate')
+            .select('summary_date, hrv, resting_heart_rate, hr_samples')
             .eq('user_id', userId)
             .gte('summary_date', deltaSinceDate),
           supabase
             .from('user_favorites')
             .select('content_id'),
+          supabase
+            .from('calendar_events')
+            .select('title, start_time, end_time, attendees_count')
+            .eq('user_id', userId)
+            .gte('start_time', deltaSinceIso)
+            .lte('start_time', new Date().toISOString()),
         ]);
 
         if (fbRes.error) throw fbRes.error;
@@ -171,7 +287,7 @@ serve(async (req) => {
             r.trigger_context === 'post_plan_completion'
         );
         const completedEvents = (evRes.data ?? []) as Array<{
-          content_id: string; category: string; timestamp: string;
+          content_id: string; category: string; timestamp: string; duration_seconds: number | null;
         }>;
         const checkins = (ciRes.data ?? []) as Array<{
           checkin_date: string; time_window: string | null; timestamp: string;
@@ -180,8 +296,13 @@ serve(async (req) => {
         }>;
         const wearable = (wdRes.data ?? []) as Array<{
           summary_date: string; hrv: number | null; resting_heart_rate: number | null;
+          hr_samples: unknown;
         }>;
         const favouriteIds = new Set((favRes.data ?? []).map((f: any) => f.content_id));
+        const calendarEvents = (calRes.data ?? []) as Array<{
+          title: string | null; start_time: string | null; end_time: string | null;
+          attendees_count: number | null;
+        }>;
 
         const totalPractices = completedEvents.length;
 
@@ -193,22 +314,83 @@ serve(async (req) => {
           return 'evening';
         };
         const dateKey = (iso: string) => iso.slice(0, 10);
+        const nextDateKey = (iso: string) => {
+          const d = new Date(iso);
+          d.setUTCDate(d.getUTCDate() + 1);
+          return d.toISOString().slice(0, 10);
+        };
 
         // Map wearable by date
         const wearableByDate = new Map<string, { hrv: number | null; rhr: number | null }>();
+        // Intraday HR samples indexed by summary_date → sorted [ms, bpm] pairs
+        const hrSamplesByDate = new Map<string, Array<{ t: number; v: number }>>();
         for (const w of wearable) {
           wearableByDate.set(w.summary_date, { hrv: w.hrv, rhr: w.resting_heart_rate });
+          const raw = Array.isArray(w.hr_samples) ? (w.hr_samples as any[]) : [];
+          const parsed: Array<{ t: number; v: number }> = [];
+          for (const s of raw) {
+            const t = s?.t ? +new Date(s.t) : NaN;
+            const v = typeof s?.v === 'number' ? s.v : Number(s?.v);
+            if (Number.isFinite(t) && Number.isFinite(v) && v > 0) parsed.push({ t, v });
+          }
+          parsed.sort((a, b) => a.t - b.t);
+          hrSamplesByDate.set(w.summary_date, parsed);
         }
+
+        /**
+         * Mean HR across [fromMs, toMs). Samples are stored per summary_date, so a
+         * window that crosses midnight has to consult both day buckets.
+         */
+        const meanHrBetween = (
+          fromMs: number,
+          toMs: number,
+          opts?: { includeEnd?: boolean; excludeStart?: boolean },
+        ): { mean: number | null; n: number } => {
+          if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
+            return { mean: null, n: 0 };
+          }
+          // Providers file late-evening samples under the *following* summary_date,
+          // so scan the neighbouring buckets as well as the spanned days.
+          const keys = new Set<string>();
+          for (const anchor of [fromMs, toMs]) {
+            for (const offset of [-1, 0, 1]) {
+              keys.add(new Date(anchor + offset * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+            }
+          }
+
+          let sum = 0;
+          let n = 0;
+          for (const k of keys) {
+            for (const s of hrSamplesByDate.get(k) ?? []) {
+              const afterStart = opts?.excludeStart ? s.t > fromMs : s.t >= fromMs;
+              const beforeEnd = opts?.includeEnd ? s.t <= toMs : s.t < toMs;
+              if (afterStart && beforeEnd) {
+                sum += s.v;
+                n += 1;
+              }
+            }
+          }
+          if (n < 2) return { mean: null, n };
+          return { mean: sum / n, n };
+        };
+
+        const round1 = (v: number) => Math.round(v * 10) / 10;
 
         // Sort check-ins ascending and index by epoch ms
         const sortedCheckins = checkins
           .filter((c) => c.timestamp)
           .sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
 
+        // Bounded pairing: a check-in only counts as "before"/"after" a practice
+        // when it sits inside the window where the practice could plausibly matter.
+        const BEFORE_WINDOW_MS = 60 * 60 * 1000;
+        const AFTER_WINDOW_MS = 90 * 60 * 1000;
         const findNextCheckin = (afterIso: string) => {
           const t = +new Date(afterIso);
           for (const c of sortedCheckins) {
-            if (+new Date(c.timestamp) > t) return c;
+            const ct = +new Date(c.timestamp);
+            if (ct > t && ct <= t + AFTER_WINDOW_MS) return c;
+            if (ct > t + AFTER_WINDOW_MS) return null;
           }
           return null;
         };
@@ -216,8 +398,10 @@ serve(async (req) => {
           const t = +new Date(beforeIso);
           let last = null as (typeof sortedCheckins)[number] | null;
           for (const c of sortedCheckins) {
-            if (+new Date(c.timestamp) < t) last = c;
-            else break;
+            const ct = +new Date(c.timestamp);
+            if (ct < t) {
+              if (ct >= t - BEFORE_WINDOW_MS) last = c;
+            } else break;
           }
           return last;
         };
@@ -236,7 +420,7 @@ serve(async (req) => {
           contentId: string;
           sessions: number;
           thumbsUp: number;
-          thumbsTotal: number;
+          thumbsDown: number;
           deltaSum: number;
           deltaCount: number;
           isPlan: boolean;
@@ -245,7 +429,7 @@ serve(async (req) => {
         const getAgg = (id: string, isPlan: boolean): PracticeAgg => {
           let a = perContent.get(id);
           if (!a) {
-            a = { contentId: id, sessions: 0, thumbsUp: 0, thumbsTotal: 0, deltaSum: 0, deltaCount: 0, isPlan };
+            a = { contentId: id, sessions: 0, thumbsUp: 0, thumbsDown: 0, deltaSum: 0, deltaCount: 0, isPlan };
             perContent.set(id, a);
           }
           return a;
@@ -269,6 +453,43 @@ serve(async (req) => {
         const wearableAgg = {
           hrv: { before: 0, after: 0, n: 0 },
           rhr: { before: 0, after: 0, n: 0 },
+        };
+
+        // Category-aware per-practice wearable signal accumulator
+        type WearableSignalAgg = {
+          hrBeforeSum: number; hrDuringSum: number; hrAfterSum: number; hrN: number;
+          hrvBeforeSum: number; hrvAfterSum: number; hrvN: number;
+        };
+        const wearableSignalAgg = new Map<string, WearableSignalAgg>();
+        const getSignalAgg = (id: string): WearableSignalAgg => {
+          let a = wearableSignalAgg.get(id);
+          if (!a) {
+            a = { hrBeforeSum: 0, hrDuringSum: 0, hrAfterSum: 0, hrN: 0, hrvBeforeSum: 0, hrvAfterSum: 0, hrvN: 0 };
+            wearableSignalAgg.set(id, a);
+          }
+          return a;
+        };
+
+        // Which A–H day type each practice tends to precede
+        const eventCategoryAgg = new Map<string, Map<string, number>>();
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const calendarByDay = new Map<string, typeof calendarEvents>();
+        for (const ce of calendarEvents) {
+          if (!ce.start_time) continue;
+          const k = dateKey(ce.start_time);
+          const list = calendarByDay.get(k) ?? [];
+          list.push(ce);
+          calendarByDay.set(k, list);
+        }
+        const dayTypeCache = new Map<string, string>();
+        const dayTypeFor = (dayKey: string): string | null => {
+          if (dayTypeCache.has(dayKey)) return dayTypeCache.get(dayKey)!;
+          const events = calendarByDay.get(dayKey) ?? [];
+          if (!events.length) return null;
+          const loadMinutes = events.reduce((a, e) => a + durationMinutesOf(e), 0);
+          const label = classifyDominantDayType(events, loadMinutes).dayType;
+          dayTypeCache.set(dayKey, label);
+          return label;
         };
 
         for (const ev of completedEvents) {
@@ -304,12 +525,55 @@ serve(async (req) => {
             pushDim('confidence', prior?.confidence_level ?? null, next?.confidence_level ?? null);
           }
 
+          // ── Intraday HR triple around the practice ────────────
+          const startMs = +new Date(ev.timestamp);
+          if (Number.isFinite(startMs)) {
+            const durMs = ev.duration_seconds && ev.duration_seconds > 0
+              ? ev.duration_seconds * 1000
+              : 20 * 60 * 1000;
+            const endMs = startMs + durMs;
+            const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
+            const hrDuring = meanHrBetween(startMs, endMs);
+            const hrAfter = meanHrBetween(endMs, endMs + 60 * 60 * 1000, { excludeStart: true, includeEnd: true });
+            const sig = getSignalAgg(ev.content_id);
+            if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
+              sig.hrBeforeSum += hrBefore.mean;
+              sig.hrDuringSum += hrDuring.mean;
+              sig.hrAfterSum += hrAfter.mean;
+              sig.hrN += 1;
+            }
+            // Overnight recovery: HRV on the practice day vs the next morning.
+            // RHR is deliberately not used — same granularity, same construct.
+            const d0 = wearableByDate.get(dateKey(ev.timestamp));
+            const d1 = wearableByDate.get(nextDateKey(ev.timestamp));
+            if (d0?.hrv != null && d1?.hrv != null) {
+              sig.hrvBeforeSum += d0.hrv;
+              sig.hrvAfterSum += d1.hrv;
+              sig.hrvN += 1;
+            }
+
+            // Event category this practice preceded (calendar event within 24h after)
+            const followers = calendarEvents.filter((ce) => {
+              if (!ce.start_time) return false;
+              const s = +new Date(ce.start_time);
+              return Number.isFinite(s) && s > startMs && s <= startMs + DAY_MS;
+            });
+            if (followers.length) {
+              const dayKeys = new Set(followers.map((ce) => dateKey(ce.start_time as string)));
+              const tally = eventCategoryAgg.get(ev.content_id) ?? new Map<string, number>();
+              for (const k of dayKeys) {
+                const label = dayTypeFor(k);
+                if (!label) continue;
+                tally.set(label, (tally.get(label) ?? 0) + 1);
+              }
+              if (tally.size) eventCategoryAgg.set(ev.content_id, tally);
+            }
+          }
+
           // Wearable next-AM lift: AM session → compare D vs D+1
           if (windowOf(ev.timestamp) === 'morning') {
             const d0 = dateKey(ev.timestamp);
-            const d1Date = new Date(ev.timestamp);
-            d1Date.setUTCDate(d1Date.getUTCDate() + 1);
-            const d1 = dateKey(d1Date.toISOString());
+            const d1 = nextDateKey(ev.timestamp);
             const before0 = wearableByDate.get(d0);
             const after0 = wearableByDate.get(d1);
             if (before0 && after0) {
@@ -327,12 +591,13 @@ serve(async (req) => {
           }
         }
 
-        // Thumbs (star ratings ≥4 = up) attribution per content_id
+        // Thumbs attribution per content_id. 5 = up, 1 = down, 3 = neutral and
+        // excluded from both numerator and denominator.
         for (const r of feedbackRows) {
           if (!r.content_id || r.star_rating == null) continue;
           const a = getAgg(r.content_id, r.content_id.startsWith('plan-'));
-          a.thumbsTotal += 1;
-          if (r.star_rating >= 4) a.thumbsUp += 1;
+          if (r.star_rating >= 5) a.thumbsUp += 1;
+          else if (r.star_rating <= 1) a.thumbsDown += 1;
         }
 
         // ── Build content title map ─────────────────────────────
@@ -352,32 +617,113 @@ serve(async (req) => {
           }
         }
 
+        // ── Category-aware wearable signal per practice ─────────
+        type WearableSignal = {
+          primarySignalPct: number | null;
+          primarySignalLabel: string;
+          primarySignalIsPositive: boolean;
+          secondarySignalPct: number | null;
+          secondarySignalLabel: string;
+          n: number;
+        };
+        const buildWearableSignal = (contentId: string, category: string): WearableSignal | null => {
+          const agg = wearableSignalAgg.get(contentId);
+          if (!agg) return null;
+          const cat = (category || '').toLowerCase();
+          const hasHr = agg.hrN >= 2;
+          const hasHrv = agg.hrvN >= 2;
+          if (!hasHr && !hasHrv) return null;
+
+          const meanHrBefore = hasHr ? agg.hrBeforeSum / agg.hrN : null;
+          const meanHrDuring = hasHr ? agg.hrDuringSum / agg.hrN : null;
+          const meanHrAfter = hasHr ? agg.hrAfterSum / agg.hrN : null;
+          const hrDropPct = meanHrBefore && meanHrDuring
+            ? round1(((meanHrBefore - meanHrDuring) / meanHrBefore) * 100)
+            : null;
+          const hrRisePct = meanHrBefore && meanHrDuring
+            ? round1(((meanHrDuring - meanHrBefore) / meanHrBefore) * 100)
+            : null;
+          const hrRecoveryPct = meanHrDuring && meanHrAfter
+            ? round1(((meanHrDuring - meanHrAfter) / meanHrDuring) * 100)
+            : null;
+          const hrvLiftPct = hasHrv && agg.hrvBeforeSum > 0
+            ? round1((((agg.hrvAfterSum / agg.hrvN) - (agg.hrvBeforeSum / agg.hrvN)) / (agg.hrvBeforeSum / agg.hrvN)) * 100)
+            : null;
+
+          if (cat.includes('pause')) {
+            return {
+              primarySignalPct: hrDropPct,
+              primarySignalLabel: 'HR during',
+              primarySignalIsPositive: false,
+              secondarySignalPct: null,
+              secondarySignalLabel: '',
+              n: agg.hrN,
+            };
+          }
+          if (cat.includes('flow')) {
+            return {
+              primarySignalPct: hrvLiftPct,
+              primarySignalLabel: 'HRV next AM',
+              primarySignalIsPositive: true,
+              secondarySignalPct: hrDropPct,
+              secondarySignalLabel: 'HR during',
+              n: hasHrv ? agg.hrvN : agg.hrN,
+            };
+          }
+          if (cat.includes('energise') || cat.includes('energize')) {
+            return {
+              primarySignalPct: hrRisePct,
+              primarySignalLabel: 'HR during',
+              primarySignalIsPositive: true,
+              secondarySignalPct: hrRecoveryPct,
+              secondarySignalLabel: 'HR recovered',
+              n: agg.hrN,
+            };
+          }
+          return {
+            primarySignalPct: hrDropPct,
+            primarySignalLabel: 'HR during',
+            primarySignalIsPositive: false,
+            secondarySignalPct: null,
+            secondarySignalLabel: '',
+            n: agg.hrN,
+          };
+        };
+
         // ── Box 1 list (composite scoring) ──────────────────────
         const box1Practices = Array.from(perContent.values())
-          .filter((a) => a.sessions > 0 || a.thumbsTotal > 0)
+          .filter((a) => a.sessions > 0 || a.thumbsUp + a.thumbsDown > 0)
           .map((a) => {
             const meta = contentMap.get(a.contentId) as any;
             const isFav = favouriteIds.has(a.contentId);
+            const category = meta?.category || eventCategoryMap.get(a.contentId) || 'unknown';
             // Average delta normalised to 0..100 around 50 baseline
             const avgDelta = a.deltaCount > 0 ? a.deltaSum / a.deltaCount : 0;
             const baseScore = Math.max(0, Math.min(100, 50 + avgDelta));
-            const thumbsRate = a.thumbsTotal > 0 ? a.thumbsUp / a.thumbsTotal : 0.5;
-            const thumbsBoost = a.thumbsTotal > 0 ? (thumbsRate - 0.5) * 20 : 0;
+            const thumbsTotal = a.thumbsUp + a.thumbsDown;
+            const thumbsRate = thumbsTotal > 0 ? a.thumbsUp / thumbsTotal : null;
+            const thumbsBoost = thumbsRate != null ? (thumbsRate - 0.5) * 20 : 0;
             const favBoost = isFav ? 1.1 : 1.0;
             const composite = Math.max(0, Math.min(100, baseScore * favBoost + thumbsBoost));
+            const tally = eventCategoryAgg.get(a.contentId);
+            const dominantEventCategory = tally && tally.size
+              ? [...tally.entries()].sort((x, y) => y[1] - x[1])[0][0]
+              : null;
             return {
               contentId: a.contentId,
               title:
                 meta?.title ||
                 (a.isPlan ? 'Daily plan' : eventCategoryMap.get(a.contentId) || 'Practice'),
-              category: meta?.category || eventCategoryMap.get(a.contentId) || 'unknown',
+              category,
               sessions: a.sessions,
               thumbsUp: a.thumbsUp,
-              thumbsTotal: a.thumbsTotal,
+              thumbsTotal,
+              thumbsRate: thumbsRate != null ? Math.round(thumbsRate * 100) / 100 : null,
               compositeScore: Math.round(composite),
-              clarityDelta: Math.round(avgDelta),
               isFavourite: isFav,
               planBadge: a.isPlan ? 'Daily plan' : null,
+              wearableSignal: buildWearableSignal(a.contentId, category),
+              dominantEventCategory,
             };
           })
           .sort((a, b) => b.compositeScore - a.compositeScore);
@@ -390,9 +736,91 @@ serve(async (req) => {
               title: topRow.title,
               category: topRow.category,
               timesUsed: topRow.sessions || topRow.thumbsTotal,
-              avgRating: topRow.thumbsTotal > 0 ? (topRow.thumbsUp / topRow.thumbsTotal) * 5 : 0,
+              avgRating: topRow.thumbsRate != null ? topRow.thumbsRate * 5 : 0,
             }
           : null;
+
+        // ── Section 2 — Before Your Hardest Days ────────────────
+        type Section2Entry = {
+          eventType: string;
+          practicesUsed: string[];
+          hrDeltaPct: number | null;
+          hrDeltaN: number;
+          postEventRating: null;
+          postEventRatingN: number;
+        };
+        const practiceTitleOf = (contentId: string): string => {
+          const meta = contentMap.get(contentId) as any;
+          return meta?.title || eventCategoryMap.get(contentId) || 'Practice';
+        };
+        const practiceStarts = completedEvents
+          .map((e) => ({ id: e.content_id, t: +new Date(e.timestamp) }))
+          .filter((e) => Number.isFinite(e.t));
+
+        // Overall mean HR across every calendar event window (fallback baseline)
+        let overallSum = 0;
+        let overallN = 0;
+        for (const ce of calendarEvents) {
+          if (!ce.start_time || !ce.end_time) continue;
+          const m = meanHrBetween(+new Date(ce.start_time), +new Date(ce.end_time));
+          if (m.mean != null) { overallSum += m.mean; overallN += 1; }
+        }
+        const overallMeanHr = overallN >= 2 ? overallSum / overallN : null;
+
+        const targetTypes = new Set(
+          box1Practices.map((p) => p.dominantEventCategory).filter((v): v is string => !!v),
+        );
+        const section2: Section2Entry[] = [];
+        for (const eventType of targetTypes) {
+          const withHr: number[] = [];
+          const withoutHr: number[] = [];
+          const practiceCounts = new Map<string, number>();
+          for (const ce of calendarEvents) {
+            if (!ce.start_time) continue;
+            const dayKey = dateKey(ce.start_time);
+            if (dayTypeFor(dayKey) !== eventType) continue;
+            const startMs = +new Date(ce.start_time);
+            const priorPractices = practiceStarts.filter(
+              (p) => p.t < startMs && p.t >= startMs - DAY_MS,
+            );
+            const endMs = ce.end_time ? +new Date(ce.end_time) : startMs + 60 * 60 * 1000;
+            const m = meanHrBetween(startMs, endMs);
+            if (priorPractices.length) {
+              for (const p of priorPractices) {
+                const title = practiceTitleOf(p.id);
+                practiceCounts.set(title, (practiceCounts.get(title) ?? 0) + 1);
+              }
+              if (m.mean != null) withHr.push(m.mean);
+            } else if (m.mean != null) {
+              withoutHr.push(m.mean);
+            }
+          }
+          const meanOf = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+          const withMean = meanOf(withHr);
+          const withoutMean = meanOf(withoutHr);
+          let hrDeltaPct: number | null = null;
+          if (withMean != null && withoutMean != null && withoutMean > 0) {
+            hrDeltaPct = round1(((withoutMean - withMean) / withoutMean) * 100);
+          } else if (withMean != null && withHr.length >= 2 && overallMeanHr != null && overallMeanHr > 0) {
+            hrDeltaPct = round1(((overallMeanHr - withMean) / overallMeanHr) * 100);
+          }
+          const practicesUsed = [...practiceCounts.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([title]) => title);
+          const hrDeltaN = withHr.length;
+          if (hrDeltaN >= 1) {
+            section2.push({
+              eventType,
+              practicesUsed,
+              hrDeltaPct,
+              hrDeltaN,
+              postEventRating: null,
+              postEventRatingN: 0,
+            });
+          }
+        }
+        section2.sort((a, b) => b.hrDeltaN - a.hrDeltaN);
 
         // ── Box 2 ───────────────────────────────────────────────
         const meanOr0 = (s: { sum: number; n: number }) => (s.n > 0 ? Math.round(s.sum / s.n) : 0);
@@ -445,6 +873,7 @@ serve(async (req) => {
               box1: { practices: box1Practices },
               box2: { byWindow, byDayOfWeek, best: bestWin },
               box3: { dims },
+              section2,
             },
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
