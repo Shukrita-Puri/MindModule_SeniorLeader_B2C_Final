@@ -34,6 +34,7 @@ import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/pra
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { getAuthToken } from "@/services/authTokenService";
 import { cn } from "@/lib/utils";
 
 interface PracticeStep {
