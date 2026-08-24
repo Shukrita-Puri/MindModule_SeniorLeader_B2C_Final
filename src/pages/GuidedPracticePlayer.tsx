@@ -718,6 +718,7 @@ const GuidedPracticePlayer = () => {
 
   // Audio player state
   const audioRef = useRef<HTMLAudioElement>(null);
+  const cachedAuthTokenRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [volume, setVolume] = useState(75);
   const [isMuted, setIsMuted] = useState(false);
@@ -727,6 +728,15 @@ const GuidedPracticePlayer = () => {
   const [hasStarted, setHasStarted] = useState(false);
   const [showStory, setShowStory] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
+
+  // Capture the auth token early while the Auth0 client is still available.
+  // The audio-ended event may fire after the page loses focus, at which point
+  // getAuthToken() can return null.
+  useEffect(() => {
+    getAuthToken().then((token) => {
+      cachedAuthTokenRef.current = token;
+    });
+  }, []);
 
   // Practice Queue State
   const [practiceQueue, setPracticeQueue] = useState<any[]>([]);
