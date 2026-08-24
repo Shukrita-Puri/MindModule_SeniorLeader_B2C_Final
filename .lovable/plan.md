@@ -2,7 +2,16 @@
 
 Today every surface answers "which *kind* of event drained me" (A–H category). None answer "which *shape* of day drained me" — back-to-back days, mode-switching days, weight-vs-volume days, travel-adjacent days. That is why "Mixed" is a dead end on Stress Load and on "When You Perform Best": one bucket, no sub-shape.
 
-This adds one shared Load Shape layer and points the four existing surfaces (Insights cards, Brief, Plan, Smart Nudges) at it. Additive only: no new surfaces, no new tables, version bumps on existing engines.
+This adds one shared Load Shape layer and lets the four existing surfaces (Insights cards, Brief, Plan, Smart Nudges) read from it. **Strictly additive and isolated: no existing rule, formula, threshold, matrix, classifier or mirror is modified, moved or renamed.** Two shapes only for launch.
+
+## Isolation contract (pre-launch safety)
+
+- Nothing existing is refactored. No code is moved out of `cause-effect-engine`, no rule is moved out of `ceo-behaviour/stubs.ts`, no existing signal is deleted or repointed.
+- Existing outputs stay byte-identical when `load_shape` is absent or null: every reader takes a `if (!shape) → behave exactly as today` early exit.
+- `contextSwitchingCost`, `backToBackLoadOverride`, `decisionDensity`, `dayTypeHrvMatrix`, `stressMatrix`, `burnoutMatrix`, MRS scoring, plan slot/eligibility logic and nudge scheduling keep their current inputs and behaviour untouched.
+- The Load Shape layer is read-only with respect to the rest of the system: it consumes `resolveEvent()` output and `computeCognitiveFragmentation()`, and produces one jsonb blob. It never writes back into any existing field.
+- Kill switch: if `load_shape` is not written, or the new copy blocks are disabled, the app is functionally identical to today. That makes the whole change revertible by removing one write and one render block.
+
 
 ## Pre-flight checks (results already confirmed)
 
