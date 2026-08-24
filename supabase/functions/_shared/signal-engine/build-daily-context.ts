@@ -29,6 +29,23 @@ import { computeCalendarDemand } from './demand-scorer.ts';
 import { resolveStrategicContext } from './strategic-context.ts';
 import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
 import { dayOfWeekFromIsoDate } from './day-kind-detector.ts';
+import { classifyLoadShape } from '../load-shape/classify.ts';
+import { toLoadShapeEvents } from '../load-shape/adapt.ts';
+import type { LoadShape } from '../load-shape/types.ts';
+
+/**
+ * Load Shape write flag — independent of any render flag (isolation
+ * contract). Set LOAD_SHAPE_WRITE_ENABLED=false to stop persisting the
+ * column; shape data accumulates in production before any copy ships.
+ */
+function loadShapeWriteEnabled(): boolean {
+  try {
+    const v = (globalThis as any)?.Deno?.env?.get?.('LOAD_SHAPE_WRITE_ENABLED');
+    return String(v ?? 'true').toLowerCase() !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 type AnySupabase = {
   from: (table: string) => any;
@@ -83,6 +100,11 @@ export interface UpsertContextSnapshotInput {
   checkInCountToday?: number | null;
   lastCheckInWindow?: 'morning' | 'afternoon' | 'evening' | null;
   weightProvenance?: unknown | null;
+  /**
+   * Load Shape (SSOT). Written only by the build-daily-context orchestrator.
+   * Omitted when `undefined` so no other writer can clobber a stored shape.
+   */
+  loadShape?: LoadShape | null;
 }
 
 /**
@@ -145,6 +167,7 @@ export async function upsertDailyContextSnapshot(
     if (input.checkInCountToday !== undefined) (row as any).check_in_count_today = input.checkInCountToday;
     if (input.lastCheckInWindow !== undefined) (row as any).last_check_in_window = input.lastCheckInWindow;
     if (input.weightProvenance !== undefined) (row as any).weight_provenance = input.weightProvenance;
+    if (input.loadShape !== undefined) (row as any).load_shape = input.loadShape;
 
     // Invariant guard — never persist a row that claims a numeric MRS score
     // while also flagging awaiting_signals=true. That combination produces
@@ -241,6 +264,8 @@ export interface ComposeDailyContextResult {
   demandLoad: DemandLevel;
   demandPressure: DemandLevel;
   hasHighStakes: boolean;
+  /** Load Shape for the day. `null` only when classification failed. */
+  loadShape: LoadShape | null;
   rawSignals: RawSignals;
 }
 
@@ -290,6 +315,25 @@ export async function composeDailyContext(
   const demand = computeCalendarDemand(todayEvents);
   const patternSignals = buildPatternSignals(raw, todayEvents);
 
+  // Load Shape — the single producer. Never throws: a failure leaves the
+  // stored shape untouched (loadShape stays undefined → column omitted).
+  let loadShape: LoadShape | null = null;
+  try {
+    loadShape = classifyLoadShape({
+      events: toLoadShapeEvents(todayEvents as unknown[]),
+      ctx: {
+        localDate,
+        timezoneOffset: utcOffsetMinutes(opts.timezone, localDate),
+      },
+    });
+  } catch (err) {
+    console.warn(
+      '[load-shape] classify failed:',
+      err instanceof Error ? err.message : err,
+    );
+    loadShape = null;
+  }
+
   if (!opts.dryRun) {
     if (!opts.mrsWindow) {
       // Phase 2.5 — never write without an explicit window. The compute
@@ -309,6 +353,8 @@ export async function composeDailyContext(
         demandLoad: demand.load,
         demandPressure: demand.pressure,
         hasHighStakes: demand.hasHighStakes,
+        // Load Shape write is flagged independently of any render block.
+        ...(loadShapeWriteEnabled() && loadShape ? { loadShape } : {}),
         // Score-side (MRS-block) fields are owned by compute-outer-readiness.
         // We intentionally OMIT them here — the low-level upsert now skips
         // any undefined MRS field, so an existing ready row is preserved
@@ -324,6 +370,7 @@ export async function composeDailyContext(
     demandLoad: demand.load,
     demandPressure: demand.pressure,
     hasHighStakes: demand.hasHighStakes,
+    loadShape,
     rawSignals: raw,
   };
 }
@@ -522,6 +569,36 @@ function dayBoundsUtc(localDate: string): { start: string; end: string } {
   const start = new Date(localDate + 'T00:00:00Z').toISOString();
   const end = new Date(localDate + 'T23:59:59.999Z').toISOString();
   return { start, end };
+}
+
+/** Offset in minutes of `timezone` from UTC on `localDate` (0 when unknown). */
+function utcOffsetMinutes(timezone: string | undefined, localDate: string): number {
+  if (!timezone) return 0;
+  try {
+    const at = new Date(localDate + 'T12:00:00Z');
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).formatToParts(at);
+    const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+    const asUtc = Date.UTC(
+      get('year'),
+      get('month') - 1,
+      get('day'),
+      get('hour') % 24,
+      get('minute'),
+      get('second'),
+    );
+    return Math.round((asUtc - at.getTime()) / 60000);
+  } catch {
+    return 0;
+  }
 }
 
 // MRS v4 §8.2 — trailing 3-day RHR baseline. No schema change: computed
