@@ -239,7 +239,10 @@ serve(async (req) => {
         const deltaSinceDate = deltaSinceIso.slice(0, 10);
 
         // ── Pull all source data in parallel ─────────────────────
-        const [fbRes, evRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
+        // NOTE: `sanctuary_events` is a retired write path (last row Apr 2026).
+        // Live completions come from `daily_ritual_completions` +
+        // post-practice star ratings in `content_relevance_feedback`.
+        const [fbRes, drcRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
           supabase
             .from('content_relevance_feedback')
             .select('content_id, content_type, star_rating, session_id, trigger_context, created_at')
@@ -248,11 +251,10 @@ serve(async (req) => {
             .not('star_rating', 'is', null)
             .gte('created_at', deltaSinceIso),
           supabase
-            .from('sanctuary_events')
-            .select('content_id, category, timestamp, duration_seconds')
+            .from('daily_ritual_completions')
+            .select('ritual_date, completed_practice_ids, session_period, soundscape_completed_at, guided_practice_completed_at, micro_exercise_completed_at')
             .eq('user_id', userId)
-            .in('event_type', ['completed', 'session_complete'])
-            .gte('timestamp', sessionSinceIso),
+            .gte('ritual_date', sessionSinceIso.slice(0, 10)),
           supabase
             .from('daily_checkins')
             .select('checkin_date, time_window, timestamp, clarity_level, mental_sharpness_level, confidence_level')
@@ -276,7 +278,7 @@ serve(async (req) => {
         ]);
 
         if (fbRes.error) throw fbRes.error;
-        if (evRes.error) throw evRes.error;
+        if (drcRes.error) throw drcRes.error;
         if (ciRes.error) throw ciRes.error;
         if (wdRes.error) throw wdRes.error;
 
@@ -286,9 +288,6 @@ serve(async (req) => {
             r.trigger_context === 'post_practice_completion' ||
             r.trigger_context === 'post_plan_completion'
         );
-        const completedEvents = (evRes.data ?? []) as Array<{
-          content_id: string; category: string; timestamp: string; duration_seconds: number | null;
-        }>;
         const checkins = (ciRes.data ?? []) as Array<{
           checkin_date: string; time_window: string | null; timestamp: string;
           clarity_level: number | null; mental_sharpness_level: number | null;
@@ -304,7 +303,79 @@ serve(async (req) => {
           attendees_count: number | null;
         }>;
 
+        // ── Canonical completion list ───────────────────────────
+        // A completion is (content id, local day). Its timestamp is the earliest
+        // post-practice rating on that day, else the slot completion timestamp.
+        // Without either, it still counts as a session but yields no HR window.
+        const ratingAnchors = new Map<string, number>(); // `${id}|${date}` → ms
+        for (const r of feedbackRows) {
+          if (!r.content_id || !r.created_at) continue;
+          const ms = +new Date(r.created_at);
+          if (!Number.isFinite(ms)) continue;
+          const key = `${r.content_id}|${r.created_at.slice(0, 10)}`;
+          const prev = ratingAnchors.get(key);
+          if (prev == null || ms < prev) ratingAnchors.set(key, ms);
+        }
+
+        type Completion = { content_id: string; timestamp: string | null; day: string };
+        const completionKeys = new Set<string>();
+        const completedEvents: Completion[] = [];
+        const pushCompletion = (contentId: string, day: string, fallbackIso: string | null) => {
+          const key = `${contentId}|${day}`;
+          if (completionKeys.has(key)) return;
+          completionKeys.add(key);
+          const anchor = ratingAnchors.get(key);
+          const iso = anchor != null ? new Date(anchor).toISOString() : fallbackIso;
+          completedEvents.push({ content_id: contentId, timestamp: iso, day });
+        };
+
+        for (const row of (drcRes.data ?? []) as any[]) {
+          const day = String(row.ritual_date ?? '').slice(0, 10);
+          if (!day) continue;
+          const slotIso: string | null =
+            row.guided_practice_completed_at ||
+            row.micro_exercise_completed_at ||
+            row.soundscape_completed_at ||
+            null;
+          for (const id of (row.completed_practice_ids ?? []) as string[]) {
+            if (id) pushCompletion(id, day, slotIso);
+          }
+        }
+        // Freshly rated practices with no ritual-completion row still count.
+        for (const r of feedbackRows) {
+          if (!r.content_id || !r.created_at) continue;
+          if (r.created_at < sessionSinceIso) continue;
+          pushCompletion(r.content_id, r.created_at.slice(0, 10), r.created_at);
+        }
+
         const totalPractices = completedEvents.length;
+
+        // ── Content metadata (needed for duration + canonical category) ──
+        const completionIds = Array.from(new Set(completedEvents.map((e) => e.content_id)))
+          .filter((id) => !id.startsWith('plan-'));
+        const { data: contentData } = completionIds.length
+          ? await supabase
+              .from('sanctuary_content')
+              .select('id, title, category, duration')
+              .in('id', completionIds)
+          : { data: [] as any[] };
+        const contentMap = new Map((contentData ?? []).map((c: any) => [c.id, c]));
+
+        // sanctuary_content.category holds pause / presence / power-up.
+        const canonicalCategory = (raw: string | null | undefined): string => {
+          const c = (raw || '').toLowerCase();
+          if (c.includes('pause')) return 'Pause';
+          if (c.includes('presence') || c.includes('flow')) return 'Flow';
+          if (c.includes('power') || c.includes('energi')) return 'Energise';
+          return 'Unknown';
+        };
+        const durationSecondsOf = (contentId: string): number => {
+          const raw = Number((contentMap.get(contentId) as any)?.duration);
+          if (!Number.isFinite(raw) || raw <= 0) return 20 * 60;
+          // `duration` is authored in minutes (e.g. 1.5, 3, 12).
+          return Math.round(raw <= 180 ? raw * 60 : raw);
+        };
+
 
         // ── Helpers ─────────────────────────────────────────────
         const windowOf = (iso: string): 'morning' | 'afternoon' | 'evening' => {
@@ -495,6 +566,8 @@ serve(async (req) => {
         for (const ev of completedEvents) {
           const a = getAgg(ev.content_id, ev.content_id.startsWith('plan-'));
           a.sessions += 1;
+          // No timestamp anchor → counts as a session, contributes no signal.
+          if (!ev.timestamp) continue;
 
           const next = findNextCheckin(ev.timestamp);
           const prior = findPriorCheckin(ev.timestamp);
@@ -528,9 +601,8 @@ serve(async (req) => {
           // ── Intraday HR triple around the practice ────────────
           const startMs = +new Date(ev.timestamp);
           if (Number.isFinite(startMs)) {
-            const durMs = ev.duration_seconds && ev.duration_seconds > 0
-              ? ev.duration_seconds * 1000
-              : 20 * 60 * 1000;
+            const durMs = durationSecondsOf(ev.content_id) * 1000;
+
             const endMs = startMs + durMs;
             const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
             const hrDuring = meanHrBetween(startMs, endMs);
@@ -600,22 +672,20 @@ serve(async (req) => {
           else if (r.star_rating <= 1) a.thumbsDown += 1;
         }
 
-        // ── Build content title map ─────────────────────────────
-        const allIds = Array.from(perContent.keys());
-        const realIds = allIds.filter((id) => !id.startsWith('plan-'));
-        const { data: contentData } = realIds.length
-          ? await supabase
-              .from('sanctuary_content')
-              .select('id, title, category')
-              .in('id', realIds)
-          : { data: [] as any[] };
-        const contentMap = new Map((contentData ?? []).map((c: any) => [c.id, c]));
-        const eventCategoryMap = new Map<string, string>();
-        for (const e of completedEvents) {
-          if (e.content_id && e.category && !eventCategoryMap.has(e.content_id)) {
-            eventCategoryMap.set(e.content_id, e.category);
-          }
+        // ── Top up content metadata for rating-only ids ─────────
+        const missingIds = Array.from(perContent.keys()).filter(
+          (id) => !id.startsWith('plan-') && !contentMap.has(id),
+        );
+        if (missingIds.length) {
+          const { data: extra } = await supabase
+            .from('sanctuary_content')
+            .select('id, title, category, duration')
+            .in('id', missingIds);
+          for (const c of (extra ?? []) as any[]) contentMap.set(c.id, c);
         }
+        // Legacy fallback map (sanctuary_events categories) — retired source.
+        const eventCategoryMap = new Map<string, string>();
+
 
         // ── Category-aware wearable signal per practice ─────────
         type WearableSignal = {
@@ -696,7 +766,7 @@ serve(async (req) => {
           .map((a) => {
             const meta = contentMap.get(a.contentId) as any;
             const isFav = favouriteIds.has(a.contentId);
-            const category = meta?.category || eventCategoryMap.get(a.contentId) || 'unknown';
+            const category = canonicalCategory(meta?.category);
             // Average delta normalised to 0..100 around 50 baseline
             const avgDelta = a.deltaCount > 0 ? a.deltaSum / a.deltaCount : 0;
             const baseScore = Math.max(0, Math.min(100, 50 + avgDelta));
@@ -754,8 +824,10 @@ serve(async (req) => {
           return meta?.title || eventCategoryMap.get(contentId) || 'Practice';
         };
         const practiceStarts = completedEvents
-          .map((e) => ({ id: e.content_id, t: +new Date(e.timestamp) }))
+          .filter((e) => !!e.timestamp)
+          .map((e) => ({ id: e.content_id, t: +new Date(e.timestamp as string) }))
           .filter((e) => Number.isFinite(e.t));
+
 
         // Overall mean HR across every calendar event window (fallback baseline)
         let overallSum = 0;
