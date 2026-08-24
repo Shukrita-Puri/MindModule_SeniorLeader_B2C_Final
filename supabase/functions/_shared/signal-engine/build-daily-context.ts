@@ -264,6 +264,8 @@ export interface ComposeDailyContextResult {
   demandLoad: DemandLevel;
   demandPressure: DemandLevel;
   hasHighStakes: boolean;
+  /** Load Shape for the day. `null` only when classification failed. */
+  loadShape: LoadShape | null;
   rawSignals: RawSignals;
 }
 
