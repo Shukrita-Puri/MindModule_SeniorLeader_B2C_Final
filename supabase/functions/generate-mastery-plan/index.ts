@@ -1,4 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import { planShapeTieBreak } from "../_shared/load-shape/surfaces.ts";
+import type { ShapeId } from "../_shared/load-shape/types.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { resolveArchetypeSlug } from "../_shared/archetype-slug.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
@@ -968,6 +971,11 @@ interface PlanRequest {
    * clients), the handler falls back to `getTimeOfDay(timezoneOffset)`.
    */
   timeWindow?: "morning" | "afternoon" | "evening" | null;
+  /**
+   * Load Shape for today, read once per run from daily_context_snapshot and
+   * gated by LOAD_SHAPE_RENDER_ENABLED. Content-scoring TIE-BREAKER only.
+   */
+  loadShapeId?: ShapeId | null;
   /**
    * Strict Brief↔Plan handshake. When true, the Plan MUST reason over the
    * same-window persisted Brief behaviour snapshot (or the inline snapshot
@@ -5480,6 +5488,27 @@ async function generateMasteryPlan(
   // JIT pre-event plans for known scheduled events still surface.
   const serverLocalDate = getLocalDateISO(req.timezoneOffset);
   const today = req.localDate || serverLocalDate;
+
+  // ── LOAD SHAPE (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──
+  // Tie-breaker input only. Never gates eligibility, never overrides a
+  // slot spec. Silent when the gate is closed or nothing is stored.
+  try {
+    const planShape = await fetchRenderableLoadShape(
+      supabaseClient,
+      req.userId,
+      today,
+    );
+    req.loadShapeId = planShape?.shapeId ?? null;
+    if (req.loadShapeId) {
+      console.log(`[generate-mastery-plan] load-shape=${req.loadShapeId}`);
+    }
+  } catch (shapeErr) {
+    req.loadShapeId = null;
+    console.warn(
+      "[generate-mastery-plan] load-shape read skipped:",
+      shapeErr instanceof Error ? shapeErr.message : shapeErr,
+    );
+  }
   // Day-scoped check-in lookup: ANY non-skipped check-in for today
   // satisfies the signal contract — independent of time_window. We never
   // suppress plan generation on awaiting-signals here; the client owns the
@@ -6614,7 +6643,17 @@ function selectContent(
       pendingCommitments,
     ),
   }));
-  scored.sort((a, b) => b.score - a.score);
+  // Load Shape tie-break (+2 max, launch shapes only). Applied at sort time
+  // so the base score — and every eligibility gate above — is untouched.
+  const shapeTie = (c: any) =>
+    planShapeTieBreak(req.loadShapeId, [
+      ...(c.structured_tags?.goalTags || []),
+      ...(c.tags || []),
+    ]);
+  scored.sort(
+    (a, b) =>
+      (b.score + shapeTie(b.content)) - (a.score + shapeTie(a.content)),
+  );
 
   // Deterministic selection from top 3
   const topCandidates = scored.slice(0, Math.min(3, scored.length));
