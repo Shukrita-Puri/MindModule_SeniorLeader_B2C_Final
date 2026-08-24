@@ -34,6 +34,9 @@ import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
+import EventOutcomeFeedbackModal from "@/components/home/EventOutcomeFeedbackModal";
+import { useEventOutcomePrompt } from "@/hooks/useEventOutcomePrompt";
+
 import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
 import { RefreshCw } from "lucide-react";
 import { useExecutiveHomeCardsRefresh } from "@/hooks/useExecutiveHomeCardsRefresh";
@@ -65,6 +68,8 @@ const ExecutiveHome = () => {
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
   const [briefCtaReady, setBriefCtaReady] = useState(false);
+  const eventOutcome = useEventOutcomePrompt(true);
+
   const refreshCards = useExecutiveHomeCardsRefresh();
   const { data: mrsSnapshot } = useMrsSnapshot();
   const { data: briefSnapshot } = useCurrentBriefSnapshot();
@@ -410,6 +415,18 @@ const ExecutiveHome = () => {
               onSkip={() => setPlanFeedback(null)}
             />
           )}
+
+          {/* Post-event outcome prompt (high-demand events only, never stacked
+              on top of the plan feedback modal) */}
+          {!planFeedback && !showGuide && eventOutcome.candidate && (
+            <EventOutcomeFeedbackModal
+              title={eventOutcome.candidate.title}
+              categoryId={eventOutcome.candidate.categoryId}
+              onSubmit={eventOutcome.submit}
+              onSkip={eventOutcome.skip}
+            />
+          )}
+
         </SidebarInset>
       </div>
     </SidebarProvider>

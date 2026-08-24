@@ -1944,9 +1944,15 @@ export type Database = {
           guided_practice_completed: boolean | null
           guided_practice_completed_at: string | null
           id: string
+          is_plan_practice: boolean | null
           micro_exercise_completed: boolean | null
           micro_exercise_completed_at: string | null
+          plan_context: string | null
+          plan_event_category: string | null
+          plan_event_date: string | null
           plan_ledger: Json | null
+          practice_completed_at: string | null
+          practice_started_at: string | null
           recommended_practice_ids: string[] | null
           recommended_practices_count: number | null
           ritual_date: string
@@ -1963,9 +1969,15 @@ export type Database = {
           guided_practice_completed?: boolean | null
           guided_practice_completed_at?: string | null
           id?: string
+          is_plan_practice?: boolean | null
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          plan_context?: string | null
+          plan_event_category?: string | null
+          plan_event_date?: string | null
           plan_ledger?: Json | null
+          practice_completed_at?: string | null
+          practice_started_at?: string | null
           recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date: string
@@ -1982,9 +1994,15 @@ export type Database = {
           guided_practice_completed?: boolean | null
           guided_practice_completed_at?: string | null
           id?: string
+          is_plan_practice?: boolean | null
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          plan_context?: string | null
+          plan_event_category?: string | null
+          plan_event_date?: string | null
           plan_ledger?: Json | null
+          practice_completed_at?: string | null
+          practice_started_at?: string | null
           recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date?: string
@@ -2670,6 +2688,48 @@ export type Database = {
           subtype_id?: string | null
           token?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      event_outcome_feedback: {
+        Row: {
+          created_at: string | null
+          event_date: string | null
+          event_id: string | null
+          event_title: string | null
+          event_type: string | null
+          id: string
+          open_text: string | null
+          practice_ids_used: string[] | null
+          rating: number | null
+          trigger_context: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_date?: string | null
+          event_id?: string | null
+          event_title?: string | null
+          event_type?: string | null
+          id?: string
+          open_text?: string | null
+          practice_ids_used?: string[] | null
+          rating?: number | null
+          trigger_context?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_date?: string | null
+          event_id?: string | null
+          event_title?: string | null
+          event_type?: string | null
+          id?: string
+          open_text?: string | null
+          practice_ids_used?: string[] | null
+          rating?: number | null
+          trigger_context?: string | null
           user_id?: string
         }
         Relationships: []
@@ -4871,10 +4931,16 @@ export type Database = {
           difficulty: string | null
           display_order: number | null
           duration: number
+          energy_direction: string | null
+          environment: string[] | null
+          equipment: string[] | null
+          goal_tags: string[] | null
           id: string
+          intensity_level: string | null
           is_active: boolean | null
           language: string | null
           origin: string | null
+          physio_targets: string[] | null
           protocol_type: string | null
           steps_count: number | null
           story_hook: string | null
@@ -4895,10 +4961,16 @@ export type Database = {
           difficulty?: string | null
           display_order?: number | null
           duration: number
+          energy_direction?: string | null
+          environment?: string[] | null
+          equipment?: string[] | null
+          goal_tags?: string[] | null
           id: string
+          intensity_level?: string | null
           is_active?: boolean | null
           language?: string | null
           origin?: string | null
+          physio_targets?: string[] | null
           protocol_type?: string | null
           steps_count?: number | null
           story_hook?: string | null
@@ -4919,10 +4991,16 @@ export type Database = {
           difficulty?: string | null
           display_order?: number | null
           duration?: number
+          energy_direction?: string | null
+          environment?: string[] | null
+          equipment?: string[] | null
+          goal_tags?: string[] | null
           id?: string
+          intensity_level?: string | null
           is_active?: boolean | null
           language?: string | null
           origin?: string | null
+          physio_targets?: string[] | null
           protocol_type?: string | null
           steps_count?: number | null
           story_hook?: string | null

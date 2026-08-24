@@ -34,7 +34,6 @@ import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/pra
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
-import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { cn } from "@/lib/utils";
 
 interface PracticeStep {
@@ -885,47 +884,30 @@ const GuidedPracticePlayer = () => {
   };
 
   const handlePracticeComplete = async () => {
-    // Save practice session to database
+    // Log the completion — every practice, plan-launched or ad-hoc.
     try {
       if (practice) {
-        const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
-        const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
-        
-        // Queue is source of truth for ritual membership
-        const shouldTrackRitual = isPartOfRitual;
-        
-        // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
-        const result = await trackSanctuaryEvent({
-          eventType: 'session_complete',
-          contentId: practice.id,
-          contentType: 'guided-practice',
-          category: practice.category as 'pause' | 'power-up' | 'presence',
-          tags: [],
-          duration: practice.totalDuration,
-          timestamp: new Date().toISOString(),
-          contextData: {
-            timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening',
-            dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
-          },
-          partOfRitual: shouldTrackRitual,
-          metadata: { title: practice.title }
-        });
+        const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        const isPartOfRitual = !!queue && queue.some((p: any) => p.id === id);
+        const completedAt = new Date();
+        const durationSeconds = Number(practice.totalDuration) || 0;
+        const startedAt = durationSeconds > 0
+          ? new Date(completedAt.getTime() - durationSeconds * 1000).toISOString()
+          : null;
 
-        if (result.data?.practiceSessionId) {
-          setSessionId(result.data.practiceSessionId);
-        }
-        
-        // Update ritual completion if part of recommended plan or queue
-        if (shouldTrackRitual) {
-          const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
-          console.log('[GuidedPracticePlayer] Calling updateRitualCompletion:', { id, queueLength: queue?.length });
-          await updateRitualCompletion('guided_practice', id, queue || undefined);
-          console.log('[GuidedPracticePlayer] updateRitualCompletion complete');
-        }
+        await updateRitualCompletion('guided_practice', id, queue || undefined, {
+          startedAt,
+          completedAt: completedAt.toISOString(),
+          isPlanPractice: isPartOfRitual,
+          planContext: isPartOfRitual
+            ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
+            : 'library',
+        });
       }
     } catch (error) {
-      console.error('Failed to save practice session:', error);
+      console.error('Failed to log practice completion:', error);
     }
+
     
     // Skip individual rating modal when in a plan queue
     if (isInQueue) {
@@ -1052,31 +1034,30 @@ const GuidedPracticePlayer = () => {
       return;
     }
 
-    // Save practice session via consolidated tracking
+    // Log the completion — every audio practice, plan-launched or ad-hoc.
     try {
       if (practice) {
-        const result = await trackSanctuaryEvent({
-          eventType: 'session_complete',
-          contentId: practice.id,
-          contentType: 'guided-practice',
-          category: practice.category as 'pause' | 'power-up' | 'presence',
-          tags: [],
-          duration: Math.floor(duration),
-          timestamp: new Date().toISOString(),
-          contextData: {
-            timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
-            dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
-          },
-          metadata: { title: practice.title }
-        });
+        const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        const isPartOfRitual = !!queue && queue.some((p: any) => p.id === id);
+        const completedAt = new Date();
+        const playedSeconds = Math.floor(duration) || 0;
+        const startedAt = playedSeconds > 0
+          ? new Date(completedAt.getTime() - playedSeconds * 1000).toISOString()
+          : null;
 
-        if (result.data?.practiceSessionId) {
-          setSessionId(result.data.practiceSessionId);
-        }
+        await updateRitualCompletion('guided_practice', id, queue || undefined, {
+          startedAt,
+          completedAt: completedAt.toISOString(),
+          isPlanPractice: isPartOfRitual,
+          planContext: isPartOfRitual
+            ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
+            : 'library',
+        });
       }
     } catch (error) {
-      console.error('Failed to save practice session:', error);
+      console.error('Failed to log practice completion:', error);
     }
+
     
     // Skip individual rating modal when in a plan queue
     if (isInQueue) {

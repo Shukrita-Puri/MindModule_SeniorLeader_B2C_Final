@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS public.catalog_load_staging;
