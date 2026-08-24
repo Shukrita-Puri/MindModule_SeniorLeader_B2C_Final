@@ -63,3 +63,23 @@ Deno.test("stakesLevelFromScore bands the shared score, null-safe", () => {
   assertEquals(stakesLevelFromScore(95), "high");
   assertEquals(stakesLevelFromScore(140), "critical");
 });
+
+Deno.test("adapter accepts merged camelCase rows carrying 'undefined' snake_case fields", () => {
+  const rows = [
+    {
+      title: "Board prep",
+      start_time: "undefined",
+      end_time: "undefined",
+      startTime: "2026-08-24T09:00:00.000Z",
+      endTime: "2026-08-24T10:00:00.000Z",
+    },
+    {
+      title: "Lisa / Shukrita chit chat",
+      startTime: "2026-08-24T15:00:00.000Z",
+      endTime: "2026-08-24T16:00:00.000Z",
+    },
+  ];
+  const out = toLoadShapeEvents(rows);
+  assertEquals(out.length, 2);
+  assertEquals(out[0].startTime.toISOString(), "2026-08-24T09:00:00.000Z");
+});

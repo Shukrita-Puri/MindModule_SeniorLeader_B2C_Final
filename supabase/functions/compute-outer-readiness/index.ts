@@ -37,7 +37,10 @@ import {
   phaseForEvent,
 } from "../_shared/events/event-phase-map.ts";
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
-import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import {
+  fetchRenderableLoadShape,
+  loadShapeWriteEnabled,
+} from "../_shared/load-shape/read.ts";
 import { briefShapePromptBlock } from "../_shared/load-shape/surfaces.ts";
 import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
@@ -4238,6 +4241,10 @@ serve(async (req) => {
     let assessmentContext: Readonly<AssessmentContext> | null = null;
     let assessmentSignalPillsPayload: any[] | null = null;
     let assessmentPromptSection = "";
+    // Load Shape produced by the dry-run composeDailyContext below. Held so
+    // the single real snapshot write can persist it (write gate only; the
+    // render gate stays independent).
+    let composedLoadShape: import("../_shared/load-shape/types.ts").LoadShape | null = null;
     let composedPatternSignals: {
       hrv_3day_trend: "improving" | "stable" | "declining" | "unknown";
       consecutive_high_load_days: number;
@@ -5680,6 +5687,7 @@ serve(async (req) => {
             },
           );
           composedPatternSignals = composed.patternSignals as any;
+          composedLoadShape = composed.loadShape ?? null;
         } catch (composeErr) {
           console.warn(
             "[mrs-v2:composeDailyContext] dry-run failed:",
@@ -10080,6 +10088,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             await upsertDailyContextSnapshot(db, {
               userId,
               localDate: snapshotLocalDate,
+              // Load Shape — persisted only when the write gate is open, the
+              // shape was actually classified, and it belongs to the same day
+              // as this row. Never fabricated, never inferred here.
+              ...(loadShapeWriteEnabled() && composedLoadShape &&
+                  snapshotLocalDate === userLocalDate
+                ? { loadShape: composedLoadShape }
+                : {}),
               patternSignals: patternSignals as any,
               strategicContext: strategic,
               calendarDemandScore,

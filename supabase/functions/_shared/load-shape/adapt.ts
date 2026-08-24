@@ -27,6 +27,21 @@ function toDate(v: unknown): Date | null {
   return null;
 }
 
+/**
+ * First candidate that parses to a real date. Upstream rows reach us in two
+ * shapes: raw `primary_calendar_events` (snake_case) and merged calendar
+ * events (camelCase only). A merged row re-normalized by a snake_case
+ * helper carries the literal string "undefined" in `start_time`, so we
+ * cannot trust field order alone — we validate each candidate instead.
+ */
+function firstValidDate(...candidates: unknown[]): Date | null {
+  for (const c of candidates) {
+    const d = toDate(c);
+    if (d) return d;
+  }
+  return null;
+}
+
 /** Band the shared stakesScore() into the four Load Shape stakes levels. */
 export function stakesLevelFromScore(
   score: number | null,
@@ -49,8 +64,8 @@ export function toLoadShapeEvents(rows: unknown[]): ClassifyLoadShapeEvent[] {
   for (const row of rows) {
     try {
       const r = row as Record<string, unknown>;
-      const startTime = toDate(r?.start_time ?? r?.startTime);
-      const endTime = toDate(r?.end_time ?? r?.endTime);
+      const startTime = firstValidDate(r?.start_time, r?.startTime);
+      const endTime = firstValidDate(r?.end_time, r?.endTime);
       if (!startTime || !endTime || endTime.getTime() <= startTime.getTime()) {
         continue;
       }

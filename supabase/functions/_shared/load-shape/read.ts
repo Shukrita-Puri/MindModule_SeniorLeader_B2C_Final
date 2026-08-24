@@ -26,6 +26,22 @@ export function loadShapeRenderEnabled(): boolean {
 }
 
 /**
+ * Write gate — INDEPENDENT of the render gate (default true) so shape data
+ * accumulates in production before any copy becomes user-visible. Exported
+ * here so every writer shares one definition.
+ */
+export function loadShapeWriteEnabled(): boolean {
+  try {
+    const v = (globalThis as any)?.Deno?.env?.get?.(
+      "LOAD_SHAPE_WRITE_ENABLED",
+    );
+    return String(v ?? "true").toLowerCase() !== "false";
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Read the stored shape for a day. Returns `null` when nothing is stored
  * (never a fabricated shape) so a surface can stay silent. Use
  * `getLoadShapeOrDefault` only where a non-null value is required.
