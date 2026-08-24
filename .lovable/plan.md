@@ -31,7 +31,7 @@ There is also an existing **frontend mirror**, `src/lib/events/categories.ts` (`
 ```text
 supabase/functions/_shared/load-shape/
   types.ts     <- uploaded canonical file, placed verbatim except the two check-1/2 imports
-  modes.ts     <- CATEGORY_TO_MODE (extracted from cause-effect-engine v22) + mode sequencing
+  modes.ts     <- CATEGORY_TO_MODE (new file; engine's private map left untouched)
   classify.ts  <- classifyLoadShape(input): the ONLY producer of a LoadShape
   labels.ts    <- re-export of SHAPE_DISPLAY_CONFIG helpers for copy/tooltips
 src/lib/loadShape.ts  <- FE mirror of shape ids + labels only (no formulas, no thresholds)
