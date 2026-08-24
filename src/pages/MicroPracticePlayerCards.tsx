@@ -16,6 +16,7 @@ import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { getAuthToken } from "@/services/authTokenService";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import { safeReadPracticeQueue, safeReadJitInterventionData, safeReadQueueIndex } from "@/utils/safeStorage";
@@ -1785,6 +1786,7 @@ const MicroPracticePlayerCards = () => {
   // Navigation lock — prevents double navigate() in a single gesture.
   const isNavigatingRef = useRef(false);
   const mountedRef = useRef(true);
+  const cachedAuthTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1792,6 +1794,15 @@ const MicroPracticePlayerCards = () => {
       mountedRef.current = false;
       isNavigatingRef.current = true; // block any in-flight gestures
     };
+  }, []);
+
+  // Capture the auth token early while the Auth0 client is still available.
+  // Completion may fire after the user leaves the page, at which point
+  // getAuthToken() can return null.
+  useEffect(() => {
+    getAuthToken().then((token) => {
+      cachedAuthTokenRef.current = token;
+    });
   }, []);
 
   // Get cards for the current practice
@@ -1961,6 +1972,7 @@ const MicroPracticePlayerCards = () => {
         planContext: shouldTrackRitual
           ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
           : 'library',
+        cachedToken: cachedAuthTokenRef.current,
       });
 
     } catch (error) {
