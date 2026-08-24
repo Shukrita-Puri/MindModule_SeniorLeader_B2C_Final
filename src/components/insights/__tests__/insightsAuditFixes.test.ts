@@ -34,7 +34,7 @@ describe('Insights audit fixes', () => {
     expect(PRACTICE_SRC).not.toContain('What&apos;s measurably shifting');
     expect(PRACTICE_SRC).not.toContain('function PhysiologyRow');
     expect(PRACTICE_SRC).toContain('function formatWearableSignal');
-    expect(PRACTICE_SRC).toContain('Before Your Hardest Days');
+    expect(PRACTICE_SRC).toContain('Before your hardest days');
   });
 
 
@@ -58,9 +58,11 @@ describe('Insights audit fixes', () => {
     expect(ENGINE_SRC).toContain('const RECOVERY_LOOKAHEAD_DAYS = 7;');
   });
 
-  it('uses session-based stage keys for Practice Effectiveness', () => {
+  it('uses session-based stage keys server-side and tiers practices client-side', () => {
     expect(PRACTICE_SRC).toContain("type Stage = 'early' | 'building' | 'deepening';");
-    expect(PRACTICE_SRC).toContain('function normalizeStage');
+    // v6 dropped the stage chip from the card; tiering drives the UI instead.
+    expect(PRACTICE_SRC).not.toContain('function normalizeStage');
+    expect(PRACTICE_SRC).toContain('function tierOf');
     expect(CONTENT_FEEDBACK_SRC).toContain("totalPractices < 3 ? 'early' : totalPractices < 10 ? 'building' : 'deepening';");
   });
 
