@@ -7827,6 +7827,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               );
             }
 
+            // ── LOAD SHAPE (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──
+            // Read-only: the shape was classified once by build-daily-context
+            // and stored on daily_context_snapshot. Silent when the gate is
+            // closed, nothing is stored, or the shape is not launch-ready.
+            try {
+              const loadShape = await fetchRenderableLoadShape(
+                db,
+                userId,
+                userLocalDate,
+              );
+              const shapeBlock = briefShapePromptBlock(loadShape);
+              if (shapeBlock) {
+                userPrompt += shapeBlock;
+                console.log(
+                  `[compute-outer-readiness] load-shape=${loadShape?.shapeId}`,
+                );
+              }
+            } catch (e) {
+              console.warn(
+                "[compute-outer-readiness] load-shape read skipped:",
+                e instanceof Error ? e.message : e,
+              );
+            }
+
             // Append shared event-coaching context first, then the taxonomy
             // block (pure event labelling), then the behaviour block
             // (rule outputs, deterministic). Order matters: behaviour rules
