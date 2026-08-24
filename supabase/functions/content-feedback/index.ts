@@ -766,7 +766,7 @@ serve(async (req) => {
           .map((a) => {
             const meta = contentMap.get(a.contentId) as any;
             const isFav = favouriteIds.has(a.contentId);
-            const category = meta?.category || eventCategoryMap.get(a.contentId) || 'unknown';
+            const category = canonicalCategory(meta?.category);
             // Average delta normalised to 0..100 around 50 baseline
             const avgDelta = a.deltaCount > 0 ? a.deltaSum / a.deltaCount : 0;
             const baseScore = Math.max(0, Math.min(100, 50 + avgDelta));
