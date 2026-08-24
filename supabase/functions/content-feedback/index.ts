@@ -239,7 +239,10 @@ serve(async (req) => {
         const deltaSinceDate = deltaSinceIso.slice(0, 10);
 
         // ── Pull all source data in parallel ─────────────────────
-        const [fbRes, evRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
+        // NOTE: `sanctuary_events` is a retired write path (last row Apr 2026).
+        // Live completions come from `daily_ritual_completions` +
+        // post-practice star ratings in `content_relevance_feedback`.
+        const [fbRes, drcRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
           supabase
             .from('content_relevance_feedback')
             .select('content_id, content_type, star_rating, session_id, trigger_context, created_at')
@@ -248,11 +251,10 @@ serve(async (req) => {
             .not('star_rating', 'is', null)
             .gte('created_at', deltaSinceIso),
           supabase
-            .from('sanctuary_events')
-            .select('content_id, category, timestamp, duration_seconds')
+            .from('daily_ritual_completions')
+            .select('ritual_date, completed_practice_ids, session_period, soundscape_completed_at, guided_practice_completed_at, micro_exercise_completed_at')
             .eq('user_id', userId)
-            .in('event_type', ['completed', 'session_complete'])
-            .gte('timestamp', sessionSinceIso),
+            .gte('ritual_date', sessionSinceIso.slice(0, 10)),
           supabase
             .from('daily_checkins')
             .select('checkin_date, time_window, timestamp, clarity_level, mental_sharpness_level, confidence_level')
@@ -276,7 +278,7 @@ serve(async (req) => {
         ]);
 
         if (fbRes.error) throw fbRes.error;
-        if (evRes.error) throw evRes.error;
+        if (drcRes.error) throw drcRes.error;
         if (ciRes.error) throw ciRes.error;
         if (wdRes.error) throw wdRes.error;
 
@@ -286,9 +288,6 @@ serve(async (req) => {
             r.trigger_context === 'post_practice_completion' ||
             r.trigger_context === 'post_plan_completion'
         );
-        const completedEvents = (evRes.data ?? []) as Array<{
-          content_id: string; category: string; timestamp: string; duration_seconds: number | null;
-        }>;
         const checkins = (ciRes.data ?? []) as Array<{
           checkin_date: string; time_window: string | null; timestamp: string;
           clarity_level: number | null; mental_sharpness_level: number | null;
@@ -304,7 +303,79 @@ serve(async (req) => {
           attendees_count: number | null;
         }>;
 
+        // ── Canonical completion list ───────────────────────────
+        // A completion is (content id, local day). Its timestamp is the earliest
+        // post-practice rating on that day, else the slot completion timestamp.
+        // Without either, it still counts as a session but yields no HR window.
+        const ratingAnchors = new Map<string, number>(); // `${id}|${date}` → ms
+        for (const r of feedbackRows) {
+          if (!r.content_id || !r.created_at) continue;
+          const ms = +new Date(r.created_at);
+          if (!Number.isFinite(ms)) continue;
+          const key = `${r.content_id}|${r.created_at.slice(0, 10)}`;
+          const prev = ratingAnchors.get(key);
+          if (prev == null || ms < prev) ratingAnchors.set(key, ms);
+        }
+
+        type Completion = { content_id: string; timestamp: string | null; day: string };
+        const completionKeys = new Set<string>();
+        const completedEvents: Completion[] = [];
+        const pushCompletion = (contentId: string, day: string, fallbackIso: string | null) => {
+          const key = `${contentId}|${day}`;
+          if (completionKeys.has(key)) return;
+          completionKeys.add(key);
+          const anchor = ratingAnchors.get(key);
+          const iso = anchor != null ? new Date(anchor).toISOString() : fallbackIso;
+          completedEvents.push({ content_id: contentId, timestamp: iso, day });
+        };
+
+        for (const row of (drcRes.data ?? []) as any[]) {
+          const day = String(row.ritual_date ?? '').slice(0, 10);
+          if (!day) continue;
+          const slotIso: string | null =
+            row.guided_practice_completed_at ||
+            row.micro_exercise_completed_at ||
+            row.soundscape_completed_at ||
+            null;
+          for (const id of (row.completed_practice_ids ?? []) as string[]) {
+            if (id) pushCompletion(id, day, slotIso);
+          }
+        }
+        // Freshly rated practices with no ritual-completion row still count.
+        for (const r of feedbackRows) {
+          if (!r.content_id || !r.created_at) continue;
+          if (r.created_at < sessionSinceIso) continue;
+          pushCompletion(r.content_id, r.created_at.slice(0, 10), r.created_at);
+        }
+
         const totalPractices = completedEvents.length;
+
+        // ── Content metadata (needed for duration + canonical category) ──
+        const completionIds = Array.from(new Set(completedEvents.map((e) => e.content_id)))
+          .filter((id) => !id.startsWith('plan-'));
+        const { data: contentData } = completionIds.length
+          ? await supabase
+              .from('sanctuary_content')
+              .select('id, title, category, duration')
+              .in('id', completionIds)
+          : { data: [] as any[] };
+        const contentMap = new Map((contentData ?? []).map((c: any) => [c.id, c]));
+
+        // sanctuary_content.category holds pause / presence / power-up.
+        const canonicalCategory = (raw: string | null | undefined): string => {
+          const c = (raw || '').toLowerCase();
+          if (c.includes('pause')) return 'Pause';
+          if (c.includes('presence') || c.includes('flow')) return 'Flow';
+          if (c.includes('power') || c.includes('energi')) return 'Energise';
+          return 'Unknown';
+        };
+        const durationSecondsOf = (contentId: string): number => {
+          const raw = Number((contentMap.get(contentId) as any)?.duration);
+          if (!Number.isFinite(raw) || raw <= 0) return 20 * 60;
+          // `duration` is authored in minutes (e.g. 1.5, 3, 12).
+          return Math.round(raw <= 180 ? raw * 60 : raw);
+        };
+
 
         // ── Helpers ─────────────────────────────────────────────
         const windowOf = (iso: string): 'morning' | 'afternoon' | 'evening' => {
