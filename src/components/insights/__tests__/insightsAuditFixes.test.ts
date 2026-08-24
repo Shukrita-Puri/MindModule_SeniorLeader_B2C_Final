@@ -34,7 +34,7 @@ describe('Insights audit fixes', () => {
     expect(PRACTICE_SRC).not.toContain('What&apos;s measurably shifting');
     expect(PRACTICE_SRC).not.toContain('function PhysiologyRow');
     expect(PRACTICE_SRC).toContain('function formatWearableSignal');
-    expect(PRACTICE_SRC).toContain('Before Your Hardest Days');
+    expect(PRACTICE_SRC).toContain('Before your hardest days');
   });
 
 
