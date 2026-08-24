@@ -9,9 +9,12 @@
  *   throttle from our side so we never *request* it more than a few times.
  * - The prompt only fires on native iOS/Android — never on web.
  *
- * Engagement gate (all must be true before we request the native prompt):
- *   - At least 3 completed check-ins
- *   - At least 2 plan views
+ * TRIGGERS (positive-moment only — never on app launch/resume):
+ *   - a completed practice (post-practice rating surface)
+ *   - a completed plan / priority with practices done
+ *   - the readiness brief being read at least twice
+ *
+ * Baseline gate (all must be true before we request the native prompt):
  *   - At least 3 distinct app sessions (>= 6h apart)
  *   - App has been installed at least 3 days
  *   - Last request was at least 120 days ago (well under the 365-day cap)
@@ -24,9 +27,11 @@ const SESSION_GAP_MS = 6 * 60 * 60 * 1000; // 6h between counted sessions
 const MIN_INSTALL_AGE_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 const MIN_INTERVAL_BETWEEN_REQUESTS_MS = 120 * 24 * 60 * 60 * 1000; // 120 days
 
-const MIN_CHECKINS = 3;
-const MIN_PLAN_VIEWS = 2;
 const MIN_SESSIONS = 3;
+const MIN_BRIEF_READS = 2;
+/** Let the UI settle before the native sheet appears. */
+const PROMPT_DELAY_MS = 2000;
+
 
 /**
  * Never prompt during fragile or transactional flows: onboarding, payment /
