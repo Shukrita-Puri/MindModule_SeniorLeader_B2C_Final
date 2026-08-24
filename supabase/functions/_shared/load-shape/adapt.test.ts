@@ -40,7 +40,10 @@ Deno.test("toLoadShapeEvents maps the G.travel resolver alias to the locked G.tr
     row("Travel day to Zurich", "2026-03-02T06:00:00Z", "2026-03-02T18:00:00Z"),
   ]);
   for (const e of events) {
-    assert(e.subcategory !== "G.travel", "resolver alias leaked into the shape input");
+    assert(
+      (e.subcategory as string) !== "G.travel",
+      "resolver alias leaked into the shape input",
+    );
   }
 });
 
