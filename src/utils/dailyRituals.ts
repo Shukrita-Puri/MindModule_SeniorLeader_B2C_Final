@@ -342,6 +342,12 @@ export interface PracticeCompletionMeta {
   isPlanPractice?: boolean;
   /** Where the launch came from, e.g. 'plan', 'library', 'jit'. */
   planContext?: string | null;
+  /**
+   * Auth token captured earlier (e.g. on player mount) so the completion
+   * call still has a valid bearer even when the audio-ended event fires
+   * after the page loses focus and the Auth0 client becomes unavailable.
+   */
+  cachedToken?: string | null;
 }
 
 // Helper to update ritual completion with status recalculation
@@ -350,16 +356,16 @@ export async function updateRitualCompletion(
   practiceType: 'soundscape' | 'guided_practice' | 'micro_exercise',
   practiceId: string,
   practiceQueue?: { id: string }[],
-  meta?: PracticeCompletionMeta,
+  options?: PracticeCompletionMeta,
 ): Promise<void> {
   const timestamp = new Date().toISOString();
   const today = new Date().toLocaleDateString('en-CA');
   const currentPeriod = getCurrentTimeWindowForRituals();
-  const completedAt = meta?.completedAt || timestamp;
-  const startedAt = meta?.startedAt ?? null;
+  const completedAt = options?.completedAt || timestamp;
+  const startedAt = options?.startedAt ?? null;
   const isPlanPractice =
-    meta?.isPlanPractice ?? (practiceQueue ? practiceQueue.some((p) => p.id === practiceId) : false);
-  const planContext = meta?.planContext ?? (isPlanPractice ? 'plan' : 'library');
+    options?.isPlanPractice ?? (practiceQueue ? practiceQueue.some((p) => p.id === practiceId) : false);
+  const planContext = options?.planContext ?? (isPlanPractice ? 'plan' : 'library');
 
   console.log(`[dailyRituals] updateRitualCompletion:`, {
     practiceType, practiceId, queueLength: practiceQueue?.length,
