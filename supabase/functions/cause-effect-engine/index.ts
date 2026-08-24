@@ -98,7 +98,10 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // v19: bannerCopy strings rewritten in plain human language.
 // v20: finalized bannerCopy strings for all canonical day types.
 // v21: stress-load matrix window reduced to 30 days.
-const ENGINE_VERSION = 21;
+// v22: stress-load tooltip sub-label now the specific subtype label, not the
+// A–H bucket (which duplicated the row label).
+const ENGINE_VERSION = 22;
+
 
 
 
