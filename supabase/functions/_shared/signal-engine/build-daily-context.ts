@@ -301,17 +301,16 @@ export async function composeDailyContext(
   };
 
   const demand = computeCalendarDemand(todayEvents);
-  console.log(
-    `[load-shape] compose user=${userId} date=${localDate} todayEvents=${todayEvents.length}`,
-  );
   const patternSignals = buildPatternSignals(raw, todayEvents);
 
   // Load Shape — the single producer. Never throws: a failure leaves the
   // stored shape untouched (loadShape stays undefined → column omitted).
   let loadShape: LoadShape | null = null;
   try {
+    const shapeEvents = toLoadShapeEventsWithMeta(todayEvents as unknown[]);
     loadShape = classifyLoadShape({
-      events: toLoadShapeEvents(todayEvents as unknown[]),
+      events: shapeEvents.events,
+      unresolvedCount: shapeEvents.unresolvedCount,
       ctx: {
         localDate,
         timezoneOffset: utcOffsetMinutes(opts.timezone, localDate),

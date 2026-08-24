@@ -72,15 +72,12 @@ export interface LoadShapeEventsWithMeta {
 export function toLoadShapeEventsWithMeta(
   rows: unknown[],
 ): LoadShapeEventsWithMeta {
+  let unresolvedCount = 0;
   const events = toLoadShapeEvents(rows, (n) => {
-    unresolved = n;
+    unresolvedCount = n;
   });
-  const out = { events, unresolvedCount: unresolved };
-  unresolved = 0;
-  return out;
+  return { events, unresolvedCount };
 }
-
-let unresolved = 0;
 
 export function toLoadShapeEvents(
   rows: unknown[],
