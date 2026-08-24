@@ -417,14 +417,20 @@ export async function updateRitualCompletion(
   
   // Production: Single atomic COMPLETE_PRACTICE call via edge function
   try {
-    const accessToken = await getAccessToken();
-    
+    let accessToken = await getAccessToken();
+
     if (!accessToken) {
-      console.warn(`[dailyRituals] No access token – completion NOT saved!`);
+      // One retry — token refresh can be mid-flight right after a player unmounts.
+      await new Promise((r) => setTimeout(r, 600));
+      accessToken = await getAccessToken();
+    }
+
+    if (!accessToken) {
+      console.error(`[dailyRituals] No access token – COMPLETE_PRACTICE NOT saved!`, { practiceId, practiceType });
       return;
     }
 
-    console.log(`[dailyRituals] Invoking COMPLETE_PRACTICE EF:`, { practiceType, practiceId, sessionPeriod: currentPeriod });
+    console.log(`[dailyRituals] Invoking COMPLETE_PRACTICE EF:`, { practiceType, practiceId, sessionPeriod: currentPeriod, isPlanPractice, planContext });
 
     const { data, error } = await supabase.functions.invoke('daily-rituals', {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -442,7 +448,7 @@ export async function updateRitualCompletion(
     });
 
     if (error) {
-      console.error(`[dailyRituals] COMPLETE_PRACTICE error:`, error);
+      console.error(`[dailyRituals] COMPLETE_PRACTICE error:`, error, { practiceId, practiceType, planContext });
       return;
     }
 
@@ -452,7 +458,8 @@ export async function updateRitualCompletion(
       period: currentPeriod
     });
   } catch (error) {
-    console.error(`[dailyRituals ${timestamp}] Failed to update ritual completion:`, error);
+    console.error(`[dailyRituals ${timestamp}] Failed to update ritual completion:`, error, { practiceId, practiceType });
   }
 }
+
 
