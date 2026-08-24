@@ -37,6 +37,8 @@ import {
   phaseForEvent,
 } from "../_shared/events/event-phase-map.ts";
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
+import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import { briefShapePromptBlock } from "../_shared/load-shape/surfaces.ts";
 import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
@@ -7823,6 +7825,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } catch (e) {
               console.warn(
                 "[compute-outer-readiness] day-shape derivation skipped:",
+                e instanceof Error ? e.message : e,
+              );
+            }
+
+            // ── LOAD SHAPE (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──
+            // Read-only: the shape was classified once by build-daily-context
+            // and stored on daily_context_snapshot. Silent when the gate is
+            // closed, nothing is stored, or the shape is not launch-ready.
+            try {
+              const loadShape = await fetchRenderableLoadShape(
+                db,
+                userId,
+                userLocalDate,
+              );
+              const shapeBlock = briefShapePromptBlock(loadShape);
+              if (shapeBlock) {
+                userPrompt += shapeBlock;
+                console.log(
+                  `[compute-outer-readiness] load-shape=${loadShape?.shapeId}`,
+                );
+              }
+            } catch (e) {
+              console.warn(
+                "[compute-outer-readiness] load-shape read skipped:",
                 e instanceof Error ? e.message : e,
               );
             }
