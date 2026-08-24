@@ -61,6 +61,9 @@ type ReviewState = {
   sessions: number;
   checkins: number;
   planViews: number;
+  practiceCompletions: number;
+  planCompletions: number;
+  briefReads: number;
   lastRequestedAt: number | null;
 };
 
@@ -75,6 +78,9 @@ function readState(): ReviewState {
         sessions: parsed.sessions ?? 0,
         checkins: parsed.checkins ?? 0,
         planViews: parsed.planViews ?? 0,
+        practiceCompletions: parsed.practiceCompletions ?? 0,
+        planCompletions: parsed.planCompletions ?? 0,
+        briefReads: parsed.briefReads ?? 0,
         lastRequestedAt: parsed.lastRequestedAt ?? null,
       };
     }
@@ -87,9 +93,13 @@ function readState(): ReviewState {
     sessions: 0,
     checkins: 0,
     planViews: 0,
+    practiceCompletions: 0,
+    planCompletions: 0,
+    briefReads: 0,
     lastRequestedAt: null,
   };
 }
+
 
 function writeState(state: ReviewState) {
   try {
