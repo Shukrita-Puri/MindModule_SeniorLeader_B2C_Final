@@ -161,6 +161,14 @@ serve(async (req) => {
     const { action, contentId, feedbackData, sessionId: reqSessionId, rating, qualitativeRating, feedbackText } = body;
     console.log(`[content-feedback] Action: ${action}, User: ${redactUserId(userId)}`);
 
+    const platform: "ios" | "web" =
+      (req.headers.get("x-mm-client-platform") || req.headers.get("x-client-platform") || "web")
+        .toLowerCase()
+        .includes("ios")
+        ? "ios"
+        : "web";
+
+
     switch (action) {
       case 'GET_FEEDBACK': {
         let query = supabase
