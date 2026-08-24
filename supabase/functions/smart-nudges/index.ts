@@ -6,6 +6,11 @@ import {
   CLAUDE_MODELS,
 } from "../_shared/anthropic.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import {
+  nudgeShapePromptBlock,
+  nudgeShapeStacksOnCliff,
+} from "../_shared/load-shape/surfaces.ts";
 // Canonical Availability SSOT. Every behavioural consumer (Planner, Brief,
 // Nudges) reads from this single classifier so "is the user actually working
 // today?" always has one authoritative answer.
@@ -3043,6 +3048,38 @@ ${
     }
   } catch (e) {
     console.warn("[smart-nudges] behaviour wiring skipped:", e);
+  }
+
+  // ── LOAD SHAPE (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──
+  // Read-only. `meetingPrepCliff` stacks on a mode-switching day: the copy
+  // contract gains the transition-residue beat, nothing else changes.
+  try {
+    if (supabase) {
+      const nudgeLocalDate = localParts(ctx.timeZone, new Date()).localDate;
+      const nudgeShape = await fetchRenderableLoadShape(
+        supabase,
+        ctx.userId,
+        nudgeLocalDate,
+      );
+      const cliffActive = behaviourPromptBlock.includes("meetingPrepCliff");
+      const shapeBlock = nudgeShapePromptBlock(nudgeShape, {
+        cliffActive: cliffActive &&
+          nudgeShapeStacksOnCliff(nudgeShape?.shapeId),
+      });
+      if (shapeBlock) {
+        behaviourPromptBlock += shapeBlock;
+        console.log(
+          `[smart-nudges] load-shape=${nudgeShape?.shapeId} cliffStack=${
+            cliffActive && nudgeShapeStacksOnCliff(nudgeShape?.shapeId)
+          }`,
+        );
+      }
+    }
+  } catch (shapeErr) {
+    console.warn(
+      "[smart-nudges] load-shape read skipped:",
+      shapeErr instanceof Error ? shapeErr.message : shapeErr,
+    );
   }
 
   if (behaviourPromptBlock) {
