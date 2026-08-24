@@ -30,7 +30,7 @@ import { resolveStrategicContext } from './strategic-context.ts';
 import { mergeCalendarEvents } from '../rules/calendarEvents.ts';
 import { dayOfWeekFromIsoDate } from './day-kind-detector.ts';
 import { classifyLoadShape } from '../load-shape/classify.ts';
-import { toLoadShapeEvents } from '../load-shape/adapt.ts';
+import { toLoadShapeEventsWithMeta } from '../load-shape/adapt.ts';
 import type { LoadShape } from '../load-shape/types.ts';
 // Single definition of the write gate (independent of the render gate).
 import { loadShapeWriteEnabled } from '../load-shape/read.ts';
