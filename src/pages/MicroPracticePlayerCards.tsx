@@ -1972,6 +1972,7 @@ const MicroPracticePlayerCards = () => {
         planContext: shouldTrackRitual
           ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
           : 'library',
+        cachedToken: cachedAuthTokenRef.current,
       });
 
     } catch (error) {
