@@ -70,6 +70,15 @@ const MicroPracticePlayer = () => {
       timestamp: new Date().toISOString()
     });
 
+    // Capture the token early so the completion call still has a valid bearer
+    // even if the completion event fires after the player loses focus.
+    let accessToken: string | null = null;
+    try {
+      accessToken = await getAuthToken();
+    } catch (e) {
+      console.error('[MicroPracticePlayer] Failed to fetch auth token:', e);
+    }
+
     // Completion ledger FIRST — every practice, plan-launched or ad-hoc.
     if (id) {
       try {
@@ -86,6 +95,7 @@ const MicroPracticePlayer = () => {
           planContext: isPartOfRitual
             ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
             : 'library',
+          cachedToken: accessToken,
         });
       } catch (error) {
         console.error('[MicroPracticePlayer] updateRitualCompletion failed:', error);
@@ -93,7 +103,10 @@ const MicroPracticePlayer = () => {
     }
 
     try {
-      const accessToken = await getAuthToken();
+      if (!accessToken) {
+        console.error('[MicroPracticePlayer] No access token available for practice-data');
+        return;
+      }
 
       // Track practice session via edge function (engagement logging only)
       const { data: sessionResult, error: sessionError } = await supabase.functions.invoke('practice-data', {
