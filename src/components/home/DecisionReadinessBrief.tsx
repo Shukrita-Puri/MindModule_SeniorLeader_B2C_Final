@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { recordBriefRead } from '@/services/appReview';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
@@ -2359,7 +2360,19 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     showNeutralAwaitingCopy,
     showCopyOnlyAwaiting,
   });
+  // Passive engagement signal for the native App Store rating prompt — counts
+  // one brief read per mount once real copy is on screen (fires from the 2nd
+  // read onward, gated inside the service).
+  const briefReadCountedRef = useRef(false);
   useEffect(() => {
+    if (copyRenderable && !briefReadCountedRef.current) {
+      briefReadCountedRef.current = true;
+      recordBriefRead();
+    }
+  }, [copyRenderable]);
+
+  useEffect(() => {
+
     console.log('[PRB][render]', JSON.parse(_prbRenderKey));
     // Final resolved payload — one normalized line summarising origin.
     const source: 'mock' | 'snapshot' | 'live' | 'none' =

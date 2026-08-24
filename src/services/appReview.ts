@@ -9,9 +9,12 @@
  *   throttle from our side so we never *request* it more than a few times.
  * - The prompt only fires on native iOS/Android — never on web.
  *
- * Engagement gate (all must be true before we request the native prompt):
- *   - At least 3 completed check-ins
- *   - At least 2 plan views
+ * TRIGGERS (positive-moment only — never on app launch/resume):
+ *   - a completed practice (post-practice rating surface)
+ *   - a completed plan / priority with practices done
+ *   - the readiness brief being read at least twice
+ *
+ * Baseline gate (all must be true before we request the native prompt):
  *   - At least 3 distinct app sessions (>= 6h apart)
  *   - App has been installed at least 3 days
  *   - Last request was at least 120 days ago (well under the 365-day cap)
@@ -24,9 +27,11 @@ const SESSION_GAP_MS = 6 * 60 * 60 * 1000; // 6h between counted sessions
 const MIN_INSTALL_AGE_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 const MIN_INTERVAL_BETWEEN_REQUESTS_MS = 120 * 24 * 60 * 60 * 1000; // 120 days
 
-const MIN_CHECKINS = 3;
-const MIN_PLAN_VIEWS = 2;
 const MIN_SESSIONS = 3;
+const MIN_BRIEF_READS = 2;
+/** Let the UI settle before the native sheet appears. */
+const PROMPT_DELAY_MS = 2000;
+
 
 /**
  * Never prompt during fragile or transactional flows: onboarding, payment /
@@ -56,6 +61,9 @@ type ReviewState = {
   sessions: number;
   checkins: number;
   planViews: number;
+  practiceCompletions: number;
+  planCompletions: number;
+  briefReads: number;
   lastRequestedAt: number | null;
 };
 
@@ -70,6 +78,9 @@ function readState(): ReviewState {
         sessions: parsed.sessions ?? 0,
         checkins: parsed.checkins ?? 0,
         planViews: parsed.planViews ?? 0,
+        practiceCompletions: parsed.practiceCompletions ?? 0,
+        planCompletions: parsed.planCompletions ?? 0,
+        briefReads: parsed.briefReads ?? 0,
         lastRequestedAt: parsed.lastRequestedAt ?? null,
       };
     }
@@ -82,9 +93,13 @@ function readState(): ReviewState {
     sessions: 0,
     checkins: 0,
     planViews: 0,
+    practiceCompletions: 0,
+    planCompletions: 0,
+    briefReads: 0,
     lastRequestedAt: null,
   };
 }
+
 
 function writeState(state: ReviewState) {
   try {
@@ -103,7 +118,10 @@ function isNativeMobile(): boolean {
   }
 }
 
-/** Record a fresh app session if enough time has passed since the last one. */
+/**
+ * Record a fresh app session if enough time has passed since the last one.
+ * Counting only — launching or resuming the app never requests a review.
+ */
 export function recordAppOpen(): void {
   const state = readState();
   const now = Date.now();
@@ -115,26 +133,56 @@ export function recordAppOpen(): void {
   writeState(state);
 }
 
+/** Passive counter only — a completed check-in is not a rating moment. */
 export function recordCheckinCompleted(): void {
   const state = readState();
   state.checkins += 1;
   writeState(state);
-  void maybeRequestReview();
 }
 
+/** Passive counter only — merely viewing the plan is not a rating moment. */
 export function recordPlanViewed(): void {
   const state = readState();
   state.planViews += 1;
   writeState(state);
-  void maybeRequestReview();
+}
+
+/** Trigger: the user finished a practice. */
+export function recordPracticeCompleted(): void {
+  const state = readState();
+  state.practiceCompletions += 1;
+  writeState(state);
+  void maybeRequestReview({ delayMs: PROMPT_DELAY_MS });
+}
+
+/** Trigger: the user finished a plan / priority with practices done. */
+export function recordPlanCompleted(): void {
+  const state = readState();
+  state.planCompletions += 1;
+  writeState(state);
+  void maybeRequestReview({ delayMs: PROMPT_DELAY_MS });
+}
+
+/** Trigger: the readiness brief was read — fires from the 2nd read onward. */
+export function recordBriefRead(): void {
+  const state = readState();
+  state.briefReads += 1;
+  writeState(state);
+  if (state.briefReads >= MIN_BRIEF_READS) {
+    void maybeRequestReview({ delayMs: PROMPT_DELAY_MS });
+  }
 }
 
 function meetsEngagementGate(state: ReviewState): boolean {
   const now = Date.now();
   if (now - state.firstOpenAt < MIN_INSTALL_AGE_MS) return false;
-  if (state.checkins < MIN_CHECKINS) return false;
-  if (state.planViews < MIN_PLAN_VIEWS) return false;
   if (state.sessions < MIN_SESSIONS) return false;
+  // At least one genuine positive moment must have happened.
+  const hasPositiveMoment =
+    state.practiceCompletions > 0 ||
+    state.planCompletions > 0 ||
+    state.briefReads >= MIN_BRIEF_READS;
+  if (!hasPositiveMoment) return false;
   if (
     state.lastRequestedAt !== null &&
     now - state.lastRequestedAt < MIN_INTERVAL_BETWEEN_REQUESTS_MS
@@ -144,13 +192,19 @@ function meetsEngagementGate(state: ReviewState): boolean {
   return true;
 }
 
+
 /**
  * Ask iOS/Android to *consider* showing its native rating prompt. The OS
  * decides whether to actually show it (Apple caps at 3 per 365 days per user).
  * Safe to call frequently — we throttle from our side too.
  */
-export async function maybeRequestReview(): Promise<void> {
+export async function maybeRequestReview(
+  opts: { delayMs?: number } = {},
+): Promise<void> {
   if (!isNativeMobile()) return;
+  if (opts.delayMs && opts.delayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, opts.delayMs));
+  }
   try {
     if (isReviewPromptSuppressedForPath(window.location.pathname)) return;
   } catch {
@@ -158,6 +212,7 @@ export async function maybeRequestReview(): Promise<void> {
   }
   const state = readState();
   if (!meetsEngagementGate(state)) return;
+
 
   try {
     const mod = await import("@capacitor-community/in-app-review");

@@ -31,7 +31,7 @@ import { useAuth } from "./hooks/useAuth";
 import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from "./utils/appleCalendar";
 import { isIosNativeShell } from "./config/purchasePlatform";
 import { syncAppleCalendarToBackend } from "./services/appleCalendarSync";
-import { recordAppOpen, maybeRequestReview } from "./services/appReview";
+import { recordAppOpen } from "./services/appReview";
 import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
 // Lazy load pages for code splitting
@@ -148,7 +148,6 @@ const TravelWatcher = () => {
     // Counted once per cold start and once per foreground resume (throttled
     // internally to at most one increment per 6h).
     recordAppOpen();
-    void maybeRequestReview();
     const stopTz = startTimezoneWatcher();
 
     let removeAppListener: (() => void) | undefined;
@@ -159,7 +158,6 @@ const TravelWatcher = () => {
           if (isActive) {
             sync();
             recordAppOpen();
-            void maybeRequestReview();
           }
         });
         removeAppListener = () => { void handle.remove(); };
