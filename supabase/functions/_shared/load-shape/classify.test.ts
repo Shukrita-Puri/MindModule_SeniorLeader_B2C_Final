@@ -187,3 +187,15 @@ Deno.test("CATEGORY_TO_MODE agrees with cause-effect-engine's private map on sha
   }
   assertEquals(MODE_LABELS_SHARED_WITH_ENGINE.sort(), ["A", "B", "D", "E", "G"]);
 });
+
+Deno.test("uncategorised events are reported instead of claiming an empty calendar", () => {
+  const shape = classifyLoadShape({
+    events: [],
+    unresolvedCount: 2,
+    ctx: { localDate: "2026-08-24", timezoneOffset: 60 },
+  });
+  assertEquals(shape.shapeId, "light");
+  assertEquals(shape.meetingCount, 0);
+  assert(shape.evidence[0].includes("could not be categorised"));
+  assert(!shape.evidence[0].includes("No calendar data"));
+});

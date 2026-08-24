@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import SegmentedToggle from '@/components/insights/SegmentedToggle';
 import { EVENT_CATEGORY_NAMES, CANONICAL_CATEGORY_LABELS } from '@/lib/events/categories';
 import { useShareCapture } from '@/utils/shareCaptureMode';
+import type { ShapeId } from '@/lib/loadShape';
 
 // ── Types (mirror engine output, payload-only fields) ────────────────
 type Confidence = 'strong' | 'emerging';
@@ -106,6 +107,18 @@ interface CausalityPayload {
   };
   /** v13 — additive Day Type × next-day HRV impact. Optional so older cached payloads still render. */
   dayTypeHrvMatrix?: DayTypeHrvMatrix | null;
+  /**
+   * v23 — Load Shape for today. Present ONLY when the server render gate is
+   * open and a launch-ready shape is stored; absent otherwise, so the card
+   * renders exactly as it does today. Copy comes from the server payload.
+   */
+  loadShape?: {
+    shapeId: ShapeId;
+    label: string;
+    tooltip: string;
+    qualifier?: string | null;
+    insightSentence?: string | null;
+  } | null;
   version?: number;
   cached?: boolean;
 }
@@ -897,7 +910,15 @@ function DayTypeHrvSection({
 }
 
 /** Sub-card A shell: title + info + Day Wise / Monthly toggle on one line. */
-function DayTypeHrvCard({ matrix, isShareView = false }: { matrix?: DayTypeHrvMatrix | null; isShareView?: boolean }) {
+function DayTypeHrvCard({
+  matrix,
+  loadShape,
+  isShareView = false,
+}: {
+  matrix?: DayTypeHrvMatrix | null;
+  loadShape?: CausalityPayload['loadShape'];
+  isShareView?: boolean;
+}) {
   const [view, setView] = useState<'day' | 'month'>('day');
   return (
     <div className="space-y-3">
@@ -923,6 +944,21 @@ function DayTypeHrvCard({ matrix, isShareView = false }: { matrix?: DayTypeHrvMa
           className={cn(isShareView && 'shadow-none [&_button]:shadow-none')}
         />
       </div>
+      {loadShape && (
+        <div className="flex items-start gap-1.5">
+          <p className="text-[11px] leading-snug text-foreground/80">
+            <span className="text-muted-foreground/80">Today: </span>
+            {loadShape.label}
+            {loadShape.insightSentence ? ` — ${loadShape.insightSentence}` : ''}
+          </p>
+          {!isShareView && (
+            <InsightInfoModal
+              title={loadShape.label}
+              explanation={loadShape.tooltip}
+            />
+          )}
+        </div>
+      )}
       <DayTypeHrvSection matrix={matrix} view={view} isShareView={isShareView} />
     </div>
   );
@@ -1253,7 +1289,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                 ) : (
                   <div className="space-y-3">
                     <div className="rounded-xl bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)] -mx-1 px-1 py-2">
-                      <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} isShareView />
+                      <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} loadShape={data.loadShape} isShareView />
                     </div>
                     <div className="rounded-xl bg-muted/30 shadow-[0_1px_3px_rgba(0,0,0,0.06)] -mx-1 px-1 py-2 space-y-3">
                       <div className="flex items-center gap-1.5">
@@ -1294,7 +1330,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               <div className="space-y-3">
                 {/* A. Day Type impact on burnout (v14 — weekly / monthly views) */}
                 <div className="rounded-xl bg-muted/30 -mx-1 px-1 py-2">
-                  <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} />
+                  <DayTypeHrvCard matrix={data.dayTypeHrvMatrix} loadShape={data.loadShape} />
                 </div>
 
                 {/* B. Existing weekly HRV trend — contents untouched */}

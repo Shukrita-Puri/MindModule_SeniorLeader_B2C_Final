@@ -356,6 +356,13 @@ export interface ClassifyLoadShapeEvent {
 
 export interface ClassifyLoadShapeInput {
   events: ClassifyLoadShapeEvent[];
+  /**
+   * Timed calendar events that exist today but whose A–H category could not
+   * be resolved. They never influence any shape metric — they only keep the
+   * evidence honest so no surface claims "no calendar data" on a day that
+   * actually had meetings.
+   */
+  unresolvedCount?: number;
   ctx: {
     /** ISO date string, e.g. "2024-03-15". */
     localDate: string;

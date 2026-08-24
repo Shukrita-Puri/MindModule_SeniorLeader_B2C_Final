@@ -27,6 +27,21 @@ function toDate(v: unknown): Date | null {
   return null;
 }
 
+/**
+ * First candidate that parses to a real date. Upstream rows reach us in two
+ * shapes: raw `primary_calendar_events` (snake_case) and merged calendar
+ * events (camelCase only). A merged row re-normalized by a snake_case
+ * helper carries the literal string "undefined" in `start_time`, so we
+ * cannot trust field order alone — we validate each candidate instead.
+ */
+function firstValidDate(...candidates: unknown[]): Date | null {
+  for (const c of candidates) {
+    const d = toDate(c);
+    if (d) return d;
+  }
+  return null;
+}
+
 /** Band the shared stakesScore() into the four Load Shape stakes levels. */
 export function stakesLevelFromScore(
   score: number | null,
@@ -43,20 +58,48 @@ export function stakesLevelFromScore(
  * Rows without a resolvable A–H category or valid time range are dropped —
  * an unresolved event must never influence the shape.
  */
-export function toLoadShapeEvents(rows: unknown[]): ClassifyLoadShapeEvent[] {
+export interface LoadShapeEventsWithMeta {
+  events: ClassifyLoadShapeEvent[];
+  /** Timed rows dropped because no A–H category could be resolved. */
+  unresolvedCount: number;
+}
+
+/**
+ * Same adaptation as toLoadShapeEvents(), plus the count of timed rows that
+ * had to be dropped for lack of a resolvable category. Callers pass that
+ * count to classifyLoadShape() so evidence stays truthful.
+ */
+export function toLoadShapeEventsWithMeta(
+  rows: unknown[],
+): LoadShapeEventsWithMeta {
+  let unresolvedCount = 0;
+  const events = toLoadShapeEvents(rows, (n) => {
+    unresolvedCount = n;
+  });
+  return { events, unresolvedCount };
+}
+
+export function toLoadShapeEvents(
+  rows: unknown[],
+  onUnresolved?: (count: number) => void,
+): ClassifyLoadShapeEvent[] {
   if (!Array.isArray(rows)) return [];
+  let unresolvedRows = 0;
   const out: ClassifyLoadShapeEvent[] = [];
   for (const row of rows) {
     try {
       const r = row as Record<string, unknown>;
-      const startTime = toDate(r?.start_time ?? r?.startTime);
-      const endTime = toDate(r?.end_time ?? r?.endTime);
+      const startTime = firstValidDate(r?.start_time, r?.startTime);
+      const endTime = firstValidDate(r?.end_time, r?.endTime);
       if (!startTime || !endTime || endTime.getTime() <= startTime.getTime()) {
         continue;
       }
 
       const enriched = enrichEvent(row);
-      if (!enriched.categoryId) continue;
+      if (!enriched.categoryId) {
+        unresolvedRows++;
+        continue;
+      }
 
       const rawSub = enriched.subcategory ?? enriched.categoryId;
       const subcategory = (SUBCATEGORY_ALIASES[rawSub] ??
@@ -83,5 +126,6 @@ export function toLoadShapeEvents(rows: unknown[]): ClassifyLoadShapeEvent[] {
       continue;
     }
   }
+  onUnresolved?.(unresolvedRows);
   return out;
 }
