@@ -37,6 +37,8 @@ import {
   phaseForEvent,
 } from "../_shared/events/event-phase-map.ts";
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
+import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import { briefShapePromptBlock } from "../_shared/load-shape/surfaces.ts";
 import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
