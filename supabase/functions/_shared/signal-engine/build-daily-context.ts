@@ -167,6 +167,7 @@ export async function upsertDailyContextSnapshot(
     if (input.checkInCountToday !== undefined) (row as any).check_in_count_today = input.checkInCountToday;
     if (input.lastCheckInWindow !== undefined) (row as any).last_check_in_window = input.lastCheckInWindow;
     if (input.weightProvenance !== undefined) (row as any).weight_provenance = input.weightProvenance;
+    if (input.loadShape !== undefined) (row as any).load_shape = input.loadShape;
 
     // Invariant guard — never persist a row that claims a numeric MRS score
     // while also flagging awaiting_signals=true. That combination produces
