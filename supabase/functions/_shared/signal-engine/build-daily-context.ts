@@ -313,6 +313,25 @@ export async function composeDailyContext(
   const demand = computeCalendarDemand(todayEvents);
   const patternSignals = buildPatternSignals(raw, todayEvents);
 
+  // Load Shape — the single producer. Never throws: a failure leaves the
+  // stored shape untouched (loadShape stays undefined → column omitted).
+  let loadShape: LoadShape | null = null;
+  try {
+    loadShape = classifyLoadShape({
+      events: toLoadShapeEvents(todayEvents as unknown[]),
+      ctx: {
+        localDate,
+        timezoneOffset: utcOffsetMinutes(opts.timezone, localDate),
+      },
+    });
+  } catch (err) {
+    console.warn(
+      '[load-shape] classify failed:',
+      err instanceof Error ? err.message : err,
+    );
+    loadShape = null;
+  }
+
   if (!opts.dryRun) {
     if (!opts.mrsWindow) {
       // Phase 2.5 — never write without an explicit window. The compute
@@ -332,6 +351,8 @@ export async function composeDailyContext(
         demandLoad: demand.load,
         demandPressure: demand.pressure,
         hasHighStakes: demand.hasHighStakes,
+        // Load Shape write is flagged independently of any render block.
+        ...(loadShapeWriteEnabled() && loadShape ? { loadShape } : {}),
         // Score-side (MRS-block) fields are owned by compute-outer-readiness.
         // We intentionally OMIT them here — the low-level upsert now skips
         // any undefined MRS field, so an existing ready row is preserved
@@ -347,6 +368,7 @@ export async function composeDailyContext(
     demandLoad: demand.load,
     demandPressure: demand.pressure,
     hasHighStakes: demand.hasHighStakes,
+    loadShape,
     rawSignals: raw,
   };
 }
