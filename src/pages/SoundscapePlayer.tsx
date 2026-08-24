@@ -100,6 +100,7 @@ const SoundscapePlayer = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const isNavigatingRef = useRef(false);
   const mountedRef = useRef(true);
+  const cachedAuthTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -112,6 +113,15 @@ const SoundscapePlayer = () => {
         try { a.pause(); } catch { /* noop */ }
       }
     };
+  }, []);
+
+  // Capture the auth token early while the Auth0 client is still available.
+  // The audio-ended event may fire after the page loses focus, at which point
+  // getAuthToken() can return null.
+  useEffect(() => {
+    getAuthToken().then((token) => {
+      cachedAuthTokenRef.current = token;
+    });
   }, []);
 
   // Practice Queue State
