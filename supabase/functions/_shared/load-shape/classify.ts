@@ -61,7 +61,24 @@ export function classifyLoadShape(input: ClassifyLoadShapeInput): LoadShape {
     )
     .sort((a, b) => ms(a.startTime) - ms(b.startTime));
 
-  if (events.length === 0) return getLoadShapeOrDefault(null);
+  const unresolvedCount = Number.isFinite(input?.unresolvedCount as number)
+    ? Math.max(0, Math.trunc(input!.unresolvedCount as number))
+    : 0;
+
+  if (events.length === 0) {
+    const fallback = getLoadShapeOrDefault(null);
+    if (unresolvedCount === 0) return fallback;
+    // Meetings exist but none could be categorised — say so instead of
+    // claiming an empty calendar. Metrics stay at their default values.
+    return {
+      ...fallback,
+      evidence: [
+        `${unresolvedCount} event${
+          unresolvedCount === 1 ? "" : "s"
+        } on the calendar could not be categorised — day shape unavailable`,
+      ],
+    };
+  }
 
   // ── Back-to-back metrics: reuse the existing helper, never recompute ──
   const frag = computeCognitiveFragmentation(
@@ -181,6 +198,14 @@ export function classifyLoadShape(input: ClassifyLoadShapeInput): LoadShape {
     shapeId = "light";
     evidence.push(
       `${meetingCount} event${meetingCount === 1 ? "" : "s"}, no switching or travel load`,
+    );
+  }
+
+  if (unresolvedCount > 0) {
+    evidence.push(
+      `${unresolvedCount} further event${
+        unresolvedCount === 1 ? "" : "s"
+      } could not be categorised and were excluded`,
     );
   }
 

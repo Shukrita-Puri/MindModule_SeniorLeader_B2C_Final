@@ -58,8 +58,36 @@ export function stakesLevelFromScore(
  * Rows without a resolvable A–H category or valid time range are dropped —
  * an unresolved event must never influence the shape.
  */
-export function toLoadShapeEvents(rows: unknown[]): ClassifyLoadShapeEvent[] {
+export interface LoadShapeEventsWithMeta {
+  events: ClassifyLoadShapeEvent[];
+  /** Timed rows dropped because no A–H category could be resolved. */
+  unresolvedCount: number;
+}
+
+/**
+ * Same adaptation as toLoadShapeEvents(), plus the count of timed rows that
+ * had to be dropped for lack of a resolvable category. Callers pass that
+ * count to classifyLoadShape() so evidence stays truthful.
+ */
+export function toLoadShapeEventsWithMeta(
+  rows: unknown[],
+): LoadShapeEventsWithMeta {
+  const events = toLoadShapeEvents(rows, (n) => {
+    unresolved = n;
+  });
+  const out = { events, unresolvedCount: unresolved };
+  unresolved = 0;
+  return out;
+}
+
+let unresolved = 0;
+
+export function toLoadShapeEvents(
+  rows: unknown[],
+  onUnresolved?: (count: number) => void,
+): ClassifyLoadShapeEvent[] {
   if (!Array.isArray(rows)) return [];
+  let unresolvedRows = 0;
   const out: ClassifyLoadShapeEvent[] = [];
   for (const row of rows) {
     try {
@@ -71,7 +99,10 @@ export function toLoadShapeEvents(rows: unknown[]): ClassifyLoadShapeEvent[] {
       }
 
       const enriched = enrichEvent(row);
-      if (!enriched.categoryId) continue;
+      if (!enriched.categoryId) {
+        unresolvedRows++;
+        continue;
+      }
 
       const rawSub = enriched.subcategory ?? enriched.categoryId;
       const subcategory = (SUBCATEGORY_ALIASES[rawSub] ??
@@ -98,5 +129,6 @@ export function toLoadShapeEvents(rows: unknown[]): ClassifyLoadShapeEvent[] {
       continue;
     }
   }
+  onUnresolved?.(unresolvedRows);
   return out;
 }
