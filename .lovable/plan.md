@@ -1,73 +1,74 @@
-# Load Shape SSOT — adding "how the day was loaded" alongside A–H
+# Load Shape SSOT — "how the day was loaded" alongside A–H
 
-Today every surface answers "which *kind* of event drained me" (A–H category). None answer "which *shape* of day drained me" — back-to-back days, mode-switching days, weight-vs-volume days, travel-adjacent days. That is why "Mixed" is a dead end on Stress Load and on "When You Perform Best": it is a single bucket with no sub-shape.
+Today every surface answers "which *kind* of event drained me" (A–H category). None answer "which *shape* of day drained me" — back-to-back days, mode-switching days, weight-vs-volume days, travel-adjacent days. That is why "Mixed" is a dead end on Stress Load and on "When You Perform Best": one bucket, no sub-shape.
 
-This plan adds one shared Load Shape layer and points the four existing surfaces (Insights cards, Brief, Plan, Smart Nudges) at it. Nothing is replaced, no new surfaces, no new tables.
+This adds one shared Load Shape layer and points the four existing surfaces (Insights cards, Brief, Plan, Smart Nudges) at it. Additive only: no new surfaces, no new tables, version bumps on existing engines.
 
-## What exists today (verified)
+## Pre-flight checks (results already confirmed)
 
-- A–H resolution is centralised in `resolveEvent()` and is the only allowed resolver.
-- `cause-effect-engine` (v22) already has a private day-type classifier with a category→"demand mode" map (governance / performance / relational / cognitive / logistical) and a `Mixed` catch-all with no sub-shape.
-- `computeCognitiveFragmentation()` already yields back-to-back hours + short-gap ratio.
-- `contextSwitchingCost` is implemented as a behaviour rule (≥3 distinct A–H categories in the next 4h) and lives in `ceo-behaviour/stubs.ts` — the wrong home, and its "topic" notion is category-based, not mode-based.
-- `backToBackLoadOverride`, `decisionDensity`, travel rules already exist as behaviour flags but only for the intra-day nudge/brief path — Insights never sees them.
+**Check 1 — Event Category type: an equivalent exists, so do not duplicate.**
+`supabase/functions/_shared/events/event-categories.ts` already exports `EventCategoryId = "A"|…|"H"`, and the name `EventCategory` is **already taken there** by an interface holding category metadata. So in the new `types.ts`:
+- import and re-export `EventCategoryId` as the canonical id union, and alias `export type EventCategory = EventCategoryId` only if the uploaded file's downstream names need it;
+- keep `EventSubcategory` defined in the new file (no existing union of the 28 subcategory strings exists — `event-subtypes.ts` exposes `EventType`/`DemandDim`/`EventGroup`, not a subcategory union), and add a test asserting every value in it is reachable from the subtype table so the two can't drift;
+- resolution itself stays with `resolveEvent()` / `enrichEvent()` — Load Shape never classifies events itself.
 
-## The addition: one Load Shape module
+**Check 2 — Demand Mode: extract, don't re-create.**
+`cause-effect-engine` (v22) has a private `modeOf()` map inside `classifyDominantDayType` using exactly governance / performance / relational / cognitive / logistical. That map moves out into `_shared/load-shape/modes.ts`; the engine imports it. `visibility`, `social`, `rhythmic` are the genuinely new labels and get added there (C → visibility, H → rhythmic/social split), which also changes the engine's Mixed gate to be mode-based rather than category-based — hence the engine version bump.
 
-New shared module (mirrored on the frontend for label rendering only):
+## Module layout
 
 ```text
 supabase/functions/_shared/load-shape/
-  modes.ts          A–H → demand mode (moved out of cause-effect-engine, single owner)
-  classify.ts       classifyLoadShape(events, ctx) -> LoadShape
-  labels.ts         canonical shape ids + display labels + tooltips
-src/lib/loadShape.ts  FE mirror of ids/labels only (no formulas)
+  types.ts     <- uploaded canonical file, placed verbatim except the two check-1/2 imports
+  modes.ts     <- CATEGORY_TO_MODE (extracted from cause-effect-engine v22) + mode sequencing
+  classify.ts  <- classifyLoadShape(input): the ONLY producer of a LoadShape
+  labels.ts    <- re-export of SHAPE_DISPLAY_CONFIG helpers for copy/tooltips
+src/lib/loadShape.ts  <- FE mirror of shape ids + labels only (no formulas, no thresholds)
 ```
 
-`LoadShape` (pure, derived from merged calendar events for a local day):
+`LoadShape`, `ShapeId`, `DemandMode`, `EventSubcategory`, the per-surface `*ShapeInput` slices, `hasLoadShape()` and `getLoadShapeOrDefault()` all come from the uploaded `types.ts`.
 
-| Field | Meaning |
-|---|---|
-| `shapeId` | one of `focused`, `back_to_back`, `switching`, `weight_heavy`, `volume_heavy`, `travel_adjacent`, `light` |
-| `shapeLabel` | display string, e.g. "Back-to-back day", "Mode-switching day" |
-| `backToBackHours`, `shortGapRatio` | from `computeCognitiveFragmentation` |
-| `modeSequence`, `modeSwitchCount` | distinct demand modes in local-day order |
-| `stakesWeight`, `meetingCount`, `weightRatio` | aggregate stakes weight vs raw slot count |
-| `travelAdjacency` | high-stakes event within 12h of a flight/landing |
-| `evidence[]` | short strings for tooltips and traces |
+## Ship this sprint: `back_to_back` and `switching` only
 
-Precedence (deterministic, first match wins): `travel_adjacent` → `back_to_back` (≥4h chains with a <15min gap) → `switching` (≥3 distinct modes, or ≥2 with a relational mode) → `weight_heavy` (stakesWeight high, ≤4 meetings) → `volume_heavy` (≥7 meetings, low stakesWeight) → `focused` → `light`.
+Only the two shapes flagged `launchReady: true` get copy, insight sentences and nudge severity. The other five have types and classifier logic, produce diagnostics, and render nothing.
 
-This is the layer that finally gives "Mixed" a second axis: a Mixed day is now **Mixed · switching**, **Mixed · weight-heavy**, **Mixed · volume-heavy** etc.
+| Shape | Fires when | Launch copy |
+|---|---|---|
+| `back_to_back` | `backToBackHours >= 4` AND `shortGapRatio > 0.6` (commonly stacked `E.routine_sync`) | "Your back-to-back days correlate with lower next-day readiness scores." |
+| `switching` | `modeSwitchCount >= 3`, OR `modeSwitchCount >= 2` AND `modeSequence` includes `relational` | "Mode-switching days are costing you more than any single meeting type." |
 
-## Surface-by-surface wiring (all existing surfaces, version bumps only)
+`backToBackHours` and `shortGapRatio` come from the existing `computeCognitiveFragmentation()` — not recomputed.
 
-### 1. Insights — "When You Perform Best" + "What Drains You" + Stress Load
-- `cause-effect-engine` → **v23**: import `modes.ts` instead of its private map; add `loadShapeMatrix` (shape × next-day HRV / PRS delta) alongside the existing `dayTypeHrvMatrix`; stamp each day's `shapeId` into diagnostics.
-- Stress Load tooltip and Day Type rows gain a shape qualifier line (`Mixed · mode-switching`, `n = …`). Existing cells, colours and bands unchanged.
-- `performance-rhythm-insights`: drain/lift sentences may cite a shape when its n ≥ 3 and its delta beats the category delta, e.g. "Mode-switching days cost you more than any single meeting type."
-- Same gates as today: n ≥ 3 for banners, n ≥ 2 for rows, no formulas in the UI.
+## Wiring — one producer, four readers
 
-### 2. Brief
-- `brief-context.ts` gains `signals.loadShape` (additive, optional).
-- `deterministic-brief.ts` + the LLM prompt get one shape sentence per bucket (Day Shape bucket already exists). Bump brief prompt version so caches invalidate.
-- `contextSwitchingCost` moves from `stubs.ts` into `ceo-behaviour/load-shape.ts` and reads `modeSwitchCount` instead of raw category count; `backToBackLoadOverride` reads the same shape object. Rule names, scopes and copy contracts unchanged (registry contract test stays green).
+Only `build-daily-context` calls `classifyLoadShape()` and writes the result. Every consumer calls `getLoadShapeOrDefault(snapshot.load_shape)`, which is null-safe, so no surface can crash on a missing value.
 
-### 3. Plan
-- Mastery plan scorer receives `loadShape.shapeId` and uses it as a tie-breaker only: switching days favour transition/reset practices, weight-heavy days favour prep/composure, volume-heavy days favour short recovery. Slot model, eligibility and regeneration stability untouched.
+| Surface | Reads | Type slice |
+|---|---|---|
+| `cause-effect-engine` → **v23** | `daily_context_snapshot.load_shape` | `CauseEffectShapeInput` |
+| `brief-context.ts` (Brief) | same | `BriefShapeInput` |
+| Mastery plan scorer | same | `PlanShapeInput` |
+| Smart nudges evaluator | same | `NudgeShapeInput` |
 
-### 4. Smart Nudges
-- Nudge evaluator reads `loadShape` from the daily context snapshot instead of recomputing back-to-back hours locally. `meetingPrepCliff` severity stacks when the shape is `switching` or `weight_heavy`.
+Per-surface effects:
+- **Insights** — v23 adds `loadShapeMatrix` (shape × next-day HRV delta) alongside the existing `dayTypeHrvMatrix`, and stamps each day's `shapeId` into diagnostics. Stress Load and Day Type rows gain a shape qualifier (`Mixed · mode-switching`, with `n`). "When You Perform Best" / "What Drains You" may cite a shape sentence when its `n >= 3` and its delta beats the category delta. Existing cells, colours, bands and gates unchanged; no formulas in the UI.
+- **Brief** — `signals.loadShape` added (optional). One shape sentence inside the existing Day Shape bucket for the two launch shapes; brief prompt version bumped so caches invalidate. `contextSwitchingCost` moves out of `ceo-behaviour/stubs.ts` into `ceo-behaviour/load-shape.ts` and reads `modeSwitchCount` instead of counting raw A–H categories; `backToBackLoadOverride` reads the same object. Rule names, scopes and copy contracts unchanged so the registry contract test stays green.
+- **Plan** — `shapeId` is a tie-breaker only: `switching` favours transition/reset practices, `back_to_back` favours short recovery. Slot model, eligibility and regeneration stability untouched.
+- **Nudges** — the evaluator reads back-to-back hours from the snapshot instead of recomputing; `meetingPrepCliff` severity stacks when the shape is `switching`.
 
-### Persistence
-- `daily_context_snapshot` gets one additive nullable `jsonb` column `load_shape` written by `build-daily-context` (the existing SSOT orchestrator). Every consumer reads from the snapshot — no surface recomputes. No new tables, no RLS surface change beyond the existing snapshot policies.
+## Persistence
 
-## Tests
-- Unit tests for `classifyLoadShape` precedence, including the four Mixed sub-shapes and the travel-within-12h case.
-- Contract test: `cause-effect-engine` and the FE mirror agree on shape ids/labels.
-- Guard test: no surface imports the demand-mode map from anywhere except `_shared/load-shape/modes.ts`.
-- Existing behaviour-rule registry and brief-copy tests must stay green unchanged.
+One additive nullable column: `daily_context_snapshot.load_shape jsonb`. No new tables, no RLS change beyond the existing snapshot policies.
 
-## Explicitly out of scope
-- No free-text topic classifier on titles (Eng vs Legal vs Sales). Demand mode is derived from A–H, which is already learned and user-correctable — a second keyword taxonomy would drift.
-- No new Insights card, no new tab, no schema beyond one nullable column.
+## Tests / guards
+
+- Import guard (vitest + the existing Deno cross-layer guard): `LoadShape`, `ShapeId`, `DemandMode`, `EventSubcategory` may only be imported from `_shared/load-shape/types.ts`, and `CATEGORY_TO_MODE` only from `modes.ts` — mirroring the existing single-A–H-entry-point guard.
+- Unit tests for `classifyLoadShape` precedence, both launch-shape thresholds (including the relational shortcut), and null/garbage-event safety.
+- Contract test: FE mirror and backend agree on shape ids + labels; `EventSubcategory` values all exist in the subtype table.
+- `getLoadShapeOrDefault(null)` returns the `light` default without throwing.
+- Existing behaviour-rule registry, brief-copy and A–H guards stay green unchanged.
+
+## Out of scope
+
+- No free-text topic classifier on titles (Eng vs Legal vs Sales). Demand mode derives from A–H, which is already learned and user-correctable; a second keyword taxonomy would drift.
+- No copy for the five non-launch shapes, no new Insights card or tab, no schema beyond the one nullable column.
