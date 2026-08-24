@@ -18,7 +18,10 @@ Add `intensity_level`, `energy_direction`, `goal_tags`, `physio_targets`, `equip
 
 Run as data statements (INSERT ... ON CONFLICT), not a schema migration:
 
-- Generate the upsert set from `src/data/practicesAndSoundscapes.ts` using the field mapping given, including `protocol_type` derivation (`mindset` → `mindset`, `tool` → `somatic`, `soundbath` → `audio`, `guided-practice` → `hybrid`, else null) and thumbnails stored as the relative asset path with the bundler prefix stripped.
+- Generate the upsert set from `src/data/practicesAndSoundscapes.ts` using the field mapping given, with thumbnails stored as the relative asset path with the bundler prefix stripped.
+- `protocol_type` has exactly two valid values, **`mindset`** and **`somatic`** — no `audio` or `hybrid`. Rule: `subType: 'mindset'` → `mindset`; everything else (`subType: 'tool'`, soundbaths, guided practices) → `somatic`. Verified counts in the static file: 20 `mindset`, 5 `tool`, 10 soundbaths, 5 guided practices.
+- Existing non-null `protocol_type` values already in `sanctuary_content` (currently 21 `mindset` / 20 `somatic`) are **preserved** — the upsert only fills `protocol_type` where it is null, so no current classification flips. Same additive rule for `category`: existing values are not overwritten.
+
 - Entries without `structuredTags` keep defaults (null scalars, empty arrays).
 - Upsert `sanctuary_content_steps` for every entry with `practiceSteps` (`step_order` = index + 1, `duration` rounded to seconds). If no unique constraint on `(content_id, step_order)` exists, add it in Migration 1 so the `ON CONFLICT` is valid.
 - Upsert `sanctuary_content_metadata` for entries with rich metadata, per the given mapping (`benefits` / `what_you_need` / `expected_outcomes` / `delivery_modality` as `text[]`, `real_examples` and `structured_tags` as jsonb).
