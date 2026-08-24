@@ -42,6 +42,8 @@ import {
   type WearableDiagnostics,
 } from "./_diagnostics.ts";
 import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
+import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import { insightsShapePayload } from "../_shared/load-shape/surfaces.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -100,7 +102,9 @@ const RECOVERY_LOOKAHEAD_DAYS = 7;
 // v21: stress-load matrix window reduced to 30 days.
 // v22: stress-load tooltip sub-label now the specific subtype label, not the
 // A–H bucket (which duplicated the row label).
-const ENGINE_VERSION = 22;
+// v23: additive `loadShape` block, read-only from daily_context_snapshot and
+// gated by LOAD_SHAPE_RENDER_ENABLED. No existing calculation changed.
+const ENGINE_VERSION = 23;
 
 
 
@@ -2192,6 +2196,25 @@ serve(async (req) => {
     // v13: day-type attribution (incl. secondary category) is diagnostics-only.
     (diagnostics as any).dayTypes = dayTypeDiagnostics;
     payload.diagnostics = diagnostics;
+
+    // ── v23: Load Shape (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──
+    // Read-only projection of the shape classified once by
+    // build-daily-context. Null / non-launch shapes leave the field absent
+    // so the card renders exactly as it does today.
+    try {
+      const todayShape = await fetchRenderableLoadShape(
+        supabase,
+        userId,
+        todayStr,
+      );
+      const shapePayload = insightsShapePayload(todayShape);
+      if (shapePayload) (payload as any).loadShape = shapePayload;
+    } catch (shapeErr) {
+      console.warn(
+        "[cause-effect-engine] load-shape read skipped:",
+        shapeErr instanceof Error ? shapeErr.message : shapeErr,
+      );
+    }
 
     // Log every run for edge-function-logs visibility.
     console.log("[cause-effect-engine][diag]", JSON.stringify({
