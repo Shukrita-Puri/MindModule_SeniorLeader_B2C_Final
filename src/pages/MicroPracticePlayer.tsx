@@ -62,16 +62,38 @@ const MicroPracticePlayer = () => {
   const handleComplete = async () => {
     if (!practice) return;
 
+    const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+    const isPartOfRitual = !!practiceQueue && practiceQueue.some((p: any) => p.id === id);
+
+    console.log('[MicroPracticePlayer] handleComplete:', {
+      id, isPartOfRitual, queueLength: practiceQueue?.length,
+      timestamp: new Date().toISOString()
+    });
+
+    // Completion ledger FIRST — every practice, plan-launched or ad-hoc.
+    if (id) {
+      try {
+        const completedAt = new Date();
+        const durationSeconds = (Number(practice.duration) || 0) * 60;
+        const startedAt = durationSeconds > 0
+          ? new Date(completedAt.getTime() - durationSeconds * 1000).toISOString()
+          : null;
+
+        await updateRitualCompletion('micro_exercise', id, practiceQueue || undefined, {
+          startedAt,
+          completedAt: completedAt.toISOString(),
+          isPlanPractice: isPartOfRitual,
+          planContext: isPartOfRitual
+            ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
+            : 'library',
+        });
+      } catch (error) {
+        console.error('[MicroPracticePlayer] updateRitualCompletion failed:', error);
+      }
+    }
+
     try {
       const accessToken = await getAuthToken();
-      
-      const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
-      const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
-      
-      console.log('[MicroPracticePlayer] handleComplete:', { 
-        id, isPartOfRitual, queueLength: practiceQueue?.length,
-        timestamp: new Date().toISOString()
-      });
 
       // Track practice session via edge function (engagement logging only)
       const { data: sessionResult, error: sessionError } = await supabase.functions.invoke('practice-data', {
@@ -91,12 +113,6 @@ const MicroPracticePlayer = () => {
         setSessionId(sessionResult.data.id);
       }
 
-      // Update ritual completion using the SAME atomic path as all other players
-      if (isPartOfRitual && id) {
-        console.log('[MicroPracticePlayer] Calling updateRitualCompletion (atomic):', { practiceId: id });
-        await updateRitualCompletion('micro_exercise', id, practiceQueue || undefined);
-        console.log('[MicroPracticePlayer] updateRitualCompletion complete');
-      }
     } catch (error) {
       console.error('[MicroPracticePlayer] Failed to save completion:', error);
     }
