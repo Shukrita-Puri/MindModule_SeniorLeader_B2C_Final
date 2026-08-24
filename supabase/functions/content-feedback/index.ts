@@ -349,10 +349,15 @@ serve(async (req) => {
           if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
             return { mean: null, n: 0 };
           }
-          const keys = new Set<string>([
-            new Date(fromMs).toISOString().slice(0, 10),
-            new Date(toMs).toISOString().slice(0, 10),
-          ]);
+          // Providers file late-evening samples under the *following* summary_date,
+          // so scan the neighbouring buckets as well as the spanned days.
+          const keys = new Set<string>();
+          for (const anchor of [fromMs, toMs]) {
+            for (const offset of [-1, 0, 1]) {
+              keys.add(new Date(anchor + offset * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+            }
+          }
+
           let sum = 0;
           let n = 0;
           for (const k of keys) {
