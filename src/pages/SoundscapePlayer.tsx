@@ -30,6 +30,7 @@ import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { getAuthToken } from "@/services/authTokenService";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
 import { cn } from "@/lib/utils";
 
