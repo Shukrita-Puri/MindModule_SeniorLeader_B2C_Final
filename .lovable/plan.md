@@ -12,6 +12,8 @@ This adds one shared Load Shape layer and points the four existing surfaces (Ins
 - keep `EventSubcategory` defined in the new file (no existing union of the 28 subcategory strings exists — `event-subtypes.ts` exposes `EventType`/`DemandDim`/`EventGroup`, not a subcategory union), and add a test asserting every value in it is reachable from the subtype table so the two can't drift;
 - resolution itself stays with `resolveEvent()` / `enrichEvent()` — Load Shape never classifies events itself.
 
+There is also an existing **frontend mirror**, `src/lib/events/categories.ts` (`EventCategoryId` + `EVENT_CATEGORY_NAMES`), kept honest by `src/lib/events/__tests__/categories.test.ts`, which parses the backend file and fails on drift. So `src/lib/loadShape.ts` follows that exact pattern rather than inventing a new one: it imports `EventCategoryId` from `@/lib/events/categories` (never re-declares A–H), mirrors only shape ids + display labels, and gets its own drift test that reads `_shared/load-shape/types.ts` and asserts the shape id/label sets match. Components must not hardcode a shape label, same rule as pillar names today.
+
 **Check 2 — Demand Mode: extract, don't re-create.**
 `cause-effect-engine` (v22) has a private `modeOf()` map inside `classifyDominantDayType` using exactly governance / performance / relational / cognitive / logistical. That map moves out into `_shared/load-shape/modes.ts`; the engine imports it. `visibility`, `social`, `rhythmic` are the genuinely new labels and get added there (C → visibility, H → rhythmic/social split), which also changes the engine's Mixed gate to be mode-based rather than category-based — hence the engine version bump.
 
