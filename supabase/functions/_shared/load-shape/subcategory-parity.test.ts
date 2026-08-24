@@ -63,6 +63,14 @@ Deno.test("the subcategory list matches the EventSubcategory union in types.ts",
   }
 });
 
+// Documented resolver aliases: the schema doc name on the left, the string
+// enrichEvent() actually emits on the right. Kept as an explicit map instead
+// of renaming either side (the schema names are locked, and the resolver is
+// out of scope for the Load Shape change).
+const RESOLVER_ALIASES: Record<string, string> = {
+  "G.travel_day": "G.travel", // trv.travel_day → subcategory "travel"
+};
+
 Deno.test("every subcategory is reachable from the canonical subtype table", () => {
   const reachable = new Set<string>();
   for (const t of EVENT_TYPES) {
@@ -70,9 +78,12 @@ Deno.test("every subcategory is reachable from the canonical subtype table", () 
     if (sub) reachable.add(`${t.categoryId}.${sub}`);
     reachable.add(t.categoryId);
   }
-  const missing = SUBCATEGORIES.filter((s) => !reachable.has(s));
+  const missing = SUBCATEGORIES.filter((s) =>
+    !reachable.has(s) && !reachable.has(RESOLVER_ALIASES[s] ?? "")
+  );
   assert(
     missing.length === 0,
     `subcategories not produced by any subtype: ${missing.join(", ")}`,
   );
 });
+
