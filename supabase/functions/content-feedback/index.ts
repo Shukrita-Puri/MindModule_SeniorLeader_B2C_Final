@@ -430,16 +430,45 @@ serve(async (req) => {
           if (prev == null || ms < prev) ratingAnchors.set(key, ms);
         }
 
-        type Completion = { content_id: string; timestamp: string | null; day: string };
+        // Precise session timing, when the client recorded it on the ritual row.
+        // Keyed by local day; used in preference to the estimated duration.
+        type PreciseWindow = { startIso: string; endIso: string };
+        const preciseByDay = new Map<string, PreciseWindow>();
+        for (const row of (drcRes.data ?? []) as any[]) {
+          const day = String(row.ritual_date ?? '').slice(0, 10);
+          if (!day) continue;
+          const s = row.practice_started_at;
+          const e = row.practice_completed_at;
+          if (!s || !e) continue;
+          const sMs = +new Date(s);
+          const eMs = +new Date(e);
+          if (!Number.isFinite(sMs) || !Number.isFinite(eMs) || eMs <= sMs) continue;
+          preciseByDay.set(day, { startIso: new Date(sMs).toISOString(), endIso: new Date(eMs).toISOString() });
+        }
+
+        type Completion = {
+          content_id: string;
+          timestamp: string | null;
+          /** End of the measured session when the client recorded it. */
+          endTimestamp: string | null;
+          day: string;
+        };
         const completionKeys = new Set<string>();
         const completedEvents: Completion[] = [];
         const pushCompletion = (contentId: string, day: string, fallbackIso: string | null) => {
           const key = `${contentId}|${day}`;
           if (completionKeys.has(key)) return;
           completionKeys.add(key);
+          const precise = preciseByDay.get(day);
           const anchor = ratingAnchors.get(key);
-          const iso = anchor != null ? new Date(anchor).toISOString() : fallbackIso;
-          completedEvents.push({ content_id: contentId, timestamp: iso, day });
+          // Precise client timings win; then the earliest rating; then the slot stamp.
+          const iso = precise?.startIso ?? (anchor != null ? new Date(anchor).toISOString() : fallbackIso);
+          completedEvents.push({
+            content_id: contentId,
+            timestamp: iso,
+            endTimestamp: precise?.endIso ?? null,
+            day,
+          });
         };
 
         for (const row of (drcRes.data ?? []) as any[]) {
