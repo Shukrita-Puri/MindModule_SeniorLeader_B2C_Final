@@ -24,7 +24,10 @@ Add `getDisplayTitle(id)` to the content module, seeded with the exact override 
 - Recalibrate cards call `getDisplayTitle`.
 - Plan slot cards call `getDisplayTitle(contentId)` and fall back to the module title only for plan-native items.
 - The practice detail page and the cards player headline use `getDisplayTitle`.
-Result: plan card, Recalibrate list, and practice page always read the same name. No new copy is written.
+Result: plan card, Recalibrate list, and practice page always read the same name. No new copy is written, with one explicit rename below.
+
+Named rename: `stoic-reflection` currently reads "Stoic Evening Reflection" in the list/plan and "Daily Virtue Alignment" inside its card deck. Both become **"Stoic Evening Clarity & Reflection"** — set once in `getDisplayTitle`, applied to the Recalibrate card, the plan slot, the practice page, and the deck's own title card, plus the `sanctuary_content.title` row so server-generated copy matches.
+
 
 ### 3. Route each slot to the page that already exists
 Export a `hasCardDeck(id)` check from the cards player and use it in the plan/JIT/ritual navigation:
