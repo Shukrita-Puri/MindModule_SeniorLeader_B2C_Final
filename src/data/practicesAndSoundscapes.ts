@@ -1288,7 +1288,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Selective attention; cognitive load management; essentialism (Greg McKeown)",
     cue: "One thing. Nothing else.",
     usedBy: "When overwhelmed by options, multitasking temptation, unclear priorities, decision fatigue",
-    subType: "tool",
+    subType: "mindset",
     instructions: [
       "The brutal prioritization question (2 minutes): Write down everything you think you need to do. Then ask: \"If I could only do ONE of these today, and the rest disappeared, which one actually moves the mission forward?\" Circle it. Cross out the rest (for now).",
       "Create environmental constraints (10 seconds): Close all browser tabs except the one for your priority task. Put phone in another room. Set a timer for 25 minutes of single-focus work. Tell yourself: \"For the next 25 minutes, this is the only thing that exists.\"",

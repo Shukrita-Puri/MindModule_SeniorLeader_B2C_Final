@@ -3,7 +3,7 @@ name: Inline Mindset Reflection Capture
 description: Optional auto-saving textarea on every step card of mindset protocols inside MicroPracticePlayerCards
 type: feature
 ---
-- Applies only to mindset protocols (`subType === 'mindset'` or `id === 'stoic-reflection'`). Somatic/soundscape/guided practices unaffected.
+- Applies to card decks on the explicit allowlist in `src/data/reflectionCaptureIds.ts` (`REFLECTION_CAPTURE_IDS`), not to `subType === 'mindset'`. Includes `jobs-simplicity` (reframe, was mis-tagged as a tool). Somatic/breath decks (`wu-wei-flow`, `fudoshin-immovable-mind`, `grounding-touch`, `release-exhale*`, `djokovic-reset`) and soundscape/guided practices never show the box. Server grouping mirror: `MINDSET_CONTENT_IDS` / `SOMATIC_CONTENT_IDS` in `supabase/functions/_shared/content/surfaced-content.ts`; a Vitest guard keeps the two in sync.
 - Storage: `practice_reflections` (RLS deny-by-default). Per-step rows, upsert by `(user_id, practice_id, session_id|temp_session_key, step_number)`. Empty response deletes the row.
 - Edge functions: `save-practice-reflection` (POST, debounced 1.2s + on blur + on card change + on complete), `get-practice-reflections` (GET, hydrates on mount via direct fetch with query params).
 - Drafts mirror to `localStorage` keyed `reflection:{practiceId}:{tempSessionKey}:{stepNumber}` for offline resilience.

@@ -59,3 +59,52 @@ export const isSurfacedContent = (id: string | null | undefined): boolean =>
 export function filterSurfaced<T extends { id: string }>(rows: T[] | null | undefined): T[] {
   return (rows || []).filter((r) => SURFACED.has(r.id));
 }
+
+/**
+ * Grouping mirror of the frontend Recalibrate sections.
+ *
+ * Mindset/reframe practices are written protocols (they capture reflection text
+ * client-side); somatic practices are breath/body protocols with nothing to
+ * write. Server-side plan and JIT selection must classify them the same way the
+ * frontend does. Mirrors src/data/reflectionCaptureIds.ts.
+ */
+export const MINDSET_CONTENT_IDS: readonly string[] = [
+  "stoic-reflection",
+  "eye-of-storm",
+  "presence-grounding-new",
+  "stillness-gap-new",
+  "detachment-observer-new",
+  "softness-release-new",
+  "mushin-no-mind",
+  "ikigai-purpose",
+  "buddhist-phoenix",
+  "energy-through-reframe",
+  "courage-future-self",
+  "confidence-through-evidence",
+  "energy-through-completion",
+  "courage-arena",
+  "single-thread-focus",
+  "first-move-momentum",
+  "depth-subtraction",
+  "eternal-now-presence",
+  "rhythm-pulse",
+  "mastery-constraint",
+  "jobs-simplicity",
+];
+
+export const SOMATIC_CONTENT_IDS: readonly string[] = [
+  "wu-wei-flow",
+  "fudoshin-immovable-mind",
+  "release-exhale-new",
+  "energy-forge",
+  "spartan-battle-breath",
+  "box-breathing",
+  "bhramari-pranayama",
+  "trataka-flame-gaze",
+];
+
+export const isMindsetContent = (id: string | null | undefined): boolean =>
+  !!id && MINDSET_CONTENT_IDS.includes(id);
+
+export const isSomaticContent = (id: string | null | undefined): boolean =>
+  !!id && SOMATIC_CONTENT_IDS.includes(id);

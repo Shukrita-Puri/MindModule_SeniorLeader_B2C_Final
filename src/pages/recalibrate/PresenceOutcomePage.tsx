@@ -30,11 +30,16 @@ const PresenceOutcomePage = () => {
 
   // Hide stoic-reflection from Presence page
   const hiddenPracticeIds = ['stoic-reflection'];
-  const filteredMicroPractices = microPractices.filter(item => !hiddenPracticeIds.includes(item.id));
+  // Somatic micro-practices belong in the Somatic Protocol section.
+  const somaticMicroPracticeIds = ['wu-wei-flow'];
+  const filteredMicroPractices = microPractices.filter(
+    item => !hiddenPracticeIds.includes(item.id) && !somaticMicroPracticeIds.includes(item.id)
+  );
+  const somaticMicroPractices = microPractices.filter(item => somaticMicroPracticeIds.includes(item.id));
 
   // Combined items for each section
   const mindsetItems = filteredMicroPractices;
-  const somaticItems = [...soundscapes, ...breathingPractices];
+  const somaticItems = [...soundscapes, ...breathingPractices, ...somaticMicroPractices];
 
   // Load real audio durations for all items with audioSrc
   const allItems = useMemo(() => [...mindsetItems, ...somaticItems], [mindsetItems.length, somaticItems.length]);
