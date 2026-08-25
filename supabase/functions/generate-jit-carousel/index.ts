@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { filterSurfaced } from '../_shared/content/surfaced-content.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,7 +68,8 @@ serve(async (req) => {
       .select('content_id, structured_tags');
 
     const metadataMap = new Map((allMetadata || []).map(m => [m.content_id, m]));
-    const content = allContent || [];
+    // Plan eligibility: only content with a frontend home
+    const content = filterSurfaced<any>(allContent as any[]);
 
     // Select one practice per module
     const cards: any[] = [];
