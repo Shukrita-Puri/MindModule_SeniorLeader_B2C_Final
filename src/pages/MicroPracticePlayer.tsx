@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, Sparkles } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
-import { getAllContent } from "@/data/practicesAndSoundscapes";
+import { getAllContent, getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, isLastPracticeInPlan, markPlanCompleteForFeedback } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
