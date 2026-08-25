@@ -2777,7 +2777,7 @@ const TodayThreePriorities = ({
                             </div>
                           ) : (
                             <img
-                              src={practice.thumbnailUrl || getContentById(practice.contentId)?.thumbnail || ''}
+                              src={getContentById(practice.contentId)?.thumbnail || practice.thumbnailUrl || ''}
                               alt={practice.title}
                               className="w-16 md:w-20 h-full object-cover flex-shrink-0"
                             />
