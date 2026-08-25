@@ -34,7 +34,7 @@ import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
 import CalendarReplacementPickerInline, { type CalendarReplacementEvent } from '@/components/home/CalendarReplacementPickerModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
-import { submitPlanFeedback, submitPlanSlotCancelFeedback } from '@/utils/relevanceFeedback';
+import { submitPlanFeedback, submitPlanSlotCancelFeedback, submitPlanSlotPracticeFeedback } from '@/utils/relevanceFeedback';
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import PriorityTagAffordance, { type PriorityTagState } from '@/components/home/PriorityTagAffordance';
@@ -2607,6 +2607,23 @@ const TodayThreePriorities = ({
                 )}
               </div>
 
+              {/* Completed slot — greyed, non-interactive "Completed" state so
+                  finishing a priority reads as an accomplishment. */}
+              {slotCompleted && (
+                <div className="pl-10 pb-2 opacity-60">
+                  <Button
+                    disabled
+                    aria-disabled="true"
+                    className="w-full h-11 text-[14px] font-medium bg-muted text-muted-foreground rounded-xl shadow-none hover:bg-muted disabled:opacity-100 cursor-default"
+                  >
+                    <Check size={14} className="stroke-[3] mr-1.5" />
+                    {hasMultiple
+                      ? `Completed (${slotPractices.length}/${slotPractices.length})`
+                      : 'Completed'}
+                  </Button>
+                </div>
+              )}
+
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -2862,6 +2879,31 @@ const TodayThreePriorities = ({
           priorityLabel={`Priority ${feedbackSlot.index + 1}`}
           onSubmit={(rating, feedback) => {
             submitPlanFeedback('tod', rating, feedback);
+            // Attribute the slot rating to EVERY practice in that slot — a
+            // slot can hold two or more practices and the rating covers all
+            // of them. One row per practice, keyed on its real contentId.
+            try {
+              const ratedSlot: any = plan?.horizonModules?.[feedbackSlot.index];
+              const ratedPractices: any[] = ratedSlot
+                ? (ratedSlot.practices || [ratedSlot.practice]).filter(Boolean)
+                : [];
+              if (ratedPractices.length > 0) {
+                submitPlanSlotPracticeFeedback({
+                  planType: 'tod',
+                  slotIndex: feedbackSlot.index,
+                  slotLabel: ratedSlot?.timeLabel ?? null,
+                  rating,
+                  feedback,
+                  practices: ratedPractices.map((p) => ({
+                    contentId: p.contentId,
+                    contentType: p.contentType ?? null,
+                    title: p.title ?? null,
+                  })),
+                });
+              }
+            } catch (e) {
+              console.warn('[TodayThreePriorities] per-practice plan feedback failed', e);
+            }
             // §17.4 bridge — post-plan thumbs-up/down on a JIT-bound slot
             // teaches the ranker which event types matter. Thumbs-up always
             // boosts; thumbs-down only writes a demote when the free-text

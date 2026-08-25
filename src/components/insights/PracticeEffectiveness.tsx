@@ -187,22 +187,78 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
         </div>
       )}
 
-      {tier1.length > 0 && (
-        <>
+      {!isEmpty && (
+        <div className="rounded-xl bg-muted/30 p-3.5">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
             Your most effective practices
           </div>
-          <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20">
-            {tier1.map((practice) => (
-              <FindingRow key={`t1-${practice.contentId}`} practice={practice} />
-            ))}
-          </div>
-        </>
+
+          {tier1.length > 0 && (
+            <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20">
+              {tier1.map((practice) => (
+                <FindingRow key={`t1-${practice.contentId}`} practice={practice} />
+              ))}
+            </div>
+          )}
+
+          {tier2.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowBuilding((prev) => !prev)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground min-h-[44px] w-full text-left"
+              >
+                <ChevronRight
+                  className={cn('h-3 w-3 transition-transform', showBuilding && 'rotate-90')}
+                />
+                <span>
+                  {tier2.length} practice{tier2.length !== 1 ? 's' : ''} building signal
+                  {showBuilding ? '' : ' — tap to see'}
+                </span>
+              </button>
+
+              {showBuilding && (
+                <div className="rounded-md overflow-hidden bg-muted/20 mb-1">
+                  {tier2.map((practice) => (
+                    <div key={`t2-${practice.contentId}`} className="opacity-70">
+                      <FindingRow practice={practice} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {tier3.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTriedOpen((open) => !open)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground min-h-[44px] w-full text-left"
+              >
+                <ChevronRight
+                  className={cn('h-3 w-3 transition-transform', triedOpen && 'rotate-90')}
+                />
+                <span>
+                  {tier3.length} practice{tier3.length === 1 ? '' : 's'} tried
+                  {triedOpen ? '' : ' — tap to see'}
+                </span>
+              </button>
+              {triedOpen && (
+                <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20 opacity-50">
+                  {tier3.map((practice) => (
+                    <FindingRow key={`t3-${practice.contentId}`} practice={practice} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {section2.length > 0 && (
-        <>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-4 mb-2">
+        <div className="rounded-xl bg-muted/30 p-3.5 mt-3">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
             Before your hardest days
           </div>
           <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20 px-3 py-3">
@@ -210,53 +266,6 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
               <HardestDayRow key={entry.eventType} entry={entry} />
             ))}
           </div>
-        </>
-      )}
-
-      {tier2.length > 0 && (
-        <>
-          <button
-            onClick={() => setShowBuilding((prev) => !prev)}
-            className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground mt-3 w-full text-left"
-          >
-            <span>{showBuilding ? '▾' : '▸'}</span>
-            <span>
-              {tier2.length} practice{tier2.length !== 1 ? 's' : ''} building signal
-              {showBuilding ? '' : ' — tap to see'}
-            </span>
-          </button>
-
-          {showBuilding && (
-            <div className="rounded-md overflow-hidden bg-muted/20 mt-1">
-              {tier2.map((practice) => (
-                <div key={`t2-${practice.contentId}`} className="opacity-70">
-                  <FindingRow practice={practice} />
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {tier3.length > 0 && (
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => setTriedOpen((open) => !open)}
-            className="flex items-center gap-1 text-xs text-muted-foreground"
-          >
-            <ChevronRight
-              className={cn('h-3 w-3 transition-transform', triedOpen && 'rotate-90')}
-            />
-            {tier3.length} practice{tier3.length === 1 ? '' : 's'} tried — tap to see
-          </button>
-          {triedOpen && (
-            <div className="mt-2 divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20 opacity-50">
-              {tier3.map((practice) => (
-                <FindingRow key={`t3-${practice.contentId}`} practice={practice} />
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

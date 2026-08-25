@@ -363,7 +363,7 @@ serve(async (req) => {
             .gte('created_at', deltaSinceIso),
           supabase
             .from('daily_ritual_completions')
-            .select('ritual_date, completed_practice_ids, session_period, soundscape_completed_at, guided_practice_completed_at, micro_exercise_completed_at')
+            .select('ritual_date, completed_practice_ids, session_period, soundscape_completed_at, guided_practice_completed_at, micro_exercise_completed_at, practice_started_at, practice_completed_at')
             .eq('user_id', userId)
             .gte('ritual_date', sessionSinceIso.slice(0, 10)),
           supabase
@@ -430,16 +430,45 @@ serve(async (req) => {
           if (prev == null || ms < prev) ratingAnchors.set(key, ms);
         }
 
-        type Completion = { content_id: string; timestamp: string | null; day: string };
+        // Precise session timing, when the client recorded it on the ritual row.
+        // Keyed by local day; used in preference to the estimated duration.
+        type PreciseWindow = { startIso: string; endIso: string };
+        const preciseByDay = new Map<string, PreciseWindow>();
+        for (const row of (drcRes.data ?? []) as any[]) {
+          const day = String(row.ritual_date ?? '').slice(0, 10);
+          if (!day) continue;
+          const s = row.practice_started_at;
+          const e = row.practice_completed_at;
+          if (!s || !e) continue;
+          const sMs = +new Date(s);
+          const eMs = +new Date(e);
+          if (!Number.isFinite(sMs) || !Number.isFinite(eMs) || eMs <= sMs) continue;
+          preciseByDay.set(day, { startIso: new Date(sMs).toISOString(), endIso: new Date(eMs).toISOString() });
+        }
+
+        type Completion = {
+          content_id: string;
+          timestamp: string | null;
+          /** End of the measured session when the client recorded it. */
+          endTimestamp: string | null;
+          day: string;
+        };
         const completionKeys = new Set<string>();
         const completedEvents: Completion[] = [];
         const pushCompletion = (contentId: string, day: string, fallbackIso: string | null) => {
           const key = `${contentId}|${day}`;
           if (completionKeys.has(key)) return;
           completionKeys.add(key);
+          const precise = preciseByDay.get(day);
           const anchor = ratingAnchors.get(key);
-          const iso = anchor != null ? new Date(anchor).toISOString() : fallbackIso;
-          completedEvents.push({ content_id: contentId, timestamp: iso, day });
+          // Precise client timings win; then the earliest rating; then the slot stamp.
+          const iso = precise?.startIso ?? (anchor != null ? new Date(anchor).toISOString() : fallbackIso);
+          completedEvents.push({
+            content_id: contentId,
+            timestamp: iso,
+            endTimestamp: precise?.endIso ?? null,
+            day,
+          });
         };
 
         for (const row of (drcRes.data ?? []) as any[]) {
@@ -712,14 +741,20 @@ serve(async (req) => {
           }
 
           // ── Intraday HR triple around the practice ────────────
+          // Windows: BEFORE [start−15m, start), DURING [start, end),
+          // AFTER (end, end+15m]. The 15-minute after-window is the practice
+          // response itself; beyond it the reading is confounded by whatever
+          // the user did next. All three are required.
           const startMs = +new Date(ev.timestamp);
           if (Number.isFinite(startMs)) {
-            const durMs = durationSecondsOf(ev.content_id) * 1000;
-
-            const endMs = startMs + durMs;
+            const preciseEndMs = ev.endTimestamp ? +new Date(ev.endTimestamp) : NaN;
+            const endMs =
+              Number.isFinite(preciseEndMs) && preciseEndMs > startMs
+                ? preciseEndMs
+                : startMs + durationSecondsOf(ev.content_id) * 1000;
             const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
             const hrDuring = meanHrBetween(startMs, endMs);
-            const hrAfter = meanHrBetween(endMs, endMs + 60 * 60 * 1000, { excludeStart: true, includeEnd: true });
+            const hrAfter = meanHrBetween(endMs, endMs + 15 * 60 * 1000, { excludeStart: true, includeEnd: true });
             const sig = getSignalAgg(ev.content_id);
             if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
               sig.hrBeforeSum += hrBefore.mean;
