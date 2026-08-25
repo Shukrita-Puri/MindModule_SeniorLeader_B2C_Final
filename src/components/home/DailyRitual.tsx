@@ -21,6 +21,7 @@ import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
 
 // Background images for Coach cards
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
+import { routeForContent } from "@/data/cardDeckIds";
 
 // Types from backend response
 interface PlanModule {
@@ -477,10 +478,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       return;
     }
 
-    let route: string;
-    if (module.contentType === 'soundbath') route = `/soundscapes/${module.contentId}`;
-    else if (module.contentType === 'guided-practice') route = `/guided-practices/${module.contentId}`;
-    else route = `/micro-practice/${module.contentId}/cards`;
+    const route = routeForContent(module.contentId, module.contentType);
     navigate(route, { state: { category: 'pause', fromRitual: true } });
   };
 

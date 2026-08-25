@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getAuthToken } from "@/services/authTokenService";
 import { toast } from "sonner";
 import useScrollToTop from "@/hooks/useScrollToTop";
+import { hasCardDeckId } from "@/data/cardDeckIds";
 
 const MicroPracticePlayer = () => {
   const { id } = useParams();
@@ -265,7 +266,7 @@ const MicroPracticePlayer = () => {
 
   // Handle beginning practice - navigate to cards view for card-based practices
   const handleBeginPractice = () => {
-    if (practice.steps) {
+    if (practice.steps && hasCardDeckId(id)) {
       // Card-based practice – pass coach state through
       navigate(`/micro-practice/${id}/cards`, {
         state: {
