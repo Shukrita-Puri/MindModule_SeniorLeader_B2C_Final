@@ -243,34 +243,48 @@ export async function submitPlanSlotPracticeFeedback(args: {
     const qualitativeRating = mapRatingToQualitative(args.rating);
     const slotContentIds = practices.map((p) => p.contentId);
     const dateKey = new Date().toLocaleDateString('en-CA');
+    const readTiming = (contentId: string) => {
+      try {
+        const raw = localStorage.getItem('practiceCompletionTiming');
+        if (!raw) return null;
+        const timings = JSON.parse(raw);
+        return timings?.[`${contentId}|${dateKey}`] || null;
+      } catch {
+        return null;
+      }
+    };
 
     const results = await Promise.allSettled(
-      practices.map((practice) =>
-        supabase.functions.invoke('content-feedback', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: {
-            action: 'SUBMIT_FEEDBACK',
-            feedbackData: {
-              content_id: practice.contentId,
-              content_type: normalisePracticeContentType(practice.contentType),
-              feedback_type: 'star_rating',
-              star_rating: args.rating,
-              trigger_context: 'post_plan_completion',
-              feedback_text: args.feedback,
-              feedback_reason: qualitativeRating,
-              context_data: {
-                feedback_scope: 'plan_slot_practice',
-                plan_type: args.planType,
-                plan_slot_index: args.slotIndex,
-                slot_label: args.slotLabel ?? null,
-                slot_content_ids: slotContentIds,
-                slot_practice_count: slotContentIds.length,
-                local_date: dateKey,
+      practices.map((practice) => {
+        const timing = readTiming(practice.contentId);
+        return supabase.functions.invoke('content-feedback', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: {
+              action: 'SUBMIT_FEEDBACK',
+              feedbackData: {
+                content_id: practice.contentId,
+                content_type: normalisePracticeContentType(practice.contentType),
+                feedback_type: 'star_rating',
+                star_rating: args.rating,
+                trigger_context: 'post_plan_completion',
+                feedback_text: args.feedback,
+                feedback_reason: qualitativeRating,
+                context_data: {
+                  feedback_scope: 'plan_slot_practice',
+                  plan_type: args.planType,
+                  plan_slot_index: args.slotIndex,
+                  slot_label: args.slotLabel ?? null,
+                  slot_content_ids: slotContentIds,
+                  slot_practice_count: slotContentIds.length,
+                  local_date: dateKey,
+                  practice_started_at: timing?.practice_started_at ?? null,
+                  practice_completed_at: timing?.practice_completed_at ?? null,
+                  session_period: timing?.session_period ?? null,
+                },
               },
             },
-          },
-        }),
-      ),
+          });
+      }),
     );
 
     const written = results.filter((r) => r.status === 'fulfilled' && !(r.value as any)?.error).length;
