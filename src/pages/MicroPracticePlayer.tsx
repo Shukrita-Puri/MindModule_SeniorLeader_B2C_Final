@@ -86,7 +86,7 @@ const MicroPracticePlayer = () => {
 
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
-  const practiceStartedAtRef = useRef<string | null>(new Date().toISOString());
+  const practiceStartedAtRef = useRef<string | null>(null);
 
   // Track engagement on page load
   useEffect(() => {
