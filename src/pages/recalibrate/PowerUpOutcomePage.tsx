@@ -57,42 +57,9 @@ const PowerUpOutcomePage = () => {
     fetchCompletionCounts();
   }, []);
 
-  const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
-    // For card-based micro practices, use the card title
-    if (item.id === 'buddhist-phoenix') {
-      return 'Resilience Through The Phoenix';
-    }
-    if (item.id === 'energy-through-reframe') {
-      return 'Energy Through The Shift';
-    }
-    if (item.id === 'courage-future-self') {
-      return 'Courage Through The Future Self';
-    }
-    if (item.id === 'confidence-through-evidence') {
-      return 'Confidence & Readiness Through Evidence';
-    }
-    if (item.id === 'energy-through-completion') {
-      return 'Restore Energy Through Completion';
-    }
-    if (item.id === 'courage-arena') {
-      return 'Courage Through The Arena';
-    }
-    
-    // For other micro practices, use the title directly
-    if (item.contentType === 'micro-practice') {
-      return item.title;
-    }
-    
-    // For soundscapes and guided practices, use the mapping
-    const titleMap: Record<string, string> = {
-      "Athletic Activation": "Pre-Competition Mental Preparation",
-      "Kapalabhati Pranayama": "Energy Surge Through Kapalabhati",
-      "The Spartan Battle Breath": "Access Fearless Warrior State",
-      "Box Breathing Reset": "Tactical Composure Through Box Breathing",
-      "Wim Hof Power Breathing": "Control Your Autonomic System",
-    };
-    return titleMap[item.title] || item.title;
-  };
+  // Single display-name source of truth (see src/data/contentSurfacing.ts).
+  const getOutcomeFocusedTitle = (item: SanctuaryContent): string =>
+    getDisplayTitle(item.id, item.title);
 
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
     if (!item.origin && !item.creator) return "";
