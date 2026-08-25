@@ -363,7 +363,7 @@ serve(async (req) => {
             .gte('created_at', deltaSinceIso),
           supabase
             .from('daily_ritual_completions')
-            .select('ritual_date, completed_practice_ids, session_period, soundscape_completed_at, guided_practice_completed_at, micro_exercise_completed_at')
+            .select('ritual_date, completed_practice_ids, session_period, soundscape_completed_at, guided_practice_completed_at, micro_exercise_completed_at, practice_started_at, practice_completed_at')
             .eq('user_id', userId)
             .gte('ritual_date', sessionSinceIso.slice(0, 10)),
           supabase
