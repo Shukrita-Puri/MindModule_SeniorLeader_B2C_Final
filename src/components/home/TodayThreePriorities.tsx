@@ -2913,9 +2913,13 @@ const TodayThreePriorities = ({
             } catch (e) {
               console.warn("[TodayThreePriorities] post-plan bridge threw", e);
             }
+            markPlanSlotRated(feedbackSlot.index);
             setFeedbackSlot(null);
           }}
-          onSkip={() => setFeedbackSlot(null)}
+          onSkip={() => {
+            markPlanSlotRated(feedbackSlot.index);
+            setFeedbackSlot(null);
+          }}
         />
       )}
 
