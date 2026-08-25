@@ -2131,12 +2131,22 @@ const MicroPracticePlayerCards = () => {
   };
 
   if (!practice || cards.length === 0) {
+    if (isCoachGenerated) {
+      return (
+        <Navigate
+          to={`/micro-practice/${id}`}
+          state={location.state}
+          replace
+        />
+      );
+    }
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center">
         <p className="text-muted-foreground">Practice not found</p>
       </div>
     );
   }
+
 
   if (showRatingModal && practice) {
     return (
