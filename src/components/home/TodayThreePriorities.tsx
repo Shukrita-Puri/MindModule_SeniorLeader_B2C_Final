@@ -586,9 +586,29 @@ const TodayThreePriorities = ({
     setReplacementSelection(slot?.replacementEventIds || []);
   }, []);
 
-  // Tracks which priority fingerprints have ALREADY had their feedback modal shown
-  // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
-  const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
+  // Per-slot plan feedback gate: once a slot is rated (submit or skip) for a
+  // given user + local date, don't ask again that day. localStorage key mirrors
+  // the plan-date scoping used by the rest of the card.
+  const getPlanSlotRatedKey = (slotIndex: number): string | null => {
+    if (!effectiveUserId) return null;
+    return `plan_slot_rated_${effectiveUserId}_${todayForPlan}_slot${slotIndex}`;
+  };
+  const isPlanSlotRated = (slotIndex: number): boolean => {
+    try {
+      const key = getPlanSlotRatedKey(slotIndex);
+      if (!key) return false;
+      return localStorage.getItem(key) === '1';
+    } catch {
+      return false;
+    }
+  };
+  const markPlanSlotRated = (slotIndex: number) => {
+    try {
+      const key = getPlanSlotRatedKey(slotIndex);
+      if (key) localStorage.setItem(key, '1');
+    } catch { /* ignore quota */ }
+  };
+
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
   const [pendingCancel, setPendingCancel] = useState<{
     index: number;
