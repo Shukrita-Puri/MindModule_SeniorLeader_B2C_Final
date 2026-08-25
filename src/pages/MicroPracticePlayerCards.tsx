@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import { safeReadPracticeQueue, safeReadJitInterventionData, safeReadQueueIndex } from "@/utils/safeStorage";
 import { useReflectionDraft } from "@/hooks/useReflectionDraft";
+import { capturesReflection } from "@/data/reflectionCaptureIds";
 import { Textarea } from "@/components/ui/textarea";
 import phoenixResilienceHero from "@/assets/recalibrate/power-up/buddhist-phoenix.jpg";
 import courageFutureHero from "@/assets/recalibrate/power-up/courage-future-self.jpg";
@@ -1904,8 +1905,8 @@ const MicroPracticePlayerCards = () => {
   // Get cards for the current practice
   const cards = getCardsForPractice(resolvedPracticeId);
 
-  // Mindset detection — practice subType 'mindset' or stoic-reflection.
-  const isMindset = !!(practice && ((practice as any).subType === 'mindset' || practice.id === 'stoic-reflection'));
+  // Written-deck detection — explicit allowlist (see reflectionCaptureIds.ts).
+  const isMindset = capturesReflection(resolvedPracticeId) || capturesReflection(practice?.id);
 
   const entryContext: 'plan' | 'standalone' | 'jit' = fromIntervention
     ? 'jit'
