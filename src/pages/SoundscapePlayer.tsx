@@ -516,7 +516,7 @@ const SoundscapePlayer = () => {
     <div className="relative min-h-screen overflow-hidden animate-page-enter">
       {/* Full-screen background — each practice keeps its own authored visual. */}
       <PlayerBackground
-        thumbnail={soundscape.thumbnail || getContentById(id!)?.thumbnail || ""}
+        thumbnail={getContentById(id!)?.thumbnail || soundscape.thumbnail || ""}
         category={soundscape.category as 'pause' | 'power-up' | 'presence' | 'flow'}
       />
 
