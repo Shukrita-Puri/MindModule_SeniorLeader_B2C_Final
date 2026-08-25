@@ -245,7 +245,8 @@ export async function submitPlanSlotPracticeFeedback(args: {
     const dateKey = new Date().toLocaleDateString('en-CA');
     const readTiming = (contentId: string) => {
       try {
-        const raw = localStorage.getItem('practiceCompletionTiming');
+        if (typeof window === 'undefined') return null;
+        const raw = window.localStorage.getItem('practiceCompletionTiming');
         if (!raw) return null;
         const timings = JSON.parse(raw);
         return timings?.[`${contentId}|${dateKey}`] || null;
