@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, Sparkles } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
-import { getAllContent } from "@/data/practicesAndSoundscapes";
+import { getAllContent, getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, isLastPracticeInPlan, markPlanCompleteForFeedback } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
@@ -23,8 +23,66 @@ const MicroPracticePlayer = () => {
   const coachSessionId = location.state?.coachSessionId || sessionStorage.getItem('returnCoachSessionId') || undefined;
   useScrollToTop();
   const allContent = getAllContent();
-  const practice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
-  
+  const staticPractice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
+
+  // Coach-generated plan slots (e.g. `coach-prepare`, `coach-integrate:2`)
+  // never exist in the static catalogue. Render a generic practice view
+  // built from the plan slot's title/description instead of an error.
+  const isCoachGenerated = !!id && /^coach[-:]/i.test(id);
+  const slotTitle = (location.state as any)?.title as string | undefined;
+  const slotDescription = (location.state as any)?.description as string | undefined;
+
+  // Secondary resolution source: sanctuary_content in the database.
+  const [dbPractice, setDbPractice] = useState<any | null>(null);
+  const [resolving, setResolving] = useState(!staticPractice && !isCoachGenerated);
+
+  const practice: any = staticPractice
+    ?? (isCoachGenerated
+      ? {
+          id: id!,
+          title: slotTitle || 'Guided reflection',
+          category: undefined,
+          duration: 5,
+          essence: slotDescription || 'A short guided reflection for this priority.',
+          thumbnail: '',
+        }
+      : dbPractice);
+
+  useEffect(() => {
+    if (staticPractice || isCoachGenerated || !id) return;
+    let cancelled = false;
+    setResolving(true);
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('sanctuary_content')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (data) {
+          setDbPractice({
+            id: data.id,
+            title: data.title,
+            category: data.category,
+            duration: data.duration,
+            steps: data.steps_count ?? undefined,
+            essence: data.story_hook ?? '',
+            storyHook: data.story_hook ?? undefined,
+            usedBy: data.used_by ?? undefined,
+            origin: data.origin ?? undefined,
+            thumbnail: data.thumbnail_url ?? '',
+          });
+        }
+      } catch (e) {
+        console.error('[MicroPracticePlayer] sanctuary_content lookup failed:', e);
+      } finally {
+        if (!cancelled) setResolving(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id, staticPractice, isCoachGenerated]);
+
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
@@ -49,10 +107,13 @@ const MicroPracticePlayer = () => {
   if (!practice) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center">
-        <p className="text-muted-foreground">Practice not found</p>
+        <p className="text-muted-foreground">
+          {resolving ? 'Loading practice…' : 'Practice not found'}
+        </p>
       </div>
     );
   }
+
 
   // Determine back path based on category and ritual context
   const backPath = fromRitual 
@@ -240,14 +301,17 @@ const MicroPracticePlayer = () => {
         {/* Header with Hero Visual */}
         <div className="text-center mb-10">
           {/* Hero Visual */}
-          <div className="w-full max-w-sm mx-auto mb-8 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
-            <img 
-              src={practice.thumbnail} 
-              alt={practice.title}
-           className="w-full h-full object-cover"
-           style={{ filter: (['presence', 'flow'].includes(practice.category || '')) ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
-            />
-          </div>
+          {(getContentById(practice.id)?.thumbnail || practice.thumbnail) && (
+            <div className="w-full max-w-sm mx-auto mb-8 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
+              <img 
+                src={getContentById(practice.id)?.thumbnail || practice.thumbnail} 
+                alt={practice.title}
+             className="w-full h-full object-cover"
+             style={{ filter: (['presence', 'flow'].includes(practice.category || '')) ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
+              />
+            </div>
+          )}
+
           
           {/* Title */}
           <h2 className="text-[20px] font-headline font-medium text-foreground mb-3 leading-tight">

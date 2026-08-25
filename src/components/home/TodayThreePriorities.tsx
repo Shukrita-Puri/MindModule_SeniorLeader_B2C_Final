@@ -1540,6 +1540,14 @@ const TodayThreePriorities = ({
           setAwaitingSignals(false);
           setSnapshotMissingReady(false);
           setFetchFailed(false);
+          // Persist the hydrated snapshot into the window-scoped cache so a
+          // later remount (e.g. returning home after completing a practice)
+          // renders instantly and never re-shows the scripted loader.
+          try {
+            const ttl = msUntilWindowEnd();
+            writePersistent(cacheKeys.planLoaded(todayDate, currentPeriod), true, ttl);
+            writePersistent(cacheKeys.planData(todayDate, currentPeriod), stripped, ttl);
+          } catch { /* ignore */ }
           // Completions still come from daily_ritual_completions — the
           // snapshot is never the completion source.
           const ritual = await getTodayRitual(currentPeriod);
@@ -2777,7 +2785,7 @@ const TodayThreePriorities = ({
                             </div>
                           ) : (
                             <img
-                              src={practice.thumbnailUrl || getContentById(practice.contentId)?.thumbnail || ''}
+                              src={getContentById(practice.contentId)?.thumbnail || practice.thumbnailUrl || ''}
                               alt={practice.title}
                               className="w-16 md:w-20 h-full object-cover flex-shrink-0"
                             />
