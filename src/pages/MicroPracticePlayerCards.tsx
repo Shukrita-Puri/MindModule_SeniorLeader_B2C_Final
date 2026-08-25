@@ -51,7 +51,7 @@ import softnessReleaseHero from "@/assets/recalibrate/pause/softness-release.jpg
 const BUDDHIST_PHOENIX_CARDS = [
   {
     type: "overview" as const,
-    title: "Resilience Through The Phoenix",
+    title: "Resilience Through The Phoenix Approach",
     subtitle: "Reframe setbacks into strength and clarity",
     source: "Growth through adversity – a pattern observed across millennia – Stoic Amor Fati (love of fate) + Growth Mindset Research (Dweck)",
     duration: "3 min",
@@ -1080,7 +1080,7 @@ const IKIGAI_PURPOSE_CARDS = [
 const STOIC_REFLECTION_CARDS = [
   {
     type: "overview" as const,
-    title: "Daily Virtue Alignment",
+    title: "Stoic Evening Clarity & Reflection",
     subtitle: "Marcus Aurelius's evening practice",
     source: "Ancient Rome – Stoic Philosophy, Marcus Aurelius's Meditations",
     duration: "10 min",
