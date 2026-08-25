@@ -1884,6 +1884,11 @@ const MicroPracticePlayerCards = () => {
   const isNavigatingRef = useRef(false);
   const mountedRef = useRef(true);
   const cachedAuthTokenRef = useRef<string | null>(null);
+  const practiceStartedAtRef = useRef<string | null>(
+    typeof location.state?.practiceStartedAt === 'string'
+      ? location.state.practiceStartedAt
+      : new Date().toISOString()
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -2059,20 +2064,22 @@ const MicroPracticePlayerCards = () => {
       // Log the completion — every practice, plan-launched or ad-hoc.
       const completedAt = new Date();
       const durationSeconds = (Number(practice.duration) || 0) * 60;
-      const startedAt = durationSeconds > 0
+      const startedAt = practiceStartedAtRef.current || (durationSeconds > 0
         ? new Date(completedAt.getTime() - durationSeconds * 1000).toISOString()
-        : null;
+        : null);
 
       console.log('[MicroPracticePlayerCards] Logging completion:', { id: resolvedPracticeId, plan: shouldTrackRitual });
       await updateRitualCompletion('micro_exercise', resolvedPracticeId, practiceQueueLocal || undefined, {
         startedAt,
         completedAt: completedAt.toISOString(),
+        durationSeconds: durationSeconds || null,
         isPlanPractice: shouldTrackRitual,
         planContext: shouldTrackRitual
           ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
           : 'library',
         cachedToken: cachedAuthTokenRef.current,
       });
+      practiceStartedAtRef.current = null;
 
     } catch (error) {
       console.error("Failed to save completion:", error);

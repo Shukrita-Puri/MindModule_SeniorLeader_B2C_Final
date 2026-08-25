@@ -57,6 +57,31 @@ interface RequestBody {
         };
       } | null;
   };
+  isPlanPractice?: boolean;
+  planContext?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationSeconds?: number | null;
+}
+
+function normaliseIsoTimestamp(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+function deriveStartedAt(startedAt: unknown, completedAt: string, durationSeconds: unknown): string | null {
+  const explicit = normaliseIsoTimestamp(startedAt);
+  if (explicit) return explicit;
+
+  const duration = typeof durationSeconds === 'number'
+    ? durationSeconds
+    : typeof durationSeconds === 'string'
+      ? Number(durationSeconds)
+      : NaN;
+  if (!Number.isFinite(duration) || duration <= 0) return null;
+
+  return new Date(new Date(completedAt).getTime() - duration * 1000).toISOString();
 }
 
 serve(async (req) => {
@@ -206,7 +231,7 @@ serve(async (req) => {
       case 'COMPLETE_PRACTICE': {
         const {
           practiceType, practiceId, practiceQueue, sessionPeriod,
-          isPlanPractice, planContext, startedAt, completedAt,
+          isPlanPractice, planContext, startedAt, completedAt, durationSeconds,
         } = body;
         if (!practiceType || !practiceId) {
           return new Response(JSON.stringify({ error: 'Missing practiceType or practiceId' }), {
@@ -218,7 +243,11 @@ serve(async (req) => {
         const today = new Date().toISOString().split('T')[0];
         const now = new Date().toISOString();
         const period = sessionPeriod || getServerTimeOfDay();
-        const finishedAt = typeof completedAt === 'string' && completedAt ? completedAt : now;
+        const finishedAt = normaliseIsoTimestamp(completedAt) || now;
+        const startedAtIso = deriveStartedAt(startedAt, finishedAt, durationSeconds);
+        if (startedAt != null && !startedAtIso) {
+          console.warn('[daily-rituals] COMPLETE_PRACTICE ignored invalid startedAt', { practiceId });
+        }
         const inQueue = Array.isArray(practiceQueue)
           ? practiceQueue.some((p: any) => p?.id === practiceId)
           : false;
@@ -251,8 +280,8 @@ serve(async (req) => {
             : (planPractice ? 'plan' : 'library'),
           practice_completed_at: finishedAt,
         };
-        if (typeof startedAt === 'string' && startedAt) {
-          updateData.practice_started_at = startedAt;
+        if (startedAtIso) {
+          updateData.practice_started_at = startedAtIso;
         }
 
         // 3. Set boolean flag + timestamp for practiceType
@@ -298,7 +327,7 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, period=${period}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}`);
+        console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, period=${period}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}, timing=${startedAtIso ? 'precise' : 'completed-only'}`);
 
         return new Response(JSON.stringify({ data }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

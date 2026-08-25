@@ -335,6 +335,8 @@ export interface PracticeCompletionMeta {
   startedAt?: string | null;
   /** ISO timestamp the practice finished. Defaults to now. */
   completedAt?: string | null;
+  /** Estimated or measured duration when a start timestamp is not available. */
+  durationSeconds?: number | null;
   /**
    * True when the practice was launched from the daily plan queue.
    * False for ad-hoc launches from the library — those are still logged.
@@ -350,6 +352,45 @@ export interface PracticeCompletionMeta {
   cachedToken?: string | null;
 }
 
+function normaliseIsoTimestamp(value?: string | null): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+function recordLocalPracticeTiming(args: {
+  practiceId: string;
+  localDate: string;
+  sessionPeriod: string;
+  startedAt: string | null;
+  completedAt: string;
+}) {
+  if (!args.startedAt || typeof window === 'undefined') return;
+  try {
+    const storageKey = 'practiceCompletionTiming';
+    const raw = window.localStorage.getItem(storageKey);
+    const existing = raw ? JSON.parse(raw) : {};
+    const key = `${args.practiceId}|${args.localDate}`;
+    const next = {
+      ...existing,
+      [key]: {
+        practice_started_at: args.startedAt,
+        practice_completed_at: args.completedAt,
+        local_date: args.localDate,
+        session_period: args.sessionPeriod,
+        updated_at: new Date().toISOString(),
+      },
+    };
+
+    const entries = Object.entries(next)
+      .sort(([, a], [, b]) => String((b as any)?.updated_at || '').localeCompare(String((a as any)?.updated_at || '')))
+      .slice(0, 80);
+    window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    // Best-effort only — backend completion remains the source of truth.
+  }
+}
+
 // Helper to update ritual completion with status recalculation
 // Uses atomic COMPLETE_PRACTICE action (single server call) to avoid race conditions
 export async function updateRitualCompletion(
@@ -361,8 +402,12 @@ export async function updateRitualCompletion(
   const timestamp = new Date().toISOString();
   const today = new Date().toLocaleDateString('en-CA');
   const currentPeriod = getCurrentTimeWindowForRituals();
-  const completedAt = options?.completedAt || timestamp;
-  const startedAt = options?.startedAt ?? null;
+  const completedAt = normaliseIsoTimestamp(options?.completedAt) || timestamp;
+  const explicitStartedAt = normaliseIsoTimestamp(options?.startedAt);
+  const durationSeconds = Number(options?.durationSeconds);
+  const startedAt = explicitStartedAt || (Number.isFinite(durationSeconds) && durationSeconds > 0
+    ? new Date(new Date(completedAt).getTime() - durationSeconds * 1000).toISOString()
+    : null);
   const isPlanPractice =
     options?.isPlanPractice ?? (practiceQueue ? practiceQueue.some((p) => p.id === practiceId) : false);
   const planContext = options?.planContext ?? (isPlanPractice ? 'plan' : 'library');
@@ -370,6 +415,7 @@ export async function updateRitualCompletion(
   console.log(`[dailyRituals] updateRitualCompletion:`, {
     practiceType, practiceId, queueLength: practiceQueue?.length,
     sessionPeriod: currentPeriod, date: today, timestamp, isPlanPractice, planContext,
+    hasStartedAt: !!startedAt,
   });
   
   // DEV_MODE: Direct database – single atomic upsert
@@ -416,6 +462,13 @@ export async function updateRitualCompletion(
           : 'skipped';
 
       const result = await upsertRitual(ritualData as Omit<RitualData, 'id' | 'user_id'>);
+      recordLocalPracticeTiming({
+        practiceId,
+        localDate: today,
+        sessionPeriod: currentPeriod,
+        startedAt,
+        completedAt,
+      });
       console.log(`[dailyRituals] DEV_MODE result:`, { 
         success: !!result, completedIds: newCompletedIds, 
         status: ritualData.completion_status, period: currentPeriod 
@@ -473,6 +526,13 @@ export async function updateRitualCompletion(
     }
 
     const data = await response.json();
+    recordLocalPracticeTiming({
+      practiceId,
+      localDate: today,
+      sessionPeriod: currentPeriod,
+      startedAt,
+      completedAt,
+    });
 
     console.log(`[dailyRituals] COMPLETE_PRACTICE success:`, { 
       status: data?.data?.completion_status, 

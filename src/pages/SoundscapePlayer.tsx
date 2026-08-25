@@ -101,6 +101,7 @@ const SoundscapePlayer = () => {
   const isNavigatingRef = useRef(false);
   const mountedRef = useRef(true);
   const cachedAuthTokenRef = useRef<string | null>(null);
+  const practiceStartedAtRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -233,6 +234,9 @@ const SoundscapePlayer = () => {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      if (!practiceStartedAtRef.current) {
+        practiceStartedAtRef.current = new Date().toISOString();
+      }
       // Track engagement when audio starts (only on first play)
       if (!isComplete) {
         const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
@@ -306,9 +310,9 @@ const SoundscapePlayer = () => {
         const shouldTrackRitual = isInQueue || isInCurrentQueue;
         const completedAt = new Date();
         const playedSeconds = Number(displayDuration) || 0;
-        const startedAt = playedSeconds > 0
+        const startedAt = practiceStartedAtRef.current || (playedSeconds > 0
           ? new Date(completedAt.getTime() - playedSeconds * 1000).toISOString()
-          : null;
+          : null);
 
         console.log('[SoundscapePlayer] Logging completion:', { id, plan: shouldTrackRitual });
         await updateRitualCompletion('soundscape', id, practiceQueue, {
@@ -319,7 +323,9 @@ const SoundscapePlayer = () => {
             ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
             : 'library',
           cachedToken: cachedAuthTokenRef.current,
+          durationSeconds: playedSeconds || null,
         });
+        practiceStartedAtRef.current = null;
       }
     } catch (error) {
       console.error('Failed to log practice completion:', error);
