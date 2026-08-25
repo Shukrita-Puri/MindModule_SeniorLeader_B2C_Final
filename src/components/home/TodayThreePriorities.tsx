@@ -1307,7 +1307,12 @@ const TodayThreePriorities = ({
         const existingCompleted = unionCompleted.length > 0
           ? unionCompleted
           : (existingRitual?.completed_practice_ids || []);
-        const prunedCompleted = existingCompleted.filter((id: string) => allModules.includes(id));
+        // Prune ONLY stale plan IDs. Ad-hoc library completions were never
+        // recommended, so they must survive plan regeneration.
+        const previousRecommended = existingRitual?.recommended_practice_ids || [];
+        const prunedCompleted = existingCompleted.filter(
+          (id: string) => allModules.includes(id) || !previousRecommended.includes(id),
+        );
 
         await upsertRitual({
           ritual_date: todayDate,

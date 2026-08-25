@@ -360,10 +360,15 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
         
-        // Prune stale completed_practice_ids: only retain IDs that exist in the NEW plan
+        // Prune ONLY stale plan IDs (ids that belonged to the previous plan's
+        // recommendations and are no longer recommended). Ad-hoc library
+        // completions were never recommended, so they must be preserved.
         const existingRitual = await getTodayRitual(currentPeriod);
         const existingCompleted = existingRitual?.completed_practice_ids || [];
-        const prunedCompleted = existingCompleted.filter(id => moduleIds.includes(id));
+        const previousRecommended = existingRitual?.recommended_practice_ids || [];
+        const prunedCompleted = existingCompleted.filter(
+          id => moduleIds.includes(id) || !previousRecommended.includes(id),
+        );
         
         await upsertRitual({
           ritual_date: todayDate,
