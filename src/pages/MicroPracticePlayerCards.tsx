@@ -1771,6 +1771,11 @@ const MicroPracticePlayerCards = () => {
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"
   );
+  // Coach-generated plan slots (`coach-prepare`, `coach-integrate:2`, …) never
+  // exist in the static catalogue; hand them to the generic player instead of
+  // rendering "Practice not found".
+  const isCoachGenerated = !!id && /^coach[-:]/i.test(id);
+
 
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
