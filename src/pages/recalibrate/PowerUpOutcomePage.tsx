@@ -7,6 +7,7 @@ import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 
 import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
+import { getDisplayTitle, isSurfacedContent } from "@/data/contentSurfacing";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAudioDurations, formatAudioDurationLabel } from "@/hooks/useAudioDuration";
