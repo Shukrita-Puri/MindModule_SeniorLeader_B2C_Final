@@ -335,6 +335,8 @@ export interface PracticeCompletionMeta {
   startedAt?: string | null;
   /** ISO timestamp the practice finished. Defaults to now. */
   completedAt?: string | null;
+  /** Estimated or measured duration when a start timestamp is not available. */
+  durationSeconds?: number | null;
   /**
    * True when the practice was launched from the daily plan queue.
    * False for ad-hoc launches from the library — those are still logged.
@@ -350,6 +352,12 @@ export interface PracticeCompletionMeta {
   cachedToken?: string | null;
 }
 
+function normaliseIsoTimestamp(value?: string | null): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
 // Helper to update ritual completion with status recalculation
 // Uses atomic COMPLETE_PRACTICE action (single server call) to avoid race conditions
 export async function updateRitualCompletion(
@@ -361,8 +369,12 @@ export async function updateRitualCompletion(
   const timestamp = new Date().toISOString();
   const today = new Date().toLocaleDateString('en-CA');
   const currentPeriod = getCurrentTimeWindowForRituals();
-  const completedAt = options?.completedAt || timestamp;
-  const startedAt = options?.startedAt ?? null;
+  const completedAt = normaliseIsoTimestamp(options?.completedAt) || timestamp;
+  const explicitStartedAt = normaliseIsoTimestamp(options?.startedAt);
+  const durationSeconds = Number(options?.durationSeconds);
+  const startedAt = explicitStartedAt || (Number.isFinite(durationSeconds) && durationSeconds > 0
+    ? new Date(new Date(completedAt).getTime() - durationSeconds * 1000).toISOString()
+    : null);
   const isPlanPractice =
     options?.isPlanPractice ?? (practiceQueue ? practiceQueue.some((p) => p.id === practiceId) : false);
   const planContext = options?.planContext ?? (isPlanPractice ? 'plan' : 'library');
@@ -370,6 +382,7 @@ export async function updateRitualCompletion(
   console.log(`[dailyRituals] updateRitualCompletion:`, {
     practiceType, practiceId, queueLength: practiceQueue?.length,
     sessionPeriod: currentPeriod, date: today, timestamp, isPlanPractice, planContext,
+    hasStartedAt: !!startedAt,
   });
   
   // DEV_MODE: Direct database – single atomic upsert
