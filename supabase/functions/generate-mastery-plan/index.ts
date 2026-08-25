@@ -114,6 +114,7 @@ import {
   type MemoryRow as ExclusionMemoryRow,
 } from "../_shared/plan/exclusion-evaluator.ts";
 import { toLocalDateString } from "../_shared/plan/exclusion-scope.ts";
+import { filterSurfaced } from "../_shared/content/surfaced-content.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
@@ -5725,7 +5726,8 @@ async function generateMasteryPlan(
   const metadataMap = new Map(
     (contentMetadata || []).map((m: any) => [m.content_id, m]),
   );
-  const enrichedContent = (contentLibrary || []).map((c: any) => {
+  // Plan eligibility: only content with a frontend home (see _shared/content/surfaced-content.ts)
+  const enrichedContent = filterSurfaced<any>(contentLibrary as any[]).map((c: any) => {
     const meta = metadataMap.get(c.id);
     return {
       ...c,

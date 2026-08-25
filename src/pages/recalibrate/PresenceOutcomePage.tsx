@@ -7,6 +7,7 @@ import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 
 import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
+import { getDisplayTitle, isSurfacedContent } from "@/data/contentSurfacing";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAudioDurations, formatAudioDurationLabel } from "@/hooks/useAudioDuration";
@@ -62,23 +63,9 @@ const PresenceOutcomePage = () => {
     fetchCompletionCounts();
   }, []);
 
-  const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
-    // For micro practices, use the title directly as it's already formatted with outcome + origin
-    if (item.contentType === 'micro-practice') {
-      return item.title;
-    }
-    
-    // For soundscapes and guided practices, use the mapping
-    const titleMap: Record<string, string> = {
-      "Deep Focus with Monastic Resonance": "Sustained Focus with Monastic Chant",
-      "Sustained Focus with Choir Harmonic": "Sustained Focus with Cathedral Choir",
-      "Ina Night Fields (Tsukiyomi)": "Nature's Perfect Rhythm",
-      "Deep Focus Through Bhramari Pranayama": "Deep Focus Through Bhramari Pranayama",
-      "One-Pointed Focus Through Trataka": "One-Pointed Focus Through Trataka",
-      "Stoic Evening Reflection": "Daily Virtue Alignment",
-    };
-    return titleMap[item.title] || item.title;
-  };
+  // Single display-name source of truth (see src/data/contentSurfacing.ts).
+  const getOutcomeFocusedTitle = (item: SanctuaryContent): string =>
+    getDisplayTitle(item.id, item.title);
 
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
     if (!item.origin && !item.creator) return "";

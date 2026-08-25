@@ -380,7 +380,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // PRESENCE Soundbaths
   {
     id: "deep-focus-monastic-resonance",
-    title: "Deep Focus with Monastic Resonance",
+    title: "Sustained Focus with Monastic Chant",
     contentType: "soundbath",
     category: "presence",
     tags: ['air', 'focus', 'moderate', 'meditation', 'clarity'],
@@ -419,7 +419,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "sustained-focus-choir-harmonic",
-    title: "Sustained Focus with Choir Harmonic",
+    title: "Grounding Focus with Cathedral Choir",
     contentType: "soundbath",
     category: "presence",
     tags: ['air', 'focus', 'moderate', 'sacred', 'resonance'],
@@ -458,7 +458,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "ina-night-fields",
-    title: "Ina Night Fields (Tsukiyomi)",
+    title: "Nature's Rhythm for Stillness",
     contentType: "soundbath",
     category: "presence",
     tags: ['water', 'nature', 'gentle', 'evening', 'ambient'],
@@ -793,7 +793,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "stoic-reflection",
-    title: "Stoic Evening Reflection",
+    title: "Stoic Evening Clarity & Reflection",
     contentType: "micro-practice",
     category: "presence",
     tags: ['air', 'evening-ritual', 'gentle', 'clarity'],
@@ -1374,7 +1374,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "buddhist-phoenix",
-    title: "Resilience Through the Buddhist Phoenix",
+    title: "Resilience Through The Phoenix Approach",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['resilience', 'recovery', 'hardship', 'growth'],

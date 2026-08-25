@@ -20,6 +20,7 @@ import { getTodayRitual } from '@/utils/dailyRituals';
 import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
+import { routeForContent } from "@/data/cardDeckIds";
 
 interface PreEventModule {
   type: string;
@@ -225,11 +226,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
         return;
       }
 
-      const route = first.contentType === 'soundbath'
-        ? `/soundscapes/${first.contentId}`
-        : first.contentType === 'guided-practice'
-          ? `/guided-practices/${first.contentId}`
-          : `/micro-practice/${first.contentId}/cards`;
+      const route = routeForContent(first.contentId, first.contentType);
       navigate(route, { state: { category: 'pause', fromIntervention: true } });
     } else if (preEventPlan.coachCard?.prompt) {
       navigate('/coach', {
@@ -260,11 +257,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       return;
     }
 
-    const route = module.contentType === 'soundbath'
-      ? `/soundscapes/${module.contentId}`
-      : module.contentType === 'guided-practice'
-        ? `/guided-practices/${module.contentId}`
-        : `/micro-practice/${module.contentId}/cards`;
+    const route = routeForContent(module.contentId, module.contentType);
     navigate(route, { state: { category: 'pause', fromIntervention: true } });
   };
 

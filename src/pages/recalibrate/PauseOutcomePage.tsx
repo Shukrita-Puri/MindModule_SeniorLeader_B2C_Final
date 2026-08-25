@@ -7,6 +7,7 @@ import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 
 import { getContentByCategory, getAllContent, SanctuaryContent } from "@/data/practicesAndSoundscapes";
+import { getDisplayTitle, isSurfacedContent } from "@/data/contentSurfacing";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAudioDurations, formatAudioDurationLabel } from "@/hooks/useAudioDuration";
@@ -16,20 +17,17 @@ import { getAuthToken } from '@/services/authTokenService';
 const PauseOutcomePage = () => {
   const navigate = useNavigate();
   const content = getContentByCategory('pause');
-  const soundscapes = content.filter(item => item.contentType === 'soundbath' && item.id !== 'pranayama-clarity');
-  const practices = content.filter(item => item.contentType === 'guided-practice' && item.id !== 'pranayama-clarity');
+  const soundscapes = content.filter(item => item.contentType === 'soundbath' && isSurfacedContent(item.id));
+  const practices = content.filter(item => item.contentType === 'guided-practice' && isSurfacedContent(item.id));
   
   // IDs of somatic micro-practices that should be in Somatic Protocol
   const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind'];
   
-  // IDs to exclude entirely from display
-  const excludedIds = ['grounding-touch', 'pranayama-clarity'];
-  
-  // Filter micro-practices: exclude somatic ones and excluded IDs from Mindset
+  // Hidden/legacy ids are owned by contentSurfacing.ts (single source of truth)
   const microPractices = content.filter(item => 
     item.contentType === 'micro-practice' && 
     !somaticMicroPracticeIds.includes(item.id) &&
-    !excludedIds.includes(item.id)
+    isSurfacedContent(item.id)
   );
   
   // Get stoic-reflection from all content (it's categorized as 'presence' in data)
@@ -77,27 +75,9 @@ const PauseOutcomePage = () => {
     fetchCompletionCounts();
   }, []);
 
-  const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
-    // For micro practices, use the title directly as it's already formatted with outcome + origin
-    if (item.contentType === 'micro-practice') {
-      return item.title;
-    }
-    
-    // For soundscapes and guided practices, use the mapping
-    const titleMap: Record<string, string> = {
-      "Tibetan Bowl Resonance": "Deep Meditative Flow",
-      "Pre-Mission Calm": "Tactical Composure Before Critical Moments",
-      "Forest Bathing": "Natural Stress Relief & Immune Boost",
-      "Himalayan Mountain Monastery": "Sacred Devotional Calm",
-      "Cathedral Choir Flow": "Resonant Focus & Healing",
-      "Earth Resonance": "Grounded Nervous System Reset",
-      "Tonglen Compassion Practice": "Transform Suffering Into Compassion",
-      "Vipassana Body Scan": "Body Awareness & Equanimity",
-      "Tactical Pause": "60-Second Nervous System Reset",
-      "Grounding Touch": "Instant Anxiety Relief",
-    };
-    return titleMap[item.title] || item.title;
-  };
+  // Single display-name source of truth (see src/data/contentSurfacing.ts).
+  const getOutcomeFocusedTitle = (item: SanctuaryContent): string =>
+    getDisplayTitle(item.id, item.title);
 
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
     if (!item.origin && !item.creator) return "";
