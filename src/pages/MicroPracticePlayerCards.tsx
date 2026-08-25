@@ -1567,6 +1567,10 @@ const getCardsForPractice = (practiceId: string | undefined) => {
   }
 };
 
+// Runtime source of truth for "does this practice have a card deck?"
+export const hasCardDeck = (practiceId: string | undefined): boolean =>
+  getCardsForPractice(practiceId).length > 0;
+
 // Helper to get background image for practice
 const getBackgroundForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
