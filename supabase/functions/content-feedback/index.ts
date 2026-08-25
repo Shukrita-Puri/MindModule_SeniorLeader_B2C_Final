@@ -356,7 +356,7 @@ serve(async (req) => {
         const [fbRes, drcRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
           supabase
             .from('content_relevance_feedback')
-            .select('content_id, content_type, star_rating, session_id, trigger_context, created_at')
+            .select('content_id, content_type, star_rating, session_id, trigger_context, created_at, context_data')
             .eq('user_id', userId)
             .eq('feedback_type', 'star_rating')
             .not('star_rating', 'is', null)
@@ -430,20 +430,41 @@ serve(async (req) => {
           if (prev == null || ms < prev) ratingAnchors.set(key, ms);
         }
 
-        // Precise session timing, when the client recorded it on the ritual row.
-        // Keyed by local day; used in preference to the estimated duration.
+        // Precise session timing, when the client recorded it.
+        // Prefer per-practice timings stored on CRF context_data, then fall back
+        // to ritual timings only when a row has exactly one completed practice.
         type PreciseWindow = { startIso: string; endIso: string };
-        const preciseByDay = new Map<string, PreciseWindow>();
+        const preciseByContentDay = new Map<string, PreciseWindow>();
+        const setPrecise = (contentId: string, day: string, start: unknown, end: unknown) => {
+          if (!contentId || !day || typeof start !== 'string' || typeof end !== 'string') return;
+          const sMs = +new Date(start);
+          const eMs = +new Date(end);
+          if (!Number.isFinite(sMs) || !Number.isFinite(eMs) || eMs <= sMs) return;
+          preciseByContentDay.set(`${contentId}|${day}`, {
+            startIso: new Date(sMs).toISOString(),
+            endIso: new Date(eMs).toISOString(),
+          });
+        };
+
+        for (const r of feedbackRows as any[]) {
+          const contentId = String(r.content_id ?? '');
+          const day = String((r.context_data as any)?.local_date || r.created_at || '').slice(0, 10);
+          setPrecise(
+            contentId,
+            day,
+            (r.context_data as any)?.practice_started_at,
+            (r.context_data as any)?.practice_completed_at,
+          );
+        }
+
         for (const row of (drcRes.data ?? []) as any[]) {
           const day = String(row.ritual_date ?? '').slice(0, 10);
           if (!day) continue;
+          const ids = ((row.completed_practice_ids ?? []) as string[]).filter(Boolean);
+          if (ids.length !== 1) continue;
           const s = row.practice_started_at;
           const e = row.practice_completed_at;
-          if (!s || !e) continue;
-          const sMs = +new Date(s);
-          const eMs = +new Date(e);
-          if (!Number.isFinite(sMs) || !Number.isFinite(eMs) || eMs <= sMs) continue;
-          preciseByDay.set(day, { startIso: new Date(sMs).toISOString(), endIso: new Date(eMs).toISOString() });
+          setPrecise(ids[0], day, s, e);
         }
 
         type Completion = {
@@ -459,7 +480,7 @@ serve(async (req) => {
           const key = `${contentId}|${day}`;
           if (completionKeys.has(key)) return;
           completionKeys.add(key);
-          const precise = preciseByDay.get(day);
+          const precise = preciseByContentDay.get(key);
           const anchor = ratingAnchors.get(key);
           // Precise client timings win; then the earliest rating; then the slot stamp.
           const iso = precise?.startIso ?? (anchor != null ? new Date(anchor).toISOString() : fallbackIso);
