@@ -2607,6 +2607,23 @@ const TodayThreePriorities = ({
                 )}
               </div>
 
+              {/* Completed slot — greyed, non-interactive "Completed" state so
+                  finishing a priority reads as an accomplishment. */}
+              {slotCompleted && (
+                <div className="pl-10 pb-2 opacity-60">
+                  <Button
+                    disabled
+                    aria-disabled="true"
+                    className="w-full h-11 text-[14px] font-medium bg-muted text-muted-foreground rounded-xl shadow-none hover:bg-muted disabled:opacity-100 cursor-default"
+                  >
+                    <Check size={14} className="stroke-[3] mr-1.5" />
+                    {hasMultiple
+                      ? `Completed (${slotPractices.length}/${slotPractices.length})`
+                      : 'Completed'}
+                  </Button>
+                </div>
+              )}
+
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
