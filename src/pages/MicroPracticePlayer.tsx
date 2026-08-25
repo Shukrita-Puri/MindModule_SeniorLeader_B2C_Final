@@ -301,14 +301,17 @@ const MicroPracticePlayer = () => {
         {/* Header with Hero Visual */}
         <div className="text-center mb-10">
           {/* Hero Visual */}
-          <div className="w-full max-w-sm mx-auto mb-8 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
-            <img 
-              src={practice.thumbnail} 
-              alt={practice.title}
-           className="w-full h-full object-cover"
-           style={{ filter: (['presence', 'flow'].includes(practice.category || '')) ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
-            />
-          </div>
+          {(getContentById(practice.id)?.thumbnail || practice.thumbnail) && (
+            <div className="w-full max-w-sm mx-auto mb-8 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
+              <img 
+                src={getContentById(practice.id)?.thumbnail || practice.thumbnail} 
+                alt={practice.title}
+             className="w-full h-full object-cover"
+             style={{ filter: (['presence', 'flow'].includes(practice.category || '')) ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
+              />
+            </div>
+          )}
+
           
           {/* Title */}
           <h2 className="text-[20px] font-headline font-medium text-foreground mb-3 leading-tight">
