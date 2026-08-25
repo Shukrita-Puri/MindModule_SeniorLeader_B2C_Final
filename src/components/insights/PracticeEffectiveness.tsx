@@ -215,16 +215,26 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
 
       {tier2.length > 0 && (
         <>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-4 mb-2">
-            Building signal
-          </div>
-          <div className="divide-y divide-border/30 rounded-md overflow-hidden bg-muted/20">
-            {tier2.map((practice) => (
-              <div key={`t2-${practice.contentId}`} className="opacity-70">
-                <FindingRow practice={practice} />
-              </div>
-            ))}
-          </div>
+          <button
+            onClick={() => setShowBuilding((prev) => !prev)}
+            className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground mt-3 w-full text-left"
+          >
+            <span>{showBuilding ? '▾' : '▸'}</span>
+            <span>
+              {tier2.length} practice{tier2.length !== 1 ? 's' : ''} building signal
+              {showBuilding ? '' : ' — tap to see'}
+            </span>
+          </button>
+
+          {showBuilding && (
+            <div className="rounded-md overflow-hidden bg-muted/20 mt-1">
+              {tier2.map((practice) => (
+                <div key={`t2-${practice.contentId}`} className="opacity-70">
+                  <FindingRow practice={practice} />
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 
