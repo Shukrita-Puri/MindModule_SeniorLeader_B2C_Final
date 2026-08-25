@@ -16,10 +16,18 @@ In `TodayThreePriorities.tsx`, a completed slot currently collapses: strikethrou
 - Multi-practice slots that are fully done show `Completed (n/n)`.
 - No behaviour change for partially complete slots — they keep `Continue (x/n)`.
 
-## Fix B — Review popup attribution
+## Fix B — Review popup attribution covers every practice in the slot
 
-- Keep the localStorage gate and the existing plan-level row.
-- Additionally write the completion row with `content_id` = the completed slot's **primary practice contentId** and `trigger_context: 'post_plan_completion'`, so the Restores card and the impact engine can attribute the rating to a real practice. Uses existing columns only.
+A slot can hold one, two or more practices; the rating applies to all of them.
+
+- Keep the existing plan-level row (`content_id: 'plan-tod'`) and the localStorage gate unchanged.
+- Additionally write **one row per completed practice in that slot** — so a two-practice slot produces two attributed rows — each with:
+  - `content_id` = that practice's contentId, `content_type` = its real type (soundbath / guided-practice / micro-practice)
+  - the same `star_rating` and `feedback_text` as the slot rating
+  - `trigger_context: 'post_plan_completion'`
+  - `context_data` carrying the slot index, time label and the full array of practice contentIds in the slot, so the group is reconstructable
+- Rows are written in one batched insert alongside the plan-level row; existing columns only, no schema change. The impact engine already keys on `content_id`, so each practice picks up its rating with no engine change.
+
 
 ## Fix C — Chevron + type size (PracticeEffectiveness)
 
