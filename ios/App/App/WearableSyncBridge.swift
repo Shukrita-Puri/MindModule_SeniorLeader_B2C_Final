@@ -660,7 +660,7 @@ import Security
                         inBed[day, default: 0] += mins
                     case .awake:
                         break
-                    @unknown default:
+                    default:
                         if value.rawValue >= 3 && value.rawValue <= 6 {
                             asleepUmbrella[day, default: 0] += mins
                         }
