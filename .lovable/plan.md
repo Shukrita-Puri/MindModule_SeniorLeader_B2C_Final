@@ -29,6 +29,6 @@ Writing is stored in `practice_reflections`, one row per step, keyed by user + p
 
 ## Technical notes
 
-- Edit: `src/pages/MicroPracticePlayerCards.tsx` (line ~1908 gate), new `src/data/reflectionCaptureIds.ts`, new test under `src/data/__tests__/`.
-- No schema change, no edge-function change (`save-practice-reflection` / `get-practice-reflections` already accept any `practiceId`).
+- Edits: `src/data/practicesAndSoundscapes.ts` (`jobs-simplicity` subType → mindset), `src/pages/recalibrate/PresenceOutcomePage.tsx` (`wu-wei-flow` into the somatic group), `src/pages/MicroPracticePlayerCards.tsx` (reflection gate), new `src/data/reflectionCaptureIds.ts`, `supabase/functions/_shared/content/surfaced-content.ts` (grouping mirror), new test under `src/data/__tests__/`.
+- No schema change, no edge-function redeploy needed beyond the shared content module (`save-practice-reflection` / `get-practice-reflections` already accept any `practiceId`); `generate-mastery-plan` and `generate-jit-carousel` get redeployed since they import the shared module.
 - `practiceType` sent to the save function stays `"mindset"` to avoid splitting existing rows; the field is descriptive only.
