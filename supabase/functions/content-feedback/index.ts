@@ -919,7 +919,11 @@ serve(async (req) => {
 
         // ── Box 1 list (composite scoring) ──────────────────────
         const box1Practices = Array.from(perContent.values())
+          // Synthetic plan-level rows (plan-tod/plan-*) are attribution carriers, not
+          // practices — real practices in a slot are recorded individually.
+          .filter((a) => !a.isPlan)
           .filter((a) => a.sessions > 0 || a.thumbsUp + a.thumbsDown > 0)
+
           .map((a) => {
             const meta = contentMap.get(a.contentId) as any;
             const isFav = favouriteIds.has(a.contentId);
