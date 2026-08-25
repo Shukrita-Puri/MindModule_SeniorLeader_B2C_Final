@@ -953,7 +953,7 @@ serve(async (req) => {
               compositeScore: Math.round(composite),
               isFavourite: isFav,
               planBadge: a.isPlan ? 'Daily plan' : null,
-              wearableSignal: buildWearableSignal(a.contentId, category),
+              wearableSignal: usableSignal(buildWearableSignal(a.contentId, category)),
               dominantEventCategory,
             };
           })
