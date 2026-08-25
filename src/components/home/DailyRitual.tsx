@@ -769,7 +769,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
                   </div>
                 ) : (
                   <img
-                    src={module.thumbnailUrl || getContentById(module.contentId)?.thumbnail || ''}
+                    src={getContentById(module.contentId)?.thumbnail || module.thumbnailUrl || ''}
                     alt={module.title}
                     className={cn("w-32 h-full object-cover flex-shrink-0", isCompleted && "brightness-50 grayscale-[30%]")}
                   />
