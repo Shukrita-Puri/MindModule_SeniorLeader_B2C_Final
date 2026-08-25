@@ -114,10 +114,10 @@ import {
   type MemoryRow as ExclusionMemoryRow,
 } from "../_shared/plan/exclusion-evaluator.ts";
 import { toLocalDateString } from "../_shared/plan/exclusion-scope.ts";
+import { filterSurfaced } from "../_shared/content/surfaced-content.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
-import { filterSurfaced } from "../_shared/content/surfaced-content.ts";
   evaluateWeekAheadMode,
   normalizeEventTypeKey,
 } from "../_shared/plan/week-ahead-mode.ts";
