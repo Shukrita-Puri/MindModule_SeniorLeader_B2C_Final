@@ -277,7 +277,8 @@ const MicroPracticePlayer = () => {
       navigate(`/micro-practice/${id}/cards`, {
         state: {
           fromCoach,
-          coachSessionId
+          coachSessionId,
+          practiceStartedAt: practiceStartedAtRef.current,
         }
       });
     } else {
