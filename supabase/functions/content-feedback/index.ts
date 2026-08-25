@@ -846,6 +846,12 @@ serve(async (req) => {
           secondarySignalLabel: string;
           n: number;
         };
+        const usableSignal = (s: WearableSignal | null): WearableSignal | null => {
+          if (!s) return null;
+          if (s.n < 1) return null;
+          if (s.primarySignalPct == null && s.secondarySignalPct == null) return null;
+          return s;
+        };
         const buildWearableSignal = (contentId: string, category: string): WearableSignal | null => {
           const agg = wearableSignalAgg.get(contentId);
           if (!agg) return null;
@@ -853,6 +859,7 @@ serve(async (req) => {
           const hasHr = agg.hrN >= 1;
           const hasHrv = agg.hrvN >= 1;
           if (!hasHr && !hasHrv) return null;
+
 
           const meanHrBefore = hasHr ? agg.hrBeforeSum / agg.hrN : null;
           const meanHrDuring = hasHr ? agg.hrDuringSum / agg.hrN : null;
