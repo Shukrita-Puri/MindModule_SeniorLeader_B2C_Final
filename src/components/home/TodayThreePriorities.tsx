@@ -2862,6 +2862,31 @@ const TodayThreePriorities = ({
           priorityLabel={`Priority ${feedbackSlot.index + 1}`}
           onSubmit={(rating, feedback) => {
             submitPlanFeedback('tod', rating, feedback);
+            // Attribute the slot rating to EVERY practice in that slot — a
+            // slot can hold two or more practices and the rating covers all
+            // of them. One row per practice, keyed on its real contentId.
+            try {
+              const ratedSlot: any = plan?.horizonModules?.[feedbackSlot.index];
+              const ratedPractices: any[] = ratedSlot
+                ? (ratedSlot.practices || [ratedSlot.practice]).filter(Boolean)
+                : [];
+              if (ratedPractices.length > 0) {
+                submitPlanSlotPracticeFeedback({
+                  planType: 'tod',
+                  slotIndex: feedbackSlot.index,
+                  slotLabel: ratedSlot?.timeLabel ?? null,
+                  rating,
+                  feedback,
+                  practices: ratedPractices.map((p) => ({
+                    contentId: p.contentId,
+                    contentType: p.contentType ?? null,
+                    title: p.title ?? null,
+                  })),
+                });
+              }
+            } catch (e) {
+              console.warn('[TodayThreePriorities] per-practice plan feedback failed', e);
+            }
             // §17.4 bridge — post-plan thumbs-up/down on a JIT-bound slot
             // teaches the ranker which event types matter. Thumbs-up always
             // boosts; thumbs-down only writes a demote when the free-text
