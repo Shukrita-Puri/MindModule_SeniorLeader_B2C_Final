@@ -559,9 +559,6 @@ const TodayThreePriorities = ({
   const periodKey = periodForPlan;
   const scopeKey = `${todayKey}-${periodKey}`;
   const celebratedStorageKey = `celebrated-ids-${scopeKey}`;
-  // Feedback is keyed by a stable per-priority fingerprint (slot index + content IDs) so
-  // a remount or rehydration cannot "discover" an already-shown priority as new.
-  const feedbackShownStorageKey = `feedback-shown-${scopeKey}`;
   const [replacementSlot, setReplacementSlot] = useState<{ index: number; key: string; title: string } | null>(null);
   const [replacementEvents, setReplacementEvents] = useState<CalendarReplacementEvent[]>([]);
   const [replacementLoading, setReplacementLoading] = useState(false);
