@@ -53,8 +53,6 @@ extension Notification.Name {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         manager.pausesLocationUpdatesAutomatically = true
-        manager.allowsBackgroundLocationUpdates = true
-        manager.showsBackgroundLocationIndicator = false
     }
 
     // MARK: - Public entrypoints
@@ -154,7 +152,13 @@ extension Notification.Name {
 
     // MARK: - CLLocationManagerDelegate
 
-    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status: CLAuthorizationStatus
+        if #available(iOS 14.0, *) {
+            status = manager.authorizationStatus
+        } else {
+            status = CLLocationManager.authorizationStatus()
+        }
         NSLog("[LocationBridge] Authorization changed → \(status.rawValue)")
         if status == .authorizedAlways || status == .authorizedWhenInUse {
             startMonitoring()

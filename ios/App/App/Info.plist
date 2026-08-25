@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.moonshot.mindmoduleapp.refresh</string>
+		<string>me.mindmodule.early-morning-sync</string>
+	</array>
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -35,40 +40,28 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Mind Module reads your Heart Rate Variability (HRV) data to provide performance context and wellness insights.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Mind Module may write selected health data when needed to support wellness and performance features.</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Mind Module reads your upcoming calendar events to tailor daily readiness and nudges.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Mind Module reads your upcoming calendar events to tailor daily readiness and nudges.</string>
-	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-	<string>Mind Module does not write to your calendar.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Mind Module uses your location to detect when you're travelling so it can adapt your readiness brief and notification timing to your current time zone.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Mind Module reads your upcoming calendar events to tailor daily readiness and nudges.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Mind Module reads your Heart Rate Variability (HRV) data to provide performance context and wellness insights.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Background location lets Mind Module quietly detect when you depart, arrive, or change time zones — so pre/during/post-travel nudges fire at the right local time even if the app is closed. Your location is never shared and only used to tune notifications.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Background location lets Mind Module quietly detect when you depart, arrive, or change time zones — so pre/during/post-travel nudges fire at the right local time even if the app is closed.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Mind Module uses your location to detect when you're travelling so it can adapt your readiness brief and notification timing to your current time zone.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 		<string>fetch</string>
 		<string>processing</string>
-		<string>location</string>
-	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.moonshot.mindmoduleapp.refresh</string>
-		<string>me.mindmodule.early-morning-sync</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -88,9 +81,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>ITSAppUsesNonExemptEncryption</key>
-    <false/>
 </dict>
 </plist>

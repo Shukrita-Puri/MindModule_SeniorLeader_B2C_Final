@@ -656,13 +656,14 @@ import Security
                     switch value {
                     case .asleep:
                         asleepUmbrella[day, default: 0] += mins
-                    case .asleepDeep, .asleepREM, .asleepCore, .asleepUnspecified:
-                        asleepUmbrella[day, default: 0] += mins
                     case .inBed:
                         inBed[day, default: 0] += mins
                     case .awake:
                         break
                     @unknown default:
+                        if value.rawValue >= 3 && value.rawValue <= 6 {
+                            asleepUmbrella[day, default: 0] += mins
+                        }
                         break
                     }
                 }

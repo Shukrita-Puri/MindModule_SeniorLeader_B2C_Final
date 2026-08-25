@@ -103,34 +103,69 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func getPermissionStatus(_ call: CAPPluginCall) {
         let status = EKEventStore.authorizationStatus(for: .event)
-        NSLog("[AppleCalendarPlugin] permission status requested: \(self.label(for: status))")
-        call.resolve(["status": label(for: status)])
+        let authorized: Bool
+        if #available(iOS 17.0, *) {
+            authorized = (status == .fullAccess || status == .authorized)
+        } else {
+            authorized = (status == .authorized)
+        }
+        let calendarCount = authorized ? store.calendars(for: .event).count : 0
+        NSLog("[AppleCalendarPlugin] getPermissionStatus: \(self.label(for: status)) authorized=\(authorized) calendars=\(calendarCount)")
+        call.resolve([
+            "status": label(for: status),
+            "calendarCount": calendarCount,
+            "authorized": authorized
+        ])
     }
 
     @objc func requestPermission(_ call: CAPPluginCall) {
         NSLog("[AppleCalendarPlugin] requestPermission started")
         if #available(iOS 17.0, *) {
-            store.requestFullAccessToEvents { granted, error in
+            store.requestFullAccessToEvents { [weak self] granted, error in
+                guard let self = self else { return }
                 if let error = error {
+                    NSLog("[AppleCalendarPlugin] requestPermission error: \(error.localizedDescription)")
                     call.reject("EventKit permission error: \(error.localizedDescription)")
                     return
                 }
-                NSLog("[AppleCalendarPlugin] requestPermission completed granted=\(granted)")
-                call.resolve(["granted": granted, "status": granted ? "fullAccess" : "denied"])
+                // Re-check authorization status after the OS processes the grant
+                let postStatus = EKEventStore.authorizationStatus(for: .event)
+                let statusLabel = self.label(for: postStatus)
+                let calendars = self.store.calendars(for: .event)
+                let verified = postStatus == .fullAccess || postStatus == .authorized
+                NSLog("[AppleCalendarPlugin] requestPermission completed granted=\(granted) postStatus=\(statusLabel) calendars=\(calendars.count) verified=\(verified)")
+                call.resolve([
+                    "granted": granted && verified,
+                    "status": statusLabel,
+                    "calendarCount": calendars.count,
+                    "verified": verified
+                ])
             }
         } else {
-            store.requestAccess(to: .event) { granted, error in
+            store.requestAccess(to: .event) { [weak self] granted, error in
+                guard let self = self else { return }
                 if let error = error {
+                    NSLog("[AppleCalendarPlugin] requestPermission error: \(error.localizedDescription)")
                     call.reject("EventKit permission error: \(error.localizedDescription)")
                     return
                 }
-                NSLog("[AppleCalendarPlugin] requestPermission completed granted=\(granted)")
-                call.resolve(["granted": granted, "status": granted ? "authorized" : "denied"])
+                let postStatus = EKEventStore.authorizationStatus(for: .event)
+                let statusLabel = self.label(for: postStatus)
+                let calendars = self.store.calendars(for: .event)
+                let verified = postStatus == .authorized
+                NSLog("[AppleCalendarPlugin] requestPermission completed granted=\(granted) postStatus=\(statusLabel) calendars=\(calendars.count) verified=\(verified)")
+                call.resolve([
+                    "granted": granted && verified,
+                    "status": statusLabel,
+                    "calendarCount": calendars.count,
+                    "verified": verified
+                ])
             }
         }
     }
 
     @objc func fetchEvents(_ call: CAPPluginCall) {
+        NSLog("[AppleCalendarPlugin] fetchEvents requested startISO=\(call.getString("startISO") ?? "nil") endISO=\(call.getString("endISO") ?? "nil")")
         guard let startISO = call.getString("startISO"),
               let endISO = call.getString("endISO"),
               let start = isoFormatter.date(from: startISO) ?? ISO8601DateFormatter().date(from: startISO),

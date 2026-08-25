@@ -210,10 +210,14 @@ import Security
 
     private func isCalendarAuthorized() -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
+        let result: Bool
         if #available(iOS 17.0, *) {
-            return status == .fullAccess || status == .authorized
+            result = status == .fullAccess || status == .authorized
+        } else {
+            result = status == .authorized
         }
-        return status == .authorized
+        NSLog("[AppleCalendarBackgroundSync] isCalendarAuthorized: status=\(status.rawValue) result=\(result)")
+        return result
     }
 
     private func fetchEvents(start: Date, end: Date) -> [[String: Any]] {
