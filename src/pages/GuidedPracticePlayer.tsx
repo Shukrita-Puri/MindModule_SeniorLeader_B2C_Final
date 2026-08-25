@@ -728,6 +728,7 @@ const GuidedPracticePlayer = () => {
   const [hasStarted, setHasStarted] = useState(false);
   const [showStory, setShowStory] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
+  const practiceStartedAtRef = useRef<string | null>(null);
 
   // Capture the auth token early while the Auth0 client is still available.
   // The audio-ended event may fire after the page loses focus, at which point
@@ -902,19 +903,21 @@ const GuidedPracticePlayer = () => {
         const isPartOfRitual = !!queue && queue.some((p: any) => p.id === id);
         const completedAt = new Date();
         const durationSeconds = Number(practice.totalDuration) || 0;
-        const startedAt = durationSeconds > 0
+        const startedAt = practiceStartedAtRef.current || (durationSeconds > 0
           ? new Date(completedAt.getTime() - durationSeconds * 1000).toISOString()
-          : null;
+          : null);
 
         await updateRitualCompletion('guided_practice', id, queue || undefined, {
           startedAt,
           completedAt: completedAt.toISOString(),
+          durationSeconds: durationSeconds || null,
           isPlanPractice: isPartOfRitual,
           planContext: isPartOfRitual
             ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
             : 'library',
           cachedToken: cachedAuthTokenRef.current,
         });
+        practiceStartedAtRef.current = null;
       }
     } catch (error) {
       console.error('Failed to log practice completion:', error);
@@ -1009,6 +1012,9 @@ const GuidedPracticePlayer = () => {
       audioRef.current.pause();
       setIsAudioPlaying(false);
     } else {
+      if (!practiceStartedAtRef.current) {
+        practiceStartedAtRef.current = new Date().toISOString();
+      }
       // Track engagement when audio starts
       const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
       const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
@@ -1053,19 +1059,21 @@ const GuidedPracticePlayer = () => {
         const isPartOfRitual = !!queue && queue.some((p: any) => p.id === id);
         const completedAt = new Date();
         const playedSeconds = Math.floor(duration) || 0;
-        const startedAt = playedSeconds > 0
+        const startedAt = practiceStartedAtRef.current || (playedSeconds > 0
           ? new Date(completedAt.getTime() - playedSeconds * 1000).toISOString()
-          : null;
+          : null);
 
         await updateRitualCompletion('guided_practice', id, queue || undefined, {
           startedAt,
           completedAt: completedAt.toISOString(),
+          durationSeconds: playedSeconds || null,
           isPlanPractice: isPartOfRitual,
           planContext: isPartOfRitual
             ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
             : 'library',
           cachedToken: cachedAuthTokenRef.current,
         });
+        practiceStartedAtRef.current = null;
       }
     } catch (error) {
       console.error('Failed to log practice completion:', error);
@@ -1565,6 +1573,9 @@ const GuidedPracticePlayer = () => {
                   trackEngagement('flow_session');
                 }
                 
+                if (!practiceStartedAtRef.current) {
+                  practiceStartedAtRef.current = new Date().toISOString();
+                }
                 setView("practice");
                 setStepTimeLeft(practice.steps[0].duration);
                 // Auto-start audio if available
