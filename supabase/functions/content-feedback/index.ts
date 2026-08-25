@@ -741,14 +741,20 @@ serve(async (req) => {
           }
 
           // ── Intraday HR triple around the practice ────────────
+          // Windows: BEFORE [start−15m, start), DURING [start, end),
+          // AFTER (end, end+15m]. The 15-minute after-window is the practice
+          // response itself; beyond it the reading is confounded by whatever
+          // the user did next. All three are required.
           const startMs = +new Date(ev.timestamp);
           if (Number.isFinite(startMs)) {
-            const durMs = durationSecondsOf(ev.content_id) * 1000;
-
-            const endMs = startMs + durMs;
+            const preciseEndMs = ev.endTimestamp ? +new Date(ev.endTimestamp) : NaN;
+            const endMs =
+              Number.isFinite(preciseEndMs) && preciseEndMs > startMs
+                ? preciseEndMs
+                : startMs + durationSecondsOf(ev.content_id) * 1000;
             const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
             const hrDuring = meanHrBetween(startMs, endMs);
-            const hrAfter = meanHrBetween(endMs, endMs + 60 * 60 * 1000, { excludeStart: true, includeEnd: true });
+            const hrAfter = meanHrBetween(endMs, endMs + 15 * 60 * 1000, { excludeStart: true, includeEnd: true });
             const sig = getSignalAgg(ev.content_id);
             if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
               sig.hrBeforeSum += hrBefore.mean;
