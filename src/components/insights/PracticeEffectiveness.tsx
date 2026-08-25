@@ -103,6 +103,7 @@ function tierOf(practice: Box1Practice): 1 | 2 | 3 | null {
 const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
   const [data, setData] = useState<ImpactPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBuilding, setShowBuilding] = useState(false);
   const [triedOpen, setTriedOpen] = useState(false);
 
   useEffect(() => {
