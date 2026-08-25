@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Clock, CheckCircle2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -1771,6 +1771,11 @@ const MicroPracticePlayerCards = () => {
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"
   );
+  // Coach-generated plan slots (`coach-prepare`, `coach-integrate:2`, …) never
+  // exist in the static catalogue; hand them to the generic player instead of
+  // rendering "Practice not found".
+  const isCoachGenerated = !!id && /^coach[-:]/i.test(id);
+
 
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
@@ -2126,12 +2131,22 @@ const MicroPracticePlayerCards = () => {
   };
 
   if (!practice || cards.length === 0) {
+    if (isCoachGenerated) {
+      return (
+        <Navigate
+          to={`/micro-practice/${id}`}
+          state={location.state}
+          replace
+        />
+      );
+    }
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center">
         <p className="text-muted-foreground">Practice not found</p>
       </div>
     );
   }
+
 
   if (showRatingModal && practice) {
     return (
