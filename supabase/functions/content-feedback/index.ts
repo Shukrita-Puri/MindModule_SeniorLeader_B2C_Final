@@ -815,8 +815,8 @@ serve(async (req) => {
           const agg = wearableSignalAgg.get(contentId);
           if (!agg) return null;
           const cat = (category || '').toLowerCase();
-          const hasHr = agg.hrN >= 2;
-          const hasHrv = agg.hrvN >= 2;
+          const hasHr = agg.hrN >= 1;
+          const hasHrv = agg.hrvN >= 1;
           if (!hasHr && !hasHrv) return null;
 
           const meanHrBefore = hasHr ? agg.hrBeforeSum / agg.hrN : null;
