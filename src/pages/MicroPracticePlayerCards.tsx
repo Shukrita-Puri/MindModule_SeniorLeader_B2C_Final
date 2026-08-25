@@ -12,7 +12,7 @@ import CardProgress from "@/components/practice/CardProgress";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
-import { getAllContent } from "@/data/practicesAndSoundscapes";
+import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
@@ -1635,6 +1635,87 @@ const triggerHaptic = () => {
   }
 };
 
+type QueuedPracticeLike = {
+  id?: string;
+  contentId?: string;
+  content_id?: string;
+  title?: string;
+  contentType?: string;
+  category?: string;
+  duration?: number;
+  practice?: {
+    id?: string;
+    contentId?: string;
+    content_id?: string;
+  };
+};
+
+const compactIds = (...ids: Array<string | undefined | null>) =>
+  ids.filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+const getQueuedPracticeIds = (item: QueuedPracticeLike | null | undefined) =>
+  compactIds(
+    item?.id,
+    item?.contentId,
+    item?.content_id,
+    item?.practice?.id,
+    item?.practice?.contentId,
+    item?.practice?.content_id
+  );
+
+const queueItemMatchesPractice = (
+  item: QueuedPracticeLike | null | undefined,
+  routeId: string | undefined,
+  contentId: string | undefined
+) => {
+  const ids = getQueuedPracticeIds(item);
+  return ids.some((candidate) => candidate === routeId || candidate === contentId);
+};
+
+const resolveMicroPractice = (
+  routeId: string | undefined,
+  routeState: any,
+  queue: QueuedPracticeLike[] | null,
+  queueIndex: number,
+  allowQueueIndexFallback: boolean
+) => {
+  const matchingQueueItem = queue?.find((item) => queueItemMatchesPractice(item, routeId, undefined));
+  const indexedQueueItem =
+    allowQueueIndexFallback && Number.isFinite(queueIndex) && queueIndex >= 0
+      ? queue?.[queueIndex]
+      : undefined;
+
+  const candidates = compactIds(
+    routeId,
+    routeState?.contentId,
+    routeState?.content_id,
+    routeState?.practice?.contentId,
+    routeState?.practice?.content_id,
+    routeState?.practice?.id,
+    matchingQueueItem?.contentId,
+    matchingQueueItem?.content_id,
+    matchingQueueItem?.practice?.contentId,
+    matchingQueueItem?.practice?.content_id,
+    matchingQueueItem?.practice?.id,
+    matchingQueueItem?.id,
+    indexedQueueItem?.contentId,
+    indexedQueueItem?.content_id,
+    indexedQueueItem?.practice?.contentId,
+    indexedQueueItem?.practice?.content_id,
+    indexedQueueItem?.practice?.id,
+    indexedQueueItem?.id
+  );
+
+  for (const candidate of Array.from(new Set(candidates))) {
+    const content = getContentById(candidate);
+    if (content?.contentType === "micro-practice") {
+      return content;
+    }
+  }
+
+  return undefined;
+};
+
 // Crisp step card – title + instruction only, secondary content expandable
 const StepCardContent = ({ card }: { card: any }) => {
   const [expanded, setExpanded] = useState(false);
@@ -1767,10 +1848,16 @@ const MicroPracticePlayerCards = () => {
   const category = location.state?.category || 'power-up'; // Default to power-up if no category
   const fromRitual = location.state?.fromRitual || false;
   const fromIntervention = location.state?.fromIntervention || false;
-  const allContent = getAllContent();
-  const practice = allContent.find(
-    (item) => item.id === id && item.contentType === "micro-practice"
+  const initialPracticeQueue = safeReadPracticeQueue() as QueuedPracticeLike[] | null;
+  const initialQueueIndex = safeReadQueueIndex();
+  const practice = resolveMicroPractice(
+    id,
+    location.state,
+    initialPracticeQueue,
+    initialQueueIndex,
+    fromRitual || fromIntervention
   );
+  const resolvedPracticeId = practice?.id ?? id;
   // Coach-generated plan slots (`coach-prepare`, `coach-integrate:2`, …) never
   // exist in the static catalogue; hand them to the generic player instead of
   // rendering "Practice not found".
@@ -1811,7 +1898,7 @@ const MicroPracticePlayerCards = () => {
   }, []);
 
   // Get cards for the current practice
-  const cards = getCardsForPractice(id);
+  const cards = getCardsForPractice(resolvedPracticeId);
 
   // Mindset detection — practice subType 'mindset' or stoic-reflection.
   const isMindset = !!(practice && ((practice as any).subType === 'mindset' || practice.id === 'stoic-reflection'));
@@ -1840,7 +1927,7 @@ const MicroPracticePlayerCards = () => {
     }));
 
   const reflection = useReflectionDraft({
-    practiceId: id,
+    practiceId: resolvedPracticeId,
     isMindset,
     entryContext,
     tempSessionKey: tempSessionKeyRef.current,
@@ -1858,15 +1945,15 @@ const MicroPracticePlayerCards = () => {
         Number.isFinite(storedIdx) &&
         storedIdx >= 0 &&
         storedIdx < parsed.length &&
-        parsed[storedIdx]?.id === id
+        queueItemMatchesPractice(parsed[storedIdx], id, resolvedPracticeId)
           ? storedIdx
-          : parsed.findIndex((p: any) => p.id === id);
+          : parsed.findIndex((p: any) => queueItemMatchesPractice(p, id, resolvedPracticeId));
       if (idx !== -1) {
         setCurrentQueueIndex(idx);
         setIsInQueue(true);
       }
     }
-  }, [id]);
+  }, [id, resolvedPracticeId]);
 
   // Swipe handlers for in-card navigation (do NOT navigate away from page).
   const handlePrev = useCallback(() => {
@@ -1929,7 +2016,8 @@ const MicroPracticePlayerCards = () => {
     if (practice) {
       const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
-        Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
+        Array.isArray(practiceQueueLocal) &&
+        practiceQueueLocal.some((p: any) => queueItemMatchesPractice(p, id, resolvedPracticeId));
 
       if (isPartOfRitual) {
         trackEngagement("daily_ritual_micro");
@@ -1944,7 +2032,7 @@ const MicroPracticePlayerCards = () => {
         trackEngagement("flow_session");
       }
     }
-  }, [practice, id]);
+  }, [practice, id, resolvedPracticeId]);
 
   const handleComplete = async () => {
     if (!practice) return;
@@ -1957,7 +2045,8 @@ const MicroPracticePlayerCards = () => {
 
       const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
-        Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
+        Array.isArray(practiceQueueLocal) &&
+        practiceQueueLocal.some((p: any) => queueItemMatchesPractice(p, id, resolvedPracticeId));
       
       // Queue is source of truth for ritual membership
       const shouldTrackRitual = isPartOfRitual;
@@ -1969,8 +2058,8 @@ const MicroPracticePlayerCards = () => {
         ? new Date(completedAt.getTime() - durationSeconds * 1000).toISOString()
         : null;
 
-      console.log('[MicroPracticePlayerCards] Logging completion:', { id, plan: shouldTrackRitual });
-      await updateRitualCompletion('micro_exercise', id, practiceQueueLocal || undefined, {
+      console.log('[MicroPracticePlayerCards] Logging completion:', { id: resolvedPracticeId, plan: shouldTrackRitual });
+      await updateRitualCompletion('micro_exercise', resolvedPracticeId, practiceQueueLocal || undefined, {
         startedAt,
         completedAt: completedAt.toISOString(),
         isPlanPractice: shouldTrackRitual,
@@ -2136,7 +2225,7 @@ const MicroPracticePlayerCards = () => {
     if (isCoachGenerated || practice) {
       return (
         <Navigate
-          to={`/micro-practice/${id}`}
+          to={`/micro-practice/${resolvedPracticeId}`}
           state={location.state}
           replace
         />
@@ -2172,7 +2261,7 @@ const MicroPracticePlayerCards = () => {
       {/* Fixed full-bleed background with optimized filter */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img
-          src={getBackgroundForPractice(id)}
+          src={getBackgroundForPractice(resolvedPracticeId)}
           alt="Practice background"
           className="w-full h-full object-cover"
           style={{ filter: (['presence', 'flow'].includes(practice.category || '')) ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
