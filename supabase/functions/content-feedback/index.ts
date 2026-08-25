@@ -846,6 +846,12 @@ serve(async (req) => {
           secondarySignalLabel: string;
           n: number;
         };
+        const usableSignal = (s: WearableSignal | null): WearableSignal | null => {
+          if (!s) return null;
+          if (s.n < 1) return null;
+          if (s.primarySignalPct == null && s.secondarySignalPct == null) return null;
+          return s;
+        };
         const buildWearableSignal = (contentId: string, category: string): WearableSignal | null => {
           const agg = wearableSignalAgg.get(contentId);
           if (!agg) return null;
@@ -853,6 +859,7 @@ serve(async (req) => {
           const hasHr = agg.hrN >= 1;
           const hasHrv = agg.hrvN >= 1;
           if (!hasHr && !hasHrv) return null;
+
 
           const meanHrBefore = hasHr ? agg.hrBeforeSum / agg.hrN : null;
           const meanHrDuring = hasHr ? agg.hrDuringSum / agg.hrN : null;
@@ -912,7 +919,11 @@ serve(async (req) => {
 
         // ── Box 1 list (composite scoring) ──────────────────────
         const box1Practices = Array.from(perContent.values())
+          // Synthetic plan-level rows (plan-tod/plan-*) are attribution carriers, not
+          // practices — real practices in a slot are recorded individually.
+          .filter((a) => !a.isPlan)
           .filter((a) => a.sessions > 0 || a.thumbsUp + a.thumbsDown > 0)
+
           .map((a) => {
             const meta = contentMap.get(a.contentId) as any;
             const isFav = favouriteIds.has(a.contentId);
@@ -942,7 +953,7 @@ serve(async (req) => {
               compositeScore: Math.round(composite),
               isFavourite: isFav,
               planBadge: a.isPlan ? 'Daily plan' : null,
-              wearableSignal: buildWearableSignal(a.contentId, category),
+              wearableSignal: usableSignal(buildWearableSignal(a.contentId, category)),
               dominantEventCategory,
             };
           })
