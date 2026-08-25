@@ -61,6 +61,7 @@ import { isWhyLineEcho } from '@/components/home/whyLineEcho';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 import { routeForContent } from "@/data/cardDeckIds";
+import { getDisplayTitle } from "@/data/contentSurfacing";
 
 // Client-side fallback for `recommendedAction` when an older cached plan
 // response lacks the field. Mirrors the deterministic server builder shape
@@ -2812,7 +2813,7 @@ const TodayThreePriorities = ({
                             )}
                             <div className="flex items-start gap-1">
                               <h4 className="text-[13px] font-semibold line-clamp-2 leading-tight font-body flex-1 text-foreground">
-                                {practice.title}
+                                {getDisplayTitle(practice.contentId, practice.title)}
                               </h4>
                               {isPracticeCompleted && <Check size={14} className="text-taupe flex-shrink-0 mt-0.5 stroke-[3]" />}
                               {!isCoach && !isPracticeCompleted && isFavorite(practice.contentId) && (
