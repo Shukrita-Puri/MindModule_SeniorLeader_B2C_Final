@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Clock, Sparkles } from "lucide-react";
@@ -86,6 +86,7 @@ const MicroPracticePlayer = () => {
 
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+  const practiceStartedAtRef = useRef<string | null>(new Date().toISOString());
 
   // Track engagement on page load
   useEffect(() => {
@@ -146,19 +147,21 @@ const MicroPracticePlayer = () => {
       try {
         const completedAt = new Date();
         const durationSeconds = (Number(practice.duration) || 0) * 60;
-        const startedAt = durationSeconds > 0
+        const startedAt = practiceStartedAtRef.current || (durationSeconds > 0
           ? new Date(completedAt.getTime() - durationSeconds * 1000).toISOString()
-          : null;
+          : null);
 
         await updateRitualCompletion('micro_exercise', id, practiceQueue || undefined, {
           startedAt,
           completedAt: completedAt.toISOString(),
+          durationSeconds: durationSeconds || null,
           isPlanPractice: isPartOfRitual,
           planContext: isPartOfRitual
             ? (localStorage.getItem('ritualMode') === 'jit' ? 'jit' : 'plan')
             : 'library',
           cachedToken: accessToken,
         });
+        practiceStartedAtRef.current = null;
       } catch (error) {
         console.error('[MicroPracticePlayer] updateRitualCompletion failed:', error);
       }
@@ -266,6 +269,9 @@ const MicroPracticePlayer = () => {
 
   // Handle beginning practice - navigate to cards view for card-based practices
   const handleBeginPractice = () => {
+    if (!practiceStartedAtRef.current) {
+      practiceStartedAtRef.current = new Date().toISOString();
+    }
     if (practice.steps && hasCardDeckId(id)) {
       // Card-based practice – pass coach state through
       navigate(`/micro-practice/${id}/cards`, {
