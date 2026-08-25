@@ -358,6 +358,39 @@ function normaliseIsoTimestamp(value?: string | null): string | null {
   return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 }
 
+function recordLocalPracticeTiming(args: {
+  practiceId: string;
+  localDate: string;
+  sessionPeriod: string;
+  startedAt: string | null;
+  completedAt: string;
+}) {
+  if (!args.startedAt || typeof window === 'undefined') return;
+  try {
+    const storageKey = 'practiceCompletionTiming';
+    const raw = window.localStorage.getItem(storageKey);
+    const existing = raw ? JSON.parse(raw) : {};
+    const key = `${args.practiceId}|${args.localDate}`;
+    const next = {
+      ...existing,
+      [key]: {
+        practice_started_at: args.startedAt,
+        practice_completed_at: args.completedAt,
+        local_date: args.localDate,
+        session_period: args.sessionPeriod,
+        updated_at: new Date().toISOString(),
+      },
+    };
+
+    const entries = Object.entries(next)
+      .sort(([, a], [, b]) => String((b as any)?.updated_at || '').localeCompare(String((a as any)?.updated_at || '')))
+      .slice(0, 80);
+    window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    // Best-effort only — backend completion remains the source of truth.
+  }
+}
+
 // Helper to update ritual completion with status recalculation
 // Uses atomic COMPLETE_PRACTICE action (single server call) to avoid race conditions
 export async function updateRitualCompletion(
@@ -429,6 +462,13 @@ export async function updateRitualCompletion(
           : 'skipped';
 
       const result = await upsertRitual(ritualData as Omit<RitualData, 'id' | 'user_id'>);
+      recordLocalPracticeTiming({
+        practiceId,
+        localDate: today,
+        sessionPeriod: currentPeriod,
+        startedAt,
+        completedAt,
+      });
       console.log(`[dailyRituals] DEV_MODE result:`, { 
         success: !!result, completedIds: newCompletedIds, 
         status: ritualData.completion_status, period: currentPeriod 
@@ -486,6 +526,13 @@ export async function updateRitualCompletion(
     }
 
     const data = await response.json();
+    recordLocalPracticeTiming({
+      practiceId,
+      localDate: today,
+      sessionPeriod: currentPeriod,
+      startedAt,
+      completedAt,
+    });
 
     console.log(`[dailyRituals] COMPLETE_PRACTICE success:`, { 
       status: data?.data?.completion_status, 
