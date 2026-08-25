@@ -216,6 +216,83 @@ export async function submitPlanFeedback(
 }
 
 /**
+ * Attribute a completed plan-slot rating to EVERY practice in that slot.
+ *
+ * A slot can hold one, two or more practices; the slot rating applies to all
+ * of them. This writes one `content_relevance_feedback` row per practice, in
+ * addition to the plan-level row written by `submitPlanFeedback`, so the
+ * impact engine (which keys on `content_id`) picks each practice up.
+ *
+ * Existing columns only — no schema change.
+ */
+export async function submitPlanSlotPracticeFeedback(args: {
+  planType: 'tod' | 'jit';
+  slotIndex: number;
+  slotLabel?: string | null;
+  rating: number;
+  feedback?: string;
+  practices: Array<{ contentId: string; contentType?: string | null; title?: string | null }>;
+}) {
+  const practices = (args.practices || []).filter((p) => !!p?.contentId);
+  if (practices.length === 0) return { success: true, written: 0 };
+
+  try {
+    const accessToken = await getAuthToken();
+    if (!accessToken) return { success: false, error: new Error('Not authenticated') };
+
+    const qualitativeRating = mapRatingToQualitative(args.rating);
+    const slotContentIds = practices.map((p) => p.contentId);
+    const dateKey = new Date().toLocaleDateString('en-CA');
+
+    const results = await Promise.allSettled(
+      practices.map((practice) =>
+        supabase.functions.invoke('content-feedback', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            action: 'SUBMIT_FEEDBACK',
+            feedbackData: {
+              content_id: practice.contentId,
+              content_type: normalisePracticeContentType(practice.contentType),
+              feedback_type: 'star_rating',
+              star_rating: args.rating,
+              trigger_context: 'post_plan_completion',
+              feedback_text: args.feedback,
+              feedback_reason: qualitativeRating,
+              context_data: {
+                feedback_scope: 'plan_slot_practice',
+                plan_type: args.planType,
+                plan_slot_index: args.slotIndex,
+                slot_label: args.slotLabel ?? null,
+                slot_content_ids: slotContentIds,
+                slot_practice_count: slotContentIds.length,
+                local_date: dateKey,
+              },
+            },
+          },
+        }),
+      ),
+    );
+
+    const written = results.filter((r) => r.status === 'fulfilled' && !(r.value as any)?.error).length;
+    return { success: written > 0, written };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('Failed to submit plan slot practice feedback:', error);
+    }
+    return { success: false, error };
+  }
+}
+
+/** Map plan practice content types onto the canonical feedback content types. */
+function normalisePracticeContentType(raw?: string | null): string {
+  const value = (raw || '').toLowerCase();
+  if (value.includes('sound')) return 'soundbath';
+  if (value.includes('guided')) return 'guided-practice';
+  if (value.includes('micro') || value.includes('exercise')) return 'micro-practice';
+  return value || 'micro-practice';
+}
+
+/**
  * Check if the current practice is the last item in the active plan queue
  */
 export function isLastPracticeInPlan(practiceId: string | undefined): boolean {
