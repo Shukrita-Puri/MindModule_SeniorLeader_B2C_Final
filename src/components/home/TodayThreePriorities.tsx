@@ -559,9 +559,6 @@ const TodayThreePriorities = ({
   const periodKey = periodForPlan;
   const scopeKey = `${todayKey}-${periodKey}`;
   const celebratedStorageKey = `celebrated-ids-${scopeKey}`;
-  // Feedback is keyed by a stable per-priority fingerprint (slot index + content IDs) so
-  // a remount or rehydration cannot "discover" an already-shown priority as new.
-  const feedbackShownStorageKey = `feedback-shown-${scopeKey}`;
   const [replacementSlot, setReplacementSlot] = useState<{ index: number; key: string; title: string } | null>(null);
   const [replacementEvents, setReplacementEvents] = useState<CalendarReplacementEvent[]>([]);
   const [replacementLoading, setReplacementLoading] = useState(false);
@@ -589,9 +586,29 @@ const TodayThreePriorities = ({
     setReplacementSelection(slot?.replacementEventIds || []);
   }, []);
 
-  // Tracks which priority fingerprints have ALREADY had their feedback modal shown
-  // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
-  const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
+  // Per-slot plan feedback gate: once a slot is rated (submit or skip) for a
+  // given user + local date, don't ask again that day. localStorage key mirrors
+  // the plan-date scoping used by the rest of the card.
+  const getPlanSlotRatedKey = (slotIndex: number): string | null => {
+    if (!effectiveUserId) return null;
+    return `plan_slot_rated_${effectiveUserId}_${todayForPlan}_slot${slotIndex}`;
+  };
+  const isPlanSlotRated = (slotIndex: number): boolean => {
+    try {
+      const key = getPlanSlotRatedKey(slotIndex);
+      if (!key) return false;
+      return localStorage.getItem(key) === '1';
+    } catch {
+      return false;
+    }
+  };
+  const markPlanSlotRated = (slotIndex: number) => {
+    try {
+      const key = getPlanSlotRatedKey(slotIndex);
+      if (key) localStorage.setItem(key, '1');
+    } catch { /* ignore quota */ }
+  };
+
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
   const [pendingCancel, setPendingCancel] = useState<{
     index: number;
@@ -812,19 +829,18 @@ const TodayThreePriorities = ({
 
     // FIRST PASS after plan load: seed all already-complete priorities + celebrated IDs
     // from whatever was hydrated from storage. Do NOT trigger any modal/confetti.
+    // Also mark each complete slot as already-rated so a refresh cannot re-surface the
+    // feedback modal for a slot that was finished before this mount.
     if (!hydratedRef.current) {
       modules.forEach((hm, idx) => {
         const sp = hm.practices || [hm.practice];
         const slotComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
-        if (slotComplete) {
-          // Mark the priority key as already-shown so we never re-surface feedback
-          // for a priority that was completed before this mount/refresh.
-          feedbackShownRef.current.add(buildPriorityKey(idx, hm));
+        if (slotComplete && !isPlanSlotRated(idx)) {
+          markPlanSlotRated(idx);
         }
       });
       completedPracticeIds.forEach(id => celebratedIdsRef.current.add(id));
       persistSet(celebratedStorageKey, celebratedIdsRef.current);
-      persistSet(feedbackShownStorageKey, feedbackShownRef.current);
       prevCompletedIdsRef.current = completedPracticeIds;
       hydratedRef.current = true;
       return;
@@ -844,11 +860,10 @@ const TodayThreePriorities = ({
     if (found) triggerCelebration(found.title, allDone, found.contentId);
 
     // Surface feedback for at most ONE newly completed priority per pass — and only if
-    // its stable fingerprint has never been shown before.
+    // the user has not already rated/skipped feedback for this slot today.
     for (let idx = 0; idx < modules.length; idx++) {
       const hm = modules[idx];
-      const key = buildPriorityKey(idx, hm);
-      if (feedbackShownRef.current.has(key)) continue;
+      if (isPlanSlotRated(idx)) continue;
       const slotCancelled = hm.isCancelled === true;
       // Cancelled slots don't trigger the post-completion feedback modal —
       // the cancel flow already captured the user's relevance feedback.
@@ -857,15 +872,13 @@ const TodayThreePriorities = ({
       const wasComplete = sp.every(p => prev.includes(p.contentId));
       const nowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
       if (!wasComplete && nowComplete) {
-        feedbackShownRef.current.add(key);
-        persistSet(feedbackShownStorageKey, feedbackShownRef.current);
-        setFeedbackSlot({ index: idx, horizon: hm.horizon, key });
+        setFeedbackSlot({ index: idx, horizon: hm.horizon, key: '' });
         break; // only one modal at a time
       }
     }
 
     prevCompletedIdsRef.current = completedPracticeIds;
-  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
+  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, effectiveUserId, todayForPlan]);
 
   // Shared payload builder — single source of truth for both the normal
   // `loadPlan()` generation path and the manual recovery CTA. Keeping one
@@ -2900,9 +2913,13 @@ const TodayThreePriorities = ({
             } catch (e) {
               console.warn("[TodayThreePriorities] post-plan bridge threw", e);
             }
+            markPlanSlotRated(feedbackSlot.index);
             setFeedbackSlot(null);
           }}
-          onSkip={() => setFeedbackSlot(null)}
+          onSkip={() => {
+            markPlanSlotRated(feedbackSlot.index);
+            setFeedbackSlot(null);
+          }}
         />
       )}
 
