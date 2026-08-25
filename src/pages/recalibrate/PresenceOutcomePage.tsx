@@ -147,7 +147,7 @@ const PresenceOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
-      return 'Reframe';
+      return item.id === 'wu-wei-flow' ? 'Tool' : 'Reframe';
     }
     if (item.contentType === 'soundbath') {
       return 'Soundscape';
