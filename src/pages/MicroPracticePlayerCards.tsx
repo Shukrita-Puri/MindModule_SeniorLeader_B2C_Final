@@ -2131,7 +2131,9 @@ const MicroPracticePlayerCards = () => {
   };
 
   if (!practice || cards.length === 0) {
-    if (isCoachGenerated) {
+    // Coach-generated slots, or catalogue practices that simply have no card
+    // deck authored for them, belong to the generic player — never an error.
+    if (isCoachGenerated || practice) {
       return (
         <Navigate
           to={`/micro-practice/${id}`}
@@ -2142,6 +2144,7 @@ const MicroPracticePlayerCards = () => {
     }
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center">
+
         <p className="text-muted-foreground">Practice not found</p>
       </div>
     );
