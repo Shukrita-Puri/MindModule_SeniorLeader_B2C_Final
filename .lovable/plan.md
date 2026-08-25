@@ -4,16 +4,19 @@
 
 The inline writing box (the "your response" textarea on each step card) is gated to practices tagged `mindset`. "Clarity Through Elimination" (`jobs-simplicity`) is tagged `tool`, so its card deck shows the step text with no way to capture the user's answer — even though every step is an explicit writing prompt ("Write down everything you think you need to do…").
 
-Same gap applies to the other written/cognitive decks tagged `tool`: `fudoshin-immovable-mind`, `wu-wei-flow`. Genuinely somatic/breath decks (`grounding-touch`, `release-exhale-new`) stay as they are — no writing prompt there.
-
 ## Change
 
-1. Replace the `subType === 'mindset' || id === 'stoic-reflection'` check in the card player with a single explicit allowlist of decks that capture writing (`REFLECTION_CAPTURE_IDS`), living next to the other content SSOT files.
-   - Seeded with: all current `mindset` decks (unchanged behaviour), plus `jobs-simplicity`, `fudoshin-immovable-mind`, `wu-wei-flow`.
-   - Somatic/breath decks explicitly excluded.
-2. Everything downstream stays identical: same textarea component, same debounce/blur/card-change/complete save cycle, same `practice_reflections` rows, same localStorage mirror, same "empty never blocks Mark Complete" rule.
-3. Add a guard test asserting every id in the allowlist has a card deck, and that the excluded somatic ids are not in it.
-4. Update the Inline Mindset Reflection Capture memory so the rule is "allowlisted written decks", not "subType mindset".
+1. `jobs-simplicity` is reclassified as a reframe/mindset practice (not a tool) in the static catalogue, and appears in the Recalibrate mindset group like the other reframes.
+2. `wu-wei-flow` moves to the Somatic Protocol group on the Presence page — treated as somatic, so no writing box.
+3. `fudoshin-immovable-mind` already sits in the Somatic Protocol group on the Pause page, so it stays as-is: somatic, no writing box.
+4. Replace the `subType === 'mindset' || id === 'stoic-reflection'` check in the card player with a single explicit allowlist of decks that capture writing (`REFLECTION_CAPTURE_IDS`), living next to the other content SSOT files.
+   - Contains: all current `mindset` decks (unchanged behaviour) plus `jobs-simplicity`.
+   - Explicitly excludes the somatic/breath decks: `wu-wei-flow`, `fudoshin-immovable-mind`, `grounding-touch`, `release-exhale-new`, `djokovic-reset`.
+5. Everything downstream stays identical: same textarea component, same debounce/blur/card-change/complete save cycle, same `practice_reflections` rows, same localStorage mirror, same "empty never blocks Mark Complete" rule.
+6. Backend mirror follows the same structure: `supabase/functions/_shared/content/surfaced-content.ts` gains the same mindset/somatic grouping metadata so server-side plan and JIT selection classify these three the same way the frontend does. No id is added or removed from the allowlist — only the grouping changes.
+7. Add a guard test asserting the client and server groupings match, every id in the reflection allowlist has a card deck, and the somatic ids are absent from it.
+8. Update the Inline Mindset Reflection Capture memory so the rule is "allowlisted written decks", not "subType mindset".
+
 
 ## Storage audit (last 6 months) — findings
 
@@ -26,6 +29,6 @@ Writing is stored in `practice_reflections`, one row per step, keyed by user + p
 
 ## Technical notes
 
-- Edit: `src/pages/MicroPracticePlayerCards.tsx` (line ~1908 gate), new `src/data/reflectionCaptureIds.ts`, new test under `src/data/__tests__/`.
-- No schema change, no edge-function change (`save-practice-reflection` / `get-practice-reflections` already accept any `practiceId`).
+- Edits: `src/data/practicesAndSoundscapes.ts` (`jobs-simplicity` subType → mindset), `src/pages/recalibrate/PresenceOutcomePage.tsx` (`wu-wei-flow` into the somatic group), `src/pages/MicroPracticePlayerCards.tsx` (reflection gate), new `src/data/reflectionCaptureIds.ts`, `supabase/functions/_shared/content/surfaced-content.ts` (grouping mirror), new test under `src/data/__tests__/`.
+- No schema change, no edge-function redeploy needed beyond the shared content module (`save-practice-reflection` / `get-practice-reflections` already accept any `practiceId`); `generate-mastery-plan` and `generate-jit-carousel` get redeployed since they import the shared module.
 - `practiceType` sent to the save function stays `"mindset"` to avoid splitting existing rows; the field is descriptive only.
