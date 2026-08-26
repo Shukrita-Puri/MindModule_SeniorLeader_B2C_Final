@@ -982,6 +982,10 @@ serve(async (req) => {
           const hrRecoveryPct = meanHrDuring && meanHrAfter
             ? round1(((meanHrDuring - meanHrAfter) / meanHrDuring) * 100)
             : null;
+          // Sustained calm: how far HR sits below the pre-practice level afterwards.
+          const hrAfterDropPct = meanHrBefore && meanHrAfter
+            ? round1(((meanHrBefore - meanHrAfter) / meanHrBefore) * 100)
+            : null;
           const hrvLiftPct = hasHrv && agg.hrvBeforeSum > 0
             ? round1((((agg.hrvAfterSum / agg.hrvN) - (agg.hrvBeforeSum / agg.hrvN)) / (agg.hrvBeforeSum / agg.hrvN)) * 100)
             : null;
