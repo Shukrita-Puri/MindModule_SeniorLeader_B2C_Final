@@ -1345,7 +1345,8 @@ serve(async (req) => {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[content-feedback] Error:', errorMessage);
+    console.error('[content-feedback] Error:', errorMessage, String(error), (error as any)?.stack ?? '');
+
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
