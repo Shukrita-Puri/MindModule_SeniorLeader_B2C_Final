@@ -25,6 +25,7 @@ import {
 // honours user overrides, learned tokens and persisted categories.
 import { type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
+import { primeLearningContext } from "../_shared/events/learning-store.ts";
 /** All A–H reads come off the EnrichedEvent returned by enrichEvent(). */
 const enrichOf = (input: ResolveEventInput) =>
   enrichEvent(typeof input === "string" ? { title: input } : (input ?? { title: "" }));
@@ -3158,6 +3159,11 @@ serve(async (req) => {
       createClient(supabaseUrl, supabaseKey),
       platform,
     );
+
+    // Bind this user's A–H learning context (confirmed titles + learned
+    // tokens) to the request so every enrichEvent() below resolves through
+    // the same memory the Plan and Week Ahead write to.
+    await primeLearningContext(db as any, userId);
 
     // Leader Profile (from onboarding CoS synthesis). Loaded ONCE, reused
     // by system prompt, user prompt, and brief_snapshots payload. Never
