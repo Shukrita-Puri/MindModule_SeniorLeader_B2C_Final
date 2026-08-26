@@ -68,7 +68,10 @@ const ExecutiveHome = () => {
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
   const [briefCtaReady, setBriefCtaReady] = useState(false);
-  const eventOutcome = useEventOutcomePrompt(true);
+  // ?dryPostEvent=1 replays the post-event prompt in-app: 72h lookback, no
+  // settle delay, ignores already-answered events, and never writes feedback.
+  const dryPostEvent = searchParams.get('dryPostEvent') === '1';
+  const eventOutcome = useEventOutcomePrompt(true, dryPostEvent);
 
   const refreshCards = useExecutiveHomeCardsRefresh();
   const { data: mrsSnapshot } = useMrsSnapshot();
