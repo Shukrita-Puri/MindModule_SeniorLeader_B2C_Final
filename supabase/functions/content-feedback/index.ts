@@ -618,13 +618,7 @@ serve(async (req) => {
             }
           }
 
-          // 2. Plan slot label (non-JIT state slots)
-          if (ctx.slot_label) {
-            const label = String(ctx.slot_label);
-            return { label, category: null, subcategory: null, slotLabel: label, arc };
-          }
-
-          // 3. Arc only — ad-hoc / no event context
+          // 2. Arc only — ad-hoc / no event context
           return { label: arc, category: null, subcategory: null, slotLabel: null, arc };
         };
 
