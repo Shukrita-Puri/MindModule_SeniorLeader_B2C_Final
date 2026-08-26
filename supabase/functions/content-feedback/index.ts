@@ -574,6 +574,39 @@ serve(async (req) => {
           hrSamplesByDate.set(w.summary_date, parsed);
         }
 
+        const median = (vals: number[]): number | null => {
+          if (!vals.length) return null;
+          const s = [...vals].sort((a, b) => a - b);
+          const mid = Math.floor(s.length / 2);
+          return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+        };
+
+        // Tier 2 basis: the user's own median HR per hour-of-day block over the
+        // trailing 30 days. Lets us score a practice even when the pre/post
+        // windows are empty, as long as we have HR *during* it.
+        const hourBaselineCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const hourBuckets: number[][] = Array.from({ length: 24 }, () => []);
+        for (const samples of hrSamplesByDate.values()) {
+          for (const s of samples) {
+            if (s.t < hourBaselineCutoff) continue;
+            hourBuckets[new Date(s.t).getUTCHours()].push(s.v);
+          }
+        }
+        const hourBaselines = hourBuckets.map((vals) => (vals.length >= 10 ? median(vals) : null));
+
+        // Tier 3 basis: 30-day rolling median HRV.
+        const hrvBaseline = (() => {
+          const cutoffDate = new Date(hourBaselineCutoff).toISOString().slice(0, 10);
+          const vals: number[] = [];
+          for (const w of wearable) {
+            if (w.summary_date < cutoffDate) continue;
+            if (typeof w.hrv === 'number' && w.hrv > 0) vals.push(w.hrv);
+          }
+          return vals.length >= 5 ? median(vals) : null;
+        })();
+
+
+
         /**
          * Mean HR across [fromMs, toMs). Samples are stored per summary_date, so a
          * window that crosses midnight has to consult both day buckets.
