@@ -283,7 +283,7 @@ function categoryChipClass(category: string) {
 function formatWearableSignal(signal: WearableSignal): { text: string; positive: boolean } | null {
   const pct = signal.primarySignalPct;
   if (pct == null || signal.n < 1) return null;
-  const abs = Math.abs(pct).toFixed(0);
+  const abs = Math.abs(pct).toFixed(1);
   // A "positive impact" reads as a rise for HRV / activation signals and as a
   // drop for composing signals, so the sign follows the measured direction.
   const rising = signal.primarySignalIsPositive;
@@ -295,7 +295,17 @@ function formatWearableSignal(signal: WearableSignal): { text: string; positive:
 function FindingRow({ practice }: { practice: Box1Practice }) {
   const signal = practice.wearableSignal;
   const wearable = signal ? formatWearableSignal(signal) : null;
-  const wearableEarly = (signal?.n ?? 0) === 1;
+  const wearableN = signal?.n ?? 0;
+  // Confidence reads off the contributing session count: one session is faintest,
+  // two is dimmer, three or more earns the full positive treatment.
+  const wearableTone =
+    wearableN <= 1
+      ? 'text-muted-foreground/60'
+      : wearableN === 2
+        ? 'text-muted-foreground/80'
+        : wearable?.positive
+          ? 'text-emerald-700'
+          : 'text-muted-foreground';
   const eventChip = practice.dominantEventCategory
     ? practice.dominantEventCategory.length > 22
       ? `${practice.dominantEventCategory.slice(0, 22)}…`
@@ -316,15 +326,9 @@ function FindingRow({ practice }: { practice: Box1Practice }) {
     slots.push(
       <span
         key="wearable"
-        className={cn(
-          'text-xs tabular-nums',
-          wearableEarly
-            ? 'text-muted-foreground/60'
-            : wearable.positive
-              ? 'text-emerald-700'
-              : 'text-muted-foreground',
-        )}
+        className={cn('inline-flex items-center gap-1 text-xs tabular-nums', wearableTone)}
       >
+        <Heart className="h-3 w-3 shrink-0" aria-hidden="true" />
         {wearable.text}
       </span>,
     );
