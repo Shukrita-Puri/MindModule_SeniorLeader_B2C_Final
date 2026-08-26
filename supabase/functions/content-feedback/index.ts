@@ -1096,6 +1096,7 @@ serve(async (req) => {
             const dominantEventCategory = tally && tally.size
               ? [...tally.entries()].sort((x, y) => y[1] - x[1])[0][0]
               : null;
+            const wearableSignal = usableSignal(buildWearableSignal(a.contentId, category));
             return {
               contentId: a.contentId,
               title:
@@ -1109,7 +1110,8 @@ serve(async (req) => {
               compositeScore: Math.round(composite),
               isFavourite: isFav,
               planBadge: a.isPlan ? 'Daily plan' : null,
-              wearableSignal: usableSignal(buildWearableSignal(a.contentId, category)),
+              wearableSignal,
+              signalTier: wearableSignal?.signalTier ?? null,
               dominantEventCategory,
             };
           })
