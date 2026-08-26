@@ -102,10 +102,208 @@ function normalisePlanContext(value: unknown): string {
   return typeof value === 'string' && allowed.has(value) ? value : 'standalone';
 }
 
+type ServiceClient = ReturnType<typeof createClient>;
+
+interface CleanupResult {
+  scanned: number;
+  repaired_via_session: number;
+  repaired_via_rating: number;
+  downgraded_to_skipped: number;
+  started_at_derived: number;
+  errors: string[];
+  dryRun: boolean;
+}
+
+/**
+ * One-time historical repair for `daily_ritual_completions` rows that were
+ * written before the completion-integrity trigger existed.
+ *
+ * RULE 1 — `skipped` rows are never touched.
+ * RULE 2 — partial/full rows that already carry ids are never touched.
+ * RULE 3 — partial/full rows with EMPTY ids are repaired from a same-day
+ *          practice_sessions row (a), else from a content_relevance_feedback
+ *          rating within 2h of updated_at (b), else downgraded to `skipped` (c).
+ * RULE 4 — rows repaired without a start time get
+ *          practice_started_at = practice_completed_at - duration when a
+ *          duration is known; otherwise it stays null.
+ */
+async function cleanupHistoricalCompletions(
+  db: ServiceClient,
+  opts: { targetUserId?: string | null; limit?: number; dryRun?: boolean },
+): Promise<CleanupResult> {
+  const result: CleanupResult = {
+    scanned: 0,
+    repaired_via_session: 0,
+    repaired_via_rating: 0,
+    downgraded_to_skipped: 0,
+    started_at_derived: 0,
+    errors: [],
+    dryRun: opts.dryRun === true,
+  };
+
+  let query = db
+    .from('daily_ritual_completions')
+    .select('id, user_id, ritual_date, updated_at, completion_status, completed_practice_ids, practice_started_at, practice_completed_at')
+    .in('completion_status', ['partial', 'full'])
+    .order('ritual_date', { ascending: true })
+    .limit(Math.min(Math.max(opts.limit ?? 500, 1), 2000));
+
+  if (opts.targetUserId) query = query.eq('user_id', opts.targetUserId);
+
+  const { data: rows, error } = await query;
+  if (error) throw error;
+
+  // RULE 2 — only rows with empty ids are candidates.
+  const candidates = (rows ?? []).filter(
+    (r: any) => !Array.isArray(r.completed_practice_ids) || r.completed_practice_ids.length === 0,
+  );
+  result.scanned = candidates.length;
+
+  for (const row of candidates as any[]) {
+    try {
+      let practiceId: string | null = null;
+      let completedAt: string | null = normaliseIsoTimestamp(row.practice_completed_at);
+      let durationSeconds: number | null = null;
+      let source: 'session' | 'rating' | null = null;
+
+      // (a) same-day practice_sessions row
+      const dayStart = `${row.ritual_date}T00:00:00.000Z`;
+      const dayEnd = new Date(Date.parse(dayStart) + 24 * 60 * 60 * 1000).toISOString();
+      const { data: sessions } = await db
+        .from('practice_sessions')
+        .select('content_id, completed_at, created_at, started_at, duration_seconds')
+        .eq('user_id', row.user_id)
+        .gte('created_at', dayStart)
+        .lt('created_at', dayEnd)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const session = (sessions ?? [])[0] as any | undefined;
+      if (session?.content_id) {
+        practiceId = String(session.content_id);
+        source = 'session';
+        completedAt = completedAt
+          ?? normaliseIsoTimestamp(session.completed_at)
+          ?? normaliseIsoTimestamp(session.created_at);
+        if (typeof session.duration_seconds === 'number') durationSeconds = session.duration_seconds;
+        if (!row.practice_started_at && normaliseIsoTimestamp(session.started_at)) {
+          // Precise start is available straight from the session.
+          durationSeconds = durationSeconds ?? null;
+        }
+      }
+
+      // (b) rating within 2h of updated_at
+      if (!practiceId) {
+        const anchor = Date.parse(row.updated_at);
+        if (Number.isFinite(anchor)) {
+          const from = new Date(anchor - 2 * 60 * 60 * 1000).toISOString();
+          const to = new Date(anchor + 2 * 60 * 60 * 1000).toISOString();
+          const { data: ratings } = await db
+            .from('content_relevance_feedback')
+            .select('content_id, timestamp, created_at, context_data')
+            .eq('user_id', row.user_id)
+            .gte('timestamp', from)
+            .lte('timestamp', to)
+            .order('timestamp', { ascending: false })
+            .limit(1);
+
+          const rating = (ratings ?? [])[0] as any | undefined;
+          if (rating?.content_id) {
+            practiceId = String(rating.content_id);
+            source = 'rating';
+            const ctx = (rating.context_data ?? {}) as Record<string, unknown>;
+            completedAt = completedAt
+              ?? normaliseIsoTimestamp(ctx.practiceCompletedAt)
+              ?? normaliseIsoTimestamp(rating.timestamp)
+              ?? normaliseIsoTimestamp(rating.created_at);
+            const ctxDuration = Number(ctx.durationSeconds);
+            if (Number.isFinite(ctxDuration) && ctxDuration > 0) durationSeconds = ctxDuration;
+          }
+        }
+      }
+
+      // (c) unresolvable → downgrade, never delete
+      if (!practiceId || !completedAt) {
+        if (!result.dryRun) {
+          const { error: downgradeError } = await db
+            .from('daily_ritual_completions')
+            .update({ completion_status: 'skipped' })
+            .eq('id', row.id);
+          if (downgradeError) throw downgradeError;
+        }
+        result.downgraded_to_skipped += 1;
+        continue;
+      }
+
+      // RULE 4 — derive a start time only when a duration is known.
+      let startedAt = normaliseIsoTimestamp(row.practice_started_at);
+      const sessionStart = normaliseIsoTimestamp((session as any)?.started_at);
+      if (!startedAt && source === 'session' && sessionStart) startedAt = sessionStart;
+      if (!startedAt) startedAt = deriveStartedAt(null, completedAt, durationSeconds);
+      if (!row.practice_started_at && startedAt) result.started_at_derived += 1;
+
+      if (!result.dryRun) {
+        const { error: repairError } = await db
+          .from('daily_ritual_completions')
+          .update({
+            completed_practice_ids: [practiceId],
+            practice_completed_at: completedAt,
+            ...(startedAt ? { practice_started_at: startedAt } : {}),
+          })
+          .eq('id', row.id);
+        if (repairError) throw repairError;
+      }
+
+      if (source === 'session') result.repaired_via_session += 1;
+      else result.repaired_via_rating += 1;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      result.errors.push(`${row.id}: ${msg}`);
+      console.error('[daily-rituals] cleanup row failed', row.id, msg);
+    }
+  }
+
+  console.log('[daily-rituals] CLEANUP_HISTORICAL_COMPLETIONS', JSON.stringify(result));
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Admin/service-role only maintenance action — handled before user auth so a
+  // service-role bearer token (which is not an Auth0 JWT) is accepted.
+  try {
+    const peek = await req.clone().json().catch(() => null) as
+      | { action?: string; userId?: string; limit?: number; dryRun?: boolean }
+      | null;
+    if (peek?.action === 'CLEANUP_HISTORICAL_COMPLETIONS') {
+      if (!isAuthorizedCronCaller(req)) {
+        return cronForbiddenResponse(corsHeaders);
+      }
+      const db = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      );
+      const cleanup = await cleanupHistoricalCompletions(db, {
+        targetUserId: peek.userId ?? null,
+        limit: peek.limit,
+        dryRun: peek.dryRun,
+      });
+      return new Response(JSON.stringify({ success: true, ...cleanup }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[daily-rituals] cleanup error:', msg);
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
 
   try {
     let userId: string;
