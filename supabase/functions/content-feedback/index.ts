@@ -835,7 +835,12 @@ serve(async (req) => {
             const sig = getSignalAgg(ev.content_id);
             if (ratingDerived) sig.ratingDerived = true;
 
-            if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
+            // Confound guard — a pre-practice HR above 100 bpm means the user was
+            // active, not at rest. The session contributes to no HR aggregate.
+            const confounded = hrBefore.mean != null && hrBefore.mean > 100;
+            if (confounded) {
+              // skip HR aggregation entirely for this session
+            } else if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
               // Tier 1
               sig.hrBeforeSum += hrBefore.mean;
               sig.hrDuringSum += hrDuring.mean;
