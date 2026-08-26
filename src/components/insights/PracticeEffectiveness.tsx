@@ -40,6 +40,7 @@ interface Box1Practice {
   planBadge: string | null;
   wearableSignal: WearableSignal | null;
   dominantEventCategory: string | null;
+  contextLabel?: string | null;
   postEventRating?: number | null;
   postEventRatingN?: number;
 }
