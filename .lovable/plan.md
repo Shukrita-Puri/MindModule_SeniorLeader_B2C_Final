@@ -8,17 +8,20 @@ Two files: `supabase/functions/content-feedback/index.ts` (`GET_PRACTICE_IMPACT`
 - Flow explicitly prefers HRV as primary (`primarySignalPct: hrvLiftPct ?? hrDropPct`), which is why your Flow rows read `-3.4% HRV vs baseline`.
 - Row ordering is server-side `compositeScore` = readiness delta + thumbs boost + favourite multiplier. Wearable signal does **not** affect ranking today; it only affects tier bucketing client-side (`tierOf` counts `wearableSignal.n`).
 
-## Part 1 — HRV removed entirely
+## Part 1 — HRV removed entirely, and Tier 1 becomes before → after
 
 - Delete the HRV tiers and the HRV-primary Flow branch. `wearableSignal` can only ever be HR-derived.
-- Tiers become: Tier 1 triple-window HR (before / during / after), Tier 2 HR-during vs the user's own hour-of-day baseline. Nothing else.
-- Single user-facing label for both tiers: `HR vs baseline` — Tier 1's baseline is the user's own pre-practice 15 minutes, Tier 2's is their hour-of-day norm. `signalTier` still distinguishes them in the payload for diagnostics.
+- Tiers become: Tier 1 HR after vs HR before, Tier 2 HR-after vs the user's own hour-of-day baseline. Nothing else.
+- **Recommendation on during vs after: use after.** Practices run ~2–5 minutes and Apple Watch samples HR opportunistically, so a "during" window often contains zero or one sample — the reading is either missing or a single noisy beat-average. The after window is both better populated and the more meaningful claim for this card: the question is whether the user came out of the practice in a better physiological state, not what happened mid-exercise. Widening the during window to force samples in would blur it into the after period anyway, so we drop it rather than fake it.
+- Windows: before = `[start − 15m, start)`, after = `(end, end + 15m]`. During is no longer computed for the user-facing signal (before/after only, per your instruction).
 - Direction stays category-aware, so a positive number always means "the practice did what it is meant to do":
-  - Pause: HR drop during (secondary: HR after, tooltip only)
-  - Flow: HR drop during (secondary: HR after)
-  - Energise: HR rise during (secondary: HR recovery)
+  - Pause: HR after below HR before
+  - Flow: HR after below HR before
+  - Energise: HR after above HR before
+- Sessions need at least one sample in **both** before and after; a session missing either contributes nothing (no partial signal).
 - Unchanged: `hrBefore` mean > 100 bpm confound guard, 3% noise floor, 1-decimal rounding, `n` always equal to the sessions that actually contributed, absent signal stays absent.
 - `hrvNextSum` / `hrvBaseSum` accumulators and their queries are removed from this branch only; other actions in the function are untouched.
+
 
 ## Part 2 — Which signal decides "effective"
 
