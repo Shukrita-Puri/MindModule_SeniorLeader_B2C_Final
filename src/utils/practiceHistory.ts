@@ -13,6 +13,7 @@ interface PracticeHistoryCompletionInput {
   completedAt?: string | null;
   partOfRitual?: boolean;
   title?: string | null;
+  cachedToken?: string | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -52,6 +53,7 @@ export async function logPracticeHistoryCompletion({
   completedAt,
   partOfRitual = false,
   title,
+  cachedToken,
   metadata = {},
 }: PracticeHistoryCompletionInput): Promise<string | undefined> {
   const completedAtIso = completedAt || new Date().toISOString();
@@ -67,6 +69,7 @@ export async function logPracticeHistoryCompletion({
     partOfRitual,
     practiceStartedAt: startedAt || undefined,
     practiceCompletedAt: completedAtIso,
+    authToken: cachedToken || undefined,
     metadata: {
       ...metadata,
       title: title ?? metadata.title,

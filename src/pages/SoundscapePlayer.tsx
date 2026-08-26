@@ -336,6 +336,7 @@ const SoundscapePlayer = () => {
           completedAt: completedAt.toISOString(),
           partOfRitual: shouldTrackRitual,
           title: soundscape.title,
+          cachedToken: cachedAuthTokenRef.current,
           metadata: { source: 'soundscape_player' },
         });
         if (practiceSessionId) setSessionId(practiceSessionId);

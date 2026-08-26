@@ -27,6 +27,7 @@ export interface SanctuaryEventData {
   partOfRitual?: boolean;
   practiceStartedAt?: string;
   practiceCompletedAt?: string;
+  authToken?: string | null;
   metadata?: Record<string, any>;
 }
 
@@ -61,6 +62,7 @@ let offlineQueue: SanctuaryEventData[] = [];
 
 export async function trackSanctuaryEvent(event: SanctuaryEventData) {
   try {
+    const authTokenOverride = event.authToken || null;
     // Validate input before processing
     const validatedEvent = sanctuaryEventSchema.parse(event) as SanctuaryEventData;
     
@@ -95,7 +97,7 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
     }
     
     // Get Auth0 token for edge function auth
-    const accessToken = await getAuthToken();
+    const accessToken = authTokenOverride || await getAuthToken();
     
     const eventWithUser: SanctuaryEventData = {
       ...validatedEvent,

@@ -927,6 +927,7 @@ const GuidedPracticePlayer = () => {
           completedAt: completedAt.toISOString(),
           partOfRitual: isPartOfRitual,
           title: practice.title,
+          cachedToken: cachedAuthTokenRef.current,
           metadata: { source: 'guided_practice_player' },
         });
         if (practiceSessionId) setSessionId(practiceSessionId);
@@ -1095,6 +1096,7 @@ const GuidedPracticePlayer = () => {
           completedAt: completedAt.toISOString(),
           partOfRitual: isPartOfRitual,
           title: practice.title,
+          cachedToken: cachedAuthTokenRef.current,
           metadata: { source: 'guided_practice_audio_player' },
         });
         if (practiceSessionId) setSessionId(practiceSessionId);

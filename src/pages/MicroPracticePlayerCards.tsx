@@ -2089,6 +2089,7 @@ const MicroPracticePlayerCards = () => {
         completedAt: completedAt.toISOString(),
         partOfRitual: shouldTrackRitual,
         title: practice.title,
+        cachedToken: cachedAuthTokenRef.current,
         metadata: { source: 'micro_practice_cards_player' },
       });
       if (practiceSessionId) {
