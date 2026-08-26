@@ -998,8 +998,8 @@ serve(async (req) => {
                 primarySignalPct: hrDropPct,
                 primarySignalLabel: 'HR during',
                 primarySignalIsPositive: false,
-                secondarySignalPct: null,
-                secondarySignalLabel: '',
+                secondarySignalPct: hrAfterDropPct,
+                secondarySignalLabel: hrAfterDropPct != null ? 'HR after' : '',
                 n: agg.hrN,
                 ...base,
               };
