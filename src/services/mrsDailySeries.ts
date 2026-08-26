@@ -114,8 +114,10 @@ async function fetchBriefScores(
       cursorEnd = iso(new Date(new Date(`${oldest}T00:00:00Z`).getTime() - dayMs));
     }
   } catch (err) {
+    if (err instanceof MrsSeriesAuthError) throw err;
     console.error('[mrsDailySeries] brief-history fetch failed:', err);
   }
+
   return out;
 }
 
