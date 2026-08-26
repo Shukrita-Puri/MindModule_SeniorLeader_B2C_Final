@@ -809,28 +809,47 @@ serve(async (req) => {
             pushDim('confidence', prior?.confidence_level ?? null, next?.confidence_level ?? null);
           }
 
-          // ── Intraday HR triple around the practice ────────────
-          // Windows: BEFORE [start−15m, start), DURING [start, end),
-          // AFTER (end, end+15m]. The 15-minute after-window is the practice
-          // response itself; beyond it the reading is confounded by whatever
-          // the user did next. All three are required.
-          const startMs = +new Date(ev.timestamp);
-          if (Number.isFinite(startMs)) {
+          // ── Wearable signal, three tiers ──────────────────────
+          // Tier 1 BEFORE [start−15m, start), DURING [start, end),
+          // AFTER (end, end+15m] — all three required.
+          // Tier 2 DURING vs the user's own hour-of-day HR baseline.
+          // Tier 3 next-morning HRV vs the 30-day median HRV.
+          const anchorMs = +new Date(ev.timestamp);
+          if (Number.isFinite(anchorMs)) {
+            const durationMs = durationSecondsOf(ev.content_id) * 1000;
             const preciseEndMs = ev.endTimestamp ? +new Date(ev.endTimestamp) : NaN;
-            const endMs =
-              Number.isFinite(preciseEndMs) && preciseEndMs > startMs
-                ? preciseEndMs
-                : startMs + durationSecondsOf(ev.content_id) * 1000;
+            const hasPreciseEnd = Number.isFinite(preciseEndMs) && preciseEndMs > anchorMs;
+            // Without precise timing, a rating stamps the *end* of the practice.
+            const ratingDerived = !hasPreciseEnd && ev.ratingMs != null;
+            const startMs = ratingDerived ? (ev.ratingMs as number) - durationMs : anchorMs;
+            const endMs = hasPreciseEnd
+              ? preciseEndMs
+              : ratingDerived
+                ? (ev.ratingMs as number)
+                : anchorMs + durationMs;
+
             const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
             const hrDuring = meanHrBetween(startMs, endMs);
             const hrAfter = meanHrBetween(endMs, endMs + 15 * 60 * 1000, { excludeStart: true, includeEnd: true });
             const sig = getSignalAgg(ev.content_id);
+            if (ratingDerived) sig.ratingDerived = true;
+
             if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
+              // Tier 1
               sig.hrBeforeSum += hrBefore.mean;
               sig.hrDuringSum += hrDuring.mean;
               sig.hrAfterSum += hrAfter.mean;
               sig.hrN += 1;
+            } else if (hrDuring.mean != null) {
+              // Tier 2 — personal time-of-day baseline
+              const expected = hourBaselines[new Date(startMs).getUTCHours()];
+              if (expected != null && expected > 0) {
+                sig.baseDuringSum += hrDuring.mean;
+                sig.baseExpectedSum += expected;
+                sig.baseN += 1;
+              }
             }
+
             // Overnight recovery: HRV on the practice day vs the next morning.
             // RHR is deliberately not used — same granularity, same construct.
             const d0 = wearableByDate.get(dateKey(ev.timestamp));
@@ -840,6 +859,13 @@ serve(async (req) => {
               sig.hrvAfterSum += d1.hrv;
               sig.hrvN += 1;
             }
+            // Tier 3 — next-morning HRV vs 30-day median (works with one night)
+            if (d1?.hrv != null && hrvBaseline != null && hrvBaseline > 0) {
+              sig.hrvNextSum += d1.hrv;
+              sig.hrvBaseSum += hrvBaseline;
+              sig.hrvBaseN += 1;
+            }
+
 
             // Event category this practice preceded (calendar event within 24h after)
             const followers = calendarEvents.filter((ce) => {
