@@ -674,7 +674,31 @@ serve(async (req) => {
           return vals.length >= 5 ? median(vals) : null;
         })();
 
-
+        // ── Context label aggregation (Box 1 event pills) ───────
+        // Priority: anchor event → slot label → arc. Feedback rows carry the
+        // richest context; completions without feedback fall back to arc-only.
+        const contextLabelAgg = new Map<string, Map<string, number>>();
+        const feedbackContextByContentDay = new Map<string, string>();
+        for (const r of feedbackRows as any[]) {
+          if (!r.content_id || !r.created_at) continue;
+          const ctx = eventContextFromRow(r);
+          if (!ctx) continue;
+          const day = String(r.created_at).slice(0, 10);
+          const key = `${r.content_id}|${day}`;
+          feedbackContextByContentDay.set(key, ctx.label);
+          const tally = contextLabelAgg.get(r.content_id) ?? new Map<string, number>();
+          tally.set(ctx.label, (tally.get(ctx.label) ?? 0) + 1);
+          contextLabelAgg.set(r.content_id, tally);
+        }
+        for (const ev of completedEvents) {
+          if (!ev.timestamp) continue;
+          const key = `${ev.content_id}|${ev.day}`;
+          if (feedbackContextByContentDay.has(key)) continue;
+          const arc = arcFromIso(ev.timestamp);
+          const tally = contextLabelAgg.get(ev.content_id) ?? new Map<string, number>();
+          tally.set(arc, (tally.get(arc) ?? 0) + 1);
+          contextLabelAgg.set(ev.content_id, tally);
+        }
 
         /**
          * Mean HR across [fromMs, toMs). Samples are stored per summary_date, so a
