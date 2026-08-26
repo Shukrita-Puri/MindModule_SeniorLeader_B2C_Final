@@ -2911,6 +2911,11 @@ const TodayThreePriorities = ({
                     contentType: p.contentType ?? null,
                     title: p.title ?? null,
                   })),
+                  anchorEventId: ((ratedSlot as any)?.anchorEventId as string | undefined)
+                    ?? (ratedSlot?.replacementEventIds && ratedSlot.replacementEventIds[0])
+                    ?? null,
+                  anchorEventTitle: ratedSlot?.isJit ? ratedSlot?.jitEventTitle ?? null : null,
+                  arcLabel: ratedSlot?.arcLabel ?? null,
                 });
               }
             } catch (e) {
