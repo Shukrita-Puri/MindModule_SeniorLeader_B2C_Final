@@ -105,7 +105,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     read: (ctx) =>
       `Masked fatigue — you're presenting ready but the body signal says otherwise.`,
     directive: (ctx) =>
-      `Before ${anchor(ctx)}, run a 60-second honest internal audit: ` +
+      `Before ${anchorTimed(ctx)}, run a 60-second honest internal audit: ` +
       `what are you not saying about how you actually feel?`,
     close: () => `don't lead with the mask`,
   },
@@ -146,7 +146,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   decisionLeakageGuard: {
     evidence: (ctx) =>
-      `Elevated emotional proxy with ${anchor(ctx)} on today's calendar.`,
+      `Elevated emotional proxy with ${anchorTimed(ctx)} on the calendar.`,
     read: (ctx) =>
       `Decision leakage risk — emotional state is likely to drive the call, not inform it.`,
     directive: (ctx) =>
@@ -165,7 +165,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     read: (ctx) =>
       `Performance residue — physiological drag, not a mindset problem.`,
     directive: (ctx) =>
-      `Treat recovery as the first deliverable before ${anchor(ctx)}; ` +
+      `Treat recovery as the first deliverable before ${anchorTimed(ctx)}; ` +
       `inbox clearance is the wrong priority right now.`,
     close: () => `recover before the next peak`,
   },
@@ -226,7 +226,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   interpersonalMeetingContext: {
     evidence: (ctx) =>
-      `${anchor(ctx)} is a high-drain interpersonal conversation ` +
+      `${anchorTimed(ctx)} is a high-drain interpersonal conversation ` +
       `with a high-stakes event following it.`,
     read: (ctx) =>
       `Emotional activation state from this meeting will leak into the next room.`,
@@ -319,7 +319,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   visibilityCommsPrep: {
     evidence: (ctx) =>
-      `${anchor(ctx)} is a high-visibility moment — words and presence read beyond the room.`,
+      `${anchorTimed(ctx)} is a high-visibility moment — words and presence read beyond the room.`,
     read: (ctx) =>
       `Town halls are culture delivery, not information delivery — ` +
       `emotional register is what people feel, repeat, and act on.`,
@@ -335,7 +335,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   influencePersuasionPrep: {
     evidence: (ctx) =>
-      `${anchor(ctx)} is a persuasion-mode event — the goal is position shift, not information transfer.`,
+      `${anchorTimed(ctx)} is a persuasion-mode event — the goal is position shift, not information transfer.`,
     read: (ctx) =>
       `Low confidence reads as low conviction; visible anxiety reads as low credibility.`,
     directive: (ctx) =>
@@ -386,7 +386,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   upwardReporting: {
     evidence: (ctx) =>
-      `${anchor(ctx)} approaching — a room where you report up, not down.`,
+      `${anchorTimed(ctx)} — a room where you report up, not down.`,
     read: (ctx) =>
       `Under-prepared in that room is a trust event, not just a performance miss.`,
     directive: (ctx) =>
