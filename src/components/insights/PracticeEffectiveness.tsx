@@ -307,11 +307,15 @@ function FindingRow({ practice }: { practice: Box1Practice }) {
         : wearable?.positive
           ? 'text-emerald-700'
           : 'text-muted-foreground';
-  const eventChip = practice.dominantEventCategory
-    ? practice.dominantEventCategory.length > 22
-      ? `${practice.dominantEventCategory.slice(0, 22)}…`
-      : practice.dominantEventCategory
-    : null;
+  const eventChip = practice.contextLabel
+    ? practice.contextLabel.length > 22
+      ? `${practice.contextLabel.slice(0, 22)}…`
+      : practice.contextLabel
+    : practice.dominantEventCategory
+      ? practice.dominantEventCategory.length > 22
+        ? `${practice.dominantEventCategory.slice(0, 22)}…`
+        : practice.dominantEventCategory
+      : null;
 
   const slots: React.ReactNode[] = [];
 
@@ -329,7 +333,7 @@ function FindingRow({ practice }: { practice: Box1Practice }) {
         key="wearable"
         className={cn('inline-flex items-center gap-1 text-xs tabular-nums', wearableTone)}
       >
-        <Heart className="h-3 w-3 shrink-0" aria-hidden="true" />
+        <span aria-hidden="true">❤️</span>
         {wearable.text}
       </span>,
     );
