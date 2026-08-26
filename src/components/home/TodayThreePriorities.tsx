@@ -2915,7 +2915,7 @@ const TodayThreePriorities = ({
                     ?? (ratedSlot?.replacementEventIds && ratedSlot.replacementEventIds[0])
                     ?? null,
                   anchorEventTitle: ratedSlot?.isJit ? ratedSlot?.jitEventTitle ?? null : null,
-                  arcLabel: ratedSlot?.arcLabel ?? null,
+                  arcLabel: ratedSlot?.timeLabel ?? null,
                 });
               }
             } catch (e) {
