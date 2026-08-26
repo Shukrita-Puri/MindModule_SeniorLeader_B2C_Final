@@ -689,6 +689,13 @@ function nCap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Lower-cases the first word unless it is a proper noun-ish acronym. */
+function nLower(s: string): string {
+  const first = s.split(" ")[0] ?? "";
+  if (first.length > 1 && first === first.toUpperCase()) return s;
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
 /**
  * Polish fix 1 — the anchor's time clause is spent at most ONCE per body.
  * First beat to reference the anchor gets the timed form; every later beat
@@ -697,6 +704,9 @@ function nCap(s: string): string {
 function makeAnchorRef(i: NarrativeCopyInput): () => string | null {
   let spent = false;
   return () => {
+    // Evening speaks about a day that has run — a countdown clause is never
+    // correct there, so the plain reference is the only form.
+    if (i.window === "evening") return i.anchorRefPlain ?? i.anchorRef ?? null;
     if (!spent && i.anchorRef) {
       spent = true;
       return i.anchorRef;
@@ -821,7 +831,7 @@ function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string
   const forms: string[] = [
     `${nCap(state)}. ${nCap(shape)}.`,
     `${nCap(state)} — and ${shape}.`,
-    `${nCap(shape)}. Behind it, ${state}.`,
+    `${nCap(shape)}. Behind it, ${nLower(state)}.`,
     `${nCap(state)}, with ${shape}.`,
   ];
   return nPick(forms, i.variantSeed, `evidence:${i.narrative.family}:${i.window}`);
