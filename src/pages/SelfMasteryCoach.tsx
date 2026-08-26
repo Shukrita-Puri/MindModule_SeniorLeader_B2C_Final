@@ -73,6 +73,7 @@ const SelfMasteryCoach = () => {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const practiceStartedAtRef = useRef<string>(new Date().toISOString());
 
   // Change 6: Read nudge commitment context from URL query params
   const nudgeParams = useMemo(() => {
@@ -368,7 +369,21 @@ const SelfMasteryCoach = () => {
       const queuedItem = isInQueue && practiceQueue[currentQueueIndex];
       const coachId = queuedItem?.id || (flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare');
       console.log('[SelfMasteryCoach] Calling updateRitualCompletion:', { coachId, queuedItemId: queuedItem?.id, queueLength: practiceQueue.length });
-      await updateRitualCompletion('micro_exercise', coachId, practiceQueue.length > 0 ? practiceQueue : undefined);
+      const completedAt = new Date().toISOString();
+      const startedAt = practiceStartedAtRef.current;
+      const durationSeconds = Math.max(60, Math.round((Date.parse(completedAt) - Date.parse(startedAt)) / 1000));
+      await updateRitualCompletion(
+        'micro_exercise',
+        coachId,
+        practiceQueue.length > 0 ? practiceQueue : undefined,
+        {
+          startedAt,
+          completedAt,
+          durationSeconds,
+          isPlanPractice: practiceQueue.length > 0,
+          planContext: 'standalone',
+        },
+      );
       console.log('[SelfMasteryCoach] updateRitualCompletion complete');
     } catch (error) {
       console.error('[SelfMasteryCoach] Failed to mark coach complete:', error);
