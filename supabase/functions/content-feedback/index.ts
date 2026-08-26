@@ -449,11 +449,12 @@ serve(async (req) => {
         for (const r of feedbackRows as any[]) {
           const contentId = String(r.content_id ?? '');
           const day = String((r.context_data as any)?.local_date || r.created_at || '').slice(0, 10);
+          const ctx = (r.context_data ?? {}) as any;
           setPrecise(
             contentId,
             day,
-            (r.context_data as any)?.practice_started_at,
-            (r.context_data as any)?.practice_completed_at,
+            ctx.practice_started_at ?? ctx.practiceStartedAt,
+            ctx.practice_completed_at ?? ctx.practiceCompletedAt,
           );
         }
 
