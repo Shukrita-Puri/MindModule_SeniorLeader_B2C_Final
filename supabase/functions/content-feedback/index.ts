@@ -814,14 +814,14 @@ serve(async (req) => {
           rhr: { before: 0, after: 0, n: 0 },
         };
 
-        // Category-aware per-practice wearable signal accumulator
+        // Category-aware per-practice wearable signal accumulator.
+        // HR only — HRV was removed from this card: at practice granularity it
+        // added noise, not evidence. Signal is BEFORE vs AFTER; the mid-practice
+        // window is too short (2–5 min) to sample reliably.
         type WearableSignalAgg = {
-          hrBeforeSum: number; hrDuringSum: number; hrAfterSum: number; hrN: number;
-          hrvBeforeSum: number; hrvAfterSum: number; hrvN: number;
-          /** Tier 2 — HR during vs the user's own hour-of-day baseline. */
-          baseDuringSum: number; baseExpectedSum: number; baseN: number;
-          /** Tier 3 — next-morning HRV vs the 30-day median. */
-          hrvNextSum: number; hrvBaseSum: number; hrvBaseN: number;
+          hrBeforeSum: number; hrAfterSum: number; hrN: number;
+          /** Tier 2 — HR after vs the user's own hour-of-day baseline. */
+          baseAfterSum: number; baseExpectedSum: number; baseN: number;
           /** True when any contributing window came from rating-derived timing. */
           ratingDerived: boolean;
         };
@@ -830,16 +830,15 @@ serve(async (req) => {
           let a = wearableSignalAgg.get(id);
           if (!a) {
             a = {
-              hrBeforeSum: 0, hrDuringSum: 0, hrAfterSum: 0, hrN: 0,
-              hrvBeforeSum: 0, hrvAfterSum: 0, hrvN: 0,
-              baseDuringSum: 0, baseExpectedSum: 0, baseN: 0,
-              hrvNextSum: 0, hrvBaseSum: 0, hrvBaseN: 0,
+              hrBeforeSum: 0, hrAfterSum: 0, hrN: 0,
+              baseAfterSum: 0, baseExpectedSum: 0, baseN: 0,
               ratingDerived: false,
             };
             wearableSignalAgg.set(id, a);
           }
           return a;
         };
+
 
         // Which A–H day type each practice tends to precede
         const eventCategoryAgg = new Map<string, Map<string, number>>();
