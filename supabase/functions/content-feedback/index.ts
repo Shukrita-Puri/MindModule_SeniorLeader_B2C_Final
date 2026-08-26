@@ -729,12 +729,24 @@ serve(async (req) => {
         type WearableSignalAgg = {
           hrBeforeSum: number; hrDuringSum: number; hrAfterSum: number; hrN: number;
           hrvBeforeSum: number; hrvAfterSum: number; hrvN: number;
+          /** Tier 2 — HR during vs the user's own hour-of-day baseline. */
+          baseDuringSum: number; baseExpectedSum: number; baseN: number;
+          /** Tier 3 — next-morning HRV vs the 30-day median. */
+          hrvNextSum: number; hrvBaseSum: number; hrvBaseN: number;
+          /** True when any contributing window came from rating-derived timing. */
+          ratingDerived: boolean;
         };
         const wearableSignalAgg = new Map<string, WearableSignalAgg>();
         const getSignalAgg = (id: string): WearableSignalAgg => {
           let a = wearableSignalAgg.get(id);
           if (!a) {
-            a = { hrBeforeSum: 0, hrDuringSum: 0, hrAfterSum: 0, hrN: 0, hrvBeforeSum: 0, hrvAfterSum: 0, hrvN: 0 };
+            a = {
+              hrBeforeSum: 0, hrDuringSum: 0, hrAfterSum: 0, hrN: 0,
+              hrvBeforeSum: 0, hrvAfterSum: 0, hrvN: 0,
+              baseDuringSum: 0, baseExpectedSum: 0, baseN: 0,
+              hrvNextSum: 0, hrvBaseSum: 0, hrvBaseN: 0,
+              ratingDerived: false,
+            };
             wearableSignalAgg.set(id, a);
           }
           return a;
