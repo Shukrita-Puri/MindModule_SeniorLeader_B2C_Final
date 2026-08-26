@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Heart, Loader2, Star } from 'lucide-react';
+import { ChevronRight, Loader2, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
