@@ -2749,7 +2749,19 @@ const TodayThreePriorities = ({
                           await updateRitualCompletion(
                             'micro_exercise',
                             module.contentId,
-                            allPractices.map((p) => ({ id: p.contentId }))
+                            allPractices.map((p) => ({ id: p.contentId })),
+                            (() => {
+                              const completedAt = new Date().toISOString();
+                              const durationSeconds = Math.max(60, Number((module as any)?.duration ?? 1) * 60 || 60);
+                              const startedAt = new Date(Date.parse(completedAt) - durationSeconds * 1000).toISOString();
+                              return {
+                                startedAt,
+                                completedAt,
+                                durationSeconds,
+                                isPlanPractice: true,
+                                planContext: 'standalone',
+                              };
+                            })(),
                           );
                           setCompletedPracticeIds((prev) =>
                             prev.includes(module.contentId) ? prev : [...prev, module.contentId]

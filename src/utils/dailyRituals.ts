@@ -342,7 +342,7 @@ export interface PracticeCompletionMeta {
    * False for ad-hoc launches from the library — those are still logged.
    */
   isPlanPractice?: boolean;
-  /** Where the launch came from, e.g. 'plan', 'library', 'jit'. */
+  /** Where the launch came from. Backend only accepts the canonical DRC plan-context values. */
   planContext?: string | null;
   /**
    * Auth token captured earlier (e.g. on player mount) so the completion
@@ -410,7 +410,24 @@ export async function updateRitualCompletion(
     : null);
   const isPlanPractice =
     options?.isPlanPractice ?? (practiceQueue ? practiceQueue.some((p) => p.id === practiceId) : false);
-  const planContext = options?.planContext ?? (isPlanPractice ? 'plan' : 'library');
+  const allowedPlanContexts = new Set([
+    'pre-travel',
+    'during-travel',
+    'post-travel',
+    'pre-board',
+    'during-board',
+    'post-board',
+    'pre-heavy-load',
+    'during-heavy-load',
+    'post-heavy-load',
+    'pre-high-stakes',
+    'post-high-stakes',
+    'standalone',
+  ]);
+  const requestedPlanContext = options?.planContext ?? null;
+  const planContext = requestedPlanContext && allowedPlanContexts.has(requestedPlanContext)
+    ? requestedPlanContext
+    : 'standalone';
 
   console.log(`[dailyRituals] updateRitualCompletion:`, {
     practiceType, practiceId, queueLength: practiceQueue?.length,
@@ -515,6 +532,7 @@ export async function updateRitualCompletion(
         planContext,
         startedAt,
         completedAt,
+        durationSeconds: Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : null,
       }),
     });
 
@@ -526,6 +544,11 @@ export async function updateRitualCompletion(
     }
 
     const data = await response.json();
+    const row = data?.data;
+    const completedIds = Array.isArray(row?.completed_practice_ids) ? row.completed_practice_ids : [];
+    if (!completedIds.includes(practiceId) || !row?.practice_completed_at) {
+      throw new Error('daily-rituals COMPLETE_PRACTICE returned an unverified completion row');
+    }
     recordLocalPracticeTiming({
       practiceId,
       localDate: today,
@@ -536,7 +559,7 @@ export async function updateRitualCompletion(
 
     console.log(`[dailyRituals] COMPLETE_PRACTICE success:`, { 
       status: data?.data?.completion_status, 
-      completedCount: data?.data?.completed_practice_ids?.length,
+      completedCount: completedIds.length,
       period: currentPeriod
     });
   } catch (error) {

@@ -27,6 +27,31 @@ interface RequestBody {
   completedPracticeIds?: string[];
   completionStatus?: string;
   recommendedPracticesCount?: number;
+  sessionPeriod?: 'morning' | 'afternoon' | 'evening';
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationSeconds?: number | null;
+}
+
+function getServerTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
+  const hour = new Date().getUTCHours();
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  return 'evening';
+}
+
+function normaliseIsoTimestamp(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+function deriveStartedAt(startedAt: unknown, completedAt: string, durationSeconds: unknown): string | null {
+  const explicit = normaliseIsoTimestamp(startedAt);
+  if (explicit) return explicit;
+  const duration = typeof durationSeconds === 'number' ? durationSeconds : NaN;
+  if (!Number.isFinite(duration) || duration <= 0) return null;
+  return new Date(new Date(completedAt).getTime() - duration * 1000).toISOString();
 }
 
 serve(async (req) => {
@@ -151,15 +176,42 @@ serve(async (req) => {
           microExerciseCompletedAt,
           completedPracticeIds,
           completionStatus,
-          recommendedPracticesCount
+          recommendedPracticesCount,
+          sessionPeriod,
+          startedAt,
+          completedAt,
+          durationSeconds
         } = body;
 
         const dateToUpsert = ritualDate || new Date().toISOString().split('T')[0];
+        const period = sessionPeriod || getServerTimeOfDay();
+        const finishedAt = normaliseIsoTimestamp(completedAt) || normaliseIsoTimestamp(soundscapeCompletedAt) || normaliseIsoTimestamp(guidedPracticeCompletedAt) || normaliseIsoTimestamp(microExerciseCompletedAt) || new Date().toISOString();
+        const startedAtIso = deriveStartedAt(startedAt, finishedAt, durationSeconds);
+
+        const { data: existing } = await supabase
+          .from('daily_ritual_completions')
+          .select('completed_practice_ids, recommended_practices_count')
+          .eq('user_id', userId)
+          .eq('ritual_date', dateToUpsert)
+          .eq('session_period', period)
+          .maybeSingle();
+
+        const existingIds = Array.isArray(existing?.completed_practice_ids) ? existing.completed_practice_ids.filter(Boolean) : [];
+        const requestedIds = Array.isArray(completedPracticeIds) ? completedPracticeIds.filter(Boolean) : [];
+        const mergedIds = Array.from(new Set([...existingIds, ...requestedIds]));
+        const requestedStatus = completionStatus || null;
+        if ((requestedStatus === 'partial' || requestedStatus === 'full') && mergedIds.length === 0) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'completedPracticeIds is required for partial/full ritual completion' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
         // Build upsert data, only including fields that are provided
         const upsertData: Record<string, any> = {
           user_id: userId,
           ritual_date: dateToUpsert,
+          session_period: period,
         };
 
         if (soundscapeCompleted !== undefined) upsertData.soundscape_completed = soundscapeCompleted;
@@ -168,13 +220,15 @@ serve(async (req) => {
         if (guidedPracticeCompletedAt) upsertData.guided_practice_completed_at = guidedPracticeCompletedAt;
         if (microExerciseCompleted !== undefined) upsertData.micro_exercise_completed = microExerciseCompleted;
         if (microExerciseCompletedAt) upsertData.micro_exercise_completed_at = microExerciseCompletedAt;
-        if (completedPracticeIds) upsertData.completed_practice_ids = completedPracticeIds;
+        if (requestedIds.length > 0 || existingIds.length > 0) upsertData.completed_practice_ids = mergedIds;
         if (completionStatus) upsertData.completion_status = completionStatus;
         if (recommendedPracticesCount !== undefined) upsertData.recommended_practices_count = recommendedPracticesCount;
+        if (mergedIds.length > 0) upsertData.practice_completed_at = finishedAt;
+        if (startedAtIso) upsertData.practice_started_at = startedAtIso;
 
         const { data, error } = await supabase
           .from('daily_ritual_completions')
-          .upsert(upsertData, { onConflict: 'user_id,ritual_date' })
+          .upsert(upsertData, { onConflict: 'user_id,ritual_date,session_period' })
           .select()
           .single();
 

@@ -84,6 +84,24 @@ function deriveStartedAt(startedAt: unknown, completedAt: string, durationSecond
   return new Date(new Date(completedAt).getTime() - duration * 1000).toISOString();
 }
 
+function normalisePlanContext(value: unknown): string {
+  const allowed = new Set([
+    'pre-travel',
+    'during-travel',
+    'post-travel',
+    'pre-board',
+    'during-board',
+    'post-board',
+    'pre-heavy-load',
+    'during-heavy-load',
+    'post-heavy-load',
+    'pre-high-stakes',
+    'post-high-stakes',
+    'standalone',
+  ]);
+  return typeof value === 'string' && allowed.has(value) ? value : 'standalone';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -275,9 +293,7 @@ serve(async (req) => {
           completed_practice_ids: newCompletedIds,
           // Every completion is logged — plan-launched or ad-hoc from the library.
           is_plan_practice: planPractice,
-          plan_context: typeof planContext === 'string' && planContext
-            ? planContext
-            : (planPractice ? 'plan' : 'library'),
+          plan_context: normalisePlanContext(planContext),
           practice_completed_at: finishedAt,
         };
         if (startedAtIso) {
@@ -325,6 +341,15 @@ serve(async (req) => {
         if (error) {
           console.error('[daily-rituals] COMPLETE_PRACTICE error:', error);
           throw error;
+        }
+
+        const returnedIds = Array.isArray(data?.completed_practice_ids) ? data.completed_practice_ids : [];
+        if (!returnedIds.includes(practiceId) || !data?.practice_completed_at) {
+          console.error('[daily-rituals] COMPLETE_PRACTICE verification failed:', { practiceId, returnedIds, hasCompletedAt: Boolean(data?.practice_completed_at) });
+          return new Response(JSON.stringify({ error: 'Completion write verification failed' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
 
         console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, period=${period}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}, timing=${startedAtIso ? 'precise' : 'completed-only'}`);
