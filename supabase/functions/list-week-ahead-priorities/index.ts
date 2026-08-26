@@ -44,6 +44,7 @@ import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
   loadLearningContext,
   recordConfirmation,
+  stampCalendarEventCategory,
 } from "../_shared/events/learning-store.ts";
 import { patternHit } from "../_shared/jit/tactical-signals.ts";
 import { PTO_TITLE_RX } from "../_shared/availability/availability-classifier.ts";
@@ -380,6 +381,8 @@ serve(async (req) => {
       attendeesCount: number | null;
       // deno-lint-ignore no-explicit-any
       eventMetadata: Record<string, any> | null;
+      /** Real calendar_events row ids behind this (possibly merged) event. */
+      rawEventIds: string[] | null;
     };
     const metaById = new Map<string, Meta>();
 
@@ -405,6 +408,7 @@ serve(async (req) => {
         title: e.title,
         attendeesCount: e.attendeesCount ?? null,
         eventMetadata: (e as any).eventMetadata ?? null,
+        rawEventIds: ((e as any).rawEventIds as string[] | undefined) ?? null,
       });
       selectorRows.push({
         id: e.id,
@@ -624,6 +628,19 @@ serve(async (req) => {
           category: row.eventCategory,
           subcategory: row.eventSubcategory ?? null,
           source: "resolver",
+          resolvedBy: "week_ahead_resolver",
+          confidence: "medium",
+        });
+        // Persist the stamp so every other surface reads the same answer off
+        // the row rather than re-guessing from the title.
+        await stampCalendarEventCategory(supabase, {
+          userId,
+          eventId: row.eventId,
+          eventIds: metaById.get(row.eventId)?.rawEventIds ?? null,
+          title: row.title,
+          startTime: row.startTime,
+          category: row.eventCategory,
+          subcategory: row.eventSubcategory ?? null,
           resolvedBy: "week_ahead_resolver",
           confidence: "medium",
         });
