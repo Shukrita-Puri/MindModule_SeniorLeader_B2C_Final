@@ -85,7 +85,7 @@ const InnerReadinessDial = () => {
     });
   };
 
-  const uid = DEV_MODE ? DEV_USER.id : user?.id;
+  
 
   // Weekly dots now share React Query semantics with the trend chart (retries +
   // refetch on mount/focus) so a late native auth token no longer strands them.
