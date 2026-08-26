@@ -18,7 +18,7 @@ Two files: `supabase/functions/content-feedback/index.ts` (`GET_PRACTICE_IMPACT`
   - Pause: HR after below HR before
   - Flow: HR after below HR before
   - Energise: HR after above HR before
-- Sessions need at least one sample in **both** before and after; a session missing either contributes nothing (no partial signal).
+- Single user-facing label for both tiers: `HR vs baseline` — Tier 1's baseline is the user's own pre-practice 15 minutes, Tier 2's is their hour-of-day norm. `signalTier` still distinguishes them in the payload for diagnostics.
 - Unchanged: `hrBefore` mean > 100 bpm confound guard, 3% noise floor, 1-decimal rounding, `n` always equal to the sessions that actually contributed, absent signal stays absent.
 - `hrvNextSum` / `hrvBaseSum` accumulators and their queries are removed from this branch only; other actions in the function are untouched.
 
