@@ -15,11 +15,32 @@ Instead:
 
 ---
 
-## Part 1 — Best-in-class deterministic copy per scenario family
+## Part 1 — Deterministic Brief
 
-The substance: for each family, hand-crafted four-beat bodies in the Chief-of-Staff register, keyed off signals the behaviour snapshot already emits. Copy lives as new entries in the existing CEO copy pack (`_shared/personas/ceo/behaviour-copy.ts`) and as branches in `_shared/brief/deterministic-brief.ts` — no new shared folder.
+Delivered in two steps: **1A** wires the narrative engine and locks Brief↔Plan parity; **1B** writes the best-in-class copy on top of it.
+
+---
+
+## Part 1A — Narrative engine, Plan parity, persistence check
+
+Ships first, because 1B's copy branches read the fields it produces.
+
+1. **Single narrative resolver inside the Brief.** Extend `buildBehaviourSnapshot()`'s consumption in `compute-outer-readiness` so the Brief resolves one explicit `leadNarrative` per (user, local date, window): the winning family key, the anchor event (id, title, A–H category, subtype, minutes-until), the phase (pre / in-transit / during / post), and the depletion overlay flag. Today this decision is implicit, spread across day-shape branches, `topCeoFlag()` and pillar maps — 1A makes it one named object.
+2. **Day-level aggregates the families need.** Derived once from the already-resolved event list: distinct A–H category count (context switching), total stakes weight vs raw meeting count (weight vs volume), compression hours (back-to-back), conference day number and whether a C event sits inside it, travel duration and phase. All from existing resolver output — no new classification.
+3. **Persistence.** Write `leadNarrative` onto the existing `daily_context_snapshot` row for the window (new JSONB column, additive, nullable). This is the durable record of what the Brief led on.
+4. **Plan parity check.** After the Plan runs `selectJitCandidates()`, compare its top candidate's event id / category against the persisted `leadNarrative`. On divergence, log a structured warning with both sides and the reason. Non-blocking at launch — it makes incoherence visible without risking either surface. A later step can promote it to a tie-break.
+5. **Same object feeds both output paths.** `leadNarrative` is passed to the deterministic renderer *and* serialised into the LLM prompt block, so the two paths cannot disagree on which event is the story.
+
+**Verification for 1A:** unit tests for resolver precedence and each aggregate; a parity test asserting Brief lead == Plan top candidate for a fixed event set; a persistence test confirming the snapshot column is written and read back; no change to rendered copy yet (existing 33 tests stay green).
+
+---
+
+## Part 1B — Best-in-class deterministic copy per scenario family
+
+The substance: for each family, hand-crafted four-beat bodies in the Chief-of-Staff register, keyed off the `leadNarrative` from 1A. Copy lives as new entries in the existing CEO copy pack (`_shared/personas/ceo/behaviour-copy.ts`) and as branches in `_shared/brief/deterministic-brief.ts` — no new shared folder.
 
 ### Families and their keys
+
 
 1. **Travel**
    - Long-haul (≥6h, duration is already known to the ranker) with meetings after landing — pre / in-transit / post variants.
