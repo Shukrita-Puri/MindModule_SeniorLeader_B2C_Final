@@ -80,13 +80,31 @@ You are right that the current output is clinical. This phase is a genuine rewri
 
 1. **Time-to-anchor precision.** `boardLevelOutcome` computes `minutesUntil` and throws it away. Add a shared `timeToAnchor()` producing "in 45 minutes" / "in two hours" / "this afternoon" / "tomorrow morning"; "within 24 hours" only when the time is genuinely unknown. Apply across `boardLevelOutcome`, `advancePrep24h`, `decisionLeakageGuard`, `interpersonalMeetingContext`, `stackedStakes`, `boardReadinessWindow`, `reportingUpwards`.
 2. **Freshness.** Add the anchor bucket to the brief `input_signature` so crossing 24h → 4h → 1h → started → passed invalidates the cached body and the next `*/15` pass rewrites it. Teach that pass to upgrade `awaiting` rows once signals land, and label the window actually being shown.
-3. **Post-start framing.** Once the anchor has started or passed, drop preparation language and switch to during/post copy.
-4. **Voice rewrite.** One claim plus one instruction per line, in the register a chief of staff would use out loud. Kill the machine tells: the stray "-" joiner, the duplicated tail ("…and every choice is prep"), stacked clauses, and generic filler. Expand coverage so every combination of (day shape × anchor category × physiology tier) has a written line — no silent fallback to generic prose.
-5. **LLM parity.** The LLM prompt inherits the same anchor-time vocabulary, the same register rules and the same forbidden-phrase list, so a reader cannot tell which engine wrote the brief. Acceptance bar: with the LLM disabled, the deterministic brief is publishable as-is.
+3. **Awaiting means awaiting — close the copy leak.** When `brief_source: 'awaiting'`, the Brief must behave exactly as MRS and Plan already do: render only the shared awaiting line and **no phrase, no body, no lean-on/watch-out**.
+   - Server: an awaiting window returns null `phrase`, `body_text`, `lean_on`, `watch_for` — the deterministic builder returns `null` rather than prose, and a previously delivered snapshot for a *different* window is never re-served as the current one.
+   - Client: an awaiting payload must clear the cached brief for that user/date/window instead of falling back to the last good body. "Server returned no prose" must never mean "keep showing what we had" — that fallback is the actual leak, which is why the Brief drifts while every other surface obeys.
+   - Copy: the existing shared string, verbatim, no new copy — "Awaiting signals · Connect your wearable and calendar to get an early read, then check in to sharpen it."
+4. **Post-start framing.** Once the anchor has started or passed, drop preparation language and switch to during/post copy.
+5. **Voice rewrite.** One claim plus one instruction per line, in the register a chief of staff would use out loud. Kill the machine tells: the stray "-" joiner, the duplicated tail ("…and every choice is prep"), stacked clauses, and generic filler. Expand coverage so every combination of (day shape × anchor category × physiology tier) has a written line — no silent fallback to generic prose.
+6. **LLM parity.** The LLM prompt inherits the same anchor-time vocabulary, the same register rules and the same forbidden-phrase list, so a reader cannot tell which engine wrote the brief. Acceptance bar: with the LLM disabled, the deterministic brief is publishable as-is.
 
-**Verification before Phase 4:** side-by-side of deterministic vs LLM output for today's calendar at three different times of day, and a forced-deterministic run of the live brief.
+**Verification before Phase 4:** side-by-side of deterministic vs LLM output for today's calendar at three different times of day; a forced-deterministic run of the live brief; and an awaiting-state reload test proving no phrase or body survives in the card or in `localStorage`.
 
-### Phase 4 — The A–H SSOT document (documentation only, not wired)
+### Phase 4 — Close out the `event_category: null` and staleness findings (Q1 + Q4)
+
+A dedicated verification-and-repair pass, run after the code phases so it measures reality rather than intent.
+
+1. Confirm `calendar_events.event_category` is populated on every synced row going forward, with `category_resolved_by` and `category_confidence` provenance present — the Q1 finding that 0 of 121 rows were stamped must read 0 unstamped.
+2. Re-run the 30-day backfill and report before/after counts per category, flagging any row that still cannot resolve.
+3. Prove the six surfaces read the stamp rather than re-deriving: one live probe per surface for the same event id.
+4. Prove the Q4 freshness path end to end: an `awaiting` afternoon row upgrades to a real brief on the next `*/15` pass once signals land, and the anchor bucket crossing rewrites the body within one cron cycle.
+5. Confirm the confirmation store no longer hardens its own guesses — no `resolver`-sourced row at `high` confidence.
+
+**Verification before Phase 5:** all five checks reported with live query output, not assertions.
+
+### Phase 5 — The A–H SSOT document (documentation only, not wired)
+
+
 
 New `docs/EVENT_TAXONOMY_A_H_SSOT.md`, reconciled line-by-line against your uploaded `FINAL_A_to_H_Schema_Summary`, written **after** the code changes above so it documents reality rather than intent. It covers:
 
