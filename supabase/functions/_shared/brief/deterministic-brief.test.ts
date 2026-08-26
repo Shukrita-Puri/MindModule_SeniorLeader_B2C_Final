@@ -558,7 +558,7 @@ Deno.test("CEO behaviour flag wires the deterministic copy pack for all four bea
   assertStringIncludes(out.body, "decision moments today");
   assertStringIncludes(out.body, "Decision fatigue is dose-dependent");
   assertStringIncludes(out.body, "Run reversible decisions first");
-  assertStringIncludes(out.body, "sequence the irreversible last");
+  assertStringIncludes(out.body, "steady yourself between the calls");
 });
 
 // ── Time-to-event precision (Phase 3) ────────────────────────────────────────
