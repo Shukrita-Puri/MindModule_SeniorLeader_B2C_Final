@@ -190,8 +190,12 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // Signal: any stakes_level board/external/investor within 24h
   // ───────────────────────────────────────────────────────────────────────────
   boardLevelOutcome: {
-    evidence: (ctx) =>
-      `${anchor(ctx)} is within 24 hours; every choice today is a preparation input.`,
+    evidence: (ctx) => {
+      const when = anchorWhen(ctx);
+      return when
+        ? `${anchor(ctx)} lands ${when}; every choice between now and then is a preparation input.`
+        : `${anchor(ctx)} is the day's governing commitment; every choice before it is a preparation input.`;
+    },
     read: (ctx) =>
       `Board-level rooms read leaders as signals before they read them as speakers.`,
     directive: (ctx) =>
