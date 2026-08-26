@@ -665,20 +665,27 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     }
   }
 
+  // Beat (d) — THE CLOSE. Self-regulation only: how to hold yourself, never
+  // another work instruction. 3–8 words, executive register.
   if (
     opts.window === "evening" &&
     (opts.band === "steady" || opts.band === "stretched" || opts.band === "depleted")
   ) {
     return "and close the laptop so tomorrow doesn't start in residue.";
   }
+  const hasHighStakesLeft = opts.todayHighStakes.length > 0;
+  if (hasHighStakesLeft && (opts.band === "stretched" || opts.band === "depleted")) {
+    return "and settle yourself before you walk in.";
+  }
   const map: Record<DeterministicBriefBand, string> = {
-    firing:    "and don't overextend.",
-    sharp:     "and don't let the smaller calls chip at what's there.",
-    steady:    "and hold the line.",
-    stretched: "and protect the close.",
-    depleted:  "and shut the laptop early.",
+    firing:    "and hold your line when it speeds up.",
+    sharp:     "and don't let small calls chip your edge.",
+    steady:    "and steady yourself between the rooms.",
+    stretched: "and take the gaps before they're gone.",
+    depleted:  "and shut the laptop early tonight.",
   };
   return map[opts.band];
+
 }
 
 export function buildDeterministicBriefFallback(
