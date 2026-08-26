@@ -34,6 +34,7 @@ import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/pra
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { logPracticeHistoryCompletion } from "@/utils/practiceHistory";
 import { getAuthToken } from "@/services/authTokenService";
 import { cn } from "@/lib/utils";
 
@@ -917,6 +918,18 @@ const GuidedPracticePlayer = () => {
             : 'library',
           cachedToken: cachedAuthTokenRef.current,
         });
+        const practiceSessionId = await logPracticeHistoryCompletion({
+          contentId: id,
+          contentType: 'guided-practice',
+          category: practice.category,
+          durationSeconds: durationSeconds || null,
+          startedAt,
+          completedAt: completedAt.toISOString(),
+          partOfRitual: isPartOfRitual,
+          title: practice.title,
+          metadata: { source: 'guided_practice_player' },
+        });
+        if (practiceSessionId) setSessionId(practiceSessionId);
         practiceStartedAtRef.current = null;
       }
     } catch (error) {
@@ -1073,6 +1086,18 @@ const GuidedPracticePlayer = () => {
             : 'library',
           cachedToken: cachedAuthTokenRef.current,
         });
+        const practiceSessionId = await logPracticeHistoryCompletion({
+          contentId: id,
+          contentType: 'guided-practice',
+          category: practice.category,
+          durationSeconds: playedSeconds || null,
+          startedAt,
+          completedAt: completedAt.toISOString(),
+          partOfRitual: isPartOfRitual,
+          title: practice.title,
+          metadata: { source: 'guided_practice_audio_player' },
+        });
+        if (practiceSessionId) setSessionId(practiceSessionId);
         practiceStartedAtRef.current = null;
       }
     } catch (error) {

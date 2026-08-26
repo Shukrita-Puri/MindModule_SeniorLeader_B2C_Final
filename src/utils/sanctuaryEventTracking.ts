@@ -25,6 +25,8 @@ export interface SanctuaryEventData {
   };
   effectivenessRating?: number;
   partOfRitual?: boolean;
+  practiceStartedAt?: string;
+  practiceCompletedAt?: string;
   metadata?: Record<string, any>;
 }
 
@@ -48,6 +50,10 @@ const sanctuaryEventSchema = z.object({
     recommendationReason: z.string().optional(),
   }),
   effectivenessRating: z.number().min(1).max(5).optional(),
+  partOfRitual: z.boolean().optional(),
+  practiceStartedAt: z.string().datetime().optional(),
+  practiceCompletedAt: z.string().datetime().optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 // Queue for offline events

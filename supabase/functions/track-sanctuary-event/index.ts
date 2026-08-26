@@ -7,6 +7,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-mm-client-platform',
 };
 
+function asIsoTimestamp(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -68,10 +75,16 @@ serve(async (req) => {
     let practiceSessionId: string | null = null;
     if (isCompletion) {
       const durationSeconds = eventData.durationSeconds || eventData.duration || null;
-      const now = new Date().toISOString();
-      const startedAt = durationSeconds
-        ? new Date(Date.now() - durationSeconds * 1000).toISOString()
-        : now;
+      const completedAt = asIsoTimestamp(eventData.practiceCompletedAt)
+        || asIsoTimestamp(eventData.completedAt)
+        || asIsoTimestamp(eventData.timestamp)
+        || new Date().toISOString();
+      const completedAtMs = Date.parse(completedAt);
+      const startedAt = asIsoTimestamp(eventData.practiceStartedAt)
+        || asIsoTimestamp(eventData.startedAt)
+        || (durationSeconds
+          ? new Date(completedAtMs - durationSeconds * 1000).toISOString()
+          : completedAt);
       const normalizedContentType =
         eventData.contentType === 'guided-practice' ? 'guided'
         : eventData.contentType === 'micro-practice' ? 'micro'
@@ -102,7 +115,7 @@ serve(async (req) => {
             category: eventData.category,
             duration_seconds: durationSeconds,
             started_at: startedAt,
-            completed_at: now,
+            completed_at: completedAt,
             completed: true,
             part_of_ritual: eventData.partOfRitual || false,
             metadata: eventData.metadata || {},
