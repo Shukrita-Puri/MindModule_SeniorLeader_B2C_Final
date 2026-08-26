@@ -560,3 +560,42 @@ Deno.test("CEO behaviour flag wires the deterministic copy pack for all four bea
   assertStringIncludes(out.body, "Run reversible decisions first");
   assertStringIncludes(out.body, "sequence the irreversible last");
 });
+
+// ── Time-to-event precision (Phase 3) ────────────────────────────────────────
+Deno.test("high-stakes event timing renders a precise time-to-event clause", () => {
+  const out = buildDeterministicBriefFallback({
+    ...base({}),
+    hasWearable: true,
+    hasCurrentWearable: true,
+    wearableFact: "Recovery is below its usual range",
+    todayHighStakes: ["Investor update call"],
+    highStakesTiming: [{ title: "Investor update call", minutesUntil: 46 }],
+    ceoFlags: [],
+  })!;
+  assertStringIncludes(out.body, "in 45 minutes");
+});
+
+Deno.test("no timing supplied leaves the brief time-neutral", () => {
+  const out = buildDeterministicBriefFallback({
+    ...base({}),
+    hasWearable: true,
+    hasCurrentWearable: true,
+    wearableFact: "Recovery is below its usual range",
+    todayHighStakes: ["Investor update call"],
+    ceoFlags: [],
+  })!;
+  assertEquals(/in \d+ minutes|in about/.test(out.body), false);
+});
+
+Deno.test("timing beyond the lead window degrades gracefully", () => {
+  const out = buildDeterministicBriefFallback({
+    ...base({}),
+    hasWearable: true,
+    hasCurrentWearable: true,
+    wearableFact: "Recovery is below its usual range",
+    todayHighStakes: ["Board review"],
+    highStakesTiming: [{ title: "Board review", minutesUntil: 400 }],
+    ceoFlags: [],
+  })!;
+  assertStringIncludes(out.body, "later today");
+});

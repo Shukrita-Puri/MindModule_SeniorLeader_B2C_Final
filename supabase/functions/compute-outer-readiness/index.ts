@@ -9309,6 +9309,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 todayHighStakes: Array.isArray(todayHighStakes)
                   ? todayHighStakes
                   : [],
+                // Time-to-event precision: the deterministic copy says
+                // "in 45 minutes" / "in about 3 hours" instead of a generic
+                // "today" whenever the lead event's timing is known.
+                highStakesTiming: nextHighStakesEvent
+                  ? [{
+                    title: nextHighStakesEvent.title,
+                    minutesUntil: nextHighStakesEvent.minutesUntil,
+                  }]
+                  : [],
                 calendarLoad: calendarLoad === "low" ||
                     calendarLoad === "medium" || calendarLoad === "high"
                   ? calendarLoad

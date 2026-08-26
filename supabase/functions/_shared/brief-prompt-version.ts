@@ -36,4 +36,9 @@
 // explicit instruction not to split attention. Deterministic fallback flags now
 // carry copyHint / stake / evidence / anchorEvent end-to-end so all four beats
 // can be populated from the CEO copy pack. Bump invalidates cached v7.2 briefs.
-export const BRIEF_PROMPT_VERSION = 'v7.3-behaviour-lead-rank';
+// v7.4 — Time-to-event precision. Deterministic copy and the CEO copy pack now
+// render a bucketed time clause ("in 45 minutes", "in about 3 hours", "later
+// today") from _shared/brief/time-phrase.ts instead of generic "within 24
+// hours" prose, and the thin-signal deterministic line is retired. Bump
+// invalidates cached v7.3 briefs whose anchor timing is now stale.
+export const BRIEF_PROMPT_VERSION = 'v7.4-time-to-event-precision';

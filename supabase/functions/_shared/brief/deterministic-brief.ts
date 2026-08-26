@@ -1,4 +1,5 @@
 import type { DayShape } from "./day-shape.ts";
+import { withTiming } from "./time-phrase.ts";
 import type { BriefCopyContext } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 import { behaviourPriority } from "../behaviour-evaluator.ts";
@@ -33,6 +34,12 @@ export interface DeterministicBriefFallbackOpts {
   wearableFact: string | null;
   window: "morning" | "afternoon" | "evening";
   todayHighStakes: string[];
+  /**
+   * Known start timing for today's high-stakes events, keyed by verbatim title.
+   * Drives every "in 45 minutes" / "in about 3 hours" clause. Titles absent
+   * from this list stay time-neutral — copy never invents timing.
+   */
+  highStakesTiming?: Array<{ title: string; minutesUntil: number }> | null;
   calendarLoad: "low" | "medium" | "high" | null;
   meetingCount: number;
   sleepScore: number | null;
@@ -130,6 +137,24 @@ function shortRefImpl(title: string): string {
     : `the ${clean.slice(0, 22).toLowerCase()}...`;
 }
 
+/** Minutes until a named event, when the caller supplied timing for it. */
+function minutesUntilTitle(
+  opts: DeterministicBriefFallbackOpts,
+  title: string | null | undefined,
+): number | null {
+  if (!title) return null;
+  const hit = (opts.highStakesTiming ?? []).find((t) => t.title === title);
+  return typeof hit?.minutesUntil === "number" ? hit.minutesUntil : null;
+}
+
+/** Short reference carrying its time-to-event clause when the calendar has it. */
+function shortRefTimed(
+  opts: DeterministicBriefFallbackOpts,
+  title: string,
+): string {
+  return withTiming(shortRef(title), minutesUntilTitle(opts, title));
+}
+
 function phraseFor(opts: DeterministicBriefFallbackOpts): string {
   const divergence =
     opts.cognitivePillTier === "green" && opts.checkInOutcome === "drained";
@@ -184,7 +209,9 @@ function buildBriefCopyContext(
     e.toLowerCase().startsWith("sequence:")
   );
   return {
-    anchorEvent: anchorTitle ? { title: anchorTitle } : undefined,
+    anchorEvent: anchorTitle
+      ? { title: anchorTitle, minutesUntil: minutesUntilTitle(opts, anchorTitle) }
+      : undefined,
     evidence: {
       categorySequence: seqLine
         ? seqLine.slice(seqLine.indexOf(":") + 1).trim()
@@ -249,7 +276,7 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   if (drainedIntoHighStakes) {
     const eventRef = hasManyHighStakes
       ? opts.todayHighStakes.slice(0, 2).map(shortRef).join(" and ")
-      : shortRef(opts.todayHighStakes[0]);
+      : shortRefTimed(opts, opts.todayHighStakes[0]);
     return opts.hasWearable
       ? `Recovery signals are clear but the Mind checked in drained${
         hasManyHighStakes
@@ -263,14 +290,14 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
 
   if (lowSleepIntoHighStakes) {
     return `Sleep ran short last night going into ${
-      shortRef(opts.todayHighStakes[0])
+      shortRefTimed(opts, opts.todayHighStakes[0])
     } - on short sleep, depth matters more than volume.`;
   }
 
   if (opts.hasWearable && hasHighStakes) {
     return `${
       wearableFact ?? "Recovery signals are in"
-    } going into ${shortRef(opts.todayHighStakes[0])}.`;
+    } going into ${shortRefTimed(opts, opts.todayHighStakes[0])}.`;
   }
 
   if (
@@ -309,7 +336,7 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
 
   if (opts.checkInOutcome && hasHighStakes) {
     return `You've checked in ${opts.checkInOutcome} and ${
-      shortRef(opts.todayHighStakes[0])
+      shortRefTimed(opts, opts.todayHighStakes[0])
     } is the weight on the ${opts.window}.`;
   }
 
@@ -328,7 +355,10 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     return `You've checked in ${evidenceOutcome} and there's no wearable read yet this ${opts.window}.`;
   }
 
-  return `Signal is thin this ${opts.window} - no wearable and no check-in yet.`;
+  // No current personal signal can reach this builder: buildDeterministicBriefFallback
+  // returns null before any sentence is built (awaiting-signals contract).
+  // This line exists only so the function is total.
+  return `The calendar is the only read in view this ${opts.window}.`;
 }
 
 function buildRead(opts: DeterministicBriefFallbackOpts): string {
@@ -536,14 +566,14 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
   if (drainedIntoHighStakes) {
     return hasManyHighStakes
       ? "Set the intention before each room; conserve the edge for where decisions land"
-      : `Protect the edge before ${shortRef(opts.todayHighStakes[0])}; trim what's peripheral and enter with what is there intact`;
+      : `Protect the edge before ${shortRefTimed(opts, opts.todayHighStakes[0])}; trim what's peripheral and enter with what is there intact`;
   }
   if (lowSleepIntoHighStakes) {
-    return `Protect the first thinking window before ${shortRef(opts.todayHighStakes[0])} rather than generating in the room`;
+    return `Protect the first thinking window before ${shortRefTimed(opts, opts.todayHighStakes[0])} rather than generating in the room`;
   }
   if (opts.cognitivePillTier === "green" && opts.physicalPillTier !== "green") {
     return hasHighStakes
-      ? `Front-load the decision and analysis work before ${shortRef(opts.todayHighStakes[0])}; let the presence work ride on physical steadiness`
+      ? `Front-load the decision and analysis work before ${shortRefTimed(opts, opts.todayHighStakes[0])}; let the presence work ride on physical steadiness`
       : "Use the window for decisions and analysis, keep the relational work short";
   }
   if (opts.physicalPillTier === "green" && opts.cognitivePillTier !== "green") {
@@ -551,7 +581,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
   }
   if (opts.cognitivePillTier === "green" && opts.physicalPillTier === "green") {
     if (hasHighStakes) {
-      return `Open with ${shortRef(opts.todayHighStakes[0])} while both pillars are clear`;
+      return `Open with ${shortRefTimed(opts, opts.todayHighStakes[0])} while both pillars are clear`;
     }
     return "Use this for the one decision or analysis that compounds most and protect the most important block";
   }
