@@ -42,6 +42,19 @@ export function checkinComposite(c: CheckinRow): number | null {
   return parts.reduce((a, b) => a + b, 0) / parts.length;
 }
 
+/**
+ * Thrown when the auth token is not yet available (native iOS keychain
+ * hydration) or the edge function rejects the call. Callers MUST let this
+ * bubble so React Query can retry — swallowing it produces permanently empty
+ * dots/charts on cold app start.
+ */
+export class MrsSeriesAuthError extends Error {
+  constructor(message = 'auth not ready') {
+    super(message);
+    this.name = 'MrsSeriesAuthError';
+  }
+}
+
 async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (DEV_MODE) {
@@ -49,10 +62,12 @@ async function authHeaders(): Promise<Record<string, string>> {
     if (anon) headers['Authorization'] = `Bearer ${anon}`;
   } else {
     const token = await getAuthToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (!token) throw new MrsSeriesAuthError('missing auth token for brief-history');
+    headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
+
 
 const dayMs = 24 * 60 * 60 * 1000;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
