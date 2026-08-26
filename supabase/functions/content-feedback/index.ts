@@ -122,7 +122,7 @@ function classifyDominantDayType(events: any[], loadMinutes: number): DominantDa
 }
 
 interface RequestBody {
-  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT';
+  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT' | 'GET_EVENT_OUTCOME_CANDIDATE' | 'SUBMIT_EVENT_OUTCOME';
   lookbackWindow?: 'thirty_days' | 'all_time';
   contentId?: string;
   feedbackData?: {
