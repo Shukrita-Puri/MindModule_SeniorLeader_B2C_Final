@@ -124,6 +124,9 @@ function classifyDominantDayType(events: any[], loadMinutes: number): DominantDa
 interface RequestBody {
   action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT' | 'GET_EVENT_OUTCOME_CANDIDATE' | 'SUBMIT_EVENT_OUTCOME';
   lookbackWindow?: 'thirty_days' | 'all_time';
+  /** Diagnostic dry run: widen the lookback and ignore already-answered events.
+   *  Nothing is persisted by the caller in this mode. */
+  dryRun?: boolean;
   contentId?: string;
   feedbackData?: {
     content_id: string;
@@ -225,8 +228,11 @@ serve(async (req) => {
       // Categories A–D are the demanding ones under the canonical A–H taxonomy.
       case 'GET_EVENT_OUTCOME_CANDIDATE': {
         const nowMs = Date.now();
-        const windowStartIso = new Date(nowMs - 6 * 60 * 60 * 1000).toISOString();
-        const endedBeforeIso = new Date(nowMs - 20 * 60 * 1000).toISOString();
+        const dryRun = body.dryRun === true;
+        const lookbackHours = dryRun ? 72 : 6;
+        const settleMinutes = dryRun ? 0 : 20;
+        const windowStartIso = new Date(nowMs - lookbackHours * 60 * 60 * 1000).toISOString();
+        const endedBeforeIso = new Date(nowMs - settleMinutes * 60 * 1000).toISOString();
         const today = new Date().toISOString().slice(0, 10);
 
         const [evRes, seenRes] = await Promise.all([
@@ -252,7 +258,7 @@ serve(async (req) => {
 
         let candidate: Record<string, unknown> | null = null;
         for (const e of mergedCandidates as any[]) {
-          if (seen.has(e.id)) continue;
+          if (!dryRun && seen.has(e.id)) continue;
           const status = String(e.event_metadata?.status ?? e.event_metadata?.responseStatus ?? '').toLowerCase();
           if (status === 'cancelled' || status === 'tentative') continue;
           const enriched = enrichCalendarEvent(e) as any;
