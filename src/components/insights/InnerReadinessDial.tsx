@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMrsTrend, type MrsRangeDays } from '@/hooks/useMrsTrend';
-import { fetchMrsDailySeries } from '@/services/mrsDailySeries';
+import { useMrsWeekSeries } from '@/hooks/useMrsWeekSeries';
 import MrsSparkline from '@/components/home/mrs/MrsSparkline';
 import SegmentedToggle from '@/components/insights/SegmentedToggle';
 
@@ -59,7 +59,7 @@ interface DayDot {
 const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
-  const [weekScores, setWeekScores] = useState<Record<string, number>>({});
+  
   const [showFirstReadingNotice, setShowFirstReadingNotice] = useState(false);
   const [expanded, setExpanded] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
