@@ -232,6 +232,9 @@ export async function submitPlanSlotPracticeFeedback(args: {
   rating: number;
   feedback?: string;
   practices: Array<{ contentId: string; contentType?: string | null; title?: string | null }>;
+  anchorEventId?: string | null;
+  anchorEventTitle?: string | null;
+  arcLabel?: string | null;
 }) {
   const practices = (args.practices || []).filter((p) => !!p?.contentId);
   if (practices.length === 0) return { success: true, written: 0 };
