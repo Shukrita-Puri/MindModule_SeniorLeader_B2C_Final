@@ -380,8 +380,12 @@ export interface BriefCopyEvidence {
  * in isolation and cannot accidentally reach raw signal internals.
  */
 export interface BriefCopyContext {
-  /** The calendar event the leading flag binds to, if any. */
-  anchorEvent?: { title?: string };
+  /**
+   * The calendar event the leading flag binds to, if any.
+   * `minutesUntil` drives every time-to-event clause in deterministic copy —
+   * see _shared/brief/time-phrase.ts. Omit it and copy stays time-neutral.
+   */
+  anchorEvent?: { title?: string; minutesUntil?: number | null };
   /** Normalised evidence values for the leading flag. */
   evidence?: BriefCopyEvidence;
 }
