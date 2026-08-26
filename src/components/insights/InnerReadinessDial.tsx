@@ -87,17 +87,10 @@ const InnerReadinessDial = () => {
 
   const uid = DEV_MODE ? DEV_USER.id : user?.id;
 
-  useEffect(() => {
-    const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const mondayISO = format(monday, 'yyyy-MM-dd');
-    const sundayISO = format(addDays(monday, 6), 'yyyy-MM-dd');
-    (async () => {
-      // Single source of truth shared with the trend chart: brief snapshot
-      // scores for the day, falling back to the day's check-in composite.
-      const { byDate } = await fetchMrsDailySeries(uid, mondayISO, sundayISO);
-      setWeekScores(byDate);
-    })();
-  }, [uid]);
+  // Weekly dots now share React Query semantics with the trend chart (retries +
+  // refetch on mount/focus) so a late native auth token no longer strands them.
+  const { weekScores } = useMrsWeekSeries();
+
 
 
   useEffect(() => {
