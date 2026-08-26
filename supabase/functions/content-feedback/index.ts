@@ -659,16 +659,11 @@ serve(async (req) => {
         }
         const hourBaselines = hourBuckets.map((vals) => (vals.length >= 10 ? median(vals) : null));
 
-        // Tier 3 basis: 30-day rolling median HRV.
-        const hrvBaseline = (() => {
-          const cutoffDate = new Date(hourBaselineCutoff).toISOString().slice(0, 10);
-          const vals: number[] = [];
-          for (const w of wearable) {
-            if (w.summary_date < cutoffDate) continue;
-            if (typeof w.hrv === 'number' && w.hrv > 0) vals.push(w.hrv);
-          }
-          return vals.length >= 5 ? median(vals) : null;
-        })();
+        // HRV is deliberately not used in this card — at practice granularity it
+        // added noise rather than evidence, so the 30-day HRV median basis was
+        // removed along with the HRV tiers.
+
+
 
         // ── Context label aggregation (Box 1 event pills) ───────
         // Priority: anchor event → slot label → arc. Feedback rows carry the
