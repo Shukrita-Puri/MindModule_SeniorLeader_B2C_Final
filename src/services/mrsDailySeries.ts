@@ -140,7 +140,8 @@ async function fetchCheckinScores(
       rows = data || [];
     } else {
       const token = await getAuthToken();
-      if (!token) return {};
+      if (!token) throw new MrsSeriesAuthError('missing auth token for daily-checkins');
+
       const { data } = await supabase.functions.invoke('daily-checkins', {
         headers: { Authorization: `Bearer ${token}` },
         body: { action: 'GET_MONTHLY_LEVELS', startDate, endDate },
