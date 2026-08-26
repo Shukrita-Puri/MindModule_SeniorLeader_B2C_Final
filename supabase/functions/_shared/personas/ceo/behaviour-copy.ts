@@ -58,6 +58,18 @@ export type BehaviourCopyEntry = {
 const anchor = (ctx: BriefCopyContext): string =>
   ctx.anchorEvent?.title ?? 'your highest-stakes event today';
 
+/**
+ * Anchor reference carrying its time-to-event clause when the calendar knows it
+ * ("the board call in 45 minutes"). Never invent timing — falls back to the
+ * bare title. Single source: _shared/brief/time-phrase.ts.
+ */
+const anchorTimed = (ctx: BriefCopyContext): string =>
+  withTiming(anchor(ctx), ctx.anchorEvent?.minutesUntil);
+
+/** Standalone timing clause, or null when the calendar has no usable timing. */
+const anchorWhen = (ctx: BriefCopyContext): string | null =>
+  timeUntilPhrase(ctx.anchorEvent?.minutesUntil);
+
 const categorySequence = (ctx: BriefCopyContext): string =>
   ctx.evidence?.categorySequence ?? 'product → finance → people';
 
