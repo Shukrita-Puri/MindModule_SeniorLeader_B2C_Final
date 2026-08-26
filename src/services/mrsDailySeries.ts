@@ -92,7 +92,11 @@ async function fetchBriefScores(
       if (cursorEnd < startDate) break;
       const url = `${base}?startDate=${startDate}&endDate=${cursorEnd}&limit=100`;
       const res = await fetch(url, { headers });
+      if (res.status === 401 || res.status === 403) {
+        throw new MrsSeriesAuthError(`brief-history ${res.status}`);
+      }
       if (!res.ok) break;
+
       const json = await res.json();
       const rows: Array<{ local_date?: string; score?: number | null }> = json?.briefs || [];
       if (rows.length === 0) break;
