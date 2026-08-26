@@ -6,7 +6,7 @@ Two files: `src/components/insights/PracticeEffectiveness.tsx` (icon + confidenc
 
 - Every wearable signal is prefixed with a small heart icon (lucide `Heart`, `h-3 w-3`), inline before the percentage, in the same colour as the signal text. Nothing else in the row changes.
 - The signal shown stays category-aware: Pause and Flow read as a calming direction, Energise reads as an activating direction, so a positive result always means "the practice did what it is meant to do".
-- HR is always preferred; HRV is only used when HR windows cannot be resolved. A row shows wearable data whenever any tier has data.
+- HR is always preferred; HRV is only used when the HR windows cannot be resolved. A row shows wearable data whenever any tier genuinely has data — and nothing at all when it doesn't. No substituted, interpolated or guessed values: an absent signal stays absent, and each row's shown sample count (`n`) always matches the sessions that actually contributed to it.
 - Signal confidence is legible from its colour: one session is faintest, two is dimmer, three or more is full emerald when the direction is positive.
 
 ## Engine changes (GET_PRACTICE_IMPACT only)
