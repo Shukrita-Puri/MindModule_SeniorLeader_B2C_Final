@@ -356,7 +356,7 @@ serve(async (req) => {
         const [fbRes, drcRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
           supabase
             .from('content_relevance_feedback')
-            .select('content_id, content_type, star_rating, session_id, trigger_context, created_at, context_data')
+            .select('id, content_id, content_type, star_rating, session_id, trigger_context, created_at, context_data')
             .eq('user_id', userId)
             .eq('feedback_type', 'star_rating')
             .not('star_rating', 'is', null)
