@@ -285,11 +285,10 @@ function formatWearableSignal(signal: WearableSignal): { text: string; positive:
   const pct = signal.primarySignalPct;
   if (pct == null || signal.n < 1) return null;
   const abs = Math.abs(pct).toFixed(1);
-  // A "positive impact" reads as a rise for HRV / activation signals and as a
-  // drop for composing signals, so the sign follows the measured direction.
-  const rising = signal.primarySignalIsPositive;
-  const sign = rising ? (pct >= 0 ? '+' : '−') : pct >= 0 ? '−' : '+';
-  const positive = pct > 0;
+  // `pct` is the signed HR change; `primarySignalIsPositive` is the direction the
+  // practice is meant to move it. "Positive" therefore means the two agree.
+  const sign = pct >= 0 ? '+' : '−';
+  const positive = pct >= 0 === signal.primarySignalIsPositive;
   return { text: `${sign}${abs}% ${signal.primarySignalLabel}`, positive };
 }
 
@@ -297,16 +296,18 @@ function FindingRow({ practice }: { practice: Box1Practice }) {
   const signal = practice.wearableSignal;
   const wearable = signal ? formatWearableSignal(signal) : null;
   const wearableN = signal?.n ?? 0;
-  // Confidence reads off the contributing session count: one session is faintest,
-  // two is dimmer, three or more earns the full positive treatment.
+  // Felt experience decides effectiveness; HR corroborates. Emerald is reserved
+  // for agreement between the two at three or more sessions.
+  const thumbsPositive = practice.thumbsTotal >= 1 && practice.thumbsUp * 2 > practice.thumbsTotal;
   const wearableTone =
     wearableN <= 1
       ? 'text-muted-foreground/60'
       : wearableN === 2
         ? 'text-muted-foreground/80'
-        : wearable?.positive
+        : wearable?.positive && thumbsPositive
           ? 'text-emerald-700'
           : 'text-muted-foreground';
+
   const eventChip = practice.contextLabel
     ? practice.contextLabel.length > 22
       ? `${practice.contextLabel.slice(0, 22)}…`
