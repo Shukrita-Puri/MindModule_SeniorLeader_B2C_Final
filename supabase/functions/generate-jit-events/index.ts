@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { primeLearningContext } from "../_shared/events/learning-store.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { isNoiseTitle, isEducationalTitle } from "../_shared/events/event-classifier.ts";
@@ -471,6 +472,8 @@ serve(async (req) => {
       ),
       platform,
     );
+
+    await primeLearningContext(supabase as any, userId);
 
     const { timezoneOffset = 0 } = await req.json();
     console.log(`[generate-jit-events] User: ${redactUserId(userId)}, TZ offset: ${timezoneOffset}`);
