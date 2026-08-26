@@ -1011,6 +1011,11 @@ serve(async (req) => {
 
 
         // ── Category-aware wearable signal per practice ─────────
+        // HR only. `primarySignalPct` is the signed HR change after the practice
+        // relative to its baseline (positive = HR went up). `primarySignalIsPositive`
+        // says which direction is the *intended* one for the category, so the UI
+        // can tell "did what it should" from "went the other way" without owning
+        // any category rules.
         type WearableSignal = {
           primarySignalPct: number | null;
           primarySignalLabel: string;
@@ -1018,7 +1023,7 @@ serve(async (req) => {
           secondarySignalPct: number | null;
           secondarySignalLabel: string;
           n: number;
-          signalTier: 'triple_window' | 'baseline_comparison' | 'hrv_next_day' | null;
+          signalTier: 'before_after' | 'baseline_comparison' | null;
           timingSource: 'precise' | 'rating_derived';
         };
         // Noise floor — anything under 3% is indistinguishable from drift, so it
@@ -1031,94 +1036,41 @@ serve(async (req) => {
           if (Math.abs(s.primarySignalPct) < SIGNAL_NOISE_FLOOR_PCT) return null;
           return s;
         };
+        const isEnergising = (cat: string) => cat.includes('energise') || cat.includes('energize');
         const buildWearableSignal = (contentId: string, category: string): WearableSignal | null => {
           const agg = wearableSignalAgg.get(contentId);
           if (!agg) return null;
           const cat = (category || '').toLowerCase();
-          const hasHr = agg.hrN >= 1;
-          const hasHrv = agg.hrvN >= 1;
+          const hasHr = agg.hrN >= 1 && agg.hrBeforeSum > 0;
           const hasBaseline = agg.baseN >= 1 && agg.baseExpectedSum > 0;
-          const hasHrvBaseline = agg.hrvBaseN >= 1 && agg.hrvBaseSum > 0;
           const timingSource: 'precise' | 'rating_derived' = agg.ratingDerived ? 'rating_derived' : 'precise';
-          if (!hasHr && !hasHrv && !hasBaseline && !hasHrvBaseline) return null;
+          // Energise wants HR up; Pause and Flow want it down.
+          const intendedRise = isEnergising(cat);
 
-          const meanHrBefore = hasHr ? agg.hrBeforeSum / agg.hrN : null;
-          const meanHrDuring = hasHr ? agg.hrDuringSum / agg.hrN : null;
-          const meanHrAfter = hasHr ? agg.hrAfterSum / agg.hrN : null;
-          const hrDropPct = meanHrBefore && meanHrDuring
-            ? round1(((meanHrBefore - meanHrDuring) / meanHrBefore) * 100)
-            : null;
-          const hrRisePct = meanHrBefore && meanHrDuring
-            ? round1(((meanHrDuring - meanHrBefore) / meanHrBefore) * 100)
-            : null;
-          const hrRecoveryPct = meanHrDuring && meanHrAfter
-            ? round1(((meanHrDuring - meanHrAfter) / meanHrDuring) * 100)
-            : null;
-          // Sustained calm: how far HR sits below the pre-practice level afterwards.
-          const hrAfterDropPct = meanHrBefore && meanHrAfter
-            ? round1(((meanHrBefore - meanHrAfter) / meanHrBefore) * 100)
-            : null;
-          const hrvLiftPct = hasHrv && agg.hrvBeforeSum > 0
-            ? round1((((agg.hrvAfterSum / agg.hrvN) - (agg.hrvBeforeSum / agg.hrvN)) / (agg.hrvBeforeSum / agg.hrvN)) * 100)
-            : null;
-
-          // ── Tier 1 — precise triple window ────────────────────
+          // ── Tier 1 — the user's own pre-practice 15 minutes ────
           if (hasHr) {
-            const base = { signalTier: 'triple_window' as const, timingSource };
-            if (cat.includes('pause')) {
-              return {
-                primarySignalPct: hrDropPct,
-                primarySignalLabel: 'HR during',
-                primarySignalIsPositive: false,
-                secondarySignalPct: hrAfterDropPct,
-                secondarySignalLabel: hrAfterDropPct != null ? 'HR after' : '',
-                n: agg.hrN,
-                ...base,
-              };
-            }
-            if (cat.includes('flow')) {
-              return {
-                primarySignalPct: hrvLiftPct ?? hrDropPct,
-                primarySignalLabel: hrvLiftPct != null ? 'HRV next AM' : 'HR during',
-                primarySignalIsPositive: hrvLiftPct != null,
-                secondarySignalPct: hrvLiftPct != null ? hrDropPct : null,
-                secondarySignalLabel: hrvLiftPct != null ? 'HR during' : '',
-                n: hasHrv ? agg.hrvN : agg.hrN,
-                ...base,
-              };
-            }
-            if (cat.includes('energise') || cat.includes('energize')) {
-              return {
-                primarySignalPct: hrRisePct,
-                primarySignalLabel: 'HR during',
-                primarySignalIsPositive: true,
-                secondarySignalPct: hrRecoveryPct,
-                secondarySignalLabel: 'HR recovery',
-                n: agg.hrN,
-                ...base,
-              };
-            }
+            const meanHrBefore = agg.hrBeforeSum / agg.hrN;
+            const meanHrAfter = agg.hrAfterSum / agg.hrN;
             return {
-              primarySignalPct: hrDropPct,
-              primarySignalLabel: 'HR during',
-              primarySignalIsPositive: false,
+              primarySignalPct: round1(((meanHrAfter - meanHrBefore) / meanHrBefore) * 100),
+              primarySignalLabel: 'HR vs baseline',
+              primarySignalIsPositive: intendedRise,
               secondarySignalPct: null,
               secondarySignalLabel: '',
               n: agg.hrN,
-              ...base,
+              signalTier: 'before_after',
+              timingSource,
             };
           }
 
-          // ── Tier 2 — HR during vs personal hour-of-day baseline ──
+          // ── Tier 2 — HR after vs personal hour-of-day baseline ──
           if (hasBaseline) {
             const expected = agg.baseExpectedSum / agg.baseN;
-            const during = agg.baseDuringSum / agg.baseN;
-            const dropPct = round1(((expected - during) / expected) * 100);
-            const energising = cat.includes('energise') || cat.includes('energize');
+            const after = agg.baseAfterSum / agg.baseN;
             return {
-              primarySignalPct: energising ? round1(-dropPct) : dropPct,
+              primarySignalPct: round1(((after - expected) / expected) * 100),
               primarySignalLabel: 'HR vs baseline',
-              primarySignalIsPositive: energising,
+              primarySignalIsPositive: intendedRise,
               secondarySignalPct: null,
               secondarySignalLabel: '',
               n: agg.baseN,
@@ -1127,37 +1079,9 @@ serve(async (req) => {
             };
           }
 
-          // ── Tier 3 — next-morning HRV vs 30-day median ──────────
-          if (hasHrvBaseline) {
-            const base = agg.hrvBaseSum / agg.hrvBaseN;
-            const next = agg.hrvNextSum / agg.hrvBaseN;
-            return {
-              primarySignalPct: round1(((next - base) / base) * 100),
-              primarySignalLabel: 'HRV vs baseline',
-              primarySignalIsPositive: true,
-              secondarySignalPct: null,
-              secondarySignalLabel: '',
-              n: agg.hrvBaseN,
-              signalTier: 'hrv_next_day',
-              timingSource,
-            };
-          }
-
-          // Day-over-day HRV pair without a usable baseline.
-          if (hasHrv && hrvLiftPct != null) {
-            return {
-              primarySignalPct: hrvLiftPct,
-              primarySignalLabel: 'HRV next AM',
-              primarySignalIsPositive: true,
-              secondarySignalPct: null,
-              secondarySignalLabel: '',
-              n: agg.hrvN,
-              signalTier: 'hrv_next_day',
-              timingSource,
-            };
-          }
           return null;
         };
+
 
         // ── Backfill timing context onto existing ratings ────────
         // Historic ratings were written without timing, so reads had nothing to
