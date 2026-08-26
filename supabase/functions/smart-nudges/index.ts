@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { primeLearningContext } from "../_shared/events/learning-store.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   callClaudeText,
@@ -5515,6 +5516,9 @@ serve(async (req) => {
 
     // 3. Evaluate each user
     for (const userId of userIds) {
+      // Bind this user's A–H learning memory for the rest of the iteration.
+      // Set unconditionally so no context carries over between users.
+      await primeLearningContext(supabase as any, userId);
       const profile = profileMap.get(userId);
       const prefs = prefMap.get(userId);
       const timezoneRead = await resolveEffectiveTimezone(

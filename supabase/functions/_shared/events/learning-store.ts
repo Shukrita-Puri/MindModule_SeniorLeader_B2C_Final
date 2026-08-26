@@ -392,7 +392,8 @@ export async function primeLearningContext(
   try {
     if (!supabase || !userId) return;
     const ctx = await loadLearningContext(supabase, userId);
-    if (ctx.titles.size === 0 && ctx.tokens.size === 0) return;
+    // Always set (even when empty) so a previously primed user's context can
+    // never linger in a sequential multi-user loop.
     learningStorage.enterWith(ctx);
   } catch (_err) {
     // Degrade to dictionary.
