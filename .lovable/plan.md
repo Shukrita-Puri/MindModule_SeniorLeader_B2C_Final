@@ -14,6 +14,25 @@
   - Post-event logic must canonicalize those provider rows into one event and must record/send once only.
 - There is currently no dedicated post-event notification type in `notification_log`; the existing post-event reflection is an in-app card, not a push notification flow.
 
+## Why existing calendar dedupe did not fully protect this path
+
+The dedupe rule already exists, but it is not uniformly enforced as a required read gateway for every calendar consumer.
+
+Verified current wiring:
+
+- The project memory and shared rules define the contract: same normalized title plus same start/end window across providers must collapse to one logical event.
+- The backend shared calendar rule exports `mergeCalendarEvents`, and the load-specific helper `calendar-dedupe.ts` is for CEO-behaviour load aggregation.
+- `content-feedback` now calls `mergeCalendarEvents` before choosing an in-app event outcome candidate.
+- `smart-nudges` has a helper that wraps `mergeCalendarEvents`, but there is no dedicated `post_event_debrief` notification path yet, so that new path must explicitly use the same canonicalized event shape from the beginning.
+- `PostEventReflection` still performs a frontend raw `calendar_events` read and then merges locally; this is safer than no merge, but it remains a separate implementation path and uses legacy high-stakes keyword filtering instead of the canonical A–H resolver.
+
+Plan correction:
+
+- Treat `mergeCalendarEvents` / `collapseDuplicateEvents` as the mandatory SSOT for all read-time calendar identity, not an optional helper.
+- Do not use the load-only `calendar-dedupe.ts` helper for post-event identity unless the requirement is load aggregation; for post-event prompts and notification dedupe, use the richer read-time merge because it preserves canonical IDs, raw event IDs, source calendars, provider precedence, and status resolution.
+- Add a stable canonical event fingerprint for post-event writes and notification dispatch, derived from the merged event identity rather than a raw provider row id.
+- Add tests proving that the Apple + Google copies of “Why Investor Comms are so Important” collapse to one candidate, one dispatch claim, one notification log row, and one outcome record.
+
 ## Fix 1 — Make the completion write impossible to lose practice ids
 
 Because this has regressed repeatedly, move from “client sends fields and hopes the row merges correctly” to a server-owned invariant:
@@ -66,11 +85,28 @@ For guided practices, soundscapes, card-deck micro-practices, and the legacy mic
 
 ## Fix 5 — Post-event notification without duplicate recording
 
-- Canonicalize calendar rows before choosing the candidate, so the Google + Apple duplicate for the 12:00 London meeting becomes one event.
-- Use a stable event fingerprint based on title + start + end + provider/external identifiers so the notification and outcome prompt dedupe correctly.
+- Build the post-event notification candidate from canonicalized calendar rows only:
+  - query raw rows for the time window,
+  - immediately run them through `mergeCalendarEvents`,
+  - select and dispatch only from the merged event list.
+- Use a stable event fingerprint based on the merged event identity:
+  - prefer `canonicalEventId` / `identityKey`,
+  - include title + start + end when needed,
+  - store raw provider row ids only as metadata/audit context, never as the primary dedupe key.
 - Add a `post_event_debrief` notification type that fires after the meeting ends and deep-links to the existing post-event reflection/outcome flow.
-- Record delivery in `notification_log` and record user response in `event_outcome_feedback`.
+- Record delivery in `notification_log` with the canonical fingerprint as `event_reference`.
+- Record user response in `event_outcome_feedback` against the same canonical fingerprint, so Apple and Google copies cannot create separate “seen” states.
 - For today’s 12:00–13:00 London meeting, send/test against the canonical single event only and confirm exactly one notification log entry.
+
+## Fix 6 — Close remaining raw-calendar post-event gaps
+
+- Move the in-app `PostEventReflection` candidate lookup behind the same backend outcome-candidate path, or mirror the backend canonicalization and A–H filtering exactly.
+- Replace title-only “already reflected” checks with canonical event fingerprint checks.
+- Add regression coverage for:
+  - same title + same time in Apple and Google = one logical event,
+  - same time but genuinely different titles = separate events where the SSOT says they are separate,
+  - cancelled/tentative provider mirrors cannot suppress or duplicate a confirmed canonical event incorrectly,
+  - post-event prompt remains available later in the day until it is answered or the allowed post-event window expires.
 
 ## Shukrita end-to-end proof checklist
 
@@ -88,11 +124,14 @@ After implementation, validate with the live account:
 6. Open the Insights card and confirm the wearable badge is visible for at least one recently done practice with HR/HRV evidence.
 7. Trigger the post-event candidate for the 12:00 London meeting and confirm it resolves to one canonical event, not two rows.
 8. Send the post-event notification and confirm exactly one `notification_log` row plus one outcome row after response.
+9. Verify the notification and in-app post-event prompt both use the same canonical event fingerprint.
 
 ## Technical files likely touched
 
 - Backend functions: `daily-rituals`, `content-feedback`, `smart-nudges`.
+- Shared calendar rules: reuse `supabase/functions/_shared/rules/calendarEvents.ts` / `calendar-merge.ts`; do not invent another post-event dedupe helper.
 - Frontend helpers: `dailyRituals`, `relevanceFeedback`, `eventOutcomeFeedback`.
 - Player screens: guided, soundscape, card-deck micro, legacy micro.
+- In-app post-event UI: route `PostEventReflection` through the canonical candidate/fingerprint flow or make it match exactly.
 - Notification tap routing: add the post-event route mapping.
-- Database: one data cleanup plus one integrity guard for `daily_ritual_completions`.
+- Database: one data cleanup plus one integrity guard for `daily_ritual_completions`; use canonical post-event fingerprints for duplicate prevention.
