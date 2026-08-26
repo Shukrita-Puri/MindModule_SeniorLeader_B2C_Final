@@ -1073,6 +1073,62 @@ serve(async (req) => {
           return null;
         };
 
+        // ── Backfill timing context onto existing ratings ────────
+        // Historic ratings were written without timing, so reads had nothing to
+        // anchor wearable windows to. Repair them from the ritual ledger, for
+        // this user only, and never overwrite an existing context_data payload.
+        try {
+          type DrcTiming = { startIso: string; endIso: string; ids: string[] };
+          const drcTimingByDay = new Map<string, DrcTiming[]>();
+          for (const row of (drcRes.data ?? []) as any[]) {
+            const day = String(row.ritual_date ?? '').slice(0, 10);
+            const s = row.practice_started_at;
+            const e = row.practice_completed_at;
+            if (!day || typeof s !== 'string' || typeof e !== 'string') continue;
+            const sMs = +new Date(s);
+            const eMs = +new Date(e);
+            if (!Number.isFinite(sMs) || !Number.isFinite(eMs) || eMs <= sMs) continue;
+            const ids = ((row.completed_practice_ids ?? []) as string[]).filter(Boolean);
+            const list = drcTimingByDay.get(day) ?? [];
+            list.push({ startIso: new Date(sMs).toISOString(), endIso: new Date(eMs).toISOString(), ids });
+            drcTimingByDay.set(day, list);
+          }
+
+          const backfills: Array<{ id: string; context_data: Record<string, unknown> }> = [];
+          for (const r of feedbackRows as any[]) {
+            if (!r.id || !r.content_id || !r.created_at) continue;
+            if (r.context_data != null) continue;
+            const day = String(r.created_at).slice(0, 10);
+            const match = (drcTimingByDay.get(day) ?? []).find((t) => t.ids.includes(r.content_id));
+            if (!match) continue;
+            const durationSeconds = Math.round((+new Date(match.endIso) - +new Date(match.startIso)) / 1000);
+            backfills.push({
+              id: r.id,
+              context_data: {
+                practiceStartedAt: match.startIso,
+                practiceCompletedAt: match.endIso,
+                durationSeconds,
+                backfilled: true,
+              },
+            });
+          }
+
+          for (const b of backfills.slice(0, 200)) {
+            const { error } = await supabase
+              .from('content_relevance_feedback')
+              .update({ context_data: b.context_data })
+              .eq('id', b.id)
+              .eq('user_id', userId)
+              .is('context_data', null);
+            if (error) console.warn('[content-feedback] context_data backfill failed', b.id, error.message);
+          }
+          if (backfills.length) {
+            console.log(`[content-feedback] backfilled context_data on ${Math.min(backfills.length, 200)} rating(s)`);
+          }
+        } catch (e) {
+          console.warn('[content-feedback] context_data backfill skipped:', (e as Error)?.message);
+        }
+
         // ── Box 1 list (composite scoring) ──────────────────────
         const box1Practices = Array.from(perContent.values())
           // Synthetic plan-level rows (plan-tod/plan-*) are attribution carriers, not
