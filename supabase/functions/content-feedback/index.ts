@@ -940,6 +940,8 @@ serve(async (req) => {
           secondarySignalPct: number | null;
           secondarySignalLabel: string;
           n: number;
+          signalTier: 'triple_window' | 'baseline_comparison' | 'hrv_next_day' | null;
+          timingSource: 'precise' | 'rating_derived';
         };
         const usableSignal = (s: WearableSignal | null): WearableSignal | null => {
           if (!s) return null;
@@ -953,8 +955,10 @@ serve(async (req) => {
           const cat = (category || '').toLowerCase();
           const hasHr = agg.hrN >= 1;
           const hasHrv = agg.hrvN >= 1;
-          if (!hasHr && !hasHrv) return null;
-
+          const hasBaseline = agg.baseN >= 1 && agg.baseExpectedSum > 0;
+          const hasHrvBaseline = agg.hrvBaseN >= 1 && agg.hrvBaseSum > 0;
+          const timingSource: 'precise' | 'rating_derived' = agg.ratingDerived ? 'rating_derived' : 'precise';
+          if (!hasHr && !hasHrv && !hasBaseline && !hasHrvBaseline) return null;
 
           const meanHrBefore = hasHr ? agg.hrBeforeSum / agg.hrN : null;
           const meanHrDuring = hasHr ? agg.hrDuringSum / agg.hrN : null;
@@ -972,7 +976,42 @@ serve(async (req) => {
             ? round1((((agg.hrvAfterSum / agg.hrvN) - (agg.hrvBeforeSum / agg.hrvN)) / (agg.hrvBeforeSum / agg.hrvN)) * 100)
             : null;
 
-          if (cat.includes('pause')) {
+          // ── Tier 1 — precise triple window ────────────────────
+          if (hasHr) {
+            const base = { signalTier: 'triple_window' as const, timingSource };
+            if (cat.includes('pause')) {
+              return {
+                primarySignalPct: hrDropPct,
+                primarySignalLabel: 'HR during',
+                primarySignalIsPositive: false,
+                secondarySignalPct: null,
+                secondarySignalLabel: '',
+                n: agg.hrN,
+                ...base,
+              };
+            }
+            if (cat.includes('flow')) {
+              return {
+                primarySignalPct: hrvLiftPct ?? hrDropPct,
+                primarySignalLabel: hrvLiftPct != null ? 'HRV next AM' : 'HR during',
+                primarySignalIsPositive: hrvLiftPct != null,
+                secondarySignalPct: hrvLiftPct != null ? hrDropPct : null,
+                secondarySignalLabel: hrvLiftPct != null ? 'HR during' : '',
+                n: hasHrv ? agg.hrvN : agg.hrN,
+                ...base,
+              };
+            }
+            if (cat.includes('energise') || cat.includes('energize')) {
+              return {
+                primarySignalPct: hrRisePct,
+                primarySignalLabel: 'HR during',
+                primarySignalIsPositive: true,
+                secondarySignalPct: hrRecoveryPct,
+                secondarySignalLabel: 'HR recovered',
+                n: agg.hrN,
+                ...base,
+              };
+            }
             return {
               primarySignalPct: hrDropPct,
               primarySignalLabel: 'HR during',
@@ -980,36 +1019,58 @@ serve(async (req) => {
               secondarySignalPct: null,
               secondarySignalLabel: '',
               n: agg.hrN,
+              ...base,
             };
           }
-          if (cat.includes('flow')) {
+
+          // ── Tier 2 — HR during vs personal hour-of-day baseline ──
+          if (hasBaseline) {
+            const expected = agg.baseExpectedSum / agg.baseN;
+            const during = agg.baseDuringSum / agg.baseN;
+            const dropPct = round1(((expected - during) / expected) * 100);
+            const energising = cat.includes('energise') || cat.includes('energize');
+            return {
+              primarySignalPct: energising ? round1(-dropPct) : dropPct,
+              primarySignalLabel: 'HR vs baseline',
+              primarySignalIsPositive: energising,
+              secondarySignalPct: null,
+              secondarySignalLabel: '',
+              n: agg.baseN,
+              signalTier: 'baseline_comparison',
+              timingSource,
+            };
+          }
+
+          // ── Tier 3 — next-morning HRV vs 30-day median ──────────
+          if (hasHrvBaseline) {
+            const base = agg.hrvBaseSum / agg.hrvBaseN;
+            const next = agg.hrvNextSum / agg.hrvBaseN;
+            return {
+              primarySignalPct: round1(((next - base) / base) * 100),
+              primarySignalLabel: 'HRV vs baseline',
+              primarySignalIsPositive: true,
+              secondarySignalPct: null,
+              secondarySignalLabel: '',
+              n: agg.hrvBaseN,
+              signalTier: 'hrv_next_day',
+              timingSource,
+            };
+          }
+
+          // Day-over-day HRV pair without a usable baseline.
+          if (hasHrv && hrvLiftPct != null) {
             return {
               primarySignalPct: hrvLiftPct,
               primarySignalLabel: 'HRV next AM',
               primarySignalIsPositive: true,
-              secondarySignalPct: hrDropPct,
-              secondarySignalLabel: 'HR during',
-              n: hasHrv ? agg.hrvN : agg.hrN,
+              secondarySignalPct: null,
+              secondarySignalLabel: '',
+              n: agg.hrvN,
+              signalTier: 'hrv_next_day',
+              timingSource,
             };
           }
-          if (cat.includes('energise') || cat.includes('energize')) {
-            return {
-              primarySignalPct: hrRisePct,
-              primarySignalLabel: 'HR during',
-              primarySignalIsPositive: true,
-              secondarySignalPct: hrRecoveryPct,
-              secondarySignalLabel: 'HR recovered',
-              n: agg.hrN,
-            };
-          }
-          return {
-            primarySignalPct: hrDropPct,
-            primarySignalLabel: 'HR during',
-            primarySignalIsPositive: false,
-            secondarySignalPct: null,
-            secondarySignalLabel: '',
-            n: agg.hrN,
-          };
+          return null;
         };
 
         // ── Box 1 list (composite scoring) ──────────────────────
