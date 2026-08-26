@@ -2666,7 +2666,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           "text-quote font-headline italic text-foreground",
           SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"
         )}>
-          Read from your signals. Full brief prose is awaiting the latest signals.
+          {READINESS_AWAITING_MESSAGE}
         </p>
       )}
 
