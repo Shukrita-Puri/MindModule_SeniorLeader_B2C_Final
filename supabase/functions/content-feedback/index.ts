@@ -587,9 +587,11 @@ serve(async (req) => {
         const eventContextFromRow = (r: any): EventContext | null => {
           if (!r || !r.created_at) return null;
           const ctx = (r.context_data ?? {}) as any;
-          const arc = ctx.session_period
-            ? String(ctx.session_period).replace(/^./, (c: string) => c.toUpperCase())
-            : arcFromIso(r.created_at);
+          const arc = ctx.arc_label
+            ? String(ctx.arc_label).replace(/^./, (c: string) => c.toUpperCase())
+            : ctx.session_period
+              ? String(ctx.session_period).replace(/^./, (c: string) => c.toUpperCase())
+              : arcFromIso(r.created_at);
 
           // 1. Anchor event (JIT / plan slot tied to a calendar event)
           const anchorId = ctx.anchor_event_id || ctx.anchorEventId || null;
