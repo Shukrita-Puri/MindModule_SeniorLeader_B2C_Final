@@ -6,6 +6,7 @@
 //   L0  status      — defensive cancelled/tentative read
 //   L1  userTags    — explicit user-declared category override
 //   L2  verbs       — presentation verb + isOrganizer
+//   L2i intent      — content ABOUT a topic (webinar/explainer) vs the room
 //   L3  roles       — attendee role mix (board/investor/customer/...)
 //   L4  travel      — flight #, route code, travel verb, OR travel_state +
 //                     travel-leaning token
@@ -24,6 +25,7 @@ import { detectTravelFromTitle, extractBareAirportCodes } from "./travel-pattern
 import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
 import { lookupLearned, type LearningContext } from "./learning-store.ts";
+import { detectContentIntent } from "./event-intent.ts";
 
 export type ResolvedBy =
   | 'layer0_status'
@@ -31,6 +33,7 @@ export type ResolvedBy =
   | 'layer1_confirmed_title'
   | 'layer2_verbs'
   | 'layer2_learned_token'
+  | 'layer2_intent'
   | 'layer3_roles'
   | 'layer4_travel_regex'
   | 'layer4_travel_state'
@@ -219,6 +222,19 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
         ? 'layer1_confirmed_title'
         : 'layer2_learned_token',
     };
+  }
+
+  // L2i: intent layer. Content ABOUT a topic ("Why Investor Comms are so
+  // Important") must never be read as the room itself. Runs after user tags
+  // and the learning store so an explicit correction always wins, and before
+  // the dictionary so a single generic token cannot capture a webinar.
+  const intent = detectContentIntent({
+    title,
+    eventMetadata: input.eventMetadata ?? null,
+    isOrganizer: input.isOrganizer ?? null,
+  });
+  if (intent.isContent) {
+    return resultFromSubtype('str.learning', 'layer2_intent', 'medium');
   }
 
   // L3: attendee roles (only when caller passed them).
