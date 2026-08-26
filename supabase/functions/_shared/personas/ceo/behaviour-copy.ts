@@ -818,11 +818,10 @@ function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string
 
   if (!state) return `${nCap(shape)}.`;
 
-  const shapeLead = i.window === "evening" ? "That, against" : "Against that,";
   const forms: string[] = [
     `${nCap(state)}. ${nCap(shape)}.`,
     `${nCap(state)} — and ${shape}.`,
-    `${nCap(shape)}. ${shapeLead === "Against that," ? "Behind it" : "Behind it"}, ${state}.`,
+    `${nCap(shape)}. Behind it, ${state}.`,
     `${nCap(state)}, with ${shape}.`,
   ];
   return nPick(forms, i.variantSeed, `evidence:${i.narrative.family}:${i.window}`);
