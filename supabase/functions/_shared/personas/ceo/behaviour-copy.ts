@@ -182,7 +182,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Name the one thing creating the most anticipatory friction and schedule it first ` +
       `or move it out entirely.`,
-    close: () => `name the friction, move it`,
+    close: () => `don't carry it into the room`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -201,7 +201,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Frame every decision today through one question: does this build or erode ` +
       `the executive presence that room requires?`,
-    close: () => `every choice is prep`,
+    close: () => `steady yourself well ahead of it`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -217,7 +217,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Write one exit sentence after each meeting capturing what was decided and what's open; ` +
       `don't carry the previous frame into the next room.`,
-    close: () => `close each frame before switching`,
+    close: () => `reset yourself in the gaps`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Build a hard 15-minute buffer after this before any decision or performance moment — ` +
       `use it to discharge, not debrief.`,
-    close: () => `buffer is a leadership variable`,
+    close: () => `settle before you walk in`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Run reversible decisions first; protect irreversible ones for your peak window, ` +
       `not the end of a compressed block.`,
-    close: () => `sequence the irreversible last`,
+    close: () => `steady yourself between the calls`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -264,7 +264,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `No new decisions between blocks; one deliberate breathing anchor ` +
       `between the two heaviest meetings.`,
-    close: () => `protect whatever gaps remain`,
+    close: () => `use the gaps to settle`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -279,7 +279,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Run the pre-protocol for each separately; don't let one event borrow ` +
       `the other's preparation window.`,
-    close: () => `each moment gets its own prep`,
+    close: () => `reset yourself between each one`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
