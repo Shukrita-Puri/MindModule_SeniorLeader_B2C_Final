@@ -897,11 +897,12 @@ serve(async (req) => {
             pushDim('confidence', prior?.confidence_level ?? null, next?.confidence_level ?? null);
           }
 
-          // ── Wearable signal, three tiers ──────────────────────
-          // Tier 1 BEFORE [start−15m, start), DURING [start, end),
-          // AFTER (end, end+15m] — all three required.
-          // Tier 2 DURING vs the user's own hour-of-day HR baseline.
-          // Tier 3 next-morning HRV vs the 30-day median HRV.
+          // ── Wearable signal, two HR tiers ─────────────────────
+          // Tier 1 BEFORE [start−15m, start) vs AFTER (end, end+15m] — both
+          // required. The mid-practice window is not used: practices run 2–5
+          // minutes and often carry zero HR samples, and the question this card
+          // answers is what state the user came out in.
+          // Tier 2 AFTER vs the user's own hour-of-day HR baseline.
           const anchorMs = +new Date(ev.timestamp);
           if (Number.isFinite(anchorMs)) {
             const durationMs = durationSecondsOf(ev.content_id) * 1000;
@@ -917,7 +918,6 @@ serve(async (req) => {
                 : anchorMs + durationMs;
 
             const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
-            const hrDuring = meanHrBetween(startMs, endMs);
             const hrAfter = meanHrBetween(endMs, endMs + 15 * 60 * 1000, { excludeStart: true, includeEnd: true });
             const sig = getSignalAgg(ev.content_id);
             if (ratingDerived) sig.ratingDerived = true;
@@ -927,37 +927,22 @@ serve(async (req) => {
             const confounded = hrBefore.mean != null && hrBefore.mean > 100;
             if (confounded) {
               // skip HR aggregation entirely for this session
-            } else if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
-              // Tier 1
+            } else if (hrBefore.mean != null && hrAfter.mean != null) {
+              // Tier 1 — before vs after
               sig.hrBeforeSum += hrBefore.mean;
-              sig.hrDuringSum += hrDuring.mean;
               sig.hrAfterSum += hrAfter.mean;
               sig.hrN += 1;
-            } else if (hrDuring.mean != null) {
+            } else if (hrAfter.mean != null) {
               // Tier 2 — personal time-of-day baseline
-              const expected = hourBaselines[new Date(startMs).getUTCHours()];
+              const expected = hourBaselines[new Date(endMs).getUTCHours()];
               if (expected != null && expected > 0) {
-                sig.baseDuringSum += hrDuring.mean;
+                sig.baseAfterSum += hrAfter.mean;
                 sig.baseExpectedSum += expected;
                 sig.baseN += 1;
               }
             }
 
-            // Overnight recovery: HRV on the practice day vs the next morning.
-            // RHR is deliberately not used — same granularity, same construct.
-            const d0 = wearableByDate.get(dateKey(ev.timestamp));
-            const d1 = wearableByDate.get(nextDateKey(ev.timestamp));
-            if (d0?.hrv != null && d1?.hrv != null) {
-              sig.hrvBeforeSum += d0.hrv;
-              sig.hrvAfterSum += d1.hrv;
-              sig.hrvN += 1;
-            }
-            // Tier 3 — next-morning HRV vs 30-day median (works with one night)
-            if (d1?.hrv != null && hrvBaseline != null && hrvBaseline > 0) {
-              sig.hrvNextSum += d1.hrv;
-              sig.hrvBaseSum += hrvBaseline;
-              sig.hrvBaseN += 1;
-            }
+
 
 
             // Event category this practice preceded (calendar event within 24h after)
