@@ -949,10 +949,14 @@ serve(async (req) => {
           signalTier: 'triple_window' | 'baseline_comparison' | 'hrv_next_day' | null;
           timingSource: 'precise' | 'rating_derived';
         };
+        // Noise floor — anything under 3% is indistinguishable from drift, so it
+        // is omitted rather than dressed up as a finding.
+        const SIGNAL_NOISE_FLOOR_PCT = 3;
         const usableSignal = (s: WearableSignal | null): WearableSignal | null => {
           if (!s) return null;
           if (s.n < 1) return null;
-          if (s.primarySignalPct == null && s.secondarySignalPct == null) return null;
+          if (s.primarySignalPct == null) return null;
+          if (Math.abs(s.primarySignalPct) < SIGNAL_NOISE_FLOOR_PCT) return null;
           return s;
         };
         const buildWearableSignal = (contentId: string, category: string): WearableSignal | null => {
