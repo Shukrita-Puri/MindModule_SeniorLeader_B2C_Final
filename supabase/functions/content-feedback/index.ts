@@ -835,7 +835,12 @@ serve(async (req) => {
             const sig = getSignalAgg(ev.content_id);
             if (ratingDerived) sig.ratingDerived = true;
 
-            if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
+            // Confound guard — a pre-practice HR above 100 bpm means the user was
+            // active, not at rest. The session contributes to no HR aggregate.
+            const confounded = hrBefore.mean != null && hrBefore.mean > 100;
+            if (confounded) {
+              // skip HR aggregation entirely for this session
+            } else if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
               // Tier 1
               sig.hrBeforeSum += hrBefore.mean;
               sig.hrDuringSum += hrDuring.mean;
@@ -944,10 +949,14 @@ serve(async (req) => {
           signalTier: 'triple_window' | 'baseline_comparison' | 'hrv_next_day' | null;
           timingSource: 'precise' | 'rating_derived';
         };
+        // Noise floor — anything under 3% is indistinguishable from drift, so it
+        // is omitted rather than dressed up as a finding.
+        const SIGNAL_NOISE_FLOOR_PCT = 3;
         const usableSignal = (s: WearableSignal | null): WearableSignal | null => {
           if (!s) return null;
           if (s.n < 1) return null;
-          if (s.primarySignalPct == null && s.secondarySignalPct == null) return null;
+          if (s.primarySignalPct == null) return null;
+          if (Math.abs(s.primarySignalPct) < SIGNAL_NOISE_FLOOR_PCT) return null;
           return s;
         };
         const buildWearableSignal = (contentId: string, category: string): WearableSignal | null => {
@@ -973,6 +982,10 @@ serve(async (req) => {
           const hrRecoveryPct = meanHrDuring && meanHrAfter
             ? round1(((meanHrDuring - meanHrAfter) / meanHrDuring) * 100)
             : null;
+          // Sustained calm: how far HR sits below the pre-practice level afterwards.
+          const hrAfterDropPct = meanHrBefore && meanHrAfter
+            ? round1(((meanHrBefore - meanHrAfter) / meanHrBefore) * 100)
+            : null;
           const hrvLiftPct = hasHrv && agg.hrvBeforeSum > 0
             ? round1((((agg.hrvAfterSum / agg.hrvN) - (agg.hrvBeforeSum / agg.hrvN)) / (agg.hrvBeforeSum / agg.hrvN)) * 100)
             : null;
@@ -985,8 +998,8 @@ serve(async (req) => {
                 primarySignalPct: hrDropPct,
                 primarySignalLabel: 'HR during',
                 primarySignalIsPositive: false,
-                secondarySignalPct: null,
-                secondarySignalLabel: '',
+                secondarySignalPct: hrAfterDropPct,
+                secondarySignalLabel: hrAfterDropPct != null ? 'HR after' : '',
                 n: agg.hrN,
                 ...base,
               };
@@ -1008,7 +1021,7 @@ serve(async (req) => {
                 primarySignalLabel: 'HR during',
                 primarySignalIsPositive: true,
                 secondarySignalPct: hrRecoveryPct,
-                secondarySignalLabel: 'HR recovered',
+                secondarySignalLabel: 'HR recovery',
                 n: agg.hrN,
                 ...base,
               };
