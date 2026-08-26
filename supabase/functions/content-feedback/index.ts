@@ -232,7 +232,7 @@ serve(async (req) => {
         const [evRes, seenRes] = await Promise.all([
           supabase
             .from('calendar_events')
-            .select('id, title, start_time, end_time, attendees_count, status')
+            .select('id, title, start_time, end_time, attendees_count, provider, is_organizer, is_recurring, event_metadata, external_id')
             .eq('user_id', userId)
             .gte('end_time', windowStartIso)
             .lte('end_time', endedBeforeIso)
@@ -253,7 +253,7 @@ serve(async (req) => {
         let candidate: Record<string, unknown> | null = null;
         for (const e of mergedCandidates as any[]) {
           if (seen.has(e.id)) continue;
-          const status = String(e.status ?? '').toLowerCase();
+          const status = String(e.event_metadata?.status ?? e.event_metadata?.responseStatus ?? '').toLowerCase();
           if (status === 'cancelled' || status === 'tentative') continue;
           const enriched = enrichCalendarEvent(e) as any;
           const cat = enriched?.categoryId ?? null;

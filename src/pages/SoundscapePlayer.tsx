@@ -30,6 +30,7 @@ import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { logPracticeHistoryCompletion } from "@/utils/practiceHistory";
 import { getAuthToken } from "@/services/authTokenService";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
 import { cn } from "@/lib/utils";
@@ -325,6 +326,20 @@ const SoundscapePlayer = () => {
           cachedToken: cachedAuthTokenRef.current,
           durationSeconds: playedSeconds || null,
         });
+
+        const practiceSessionId = await logPracticeHistoryCompletion({
+          contentId: id,
+          contentType: 'soundbath',
+          category: soundscape.category,
+          durationSeconds: playedSeconds || null,
+          startedAt,
+          completedAt: completedAt.toISOString(),
+          partOfRitual: shouldTrackRitual,
+          title: soundscape.title,
+          cachedToken: cachedAuthTokenRef.current,
+          metadata: { source: 'soundscape_player' },
+        });
+        if (practiceSessionId) setSessionId(practiceSessionId);
         practiceStartedAtRef.current = null;
       }
     } catch (error) {

@@ -16,6 +16,7 @@ import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { logPracticeHistoryCompletion } from "@/utils/practiceHistory";
 import { getAuthToken } from "@/services/authTokenService";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
@@ -2079,6 +2080,24 @@ const MicroPracticePlayerCards = () => {
           : 'library',
         cachedToken: cachedAuthTokenRef.current,
       });
+      const practiceSessionId = await logPracticeHistoryCompletion({
+        contentId: resolvedPracticeId,
+        contentType: 'micro-practice',
+        category: practice.category,
+        durationSeconds: durationSeconds || null,
+        startedAt,
+        completedAt: completedAt.toISOString(),
+        partOfRitual: shouldTrackRitual,
+        title: practice.title,
+        cachedToken: cachedAuthTokenRef.current,
+        metadata: { source: 'micro_practice_cards_player' },
+      });
+      if (practiceSessionId) {
+        setSessionId(practiceSessionId);
+        if (isMindset) {
+          try { await reflection.flush(undefined, practiceSessionId); } catch (e) { console.warn('[MicroPracticePlayerCards] reflection relink failed', e); }
+        }
+      }
       practiceStartedAtRef.current = null;
 
     } catch (error) {

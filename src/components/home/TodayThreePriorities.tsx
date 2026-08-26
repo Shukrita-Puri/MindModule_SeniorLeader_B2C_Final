@@ -589,11 +589,11 @@ const TodayThreePriorities = ({
   }, []);
 
   // Per-slot plan feedback gate: once a slot is rated (submit or skip) for a
-  // given user + local date, don't ask again that day. localStorage key mirrors
-  // the plan-date scoping used by the rest of the card.
+  // given user + local date + plan window, don't ask again for that window.
+  // Plans are period-scoped, so morning feedback must not suppress afternoon.
   const getPlanSlotRatedKey = (slotIndex: number): string | null => {
     if (!effectiveUserId) return null;
-    return `plan_slot_rated_${effectiveUserId}_${todayForPlan}_slot${slotIndex}`;
+    return `plan_slot_rated_${effectiveUserId}_${todayForPlan}_${periodForPlan}_slot${slotIndex}`;
   };
   const isPlanSlotRated = (slotIndex: number): boolean => {
     try {
@@ -880,7 +880,7 @@ const TodayThreePriorities = ({
     }
 
     prevCompletedIdsRef.current = completedPracticeIds;
-  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, effectiveUserId, todayForPlan]);
+  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, effectiveUserId, todayForPlan, periodForPlan]);
 
   // Shared payload builder — single source of truth for both the normal
   // `loadPlan()` generation path and the manual recovery CTA. Keeping one
