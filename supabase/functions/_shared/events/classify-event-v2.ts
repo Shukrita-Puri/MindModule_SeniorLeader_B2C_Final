@@ -6,6 +6,7 @@
 //   L0  status      — defensive cancelled/tentative read
 //   L1  userTags    — explicit user-declared category override
 //   L2  verbs       — presentation verb + isOrganizer
+//   L2i intent      — content ABOUT a topic (webinar/explainer) vs the room
 //   L3  roles       — attendee role mix (board/investor/customer/...)
 //   L4  travel      — flight #, route code, travel verb, OR travel_state +
 //                     travel-leaning token
@@ -24,6 +25,7 @@ import { detectTravelFromTitle, extractBareAirportCodes } from "./travel-pattern
 import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
 import { lookupLearned, type LearningContext } from "./learning-store.ts";
+import { detectContentIntent } from "./event-intent.ts";
 
 export type ResolvedBy =
   | 'layer0_status'
@@ -31,6 +33,7 @@ export type ResolvedBy =
   | 'layer1_confirmed_title'
   | 'layer2_verbs'
   | 'layer2_learned_token'
+  | 'layer2_intent'
   | 'layer3_roles'
   | 'layer4_travel_regex'
   | 'layer4_travel_state'
@@ -148,23 +151,32 @@ function dictionaryV2Match(
   excludedSubtypeIds: Set<string>,
 ): EventType | null {
   const lower = title.toLowerCase();
+  let bestMatch: EventType | null = null;
+  let bestScore = 0;
   for (const et of EVENT_TYPES) {
     if (!et.keywords?.length) continue;
     if (et.excludeKeywords?.some((ex) => lower.includes(ex.toLowerCase()))) {
       excludedSubtypeIds.add(et.id);
       continue;
     }
-    const hit = et.keywords.some((kw) => {
+    // Specificity, not array position, decides. The longest matched keyword
+    // wins so a multi-word contextual cue ("board meeting") beats a bare
+    // generic token ("board"). Ties fall back to declaration order.
+    let best = 0;
+    for (const kw of et.keywords) {
       const k = kw.toLowerCase().trim();
-      if (!k) return false;
-      // If the keyword already contains a space or punctuation, substring is fine.
-      if (/[\s:&\-/]/.test(k)) return lower.includes(k);
-      const re = new RegExp(`(^|\\W)${escapeRe(k)}($|\\W)`);
-      return re.test(lower);
-    });
-    if (hit) return et;
+      if (!k) continue;
+      const matched = /[\s:&\-/]/.test(k)
+        ? lower.includes(k)
+        : new RegExp(`(^|\\W)${escapeRe(k)}($|\\W)`).test(lower);
+      if (matched && k.length > best) best = k.length;
+    }
+    if (best > bestScore) {
+      bestScore = best;
+      bestMatch = et;
+    }
   }
-  return null;
+  return bestMatch;
 }
 
 /**
@@ -219,6 +231,19 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
         ? 'layer1_confirmed_title'
         : 'layer2_learned_token',
     };
+  }
+
+  // L2i: intent layer. Content ABOUT a topic ("Why Investor Comms are so
+  // Important") must never be read as the room itself. Runs after user tags
+  // and the learning store so an explicit correction always wins, and before
+  // the dictionary so a single generic token cannot capture a webinar.
+  const intent = detectContentIntent({
+    title,
+    eventMetadata: input.eventMetadata ?? null,
+    isOrganizer: input.isOrganizer ?? null,
+  });
+  if (intent.isContent) {
+    return resultFromSubtype('str.learning', 'layer2_intent', 'medium');
   }
 
   // L3: attendee roles (only when caller passed them).
