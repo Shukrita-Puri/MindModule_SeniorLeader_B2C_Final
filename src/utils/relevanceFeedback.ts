@@ -232,6 +232,9 @@ export async function submitPlanSlotPracticeFeedback(args: {
   rating: number;
   feedback?: string;
   practices: Array<{ contentId: string; contentType?: string | null; title?: string | null }>;
+  anchorEventId?: string | null;
+  anchorEventTitle?: string | null;
+  arcLabel?: string | null;
 }) {
   const practices = (args.practices || []).filter((p) => !!p?.contentId);
   if (practices.length === 0) return { success: true, written: 0 };
@@ -281,6 +284,9 @@ export async function submitPlanSlotPracticeFeedback(args: {
                   practice_started_at: timing?.practice_started_at ?? null,
                   practice_completed_at: timing?.practice_completed_at ?? null,
                   session_period: timing?.session_period ?? null,
+                  anchor_event_id: args.anchorEventId ?? null,
+                  anchor_event_title: args.anchorEventTitle ?? null,
+                  arc_label: args.arcLabel ?? null,
                 },
               },
             },

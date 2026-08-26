@@ -564,6 +564,64 @@ serve(async (req) => {
           return d.toISOString().slice(0, 10);
         };
 
+        // ── Context-label helpers for Box 1 event pills ─────────
+        // The pill shows Category · Subcategory when the practice was tied to a
+        // plan/JIT event; otherwise it falls back to the arc (Morning/Afternoon/Evening).
+        const arcFromIso = (iso: string): string => {
+          const h = new Date(iso).getUTCHours();
+          if (h >= 5 && h < 12) return 'Morning';
+          if (h >= 12 && h < 18) return 'Afternoon';
+          return 'Evening';
+        };
+        const prettySubcategory = (sub: string | null | undefined): string | null => {
+          if (!sub) return null;
+          return String(sub).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        };
+        type EventContext = {
+          label: string;
+          category: string | null;
+          subcategory: string | null;
+          slotLabel: string | null;
+          arc: string | null;
+        };
+        const eventContextFromRow = (r: any): EventContext | null => {
+          if (!r || !r.created_at) return null;
+          const ctx = (r.context_data ?? {}) as any;
+          const arc = ctx.arc_label
+            ? String(ctx.arc_label).replace(/^./, (c: string) => c.toUpperCase())
+            : ctx.session_period
+              ? String(ctx.session_period).replace(/^./, (c: string) => c.toUpperCase())
+              : arcFromIso(r.created_at);
+
+          // 1. Anchor event (JIT / plan slot tied to a calendar event)
+          const anchorId = ctx.anchor_event_id || ctx.anchorEventId || null;
+          const anchorTitle = ctx.anchor_event_title || ctx.anchorEventTitle || ctx.slot_event_title || null;
+          if (anchorId || anchorTitle) {
+            let event: any = null;
+            if (anchorId) {
+              event = calendarEvents.find(
+                (e: any) => e.id === anchorId || e.event_id === anchorId || e.calendar_event_id === anchorId,
+              );
+            }
+            if (!event && anchorTitle) {
+              const t = String(anchorTitle).toLowerCase();
+              event = calendarEvents.find((e: any) => String(e.title || '').toLowerCase() === t);
+            }
+            if (event) {
+              const en = enrichCalendarEvent(event) as any;
+              const categoryName = en?.category?.name ?? null;
+              const subcategory = prettySubcategory(en?.subcategory);
+              if (categoryName) {
+                const label = subcategory ? `${categoryName} · ${subcategory}` : categoryName;
+                return { label, category: categoryName, subcategory, slotLabel: null, arc };
+              }
+            }
+          }
+
+          // 2. Arc only — ad-hoc / no event context
+          return { label: arc, category: null, subcategory: null, slotLabel: null, arc };
+        };
+
         // Map wearable by date
         const wearableByDate = new Map<string, { hrv: number | null; rhr: number | null }>();
         // Intraday HR samples indexed by summary_date → sorted [ms, bpm] pairs
@@ -612,7 +670,31 @@ serve(async (req) => {
           return vals.length >= 5 ? median(vals) : null;
         })();
 
-
+        // ── Context label aggregation (Box 1 event pills) ───────
+        // Priority: anchor event → slot label → arc. Feedback rows carry the
+        // richest context; completions without feedback fall back to arc-only.
+        const contextLabelAgg = new Map<string, Map<string, number>>();
+        const feedbackContextByContentDay = new Map<string, string>();
+        for (const r of feedbackRows as any[]) {
+          if (!r.content_id || !r.created_at) continue;
+          const ctx = eventContextFromRow(r);
+          if (!ctx) continue;
+          const day = String(r.created_at).slice(0, 10);
+          const key = `${r.content_id}|${day}`;
+          feedbackContextByContentDay.set(key, ctx.label);
+          const tally = contextLabelAgg.get(r.content_id) ?? new Map<string, number>();
+          tally.set(ctx.label, (tally.get(ctx.label) ?? 0) + 1);
+          contextLabelAgg.set(r.content_id, tally);
+        }
+        for (const ev of completedEvents) {
+          if (!ev.timestamp) continue;
+          const key = `${ev.content_id}|${ev.day}`;
+          if (feedbackContextByContentDay.has(key)) continue;
+          const arc = arcFromIso(ev.timestamp);
+          const tally = contextLabelAgg.get(ev.content_id) ?? new Map<string, number>();
+          tally.set(arc, (tally.get(arc) ?? 0) + 1);
+          contextLabelAgg.set(ev.content_id, tally);
+        }
 
         /**
          * Mean HR across [fromMs, toMs). Samples are stored per summary_date, so a
@@ -1172,6 +1254,10 @@ serve(async (req) => {
             const dominantEventCategory = tally && tally.size
               ? [...tally.entries()].sort((x, y) => y[1] - x[1])[0][0]
               : null;
+            const ctxTally = contextLabelAgg.get(a.contentId);
+            const contextLabel = ctxTally && ctxTally.size
+              ? [...ctxTally.entries()].sort((x, y) => y[1] - x[1])[0][0]
+              : null;
             const wearableSignal = usableSignal(buildWearableSignal(a.contentId, category));
             return {
               contentId: a.contentId,
@@ -1189,6 +1275,7 @@ serve(async (req) => {
               wearableSignal,
               signalTier: wearableSignal?.signalTier ?? null,
               dominantEventCategory,
+              contextLabel,
             };
           })
           .sort((a, b) => b.compositeScore - a.compositeScore);
