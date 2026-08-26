@@ -36,6 +36,7 @@
 
 import type { BriefCopyContext } from "../../brief-context.ts";
 import { timeUntilPhrase, withTiming } from "../../brief/time-phrase.ts";
+import type { BriefNarrativeFamily, LeadNarrative } from "../../brief/lead-narrative.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type — mirrors the four builders in deterministic-brief.ts
