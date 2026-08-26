@@ -41,7 +41,19 @@ Both exist, and the gap is real. `build-executive-home-cards` and `early-morning
 
 Impact: it is not one stale sentence, it is a whole window of the day where the brief is silently the previous window's. Fix has two halves — the `*/15` cron must upgrade an `awaiting` row into a real deterministic brief the moment its signals land (it currently only writes on the window-open pass), and the card must label the window it is actually showing rather than presenting a morning brief as the current one.
 
-## Implementation order — four phases, each deployed and verified before the next
+## Pre-launch safety rules (apply to every phase)
+
+We are close to launch, so nothing here is allowed to destabilise the system.
+
+- **Additive only.** The intent layer is inserted as a new layer; no existing layer is deleted or reordered beyond the explicit specificity change. Every new path has a fallback to today's behaviour.
+- **No schema changes, no destructive SQL.** Backfills are `UPDATE ... WHERE event_category IS NULL` only; nothing is deleted. The confirmation-row re-resolve is written to a shadow column/flag first and promoted only after review.
+- **Untouched by this work:** MRS scoring, gates, tiers and pills; Plan slot selection; subscription, payments and iOS paywall; onboarding; notifications dispatch; wearable ingestion.
+- **One phase per deploy**, each verified with a live probe before the next begins. Any phase that fails verification is reverted rather than patched forward.
+- **Existing suites must stay green** — Deno tests, Vitest and `tsgo` run at the end of every phase; no phase ships with a failing test.
+- **Deterministic brief keeps a working fallback at all times**: if a new copy path finds no matching line, it falls back to today's line rather than emitting nothing.
+
+## Implementation order — five phases, each deployed and verified before the next
+
 
 ### Phase 1 — Classification: educational content vs the real room
 
