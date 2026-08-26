@@ -18,7 +18,11 @@ import {
   type EventType,
   EVENT_TYPES,
 } from "./event-subtypes.ts";
-import { lookupLearned, type LearningContext } from "./learning-store.ts";
+import {
+  ambientLearningContext,
+  lookupLearned,
+  type LearningContext,
+} from "./learning-store.ts";
 
 /**
  * Travel arc classification for G.flight events.
@@ -124,7 +128,8 @@ export interface EnrichedEvent {
 export function enrichEvent(raw: any): EnrichedEvent {
   const title = String(raw?.title ?? raw?.event?.title ?? "").trim();
   // Learning loop (optional): a per-user confirmed title or promoted token
-  const learnedCtx: LearningContext | null = raw?.learned ?? null;
+  const learnedCtx: LearningContext | null = raw?.learned ??
+    ambientLearningContext();
   
   const resolved = resolveEventCategory(title, raw, { learned: learnedCtx });
   const subtype = resolved.subtypeId 

@@ -4768,6 +4768,11 @@ async function buildSharedContext(
           await stampCalendarEventCategory(supabaseClient, {
             userId: req.userId,
             eventId: e.id,
+            // Merged events carry a synthetic id; the real row ids live on
+            // `rawEventIds`. Title/start let the store fall back to a lookup.
+            eventIds: (e.rawEventIds as string[] | undefined) ?? null,
+            title: e.title,
+            startTime: e.start_time ?? e.startTime ?? null,
             category: resolved.categoryId,
             subcategory: resolved.subcategory,
             resolvedBy: "plan_resolver",

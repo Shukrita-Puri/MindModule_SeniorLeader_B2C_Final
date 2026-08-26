@@ -22,6 +22,7 @@
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { primeLearningContext } from "../_shared/events/learning-store.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import {
@@ -688,6 +689,8 @@ serve(async (req) => {
     const days = Math.min(Math.max(Number(body?.days) || WINDOW_DAYS, 14), 90);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // A–H reads below resolve through the user's learning memory.
+    await primeLearningContext(supabase, userId);
     const today = new Date();
     const todayStr = ymd(today);
 
