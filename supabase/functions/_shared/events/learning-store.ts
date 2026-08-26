@@ -158,6 +158,22 @@ export interface ConfirmationInput {
 }
 
 /**
+ * Confidence ceiling per source. The loop must not harden its own guesses:
+ * only an explicit user action (`user_override`) or an event the user pulled
+ * into a plan slot (`plan_slot`) may reach `high`. Everything the resolver
+ * derives on its own caps at `medium`.
+ */
+export function cappedConfidence(
+  source: LearnedSource,
+  requested?: "high" | "medium" | "low" | null,
+): "high" | "medium" | "low" {
+  const isUserBacked = source === "user_override" || source === "plan_slot";
+  const want = requested ?? (isUserBacked ? "high" : "medium");
+  if (!isUserBacked && want === "high") return "medium";
+  return want;
+}
+
+/**
  * Upsert a confirmed classification for a title. User overrides always win:
  * a `user_override` row replaces a resolver-derived one, never the reverse.
  */
@@ -168,6 +184,7 @@ export async function recordConfirmation(
   const titleNorm = normaliseTitleKey(input.title);
   const category = input.category ? String(input.category).trim().slice(0, 1) : null;
   if (!supabase || !input.userId || !titleNorm || !category) return;
+  const confidence = cappedConfidence(input.source, input.confidence ?? null);
   try {
     const { data: existing } = await supabase
       .from("event_category_confirmations")
@@ -185,22 +202,28 @@ export async function recordConfirmation(
         subtype_id: input.subtypeId ?? null,
         source: input.source,
         resolved_by: input.resolvedBy ?? null,
-        confidence: input.confidence ?? (input.source === "resolver" ? "medium" : "high"),
+        confidence,
       });
       return;
     }
 
-    const existingIsOverride = existing.source === "user_override";
-    const incomingIsOverride = input.source === "user_override" || input.source === "plan_slot";
-    if (existingIsOverride && !incomingIsOverride) {
-      // Don't let a dictionary guess overwrite what the user told us; just
-      // bump recency.
+    const existingIsUserBacked = existing.source === "user_override" ||
+      existing.source === "plan_slot";
+    const incomingIsUserBacked = input.source === "user_override" ||
+      input.source === "plan_slot";
+    if (existingIsUserBacked && !incomingIsUserBacked) {
+      // Don't let a dictionary guess overwrite what the user told us, and do
+      // NOT bump observation_count — a resolver re-observing itself is not
+      // new evidence. Only recency moves.
       await supabase
         .from("event_category_confirmations")
         .update({ last_seen_at: new Date().toISOString() })
         .eq("id", existing.id);
       return;
     }
+
+    const selfObservation = !incomingIsUserBacked &&
+      existing.event_category === category;
 
     await supabase
       .from("event_category_confirmations")
@@ -210,8 +233,11 @@ export async function recordConfirmation(
         subtype_id: input.subtypeId ?? null,
         source: input.source,
         resolved_by: input.resolvedBy ?? null,
-        confidence: input.confidence ?? (incomingIsOverride ? "high" : "medium"),
-        observation_count: (existing.observation_count ?? 1) + 1,
+        confidence,
+        // Self-observation never accrues evidence weight.
+        observation_count: selfObservation
+          ? (existing.observation_count ?? 1)
+          : (existing.observation_count ?? 1) + 1,
         last_seen_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
@@ -222,22 +248,79 @@ export async function recordConfirmation(
 
 export interface StampInput {
   userId: string;
-  eventId: string;
+  /** Row id, merged/synthetic id, or `canonical:` merge key. */
+  eventId?: string | null;
+  /** Real `calendar_events.id` values behind a merged event (preferred). */
+  eventIds?: (string | null | undefined)[] | null;
+  /** Used to resolve real row ids when only a synthetic id is available. */
+  title?: string | null;
+  startTime?: string | null;
   category: string | null;
   subcategory?: string | null;
   resolvedBy?: string | null;
   confidence?: string | null;
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isRealRowId(id: unknown): id is string {
+  return typeof id === "string" && UUID_RE.test(id.trim());
+}
+
+/**
+ * Resolve the real `calendar_events.id` rows a stamp should touch.
+ *
+ * Merged/deduped events carry a synthetic `canonical:<identityKey>` id, which
+ * matches no row — that was why stamping never landed. We prefer the explicit
+ * `rawEventIds` carried by the merge, then any UUID-shaped id, and finally
+ * fall back to a title + start-time lookup so a single-provider event still
+ * resolves.
+ */
+export async function resolveStampTargets(
+  supabase: Db,
+  input: StampInput,
+): Promise<string[]> {
+  const direct = [
+    ...(input.eventIds ?? []),
+    input.eventId,
+  ].filter(isRealRowId).map((id) => id.trim());
+  if (direct.length > 0) return Array.from(new Set(direct));
+
+  const title = (input.title ?? "").trim();
+  const start = input.startTime ? new Date(input.startTime) : null;
+  if (!title || !start || Number.isNaN(start.getTime())) return [];
+  try {
+    // ±10 minutes covers provider rounding between mirrored calendars.
+    const lo = new Date(start.getTime() - 10 * 60 * 1000).toISOString();
+    const hi = new Date(start.getTime() + 10 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from("calendar_events")
+      .select("id, title")
+      .eq("user_id", input.userId)
+      .gte("start_time", lo)
+      .lte("start_time", hi)
+      .limit(20);
+    const wanted = normaliseTitleKey(title);
+    return (data ?? [])
+      .filter((r: any) => normaliseTitleKey(r?.title) === wanted)
+      .map((r: any) => String(r.id));
+  } catch (_err) {
+    return [];
+  }
+}
+
 /** Stamp the resolved category back onto calendar_events (idempotent). */
 export async function stampCalendarEventCategory(
   supabase: Db,
   input: StampInput,
-): Promise<void> {
+): Promise<number> {
   const category = input.category ? String(input.category).trim().slice(0, 1) : null;
-  if (!supabase || !input.userId || !input.eventId || !category) return;
+  if (!supabase || !input.userId || !category) return 0;
   try {
-    await supabase
+    const ids = await resolveStampTargets(supabase, input);
+    if (ids.length === 0) return 0;
+    const { error } = await supabase
       .from("calendar_events")
       .update({
         event_category: category,
@@ -246,9 +329,52 @@ export async function stampCalendarEventCategory(
         category_confidence: input.confidence ?? null,
         category_resolved_at: new Date().toISOString(),
       })
-      .eq("id", input.eventId)
+      .in("id", ids)
       .eq("user_id", input.userId);
+    return error ? 0 : ids.length;
   } catch (_err) {
     // Best-effort.
+    return 0;
   }
+}
+
+// ── Ambient (request-scoped) learning context ────────────────────────
+// Surfaces that resolve events deep inside pure helpers (the Brief, the
+// signal engine, Nudges, Insights) cannot thread `learned` through every
+// call site. `runWithLearningContext` binds it to the current async flow via
+// AsyncLocalStorage, so `enrichEvent()` picks it up automatically and no
+// context ever bleeds between concurrent requests.
+
+import { AsyncLocalStorage } from "node:async_hooks";
+
+const learningStorage = new AsyncLocalStorage<LearningContext>();
+
+export function ambientLearningContext(): LearningContext | null {
+  return learningStorage.getStore() ?? null;
+}
+
+export function runWithLearningContext<T>(
+  ctx: LearningContext | null | undefined,
+  fn: () => T,
+): T {
+  if (!ctx) return fn();
+  return learningStorage.run(ctx, fn);
+}
+
+/**
+ * Load this user's learning context and run `fn` inside it. Always runs `fn`,
+ * even when loading fails — classification then degrades to the dictionary.
+ */
+export async function withUserLearningContext<T>(
+  supabase: Db,
+  userId: string | null | undefined,
+  fn: () => Promise<T>,
+): Promise<T> {
+  let ctx: LearningContext | null = null;
+  try {
+    if (supabase && userId) ctx = await loadLearningContext(supabase, userId);
+  } catch (_err) {
+    ctx = null;
+  }
+  return runWithLearningContext(ctx, fn);
 }
