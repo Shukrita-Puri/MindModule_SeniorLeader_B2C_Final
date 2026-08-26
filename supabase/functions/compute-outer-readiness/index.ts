@@ -72,6 +72,12 @@ import {
   type DayShape,
   type TravelPhase,
 } from "../_shared/brief/day-shape.ts";
+import {
+  formatLeadNarrativeBlock,
+  type LeadNarrative,
+  resolveLeadNarrative,
+} from "../_shared/brief/lead-narrative.ts";
+
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import {
   buildBriefSystemPrompt,
@@ -4637,7 +4643,12 @@ serve(async (req) => {
     // conference). Declared here so the prompt scope can read it.
     let briefDayShape: DayShape | null = null;
     let briefTravelPhase: TravelPhase = null;
+    // Part 1A — the single resolved narrative (family + anchor + phase +
+    // depletion) shared by the LLM prompt, the deterministic renderer, and
+    // the Plan parity check.
+    let briefLeadNarrative: LeadNarrative | null = null;
     let briefWindowContext: ReturnType<typeof buildWindowContext> | null = null;
+
 
     if (dataCompleteness !== "day1") {
       // ── Detect state shift from earlier code (lines 2094-2111 computed todayCheckins) ──
@@ -7843,6 +7854,59 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               );
             }
 
+            // ── LEAD NARRATIVE (Part 1A) ──
+            // One resolved story for today: family, anchor event (A–H category
+            // + subtype via the single resolver), phase, depletion overlay and
+            // the day-level aggregates the scenario copy needs. Consumed by the
+            // LLM prompt below AND by the deterministic renderer, so the two
+            // paths cannot disagree about which event is the story.
+            try {
+              briefLeadNarrative = resolveLeadNarrative({
+                events: (eventsForCtx ?? []) as Array<
+                  {
+                    title: string;
+                    startTime: string;
+                    endTime?: string | null;
+                    isAllDay?: boolean;
+                  }
+                >,
+                now: new Date(),
+                dayShape: briefDayShape,
+                travelPhase: briefTravelPhase,
+                travelTier: briefBehaviourSnapshot?.signals?.travelTier ?? null,
+                conferenceDayNumber:
+                  briefBehaviourSnapshot?.signals?.conferenceDayNumber ?? null,
+                conferenceTotalDays:
+                  briefBehaviourSnapshot?.signals?.conferenceTotalDays ?? null,
+                sleepScore: typeof sleepScoreVal === "number"
+                  ? sleepScoreVal
+                  : null,
+                checkInOutcome: currentCheckInOutcome as
+                  | "sharp"
+                  | "holding"
+                  | "drained"
+                  | null,
+                yesterdayScore: yesterdayScore ?? null,
+              });
+              userPrompt += formatLeadNarrativeBlock(briefLeadNarrative);
+              console.log("[compute-outer-readiness] lead-narrative", {
+                family: briefLeadNarrative.family,
+                phase: briefLeadNarrative.phase,
+                anchor: briefLeadNarrative.anchor?.title ?? null,
+                category: briefLeadNarrative.anchor?.categoryId ?? null,
+                depletion: briefLeadNarrative.depletion,
+                reason: briefLeadNarrative.reason,
+              });
+            } catch (e) {
+              briefLeadNarrative = null;
+              console.warn(
+                "[compute-outer-readiness] lead-narrative resolution skipped:",
+                e instanceof Error ? e.message : e,
+              );
+            }
+
+
+
             // ── LOAD SHAPE (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──
             // Read-only: the shape was classified once by build-daily-context
             // and stored on daily_context_snapshot. Silent when the gate is
@@ -9364,7 +9428,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       : undefined,
                   }))
                   .filter((f) => !!f.rule),
+                // Part 1A/1B — the resolved story drives the four beats.
+                leadNarrative: briefLeadNarrative,
+                variantSeed: `${userId}|${userLocalDate}|${
+                  getTimeOfDay(hour)
+                }`,
               });
+
               // DETERMINISTIC BYPASS: the validator runs for observability only.
               // deterministic-brief.ts is validated by construction — every string
               // it emits has been audited to pass all validator rules. The validator
@@ -10110,6 +10180,32 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   snapshotLocalDate === userLocalDate
                 ? { loadShape: composedLoadShape }
                 : {}),
+              // Lead narrative — the one story the Brief led on for this
+              // window. Persisted so the Plan/JIT parity guard can check it
+              // picked practices for the same day the Brief described.
+              ...(briefLeadNarrative && snapshotLocalDate === userLocalDate
+                ? {
+                  leadNarrative: {
+                    family: briefLeadNarrative.family,
+                    phase: briefLeadNarrative.phase,
+                    depletion: briefLeadNarrative.depletion,
+                    reason: briefLeadNarrative.reason,
+                    anchor: briefLeadNarrative.anchor
+                      ? {
+                        title: briefLeadNarrative.anchor.title,
+                        durationMinutes:
+                          briefLeadNarrative.anchor.durationMinutes ?? null,
+
+                        categoryId: briefLeadNarrative.anchor.categoryId,
+                        subtype: briefLeadNarrative.anchor.subtypeId ?? null,
+                        minutesUntil:
+                          briefLeadNarrative.anchor.minutesUntil ?? null,
+                      }
+                      : null,
+                  },
+                }
+                : {}),
+
               patternSignals: patternSignals as any,
               strategicContext: strategic,
               calendarDemandScore,

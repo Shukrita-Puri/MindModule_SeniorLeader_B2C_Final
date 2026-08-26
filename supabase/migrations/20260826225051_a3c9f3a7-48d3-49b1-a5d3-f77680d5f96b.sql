@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_context_snapshot ADD COLUMN IF NOT EXISTS lead_narrative jsonb;

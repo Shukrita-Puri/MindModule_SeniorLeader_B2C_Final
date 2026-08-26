@@ -3,6 +3,9 @@ import { withTiming } from "./time-phrase.ts";
 import type { BriefCopyContext } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 import { behaviourPriority } from "../behaviour-evaluator.ts";
+import type { LeadNarrative } from "./lead-narrative.ts";
+import { assembleFamilyBody, renderFamilyBeats } from "./family-copy.ts";
+
 
 export type DeterministicBriefBand =
   | "firing"
@@ -87,7 +90,16 @@ export interface DeterministicBriefFallbackOpts {
       anchorEvent?: string;
     }>
     | null;
+  /**
+   * Part 1A — the single resolved narrative for today (family, anchor event,
+   * phase, depletion overlay). When present and non-baseline, the four beats
+   * are rendered from the scenario copy pack instead of the generic builders.
+   */
+  leadNarrative?: LeadNarrative | null;
+  /** Stable per-day variant seed: `${userId}|${localDate}|${window}`. */
+  variantSeed?: string | null;
 }
+
 
 export interface DeterministicBriefResult {
   phrase: string;
@@ -720,6 +732,38 @@ export function buildDeterministicBriefFallback(
     checkInOutcome: checkInCurrent ? rawOpts.checkInOutcome : null,
   };
   const phrase = phraseFor(opts);
+
+  // ── Scenario families (Part 1B) ──
+  // A resolved, non-baseline narrative owns the body. Off-day shapes keep
+  // their existing copy: no work directive may reach a holiday or weekend.
+  const narrative = opts.leadNarrative ?? null;
+  if (
+    narrative && narrative.family !== "baseline" &&
+    !opts.isWeekend && !opts.isNonWorkday && !isOffDayShape(opts.dayShape)
+  ) {
+    const anchorTitle = narrative.anchor?.title ?? null;
+    const beats = renderFamilyBeats({
+      narrative,
+      band: opts.band,
+      wearableFact: sanitizeWearableFact(opts.wearableFact),
+      sleepScore: opts.sleepScore,
+      checkInOutcome: opts.checkInOutcome,
+      window: opts.window,
+      anchorRef: anchorTitle
+        ? withTiming(shortRef(anchorTitle), narrative.anchor?.minutesUntil ?? null)
+        : null,
+      anchorRefPlain: anchorTitle ? shortRef(anchorTitle) : null,
+      variantSeed: opts.variantSeed ?? `${opts.window}|${narrative.family}`,
+    });
+    if (beats) {
+      return {
+        phrase,
+        body: assembleFamilyBody(beats),
+        topSignal: "baseline_quiet",
+      };
+    }
+  }
+
   const evidence = buildEvidence(opts);
   const read = buildRead(opts);
   const directive = buildDirective(opts);
@@ -730,4 +774,5 @@ export function buildDeterministicBriefFallback(
     topSignal: "baseline_quiet",
   };
 }
+
 
