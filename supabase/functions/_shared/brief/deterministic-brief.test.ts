@@ -59,7 +59,7 @@ Deno.test("deterministic brief — drained board and strategy day uses A7 event-
   assertEquals(built.phrase, "Steady and selective");
   assertStringIncludes(built.body, "the board call and the strategy session");
   assertStringIncludes(built.body, "Set the intention before each room");
-  assertStringIncludes(built.body, "and protect the close.");
+  assertStringIncludes(built.body, "and settle yourself before you walk in.");
 });
 
 Deno.test("deterministic brief — low sleep into strategy uses preparation window", () => {
@@ -542,7 +542,7 @@ Deno.test("weekday branches are unchanged", () => {
     physicalPillTier: "green",
   });
   if (!out) throw new Error("expected a weekday brief");
-  assertStringIncludes(out.body, "Route the presence and stakeholder conversations");
+  assertStringIncludes(out.body, "Lead the conversations and the stakeholder work");
 });
 
 Deno.test("CEO behaviour flag wires the deterministic copy pack for all four beats", () => {
