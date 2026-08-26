@@ -472,6 +472,8 @@ serve(async (req) => {
           timestamp: string | null;
           /** End of the measured session when the client recorded it. */
           endTimestamp: string | null;
+          /** Earliest post-practice rating for this (practice, day), if any. */
+          ratingMs: number | null;
           day: string;
         };
         const completionKeys = new Set<string>();
@@ -488,6 +490,7 @@ serve(async (req) => {
             content_id: contentId,
             timestamp: iso,
             endTimestamp: precise?.endIso ?? null,
+            ratingMs: anchor ?? null,
             day,
           });
         };
