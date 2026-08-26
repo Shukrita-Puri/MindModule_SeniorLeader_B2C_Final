@@ -563,33 +563,53 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
   const lowSleepIntoHighStakes =
     opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
 
+  // Beat (c) — THE WORK DIRECTIVE. Names the cognitive posture (decide /
+  // lead / listen / analyse / defer / execute / sequence / protect) AND the
+  // kind of work it applies to today. Never a practice, never a duration,
+  // never self-regulation — that is beat (d).
   if (drainedIntoHighStakes) {
     return hasManyHighStakes
       ? "Set the intention before each room; conserve the edge for where decisions land"
-      : `Protect the edge before ${shortRefTimed(opts, opts.todayHighStakes[0])}; trim what's peripheral and enter with what is there intact`;
+      : `Protect the edge before ${
+        shortRefTimed(opts, opts.todayHighStakes[0])
+      }; trim the peripheral work and walk in with what's intact`;
   }
   if (lowSleepIntoHighStakes) {
-    return `Protect the first thinking window before ${shortRefTimed(opts, opts.todayHighStakes[0])} rather than generating in the room`;
+    return `Protect the first thinking window before ${
+      shortRefTimed(opts, opts.todayHighStakes[0])
+    } rather than generating in the room`;
   }
   if (opts.cognitivePillTier === "green" && opts.physicalPillTier !== "green") {
     return hasHighStakes
-      ? `Front-load the decision and analysis work before ${shortRefTimed(opts, opts.todayHighStakes[0])}; let the presence work ride on physical steadiness`
-      : "Use the window for decisions and analysis, keep the relational work short";
+      ? `Front-load the decisions and the analysis before ${
+        shortRefTimed(opts, opts.todayHighStakes[0])
+      }; let the people work ride on presence, not fresh thinking`
+      : "Take the decisions and the analysis while the head is clear. Keep the calls short and let the people work run on presence";
   }
   if (opts.physicalPillTier === "green" && opts.cognitivePillTier !== "green") {
-    return "Route the presence and stakeholder conversations through the physical runway; defer anything needing full processing";
+    return "Lead the conversations and the stakeholder work today — that is where you're strong. Defer anything needing fresh analysis";
   }
   if (opts.cognitivePillTier === "green" && opts.physicalPillTier === "green") {
     if (hasHighStakes) {
-      return `Open with ${shortRefTimed(opts, opts.todayHighStakes[0])} while both pillars are clear`;
+      return `Open with ${
+        shortRefTimed(opts, opts.todayHighStakes[0])
+      } while both are clear. Decide in the room — don't gather more input first`;
     }
-    return "Use this for the one decision or analysis that compounds most and protect the most important block";
+    if (opts.meetingCount >= 4) {
+      return "Sequence the day around the two calls that actually decide something. Everything else can be short";
+    }
+    return "Spend the clear window on the one decision that compounds. Reactive work waits";
   }
   if (opts.band === "depleted" || opts.band === "stretched") {
-    return "Pick the one priority that cannot wait and do only that";
+    return hasHighStakes
+      ? `Carry ${
+        shortRefTimed(opts, opts.todayHighStakes[0])
+      } and nothing else that needs a decision. Everything else moves`
+      : "Pick the one priority that cannot wait and do only that. Everything else moves";
   }
-  return "Use this for the one decision or analysis that compounds most and protect the most important block";
+  return "Spend the clear window on the one decision that compounds. Reactive work waits";
 }
+
 
 function closeFor(opts: DeterministicBriefFallbackOpts): string {
   const shape = opts.dayShape ?? null;
