@@ -31,7 +31,7 @@ function markDismissed(eventId: string) {
  * suppressed for the rest of the session; submitted ones never return because
  * the server filters on stored feedback.
  */
-export function useEventOutcomePrompt(enabled: boolean) {
+export function useEventOutcomePrompt(enabled: boolean, dryRun = false) {
   const [candidate, setCandidate] = useState<EventOutcomeCandidate | null>(null);
 
   useEffect(() => {
@@ -39,23 +39,28 @@ export function useEventOutcomePrompt(enabled: boolean) {
     let cancelled = false;
 
     (async () => {
-      const found = await fetchEventOutcomeCandidate();
+      const found = await fetchEventOutcomeCandidate({ dryRun });
       if (cancelled || !found?.eventId) return;
-      if (dismissedIds().has(found.eventId)) return;
+      if (!dryRun && dismissedIds().has(found.eventId)) return;
       setCandidate(found);
     })();
 
     return () => { cancelled = true; };
-  }, [enabled]);
+  }, [enabled, dryRun]);
 
   const skip = useCallback(() => {
-    if (candidate?.eventId) markDismissed(candidate.eventId);
+    if (candidate?.eventId && !dryRun) markDismissed(candidate.eventId);
     setCandidate(null);
-  }, [candidate]);
+  }, [candidate, dryRun]);
 
   const submit = useCallback(
     async (rating: number, feedback?: string) => {
       if (!candidate?.eventId) return;
+      // Dry run: render + interact only, never persist.
+      if (dryRun) {
+        setCandidate(null);
+        return;
+      }
       markDismissed(candidate.eventId);
       setCandidate(null);
       await submitEventOutcome({
@@ -66,7 +71,7 @@ export function useEventOutcomePrompt(enabled: boolean) {
         openText: feedback,
       });
     },
-    [candidate],
+    [candidate, dryRun],
   );
 
   return { candidate, skip, submit };

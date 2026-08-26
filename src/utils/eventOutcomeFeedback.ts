@@ -14,14 +14,16 @@ export interface EventOutcomeCandidate {
  * 20 minutes and 6 hours ago and has no outcome feedback yet. Null when there
  * is nothing to ask about.
  */
-export async function fetchEventOutcomeCandidate(): Promise<EventOutcomeCandidate | null> {
+export async function fetchEventOutcomeCandidate(
+  options: { dryRun?: boolean } = {},
+): Promise<EventOutcomeCandidate | null> {
   try {
     const accessToken = await getAuthToken();
     if (!accessToken) return null;
 
     const { data, error } = await supabase.functions.invoke('content-feedback', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: { action: 'GET_EVENT_OUTCOME_CANDIDATE' },
+      body: { action: 'GET_EVENT_OUTCOME_CANDIDATE', dryRun: options.dryRun === true },
     });
     if (error) throw error;
     return (data?.data ?? null) as EventOutcomeCandidate | null;
