@@ -122,7 +122,7 @@ function classifyDominantDayType(events: any[], loadMinutes: number): DominantDa
 }
 
 interface RequestBody {
-  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT';
+  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT' | 'GET_EVENT_OUTCOME_CANDIDATE' | 'SUBMIT_EVENT_OUTCOME';
   lookbackWindow?: 'thirty_days' | 'all_time';
   contentId?: string;
   feedbackData?: {
@@ -356,7 +356,7 @@ serve(async (req) => {
         const [fbRes, drcRes, ciRes, wdRes, favRes, calRes] = await Promise.all([
           supabase
             .from('content_relevance_feedback')
-            .select('content_id, content_type, star_rating, session_id, trigger_context, created_at, context_data')
+            .select('id, content_id, content_type, star_rating, session_id, trigger_context, created_at, context_data')
             .eq('user_id', userId)
             .eq('feedback_type', 'star_rating')
             .not('star_rating', 'is', null)
@@ -449,11 +449,12 @@ serve(async (req) => {
         for (const r of feedbackRows as any[]) {
           const contentId = String(r.content_id ?? '');
           const day = String((r.context_data as any)?.local_date || r.created_at || '').slice(0, 10);
+          const ctx = (r.context_data ?? {}) as any;
           setPrecise(
             contentId,
             day,
-            (r.context_data as any)?.practice_started_at,
-            (r.context_data as any)?.practice_completed_at,
+            ctx.practice_started_at ?? ctx.practiceStartedAt,
+            ctx.practice_completed_at ?? ctx.practiceCompletedAt,
           );
         }
 
@@ -472,6 +473,8 @@ serve(async (req) => {
           timestamp: string | null;
           /** End of the measured session when the client recorded it. */
           endTimestamp: string | null;
+          /** Earliest post-practice rating for this (practice, day), if any. */
+          ratingMs: number | null;
           day: string;
         };
         const completionKeys = new Set<string>();
@@ -488,6 +491,7 @@ serve(async (req) => {
             content_id: contentId,
             timestamp: iso,
             endTimestamp: precise?.endIso ?? null,
+            ratingMs: anchor ?? null,
             day,
           });
         };
@@ -570,6 +574,39 @@ serve(async (req) => {
           parsed.sort((a, b) => a.t - b.t);
           hrSamplesByDate.set(w.summary_date, parsed);
         }
+
+        const median = (vals: number[]): number | null => {
+          if (!vals.length) return null;
+          const s = [...vals].sort((a, b) => a - b);
+          const mid = Math.floor(s.length / 2);
+          return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+        };
+
+        // Tier 2 basis: the user's own median HR per hour-of-day block over the
+        // trailing 30 days. Lets us score a practice even when the pre/post
+        // windows are empty, as long as we have HR *during* it.
+        const hourBaselineCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const hourBuckets: number[][] = Array.from({ length: 24 }, () => []);
+        for (const samples of hrSamplesByDate.values()) {
+          for (const s of samples) {
+            if (s.t < hourBaselineCutoff) continue;
+            hourBuckets[new Date(s.t).getUTCHours()].push(s.v);
+          }
+        }
+        const hourBaselines = hourBuckets.map((vals) => (vals.length >= 10 ? median(vals) : null));
+
+        // Tier 3 basis: 30-day rolling median HRV.
+        const hrvBaseline = (() => {
+          const cutoffDate = new Date(hourBaselineCutoff).toISOString().slice(0, 10);
+          const vals: number[] = [];
+          for (const w of wearable) {
+            if (w.summary_date < cutoffDate) continue;
+            if (typeof w.hrv === 'number' && w.hrv > 0) vals.push(w.hrv);
+          }
+          return vals.length >= 5 ? median(vals) : null;
+        })();
+
+
 
         /**
          * Mean HR across [fromMs, toMs). Samples are stored per summary_date, so a
@@ -693,12 +730,24 @@ serve(async (req) => {
         type WearableSignalAgg = {
           hrBeforeSum: number; hrDuringSum: number; hrAfterSum: number; hrN: number;
           hrvBeforeSum: number; hrvAfterSum: number; hrvN: number;
+          /** Tier 2 — HR during vs the user's own hour-of-day baseline. */
+          baseDuringSum: number; baseExpectedSum: number; baseN: number;
+          /** Tier 3 — next-morning HRV vs the 30-day median. */
+          hrvNextSum: number; hrvBaseSum: number; hrvBaseN: number;
+          /** True when any contributing window came from rating-derived timing. */
+          ratingDerived: boolean;
         };
         const wearableSignalAgg = new Map<string, WearableSignalAgg>();
         const getSignalAgg = (id: string): WearableSignalAgg => {
           let a = wearableSignalAgg.get(id);
           if (!a) {
-            a = { hrBeforeSum: 0, hrDuringSum: 0, hrAfterSum: 0, hrN: 0, hrvBeforeSum: 0, hrvAfterSum: 0, hrvN: 0 };
+            a = {
+              hrBeforeSum: 0, hrDuringSum: 0, hrAfterSum: 0, hrN: 0,
+              hrvBeforeSum: 0, hrvAfterSum: 0, hrvN: 0,
+              baseDuringSum: 0, baseExpectedSum: 0, baseN: 0,
+              hrvNextSum: 0, hrvBaseSum: 0, hrvBaseN: 0,
+              ratingDerived: false,
+            };
             wearableSignalAgg.set(id, a);
           }
           return a;
@@ -761,28 +810,47 @@ serve(async (req) => {
             pushDim('confidence', prior?.confidence_level ?? null, next?.confidence_level ?? null);
           }
 
-          // ── Intraday HR triple around the practice ────────────
-          // Windows: BEFORE [start−15m, start), DURING [start, end),
-          // AFTER (end, end+15m]. The 15-minute after-window is the practice
-          // response itself; beyond it the reading is confounded by whatever
-          // the user did next. All three are required.
-          const startMs = +new Date(ev.timestamp);
-          if (Number.isFinite(startMs)) {
+          // ── Wearable signal, three tiers ──────────────────────
+          // Tier 1 BEFORE [start−15m, start), DURING [start, end),
+          // AFTER (end, end+15m] — all three required.
+          // Tier 2 DURING vs the user's own hour-of-day HR baseline.
+          // Tier 3 next-morning HRV vs the 30-day median HRV.
+          const anchorMs = +new Date(ev.timestamp);
+          if (Number.isFinite(anchorMs)) {
+            const durationMs = durationSecondsOf(ev.content_id) * 1000;
             const preciseEndMs = ev.endTimestamp ? +new Date(ev.endTimestamp) : NaN;
-            const endMs =
-              Number.isFinite(preciseEndMs) && preciseEndMs > startMs
-                ? preciseEndMs
-                : startMs + durationSecondsOf(ev.content_id) * 1000;
+            const hasPreciseEnd = Number.isFinite(preciseEndMs) && preciseEndMs > anchorMs;
+            // Without precise timing, a rating stamps the *end* of the practice.
+            const ratingDerived = !hasPreciseEnd && ev.ratingMs != null;
+            const startMs = ratingDerived ? (ev.ratingMs as number) - durationMs : anchorMs;
+            const endMs = hasPreciseEnd
+              ? preciseEndMs
+              : ratingDerived
+                ? (ev.ratingMs as number)
+                : anchorMs + durationMs;
+
             const hrBefore = meanHrBetween(startMs - 15 * 60 * 1000, startMs);
             const hrDuring = meanHrBetween(startMs, endMs);
             const hrAfter = meanHrBetween(endMs, endMs + 15 * 60 * 1000, { excludeStart: true, includeEnd: true });
             const sig = getSignalAgg(ev.content_id);
+            if (ratingDerived) sig.ratingDerived = true;
+
             if (hrBefore.mean != null && hrDuring.mean != null && hrAfter.mean != null) {
+              // Tier 1
               sig.hrBeforeSum += hrBefore.mean;
               sig.hrDuringSum += hrDuring.mean;
               sig.hrAfterSum += hrAfter.mean;
               sig.hrN += 1;
+            } else if (hrDuring.mean != null) {
+              // Tier 2 — personal time-of-day baseline
+              const expected = hourBaselines[new Date(startMs).getUTCHours()];
+              if (expected != null && expected > 0) {
+                sig.baseDuringSum += hrDuring.mean;
+                sig.baseExpectedSum += expected;
+                sig.baseN += 1;
+              }
             }
+
             // Overnight recovery: HRV on the practice day vs the next morning.
             // RHR is deliberately not used — same granularity, same construct.
             const d0 = wearableByDate.get(dateKey(ev.timestamp));
@@ -792,6 +860,13 @@ serve(async (req) => {
               sig.hrvAfterSum += d1.hrv;
               sig.hrvN += 1;
             }
+            // Tier 3 — next-morning HRV vs 30-day median (works with one night)
+            if (d1?.hrv != null && hrvBaseline != null && hrvBaseline > 0) {
+              sig.hrvNextSum += d1.hrv;
+              sig.hrvBaseSum += hrvBaseline;
+              sig.hrvBaseN += 1;
+            }
+
 
             // Event category this practice preceded (calendar event within 24h after)
             const followers = calendarEvents.filter((ce) => {
@@ -866,6 +941,8 @@ serve(async (req) => {
           secondarySignalPct: number | null;
           secondarySignalLabel: string;
           n: number;
+          signalTier: 'triple_window' | 'baseline_comparison' | 'hrv_next_day' | null;
+          timingSource: 'precise' | 'rating_derived';
         };
         const usableSignal = (s: WearableSignal | null): WearableSignal | null => {
           if (!s) return null;
@@ -879,8 +956,10 @@ serve(async (req) => {
           const cat = (category || '').toLowerCase();
           const hasHr = agg.hrN >= 1;
           const hasHrv = agg.hrvN >= 1;
-          if (!hasHr && !hasHrv) return null;
-
+          const hasBaseline = agg.baseN >= 1 && agg.baseExpectedSum > 0;
+          const hasHrvBaseline = agg.hrvBaseN >= 1 && agg.hrvBaseSum > 0;
+          const timingSource: 'precise' | 'rating_derived' = agg.ratingDerived ? 'rating_derived' : 'precise';
+          if (!hasHr && !hasHrv && !hasBaseline && !hasHrvBaseline) return null;
 
           const meanHrBefore = hasHr ? agg.hrBeforeSum / agg.hrN : null;
           const meanHrDuring = hasHr ? agg.hrDuringSum / agg.hrN : null;
@@ -898,7 +977,42 @@ serve(async (req) => {
             ? round1((((agg.hrvAfterSum / agg.hrvN) - (agg.hrvBeforeSum / agg.hrvN)) / (agg.hrvBeforeSum / agg.hrvN)) * 100)
             : null;
 
-          if (cat.includes('pause')) {
+          // ── Tier 1 — precise triple window ────────────────────
+          if (hasHr) {
+            const base = { signalTier: 'triple_window' as const, timingSource };
+            if (cat.includes('pause')) {
+              return {
+                primarySignalPct: hrDropPct,
+                primarySignalLabel: 'HR during',
+                primarySignalIsPositive: false,
+                secondarySignalPct: null,
+                secondarySignalLabel: '',
+                n: agg.hrN,
+                ...base,
+              };
+            }
+            if (cat.includes('flow')) {
+              return {
+                primarySignalPct: hrvLiftPct ?? hrDropPct,
+                primarySignalLabel: hrvLiftPct != null ? 'HRV next AM' : 'HR during',
+                primarySignalIsPositive: hrvLiftPct != null,
+                secondarySignalPct: hrvLiftPct != null ? hrDropPct : null,
+                secondarySignalLabel: hrvLiftPct != null ? 'HR during' : '',
+                n: hasHrv ? agg.hrvN : agg.hrN,
+                ...base,
+              };
+            }
+            if (cat.includes('energise') || cat.includes('energize')) {
+              return {
+                primarySignalPct: hrRisePct,
+                primarySignalLabel: 'HR during',
+                primarySignalIsPositive: true,
+                secondarySignalPct: hrRecoveryPct,
+                secondarySignalLabel: 'HR recovered',
+                n: agg.hrN,
+                ...base,
+              };
+            }
             return {
               primarySignalPct: hrDropPct,
               primarySignalLabel: 'HR during',
@@ -906,37 +1020,115 @@ serve(async (req) => {
               secondarySignalPct: null,
               secondarySignalLabel: '',
               n: agg.hrN,
+              ...base,
             };
           }
-          if (cat.includes('flow')) {
+
+          // ── Tier 2 — HR during vs personal hour-of-day baseline ──
+          if (hasBaseline) {
+            const expected = agg.baseExpectedSum / agg.baseN;
+            const during = agg.baseDuringSum / agg.baseN;
+            const dropPct = round1(((expected - during) / expected) * 100);
+            const energising = cat.includes('energise') || cat.includes('energize');
+            return {
+              primarySignalPct: energising ? round1(-dropPct) : dropPct,
+              primarySignalLabel: 'HR vs baseline',
+              primarySignalIsPositive: energising,
+              secondarySignalPct: null,
+              secondarySignalLabel: '',
+              n: agg.baseN,
+              signalTier: 'baseline_comparison',
+              timingSource,
+            };
+          }
+
+          // ── Tier 3 — next-morning HRV vs 30-day median ──────────
+          if (hasHrvBaseline) {
+            const base = agg.hrvBaseSum / agg.hrvBaseN;
+            const next = agg.hrvNextSum / agg.hrvBaseN;
+            return {
+              primarySignalPct: round1(((next - base) / base) * 100),
+              primarySignalLabel: 'HRV vs baseline',
+              primarySignalIsPositive: true,
+              secondarySignalPct: null,
+              secondarySignalLabel: '',
+              n: agg.hrvBaseN,
+              signalTier: 'hrv_next_day',
+              timingSource,
+            };
+          }
+
+          // Day-over-day HRV pair without a usable baseline.
+          if (hasHrv && hrvLiftPct != null) {
             return {
               primarySignalPct: hrvLiftPct,
               primarySignalLabel: 'HRV next AM',
               primarySignalIsPositive: true,
-              secondarySignalPct: hrDropPct,
-              secondarySignalLabel: 'HR during',
-              n: hasHrv ? agg.hrvN : agg.hrN,
+              secondarySignalPct: null,
+              secondarySignalLabel: '',
+              n: agg.hrvN,
+              signalTier: 'hrv_next_day',
+              timingSource,
             };
           }
-          if (cat.includes('energise') || cat.includes('energize')) {
-            return {
-              primarySignalPct: hrRisePct,
-              primarySignalLabel: 'HR during',
-              primarySignalIsPositive: true,
-              secondarySignalPct: hrRecoveryPct,
-              secondarySignalLabel: 'HR recovered',
-              n: agg.hrN,
-            };
-          }
-          return {
-            primarySignalPct: hrDropPct,
-            primarySignalLabel: 'HR during',
-            primarySignalIsPositive: false,
-            secondarySignalPct: null,
-            secondarySignalLabel: '',
-            n: agg.hrN,
-          };
+          return null;
         };
+
+        // ── Backfill timing context onto existing ratings ────────
+        // Historic ratings were written without timing, so reads had nothing to
+        // anchor wearable windows to. Repair them from the ritual ledger, for
+        // this user only, and never overwrite an existing context_data payload.
+        try {
+          type DrcTiming = { startIso: string; endIso: string; ids: string[] };
+          const drcTimingByDay = new Map<string, DrcTiming[]>();
+          for (const row of (drcRes.data ?? []) as any[]) {
+            const day = String(row.ritual_date ?? '').slice(0, 10);
+            const s = row.practice_started_at;
+            const e = row.practice_completed_at;
+            if (!day || typeof s !== 'string' || typeof e !== 'string') continue;
+            const sMs = +new Date(s);
+            const eMs = +new Date(e);
+            if (!Number.isFinite(sMs) || !Number.isFinite(eMs) || eMs <= sMs) continue;
+            const ids = ((row.completed_practice_ids ?? []) as string[]).filter(Boolean);
+            const list = drcTimingByDay.get(day) ?? [];
+            list.push({ startIso: new Date(sMs).toISOString(), endIso: new Date(eMs).toISOString(), ids });
+            drcTimingByDay.set(day, list);
+          }
+
+          const backfills: Array<{ id: string; context_data: Record<string, unknown> }> = [];
+          for (const r of feedbackRows as any[]) {
+            if (!r.id || !r.content_id || !r.created_at) continue;
+            if (r.context_data != null) continue;
+            const day = String(r.created_at).slice(0, 10);
+            const match = (drcTimingByDay.get(day) ?? []).find((t) => t.ids.includes(r.content_id));
+            if (!match) continue;
+            const durationSeconds = Math.round((+new Date(match.endIso) - +new Date(match.startIso)) / 1000);
+            backfills.push({
+              id: r.id,
+              context_data: {
+                practiceStartedAt: match.startIso,
+                practiceCompletedAt: match.endIso,
+                durationSeconds,
+                backfilled: true,
+              },
+            });
+          }
+
+          for (const b of backfills.slice(0, 200)) {
+            const { error } = await supabase
+              .from('content_relevance_feedback')
+              .update({ context_data: b.context_data })
+              .eq('id', b.id)
+              .eq('user_id', userId)
+              .is('context_data', null);
+            if (error) console.warn('[content-feedback] context_data backfill failed', b.id, error.message);
+          }
+          if (backfills.length) {
+            console.log(`[content-feedback] backfilled context_data on ${Math.min(backfills.length, 200)} rating(s)`);
+          }
+        } catch (e) {
+          console.warn('[content-feedback] context_data backfill skipped:', (e as Error)?.message);
+        }
 
         // ── Box 1 list (composite scoring) ──────────────────────
         const box1Practices = Array.from(perContent.values())
@@ -961,6 +1153,7 @@ serve(async (req) => {
             const dominantEventCategory = tally && tally.size
               ? [...tally.entries()].sort((x, y) => y[1] - x[1])[0][0]
               : null;
+            const wearableSignal = usableSignal(buildWearableSignal(a.contentId, category));
             return {
               contentId: a.contentId,
               title:
@@ -974,7 +1167,8 @@ serve(async (req) => {
               compositeScore: Math.round(composite),
               isFavourite: isFav,
               planBadge: a.isPlan ? 'Daily plan' : null,
-              wearableSignal: usableSignal(buildWearableSignal(a.contentId, category)),
+              wearableSignal,
+              signalTier: wearableSignal?.signalTier ?? null,
               dominantEventCategory,
             };
           })
