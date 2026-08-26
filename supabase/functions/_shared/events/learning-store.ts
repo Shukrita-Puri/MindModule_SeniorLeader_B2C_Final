@@ -378,3 +378,23 @@ export async function withUserLearningContext<T>(
   }
   return runWithLearningContext(ctx, fn);
 }
+
+/**
+ * One-line primer for surfaces whose handler body is too large to wrap:
+ * binds this user's learning context to the current async flow (and every
+ * continuation of it) so `enrichEvent()` reads it automatically.
+ * Call once, immediately after the user id is known.
+ */
+export async function primeLearningContext(
+  supabase: Db,
+  userId: string | null | undefined,
+): Promise<void> {
+  try {
+    if (!supabase || !userId) return;
+    const ctx = await loadLearningContext(supabase, userId);
+    if (ctx.titles.size === 0 && ctx.tokens.size === 0) return;
+    learningStorage.enterWith(ctx);
+  } catch (_err) {
+    // Degrade to dictionary.
+  }
+}
