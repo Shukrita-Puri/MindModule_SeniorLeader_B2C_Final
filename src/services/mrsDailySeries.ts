@@ -42,6 +42,19 @@ export function checkinComposite(c: CheckinRow): number | null {
   return parts.reduce((a, b) => a + b, 0) / parts.length;
 }
 
+/**
+ * Thrown when the auth token is not yet available (native iOS keychain
+ * hydration) or the edge function rejects the call. Callers MUST let this
+ * bubble so React Query can retry — swallowing it produces permanently empty
+ * dots/charts on cold app start.
+ */
+export class MrsSeriesAuthError extends Error {
+  constructor(message = 'auth not ready') {
+    super(message);
+    this.name = 'MrsSeriesAuthError';
+  }
+}
+
 async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (DEV_MODE) {
@@ -49,10 +62,12 @@ async function authHeaders(): Promise<Record<string, string>> {
     if (anon) headers['Authorization'] = `Bearer ${anon}`;
   } else {
     const token = await getAuthToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (!token) throw new MrsSeriesAuthError('missing auth token for brief-history');
+    headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
+
 
 const dayMs = 24 * 60 * 60 * 1000;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -77,7 +92,11 @@ async function fetchBriefScores(
       if (cursorEnd < startDate) break;
       const url = `${base}?startDate=${startDate}&endDate=${cursorEnd}&limit=100`;
       const res = await fetch(url, { headers });
+      if (res.status === 401 || res.status === 403) {
+        throw new MrsSeriesAuthError(`brief-history ${res.status}`);
+      }
       if (!res.ok) break;
+
       const json = await res.json();
       const rows: Array<{ local_date?: string; score?: number | null }> = json?.briefs || [];
       if (rows.length === 0) break;
@@ -95,8 +114,10 @@ async function fetchBriefScores(
       cursorEnd = iso(new Date(new Date(`${oldest}T00:00:00Z`).getTime() - dayMs));
     }
   } catch (err) {
+    if (err instanceof MrsSeriesAuthError) throw err;
     console.error('[mrsDailySeries] brief-history fetch failed:', err);
   }
+
   return out;
 }
 
@@ -119,7 +140,8 @@ async function fetchCheckinScores(
       rows = data || [];
     } else {
       const token = await getAuthToken();
-      if (!token) return {};
+      if (!token) throw new MrsSeriesAuthError('missing auth token for daily-checkins');
+
       const { data } = await supabase.functions.invoke('daily-checkins', {
         headers: { Authorization: `Bearer ${token}` },
         body: { action: 'GET_MONTHLY_LEVELS', startDate, endDate },
@@ -134,8 +156,10 @@ async function fetchCheckinScores(
       (buckets[d] ||= []).push(c);
     }
   } catch (err) {
+    if (err instanceof MrsSeriesAuthError) throw err;
     console.error('[mrsDailySeries] check-in fetch failed:', err);
   }
+
   const out: Record<string, number> = {};
   for (const [d, vals] of Object.entries(buckets)) {
     out[d] = vals.reduce((a, b) => a + b, 0) / vals.length;

@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMrsTrend, type MrsRangeDays } from '@/hooks/useMrsTrend';
-import { fetchMrsDailySeries } from '@/services/mrsDailySeries';
+import { useMrsWeekSeries } from '@/hooks/useMrsWeekSeries';
 import MrsSparkline from '@/components/home/mrs/MrsSparkline';
 import SegmentedToggle from '@/components/insights/SegmentedToggle';
 
@@ -59,7 +59,7 @@ interface DayDot {
 const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
-  const [weekScores, setWeekScores] = useState<Record<string, number>>({});
+  
   const [showFirstReadingNotice, setShowFirstReadingNotice] = useState(false);
   const [expanded, setExpanded] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -85,19 +85,12 @@ const InnerReadinessDial = () => {
     });
   };
 
-  const uid = DEV_MODE ? DEV_USER.id : user?.id;
+  
 
-  useEffect(() => {
-    const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const mondayISO = format(monday, 'yyyy-MM-dd');
-    const sundayISO = format(addDays(monday, 6), 'yyyy-MM-dd');
-    (async () => {
-      // Single source of truth shared with the trend chart: brief snapshot
-      // scores for the day, falling back to the day's check-in composite.
-      const { byDate } = await fetchMrsDailySeries(uid, mondayISO, sundayISO);
-      setWeekScores(byDate);
-    })();
-  }, [uid]);
+  // Weekly dots now share React Query semantics with the trend chart (retries +
+  // refetch on mount/focus) so a late native auth token no longer strands them.
+  const { weekScores } = useMrsWeekSeries();
+
 
 
   useEffect(() => {
