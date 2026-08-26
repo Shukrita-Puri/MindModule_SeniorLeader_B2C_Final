@@ -156,8 +156,10 @@ async function fetchCheckinScores(
       (buckets[d] ||= []).push(c);
     }
   } catch (err) {
+    if (err instanceof MrsSeriesAuthError) throw err;
     console.error('[mrsDailySeries] check-in fetch failed:', err);
   }
+
   const out: Record<string, number> = {};
   for (const [d, vals] of Object.entries(buckets)) {
     out[d] = vals.reduce((a, b) => a + b, 0) / vals.length;
