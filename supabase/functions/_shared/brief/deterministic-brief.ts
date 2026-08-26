@@ -4,7 +4,10 @@ import type { BriefCopyContext } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 import { behaviourPriority } from "../behaviour-evaluator.ts";
 import type { LeadNarrative } from "./lead-narrative.ts";
-import { assembleFamilyBody, renderFamilyBeats } from "./family-copy.ts";
+import {
+  assembleNarrativeBody,
+  renderNarrativeBeats,
+} from "../personas/ceo/behaviour-copy.ts";
 
 
 export type DeterministicBriefBand =
@@ -742,7 +745,7 @@ export function buildDeterministicBriefFallback(
     !opts.isWeekend && !opts.isNonWorkday && !isOffDayShape(opts.dayShape)
   ) {
     const anchorTitle = narrative.anchor?.title ?? null;
-    const beats = renderFamilyBeats({
+    const beats = renderNarrativeBeats({
       narrative,
       band: opts.band,
       wearableFact: sanitizeWearableFact(opts.wearableFact),
@@ -758,7 +761,7 @@ export function buildDeterministicBriefFallback(
     if (beats) {
       return {
         phrase,
-        body: assembleFamilyBody(beats),
+        body: assembleNarrativeBody(beats),
         topSignal: "baseline_quiet",
       };
     }
