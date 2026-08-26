@@ -93,7 +93,15 @@ export interface UpsertContextSnapshotInput {
    * Omitted when `undefined` so no other writer can clobber a stored shape.
    */
   loadShape?: LoadShape | null;
+  /**
+   * Lead narrative (Brief SSOT). The family + anchor event the Brief led on
+   * for this window. Written by compute-outer-readiness only; read by the
+   * Plan's parity guard. Omitted when `undefined`.
+   */
+  // deno-lint-ignore no-explicit-any
+  leadNarrative?: any;
 }
+
 
 /**
  * Upsert the daily context snapshot for (user_id, local_date).
@@ -156,6 +164,8 @@ export async function upsertDailyContextSnapshot(
     if (input.lastCheckInWindow !== undefined) (row as any).last_check_in_window = input.lastCheckInWindow;
     if (input.weightProvenance !== undefined) (row as any).weight_provenance = input.weightProvenance;
     if (input.loadShape !== undefined) (row as any).load_shape = input.loadShape;
+    if (input.leadNarrative !== undefined) (row as any).lead_narrative = input.leadNarrative;
+
 
     // Invariant guard — never persist a row that claims a numeric MRS score
     // while also flagging awaiting_signals=true. That combination produces
