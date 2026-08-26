@@ -30,6 +30,11 @@ vi.mock('@/services/mrsDailySeries', () => ({
   fetchMrsDailySeries: async () => ({ byDate: {} }),
 }));
 
+vi.mock('@/hooks/useMrsWeekSeries', () => ({
+  useMrsWeekSeries: () => ({ weekScores: {}, isLoading: false, isError: false }),
+}));
+
+
 vi.mock('@/services/authTokenService', () => ({
   getAuthToken: async () => null,
 }));
