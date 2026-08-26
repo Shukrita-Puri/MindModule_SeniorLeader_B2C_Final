@@ -839,7 +839,10 @@ function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string
 
 // ── Beat (b) — the read ─────────────────────────────────────────────────────
 
-const NARRATIVE_READS: Record<BriefNarrativeFamily, { ok: string[]; low: string[] }> = {
+const NARRATIVE_READS: Record<
+  BriefNarrativeFamily,
+  { ok: string[]; low: string[]; evening?: string[] }
+> = {
   travel_long_haul: {
     ok: [
       "The flight is the cost today, not the meetings.",
@@ -848,6 +851,10 @@ const NARRATIVE_READS: Record<BriefNarrativeFamily, { ok: string[]; low: string[
     low: [
       "You are spending the day in a seat and arriving to real work — that is the squeeze.",
       "There is not enough in the tank to lose the whole flight to email.",
+    ],
+    evening: [
+      "The flight was the day; what is left of it is recovery, not work.",
+      "You have moved a long way today — that is the whole of it.",
     ],
   },
   travel_short_haul: {
@@ -859,6 +866,10 @@ const NARRATIVE_READS: Record<BriefNarrativeFamily, { ok: string[]; low: string[
       "The flight is short but the day is long, and you are running under.",
       "Short hops on a thin tank are where the edge quietly goes.",
     ],
+    evening: [
+      "The travel was short; the switching around it is what cost you.",
+      "Two transitions in a day is what has taken the edge off.",
+    ],
   },
   travel_intercity: {
     ok: [
@@ -868,6 +879,10 @@ const NARRATIVE_READS: Record<BriefNarrativeFamily, { ok: string[]; low: string[
     low: [
       "A same-day return on this little in reserve leaves nothing for the evening.",
       "You will land back with less than you left with.",
+    ],
+    evening: [
+      "You are back with less than you left with — that is the price of the day.",
+      "The distance was nothing; getting your head back is tonight's work.",
     ],
   },
   persuasion_pre: {
@@ -889,6 +904,10 @@ const NARRATIVE_READS: Record<BriefNarrativeFamily, { ok: string[]; low: string[
       "Visibility on a thin day is where the tightness shows.",
       "You can hold the room, but not if you walk in cold and rushed.",
     ],
+    evening: [
+      "Being watched costs more than the content did.",
+      "The exposure is what took from you today, not the material.",
+    ],
   },
   visibility_post: {
     ok: [
@@ -909,6 +928,10 @@ const NARRATIVE_READS: Record<BriefNarrativeFamily, { ok: string[]; low: string[
       "The event has been drawing on you for days and today asks for more.",
       "You are further into this than your reserves are.",
     ],
+    evening: [
+      "These days do not spike — they accumulate, and today added to it.",
+      "The sessions were not the load. The people between them were.",
+    ],
   },
   back_to_back: {
     ok: [
@@ -928,6 +951,10 @@ const NARRATIVE_READS: Record<BriefNarrativeFamily, { ok: string[]; low: string[
     low: [
       "The rooms are heavy and you are running light.",
       "There is enough for the big rooms only if nothing else takes from them.",
+    ],
+    evening: [
+      "The weight of today sat in two conversations, and they are done.",
+      "That was a depth day, not a throughput day.",
     ],
   },
   volume_heavy: {
@@ -1206,6 +1233,11 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
   const low = LOW(i.band) || i.narrative.depletion;
   const reads = NARRATIVE_READS[family];
   const closes = NARRATIVE_CLOSES[family];
+  const readBank = i.window === "evening" && reads.evening
+    ? reads.evening
+    : low
+    ? reads.low
+    : reads.ok;
   const closeBank = i.window === "evening" && closes.evening
     ? closes.evening
     : low
@@ -1219,7 +1251,7 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
 
   return {
     evidence,
-    read: nPick(low ? reads.low : reads.ok, i.variantSeed, `read:${family}`),
+    read: nPick(readBank, i.variantSeed, `read:${family}:${i.window}`),
     directive,
     close: nPick(closeBank, i.variantSeed, `close:${family}:${i.window}`),
   };
