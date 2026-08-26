@@ -1021,7 +1021,7 @@ serve(async (req) => {
                 primarySignalLabel: 'HR during',
                 primarySignalIsPositive: true,
                 secondarySignalPct: hrRecoveryPct,
-                secondarySignalLabel: 'HR recovered',
+                secondarySignalLabel: 'HR recovery',
                 n: agg.hrN,
                 ...base,
               };
