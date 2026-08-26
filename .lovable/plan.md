@@ -63,12 +63,12 @@ The substance: for each family, hand-crafted four-beat bodies in the Chief-of-St
 - 2–3 lexical variants per beat, chosen deterministically from a hash of (user, local date, window) — stable within a day, varied across days.
 - These same family keys feed the LLM prompt block, so deterministic and LLM outputs share one narrative skeleton and differ only in phrasing.
 
-### Verification
+### Verification for 1B
 
 - `deterministic-brief.test.ts` extended to a scenario matrix: each family × phase × pill-tier band × depletion overlay on/off — asserting four beats, word budget (40–55, max 60), forbidden-word cleanliness, no beat restating another.
 - Golden-output snapshots so every copy change is reviewable as a diff.
-- Parity test: Brief lead event == Plan top JIT candidate for a fixed event set.
 - Bump `BRIEF_PROMPT_VERSION` (frontend mirror too), deploy `compute-outer-readiness` (and `smart-nudges` / `generate-mastery-plan` if shared modules changed).
+
 
 ---
 
