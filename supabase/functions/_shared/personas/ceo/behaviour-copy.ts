@@ -134,7 +134,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `${tzShift(ctx)}-hour timezone delta active; body clock and calendar are not aligned.`,
     read: (ctx) =>
-      `Circadian re-entry day — prefrontal capacity is running below what the calendar assumes.`,
+      `Circadian re-entry day — your cognitive runway is running below what the calendar assumes.`,
     directive: (ctx) =>
       `Push your first high-stakes commitment 90 minutes later than instinct suggests; ` +
       `treat hydration as a cognitive input today.`,
