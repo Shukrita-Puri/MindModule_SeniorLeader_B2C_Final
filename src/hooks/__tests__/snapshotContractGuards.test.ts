@@ -88,6 +88,11 @@ describe('snapshot contract guards', () => {
 
   it('brief card has no competing MRS snapshot score source', () => {
     expect(BRIEF_SRC).not.toContain('shouldPreferMrsSnapshot');
-    expect(BRIEF_SRC).not.toContain('useMrsSnapshot');
+    // The MRS snapshot may only be consumed for the shared visibility gate —
+    // never as a second score source for the rendered readiness number.
+    expect(BRIEF_SRC).toContain('isMrsVisible(briefMrsSnapshot');
+    expect(BRIEF_SRC).not.toContain('briefMrsSnapshot.score');
+    expect(BRIEF_SRC).not.toContain('briefMrsSnapshot?.score');
   });
 });
+

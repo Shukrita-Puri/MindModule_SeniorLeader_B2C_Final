@@ -1,6 +1,8 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/services/authTokenService', () => ({
   getAuthToken: vi.fn(async () => 'test-token'),
@@ -8,6 +10,9 @@ vi.mock('@/services/authTokenService', () => ({
 const invoke = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { functions: { invoke: (...a: unknown[]) => invoke(...a) } },
+}));
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'test-user' }, isAuthenticated: true, isLoading: false }),
 }));
 vi.mock('@/utils/openUrl', () => ({ openUrl: vi.fn() }));
 vi.mock('@/services/ouraSyncService', () => ({ startOuraOAuth: vi.fn() }));
@@ -25,6 +30,13 @@ vi.mock('@/assets/shared/whoop-logo.png', () => ({ default: 'w.png' }));
 import WearableProviderPicker, {
   fetchWearableProvidersState,
 } from '../WearableProviderPicker';
+
+const renderWithClient = (ui: React.ReactElement) => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+};
 
 beforeEach(() => { invoke.mockReset(); });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -104,7 +116,7 @@ describe('fetchWearableProvidersState', () => {
 describe('<WearableProviderPicker /> — UI states', () => {
   it('renders an error banner with Retry on fetch failure and does NOT show "Not connected"', async () => {
     invoke.mockResolvedValue({ data: null, error: { message: 'boom' } });
-    render(<WearableProviderPicker />);
+    renderWithClient(<WearableProviderPicker />);
 
     const banner = await screen.findByTestId('wearable-provider-error');
     expect(banner).toBeInTheDocument();
@@ -136,7 +148,7 @@ describe('<WearableProviderPicker /> — UI states', () => {
       },
       error: null,
     });
-    render(<WearableProviderPicker only={['oura', 'apple-watch']} />);
+    renderWithClient(<WearableProviderPicker only={['oura', 'apple-watch']} />);
     await waitFor(() => {
       expect(screen.queryByTestId('wearable-provider-error')).not.toBeInTheDocument();
     });
