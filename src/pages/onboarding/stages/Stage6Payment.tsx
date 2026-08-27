@@ -29,12 +29,18 @@ type ViewState = 'default' | 'feedback' | 'account-options';
 function PaymentPageShell({
   children,
   showBack = true,
+  onBack,
 }: {
   children: ReactNode;
   showBack?: boolean;
+  onBack?: () => void;
 }) {
   const navigate = useNavigate();
   const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
     // Prefer real browser history when available; otherwise route to a safe
     // in-app home. window.history.length is >1 whenever the user navigated
     // into this page from within the SPA.
@@ -288,8 +294,8 @@ export default function Stage6Payment() {
   };
 
   const renderFeedback = () => (
-    <PaymentPageShell showBack={false}>
-      <div className="max-w-md mx-auto py-12 px-6 animate-fade-in text-center space-y-6">
+    <PaymentPageShell showBack={true} onBack={() => setView('default')}>
+      <div className="max-w-md mx-auto py-8 px-6 animate-fade-in text-center space-y-6">
         <div>
           <h3 className="text-xl font-headline font-bold">Help us improve</h3>
           <p className="text-sm text-muted-foreground mt-2">
@@ -316,8 +322,8 @@ export default function Stage6Payment() {
   );
 
   const renderAccountOptions = () => (
-    <PaymentPageShell showBack={false}>
-      <div className="max-w-md mx-auto py-12 px-6 animate-fade-in text-center space-y-8">
+    <PaymentPageShell showBack={true} onBack={() => setView('feedback')}>
+      <div className="max-w-md mx-auto py-8 px-6 animate-fade-in text-center space-y-8">
         <div>
           <h3 className="text-xl font-headline font-bold">Your Trial is Over</h3>
           <p className="text-sm text-muted-foreground mt-3 leading-relaxed">

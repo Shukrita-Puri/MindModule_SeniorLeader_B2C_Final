@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, X, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import appLogo from "@/assets/app-logo-4.png";
@@ -42,6 +42,14 @@ export function UpgradeModal({ sessionsRemaining, onClose }: UpgradeModalProps) 
 
   const renderFeedback = () => (
     <div className="space-y-5 animate-fade-in">
+      <div className="flex items-center -ml-2 -mt-2">
+        <button 
+          onClick={() => setView('default')} 
+          className="p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      </div>
       <div>
         <h3 className="text-lg font-headline font-bold">Help us improve</h3>
         <p className="text-sm text-muted-foreground mt-1">
@@ -68,6 +76,14 @@ export function UpgradeModal({ sessionsRemaining, onClose }: UpgradeModalProps) 
 
   const renderAccountOptions = () => (
     <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center -ml-2 -mt-2">
+        <button 
+          onClick={() => setView('feedback')} 
+          className="p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      </div>
       <div>
         <h3 className="text-lg font-headline font-bold">Your Trial is Over</h3>
         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
