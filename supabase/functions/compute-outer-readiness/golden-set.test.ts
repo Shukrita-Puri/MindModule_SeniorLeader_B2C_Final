@@ -68,8 +68,12 @@ function narrativeFor(family: BriefNarrativeFamily): LeadNarrative {
       conferenceTotalDays: 3,
       presentingInsideConference: false,
       eveningSocialLoad: false,
-      travelTier: family.includes("long") ? "long_haul" : family.includes("short") ? "short_haul" : "intercity",
-      travelDurationHours: family.includes("long") ? 9 : 3,
+      travelTier: family === "travel_long_haul"
+        ? "long_haul"
+        : family === "travel_short_haul"
+        ? "short_haul"
+        : "short_haul_round_trip",
+      travelDurationHours: family === "travel_long_haul" ? 9 : 3,
       meetingsAfterTravel: 2,
       meetingsBeforeTravel: 1,
     },
