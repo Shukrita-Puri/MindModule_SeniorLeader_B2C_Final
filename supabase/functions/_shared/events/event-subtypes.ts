@@ -1047,25 +1047,6 @@ const ROWS: RawSubtype[] = [
     masteryModules: ["regulate", "align", "prepare"],
     jitLeadTimeMinutes: 720,
   },
-  // Spec F — attending a conference / summit (not speaking). Bare
-  // "conference"/"summit" titles are attendance, which is Category F.
-  // Speaker cues are owned by conf.keynote / conf.speaking above.
-  {
-    id: "conf.attendance",
-    label: "Conference / Summit (attending)",
-    bucket: "Conferences & External Events",
-    categoryId: "F",
-    group: "D_visibility",
-    primaryPillar: 2,
-    secondaryPillar: 3,
-    demandProfile: D(1, 1, 2, 0, 3, 3, 0, 1),
-    timingMatrix: { pre: true, during: false, post: true },
-    regulationObjective: "PREPARE",
-    interventionType: "Pause",
-    keywords: ["conference", "summit"],
-    masteryModules: ["regulate", "align"],
-    jitLeadTimeMinutes: 720,
-  },
   {
     id: "conf.offsite",
     label: "Off-site / Retreat",
@@ -1150,6 +1131,25 @@ const ROWS: RawSubtype[] = [
       "multi-day workshop",
     ],
     classificationOnly: true,
+  },
+  // Spec F — attending a conference / summit (not speaking). Bare
+  // "conference"/"summit" titles are attendance, which is Category F.
+  // Speaker cues are owned by conf.keynote / conf.speaking above.
+  {
+    id: "conf.attendance",
+    label: "Conference / Summit (attending)",
+    bucket: "Conferences & External Events",
+    categoryId: "F",
+    group: "D_visibility",
+    primaryPillar: 2,
+    secondaryPillar: 3,
+    demandProfile: D(1, 1, 2, 0, 3, 3, 0, 1),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Pause",
+    keywords: ["conference", "summit"],
+    masteryModules: ["regulate", "align"],
+    jitLeadTimeMinutes: 720,
   },
   // Spec F.event — multi-day event (expo, festival, show, fair).
   {
@@ -1590,6 +1590,7 @@ export const EVENT_TYPE_TO_SCENARIO_ID: Record<string, string | null> = {
   "conf.offsite": "pre-strategic-planning",
   "conf.award": "pre-speaking-engagement",
   "conf.customer_summit": "pre-speaking-engagement",
+  "conf.attendance": null,
   "conf.networking": null,
   "trv.long_haul": null,
   "trv.flight": null,
