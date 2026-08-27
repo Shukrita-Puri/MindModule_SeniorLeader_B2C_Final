@@ -685,37 +685,39 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
 
   // ── Travel closes — oriented toward arrival or re-entry ──
   if (shape === "work_travel") {
-    if (phase === "pre")        return "and arrive with something in the tank.";
-    if (phase === "in_transit") return "and land in the condition the next thing needs.";
-    if (phase === "post")       return "and let the system settle before pushing.";
-    return "and arrive intact.";
+    if (phase === "pre")        return ensureCloseLexicon("and arrive with something in the tank.");
+    if (phase === "in_transit") return ensureCloseLexicon("and land in the condition the next thing needs.");
+    if (phase === "post")       return ensureCloseLexicon("and let the system settle before pushing.");
+    return ensureCloseLexicon("and arrive intact.");
   }
   if (shape === "personal_travel") {
-    return "and arrive with something left.";
+    return ensureCloseLexicon("and arrive with something left.");
   }
 
   // ── Conference close ──
   if (shape === "conference") {
-    return opts.band === "depleted" || opts.band === "stretched"
-      ? "and protect what's left for the sessions that matter."
-      : "and protect the state for what tomorrow opens with.";
+    return ensureCloseLexicon(
+      opts.band === "depleted" || opts.band === "stretched"
+        ? "and protect what's left for the sessions that matter."
+        : "and protect the state for what tomorrow opens with.",
+    );
   }
 
   // ── Non-workday close (holiday / PTO) ──
   if (shape === "public_holiday" || shape === "pto" ||
       shape === "personal_holiday" || opts.isNonWorkday) {
-    return "and let the return start with something in the tank.";
+    return ensureCloseLexicon("and let the return start with something in the tank.");
   }
 
   // ── Weekend close (existing strings — unchanged) ──
   if (opts.isWeekend || shape === "weekend") {
     if (opts.band === "firing" || opts.band === "sharp") {
-      return "and make sure today genuinely recovers, not just overflows.";
+      return ensureCloseLexicon("and make sure today genuinely recovers, not just overflows.");
     }
     if (opts.band === "depleted") {
-      return "and protect tomorrow's start — that's what today is for.";
+      return ensureCloseLexicon("and protect tomorrow's start — that's what today is for.");
     }
-    return "and let this window close so the week starts clean.";
+    return ensureCloseLexicon("and let this window close so the week starts clean.");
   }
 
   // ── Workday close (existing logic — unchanged) ──
@@ -732,7 +734,7 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
       const close = entry.close(buildBriefCopyContext(opts, flag));
       // Copy pack closes are standalone clauses; prefix with "and" so the
       // final body sentence flows: "... directive, and close."
-      return close.startsWith("and ") ? close : `and ${close}`;
+      return ensureCloseLexicon(close.startsWith("and ") ? close : `and ${close}`);
     }
   }
 
@@ -742,11 +744,11 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     opts.window === "evening" &&
     (opts.band === "steady" || opts.band === "stretched" || opts.band === "depleted")
   ) {
-    return "and close the laptop so tomorrow doesn't start in residue.";
+    return ensureCloseLexicon("and close the laptop so tomorrow doesn't start in residue.");
   }
   const hasHighStakesLeft = opts.todayHighStakes.length > 0;
   if (hasHighStakesLeft && (opts.band === "stretched" || opts.band === "depleted")) {
-    return "and settle yourself before you walk in.";
+    return ensureCloseLexicon("and settle yourself before you walk in.");
   }
   const map: Record<DeterministicBriefBand, string> = {
     firing:    "and hold your line when it speeds up.",
@@ -755,7 +757,7 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     stretched: "and take the gaps before they're gone.",
     depleted:  "and shut the laptop early tonight.",
   };
-  return map[opts.band];
+  return ensureCloseLexicon(map[opts.band]);
 
 }
 
