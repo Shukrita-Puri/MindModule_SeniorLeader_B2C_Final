@@ -12,7 +12,6 @@ import { syncHealthKitToBackend } from '@/services/wearableSyncService';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
-import { invalidatePlanCache } from '@/hooks/useMasteryPlan';
 import appleHealthLogo from '@/assets/shared/apple-health-logo.png';
 import ouraLogo from '@/assets/shared/oura-ring-logo.png';
 import whoopLogo from '@/assets/shared/whoop-logo.png';
@@ -203,7 +202,7 @@ function WearableRow({ provider, label, iconSrc, status, redirectPath, onChanged
           toast.success('Apple Watch connected');
           if (user?.id) clearOuterReadinessCache(user.id);
           queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-          invalidatePlanCache();
+          queryClient.invalidateQueries({ queryKey: ['mastery-plan'] });
         } else {
           toast.warning('Connected, initial sync will retry shortly');
         }
