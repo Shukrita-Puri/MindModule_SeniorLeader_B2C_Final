@@ -19,7 +19,7 @@ import {
 } from '@/utils/planLocaleContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
-import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
+import { useMrsSnapshot, isMrsVisible } from '@/hooks/useMrsSnapshot';
 import { useMasteryPlanSnapshot } from '@/hooks/useMasteryPlanSnapshot';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
