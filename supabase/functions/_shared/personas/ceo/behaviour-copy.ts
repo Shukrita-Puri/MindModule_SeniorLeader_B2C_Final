@@ -1253,12 +1253,20 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
   // day shape names it; the directive then reuses the plain reference.
   const evidence = nBuildEvidence(i, ref);
   const directive = nBuildDirective(i, ref);
+  const close = nPick(closeBank, i.variantSeed, `close:${family}:${i.window}`);
+
+  // Elastic Lexicon safety: the close must carry at least one pillar concept.
+  // Append a short self-regulation clause inside the same sentence so the
+  // four-beat structure and sentence count stay intact.
+  const closeWithLexicon = detectCluster(close)
+    ? close
+    : `${close.replace(/\.$/, "")}, ${lexiconFallbackClause("resilience")}.`;
 
   return {
     evidence,
     read: nPick(readBank, i.variantSeed, `read:${family}:${i.window}`),
     directive,
-    close: nPick(closeBank, i.variantSeed, `close:${family}:${i.window}`),
+    close: closeWithLexicon,
   };
 }
 
