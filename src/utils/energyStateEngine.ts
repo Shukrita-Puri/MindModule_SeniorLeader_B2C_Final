@@ -341,8 +341,8 @@ function buildClientMrsV4SubScores(args: {
       sleep,
       rhr,
       sub('intradayHrDeviation', null),
-      sub('remainingDayDemand', scoreFromDemand(args.demandScore)),
-      sub('realizedSoFarCost', scoreFromDemand(args.demandScore)),
+      sub('remainingDayDemand', scoreFromDemand(args.remainingDemandScore ?? args.demandScore)),
+      sub('realizedSoFarCost', scoreFromDemand(args.realizedDemandScore ?? args.demandScore)),
       pattern,
     ];
   }
