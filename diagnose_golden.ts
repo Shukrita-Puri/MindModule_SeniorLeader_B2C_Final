@@ -85,5 +85,4 @@ for (const family of FAMILIES) {
 }
 
 console.log(`Total: ${total}, Failures: ${failures.length}`);
-for (const f of failures.slice(0, 30)) console.log(f);
-if (failures.length > 30) console.log(`... and ${failures.length - 30} more`);
+for (const f of failures) console.log(f);
