@@ -926,7 +926,7 @@ const NARRATIVE_READS: Record<
     ],
     low: [
       "The event has been drawing on you for days and today asks for more.",
-      "You are further into this than your reserves are.",
+      "You are further into this than your Internal Buffer is.",
     ],
     evening: [
       "These days do not spike — they accumulate, and today added to it.",
