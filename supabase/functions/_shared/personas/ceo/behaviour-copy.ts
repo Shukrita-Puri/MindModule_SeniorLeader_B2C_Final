@@ -292,7 +292,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `Day ${confDay(ctx)} of a multi-day event; cumulative social performance load compounding.`,
     read: (ctx) =>
       `Conference fatigue hits the interpersonal read first — ` +
-      `the most expensive capacity to lose at an external event.`,
+      `the most expensive Executive Presence to lose at an external event.`,
     directive: (ctx) =>
       `Front-load conversations requiring emotional presence; ` +
       `let the end of the day run on process, not performance.`,
