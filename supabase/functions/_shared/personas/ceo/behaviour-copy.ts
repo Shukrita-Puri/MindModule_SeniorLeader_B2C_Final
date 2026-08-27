@@ -828,11 +828,12 @@ function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string
 
   if (!state) return `${nCap(shape)}.`;
 
+  // Single-sentence forms only — the four-beat body must stay within 1–3
+  // sentences, so evidence and read each occupy one sentence.
   const forms: string[] = [
-    `${nCap(state)}. ${nCap(shape)}.`,
     `${nCap(state)} — and ${shape}.`,
-    `${nCap(shape)}. Behind it, ${nLower(state)}.`,
     `${nCap(state)}, with ${shape}.`,
+    `${nCap(shape)}, behind ${nLower(state)}.`,
   ];
   return nPick(forms, i.variantSeed, `evidence:${i.narrative.family}:${i.window}`);
 }
