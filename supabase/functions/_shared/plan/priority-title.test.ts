@@ -74,7 +74,12 @@ Deno.test("buildPriorityTitle — state-management fallback (no event)", () => {
   const out = buildPriorityTitle({
     slotAnchor: { eventTitle: null, categoryId: null, phase: "pre" },
   });
-  assertStringIncludes(out, "for the day ahead");
+  // Window-aware tail (Chief-of-Staff phrasing): morning/afternoon rhythm,
+  // "to close the day", or the generic "for the day ahead".
+  assert(
+    /(for the (day ahead|morning rhythm|afternoon rhythm))|(to close the day)/.test(out),
+    `expected a window-aware day tail, got "${out}"`,
+  );
 });
 
 Deno.test("buildPriorityTitle — slotAnchor eliminates cross-event leakage (E category with Board title)", () => {
@@ -95,7 +100,10 @@ Deno.test("buildPriorityTitle — slotAnchor with null eventTitle falls back cle
   const anchor: SlotAnchor = { eventTitle: null, categoryId: "A", phase: "post" };
   const out = buildPriorityTitle({ slotAnchor: anchor });
   // State-management fallback path engages when title is missing.
-  assertStringIncludes(out, "for the day ahead");
+  assert(
+    /(for the (day ahead|morning rhythm|afternoon rhythm))|(to close the day)/.test(out),
+    `expected a window-aware day tail, got "${out}"`,
+  );
   assert(!out.toLowerCase().includes("null"), `output must not contain 'null', got "${out}"`);
 });
 

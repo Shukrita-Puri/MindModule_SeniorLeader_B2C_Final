@@ -50,7 +50,7 @@ Deno.test('V4 matrix — no wearable + no check-in → all neutral missing', () 
   }
 });
 
-Deno.test('V4 matrix — no wearable + check-in → still neutral, no check-in credit', () => {
+Deno.test('V4 matrix — no wearable + check-in → check-in-only read, never score-bearing', () => {
   const pills = annotateAll(
     {
       decision_readiness: ['checkin'],
@@ -59,16 +59,23 @@ Deno.test('V4 matrix — no wearable + check-in → still neutral, no check-in c
     },
     { wearableFresh: false, checkInFresh: true, hasWearable: false },
   );
-  for (const p of pills) {
+  const [d, ph, r] = pills;
+  // Fallback C: check-in-sourced pills keep their tier as a non-score-bearing read.
+  for (const p of [d, r]) {
     assertEquals(p.isScoreBearing, false);
-    assertEquals(p.tier, 'neutral');
-    assertEquals(p.contributedByCheckIn, false);
-    assertEquals(p.hiddenReason, 'no_fresh_wearable');
-    assertEquals(p.freshness, 'missing');
+    assertEquals(p.contributedByCheckIn, true);
+    assertEquals(p.hiddenReason, null);
+    assertEquals(p.freshness, 'checkin_only');
   }
+  // No check-in source and no wearable → neutral / missing.
+  assertEquals(ph.isScoreBearing, false);
+  assertEquals(ph.tier, 'neutral');
+  assertEquals(ph.contributedByCheckIn, false);
+  assertEquals(ph.hiddenReason, 'no_fresh_wearable');
+  assertEquals(ph.freshness, 'missing');
 });
 
-Deno.test('V4 matrix — stale wearable + check-in → neutral stale, no check-in credit', () => {
+Deno.test('V4 matrix — stale wearable + check-in → check-in-only read, wearable-only pills neutral', () => {
   const pills = annotateAll(
     {
       decision_readiness: ['wearable', 'checkin'],
@@ -77,13 +84,17 @@ Deno.test('V4 matrix — stale wearable + check-in → neutral stale, no check-i
     },
     { wearableFresh: false, checkInFresh: true, hasWearable: true },
   );
-  for (const p of pills) {
+  const [d, ph, r] = pills;
+  for (const p of [d, r]) {
     assertEquals(p.isScoreBearing, false);
-    assertEquals(p.tier, 'neutral');
-    assertEquals(p.contributedByCheckIn, false);
-    assertEquals(p.hiddenReason, 'no_fresh_wearable');
-    assertEquals(p.freshness, 'stale');
+    assertEquals(p.contributedByCheckIn, true);
+    assertEquals(p.freshness, 'checkin_only');
   }
+  assertEquals(ph.isScoreBearing, false);
+  assertEquals(ph.tier, 'neutral');
+  assertEquals(ph.contributedByCheckIn, false);
+  assertEquals(ph.hiddenReason, 'no_fresh_wearable');
+  assertEquals(ph.freshness, 'stale');
 });
 
 Deno.test('V4 matrix — fresh wearable + no check-in → wearable pills score, check-in-only hidden', () => {
