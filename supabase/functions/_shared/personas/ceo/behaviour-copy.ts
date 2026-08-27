@@ -963,7 +963,7 @@ const NARRATIVE_READS: Record<
       "Most of today is attendance, not decision.",
     ],
     low: [
-      "A full calendar of low-yield rooms on a thin day is pure leakage.",
+      "A full calendar of thin-yield rooms on a thin day is pure leakage.",
       "You cannot afford to spend this state on meetings that decide nothing.",
     ],
   },
