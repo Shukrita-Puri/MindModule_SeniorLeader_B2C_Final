@@ -16,8 +16,11 @@
 // HARD RULE: attendee counts are NEVER used. Audience size carries no
 // correlation with event importance and must not influence classification.
 
-/** Title shapes that mark an event as content ABOUT a topic. */
-const CONTENT_TITLE_MARKERS: RegExp[] = [
+/**
+ * STRONG markers: the title itself is framed as material ABOUT a topic.
+ * Only these can make an event content.
+ */
+const STRONG_CONTENT_MARKERS: RegExp[] = [
   /^\s*why\b/i,                     // "Why Investor Comms are so Important"
   /^\s*how\s+to\b/i,                // "How to run a board process"
   /^\s*what\s+(every|you|the|new)\b/i,
@@ -25,9 +28,6 @@ const CONTENT_TITLE_MARKERS: RegExp[] = [
   /\bso\s+important\b/i,
   /\bmasterclass\b/i,
   /\bwebinar\b/i,
-  /\bfireside\b/i,
-  /\bpanel\s+(discussion|session)\b|\bpanel\b/i,
-  /\bAMA\b/,
   /\bbootcamp\b/i,
   /\b101\b/,
   /\bdeep\s+dive\s+(on|into)\b/i,
@@ -37,6 +37,18 @@ const CONTENT_TITLE_MARKERS: RegExp[] = [
   /\bfundamentals\s+of\b/i,
   /\bguide\s+to\b/i,
   /\btraining\s+session\b/i,
+];
+
+/**
+ * WEAK markers: formats a leader is just as likely to APPEAR IN as to watch
+ * (a panel, a fireside, an AMA). They corroborate a strong marker but can
+ * never make an event content on their own — otherwise "Panel: Future of
+ * Payments" gets filed as passive learning instead of a visibility room.
+ */
+const WEAK_CONTENT_MARKERS: RegExp[] = [
+  /\bfireside\b/i,
+  /\bpanel\s+(discussion|session)\b|\bpanel\b/i,
+  /\bAMA\b/,
 ];
 
 /**
@@ -59,7 +71,13 @@ const COUNTER_MARKERS: RegExp[] = [
   /\boffer\b/i,
   /\bappraisal\b/i,
   /\bperformance\s+review\b/i,
+  // Speaking / appearance signals — the user is on stage, not in the audience.
+  /\b(speaking|speaker|panell?ist|moderat(?:e|ing|or)|keynote|host(?:ing)?|guest)\b/i,
+  /\bfireside\s+chat\s+with\b/i,
+  /\bmy\s+(panel|talk|session)\b/i,
+  /\bprep\b/i,
 ];
+
 
 /** Structural markers read from provider metadata. No attendee counts. */
 const REGISTRATION_URL_RE =
