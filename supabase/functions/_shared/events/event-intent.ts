@@ -108,9 +108,11 @@ function metadataText(meta: Record<string, unknown> | null | undefined): string 
 }
 
 /**
- * Pure. Two or more content markers, and zero counter-markers, means the
- * event is content. One marker alone is never enough — that threshold is
- * what keeps "Board meeting: 101 Ltd" out of the learning bucket.
+ * Pure. An event is content only when at least ONE strong marker is present
+ * and the evidence adds up to two (strong + weak/structural, or a strong
+ * marker on an event the user did not create). Weak-format markers alone —
+ * "panel", "fireside", "AMA" — never qualify: a leader is as likely to be on
+ * the stage as in the audience, and the visibility layers must keep those.
  */
 export function detectContentIntent(input: ContentIntentInput): ContentIntentResult {
   const title = (input.title ?? "").trim();
@@ -123,7 +125,14 @@ export function detectContentIntent(input: ContentIntentInput): ContentIntentRes
   }
 
   const markers: string[] = [];
-  for (const re of CONTENT_TITLE_MARKERS) {
+  let strongCount = 0;
+  for (const re of STRONG_CONTENT_MARKERS) {
+    if (re.test(title)) {
+      markers.push(re.source);
+      strongCount++;
+    }
+  }
+  for (const re of WEAK_CONTENT_MARKERS) {
     if (re.test(title)) markers.push(re.source);
   }
 
@@ -140,10 +149,15 @@ export function detectContentIntent(input: ContentIntentInput): ContentIntentRes
     return { isContent: false, markers, counterMarkers };
   }
 
+  if (strongCount === 0) {
+    return { isContent: false, markers, counterMarkers };
+  }
+
   // Organiser flag is a tie-break only: it can lift a single-marker title to
   // content when the user did not create the event, and it can never on its
   // own make something content.
-  const effective = markers.length + (markers.length >= 1 && input.isOrganizer === false ? 1 : 0);
+  const effective = markers.length + (input.isOrganizer === false ? 1 : 0);
 
   return { isContent: effective >= 2, markers, counterMarkers };
 }
+
