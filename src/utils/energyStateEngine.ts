@@ -946,20 +946,18 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // Get auth token for the EF call
     let authHeaders: Record<string, string> = {};
     if (!DEV_MODE) {
-      const token = authTokenForRequests ?? await getAuth0Token();
+      const token = authTokenForRequests ?? await getAuthTokenWithRetry();
       if (token) {
         authHeaders = { Authorization: `Bearer ${token}` };
       } else {
-        // Phase 1 — Auth0 token unavailable. Do NOT call the edge function
-        // (it would 401 and look identical to a real awaiting state).
-        // Return a structured 'auth-failure' so the UI can show retry copy
-        // instead of the cold-start prompt.
-        console.warn('[energyStateEngine] Auth0 token unavailable — returning auth-failure status');
-        return buildErrorFallback({
-          status: 'auth-failure',
-          hasCalendar,
-          calendarData,
-        });
+        // Auth0 token still unavailable after the hydration retry window.
+        // Do NOT call the edge function (it would 401), and do NOT paint the
+        // hard failure block — on cold foreground this is almost always a
+        // transient session-rehydration gap. Degrade to the snapshot-only
+        // stub ('stale') so the persisted readiness snapshot renders and the
+        // next compute picks up the real token.
+        console.warn('[energyStateEngine] Auth0 token unavailable after retries — degrading to stale snapshot render');
+        return buildSnapshotOnlyStub();
       }
     }
 
