@@ -117,3 +117,24 @@ No new tables, no schema migrations, no validator logic/threshold edits, no MRS 
 - Beat 4 throws rather than silently drops for any missing family
 - Every narrative family has a close entry passing persona rules
 - Window gating enforced at both L5.5 (candidate set) and L6 (vocabulary) independently
+
+## Scope containment — no other surface is touched
+
+This work is Brief-engine only. No change to the Plan, Smart Nudges, Insights, or MRS features:
+
+- Files in scope: `_shared/personas/ceo/behaviour-copy.ts`, `_shared/brief/*` (incl. the new `rank-brief-evidence.ts`), `_shared/brief-context.ts` (add `loadShape` field only), `_shared/brief-validators.ts` (comment only), `_shared/signal-engine/behaviour-snapshot.ts` + `window-context-types.ts` (comment + `calendarResolved` type field), `compute-outer-readiness/index.ts`, docs and tests.
+- Explicitly not modified: `generate-mastery-plan`, `smart-nudges`, `cause-effect-engine` (read-only import of its `Finding` type), MRS v4 scoring, `list-week-ahead-priorities`, and all Insights/Plan/Nudge frontend components.
+- `SignalMatrix.loadShape` is additive and optional-by-null, so existing Plan/Nudge consumers of `brief-context.ts` keep identical behaviour.
+- Adding `calendarResolved` to `BehaviourSnapshot` must not change any value the Plan or Nudges already read from that snapshot.
+- After each phase, re-run the full existing test suite to confirm no cross-surface regression.
+
+## Deployment cadence
+
+Each phase is deployed on its own, not batched:
+
+1. Land the phase's code and tests.
+2. Run typecheck plus the full test suite; the phase gate must be green.
+3. Deploy only the edge functions that phase actually changed (Phases 1, 5C, 6 touch `compute-outer-readiness`; Phases 2 and 5B touch the shared modules it and any other brief-consuming function import, so those get redeployed together for that phase).
+4. Verify the deployed function responds and the Brief still renders before starting the next phase.
+
+Phases 3 and 4 are test/CI-only and require no deployment.
