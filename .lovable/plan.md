@@ -39,11 +39,25 @@ The harness fix will not blanket-populate wearable signals. Each window keeps at
 ### 2. Collapse Directive banks to one instruction (part of the 52, plus grammar)
 Directive strings that embed a second sentence, e.g. `"... comes first — the board call. Everything after it can be listening"`, get folded into a single semicolon-joined or comma-joined clause: `"... comes first, the board call; everything after it can be listening"`. One verb, one instruction per beat, no dashes.
 
-### 3. Add work context / directive verbs to the failing Directive beats (20 failures)
-The failing conference and evening cases put only a protective line where the Directive beat should be ("take the breaks you are given", "close the day here"). Rewrite **beat (c) only** so it names a work object from `WORK_CONTEXT_TOKENS` (sessions, rooms, calls, decisions, the anchor event) and leads with a verb from `WORK_DIRECTIVE_TOKENS`. Beat (d) stays exactly as-is per confirmation 2.
+### 3. Directive beat (c) rewrites for the four at-risk families (20 failures)
+
+Root cause confirmed by reading the token lists: `WORK_CONTEXT_TOKENS` contains `room`, `decision`, `block`, `agenda`, `afternoon`, `morning`, `work`, `priority` — but **not** "session". Every conference directive names sessions and corridors only, so it reads as contextless to the validator. The fix is a work-object swap in a pacing register, not an activation.
+
+Proposed beat (c) copy, for review before the diagnostic runs:
+
+- **conferenceDepletion** — `Pace the afternoon block at half attention and skip the corridor rounds; the debrief keeps until tomorrow.`
+- **conferenceDayAttend** — `Keep your output to the two rooms that actually matter and skip the rest of the agenda; presence is the only thing being read today.`
+- **back_to_back / evening** — `Name tomorrow's first block and close the one decision still open, then stop.`
+- **weight_heavy / evening** — `Write down where the heavy room landed and close that decision tonight; the rest of the work keeps until morning.`
+
+Each names a work object, leads with a `WORK_DIRECTIVE_TOKENS` verb (`pace`, `keep`/`skip`, `close`), is one sentence, uses a semicolon rather than a dash, and instructs on reduction, sequencing or closure — never on doing more. Beat (d) is untouched.
+
+Note: `nEveningDirective` currently shares one `case` between `back_to_back` and `volume_heavy`. The case is split so `back_to_back` gets its own string; `volume_heavy` keeps its existing copy in this pass and is reported in the post-fix diagnostic if it still fails.
 
 ### 4. Fix the golden-set validator context (13 + 5 failures)
-In `golden-set.test.ts` and `diagnose_golden.ts`, derive the `signals` object from the fixture inputs rather than hardcoding a near-empty one: when the fixture sets `hasCurrentWearable` supply `sleepHours` / `hrvDeviationPct` / `rhrDeviationPct`; when it sets `hasCurrentCheckIn` supply `emotionalSelfDeclared`, `mentalSharpness`, `confidence`; when it does not, leave them null. This mirrors the production call shape in `compute-outer-readiness`. Add explicit no-wearable and no-check-in fixtures for each of morning/afternoon/evening per confirmation 3.
+In `golden-set.test.ts` and `diagnose_golden.ts`, derive the `signals` object from the fixture inputs rather than hardcoding a near-empty one: when the fixture sets `hasCurrentWearable` supply realistic `sleepHours` / `hrvDeviationPct` / `rhrDeviationPct`; when it sets `hasCurrentCheckIn` supply `emotionalSelfDeclared`, `mentalSharpness`, `confidence`; when either flag is false, leave those fields null. This mirrors the production call shape in `compute-outer-readiness`.
+
+Per confirmation 3, add one explicit no-wearable fixture per window (morning, afternoon, evening) with `hasWearable: false`, `hasCurrentWearable: false`, `wearableFact: null` and all three wearable signal fields null. These fixtures keep a check-in and a calendar, so they must still produce a valid four-beat brief from demand and shape signals — not an awaiting state, not an error. The wearable-present vs wearable-absent count per window is reported after the change.
 
 ### 5. Re-run and lock
 Re-run the diagnostic to confirm 0/171 failures, then run the Deno contract test (`behaviour-copy.contract.test.ts`) and the golden-set test so CI blocks regressions. No re-deploy is required for the test files; `deterministic-brief.ts` / `behaviour-copy.ts` changes ship with the next `compute-outer-readiness` deploy.
