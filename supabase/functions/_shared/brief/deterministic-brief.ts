@@ -23,6 +23,49 @@ export type DeterministicBriefBand =
 
 export type DeterministicBriefPillTier = "green" | "amber" | "red" | "unread";
 
+/**
+ * Choose a lexicon cluster that matches the narrative family. Used as a
+ * deterministic fallback when the assembled body does not already contain an
+ * Elastic Lexicon concept.
+ */
+function preferredClusterForFamily(
+  family: LeadNarrative["family"] | "baseline" | null,
+): PillarCluster {
+  switch (family) {
+    case "travel_long_haul":
+    case "travel_short_haul":
+    case "travel_intercity":
+    case "conference_arc":
+      return "physiology";
+    case "persuasion_pre":
+    case "visibility_pre":
+    case "visibility_post":
+      return "resilience";
+    case "back_to_back":
+    case "weight_heavy":
+    case "volume_heavy":
+    case "context_switching":
+      return "cognition";
+    default:
+      return "resilience";
+  }
+}
+
+/**
+ * Ensure the body carries at least one Elastic Lexicon concept. The fallback
+ * clause is appended as a self-regulation close so it does not disturb the
+ * existing four-beat structure or sentence count.
+ */
+function ensureLexiconCluster(
+  body: string,
+  family: LeadNarrative["family"] | "baseline" | null,
+): string {
+  if (detectCluster(body)) return body;
+  const cluster = preferredClusterForFamily(family);
+  const clause = lexiconFallbackClause(cluster);
+  return body.endsWith(".") ? `${body.slice(0, -1)}, and ${clause}.` : `${body}, and ${clause}.`;
+}
+
 export interface DeterministicBriefFallbackOpts {
   band: DeterministicBriefBand;
   hasWearable: boolean;
