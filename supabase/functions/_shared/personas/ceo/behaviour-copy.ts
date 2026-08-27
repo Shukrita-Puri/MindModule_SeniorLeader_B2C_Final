@@ -974,7 +974,7 @@ const NARRATIVE_READS: Record<
     ],
     low: [
       "Re-orienting this many times on this little in reserve is where mistakes come from.",
-      "The switching cost is high and your margin for it is low.",
+      "The switching cost is steep and your margin for it is thin.",
     ],
   },
   baseline: {
