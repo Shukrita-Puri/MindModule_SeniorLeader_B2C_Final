@@ -423,11 +423,43 @@ serve(async (req) => {
         }
 
         // Ensure session_period is set for the new unique constraint
-        const upsertData = {
+        const sessionPeriodForUpsert = ritualData.session_period || body.sessionPeriod || getServerTimeOfDay();
+
+        // Read the existing row so a partial payload (e.g. "start"/"restart")
+        // never wipes progress columns on conflict-update.
+        const { data: existingRitual } = await supabase
+          .from('daily_ritual_completions')
+          .select('completed_practice_ids, practice_completed_at')
+          .eq('user_id', userId)
+          .eq('ritual_date', ritualData.ritual_date)
+          .eq('session_period', sessionPeriodForUpsert)
+          .maybeSingle();
+
+        const mergedCompletedIds = Array.isArray(ritualData.completed_practice_ids)
+          ? ritualData.completed_practice_ids
+          : (existingRitual?.completed_practice_ids ?? []);
+
+        const upsertData: Record<string, unknown> = {
           user_id: userId,
           ...ritualData,
-          session_period: ritualData.session_period || body.sessionPeriod || getServerTimeOfDay()
+          completed_practice_ids: mergedCompletedIds,
+          session_period: sessionPeriodForUpsert
         };
+
+        // DB integrity guard: 'partial'/'full' require at least one completed
+        // practice id. A started-but-empty ritual is recorded as 'skipped'.
+        if (
+          mergedCompletedIds.length === 0 &&
+          (upsertData.completion_status === 'partial' || upsertData.completion_status === 'full')
+        ) {
+          upsertData.completion_status = 'skipped';
+        }
+
+        // Completed ids require practice_completed_at.
+        if (mergedCompletedIds.length > 0 && !upsertData.practice_completed_at) {
+          upsertData.practice_completed_at = existingRitual?.practice_completed_at || new Date().toISOString();
+        }
+
 
         const { data, error } = await supabase
           .from('daily_ritual_completions')
