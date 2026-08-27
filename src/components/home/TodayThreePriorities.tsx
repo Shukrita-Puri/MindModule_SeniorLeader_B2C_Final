@@ -54,7 +54,8 @@ import {
   localISODate,
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
-import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
+import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
 import { markExecutiveCardDelivery } from '@/utils/engagementTracking';
 import { getInvokeTransportDiagnostics, normalizeInvokeOptions } from '@/lib/functionInvokeTransport';
 import { isWhyLineEcho } from '@/components/home/whyLineEcho';
