@@ -2307,11 +2307,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // slot renders `--` while the copy stays stable.
   const copyRenderable = hasRenderableBriefCopy(outerBrief);
   const scoreRenderable = hasRenderableBriefScore(outerBrief);
-  // Brief awaiting state is independent of the MRS score. Calendar-only
-  // signals feed MRS/Plan/Nudges, but the Brief prose must not form without
-  // a current personal signal (wearable or check-in).
+  // Restored gate: the Brief waits for the MRS score to be visible. When MRS
+  // has not formed, the Brief shows the shared awaiting state instead of
+  // prose — no phrase, no body, no beats.
   const showNeutralAwaitingCopy =
-    !showFailureBlock && cardsAwaiting && !copyRenderable;
+    !showFailureBlock && (!mrsVisible || (cardsAwaiting && !copyRenderable));
 
   // Copy-only awaiting: score payload is present but the LLM never delivered
   // phrase/body (e.g. validation reject or provider 402). Show neutral prose
