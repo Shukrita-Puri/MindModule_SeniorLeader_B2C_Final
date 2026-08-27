@@ -236,7 +236,7 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
   }, [busy, isApple, label, onChanged, provider]);
 
   const pill = needsReconnect ? (
-    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[10px]">
+    <Badge variant="outline" className="bg-foreground/5 text-foreground/70 border-border text-[10px]">
       <AlertCircle className="w-3 h-3 mr-1" /> Reconnect
     </Badge>
   ) : connected ? (

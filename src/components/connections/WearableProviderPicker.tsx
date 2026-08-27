@@ -9,6 +9,10 @@ import { openUrl } from '@/utils/openUrl';
 import { startOuraOAuth } from '@/services/ouraSyncService';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend } from '@/services/wearableSyncService';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
+import { invalidatePlanCache } from '@/hooks/useMasteryPlan';
 import appleHealthLogo from '@/assets/shared/apple-health-logo.png';
 import ouraLogo from '@/assets/shared/oura-ring-logo.png';
 import whoopLogo from '@/assets/shared/whoop-logo.png';
@@ -165,6 +169,8 @@ interface RowProps {
 
 function WearableRow({ provider, label, iconSrc, status, redirectPath, onChanged, disabled }: RowProps) {
   const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const isAppleWatch = provider === 'apple-watch';
   const isWhoop = provider === 'whoop';
   const native = isNativeApp();
@@ -193,8 +199,14 @@ function WearableRow({ provider, label, iconSrc, status, redirectPath, onChanged
           return;
         }
         const result = await syncHealthKitToBackend();
-        if (result?.success !== false) toast.success('Apple Watch connected');
-        else toast.warning('Connected, initial sync will retry shortly');
+        if (result?.success !== false) {
+          toast.success('Apple Watch connected');
+          if (user?.id) clearOuterReadinessCache(user.id);
+          queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+          invalidatePlanCache();
+        } else {
+          toast.warning('Connected, initial sync will retry shortly');
+        }
       } else {
         // Oura
         const { url, error } = await startOuraOAuth(redirectPath);
@@ -214,7 +226,7 @@ function WearableRow({ provider, label, iconSrc, status, redirectPath, onChanged
   }, [busy, disabled, isAppleWatch, isWhoop, label, native, onChanged]);
 
   const pill = needsReconnect ? (
-    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[10px]">
+    <Badge variant="outline" className="bg-foreground/5 text-foreground/70 border-border text-[10px]">
       <AlertCircle className="w-3 h-3 mr-1" /> Reconnect
     </Badge>
   ) : connected ? (
