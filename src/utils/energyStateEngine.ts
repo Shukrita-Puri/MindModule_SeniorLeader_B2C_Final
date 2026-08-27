@@ -985,9 +985,22 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // MRS score-bearing signals only: calendar connection alone does NOT
     // manufacture a numeric demand score. Only a real snapshot value or a
     // numeric demand derived from actual events qualifies.
+    //
+    // The browser client is anon-keyed, so RLS hides `calendar_events` from
+    // it for real users — `fullDayDemandScore` is therefore usually null even
+    // when the user has a live calendar. `compute-outer-readiness` (service
+    // role) now returns earned demand for today, split into full-day /
+    // remaining / realized, so the demand pillar forms from real events
+    // instead of collapsing to null.
+    const serverFullDayDemand = coerceFiniteNumber(
+      outerContext?.fullDayDemandScore ?? outerContext?.demandScore ?? null,
+    );
+    const serverRemainingDemand = coerceFiniteNumber(outerContext?.remainingDemandScore ?? null);
+    const serverRealizedDemand = coerceFiniteNumber(outerContext?.realizedDemandScore ?? null);
     const demandScoreForV4 =
       snapshotDemandScore ??
-      (fullDayDemandScore != null ? fullDayDemandScore : null);
+      (fullDayDemandScore != null ? fullDayDemandScore : null) ??
+      serverFullDayDemand;
     const hasCalendarSignal =
       hasCalendar ||
       calendarConnected ||
@@ -1008,6 +1021,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       rhrValue: hasWearable ? wearableRhrValue : null,
       rhrTrend: hasWearable ? wearableRhrTrend : null,
       demandScore: effectiveDemandScoreForSubScores,
+      // Afternoon window: "now forward" and "already spent" are distinct
+      // earned cells. Both fall back to the day-level score when the server
+      // split is unavailable.
+      remainingDemandScore: serverRemainingDemand,
+      realizedDemandScore: serverRealizedDemand,
       patternSignals: snapshotPatternSignals,
     });
     const demandScoreForInner = demandScoreForV4 ?? null;
