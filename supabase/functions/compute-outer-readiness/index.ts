@@ -9508,7 +9508,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 } else {
                   deterministicBrief = null;
                   console.warn(
-                    `[compute-outer-readiness] [DETERMINISTIC] REJECTED | reason=${specValidation.reason} | family=${resolvedNarrative?.family ?? "unknown"} | window=${getTimeOfDay(hour)} | body="${specBuilt.body.slice(0, 80)}..."`,
+                    `[compute-outer-readiness] [DETERMINISTIC] REJECTED | reason=${specValidation.reason} | family=${briefLeadNarrative?.family ?? "unknown"} | window=${getTimeOfDay(hour)} | body="${specBuilt.body.slice(0, 80)}..."`,
                   );
                 }
               }
