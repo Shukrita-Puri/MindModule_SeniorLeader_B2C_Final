@@ -116,7 +116,7 @@ const MrsPage = () => {
   // copy from live outerBrief would contradict the visible score.
   const awaitingCopy = snapshotRenderable
     ? ''
-    : getReadinessAwaitingCopy(outerBrief ?? undefined);
+    : resolveAwaitingSignalsCopy(outerBrief ?? undefined);
 
   const tierColor = tierColorVar(tier);
   const oneLiner = showTourMockMrs ? MOCK_MRS.oneLiner : getReadinessOneLiner(score);
