@@ -1111,7 +1111,7 @@ const ConnectedData = () => {
       };
     }
 
-    if (aw.connectionStatus === 'connecting') {
+    if (connecting === 'apple-health') {
       return {
         isLinked: false,
         isHealthyConnected: false,
@@ -1254,7 +1254,7 @@ const ConnectedData = () => {
     if (o.connectionStatus === 'permission_revoked') {
       return { isLinked: true, isHealthyConnected: false, statusLabel: 'Permission needed', statusNote: 'Reconnect to resume syncing', showReconnect: true };
     }
-    if (o.connectionStatus === 'connecting') {
+    if (connecting === 'oura') {
       return { isLinked: false, isHealthyConnected: false, statusLabel: 'Verifying…', statusNote: 'Completing Oura authorization', showReconnect: false };
     }
     if (o.connectionStatus === 'error') {

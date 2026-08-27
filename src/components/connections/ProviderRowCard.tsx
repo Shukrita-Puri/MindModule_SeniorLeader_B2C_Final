@@ -60,11 +60,7 @@ export default function ProviderRowCard({
   onSync,
   onDisconnect,
 }: ProviderRowCardProps) {
-  // Active surfaces stay white so connected rows feel trustworthy rather than
-  // greyed-out. Permission/auth problems surface as the coral reconnect tone.
-  const tone = showReconnect
-    ? 'border-[#e8714a]/50 bg-[#e8714a]/[0.04]'
-    : connected || linked
+  const tone = connected || linked
     ? 'border-[#cfc7b8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
     : 'border-[#cfc7b8] bg-white';
 
@@ -143,15 +139,6 @@ export default function ProviderRowCard({
               </DropdownMenuContent>
             </DropdownMenu>
           )
-        ) : showReconnect ? (
-          <button
-            type="button"
-            onClick={onConnect}
-            disabled={isConnecting}
-            className="h-8 px-3 rounded-full bg-[#e8714a] text-white text-[12px] font-medium hover:bg-[#c55a35] disabled:opacity-50 transition-colors"
-          >
-            {isConnecting ? 'Connecting…' : 'Reconnect'}
-          </button>
         ) : (
           onConnect && (
             <button
@@ -160,7 +147,7 @@ export default function ProviderRowCard({
               disabled={isConnecting}
               className="h-8 px-3 rounded-full border border-[#1a1712]/35 text-[#1a1712] text-[12px] font-medium hover:bg-[#1a1712]/[0.06] disabled:opacity-50 transition-colors"
             >
-              {isConnecting ? 'Connecting…' : 'Connect'}
+              {isConnecting ? 'Connecting…' : showReconnect ? 'Reconnect' : 'Connect'}
             </button>
           )
         )}
