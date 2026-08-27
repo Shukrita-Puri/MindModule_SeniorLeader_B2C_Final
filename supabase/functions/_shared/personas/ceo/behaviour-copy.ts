@@ -658,6 +658,12 @@ export interface NarrativeCopyInput {
   wearableFact: string | null;
   sleepScore: number | null;
   checkInOutcome: "sharp" | "holding" | "drained" | null;
+  /**
+   * True only when a check-in exists for today's local date and this window.
+   * When false, no felt-state claim may be emitted, regardless of
+   * `checkInOutcome`. Defaults to `checkInOutcome != null` for back-compat.
+   */
+  hasCheckIn?: boolean;
   window: NarrativeWindow;
   /** Anchor reference carrying its timing clause, e.g. "the investor call in 45 minutes". */
   anchorRef: string | null;
