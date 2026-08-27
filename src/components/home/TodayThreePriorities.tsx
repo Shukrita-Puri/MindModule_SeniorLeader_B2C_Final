@@ -438,7 +438,7 @@ const TodayThreePriorities = ({
   // consulted when a manual refresh has populated the persistent cache.
   const { data: outerReadinessData } = useOuterReadiness({ snapshotOnly: true });
   const { data: mrsSnapshot } = useMrsSnapshot();
-  const awaitingCopy = getReadinessAwaitingCopy(outerReadinessData ?? undefined);
+  const awaitingCopy = resolveAwaitingSignalsCopy(outerReadinessData ?? undefined);
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
   // Does NOT drive rendering or generation. Dev-mode console only.
