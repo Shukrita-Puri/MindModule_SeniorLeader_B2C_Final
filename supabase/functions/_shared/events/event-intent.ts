@@ -16,8 +16,11 @@
 // HARD RULE: attendee counts are NEVER used. Audience size carries no
 // correlation with event importance and must not influence classification.
 
-/** Title shapes that mark an event as content ABOUT a topic. */
-const CONTENT_TITLE_MARKERS: RegExp[] = [
+/**
+ * STRONG markers: the title itself is framed as material ABOUT a topic.
+ * Only these can make an event content.
+ */
+const STRONG_CONTENT_MARKERS: RegExp[] = [
   /^\s*why\b/i,                     // "Why Investor Comms are so Important"
   /^\s*how\s+to\b/i,                // "How to run a board process"
   /^\s*what\s+(every|you|the|new)\b/i,
@@ -25,9 +28,6 @@ const CONTENT_TITLE_MARKERS: RegExp[] = [
   /\bso\s+important\b/i,
   /\bmasterclass\b/i,
   /\bwebinar\b/i,
-  /\bfireside\b/i,
-  /\bpanel\s+(discussion|session)\b|\bpanel\b/i,
-  /\bAMA\b/,
   /\bbootcamp\b/i,
   /\b101\b/,
   /\bdeep\s+dive\s+(on|into)\b/i,
@@ -37,6 +37,18 @@ const CONTENT_TITLE_MARKERS: RegExp[] = [
   /\bfundamentals\s+of\b/i,
   /\bguide\s+to\b/i,
   /\btraining\s+session\b/i,
+];
+
+/**
+ * WEAK markers: formats a leader is just as likely to APPEAR IN as to watch
+ * (a panel, a fireside, an AMA). They corroborate a strong marker but can
+ * never make an event content on their own — otherwise "Panel: Future of
+ * Payments" gets filed as passive learning instead of a visibility room.
+ */
+const WEAK_CONTENT_MARKERS: RegExp[] = [
+  /\bfireside\b/i,
+  /\bpanel\s+(discussion|session)\b|\bpanel\b/i,
+  /\bAMA\b/,
 ];
 
 /**
@@ -59,7 +71,13 @@ const COUNTER_MARKERS: RegExp[] = [
   /\boffer\b/i,
   /\bappraisal\b/i,
   /\bperformance\s+review\b/i,
+  // Speaking / appearance signals — the user is on stage, not in the audience.
+  /\b(speaking|speaker|panell?ist|moderat(?:e|ing|or)|keynote|host(?:ing)?|guest)\b/i,
+  /\bfireside\s+chat\s+with\b/i,
+  /\bmy\s+(panel|talk|session)\b/i,
+  /\bprep\b/i,
 ];
+
 
 /** Structural markers read from provider metadata. No attendee counts. */
 const REGISTRATION_URL_RE =
@@ -90,9 +108,11 @@ function metadataText(meta: Record<string, unknown> | null | undefined): string 
 }
 
 /**
- * Pure. Two or more content markers, and zero counter-markers, means the
- * event is content. One marker alone is never enough — that threshold is
- * what keeps "Board meeting: 101 Ltd" out of the learning bucket.
+ * Pure. An event is content only when at least ONE strong marker is present
+ * and the evidence adds up to two (strong + weak/structural, or a strong
+ * marker on an event the user did not create). Weak-format markers alone —
+ * "panel", "fireside", "AMA" — never qualify: a leader is as likely to be on
+ * the stage as in the audience, and the visibility layers must keep those.
  */
 export function detectContentIntent(input: ContentIntentInput): ContentIntentResult {
   const title = (input.title ?? "").trim();
@@ -105,7 +125,14 @@ export function detectContentIntent(input: ContentIntentInput): ContentIntentRes
   }
 
   const markers: string[] = [];
-  for (const re of CONTENT_TITLE_MARKERS) {
+  let strongCount = 0;
+  for (const re of STRONG_CONTENT_MARKERS) {
+    if (re.test(title)) {
+      markers.push(re.source);
+      strongCount++;
+    }
+  }
+  for (const re of WEAK_CONTENT_MARKERS) {
     if (re.test(title)) markers.push(re.source);
   }
 
@@ -122,10 +149,15 @@ export function detectContentIntent(input: ContentIntentInput): ContentIntentRes
     return { isContent: false, markers, counterMarkers };
   }
 
+  if (strongCount === 0) {
+    return { isContent: false, markers, counterMarkers };
+  }
+
   // Organiser flag is a tie-break only: it can lift a single-marker title to
   // content when the user did not create the event, and it can never on its
   // own make something content.
-  const effective = markers.length + (markers.length >= 1 && input.isOrganizer === false ? 1 : 0);
+  const effective = markers.length + (input.isOrganizer === false ? 1 : 0);
 
   return { isContent: effective >= 2, markers, counterMarkers };
 }
+

@@ -848,7 +848,17 @@ const ROWS: RawSubtype[] = [
       "delivering masterclass",
       "client presentation",
       "customer presentation",
+      // Speaker-side appearances stay visibility (C), never passive learning.
+      "speaking at",
+      "panellist",
+      "panelist",
+      "moderating",
+      "moderator",
+      "keynote",
+      "hosting fireside",
+      "my fireside",
     ],
+
     classificationOnly: true,
   },
   {
