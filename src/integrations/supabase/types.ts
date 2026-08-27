@@ -1065,6 +1065,35 @@ export type Database = {
         }
         Relationships: []
       }
+      churn_feedback: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "churn_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_accountability_tracker: {
         Row: {
           check_in_due_date: string | null
