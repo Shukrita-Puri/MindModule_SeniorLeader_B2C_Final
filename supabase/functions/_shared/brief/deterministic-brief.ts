@@ -1,6 +1,6 @@
 import type { DayShape } from "./day-shape.ts";
 import { withTiming } from "./time-phrase.ts";
-import type { BriefCopyContext } from "../brief-context.ts";
+import type { BriefCopyContext, PillarCluster } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 import { behaviourPriority } from "../behaviour-evaluator.ts";
 import type { LeadNarrative } from "./lead-narrative.ts";
@@ -8,6 +8,10 @@ import {
   assembleNarrativeBody,
   renderNarrativeBeats,
 } from "../personas/ceo/behaviour-copy.ts";
+import {
+  detectCluster,
+  lexiconFallbackClause,
+} from "../copy-vocabulary.ts";
 
 
 export type DeterministicBriefBand =
