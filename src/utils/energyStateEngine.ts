@@ -241,9 +241,14 @@ function scoreFromAbsoluteHrv(hrv: number | null): number | null {
   return 35;
 }
 
+/** Mirrors `_shared/signal-engine/mrs-v4-subscores.ts` — zero demand is earned
+ *  data and gets the bounded ZERO_DEMAND_CREDIT (0.6), never a perfect 100. */
+const CLIENT_ZERO_DEMAND_CREDIT = 0.6;
 function scoreFromDemand(demandScore: number | null): number | null {
   if (typeof demandScore !== 'number' || !Number.isFinite(demandScore)) return null;
-  return clampScore(100 - demandScore);
+  const raw = Math.max(0, Math.min(100, demandScore));
+  if (raw === 0) return clampScore(CLIENT_ZERO_DEMAND_CREDIT * 100);
+  return clampScore(100 - raw);
 }
 
 function scoreFromPattern(patternSignals: ClientPatternSignalsLite | null): number | null {
