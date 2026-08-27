@@ -45,7 +45,7 @@ export const ACRONYM_DICTIONARY: AcronymEntry[] = [
     note: 'Due diligence' },
 
   // ── Influence ──
-  { token: 'rfp',  subtypeId: 'inf.client_presentation' },
+  { token: 'rfp',  subtypeId: 'inf.pitch_competitive' },
   { token: 'rfi',  subtypeId: 'inf.client_presentation' },
   { token: 'sow',  subtypeId: 'inf.negotiation',
     note: 'Statement of work — usually a negotiation context' },

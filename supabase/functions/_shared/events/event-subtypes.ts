@@ -1037,14 +1037,33 @@ const ROWS: RawSubtype[] = [
     regulationObjective: "PREPARE",
     interventionType: "Pause",
     keywords: [
-      "conference",
-      "summit",
+      "conference speaking",
+      "speaking at",
       "panel discussion",
       "panel",
       "speaking engagement",
       "speaker slot",
     ],
     masteryModules: ["regulate", "align", "prepare"],
+    jitLeadTimeMinutes: 720,
+  },
+  // Spec F — attending a conference / summit (not speaking). Bare
+  // "conference"/"summit" titles are attendance, which is Category F.
+  // Speaker cues are owned by conf.keynote / conf.speaking above.
+  {
+    id: "conf.attendance",
+    label: "Conference / Summit (attending)",
+    bucket: "Conferences & External Events",
+    categoryId: "F",
+    group: "D_visibility",
+    primaryPillar: 2,
+    secondaryPillar: 3,
+    demandProfile: D(1, 1, 2, 0, 3, 3, 0, 1),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Pause",
+    keywords: ["conference", "summit"],
+    masteryModules: ["regulate", "align"],
     jitLeadTimeMinutes: 720,
   },
   {
