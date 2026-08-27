@@ -671,12 +671,15 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     const flag = topCeoFlag(opts);
     if (flag) {
       const entry = BEHAVIOUR_COPY[flag.rule];
-      if (entry) {
-        const close = entry.close(buildBriefCopyContext(opts, flag));
-        // Copy pack closes are standalone clauses; prefix with "and" so the
-        // final body sentence flows: "... directive, and close."
-        return close.startsWith("and ") ? close : `and ${close}`;
+      if (!entry) {
+        throw new Error(
+          `[deterministic-brief] CEO flag=${flag.rule} has no BEHAVIOUR_COPY entry`,
+        );
       }
+      const close = entry.close(buildBriefCopyContext(opts, flag));
+      // Copy pack closes are standalone clauses; prefix with "and" so the
+      // final body sentence flows: "... directive, and close."
+      return close.startsWith("and ") ? close : `and ${close}`;
     }
   }
 
@@ -758,13 +761,16 @@ export function buildDeterministicBriefFallback(
       anchorRefPlain: anchorTitle ? shortRef(anchorTitle) : null,
       variantSeed: opts.variantSeed ?? `${opts.window}|${narrative.family}`,
     });
-    if (beats) {
-      return {
-        phrase,
-        body: assembleNarrativeBody(beats),
-        topSignal: "baseline_quiet",
-      };
+    if (!beats) {
+      throw new Error(
+        `[deterministic-brief] narrative family=${narrative.family} returned null beats; missing copy entry`,
+      );
     }
+    return {
+      phrase,
+      body: assembleNarrativeBody(beats),
+      topSignal: "baseline_quiet",
+    };
   }
 
   const evidence = buildEvidence(opts);
