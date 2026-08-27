@@ -441,6 +441,33 @@ interface OuterReadinessContextPreflight {
   calendarLoad?: CalendarLoad | null;
   calendarPressure?: CalendarPressure | null;
   meetingCount?: number | null;
+  /** MRS v4 demand pillar — server-derived (client cannot read events under RLS). */
+  demandScore?: number | null;
+  fullDayDemandScore?: number | null;
+  remainingDemandScore?: number | null;
+  realizedDemandScore?: number | null;
+}
+
+/**
+ * Cold-foreground hardening: on iOS resume the Auth0 token can be briefly
+ * unavailable while the session rehydrates. Poll instead of failing on the
+ * first miss so the readiness surfaces never paint the failure block for a
+ * transient hydration gap.
+ */
+async function getAuthTokenWithRetry(
+  attempts = 6,
+  delayMs = 400,
+): Promise<string | null> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const token = await getAuth0Token();
+      if (token) return token;
+    } catch (err) {
+      console.warn('[energyStateEngine] getAuthToken threw during hydration retry:', err);
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return null;
 }
 
 async function fetchOuterReadinessContext(
