@@ -744,7 +744,10 @@ function nBodySignal(i: NarrativeCopyInput): string | null {
 }
 
 function nFeltSignal(i: NarrativeCopyInput): string | null {
-  if (!i.checkInOutcome) return null;
+  // Freshness gate: felt-state phrasing is only allowed when a check-in exists
+  // for today's local date and this window.
+  const hasCheckIn = i.hasCheckIn ?? (i.checkInOutcome != null);
+  if (!hasCheckIn || !i.checkInOutcome) return null;
   const word = i.checkInOutcome;
   if (i.window === "evening") return `you came out of the day ${word}`;
   if (i.window === "afternoon") return `you checked in ${word} at the turn`;
