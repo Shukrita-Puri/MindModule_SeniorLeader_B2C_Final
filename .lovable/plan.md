@@ -1,6 +1,17 @@
 # Brief Engine — Pre-Launch Implementation (Phases 1–7)
 
-Ground truth is the Phase 0 findings in your brief. Each phase is a separate commit and does not start until the previous gate is green.
+## Launch operating principle
+
+This product launches to paying CEO users next week. The bar is **consistently good and never wrong**. Every phase decision is filtered through this lens:
+
+- If a change raises the ceiling but risks the floor, defer it.
+- If uncertain whether a change is safe, stop and report rather than proceed.
+- Preserve what already works. The existing Brief is not broken; these phases make it more correct and more consistent, not different.
+- A blank screen or an incorrectly shown awaiting state is worse than a brief that is merely good.
+- Never trade a working fallback for a better happy path.
+- The deterministic path, awaiting state, and LLM fallback must all keep functioning exactly as they do today unless a phase explicitly and safely improves them.
+
+Each phase is a separate commit and does not start until the previous phase gate is green.
 
 ## Phase 1 — Validator SSOT cleanup (adjusted to reality)
 
@@ -96,6 +107,27 @@ Phase 5 gate: `rankBriefEvidence` exists with green unit tests, wired into both 
 - Non-production / nominated-test-account-only flag forcing the deterministic path; impossible to hit for real users.
 - Verify three families per window, awaiting state, zero-event clear day, both load-shape fixtures; record results in the header comment block of `deterministic-brief.ts`.
 
+## Scope containment — no other surface is touched
+
+This work is Brief-engine only. No change to the Plan, Smart Nudges, Insights, or MRS features:
+
+- Files in scope: `_shared/personas/ceo/behaviour-copy.ts`, `_shared/brief/*` (incl. the new `rank-brief-evidence.ts`), `_shared/brief-context.ts` (add `loadShape` field only), `_shared/brief-validators.ts` (comment only), `_shared/signal-engine/behaviour-snapshot.ts` + `window-context-types.ts` (comment + `calendarResolved` type field), `compute-outer-readiness/index.ts`, docs and tests.
+- Explicitly not modified: `generate-mastery-plan`, `smart-nudges`, `cause-effect-engine` (read-only import of its `Finding` type), MRS v4 scoring, `list-week-ahead-priorities`, and all Insights/Plan/Nudge frontend components.
+- `SignalMatrix.loadShape` is additive and optional-by-null, so existing Plan/Nudge consumers of `brief-context.ts` keep identical behaviour.
+- Adding `calendarResolved` to `BehaviourSnapshot` must not change any value the Plan or Nudges already read from that snapshot.
+- After each phase, re-run the full existing test suite to confirm no cross-surface regression.
+
+## Deployment cadence
+
+Each phase is deployed on its own, not batched:
+
+1. Land the phase's code and tests.
+2. Run typecheck plus the full test suite; the phase gate must be green.
+3. Deploy only the edge functions that phase actually changed (Phases 1, 5C, 6 touch `compute-outer-readiness`; Phases 2 and 5B touch the shared modules it and any other brief-consuming function import, so those get redeployed together for that phase).
+4. Verify the deployed function responds and the Brief still renders before starting the next phase.
+
+Phases 3 and 4 are test/CI-only and require no deployment.
+
 ## Constraint conflict to resolve
 
 "Exactly one validator in the codebase" (Definition of Done) contradicts Correction 1, which forbids deleting `brief-validators.ts` because it has three live importers. Plan follows Correction 1: both validators remain, `validateV61Output` stays the production gate, consolidation is deferred and recorded in `docs/BRIEF_VALIDATOR_SSOT.md`. Say the word if you want consolidation attempted instead.
@@ -117,24 +149,4 @@ No new tables, no schema migrations, no validator logic/threshold edits, no MRS 
 - Beat 4 throws rather than silently drops for any missing family
 - Every narrative family has a close entry passing persona rules
 - Window gating enforced at both L5.5 (candidate set) and L6 (vocabulary) independently
-
-## Scope containment — no other surface is touched
-
-This work is Brief-engine only. No change to the Plan, Smart Nudges, Insights, or MRS features:
-
-- Files in scope: `_shared/personas/ceo/behaviour-copy.ts`, `_shared/brief/*` (incl. the new `rank-brief-evidence.ts`), `_shared/brief-context.ts` (add `loadShape` field only), `_shared/brief-validators.ts` (comment only), `_shared/signal-engine/behaviour-snapshot.ts` + `window-context-types.ts` (comment + `calendarResolved` type field), `compute-outer-readiness/index.ts`, docs and tests.
-- Explicitly not modified: `generate-mastery-plan`, `smart-nudges`, `cause-effect-engine` (read-only import of its `Finding` type), MRS v4 scoring, `list-week-ahead-priorities`, and all Insights/Plan/Nudge frontend components.
-- `SignalMatrix.loadShape` is additive and optional-by-null, so existing Plan/Nudge consumers of `brief-context.ts` keep identical behaviour.
-- Adding `calendarResolved` to `BehaviourSnapshot` must not change any value the Plan or Nudges already read from that snapshot.
-- After each phase, re-run the full existing test suite to confirm no cross-surface regression.
-
-## Deployment cadence
-
-Each phase is deployed on its own, not batched:
-
-1. Land the phase's code and tests.
-2. Run typecheck plus the full test suite; the phase gate must be green.
-3. Deploy only the edge functions that phase actually changed (Phases 1, 5C, 6 touch `compute-outer-readiness`; Phases 2 and 5B touch the shared modules it and any other brief-consuming function import, so those get redeployed together for that phase).
-4. Verify the deployed function responds and the Brief still renders before starting the next phase.
-
-Phases 3 and 4 are test/CI-only and require no deployment.
+- No Plan, Smart Nudges, Insights, or MRS feature regression
