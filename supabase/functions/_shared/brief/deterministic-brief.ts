@@ -815,7 +815,10 @@ export function buildDeterministicBriefFallback(
     }
     return {
       phrase,
-      body: assembleNarrativeBody(beats),
+      body: ensureLexiconCluster(
+        assembleNarrativeBody(beats),
+        narrative.family,
+      ),
       topSignal: "baseline_quiet",
     };
   }
@@ -826,7 +829,10 @@ export function buildDeterministicBriefFallback(
   const close = closeFor(opts);
   return {
     phrase,
-    body: `${evidence} ${read} - ${directive}, ${close}`,
+    body: ensureLexiconCluster(
+      `${evidence} ${read} - ${directive}, ${close}`,
+      "baseline",
+    ),
     topSignal: "baseline_quiet",
   };
 }
