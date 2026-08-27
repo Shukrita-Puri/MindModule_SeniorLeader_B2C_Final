@@ -19,7 +19,7 @@ import {
 } from '@/utils/planLocaleContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
-import { useMrsSnapshot } from '@/hooks/useMrsSnapshot';
+import { useMrsSnapshot, isMrsVisible } from '@/hooks/useMrsSnapshot';
 import { useMasteryPlanSnapshot } from '@/hooks/useMasteryPlanSnapshot';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -54,7 +54,8 @@ import {
   localISODate,
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
-import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
+import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
 import { markExecutiveCardDelivery } from '@/utils/engagementTracking';
 import { getInvokeTransportDiagnostics, normalizeInvokeOptions } from '@/lib/functionInvokeTransport';
 import { isWhyLineEcho } from '@/components/home/whyLineEcho';
@@ -437,7 +438,7 @@ const TodayThreePriorities = ({
   // consulted when a manual refresh has populated the persistent cache.
   const { data: outerReadinessData } = useOuterReadiness({ snapshotOnly: true });
   const { data: mrsSnapshot } = useMrsSnapshot();
-  const awaitingCopy = getReadinessAwaitingCopy(outerReadinessData ?? undefined);
+  const awaitingCopy = resolveAwaitingSignalsCopy(outerReadinessData ?? undefined);
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
   // Does NOT drive rendering or generation. Dev-mode console only.
@@ -477,10 +478,11 @@ const TodayThreePriorities = ({
   // MRS snapshot is the authoritative readiness signal for Plan generation.
   // When a ready current-window MRS snapshot exists, do NOT let stale
   // outerReadinessData awaiting-cache veto Plan generation.
+  // Shared gate — identical to the condition the MRS card and the Brief use,
+  // so the three cards flip together.
   const mrsReadyForPlan =
-    !!mrsSnapshot?.isRenderable &&
-    mrsSnapshot.readinessState !== 'awaiting' &&
-    typeof mrsSnapshot.score === 'number';
+    isMrsVisible(mrsSnapshot, outerReadinessData as any) &&
+    mrsSnapshot?.readinessState !== 'awaiting';
   const outerAwaiting = isCardsAwaitingPayload(outerReadinessData);
   const cardsAwaiting = mrsReadyForPlan
     ? snapshotAwaiting
@@ -2103,13 +2105,13 @@ const TodayThreePriorities = ({
             onClick={() => navigate('/daily-check-in')}
             className="mt-1 flex flex-col items-start gap-1.5 pl-10 pr-3 py-2 rounded-xl text-left hover:bg-muted/10 transition-colors"
           >
-            <span className="text-quote text-foreground">
-              Awaiting signals
-            </span>
-            <span className="flex items-start gap-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
-              <span>{awaitingCopy}</span>
-              <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
-            </span>
+            <AwaitingSignalsNotice
+              copy={awaitingCopy}
+              align="start"
+              trailing={
+                <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
+              }
+            />
           </button>
         </div>
       </div>

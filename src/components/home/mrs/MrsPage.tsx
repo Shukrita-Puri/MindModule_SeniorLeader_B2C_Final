@@ -14,7 +14,8 @@ import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
-import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
+import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
 import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_MRS } from '@/components/onboarding/tourMockData';
 import EngravedLoader from '@/components/ui/engraved-loader';
@@ -116,7 +117,7 @@ const MrsPage = () => {
   // copy from live outerBrief would contradict the visible score.
   const awaitingCopy = snapshotRenderable
     ? ''
-    : getReadinessAwaitingCopy(outerBrief ?? undefined);
+    : resolveAwaitingSignalsCopy(outerBrief ?? undefined);
 
   const tierColor = tierColorVar(tier);
   const oneLiner = showTourMockMrs ? MOCK_MRS.oneLiner : getReadinessOneLiner(score);
@@ -208,14 +209,18 @@ const MrsPage = () => {
           </div>
         )}
         {!hasScore && !showFailureBlock && !showScoreLoader && (
-          <div className="mt-4 flex flex-col items-center text-center">
-            <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
-              {stateLabel.label}
-            </span>
-            <span className="mt-0.5 text-[11px] text-muted-foreground/60">
-              {stateLabel.label === 'Awaiting signals' ? awaitingCopy : stateLabel.subtitle}
-            </span>
-          </div>
+          stateLabel.label === 'Awaiting signals' ? (
+            <AwaitingSignalsNotice copy={awaitingCopy} className="mt-6" />
+          ) : (
+            <div className="mt-4 flex flex-col items-center text-center">
+              <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
+                {stateLabel.label}
+              </span>
+              <span className="mt-0.5 text-[11px] text-muted-foreground/60">
+                {stateLabel.subtitle}
+              </span>
+            </div>
+          )
         )}
 
         {/* Historical Backfill UI */}

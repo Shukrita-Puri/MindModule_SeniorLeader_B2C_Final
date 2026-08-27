@@ -43,8 +43,9 @@ import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
-import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
-import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
+import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
+import { useMrsSnapshot, isMrsVisible } from '@/hooks/useMrsSnapshot';
 
 
 // ─── TYPES ───
@@ -2169,7 +2170,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   } catch {}
 
   const cardsAwaiting = isTrueAwaitingBrief(outerBrief);
-  const awaitingCopy = getReadinessAwaitingCopy(outerBrief);
+  const awaitingCopy = resolveAwaitingSignalsCopy(outerBrief);
+  // Existing gate, restored: the Brief must not render prose until the MRS
+  // score is visible to the user. Same condition the MRS card and Plan use.
+  const { data: briefMrsSnapshot } = useMrsSnapshot();
+  const mrsVisible = isMrsVisible(briefMrsSnapshot, outerBrief as any);
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
@@ -2302,11 +2307,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // slot renders `--` while the copy stays stable.
   const copyRenderable = hasRenderableBriefCopy(outerBrief);
   const scoreRenderable = hasRenderableBriefScore(outerBrief);
-  // Brief awaiting state is independent of the MRS score. Calendar-only
-  // signals feed MRS/Plan/Nudges, but the Brief prose must not form without
-  // a current personal signal (wearable or check-in).
+  // Restored gate: the Brief waits for the MRS score to be visible. When MRS
+  // has not formed, the Brief shows the shared awaiting state instead of
+  // prose — no phrase, no body, no beats.
   const showNeutralAwaitingCopy =
-    !showFailureBlock && cardsAwaiting && !copyRenderable;
+    !showFailureBlock && (!mrsVisible || (cardsAwaiting && !copyRenderable));
 
   // Copy-only awaiting: score payload is present but the LLM never delivered
   // phrase/body (e.g. validation reject or provider 402). Show neutral prose
@@ -2335,7 +2340,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const bodyText = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.bodyText ? stripStrayAsterisks(String(outerBrief.bodyText)) : null);
-  const briefBeats = collectBriefBeats(outerBrief);
+  const briefBeats = showNeutralAwaitingCopy ? [] : collectBriefBeats(outerBrief);
 
   // ── [PRB] Diagnostic — render-decision + final-payload logs ─────────────
   // Effect-gated so we only emit when the resolved values actually change.
@@ -2644,30 +2649,22 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         </p>
       )}
 
-      {/* 4b. AWAITING-SIGNAL PROMPT — MRS v3 residual cold-start only.
-          Brief renders off State 1 (wearable + calendar); this block only
-          appears when neither is present. Check-in is positioned as the
-          State 2 refiner, never as the gate. */}
+      {/* 4b. AWAITING-SIGNAL PROMPT — shown while the MRS score has not
+          formed, or in residual cold-start. Copy and typography come from
+          the shared notice so Brief, Plan and MRS always match. */}
       {showNeutralAwaitingCopy && (
-        <>
-          <p className={cn(
-            "text-quote font-headline italic text-foreground",
-            SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"
-          )}>
-            {READINESS_AWAITING_MESSAGE}
-          </p>
-        </>
+        <AwaitingSignalsNotice
+          copy={awaitingCopy}
+          className={SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"}
+        />
       )}
-
 
       {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
       {showCopyOnlyAwaiting && (
-        <p className={cn(
-          "text-quote font-headline italic text-foreground",
-          SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"
-        )}>
-          {READINESS_AWAITING_MESSAGE}
-        </p>
+        <AwaitingSignalsNotice
+          copy={awaitingCopy}
+          className={SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"}
+        />
       )}
 
       {/* Phase 1 — engine failure retry block (auth / inner / outer / unknown).

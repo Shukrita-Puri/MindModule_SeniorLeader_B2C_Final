@@ -3,5 +3,5 @@
  * The reason-aware helper can refine this text when the app knows more.
  */
 export const READINESS_AWAITING_MESSAGE =
-  "AWAITING SIGNALS Connect your wearable and calendar to get an early read, then check in to sharpen it.";
+  "Awaiting signals — connect your wearable and calendar to get an early read, then check in to sharpen it.";
 

@@ -77,6 +77,22 @@ export function hasFreshScoreBearingSignal(signalPills: unknown[] | null): boole
   });
 }
 
+/**
+ * Shared visibility gate for the executive cards.
+ *
+ * The MRS card shows a number when either a current-window snapshot is
+ * renderable with a numeric score, or the live payload carries one. Brief
+ * and Plan must wait for exactly that condition, so they consume this helper
+ * rather than each holding their own variant of the check.
+ */
+export function isMrsVisible(
+  snapshot: MrsSnapshot | null | undefined,
+  livePayload?: { innerReadinessScore?: number | null } | null,
+): boolean {
+  if (snapshot?.isRenderable && typeof snapshot.score === 'number') return true;
+  return typeof livePayload?.innerReadinessScore === 'number';
+}
+
 export function useMrsSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
