@@ -307,6 +307,10 @@ function buildClientMrsV4SubScores(args: {
   rhrValue: number | null;
   rhrTrend: 'falling' | 'stable' | 'rising' | null;
   demandScore: number | null;
+  /** Afternoon "now forward" demand. Falls back to `demandScore`. */
+  remainingDemandScore?: number | null;
+  /** Afternoon "already spent" demand. Falls back to `demandScore`. */
+  realizedDemandScore?: number | null;
   patternSignals: ClientPatternSignalsLite | null;
 }): MrsV4SubScore[] {
   const hrv = sub(
