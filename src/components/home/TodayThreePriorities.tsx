@@ -478,10 +478,11 @@ const TodayThreePriorities = ({
   // MRS snapshot is the authoritative readiness signal for Plan generation.
   // When a ready current-window MRS snapshot exists, do NOT let stale
   // outerReadinessData awaiting-cache veto Plan generation.
+  // Shared gate — identical to the condition the MRS card and the Brief use,
+  // so the three cards flip together.
   const mrsReadyForPlan =
-    !!mrsSnapshot?.isRenderable &&
-    mrsSnapshot.readinessState !== 'awaiting' &&
-    typeof mrsSnapshot.score === 'number';
+    isMrsVisible(mrsSnapshot, outerReadinessData as any) &&
+    mrsSnapshot?.readinessState !== 'awaiting';
   const outerAwaiting = isCardsAwaitingPayload(outerReadinessData);
   const cardsAwaiting = mrsReadyForPlan
     ? snapshotAwaiting
