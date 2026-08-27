@@ -14,7 +14,7 @@ Re-enforce the existing contract on the frontend:
 
 ## 2. One awaiting statement across all three cards
 
-All three cards read the awaiting line from a single shared source with identical input precedence (MRS snapshot first, then live readiness payload), so they always print the same sentence — for example "Awaiting signals — calendar signal received, sync wearable for a fuller read."
+Which sentence is shown stays signal-driven — whichever variant is correct for the signals present at that moment (calendar-only, nothing connected, etc.). The only requirement is parity: all three cards read that line from a single shared source with identical input precedence (MRS snapshot first, then live readiness payload), so at any point in time they print the same sentence.
 
 The Brief already computes the correct reason-aware string but hardcodes the generic constant in two render branches; those branches switch to the shared value.
 
