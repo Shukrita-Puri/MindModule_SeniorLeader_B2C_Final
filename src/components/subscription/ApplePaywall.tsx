@@ -436,16 +436,19 @@ export function ApplePaywall({
             <RotateCcw className="w-3.5 h-3.5" />
             {restoring ? 'Restoring…' : 'Restore Purchases'}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-center gap-2 text-xs text-muted-foreground"
-            onClick={() => void handleManage()}
-            data-testid="manage-apple-subscription"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            Manage Subscription
-          </Button>
+          
+          {appleEntitled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-center gap-2 text-xs text-muted-foreground"
+              onClick={() => void handleManage()}
+              data-testid="manage-apple-subscription"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Manage Subscription
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center justify-center gap-3 pt-1 text-[11px] text-muted-foreground">
