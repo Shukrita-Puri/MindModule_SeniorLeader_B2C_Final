@@ -809,6 +809,7 @@ export function buildDeterministicBriefFallback(
       wearableFact: sanitizeWearableFact(opts.wearableFact),
       sleepScore: opts.sleepScore,
       checkInOutcome: opts.checkInOutcome,
+      hasCheckIn: checkInCurrent,
       window: opts.window,
       anchorRef: anchorTitle
         ? withTiming(shortRef(anchorTitle), narrative.anchor?.minutesUntil ?? null)
