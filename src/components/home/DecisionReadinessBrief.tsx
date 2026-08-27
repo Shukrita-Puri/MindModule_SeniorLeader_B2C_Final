@@ -2170,7 +2170,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   } catch {}
 
   const cardsAwaiting = isTrueAwaitingBrief(outerBrief);
-  const awaitingCopy = getReadinessAwaitingCopy(outerBrief);
+  const awaitingCopy = resolveAwaitingSignalsCopy(outerBrief);
+  // Existing gate, restored: the Brief must not render prose until the MRS
+  // score is visible to the user. Same condition the MRS card and Plan use.
+  const { data: briefMrsSnapshot } = useMrsSnapshot();
+  const mrsVisible = isMrsVisible(briefMrsSnapshot, outerBrief as any);
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
