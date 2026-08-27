@@ -296,7 +296,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Front-load conversations requiring emotional presence; ` +
       `let the end of the day run on process, not performance.`,
-    close: () => `your energy is the signal`,
+    close: () => `and pace the social battery`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -311,7 +311,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Manage visible state deliberately — presence, composure, and eye contact ` +
       `are the primary signals stakeholders will carry from today.`,
-    close: () => `you are the signal today`,
+    close: () => `and hold your visible state`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -327,7 +327,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Identify the one idea every person should leave with; ` +
       `activate storytelling mode, not reporting mode.`,
-    close: () => `tone sets the culture`,
+    close: () => `and set the tone deliberately`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -409,7 +409,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Identify the two or three questions most likely to challenge you and ` +
       `prepare how you'll hold composure while answering them.`,
-    close: () => `48 hours shapes the room`,
+    close: () => `and shape the room beforehand`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -495,7 +495,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `Leaders who genuinely disconnect on rest days return with measurably better strategic clarity.`,
     directive: (ctx) =>
       `Treat restoration as the primary objective; one async task maximum if you engage with work.`,
-    close: () => `rest is performance investment`,
+    close: () => `and protect the rest window`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -551,7 +551,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `The fatigue arrives from the aggregate regardless of how events are distributed across calendars.`,
     directive: (ctx) =>
       `Triage against the total load, not the primary calendar view.`,
-    close: () => `total load, not primary load`,
+    close: () => `and triage the total load`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1177,7 +1177,7 @@ const NARRATIVE_CLOSES: Record<
     evening: ["and let it rest until morning.", "and put it down for tonight."],
   },
   visibility_pre: {
-    ok: ["and arrive early enough to breathe.", "and steady yourself before the lights."],
+    ok: ["and arrive early enough to settle.", "and steady yourself before the lights."],
     low: ["and get quiet before you go on.", "and keep the ten minutes before it silent."],
     evening: ["and get quiet before you sleep.", "and let it rest until morning."],
   },
