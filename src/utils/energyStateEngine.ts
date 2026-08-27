@@ -580,7 +580,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
   let authTokenForRequests: string | null = null;
   if (!DEV_MODE) {
-    authTokenForRequests = await getAuth0Token();
+    authTokenForRequests = await getAuthTokenWithRetry();
   }
 
   // Try DB for latest HRV + baseline + patterns
