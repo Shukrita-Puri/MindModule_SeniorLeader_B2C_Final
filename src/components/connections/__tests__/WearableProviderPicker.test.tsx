@@ -11,6 +11,9 @@ const invoke = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { functions: { invoke: (...a: unknown[]) => invoke(...a) } },
 }));
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'test-user' }, isAuthenticated: true, isLoading: false }),
+}));
 vi.mock('@/utils/openUrl', () => ({ openUrl: vi.fn() }));
 vi.mock('@/services/ouraSyncService', () => ({ startOuraOAuth: vi.fn() }));
 vi.mock('@/utils/healthKitCapacitor', () => ({
