@@ -20,7 +20,7 @@ The Brief already computes the correct reason-aware string but hardcodes the gen
 
 ## 3. Same typography on all three
 
-The MRS card's treatment becomes the standard: small uppercase "Awaiting signals" label plus a muted one-line explanation, same font family, size and colour token everywhere. The Brief stops rendering the awaiting line in the serif italic quote style; Plan keeps its layout but adopts the same label and copy classes.
+The MRS card's treatment is the standard: small uppercase "Awaiting signals" label plus a muted one-line explanation, same font family, size and colour token. MRS and Plan already match, so the only change here is the Brief: it stops rendering the awaiting line in the serif italic quote style and adopts the same label and copy classes. Plan is otherwise untouched.
 
 ## Technical notes
 
