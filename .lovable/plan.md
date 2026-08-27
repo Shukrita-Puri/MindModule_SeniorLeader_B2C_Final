@@ -20,19 +20,30 @@ Two findings that correct the working assumption in the brief:
 
 So the larger gap is unambiguously the **multi-sentence banks (72 of 90 once the directive-token failures are counted with them)**; the context gap is 18.
 
+## Three confirmations before any copy is written
+
+**1. Em dash — confirmed forbidden anywhere in the body. Semicolons will be used.**
+`compute-outer-readiness/index.ts` defines `DASH_BREAK = /(?:\s[—–]\s|[A-Za-z]\s*[—–]\s*[A-Za-z])/` and `validateV61Output` returns `body_em_dash` whenever it matches. That pattern is position-independent: any em or en dash surrounded by spaces, or sitting between two letters, rejects the whole body — not only sentence-initial or terminal uses. Only numeric ranges like `0–2` escape it. So every Read and Directive collapse uses a **semicolon** (or a comma/colon where it reads better). No new em dashes will be introduced, and existing bank strings that already carry an em dash between words will be converted to semicolons in the same pass.
+
+**2. Beat (c) Directive only — beat (d) Self-Regulation Close is untouched. Confirmed.**
+The work-context/verb rewrite applies exclusively to the Directive beat. Recovery-only imperative closes ("protect sleep tonight", "skip the drinks tonight", "give yourself a quiet evening") are correct by design and will **not** gain a work-facing verb or a work object. The validator only requires `WORK_DIRECTIVE_TOKENS` + `WORK_CONTEXT_TOKENS` to appear somewhere in the body, which the Directive beat satisfies; the close stays as the short 2–12 word tail after the final connector.
+
+**3. No-wearable coverage preserved. Confirmed.**
+The harness fix will not blanket-populate wearable signals. Each window keeps at least one explicit no-wearable fixture (`hasWearable: false`, `hasCurrentWearable: false`, `wearableFact: null`, and a signals object with `hrvDeviationPct` / `sleepHours` / `rhrDeviationPct` all null) so the wearable-absent copy path and the `body references wearable evidence when no wearable signal exists` gate both stay under test. The wearable-present vs wearable-absent fixture counts per window will be reported after the change.
+
 ## What to change
 
 ### 1. Collapse Read banks to one sentence (52 failures)
-`NARRATIVE_READS` in `supabase/functions/_shared/personas/ceo/behaviour-copy.ts` still holds two-sentence reads, e.g. `"The sessions are not the load. The people between them are."` and `"Few rooms, large consequence. Today is about depth, not throughput."`. Apply the same `nOneSentence` collapse already used for Evidence: join the two clauses with an em dash or semicolon so each read is one clause with one verb (`"The sessions are not the load — the people between them are."`).
+`NARRATIVE_READS` in `supabase/functions/_shared/personas/ceo/behaviour-copy.ts` still holds two-sentence reads, e.g. `"The sessions are not the load. The people between them are."` and `"Few rooms, large consequence. Today is about depth, not throughput."`. Apply the same `nOneSentence` collapse already used for Evidence, joining with a **semicolon**: `"The sessions are not the load; the people between them are."` One clause, one verb per beat.
 
 ### 2. Collapse Directive banks to one instruction (part of the 52, plus grammar)
-Directive strings that embed a second sentence — e.g. `"... comes first — the board call. Everything after it can be listening"` — get folded into a single clause (`"... comes first — the board call, and everything after it can be listening"`). One verb, one instruction per beat.
+Directive strings that embed a second sentence, e.g. `"... comes first — the board call. Everything after it can be listening"`, get folded into a single semicolon-joined or comma-joined clause: `"... comes first, the board call; everything after it can be listening"`. One verb, one instruction per beat, no dashes.
 
-### 3. Add work context / directive verbs to the failing directive banks (20 failures)
-The conference and evening directives that fail are protective-only closes ("take the breaks you are given", "skip the drinks tonight", "close the day here"). Rewrite these so the directive beat names a work object drawn from `WORK_CONTEXT_TOKENS` (sessions, rooms, calls, decisions, the anchor event) and leads with a directive verb from `WORK_DIRECTIVE_TOKENS`. The self-regulation close stays as the short tail after the final connector.
+### 3. Add work context / directive verbs to the failing Directive beats (20 failures)
+The failing conference and evening cases put only a protective line where the Directive beat should be ("take the breaks you are given", "close the day here"). Rewrite **beat (c) only** so it names a work object from `WORK_CONTEXT_TOKENS` (sessions, rooms, calls, decisions, the anchor event) and leads with a verb from `WORK_DIRECTIVE_TOKENS`. Beat (d) stays exactly as-is per confirmation 2.
 
 ### 4. Fix the golden-set validator context (13 + 5 failures)
-In `golden-set.test.ts` and `diagnose_golden.ts`, populate the `signals` object to match the fixture inputs: when `hasCurrentWearable` is true supply `sleepHours` / `hrvDeviationPct` / `rhrDeviationPct`; when `hasCurrentCheckIn` is true supply `emotionalSelfDeclared`, `mentalSharpness`, `confidence`. This makes the harness represent the real production call shape, where `compute-outer-readiness` passes the same signals it used to build the brief. Fixtures that are meant to test the no-wearable path get an explicit no-signal variant instead.
+In `golden-set.test.ts` and `diagnose_golden.ts`, derive the `signals` object from the fixture inputs rather than hardcoding a near-empty one: when the fixture sets `hasCurrentWearable` supply `sleepHours` / `hrvDeviationPct` / `rhrDeviationPct`; when it sets `hasCurrentCheckIn` supply `emotionalSelfDeclared`, `mentalSharpness`, `confidence`; when it does not, leave them null. This mirrors the production call shape in `compute-outer-readiness`. Add explicit no-wearable and no-check-in fixtures for each of morning/afternoon/evening per confirmation 3.
 
 ### 5. Re-run and lock
 Re-run the diagnostic to confirm 0/171 failures, then run the Deno contract test (`behaviour-copy.contract.test.ts`) and the golden-set test so CI blocks regressions. No re-deploy is required for the test files; `deterministic-brief.ts` / `behaviour-copy.ts` changes ship with the next `compute-outer-readiness` deploy.
