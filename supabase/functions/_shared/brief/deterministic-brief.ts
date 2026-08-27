@@ -1,6 +1,6 @@
 import type { DayShape } from "./day-shape.ts";
 import { withTiming } from "./time-phrase.ts";
-import type { BriefCopyContext } from "../brief-context.ts";
+import type { BriefCopyContext, PillarCluster } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 import { behaviourPriority } from "../behaviour-evaluator.ts";
 import type { LeadNarrative } from "./lead-narrative.ts";
@@ -8,6 +8,10 @@ import {
   assembleNarrativeBody,
   renderNarrativeBeats,
 } from "../personas/ceo/behaviour-copy.ts";
+import {
+  detectCluster,
+  lexiconFallbackClause,
+} from "../copy-vocabulary.ts";
 
 
 export type DeterministicBriefBand =
@@ -18,6 +22,49 @@ export type DeterministicBriefBand =
   | "depleted";
 
 export type DeterministicBriefPillTier = "green" | "amber" | "red" | "unread";
+
+/**
+ * Choose a lexicon cluster that matches the narrative family. Used as a
+ * deterministic fallback when the assembled body does not already contain an
+ * Elastic Lexicon concept.
+ */
+function preferredClusterForFamily(
+  family: LeadNarrative["family"] | "baseline" | null,
+): PillarCluster {
+  switch (family) {
+    case "travel_long_haul":
+    case "travel_short_haul":
+    case "travel_intercity":
+    case "conference_arc":
+      return "physiology";
+    case "persuasion_pre":
+    case "visibility_pre":
+    case "visibility_post":
+      return "resilience";
+    case "back_to_back":
+    case "weight_heavy":
+    case "volume_heavy":
+    case "context_switching":
+      return "cognition";
+    default:
+      return "resilience";
+  }
+}
+
+/**
+ * Ensure the body carries at least one Elastic Lexicon concept. The fallback
+ * clause is appended as a self-regulation close so it does not disturb the
+ * existing four-beat structure or sentence count.
+ */
+function ensureLexiconCluster(
+  body: string,
+  family: LeadNarrative["family"] | "baseline" | null,
+): string {
+  if (detectCluster(body)) return body;
+  const cluster = preferredClusterForFamily(family);
+  const clause = lexiconFallbackClause(cluster);
+  return body.endsWith(".") ? `${body.slice(0, -1)}, and ${clause}.` : `${body}, and ${clause}.`;
+}
 
 export interface DeterministicBriefFallbackOpts {
   band: DeterministicBriefBand;
@@ -626,43 +673,51 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
 }
 
 
+function ensureCloseLexicon(close: string): string {
+  if (detectCluster(close)) return close;
+  const clause = lexiconFallbackClause("resilience");
+  return close.replace(/\.$/, "") + `, ${clause}.`;
+}
+
 function closeFor(opts: DeterministicBriefFallbackOpts): string {
   const shape = opts.dayShape ?? null;
   const phase = opts.travelPhase ?? null;
 
   // ── Travel closes — oriented toward arrival or re-entry ──
   if (shape === "work_travel") {
-    if (phase === "pre")        return "and arrive with something in the tank.";
-    if (phase === "in_transit") return "and land in the condition the next thing needs.";
-    if (phase === "post")       return "and let the system settle before pushing.";
-    return "and arrive intact.";
+    if (phase === "pre")        return ensureCloseLexicon("and arrive with something in the tank.");
+    if (phase === "in_transit") return ensureCloseLexicon("and land in the condition the next thing needs.");
+    if (phase === "post")       return ensureCloseLexicon("and let the system settle before pushing.");
+    return ensureCloseLexicon("and arrive intact.");
   }
   if (shape === "personal_travel") {
-    return "and arrive with something left.";
+    return ensureCloseLexicon("and arrive with something left.");
   }
 
   // ── Conference close ──
   if (shape === "conference") {
-    return opts.band === "depleted" || opts.band === "stretched"
-      ? "and protect what's left for the sessions that matter."
-      : "and protect the state for what tomorrow opens with.";
+    return ensureCloseLexicon(
+      opts.band === "depleted" || opts.band === "stretched"
+        ? "and protect what's left for the sessions that matter."
+        : "and protect the state for what tomorrow opens with.",
+    );
   }
 
   // ── Non-workday close (holiday / PTO) ──
   if (shape === "public_holiday" || shape === "pto" ||
       shape === "personal_holiday" || opts.isNonWorkday) {
-    return "and let the return start with something in the tank.";
+    return ensureCloseLexicon("and let the return start with something in the tank.");
   }
 
   // ── Weekend close (existing strings — unchanged) ──
   if (opts.isWeekend || shape === "weekend") {
     if (opts.band === "firing" || opts.band === "sharp") {
-      return "and make sure today genuinely recovers, not just overflows.";
+      return ensureCloseLexicon("and make sure today genuinely recovers, not just overflows.");
     }
     if (opts.band === "depleted") {
-      return "and protect tomorrow's start — that's what today is for.";
+      return ensureCloseLexicon("and protect tomorrow's start — that's what today is for.");
     }
-    return "and let this window close so the week starts clean.";
+    return ensureCloseLexicon("and let this window close so the week starts clean.");
   }
 
   // ── Workday close (existing logic — unchanged) ──
@@ -671,12 +726,15 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     const flag = topCeoFlag(opts);
     if (flag) {
       const entry = BEHAVIOUR_COPY[flag.rule];
-      if (entry) {
-        const close = entry.close(buildBriefCopyContext(opts, flag));
-        // Copy pack closes are standalone clauses; prefix with "and" so the
-        // final body sentence flows: "... directive, and close."
-        return close.startsWith("and ") ? close : `and ${close}`;
+      if (!entry) {
+        throw new Error(
+          `[deterministic-brief] CEO flag=${flag.rule} has no BEHAVIOUR_COPY entry`,
+        );
       }
+      const close = entry.close(buildBriefCopyContext(opts, flag));
+      // Copy pack closes are standalone clauses; prefix with "and" so the
+      // final body sentence flows: "... directive, and close."
+      return ensureCloseLexicon(close.startsWith("and ") ? close : `and ${close}`);
     }
   }
 
@@ -686,11 +744,11 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     opts.window === "evening" &&
     (opts.band === "steady" || opts.band === "stretched" || opts.band === "depleted")
   ) {
-    return "and close the laptop so tomorrow doesn't start in residue.";
+    return ensureCloseLexicon("and close the laptop so tomorrow doesn't start in residue.");
   }
   const hasHighStakesLeft = opts.todayHighStakes.length > 0;
   if (hasHighStakesLeft && (opts.band === "stretched" || opts.band === "depleted")) {
-    return "and settle yourself before you walk in.";
+    return ensureCloseLexicon("and settle yourself before you walk in.");
   }
   const map: Record<DeterministicBriefBand, string> = {
     firing:    "and hold your line when it speeds up.",
@@ -699,7 +757,7 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
     stretched: "and take the gaps before they're gone.",
     depleted:  "and shut the laptop early tonight.",
   };
-  return map[opts.band];
+  return ensureCloseLexicon(map[opts.band]);
 
 }
 
@@ -758,13 +816,16 @@ export function buildDeterministicBriefFallback(
       anchorRefPlain: anchorTitle ? shortRef(anchorTitle) : null,
       variantSeed: opts.variantSeed ?? `${opts.window}|${narrative.family}`,
     });
-    if (beats) {
-      return {
-        phrase,
-        body: assembleNarrativeBody(beats),
-        topSignal: "baseline_quiet",
-      };
+    if (!beats) {
+      throw new Error(
+        `[deterministic-brief] narrative family=${narrative.family} returned null beats; missing copy entry`,
+      );
     }
+    return {
+      phrase,
+      body: assembleNarrativeBody(beats),
+      topSignal: "baseline_quiet",
+    };
   }
 
   const evidence = buildEvidence(opts);

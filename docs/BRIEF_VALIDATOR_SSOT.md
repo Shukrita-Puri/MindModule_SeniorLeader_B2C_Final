@@ -22,9 +22,10 @@ It is a closure over request-scoped state (`todayHighStakes`,
 through to the deterministic brief (hard reject) per the Atomic Brief
 Contract.
 
-**Do not** assume `supabase/functions/_shared/brief-validators.ts` is the
-production gate. It is a parallel, non-authoritative implementation kept
-for future consolidation — see the "Consolidation note" below.
+`supabase/functions/_shared/brief-validators.ts` (`validateBrief`) is now
+live on the deterministic fallback path. If it rejects deterministic output,
+the Brief falls back to the awaiting-signals state. It remains a secondary gate
+to `validateV61Output` — see the "Consolidation note" below.
 
 ## What the live validator enforces today
 
@@ -114,39 +115,40 @@ that requires a separate validator ticket and must be implemented in
 - `supabase/functions/compute-outer-readiness/body_copy.test.ts` exercises
   §2.19.5 body assessment contract via live HTTP calls.
 
-## Consolidation note (future work — do NOT do in a loosening pass)
+## Consolidation note (deferred)
 
 There are currently **two** implementations of overlapping validation logic:
 
 1. **Inline `validateV61Output`** in `compute-outer-readiness/index.ts` — the
-   authoritative production gate.
+   authoritative production gate for LLM output.
 2. **`_shared/brief-validators.ts`** (`validatePhrase`, `validateBody`,
    `validateBodyFourBeatStructure`, `validateBrief`) — a cleaner pure-function
-   version, currently **not wired** into the live Brief path.
+   version, now wired into the **deterministic fallback path**. Its rejection
+   result is respected: invalid deterministic copy falls back to the awaiting
+   state.
 
-### Risks of the duplication
-- Rule drift: a change made in one file may not land in the other.
-  Recent loosening was applied only to the inline path; `_shared/brief-validators.ts`
-  still reflects the pre-loosening phrase-length rule and the pre-loosening
-  source whitelist. This is intentional for this pass, but must be resolved
-  before `_shared/brief-validators.ts` is promoted.
-- Ambiguous ownership in future audits.
+### Why both remain
+- `validateV61Output` carries request-scoped state (high-stakes events, travel/work
+  context, calendar load, band valence) that is not yet threaded into the shared
+  module in a way that preserves every rejection reason string. Those reason
+  strings are consumed by telemetry and the user-facing repair-cause mapper
+  around `index.ts:~4880`, so a premature consolidation risks silent telemetry
+  drift.
+- `validateBrief` is sufficient to catch deterministic copy regressions (banned
+  words, score restatement, pill/body inconsistency) without needing the full
+  request-scoped context.
 
 ### Recommended consolidation sequence (separate PR)
 1. Port the inline validator body-by-body into `_shared/brief-validators.ts`,
-   preserving every rejection reason string verbatim (they are consumed by
-   telemetry and the user-facing repair-cause mapper around
-   `index.ts:~4880`).
-2. Expose the request-scoped state (`todayHighStakes`, travel/work context
-   flags, `calendarLoad`, `bandValence`) as an explicit `BriefValidatorCtx`
-   argument.
+   preserving every rejection reason string verbatim.
+2. Expose request-scoped state as an explicit `BriefValidatorCtx` argument.
 3. Replace the inline function with a call to the shared module behind a
-   feature flag (`SHARED_MODULES_ENABLED`, per
-   `mem/features/performance-readiness/prompt-snapshot-brief.md`).
+   feature flag (`SHARED_MODULES_ENABLED`).
 4. Run the flag OFF for one deploy, ON for the next, and monitor
    `body_no_signal_evidence` / `phrase_hard_reject_*` / `leanOn_invalid_source_*`
    rates against baseline.
 5. Delete the inline validator only after two clean windows on the flag ON.
 
-Until that sequence completes, **the inline validator in
-`compute-outer-readiness/index.ts` is the single source of truth.**
+Until that sequence completes, **`validateV61Output` remains the single
+source of truth for LLM output, and `validateBrief` is the deterministic-path
+gate.**

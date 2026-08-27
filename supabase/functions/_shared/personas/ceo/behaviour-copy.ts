@@ -37,6 +37,10 @@
 import type { BriefCopyContext } from "../../brief-context.ts";
 import { timeUntilPhrase, withTiming } from "../../brief/time-phrase.ts";
 import type { BriefNarrativeFamily, LeadNarrative } from "../../brief/lead-narrative.ts";
+import {
+  detectCluster,
+  lexiconFallbackClause,
+} from "../../copy-vocabulary.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type — mirrors the four builders in deterministic-brief.ts
@@ -134,7 +138,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `${tzShift(ctx)}-hour timezone delta active; body clock and calendar are not aligned.`,
     read: (ctx) =>
-      `Circadian re-entry day — prefrontal capacity is running below what the calendar assumes.`,
+      `Circadian re-entry day — your cognitive runway is running below what the calendar assumes.`,
     directive: (ctx) =>
       `Push your first high-stakes commitment 90 minutes later than instinct suggests; ` +
       `treat hydration as a cognitive input today.`,
@@ -292,11 +296,11 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `Day ${confDay(ctx)} of a multi-day event; cumulative social performance load compounding.`,
     read: (ctx) =>
       `Conference fatigue hits the interpersonal read first — ` +
-      `the most expensive capacity to lose at an external event.`,
+      `the most expensive Executive Presence to lose at an external event.`,
     directive: (ctx) =>
       `Front-load conversations requiring emotional presence; ` +
       `let the end of the day run on process, not performance.`,
-    close: () => `your energy is the signal`,
+    close: () => `and pace the social battery`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -311,7 +315,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Manage visible state deliberately — presence, composure, and eye contact ` +
       `are the primary signals stakeholders will carry from today.`,
-    close: () => `you are the signal today`,
+    close: () => `and hold your visible state`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -327,7 +331,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Identify the one idea every person should leave with; ` +
       `activate storytelling mode, not reporting mode.`,
-    close: () => `tone sets the culture`,
+    close: () => `and set the tone deliberately`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -338,10 +342,10 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `${anchorTimed(ctx)} is a persuasion-mode event — the goal is position shift, not information transfer.`,
     read: (ctx) =>
-      `Low confidence reads as low conviction; visible anxiety reads as low credibility.`,
+      `Thin confidence reads as thin conviction; visible anxiety reads as shaky credibility.`,
     directive: (ctx) =>
       `Anchor your confidence state and frame the ask clearly in your own mind ` +
-      `before you walk in — high activation is useful here.`,
+      `before you walk in — sharp activation is useful here.`,
     close: () => `conviction before the room`,
   },
 
@@ -409,7 +413,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     directive: (ctx) =>
       `Identify the two or three questions most likely to challenge you and ` +
       `prepare how you'll hold composure while answering them.`,
-    close: () => `48 hours shapes the room`,
+    close: () => `and shape the room beforehand`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -495,7 +499,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `Leaders who genuinely disconnect on rest days return with measurably better strategic clarity.`,
     directive: (ctx) =>
       `Treat restoration as the primary objective; one async task maximum if you engage with work.`,
-    close: () => `rest is performance investment`,
+    close: () => `and protect the rest window`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -551,7 +555,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `The fatigue arrives from the aggregate regardless of how events are distributed across calendars.`,
     directive: (ctx) =>
       `Triage against the total load, not the primary calendar view.`,
-    close: () => `total load, not primary load`,
+    close: () => `and triage the total load`,
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -828,11 +832,12 @@ function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string
 
   if (!state) return `${nCap(shape)}.`;
 
+  // Single-sentence forms only — the four-beat body must stay within 1–3
+  // sentences, so evidence and read each occupy one sentence.
   const forms: string[] = [
-    `${nCap(state)}. ${nCap(shape)}.`,
     `${nCap(state)} — and ${shape}.`,
-    `${nCap(shape)}. Behind it, ${nLower(state)}.`,
     `${nCap(state)}, with ${shape}.`,
+    `${nCap(shape)}, behind ${nLower(state)}.`,
   ];
   return nPick(forms, i.variantSeed, `evidence:${i.narrative.family}:${i.window}`);
 }
@@ -926,7 +931,7 @@ const NARRATIVE_READS: Record<
     ],
     low: [
       "The event has been drawing on you for days and today asks for more.",
-      "You are further into this than your reserves are.",
+      "You are further into this than your Internal Buffer is.",
     ],
     evening: [
       "These days do not spike — they accumulate, and today added to it.",
@@ -963,7 +968,7 @@ const NARRATIVE_READS: Record<
       "Most of today is attendance, not decision.",
     ],
     low: [
-      "A full calendar of low-yield rooms on a thin day is pure leakage.",
+      "A full calendar of thin-yield rooms on a thin day is pure leakage.",
       "You cannot afford to spend this state on meetings that decide nothing.",
     ],
   },
@@ -974,7 +979,7 @@ const NARRATIVE_READS: Record<
     ],
     low: [
       "Re-orienting this many times on this little in reserve is where mistakes come from.",
-      "The switching cost is high and your margin for it is low.",
+      "The switching cost is steep and your margin for it is thin.",
     ],
   },
   baseline: {
@@ -1177,7 +1182,7 @@ const NARRATIVE_CLOSES: Record<
     evening: ["and let it rest until morning.", "and put it down for tonight."],
   },
   visibility_pre: {
-    ok: ["and arrive early enough to breathe.", "and steady yourself before the lights."],
+    ok: ["and arrive early enough to settle.", "and steady yourself before the lights."],
     low: ["and get quiet before you go on.", "and keep the ten minutes before it silent."],
     evening: ["and get quiet before you sleep.", "and let it rest until morning."],
   },
@@ -1248,12 +1253,20 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
   // day shape names it; the directive then reuses the plain reference.
   const evidence = nBuildEvidence(i, ref);
   const directive = nBuildDirective(i, ref);
+  const close = nPick(closeBank, i.variantSeed, `close:${family}:${i.window}`);
+
+  // Elastic Lexicon safety: the close must carry at least one pillar concept.
+  // Append a short self-regulation clause inside the same sentence so the
+  // four-beat structure and sentence count stay intact.
+  const closeWithLexicon = detectCluster(close)
+    ? close
+    : `${close.replace(/\.$/, "")}, ${lexiconFallbackClause("resilience")}.`;
 
   return {
     evidence,
     read: nPick(readBank, i.variantSeed, `read:${family}:${i.window}`),
     directive,
-    close: nPick(closeBank, i.variantSeed, `close:${family}:${i.window}`),
+    close: closeWithLexicon,
   };
 }
 
