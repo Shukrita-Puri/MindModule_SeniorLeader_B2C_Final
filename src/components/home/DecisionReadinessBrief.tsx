@@ -2340,7 +2340,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const bodyText = showNeutralAwaitingCopy
     ? null
     : (outerBrief?.bodyText ? stripStrayAsterisks(String(outerBrief.bodyText)) : null);
-  const briefBeats = collectBriefBeats(outerBrief);
+  const briefBeats = showNeutralAwaitingCopy ? [] : collectBriefBeats(outerBrief);
 
   // ── [PRB] Diagnostic — render-decision + final-payload logs ─────────────
   // Effect-gated so we only emit when the resolved values actually change.
