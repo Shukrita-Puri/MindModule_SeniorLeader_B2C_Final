@@ -673,6 +673,12 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
 }
 
 
+function ensureCloseLexicon(close: string): string {
+  if (detectCluster(close)) return close;
+  const clause = lexiconFallbackClause("resilience");
+  return close.replace(/\.$/, "") + `, ${clause}.`;
+}
+
 function closeFor(opts: DeterministicBriefFallbackOpts): string {
   const shape = opts.dayShape ?? null;
   const phase = opts.travelPhase ?? null;
