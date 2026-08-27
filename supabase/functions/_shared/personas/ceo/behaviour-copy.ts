@@ -338,10 +338,10 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `${anchorTimed(ctx)} is a persuasion-mode event — the goal is position shift, not information transfer.`,
     read: (ctx) =>
-      `Low confidence reads as low conviction; visible anxiety reads as low credibility.`,
+      `Thin confidence reads as thin conviction; visible anxiety reads as shaky credibility.`,
     directive: (ctx) =>
       `Anchor your confidence state and frame the ask clearly in your own mind ` +
-      `before you walk in — high activation is useful here.`,
+      `before you walk in — sharp activation is useful here.`,
     close: () => `conviction before the room`,
   },
 
