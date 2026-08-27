@@ -131,7 +131,8 @@ export function detectCluster(text: string): PillarCluster | null {
  * Returns a short, Chief-of-Staff voice clause that carries a concept from the
  * requested Elastic Lexicon cluster. Used as a last-resort injection when a
  * deterministic body would otherwise fail the lexicon gate. The clause is
- * phrased as a self-regulation directive so it fits beat (d) closes.
+ * phrased as a self-regulation directive so it fits beat (d) closes. The first
+ * variant is returned deterministically so snapshot tests stay stable.
  */
 export function lexiconFallbackClause(cluster: PillarCluster): string {
   const clauses: Record<PillarCluster, string[]> = {
@@ -151,8 +152,7 @@ export function lexiconFallbackClause(cluster: PillarCluster): string {
       "protect your Executive Presence",
     ],
   };
-  const variants = clauses[cluster];
-  return variants[Math.floor(Math.random() * variants.length)];
+  return clauses[cluster][0];
 }
 
 /** Returns the first forbidden word found in `text`, or null. */
