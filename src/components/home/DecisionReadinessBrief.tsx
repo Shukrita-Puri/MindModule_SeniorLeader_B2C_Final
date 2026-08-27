@@ -43,8 +43,9 @@ import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
-import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
-import { READINESS_AWAITING_MESSAGE } from '@/constants/awaitingSignals';
+import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
+import { useMrsSnapshot, isMrsVisible } from '@/hooks/useMrsSnapshot';
 
 
 // ─── TYPES ───
