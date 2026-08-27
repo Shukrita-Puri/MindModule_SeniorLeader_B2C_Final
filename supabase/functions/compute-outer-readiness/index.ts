@@ -3209,6 +3209,34 @@ serve(async (req) => {
     if (body.contextOnly === true) {
       const calendarUsable = calendarResult.state === "active" ||
         calendarResult.state === "connected_no_events";
+      // MRS v4 demand pillar — the browser client is anon-keyed and cannot
+      // read `calendar_events` under RLS, so it can never derive demand for
+      // itself. Compute the earned demand scores here (service role) and
+      // hand them back: full-day, remaining-only ("now forward") and the
+      // realized cost of what already happened. Zero is EARNED data when the
+      // calendar is connected — only `not_connected` yields null.
+      const rawTodayEvents: any[] = Array.isArray(calendarResult.rawEvents)
+        ? calendarResult.rawEvents
+        : [];
+      const nowMs = Date.now();
+      const timeOf = (v: unknown): number | null => {
+        if (typeof v !== "string" && !(v instanceof Date)) return null;
+        const t = new Date(v as any).getTime();
+        return Number.isFinite(t) ? t : null;
+      };
+      const remainingEventRows = rawTodayEvents.filter((e) => {
+        const end = timeOf(e?.end_time);
+        return end == null ? true : end > nowMs;
+      });
+      const completedEventRows = rawTodayEvents.filter((e) => {
+        const end = timeOf(e?.end_time);
+        return end != null && end <= nowMs;
+      });
+      const demandOf = (rows: any[]): number | null =>
+        calendarUsable ? computeCalendarDemand(rows as any).demandScore : null;
+      const fullDayDemandScore = demandOf(rawTodayEvents);
+      const remainingDemandScore = demandOf(remainingEventRows);
+      const realizedDemandScore = demandOf(completedEventRows);
       return new Response(
         JSON.stringify({
           contextOnly: true,
@@ -3217,6 +3245,10 @@ serve(async (req) => {
           hasCalendarSignal: calendarUsable,
           calendarLoad,
           calendarPressure,
+          demandScore: fullDayDemandScore,
+          fullDayDemandScore,
+          remainingDemandScore,
+          realizedDemandScore,
           meetingCount: calendarResult.meetingCount ?? null,
           eventCount: calendarResult.eventCount ?? null,
           remainingMeetings: calendarResult.remainingMeetings ?? null,

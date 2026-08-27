@@ -241,9 +241,14 @@ function scoreFromAbsoluteHrv(hrv: number | null): number | null {
   return 35;
 }
 
+/** Mirrors `_shared/signal-engine/mrs-v4-subscores.ts` — zero demand is earned
+ *  data and gets the bounded ZERO_DEMAND_CREDIT (0.6), never a perfect 100. */
+const CLIENT_ZERO_DEMAND_CREDIT = 0.6;
 function scoreFromDemand(demandScore: number | null): number | null {
   if (typeof demandScore !== 'number' || !Number.isFinite(demandScore)) return null;
-  return clampScore(100 - demandScore);
+  const raw = Math.max(0, Math.min(100, demandScore));
+  if (raw === 0) return clampScore(CLIENT_ZERO_DEMAND_CREDIT * 100);
+  return clampScore(100 - raw);
 }
 
 function scoreFromPattern(patternSignals: ClientPatternSignalsLite | null): number | null {
@@ -302,6 +307,10 @@ function buildClientMrsV4SubScores(args: {
   rhrValue: number | null;
   rhrTrend: 'falling' | 'stable' | 'rising' | null;
   demandScore: number | null;
+  /** Afternoon "now forward" demand. Falls back to `demandScore`. */
+  remainingDemandScore?: number | null;
+  /** Afternoon "already spent" demand. Falls back to `demandScore`. */
+  realizedDemandScore?: number | null;
   patternSignals: ClientPatternSignalsLite | null;
 }): MrsV4SubScore[] {
   const hrv = sub(
@@ -332,8 +341,8 @@ function buildClientMrsV4SubScores(args: {
       sleep,
       rhr,
       sub('intradayHrDeviation', null),
-      sub('remainingDayDemand', scoreFromDemand(args.demandScore)),
-      sub('realizedSoFarCost', scoreFromDemand(args.demandScore)),
+      sub('remainingDayDemand', scoreFromDemand(args.remainingDemandScore ?? args.demandScore)),
+      sub('realizedSoFarCost', scoreFromDemand(args.realizedDemandScore ?? args.demandScore)),
       pattern,
     ];
   }
@@ -441,6 +450,33 @@ interface OuterReadinessContextPreflight {
   calendarLoad?: CalendarLoad | null;
   calendarPressure?: CalendarPressure | null;
   meetingCount?: number | null;
+  /** MRS v4 demand pillar — server-derived (client cannot read events under RLS). */
+  demandScore?: number | null;
+  fullDayDemandScore?: number | null;
+  remainingDemandScore?: number | null;
+  realizedDemandScore?: number | null;
+}
+
+/**
+ * Cold-foreground hardening: on iOS resume the Auth0 token can be briefly
+ * unavailable while the session rehydrates. Poll instead of failing on the
+ * first miss so the readiness surfaces never paint the failure block for a
+ * transient hydration gap.
+ */
+async function getAuthTokenWithRetry(
+  attempts = 6,
+  delayMs = 400,
+): Promise<string | null> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const token = await getAuth0Token();
+      if (token) return token;
+    } catch (err) {
+      console.warn('[energyStateEngine] getAuthToken threw during hydration retry:', err);
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return null;
 }
 
 async function fetchOuterReadinessContext(
@@ -580,7 +616,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
   let authTokenForRequests: string | null = null;
   if (!DEV_MODE) {
-    authTokenForRequests = await getAuth0Token();
+    authTokenForRequests = await getAuthTokenWithRetry();
   }
 
   // Try DB for latest HRV + baseline + patterns
@@ -919,20 +955,18 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // Get auth token for the EF call
     let authHeaders: Record<string, string> = {};
     if (!DEV_MODE) {
-      const token = authTokenForRequests ?? await getAuth0Token();
+      const token = authTokenForRequests ?? await getAuthTokenWithRetry();
       if (token) {
         authHeaders = { Authorization: `Bearer ${token}` };
       } else {
-        // Phase 1 — Auth0 token unavailable. Do NOT call the edge function
-        // (it would 401 and look identical to a real awaiting state).
-        // Return a structured 'auth-failure' so the UI can show retry copy
-        // instead of the cold-start prompt.
-        console.warn('[energyStateEngine] Auth0 token unavailable — returning auth-failure status');
-        return buildErrorFallback({
-          status: 'auth-failure',
-          hasCalendar,
-          calendarData,
-        });
+        // Auth0 token still unavailable after the hydration retry window.
+        // Do NOT call the edge function (it would 401), and do NOT paint the
+        // hard failure block — on cold foreground this is almost always a
+        // transient session-rehydration gap. Degrade to the snapshot-only
+        // stub ('stale') so the persisted readiness snapshot renders and the
+        // next compute picks up the real token.
+        console.warn('[energyStateEngine] Auth0 token unavailable after retries — degrading to stale snapshot render');
+        return buildSnapshotOnlyStub();
       }
     }
 
@@ -960,9 +994,22 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     // MRS score-bearing signals only: calendar connection alone does NOT
     // manufacture a numeric demand score. Only a real snapshot value or a
     // numeric demand derived from actual events qualifies.
+    //
+    // The browser client is anon-keyed, so RLS hides `calendar_events` from
+    // it for real users — `fullDayDemandScore` is therefore usually null even
+    // when the user has a live calendar. `compute-outer-readiness` (service
+    // role) now returns earned demand for today, split into full-day /
+    // remaining / realized, so the demand pillar forms from real events
+    // instead of collapsing to null.
+    const serverFullDayDemand = coerceFiniteNumber(
+      outerContext?.fullDayDemandScore ?? outerContext?.demandScore ?? null,
+    );
+    const serverRemainingDemand = coerceFiniteNumber(outerContext?.remainingDemandScore ?? null);
+    const serverRealizedDemand = coerceFiniteNumber(outerContext?.realizedDemandScore ?? null);
     const demandScoreForV4 =
       snapshotDemandScore ??
-      (fullDayDemandScore != null ? fullDayDemandScore : null);
+      (fullDayDemandScore != null ? fullDayDemandScore : null) ??
+      serverFullDayDemand;
     const hasCalendarSignal =
       hasCalendar ||
       calendarConnected ||
@@ -983,6 +1030,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       rhrValue: hasWearable ? wearableRhrValue : null,
       rhrTrend: hasWearable ? wearableRhrTrend : null,
       demandScore: effectiveDemandScoreForSubScores,
+      // Afternoon window: "now forward" and "already spent" are distinct
+      // earned cells. Both fall back to the day-level score when the server
+      // split is unavailable.
+      remainingDemandScore: serverRemainingDemand,
+      realizedDemandScore: serverRealizedDemand,
       patternSignals: snapshotPatternSignals,
     });
     const demandScoreForInner = demandScoreForV4 ?? null;
