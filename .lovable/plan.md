@@ -2,13 +2,19 @@
 
 Ground truth is the Phase 0 findings in your brief. Each phase is a separate commit and does not start until the previous gate is green.
 
-## Phase 1 — Respect the validator on the deterministic path
-- `_shared/brief-validators.ts` stays (three live importers). No validator or threshold changes.
-- In `compute-outer-readiness/index.ts` (~9470–9516): remove the unconditional `deterministicBrief = specBuilt`. When `specValidation.ok === false`, fall back to the awaiting state and log family, window, rejection reason.
-- Confirm `getLoadShapeOrDefault(null)` returns the light default safely.
-- Update `docs/BRIEF_VALIDATOR_SSOT.md`: brief-validators.ts is live and its result is now respected.
+## Phase 1 — Validator SSOT cleanup (adjusted to reality)
 
-Gate: deterministic invalid copy no longer ships; existing tests green.
+Verified import graph: `_shared/brief-validators.ts` has three live importers — `compute-outer-readiness/index.ts:58-61` (imports `validateBrief`, `validateNoScoreRestatement`, `validatePillBodyConsistency`), `compute-outer-readiness/turn-b-acceptance.test.ts:9`, and `_shared/brief-validators.test.ts:9`. It is called in production at index.ts:9130 and 9480. So step 1.1's "delete it" branch does not apply, and adding `throw` to every exported function would break the live brief path immediately. Correction 1 governs.
+
+- Keep the file and its logic untouched (no threshold or rule edits).
+- Header comment instead of the dead-file banner: `// LIVE — imported by compute-outer-readiness/index.ts (validateBrief). Not the four-beat production gate; that is validateV61Output. See docs/BRIEF_VALIDATOR_SSOT.md.`
+- Real fix: in `compute-outer-readiness/index.ts` (~9470–9516) remove the unconditional `deterministicBrief = specBuilt`. When `specValidation.ok === false`, fall back to the awaiting state and log family, window, and rejection reason.
+- Add inside `validateV61Output`: `// SSOT four-beat validator. Do not create a third validator.`
+- Confirm `getLoadShapeOrDefault(null)` returns the light default safely; null-safety fix only if not.
+- Update `docs/BRIEF_VALIDATOR_SSOT.md` and `mem://architecture/brief/validator-ownership` — brief-validators.ts is live (not retired), its result is now respected on the deterministic path, and consolidation stays deferred.
+
+Gate: no second validator added, deterministic invalid copy no longer ships, existing tests green.
+
 
 ## Phase 2 — Beat 4 completeness and tone
 **2A (commit 1)**
