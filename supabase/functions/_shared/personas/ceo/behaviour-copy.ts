@@ -658,6 +658,12 @@ export interface NarrativeCopyInput {
   wearableFact: string | null;
   sleepScore: number | null;
   checkInOutcome: "sharp" | "holding" | "drained" | null;
+  /**
+   * True only when a check-in exists for today's local date and this window.
+   * When false, no felt-state claim may be emitted, regardless of
+   * `checkInOutcome`. Defaults to `checkInOutcome != null` for back-compat.
+   */
+  hasCheckIn?: boolean;
   window: NarrativeWindow;
   /** Anchor reference carrying its timing clause, e.g. "the investor call in 45 minutes". */
   anchorRef: string | null;
@@ -738,7 +744,10 @@ function nBodySignal(i: NarrativeCopyInput): string | null {
 }
 
 function nFeltSignal(i: NarrativeCopyInput): string | null {
-  if (!i.checkInOutcome) return null;
+  // Freshness gate: felt-state phrasing is only allowed when a check-in exists
+  // for today's local date and this window.
+  const hasCheckIn = i.hasCheckIn ?? (i.checkInOutcome != null);
+  if (!hasCheckIn || !i.checkInOutcome) return null;
   const word = i.checkInOutcome;
   if (i.window === "evening") return `you came out of the day ${word}`;
   if (i.window === "afternoon") return `you checked in ${word} at the turn`;
@@ -824,11 +833,25 @@ function nShapeSignal(i: NarrativeCopyInput, ref: () => string | null): string {
  * Polish fix 3 — seeded connectors and orderings so consecutive days do not
  * open the same way. Seed is stable within a day.
  */
+/**
+ * Collapses any internal sentence break so a beat can never spend more than
+ * one sentence of the 1–3 sentence body budget.
+ */
+function nOneSentence(s: string): string {
+  return s
+    .trim()
+    .replace(/\.\s+/g, "; ")
+    .replace(/[.;,\s]+$/, "")
+    .trim();
+}
+
 function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string {
   const body = nBodySignal(i);
   const felt = nFeltSignal(i);
-  const shape = nShapeSignal(i, ref);
-  const state = body && felt ? `${body} and ${felt}` : body ?? felt ?? null;
+  const rawShape = nShapeSignal(i, ref);
+  const shape = nOneSentence(rawShape);
+  const rawState = body && felt ? `${nOneSentence(body)} and ${nOneSentence(felt)}` : body ?? felt ?? null;
+  const state = rawState ? nOneSentence(rawState) : null;
 
   if (!state) return `${nCap(shape)}.`;
 
@@ -837,7 +860,7 @@ function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string
   const forms: string[] = [
     `${nCap(state)} — and ${shape}.`,
     `${nCap(state)}, with ${shape}.`,
-    `${nCap(shape)}, behind ${nLower(state)}.`,
+    `${nCap(shape)}, and ${nLower(state)}.`,
   ];
   return nPick(forms, i.variantSeed, `evidence:${i.narrative.family}:${i.window}`);
 }
