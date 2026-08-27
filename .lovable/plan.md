@@ -52,7 +52,11 @@ Proposed beat (c) copy, for review before the diagnostic runs:
 
 Each names a work object, leads with a `WORK_DIRECTIVE_TOKENS` verb (`pace`, `keep`/`skip`, `close`), is one sentence, uses a semicolon rather than a dash, and instructs on reduction, sequencing or closure — never on doing more. Beat (d) is untouched.
 
-Note: `nEveningDirective` currently shares one `case` between `back_to_back` and `volume_heavy`. The case is split so `back_to_back` gets its own string; `volume_heavy` keeps its existing copy in this pass and is reported in the post-fix diagnostic if it still fails.
+**`volume_heavy` evening — explicit handling.** `nEveningDirective` currently shares one `case` between `back_to_back` and `volume_heavy`, and the existing shared string carries an em dash (`"...then stop — nothing left today decides anything"`) with no `WORK_CONTEXT_TOKENS` word, so it fails today. After the split, `volume_heavy` does **not** fall through to the `back_to_back` string. It gets its own entry:
+
+- **volume_heavy / evening** — `Pick tomorrow's first two priorities and close the calendar; the rest of the volume waits.`
+
+Same register as the other three: names a work object (`priorities`, `calendar`), leads with a `WORK_DIRECTIVE_TOKENS` verb (`pick`, `close`), one sentence, semicolon not a dash, and it reduces rather than activates. Its five bands are checked individually in the post-fix diagnostic: `volume_heavy` evening either passes in the 0/171 run or is named explicitly in the remaining-failure report. It is never left silently inheriting `back_to_back` copy.
 
 ### 4. Fix the golden-set validator context (13 + 5 failures)
 In `golden-set.test.ts` and `diagnose_golden.ts`, derive the `signals` object from the fixture inputs rather than hardcoding a near-empty one: when the fixture sets `hasCurrentWearable` supply realistic `sleepHours` / `hrvDeviationPct` / `rhrDeviationPct`; when it sets `hasCurrentCheckIn` supply `emotionalSelfDeclared`, `mentalSharpness`, `confidence`; when either flag is false, leave those fields null. This mirrors the production call shape in `compute-outer-readiness`.
