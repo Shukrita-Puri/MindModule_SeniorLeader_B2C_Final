@@ -26,7 +26,7 @@ Deno.test("validator — band=null + anchor token present → accept (band gate 
 
 Deno.test("validator — band=null + no anchor token + no state token → reject 'generic'", () => {
   const r = validateWhyLine({
-    text: "This practice helps you stay productive throughout the workday.",
+    text: "This practice helps you keep going through the workday.",
     stateBand: null,
     slotAnchor: anchorA,
   });
@@ -152,9 +152,9 @@ Deno.test("isTitleEcho — ignores markdown and punctuation-only variance", () =
 // Sprint 6 (Phase 8) — widened state synonyms, tightened valence, length cap
 // ────────────────────────────────────────────────────────────────────────
 
-Deno.test("validator — steady synonym 'calm' accepted (no anchor)", () => {
+Deno.test("validator — steady synonym 'settled' accepted (no anchor)", () => {
   const r = validateWhyLine({
-    text: "The morning is calm before the back-to-backs begin.",
+    text: "The morning is settled before the back-to-backs begin.",
     stateBand: "steady" as StateBand,
     slotAnchor: { eventTitle: "", categoryId: null, phase: "pre" } as SlotAnchor,
   });
@@ -250,7 +250,7 @@ Deno.test("validator — depleted rejects 'power through' and 'dig in'", () => {
 Deno.test("validator — same-event dedupe threshold unchanged (0.85 gate still holds)", () => {
   // Distinct-enough second line for same event/arc should still pass.
   const first = "Before the board meeting, this sharpens the decision you need to make.";
-  const second = "Before the board meeting, this grounds you so the room reads calm.";
+  const second = "Before the board meeting, this grounds you so the room reads settled.";
   const r = validateWhyLine({
     text: second,
     stateBand: "sharp",
@@ -268,7 +268,7 @@ Deno.test("validator — same-event dedupe threshold unchanged (0.85 gate still 
 
 Deno.test("validator — 35 words with grounding accepted (boundary at ceiling)", () => {
   // Exactly 35 words, includes a steady state token so grounding passes.
-  const words = ["The", "morning", "is", "calm", "before", "the", "review"];
+  const words = ["The", "morning", "is", "settled", "before", "the", "review"];
   while (words.length < 35) words.push("hold");
   const text = words.join(" ");
   const r = validateWhyLine({
@@ -280,7 +280,7 @@ Deno.test("validator — 35 words with grounding accepted (boundary at ceiling)"
 });
 
 Deno.test("validator — 36 words rejected as too_long (one past ceiling)", () => {
-  const words = ["The", "morning", "is", "calm", "before", "the", "review"];
+  const words = ["The", "morning", "is", "settled", "before", "the", "review"];
   while (words.length < 36) words.push("hold");
   const text = words.join(" ");
   const r = validateWhyLine({
