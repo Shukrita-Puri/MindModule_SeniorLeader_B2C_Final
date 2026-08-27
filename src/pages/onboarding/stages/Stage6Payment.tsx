@@ -12,6 +12,10 @@ import { isIosNativeShell } from "@/config/purchasePlatform";
 import { ApplePaywall } from "@/components/subscription/ApplePaywall";
 import { markV8Complete } from "@/utils/onboardingV8";
 import { startFirstSessionTour } from "@/utils/firstSessionTour";
+import { DeleteAccountDialog } from "@/components/profile/DeleteAccountDialog";
+import { supabase } from '@/integrations/supabase/client';
+
+type ViewState = 'default' | 'feedback' | 'account-options';
 
 // Shared mobile-safe scroll shell for the pricing/upgrade page.
 //
@@ -72,9 +76,11 @@ export default function Stage6Payment() {
   const navigate = useNavigate();
   const location = useLocation();
   const { recordStep } = useOnboardingProgress();
-  const { user, loading: authLoading, refreshProfile } = useAuth();
+  const { user, loading: authLoading, refreshProfile, signOut } = useAuth();
   const [checkoutReturnProcessing, setCheckoutReturnProcessing] = useState(false);
   const [checkoutFallback, setCheckoutFallback] = useState(false);
+  const [view, setView] = useState<ViewState>('default');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const processedCheckoutSessionRef = useRef<string | null>(null);
   const pendingCheckoutSessionRef = useRef<string | null>(null);
   const refreshProfileRef = useRef(refreshProfile);
@@ -267,6 +273,84 @@ export default function Stage6Payment() {
     return plans;
   }, [isMonthlySubscriber, isAnnualSubscriber]);
 
+  const shouldShowBack = !hasCompletedOnboarding || hasValidUserAccess;
+
+  const handleFeedback = async (reason: string) => {
+    try {
+      await supabase.from('churn_feedback').insert({ 
+        reason,
+        user_id: user?.id
+      });
+    } catch (err) {
+      console.error('Failed to save feedback:', err);
+    }
+    setView('account-options');
+  };
+
+  const renderFeedback = () => (
+    <PaymentPageShell showBack={false}>
+      <div className="max-w-md mx-auto py-12 px-6 animate-fade-in text-center space-y-6">
+        <div>
+          <h3 className="text-xl font-headline font-bold">Help us improve</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            Could you share why you're not interested in upgrading?
+          </p>
+        </div>
+        <div className="space-y-3">
+          {['Too expensive', 'Missing features', 'Not useful for me', 'Just exploring'].map((reason) => (
+            <Button
+              key={reason}
+              variant="outline"
+              className="w-full justify-start text-left font-normal h-12"
+              onClick={() => handleFeedback(reason)}
+            >
+              {reason}
+            </Button>
+          ))}
+        </div>
+        <Button variant="ghost" className="w-full text-muted-foreground mt-2" onClick={() => setView('account-options')}>
+          Skip
+        </Button>
+      </div>
+    </PaymentPageShell>
+  );
+
+  const renderAccountOptions = () => (
+    <PaymentPageShell showBack={false}>
+      <div className="max-w-md mx-auto py-12 px-6 animate-fade-in text-center space-y-8">
+        <div>
+          <h3 className="text-xl font-headline font-bold">Your Trial is Over</h3>
+          <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+            You can keep your account if you change your mind later, or delete your account and all associated data permanently.
+          </p>
+        </div>
+        <div className="space-y-4">
+          <Button
+            className="w-full h-11"
+            variant="outline"
+            onClick={() => void signOut()}
+          >
+            Sign Out
+          </Button>
+          <Button
+            className="w-full h-11"
+            variant="destructive"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            Delete Account
+          </Button>
+        </div>
+        
+        {showDeleteDialog && (
+          <DeleteAccountDialog 
+            open={showDeleteDialog} 
+            onOpenChange={setShowDeleteDialog} 
+          />
+        )}
+      </div>
+    </PaymentPageShell>
+  );
+
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
   const currency: 'GBP' = 'GBP';
@@ -387,15 +471,28 @@ export default function Stage6Payment() {
         </PaymentPageShell>
       );
     }
+    
+    if (view === 'feedback') return renderFeedback();
+    if (view === 'account-options') return renderAccountOptions();
+    
     return (
-      <PaymentPageShell>
-        <ApplePaywall
-          user={user}
-          onRefreshProfile={handleRefreshProfile}
-          onEntitled={handleEntitledNavigation}
-          upgradeIntent={hasExplicitUpgradeSource || showUpgradeMode}
-          restrictToPlan={isMonthlySubscriber ? 'annual' : undefined}
-        />
+      <PaymentPageShell showBack={shouldShowBack}>
+        <div className="flex flex-col min-h-[90vh]">
+          <ApplePaywall
+            user={user}
+            onRefreshProfile={handleRefreshProfile}
+            onEntitled={handleEntitledNavigation}
+            upgradeIntent={hasExplicitUpgradeSource || showUpgradeMode}
+            restrictToPlan={isMonthlySubscriber ? 'annual' : undefined}
+          />
+          {!shouldShowBack && (
+            <div className="px-4 pb-12 pt-6 max-w-md mx-auto w-full text-center mt-auto">
+              <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" onClick={() => setView('feedback')}>
+                Not interested
+              </Button>
+            </div>
+          )}
+        </div>
       </PaymentPageShell>
     );
   }
@@ -486,150 +583,163 @@ export default function Stage6Payment() {
     );
   }
 
+  if (view === 'feedback') return renderFeedback();
+  if (view === 'account-options') return renderAccountOptions();
+
   return (
-    <PaymentPageShell>
-    <div className="max-w-md mx-auto pt-2 pb-8 px-4 animate-fade-in">
-      {/* Toggle + Title row */}
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-[20px] font-headline font-bold">
-          {showUpgradeMode ? 'Upgrade Plan' : 'Pricing'}
-        </h1>
-        {availablePlans.length > 1 ? (
-          <div className="bg-muted rounded-full p-0.5 flex">
-            {availablePlans.includes('annual') && (
-              <button
-                onClick={() => setSelectedPlan('annual')}
-                className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${
-                  selectedPlan === 'annual'
-                    ? 'bg-foreground text-background shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Annual
-              </button>
-            )}
-            {availablePlans.includes('monthly') && (
-              <button
-                onClick={() => setSelectedPlan('monthly')}
-                className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${
-                  selectedPlan === 'monthly'
-                    ? 'bg-foreground text-background shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Monthly
-              </button>
+    <PaymentPageShell showBack={shouldShowBack}>
+    <div className="max-w-md mx-auto pt-2 pb-8 px-4 animate-fade-in flex flex-col min-h-[90vh]">
+      <div className="flex-grow">
+        {/* Toggle + Title row */}
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-[20px] font-headline font-bold">
+            {showUpgradeMode ? 'Upgrade Plan' : 'Pricing'}
+          </h1>
+          {availablePlans.length > 1 ? (
+            <div className="bg-muted rounded-full p-0.5 flex">
+              {availablePlans.includes('annual') && (
+                <button
+                  onClick={() => setSelectedPlan('annual')}
+                  className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${
+                    selectedPlan === 'annual'
+                      ? 'bg-foreground text-background shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Annual
+                </button>
+              )}
+              {availablePlans.includes('monthly') && (
+                <button
+                  onClick={() => setSelectedPlan('monthly')}
+                  className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${
+                    selectedPlan === 'monthly'
+                      ? 'bg-foreground text-background shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Monthly
+                </button>
+              )}
+            </div>
+          ) : (
+            <div />
+          )}
+        </div>
+
+        {/* Plan Card */}
+        <div className={`rounded-2xl p-5 mb-4 transition-all ${
+          selectedPlan === 'annual'
+            ? 'bg-foreground text-background border-2 border-saffron'
+            : 'bg-card border border-border'
+        }`}>
+          {/* Plan name + badge */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className={`text-xl font-headline font-bold ${selectedPlan === 'annual' ? 'text-saffron' : ''}`}>
+              {selectedPlan === 'annual' ? 'Annual Pro' : 'Monthly Pro'}
+            </h2>
+            {selectedPlan === 'annual' && (
+              <span className="bg-saffron text-black text-xs font-bold px-3 py-1 rounded-full">
+                Save {p.savings}
+              </span>
             )}
           </div>
-        ) : (
-          <div />
-        )}
-      </div>
 
-      {/* Plan Card */}
-      <div className={`rounded-2xl p-5 mb-4 transition-all ${
-        selectedPlan === 'annual'
-          ? 'bg-foreground text-background border-2 border-saffron'
-          : 'bg-card border border-border'
-      }`}>
-        {/* Plan name + badge */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className={`text-xl font-headline font-bold ${selectedPlan === 'annual' ? 'text-saffron' : ''}`}>
-            {selectedPlan === 'annual' ? 'Annual Pro' : 'Monthly Pro'}
-          </h2>
-          {selectedPlan === 'annual' && (
-            <span className="bg-saffron text-black text-xs font-bold px-3 py-1 rounded-full">
-              Save {p.savings}
+          {/* Price */}
+          <div className="flex items-baseline gap-2 mb-1">
+            {selectedPlan === 'annual' && (
+              <span className="text-2xl line-through opacity-40 font-bold">{p.crossed}</span>
+            )}
+            <span className="text-5xl font-bold">
+              {selectedPlan === 'annual' ? p.annual : p.monthly}
             </span>
-          )}
-        </div>
-
-        {/* Price */}
-        <div className="flex items-baseline gap-2 mb-1">
+            <span className={`text-sm ${selectedPlan === 'annual' ? 'opacity-60' : 'text-muted-foreground'}`}>
+              / month ({currency})
+            </span>
+          </div>
           {selectedPlan === 'annual' && (
-            <span className="text-2xl line-through opacity-40 font-bold">{p.crossed}</span>
+            <p className="text-sm mb-4 opacity-60">
+              {p.annualTotal} billed annually
+            </p>
           )}
-          <span className="text-5xl font-bold">
-            {selectedPlan === 'annual' ? p.annual : p.monthly}
-          </span>
-          <span className={`text-sm ${selectedPlan === 'annual' ? 'opacity-60' : 'text-muted-foreground'}`}>
-            / month ({currency})
-          </span>
+          {selectedPlan === 'monthly' && <div className="mb-4" />}
+
+          {/* Separator */}
+          <div className={`border-t mb-4 ${selectedPlan === 'annual' ? 'border-background/20 border-dashed' : 'border-border border-dashed'}`} />
+
+          {/* Features */}
+          <ul className="space-y-2">
+            {features.map((f, i) => (
+              <li key={i} className="flex items-center gap-3 text-sm">
+                {f.included ? (
+                  <div className="w-5 h-5 rounded-full bg-saffron/20 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-saffron" />
+                  </div>
+                ) : (
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    selectedPlan === 'annual' ? 'bg-background/10' : 'bg-muted'
+                  }`}>
+                    <X size={12} className="opacity-40" />
+                  </div>
+                )}
+                <span className={!f.included ? 'opacity-40' : ''}>{f.label}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        {selectedPlan === 'annual' && (
-          <p className="text-sm mb-4 opacity-60">
-            {p.annualTotal} billed annually
-          </p>
-        )}
-        {selectedPlan === 'monthly' && <div className="mb-4" />}
 
-        {/* Separator */}
-        <div className={`border-t mb-4 ${selectedPlan === 'annual' ? 'border-background/20 border-dashed' : 'border-border border-dashed'}`} />
+        {/* Trial / upgrade note */}
+        <p className="text-xs text-center text-muted-foreground mb-3">
+          {showUpgradeMode
+            ? 'Upgrade to unlock full access instantly'
+            : 'Includes 7-day free trial · Cancel anytime before for no charge'}
+        </p>
 
-        {/* Features */}
-        <ul className="space-y-2">
-          {features.map((f, i) => (
-            <li key={i} className="flex items-center gap-3 text-sm">
-              {f.included ? (
-                <div className="w-5 h-5 rounded-full bg-saffron/20 flex items-center justify-center flex-shrink-0">
-                  <Check size={12} className="text-saffron" />
-                </div>
-              ) : (
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  selectedPlan === 'annual' ? 'bg-background/10' : 'bg-muted'
-                }`}>
-                  <X size={12} className="opacity-40" />
-                </div>
-              )}
-              <span className={!f.included ? 'opacity-40' : ''}>{f.label}</span>
-            </li>
-          ))}
-        </ul>
+        {/* CTA */}
+        <Button
+          className="w-full h-11 text-[14px] font-medium mb-4"
+          variant="critical"
+          onClick={handleStartTrial}
+          disabled={loading}
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              Processing...
+            </span>
+          ) : (
+            showUpgradeMode ? 'Upgrade Now' : 'Start 7-Day Free Trial'
+          )}
+        </Button>
+
+        {/* ROI */}
+        <p className="font-body italic leading-relaxed text-center mb-4 text-sm text-foreground/70">
+          30+ touchpoints/month – <span className="text-[15px] font-bold not-italic text-saffron">under {p.perSession} each</span> vs £400/per session of executive coaching.
+        </p>
+
+        {/* Legal links */}
+        <div className="flex items-center justify-center gap-3 mt-2">
+          <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Privacy Policy
+          </a>
+          <span className="text-muted-foreground/40 text-xs">·</span>
+          <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Terms of Use
+          </a>
+          <span className="text-muted-foreground/40 text-xs">·</span>
+          <a href="/powered-by-ai" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Powered by AI
+          </a>
+        </div>
       </div>
-
-      {/* Trial / upgrade note */}
-      <p className="text-xs text-center text-muted-foreground mb-3">
-        {showUpgradeMode
-          ? 'Upgrade to unlock full access instantly'
-          : 'Includes 7-day free trial · Cancel anytime before for no charge'}
-      </p>
-
-      {/* CTA */}
-      <Button
-        className="w-full h-11 text-[14px] font-medium mb-4"
-        variant="critical"
-        onClick={handleStartTrial}
-        disabled={loading}
-      >
-        {loading ? (
-          <span className="flex items-center gap-2">
-            <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            Processing...
-          </span>
-        ) : (
-          showUpgradeMode ? 'Upgrade Now' : 'Start 7-Day Free Trial'
-        )}
-      </Button>
-
-      {/* ROI */}
-      <p className="font-body italic leading-relaxed text-center mb-4 text-sm text-foreground/70">
-        30+ touchpoints/month – <span className="text-[15px] font-bold not-italic text-saffron">under {p.perSession} each</span> vs £400/per session of executive coaching.
-      </p>
-
-      {/* Legal links */}
-      <div className="flex items-center justify-center gap-3 mt-2">
-        <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-          Privacy Policy
-        </a>
-        <span className="text-muted-foreground/40 text-xs">·</span>
-        <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-          Terms of Use
-        </a>
-        <span className="text-muted-foreground/40 text-xs">·</span>
-        <a href="/powered-by-ai" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-          Powered by AI
-        </a>
-      </div>
+      
+      {!shouldShowBack && (
+        <div className="mt-8 border-t border-border/50 pt-6 text-center">
+          <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" onClick={() => setView('feedback')}>
+            Not interested
+          </Button>
+        </div>
+      )}
     </div>
     </PaymentPageShell>
   );

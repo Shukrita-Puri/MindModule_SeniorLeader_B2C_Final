@@ -70,9 +70,9 @@ export function DeleteAccountDialog({ open, onOpenChange }: Props) {
                 wearable records, and your connected-integration tokens. This cannot be undone.
               </p>
               <p>
-                Deleting your account does <strong>not</strong> cancel an active subscription. If you
-                subscribed through Apple, cancel it in Settings › Apple ID › Subscriptions. If you
-                subscribed on the web, cancel it before deleting.
+                Deleting your account does <strong>not</strong> cancel an active Apple subscription. If you
+                subscribed through the App Store, you must cancel it in Settings › Apple ID › Subscriptions. 
+                (If you subscribed on the web via Stripe, it will be cancelled automatically).
               </p>
               <p>
                 Type <strong>{CONFIRMATION}</strong> below to confirm.

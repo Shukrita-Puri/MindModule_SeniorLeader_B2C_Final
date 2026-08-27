@@ -19,7 +19,9 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import Stripe from "https://esm.sh/stripe@14.14.0";
 import { authenticateRequest } from '../_shared/auth.ts';
+import { getStripeConfig } from '../_shared/stripe-config.ts';
 
 const CONFIRMATION_PHRASE = 'DELETE';
 
@@ -58,6 +60,28 @@ Deno.serve(async (req) => {
   const startedAt = Date.now();
 
   try {
+    // 0. Cancel Stripe subscription if it exists
+    const { data: profile } = await db
+      .from('profiles')
+      .select('stripe_subscription_id, subscription_provider')
+      .eq('id', userId)
+      .single();
+
+    if (profile?.subscription_provider === 'stripe' && profile?.stripe_subscription_id) {
+      try {
+        const stripeConfig = getStripeConfig();
+        if (stripeConfig.secretKey) {
+          const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
+          // Cancel immediately upon account deletion
+          await stripe.subscriptions.cancel(profile.stripe_subscription_id);
+          console.log(`[delete-my-account] Cancelled Stripe subscription for ${userId}`);
+        }
+      } catch (stripeErr) {
+        console.error(`[delete-my-account] Failed to cancel Stripe subscription:`, stripeErr);
+        // We log it but proceed with account deletion so they aren't trapped
+      }
+    }
+
     // 1. Stop notifications immediately, before the bulk delete.
     await db
       .from('notification_device_tokens')
@@ -77,7 +101,7 @@ Deno.serve(async (req) => {
       ok: true,
       deleted: counts ?? {},
       durationMs: Date.now() - startedAt,
-      note: 'Apple or Stripe subscriptions are not cancelled by account deletion.',
+      note: 'Apple subscriptions are NOT cancelled by account deletion (Apple policy). Stripe subscriptions were cancelled if found.',
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Deletion failed';
