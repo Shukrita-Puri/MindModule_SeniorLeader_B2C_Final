@@ -1,6 +1,6 @@
-// OWNERSHIP: engineering. §5.1 / §5.2 validators for the Decision Readiness
-// Brief. Pure functions over text + BriefContext. The Atomic Brief Contract
-// is preserved: callers retry-once-then-fallback on rejection.
+// LIVE — imported by compute-outer-readiness/index.ts (validateBrief). Not the
+// four-beat production gate; that is validateV61Output. See
+// docs/BRIEF_VALIDATOR_SSOT.md.
 
 import type { BriefContext } from "./brief-context.ts";
 import {

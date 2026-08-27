@@ -8216,6 +8216,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const PATTERN_KEYWORDS =
             /\b(previously|pattern|last\s+\d|consistently|spiked in|in your last|every|recurring)\b/i;
 
+          // SSOT four-beat validator. Do not create a third validator.
           function validateV61Output(
             parsed: any,
             phraseText: string | null,
@@ -9467,15 +9468,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 }`,
               });
 
-              // DETERMINISTIC BYPASS: the validator runs for observability only.
-              // deterministic-brief.ts is validated by construction — every string
-              // it emits has been audited to pass all validator rules. The validator
-              // BriefContext at this call site is intentionally incomplete (it does
-              // not carry wearable signal keys such as hrvDeviationPct) which caused
-              // the signal-evidence check to silently reject valid output, leaving
-              // deterministicBrief = null and the user seeing the awaiting-signals
-              // placeholder even when all signals existed. The validator continues
-              // to gate all LLM output at the first validateBrief call site.
+              // DETERMINISTIC VALIDATION: the validator now gates deterministic
+              // output. deterministic-brief.ts is built by construction, but the
+              // validator catches drift (copy regressions, banned words, score
+              // restatement, pill/body inconsistency). If validation fails, fall
+              // back to the awaiting-signals state rather than shipping invalid copy.
               if (specBuilt) {
                 const specValidation = validateBrief(
                   specBuilt.phrase,
@@ -9503,14 +9500,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     pillContext,
                   },
                 );
-                // Always accept deterministic output regardless of validator result.
-                deterministicBrief = specBuilt;
-                console.log(
-                  `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase} | validatorOk=${specValidation.ok} | validatorReason=${specValidation.reason ?? "none"}`,
-                );
-                if (!specValidation.ok) {
+                if (specValidation.ok) {
+                  deterministicBrief = specBuilt;
+                  console.log(
+                    `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase} | validatorOk=true`,
+                  );
+                } else {
+                  deterministicBrief = null;
                   console.warn(
-                    `[compute-outer-readiness] [DETERMINISTIC] note: validator would have rejected | reason=${specValidation.reason} | body="${specBuilt.body.slice(0, 80)}..."`,
+                    `[compute-outer-readiness] [DETERMINISTIC] REJECTED | reason=${specValidation.reason} | family=${resolvedNarrative?.family ?? "unknown"} | window=${getTimeOfDay(hour)} | body="${specBuilt.body.slice(0, 80)}..."`,
                   );
                 }
               }
