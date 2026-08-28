@@ -423,6 +423,22 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   return `The calendar is the only read in view this ${opts.window}.`;
 }
 
+/**
+ * Collapse a beat to one sentence with no dash breaks. `validateV61Output`
+ * rejects em/en dashes anywhere between words, and the four-beat contract
+ * caps the body at three sentences, so every beat is normalised here.
+ */
+function oneClause(s: string): string {
+  return s
+    .trim()
+    .replace(/\s+[—–-]\s+/g, "; ")
+    .replace(/([A-Za-z,])\s*[—–]\s*([A-Za-z])/g, "$1; $2")
+    .replace(/\.\s+/g, "; ")
+    .replace(/[.;,\s]+$/, "")
+    .replace(/;\s+([A-Z][a-z])/g, (_m, w: string) => `; ${w.toLowerCase()}`)
+    .trim();
+}
+
 function buildRead(opts: DeterministicBriefFallbackOpts): string {
   // ── Travel-aware reads — run before all pillar reads ──
   const shape = opts.dayShape ?? null;
@@ -592,7 +608,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     if (anyStrained || lowBand) {
       return "The system needs this day to actually recover — not half-work it. Let today be what it is";
     }
-    return "Reserves are holding. Protect them rather than spending them. A little forward thinking is fine";
+    return "Keep what you have and let a little forward thinking be enough";
   }
 
   // ── WEEKEND (non-workday, no travel commitment) ──
@@ -601,9 +617,9 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
       return "The system is still paying down from the week. Let today actually recover — that is the productive move";
     }
     if (allGreen || opts.band === "firing" || opts.band === "sharp") {
-      return "Reserves are holding — protect them. A small amount of forward thinking is fine; reactive output is not what today is for";
+      return "Keep what you have. A small amount of forward thinking is fine; reactive output is not what today is for";
     }
-    return "Keep the pace light. The week ahead will ask for what today preserves";
+    return "Keep the pace light. The week ahead will ask for what today protects";
   }
 
   // ── WORKDAY — pillar-based routing (unchanged from current code) ──
@@ -706,7 +722,7 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
   // ── Non-workday close (holiday / PTO) ──
   if (shape === "public_holiday" || shape === "pto" ||
       shape === "personal_holiday" || opts.isNonWorkday) {
-    return ensureCloseLexicon("and let the return start with something in the tank.");
+    return ensureCloseLexicon("and start the return with something left.");
   }
 
   // ── Weekend close (existing strings — unchanged) ──
@@ -830,12 +846,15 @@ export function buildDeterministicBriefFallback(
   }
 
   const evidence = buildEvidence(opts);
-  const read = buildRead(opts);
-  const directive = buildDirective(opts);
+  // Read and Directive each occupy exactly one dash-free sentence so the
+  // generic path honours the same 1–3 sentence four-beat budget as the
+  // narrative path (beat d rides on the directive's sentence).
+  const read = oneClause(buildRead(opts));
+  const directive = oneClause(buildDirective(opts));
   const close = closeFor(opts);
   return {
     phrase,
-    body: `${evidence} ${read} - ${directive}, ${close}`,
+    body: `${evidence} ${read}. ${directive}, ${close}`,
     topSignal: "baseline_quiet",
   };
 }

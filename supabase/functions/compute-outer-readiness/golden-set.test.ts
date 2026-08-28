@@ -86,6 +86,7 @@ function baseOpts(
   window: "morning" | "afternoon" | "evening",
   band: DeterministicBriefBand,
   loadShape: "light" | "normal" | "heavy",
+  wearable = true,
 ): DeterministicBriefFallbackOpts {
   const isTravel = family.startsWith("travel");
   const isConference = family === "conference_arc";
@@ -93,22 +94,18 @@ function baseOpts(
     ? "work_travel"
     : isConference
     ? "conference"
-    : loadShape === "heavy"
-    ? null
-    : loadShape === "light"
-    ? null
     : null;
 
   return {
     band,
-    hasWearable: true,
-    hasCurrentWearable: true,
+    hasWearable: wearable,
+    hasCurrentWearable: wearable,
     hasCurrentCheckIn: true,
     checkInOutcome: band === "depleted" ? "drained" : band === "firing" ? "sharp" : "holding",
     cognitivePillTier: band === "depleted" ? "red" : band === "stretched" ? "amber" : "green",
     physicalPillTier: band === "depleted" ? "red" : band === "stretched" ? "amber" : "green",
     wearableFact:
-      window === "morning"
+      wearable && window === "morning"
         ? "Recovery is in its usual range"
         : null,
     window,
@@ -116,7 +113,7 @@ function baseOpts(
     highStakesTiming: family === "baseline" ? [] : [{ title: "the board call", minutesUntil: 45 }],
     calendarLoad: loadShape === "heavy" ? "high" : loadShape === "light" ? "low" : "medium",
     meetingCount: loadShape === "heavy" ? 9 : loadShape === "light" ? 2 : 5,
-    sleepScore: 78,
+    sleepScore: wearable ? 78 : null,
     hasBackToBack: family === "back_to_back" || loadShape === "heavy",
     isWeekend: false,
     isNonWorkday: false,
@@ -129,6 +126,33 @@ function baseOpts(
     ceoFlags: [],
     leadNarrative: family === "baseline" ? null : narrativeFor(family),
     variantSeed: `golden|${family}|${window}|${band}|${loadShape}`,
+  } as DeterministicBriefFallbackOpts;
+}
+
+/**
+ * Mirrors the production call shape in `compute-outer-readiness`: the signals
+ * object is populated from the SAME inputs that set the availability flags, so
+ * `validateBodyDataAvailability` sees what the copy is allowed to quote.
+ * Flags false => the corresponding signal fields stay null.
+ */
+export function signalsForOpts(opts: DeterministicBriefFallbackOpts): Record<string, unknown> {
+  const wear = opts.hasCurrentWearable;
+  const check = opts.hasCurrentCheckIn;
+  return {
+    highStakesEventInNext24h: opts.todayHighStakes.length > 0
+      ? { title: opts.todayHighStakes[0], minutesUntil: 45 }
+      : null,
+    emotionalDrainEventInNext4h: null,
+    intenseDecisionBlockInNext4h: null,
+    recoveryWindowInNext4h: null,
+    dayLoadShape: opts.hasBackToBack ? "front_loaded" : "even",
+    meetingCount: opts.meetingCount,
+    sleepHours: wear ? 6.4 : null,
+    hrvDeviationPct: wear ? -12 : null,
+    rhrDeviationPct: wear ? 8 : null,
+    emotionalSelfDeclared: check ? (opts.checkInOutcome ?? "holding") : null,
+    mentalSharpness: check ? 3 : null,
+    confidence: check ? 3 : null,
   };
 }
 
@@ -173,6 +197,7 @@ interface GoldenFixture {
   window: "morning" | "afternoon" | "evening";
   band: DeterministicBriefBand;
   loadShape: "light" | "normal" | "heavy";
+  wearable: boolean;
 }
 
 const GOLDEN: GoldenFixture[] = [];
@@ -192,15 +217,36 @@ for (const family of FAMILIES) {
         loadShape = band === "depleted" || band === "stretched" ? "heavy" : "normal";
       }
       if (family === "baseline" && band === "depleted") loadShape = "light";
-      GOLDEN.push({ name: `${family}/${window}/${band}`, family, window, band, loadShape });
+      GOLDEN.push({
+        name: `${family}/${window}/${band}`,
+        family,
+        window,
+        band,
+        loadShape,
+        wearable: true,
+      });
     }
   }
+}
+
+// Explicit no-wearable coverage: one fixture per window. These keep a check-in
+// and a calendar, so they must still produce a valid four-beat brief from
+// demand and shape signals alone — never an awaiting state, never an error.
+for (const window of WINDOWS) {
+  GOLDEN.push({
+    name: `no-wearable/${window}`,
+    family: "weight_heavy",
+    window,
+    band: "stretched",
+    loadShape: "normal",
+    wearable: false,
+  });
 }
 
 Deno.test(`golden-set: ${GOLDEN.length} narrative fixtures build and validate`, () => {
   let built = 0;
   for (const fx of GOLDEN) {
-    const opts = baseOpts(fx.family, fx.window, fx.band, fx.loadShape);
+    const opts = baseOpts(fx.family, fx.window, fx.band, fx.loadShape, fx.wearable);
     const result = buildDeterministicBriefFallback(opts);
     assert(result, `[${fx.name}] deterministic brief returned null`);
     built++;
@@ -213,12 +259,7 @@ Deno.test(`golden-set: ${GOLDEN.length} narrative fixtures build and validate`, 
       result.phrase,
       result.body,
       {
-        signals: {
-          highStakesEventInNext24h: opts.todayHighStakes.length > 0
-            ? { title: opts.todayHighStakes[0], minutesUntil: 45 }
-            : null,
-          emotionalDrainEventInNext4h: null,
-        },
+        signals: signalsForOpts(opts),
         behaviourFlags: [],
         lexiconClusters: [],
         forbiddenWords: FORBIDDEN_WORDS,

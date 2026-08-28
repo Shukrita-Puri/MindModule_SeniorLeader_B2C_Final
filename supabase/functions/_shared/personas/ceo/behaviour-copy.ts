@@ -295,11 +295,11 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `Day ${confDay(ctx)} of a multi-day event; cumulative social performance load compounding.`,
     read: (ctx) =>
-      `Conference fatigue hits the interpersonal read first — ` +
-      `the most expensive Executive Presence to lose at an external event.`,
+      `Conference fatigue hits the interpersonal read first; ` +
+      `that is the most expensive Executive Presence to lose at an external event.`,
     directive: (ctx) =>
-      `Front-load conversations requiring emotional presence; ` +
-      `let the end of the day run on process, not performance.`,
+      `Pace the afternoon block at half attention and skip the corridor rounds; ` +
+      `the debrief keeps until tomorrow.`,
     close: () => `and pace the social battery`,
   },
 
@@ -309,12 +309,12 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   conferenceDayAttend: {
     evidence: (ctx) =>
-      `Full public-performance day — every corridor interaction is a stakeholder moment.`,
+      `Full public-performance day; every corridor interaction is a stakeholder moment.`,
     read: (ctx) =>
       `Informal interactions carry disproportionate weight because they're read as unguarded truth.`,
     directive: (ctx) =>
-      `Manage visible state deliberately — presence, composure, and eye contact ` +
-      `are the primary signals stakeholders will carry from today.`,
+      `Keep your output to the two rooms that actually matter and skip the rest of the agenda; ` +
+      `presence is the only thing being read today.`,
     close: () => `and hold your visible state`,
   },
 
@@ -324,7 +324,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   visibilityCommsPrep: {
     evidence: (ctx) =>
-      `${anchorTimed(ctx)} is a high-visibility moment — words and presence read beyond the room.`,
+      `${anchorTimed(ctx)} is an exposed moment; words and presence read beyond the room.`,
     read: (ctx) =>
       `Town halls are culture delivery, not information delivery — ` +
       `emotional register is what people feel, repeat, and act on.`,
@@ -408,7 +408,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `48-hour prep window for ${anchor(ctx)} — this window determines how the room goes.`,
     read: (ctx) =>
-      `Board rooms are high-inference environments; every pause and framing choice ` +
+      `Board rooms are inference-dense environments; every pause and framing choice ` +
       `is read for organisational competence.`,
     directive: (ctx) =>
       `Identify the two or three questions most likely to challenge you and ` +
@@ -496,7 +496,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `Rest or public holiday day — morning anchor stays, everything else earns its way in.`,
     read: (ctx) =>
-      `Leaders who genuinely disconnect on rest days return with measurably better strategic clarity.`,
+      `Leaders who genuinely disconnect on rest days return with measurably better strategic judgement.`,
     directive: (ctx) =>
       `Treat restoration as the primary objective; one async task maximum if you engage with work.`,
     close: () => `and protect the rest window`,
@@ -508,7 +508,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   notificationIsProduct: {
     evidence: (ctx) =>
-      `Calendar fully compressed; no space for a full check-in protocol today.`,
+      `Calendar fully compressed; no space for a full reset protocol today.`,
     read: (ctx) =>
       `A light touch that happens beats a full protocol that doesn't — ` +
       `friction is the enemy of the habit.`,
@@ -569,7 +569,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `decision quality and emotional read are running below what adrenaline suggests.`,
     directive: (ctx) =>
       `Treat today as a calibration day: one priority only, ` +
-      `defer anything that can wait 24 hours.`,
+      `defer anything that can wait a day.`,
     close: () => `re-entry before full load`,
   },
 
@@ -845,20 +845,44 @@ function nOneSentence(s: string): string {
     .trim();
 }
 
+/**
+ * `validateV61Output` rejects the whole body on any em/en dash between words
+ * (`DASH_BREAK`), so every beat converts its dashes to semicolons before it is
+ * assembled. Numeric ranges (0–2) are left alone.
+ */
+function nNoDash(s: string): string {
+  return s
+    .replace(/\s+[—–]\s+/g, "; ")
+    .replace(/([A-Za-z,])\s*[—–]\s*([A-Za-z])/g, "$1; $2");
+}
+
+/** Lowercase the first word after a collapse point unless it is an acronym. */
+function nLowerAfterBreak(s: string): string {
+  return s.replace(/;\s+([A-Z][a-z])/g, (_m, w: string) => `; ${w.toLowerCase()}`);
+}
+
+/**
+ * One beat, one sentence, no dashes. Returns the clause WITHOUT terminal
+ * punctuation so callers can end it with "." or hand it to the close.
+ */
+function nClause(s: string): string {
+  return nLowerAfterBreak(nOneSentence(nNoDash(s)));
+}
+
 function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string {
   const body = nBodySignal(i);
   const felt = nFeltSignal(i);
   const rawShape = nShapeSignal(i, ref);
-  const shape = nOneSentence(rawShape);
-  const rawState = body && felt ? `${nOneSentence(body)} and ${nOneSentence(felt)}` : body ?? felt ?? null;
-  const state = rawState ? nOneSentence(rawState) : null;
+  const shape = nClause(rawShape);
+  const rawState = body && felt ? `${nClause(body)} and ${nClause(felt)}` : body ?? felt ?? null;
+  const state = rawState ? nClause(rawState) : null;
 
   if (!state) return `${nCap(shape)}.`;
 
   // Single-sentence forms only — the four-beat body must stay within 1–3
   // sentences, so evidence and read each occupy one sentence.
   const forms: string[] = [
-    `${nCap(state)} — and ${shape}.`,
+    `${nCap(state)}; ${shape}.`,
     `${nCap(state)}, with ${shape}.`,
     `${nCap(shape)}, and ${nLower(state)}.`,
   ];
@@ -1024,7 +1048,7 @@ function nEveningDirective(i: NarrativeCopyInput, ref: () => string | null): str
     case "travel_long_haul":
     case "travel_short_haul":
     case "travel_intercity":
-      return `Leave the rest of the re-entry until the morning and decide nothing irreversible tonight`;
+      return `Keep the rest of the re-entry until the morning and close nothing irreversible tonight`;
     case "persuasion_pre":
       return anchor
         ? `Leave ${anchor} where it is tonight — the argument does not improve after this hour`
@@ -1036,12 +1060,13 @@ function nEveningDirective(i: NarrativeCopyInput, ref: () => string | null): str
     case "conference_arc":
       return a.eveningSocialLoad
         ? `Give the dinner an hour, then go — tomorrow is another full day of this`
-        : `Close the day here and pick tomorrow's two sessions before you stop`;
+        : `Close the day here and pick tomorrow's first block before you stop`;
     case "back_to_back":
+      return `Name tomorrow's first block and close the one decision still open, then stop`;
     case "volume_heavy":
-      return `Name tomorrow's first move, then stop — nothing left today decides anything`;
+      return `Pick tomorrow's first two priorities and close the calendar; the rest of the volume waits`;
     case "weight_heavy":
-      return `Write down where ${anchor ?? "the heavy room"} landed, then close the day`;
+      return `Write down where ${anchor ?? "the heavy room"} landed and close that decision tonight; the rest of the work keeps until morning`;
     case "context_switching":
       return `Stop switching. Pick tomorrow's first block and leave the rest until then`;
     default:
@@ -1061,11 +1086,11 @@ function nAfternoonDirective(i: NarrativeCopyInput, ref: () => string | null): s
     case "travel_long_haul":
       return i.narrative.phase === "post"
         ? `Take the listening work for the rest of today and defer anything irreversible until tomorrow`
-        : `Decide what actually matters on landing before you board, and leave the rest of the day light`;
+        : `Set what actually matters on landing before you board, and keep the rest of the afternoon light`;
     case "travel_short_haul":
-      return `Keep what is left of the day to the conversations already booked and defer new analysis`;
+      return `Keep the rest of the afternoon to the meetings already booked and defer new analysis`;
     case "travel_intercity":
-      return `Keep the return leg for execution, not judgement — the deciding is done`;
+      return `Keep the return leg for execution; the decisions are already made`;
     case "persuasion_pre":
       return low
         ? `Protect the hour before ${anchor ?? "the pitch"} and move everything else out of the afternoon`
@@ -1078,8 +1103,8 @@ function nAfternoonDirective(i: NarrativeCopyInput, ref: () => string | null): s
       return `Do not decide anything consequential for the next hour. Take the routine execution work while the charge comes down`;
     case "conference_arc":
       return a.eveningSocialLoad
-        ? `Pick the one evening thing worth attending and let the rest of the programme go`
-        : `Choose the sessions left that justify being here and skip the corridors`;
+        ? `Pick the one evening thing worth attending and let the rest of the agenda go`
+        : `Keep the afternoon to the sessions that justify being here and skip the corridors`;
     case "back_to_back":
       return low
         ? `Put five minutes between the ones you can still move${anchor ? `, and take ${anchor} first` : ""}. Everything after it can be listening`
@@ -1087,7 +1112,7 @@ function nAfternoonDirective(i: NarrativeCopyInput, ref: () => string | null): s
     case "weight_heavy":
       return low
         ? `Carry ${anchor ?? "the heavy room"} and nothing else that needs a decision for the rest of today`
-        : `Give the rooms with consequence your full attention and let the rest of the afternoon run light`;
+        : `Protect the meetings with consequence and let the rest of the afternoon run light`;
     case "volume_heavy":
       return low
         ? `Cut two of the remaining meetings and protect the one hour that actually produces something`
@@ -1128,7 +1153,7 @@ function nMorningDirective(i: NarrativeCopyInput, ref: () => string | null): str
       }
       return `Sequence the day around the transitions: decisions before the flight, listening after it`;
     case "travel_intercity":
-      return `Do the deciding on the way out while you are fresh, and keep the return for execution, not judgement`;
+      return `Take the decisions on the way out while you are fresh, and keep the return leg for execution`;
     case "persuasion_pre":
       return low
         ? `Protect the hour before ${anchor ?? "the pitch"} and carry nothing else into it. Everything else moves`
@@ -1144,11 +1169,11 @@ function nMorningDirective(i: NarrativeCopyInput, ref: () => string | null): str
         return `Protect the block before you present and treat the corridors as optional`;
       }
       if (a.eveningSocialLoad) {
-        return `Pick the two sessions and the one dinner that matter and let the rest go`;
+        return `Pick the two sessions and the one dinner that matter and let the rest of the agenda go`;
       }
       return low
-        ? `Choose the two sessions that justify being here and skip the rest without guilt`
-        : `Lead the conversations you came for and stop collecting the ones you did not`;
+        ? `Pick the two sessions that justify being here and skip the rest of the agenda`
+        : `Lead the conversations you came for and skip the rest of the agenda`;
     case "back_to_back":
       return low
         ? `Sequence the day so the one room that decides something comes first${anchor ? ` — ${anchor}` : ""}. Everything after it can be listening`
@@ -1156,7 +1181,7 @@ function nMorningDirective(i: NarrativeCopyInput, ref: () => string | null): str
     case "weight_heavy":
       return low
         ? `Carry ${anchor ?? "the heavy room"} and nothing else that needs a decision. Everything else moves`
-        : `Give the two rooms with consequence your full attention and let the rest run light`;
+        : `Protect the two meetings with consequence and let the rest of the morning run light`;
     case "volume_heavy":
       return low
         ? `Cut two meetings before lunch and protect the one hour that actually produces something`
@@ -1217,7 +1242,7 @@ const NARRATIVE_CLOSES: Record<
   conference_arc: {
     ok: ["and take the breaks you are given.", "and keep one hour to yourself."],
     low: ["and skip the drinks tonight.", "and get back to the room early."],
-    evening: ["and get back to the room early.", "and skip the last round tonight."],
+    evening: ["and get back to the room early.", "and skip the final round tonight."],
   },
   back_to_back: {
     ok: ["and steady yourself between the rooms.", "and take the gaps before they go."],
@@ -1236,7 +1261,7 @@ const NARRATIVE_CLOSES: Record<
   },
   context_switching: {
     ok: ["and reset yourself between the jumps.", "and take a minute before each one."],
-    low: ["and stop switching after the last room.", "and give yourself a quiet evening."],
+    low: ["and stop switching once the final room ends.", "and give yourself a quiet evening."],
     evening: ["and give yourself a quiet evening.", "and let your head land tonight."],
   },
   baseline: {
@@ -1275,7 +1300,10 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
   // Evidence first so the anchor's timing lands in the opening beat when the
   // day shape names it; the directive then reuses the plain reference.
   const evidence = nBuildEvidence(i, ref);
-  const directive = nBuildDirective(i, ref);
+  // Read and Directive are each collapsed to a single dash-free clause so the
+  // four-beat body never exceeds the 1–3 sentence budget (beat d rides on the
+  // directive's sentence).
+  const directive = nClause(nBuildDirective(i, ref));
   const close = nPick(closeBank, i.variantSeed, `close:${family}:${i.window}`);
 
   // Elastic Lexicon safety: the close must carry at least one pillar concept.
@@ -1287,7 +1315,7 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
 
   return {
     evidence,
-    read: nPick(readBank, i.variantSeed, `read:${family}:${i.window}`),
+    read: `${nClause(nPick(readBank, i.variantSeed, `read:${family}:${i.window}`))}.`,
     directive,
     close: closeWithLexicon,
   };
