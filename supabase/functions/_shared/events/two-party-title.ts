@@ -34,7 +34,7 @@ const NON_PERSON_TOKENS = new Set([
 ]);
 
 const CONNECTOR_RE =
-  /^\s*(?:catch[-\s]?up|catch\s*up|sync|1[-:\s]?on[-:\s]?1|chat|check[-\s]?in|touch\s*base|coffee)\s+(?:with|w\/)\s+(.+)$/i;
+  /^\s*(?:catch[-\s]?up|catch\s*up|1[-:\s]?on[-:\s]?1|touch\s*base)\s+(?:with|w\/)\s+(.+)$/i;
 
 const SEPARATOR_RE = /\s*(?:\||\/|<>|<->|&|\band\b|\s-\s)\s*/i;
 
