@@ -297,7 +297,15 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
     };
   }
 
+  // L8: title-only two-party detection. Gap filler only — every stronger
+  // layer above has already declined. Attendee counts are deliberately not
+  // consulted (calendar blocks often have no invitees).
+  if (isTwoPartyTitle(title)) {
+    return resultFromSubtype('lead.executive_1on1', 'layer6_dictionary', 'medium');
+  }
+
   return { category: null, subtypeId: null, confidence: 'low', resolvedBy: 'unknown' };
+
 }
 
 // ── Parity logger ────────────────────────────────────────────────────
