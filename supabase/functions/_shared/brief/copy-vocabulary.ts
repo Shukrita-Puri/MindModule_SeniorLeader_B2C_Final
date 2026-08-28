@@ -10,6 +10,11 @@
 // - The user-message blocks (=== CONTEXT === / === CEO BEHAVIOUR === etc.)
 //   are assembled by `compute-outer-readiness/index.ts` from shared module
 //   outputs. This file owns the SYSTEM role only.
+// - The LEXICON ANCHOR block is DERIVED from `./elastic-lexicon.ts` (the SSOT
+//   shared with both validators) — never hand-write that list here.
+
+import { LEXICON_ANCHOR_PROMPT_BLOCK } from "./elastic-lexicon.ts";
+
 
 export const CHIEF_OF_STAFF_PERSONA = `You are the leader's Chief of Staff for the Mind.
 
