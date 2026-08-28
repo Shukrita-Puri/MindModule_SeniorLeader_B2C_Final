@@ -437,7 +437,7 @@ const TodayThreePriorities = ({
   // (`useMasteryPlanSnapshot`) and MRS snapshot; the live payload is only
   // consulted when a manual refresh has populated the persistent cache.
   const { data: outerReadinessData } = useOuterReadiness({ snapshotOnly: true });
-  const { data: mrsSnapshot } = useMrsSnapshot();
+  const { data: mrsSnapshot, isLoading: mrsSnapshotLoading } = useMrsSnapshot();
   const awaitingCopy = useAwaitingSignalsCopy(outerReadinessData ?? undefined);
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
@@ -2031,7 +2031,7 @@ const TodayThreePriorities = ({
   // background refresh — even if `loading` flips true transiently.
   const showPlanLoader =
     !initialCachedRef.current && (loading || (dataReady && !planScriptDone));
-  if (!mrsReadyForPlan) {
+  if (!mrsSnapshotLoading && !mrsReadyForPlan) {
     console.info('[plan-card] early-return', { branch: 'awaiting-mrs-gate' });
     return (
       <div className="space-y-4 pt-2">
@@ -2139,7 +2139,7 @@ const TodayThreePriorities = ({
     );
   }
 
-  if (awaitingSignals) {
+  if (awaitingSignals && !mrsReadyForPlan) {
     console.info('[plan-card] early-return', { branch: 'awaiting', outerReadinessDefined: outerReadinessData !== undefined });
     return (
       <div className="space-y-4 pt-2">

@@ -25,14 +25,18 @@ export function normalizeExecutiveConnectionStatus(data: unknown): ExecutiveConn
   const appleWatch = root.appleWatch as Record<string, any> | undefined;
   const oura = root.oura as Record<string, any> | undefined;
 
+  const appleConnected = appleWatch?.connected === true;
+  const ouraConnected = oura?.connected === true;
+  const wearableStatusUnknown = appleWatch?.status === 'error' || oura?.status === 'error';
+
   // An explicit backend error is unknown, not disconnected. Returning null
   // leaves the last React Query value in place and prevents false copy flips.
-  if (calendar?.status === 'error' || appleWatch?.status === 'error' || oura?.status === 'error') {
+  if (calendar?.status === 'error' || (wearableStatusUnknown && !appleConnected && !ouraConnected)) {
     return null;
   }
 
   const hasCalendar = calendar?.connected === true;
-  const hasWearable = appleWatch?.connected === true || oura?.connected === true;
+  const hasWearable = appleConnected || ouraConnected;
   const wearablePermissionRevoked =
     appleWatch?.connectionStatus === 'permission_revoked' ||
     oura?.connectionStatus === 'permission_revoked';
