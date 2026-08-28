@@ -408,7 +408,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `48-hour prep window for ${anchor(ctx)} — this window determines how the room goes.`,
     read: (ctx) =>
-      `Board rooms are high-inference environments; every pause and framing choice ` +
+      `Board rooms are inference-dense environments; every pause and framing choice ` +
       `is read for organisational competence.`,
     directive: (ctx) =>
       `Identify the two or three questions most likely to challenge you and ` +
