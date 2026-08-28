@@ -93,6 +93,15 @@ export function useExecutiveHomeCardsRefresh() {
       clearOuterReadinessCache(effectiveUserId);
       const localDate = localISODate();
       const window = currentPeriodLocal();
+      // The browser keeps its own per-user/date/window copy of the Brief in
+      // localStorage — that behaviour is intentional and stays. On a MANUAL
+      // refresh only, drop the entry for the current window so the card
+      // cannot repaint the pre-refresh text; the refetch below rewrites it
+      // with the newly generated brief. Other windows/days are untouched.
+      if (effectiveUserId) {
+        clearPersistent(cacheKeys.brief(effectiveUserId, window, localDate));
+        clearPersistent(cacheKeys.briefAwaiting(effectiveUserId, window, localDate));
+      }
       console.info('[exec-home][refresh:invalidate]', {
         queries: [
           'mrs-snapshot',
