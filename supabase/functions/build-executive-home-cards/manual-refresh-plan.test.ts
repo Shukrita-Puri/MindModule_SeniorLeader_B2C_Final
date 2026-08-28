@@ -17,7 +17,7 @@ const SRC = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 
 Deno.test("manual_refresh bypasses stage-one Plan skip", () => {
   assertStringIncludes(SRC, 'const shouldForcePlanOnManualRefresh = mode === "manual_refresh"');
-  assertStringIncludes(SRC, "if (!hasStageOneSignal && !shouldForcePlanOnManualRefresh)");
+  assertStringIncludes(SRC, "if (!planCanForm && !shouldForcePlanOnManualRefresh)");
 });
 
 Deno.test("planStatus is derived from Plan payload, not HTTP success", () => {

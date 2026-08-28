@@ -30,6 +30,34 @@ Deno.test("evening rejects yesterday's wearable row", () => {
   assertEquals(f.sleepUsableAsCurrent, false);
 });
 
+Deno.test("evening before 05:00 accepts the prior-day row (overnight carry-forward)", () => {
+  const f = resolveSignalFreshness({
+    ...base,
+    window: "evening",
+    localHour: 1,
+  });
+  assertEquals(f.maxWearableAgeDays, 1);
+  assertEquals(f.wearableCurrent, true);
+  assertEquals(f.hrvUsableAsCurrent, true);
+  assertEquals(f.wearableHistoricalOnly, false);
+});
+
+Deno.test("evening at 22:00 still requires a same-day row", () => {
+  const f = resolveSignalFreshness({
+    ...base,
+    window: "evening",
+    localHour: 22,
+  });
+  assertEquals(f.maxWearableAgeDays, 0);
+  assertEquals(f.wearableCurrent, false);
+});
+
+Deno.test("overnight allowance does not leak into afternoon", () => {
+  assertEquals(maxWearableAgeDaysForWindow("afternoon", 1), 0);
+  assertEquals(maxWearableAgeDaysForWindow("evening", 1), 1);
+  assertEquals(maxWearableAgeDaysForWindow("evening", 5), 0);
+});
+
 Deno.test("same-day row is current in every window", () => {
   for (const window of ["morning", "afternoon", "evening"] as const) {
     const f = resolveSignalFreshness({

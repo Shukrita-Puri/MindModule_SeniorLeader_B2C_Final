@@ -351,8 +351,8 @@ Deno.test("Turn B execution order and prompt reuse are source-enforced", async (
   assertStringIncludes(src, "assessmentSignalPillsPayload = assessmentContext.pills.finalized as any[];");
   assertStringIncludes(src, "const signalPillsPayload = assessmentSignalPillsPayload ?? echoedSignalPills ?? null;");
   assertStringIncludes(src, "signalPills: signalPillsPayload,");
-  assertStringIncludes(src, "refined_signal_pills: suppressScorePayload ? null : signalPillsPayload,");
-  assertStringIncludes(src, "baseline_signal_pills: suppressScorePayload ? null : signalPillsPayload,");
+  assertStringIncludes(src, "refined_signal_pills: briefSuppressScore ? null : signalPillsPayload,");
+  assertStringIncludes(src, "baseline_signal_pills: briefSuppressScore ? null : signalPillsPayload,");
 });
 
 Deno.test("Turn B no post-context mutation or re-derivation occurs after buildAssessmentContext", async () => {
