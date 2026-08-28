@@ -23,8 +23,9 @@ Secondary: the manual refresh path already sends `forceRefresh`, but the brief g
 3. **Bump the brief version so today's already-cached rows stop being replayed.**
    Bump `supabase/functions/_shared/brief-prompt-version.ts` to a new version for the calendar-honesty copy change and sync the frontend mirror (`src/constants/briefPromptVersion.ts`, currently one behind). This is what makes the corrected copy reach users who don't press refresh. No rows are deleted; old-version rows simply stop matching the cache key.
 
-4. **Clear the browser's cached brief on manual refresh only.**
-   `useExecutiveHomeCardsRefresh` clears the persistent brief cache key for the current user/window/date (`cacheKeys.brief`) after a successful refresh, so the card cannot repaint the old text. Nothing is cleared on normal page loads.
+4. **Keep the per-window browser cache; refresh it rather than remove it.**
+   The browser continues to hold its own copy of the brief per user/date/window in local storage — that behaviour stays exactly as it is, including instant repaint on normal page loads and revisits. The only change: on a *manual* refresh, the stale entry for the current user/date/window is replaced with the newly generated brief (cleared, then rewritten when the fresh brief arrives) so the card cannot repaint the old text. Other windows' and other days' cached entries are untouched, and nothing changes on automatic loads.
+
 
 5. **Standing rule:** any change to deterministic brief copy requires a version bump, otherwise it is invisible to every user who already has a row for that window. Noted in the brief architecture doc.
 
