@@ -496,7 +496,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `Rest or public holiday day — morning anchor stays, everything else earns its way in.`,
     read: (ctx) =>
-      `Leaders who genuinely disconnect on rest days return with measurably better strategic clarity.`,
+      `Leaders who genuinely disconnect on rest days return with measurably better strategic judgement.`,
     directive: (ctx) =>
       `Treat restoration as the primary objective; one async task maximum if you engage with work.`,
     close: () => `and protect the rest window`,
