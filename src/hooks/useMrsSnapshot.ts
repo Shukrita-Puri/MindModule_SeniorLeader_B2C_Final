@@ -126,6 +126,7 @@ export function useMrsSnapshot() {
     refetchInterval: 3 * 60 * 1000,
     queryFn: async () => {
       if (!effectiveUserId) return null;
+      const lastGoodKey = `${effectiveUserId}|${localDate}|${mrsWindow}`;
 
       // Read via authenticated Edge Function — the shared browser client
       // is anon-keyed only, so a direct table read is filtered by RLS on
@@ -141,15 +142,18 @@ export function useMrsSnapshot() {
 
       const row = (resp as { data?: Record<string, any> | null } | null)?.data ?? null;
       if (error || !row) {
+        const lastGood = lastGoodMrsSnapshots.get(lastGoodKey) ?? null;
         // eslint-disable-next-line no-console
         console.warn('[useMrsSnapshot] no row', {
           effectiveUserId,
           localDate,
           mrsWindow,
           error: error?.message ?? null,
+          servedLastGood: !!lastGood,
         });
-        return null;
+        return lastGood;
       }
+
 
       const state = (row.readiness_state as string | null) ?? null;
       const readinessState: MrsReadinessState | null =
