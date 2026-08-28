@@ -91,6 +91,7 @@ import {
   buildLexiconRegex,
   INLINE_LEXICON_WORDS,
 } from "../_shared/brief/elastic-lexicon.ts";
+import { getTimeOfDay } from "../_shared/signal-engine/day-kind-detector.ts";
 
 type Scope = {
   todayHighStakes: string[];
