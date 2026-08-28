@@ -6184,7 +6184,21 @@ serve(async (req) => {
         );
       }
 
-      if (inputSignature !== "no-sig") {
+      if (forceBriefRefresh) {
+        console.log(
+          "[brief-cache] Result:",
+          JSON.stringify({
+            snapshotHit: false,
+            snapshotIgnoredReason: "force_refresh",
+            promptVersion: BRIEF_PROMPT_VERSION,
+            inputSignature: inputSignature.slice(0, 8) + "...",
+            generationPath: "forced_regeneration",
+            snapshotReason: "force_refresh_bypass_read",
+          }),
+        );
+      }
+
+      if (inputSignature !== "no-sig" && !forceBriefRefresh) {
         try {
           // brief_snapshots was split into baseline_* + refined_* column
           // sets. `phrase`, `body_text`, `lean_on`, `watch_for` are now
