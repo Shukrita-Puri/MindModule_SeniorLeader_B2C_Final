@@ -22,7 +22,13 @@ Rewrite all five `WORKED_EXAMPLES` bodies (and the weekend example) so none cont
 
 Replacements use plain observed-state phrasing already accepted by the validator's state-quality and lexicon gates — e.g. "Recovery's above baseline" becomes "Recovery came in ahead of where you usually sit".
 
-Verification before committing: grep every example string against the full forbidden lists used by `validateV61Output` (`WELLNESS_BLACKLIST`, score/readiness blacklists) and by `validateBrief` (`forbiddenWords` in `_shared/copy-vocabulary.ts`), and confirm zero matches. Also confirm each example still satisfies the lexicon-cluster and signal-evidence gates.
+Verification before committing — grep is necessary but not sufficient, so both steps run:
+
+1. Word-list grep: every example string against the full forbidden lists used by `validateV61Output` (`WELLNESS_BLACKLIST`, score/readiness blacklists) and by `validateBrief` (`forbiddenWords` in `_shared/copy-vocabulary.ts`). Zero matches required.
+2. Structural run: each rewritten example (phrase + body + leanOn/watchFor pair) is passed through `validateV61Output` itself with a representative request fixture, and must return `valid: true`. This specifically has to clear `body_restates_phrase` and `body_abstract_system_phrase`, plus `body_no_signal_evidence`, `body_no_lexicon_cluster`, the four-beat structural gate, and the sentence count — none of which a grep can catch. Each example is then also passed through `validateBrief`.
+
+`validateV61Output` is an inline closure over request scope (`todayHighStakes`, `calendarLoad`, `bandValence`, `hour`, `materialTravelContextActive`, etc.), so the harness builds a fixture of that scope and invokes the live closure — it does not re-implement or mirror the validator. If the closure cannot be reached without a full request, the minimum change is to lift it to a module-scope factory that takes the scope as an argument and is called from the handler; the rule bodies stay byte-identical and no threshold moves. The harness lands as a Deno test (`worked_examples.test.ts`) so the examples stay validator-clean on future edits.
+
 
 ## Fix 3 — Unify the lexicon anchor list (commit 3)
 
