@@ -41,4 +41,10 @@
 // today") from _shared/brief/time-phrase.ts instead of generic "within 24
 // hours" prose, and the thin-signal deterministic line is retired. Bump
 // invalidates cached v7.3 briefs whose anchor timing is now stale.
-export const BRIEF_PROMPT_VERSION = 'v7.6-load-shape';
+// v7.7 — Calendar-load honesty. The deterministic builder now names the day's
+// load with the same qualitative vocabulary as the CALENDAR signal pill
+// (light / busy / heavy), reserves "open day" for true zero-event workdays,
+// and uses remaining (not total) meetings later in the day. Bump invalidates
+// cached v7.6 rows that still say "no calendar demand in view" on days that
+// actually hold events.
+export const BRIEF_PROMPT_VERSION = 'v7.7-calendar-load-honesty';
