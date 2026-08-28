@@ -378,7 +378,7 @@ RULE: contextSwitchingCost. Sentence 1: names the sequence, not any single meeti
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble, no explanation.
 {
   "phrase": "2–4 word human headline (target 3), or null",
-  "body": "3–5 short sentences in the Chief of Staff register. Must end with a 3–8 word closing clause (beat d). Or null.",
+  "body": "Exactly 3 sentences in the Chief of Staff register. Sentence three must end with a semicolon followed by a 3–8 word closing clause (beat d). Or null.",
   "leanOn":  [{ "signal": "short signal phrase", "source": "ARCHETYPE|PATTERN|GOALS" }],
   "watchFor":[{ "signal": "short signal phrase", "source": "ARCHETYPE|PATTERN|GOALS" }]
 }
