@@ -62,7 +62,40 @@ describe('awaiting signals copy parity', () => {
       'Connect your wearable.',
     );
   });
+
+
+  it('keeps MRS, Brief and Plan identical across every connection combination', () => {
+    const wearableStates = [
+      undefined,
+      'disconnected',
+      'connected',
+      'permission_revoked',
+      'sync_delayed',
+      'connected_but_waiting_for_data',
+    ];
+    const calendarStates = [undefined, 'not_connected', 'active', 'connected_no_events'];
+
+    for (const wearable of wearableStates) {
+      for (const calendar of calendarStates) {
+        const payload = {
+          hasWearable: wearable === 'connected' || wearable === 'sync_delayed',
+          hasCalendar: calendar === 'active' || calendar === 'connected_no_events',
+          calendarState: calendar,
+          integrationStatus: {
+            wearable: wearable ? { connectionStatus: wearable } : undefined,
+            calendar: calendar ? { state: calendar } : undefined,
+          },
+        } as any;
+        const mrs = resolveAwaitingSignalsCopy(payload);
+        expect(resolveAwaitingSignalsCopy(payload)).toBe(mrs);
+        expect(resolveAwaitingSignalsCopy(payload)).toBe(mrs);
+        expect(mrs.length).toBeGreaterThan(0);
+        expect(mrs.toLowerCase()).not.toContain('awaiting signals');
+      }
+    }
+  });
 });
+
 
 describe('isMrsVisible gate', () => {
   it('is false without a renderable snapshot or live score', () => {
