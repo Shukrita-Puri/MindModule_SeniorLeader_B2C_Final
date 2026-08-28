@@ -298,13 +298,22 @@ function buildBriefCopyContext(
  * pill renders (light / moderate / heavy). The brief never invents its own
  * load bands — `calendarLoad` is the demand-scorer SSOT value.
  */
-function loadWord(
+function loadTier(
   opts: DeterministicBriefFallbackOpts,
-): "light" | "moderate" | "heavy" {
+): "light" | "medium" | "heavy" {
   if (opts.calendarLoad === "high") return "heavy";
-  if (opts.calendarLoad === "medium") return "moderate";
+  if (opts.calendarLoad === "medium") return "medium";
   if (opts.calendarLoad === "low") return "light";
-  return effectiveMeetingCount(opts) >= 3 ? "moderate" : "light";
+  return effectiveMeetingCount(opts) >= 3 ? "medium" : "light";
+}
+
+/**
+ * Copy word for the load tier. "moderate" is on the forbidden score-tier
+ * list, so the middle tier renders as "busy" while staying the same SSOT tier.
+ */
+function loadWord(opts: DeterministicBriefFallbackOpts): string {
+  const tier = loadTier(opts);
+  return tier === "medium" ? "busy" : tier;
 }
 
 /**
@@ -586,7 +595,7 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
     firing: "Mind and body are carrying more supply than the day is asking for.",
     steady: "Mental Bandwidth and physical stamina are evenly matched with what's ahead.",
     stretched: "The day is asking more than the physical runway can easily cover without cost.",
-    depleted: loadWord(opts) === "light"
+    depleted: loadTier(opts) === "light"
       ? "Physical Recovery is under its usual range, and the day is light enough to work with that."
       : "Physical Recovery is lower than the calendar assumes.",
   };
