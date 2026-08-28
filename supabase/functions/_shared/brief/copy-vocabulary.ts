@@ -405,6 +405,7 @@ PHRASE
 - No readiness / tier / wellness vocabulary. No em dash (—) or en dash (–) as a break.
 
 BODY
+- Exactly 3 sentences. A fourth sentence is a hard reject.
 - Target 45–55 words. Absolute maximum 60. Do not write a metric list.
 - Never restate the phrase verbatim. Never name the score, band, or tier.
 - Ground the body with at least ONE of:
