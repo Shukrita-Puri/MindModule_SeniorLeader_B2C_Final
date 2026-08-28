@@ -22,7 +22,7 @@ For the affected morning window on 28 Aug:
    - MRS, Brief, and Plan keep rendering their current-window snapshots while the orchestrator runs and while snapshot queries refetch.
    - Show only the existing subtle “Updating” treatment; do not replace formed cards with scripted loaders.
    - Swap to the refreshed set only after the refresh response is successful and all three snapshot reads have settled.
-   - On refresh failure, retain the previous complete set and show the error toast; never downgrade any card to awaiting.
+   - On refresh failure, retain the previous complete set; never downgrade any card to awaiting.
 
 3. **Restore one shared readiness gate**
    - Treat current-window MRS visibility (`isMrsVisible`) as the canonical formed/awaiting decision for all three cards.
