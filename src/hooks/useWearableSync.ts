@@ -100,7 +100,7 @@ export function useWearableSync(): WearableSyncState {
       const backendSync = integration?.watch_sync_status;
       if (backendConnection === 'permission_revoked') {
         setConnectionState('permission_revoked');
-      } else if (backendConnection === 'connected') {
+      } else if (backendConnection === 'connected' || backendConnection === 'connecting') {
         if (backendSync === 'waiting_for_data') setConnectionState('connected_but_waiting_for_data');
         else if (backendSync === 'sync_delayed') setConnectionState('sync_delayed');
         else setConnectionState('connected');

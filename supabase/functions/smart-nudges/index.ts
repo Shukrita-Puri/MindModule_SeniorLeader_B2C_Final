@@ -7,7 +7,7 @@ import {
   CLAUDE_MODELS,
 } from "../_shared/anthropic.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
-import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import { fetchRenderableLoadShape, getLoadShapeOrDefault } from "../_shared/load-shape/read.ts";
 import {
   nudgeShapePromptBlock,
   nudgeShapeStacksOnCliff,
@@ -3057,10 +3057,12 @@ ${
   try {
     if (supabase) {
       const nudgeLocalDate = localParts(ctx.timeZone, new Date()).localDate;
-      const nudgeShape = await fetchRenderableLoadShape(
-        supabase,
-        ctx.userId,
-        nudgeLocalDate,
+      const nudgeShape = getLoadShapeOrDefault(
+        await fetchRenderableLoadShape(
+          supabase,
+          ctx.userId,
+          nudgeLocalDate,
+        )
       );
       const cliffActive = behaviourPromptBlock.includes("meetingPrepCliff");
       const shapeBlock = nudgeShapePromptBlock(nudgeShape, {

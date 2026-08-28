@@ -1121,6 +1121,18 @@ const ConnectedData = () => {
       };
     }
 
+    // DB says 'connecting' from a previous session that was interrupted.
+    // Treat as soft-connected so the user doesn't see a false 'Disconnected'.
+    if (aw.connectionStatus === 'connecting') {
+      return {
+        isLinked: true,
+        isHealthyConnected: true,
+        statusLabel: 'Connected · syncing',
+        statusNote: 'Data sync in progress',
+        showReconnect: false,
+      };
+    }
+
     if (aw.connectionStatus === 'permission_revoked') {
       return {
         isLinked: false,
@@ -1256,6 +1268,9 @@ const ConnectedData = () => {
     }
     if (connecting === 'oura') {
       return { isLinked: false, isHealthyConnected: false, statusLabel: 'Verifying…', statusNote: 'Completing Oura authorization', showReconnect: false };
+    }
+    if (o.connectionStatus === 'connecting') {
+      return { isLinked: true, isHealthyConnected: true, statusLabel: 'Connected · syncing', statusNote: 'Completing authorization', showReconnect: false };
     }
     if (o.connectionStatus === 'error') {
       return { isLinked: true, isHealthyConnected: false, statusLabel: 'Sync failed', statusNote: o.lastError ?? 'We will retry automatically.', showReconnect: false };

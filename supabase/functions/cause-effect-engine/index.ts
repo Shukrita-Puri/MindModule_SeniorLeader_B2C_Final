@@ -43,7 +43,7 @@ import {
   type WearableDiagnostics,
 } from "./_diagnostics.ts";
 import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
-import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import { fetchRenderableLoadShape, getLoadShapeOrDefault } from "../_shared/load-shape/read.ts";
 import { insightsShapePayload } from "../_shared/load-shape/surfaces.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -191,6 +191,10 @@ interface Payload {
    * Null when the window has < 5 HRV days.
    */
   dayTypeHrvMatrix?: DayTypeHrvMatrix | null;
+  /**
+   * v23 — Load Shape × next-day HRV impact. Similar to dayTypeHrvMatrix.
+   */
+  loadShapeMatrix?: DayTypeHrvMatrix | null;
 }
 
 // ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
@@ -751,7 +755,7 @@ serve(async (req) => {
 
 
     // Parallel reads ---------------------------------------------------
-    const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes] = await Promise.all([
+    const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes, snapshotsRes] = await Promise.all([
       supabase.from("calendar_events")
         .select("title, start_time, end_time, attendees_count, is_organizer")
         .eq("user_id", userId)
@@ -777,6 +781,10 @@ serve(async (req) => {
         .eq("is_active", true)
         .limit(1)
         .maybeSingle(),
+      supabase.from("daily_context_snapshot")
+        .select("local_date, load_shape")
+        .eq("user_id", userId)
+        .gte("local_date", startStr),
     ]);
 
     // Cross-provider dedupe (Apple mirrors Google etc.). Must run before any
@@ -787,6 +795,14 @@ serve(async (req) => {
     const checkins = checkinsRes.data || [];
     const briefs = briefsRes.data || [];
     const hasCalendar = !!calConnRes.data?.is_active;
+
+    const shapeByDate = new Map<string, any>();
+    for (const row of snapshotsRes.data || []) {
+      // Overwrites earlier windows, keeping the most recent snapshot for the day
+      if (row.load_shape) {
+        shapeByDate.set(row.local_date, row.load_shape);
+      }
+    }
 
     // WS-A · Best-effort load of persisted A–H subcategories for this user.
     // When a memory row exists for a given event_id, prefer it over the
@@ -1800,6 +1816,149 @@ serve(async (req) => {
       };
     })();
     payload.dayTypeHrvMatrix = dayTypeHrvMatrix;
+    // ════════════════════════════════════════════════════════════════════
+    // v23: Load Shape × next-day HRV impact (additive)
+    // ════════════════════════════════════════════════════════════════════
+    const loadShapeDiagnostics: Array<{ date: string; shapeId: string; hrvDelta: number | null }> = [];
+    const loadShapeMatrix: DayTypeHrvMatrix | null = (() => {
+      const hrvValues = (wearable as any[])
+        .map((w) => (typeof w.hrv === "number" && w.hrv > 0 ? (w.hrv as number) : null))
+        .filter((v): v is number => v !== null);
+      if (hrvValues.length < 5) return null;
+      const hrvBaseline = Math.round(mean(hrvValues) * 10) / 10;
+
+      const DAY_COLS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const dowIndex = (dateStr: string): number => {
+        const d = dayOfWeekFromIsoDate(dateStr); // 0=Sun..6=Sat
+        if (!Number.isFinite(d) || d < 0 || d > 6) return -1;
+        return (d + 6) % 7; // 0=Mon..6=Sun
+      };
+
+      const acc = new Map<string, number[][]>();
+      const shapeIdByDate = new Map<string, string>();
+      const weekBuckets: DayTypeWeekRow[][] = WEEK_LABELS.map(() => []);
+
+      const dates = [...shapeByDate.keys()].sort();
+      for (const dateStr of dates) {
+        const shape = getLoadShapeOrDefault(shapeByDate.get(dateStr));
+        const shapeId = shape.shapeId;
+        shapeIdByDate.set(dateStr, shapeId);
+
+        const nextDayStr = ymd(addDays(new Date(dateStr + "T00:00:00Z"), 1));
+        const nextRow: any = wearableByDay.get(nextDayStr);
+        const nextDayHrv = typeof nextRow?.hrv === "number" && nextRow.hrv > 0 ? (nextRow.hrv as number) : null;
+        const hrvDelta = nextDayHrv !== null ? nextDayHrv - hrvBaseline : null;
+
+        loadShapeDiagnostics.push({ date: dateStr, shapeId, hrvDelta: hrvDelta === null ? null : Math.round(hrvDelta) });
+
+        const di = dowIndex(dateStr);
+
+        if (di >= 0) {
+          for (let wi = 0; wi < WEEK_LABELS.length; wi++) {
+            if (!inWeek(dateStr, wi)) continue;
+            weekBuckets[wi].push({
+              dayType: shapeId,
+              dayOfWeek: di,
+              dayLabel: DAY_COLS[di],
+              date: dateStr,
+              hrvDelta: hrvDelta === null ? null : Math.round(hrvDelta),
+              hasNextDayHrv: hrvDelta !== null,
+            });
+            break;
+          }
+        }
+
+        if (hrvDelta === null || di < 0) continue;
+        if (!acc.has(shapeId)) acc.set(shapeId, DAY_COLS.map(() => [] as number[]));
+        acc.get(shapeId)![di].push(hrvDelta);
+      }
+
+      const typeMeans: Array<{ type: string; meanDelta: number }> = [];
+      acc.forEach((rows, type) => {
+        const all = rows.flat();
+        if (all.length === 0) return;
+        typeMeans.push({ type, meanDelta: mean(all) });
+      });
+      typeMeans.sort((a, b) => a.meanDelta - b.meanDelta); // most negative first
+      const dayTypes = typeMeans.map((t) => t.type);
+
+      const cells: DayTypeHrvCell[][] = dayTypes.map((type) =>
+        DAY_COLS.map((_, di) => {
+          const vals = acc.get(type)![di];
+          if (vals.length === 0) {
+            return { hrvDelta: null, n: 0, confidence: null, hasData: false };
+          }
+          return {
+            hrvDelta: Math.round(mean(vals)),
+            n: vals.length,
+            confidence:
+              vals.length >= MIN_OCCURRENCES_STRONG ? "strong" :
+              vals.length >= MIN_OCCURRENCES_EMERGING ? "emerging" : null,
+            hasData: true,
+          } as DayTypeHrvCell;
+        }),
+      );
+
+      let maxAbsDelta = 0;
+      cells.forEach((row) =>
+        row.forEach((c) => {
+          if (c.hasData && c.hrvDelta !== null) {
+            maxAbsDelta = Math.max(maxAbsDelta, Math.abs(c.hrvDelta));
+          }
+        }),
+      );
+
+      // We do not have banner copy specs for Load Shape matrix yet.
+      const bannerCopy = "";
+
+      const streakSummary = (() => {
+        const todayKey = ymd(today);
+        let cursor = shapeIdByDate.has(todayKey) ? todayKey : null;
+        if (!cursor) {
+          const prev = ymd(addDays(today, -1));
+          cursor = shapeIdByDate.has(prev) ? prev : null;
+        }
+        if (!cursor) return null;
+        const streakType = shapeIdByDate.get(cursor)!;
+        const streakDates: string[] = [];
+        let probe = cursor;
+        while (shapeIdByDate.get(probe) === streakType) {
+          streakDates.push(probe);
+          probe = ymd(addDays(new Date(probe + "T00:00:00Z"), -1));
+        }
+        if (streakDates.length < 2) return null;
+        const deltas = streakDates
+          .map((d) => {
+            const nd = ymd(addDays(new Date(d + "T00:00:00Z"), 1));
+            const row: any = wearableByDay.get(nd);
+            return typeof row?.hrv === "number" && row.hrv > 0 ? row.hrv - hrvBaseline : null;
+          })
+          .filter((v): v is number => v !== null);
+        return {
+          currentStreakDays: streakDates.length,
+          currentStreakType: streakType,
+          streakHrvDeltaMean: deltas.length ? Math.round(mean(deltas)) : null,
+        };
+      })();
+
+      const weeklyDeltas: DayTypeWeeklyDeltas[] = WEEK_LABELS.map((weekLabel, wi) => ({
+        weekLabel,
+        weekStart: ymd(weekStart(wi)),
+        rows: weekBuckets[wi].slice().sort((a, b) => a.dayOfWeek - b.dayOfWeek),
+      }));
+
+      return {
+        dayTypes,
+        days: DAY_COLS,
+        cells,
+        hrvBaseline,
+        maxAbsDelta,
+        bannerCopy,
+        weeklyDeltas,
+        streakSummary,
+      };
+    })();
+    payload.loadShapeMatrix = loadShapeMatrix;
 
     // ════════════════════════════════════════════════════════════════════
     // v5: RECOVERY BY EVENT — Heart Rate based per A–H event taxonomy
@@ -2198,6 +2357,7 @@ serve(async (req) => {
     );
     // v13: day-type attribution (incl. secondary category) is diagnostics-only.
     (diagnostics as any).dayTypes = dayTypeDiagnostics;
+    (diagnostics as any).loadShapes = loadShapeDiagnostics;
     payload.diagnostics = diagnostics;
 
     // ── v23: Load Shape (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──

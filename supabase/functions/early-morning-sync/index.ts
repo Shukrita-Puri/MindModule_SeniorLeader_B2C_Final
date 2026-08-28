@@ -85,7 +85,7 @@ serve(async (req) => {
           supabase.from("calendar_connections").select("id").eq("user_id", user.id).eq("provider", "apple").limit(1)
         ]);
         
-        const hasWatch = watchRes.data?.watch_connection_status === 'connected';
+        const hasWatch = watchRes.data?.watch_connection_status === 'connected' || watchRes.data?.watch_connection_status === 'connecting';
         const hasAppleCal = calRes.data != null && calRes.data.length > 0;
         if (!hasWatch && !hasAppleCal) continue;
 

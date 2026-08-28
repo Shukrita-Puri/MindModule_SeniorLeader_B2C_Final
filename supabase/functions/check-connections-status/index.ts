@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
           : {}),
       },
       appleWatch: {
-        connected: appleWatchQueryFailed ? null : connectionStatus === "connected",
+        connected: appleWatchQueryFailed ? null : (connectionStatus === "connected" || connectionStatus === "connecting"),
         connectionStatus,
         syncStatus,
         hasHistoricalData,

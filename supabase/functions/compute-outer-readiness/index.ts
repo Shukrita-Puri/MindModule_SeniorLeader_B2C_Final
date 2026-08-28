@@ -39,7 +39,7 @@ import {
 } from "../_shared/events/event-phase-map.ts";
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
 import {
-  fetchRenderableLoadShape,
+  fetchRenderableLoadShape, getLoadShapeOrDefault
   loadShapeWriteEnabled,
 } from "../_shared/load-shape/read.ts";
 import { briefShapePromptBlock } from "../_shared/load-shape/surfaces.ts";
@@ -3539,6 +3539,7 @@ serve(async (req) => {
         | null;
     const hasWearableConnectionRecord =
       wearableConnectionStatus === "connected" ||
+      wearableConnectionStatus === "connecting" ||
       wearableConnectionStatus === "connected_but_waiting_for_data" ||
       wearableConnectionStatus === "sync_delayed";
 
@@ -7950,10 +7951,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // and stored on daily_context_snapshot. Silent when the gate is
             // closed, nothing is stored, or the shape is not launch-ready.
             try {
-              const loadShape = await fetchRenderableLoadShape(
-                db,
-                userId,
-                userLocalDate,
+              const loadShape = getLoadShapeOrDefault(
+                await fetchRenderableLoadShape(
+                  db,
+                  userId,
+                  userLocalDate,
+                )
               );
               const shapeBlock = briefShapePromptBlock(loadShape);
               if (shapeBlock) {
@@ -9121,6 +9124,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       todayScore: innerReadinessScore ?? null,
                       postPeakWindow: false,
                       isHighVisibilityToday: false,
+                      loadShape: typeof loadShape !== 'undefined' ? loadShape : null,
                       highStakesEventInNext24h: nextHighStakesEvent
                         ? {
                           title: nextHighStakesEvent.title,

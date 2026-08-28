@@ -41,4 +41,4 @@
 // today") from _shared/brief/time-phrase.ts instead of generic "within 24
 // hours" prose, and the thin-signal deterministic line is retired. Bump
 // invalidates cached v7.3 briefs whose anchor timing is now stale.
-export const BRIEF_PROMPT_VERSION = 'v7.5-four-beat-deterministic';
+export const BRIEF_PROMPT_VERSION = 'v7.6-load-shape';

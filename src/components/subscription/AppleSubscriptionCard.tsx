@@ -127,7 +127,7 @@ export function AppleSubscriptionCard({ user, onRefreshProfile, planLabel, expir
           {restoring ? 'Restoring…' : 'Restore Purchases'}
         </Button>
 
-        {!stripeLegacy && (
+        {entitled && !stripeLegacy && (
           <Button
             variant="outline"
             className="w-full justify-start gap-2"

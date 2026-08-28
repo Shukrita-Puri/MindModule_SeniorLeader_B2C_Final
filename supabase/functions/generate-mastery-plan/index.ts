@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { fetchRenderableLoadShape } from "../_shared/load-shape/read.ts";
+import { fetchRenderableLoadShape, getLoadShapeOrDefault } from "../_shared/load-shape/read.ts";
 import { planShapeTieBreak } from "../_shared/load-shape/surfaces.ts";
 import type { ShapeId } from "../_shared/load-shape/types.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
@@ -5499,12 +5499,14 @@ async function generateMasteryPlan(
   // Tie-breaker input only. Never gates eligibility, never overrides a
   // slot spec. Silent when the gate is closed or nothing is stored.
   try {
-    const planShape = await fetchRenderableLoadShape(
-      supabaseClient,
-      req.userId,
-      today,
+    const planShape = getLoadShapeOrDefault(
+      await fetchRenderableLoadShape(
+        supabaseClient,
+        req.userId,
+        today,
+      )
     );
-    req.loadShapeId = planShape?.shapeId ?? null;
+    req.loadShapeId = planShape.shapeId;
     if (req.loadShapeId) {
       console.log(`[generate-mastery-plan] load-shape=${req.loadShapeId}`);
     }

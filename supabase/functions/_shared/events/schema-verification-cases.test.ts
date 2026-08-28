@@ -1,47 +1,37 @@
-// Ground-truth suite for the 12 verification cases in
-// FINAL_A_to_H_Schema_Summary.md. These assert the canonical
-// category + subcategory for each title through the single A–H entry
-// point (enrichEvent → resolveEvent). Everything downstream — Brief,
-// Pills, Plan, Nudges, Insights and the Load Shape layer — reads this
-// output, so these cases are the ground truth for all of them.
-//
-// Do not weaken or delete a case: each one encodes a user-confirmed
-// classification correction.
-
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { enrichEvent } from "./enrich-event.ts";
 
-interface Case {
-  title: string;
-  category: string;
-  subcategory: string;
-  isOrganizer?: boolean;
-  travelState?: string;
-}
-
-const CASES: Case[] = [
-  { title: "Mind Module - Beta test feedback", category: "E", subcategory: "deep_work", isOrganizer: true },
-  { title: "Flight to Singapore (SQ 735)", category: "G", subcategory: "flight", travelState: "travelling" },
-  { title: "Chat with Patrick", category: "H", subcategory: "social" },
-  { title: "Sales Assumptions Founders Make", category: "E", subcategory: "learning" },
-  { title: "Intro Call > Isabel @ Karyon Partners", category: "E", subcategory: "learning" },
-  { title: "Cracking the US market + networking", category: "E", subcategory: "learning" },
-  { title: "Board Prep Test", category: "E", subcategory: "deep_work" },
-  { title: "Strategy Review Test", category: "E", subcategory: "deep_work" },
-  { title: "Chief AI Thursday connects", category: "E", subcategory: "community" },
-  { title: "Coca-Cola Client - Presentation", category: "B", subcategory: "client_presentation" },
-  { title: "[L'Oreal] Q2 Presentation", category: "C", subcategory: "stakeholder_communication" },
-  { title: "Pitch Deck - Review (Amazon)", category: "E", subcategory: "deep_work" },
+const testCases = [
+  { title: "Mind Module - Beta test feedback", expectedCat: "E", expectedSub: "deep_work", isOrganizer: true },
+  { title: "Flight to Singapore (SQ 735)", expectedCat: "G", expectedSub: "flight", travelState: "travelling" },
+  { title: "Chat with Patrick", expectedCat: "H", expectedSub: "social" },
+  { title: "Sales Assumptions Founders Make", expectedCat: "E", expectedSub: "learning" },
+  { title: "Intro Call > Isabel @ Karyon Partners", expectedCat: "E", expectedSub: "learning" },
+  { title: "Cracking the US market + networking", expectedCat: "E", expectedSub: "learning" },
+  { title: "Board Prep Test", expectedCat: "E", expectedSub: "deep_work" },
+  { title: "Strategy Review Test", expectedCat: "E", expectedSub: "deep_work" },
+  { title: "Chief AI Thursday connects", expectedCat: "E", expectedSub: "community" },
+  { title: "Coca-Cola Client - Presentation", expectedCat: "B", expectedSub: "client_presentation" },
+  { title: "[L'Oreal] Q2 Presentation", expectedCat: "C", expectedSub: "stakeholder_communication" },
+  { title: "Pitch Deck - Review (Amazon)", expectedCat: "E", expectedSub: "deep_work" },
 ];
 
-for (const c of CASES) {
-  Deno.test(`schema verification — "${c.title}" → ${c.category}.${c.subcategory}`, () => {
-    const e = enrichEvent({
-      title: c.title,
-      ...(c.isOrganizer !== undefined ? { isOrganizer: c.isOrganizer } : {}),
-      ...(c.travelState !== undefined ? { travelState: c.travelState } : {}),
-    });
-    assertEquals(e.categoryId, c.category);
-    assertEquals(e.subcategory, c.subcategory);
-  });
-}
+Deno.test("Schema Verification: 12 ground truth cases from FINAL_A_to_H_Schema_Summary.md", () => {
+  for (const tc of testCases) {
+    const raw: any = { title: tc.title };
+    if (tc.isOrganizer !== undefined) raw.isOrganizer = tc.isOrganizer;
+    if (tc.travelState !== undefined) raw.travelState = tc.travelState;
+    
+    const result = enrichEvent(raw);
+    assertEquals(
+      result.categoryId,
+      tc.expectedCat,
+      `Failed category for "${tc.title}" - Expected ${tc.expectedCat}, got ${result.categoryId}`
+    );
+    assertEquals(
+      result.subcategory,
+      tc.expectedSub,
+      `Failed subcategory for "${tc.title}" - Expected ${tc.expectedSub}, got ${result.subcategory}`
+    );
+  }
+});

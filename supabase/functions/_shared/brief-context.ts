@@ -245,6 +245,10 @@ export interface SignalMatrix {
   decisionDensityScore?: number | null;
   decisionDensityWindow?: "next-4h" | null;
 
+  /** Load Shape (additive v23 layer) — context from build-daily-context. */
+  // deno-lint-ignore no-explicit-any
+  loadShape?: any;
+
   // ---------------------------------------------------------------------------
   // Batch 4 additive fields. All optional / nullable. No rule reads these until
   // its cluster file is updated. See mem/architecture/ceo-behaviour-shared-
