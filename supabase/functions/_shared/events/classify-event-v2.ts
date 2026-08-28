@@ -26,7 +26,7 @@ import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
 import { lookupLearned, type LearningContext } from "./learning-store.ts";
 import { detectContentIntent } from "./event-intent.ts";
-import { isTwoPartyTitle } from "./two-party-title.ts";
+import { isConnectorTwoPartyTitle, isTwoPartyTitle } from "./two-party-title.ts";
 
 export type ResolvedBy =
   | 'layer0_status'
@@ -275,6 +275,12 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
     } else {
       return resultFromSubtype(acronym.entry.subtypeId, 'layer5_acronym', 'high');
     }
+  }
+
+  // L5b: connector two-party form ("catch up with Jane"). Runs before the
+  // dictionary so a generic "catch-up" token cannot swallow a named 1:1.
+  if (isConnectorTwoPartyTitle(title)) {
+    return resultFromSubtype('lead.executive_1on1', 'layer5_acronym', 'medium');
   }
 
   // L6: v2 dictionary match (word-boundary aware, honours excludeKeywords).

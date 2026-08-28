@@ -63,6 +63,15 @@ export function isPersonLikeName(part: string): boolean {
  * True when the title alone reads as a two-party meeting.
  * Returns false for anything social, group-shaped or ambiguous.
  */
+/** Connector form only: "catch up with Jane", "sync with Jane". */
+export function isConnectorTwoPartyTitle(rawTitle: string | null | undefined): boolean {
+  const title = (rawTitle ?? "").replace(/^\d{1,2}:\d{2}\s+/, "").trim();
+  if (!title) return false;
+  if (SOCIAL_EXCLUSIONS.test(title)) return false;
+  const connector = title.match(CONNECTOR_RE);
+  return connector ? isPersonLikeName(connector[1]) : false;
+}
+
 export function isTwoPartyTitle(rawTitle: string | null | undefined): boolean {
   const title = (rawTitle ?? "").replace(/^\d{1,2}:\d{2}\s+/, "").trim();
   if (!title) return false;
