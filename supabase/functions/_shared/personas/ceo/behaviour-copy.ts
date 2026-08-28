@@ -845,20 +845,44 @@ function nOneSentence(s: string): string {
     .trim();
 }
 
+/**
+ * `validateV61Output` rejects the whole body on any em/en dash between words
+ * (`DASH_BREAK`), so every beat converts its dashes to semicolons before it is
+ * assembled. Numeric ranges (0–2) are left alone.
+ */
+function nNoDash(s: string): string {
+  return s
+    .replace(/\s+[—–]\s+/g, "; ")
+    .replace(/([A-Za-z,])\s*[—–]\s*([A-Za-z])/g, "$1; $2");
+}
+
+/** Lowercase the first word after a collapse point unless it is an acronym. */
+function nLowerAfterBreak(s: string): string {
+  return s.replace(/;\s+([A-Z][a-z])/g, (_m, w: string) => `; ${w.toLowerCase()}`);
+}
+
+/**
+ * One beat, one sentence, no dashes. Returns the clause WITHOUT terminal
+ * punctuation so callers can end it with "." or hand it to the close.
+ */
+function nClause(s: string): string {
+  return nLowerAfterBreak(nOneSentence(nNoDash(s)));
+}
+
 function nBuildEvidence(i: NarrativeCopyInput, ref: () => string | null): string {
   const body = nBodySignal(i);
   const felt = nFeltSignal(i);
   const rawShape = nShapeSignal(i, ref);
-  const shape = nOneSentence(rawShape);
-  const rawState = body && felt ? `${nOneSentence(body)} and ${nOneSentence(felt)}` : body ?? felt ?? null;
-  const state = rawState ? nOneSentence(rawState) : null;
+  const shape = nClause(rawShape);
+  const rawState = body && felt ? `${nClause(body)} and ${nClause(felt)}` : body ?? felt ?? null;
+  const state = rawState ? nClause(rawState) : null;
 
   if (!state) return `${nCap(shape)}.`;
 
   // Single-sentence forms only — the four-beat body must stay within 1–3
   // sentences, so evidence and read each occupy one sentence.
   const forms: string[] = [
-    `${nCap(state)} — and ${shape}.`,
+    `${nCap(state)}; ${shape}.`,
     `${nCap(state)}, with ${shape}.`,
     `${nCap(shape)}, and ${nLower(state)}.`,
   ];
