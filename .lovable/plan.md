@@ -30,7 +30,16 @@ Also noted, lower severity: with a genuinely light calendar, the depleted read l
 
 **Light-day calendar acknowledgement.** Add a light-day branch to the evidence beat so 1–2 meetings are stated rather than erased: name the count and, where the timing is known, the lead event. The no-calendar sentence becomes reachable only when the meeting count is genuinely zero. Weekend and non-workday branches keep their own wording but get the same zero-check.
 
-**Recognise two-party meeting titles.** Extend the resolver's 1:1 detection to the separator forms ("A | B", "A / B", "A <> B") where both sides look like person names and the event is short with few attendees, mapping to the same Executive 1:1 subtype that "1:1 with Jane" already produces. Frontend mirror updated in lockstep with the shared resolver.
+**Recognise two-party meeting titles without needing the words "1:1".** Most invites never say 1:1. Treat a title as an Executive 1:1 (Category D) when it names two people and nothing else contradicts that:
+
+- separator forms: "Shukrita Puri | Jane", "A / B", "A <> B", "A - B"
+- conjunction forms: "Rohit and Shukrita", "Rohit & Shukrita"
+- connector words that carry no other meaning: "catch-up", "catch up with Jane", "sync with Jane", "chat with Jane", "coffee with Jane" where the counterparty is a person
+
+Supporting evidence keeps it honest: short duration (≤60 min) and at most two attendees where attendee data exists.
+
+Exclusions — a title stays out of the 1:1 mapping when it reads social or non-work ("chit chat", "drinks", "lunch", "birthday", "dinner", "party", "walk"), when either side is not a person-like name (a team, a product, a company, an all-hands), or when a stronger A–H marker already fires (interview, board, review, offsite). Existing higher-priority classification always wins; this heuristic only fills the gap where the resolver currently returns nothing.
+
 
 **Window-correct counts.** In afternoon and evening windows the evidence and directive beats use remaining meetings rather than the full-day total; morning keeps the full day.
 
