@@ -28,7 +28,10 @@ Also noted, lower severity: with a genuinely light calendar, the depleted read l
 
 ## The fix
 
-**Light-day calendar acknowledgement.** Add a light-day branch to the evidence beat so 1–2 meetings are stated rather than erased: name the count and, where the timing is known, the lead event. The no-calendar sentence becomes reachable only when the meeting count is genuinely zero. Weekend and non-workday branches keep their own wording but get the same zero-check.
+**Governing rule: volume is a fact, importance is a judgement.** The number of events on the calendar and the resulting load come straight from the calendar and are stated as they are, always. Classification (A–H) never gates that: it only decides whether an event is worth *naming* and whether it raises the stakes of the day. An unclassified event still counts towards the volume, so the brief can never say the calendar is empty while events exist.
+
+**Light-day calendar acknowledgement.** Add a light-day branch to the evidence beat so 1–2 meetings are stated rather than erased: name the count (and the lead event only when classification says it matters). The no-calendar sentence becomes reachable only when the event count is genuinely zero. Weekend and non-workday branches keep their own wording but get the same zero-check.
+
 
 **Recognise two-party meeting titles without needing the words "1:1".** Most invites never say 1:1. Treat a title as an Executive 1:1 (Category D) when it names two people and nothing else contradicts that:
 
