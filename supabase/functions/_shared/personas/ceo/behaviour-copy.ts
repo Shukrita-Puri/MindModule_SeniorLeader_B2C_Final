@@ -508,7 +508,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   notificationIsProduct: {
     evidence: (ctx) =>
-      `Calendar fully compressed; no space for a full check-in protocol today.`,
+      `Calendar fully compressed; no space for a full reset protocol today.`,
     read: (ctx) =>
       `A light touch that happens beats a full protocol that doesn't — ` +
       `friction is the enemy of the habit.`,
