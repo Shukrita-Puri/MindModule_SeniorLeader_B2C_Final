@@ -1300,7 +1300,10 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
   // Evidence first so the anchor's timing lands in the opening beat when the
   // day shape names it; the directive then reuses the plain reference.
   const evidence = nBuildEvidence(i, ref);
-  const directive = nBuildDirective(i, ref);
+  // Read and Directive are each collapsed to a single dash-free clause so the
+  // four-beat body never exceeds the 1–3 sentence budget (beat d rides on the
+  // directive's sentence).
+  const directive = nClause(nBuildDirective(i, ref));
   const close = nPick(closeBank, i.variantSeed, `close:${family}:${i.window}`);
 
   // Elastic Lexicon safety: the close must carry at least one pillar concept.
