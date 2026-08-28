@@ -19,41 +19,14 @@ export {
  * §2.20 Elastic Lexicon — three pillar clusters. The body must include ≥1
  * concept from one cluster (cluster-match, not verbatim). Strategic synonyms
  * within a cluster are accepted by the validator.
+ *
+ * SSOT: `./brief/elastic-lexicon.ts`. Re-exported here so existing importers
+ * (deterministic-brief.ts, behaviour-copy.ts, brief-validators.ts) keep their
+ * current import path and values unchanged.
  */
-export const ELASTIC_LEXICON: Record<PillarCluster, string[]> = {
-  cognition: [
-    "Decision Power",
-    "Strategic Accuracy",
-    "Mental Bandwidth",
-    "Processing Capacity",
-    "Solving Logic",
-    "Sharpness",
-    "Mind",
-    "Cognitive",
-    "Cognition",
-  ],
-  physiology: [
-    "Operational Drive",
-    "Leadership Stamina",
-    "Physical Recovery",
-    "Physical Runway",
-    "Stamina",
-    "Body",
-    "Physiology",
-    "Sleep",
-  ],
-  resilience: [
-    "Strategic Composure",
-    "Executive Presence",
-    "Diplomatic Shield",
-    "Reactive Risk",
-    "Internal Buffer",
-    "Composure",
-    "Buffer",
-    "Resilience",
-    "Mental Energy",
-  ],
-};
+export { ELASTIC_LEXICON } from "./brief/elastic-lexicon.ts";
+import { ELASTIC_LEXICON } from "./brief/elastic-lexicon.ts";
+
 
 /**
  * Wellness / data-app jargon banned everywhere. Union of the brief's blacklists

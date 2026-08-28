@@ -86,6 +86,10 @@ import {
   PRE_COMPUTED_USER_NOTICE,
   type ReadinessValence,
 } from "../_shared/brief/copy-vocabulary.ts";
+import {
+  buildLexiconRegex,
+  INLINE_LEXICON_WORDS,
+} from "../_shared/brief/elastic-lexicon.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import {
   composeDailyContext,
@@ -8194,17 +8198,26 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const COACHING_IMPERATIVE =
             /\b(you should|you need to|try to|consider|make sure|remember to)\b/i;
 
-          // §2.20 Elastic Lexicon clusters — body must contain ≥1 cluster concept
-          const LEXICON_COGNITION =
-            /\b(intelligence|cognition|decision power|strategic accuracy|mental bandwidth|processing capacity|solving logic|sharpness|sharp|clarity)\b/i;
-          const LEXICON_PHYSIOLOGY =
-            /\b(physiology|operational drive|leadership stamina|physical recovery|physical runway|stamina|drive|restoration|restore|recover|recovery|heart rate|pulse|prepare|preparation|body)\b/i;
-          const LEXICON_RESILIENCE =
-            /\b(resilience|stability|strategic composure|executive presence|diplomatic shield|reactive risk|internal buffer|composure|buffer|release)\b/i;
+          // §2.20 Elastic Lexicon clusters — body must contain ≥1 cluster concept.
+          // Word lists are SSOT'd in _shared/brief/elastic-lexicon.ts and shared
+          // with the atomic validator + the LLM prompt's LEXICON ANCHOR block.
+          // buildLexiconRegex produces the exact same alternations these
+          // literals used before — no rule or threshold change.
+          const LEXICON_COGNITION = buildLexiconRegex(
+            INLINE_LEXICON_WORDS.cognition,
+          );
+          const LEXICON_PHYSIOLOGY = buildLexiconRegex(
+            INLINE_LEXICON_WORDS.physiology,
+          );
+          const LEXICON_RESILIENCE = buildLexiconRegex(
+            INLINE_LEXICON_WORDS.resilience,
+          );
           // Executive-context cluster (additive) — CEO-behaviour-driven copy
           // grounded in the leader's day: board room, travel, high-stakes work.
-          const LEXICON_EXECUTIVE_CONTEXT =
-            /\b(conference|summit|board|pitch|negotiation|travel|landing|back[- ]to[- ]back|compressed|decisions?|density|re[- ]?entry|offsite|speaking|presentation|high[- ]stakes|governance)\b/i;
+          const LEXICON_EXECUTIVE_CONTEXT = buildLexiconRegex(
+            INLINE_LEXICON_WORDS.executiveContext,
+          );
+
           // Approved state-quality words (additive Signal-Evidence acceptance).
           // Natural executive prose that names grounded state without raw
           // numbers should still pass body_no_signal_evidence.
@@ -8570,12 +8583,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // 2026-07-11 — Time-of-day framing gate. Prevents morning framing
             // ("Anchor the first hour") landing in the evening and vice
             // versa. `hour` is captured from the outer request scope.
+            // 2026-08-28 — Window now comes from the canonical SSOT
+            // (getTimeOfDay: morning 05–11, afternoon 12–17, evening 18–04).
+            // The old inline `hour < 12` split classified 00:00–04:59 as
+            // MORNING while the snapshot row for those hours is written as
+            // EVENING, so overnight briefs were rejected with
+            // `body_evening_framing_in_morning` for using correct evening copy.
             {
-              const _tw: "morning" | "afternoon" | "evening" = hour < 12
-                ? "morning"
-                : hour < 18
-                ? "afternoon"
-                : "evening";
+              const _tw = getTimeOfDay(hour);
+
               const MORNING_PHRASES =
                 /\b(first hour|start (?:of )?the day|morning block|front[- ]load(?:ing)? the morning|set the day|begin with|opening hours|open the day)\b/i;
               const EVENING_PHRASES =
