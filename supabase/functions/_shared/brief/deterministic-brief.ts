@@ -608,7 +608,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     if (anyStrained || lowBand) {
       return "The system needs this day to actually recover — not half-work it. Let today be what it is";
     }
-    return "Keep what you have rather than spending it. A little forward thinking is fine";
+    return "Keep what you have and let a little forward thinking be enough";
   }
 
   // ── WEEKEND (non-workday, no travel commitment) ──
