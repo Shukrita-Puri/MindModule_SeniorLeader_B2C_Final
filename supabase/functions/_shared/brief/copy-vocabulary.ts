@@ -281,43 +281,42 @@ Before writing: re-read the SIGNAL PILL TIERS.
   MIND FOGGY → never write "sharp", "clear", "decision power high", "mind is ready".
   BODY STRAINED → never write "body is recovered", "physical runway clear", "body is holding well".`;
 
-export const BODY_FOUR_BEAT_CONTRACT = `THE BODY — 3–5 short human sentences. Target 40–55 words. Hard max 60.
+export const BODY_FOUR_BEAT_CONTRACT =
+  `THE BODY — exactly 3 short human sentences, one per beat for Evidence, Read, and Directive, with the Self-Regulation Close as a short tail appended to the Directive sentence after a semicolon. Never write a fourth standalone sentence. Never write five sentences. Target 40–55 words. Hard max 60.
 
 A Chief of Staff does not explain their reasoning. They have done the thinking. They walk in and state the conclusion. Write this way.
 
-FOUR BEATS — each must be a distinct thought. Never merge beats into one long sentence with semicolons.
+FOUR BEATS — each is a distinct thought. Beats (a), (b), (c) are one sentence each. Beat (d) is a semicolon tail on sentence three, not a sentence of its own.
 
-(a) EVIDENCE — 1–2 short sentences. Name 2 signals from DIFFERENT buckets.
+(a) EVIDENCE — sentence one. Name 2 signals from DIFFERENT buckets.
     If they diverge, name both. State what you observed. Do not explain why.
-    CORRECT: "Recovery's above baseline — but you've checked in drained. Body and mind aren't saying the same thing."
+    CORRECT: "Recovery came in ahead of your usual range and you have checked in drained."
     WRONG:   "Your HRV is elevated which combined with your self-reported fatigue creates a divergence that suggests..."
 
-(b) THE READ — 1 short sentence. The judgment those signals add up to. One sharp call, not a hedge.
-    CORRECT: "The numbers say more than you're feeling. Trust the data."
+(b) THE READ — sentence two. The judgment those signals add up to. One sharp call, not a hedge.
+    CORRECT: "The body is further along than the felt state suggests, so trust the readings."
     WRONG:   "Given the above signals, your physiological capacity appears to exceed your subjective experience."
 
-(c) THE WORK DIRECTIVE — 1–2 short sentences. Name the cognitive posture using one of:
+(c) THE WORK DIRECTIVE — sentence three, up to the semicolon. Name the cognitive posture using one of:
     decide / lead / listen / analyse / defer / execute / sequence / protect.
     If a [A/B/C] event exists today, name its category-level reference. Never the specific meeting title.
     If a pattern from Bucket 3 is relevant to today's event type, name it briefly in this beat.
-    If weekend / holiday / PTO / personal travel: name an energy orientation — never meetings, calls, or the room.
-    CORRECT (workday):   "One governance session left. Lead it — decide in the room."
-    CORRECT (weekend):   "The system is still paying down. Let today actually recover — that is the productive move."
-    CORRECT (with pattern): "Your HRV drops before board sessions — set the intention before the room, not in it."
+    If weekend / holiday / PTO / personal travel: name an energy orientation, never meetings, calls, or the room.
+    CORRECT (workday):   "Lead the board session and set the agenda early"
+    CORRECT (weekend):   "Let the day stay yours and keep the laptop shut"
+    CORRECT (with pattern): "Set the intention before the board rather than inside it"
     WRONG:   "Lean into the remaining meeting with a lighter touch."
 
-(d) THE CLOSE — 3–8 words only. A hard stop. A separate sentence. Executive register.
-    CORRECT: "Protect tonight." / "Shut the laptop early." / "Keep the day yours."
+(d) THE CLOSE — 3–8 words, appended to sentence three after a semicolon. A hard stop. Executive register.
+    CORRECT: "; protect the edge for the room." / "; keep tomorrow clean." / "; hold the close."
     WRONG:   "…and make sure you take time to wind down so that tomorrow starts well."
+    The close must not contain and / so / but / then / while / before / after / until.
 
 WEEKEND / NON-WORKDAY RULE: beats (c) and (d) must carry ZERO work language on any non-workday.
 No meetings. No calls. No deliverables. No "the room". No team or org references.
 
-LEXICON ANCHOR: body must include at least one literal word from one cluster:
-  Cognition: mind, sharpness, clarity, decision power, mental bandwidth
-  Physiology: body, recovery, stamina, drive, physiology
-  Resilience: composure, buffer, stability, executive presence, resilience
-  Executive context: board, conference, travel, negotiation, high-stakes, governance, presentation`;
+${LEXICON_ANCHOR_PROMPT_BLOCK}`;
+
 
 export const WORKED_EXAMPLES = `WORKED EXAMPLES — study the register. Short sentences. Hard stops. Conclusion first.
 
