@@ -271,3 +271,26 @@ Deno.test("prompt lexicon anchor words satisfy BOTH validators", () => {
     }
   }
 });
+
+// Fix 4 regression — 00:00–04:59 local is EVENING per the canonical window
+// SSOT. Evening framing at 01:00 must not be rejected as morning framing.
+Deno.test("overnight (01:00) accepts evening framing", () => {
+  const body =
+    "Recovery came in under your usual range and the day is already long. " +
+    "Your body is asking for the close, not another push. " +
+    "Wind down now and keep tomorrow's first block light; protect the recovery.";
+  const r = runV61("Close it out", body, { hour: 1 });
+  assert(
+    r.reason !== "body_evening_framing_in_morning",
+    `overnight evening framing rejected: ${r.reason}`,
+  );
+});
+
+Deno.test("morning (09:00) still rejects evening framing", () => {
+  const body =
+    "Recovery came in under your usual range and the day is already long. " +
+    "Your body is asking for the close, not another push. " +
+    "Wind down now and keep tomorrow's first block light; protect the recovery.";
+  const r = runV61("Close it out", body, { hour: 9 });
+  assertEquals(r.reason, "body_evening_framing_in_morning");
+});
