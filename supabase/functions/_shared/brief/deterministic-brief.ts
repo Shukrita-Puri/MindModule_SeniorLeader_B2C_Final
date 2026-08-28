@@ -389,19 +389,22 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     } going into ${shortRefTimed(opts, opts.todayHighStakes[0])}.`;
   }
 
+  const effCount = effectiveMeetingCount(opts);
+  const shapeWord = loadWord(opts);
+
   if (
     opts.hasWearable &&
     !hasHighStakes &&
-    (opts.meetingCount >= 3 || opts.calendarLoad === "medium" || opts.calendarLoad === "high")
+    (effCount >= 3 || opts.calendarLoad === "medium" || opts.calendarLoad === "high")
   ) {
-    if (opts.meetingCount >= 3) {
+    if (effCount >= 3) {
       return `${
         wearableFact ?? "Recovery signals are in"
-      } with ${opts.meetingCount} meetings stacked this ${opts.window}.`;
+      } with a ${shapeWord} run of meetings stacked this ${opts.window}.`;
     }
     return `${
       wearableFact ?? "Recovery signals are in"
-    } and the calendar is ${opts.calendarLoad} this ${opts.window}.`;
+    } and the calendar is ${shapeWord} this ${opts.window}.`;
   }
 
   if (
@@ -414,13 +417,18 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   }
 
   if (opts.hasWearable) {
-    // Spec Pattern 5: wearable only, no calendar. Must reach the 15-word floor.
+    // Spec Pattern 5: wearable read leads. Must reach the 15-word floor.
     // wearableFact is null when HRV and sleep data are unavailable (stale wearable).
     const factPhrase = wearableFact ?? "Recovery signals are in";
-    if (opts.isWeekend) {
+    if (effCount > 0) {
+      // Volume is a fact: a light calendar is still a calendar, so this can
+      // never claim the day is empty.
+      return `${factPhrase} against a ${shapeWord} calendar this ${opts.window} — the demand is contained but real.`;
+    }
+    if (opts.isWeekend || opts.isNonWorkday) {
       return `${factPhrase} this ${opts.window} with no work calendar — the physiological read is the anchor for the weekend.`;
     }
-    return `${factPhrase} this ${opts.window} with no calendar demand in view — the physiological edge is the signal.`;
+    return `${factPhrase} this ${opts.window} with an open working day ahead — the time is unclaimed and yours to direct.`;
   }
 
   if (opts.checkInOutcome && hasHighStakes) {
@@ -429,13 +437,13 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     } is the weight on the ${opts.window}.`;
   }
 
-  if (opts.checkInOutcome && opts.meetingCount > 0) {
+  if (opts.checkInOutcome && effCount > 0) {
     const evidenceOutcome = opts.checkInOutcome === "holding"
       ? "steady"
       : opts.checkInOutcome;
-    const meetingWord = opts.meetingCount === 1 ? "meeting" : "meetings";
-    return `You've checked in ${evidenceOutcome} across ${opts.meetingCount} ${meetingWord} this ${opts.window}.`;
+    return `You've checked in ${evidenceOutcome} against a ${shapeWord} calendar this ${opts.window}.`;
   }
+
 
   if (opts.checkInOutcome) {
     const evidenceOutcome = opts.checkInOutcome === "holding"
