@@ -318,55 +318,57 @@ No meetings. No calls. No deliverables. No "the room". No team or org references
 ${LEXICON_ANCHOR_PROMPT_BLOCK}`;
 
 
-export const WORKED_EXAMPLES = `WORKED EXAMPLES — study the register. Short sentences. Hard stops. Conclusion first.
+export const WORKED_EXAMPLES =
+  `WORKED EXAMPLES — study the register. Exactly three sentences. The close is a semicolon tail on sentence three. No em dashes.
 
-EXAMPLE 1 — Morning · Recovery above + sharp check-in · Governance event [A] today
+EXAMPLE 1 — Morning · Recovery ahead of usual + sharp check-in · Governance event [A] today
 phrase: "Go get them"
-body: "Recovery's above baseline and you've checked in sharp. Both are clear. The day is yours. Lead the board — open it, set the agenda. Don't spend the edge before the room."
+body: "Recovery came in ahead of where you usually sit and you have checked in sharp. Your body and your own read agree, so the edge is real. Lead the board session and set the agenda early; protect the edge for the room."
 
-EXAMPLE 2 — Afternoon · Recovery below + drained check-in · Investor pitch [B] remaining · Pattern: HRV drops before pitches
+EXAMPLE 2 — Afternoon · Recovery under usual + drained check-in · Investor pitch [B] remaining
 phrase: "Steady and selective"
-body: "Recovery is below baseline and you've checked in drained. Your HRV drops before pitches — set the intention before the room, not in it. Protect what's left for where it actually matters. Protect the close."
+body: "Recovery is under your usual range and you have checked in drained. Your composure dips ahead of pitch days, and today has one at 3pm. Protect the hour before the investor pitch and keep the answers narrow; hold the close."
 
-EXAMPLE 3 — Morning · Recovery above + drained check-in (RECOVERY_UNDERWAY) · No high-stakes
+EXAMPLE 3 — Morning · Recovery ahead of usual + drained check-in (RECOVERY_UNDERWAY) · No high-stakes
 phrase: "Better than it feels"
-body: "Recovery's above baseline — but you've checked in drained. The numbers and the felt state aren't saying the same thing. Trust the data. Use this for decisions and analysis — the edge is real even if it doesn't feel that way. Don't let the small things chip at what's there."
+body: "Recovery came in ahead of your usual range and you have checked in drained. The body is further along than the felt state suggests, so trust the readings. Use the clear morning window for the decisions that matter; keep the small things out."
 
-EXAMPLE 4 — Evening · Recovery below · Governance event [A] tomorrow · Pattern: 3-week late-night streak
-phrase: "Set up Monday"
-body: "Recovery is below baseline and the late-night pattern has been running three weeks. Monday opens with governance — that's the anchor. Protect the hour before it. Close the laptop early tonight so tomorrow doesn't start behind."
+EXAMPLE 4 — Evening · Recovery under usual · Governance event [A] tomorrow
+phrase: "Set up tomorrow"
+body: "Recovery is under your usual range and the last three nights have run late. Governance opens at 9am, so the body gets tonight to settle. Protect the hour before the board and close the laptop early; keep tomorrow clean."
 
-EXAMPLE 5 — Weekend · Recovery below (CORRECT register — zero work language)
+EXAMPLE 5 — Weekend · Recovery under usual (CORRECT register — zero work language)
 phrase: "Rest is the work"
-body: "Recovery is below your baseline after the week. Today is genuine recovery time. Don't half-work the day — let the system settle. That is the work right now. Let the system rest."
+body: "Recovery is under your usual range after the week and the body is still paying it down. Today is real recovery time, not a half worked afternoon. Let the day stay yours and keep the laptop shut; take the whole afternoon."
 
-EXAMPLE 6 — Morning · Recovery below usual range · Work travel, pre-departure · long-haul flight in 3h
+EXAMPLE 6 — Morning · Recovery under usual range · Work travel, pre-departure · long-haul flight in 3h
 phrase: "Bank what you have"
-body: "Recovery is below its usual range going into the flight — a long-haul day. Travel takes more than the timetable shows. Protect what you have before the journey spends it. Arrive in the condition the next thing needs, and arrive with something in the tank."
+body: "Recovery is under your usual range and the long haul flight leaves at 11am. Travel takes more out of the body than the timetable shows, so today is about arriving intact. Protect the two hours before the airport and keep the morning light; arrive with something left."
 
 EXAMPLE 7 — Morning · Conference day 2 · signals mixed
-phrase: "Steady and selective"
-body: "Recovery is holding going into day 2 of the conference — sustained attention is the load being carried. Attention load accumulates across conference days. Day 2: sustain attention across the sessions that earn it and let the others pass through, and protect the state for what tomorrow's sessions need."
+phrase: "Pace the day"
+body: "The conference runs a second day and recovery is holding near your usual range. Sustained attention is the load being carried, so sharpness is the thing to spend well. Choose the sessions that earn the morning and let the rest pass; keep the buffer intact."
 
-EXAMPLE 8 — Personal travel · Afternoon · Recovery below usual range · Long-haul · travelPreFlightMandatory fires
+EXAMPLE 8 — Personal travel · Afternoon · Recovery under usual range · Long-haul · travelPreFlightMandatory fires
 phrase: "Holding steady"
-body: "Recovery is below its usual range with the flight still ahead — a long-haul day. Travel draws on the same system whether it's personal or not. Arriving intact is the outcome — protect what's there, not the output. Arrive with something left."
-RULE: travelPreFlightMandatory (personal_travel shape). Beat (a): signal + flight. Beat (b): honest cost judgment — does not say "nothing needs to be produced". Beat (c): protect what's there. Beat (d): arrival-oriented, 4 words. No repetition across beats.
+body: "Recovery is under your usual range and the long haul flight is still ahead at 6pm. Travel draws on the body whether it is work or not, so arriving intact is the outcome. Protect what is there through the afternoon and let the output go; arrive with something left."
+RULE: travelPreFlightMandatory (personal_travel shape). Sentence 1: signal plus flight. Sentence 2: honest cost judgment, never "nothing needs to be produced". Sentence 3: protect what is there, then a 4-word arrival close after the semicolon.
 
-EXAMPLE 9 — Back-to-back 5h · Afternoon · Recovery below usual range · backToBackLoadOverride fires
-phrase: "Steady and selective"
-body: "Recovery is below its usual range and the day has been running compressed back-to-back for five hours. The body is working harder than the calendar admits. One priority for the next block — nothing else gets added to the load. Protect the close."
-RULE: backToBackLoadOverride. Beat (a): signal + back-to-back hours. Beat (b): the body is working harder than it looks — the judgment. Beat (c): single priority; nothing added. Beat (d): 3 words.
+EXAMPLE 9 — Back-to-back 5h · Afternoon · Recovery under usual range · backToBackLoadOverride fires
+phrase: "Narrow the field"
+body: "The calendar has run back to back for five hours and recovery is under your usual range. The body is working harder than the day admits, so more input will not help. Take one priority into the next block and add nothing else; hold the close."
+RULE: backToBackLoadOverride. Sentence 1: signal plus back-to-back hours. Sentence 2: the body is working harder than it looks. Sentence 3: single priority, nothing added, then a 3-word close.
 
 EXAMPLE 10 — Decision density ≥4 · Morning · Signals clear · decisionDensity fires
-phrase: "Go get them"
-body: "Four decision-weight calls cluster between now and 1pm — that's the real load today, not any single one. The cost is the switching between them, not the decisions themselves. Use the clearest window at the front; protect the edge for where decisions actually land. Don't spend it before the room that earns it."
-RULE: decisionDensity. Beat (a): names the cluster (four calls), not any single call. Beat (b): the switching is the cost — distinct judgment. Beat (c): front-load the clear window. Beat (d): 9 words, protective.
+phrase: "Front the clear window"
+body: "Four decision weight calls cluster between now and 1pm, and that is the real load today. The switching between them costs more than any single call, so sharpness is the thing to protect. Take the clearest window at the front of the morning; keep the rest lighter."
+RULE: decisionDensity. Sentence 1: names the cluster, not any single call. Sentence 2: the switching is the cost. Sentence 3: front-load the clear window, then a 4-word close.
 
 EXAMPLE 11 — Context switching D → A → B · Afternoon · Signals strained · contextSwitchingCost fires
-phrase: "Steady and selective"
-body: "A difficult conversation, then governance, then a pitch — three different modes in three hours. Each mode-switch costs more than the meeting does. Protect the transitions: the gaps between them are where composure holds or leaks. Protect the close."
-RULE: contextSwitchingCost. Beat (a): names the sequence, not any single meeting. Beat (b): the switches cost more than the meetings — the insight. Beat (c): protect the gaps. Beat (d): 3 words.`;
+phrase: "Mind the switches"
+body: "A difficult conversation, then governance, then a pitch sit inside three hours this afternoon. Each switch between modes costs more than the meeting itself, so composure is the thing to hold. Guard the gaps between the three and keep the answers short; protect the close."
+RULE: contextSwitchingCost. Sentence 1: names the sequence, not any single meeting. Sentence 2: the switches cost more than the meetings. Sentence 3: guard the gaps, then a 3-word close.`;
+
 
 export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no preamble, no explanation.
 {
