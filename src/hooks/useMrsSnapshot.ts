@@ -198,7 +198,7 @@ export function useMrsSnapshot() {
         hasFreshSignal,
       });
 
-      return {
+      const snapshot: MrsSnapshot = {
         score,
         tier,
         tierCapReason: (row.tier_cap_reason as string | null) ?? null,
@@ -215,6 +215,12 @@ export function useMrsSnapshot() {
         status,
         isRenderable: hasScore && readinessState !== 'awaiting' && hasFreshSignal,
       };
+      if (snapshot.isRenderable) {
+        lastGoodMrsSnapshots.set(lastGoodKey, snapshot);
+      }
+      return snapshot;
+
+
 
     },
   });
