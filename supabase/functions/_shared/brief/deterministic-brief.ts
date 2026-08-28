@@ -95,6 +95,13 @@ export interface DeterministicBriefFallbackOpts {
   highStakesTiming?: Array<{ title: string; minutesUntil: number }> | null;
   calendarLoad: "low" | "medium" | "high" | null;
   meetingCount: number;
+  /**
+   * Deduplicated meetings still ahead in the day. Drives afternoon / evening
+   * copy so the brief never claims meetings that have already finished.
+   */
+  remainingMeetings?: number | null;
+  /** Age in days of the wearable row backing `wearableFact` (0 = today). */
+  wearableSourceAgeDays?: number | null;
   sleepScore: number | null;
   hasBackToBack: boolean;
   isWeekend?: boolean;
