@@ -722,7 +722,7 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
   // ── Non-workday close (holiday / PTO) ──
   if (shape === "public_holiday" || shape === "pto" ||
       shape === "personal_holiday" || opts.isNonWorkday) {
-    return ensureCloseLexicon("and let the return start with something in the tank.");
+    return ensureCloseLexicon("and start the return with something left.");
   }
 
   // ── Weekend close (existing strings — unchanged) ──
