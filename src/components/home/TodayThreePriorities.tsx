@@ -449,6 +449,7 @@ const TodayThreePriorities = ({
   // existing live generation path.
   const { data: masteryPlanSnapshot } = useMasteryPlanSnapshot();
   const hydratedFromSnapshotRef = useRef<boolean>(false);
+  const hydratedSnapshotIdentityRef = useRef<string | null>(null);
   // In-flight guard — prevents two concurrent hydrate passes from firing
   // for the same snapshot without falsely marking success. Success is
   // latched onto `hydratedFromSnapshotRef` only AFTER setPlan resolves.
