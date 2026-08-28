@@ -9444,6 +9444,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   : null,
                 meetingCount: calendarResult?.meetingCount ??
                   calendarResult?.eventCount ?? 0,
+                // Window-correct volume: afternoon / evening copy speaks to
+                // what is still ahead, not to the whole day.
+                remainingMeetings: calendarResult?.remainingMeetings ?? null,
                 sleepScore: briefWearableUsable &&
                     typeof sleepScoreVal === "number"
                   ? sleepScoreVal
