@@ -61,7 +61,19 @@ Exclusions — a title stays out of the 1:1 mapping when it reads social or non-
 - Replay this exact snapshot (1 meeting, low load, stale wearable, no check-in) and confirm the body names the meeting instead of denying the calendar.
 - Run the 171-fixture golden set plus the validator harness; the new sentences must pass the same gates (three sentences, no dashes, no forbidden vocabulary, signal named).
 - Add fixtures for 1 meeting and 2 meetings across all three windows, and for each title form: "A | B", "A / B", "A and B", "catch-up with Jane" (all 1:1) plus the exclusions ("chit chat", "team lunch", "All Hands") which must not map to 1:1.
-- Run the deterministic-brief Deno suite and the frontend suite, then redeploy `compute-outer-readiness` and the other taxonomy-consuming functions affected by the resolver change.
+- Run the deterministic-brief Deno suite and the frontend suite before anything is deployed.
+
+## Launch safety (one day out)
+
+The change is deliberately additive and reversible.
+
+- **Blast radius is bounded.** The brief change touches copy branches only: no scoring, no MRS, no gating, no plan selection, no schema, no migration. The resolver change only fires where the resolver currently returns nothing, so no event that classifies today can change category.
+- **Nothing ships red.** Deploy only after the golden set (171 fixtures), the validator harness, the deterministic Deno suite and the full frontend suite are all green. Any failure stops the deployment; no partial pushes.
+- **Staged deployment.** `compute-outer-readiness` first, verified against a live regeneration for the affected account across morning, afternoon and evening, then the remaining taxonomy-consuming functions. Frontend mirror last since it is display-only.
+- **Post-deploy check.** Regenerate today's brief for the two verified accounts and read the body plus the pill side by side; they must agree on load. Check the function logs for validator rejections, since a rejected deterministic body falls back to the awaiting state and would be visible immediately.
+- **Rollback.** Each function is independently redeployable from the previous revision; reverting the copy branch restores today's behaviour with no data cleanup, because snapshots are regenerated per window rather than migrated.
+- **Deferred if time is short.** The wearable-recency disclosure and the depleted read-line rewording are cosmetic and can be dropped from this deployment without affecting the factual-load fix, which is the only launch-blocking defect.
+
 
 ## Technical detail
 
