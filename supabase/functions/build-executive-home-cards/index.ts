@@ -715,8 +715,14 @@ async function buildForUser(db: any, args: {
 
     const latest = wearable.latest;
     // Window-aware freshness: morning accepts a 0- or 1-day-old row,
-    // afternoon/evening require same-day. Same canonical rule as the pills.
-    const maxWearableAge = maxWearableAgeDaysForWindow(window as SignalWindow);
+    // afternoon/evening require same-day — except the evening overnight slice
+    // (local 00:00-04:59), where the prior day's row is the current physiology.
+    // Same canonical rule as the pills.
+    const maxWearableAge = maxWearableAgeDaysForWindow(
+      window as SignalWindow,
+      parts.hour,
+    );
+
     const wearableAgeDays = latest?.summary_date
       ? Math.round(
         (new Date(localDate + "T00:00:00Z").getTime() -
