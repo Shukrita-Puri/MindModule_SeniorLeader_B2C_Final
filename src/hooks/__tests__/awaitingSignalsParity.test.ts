@@ -61,6 +61,8 @@ describe('awaiting signals copy parity', () => {
     expect(stripAwaitingLabel('Awaiting signals — connect your wearable.')).toBe(
       'Connect your wearable.',
     );
+  });
+
 
   it('keeps MRS, Brief and Plan identical across every connection combination', () => {
     const wearableStates = [
