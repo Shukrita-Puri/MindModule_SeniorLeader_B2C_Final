@@ -90,18 +90,18 @@ export function useExecutiveHomeCardsRefresh() {
     },
     onSuccess: async () => {
       clearEnergyStateCache();
-      clearOuterReadinessCache(effectiveUserId);
+      // Manual refresh is ONE atomic backend operation:
+      // `build-executive-home-cards` has already regenerated MRS, Brief and
+      // Plan server-side. We only evict client caches and re-read the three
+      // persisted snapshots — we must NOT arm the force-refresh marker,
+      // which would fire a second live `compute-outer-readiness` from the
+      // client and drop all three cards back into a loading/awaiting flip.
+      clearOuterReadinessCache(effectiveUserId, {
+        forceLiveCompute: false,
+        clearPersistentBrief: false,
+      });
       const localDate = localISODate();
       const window = currentPeriodLocal();
-      // The browser keeps its own per-user/date/window copy of the Brief in
-      // localStorage — that behaviour is intentional and stays. On a MANUAL
-      // refresh only, drop the entry for the current window so the card
-      // cannot repaint the pre-refresh text; the refetch below rewrites it
-      // with the newly generated brief. Other windows/days are untouched.
-      if (effectiveUserId) {
-        clearPersistent(cacheKeys.brief(effectiveUserId, window, localDate));
-        clearPersistent(cacheKeys.briefAwaiting(effectiveUserId, window, localDate));
-      }
       console.info('[exec-home][refresh:invalidate]', {
         queries: [
           'mrs-snapshot',
@@ -111,13 +111,26 @@ export function useExecutiveHomeCardsRefresh() {
         localDate,
         window,
       });
+      // Refetch (not just invalidate) so we can wait for the refreshed
+      // snapshots before touching the browser's per-window Brief cache.
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['mrs-snapshot'] }),
-        queryClient.invalidateQueries({ queryKey: ['current-brief-snapshot'] }),
-        queryClient.invalidateQueries({ queryKey: ['mastery-plan-snapshot'] }),
+        queryClient.refetchQueries({ queryKey: ['mrs-snapshot'] }),
+        queryClient.refetchQueries({ queryKey: ['current-brief-snapshot'] }),
+        queryClient.refetchQueries({ queryKey: ['mastery-plan-snapshot'] }),
       ]);
+      // The browser keeps its own per-user/date/window copy of the Brief in
+      // localStorage — that behaviour is intentional and stays. Only AFTER
+      // the refreshed snapshots have been read do we drop the current
+      // window's stale entry, so the card cannot repaint pre-refresh text
+      // and never shows a gap while regeneration is in flight. Other
+      // windows/days are untouched.
+      if (effectiveUserId) {
+        clearPersistent(cacheKeys.brief(effectiveUserId, window, localDate));
+        clearPersistent(cacheKeys.briefAwaiting(effectiveUserId, window, localDate));
+      }
       toast.success("Today's cards refreshed");
     },
+
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Could not refresh cards.');
     },
