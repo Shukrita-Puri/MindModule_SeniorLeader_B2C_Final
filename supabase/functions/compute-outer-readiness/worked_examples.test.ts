@@ -74,6 +74,7 @@ type Scope = {
   materialTravelContextActive: boolean;
   materialWorkEventTitles: string[];
   bandValence: "low" | "mid" | "high" | null;
+  calendarLoad: "low" | "medium" | "high" | null;
   hour: number;
   divergenceMode: string | null;
 };
@@ -96,6 +97,7 @@ type Scope = {
   materialTravelContextActive: boolean;
   materialWorkEventTitles: string[];
   bandValence: "low" | "mid" | "high" | null;
+  calendarLoad: "low" | "medium" | "high" | null;
   hour: number;
   divergenceMode: string | null;
 };
@@ -106,6 +108,7 @@ export function makeValidator(scope: Scope) {
     materialTravelContextActive,
     materialWorkEventTitles,
     bandValence,
+    calendarLoad,
     hour,
     divergenceMode,
   } = scope;
@@ -135,6 +138,7 @@ function runV61(
     materialTravelContextActive: false,
     materialWorkEventTitles: [],
     bandValence: null,
+    calendarLoad: "medium",
     hour: 9,
     divergenceMode: null,
     ...scope,
