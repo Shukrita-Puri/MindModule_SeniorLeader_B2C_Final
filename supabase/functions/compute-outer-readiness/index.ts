@@ -4146,7 +4146,9 @@ serve(async (req) => {
       wearableSourceAgeDays,
       hasWearableData,
       hasCheckInRowForWindow: checkInRowCurrentForWindow,
+      localHour: hour,
     });
+
     const briefWearableUsable = signalFreshness.wearableCurrent;
     // Canonical, window-aware wearable freshness used by the readiness gate,
     // eligibility receipts, pill provenance and MRS contributor rules.
