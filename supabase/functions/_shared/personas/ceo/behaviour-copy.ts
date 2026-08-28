@@ -1060,7 +1060,7 @@ function nEveningDirective(i: NarrativeCopyInput, ref: () => string | null): str
     case "conference_arc":
       return a.eveningSocialLoad
         ? `Give the dinner an hour, then go — tomorrow is another full day of this`
-        : `Close the day here and pick tomorrow's two sessions before you stop`;
+        : `Close the day here and pick tomorrow's first block before you stop`;
     case "back_to_back":
       return `Name tomorrow's first block and close the one decision still open, then stop`;
     case "volume_heavy":
