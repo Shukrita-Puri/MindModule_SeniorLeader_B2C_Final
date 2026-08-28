@@ -3021,6 +3021,10 @@ serve(async (req) => {
   try {
     const body: ComputeRequest & { userId?: string } = await req.json();
     recoveryBody = body;
+    // Manual refresh: bypass the brief snapshot replay (read) only. See the
+    // `forceRefresh` doc on ComputeRequest — the write path, validator and
+    // overwrite protection are all unchanged.
+    const forceBriefRefresh = (body as any)?.forceRefresh === true;
 
     // Auth model:
     //   - Normal user calls: identity is derived from a verified Auth0 JWT.
