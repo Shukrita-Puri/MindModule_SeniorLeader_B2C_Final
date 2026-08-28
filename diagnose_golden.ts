@@ -38,19 +38,19 @@ function narrativeFor(family: BriefNarrativeFamily): LeadNarrative {
   };
 }
 
-function baseOpts(family: BriefNarrativeFamily, window: typeof WINDOWS[number], band: DeterministicBriefBand): DeterministicBriefFallbackOpts {
+function baseOpts(family: BriefNarrativeFamily, window: typeof WINDOWS[number], band: DeterministicBriefBand, wearable = true): DeterministicBriefFallbackOpts {
   const isTravel = family.startsWith("travel");
   const isConference = family === "conference_arc";
   return {
-    band, hasWearable: true, hasCurrentWearable: true, hasCurrentCheckIn: true,
+    band, hasWearable: wearable, hasCurrentWearable: wearable, hasCurrentCheckIn: true,
     checkInOutcome: band === "depleted" ? "drained" : band === "firing" ? "sharp" : "holding",
     cognitivePillTier: band === "depleted" ? "red" : band === "stretched" ? "amber" : "green",
     physicalPillTier: band === "depleted" ? "red" : band === "stretched" ? "amber" : "green",
-    wearableFact: window === "morning" ? "Recovery is in its usual range" : null,
+    wearableFact: wearable && window === "morning" ? "Recovery is in its usual range" : null,
     window,
     todayHighStakes: family === "baseline" ? [] : ["the board call"],
     highStakesTiming: family === "baseline" ? [] : [{ title: "the board call", minutesUntil: 45 }],
-    calendarLoad: "medium", meetingCount: 5, sleepScore: 78,
+    calendarLoad: "medium", meetingCount: 5, sleepScore: wearable ? 78 : null,
     hasBackToBack: family === "back_to_back",
     isWeekend: false, isNonWorkday: false,
     dayShape: isTravel ? "work_travel" : isConference ? "conference" : null,
@@ -59,6 +59,25 @@ function baseOpts(family: BriefNarrativeFamily, window: typeof WINDOWS[number], 
     travelEventTitle: isTravel ? "the flight" : null,
     ceoFlags: [], leadNarrative: family === "baseline" ? null : narrativeFor(family),
     variantSeed: `diagnose|${family}|${window}|${band}`,
+  };
+}
+
+function signalsFor(opts: DeterministicBriefFallbackOpts) {
+  const wear = opts.hasCurrentWearable;
+  const check = opts.hasCurrentCheckIn;
+  return {
+    highStakesEventInNext24h: opts.todayHighStakes.length > 0 ? { title: opts.todayHighStakes[0], minutesUntil: 45 } : null,
+    emotionalDrainEventInNext4h: null,
+    intenseDecisionBlockInNext4h: null,
+    recoveryWindowInNext4h: null,
+    dayLoadShape: opts.hasBackToBack ? "front_loaded" : "even",
+    meetingCount: opts.meetingCount,
+    sleepHours: wear ? 6.4 : null,
+    hrvDeviationPct: wear ? -12 : null,
+    rhrDeviationPct: wear ? 8 : null,
+    emotionalSelfDeclared: check ? (opts.checkInOutcome ?? "holding") : null,
+    mentalSharpness: check ? 3 : null,
+    confidence: check ? 3 : null,
   };
 }
 
@@ -76,7 +95,7 @@ for (const family of FAMILIES) {
         continue;
       }
       const v = validateBrief(result.phrase, result.body, {
-        signals: { highStakesEventInNext24h: opts.todayHighStakes.length > 0 ? { title: opts.todayHighStakes[0], minutesUntil: 45 } : null, emotionalDrainEventInNext4h: null },
+        signals: signalsFor(opts),
         behaviourFlags: [], lexiconClusters: [], forbiddenWords: [], allowedPatternKeywords: [],
       } as any, { mrsScore: 55, pillContext: null });
       if (!v.ok) failures.push(`${family}/${window}/${band}: ${v.reason} | ${result.body}`);
