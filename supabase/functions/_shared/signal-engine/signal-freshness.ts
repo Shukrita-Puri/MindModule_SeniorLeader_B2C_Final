@@ -31,6 +31,11 @@ export interface SignalFreshnessInput {
   hasWearableData: boolean;
   /** A non-skipped daily_checkins row exists for today + this window. */
   hasCheckInRowForWindow: boolean;
+  /**
+   * Local hour (0-23) in the user's effective timezone. Required for the
+   * overnight carry-forward exception (see maxWearableAgeDaysForWindow).
+   */
+  localHour?: number | null;
 }
 
 export interface SignalFreshness {
@@ -50,18 +55,33 @@ export interface SignalFreshness {
   maxWearableAgeDays: number;
 }
 
-/** Morning is the ONLY window that accepts a prior-day wearable row. */
-export function maxWearableAgeDaysForWindow(window: SignalWindow): number {
-  return window === "morning" ? 1 : 0;
+/**
+ * Morning accepts a prior-day wearable row (age <= 1).
+ *
+ * Overnight carry-forward: the evening window spans 18:00-04:59, so between
+ * local midnight and 05:00 the calendar day has already rolled over while the
+ * device has not yet produced a row for the new day. In that early-hours slice
+ * the prior day's row IS the current physiology, so age <= 1 is accepted.
+ * Between 18:00 and 23:59 a same-day row is still required.
+ */
+export function maxWearableAgeDaysForWindow(
+  window: SignalWindow,
+  localHour?: number | null,
+): number {
+  if (window === "morning") return 1;
+  const overnight = window === "evening" &&
+    typeof localHour === "number" && localHour >= 0 && localHour < 5;
+  return overnight ? 1 : 0;
 }
 
 export function resolveSignalFreshness(
   input: SignalFreshnessInput,
 ): SignalFreshness {
-  const maxAge = maxWearableAgeDaysForWindow(input.window);
+  const maxAge = maxWearableAgeDaysForWindow(input.window, input.localHour);
   const age = input.wearableSourceAgeDays;
   const wearableCurrent = input.hasWearableData === true &&
     typeof age === "number" && age >= 0 && age <= maxAge;
+
   const checkInCurrent = input.hasCheckInRowForWindow === true;
 
   return {
