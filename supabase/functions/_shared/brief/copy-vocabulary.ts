@@ -413,11 +413,8 @@ BODY
     • one of these approved state-quality words:
       recovery, sleep, rested, fatigued, sharp, foggy, drained, steady,
       compressed, elevated, shifted, heavy, light, loaded.
-- The body MUST contain at least one literal concept from ONE of these Elastic Lexicon clusters. The word (or its listed form) must appear in the body text; do not rely on a near-synonym or paraphrase.
-    • Cognition: mind, sharpness, clarity, decision power, mental bandwidth.
-    • Physiology: body, recovery, stamina, drive, physiology.
-    • Resilience: composure, buffer, stability, executive presence, resilience.
-    • Executive context: board, conference, travel, negotiation, high-stakes, governance, presentation.
+- ${LEXICON_ANCHOR_PROMPT_BLOCK}
+
 - Never use the banned abstract phrases: "hold the base", "mask the surge",
   "optimise/optimize the window", "leverage your physiological runway",
   "come down clean".
