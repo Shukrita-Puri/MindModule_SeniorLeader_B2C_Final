@@ -6,6 +6,8 @@ import { getAuthToken } from '@/services/authTokenService';
 import {
   currentPeriod as currentPeriodLocal,
   localISODate,
+  clear as clearPersistent,
+  cacheKeys,
 } from '@/utils/persistentBriefCache';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { clearEnergyStateCache } from '@/utils/energyStateEngine';
