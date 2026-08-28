@@ -286,7 +286,34 @@ function buildBriefCopyContext(
   };
 }
 
+/**
+ * Qualitative calendar load, using the same vocabulary the calendar signal
+ * pill renders (light / moderate / heavy). The brief never invents its own
+ * load bands — `calendarLoad` is the demand-scorer SSOT value.
+ */
+function loadWord(
+  opts: DeterministicBriefFallbackOpts,
+): "light" | "moderate" | "heavy" {
+  if (opts.calendarLoad === "high") return "heavy";
+  if (opts.calendarLoad === "medium") return "moderate";
+  if (opts.calendarLoad === "low") return "light";
+  return effectiveMeetingCount(opts) >= 3 ? "moderate" : "light";
+}
+
+/**
+ * Window-correct meeting count. Morning speaks to the whole day; afternoon and
+ * evening speak only to what is still ahead. Counts are already deduplicated
+ * upstream (cross-provider merge + overlap collapse) — never re-derived here.
+ */
+function effectiveMeetingCount(opts: DeterministicBriefFallbackOpts): number {
+  if (opts.window === "morning") return opts.meetingCount;
+  return typeof opts.remainingMeetings === "number"
+    ? opts.remainingMeetings
+    : opts.meetingCount;
+}
+
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
+
   const wearableFact = sanitizeWearableFact(opts.wearableFact);
   const hasHighStakes = opts.todayHighStakes.length > 0;
   const hasManyHighStakes = opts.todayHighStakes.length >= 2;
