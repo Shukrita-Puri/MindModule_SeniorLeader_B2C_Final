@@ -949,6 +949,10 @@ async function buildForUser(db: any, args: {
       innerReadinessState: mrsIsReady ? (mrs?.readinessState ?? "baseline") : "awaiting",
       innerReadinessRefinedContribution: mrsIsReady ? (mrs?.refinedContribution ?? null) : null,
       weightProvenance: mrs?.weightProvenance ?? null,
+      // Manual refresh / replay / backfill: bypass the brief snapshot replay
+      // so the Brief is rebuilt from the CURRENT signals. Scheduled cron runs
+      // never set this, so their cache behaviour and LLM volume are unchanged.
+      forceRefresh: force,
     }, userId);
     briefStatus = brief?.awaitingSignals ? "awaiting" : "ready";
 
