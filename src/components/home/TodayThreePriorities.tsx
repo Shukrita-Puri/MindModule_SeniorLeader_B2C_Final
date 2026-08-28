@@ -449,6 +449,7 @@ const TodayThreePriorities = ({
   // existing live generation path.
   const { data: masteryPlanSnapshot } = useMasteryPlanSnapshot();
   const hydratedFromSnapshotRef = useRef<boolean>(false);
+  const hydratedSnapshotIdentityRef = useRef<string | null>(null);
   // In-flight guard — prevents two concurrent hydrate passes from firing
   // for the same snapshot without falsely marking success. Success is
   // latched onto `hydratedFromSnapshotRef` only AFTER setPlan resolves.
@@ -1446,7 +1447,26 @@ const TodayThreePriorities = ({
     // generator owns that path and will rewrite the snapshot via its
     // existing persist hook.
     const snap = masteryPlanSnapshot;
+    // Re-open the hydration latch whenever the snapshot itself changes
+    // (a manual refresh rewrites `generated_at`). Without this, the
+    // one-shot latch set on the first hydration makes the post-refresh
+    // refetch a no-op and the card keeps painting the pre-refresh plan or
+    // stays in its loader.
+    const snapIdentity = snap
+      ? `${snap.status}|${snap.generatedAt ?? ''}|${snap.mrsWindow}`
+      : null;
+    if (snapIdentity && hydratedSnapshotIdentityRef.current !== snapIdentity) {
+      if (hydratedFromSnapshotRef.current) {
+        console.info('[plan-card] snapshot-identity-changed → rehydrate', {
+          previous: hydratedSnapshotIdentityRef.current,
+          next: snapIdentity,
+        });
+      }
+      hydratedFromSnapshotRef.current = false;
+      hydratedSnapshotIdentityRef.current = snapIdentity;
+    }
     const planJson = snap?.planJson as Record<string, unknown> | null;
+
     const snapshotHorizonModules = Array.isArray(snap?.horizonModules)
       ? snap.horizonModules
       : [];

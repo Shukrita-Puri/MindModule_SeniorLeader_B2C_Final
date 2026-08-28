@@ -2135,10 +2135,18 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     }
   }
   const lastGood = lastGoodBriefRef.current;
+  // Shared readiness gate — the SAME condition the MRS card and the Plan
+  // use, read before any Brief-specific awaiting logic so the three cards
+  // can never disagree.
+  const { data: briefMrsSnapshot } = useMrsSnapshot();
+  const mrsFormed = isMrsVisible(briefMrsSnapshot, outerBrief as any);
   // If the live server explicitly returned an awaiting payload for the
   // current window, clear any last-good / persistent-cache state so we never
   // restore an older LLM or deterministic brief while signals are missing.
-  const incomingIsAwaiting = isTrueAwaitingBrief(outerBriefReal);
+  // This applies ONLY when MRS itself has not formed: once MRS is formed the
+  // signals exist by definition, so a missing/awaiting Brief payload is a
+  // copy or read failure and must not wipe the last-good brief.
+  const incomingIsAwaiting = isTrueAwaitingBrief(outerBriefReal) && !mrsFormed;
   if (incomingIsAwaiting) {
     lastGoodBriefRef.current = null;
     const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
@@ -2171,10 +2179,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
   const cardsAwaiting = isTrueAwaitingBrief(outerBrief);
   const awaitingCopy = resolveAwaitingSignalsCopy(outerBrief);
-  // Existing gate, restored: the Brief must not render prose until the MRS
-  // score is visible to the user. Same condition the MRS card and Plan use.
-  const { data: briefMrsSnapshot } = useMrsSnapshot();
   const mrsVisible = isMrsVisible(briefMrsSnapshot, outerBrief as any);
+
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
@@ -2307,11 +2313,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // slot renders `--` while the copy stays stable.
   const copyRenderable = hasRenderableBriefCopy(outerBrief);
   const scoreRenderable = hasRenderableBriefScore(outerBrief);
-  // Restored gate: the Brief waits for the MRS score to be visible. When MRS
-  // has not formed, the Brief shows the shared awaiting state instead of
-  // prose — no phrase, no body, no beats.
-  const showNeutralAwaitingCopy =
-    !showFailureBlock && (!mrsVisible || (cardsAwaiting && !copyRenderable));
+  // Restored gate, single-sourced: MRS visibility is the ONLY awaiting
+  // decision the Brief makes, exactly as the MRS card and the Plan do. When
+  // MRS is formed but the refreshed copy has not arrived yet, the card keeps
+  // the last-good brief (above) or falls to the copy-only neutral prose
+  // below — a copy/read failure is never re-interpreted as missing signals.
+  const showNeutralAwaitingCopy = !showFailureBlock && !mrsVisible;
+
 
   // Copy-only awaiting: score payload is present but the LLM never delivered
   // phrase/body (e.g. validation reject or provider 402). Show neutral prose

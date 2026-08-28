@@ -93,7 +93,22 @@ export function isMrsVisible(
   return typeof livePayload?.innerReadinessScore === 'number';
 }
 
+/**
+ * Last renderable snapshot per user/date/window. A transient read failure
+ * (edge error, auth-token timeout on cold foreground, an in-flight manual
+ * refresh) must never collapse a formed MRS — and, because Brief and Plan
+ * gate on MRS, must never drag those two cards into "Awaiting signals"
+ * either. When the read yields nothing but we already had a renderable
+ * snapshot for the same window, we keep serving it.
+ */
+const lastGoodMrsSnapshots = new Map<string, MrsSnapshot>();
+
+export function __resetLastGoodMrsSnapshots(): void {
+  lastGoodMrsSnapshots.clear();
+}
+
 export function useMrsSnapshot() {
+
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
   const localDate = localISODate();
@@ -111,6 +126,7 @@ export function useMrsSnapshot() {
     refetchInterval: 3 * 60 * 1000,
     queryFn: async () => {
       if (!effectiveUserId) return null;
+      const lastGoodKey = `${effectiveUserId}|${localDate}|${mrsWindow}`;
 
       // Read via authenticated Edge Function — the shared browser client
       // is anon-keyed only, so a direct table read is filtered by RLS on
@@ -126,15 +142,18 @@ export function useMrsSnapshot() {
 
       const row = (resp as { data?: Record<string, any> | null } | null)?.data ?? null;
       if (error || !row) {
+        const lastGood = lastGoodMrsSnapshots.get(lastGoodKey) ?? null;
         // eslint-disable-next-line no-console
         console.warn('[useMrsSnapshot] no row', {
           effectiveUserId,
           localDate,
           mrsWindow,
           error: error?.message ?? null,
+          servedLastGood: !!lastGood,
         });
-        return null;
+        return lastGood;
       }
+
 
       const state = (row.readiness_state as string | null) ?? null;
       const readinessState: MrsReadinessState | null =
@@ -179,7 +198,7 @@ export function useMrsSnapshot() {
         hasFreshSignal,
       });
 
-      return {
+      const snapshot: MrsSnapshot = {
         score,
         tier,
         tierCapReason: (row.tier_cap_reason as string | null) ?? null,
@@ -196,6 +215,12 @@ export function useMrsSnapshot() {
         status,
         isRenderable: hasScore && readinessState !== 'awaiting' && hasFreshSignal,
       };
+      if (snapshot.isRenderable) {
+        lastGoodMrsSnapshots.set(lastGoodKey, snapshot);
+      }
+      return snapshot;
+
+
 
     },
   });
