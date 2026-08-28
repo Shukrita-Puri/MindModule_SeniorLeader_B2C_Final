@@ -93,7 +93,22 @@ export function isMrsVisible(
   return typeof livePayload?.innerReadinessScore === 'number';
 }
 
+/**
+ * Last renderable snapshot per user/date/window. A transient read failure
+ * (edge error, auth-token timeout on cold foreground, an in-flight manual
+ * refresh) must never collapse a formed MRS — and, because Brief and Plan
+ * gate on MRS, must never drag those two cards into "Awaiting signals"
+ * either. When the read yields nothing but we already had a renderable
+ * snapshot for the same window, we keep serving it.
+ */
+const lastGoodMrsSnapshots = new Map<string, MrsSnapshot>();
+
+export function __resetLastGoodMrsSnapshots(): void {
+  lastGoodMrsSnapshots.clear();
+}
+
 export function useMrsSnapshot() {
+
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
   const localDate = localISODate();
