@@ -569,7 +569,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
       `decision quality and emotional read are running below what adrenaline suggests.`,
     directive: (ctx) =>
       `Treat today as a calibration day: one priority only, ` +
-      `defer anything that can wait 24 hours.`,
+      `defer anything that can wait a day.`,
     close: () => `re-entry before full load`,
   },
 
