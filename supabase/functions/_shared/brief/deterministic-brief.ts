@@ -608,7 +608,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     if (anyStrained || lowBand) {
       return "The system needs this day to actually recover — not half-work it. Let today be what it is";
     }
-    return "Reserves are holding. Protect them rather than spending them. A little forward thinking is fine";
+    return "Capacity is holding. Protect it rather than spending it. A little forward thinking is fine";
   }
 
   // ── WEEKEND (non-workday, no travel commitment) ──
@@ -617,9 +617,9 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
       return "The system is still paying down from the week. Let today actually recover — that is the productive move";
     }
     if (allGreen || opts.band === "firing" || opts.band === "sharp") {
-      return "Reserves are holding — protect them. A small amount of forward thinking is fine; reactive output is not what today is for";
+      return "Capacity is holding; protect it. A small amount of forward thinking is fine; reactive output is not what today is for";
     }
-    return "Keep the pace light. The week ahead will ask for what today preserves";
+    return "Keep the pace light. The week ahead will ask for what today protects";
   }
 
   // ── WORKDAY — pillar-based routing (unchanged from current code) ──
