@@ -599,3 +599,43 @@ Deno.test("timing beyond the lead window degrades gracefully", () => {
   })!;
   assertStringIncludes(out.body, "later today");
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Light-day honesty: volume is a fact. A calendar with 1–2 meetings can never
+// be described as empty, and a genuine zero on a working day is an open day.
+// ─────────────────────────────────────────────────────────────────────────────
+
+Deno.test("deterministic brief — one meeting is a light day, never an empty calendar", () => {
+  for (const window of ["morning", "afternoon", "evening"] as const) {
+    for (const count of [1, 2]) {
+      const built = build(base({
+        band: "depleted",
+        hasWearable: true,
+        wearableFact: "Recovery is significantly under its usual range",
+        checkInOutcome: null,
+        window,
+        calendarLoad: "low",
+        meetingCount: count,
+        remainingMeetings: count,
+        todayHighStakes: [],
+      }));
+      assertEquals(built.body.includes("no calendar demand in view"), false);
+      assertStringIncludes(built.body, "light calendar");
+    }
+  }
+});
+
+Deno.test("deterministic brief — evening uses remaining meetings, not the whole day", () => {
+  const built = build(base({
+    band: "steady",
+    hasWearable: true,
+    wearableFact: "Recovery is in its usual range",
+    checkInOutcome: null,
+    window: "evening",
+    calendarLoad: null,
+    meetingCount: 6,
+    remainingMeetings: 0,
+    todayHighStakes: [],
+  }));
+  assertStringIncludes(built.body, "open working day");
+});
