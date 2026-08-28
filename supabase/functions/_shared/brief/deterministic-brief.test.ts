@@ -87,7 +87,7 @@ Deno.test("deterministic brief — wearable plus stacked calendar uses calendar-
     physicalPillTier: "amber",
   }));
 
-  assertStringIncludes(built.body, "with 5 meetings stacked this morning");
+  assertStringIncludes(built.body, "with a heavy run of meetings stacked this morning");
   assertStringIncludes(built.body, "Physiology is carrying more load going into a compressed calendar");
 });
 
@@ -246,7 +246,7 @@ Deno.test("deterministic brief — weekday wearable-only path keeps calendar-fre
     hasBackToBack: false,
     isWeekend: false,
   });
-  assertEquals(result.body.includes("no calendar demand in view"), true);
+  assertEquals(result.body.includes("open working day"), true);
   assertEquals(result.body.split(".")[0].trim().split(/\s+/).length >= 15, true);
 });
 
@@ -598,4 +598,44 @@ Deno.test("timing beyond the lead window degrades gracefully", () => {
     ceoFlags: [],
   })!;
   assertStringIncludes(out.body, "later today");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Light-day honesty: volume is a fact. A calendar with 1–2 meetings can never
+// be described as empty, and a genuine zero on a working day is an open day.
+// ─────────────────────────────────────────────────────────────────────────────
+
+Deno.test("deterministic brief — one meeting is a light day, never an empty calendar", () => {
+  for (const window of ["morning", "afternoon", "evening"] as const) {
+    for (const count of [1, 2]) {
+      const built = build(base({
+        band: "depleted",
+        hasWearable: true,
+        wearableFact: "Recovery is significantly under its usual range",
+        checkInOutcome: null,
+        window,
+        calendarLoad: "low",
+        meetingCount: count,
+        remainingMeetings: count,
+        todayHighStakes: [],
+      }));
+      assertEquals(built.body.includes("no calendar demand in view"), false);
+      assertStringIncludes(built.body, "light calendar");
+    }
+  }
+});
+
+Deno.test("deterministic brief — evening uses remaining meetings, not the whole day", () => {
+  const built = build(base({
+    band: "steady",
+    hasWearable: true,
+    wearableFact: "Recovery is in its usual range",
+    checkInOutcome: null,
+    window: "evening",
+    calendarLoad: null,
+    meetingCount: 6,
+    remainingMeetings: 0,
+    todayHighStakes: [],
+  }));
+  assertStringIncludes(built.body, "open working day");
 });

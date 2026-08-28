@@ -26,6 +26,7 @@ import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
 import { lookupLearned, type LearningContext } from "./learning-store.ts";
 import { detectContentIntent } from "./event-intent.ts";
+import { isConnectorTwoPartyTitle, isTwoPartyTitle } from "./two-party-title.ts";
 
 export type ResolvedBy =
   | 'layer0_status'
@@ -276,6 +277,12 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
     }
   }
 
+  // L5b: connector two-party form ("catch up with Jane"). Runs before the
+  // dictionary so a generic "catch-up" token cannot swallow a named 1:1.
+  if (isConnectorTwoPartyTitle(title)) {
+    return resultFromSubtype('lead.executive_1on1', 'layer5_acronym', 'medium');
+  }
+
   // L6: v2 dictionary match (word-boundary aware, honours excludeKeywords).
   const excludedByL6 = new Set<string>();
   const dictHit = dictionaryV2Match(title, excludedByL6);
@@ -297,7 +304,15 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
     };
   }
 
+  // L8: title-only two-party detection. Gap filler only — every stronger
+  // layer above has already declined. Attendee counts are deliberately not
+  // consulted (calendar blocks often have no invitees).
+  if (isTwoPartyTitle(title)) {
+    return resultFromSubtype('lead.executive_1on1', 'layer6_dictionary', 'medium');
+  }
+
   return { category: null, subtypeId: null, confidence: 'low', resolvedBy: 'unknown' };
+
 }
 
 // ── Parity logger ────────────────────────────────────────────────────

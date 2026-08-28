@@ -95,6 +95,13 @@ export interface DeterministicBriefFallbackOpts {
   highStakesTiming?: Array<{ title: string; minutesUntil: number }> | null;
   calendarLoad: "low" | "medium" | "high" | null;
   meetingCount: number;
+  /**
+   * Deduplicated meetings still ahead in the day. Drives afternoon / evening
+   * copy so the brief never claims meetings that have already finished.
+   */
+  remainingMeetings?: number | null;
+  /** Age in days of the wearable row backing `wearableFact` (0 = today). */
+  wearableSourceAgeDays?: number | null;
   sleepScore: number | null;
   hasBackToBack: boolean;
   isWeekend?: boolean;
@@ -286,7 +293,43 @@ function buildBriefCopyContext(
   };
 }
 
+/**
+ * Qualitative calendar load, using the same vocabulary the calendar signal
+ * pill renders (light / moderate / heavy). The brief never invents its own
+ * load bands — `calendarLoad` is the demand-scorer SSOT value.
+ */
+function loadTier(
+  opts: DeterministicBriefFallbackOpts,
+): "light" | "medium" | "heavy" {
+  if (opts.calendarLoad === "high") return "heavy";
+  if (opts.calendarLoad === "medium") return "medium";
+  if (opts.calendarLoad === "low") return "light";
+  return effectiveMeetingCount(opts) >= 3 ? "medium" : "light";
+}
+
+/**
+ * Copy word for the load tier. "moderate" is on the forbidden score-tier
+ * list, so the middle tier renders as "busy" while staying the same SSOT tier.
+ */
+function loadWord(opts: DeterministicBriefFallbackOpts): string {
+  const tier = loadTier(opts);
+  return tier === "medium" ? "busy" : tier;
+}
+
+/**
+ * Window-correct meeting count. Morning speaks to the whole day; afternoon and
+ * evening speak only to what is still ahead. Counts are already deduplicated
+ * upstream (cross-provider merge + overlap collapse) — never re-derived here.
+ */
+function effectiveMeetingCount(opts: DeterministicBriefFallbackOpts): number {
+  if (opts.window === "morning") return opts.meetingCount;
+  return typeof opts.remainingMeetings === "number"
+    ? opts.remainingMeetings
+    : opts.meetingCount;
+}
+
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
+
   const wearableFact = sanitizeWearableFact(opts.wearableFact);
   const hasHighStakes = opts.todayHighStakes.length > 0;
   const hasManyHighStakes = opts.todayHighStakes.length >= 2;
@@ -362,19 +405,22 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     } going into ${shortRefTimed(opts, opts.todayHighStakes[0])}.`;
   }
 
+  const effCount = effectiveMeetingCount(opts);
+  const shapeWord = loadWord(opts);
+
   if (
     opts.hasWearable &&
     !hasHighStakes &&
-    (opts.meetingCount >= 3 || opts.calendarLoad === "medium" || opts.calendarLoad === "high")
+    (effCount >= 3 || opts.calendarLoad === "medium" || opts.calendarLoad === "high")
   ) {
-    if (opts.meetingCount >= 3) {
+    if (effCount >= 3) {
       return `${
         wearableFact ?? "Recovery signals are in"
-      } with ${opts.meetingCount} meetings stacked this ${opts.window}.`;
+      } with a ${shapeWord} run of meetings stacked this ${opts.window}.`;
     }
     return `${
       wearableFact ?? "Recovery signals are in"
-    } and the calendar is ${opts.calendarLoad} this ${opts.window}.`;
+    } and the calendar is ${shapeWord} this ${opts.window}.`;
   }
 
   if (
@@ -387,13 +433,18 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   }
 
   if (opts.hasWearable) {
-    // Spec Pattern 5: wearable only, no calendar. Must reach the 15-word floor.
+    // Spec Pattern 5: wearable read leads. Must reach the 15-word floor.
     // wearableFact is null when HRV and sleep data are unavailable (stale wearable).
     const factPhrase = wearableFact ?? "Recovery signals are in";
-    if (opts.isWeekend) {
+    if (effCount > 0) {
+      // Volume is a fact: a light calendar is still a calendar, so this can
+      // never claim the day is empty.
+      return `${factPhrase} against a ${shapeWord} calendar this ${opts.window} — the demand is contained but real.`;
+    }
+    if (opts.isWeekend || opts.isNonWorkday) {
       return `${factPhrase} this ${opts.window} with no work calendar — the physiological read is the anchor for the weekend.`;
     }
-    return `${factPhrase} this ${opts.window} with no calendar demand in view — the physiological edge is the signal.`;
+    return `${factPhrase} this ${opts.window} with an open working day ahead — the time is unclaimed and yours to direct.`;
   }
 
   if (opts.checkInOutcome && hasHighStakes) {
@@ -402,13 +453,15 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     } is the weight on the ${opts.window}.`;
   }
 
-  if (opts.checkInOutcome && opts.meetingCount > 0) {
+  if (opts.checkInOutcome && effCount > 0) {
     const evidenceOutcome = opts.checkInOutcome === "holding"
       ? "steady"
       : opts.checkInOutcome;
-    const meetingWord = opts.meetingCount === 1 ? "meeting" : "meetings";
-    return `You've checked in ${evidenceOutcome} across ${opts.meetingCount} ${meetingWord} this ${opts.window}.`;
+    // Deduplicated count (cross-provider merge + overlap collapse upstream).
+    const meetingWord = effCount === 1 ? "meeting" : "meetings";
+    return `You've checked in ${evidenceOutcome} across ${effCount} ${meetingWord} this ${opts.window}.`;
   }
+
 
   if (opts.checkInOutcome) {
     const evidenceOutcome = opts.checkInOutcome === "holding"
@@ -544,7 +597,9 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
     firing: "Mind and body are carrying more supply than the day is asking for.",
     steady: "Mental Bandwidth and physical stamina are evenly matched with what's ahead.",
     stretched: "The day is asking more than the physical runway can easily cover without cost.",
-    depleted: "Physical Recovery is lower than the calendar assumes.",
+    depleted: loadTier(opts) === "light"
+      ? "Physical Recovery is under its usual range, and the day is light enough to work with that."
+      : "Physical Recovery is lower than the calendar assumes.",
   };
   return readMap[pillKey] ?? readMap[opts.band] ?? readMap.steady;
 }
