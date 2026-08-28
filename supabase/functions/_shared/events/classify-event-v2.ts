@@ -26,6 +26,7 @@ import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
 import { lookupLearned, type LearningContext } from "./learning-store.ts";
 import { detectContentIntent } from "./event-intent.ts";
+import { isTwoPartyTitle } from "./two-party-title.ts";
 
 export type ResolvedBy =
   | 'layer0_status'
