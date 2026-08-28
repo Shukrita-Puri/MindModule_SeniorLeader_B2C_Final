@@ -86,6 +86,10 @@ import {
   PRE_COMPUTED_USER_NOTICE,
   type ReadinessValence,
 } from "../_shared/brief/copy-vocabulary.ts";
+import {
+  buildLexiconRegex,
+  INLINE_LEXICON_WORDS,
+} from "../_shared/brief/elastic-lexicon.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import {
   composeDailyContext,
