@@ -30,9 +30,12 @@ Also noted, lower severity: with a genuinely light calendar, the depleted read l
 
 **Governing rule: volume is a fact, importance is a judgement.** The number of events on the calendar and the resulting load come straight from the calendar and are stated as they are, always. Classification (A–H) never gates that: it only decides whether an event is worth *naming* and whether it raises the stakes of the day. An unclassified event still counts towards the volume, so the brief can never say the calendar is empty while events exist.
 
-**Describe the day by load, not by a count.** The brief should say the shape of the day in words, using exactly the same classification the calendar signal pill uses (light / moderate / heavy), so pill and brief can never disagree. On the verified case the pill said LIGHT, so the brief should read as a light day rather than an empty one. The no-calendar sentence becomes reachable only when there are genuinely zero events; weekend and non-workday branches keep their own wording but get the same zero-check.
+**Describe the day by load, not by a count.** The brief should say the shape of the day in words, using exactly the same classification the calendar signal pill uses (light / moderate / heavy), so pill and brief can never disagree. On the verified case the pill said LIGHT, so the brief should read as a light day rather than an empty one.
 
-If a number is ever used, it must come from the same deduplicated meeting count the pill and demand scorer already produce (cross-provider duplicates collapsed, overlapping slots not double counted) via the existing shared helpers, never from a raw row count.
+If a number is ever used, it must come from the same deduplicated meeting count the pill and demand scorer already produce (cross-provider duplicates collapsed, overlapping meetings in one slot counted as one load unit) via the existing shared helpers, never from a raw row count.
+
+**Zero events on a working day is an open day, not an absence.** When the count is genuinely zero and it is a working day, the copy names it as an open day — unclaimed time to direct — rather than "no calendar demand in view". Weekend and non-workday branches keep their existing wording and are not touched by this rule.
+
 
 
 
@@ -42,7 +45,7 @@ If a number is ever used, it must come from the same deduplicated meeting count 
 - conjunction forms: "Rohit and Shukrita", "Rohit & Shukrita"
 - connector words that carry no other meaning: "catch-up", "catch up with Jane", "sync with Jane", "chat with Jane", "coffee with Jane" where the counterparty is a person
 
-Supporting evidence keeps it honest: short duration (≤60 min) and at most two attendees where attendee data exists.
+The title is the evidence. Attendee count is explicitly not used to decide whether something is a 1:1 — people create calendar blocks with no invitees at all, so an empty attendee list proves nothing. Attendee data is used only later, to characterise the relationship (boss, direct report, colleague, external, interview panel), never to grant or deny the 1:1 classification. Duration may be recorded but carries no weight in the decision.
 
 Exclusions — a title stays out of the 1:1 mapping when it reads social or non-work ("chit chat", "drinks", "lunch", "birthday", "dinner", "party", "walk"), when either side is not a person-like name (a team, a product, a company, an all-hands), or when a stronger A–H marker already fires (interview, board, review, offsite). Existing higher-priority classification always wins; this heuristic only fills the gap where the resolver currently returns nothing.
 
@@ -62,9 +65,9 @@ Exclusions — a title stays out of the 1:1 mapping when it reads social or non-
 
 ## Technical detail
 
-- `supabase/functions/_shared/brief/deterministic-brief.ts`: new light-day branch in the evidence builder before the wearable-only fallback (currently line ~396), phrased with the shared load vocabulary rather than a raw count; zero-guard on the "no calendar demand in view" and "no work calendar" strings; window-gated selection between full-day and remaining load; light-day variant for the `depleted` read entry.
+- `supabase/functions/_shared/brief/deterministic-brief.ts`: new light-day branch in the evidence builder before the wearable-only fallback (currently line ~396), phrased with the shared load vocabulary rather than a raw count; replace the "no calendar demand in view" string with an open-day phrasing reachable only at a true zero count on a working day, leaving the "no work calendar" weekend string untouched; window-gated selection between full-day and remaining load; light-day variant for the `depleted` read entry.
 - Load vocabulary and counts sourced from the existing SSOT (`_shared/signal-engine/demand-scorer.ts` load level plus the deduped meeting count already used by the pill and `mergeCalendarEvents`), not recomputed in the brief.
 
-- `supabase/functions/_shared/events/resolve-event-category.ts` and the subtype keyword layer: two-party detection (separators, "and"/"&", connector verbs such as catch-up/sync/chat) → `lead.executive_1on1` (Category D), medium confidence, gated by a person-name test, a social/non-work exclusion list, and existing higher-priority markers; mirrored in `src/lib/events/categories.ts`.
+- `supabase/functions/_shared/events/resolve-event-category.ts` and the subtype keyword layer: title-only two-party detection (separators, "and"/"&", connector verbs such as catch-up/sync/chat) → `lead.executive_1on1` (Category D), medium confidence, gated by a person-name test, a social/non-work exclusion list, and existing higher-priority markers; no attendee-count gate; mirrored in `src/lib/events/categories.ts`. Attendee data stays reserved for relationship characterisation only.
 - `compute-outer-readiness/index.ts`: pass `remainingMeetings` into the deterministic options alongside `meetingCount`; pass `wearableSourceAgeDays` for the recency phrasing.
 - Tests: `_shared/brief/deterministic-brief.test.ts`, `golden-set.test.ts`, `compute-outer-readiness/worked_examples.test.ts`, `src/lib/events/__tests__/categories.test.ts`.
