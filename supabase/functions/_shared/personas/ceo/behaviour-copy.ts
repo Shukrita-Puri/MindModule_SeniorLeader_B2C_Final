@@ -1038,10 +1038,11 @@ function nEveningDirective(i: NarrativeCopyInput, ref: () => string | null): str
         ? `Give the dinner an hour, then go — tomorrow is another full day of this`
         : `Close the day here and pick tomorrow's two sessions before you stop`;
     case "back_to_back":
+      return `Name tomorrow's first block and close the one decision still open, then stop`;
     case "volume_heavy":
-      return `Name tomorrow's first move, then stop — nothing left today decides anything`;
+      return `Pick tomorrow's first two priorities and close the calendar; the rest of the volume waits`;
     case "weight_heavy":
-      return `Write down where ${anchor ?? "the heavy room"} landed, then close the day`;
+      return `Write down where ${anchor ?? "the heavy room"} landed and close that decision tonight; the rest of the work keeps until morning`;
     case "context_switching":
       return `Stop switching. Pick tomorrow's first block and leave the rest until then`;
     default:
