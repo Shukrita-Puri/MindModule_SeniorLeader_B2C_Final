@@ -5,7 +5,7 @@ Deno.test("two-party titles are recognised without the 1:1 token", () => {
   for (const t of ["Shukrita Puri | Jane", "Shukrita Puri / Jane", "Rohit and Shukrita", "Rohit & Shukrita", "Jane <> Rohit"]) {
     assertEquals(isTwoPartyTitle(t), true, t);
   }
-  for (const t of ["catch up with Jane", "catch-up with Jane", "sync with Jane", "coffee with Jane"]) {
+  for (const t of ["catch up with Jane", "catch-up with Jane", "touch base with Jane"]) {
     assertEquals(isConnectorTwoPartyTitle(t), true, t);
   }
 });
