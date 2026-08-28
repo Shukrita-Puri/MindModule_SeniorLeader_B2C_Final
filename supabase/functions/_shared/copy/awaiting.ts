@@ -87,11 +87,11 @@ export function buildReadinessAwaitingMessage(ctx: AwaitingCopyContext = {}): st
   }
 
   if (hasWearableSignal && !hasCalendarSignal) {
-    return 'Wearable signal received — connect calendar for a fuller read.';
+    return 'Wearable is connected. Connect your calendar to get an early read, then check in to sharpen it.';
   }
 
   if (hasCalendarSignal && !hasWearableSignal) {
-    return 'Calendar signal received — sync wearable for a fuller read.';
+    return 'Calendar is connected. Connect your wearable to get an early read, then check in to sharpen it.';
   }
 
   if (ctx.briefMode === 'cold-start' || ctx.awaitingSignals === true || ctx.hasCurrentPeriodSignal === false) {

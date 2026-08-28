@@ -54,7 +54,7 @@ import {
   localISODate,
 } from '@/utils/persistentBriefCache';
 import { getLocalDataSummary } from '@/services/localDataStore';
-import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { useAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
 import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
 import { markExecutiveCardDelivery } from '@/utils/engagementTracking';
 import { getInvokeTransportDiagnostics, normalizeInvokeOptions } from '@/lib/functionInvokeTransport';
@@ -438,7 +438,7 @@ const TodayThreePriorities = ({
   // consulted when a manual refresh has populated the persistent cache.
   const { data: outerReadinessData } = useOuterReadiness({ snapshotOnly: true });
   const { data: mrsSnapshot } = useMrsSnapshot();
-  const awaitingCopy = resolveAwaitingSignalsCopy(outerReadinessData ?? undefined);
+  const awaitingCopy = useAwaitingSignalsCopy(outerReadinessData ?? undefined);
 
   // Phase 3.6 — diagnostic-only read of the persisted Plan snapshot.
   // Does NOT drive rendering or generation. Dev-mode console only.
@@ -481,13 +481,8 @@ const TodayThreePriorities = ({
   // outerReadinessData awaiting-cache veto Plan generation.
   // Shared gate — identical to the condition the MRS card and the Brief use,
   // so the three cards flip together.
-  const mrsReadyForPlan =
-    isMrsVisible(mrsSnapshot, outerReadinessData as any) &&
-    mrsSnapshot?.readinessState !== 'awaiting';
-  const outerAwaiting = isCardsAwaitingPayload(outerReadinessData);
-  const cardsAwaiting = mrsReadyForPlan
-    ? snapshotAwaiting
-    : (outerAwaiting || snapshotAwaiting);
+  const mrsReadyForPlan = isMrsVisible(mrsSnapshot, outerReadinessData as any);
+  const cardsAwaiting = !mrsReadyForPlan;
   const forceRefreshKey = cacheKeys.planForceRefresh(todayForPlan, periodForPlan);
   const hasPlanForceRefresh = (() => {
     try {
@@ -1382,11 +1377,8 @@ const TodayThreePriorities = ({
     // Wait for the brief to resolve before kicking off `loadPlan` — without
     // this the first call races ahead of the awaiting-signals contract and
     // generates a plan from defaults before the brief tells us to suppress.
-    if (outerReadinessData === undefined) {
-      console.info('[plan-card] hydrate-branch', { branch: 'outerReadiness-undefined' });
-      console.info('[plan-card] hydrate-effect skipped', { reason: 'outerReadinessData-undefined' });
-      return;
-    }
+    // Snapshot-only Home intentionally leaves outerReadinessData undefined.
+    // MRS + Plan snapshots are sufficient to make the shared gate decision.
     console.info('[plan-card] hydrate-step', { step: 3, masteryPlanSnapshotUndefined: masteryPlanSnapshot === undefined, mrsSnapshotUndefined: mrsSnapshot === undefined });
     // Wait for the snapshot read to resolve too. Snapshot-read-first beats
     // both localStorage cache and live generation when it's ready for the
@@ -2030,6 +2022,38 @@ const TodayThreePriorities = ({
   // background refresh — even if `loading` flips true transiently.
   const showPlanLoader =
     !initialCachedRef.current && (loading || (dataReady && !planScriptDone));
+  if (!mrsReadyForPlan) {
+    console.info('[plan-card] early-return', { branch: 'awaiting-mrs-gate' });
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/30 font-bold">
+                {n}
+              </div>
+              <div className="flex-1">
+                <div className="h-3.5 bg-muted/10 rounded-md w-2/3" />
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() => navigate('/daily-check-in')}
+            className="mt-1 flex flex-col items-start gap-1.5 pl-10 pr-3 py-2 rounded-xl text-left hover:bg-muted/10 transition-colors"
+          >
+            <AwaitingSignalsNotice
+              copy={awaitingCopy}
+              align="start"
+              trailing={
+                <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
+              }
+            />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (showPlanLoader) {
     console.info('[plan-card] early-return', { branch: 'loader', loading, dataReady, planScriptDone, initialCached: initialCachedRef.current });
     return (

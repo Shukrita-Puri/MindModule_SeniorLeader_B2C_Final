@@ -12,6 +12,10 @@
 
 import { getReadinessAwaitingCopy } from '@/utils/readinessAwaitingCopy';
 import { AWAITING_SIGNALS_LABEL } from '@/components/home/AwaitingSignalsNotice';
+import {
+  useExecutiveConnectionStatus,
+  type ExecutiveConnectionStatus,
+} from '@/hooks/useExecutiveConnectionStatus';
 
 /**
  * The reason-aware copy for `first_time` is a full sentence that already
@@ -34,6 +38,40 @@ export function resolveAwaitingSignalsCopy(payload?: unknown): string {
   return stripAwaitingLabel(getReadinessAwaitingCopy((payload ?? undefined) as never));
 }
 
+export function mergeAwaitingSignalsContext(
+  payload: unknown,
+  connections: ExecutiveConnectionStatus | null | undefined,
+): unknown {
+  if (!connections) return payload;
+  const source = payload && typeof payload === 'object'
+    ? payload as Record<string, any>
+    : {};
+  const sourceIntegration = source.integrationStatus && typeof source.integrationStatus === 'object'
+    ? source.integrationStatus as Record<string, any>
+    : {};
+
+  return {
+    ...source,
+    hasCalendar: typeof source.hasCalendar === 'boolean'
+      ? source.hasCalendar
+      : connections.hasCalendar,
+    hasWearable: typeof source.hasWearable === 'boolean'
+      ? source.hasWearable
+      : connections.hasWearable,
+    integrationStatus: {
+      calendar: {
+        ...connections.integrationStatus.calendar,
+        ...(sourceIntegration.calendar ?? {}),
+      },
+      wearable: {
+        ...connections.integrationStatus.wearable,
+        ...(sourceIntegration.wearable ?? {}),
+      },
+    },
+  };
+}
+
 export function useAwaitingSignalsCopy(payload?: unknown): string {
-  return resolveAwaitingSignalsCopy(payload);
+  const { data: connections } = useExecutiveConnectionStatus();
+  return resolveAwaitingSignalsCopy(mergeAwaitingSignalsContext(payload, connections));
 }

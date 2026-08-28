@@ -70,4 +70,13 @@ describe('readinessLabels', () => {
       'Awaiting signals — connect your wearable and calendar to get an early read, then check in to sharpen it.',
     );
   });
+
+  it('uses connection-aware copy when exactly one source is available', () => {
+    expect(getAwaitingCopy('calendar_present_wearable_missing')).toBe(
+      'Calendar is connected. Connect your wearable to get an early read, then check in to sharpen it.',
+    );
+    expect(getAwaitingCopy('wearable_present_calendar_missing')).toBe(
+      'Wearable is connected. Connect your calendar to get an early read, then check in to sharpen it.',
+    );
+  });
 });
