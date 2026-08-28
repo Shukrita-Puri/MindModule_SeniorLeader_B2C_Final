@@ -51,16 +51,35 @@ function getForceRefreshKey(userId: string, period: string, dateISO: string): st
 }
 
 /**
- * Drop in-memory de-dup, in-flight promises, and the persistent
- * per-window caches (real brief + awaiting marker) for the current
- * user/date/period. Called by the four legitimate data-changing flows:
+ * Drop in-memory de-dup, in-flight promises, and (optionally) the
+ * persistent per-window caches (real brief + awaiting marker) for the
+ * current user/date/period. Called by the four legitimate data-changing
+ * flows:
  *   • DailyCheckIn save
  *   • CheckInDetail save
  *   • ConnectedData connect / disconnect / sync complete
  *   • Onboarding completion (Stage 7)
  * Anything else (navigation, focus, viewport, tour) MUST NOT call this.
+ *
+ * `options.forceLiveCompute` (default true) controls whether the
+ * sessionStorage force-refresh marker is set. The Executive Home manual
+ * refresh regenerates every card server-side via
+ * `build-executive-home-cards` and then re-reads snapshots, so it passes
+ * `false`: setting the marker there would fire a SECOND live
+ * `compute-outer-readiness` request from the client and put the three
+ * cards back into a loading/awaiting transition.
+ *
+ * `options.clearPersistentBrief` (default true) controls whether the
+ * per-window localStorage brief entries are dropped. The manual refresh
+ * passes `false` so the current brief keeps painting until the refreshed
+ * snapshot has actually been read.
  */
-export function clearOuterReadinessCache(userId?: string): void {
+export function clearOuterReadinessCache(
+  userId?: string,
+  options?: { forceLiveCompute?: boolean; clearPersistentBrief?: boolean },
+): void {
+  const forceLiveCompute = options?.forceLiveCompute !== false;
+  const clearPersistentBrief = options?.clearPersistentBrief !== false;
   outerReadinessCacheVersion++;
   outerReadinessCache.clear();
   outerReadinessInFlight.clear();
@@ -72,12 +91,17 @@ export function clearOuterReadinessCache(userId?: string): void {
     if (!id) return;
     const today = localISODate();
     const period = currentPeriodLocal();
-    clearPersistent(cacheKeys.brief(id, period, today));
-    clearPersistent(cacheKeys.briefAwaiting(id, period, today));
-    window.sessionStorage.setItem(getForceRefreshKey(id, period, today), '1');
-    dbg('clearOuterReadinessCache: cleared in-memory + persistent, marked force refresh', { id, period, today });
+    if (clearPersistentBrief) {
+      clearPersistent(cacheKeys.brief(id, period, today));
+      clearPersistent(cacheKeys.briefAwaiting(id, period, today));
+    }
+    if (forceLiveCompute) {
+      window.sessionStorage.setItem(getForceRefreshKey(id, period, today), '1');
+    }
+    dbg('clearOuterReadinessCache', { id, period, today, forceLiveCompute, clearPersistentBrief });
   } catch { /* ignore */ }
 }
+
 
 export interface OuterReadinessData {
   phrase: string;
