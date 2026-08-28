@@ -39,7 +39,8 @@ import {
 } from "../_shared/events/event-phase-map.ts";
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
 import {
-  fetchRenderableLoadShape, getLoadShapeOrDefault
+  fetchRenderableLoadShape,
+  getLoadShapeOrDefault,
   loadShapeWriteEnabled,
 } from "../_shared/load-shape/read.ts";
 import { briefShapePromptBlock } from "../_shared/load-shape/surfaces.ts";
