@@ -30,9 +30,12 @@ Also noted, lower severity: with a genuinely light calendar, the depleted read l
 
 **Governing rule: volume is a fact, importance is a judgement.** The number of events on the calendar and the resulting load come straight from the calendar and are stated as they are, always. Classification (A–H) never gates that: it only decides whether an event is worth *naming* and whether it raises the stakes of the day. An unclassified event still counts towards the volume, so the brief can never say the calendar is empty while events exist.
 
-**Describe the day by load, not by a count.** The brief should say the shape of the day in words, using exactly the same classification the calendar signal pill uses (light / moderate / heavy), so pill and brief can never disagree. On the verified case the pill said LIGHT, so the brief should read as a light day rather than an empty one. The no-calendar sentence becomes reachable only when there are genuinely zero events; weekend and non-workday branches keep their own wording but get the same zero-check.
+**Describe the day by load, not by a count.** The brief should say the shape of the day in words, using exactly the same classification the calendar signal pill uses (light / moderate / heavy), so pill and brief can never disagree. On the verified case the pill said LIGHT, so the brief should read as a light day rather than an empty one.
 
-If a number is ever used, it must come from the same deduplicated meeting count the pill and demand scorer already produce (cross-provider duplicates collapsed, overlapping slots not double counted) via the existing shared helpers, never from a raw row count.
+If a number is ever used, it must come from the same deduplicated meeting count the pill and demand scorer already produce (cross-provider duplicates collapsed, overlapping meetings in one slot counted as one load unit) via the existing shared helpers, never from a raw row count.
+
+**Zero events on a working day is an open day, not an absence.** When the count is genuinely zero and it is a working day, the copy names it as an open day — unclaimed time to direct — rather than "no calendar demand in view". Weekend and non-workday branches keep their existing wording and are not touched by this rule.
+
 
 
 
