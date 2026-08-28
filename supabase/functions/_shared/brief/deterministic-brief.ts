@@ -608,7 +608,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     if (anyStrained || lowBand) {
       return "The system needs this day to actually recover — not half-work it. Let today be what it is";
     }
-    return "What you have is holding. Keep it rather than spending it. A little forward thinking is fine";
+    return "Keep what you have rather than spending it. A little forward thinking is fine";
   }
 
   // ── WEEKEND (non-workday, no travel commitment) ──
@@ -617,7 +617,7 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
       return "The system is still paying down from the week. Let today actually recover — that is the productive move";
     }
     if (allGreen || opts.band === "firing" || opts.band === "sharp") {
-      return "What you have is holding; keep it. A small amount of forward thinking is fine; reactive output is not what today is for";
+      return "Keep what you have. A small amount of forward thinking is fine; reactive output is not what today is for";
     }
     return "Keep the pace light. The week ahead will ask for what today protects";
   }
