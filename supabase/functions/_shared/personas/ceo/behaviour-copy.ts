@@ -1048,7 +1048,7 @@ function nEveningDirective(i: NarrativeCopyInput, ref: () => string | null): str
     case "travel_long_haul":
     case "travel_short_haul":
     case "travel_intercity":
-      return `Leave the rest of the re-entry until the morning and decide nothing irreversible tonight`;
+      return `Keep the rest of the re-entry until the morning and close nothing irreversible tonight`;
     case "persuasion_pre":
       return anchor
         ? `Leave ${anchor} where it is tonight — the argument does not improve after this hour`
@@ -1086,11 +1086,11 @@ function nAfternoonDirective(i: NarrativeCopyInput, ref: () => string | null): s
     case "travel_long_haul":
       return i.narrative.phase === "post"
         ? `Take the listening work for the rest of today and defer anything irreversible until tomorrow`
-        : `Decide what actually matters on landing before you board, and leave the rest of the day light`;
+        : `Set what actually matters on landing before you board, and keep the rest of the afternoon light`;
     case "travel_short_haul":
-      return `Keep what is left of the day to the conversations already booked and defer new analysis`;
+      return `Keep the rest of the afternoon to the meetings already booked and defer new analysis`;
     case "travel_intercity":
-      return `Keep the return leg for execution, not judgement — the deciding is done`;
+      return `Keep the return leg for execution; the decisions are already made`;
     case "persuasion_pre":
       return low
         ? `Protect the hour before ${anchor ?? "the pitch"} and move everything else out of the afternoon`
@@ -1103,8 +1103,8 @@ function nAfternoonDirective(i: NarrativeCopyInput, ref: () => string | null): s
       return `Do not decide anything consequential for the next hour. Take the routine execution work while the charge comes down`;
     case "conference_arc":
       return a.eveningSocialLoad
-        ? `Pick the one evening thing worth attending and let the rest of the programme go`
-        : `Choose the sessions left that justify being here and skip the corridors`;
+        ? `Pick the one evening thing worth attending and let the rest of the agenda go`
+        : `Keep the afternoon to the sessions that justify being here and skip the corridors`;
     case "back_to_back":
       return low
         ? `Put five minutes between the ones you can still move${anchor ? `, and take ${anchor} first` : ""}. Everything after it can be listening`
@@ -1112,7 +1112,7 @@ function nAfternoonDirective(i: NarrativeCopyInput, ref: () => string | null): s
     case "weight_heavy":
       return low
         ? `Carry ${anchor ?? "the heavy room"} and nothing else that needs a decision for the rest of today`
-        : `Give the rooms with consequence your full attention and let the rest of the afternoon run light`;
+        : `Protect the meetings with consequence and let the rest of the afternoon run light`;
     case "volume_heavy":
       return low
         ? `Cut two of the remaining meetings and protect the one hour that actually produces something`
@@ -1153,7 +1153,7 @@ function nMorningDirective(i: NarrativeCopyInput, ref: () => string | null): str
       }
       return `Sequence the day around the transitions: decisions before the flight, listening after it`;
     case "travel_intercity":
-      return `Do the deciding on the way out while you are fresh, and keep the return for execution, not judgement`;
+      return `Take the decisions on the way out while you are fresh, and keep the return leg for execution`;
     case "persuasion_pre":
       return low
         ? `Protect the hour before ${anchor ?? "the pitch"} and carry nothing else into it. Everything else moves`
@@ -1169,11 +1169,11 @@ function nMorningDirective(i: NarrativeCopyInput, ref: () => string | null): str
         return `Protect the block before you present and treat the corridors as optional`;
       }
       if (a.eveningSocialLoad) {
-        return `Pick the two sessions and the one dinner that matter and let the rest go`;
+        return `Pick the two sessions and the one dinner that matter and let the rest of the agenda go`;
       }
       return low
-        ? `Choose the two sessions that justify being here and skip the rest without guilt`
-        : `Lead the conversations you came for and stop collecting the ones you did not`;
+        ? `Pick the two sessions that justify being here and skip the rest of the agenda`
+        : `Lead the conversations you came for and skip the rest of the agenda`;
     case "back_to_back":
       return low
         ? `Sequence the day so the one room that decides something comes first${anchor ? ` — ${anchor}` : ""}. Everything after it can be listening`
@@ -1181,7 +1181,7 @@ function nMorningDirective(i: NarrativeCopyInput, ref: () => string | null): str
     case "weight_heavy":
       return low
         ? `Carry ${anchor ?? "the heavy room"} and nothing else that needs a decision. Everything else moves`
-        : `Give the two rooms with consequence your full attention and let the rest run light`;
+        : `Protect the two meetings with consequence and let the rest of the morning run light`;
     case "volume_heavy":
       return low
         ? `Cut two meetings before lunch and protect the one hour that actually produces something`
@@ -1242,7 +1242,7 @@ const NARRATIVE_CLOSES: Record<
   conference_arc: {
     ok: ["and take the breaks you are given.", "and keep one hour to yourself."],
     low: ["and skip the drinks tonight.", "and get back to the room early."],
-    evening: ["and get back to the room early.", "and skip the last round tonight."],
+    evening: ["and get back to the room early.", "and skip the final round tonight."],
   },
   back_to_back: {
     ok: ["and steady yourself between the rooms.", "and take the gaps before they go."],
@@ -1261,7 +1261,7 @@ const NARRATIVE_CLOSES: Record<
   },
   context_switching: {
     ok: ["and reset yourself between the jumps.", "and take a minute before each one."],
-    low: ["and stop switching after the last room.", "and give yourself a quiet evening."],
+    low: ["and stop switching once the final room ends.", "and give yourself a quiet evening."],
     evening: ["and give yourself a quiet evening.", "and let your head land tonight."],
   },
   baseline: {
