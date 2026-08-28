@@ -295,11 +295,11 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     evidence: (ctx) =>
       `Day ${confDay(ctx)} of a multi-day event; cumulative social performance load compounding.`,
     read: (ctx) =>
-      `Conference fatigue hits the interpersonal read first — ` +
-      `the most expensive Executive Presence to lose at an external event.`,
+      `Conference fatigue hits the interpersonal read first; ` +
+      `that is the most expensive Executive Presence to lose at an external event.`,
     directive: (ctx) =>
-      `Front-load conversations requiring emotional presence; ` +
-      `let the end of the day run on process, not performance.`,
+      `Pace the afternoon block at half attention and skip the corridor rounds; ` +
+      `the debrief keeps until tomorrow.`,
     close: () => `and pace the social battery`,
   },
 
@@ -309,12 +309,12 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   conferenceDayAttend: {
     evidence: (ctx) =>
-      `Full public-performance day — every corridor interaction is a stakeholder moment.`,
+      `Full public-performance day; every corridor interaction is a stakeholder moment.`,
     read: (ctx) =>
       `Informal interactions carry disproportionate weight because they're read as unguarded truth.`,
     directive: (ctx) =>
-      `Manage visible state deliberately — presence, composure, and eye contact ` +
-      `are the primary signals stakeholders will carry from today.`,
+      `Keep your output to the two rooms that actually matter and skip the rest of the agenda; ` +
+      `presence is the only thing being read today.`,
     close: () => `and hold your visible state`,
   },
 
