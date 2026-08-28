@@ -68,53 +68,50 @@ type Scope = {
 
 type V61Result = { valid: boolean; reason: string; softReject?: boolean };
 
-// The sliced source is TypeScript-free at this range apart from the function
-// signature's type annotations, which we strip for the Function constructor.
-function stripTypes(src: string): string {
-  return src
-    .replace(
-      /function validateV61Output\([\s\S]*?\)\s*:\s*\{[^}]*\}\s*\{/,
-      "function validateV61Output(parsed, phraseText, bodyTextStr, opts = {}) {",
-    )
-    .replace(/\(e: string\)/g, "(e)")
-    .replace(/\(items: any\[\], label: string\)/g, "(items, label)")
-    .replace(/\(p: string\)/g, "(p)")
-    .replace(/\(tok: string\)/g, "(tok)")
-    .replace(/\(title: string\)/g, "(title)")
-    .replace(/\(token: string\)/g, "(token)")
-    .replace(/const ONE_LINE_READS: string\[\]/g, "const ONE_LINE_READS")
-    .replace(
-      /const _tw: "morning" \| "afternoon" \| "evening"/g,
-      "const _tw",
-    )
-    .replace(/\bconsole\.(log|warn|error)\(/g, "(() => {})(");
-}
-
-const factory = new Function(
-  "scope",
-  "buildLexiconRegex",
-  "INLINE_LEXICON_WORDS",
-  "MATERIAL_TRAVEL_BODY_RX",
-  `
-  const { todayHighStakes, materialTravelContextActive, materialWorkEventTitles,
-          bandValence, hour, divergenceMode } = scope;
-  ${stripTypes(CONSTANTS_SRC)}
-  ${stripTypes(FN_SRC)}
-  return validateV61Output;
-  `,
-) as (
-  scope: Scope,
-  b: typeof buildLexiconRegex,
-  w: typeof INLINE_LEXICON_WORDS,
-  rx: RegExp,
-) => (
-  parsed: unknown,
-  phrase: string | null,
-  body: string | null,
-  opts?: { strict?: boolean },
-) => V61Result;
-
 const MATERIAL_TRAVEL_BODY_RX = /\b(flight|travel|airport|trip|journey)\b/i;
+
+// The slice is real TypeScript, so it is written to a temp module next to
+// index.ts (same import specifiers resolve) and imported — Deno compiles it.
+// No hand-stripping, no re-implementation of any rule.
+const MODULE_SRC = `
+import {
+  buildLexiconRegex,
+  INLINE_LEXICON_WORDS,
+} from "../_shared/brief/elastic-lexicon.ts";
+
+type Scope = {
+  todayHighStakes: string[];
+  materialTravelContextActive: boolean;
+  materialWorkEventTitles: string[];
+  bandValence: "low" | "mid" | "high" | null;
+  hour: number;
+  divergenceMode: string | null;
+};
+
+export function makeValidator(scope: Scope) {
+  const {
+    todayHighStakes,
+    materialTravelContextActive,
+    materialWorkEventTitles,
+    bandValence,
+    hour,
+    divergenceMode,
+  } = scope;
+  const MATERIAL_TRAVEL_BODY_RX = ${MATERIAL_TRAVEL_BODY_RX.toString()};
+${CONSTANTS_SRC}
+${FN_SRC}
+  return validateV61Output;
+}
+`;
+
+const TMP_URL = new URL("./__v61_slice.gen.test-only.ts", import.meta.url);
+await Deno.writeTextFile(TMP_URL, MODULE_SRC);
+const { makeValidator } = await import(TMP_URL.href + `?t=${Date.now()}`);
+globalThis.addEventListener("unload", () => {
+  try {
+    Deno.removeSync(TMP_URL);
+  } catch { /* already gone */ }
+});
 
 function runV61(
   phrase: string,
@@ -130,12 +127,8 @@ function runV61(
     divergenceMode: null,
     ...scope,
   };
-  const validate = factory(
-    full,
-    buildLexiconRegex,
-    INLINE_LEXICON_WORDS,
-    MATERIAL_TRAVEL_BODY_RX,
-  );
+  const validate = makeValidator(full);
+
   return validate(
     {
       phrase,
