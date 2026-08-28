@@ -830,12 +830,15 @@ export function buildDeterministicBriefFallback(
   }
 
   const evidence = buildEvidence(opts);
-  const read = buildRead(opts);
-  const directive = buildDirective(opts);
+  // Read and Directive each occupy exactly one dash-free sentence so the
+  // generic path honours the same 1–3 sentence four-beat budget as the
+  // narrative path (beat d rides on the directive's sentence).
+  const read = oneClause(buildRead(opts));
+  const directive = oneClause(buildDirective(opts));
   const close = closeFor(opts);
   return {
     phrase,
-    body: `${evidence} ${read} - ${directive}, ${close}`,
+    body: `${evidence} ${read}. ${directive}, ${close}`,
     topSignal: "baseline_quiet",
   };
 }
