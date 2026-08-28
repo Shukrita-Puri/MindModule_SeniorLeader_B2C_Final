@@ -43,7 +43,7 @@ import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
-import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { useAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
 import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
 import { useMrsSnapshot, isMrsVisible } from '@/hooks/useMrsSnapshot';
 
@@ -2178,7 +2178,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   } catch {}
 
   const cardsAwaiting = isTrueAwaitingBrief(outerBrief);
-  const awaitingCopy = resolveAwaitingSignalsCopy(outerBrief);
+  const awaitingCopy = useAwaitingSignalsCopy(outerBrief);
   const mrsVisible = isMrsVisible(briefMrsSnapshot, outerBrief as any);
 
 

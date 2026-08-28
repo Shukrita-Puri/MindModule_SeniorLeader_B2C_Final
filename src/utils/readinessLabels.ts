@@ -195,9 +195,9 @@ export function getAwaitingCopy(reason: AwaitingReason): string {
     case "calendar_connected_no_events":
       return "Calendar connected — no events found for this window.";
     case "wearable_present_calendar_missing":
-      return "Wearable signal received — connect calendar for a fuller read.";
+      return "Wearable is connected. Connect your calendar to get an early read, then check in to sharpen it.";
     case "calendar_present_wearable_missing":
-      return "Calendar signal received — sync wearable for a fuller read.";
+      return "Calendar is connected. Connect your wearable to get an early read, then check in to sharpen it.";
     case "first_time":
     default:
       return "Awaiting signals — connect your wearable and calendar to get an early read, then check in to sharpen it.";

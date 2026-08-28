@@ -14,7 +14,7 @@ import {
   getReadinessOneLiner,
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
-import { resolveAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
+import { useAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
 import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
 import { useTourMock } from '@/components/onboarding/useTourMock';
 import { MOCK_MRS } from '@/components/onboarding/tourMockData';
@@ -115,9 +115,8 @@ const MrsPage = () => {
   // Only consult live awaiting copy when no renderable snapshot exists.
   // Otherwise the snapshot score is authoritative and awaiting/sync-delayed
   // copy from live outerBrief would contradict the visible score.
-  const awaitingCopy = snapshotRenderable
-    ? ''
-    : resolveAwaitingSignalsCopy(outerBrief ?? undefined);
+  const resolvedAwaitingCopy = useAwaitingSignalsCopy(outerBrief ?? undefined);
+  const awaitingCopy = snapshotRenderable ? '' : resolvedAwaitingCopy;
 
   const tierColor = tierColorVar(tier);
   const oneLiner = showTourMockMrs ? MOCK_MRS.oneLiner : getReadinessOneLiner(score);

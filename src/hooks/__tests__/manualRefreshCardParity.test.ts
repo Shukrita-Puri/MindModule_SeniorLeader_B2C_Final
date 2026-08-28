@@ -45,7 +45,12 @@ describe('shared readiness gate', () => {
   });
 
   it('Plan still follows the shared MRS gate', () => {
-    expect(plan).toContain('isMrsVisible(mrsSnapshot, outerReadinessData as any)');
+    expect(plan).toContain('const mrsReadyForPlan = isMrsVisible(mrsSnapshot, outerReadinessData as any);');
+    const awaitingGateAt = plan.indexOf('if (!mrsReadyForPlan)');
+    const loaderAt = plan.indexOf('if (showPlanLoader)');
+    expect(awaitingGateAt).toBeGreaterThan(-1);
+    expect(loaderAt).toBeGreaterThan(awaitingGateAt);
+    expect(plan).toContain('Never enter Plan cache hydration or generation while MRS is');
   });
 
   it('Plan re-hydrates when a refreshed snapshot arrives', () => {
