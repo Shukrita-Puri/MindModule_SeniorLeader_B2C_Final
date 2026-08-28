@@ -1047,6 +1047,15 @@ const TodayThreePriorities = ({
       const loadedKey = cacheKeys.planLoaded(todayDate, currentPeriod);
       const dataKey = cacheKeys.planData(todayDate, currentPeriod);
       const forceKey = cacheKeys.planForceRefresh(todayDate, currentPeriod);
+      // MRS is the sole formed/awaiting authority for all three executive
+      // cards. Never enter Plan cache hydration or generation while MRS is
+      // awaiting, even if a stale Brief/Plan payload says otherwise.
+      if (!mrsReadyForPlan) {
+        setAwaitingSignals(true);
+        setSnapshotMissingReady(false);
+        setLoading(false);
+        return false;
+      }
       const slotReplacements = opts?.slotReplacements && typeof opts.slotReplacements === 'object'
         ? Object.entries(opts.slotReplacements).reduce<Record<string, { eventId: string }>>((acc, [k, v]) => {
             const idx = Number(k);
@@ -1362,7 +1371,7 @@ const TodayThreePriorities = ({
     }
     setLoading(false);
     return true;
-  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting, buildGeneratePlanRequestBody, invokeGenerateMasteryPlan]);
+  }, [user, outerReadinessData, noLocalSignalAtMount, queryClient, snapshotAwaiting, mrsReadyForPlan, buildGeneratePlanRequestBody, invokeGenerateMasteryPlan]);
 
   useEffect(() => {
     try {
