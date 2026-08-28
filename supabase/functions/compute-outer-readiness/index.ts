@@ -471,6 +471,18 @@ interface ComputeRequest {
    * row with null MRS fields.
    */
   contextOnly?: boolean;
+  /**
+   * Manual refresh (or replay/backfill) override. When true the brief
+   * snapshot *read* is skipped so copy is regenerated from the current
+   * signals instead of replaying an existing row for this
+   * (user, local_date, time_window, input_signature, prompt_version).
+   * Regeneration is deterministic on inputs, so an unchanged signal set
+   * still yields the same direction — only stale/incorrect copy changes.
+   * The write path is untouched: the row is updated in place with a new
+   * `updated_at`, and overwrite protection still prevents a null-copy pass
+   * from blanking a good brief. Nothing is deleted.
+   */
+  forceRefresh?: boolean;
   // MRS v3 — soft-guard tier cap (forwarded from compute-inner-readiness).
   // The server mirrors these into daily_context_snapshot so the UI reads
   // the canonical displayed tier without re-deriving from the raw score.
@@ -3009,6 +3021,10 @@ serve(async (req) => {
   try {
     const body: ComputeRequest & { userId?: string } = await req.json();
     recoveryBody = body;
+    // Manual refresh: bypass the brief snapshot replay (read) only. See the
+    // `forceRefresh` doc on ComputeRequest — the write path, validator and
+    // overwrite protection are all unchanged.
+    const forceBriefRefresh = (body as any)?.forceRefresh === true;
 
     // Auth model:
     //   - Normal user calls: identity is derived from a verified Auth0 JWT.
@@ -6168,7 +6184,21 @@ serve(async (req) => {
         );
       }
 
-      if (inputSignature !== "no-sig") {
+      if (forceBriefRefresh) {
+        console.log(
+          "[brief-cache] Result:",
+          JSON.stringify({
+            snapshotHit: false,
+            snapshotIgnoredReason: "force_refresh",
+            promptVersion: BRIEF_PROMPT_VERSION,
+            inputSignature: inputSignature.slice(0, 8) + "...",
+            generationPath: "forced_regeneration",
+            snapshotReason: "force_refresh_bypass_read",
+          }),
+        );
+      }
+
+      if (inputSignature !== "no-sig" && !forceBriefRefresh) {
         try {
           // brief_snapshots was split into baseline_* + refined_* column
           // sets. `phrase`, `body_text`, `lean_on`, `watch_for` are now
