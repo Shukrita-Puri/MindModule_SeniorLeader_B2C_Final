@@ -441,7 +441,7 @@ LEAN ON / WATCH FOR
 
 SAFE EXAMPLES (passing first-attempt shape)
 - phrase: "Go get them"
-  body: "Recovery is solid, your mind is sharp, and the 2pm board owns the day; open the room and set the agenda, and keep the morning calls short so you walk in with edge intact."
+  body: "Recovery came in ahead of your usual range and you have checked in sharp. Your body and your own read agree, so the edge is real. Lead the 2pm board and set the agenda early; keep the morning calls short."
   leanOn: [{"signal": "Post-board composure", "source": "PATTERN"}]
   watchFor: [{"signal": "Spending early", "source": "PATTERN"}]`;
 
