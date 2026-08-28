@@ -30,7 +30,16 @@ Also noted, lower severity: with a genuinely light calendar, the depleted read l
 
 **Light-day calendar acknowledgement.** Add a light-day branch to the evidence beat so 1–2 meetings are stated rather than erased: name the count and, where the timing is known, the lead event. The no-calendar sentence becomes reachable only when the meeting count is genuinely zero. Weekend and non-workday branches keep their own wording but get the same zero-check.
 
-**Recognise two-party meeting titles.** Extend the resolver's 1:1 detection to the separator forms ("A | B", "A / B", "A <> B") where both sides look like person names and the event is short with few attendees, mapping to the same Executive 1:1 subtype that "1:1 with Jane" already produces. Frontend mirror updated in lockstep with the shared resolver.
+**Recognise two-party meeting titles without needing the words "1:1".** Most invites never say 1:1. Treat a title as an Executive 1:1 (Category D) when it names two people and nothing else contradicts that:
+
+- separator forms: "Shukrita Puri | Jane", "A / B", "A <> B", "A - B"
+- conjunction forms: "Rohit and Shukrita", "Rohit & Shukrita"
+- connector words that carry no other meaning: "catch-up", "catch up with Jane", "sync with Jane", "chat with Jane", "coffee with Jane" where the counterparty is a person
+
+Supporting evidence keeps it honest: short duration (≤60 min) and at most two attendees where attendee data exists.
+
+Exclusions — a title stays out of the 1:1 mapping when it reads social or non-work ("chit chat", "drinks", "lunch", "birthday", "dinner", "party", "walk"), when either side is not a person-like name (a team, a product, a company, an all-hands), or when a stronger A–H marker already fires (interview, board, review, offsite). Existing higher-priority classification always wins; this heuristic only fills the gap where the resolver currently returns nothing.
+
 
 **Window-correct counts.** In afternoon and evening windows the evidence and directive beats use remaining meetings rather than the full-day total; morning keeps the full day.
 
@@ -42,12 +51,12 @@ Also noted, lower severity: with a genuinely light calendar, the depleted read l
 
 - Replay this exact snapshot (1 meeting, low load, stale wearable, no check-in) and confirm the body names the meeting instead of denying the calendar.
 - Run the 171-fixture golden set plus the validator harness; the new sentences must pass the same gates (three sentences, no dashes, no forbidden vocabulary, signal named).
-- Add fixtures for 1 meeting and 2 meetings across all three windows, and for the "A | B" title.
+- Add fixtures for 1 meeting and 2 meetings across all three windows, and for each title form: "A | B", "A / B", "A and B", "catch-up with Jane" (all 1:1) plus the exclusions ("chit chat", "team lunch", "All Hands") which must not map to 1:1.
 - Run the deterministic-brief Deno suite and the frontend suite, then redeploy `compute-outer-readiness` and the other taxonomy-consuming functions affected by the resolver change.
 
 ## Technical detail
 
 - `supabase/functions/_shared/brief/deterministic-brief.ts`: new light-day branch in `nBuildEvidence`/evidence builder before the wearable-only fallback (currently line ~396); zero-guard on the "no calendar demand in view" and "no work calendar" strings; window-gated selection between `meetingCount` and `remainingMeetings`; light-day variant for the `depleted` read entry.
-- `supabase/functions/_shared/events/resolve-event-category.ts` and the subtype keyword layer: separator-based two-party 1:1 detection → `lead.executive_1on1` (Category D), medium confidence; mirrored in `src/lib/events/categories.ts`.
+- `supabase/functions/_shared/events/resolve-event-category.ts` and the subtype keyword layer: two-party detection (separators, "and"/"&", connector verbs such as catch-up/sync/chat) → `lead.executive_1on1` (Category D), medium confidence, gated by a person-name test, a social/non-work exclusion list, and existing higher-priority markers; mirrored in `src/lib/events/categories.ts`.
 - `compute-outer-readiness/index.ts`: pass `remainingMeetings` into the deterministic options alongside `meetingCount`; pass `wearableSourceAgeDays` for the recency phrasing.
 - Tests: `_shared/brief/deterministic-brief.test.ts`, `golden-set.test.ts`, `compute-outer-readiness/worked_examples.test.ts`, `src/lib/events/__tests__/categories.test.ts`.
