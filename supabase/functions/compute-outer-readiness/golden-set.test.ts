@@ -197,6 +197,7 @@ interface GoldenFixture {
   window: "morning" | "afternoon" | "evening";
   band: DeterministicBriefBand;
   loadShape: "light" | "normal" | "heavy";
+  wearable: boolean;
 }
 
 const GOLDEN: GoldenFixture[] = [];
@@ -216,15 +217,36 @@ for (const family of FAMILIES) {
         loadShape = band === "depleted" || band === "stretched" ? "heavy" : "normal";
       }
       if (family === "baseline" && band === "depleted") loadShape = "light";
-      GOLDEN.push({ name: `${family}/${window}/${band}`, family, window, band, loadShape });
+      GOLDEN.push({
+        name: `${family}/${window}/${band}`,
+        family,
+        window,
+        band,
+        loadShape,
+        wearable: true,
+      });
     }
   }
+}
+
+// Explicit no-wearable coverage: one fixture per window. These keep a check-in
+// and a calendar, so they must still produce a valid four-beat brief from
+// demand and shape signals alone — never an awaiting state, never an error.
+for (const window of WINDOWS) {
+  GOLDEN.push({
+    name: `no-wearable/${window}`,
+    family: "back_to_back",
+    window,
+    band: "stretched",
+    loadShape: "heavy",
+    wearable: false,
+  });
 }
 
 Deno.test(`golden-set: ${GOLDEN.length} narrative fixtures build and validate`, () => {
   let built = 0;
   for (const fx of GOLDEN) {
-    const opts = baseOpts(fx.family, fx.window, fx.band, fx.loadShape);
+    const opts = baseOpts(fx.family, fx.window, fx.band, fx.loadShape, fx.wearable);
     const result = buildDeterministicBriefFallback(opts);
     assert(result, `[${fx.name}] deterministic brief returned null`);
     built++;
@@ -237,12 +259,7 @@ Deno.test(`golden-set: ${GOLDEN.length} narrative fixtures build and validate`, 
       result.phrase,
       result.body,
       {
-        signals: {
-          highStakesEventInNext24h: opts.todayHighStakes.length > 0
-            ? { title: opts.todayHighStakes[0], minutesUntil: 45 }
-            : null,
-          emotionalDrainEventInNext4h: null,
-        },
+        signals: signalsForOpts(opts),
         behaviourFlags: [],
         lexiconClusters: [],
         forbiddenWords: FORBIDDEN_WORDS,
