@@ -457,7 +457,9 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     const evidenceOutcome = opts.checkInOutcome === "holding"
       ? "steady"
       : opts.checkInOutcome;
-    return `You've checked in ${evidenceOutcome} against a ${shapeWord} calendar this ${opts.window}.`;
+    // Deduplicated count (cross-provider merge + overlap collapse upstream).
+    const meetingWord = effCount === 1 ? "meeting" : "meetings";
+    return `You've checked in ${evidenceOutcome} across ${effCount} ${meetingWord} this ${opts.window}.`;
   }
 
 

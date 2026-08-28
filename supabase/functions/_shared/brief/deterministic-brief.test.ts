@@ -246,7 +246,7 @@ Deno.test("deterministic brief — weekday wearable-only path keeps calendar-fre
     hasBackToBack: false,
     isWeekend: false,
   });
-  assertEquals(result.body.includes("no calendar demand in view"), true);
+  assertEquals(result.body.includes("open working day"), true);
   assertEquals(result.body.split(".")[0].trim().split(/\s+/).length >= 15, true);
 });
 
