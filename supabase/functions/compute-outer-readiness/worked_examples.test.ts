@@ -40,19 +40,31 @@ const FN_START = INDEX_SRC.indexOf("          function validateV61Output(");
 assert(START > 0, "could not locate validator constants block in index.ts");
 assert(FN_START > START, "could not locate validateV61Output in index.ts");
 
-// Walk braces from the function body to find its closing brace.
-function sliceFunction(src: string, fnStart: number): string {
-  const bodyStart = src.indexOf("{", src.indexOf(")", fnStart));
+// Brace-match from the function body's opening brace to its close. The
+// declaration carries an inline return-type annotation (`): { valid: ... } {`),
+// so the first brace after the parameter list belongs to that type, not the
+// body — skip any brace group that is followed by another `{`.
+function matchBrace(src: string, open: number): number {
   let depth = 0;
-  for (let i = bodyStart; i < src.length; i++) {
+  for (let i = open; i < src.length; i++) {
     if (src[i] === "{") depth++;
-    else if (src[i] === "}") {
-      depth--;
-      if (depth === 0) return src.slice(fnStart, i + 1);
-    }
+    else if (src[i] === "}" && --depth === 0) return i;
   }
   throw new Error("unbalanced braces while slicing validateV61Output");
 }
+
+function sliceFunction(src: string, fnStart: number): string {
+  let open = src.indexOf("{", src.indexOf(")", fnStart));
+  let close = matchBrace(src, open);
+  // Return-type annotation: the next non-space char after it opens the body.
+  const after = src.slice(close + 1).match(/^\s*\{/);
+  if (after) {
+    open = close + after[0].length;
+    close = matchBrace(src, open);
+  }
+  return src.slice(fnStart, close + 1);
+}
+
 
 const CONSTANTS_SRC = INDEX_SRC.slice(START, FN_START);
 const FN_SRC = sliceFunction(INDEX_SRC, FN_START);
