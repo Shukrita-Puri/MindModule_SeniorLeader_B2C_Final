@@ -30,7 +30,10 @@ Also noted, lower severity: with a genuinely light calendar, the depleted read l
 
 **Governing rule: volume is a fact, importance is a judgement.** The number of events on the calendar and the resulting load come straight from the calendar and are stated as they are, always. Classification (A–H) never gates that: it only decides whether an event is worth *naming* and whether it raises the stakes of the day. An unclassified event still counts towards the volume, so the brief can never say the calendar is empty while events exist.
 
-**Light-day calendar acknowledgement.** Add a light-day branch to the evidence beat so 1–2 meetings are stated rather than erased: name the count (and the lead event only when classification says it matters). The no-calendar sentence becomes reachable only when the event count is genuinely zero. Weekend and non-workday branches keep their own wording but get the same zero-check.
+**Describe the day by load, not by a count.** The brief should say the shape of the day in words, using exactly the same classification the calendar signal pill uses (light / moderate / heavy), so pill and brief can never disagree. On the verified case the pill said LIGHT, so the brief should read as a light day rather than an empty one. The no-calendar sentence becomes reachable only when there are genuinely zero events; weekend and non-workday branches keep their own wording but get the same zero-check.
+
+If a number is ever used, it must come from the same deduplicated meeting count the pill and demand scorer already produce (cross-provider duplicates collapsed, overlapping slots not double counted) via the existing shared helpers, never from a raw row count.
+
 
 
 **Recognise two-party meeting titles without needing the words "1:1".** Most invites never say 1:1. Treat a title as an Executive 1:1 (Category D) when it names two people and nothing else contradicts that:
@@ -59,7 +62,9 @@ Exclusions — a title stays out of the 1:1 mapping when it reads social or non-
 
 ## Technical detail
 
-- `supabase/functions/_shared/brief/deterministic-brief.ts`: new light-day branch in `nBuildEvidence`/evidence builder before the wearable-only fallback (currently line ~396); zero-guard on the "no calendar demand in view" and "no work calendar" strings; window-gated selection between `meetingCount` and `remainingMeetings`; light-day variant for the `depleted` read entry.
+- `supabase/functions/_shared/brief/deterministic-brief.ts`: new light-day branch in the evidence builder before the wearable-only fallback (currently line ~396), phrased with the shared load vocabulary rather than a raw count; zero-guard on the "no calendar demand in view" and "no work calendar" strings; window-gated selection between full-day and remaining load; light-day variant for the `depleted` read entry.
+- Load vocabulary and counts sourced from the existing SSOT (`_shared/signal-engine/demand-scorer.ts` load level plus the deduped meeting count already used by the pill and `mergeCalendarEvents`), not recomputed in the brief.
+
 - `supabase/functions/_shared/events/resolve-event-category.ts` and the subtype keyword layer: two-party detection (separators, "and"/"&", connector verbs such as catch-up/sync/chat) → `lead.executive_1on1` (Category D), medium confidence, gated by a person-name test, a social/non-work exclusion list, and existing higher-priority markers; mirrored in `src/lib/events/categories.ts`.
 - `compute-outer-readiness/index.ts`: pass `remainingMeetings` into the deterministic options alongside `meetingCount`; pass `wearableSourceAgeDays` for the recency phrasing.
 - Tests: `_shared/brief/deterministic-brief.test.ts`, `golden-set.test.ts`, `compute-outer-readiness/worked_examples.test.ts`, `src/lib/events/__tests__/categories.test.ts`.
