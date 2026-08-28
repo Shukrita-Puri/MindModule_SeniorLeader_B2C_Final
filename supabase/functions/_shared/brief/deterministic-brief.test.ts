@@ -87,7 +87,7 @@ Deno.test("deterministic brief — wearable plus stacked calendar uses calendar-
     physicalPillTier: "amber",
   }));
 
-  assertStringIncludes(built.body, "with 5 meetings stacked this morning");
+  assertStringIncludes(built.body, "with a heavy run of meetings stacked this morning");
   assertStringIncludes(built.body, "Physiology is carrying more load going into a compressed calendar");
 });
 
