@@ -1315,7 +1315,7 @@ export function renderNarrativeBeats(i: NarrativeCopyInput): NarrativeBeats | nu
 
   return {
     evidence,
-    read: nPick(readBank, i.variantSeed, `read:${family}:${i.window}`),
+    read: `${nClause(nPick(readBank, i.variantSeed, `read:${family}:${i.window}`))}.`,
     directive,
     close: closeWithLexicon,
   };
