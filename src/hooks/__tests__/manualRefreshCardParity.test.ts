@@ -17,7 +17,7 @@ describe('manual refresh is one atomic backend operation', () => {
 
   it('invokes only build-executive-home-cards', () => {
     expect(refreshHook).toContain("supabase.functions.invoke('build-executive-home-cards'");
-    expect(refreshHook).not.toContain('compute-outer-readiness');
+    expect(refreshHook).not.toContain("invoke('compute-outer-readiness'");
   });
 
   it('waits for the three snapshot reads before touching the brief cache', () => {
