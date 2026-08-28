@@ -471,6 +471,18 @@ interface ComputeRequest {
    * row with null MRS fields.
    */
   contextOnly?: boolean;
+  /**
+   * Manual refresh (or replay/backfill) override. When true the brief
+   * snapshot *read* is skipped so copy is regenerated from the current
+   * signals instead of replaying an existing row for this
+   * (user, local_date, time_window, input_signature, prompt_version).
+   * Regeneration is deterministic on inputs, so an unchanged signal set
+   * still yields the same direction — only stale/incorrect copy changes.
+   * The write path is untouched: the row is updated in place with a new
+   * `updated_at`, and overwrite protection still prevents a null-copy pass
+   * from blanking a good brief. Nothing is deleted.
+   */
+  forceRefresh?: boolean;
   // MRS v3 — soft-guard tier cap (forwarded from compute-inner-readiness).
   // The server mirrors these into daily_context_snapshot so the UI reads
   // the canonical displayed tier without re-deriving from the raw score.
