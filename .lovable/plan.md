@@ -45,7 +45,7 @@ If a number is ever used, it must come from the same deduplicated meeting count 
 - conjunction forms: "Rohit and Shukrita", "Rohit & Shukrita"
 - connector words that carry no other meaning: "catch-up", "catch up with Jane", "sync with Jane", "chat with Jane", "coffee with Jane" where the counterparty is a person
 
-Supporting evidence keeps it honest: short duration (≤60 min) and at most two attendees where attendee data exists.
+The title is the evidence. Attendee count is explicitly not used to decide whether something is a 1:1 — people create calendar blocks with no invitees at all, so an empty attendee list proves nothing. Attendee data is used only later, to characterise the relationship (boss, direct report, colleague, external, interview panel), never to grant or deny the 1:1 classification. Duration may be recorded but carries no weight in the decision.
 
 Exclusions — a title stays out of the 1:1 mapping when it reads social or non-work ("chit chat", "drinks", "lunch", "birthday", "dinner", "party", "walk"), when either side is not a person-like name (a team, a product, a company, an all-hands), or when a stronger A–H marker already fires (interview, board, review, offsite). Existing higher-priority classification always wins; this heuristic only fills the gap where the resolver currently returns nothing.
 
