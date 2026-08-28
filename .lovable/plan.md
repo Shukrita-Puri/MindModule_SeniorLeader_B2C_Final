@@ -51,12 +51,12 @@ Exclusions — a title stays out of the 1:1 mapping when it reads social or non-
 
 - Replay this exact snapshot (1 meeting, low load, stale wearable, no check-in) and confirm the body names the meeting instead of denying the calendar.
 - Run the 171-fixture golden set plus the validator harness; the new sentences must pass the same gates (three sentences, no dashes, no forbidden vocabulary, signal named).
-- Add fixtures for 1 meeting and 2 meetings across all three windows, and for the "A | B" title.
+- Add fixtures for 1 meeting and 2 meetings across all three windows, and for each title form: "A | B", "A / B", "A and B", "catch-up with Jane" (all 1:1) plus the exclusions ("chit chat", "team lunch", "All Hands") which must not map to 1:1.
 - Run the deterministic-brief Deno suite and the frontend suite, then redeploy `compute-outer-readiness` and the other taxonomy-consuming functions affected by the resolver change.
 
 ## Technical detail
 
 - `supabase/functions/_shared/brief/deterministic-brief.ts`: new light-day branch in `nBuildEvidence`/evidence builder before the wearable-only fallback (currently line ~396); zero-guard on the "no calendar demand in view" and "no work calendar" strings; window-gated selection between `meetingCount` and `remainingMeetings`; light-day variant for the `depleted` read entry.
-- `supabase/functions/_shared/events/resolve-event-category.ts` and the subtype keyword layer: separator-based two-party 1:1 detection → `lead.executive_1on1` (Category D), medium confidence; mirrored in `src/lib/events/categories.ts`.
+- `supabase/functions/_shared/events/resolve-event-category.ts` and the subtype keyword layer: two-party detection (separators, "and"/"&", connector verbs such as catch-up/sync/chat) → `lead.executive_1on1` (Category D), medium confidence, gated by a person-name test, a social/non-work exclusion list, and existing higher-priority markers; mirrored in `src/lib/events/categories.ts`.
 - `compute-outer-readiness/index.ts`: pass `remainingMeetings` into the deterministic options alongside `meetingCount`; pass `wearableSourceAgeDays` for the recency phrasing.
 - Tests: `_shared/brief/deterministic-brief.test.ts`, `golden-set.test.ts`, `compute-outer-readiness/worked_examples.test.ts`, `src/lib/events/__tests__/categories.test.ts`.
