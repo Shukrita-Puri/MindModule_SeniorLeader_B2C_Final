@@ -423,6 +423,22 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   return `The calendar is the only read in view this ${opts.window}.`;
 }
 
+/**
+ * Collapse a beat to one sentence with no dash breaks. `validateV61Output`
+ * rejects em/en dashes anywhere between words, and the four-beat contract
+ * caps the body at three sentences, so every beat is normalised here.
+ */
+function oneClause(s: string): string {
+  return s
+    .trim()
+    .replace(/\s+[—–-]\s+/g, "; ")
+    .replace(/([A-Za-z,])\s*[—–]\s*([A-Za-z])/g, "$1; $2")
+    .replace(/\.\s+/g, "; ")
+    .replace(/[.;,\s]+$/, "")
+    .replace(/;\s+([A-Z][a-z])/g, (_m, w: string) => `; ${w.toLowerCase()}`)
+    .trim();
+}
+
 function buildRead(opts: DeterministicBriefFallbackOpts): string {
   // ── Travel-aware reads — run before all pillar reads ──
   const shape = opts.dayShape ?? null;
