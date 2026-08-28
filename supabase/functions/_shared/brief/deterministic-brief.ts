@@ -586,7 +586,9 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
     firing: "Mind and body are carrying more supply than the day is asking for.",
     steady: "Mental Bandwidth and physical stamina are evenly matched with what's ahead.",
     stretched: "The day is asking more than the physical runway can easily cover without cost.",
-    depleted: "Physical Recovery is lower than the calendar assumes.",
+    depleted: loadWord(opts) === "light"
+      ? "Physical Recovery is under its usual range, and the day is light enough to work with that."
+      : "Physical Recovery is lower than the calendar assumes.",
   };
   return readMap[pillKey] ?? readMap[opts.band] ?? readMap.steady;
 }
