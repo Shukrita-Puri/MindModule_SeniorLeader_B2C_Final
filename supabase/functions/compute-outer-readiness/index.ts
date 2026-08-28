@@ -8583,12 +8583,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // 2026-07-11 — Time-of-day framing gate. Prevents morning framing
             // ("Anchor the first hour") landing in the evening and vice
             // versa. `hour` is captured from the outer request scope.
+            // 2026-08-28 — Window now comes from the canonical SSOT
+            // (getTimeOfDay: morning 05–11, afternoon 12–17, evening 18–04).
+            // The old inline `hour < 12` split classified 00:00–04:59 as
+            // MORNING while the snapshot row for those hours is written as
+            // EVENING, so overnight briefs were rejected with
+            // `body_evening_framing_in_morning` for using correct evening copy.
             {
-              const _tw: "morning" | "afternoon" | "evening" = hour < 12
-                ? "morning"
-                : hour < 18
-                ? "afternoon"
-                : "evening";
+              const _tw = getTimeOfDay(hour);
+
               const MORNING_PHRASES =
                 /\b(first hour|start (?:of )?the day|morning block|front[- ]load(?:ing)? the morning|set the day|begin with|opening hours|open the day)\b/i;
               const EVENING_PHRASES =
