@@ -235,10 +235,10 @@ for (const family of FAMILIES) {
 for (const window of WINDOWS) {
   GOLDEN.push({
     name: `no-wearable/${window}`,
-    family: "back_to_back",
+    family: "weight_heavy",
     window,
     band: "stretched",
-    loadShape: "heavy",
+    loadShape: "normal",
     wearable: false,
   });
 }

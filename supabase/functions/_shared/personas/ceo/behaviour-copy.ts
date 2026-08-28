@@ -324,7 +324,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
   // ───────────────────────────────────────────────────────────────────────────
   visibilityCommsPrep: {
     evidence: (ctx) =>
-      `${anchorTimed(ctx)} is a high-visibility moment — words and presence read beyond the room.`,
+      `${anchorTimed(ctx)} is an exposed moment; words and presence read beyond the room.`,
     read: (ctx) =>
       `Town halls are culture delivery, not information delivery — ` +
       `emotional register is what people feel, repeat, and act on.`,
