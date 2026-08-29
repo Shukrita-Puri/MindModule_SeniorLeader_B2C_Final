@@ -249,7 +249,18 @@ BUCKET 3 — PATTERNS & HISTORY: "What has happened over time — and what does 
   Sustained deficit flag + consecutive high-load days — systemic signal, not a one-off.
   DOW historical pattern — what typically happens for this person on this day of the week.
   Consecutive low clarity / confidence — how many days in a row.
-  Coach insights — strength, growth area, pending commitment.
+Coach insights — strength, growth area, pending commitment.
+    (Coach feature not yet active — no coach data will appear in BUCKET 3. Growth areas, cognitive
+    load, leadership context, and strengths come from the Leadership COS profile; commitments and
+    preferences come from Onboarding V8. Use those when present — they are what the user told us
+    about themselves. Skip this bullet only when neither exists.)
+  PATTERN PRIORITY RULE: If any entry in BUCKET 3 is flagged ⚑ TODAY'S CALENDAR —
+  that pattern is the anchor for beat (a). It overrides generic wearable language.
+  Name the event type, the n, and the measured delta. Be specific.
+  CORRECT: "Your last 4 board sessions have moved recovery down 18% the morning after."
+  WRONG: "High-stakes events affect your recovery."
+  NOTE: event_to_hrv = next-morning recovery cost (not in-event). Do not say HRV drops
+  "during" the meeting — say "the morning after" or "the day after."
 
 STEP 2 — FIND THE TENSION (from Bucket 1)
 One of four states is true today:
@@ -265,6 +276,12 @@ Do not begin writing the output until Step 3 is complete.
 
 STEP 4 — FIND THE LEAD EVENT (from Bucket 2)
 If a [A], [B], or [C] event exists today, it anchors beat (c).
+Category H events (gym, run, social, family dinner, personal errands) are NEVER
+beat (c) anchors — even when they are the only event on the calendar.
+If only H events exist, beat (c) anchors to the day shape or the pillar state.
+Why: this app builds mental performance for C-Suite work. Personal and recovery
+events are never anchors; a working day holding only H events is a light day —
+frame it for recovery.
 Name the cognitive posture it requires: decide / lead / listen / analyse / defer / sequence / protect.
 Use the category-level reference — never the specific meeting title.
 If no A/B/C event: anchor beat (c) to the pillar state.
@@ -274,8 +291,13 @@ that context is not available here — but naming the highest-category event is 
 
 STEP 5 — FIND ONE PATTERN (from Bucket 3)
 One pattern only. Directly tied to today's signals or today's calendar.
-Priority order: HRV×event correlation for today's event type → HR×event → cognition×event →
-consecutive deficit streak → DOW pattern.
+Priority order for pattern selection:
+  1. causality_findings match (⚑ flagged in BUCKET 3) — highest priority, n≥3, measured
+  2. HR×event correlation (in-event intraday signal, if available)
+  3. Cognition×event impact (clarity/sharpness drop for this event type)
+  4. Consecutive deficit streak (sustained load signal)
+  5. DOW historical pattern (day-of-week baseline divergence)
+  6. Lightweight hrvEventCorrelation (keyword match, lower confidence — use only if no ⚑ flag)
 Skip entirely if nothing is clearly relevant — a generic pattern is worse than no pattern.
 When a pattern exists and is relevant, name it specifically: "Your HRV drops ~18% before board sessions."
 Not: "High-stakes events affect your recovery."
