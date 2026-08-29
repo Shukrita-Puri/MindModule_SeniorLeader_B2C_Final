@@ -84,9 +84,15 @@ Fix, in the same file:
 Result: both paths read one ranked source (`todayHighStakes`) and now obey one naming rule.
 
 
-### 5. Explicit non-changes
+### 5. Files touched, and nothing else
 
-`rankByStakes`, `getServerCalendarMetrics`, category derivation, JIT v2, Plan, MRS, Insights, validators, personas copy, frontend, migrations, `BRIEF_PROMPT_VERSION` — all untouched.
+- `supabase/functions/compute-outer-readiness/index.ts` — prompt rendering, reference block, output contract
+- `supabase/functions/_shared/brief/deterministic-brief.ts` — `shortRefImpl` naming rule
+
+Read-only imports from `_shared/events/` (`EVENT_CATEGORIES`, optionally `EVENT_TYPES`); those files are not edited. Frozen and untouched: `rankByStakes`, `getServerCalendarMetrics`, category derivation, JIT v2 / `generate-mastery-plan`, `compute-inner-readiness`, `smart-nudges`, `cause-effect-engine`, `performance-rhythm-insights`, `build-executive-home-cards`, `_shared/brief-validators.ts`, `_shared/signal-engine/`, `_shared/signal-pills/`, `_shared/personas/ceo/behaviour-copy.ts`, `copy-vocabulary.ts` (reserved for Change 5), all frontend files, all migrations, and `BRIEF_PROMPT_VERSION` (not bumped).
+
+If a test outside `_shared/brief` or `_shared/personas` fails, that is a scope leak: stop, roll back the offending line, and report rather than fix.
+
 
 ## Verification
 
