@@ -1,67 +1,72 @@
-# Change 7 — Pattern-match evidence in the deterministic path
+# Change 7 — Pattern evidence in the deterministic Brief (and an LLM parity fix)
 
-Your model is right, and it is cleaner than the card. Restating it as the governing rule:
+## The governing rule
 
-**A–H determines event priority. Evidence determines how strongly and specifically the selected event can be represented. Evidence never reorders events.**
+**A–H decides which event the Brief is about. Evidence decides how specifically that event can be spoken about. Evidence never reorders events.**
 
-The current `buildEvidence()` chain does conflate the two: travel and conference are *subjects* (which context is surfaced), while CEO flag, drained, low sleep, wearable and check-in are *evidence types* (how that subject is explained). They sit in one flat list today, so an evidence type can change which subject the user sees. Change 7 restructures it into two stages instead of inserting causality into the flat list.
+Today's `buildEvidence()` conflates the two: travel and conference are *subjects*, while CEO flag, drained, low sleep, wearable and check-in are *evidence types*, all in one flat chain — so an evidence type can change which event the user sees. Change 7 splits it into two stages and plugs the pattern store into the evidence stage.
 
-## Verified current state
+## What "causality sentence" means
 
-- `compute-outer-readiness/index.ts:6921` already loads `causalitySignalSummary` from `causality_findings` (Change 1 is live).
-- `_shared/brief/deterministic-brief.ts:416` `buildEvidence()` is the flat chain; `shortRefTimed()` and `effectiveWindow()` exist.
-- The `buildDeterministicBriefFallback(...)` call site already passes `windowContext` (Change 6 is live).
-- `todayHighStakes` arrives pre-ranked by `getServerCalendarMetrics()` → `rankByStakes()`/`stakesScore()` — the same A–H priority source the LLM prompt uses. Change 7 does not touch it.
+It is just: *one sentence that cites this person's own measured history for the event that is already selected*. Not one shape — the pattern store holds several, and all of them qualify:
 
-## The two stages
+| Pattern data | Sentence it produces |
+|---|---|
+| `performance_lift.hr_event_lift` (in-event peak HR) | "Across three board meetings your heart rate ran 14 bpm above resting." |
+| `event_to_rhr` (next-morning RHR) | "The three mornings after a board meeting your resting rate sat 11% high." |
+| `event_to_hrv` (next-morning HRV) | "Recovery the morning after these has run about 20% below your usual." |
+| `event_to_cognition` | "Clarity has dropped roughly a tier after these, across four of them." |
+| `consecutive_load` | "After two heavy days your recovery has run 11% lower." |
+| `sleep_to_prs` | "On short-sleep nights your next day has come in about 14% lower." |
+| `performance_lift.category_lift` (positive) | "Deep-work days are where your numbers have come in strongest." |
+
+Two distinct time frames, never mixed: **during** the event (HR only — it is the intraday signal) and **the morning after** (RHR, HRV — recovery cost). The earlier card said "never during", which was wrong; the correct rule is *during* belongs to HR, *morning after* belongs to RHR/HRV.
+
+## LLM-path audit (verified in code)
+
+- Prompt bucket order is Bucket 1 physiology → Bucket 2 calendar & day shape → Bucket 3 patterns & history, so the LLM does get the day's events before the patterns.
+- `compute-outer-readiness/index.ts:7279+` already matches every Bucket 3 family against today's A–H-resolved events (`enrichOf()` bucket / category / subtype / label, with a substring pass) and tags matches, and it tells the model to name a matched pattern in beat (c). So the LLM path already implements subject-then-evidence.
+- **One real defect:** the prompt writes the marker as `← TODAY`, but the `PATTERN PRIORITY RULE` and the six-level selection order in `copy-vocabulary.ts:257,295` tell the model to look for `⚑ TODAY'S CALENDAR`. The model is instructed to prioritise a marker that never appears. Change 7 aligns the two on the `⚑ TODAY'S CALENDAR` spelling (prompt side only; the vocabulary file stays as written, so no prompt-version bump is needed for the rules themselves).
+- Coverage gap: `hr_event_lift` matches only on `bucket`, while the other families use the wider label matcher. Point `hr_event_lift` at the same `matchesTodayEventType()` helper so in-event HR — the strongest event-level evidence — stops being the narrowest matcher.
+
+## Deterministic path — the two stages
 
 ```text
 TODAY'S EVENTS
       |
-A-H EVENT PRIORITISATION            (unchanged, existing code)
-      |
+A-H EVENT PRIORITISATION       (unchanged: getServerCalendarMetrics ->
+      |                         rankByStakes/stakesScore -> todayHighStakes)
 Ranked subjects:
   1. Travel shape (G)
   2. Conference shape (F)
-  3. Highest-ranked high-stakes event, then the next one
+  3. todayHighStakes[0], then [1]
   4. No event -> day shape / pillar state
       |
-For the selected subject, pick the strongest available evidence:
-  causality pattern  ->  supporting  ->  fallback
+For the SELECTED subject, take the strongest evidence available:
+  Tier 1  pattern store   in-event HR -> next-morning RHR -> next-morning HRV
+                          -> cognition -> consecutive load -> positive lift
+  Tier 2  supporting      CEO behaviour flag, drained-into-this-event,
+                          low sleep into this event, travel/conference framing
+  Tier 3  fallback        generic wearable fact, then check-in outcome
+  Tier 4  none            name the subject itself (existing A-H phrasing)
 ```
 
-Evidence tiers, per subject:
-1. **Causality pattern** — a `causality_findings` entry with `n >= 3` whose event type matches this subject.
-2. **Supporting** — the existing subject-specific evidence for that subject: travel/conference wearable framing, CEO behaviour flag, drained-into-this-event, low sleep into this event.
-3. **Fallback** — the generic wearable fact, then the check-in outcome.
-4. **None** — name the subject itself, using the existing A–H phrasing.
+Selection moves to the next-ranked subject only when a subject yields no usable sentence at all. Tier 1 ordering is by evidence strength for the *already chosen* subject, so richer pattern data makes a Brief more specific — never a different Brief.
 
-Only when a subject yields no usable sentence at all does selection move to the next-ranked subject. Adding causality can therefore make a subject *more* specific, never swap it for a different one.
+Tier 1 gating: `n >= 3`, plus the same magnitude floors the LLM prompt already uses (HR ≥ 8 bpm, RHR > 10%, HRV ≥ 15%, cognition ≤ −0.4 tiers, load/sleep ≥ 8%), so the two paths cite a pattern under identical conditions. Matching uses the same A–H label set as the prompt, not a first-word compare. Window-aware tense: "still ahead" in the afternoon, "today" otherwise, event reference via `shortRefTimed()`.
 
 ## Work
 
-### 1. `deterministic-brief.ts` — optional `causalityData` opt
-Add an optional, structurally typed field (declared locally, no cross-import of the edge function's type) covering `event_to_hrv`, `event_to_rhr`, `event_to_cognition`, `consecutive_load`, `performance_lift.category_lift`. Optional means every existing caller and all 174 golden fixtures compile unchanged.
-
-### 2. `deterministic-brief.ts` — restructure `buildEvidence()` into subject → evidence
-Refactor the existing branches into an explicit subject list in the A–H order above, each resolved through the tier ladder. The refactor is behaviour-preserving where no causality data exists: with `causalityData` null, every subject falls straight to its existing supporting/fallback branch and emits the same sentence as today. The only new output path is tier 1.
-
-Causality sentence: names n, event type, direction and absolute delta, framed as "the morning after" (never "during"), window-aware tense ("still ahead" in the afternoon, "today" otherwise), event reference via `shortRefTimed()`. Match is case-insensitive on the first word of `event_type` against the subject's title.
-
-### 3. `compute-outer-readiness/index.ts` — pass the data
-Add `causalityData: causalitySignalSummary` to the single existing call site. No new query, no schema change.
-
-### 4. Tests
-The scope list names `_shared/brief/behaviour-copy.contract.test.ts`, which does not exist — the contract test lives at `_shared/personas/ceo/behaviour-copy.contract.test.ts` and that persona pack is frozen. The new fixtures therefore go in a new `_shared/brief/deterministic-causality.test.ts`, matching the style of `deterministic-generic-window.test.ts`:
-- causality match on a Cat-A event, morning: names n and event type, never says "during", no `<event> ahead`.
-- causality data present but no calendar match: falls through, never names the unmatched type.
-- `causalityData: null`: brief still generates, output byte-identical to today.
-- Subject-stability regression: for a travel day and a conference day, adding causality data does not change which subject is named.
+1. **`_shared/brief/deterministic-brief.ts`** — add an optional, locally declared `causalityData` opt covering all six families (`event_to_hrv`, `event_to_rhr`, `event_to_cognition`, `sleep_to_prs`, `consecutive_load`, `performance_lift.{hr_event_lift,category_lift}`). Optional, so every existing caller and all 174 fixtures compile unchanged.
+2. **`_shared/brief/deterministic-brief.ts`** — restructure `buildEvidence()` into subject → tier ladder, and add the tier-1 pattern branch. Behaviour-preserving with `causalityData` null: every subject falls straight to its existing branch and emits today's sentence.
+3. **`compute-outer-readiness/index.ts`** — pass `causalityData: causalitySignalSummary` at the single call site (no new query), fix the `← TODAY` / `⚑ TODAY'S CALENDAR` marker mismatch, and route `hr_event_lift` through `matchesTodayEventType()`.
+4. **Tests** — the scope list names `_shared/brief/behaviour-copy.contract.test.ts`, which does not exist; the contract test lives in the frozen `_shared/personas/ceo/` pack. New fixtures go in `_shared/brief/deterministic-causality.test.ts`: one per pattern family (correct during-vs-morning-after framing); pattern present but no calendar match → falls through silently; `causalityData: null` → output identical to today; subject-stability regression proving added pattern data never changes which event is named.
 
 ## Verification
 - `deno test supabase/functions/_shared/brief` and `_shared/personas` green.
-- Golden set still 174 fixtures with no re-baselining — the restructure is behaviour-preserving without causality data. Any fixture diff is a bug in the refactor, not a new baseline; I will report it rather than accept it.
-- Deploy `compute-outer-readiness` only. No prompt-version bump.
+- Golden set stays at 174 with no re-baselining. Any fixture diff means the restructure was not behaviour-preserving — I report it rather than accept it.
+- Marker-parity assertion: the string the prompt emits equals the string the rules tell the model to look for.
+- Deploy `compute-outer-readiness` only. No `BRIEF_PROMPT_VERSION` bump.
 
 ## Scope
-Files touched: `_shared/brief/deterministic-brief.ts`, `compute-outer-readiness/index.ts`, plus one new test file. MRS, Plan, Insights, Nudges, cause-effect-engine, executive cards, frontend, migrations, signal pills, validators, signal-engine, event taxonomy and the CEO copy pack stay frozen.
+Touched: `_shared/brief/deterministic-brief.ts`, `compute-outer-readiness/index.ts`, one new test file. Frozen: MRS, Plan, Insights, Nudges, cause-effect-engine, executive cards, frontend, migrations, signal pills, validators, signal-engine, event taxonomy, CEO copy pack.
