@@ -1,11 +1,12 @@
 # Performance Readiness Brief — LLM Prompt Specification
 
-> **Source**: `Decision_Readiness_Brief_LLM_Prompt_v4.docx` (v4.0, April 2026)
-> **Companion**: `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md` (v6.2) — runtime architecture, validators, pills, fallback, snapshot cache.
-> **Companion examples**: `Decision_Readiness_Brief_Examples_v4.docx` (upload).
-> **Model**: `claude-sonnet-4-20250514` · Temperature `0` · Max tokens `380`
-> **Cache key**: `user_id + date + slot (morning|afternoon|evening) + last_checkin_id`
-> **Status**: This file is the **canonical prompt source of truth**. The edge function (`compute-outer-readiness`) embeds this prompt at runtime. Any change here is a prompt change.
+> **Status (2026-08-29)**: **HISTORICAL REFERENCE, NOT SSOT.** The canonical prompt is the inline `systemPrompt` / `userPrompt` in `supabase/functions/compute-outer-readiness/index.ts`. Change the prompt there; this file records the v4 lineage and the rules that survived.
+> **Origin**: `Decision_Readiness_Brief_LLM_Prompt_v4.docx` (v4.0, April 2026)
+> **Companion**: `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md` (v7.7) — runtime architecture, validators, pills, fallback, snapshot cache.
+> **Model ladder**: Gemini Flash (primary) → Claude Haiku (fallback). Not `claude-sonnet-4`.
+> **Body contract**: exactly three sentences, close appended after a semicolon. Forbidden-word and Elastic-Lexicon lists come from `_shared/brief/elastic-lexicon.ts` and `_shared/copy-vocabulary.ts`.
+> **Cache key**: `(user_id, local_date, time_window, input_signature, prompt_version)` — **not** `last_checkin_id`.
+> **Prompt version**: `v7.7-calendar-load-honesty` (`_shared/brief-prompt-version.ts`).
 
 Markers used in this file:
 
