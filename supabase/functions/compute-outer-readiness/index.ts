@@ -7152,17 +7152,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\n\n=== CALENDAR TODAY ===`;
             userPrompt +=
               `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}`;
-            // Pair every high-stakes title with its own local HH:mm and A-H
-            // category suffix so the LLM never invents or rounds the clock and
-            // understands the relative importance of each moment.
+            // Pair every high-stakes title with its own local HH:mm and an
+            // INTERNAL-ONLY A–H marker so the LLM never invents or rounds the
+            // clock and can rank relative importance. The marker is prompt-side
+            // only — the output contract below forbids it in user-facing copy.
             if (todayHighStakes.length > 0) {
-              const pairedToday = todayHighStakes.map((t, i) => {
+              userPrompt += `\nHigh-stakes events (listed highest-priority first):`;
+              for (let i = 0; i < todayHighStakes.length; i++) {
                 const tm = todayHighStakesEventTimes[i];
-                const cat = todayHighStakesCategories[i];
-                const suffix = cat ? ` [${cat}]` : "";
-                return tm ? `${tm} ${t}${suffix}` : `${t}${suffix}`;
-              }).join("; ");
-              userPrompt += `\nHigh-stakes (local time, title [category]): ${pairedToday}`;
+                const label = internalCatLabel(todayHighStakesCategories[i]);
+                userPrompt += `\n  ${tm ? `${tm} ` : ""}${
+                  todayHighStakes[i]
+                }${label}`;
+              }
+            } else {
+              userPrompt += `\n  No classified meetings today.`;
             }
             userPrompt += `\nTotal meetings: ${
               calendarResult.meetingCount ?? 0
