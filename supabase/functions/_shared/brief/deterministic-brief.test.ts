@@ -653,7 +653,7 @@ function anchorOf(title: string): string {
     band: "steady",
     checkInOutcome: "drained",
     todayHighStakes: [title],
-    calendarLoad: "moderate",
+    calendarLoad: "medium",
     meetingCount: 3,
   })).body;
 }
