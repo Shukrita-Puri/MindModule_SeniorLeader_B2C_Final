@@ -680,8 +680,12 @@ Deno.test("event naming — long titles truncate on a word boundary, never mid-w
   const body = anchorOf("Northwind Capital Partners Diligence Session");
   const m = body.match(/the ([a-z0-9 ]+)\.\.\./);
   if (!m) throw new Error(`expected a truncated reference, got: ${body}`);
-  // No trailing partial word before the ellipsis.
-  assertEquals(m[1].trim(), m[1].trim().replace(/\s+\S*$/, "") || m[1].trim());
+  // Every retained token is a WHOLE word of the original title — nothing is
+  // cut mid-word (the old slice(0,22) produced "northwind capital par...").
+  const words = "northwind capital partners diligence session".split(" ");
+  for (const w of m[1].trim().split(" ")) {
+    assertEquals(words.includes(w), true, `mid-word cut: ${w}`);
+  }
   assertStringIncludes(body, "northwind");
 });
 
