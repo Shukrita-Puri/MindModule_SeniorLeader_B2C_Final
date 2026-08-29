@@ -193,27 +193,46 @@ function isOffDayShape(shape: DayShape | null | undefined): boolean {
     shape === "personal_holiday";
 }
 
+/**
+ * Bare generic titles — patterns are `^`-anchored on purpose. An unanchored
+ * /board/i would swallow "Acme Q3 Board Review" and strip the one word that
+ * tells the user which event this is. Anchored, only titles that START with
+ * the generic word collapse to the generic phrase.
+ */
+const BARE_GENERIC: Array<[RegExp, string]> = [
+  [/^board(\s|$|\s*meeting|\s*review|\s*call|\s*prep)/i, "the board call"],
+  [/^governance/i, "the board call"],
+  [/^strategy\s|^strategy$|^deep work|^5.year|^planning/i, "the strategy session"],
+  [/^investor(\s|$|\s*call|\s*update|\s*meeting)/i, "the investor call"],
+  [/^pitch(\s|$)/i, "the investor call"],
+  [/^keynote|^speaking|^media|^press/i, "the keynote"],
+  [/^all.?hands|^town.?hall/i, "the all-hands"],
+  [/^conference|^summit(\s|$)/i, "the conference"],
+  [/^feedback|^difficult/i, "the difficult conversation"],
+  [/^1.?1$|^one.?to.?one/i, "the 1:1"],
+  [/^qbr|^quarterly(\s|$)/i, "the review"],
+];
+
 function shortRefImpl(title: string): string {
   const clean = title.replace(/^\d{1,2}:\d{2}\s+/, "").trim();
-  if (/board|governance/i.test(clean)) return "the board call";
-  if (/strategy|5.year|planning|deep work/i.test(clean)) return "the strategy session";
-  if (/investor|pitch/i.test(clean)) return "the investor call";
-  if (/keynote|speaking|media|press/i.test(clean)) return "the keynote";
-  if (/all.?hands|town.?hall/i.test(clean)) return "the all-hands";
-  if (/conference|summit/i.test(clean)) return "the conference";
-  if (/feedback|difficult/i.test(clean)) return "the difficult conversation";
-  if (/1.?1|one.?to.?one/i.test(clean)) return "the 1:1";
 
-  // ── NEW: travel / flight detection ──
+  // ── Travel / flight detection stays FIRST — order is load-bearing. ──
   if (/\b(flight|fly|flying|plane|airport|departing|boarding|long[- ]?haul|red[- ]?eye)\b/i.test(clean)) {
     return "the flight";
   }
   // Flight number pattern: BA 183, UA 456, QR 007 etc.
   if (/\b[A-Z]{2}\s*\d{2,4}\b/.test(clean)) return "the flight";
 
-  return clean.length <= 25
-    ? `the ${clean.toLowerCase()}`
-    : `the ${clean.slice(0, 22).toLowerCase()}...`;
+  // ── Bare generic titles collapse; anything with a distinguishing prefix
+  //    keeps it, so the user can tell which event the brief means. ──
+  for (const [pattern, label] of BARE_GENERIC) {
+    if (pattern.test(clean)) return label;
+  }
+
+  if (clean.length <= 25) return `the ${clean.toLowerCase()}`;
+  // Truncate on a word boundary — never mid-word.
+  const truncated = clean.slice(0, 22).replace(/\s+\S*$/, "").toLowerCase();
+  return `the ${truncated}...`;
 }
 
 /** Minutes until a named event, when the caller supplied timing for it. */
