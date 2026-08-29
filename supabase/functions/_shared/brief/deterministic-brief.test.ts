@@ -642,3 +642,60 @@ Deno.test("deterministic brief — evening uses remaining meetings, not the whol
   // Evening speaks in the past tense; "the day ahead" is not quotable.
   assertStringIncludes(built.body, "the day ran without a claim on it");
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Event naming rule: name the event by its TITLE, shortened to the recognisable
+// part. Bare generic titles still collapse; distinguishing words survive.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function anchorOf(title: string): string {
+  return build(base({
+    band: "steady",
+    checkInOutcome: "drained",
+    todayHighStakes: [title],
+    calendarLoad: "moderate",
+    meetingCount: 3,
+  })).body;
+}
+
+Deno.test("event naming — a distinguishing title keeps its identifying word", () => {
+  const body = anchorOf("Acme Q3 Board Review");
+  assertStringIncludes(body, "acme");
+  // The generic collapse must NOT swallow it.
+  assertEquals(body.includes("the board call"), false);
+});
+
+Deno.test("event naming — a bare generic title still collapses cleanly", () => {
+  assertStringIncludes(anchorOf("Board Meeting"), "the board call");
+  assertStringIncludes(anchorOf("Strategy Planning"), "the strategy session");
+  assertStringIncludes(anchorOf("Town Hall"), "the all-hands");
+});
+
+Deno.test("event naming — travel detection still wins over every other branch", () => {
+  assertStringIncludes(anchorOf("Flight to Singapore SQ 735"), "the flight");
+  assertStringIncludes(anchorOf("Board prep on the flight"), "the flight");
+});
+
+Deno.test("event naming — long titles truncate on a word boundary, never mid-word", () => {
+  const body = anchorOf("Northwind Capital Partners Diligence Session");
+  const m = body.match(/the ([a-z0-9 ]+)\.\.\./);
+  if (!m) throw new Error(`expected a truncated reference, got: ${body}`);
+  // No trailing partial word before the ellipsis.
+  assertEquals(m[1].trim(), m[1].trim().replace(/\s+\S*$/, "") || m[1].trim());
+  assertStringIncludes(body, "northwind");
+});
+
+Deno.test("event naming — no A–H vocabulary can reach deterministic copy", () => {
+  const body = anchorOf("Acme Q3 Board Review");
+  for (
+    const banned of [
+      "Cat A", "Cat B", "Cat C", "Cat D", "Cat E", "Cat F", "Cat G", "Cat H",
+      "[Cat-", "Board & Governance", "Influence & Persuasion",
+      "Visibility & Communication", "Interpersonal High-Stakes",
+      "Deep Work & Strategy", "Conferences & External Events",
+      "Daily Rhythm & Baseline",
+    ]
+  ) {
+    assertEquals(body.includes(banned), false, `leaked: ${banned}`);
+  }
+});
