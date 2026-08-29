@@ -156,6 +156,15 @@ export interface DeterministicBriefFallbackOpts {
   leadNarrative?: LeadNarrative | null;
   /** Stable per-day variant seed: `${userId}|${localDate}|${window}`. */
   variantSeed?: string | null;
+  /**
+   * The same Morning / Afternoon / Evening slice the LLM prompt reads
+   * (`_shared/signal-engine/window-context.ts`). When present, the generic
+   * (non-narrative) branch sources its counts and body signal from this slice
+   * instead of re-deriving them from the flat opts above, so deterministic and
+   * LLM copy speak from one filtered signal set. Optional: when null the flat
+   * opts remain the source.
+   */
+  windowContext?: WindowContext | null;
 }
 
 
