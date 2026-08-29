@@ -176,7 +176,7 @@ It is built by:
 
 Current frontend/backend prompt version:
 
-- `v6.6-replacement-vocabulary`
+- `v7.7-calendar-load-honesty` (was `v6.6-replacement-vocabulary`; the deterministic fallback was reinstated at v6.6 and is validated by `validateBrief()` before it ships)
 
 ### 9.3 Current snapshot behavior
 

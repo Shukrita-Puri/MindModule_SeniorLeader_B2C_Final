@@ -69,7 +69,7 @@ This report separates those cases so engineering and product do not mistake docu
 
 **Older doc claim**
 
-- Frontend/backend Brief prompt version was `v6.5-no-deterministic-fallback`.
+- Frontend/backend Brief prompt version was `v7.7-calendar-load-honesty` (the earlier `v6.5-no-deterministic-fallback` behaviour no longer applies — the deterministic fallback is back and validator-gated).
 
 **Current code reality**
 
@@ -78,7 +78,7 @@ This report separates those cases so engineering and product do not mistake docu
 - Backend:
   - `supabase/functions/_shared/brief-prompt-version.ts`
 - Both now use:
-  - `v6.6-replacement-vocabulary`
+  - `v7.7-calendar-load-honesty` (was `v6.6-replacement-vocabulary`; the deterministic fallback was reinstated at v6.6 and is validated by `validateBrief()` before it ships)
 
 **What is new**
 
@@ -336,7 +336,7 @@ Current live truth:
 - orchestrator exists
 - travel-state-sync exists
 - four-beat Brief validation exists
-- prompt version is `v6.6-replacement-vocabulary`
+- prompt version is `v7.7-calendar-load-honesty` (was `v6.6-replacement-vocabulary`; the deterministic fallback was reinstated at v6.6 and is validated by `validateBrief()` before it ships)
 - `mindset.pause` has a state-based path
 - true rest day returns zero slots
 - WoW composition suppression exists
