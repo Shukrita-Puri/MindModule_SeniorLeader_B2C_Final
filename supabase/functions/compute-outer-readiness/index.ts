@@ -7329,7 +7329,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))
               .slice(0, 1);
             for (const f of sortedHrvCorr) {
-              const todayFlag = todayEventTypes.has(f.event_type) ? " ← TODAY" : "";
+              const todayFlag = matchesTodayEventType(f.event_type)
+                ? " ← TODAY"
+                : "";
               userPrompt +=
                 `\n\nPost-event overnight recovery (HRV next morning — recovery signal only, not in-event):`;
               userPrompt += `\n${f.event_type}: next-morning HRV ${
