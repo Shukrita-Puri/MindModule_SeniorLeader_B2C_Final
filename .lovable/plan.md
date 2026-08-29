@@ -53,6 +53,9 @@ Find: `If a [A], [B], or [C] event exists today, it anchors beat (c).` (line 267
 Category H events (gym, run, social, family dinner, personal errands) are NEVER
 beat (c) anchors — even when they are the only event on the calendar.
 If only H events exist, beat (c) anchors to the day shape or the pillar state.
+Why: this app builds mental performance for C-Suite work. Personal and recovery
+events are never anchors; a working day holding only H events is a light day —
+frame it for recovery.
 ```
 
 ### Location C — Step 5, replace the priority order line
