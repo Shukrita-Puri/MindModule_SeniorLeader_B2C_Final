@@ -6897,27 +6897,47 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           let causalitySignalSummary: CausalitySignalSummary | null = null;
           {
             const _causalityT0 = Date.now();
+            let causalityDate: string | null = null;
             try {
+              // No date filter — take the most recent computed row whatever
+              // date it carries. Pinning to today silently dropped the entire
+              // measured-pattern section whenever the nightly engine had not
+              // written today's row yet.
               const { data: causalityRow } = await db
                 .from("causality_findings")
-                .select("signal_summary")
+                .select("signal_summary, computed_for_date")
                 .eq("user_id", userId)
                 .eq("pattern_kind", "cause_effect_v2")
-                .eq("computed_for_date", userLocalDate)
+                .order("computed_for_date", { ascending: false })
+                .limit(1)
                 .maybeSingle();
               if ((causalityRow as any)?.signal_summary) {
                 causalitySignalSummary =
                   (causalityRow as any).signal_summary as CausalitySignalSummary;
               }
+              causalityDate = (causalityRow as any)?.computed_for_date ?? null;
             } catch (_e) {
               causalitySignalSummary = null;
+              causalityDate = null;
             }
+            const causalityDaysOld = causalityDate
+              ? Math.floor(
+                (new Date(`${userLocalDate}T00:00:00Z`).getTime() -
+                  new Date(`${causalityDate}T00:00:00Z`).getTime()) / 86400000,
+              )
+              : null;
             console.log(
-              `[brief][causality] read ms=${
-                Date.now() - _causalityT0
-              } hit=${causalitySignalSummary ? "yes" : "no"}`,
+              "[brief][causality]",
+              JSON.stringify({
+                ms: Date.now() - _causalityT0,
+                hit: causalitySignalSummary != null,
+                date: causalityDate,
+                daysOld: causalityDaysOld,
+                userId: redactUserId(userId),
+              }),
             );
           }
+
 
           // §8 canonical block header — replaces the legacy `=== TIME ===`
           // block. `dayKind` (travel / PTO / holiday / weekend / conference)
