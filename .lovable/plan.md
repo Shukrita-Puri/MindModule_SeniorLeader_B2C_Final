@@ -41,26 +41,26 @@ Keep the existing headings and all Load / Total meetings / Back-to-back / Next e
 - One line: `Events are listed highest-priority first.`
 - `\n  No classified meetings today.` when empty
 
-### 2. A–H reference block (new, appended once)
+### 2. A–H reference block — generated from the existing source, not written out
 
-Built from `EVENT_CATEGORIES` — ids, names, and a short worked example per pillar so the LLM knows what each level *means*, e.g.:
+No new list is authored. The block is built at runtime from the files that already own this data:
+
+- `_shared/events/event-categories.ts` → `EVENT_CATEGORIES` gives each `id`, `name`, and its canonical `triggers` array (already imported in `index.ts:35`)
+- `_shared/events/event-subtypes.ts` → `EVENT_TYPES` gives the granular `label` per `categoryId` if finer examples are wanted
+
+Both are read-only imports; nothing in `_shared/events/` is edited. Rendering is a loop over `EVENT_CATEGORY_ORDER` emitting `id`, `name`, and the first two or three `triggers` as the worked example, so the block cannot drift from the taxonomy:
 
 ```text
-A  Board & Governance             board meeting, investor update, QBR
-B  Influence & Persuasion         sales pitch, negotiation, client presentation
-C  Visibility & Communication     all-hands, keynote, media interview
-D  Interpersonal High-Stakes      performance review, difficult 1:1, hiring decision
-E  Deep Work & Strategy           strategy planning, deep work block
-F  Conferences & External Events  summit, off-site, networking event
-G  Travel                         long-haul flight, time-zone shift
-H  Daily Rhythm & Baseline        gym, commute, catch-up, wind-down
+A  Board & Governance             Board Meeting, Investor / Fundraising Meeting, QBR
+...
+H  Daily Rhythm & Baseline        Morning Check-in, Lunch / Recovery Slot, Back-to-back Block
 ```
 
-Examples come from each category's existing `triggers` array — not hardcoded.
+The exact example strings come from the file at runtime — the sample above is illustrative only.
 
 ### 3. Output-language contract (the part the user sees)
 
-Added to the same block, stated as hard rules:
+Added alongside the same block, stated as hard rules:
 
 - Never write a category letter, "Cat A/H", or a bracketed label in the brief text — internal only
 - When one event carries the day, name the event by its **title**, shortened to the recognisable part (roughly 3–5 words / ~25 chars, keep the distinguishing word: "the Acme board review", not "the meeting" and not "Board & Governance")
@@ -68,13 +68,21 @@ Added to the same block, stated as hard rules:
 - Cat H never anchors the work directive, even when it is the only classified event
 - Focus beat (c) on the highest-priority event
 
-### 4. Deterministic path — one honesty fix in scope
+These rules live inline in `index.ts` for this change. They arguably belong in `copy-vocabulary.ts`, which owns prompt voice and hard constraints — that file is reserved for Change 5, so moving them is deferred rather than done here.
 
-`_shared/brief/deterministic-brief.ts:196 shortRefImpl()` currently *replaces* the title with a generic phrase: any title matching `/board|governance/` becomes `"the board call"`, so "Acme Q3 Board Review" loses the identifying word. That contradicts the rule above.
+### 4. Deterministic path — same rule, same source
 
-Fix: keep the generic phrase only when the title has nothing distinguishing left; otherwise preserve the title's leading distinguishing words, shortened the same way ("the Acme board review"). Existing `<=25 char` / `slice(0,22)` truncation and the travel/flight branch stay as they are.
+The contract above is not LLM-only. `_shared/brief/deterministic-brief.ts:196 shortRefImpl()` currently *replaces* the title with a generic phrase: any title matching `/board|governance/` becomes `"the board call"`, so "Acme Q3 Board Review" loses the identifying word. That breaks the same rule the LLM is being given.
 
-This is the only file besides `index.ts` touched, and it is Brief-owned.
+Fix, in the same file:
+
+- Preserve the title's distinguishing words, shortened the same way ("the Acme board review"); fall back to the generic phrase only when nothing distinguishing remains ("Board Meeting" → "the board call")
+- Existing `<=25 char` / `slice(0,22)` truncation and the travel/flight branch unchanged
+- Cluster wording (two or more high-stakes events) continues to use load/category language, matching the LLM rule
+- No category letters can enter deterministic output — it never had them, and none are added
+
+Result: both paths read one ranked source (`todayHighStakes`) and now obey one naming rule.
+
 
 ### 5. Explicit non-changes
 
