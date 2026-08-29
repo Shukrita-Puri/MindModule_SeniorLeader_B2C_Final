@@ -7531,10 +7531,31 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   )
                 }`,
               );
+              leaderParts.push(
+                `(When today's calendar contains these event types, treat them as the highest-stakes anchor regardless of A–H category)`,
+              );
             }
             if (leaderProfile.analysis.archetype) {
               leaderParts.push(
                 `Provisional archetype: ${leaderProfile.analysis.archetype}`,
+              );
+              leaderParts.push(
+                `(Use to calibrate posture and vocabulary — never name it in output)`,
+              );
+            }
+            // Cognitive risk pattern + regulation strengths come from the V8
+            // onboarding synthesis (cos_profile), already loaded — no new read.
+            const cognitiveRisk =
+              leaderProfile.priors.cognitive_risk_profile?.primary_risk ?? null;
+            const regulationStrengths =
+              leaderProfile.priors.cognitive_risk_profile?.regulation_strengths ??
+                [];
+            if (cognitiveRisk) {
+              leaderParts.push(`Cognitive risk pattern: ${cognitiveRisk}`);
+            }
+            if (regulationStrengths.length > 0) {
+              leaderParts.push(
+                `Regulation strengths: ${regulationStrengths.join(", ")}`,
               );
             }
             if (leaderProfile.goals.cos_accountability_note) {
