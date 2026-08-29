@@ -384,7 +384,8 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   const drainedIntoHighStakes = opts.checkInOutcome === "drained" &&
     hasHighStakes;
   const lowSleepIntoHighStakes =
-    opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
+    overnightSleepScore(opts) !== null && (overnightSleepScore(opts) as number) < 65 &&
+    hasHighStakes;
 
   // ── Travel evidence. The flight is the day's dominant demand but never
   // reaches todayHighStakes, so without this branch beat (a) reads as if the
@@ -400,7 +401,7 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
       const felt = opts.checkInOutcome === "holding"
         ? "steady"
         : opts.checkInOutcome;
-      return `You've checked in ${felt} with ${ref} ahead this ${opts.window} — the transit is the demand, not the calendar.`;
+      return `You've checked in ${felt} and ${ref} is the demand this ${opts.window}, not the calendar.`;
     }
   }
   if (isConferenceShape(opts.dayShape)) {
@@ -492,7 +493,7 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     if (opts.isWeekend || opts.isNonWorkday) {
       return `${factPhrase} this ${opts.window} with no work calendar — the physiological read is the anchor for the weekend.`;
     }
-    return `${factPhrase} this ${opts.window} with an open working day ahead — the time is unclaimed and yours to direct.`;
+    return `${factPhrase} this ${opts.window} ${openDayClause(opts)}.`;
   }
 
   if (opts.checkInOutcome && hasHighStakes) {
@@ -579,7 +580,8 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   const drainedIntoHighStakes = opts.checkInOutcome === "drained" &&
     hasHighStakes;
   const lowSleepIntoHighStakes =
-    opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
+    overnightSleepScore(opts) !== null && (overnightSleepScore(opts) as number) < 65 &&
+    hasHighStakes;
 
   // ── Conference day-shape read runs before the pillar map; a workday
   // pillar comparison misreads it. Travel shapes are handled above.
@@ -742,7 +744,8 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
   const drainedIntoHighStakes =
     opts.checkInOutcome === "drained" && hasHighStakes;
   const lowSleepIntoHighStakes =
-    opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
+    overnightSleepScore(opts) !== null && (overnightSleepScore(opts) as number) < 65 &&
+    hasHighStakes;
 
   // Beat (c) — THE WORK DIRECTIVE. Names the cognitive posture (decide /
   // lead / listen / analyse / defer / execute / sequence / protect) AND the
