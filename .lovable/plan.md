@@ -60,6 +60,12 @@ Add to the same block, guarded the same way (only rendered when present):
 - next to declared high-stakes: "when today's calendar contains these event
   types, treat them as the highest-stakes anchor regardless of A–H category"
 
+Source of this data: the V8 onboarding steps (leadership context, cognitive
+load, protect-goals, brief prefs), persisted on `onboarding_v8_responses` and
+synthesised into `cos_profile` by `synthesize-cos-profile`. The Brief reads it
+only through the existing `loadLeaderProfile()` resolver — no new query, no new
+table, no onboarding change.
+
 No new DB reads — `leaderProfile` is already loaded. `leaderVoiceBlock` and
 `serverArchetype` are untouched.
 
