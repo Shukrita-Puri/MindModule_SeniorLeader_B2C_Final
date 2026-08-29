@@ -7314,7 +7314,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt +=
                 `\n\nRecovery after events (next-morning RHR elevation = body still recovering):`;
               for (const f of sortedRhrCorr) {
-                const todayFlag = todayEventTypes.has(f.event_type)
+                const todayFlag = matchesTodayEventType(f.event_type)
                   ? " ← TODAY"
                   : "";
                 userPrompt += `\n${f.event_type}: next-morning RHR elevated +${
