@@ -7183,16 +7183,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
             if (nextHighStakesEvent) {
               const t = (nextHighStakesEvent as any).localHHmm;
-              const nextCat = categoryNameOf(nextHighStakesEvent.title || "");
-              const nextSuffix = nextCat ? ` [${nextCat}]` : "";
-              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${nextSuffix}${
+              const nextLabel = internalCatLabel(
+                categoryNameOf(nextHighStakesEvent.title || ""),
+              );
+              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${nextLabel}${
                 t ? ` at ${t}` : ""
               } (in ${nextHighStakesEvent.minutesUntil}mins)`;
             }
             userPrompt +=
               `\nCLOCK TIME RULE: When referencing any event time in the body, use ONLY the HH:mm strings provided above, character-for-character. Never invent, round, shift, or reformat clock times. If no time is provided for an event, omit the time entirely rather than guessing.`;
             userPrompt +=
-              `\nEVENT IMPORTANCE GUIDE (A highest → H lowest): A=Board & Governance (board, audit, regulatory), B=Influence & Persuasion (pitch, investor, key negotiation), C=Visibility & Communication (media, town hall, keynote), D=Interpersonal High-Stakes (1:1 hard talk, performance, layoff), E=Deep Work & Strategy (planning, review, writing), F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline. Focus beat (c) on the highest-category event.`;
+              `\n\nEVENT IMPORTANCE GUIDE — INTERNAL ONLY (A highest → H lowest):\n${A_H_REFERENCE_BLOCK}`;
+            userPrompt +=
+              `\nHOW TO USE THE CATEGORY: The Cat-A…Cat-H markers are internal allocation vocabulary for your reasoning only. NEVER write a category letter, the string "Cat", a bracketed label, or a pillar name (e.g. "Board & Governance", "Daily Rhythm & Baseline") in phrase, body, leanOn or watchFor. When one event carries the day, name it by its TITLE, shortened to the recognisable part (roughly 3-5 words, keeping the distinguishing word — "the Acme board review", not "the meeting" and not "Board & Governance"). When several events share a category, or the day is a stack, use category or load language instead of listing titles ("back-to-back governance calls", "a heavy interpersonal block", "context switching across four calls").`;
+            userPrompt +=
+              `\nLOAD IS NOT A CATEGORY: Day shape (back-to-back, context switching) is a separate axis from A–H event kind. A back-to-back or switching day is a load signal that ranks on its own — never file it as Cat H or treat it as low-priority rhythm. Cat H (gym, commute, social, wind-down) never anchors the work directive, even when it is the only classified event. Focus beat (c) on the highest-priority event.`;
           }
 
           // === TOMORROW === (evenings, Friday, Sunday)
