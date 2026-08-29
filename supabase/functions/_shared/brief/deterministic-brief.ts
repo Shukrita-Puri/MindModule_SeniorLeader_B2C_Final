@@ -327,16 +327,54 @@ function loadWord(opts: DeterministicBriefFallbackOpts): string {
 }
 
 /**
- * Window-correct meeting count. Morning speaks to the whole day; afternoon and
- * evening speak only to what is still ahead. Counts are already deduplicated
- * upstream (cross-provider merge + overlap collapse) — never re-derived here.
+ * Window-correct meeting count. The window-context slice is authoritative when
+ * the caller passes it (morning = the whole day, afternoon = what is still
+ * ahead, evening = what actually ran); otherwise the flat opts are used.
+ * Counts are already deduplicated upstream (cross-provider merge + overlap
+ * collapse) — never re-derived here.
  */
 function effectiveMeetingCount(opts: DeterministicBriefFallbackOpts): number {
+  const wc = opts.windowContext ?? null;
+  if (wc) {
+    if (wc.window === "morning") return wc.todayMeetingCount;
+    if (wc.window === "afternoon") return wc.meetingsRemaining;
+    return wc.todayCompletedCount;
+  }
   if (opts.window === "morning") return opts.meetingCount;
   return typeof opts.remainingMeetings === "number"
     ? opts.remainingMeetings
     : opts.meetingCount;
 }
+
+/**
+ * Overnight signals (sleep, overnight recovery) may only speak in the morning.
+ * With a window context this is a type-level fact — `sleepHours` /
+ * `sleepQuality` only exist on `MorningContext` — and without one we apply the
+ * same rule to the flat opts.
+ */
+function overnightSleepScore(
+  opts: DeterministicBriefFallbackOpts,
+): number | null {
+  const wc = opts.windowContext ?? null;
+  if (wc) return wc.window === "morning" ? opts.sleepScore : null;
+  return opts.window === "morning" ? opts.sleepScore : null;
+}
+
+/**
+ * Tense-correct framing for a day with no meetings in the effective count.
+ * Morning looks forward, afternoon speaks to what is left, evening speaks in
+ * the past.
+ */
+function openDayClause(opts: DeterministicBriefFallbackOpts): string {
+  if (opts.window === "afternoon") {
+    return "with what is left of the day unclaimed — the time is yours to direct";
+  }
+  if (opts.window === "evening") {
+    return "and the day ran without a claim on it — the time was yours to direct";
+  }
+  return "with an open working day ahead — the time is unclaimed and yours to direct";
+}
+
 
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
 
