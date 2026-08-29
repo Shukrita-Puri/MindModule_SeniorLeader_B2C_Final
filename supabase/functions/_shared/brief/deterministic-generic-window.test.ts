@@ -162,3 +162,14 @@ Deno.test("generic branch: window context drives the meeting count", () => {
     throw new Error(`window context ignored: ${withCtx.body}`);
   }
 });
+
+Deno.test("generic branch: prose 'tomorrow' survives and no markers leak", () => {
+  for (const { window, band, body } of bodies()) {
+    if (/[\u0001\u0002]/.test(body)) {
+      throw new Error(`${window}/${band} leaked a timing marker: ${body}`);
+    }
+    if (/\bso doesn't\b|\bfor what opens with\b|\bprotect 's start\b/.test(body)) {
+      throw new Error(`${window}/${band} lost a word: ${body}`);
+    }
+  }
+});
