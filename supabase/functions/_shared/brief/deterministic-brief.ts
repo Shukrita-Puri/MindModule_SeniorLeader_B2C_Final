@@ -226,13 +226,21 @@ function minutesUntilTitle(
   return typeof hit?.minutesUntil === "number" ? hit.minutesUntil : null;
 }
 
+/** Marks a timing clause emitted by the anchor so `spendTimingOnce` can find it. */
+const TIMING_OPEN = "\u0001";
+const TIMING_CLOSE = "\u0002";
+
 /** Short reference carrying its time-to-event clause when the calendar has it. */
 function shortRefTimed(
   opts: DeterministicBriefFallbackOpts,
   title: string,
 ): string {
-  return withTiming(shortRef(title), minutesUntilTitle(opts, title));
+  const ref = shortRef(title);
+  const timed = withTiming(ref, minutesUntilTitle(opts, title));
+  if (timed === ref) return ref;
+  return `${ref}${TIMING_OPEN}${timed.slice(ref.length)}${TIMING_CLOSE}`;
 }
+
 
 function phraseFor(opts: DeterministicBriefFallbackOpts): string {
   const divergence =
@@ -971,14 +979,14 @@ export function buildDeterministicBriefFallback(
  * plain event reference.
  */
 function spendTimingOnce(body: string): string {
-  const re =
-    /\s(?:starting now|in under 15 minutes|in \d+ minutes|in about an hour|in about \d+ hours|later today|tomorrow)(?=[\s,.;])/g;
+  const re = new RegExp(`${TIMING_OPEN}([^${TIMING_CLOSE}]*)${TIMING_CLOSE}`, "g");
   let seen = false;
-  return body.replace(re, (m) => {
+  return body.replace(re, (_m, clause: string) => {
     if (seen) return "";
     seen = true;
-    return m;
+    return clause;
   });
 }
+
 
 
