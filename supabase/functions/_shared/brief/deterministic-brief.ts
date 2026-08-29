@@ -4,6 +4,7 @@ import type { BriefCopyContext, PillarCluster } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 import { behaviourPriority } from "../behaviour-evaluator.ts";
 import type { LeadNarrative } from "./lead-narrative.ts";
+import type { WindowContext } from "../signal-engine/window-context-types.ts";
 import {
   assembleNarrativeBody,
   renderNarrativeBeats,
