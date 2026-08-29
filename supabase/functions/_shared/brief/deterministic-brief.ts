@@ -960,9 +960,25 @@ export function buildDeterministicBriefFallback(
   const close = closeFor(opts);
   return {
     phrase,
-    body: `${evidence} ${read}. ${directive}, ${close}`,
+    body: spendTimingOnce(`${evidence} ${read}. ${directive}, ${close}`),
     topSignal: "baseline_quiet",
   };
+}
+
+/**
+ * The anchor's time-until clause is spent at most once per body — the same
+ * invariant the narrative pack enforces via `anchorRef`. Later beats keep the
+ * plain event reference.
+ */
+function spendTimingOnce(body: string): string {
+  const re =
+    /\s(?:starting now|in under 15 minutes|in \d+ minutes|in about an hour|in about \d+ hours|later today|tomorrow)(?=[\s,.;])/g;
+  let seen = false;
+  return body.replace(re, (m) => {
+    if (seen) return "";
+    seen = true;
+    return m;
+  });
 }
 
 
