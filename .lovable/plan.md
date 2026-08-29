@@ -15,6 +15,7 @@ renames, no output-contract change, no other file touched.
 - `SILENT_REASONING` is `export const SILENT_REASONING = \`...\`` at line 210; it ends at line 287.
 - `buildBriefSystemPrompt()` (line 628) embeds `SILENT_REASONING` as-is (line 655). No assembly change needed.
 - No deployed function other than `compute-outer-readiness` consumes `SILENT_REASONING` (smart-nudges and `plan/why-llm.ts` import only `CHIEF_OF_STAFF_PERSONA` / `FORBIDDEN_NOTIFICATION_WORDS` from the wrapper — the edit is inert for them).
+- The BUCKET 3 coach bullet at line 252 (`Coach insights — strength, growth area, pending commitment.`) has no parenthetical today (`rg` finds only that one match). The `(Coach feature not yet active…)` note — amended so growth areas and pending commitments source from Onboarding V8 — is a new insertion.
 - Golden set is 174 fixtures, generated in-code from `FAMILIES × WINDOWS × BANDS` loops in `golden-set.test.ts` — untouched by this change, so the count cannot move.
 
 ## Edits (all inside `SILENT_REASONING`)
