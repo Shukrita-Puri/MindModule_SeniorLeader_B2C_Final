@@ -7,10 +7,21 @@ Two pre-launch code fixes (both in the generic, non-narrative branch of the dete
 ### A1. Kill `"{event} ahead"` in the generic branch
 `_shared/brief/deterministic-brief.ts` (~line 355) still builds `"...with {ref} ahead this {window}..."`. The narrative pack removed this construction; the generic branch never got it. Replace with the natural construction already used in `NARRATIVE_COPY` (e.g. "the flight is the demand this morning").
 
-### A2. Window-gate the sleep-driven directives in the generic branch
-The generic branch selects `lowSleepIntoHighStakes` (and siblings) straight from `opts.sleepScore` with no window guard, so an afternoon/evening brief can be driven by an overnight signal. Apply the same rule the narrative path already enforces: sleep and overnight recovery are quotable in `morning` only; afternoon/evening fall back to felt state (check-in) plus day shape. Where no eligible body signal exists, drop the beat rather than invent one.
+### A2. Drive the generic branch off the existing window-context modules (no hand-written guards)
 
-Also tense-correct the un-gated forward-looking line at ~:447 ("open working day ahead") so afternoon/evening read "what is left of the day" / "the day ran". The weekend line at :677 is fine as-is.
+The signal-engine already answers "which signals may speak in this window": `_shared/signal-engine/window-context.ts` → `buildMorningContext` / `buildAfternoonContext` / `buildEveningContext`. `compute-outer-readiness/index.ts:8073` already builds it (`briefWindowContext`) and feeds it to the LLM prompt and `input_signature`, but it is **not** passed into `buildDeterministicBriefFallback`. That is the actual gap: the deterministic path re-derives its own signals from flat opts (`opts.sleepScore`, `opts.meetingCount`) instead of reading the same pre-filtered context the LLM reads.
+
+Fix:
+
+- Add an optional `windowContext: WindowContext | null` to `DeterministicBriefFallbackOpts` and pass `briefWindowContext` through at the existing call site. Optional, so every existing caller and test keeps working.
+- When present, the generic branch sources its body signal from the window slice rather than flat opts:
+  - morning → `sleepQuality` / `sleepHours` / `hrvDeviationPct` / `rhrDeviationPct`, `todayMeetingCount`, `todayFirstHighStakes`, `vetoRisk`
+  - afternoon → `meetingsCompleted` / `meetingsRemaining`, `highestRemainingStakes`, `currentHrVsRestingPct`, `decisionLeakageRisk`, `availableGapsRemaining`
+  - evening → `todayCompletedCount`, `bodyLoadElevated`, `hrvEveningDeviationPct`, `recoveryNote`, `tomorrowFirstHighStakes`, `mode`
+  Because sleep fields only exist on `MorningContext`, the "sleep is morning-only" rule stops being a hand-written guard and becomes a type-level fact — the afternoon/evening branches have no sleep field to reach for.
+- Tense follows the same slice: afternoon speaks in remaining terms (`meetingsRemaining`), evening in past terms (`todayCompletedCount`) plus `tomorrowFirstHighStakes`. This removes the un-gated "open working day ahead" at ~:447 without inventing new copy rules.
+- Keep the flat-opts path as the fallback when `windowContext` is null (deterministic tests, golden set, any caller without a snapshot), so nothing regresses.
+
 
 ### A3. Extend the contract tests to the generic branch
 `behaviour-copy.contract.test.ts` only exercises `NARRATIVE_COPY`. Add the same three invariants against `buildDeterministicBriefFallback` with `leadNarrative: null` across the three windows:
