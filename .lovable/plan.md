@@ -1,6 +1,6 @@
 # CHANGE 2 — A–H categories in the Brief prompt (internal only, never in user copy)
 
-Brief only. One deploy: `compute-outer-readiness`. Plan's JIT v2 keeps its own priority source — untouched.
+Brief only. Two files. One deploy: `compute-outer-readiness`. Plan's JIT v2 keeps its own priority source — untouched.
 
 ## The governing rule
 
@@ -8,96 +8,89 @@ A–H letters and category names are **internal allocation vocabulary**. "Cat H"
 
 | Situation | What the Brief says to the user |
 |---|---|
-| One prioritised event | The **event title** (shortened) — "the Acme board review" |
-| A cluster in one category | The category / load language — "three back-to-back governance calls", "a heavy interpersonal block" |
-| Mixed cluster, no clear anchor | Load language — "high-stakes stack", "back-to-back", "context switching" |
-| Never | "Cat A", "[Cat-H]", the letter, or a bare pillar name as if it were the event |
+| One prioritised event | The **event title**, shortened — "the Acme board review" |
+| Several events in one category | Category language — "back-to-back governance calls" |
+| The day's *shape* is the story | Load language — "back-to-back", "context switching" |
+| Never | "Cat A", "[Cat-H]", or a bare pillar name standing in for the event |
 
-This applies to today, tomorrow and yesterday references equally.
+## Two axes, never conflated
+
+**A–H is event kind. Load Shape is day shape.** They are separate SSOTs and a load never demotes into a category.
+
+- A–H: `_shared/events/event-categories.ts`
+- Load: `_shared/load-shape/` (`back_to_back`, `switching`), mirrored in `src/lib/loadShape.ts`
+
+"Back-to-back block" is a **load shape**, not a Cat-H event. The Cat-H non-anchor rule applies only to genuine H events (gym, commute, social, wind-down) and must never suppress a back-to-back or switching day — those are load signals and rank on their own axis. The prompt states this explicitly so the LLM cannot file a stacked day as low-priority rhythm.
 
 ## Verified current state
-
-Priority chain, already shared by both paths:
 
 ```text
 EVENT_CATEGORIES -> event-subtypes -> stakesScore() -> rankByStakes()
   -> getServerCalendarMetrics()  (stakes >= 60, top 2)
   -> todayHighStakes / tomorrowHighStakes
-       -> LLM prompt (renders ranked titles)
+       -> LLM prompt (ranked titles)
        -> deterministic fallback (anchors beat (c) on todayHighStakes[0])
 ```
 
-Both paths already read one ranked source in one order — confirmed, no change needed there.
+Both paths already read one ranked source in one order. `todayHighStakesCategories[]` is built via `categoryNameOf()` → `enrichEvent()`. `EVENT_CATEGORIES` is imported at `index.ts:35`. The prompt already carries a one-line `EVENT IMPORTANCE GUIDE`, which the generated block replaces. No test asserts the CALENDAR TODAY prompt text; the 174 golden fixtures are deterministic-only.
 
-Prompt today renders `HH:mm Title [Category Name]` for today and tomorrow, plus a one-line importance guide. `EVENT_CATEGORIES` is already imported (index.ts:35). No test asserts this prompt text.
+## 1. CALENDAR TODAY / TOMORROW rendering — `compute-outer-readiness/index.ts`
 
-## The change — `supabase/functions/compute-outer-readiness/index.ts`
+Keep every existing Load / Total meetings / Back-to-back / Next event / CLOCK TIME RULE line. Change only the high-stakes rendering:
 
-### 1. CALENDAR TODAY / TOMORROW blocks
-
-Keep the existing headings and all Load / Total meetings / Back-to-back / Next event / CLOCK TIME RULE lines. Change only the high-stakes rendering:
-
-- Per-event line: `\n  HH:mm Title  (internal: Cat-X <Category Name>)` — using the same parallel indices (`todayHighStakes[i]` / `todayHighStakesCategories[i]`), letter resolved from `EVENT_CATEGORIES` by name, omitted when unresolved
+- Per-event: `HH:mm Title (internal: Cat-X <Category Name>)` — same parallel indices (`todayHighStakes[i]` / `todayHighStakesCategories[i]`)
+- Letter resolved by name from `EVENT_CATEGORIES`; when unresolved, **omit the internal label entirely** rather than falling back to the bare name (a bare name could read as user-facing)
 - One line: `Events are listed highest-priority first.`
-- `\n  No classified meetings today.` when empty
+- `No classified meetings today.` when empty
 
-### 2. A–H reference block — generated from the existing source, not written out
+The `(internal: ...)` marker is what tells the LLM the label is for reasoning, not output.
 
-No new list is authored. The block is built at runtime from the files that already own this data:
+## 2. A–H reference block — generated from `EVENT_CATEGORIES` at runtime
 
-- `_shared/events/event-categories.ts` → `EVENT_CATEGORIES` gives each `id`, `name`, and its canonical `triggers` array (already imported in `index.ts:35`)
-- `_shared/events/event-subtypes.ts` → `EVENT_TYPES` gives the granular `label` per `categoryId` if finer examples are wanted
-
-Both are read-only imports; nothing in `_shared/events/` is edited. Rendering is a loop over `EVENT_CATEGORY_ORDER` emitting `id`, `name`, and the first two or three `triggers` as the worked example, so the block cannot drift from the taxonomy:
+No list is authored. Loop `EVENT_CATEGORIES`, emit `id`, `name`, and the **first three `triggers`** as worked examples. Use `triggers` — not `selfRegulationFocus`, which is coaching-protocol text and wrong for a prompt. Nothing in `_shared/events/` is edited; it is a read-only import.
 
 ```text
-A  Board & Governance             Board Meeting, Investor / Fundraising Meeting, QBR
-...
-H  Daily Rhythm & Baseline        Morning Check-in, Lunch / Recovery Slot, Back-to-back Block
+  A  Board & Governance    e.g. Board Meeting, Board Presentation, Investor / Fundraising Meeting
+  ...
 ```
 
-The exact example strings come from the file at runtime — the sample above is illustrative only.
+Example strings come from the file at runtime; the sample above is illustrative.
 
-### 3. Output-language contract (the part the user sees)
+## 3. Output-language contract
 
-Added alongside the same block, stated as hard rules:
+Stated inline as hard rules alongside the block:
 
-- Never write a category letter, "Cat A/H", or a bracketed label in the brief text — internal only
-- When one event carries the day, name the event by its **title**, shortened to the recognisable part (roughly 3–5 words / ~25 chars, keep the distinguishing word: "the Acme board review", not "the meeting" and not "Board & Governance")
-- When several events share a category, or the day is a stack, use category or load language instead of listing titles — "back-to-back governance calls", "a heavy interpersonal block", "context switching across four calls"
-- Cat H never anchors the work directive, even when it is the only classified event
-- Focus beat (c) on the highest-priority event
+- Never write a category letter, "Cat A/H", a bracketed label, or a pillar name in `phrase`, `body`, `leanOn` or `watchFor` — internal only
+- One dominant event: name it by **title**, shortened to the recognisable part (~3–5 words, keep the distinguishing word — "the Acme board review", not "the meeting", not "Board & Governance")
+- Several events sharing a category, or a stacked day: use category or load language instead of listing titles
+- A back-to-back or switching day is a load signal and ranks on its own — never demoted as Cat H
+- Cat H never anchors the work directive; Focus beat (c) on the highest-priority event
 
-These rules live inline in `index.ts` for this change. They arguably belong in `copy-vocabulary.ts`, which owns prompt voice and hard constraints — that file is reserved for Change 5, so moving them is deferred rather than done here.
+These rules live in `index.ts` for this change. They arguably belong in `copy-vocabulary.ts`, which owns prompt voice and constraints — that file is reserved for Change 5, so the move is deferred, not done here.
 
-### 4. Deterministic path — same rule, same source
+## 4. Deterministic path — same rule — `_shared/brief/deterministic-brief.ts`
 
-The contract above is not LLM-only. `_shared/brief/deterministic-brief.ts:196 shortRefImpl()` currently *replaces* the title with a generic phrase: any title matching `/board|governance/` becomes `"the board call"`, so "Acme Q3 Board Review" loses the identifying word. That breaks the same rule the LLM is being given.
+`shortRefImpl()` currently *replaces* the title with a generic phrase: any `/board|governance/` match becomes "the board call", so "Acme Q3 Board Review" loses the identifying word. Fix, preserving check order:
 
-Fix, in the same file:
+1. **Travel/flight branch stays first, unchanged** (regex + flight-number pattern → "the flight")
+2. **Bare-generic patterns, `^`-anchored.** The anchor is the whole point: unanchored `/board/i` matches mid-title. `/^board(\s|$|\s*meeting|\s*review|\s*call|\s*prep)/i`, `/^governance/i`, `/^strategy\s|^deep work|^planning/i`, `/^investor.../i`, `/^pitch(\s|$)/i`, `/^keynote|^speaking|^media|^press/i`, `/^all.?hands|^town.?hall/i`, `/^conference|^summit(\s|$)/i`, `/^feedback|^difficult/i`, `/^1.?1$|^one.?to.?one/i`, `/^qbr|^quarterly(\s|$)/i`
+3. **Distinguishing prefix preserved.** `<=25` chars → `the <title>`; longer → truncate at the last word boundary before 22 chars (`slice(0,22).replace(/\s+\S*$/,'')`) so words are never cut mid-way
 
-- Preserve the title's distinguishing words, shortened the same way ("the Acme board review"); fall back to the generic phrase only when nothing distinguishing remains ("Board Meeting" → "the board call")
-- Existing `<=25 char` / `slice(0,22)` truncation and the travel/flight branch unchanged
-- Cluster wording (two or more high-stakes events) continues to use load/category language, matching the LLM rule
-- No category letters can enter deterministic output — it never had them, and none are added
+Cluster wording (two or more high-stakes events) keeps using load/category language, matching the LLM rule. No category letters exist in deterministic output and none are added.
 
-Result: both paths read one ranked source (`todayHighStakes`) and now obey one naming rule.
+## 5. Files touched, and nothing else
 
+- `supabase/functions/compute-outer-readiness/index.ts`
+- `supabase/functions/_shared/brief/deterministic-brief.ts`
 
-### 5. Files touched, and nothing else
+Read-only imports from `_shared/events/` and `_shared/load-shape/`. Frozen and untouched: `rankByStakes`, `getServerCalendarMetrics`, category derivation, `BODY_FOUR_BEAT_CONTRACT`, `copy-vocabulary.ts` (Change 5), `_shared/brief-validators.ts`, `_shared/signal-engine/`, `_shared/signal-pills/`, `_shared/personas/ceo/behaviour-copy.ts`, `generate-mastery-plan` / JIT v2, `compute-inner-readiness`, `smart-nudges`, `cause-effect-engine`, `performance-rhythm-insights`, `build-executive-home-cards`, all frontend, all migrations, and `BRIEF_PROMPT_VERSION` (not bumped).
 
-- `supabase/functions/compute-outer-readiness/index.ts` — prompt rendering, reference block, output contract
-- `supabase/functions/_shared/brief/deterministic-brief.ts` — `shortRefImpl` naming rule
-
-Read-only imports from `_shared/events/` (`EVENT_CATEGORIES`, optionally `EVENT_TYPES`); those files are not edited. Frozen and untouched: `rankByStakes`, `getServerCalendarMetrics`, category derivation, JIT v2 / `generate-mastery-plan`, `compute-inner-readiness`, `smart-nudges`, `cause-effect-engine`, `performance-rhythm-insights`, `build-executive-home-cards`, `_shared/brief-validators.ts`, `_shared/signal-engine/`, `_shared/signal-pills/`, `_shared/personas/ceo/behaviour-copy.ts`, `copy-vocabulary.ts` (reserved for Change 5), all frontend files, all migrations, and `BRIEF_PROMPT_VERSION` (not bumped).
-
-If a test outside `_shared/brief` or `_shared/personas` fails, that is a scope leak: stop, roll back the offending line, and report rather than fix.
-
+A failing test outside `_shared/brief` / `_shared/personas` means scope leak: stop, roll back the offending line, report — do not fix.
 
 ## Verification
 
-- `deno test supabase/functions/_shared/brief` and `_shared/personas` — green
-- New deterministic cases: distinguishing title preserved ("Acme Q3 Board Review" → "the acme board review"); bare "Board Meeting" still collapses cleanly; travel branch unchanged
-- Golden-set fixtures: the `shortRefImpl` fix changes wording in fixtures whose titles carry distinguishing words — expected diffs will be reviewed line by line and re-baselined only where the new output is strictly better; any fixture that regresses blocks the change
-- Prompt-side: code review of the rendering block plus a grep proving no letter label can reach the output contract
-- Deploy `compute-outer-readiness` only; one live invocation; confirm the brief names the event title and contains no "Cat" string
+- `deno test _shared/brief` and `_shared/personas` — green
+- New deterministic cases: "Acme Q3 Board Review" → "the acme q3 board review"; bare "Board Meeting" → "the board call"; travel branch unchanged; long title truncates on a word boundary
+- Golden fixtures: only titles carrying distinguishing words shift. Re-baseline a fixture only if the new output contains no forbidden vocabulary, passes `validateBrief()` and `validateNoScoreRestatement()`, is no longer in word count, and carries the distinguishing word. Any fixture not strictly better blocks the change
+- Post-deploy, one live brief: assert `payload_json.phrase/body/leanOn/watchFor` contain none of `Cat A`…`Cat H`, `[Cat-`, or any of the eight pillar names. Also confirm no pillar name was added to the validator's forbidden list — the internal labels live in the prompt only
+- Deploy `compute-outer-readiness` only
