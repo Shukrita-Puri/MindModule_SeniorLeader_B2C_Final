@@ -4,6 +4,7 @@ import type { BriefCopyContext, PillarCluster } from "../brief-context.ts";
 import { BEHAVIOUR_COPY } from "../personas/ceo/behaviour-copy.ts";
 import { behaviourPriority } from "../behaviour-evaluator.ts";
 import type { LeadNarrative } from "./lead-narrative.ts";
+import type { WindowContext } from "../signal-engine/window-context-types.ts";
 import {
   assembleNarrativeBody,
   renderNarrativeBeats,
@@ -155,6 +156,15 @@ export interface DeterministicBriefFallbackOpts {
   leadNarrative?: LeadNarrative | null;
   /** Stable per-day variant seed: `${userId}|${localDate}|${window}`. */
   variantSeed?: string | null;
+  /**
+   * The same Morning / Afternoon / Evening slice the LLM prompt reads
+   * (`_shared/signal-engine/window-context.ts`). When present, the generic
+   * (non-narrative) branch sources its counts and body signal from this slice
+   * instead of re-deriving them from the flat opts above, so deterministic and
+   * LLM copy speak from one filtered signal set. Optional: when null the flat
+   * opts remain the source.
+   */
+  windowContext?: WindowContext | null;
 }
 
 
@@ -317,16 +327,54 @@ function loadWord(opts: DeterministicBriefFallbackOpts): string {
 }
 
 /**
- * Window-correct meeting count. Morning speaks to the whole day; afternoon and
- * evening speak only to what is still ahead. Counts are already deduplicated
- * upstream (cross-provider merge + overlap collapse) — never re-derived here.
+ * Window-correct meeting count. The window-context slice is authoritative when
+ * the caller passes it (morning = the whole day, afternoon = what is still
+ * ahead, evening = what actually ran); otherwise the flat opts are used.
+ * Counts are already deduplicated upstream (cross-provider merge + overlap
+ * collapse) — never re-derived here.
  */
 function effectiveMeetingCount(opts: DeterministicBriefFallbackOpts): number {
+  const wc = opts.windowContext ?? null;
+  if (wc) {
+    if (wc.window === "morning") return wc.todayMeetingCount;
+    if (wc.window === "afternoon") return wc.meetingsRemaining;
+    return wc.todayCompletedCount;
+  }
   if (opts.window === "morning") return opts.meetingCount;
   return typeof opts.remainingMeetings === "number"
     ? opts.remainingMeetings
     : opts.meetingCount;
 }
+
+/**
+ * Overnight signals (sleep, overnight recovery) may only speak in the morning.
+ * With a window context this is a type-level fact — `sleepHours` /
+ * `sleepQuality` only exist on `MorningContext` — and without one we apply the
+ * same rule to the flat opts.
+ */
+function overnightSleepScore(
+  opts: DeterministicBriefFallbackOpts,
+): number | null {
+  const wc = opts.windowContext ?? null;
+  if (wc) return wc.window === "morning" ? opts.sleepScore : null;
+  return opts.window === "morning" ? opts.sleepScore : null;
+}
+
+/**
+ * Tense-correct framing for a day with no meetings in the effective count.
+ * Morning looks forward, afternoon speaks to what is left, evening speaks in
+ * the past.
+ */
+function openDayClause(opts: DeterministicBriefFallbackOpts): string {
+  if (opts.window === "afternoon") {
+    return "with what is left of the day unclaimed — the time is yours to direct";
+  }
+  if (opts.window === "evening") {
+    return "and the day ran without a claim on it — the time was yours to direct";
+  }
+  return "with an open working day ahead — the time is unclaimed and yours to direct";
+}
+
 
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
 
@@ -336,7 +384,8 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   const drainedIntoHighStakes = opts.checkInOutcome === "drained" &&
     hasHighStakes;
   const lowSleepIntoHighStakes =
-    opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
+    overnightSleepScore(opts) !== null && (overnightSleepScore(opts) as number) < 65 &&
+    hasHighStakes;
 
   // ── Travel evidence. The flight is the day's dominant demand but never
   // reaches todayHighStakes, so without this branch beat (a) reads as if the
@@ -352,7 +401,7 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
       const felt = opts.checkInOutcome === "holding"
         ? "steady"
         : opts.checkInOutcome;
-      return `You've checked in ${felt} with ${ref} ahead this ${opts.window} — the transit is the demand, not the calendar.`;
+      return `You've checked in ${felt} and ${ref} is the demand this ${opts.window}, not the calendar.`;
     }
   }
   if (isConferenceShape(opts.dayShape)) {
@@ -444,7 +493,7 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     if (opts.isWeekend || opts.isNonWorkday) {
       return `${factPhrase} this ${opts.window} with no work calendar — the physiological read is the anchor for the weekend.`;
     }
-    return `${factPhrase} this ${opts.window} with an open working day ahead — the time is unclaimed and yours to direct.`;
+    return `${factPhrase} this ${opts.window} ${openDayClause(opts)}.`;
   }
 
   if (opts.checkInOutcome && hasHighStakes) {
@@ -531,7 +580,8 @@ function buildRead(opts: DeterministicBriefFallbackOpts): string {
   const drainedIntoHighStakes = opts.checkInOutcome === "drained" &&
     hasHighStakes;
   const lowSleepIntoHighStakes =
-    opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
+    overnightSleepScore(opts) !== null && (overnightSleepScore(opts) as number) < 65 &&
+    hasHighStakes;
 
   // ── Conference day-shape read runs before the pillar map; a workday
   // pillar comparison misreads it. Travel shapes are handled above.
@@ -694,7 +744,8 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
   const drainedIntoHighStakes =
     opts.checkInOutcome === "drained" && hasHighStakes;
   const lowSleepIntoHighStakes =
-    opts.sleepScore !== null && opts.sleepScore < 65 && hasHighStakes;
+    overnightSleepScore(opts) !== null && (overnightSleepScore(opts) as number) < 65 &&
+    hasHighStakes;
 
   // Beat (c) — THE WORK DIRECTIVE. Names the cognitive posture (decide /
   // lead / listen / analyse / defer / execute / sequence / protect) AND the
@@ -909,9 +960,25 @@ export function buildDeterministicBriefFallback(
   const close = closeFor(opts);
   return {
     phrase,
-    body: `${evidence} ${read}. ${directive}, ${close}`,
+    body: spendTimingOnce(`${evidence} ${read}. ${directive}, ${close}`),
     topSignal: "baseline_quiet",
   };
+}
+
+/**
+ * The anchor's time-until clause is spent at most once per body — the same
+ * invariant the narrative pack enforces via `anchorRef`. Later beats keep the
+ * plain event reference.
+ */
+function spendTimingOnce(body: string): string {
+  const re =
+    /\s(?:starting now|in under 15 minutes|in \d+ minutes|in about an hour|in about \d+ hours|later today|tomorrow)(?=[\s,.;])/g;
+  let seen = false;
+  return body.replace(re, (m) => {
+    if (seen) return "";
+    seen = true;
+    return m;
+  });
 }
 
 

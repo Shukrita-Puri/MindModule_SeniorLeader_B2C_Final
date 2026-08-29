@@ -1,14 +1,24 @@
 # Performance Readiness Brief – Complete Technical Documentation
 
-> **Version**: v6.3
-> **Last updated**: 2026-06-01
+> **Version**: v7.7 (`v7.7-calendar-load-honesty`)
+> **Last updated**: 2026-08-29
 > **Edge functions**: `compute-inner-readiness`, `compute-outer-readiness`
 > **Client component**: `src/components/home/DecisionReadinessBrief.tsx`
 > **Persona**: *Chief of Staff for the Mind* — strategic register, wearable-first, never coaching imperatives
-> **Canonical LLM prompt**: `docs/PERFORMANCE_READINESS_BRIEF_LLM_PROMPT.md` (v4.0 with lovable deltas)
+> **Canonical LLM prompt**: the inline `systemPrompt` in `supabase/functions/compute-outer-readiness/index.ts`. `docs/PERFORMANCE_READINESS_BRIEF_LLM_PROMPT.md` is a historical companion, not SSOT.
 > **CEO behaviour rules**: `_shared/ceo-behaviour/*` — catalogue in `docs/CEO_BEHAVIOUR_RULE_MAP.md`
 > **Scoring spec**: `docs/MRS_V3_SPECIFICATION.md` (MRS v3 two-state: baseline + refined ±15)
 > **Pill contract**: `mem://ui/performance-readiness/signal-pill-system` (Signal Pills v3)
+
+### v7.7 Changes Summary (2026-08-29)
+
+- **`prompt_version` is `v7.7-calendar-load-honesty`.** SSOT: `supabase/functions/_shared/brief-prompt-version.ts`, mirrored for the client in `src/constants/briefPromptVersion.ts`. The conflict key is unchanged: `(user_id, local_date, time_window, input_signature, prompt_version)`.
+- **Calendar-load honesty.** The deterministic builder names the day's load with the same qualitative vocabulary as the CALENDAR signal pill (light / busy / heavy). "Open day" is reserved for a true-zero working day. Load is a *factual* property of the deduplicated calendar and is never changed by A–H classification.
+- **Remaining, not total, meetings.** Afternoon and evening copy speaks to the window-correct count.
+- **Window-context is the deterministic signal source.** `buildDeterministicBriefFallback` accepts the same Morning / Afternoon / Evening slice the LLM prompt reads (`_shared/signal-engine/window-context.ts`). Sleep and overnight recovery are structurally morning-only; afternoon speaks to what is left, evening speaks in the past tense.
+- **Copy invariants now cover the generic (non-narrative) branch**, not just `NARRATIVE_COPY`: no `"<event> ahead"`, no overnight signal after the morning, timing clause spent at most once. Tests: `_shared/brief/deterministic-generic-window.test.ts`.
+- **Deterministic fallback is validated before it ships.** `validateBrief()` gates it; on rejection the Brief renders the awaiting-signals state rather than weak copy.
+- **Model ladder**: Gemini Flash → Claude Haiku. The `body` contract is exactly three sentences with a semicolon-appended close.
 
 ### v6.3 Changes Summary (2026-06-01)
 
@@ -211,7 +221,7 @@ The **Performance Readiness Brief** answers three questions for a senior leader,
 | `local_date` | date | ✅ | User's local calendar day |
 | `time_window` | text | ✅ | morning / afternoon / evening |
 | `input_signature` | text | ✅ | Deterministic hash of inputs (calendarLoad, deviations, outcome, clarity, confidence, etc.) |
-| `prompt_version` | text | ✅ | `BRIEF_PROMPT_VERSION` (currently `v6.1`) |
+| `prompt_version` | text | ✅ | `BRIEF_PROMPT_VERSION` (currently `v7.7-calendar-load-honesty`) |
 | `phrase` / `body_text` | text | ✅ | Cached output |
 | `lean_on` / `lean_on_source` | text | ✅ | |
 | `watch_for` / `watch_for_source` | text | ✅ | |

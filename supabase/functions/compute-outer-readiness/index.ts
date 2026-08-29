@@ -9519,6 +9519,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   .filter((f) => !!f.rule),
                 // Part 1A/1B — the resolved story drives the four beats.
                 leadNarrative: briefLeadNarrative,
+                // Same M/A/E slice the LLM prompt reads — the deterministic
+                // generic branch sources its counts and body signal from it.
+                windowContext: briefWindowContext ?? null,
                 variantSeed: `${userId}|${userLocalDate}|${
                   getTimeOfDay(hour)
                 }`,
