@@ -33,6 +33,30 @@ const enrichOf = (input: ResolveEventInput) =>
 const categoryNameOf = (input: ResolveEventInput): string | null =>
   enrichOf(input).category?.name ?? null;
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
+/**
+ * A–H reference block for the LLM prompt, generated at runtime from
+ * EVENT_CATEGORIES (the taxonomy SSOT) so it can never drift. Worked examples
+ * come from each pillar's canonical `triggers` inventory — NOT from
+ * `selfRegulationFocus`, which is coaching-protocol text and inappropriate here.
+ */
+const A_H_REFERENCE_BLOCK: string = Object.values(EVENT_CATEGORIES)
+  .map((cat) =>
+    `  ${cat.id}  ${cat.name.padEnd(32)}e.g. ${cat.triggers.slice(0, 3).join(", ")}`
+  )
+  .join("\n");
+/**
+ * Internal-only category marker for a high-stakes event line. The
+ * "(internal: …)" wrapper tells the LLM this label is for its reasoning and
+ * must never reach user-facing copy. Returns "" when the pillar cannot be
+ * resolved — a bare category name could read as user-facing.
+ */
+const internalCatLabel = (categoryName: string | null | undefined): string => {
+  if (!categoryName) return "";
+  const id = Object.values(EVENT_CATEGORIES).find((c) =>
+    c.name === categoryName
+  )?.id;
+  return id ? ` (internal: Cat-${id} ${categoryName})` : "";
+};
 import {
   type Phase,
   phaseForEvent,
@@ -7128,17 +7152,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\n\n=== CALENDAR TODAY ===`;
             userPrompt +=
               `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}`;
-            // Pair every high-stakes title with its own local HH:mm and A-H
-            // category suffix so the LLM never invents or rounds the clock and
-            // understands the relative importance of each moment.
+            // Pair every high-stakes title with its own local HH:mm and an
+            // INTERNAL-ONLY A–H marker so the LLM never invents or rounds the
+            // clock and can rank relative importance. The marker is prompt-side
+            // only — the output contract below forbids it in user-facing copy.
             if (todayHighStakes.length > 0) {
-              const pairedToday = todayHighStakes.map((t, i) => {
+              userPrompt += `\nHigh-stakes events (listed highest-priority first):`;
+              for (let i = 0; i < todayHighStakes.length; i++) {
                 const tm = todayHighStakesEventTimes[i];
-                const cat = todayHighStakesCategories[i];
-                const suffix = cat ? ` [${cat}]` : "";
-                return tm ? `${tm} ${t}${suffix}` : `${t}${suffix}`;
-              }).join("; ");
-              userPrompt += `\nHigh-stakes (local time, title [category]): ${pairedToday}`;
+                const label = internalCatLabel(todayHighStakesCategories[i]);
+                userPrompt += `\n  ${tm ? `${tm} ` : ""}${
+                  todayHighStakes[i]
+                }${label}`;
+              }
+            } else {
+              userPrompt += `\n  No classified meetings today.`;
             }
             userPrompt += `\nTotal meetings: ${
               calendarResult.meetingCount ?? 0
@@ -7155,16 +7183,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
             if (nextHighStakesEvent) {
               const t = (nextHighStakesEvent as any).localHHmm;
-              const nextCat = categoryNameOf(nextHighStakesEvent.title || "");
-              const nextSuffix = nextCat ? ` [${nextCat}]` : "";
-              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${nextSuffix}${
+              const nextLabel = internalCatLabel(
+                categoryNameOf(nextHighStakesEvent.title || ""),
+              );
+              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${nextLabel}${
                 t ? ` at ${t}` : ""
               } (in ${nextHighStakesEvent.minutesUntil}mins)`;
             }
             userPrompt +=
               `\nCLOCK TIME RULE: When referencing any event time in the body, use ONLY the HH:mm strings provided above, character-for-character. Never invent, round, shift, or reformat clock times. If no time is provided for an event, omit the time entirely rather than guessing.`;
             userPrompt +=
-              `\nEVENT IMPORTANCE GUIDE (A highest → H lowest): A=Board & Governance (board, audit, regulatory), B=Influence & Persuasion (pitch, investor, key negotiation), C=Visibility & Communication (media, town hall, keynote), D=Interpersonal High-Stakes (1:1 hard talk, performance, layoff), E=Deep Work & Strategy (planning, review, writing), F=Conferences & External Events, G=Travel, H=Daily Rhythm & Baseline. Focus beat (c) on the highest-category event.`;
+              `\n\nEVENT IMPORTANCE GUIDE — INTERNAL ONLY (A highest → H lowest):\n${A_H_REFERENCE_BLOCK}`;
+            userPrompt +=
+              `\nHOW TO USE THE CATEGORY: The Cat-A…Cat-H markers are internal allocation vocabulary for your reasoning only. NEVER write a category letter, the string "Cat", a bracketed label, or a pillar name (e.g. "Board & Governance", "Daily Rhythm & Baseline") in phrase, body, leanOn or watchFor. When one event carries the day, name it by its TITLE, shortened to the recognisable part (roughly 3-5 words, keeping the distinguishing word — "the Acme board review", not "the meeting" and not "Board & Governance"). When several events share a category, or the day is a stack, use category or load language instead of listing titles ("back-to-back governance calls", "a heavy interpersonal block", "context switching across four calls").`;
+            userPrompt +=
+              `\nLOAD IS NOT A CATEGORY: Day shape (back-to-back, context switching) is a separate axis from A–H event kind. A back-to-back or switching day is a load signal that ranks on its own — never file it as Cat H or treat it as low-priority rhythm. Cat H (gym, commute, social, wind-down) never anchors the work directive, even when it is the only classified event. Focus beat (c) on the highest-priority event.`;
           }
 
           // === TOMORROW === (evenings, Friday, Sunday)
@@ -7184,18 +7217,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
             userPrompt += `\n\n=== TOMORROW ===`;
             userPrompt += `\nDay: ${tomorrowDayName} · Load: ${tomorrowLoad}`;
-            // Pair every high-stakes title with its own local time and A-H
-            // category suffix so the LLM cannot mis-glue a title to an unrelated
-            // line's time and understands relative importance.
+            // Pair every high-stakes title with its own local time and an
+            // INTERNAL-ONLY A–H marker so the LLM cannot mis-glue a title to an
+            // unrelated line's time and can rank relative importance. Same
+            // output contract as CALENDAR TODAY: markers never reach copy.
             if (tomorrowHighStakesTitles.length > 0) {
-              const paired = tomorrowHighStakesTitles.map((t, i) => {
+              userPrompt += `\nHigh-stakes events (listed highest-priority first):`;
+              for (let i = 0; i < tomorrowHighStakesTitles.length; i++) {
                 const tm = tomorrowHighStakesEventTimes[i];
-                const cat = tomorrowHighStakesCategories[i];
-                const suffix = cat ? ` [${cat}]` : "";
-                return tm ? `${tm}, ${t}${suffix}` : `${t}${suffix}`;
-              }).join(", ");
-              userPrompt +=
-                `\nHigh-stakes meetings (with local times [category]): ${paired}`;
+                const label = internalCatLabel(tomorrowHighStakesCategories[i]);
+                userPrompt += `\n  ${tm ? `${tm} ` : ""}${
+                  tomorrowHighStakesTitles[i]
+                }${label}`;
+              }
+            } else {
+              userPrompt += `\n  No classified meetings tomorrow.`;
             }
             if (tomorrowFirstMeetingPair) {
               userPrompt +=
