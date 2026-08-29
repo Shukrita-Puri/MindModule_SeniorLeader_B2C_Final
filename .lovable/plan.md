@@ -24,12 +24,13 @@ renames, no output-contract change, no other file touched.
 
 The BUCKET 3 bullet block actually ends with `Coach insights — strength, growth area, pending commitment.` at line 252 (the "Consecutive low clarity" line the request names is its second-to-last bullet). There is currently no parenthetical after it — confirmed by `rg` (only line 252 matches). Two insertions happen after that line, before `STEP 2 — FIND THE TENSION` (line 254):
 
-1. Add a parenthetical note scoped to the coach bullet (the Coach feature is not active, but growth areas and pending commitments currently come from Onboarding V8 — so the bullet is not fully skipped when V8 data exists):
+1. Add a parenthetical note scoped to the coach bullet. The coach feature is not active, but the bullet is not fully skipped: growth areas, cognitive load, leadership context, and strengths come from the Leadership COS profile (`cos_profile`, loaded via `loadLeaderProfile()` — `priors.cognitive_load_map`, `priors.cognitive_risk_profile.regulation_strengths`, `analysis.leadership_style`, `voice.communication_how_they_think`), while commitments and preferences come from Onboarding V8 (`goals`, `brief_timing`, `preferred_practice_window`, `reset_modality`, `weekend_signals`). These are what the user told us about themselves:
 
 ```
-    (Coach feature not yet active — no coach data will appear in BUCKET 3. Growth areas and
-    pending commitments currently come from Onboarding V8; use those when present. Skip this
-    bullet only when no V8 data exists.)
+    (Coach feature not yet active — no coach data will appear in BUCKET 3. Growth areas, cognitive
+    load, leadership context, and strengths come from the Leadership COS profile; commitments and
+    preferences come from Onboarding V8. Use those when present — they are what the user told us
+    about themselves. Skip this bullet only when neither exists.)
 ```
 
 2. Add the pattern-priority rule immediately after that note:
