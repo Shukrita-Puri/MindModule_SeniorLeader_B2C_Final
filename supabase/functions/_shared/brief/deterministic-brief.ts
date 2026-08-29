@@ -979,14 +979,14 @@ export function buildDeterministicBriefFallback(
  * plain event reference.
  */
 function spendTimingOnce(body: string): string {
-  const re =
-    /\s(?:starting now|in under 15 minutes|in \d+ minutes|in about an hour|in about \d+ hours|later today|tomorrow)(?=[\s,.;])/g;
+  const re = new RegExp(`${TIMING_OPEN}([^${TIMING_CLOSE}]*)${TIMING_CLOSE}`, "g");
   let seen = false;
-  return body.replace(re, (m) => {
+  return body.replace(re, (_m, clause: string) => {
     if (seen) return "";
     seen = true;
-    return m;
+    return clause;
   });
 }
+
 
 
