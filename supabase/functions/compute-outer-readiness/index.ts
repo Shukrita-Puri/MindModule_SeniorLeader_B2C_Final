@@ -33,6 +33,30 @@ const enrichOf = (input: ResolveEventInput) =>
 const categoryNameOf = (input: ResolveEventInput): string | null =>
   enrichOf(input).category?.name ?? null;
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
+/**
+ * A–H reference block for the LLM prompt, generated at runtime from
+ * EVENT_CATEGORIES (the taxonomy SSOT) so it can never drift. Worked examples
+ * come from each pillar's canonical `triggers` inventory — NOT from
+ * `selfRegulationFocus`, which is coaching-protocol text and inappropriate here.
+ */
+const A_H_REFERENCE_BLOCK: string = Object.values(EVENT_CATEGORIES)
+  .map((cat) =>
+    `  ${cat.id}  ${cat.name.padEnd(32)}e.g. ${cat.triggers.slice(0, 3).join(", ")}`
+  )
+  .join("\n");
+/**
+ * Internal-only category marker for a high-stakes event line. The
+ * "(internal: …)" wrapper tells the LLM this label is for its reasoning and
+ * must never reach user-facing copy. Returns "" when the pillar cannot be
+ * resolved — a bare category name could read as user-facing.
+ */
+const internalCatLabel = (categoryName: string | null | undefined): string => {
+  if (!categoryName) return "";
+  const id = Object.values(EVENT_CATEGORIES).find((c) =>
+    c.name === categoryName
+  )?.id;
+  return id ? ` (internal: Cat-${id} ${categoryName})` : "";
+};
 import {
   type Phase,
   phaseForEvent,
