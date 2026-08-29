@@ -246,7 +246,9 @@ Deno.test("deterministic brief — weekday wearable-only path keeps calendar-fre
     hasBackToBack: false,
     isWeekend: false,
   });
-  assertEquals(result.body.includes("open working day"), true);
+  // Afternoon speaks to what is left of the day, never to a day still ahead.
+  assertEquals(result.body.includes("what is left of the day unclaimed"), true);
+  assertEquals(result.body.includes("open working day"), false);
   assertEquals(result.body.split(".")[0].trim().split(/\s+/).length >= 15, true);
 });
 
@@ -637,5 +639,6 @@ Deno.test("deterministic brief — evening uses remaining meetings, not the whol
     remainingMeetings: 0,
     todayHighStakes: [],
   }));
-  assertStringIncludes(built.body, "open working day");
+  // Evening speaks in the past tense; "the day ahead" is not quotable.
+  assertStringIncludes(built.body, "the day ran without a claim on it");
 });
