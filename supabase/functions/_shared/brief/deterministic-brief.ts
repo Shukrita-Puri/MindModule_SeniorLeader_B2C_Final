@@ -374,6 +374,16 @@ function effectiveMeetingCount(opts: DeterministicBriefFallbackOpts): number {
 }
 
 /**
+ * The window slice is the single source of truth for the window when it is
+ * passed; the flat opt is only a fallback for callers without a slice.
+ */
+function effectiveWindow(
+  opts: DeterministicBriefFallbackOpts,
+): "morning" | "afternoon" | "evening" {
+  return opts.windowContext?.window ?? opts.window;
+}
+
+/**
  * Overnight signals (sleep, overnight recovery) may only speak in the morning.
  * With a window context this is a type-level fact — `sleepHours` /
  * `sleepQuality` only exist on `MorningContext` — and without one we apply the
@@ -382,9 +392,7 @@ function effectiveMeetingCount(opts: DeterministicBriefFallbackOpts): number {
 function overnightSleepScore(
   opts: DeterministicBriefFallbackOpts,
 ): number | null {
-  const wc = opts.windowContext ?? null;
-  if (wc) return wc.window === "morning" ? opts.sleepScore : null;
-  return opts.window === "morning" ? opts.sleepScore : null;
+  return effectiveWindow(opts) === "morning" ? opts.sleepScore : null;
 }
 
 /**
@@ -393,10 +401,12 @@ function overnightSleepScore(
  * the past.
  */
 function openDayClause(opts: DeterministicBriefFallbackOpts): string {
-  if (opts.window === "afternoon") {
+  const window = effectiveWindow(opts);
+  if (window === "afternoon") {
     return "with what is left of the day unclaimed — the time is yours to direct";
   }
-  if (opts.window === "evening") {
+  if (window === "evening") {
+
     return "and the day ran without a claim on it — the time was yours to direct";
   }
   return "with an open working day ahead — the time is unclaimed and yours to direct";
