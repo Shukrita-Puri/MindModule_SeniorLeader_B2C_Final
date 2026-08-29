@@ -7348,7 +7348,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt +=
                 `\n\nCognition × event correlations (documented clarity/sharpness impact):`;
               for (const f of sortedCogCorr) {
-                const todayFlag = todayEventTypes.has(f.event_type)
+                const todayFlag = matchesTodayEventType(f.event_type)
                   ? " ← TODAY"
                   : "";
                 userPrompt += `\n${f.event_type}: ${f.dim} drops ~${
