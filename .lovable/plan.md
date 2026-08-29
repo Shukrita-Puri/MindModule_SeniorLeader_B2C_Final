@@ -21,7 +21,17 @@ renames, no output-contract change, no other file touched.
 
 ### Location A — end of the BUCKET 3 description, Step 1
 
-The BUCKET 3 bullet block actually ends with `Coach insights — strength, growth area, pending commitment.` (the "Consecutive low clarity" line the request names is its second-to-last bullet). Insert the rule after the Coach insights line, before `STEP 2 — FIND THE TENSION`:
+The BUCKET 3 bullet block actually ends with `Coach insights — strength, growth area, pending commitment.` at line 252 (the "Consecutive low clarity" line the request names is its second-to-last bullet). There is currently no parenthetical after it — confirmed by `rg` (only line 252 matches). Two insertions happen after that line, before `STEP 2 — FIND THE TENSION` (line 254):
+
+1. Add a parenthetical note scoped to the coach bullet (the Coach feature is not active, but growth areas and pending commitments currently come from Onboarding V8 — so the bullet is not fully skipped when V8 data exists):
+
+```
+    (Coach feature not yet active — no coach data will appear in BUCKET 3. Growth areas and
+    pending commitments currently come from Onboarding V8; use those when present. Skip this
+    bullet only when no V8 data exists.)
+```
+
+2. Add the pattern-priority rule immediately after that note:
 
 ```
   PATTERN PRIORITY RULE: If any entry in BUCKET 3 is flagged ⚑ TODAY'S CALENDAR —
