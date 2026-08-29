@@ -6897,27 +6897,47 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           let causalitySignalSummary: CausalitySignalSummary | null = null;
           {
             const _causalityT0 = Date.now();
+            let causalityDate: string | null = null;
             try {
+              // No date filter — take the most recent computed row whatever
+              // date it carries. Pinning to today silently dropped the entire
+              // measured-pattern section whenever the nightly engine had not
+              // written today's row yet.
               const { data: causalityRow } = await db
                 .from("causality_findings")
-                .select("signal_summary")
+                .select("signal_summary, computed_for_date")
                 .eq("user_id", userId)
                 .eq("pattern_kind", "cause_effect_v2")
-                .eq("computed_for_date", userLocalDate)
+                .order("computed_for_date", { ascending: false })
+                .limit(1)
                 .maybeSingle();
               if ((causalityRow as any)?.signal_summary) {
                 causalitySignalSummary =
                   (causalityRow as any).signal_summary as CausalitySignalSummary;
               }
+              causalityDate = (causalityRow as any)?.computed_for_date ?? null;
             } catch (_e) {
               causalitySignalSummary = null;
+              causalityDate = null;
             }
+            const causalityDaysOld = causalityDate
+              ? Math.floor(
+                (new Date(`${userLocalDate}T00:00:00Z`).getTime() -
+                  new Date(`${causalityDate}T00:00:00Z`).getTime()) / 86400000,
+              )
+              : null;
             console.log(
-              `[brief][causality] read ms=${
-                Date.now() - _causalityT0
-              } hit=${causalitySignalSummary ? "yes" : "no"}`,
+              "[brief][causality]",
+              JSON.stringify({
+                ms: Date.now() - _causalityT0,
+                hit: causalitySignalSummary != null,
+                date: causalityDate,
+                daysOld: causalityDaysOld,
+                userId: redactUserId(userId),
+              }),
             );
           }
+
 
           // §8 canonical block header — replaces the legacy `=== TIME ===`
           // block. `dayKind` (travel / PTO / holiday / weekend / conference)
@@ -7227,6 +7247,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 .filter(Boolean) as string[],
             );
 
+            // Second match vocabulary. `event_to_rhr` / `event_to_cognition`
+            // entries key on category name or subtype id, not the bucket used
+            // by `hr_event_lift`, so the bucket set above can never mark them.
+            const todayTypeLabels = new Set(
+              (todayHighStakes ?? []).flatMap((t: string) => {
+                const e = enrichOf(t);
+                return [
+                  e.category?.name?.toLowerCase(),
+                  e.subtype?.id?.toLowerCase(),
+                  e.subtype?.label?.toLowerCase(),
+                  e.subtype?.bucket?.toLowerCase(),
+                ].filter(Boolean) as string[];
+              }),
+            );
+            const matchesTodayEventType = (
+              eventType: string | null | undefined,
+            ): boolean => {
+              if (!eventType) return false;
+              const lower = eventType.toLowerCase();
+              if (todayTypeLabels.has(lower)) return true;
+              for (const t of todayTypeLabels) {
+                if (t.length < 4) continue;
+                if (lower.includes(t) || t.includes(lower)) return true;
+              }
+              return false;
+            };
+
+
             // HR × event — the PRIMARY event-level signal (intraday, measured
             // during the event window). HRV is overnight recovery, not in-event.
             const sortedHrCorr =
@@ -7266,7 +7314,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt +=
                 `\n\nRecovery after events (next-morning RHR elevation = body still recovering):`;
               for (const f of sortedRhrCorr) {
-                const todayFlag = todayEventTypes.has(f.event_type)
+                const todayFlag = matchesTodayEventType(f.event_type)
                   ? " ← TODAY"
                   : "";
                 userPrompt += `\n${f.event_type}: next-morning RHR elevated +${
@@ -7281,7 +7329,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))
               .slice(0, 1);
             for (const f of sortedHrvCorr) {
-              const todayFlag = todayEventTypes.has(f.event_type) ? " ← TODAY" : "";
+              const todayFlag = matchesTodayEventType(f.event_type)
+                ? " ← TODAY"
+                : "";
               userPrompt +=
                 `\n\nPost-event overnight recovery (HRV next morning — recovery signal only, not in-event):`;
               userPrompt += `\n${f.event_type}: next-morning HRV ${
@@ -7298,7 +7348,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt +=
                 `\n\nCognition × event correlations (documented clarity/sharpness impact):`;
               for (const f of sortedCogCorr) {
-                const todayFlag = todayEventTypes.has(f.event_type)
+                const todayFlag = matchesTodayEventType(f.event_type)
                   ? " ← TODAY"
                   : "";
                 userPrompt += `\n${f.event_type}: ${f.dim} drops ~${
@@ -7481,10 +7531,31 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   )
                 }`,
               );
+              leaderParts.push(
+                `(When today's calendar contains these event types, treat them as the highest-stakes anchor regardless of A–H category)`,
+              );
             }
             if (leaderProfile.analysis.archetype) {
               leaderParts.push(
                 `Provisional archetype: ${leaderProfile.analysis.archetype}`,
+              );
+              leaderParts.push(
+                `(Use to calibrate posture and vocabulary — never name it in output)`,
+              );
+            }
+            // Cognitive risk pattern + regulation strengths come from the V8
+            // onboarding synthesis (cos_profile), already loaded — no new read.
+            const cognitiveRisk =
+              leaderProfile.priors.cognitive_risk_profile?.primary_risk ?? null;
+            const regulationStrengths =
+              leaderProfile.priors.cognitive_risk_profile?.regulation_strengths ??
+                [];
+            if (cognitiveRisk) {
+              leaderParts.push(`Cognitive risk pattern: ${cognitiveRisk}`);
+            }
+            if (regulationStrengths.length > 0) {
+              leaderParts.push(
+                `Regulation strengths: ${regulationStrengths.join(", ")}`,
               );
             }
             if (leaderProfile.goals.cos_accountability_note) {
