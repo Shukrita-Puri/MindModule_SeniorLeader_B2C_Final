@@ -7247,6 +7247,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 .filter(Boolean) as string[],
             );
 
+            // Second match vocabulary. `event_to_rhr` / `event_to_cognition`
+            // entries key on category name or subtype id, not the bucket used
+            // by `hr_event_lift`, so the bucket set above can never mark them.
+            const todayTypeLabels = new Set(
+              (todayHighStakes ?? []).flatMap((t: string) => {
+                const e = enrichOf(t);
+                return [
+                  e.category?.name?.toLowerCase(),
+                  e.subtype?.id?.toLowerCase(),
+                  e.subtype?.label?.toLowerCase(),
+                  e.subtype?.bucket?.toLowerCase(),
+                ].filter(Boolean) as string[];
+              }),
+            );
+            const matchesTodayEventType = (
+              eventType: string | null | undefined,
+            ): boolean => {
+              if (!eventType) return false;
+              const lower = eventType.toLowerCase();
+              if (todayTypeLabels.has(lower)) return true;
+              for (const t of todayTypeLabels) {
+                if (t.length < 4) continue;
+                if (lower.includes(t) || t.includes(lower)) return true;
+              }
+              return false;
+            };
+
+
             // HR × event — the PRIMARY event-level signal (intraday, measured
             // during the event window). HRV is overnight recovery, not in-event.
             const sortedHrCorr =
