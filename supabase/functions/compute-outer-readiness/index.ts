@@ -7217,18 +7217,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
             userPrompt += `\n\n=== TOMORROW ===`;
             userPrompt += `\nDay: ${tomorrowDayName} · Load: ${tomorrowLoad}`;
-            // Pair every high-stakes title with its own local time and A-H
-            // category suffix so the LLM cannot mis-glue a title to an unrelated
-            // line's time and understands relative importance.
+            // Pair every high-stakes title with its own local time and an
+            // INTERNAL-ONLY A–H marker so the LLM cannot mis-glue a title to an
+            // unrelated line's time and can rank relative importance. Same
+            // output contract as CALENDAR TODAY: markers never reach copy.
             if (tomorrowHighStakesTitles.length > 0) {
-              const paired = tomorrowHighStakesTitles.map((t, i) => {
+              userPrompt += `\nHigh-stakes events (listed highest-priority first):`;
+              for (let i = 0; i < tomorrowHighStakesTitles.length; i++) {
                 const tm = tomorrowHighStakesEventTimes[i];
-                const cat = tomorrowHighStakesCategories[i];
-                const suffix = cat ? ` [${cat}]` : "";
-                return tm ? `${tm}, ${t}${suffix}` : `${t}${suffix}`;
-              }).join(", ");
-              userPrompt +=
-                `\nHigh-stakes meetings (with local times [category]): ${paired}`;
+                const label = internalCatLabel(tomorrowHighStakesCategories[i]);
+                userPrompt += `\n  ${tm ? `${tm} ` : ""}${
+                  tomorrowHighStakesTitles[i]
+                }${label}`;
+              }
+            } else {
+              userPrompt += `\n  No classified meetings tomorrow.`;
             }
             if (tomorrowFirstMeetingPair) {
               userPrompt +=
