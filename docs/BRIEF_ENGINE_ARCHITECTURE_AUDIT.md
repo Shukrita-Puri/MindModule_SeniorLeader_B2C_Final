@@ -343,3 +343,23 @@ Telemetry leads the post-launch block so the later work is evidence-driven.
 | `_shared/personas/ceo/behaviour-copy.contract.test.ts` | Window/timing/copy invariants |
 | `cause-effect-engine` | Nightly correlation → `causality_findings` |
 | `docs/BRIEF_VALIDATOR_SSOT.md` | Validator ownership + consolidation plan |
+
+---
+
+## 8. Addendum — v7.7 (2026-08-29)
+
+Prompt version: `v7.7-calendar-load-honesty` (SSOT `_shared/brief-prompt-version.ts`, client mirror `src/constants/briefPromptVersion.ts`).
+
+**Calendar-load honesty.** The deterministic builder names the day's load with the CALENDAR pill's qualitative vocabulary — light / busy / heavy — and reserves "open day" for a true-zero working day (never weekends or off-day shapes). Load is factual: it follows the deduplicated cross-provider / overlap-collapsed event count and is never altered by whether A–H classification recognised the event. Classification governs naming and high-stakes treatment only.
+
+**Remaining vs total meetings.** `effectiveMeetingCount()` speaks to the whole day in the morning, to what is still ahead in the afternoon, and to what actually ran in the evening.
+
+**Window context is the deterministic signal source.** `DeterministicBriefFallbackOpts.windowContext` accepts the Morning / Afternoon / Evening slice built by `_shared/signal-engine/window-context.ts` — the same slice the LLM prompt and `input_signature` already carry. Sleep and overnight recovery only exist on `MorningContext`, so "overnight signals are morning-only" is a type-level fact rather than a hand-written guard. When the option is absent the flat opts remain the source (tests, golden set).
+
+**Two-party title inference.** `_shared/events/two-party-title.ts`, wired into `classify-event-v2.ts`. Title-driven only: separators (`|`, `/`, `<>`, `-`), conjunctions, and person-like connector forms (catch-up, touch-base, 1:1). Attendee count and duration are **not** evidence of a 1:1 — a calendar block can have no invitees. Attendee data is reserved for characterising the relationship (boss, colleague, interview). Social / group forms and stronger A–H classifications still win.
+
+**Generic-branch copy invariants.** The three narrative invariants now also hold for the non-narrative branch and are tested in `_shared/brief/deterministic-generic-window.test.ts`: no `"<event> ahead"`, no overnight signal after the morning, and the anchor's time-until clause spent at most once per body (`spendTimingOnce`).
+
+**Manual refresh.** `build-executive-home-cards` forwards `forceRefresh`; `compute-outer-readiness` then skips only the snapshot *replay read* — validator and overwrite protection stay in force. The forced snapshot updates the matching conflict row in place with a fresh `updated_at`, so DB history is preserved. Only the current window's browser cache is cleared and rewritten.
+
+**Deterministic fallback contract.** The deterministic body is validated by `validateBrief()` before it is served. On rejection the Brief renders the awaiting-signals state; it never ships unvalidated copy.
