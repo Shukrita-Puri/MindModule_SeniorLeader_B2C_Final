@@ -226,11 +226,52 @@ export interface DeterministicCausalityData {
 }
 
 
+/**
+ * Observability only. Never validated, never rendered, never persisted in the
+ * response contract — one structured line per generated brief so the producing
+ * path, copy branch and pattern match are readable after the fact.
+ */
+export interface BriefProvenance {
+  // Which path produced the brief
+  producer: "llm_accepted" | "llm_rejected_deterministic" | "deterministic_direct";
+  llmAttemptCount?: number;
+  llmRejectionCodes?: string[];
+
+  // Copy branch
+  branch: "narrative" | "generic";
+  narrativeFamily?: string | null;
+  dayShape?: string | null;
+  window: "morning" | "afternoon" | "evening";
+  band: string;
+  variantSeed?: string | null;
+  windowContextSupplied: boolean;
+  timingClauseSpent: boolean;
+
+  // Learning store state at generation time
+  learningStorePresent: boolean;
+  learningStoreConfirmedTitles?: number;
+  learningStorePromotedTokens?: number;
+
+  // Anchor event taxonomy resolution (via the single A–H entry point)
+  anchorEventTitle?: string | null;
+  anchorEventResolutionSource?: string | null;
+  anchorEventCategoryId?: string | null;
+  anchorEventConfidence?: string | null;
+
+  // Pattern data presence
+  causalityMatchFired: boolean;
+  causalityMatchEventType?: string | null;
+  causalityMatchN?: number | null;
+}
+
 export interface DeterministicBriefResult {
   phrase: string;
   body: string;
   topSignal: "baseline_quiet";
+  /** Optional; consumers that ignore it are unaffected. */
+  provenance?: BriefProvenance;
 }
+
 
 function shortRef(title: string): string {
   return shortRefImpl(title);
@@ -538,6 +579,23 @@ const GENERIC_LABEL_WORDS = new Set([
 
 
 /**
+ * Observability side-channel for the tier-1 pattern match. Written only by
+ * `patternEvidence()`, reset at the top of every brief build, read only by
+ * `buildProvenance()`. It never influences copy or control flow.
+ */
+type PatternMatchRecord = { eventType: string | null; n: number };
+let lastPatternMatch: PatternMatchRecord | null = null;
+
+function recordPattern(
+  eventType: string | null,
+  n: number,
+  sentence: string,
+): string {
+  lastPatternMatch = { eventType, n };
+  return sentence;
+}
+
+/**
  * One pattern sentence for the already-selected subject, or null when no
  * family clears its floor for this subject.
  */
@@ -558,9 +616,13 @@ function patternEvidence(
     .filter((f) => matchesSubject(f.bucket, labels) || matchesSubject(f.categoryName, labels))
     .sort((a, b) => Math.abs(b.hrDeltaBpm) - Math.abs(a.hrDeltaBpm))[0];
   if (hr) {
-    return `Across ${hr.n} of these your heart rate has run ${
-      Math.round(Math.abs(hr.hrDeltaBpm))
-    } bpm above resting during them, and ${ref} is ${when}.`;
+    return recordPattern(
+      hr.bucket ?? hr.categoryName ?? null,
+      hr.n,
+      `Across ${hr.n} of these your heart rate has run ${
+        Math.round(Math.abs(hr.hrDeltaBpm))
+      } bpm above resting during them, and ${ref} is ${when}.`,
+    );
   }
 
   // 2. Next-morning resting rate.
@@ -569,9 +631,13 @@ function patternEvidence(
     .filter((f) => matchesSubject(f.event_type, labels))
     .sort((a, b) => b.rhrDeltaPct - a.rhrDeltaPct)[0];
   if (rhr) {
-    return `The ${rhr.n} mornings after ${refPlain} your resting rate has sat ${
-      Math.round(rhr.rhrDeltaPct)
-    }% higher, and one is ${when}.`;
+    return recordPattern(
+      rhr.event_type ?? null,
+      rhr.n,
+      `The ${rhr.n} mornings after ${refPlain} your resting rate has sat ${
+        Math.round(rhr.rhrDeltaPct)
+      }% higher, and one is ${when}.`,
+    );
   }
 
   // 3. Next-morning recovery.
@@ -581,9 +647,13 @@ function patternEvidence(
     .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))[0];
   if (hrv) {
     const dir = hrv.hrvDeltaPct < 0 ? "below" : "above";
-    return `The morning after ${refPlain} your recovery has run about ${
-      Math.abs(Math.round(hrv.hrvDeltaPct))
-    }% ${dir} your usual, across ${hrv.n} of them, and one is ${when}.`;
+    return recordPattern(
+      hrv.event_type ?? null,
+      hrv.n,
+      `The morning after ${refPlain} your recovery has run about ${
+        Math.abs(Math.round(hrv.hrvDeltaPct))
+      }% ${dir} your usual, across ${hrv.n} of them, and one is ${when}.`,
+    );
   }
 
   // 4. Cognition cost.
@@ -592,15 +662,23 @@ function patternEvidence(
     .filter((f) => matchesSubject(f.event_type, labels))
     .sort((a, b) => a.tierDelta - b.tierDelta)[0];
   if (cog) {
-    return `Across ${cog.n} of these your ${cog.dim} has dropped close to a full tier afterwards, and ${ref} is ${when}.`;
+    return recordPattern(
+      cog.event_type ?? null,
+      cog.n,
+      `Across ${cog.n} of these your ${cog.dim} has dropped close to a full tier afterwards, and ${ref} is ${when}.`,
+    );
   }
 
   // 5. Consecutive load.
   const cl = data.consecutive_load;
   if (cl && cl.n >= 3 && Math.abs(cl.tailDeltaPct) >= 8) {
-    return `After two heavy days in a row your recovery has run ${
-      Math.abs(Math.round(cl.tailDeltaPct))
-    }% lower, across ${cl.n} of them, and ${ref} is ${when}.`;
+    return recordPattern(
+      "consecutive_load",
+      cl.n,
+      `After two heavy days in a row your recovery has run ${
+        Math.abs(Math.round(cl.tailDeltaPct))
+      }% lower, across ${cl.n} of them, and ${ref} is ${when}.`,
+    );
   }
 
   // 6. Short-sleep carry (morning only — overnight signals never speak later).
@@ -611,9 +689,13 @@ function patternEvidence(
     overnightSleepScore(opts) !== null &&
     (overnightSleepScore(opts) as number) < 65
   ) {
-    return `On short-sleep nights your next day has come in about ${
-      Math.abs(Math.round(sp.lowSleepPrsDeltaPct))
-    }% lower, across ${sp.n} of them, and ${ref} is what it lands on.`;
+    return recordPattern(
+      "sleep_to_prs",
+      sp.n,
+      `On short-sleep nights your next day has come in about ${
+        Math.abs(Math.round(sp.lowSleepPrsDeltaPct))
+      }% lower, across ${sp.n} of them, and ${ref} is what it lands on.`,
+    );
   }
 
   // 7. Positive lift — this category is where the person performs best.
@@ -622,13 +704,68 @@ function patternEvidence(
     .filter((c) => matchesSubject(c.categoryName, labels))
     .sort((a, b) => b.compositeLift - a.compositeLift)[0];
   if (lift) {
-    return `${ref} sits in the work where your numbers have come in best, ${
-      Math.round(lift.compositeLift)
-    }% above your usual across ${lift.n} of them.`;
+    return recordPattern(
+      lift.categoryName ?? null,
+      lift.n,
+      `${ref} sits in the work where your numbers have come in best, ${
+        Math.round(lift.compositeLift)
+      }% above your usual across ${lift.n} of them.`,
+    );
   }
 
   return null;
 }
+
+/**
+ * Assembles the observability record from values already in scope. Pure —
+ * it reads state, never writes copy.
+ */
+function buildProvenance(
+  opts: DeterministicBriefFallbackOpts,
+  branch: "narrative" | "generic",
+  narrativeFamily: string | null,
+  timingClauseSpent: boolean,
+  match: PatternMatchRecord | null,
+): BriefProvenance {
+  const anchorTitle = opts.leadNarrative?.anchor?.title ??
+    opts.travelEventTitle ??
+    opts.todayHighStakes[0] ?? null;
+
+  let source: string | null = null;
+  let categoryId: string | null = null;
+  let confidence: string | null = null;
+  if (anchorTitle) {
+    try {
+      const e = enrich(anchorTitle);
+      source = e.source ?? null;
+      categoryId = e.categoryId ?? null;
+      confidence = e.confidence ?? null;
+    } catch {
+      // Enrichment is best-effort here; provenance never fails a brief.
+    }
+  }
+
+  return {
+    producer: "deterministic_direct",
+    branch,
+    narrativeFamily,
+    dayShape: opts.dayShape ?? null,
+    window: opts.window,
+    band: opts.band,
+    variantSeed: opts.variantSeed ?? null,
+    windowContextSupplied: opts.windowContext != null,
+    timingClauseSpent,
+    learningStorePresent: false,
+    anchorEventTitle: anchorTitle,
+    anchorEventResolutionSource: source,
+    anchorEventCategoryId: categoryId,
+    anchorEventConfidence: confidence,
+    causalityMatchFired: match != null,
+    causalityMatchEventType: match?.eventType ?? null,
+    causalityMatchN: match?.n ?? null,
+  };
+}
+
 
 
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
@@ -1196,6 +1333,8 @@ export function buildDeterministicBriefFallback(
     checkInOutcome: checkInCurrent ? rawOpts.checkInOutcome : null,
   };
   const phrase = phraseFor(opts);
+  // Observability side-channel reset — see `recordPattern`.
+  lastPatternMatch = null;
 
   // ── Scenario families (Part 1B) ──
   // A resolved, non-baseline narrative owns the body. Off-day shapes keep
@@ -1229,6 +1368,7 @@ export function buildDeterministicBriefFallback(
       phrase,
       body: assembleNarrativeBody(beats),
       topSignal: "baseline_quiet",
+      provenance: buildProvenance(opts, "narrative", narrative.family, false, null),
     };
   }
 
@@ -1239,11 +1379,21 @@ export function buildDeterministicBriefFallback(
   const read = oneClause(buildRead(opts));
   const directive = oneClause(buildDirective(opts));
   const close = closeFor(opts);
+  const bodyRaw = `${evidence} ${read}. ${directive}, ${close}`;
+  const bodyFinal = spendTimingOnce(bodyRaw);
   return {
     phrase,
-    body: spendTimingOnce(`${evidence} ${read}. ${directive}, ${close}`),
+    body: bodyFinal,
     topSignal: "baseline_quiet",
+    provenance: buildProvenance(
+      opts,
+      "generic",
+      null,
+      bodyFinal !== bodyRaw,
+      lastPatternMatch,
+    ),
   };
+
 }
 
 /**

@@ -4728,6 +4728,8 @@ serve(async (req) => {
     // the Plan parity check.
     let briefLeadNarrative: LeadNarrative | null = null;
     let briefWindowContext: ReturnType<typeof buildWindowContext> | null = null;
+    // Observability only: whether the pattern store was present for this brief.
+    let briefCausalityPresent = false;
 
 
     if (dataCompleteness !== "day1") {
@@ -6938,6 +6940,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               if ((causalityRow as any)?.signal_summary) {
                 causalitySignalSummary =
                   (causalityRow as any).signal_summary as CausalitySignalSummary;
+                briefCausalityPresent = true;
               }
               causalityDate = (causalityRow as any)?.computed_for_date ?? null;
             } catch (_e) {
@@ -9712,6 +9715,45 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       hasInputSignature: !!inputSignature && inputSignature !== "no-sig",
       hasLlmBrief: !!llmBrief,
     });
+
+    // ═══ BRIEF PROVENANCE (observability only) ═══
+    // One structured line per generated brief. No copy, contract or schema
+    // impact; never throws. Carries no titles, free text or wearable values.
+    try {
+      const prov = deterministicBrief?.provenance ?? null;
+      const rejectionCodes = llmAttemptRecords
+        .filter((r) => r.outcome !== "success")
+        .map((r) => String(r.validatorRule ?? r.outcome ?? "unknown"));
+      console.log("[brief-provenance]", JSON.stringify({
+        userId: redactUserId(userId),
+        producer: llmBrief
+          ? "llm_accepted"
+          : deterministicBrief
+          ? "llm_rejected_deterministic"
+          : "awaiting",
+        llmAttemptCount: llmAttemptRecords.length,
+        llmRejectionCodes: rejectionCodes,
+        window: getTimeOfDay(hour),
+        band: prov?.band ?? null,
+        dayShape: briefDayShape ?? null,
+        branch: prov?.branch ?? null,
+        narrativeFamily: prov?.narrativeFamily ?? briefLeadNarrative?.family ?? null,
+        windowContextSupplied: briefWindowContext != null,
+        timingClauseSpent: prov?.timingClauseSpent ?? null,
+        learningStorePresent: briefCausalityPresent,
+        anchorEventResolutionSource: prov?.anchorEventResolutionSource ?? null,
+        anchorEventCategoryId: prov?.anchorEventCategoryId ??
+          briefLeadNarrative?.anchor?.categoryId ?? null,
+        anchorEventConfidence: prov?.anchorEventConfidence ?? null,
+        causalityMatchFired: prov?.causalityMatchFired ?? false,
+        causalityMatchEventType: prov?.causalityMatchEventType ?? null,
+        causalityMatchN: prov?.causalityMatchN ?? null,
+      }));
+    } catch (_provErr) {
+      // Provenance logging must never affect brief generation.
+    }
+
+
 
     console.log(
       `[compute-outer-readiness] DRB brief source: ${
