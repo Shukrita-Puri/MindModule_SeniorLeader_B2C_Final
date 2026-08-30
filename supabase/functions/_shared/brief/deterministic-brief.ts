@@ -16,6 +16,7 @@ import {
 // Single A–H entry point (resolveEvent under the hood) — the deterministic
 // path never re-implements category matching.
 import { enrich } from "../events/pattern-bucket.ts";
+import { SUBTYPE_TO_LEGACY_BUCKET } from "../events/event-classifier.ts";
 
 
 export type DeterministicBriefBand =
