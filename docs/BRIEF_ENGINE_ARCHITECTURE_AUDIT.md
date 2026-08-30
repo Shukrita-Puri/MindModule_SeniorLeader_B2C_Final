@@ -116,66 +116,88 @@ no "ahead" suffix, and baseline stays on the generic path. 47/47 green.
 
 ---
 
-## 3. Current end-to-end path
+## 3. Current end-to-end path (v8.0)
 
-```text
- SOURCES                     RESOLUTION                    COMPOSITION            OUTPUT
- ────────────────────────    ─────────────────────────     ──────────────────     ─────────────
- wearable_data          ┐
- daily_checkins         │    signal-engine/db-queries  ┐
- calendar_events        ├──► enrich-event (A–H SSOT)   ├─► buildBehaviourSnapshot ─┐
- travel_state           │    exclusion-evaluator       │   (signals + flags)       │
- causality_findings     │    mergeCalendarEvents       ┘                           │
- brief_snapshots (hist) ┘                                                          │
-                                                        deriveDayShape ────────────┤
-                             MRS v4 (inner-readiness) ─► pills + band + tier ──────┤
-                                                                                   │
-                                                        resolveLeadNarrative ──────┤
-                                                        (family + anchor + phase)  │
-                                                                                   ▼
-                                                                    ┌──────────────────────────┐
-                                                                    │ LLM prompt   OR          │
-                                                                    │ deterministic-brief.ts   │
-                                                                    │  → behaviour-copy.ts     │
-                                                                    │    NARRATIVE_COPY beats  │
-                                                                    │    (window-gated)        │
-                                                                    └──────────────────────────┘
-                                                                                   │
-                                                          validateV61Output        ▼
-                                                          brief_snapshots + daily_context_snapshot
-```
+### 3.0 One readiness process
+MRS, Brief and Plan are produced inside a single `compute-outer-readiness`
+invocation and gated on the same snapshot. No card renders ahead of MRS.
 
-### Layer by layer
+### 3.1 Sources
+`wearable_data`, `daily_checkins`, `calendar_events` (Apple + Google,
+deduplicated and overlap-aware), `profiles` (timezone, home/current country,
+protection goals), `causality_findings.signal_summary` (the pattern store),
+`event_priority_memory` (learning store: confirmed titles + promoted tokens).
 
-**L1 — Retrieval.** `_shared/signal-engine/db-queries.ts` pulls wearables,
-check-ins, calendar, travel and history for the user/local date. Calendar rows
-pass `mergeCalendarEvents` (dedupe SSOT) and `exclusion-evaluator`
-(cancelled/tentative/all-day) before anything downstream sees them.
+### 3.2 A–H event resolution
+Every event passes through the single entry point
+`_shared/events/resolve-event-category.ts` (via `enrich()` in
+`pattern-bucket.ts`). Resolution layers, in order:
+user override → learned token → layer-3 persisted classification →
+classifier → unresolved. Titles and times are preserved for rendering; A–H
+ids and subtype suffixes never reach user-facing copy.
 
-**L2 — Taxonomy.** Every event resolves once through `enrichEvent` → category
-A–H, subtype, stakes, intent. Only resolver; Brief, Plan, Nudges, Insights
-share it.
+### 3.3 Event prioritisation
+`getServerCalendarMetrics()` → `rankByStakes()` / `stakesScore()` produce
+`todayHighStakes`. This ranking is canonical and identical for both paths.
+Evidence never reorders it.
 
-**L3 — Signal matrix.** `buildBehaviourSnapshot` produces the shared signal
-object (back-to-back minutes, decision density, context-switching cost, travel
-tier, conference day, weight vs volume, recovery deltas, demand scores). Brief
-and Plan consume the *same instance*.
+### 3.4 Shared window context
+`buildWindowContext()` builds exactly one Morning / Afternoon / Evening slice
+(`buildMorningContext` / `buildAfternoonContext` / `buildEveningContext`) plus
+the CEO behaviour snapshot. Both the LLM prompt and the deterministic fallback
+read the same object — signals are formed once.
 
-**L4 — Scoring.** MRS v4 → baseline/refined scores, band, tier caps, pills.
-`briefMustAwait` gates the Brief until pills resolve.
+### 3.5 Bucket 3 — pattern and history
+The prompt's Bucket 3 carries `hr_event_lift`, `event_to_rhr`, `event_to_hrv`,
+`event_to_cognition`, `consecutive_load`, `sleep_to_prs` and `category_lift`,
+matched against today's A–H-resolved events under the
+`⚑ TODAY'S CALENDAR` marker. Matching uses the shared
+`matchesTodayEventType()` helper for every family.
 
-**L5 — Narrative.** `resolveLeadNarrative` collapses the matrix into exactly one
-family + one anchor + phase (pre/post) + depletion overlay, persisted to
-`daily_context_snapshot.lead_narrative`.
+### 3.6 Model ladder
+Gemini Flash → Claude Haiku → deterministic fallback. Each attempt is
+validated atomically; a rejected attempt is recorded and never partially used.
 
-**L6 — Copy.** LLM (prompt carries the narrative block) or `NARRATIVE_COPY` in
-the CEO pack renders four beats: Evidence → Read → Work Directive →
-Self-Regulation Close, under `copy-vocabulary.ts` persona rules, gated by window.
+### 3.7 Deterministic evidence priority
+Subject first (travel shape → conference shape → `todayHighStakes[0]`), then
+evidence for that already-chosen subject:
+tier 1 pattern store (in-event HR → next-morning RHR → next-morning HRV →
+cognition → consecutive load → short-sleep carry → positive lift),
+tier 2 supporting (CEO flag, drained-into-event, low sleep, travel/conference
+framing), tier 3 generic wearable fact then check-in outcome, tier 4 the
+subject itself. Gates: `n >= 3` plus HR ≥ 8 bpm, RHR > 10%, HRV ≥ 15%,
+cognition ≤ −0.4 tiers, load/sleep ≥ 8%. Overnight families speak in the
+morning only.
 
-**L7 — Validation & persistence.** `validateV61Output` (inline in
-`compute-outer-readiness`) rejects wellness/clinical vocabulary and enforces the
-45–55 word / 60 max body contract. Acceptance is atomic. Written to
-`brief_snapshots`, mirrored to `daily_context_snapshot`.
+### 3.8 Validation
+`validateBrief()` gates both paths: sentence budget, 45–55 word body (60 max),
+forbidden wellness/clinical vocabulary, no score restatement, pill/body
+consistency. Acceptance is atomic; a failed deterministic build falls back to
+awaiting rather than shipping invalid copy.
+
+### 3.9 Persistence
+Accepted output is written to `brief_snapshots` and mirrored to
+`daily_context_snapshot`. A formed brief is never overwritten by an awaiting
+state; manual refresh writes a new timestamped row and preserves history.
+
+### 3.10 Provenance logging
+One `[brief-provenance]` JSON line per generation records producer
+(`llm_accepted` / `llm_rejected_deterministic` / `awaiting`), attempt count and
+rejection codes, window, band, day shape, copy branch, narrative family,
+window-context presence, timing-clause spend, learning-store presence, anchor
+taxonomy resolution source / category / confidence, and causality match type
+and `n`. The user id is redacted; no titles, free text or wearable values are
+logged. Logging is try/catch-wrapped and can never fail a brief.
+
+### 3.11 Frontend cache
+Cards render from the cached snapshot immediately and verify silently. On
+refresh failure the previous complete set is retained; no card downgrades to
+awaiting.
+
+### 3.12 Learning loop
+User category confirmations write to `event_priority_memory`; a nightly job
+promotes recurring tokens, which the A–H resolver reads on every surface the
+next day.
 
 ---
 
