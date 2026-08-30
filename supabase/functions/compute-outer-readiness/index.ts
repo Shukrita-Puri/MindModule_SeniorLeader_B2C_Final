@@ -7317,12 +7317,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               (causalitySignalSummary.performance_lift?.hr_event_lift ?? [])
                 .filter((f) => f.n >= 3 && Math.abs(f.hrDeltaBpm) >= 8)
                 .sort((a, b) => Math.abs(b.hrDeltaBpm) - Math.abs(a.hrDeltaBpm));
-            const todayHrCorr = sortedHrCorr.filter((f) =>
-              todayEventTypes.has(f.bucket)
-            );
+            // Match through the SAME helper the RHR / HRV / cognition blocks
+            // use. `hr_event_lift` keys on `bucket` + `categoryName`, which is a
+            // different vocabulary from the bucket set alone — matching on the
+            // bucket only made the strongest event-level signal the narrowest
+            // matcher.
+            const hrMatchesToday = (
+              f: { bucket: string; categoryName: string },
+            ): boolean =>
+              todayEventTypes.has(f.bucket) ||
+              matchesTodayEventType(f.bucket) ||
+              matchesTodayEventType(f.categoryName);
+            const todayHrCorr = sortedHrCorr.filter(hrMatchesToday);
             const hrCorrToShow = [
               ...todayHrCorr,
-              ...sortedHrCorr.filter((f) => !todayEventTypes.has(f.bucket)),
+              ...sortedHrCorr.filter((f) => !hrMatchesToday(f)),
             ].slice(0, 2);
             if (hrCorrToShow.length > 0) {
               userPrompt +=
@@ -7330,14 +7339,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt +=
                 `\nNote: HR is the intraday signal — measured in real time during the event window, not overnight.`;
               for (const f of hrCorrToShow) {
-                const todayFlag = todayEventTypes.has(f.bucket) ? " ← TODAY" : "";
+                const todayFlag = hrMatchesToday(f) ? " ⚑ TODAY'S CALENDAR" : "";
                 userPrompt += `\n${f.categoryName}: peak HR rises +${
                   Math.round(f.hrDeltaBpm)
                 } bpm above resting · n=${f.n} · ${f.confidence}${todayFlag}`;
               }
               if (todayHrCorr.length > 0) {
                 userPrompt +=
-                  `\nIf today contains a ← TODAY event: name this pattern in beat (c).`;
+                  `\nIf today contains a ⚑ TODAY'S CALENDAR event: name this pattern in beat (c).`;
               }
             }
 
@@ -7351,7 +7360,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 `\n\nRecovery after events (next-morning RHR elevation = body still recovering):`;
               for (const f of sortedRhrCorr) {
                 const todayFlag = matchesTodayEventType(f.event_type)
-                  ? " ← TODAY"
+                  ? " ⚑ TODAY'S CALENDAR"
                   : "";
                 userPrompt += `\n${f.event_type}: next-morning RHR elevated +${
                   Math.round(f.rhrDeltaPct)
@@ -7366,7 +7375,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .slice(0, 1);
             for (const f of sortedHrvCorr) {
               const todayFlag = matchesTodayEventType(f.event_type)
-                ? " ← TODAY"
+                ? " ⚑ TODAY'S CALENDAR"
                 : "";
               userPrompt +=
                 `\n\nPost-event overnight recovery (HRV next morning — recovery signal only, not in-event):`;
@@ -7385,7 +7394,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 `\n\nCognition × event correlations (documented clarity/sharpness impact):`;
               for (const f of sortedCogCorr) {
                 const todayFlag = matchesTodayEventType(f.event_type)
-                  ? " ← TODAY"
+                  ? " ⚑ TODAY'S CALENDAR"
                   : "";
                 userPrompt += `\n${f.event_type}: ${f.dim} drops ~${
                   Math.abs(f.tierDelta).toFixed(1)
@@ -9629,6 +9638,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 // Same M/A/E slice the LLM prompt reads — the deterministic
                 // generic branch sources its counts and body signal from it.
                 windowContext: briefWindowContext ?? null,
+                // Same pattern-store projection BUCKET 3 shows the LLM.
+                causalityData: causalitySignalSummary ?? null,
                 variantSeed: `${userId}|${userLocalDate}|${
                   getTimeOfDay(hour)
                 }`,

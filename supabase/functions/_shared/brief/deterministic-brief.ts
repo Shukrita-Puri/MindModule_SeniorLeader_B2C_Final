@@ -13,6 +13,10 @@ import {
   detectCluster,
   lexiconFallbackClause,
 } from "../copy-vocabulary.ts";
+// Single A–H entry point (resolveEvent under the hood) — the deterministic
+// path never re-implements category matching.
+import { enrich } from "../events/pattern-bucket.ts";
+import { SUBTYPE_TO_LEGACY_BUCKET } from "../events/event-classifier.ts";
 
 
 export type DeterministicBriefBand =
@@ -165,6 +169,60 @@ export interface DeterministicBriefFallbackOpts {
    * opts remain the source.
    */
   windowContext?: WindowContext | null;
+  /**
+   * The same `causality_findings.signal_summary` projection the LLM prompt
+   * reads in BUCKET 3. Structurally typed here so the shared module does not
+   * import the edge function's local type. Optional: when absent the evidence
+   * ladder behaves exactly as it did before pattern evidence existed.
+   */
+  causalityData?: DeterministicCausalityData | null;
+}
+
+/**
+ * Pattern-store projection consumed by the deterministic evidence ladder.
+ * Mirrors `causality_findings.signal_summary` (writer: cause-effect-engine).
+ */
+export interface DeterministicCausalityData {
+  event_to_hrv?: Array<
+    { event_type: string; n: number; hrvDeltaPct: number; confidence?: string }
+  > | null;
+  event_to_rhr?: Array<
+    { event_type: string; n: number; rhrDeltaPct: number; confidence?: string }
+  > | null;
+  event_to_cognition?: Array<
+    {
+      event_type: string;
+      dim: string;
+      tierDelta: number;
+      n: number;
+      confidence?: string;
+    }
+  > | null;
+  sleep_to_prs?:
+    | { lowSleepPrsDeltaPct: number; n: number; confidence?: string }
+    | null;
+  consecutive_load?:
+    | { tailDeltaPct: number; n: number; confidence?: string }
+    | null;
+  performance_lift?: {
+    hr_event_lift?: Array<
+      {
+        bucket: string;
+        categoryName: string;
+        hrDeltaBpm: number;
+        n: number;
+        confidence?: string;
+      }
+    > | null;
+    category_lift?: Array<
+      {
+        categoryName: string;
+        compositeLift: number;
+        n: number;
+        confidence?: string;
+      }
+    > | null;
+  } | null;
 }
 
 
@@ -412,6 +470,166 @@ function openDayClause(opts: DeterministicBriefFallbackOpts): string {
   return "with an open working day ahead — the time is unclaimed and yours to direct";
 }
 
+// ── Tier 1 evidence: the pattern store ──────────────────────────────────────
+// Runs ONLY for a subject that A–H selection has already chosen. It never
+// selects or reorders subjects; it decides how specifically the chosen subject
+// can be described. Gating mirrors the LLM prompt exactly (n >= 3 plus the same
+// magnitude floors), so both paths cite a pattern under identical conditions.
+//
+// Timeframes are fixed per family and never mixed in one sentence:
+//   hr_event_lift  -> DURING the event (intraday)
+//   event_to_rhr   -> the MORNING AFTER (recovery cost)
+//   event_to_hrv   -> the MORNING AFTER (recovery cost)
+
+/** Lowercased A–H label set for a subject title, same vocabulary the prompt uses. */
+function subjectLabels(title: string): Set<string> {
+  const e = enrich(title);
+  const labels = [
+    e.category?.name,
+    e.subtype?.id,
+    e.subtype?.label,
+    e.subtype?.bucket,
+    // The pattern store writes legacy bucket names; include the canonical
+    // mapping so the common case is an exact match, not a fuzzy one.
+    e.subtype?.id ? SUBTYPE_TO_LEGACY_BUCKET[e.subtype.id] : null,
+  ].filter(Boolean) as string[];
+  return new Set(labels.map((l) => l.toLowerCase()));
+}
+
+function matchesSubject(
+  eventType: string | null | undefined,
+  labels: Set<string>,
+): boolean {
+  if (!eventType) return false;
+  const lower = eventType.toLowerCase();
+  if (labels.has(lower)) return true;
+  // The pattern store and the A–H taxonomy spell the same family slightly
+  // differently ("Board / governance" vs "Board & Governance"), so fall back
+  // to a significant-word intersection rather than raw substring containment.
+  const words = (s: string) =>
+    new Set(
+      s.toLowerCase().split(/[^a-z0-9]+/).filter((w) =>
+        w.length >= 5 && !GENERIC_LABEL_WORDS.has(w)
+      ),
+    );
+  const a = words(lower);
+  if (a.size === 0) return false;
+  for (const l of labels) {
+    for (const w of words(l)) if (a.has(w)) return true;
+  }
+  return false;
+}
+
+/** Words too generic to prove two labels describe the same family. */
+const GENERIC_LABEL_WORDS = new Set([
+  "meeting",
+  "meetings",
+  "event",
+  "events",
+  "calls",
+  "session",
+  "sessions",
+  "block",
+  "blocks",
+  "other",
+  "general",
+  "stakes",
+]);
+
+
+/**
+ * One pattern sentence for the already-selected subject, or null when no
+ * family clears its floor for this subject.
+ */
+function patternEvidence(
+  opts: DeterministicBriefFallbackOpts,
+  subjectTitle: string,
+  ref: string,
+  refPlain: string,
+): string | null {
+  const data = opts.causalityData;
+  if (!data) return null;
+  const labels = subjectLabels(subjectTitle);
+  const when = effectiveWindow(opts) === "afternoon" ? "still ahead" : "today";
+
+  // 1. In-event heart rate — the strongest event-level signal.
+  const hr = (data.performance_lift?.hr_event_lift ?? [])
+    .filter((f) => f.n >= 3 && Math.abs(f.hrDeltaBpm) >= 8)
+    .filter((f) => matchesSubject(f.bucket, labels) || matchesSubject(f.categoryName, labels))
+    .sort((a, b) => Math.abs(b.hrDeltaBpm) - Math.abs(a.hrDeltaBpm))[0];
+  if (hr) {
+    return `Across ${hr.n} of these your heart rate has run ${
+      Math.round(Math.abs(hr.hrDeltaBpm))
+    } bpm above resting during them, and ${ref} is ${when}.`;
+  }
+
+  // 2. Next-morning resting rate.
+  const rhr = (data.event_to_rhr ?? [])
+    .filter((f) => f.n >= 3 && f.rhrDeltaPct > 10)
+    .filter((f) => matchesSubject(f.event_type, labels))
+    .sort((a, b) => b.rhrDeltaPct - a.rhrDeltaPct)[0];
+  if (rhr) {
+    return `The ${rhr.n} mornings after ${refPlain} your resting rate has sat ${
+      Math.round(rhr.rhrDeltaPct)
+    }% higher, and one is ${when}.`;
+  }
+
+  // 3. Next-morning recovery.
+  const hrv = (data.event_to_hrv ?? [])
+    .filter((f) => f.n >= 3 && Math.abs(f.hrvDeltaPct) >= 15)
+    .filter((f) => matchesSubject(f.event_type, labels))
+    .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))[0];
+  if (hrv) {
+    const dir = hrv.hrvDeltaPct < 0 ? "below" : "above";
+    return `The morning after ${refPlain} your recovery has run about ${
+      Math.abs(Math.round(hrv.hrvDeltaPct))
+    }% ${dir} your usual, across ${hrv.n} of them, and one is ${when}.`;
+  }
+
+  // 4. Cognition cost.
+  const cog = (data.event_to_cognition ?? [])
+    .filter((f) => f.n >= 3 && f.tierDelta < -0.4)
+    .filter((f) => matchesSubject(f.event_type, labels))
+    .sort((a, b) => a.tierDelta - b.tierDelta)[0];
+  if (cog) {
+    return `Across ${cog.n} of these your ${cog.dim} has dropped close to a full tier afterwards, and ${ref} is ${when}.`;
+  }
+
+  // 5. Consecutive load.
+  const cl = data.consecutive_load;
+  if (cl && cl.n >= 3 && Math.abs(cl.tailDeltaPct) >= 8) {
+    return `After two heavy days in a row your recovery has run ${
+      Math.abs(Math.round(cl.tailDeltaPct))
+    }% lower, across ${cl.n} of them, and ${ref} is ${when}.`;
+  }
+
+  // 6. Short-sleep carry (morning only — overnight signals never speak later).
+  const sp = data.sleep_to_prs;
+  if (
+    sp && sp.n >= 3 && Math.abs(sp.lowSleepPrsDeltaPct) >= 8 &&
+    effectiveWindow(opts) === "morning" &&
+    overnightSleepScore(opts) !== null &&
+    (overnightSleepScore(opts) as number) < 65
+  ) {
+    return `On short-sleep nights your next day has come in about ${
+      Math.abs(Math.round(sp.lowSleepPrsDeltaPct))
+    }% lower, across ${sp.n} of them, and ${ref} is what it lands on.`;
+  }
+
+  // 7. Positive lift — this category is where the person performs best.
+  const lift = (data.performance_lift?.category_lift ?? [])
+    .filter((c) => c.n >= 3 && c.compositeLift > 5)
+    .filter((c) => matchesSubject(c.categoryName, labels))
+    .sort((a, b) => b.compositeLift - a.compositeLift)[0];
+  if (lift) {
+    return `${ref} sits in the work where your numbers have come in best, ${
+      Math.round(lift.compositeLift)
+    }% above your usual across ${lift.n} of them.`;
+  }
+
+  return null;
+}
+
 
 function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
 
@@ -429,6 +647,10 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
   // calendar were empty.
   if (isTravelShape(opts.dayShape) && opts.travelEventTitle) {
     const ref = shortRef(opts.travelEventTitle);
+    // Tier 1 for this subject. Subject already chosen above; the pattern only
+    // changes how specifically it is described.
+    const travelPattern = patternEvidence(opts, opts.travelEventTitle, ref, ref);
+    if (travelPattern) return travelPattern;
     if (opts.hasWearable) {
       return `${
         wearableFact ?? "Recovery signals are in"
@@ -445,11 +667,33 @@ function buildEvidence(opts: DeterministicBriefFallbackOpts): string {
     const dayRef = opts.conferenceDayNumber != null
       ? `Day ${opts.conferenceDayNumber} of the conference`
       : "A full conference day";
+    const confSubject = opts.conferenceTitle ?? "conference";
+    const confPattern = patternEvidence(
+      opts,
+      confSubject,
+      dayRef.toLowerCase(),
+      dayRef.toLowerCase(),
+    );
+    if (confPattern) return confPattern;
     if (opts.hasWearable) {
       return `${
         wearableFact ?? "Recovery signals are in"
       } going into ${dayRef.toLowerCase()} — sustained attention is the load being carried.`;
     }
+  }
+
+  // ── Tier 1 for the ranked calendar subject ──────────────────────────────
+  // `todayHighStakes[0]` is the A–H ranked subject (rankByStakes upstream).
+  // Selection is untouched here; only the sentence explaining it changes.
+  if (!isTravelShape(opts.dayShape) && !isConferenceShape(opts.dayShape) && hasHighStakes) {
+    const subject = opts.todayHighStakes[0];
+    const rankedPattern = patternEvidence(
+      opts,
+      subject,
+      shortRefTimed(opts, subject),
+      shortRef(subject),
+    );
+    if (rankedPattern) return rankedPattern;
   }
 
   // ── CEO behaviour flag evidence ─ uses existing flagsBrief from the snapshot ──
