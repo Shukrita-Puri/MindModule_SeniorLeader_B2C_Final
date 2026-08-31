@@ -144,11 +144,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
-    }
 
     // Support both v1 (legacy) and v2 payloads
     let baselineScore: number;
