@@ -20,6 +20,17 @@ import type { CalendarLevel } from './context-builder.ts';
 import { coarseEventType } from '../events/event-classifier.ts';
 import { enrichEvent } from '../events/enrich-event.ts';
 import { countLoadUnits, mergeCalendarEvents } from '../rules/calendarEvents.ts';
+import {
+  classifyAvailability,
+  isFyiHolidayCalendar,
+  type AvailabilityEvent,
+  type AvailabilityResult,
+} from '../availability/availability-classifier.ts';
+import {
+  isPersonalHolidayTitle,
+  isPtoOrHolidayTitle,
+} from '../ceo-behaviour/pto-holiday.ts';
+
 
 export interface CalendarMetricsResult {
   load: CalendarLevel;
