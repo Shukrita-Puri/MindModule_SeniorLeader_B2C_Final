@@ -11,8 +11,10 @@ const corsHeaders = {
 
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-2.5-pro";
-const AI_MODEL_FALLBACK = "anthropic/claude-3-5-haiku";
+const AI_MODEL = "google/gemini-3.1-flash-lite";
+// Two-model consolidation: single attempt on the primary model. The retry leg
+// below re-uses the same model (no cross-provider fallback).
+const AI_MODEL_FALLBACK = "google/gemini-3.1-flash-lite";
 
 type CosFallbackArgs = {
   userId: string;

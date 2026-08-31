@@ -12,6 +12,7 @@ import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { dedupeCalendarEvents } from "../_shared/events/event-classifier.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+import { frozenAwareFetch } from "../_shared/ai/llm-freeze.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -101,7 +102,7 @@ serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
     if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured');
 
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiResponse = await frozenAwareFetch("generate-coach-summary", 'https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': ANTHROPIC_API_KEY,
@@ -337,7 +338,7 @@ Return ONLY the JSON object.`
 
               if (!existingMessages || existingMessages.length === 0) {
                 // Generate surface message via LLM
-                const surfaceResponse = await fetch('https://api.anthropic.com/v1/messages', {
+                const surfaceResponse = await frozenAwareFetch("generate-coach-summary", 'https://api.anthropic.com/v1/messages', {
                   method: 'POST',
                   headers: {
                     'x-api-key': ANTHROPIC_API_KEY,

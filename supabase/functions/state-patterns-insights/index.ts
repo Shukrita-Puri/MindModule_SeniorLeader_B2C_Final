@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
-import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -477,76 +476,14 @@ Deno.serve(async (req) => {
       archetypeEvolved = baselineArch.id !== currentArch.id;
     }
 
-    // ── AI Observation (with strict timeout) ──
-    const tAI = Date.now();
+    // ── Observation (deterministic) ──
+    // 2026-08-31 — Two-model consolidation (C5). The Anthropic observation call
+    // was deleted: LeadershipPatternsCard renders no `observation` field, so the
+    // call cost tokens and a network hop for output nothing displays. The
+    // response key is preserved (deterministic line) so nothing downstream
+    // breaks on a missing key.
     let aiObservation: string | null = null;
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    const AI_TIMEOUT_MS = 6000; // 6 second hard cap
-
-    if (ANTHROPIC_API_KEY && totalCheckins >= 3) {
-      try {
-        const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
-
-        const themesStr = recurringThemes.map((t) => `"${t.phrase}" (${t.count}×)`).join(", ");
-        const coachExcerpts = [coachStrength, coachFriction].filter(Boolean).join(" | ");
-        const dimensionDeltaStr = scoreDeltas
-          ? `Recalibration ${scoreDeltas.recalibration >= 0 ? "+" : ""}${scoreDeltas.recalibration}, Clarity ${scoreDeltas.clarity >= 0 ? "+" : ""}${scoreDeltas.clarity}, Renewal ${scoreDeltas.renewal >= 0 ? "+" : ""}${scoreDeltas.renewal}`
-          : "not yet available";
-        const archEvStr = archetypeEvolved ? `${baselineArch.title} → ${currentArch!.title} (evolved: yes)` : `${baselineArch.title} (evolved: no)`;
-
-        const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { 'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01', "Content-Type": "application/json" },
-          signal: abortController.signal,
-          body: JSON.stringify({
-            model: "claude-3-5-haiku-latest",
-            system: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work – regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice – just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
-          messages: [
-              {
-                role: "user",
-                content: `Data:\n- Archetype: ${archEvStr}\n- Dimension shifts: ${dimensionDeltaStr}\n- Friction: ${frictionLabel} (${frictionPct}%) – trend: ${trendDirection}\n- Recurring themes: ${themesStr || "none yet"}\n- Coach strength: ${coachStrength || "none yet"}\n- Coach friction: ${coachFriction || "none yet"}\n\nName the pattern.`,
-              },
-            ],
-            tools: [{
-              type: "function",
-              function: {
-                name: "emit_observation",
-                description: "Emit a single-sentence pattern observation",
-                parameters: { type: "object", properties: { observation: { type: "string", description: "One sentence naming the leadership pattern" } }, required: ["observation"], additionalProperties: false },
-              },
-            }],
-            tool_choice: { type: "function", function: { name: "emit_observation" } },
-          }),
-        });
-
-        clearTimeout(timeoutId);
-
-        if (aiRes.ok) {
-          const aiData = await aiRes.json();
-          const toolCall = aiData.content?.filter((c: any) => c.type === 'tool_use')?.[0];
-          if (toolCall?.function?.arguments) {
-            const parsed = JSON.parse(toolCall.function.arguments);
-            const obs = parsed.observation || null;
-            // Quality gate: reject generic filler
-            if (obs && obs.toLowerCase().trim() !== 'null' && obs.split(/\s+/).length >= 10) {
-              aiObservation = obs;
-            }
-          }
-        }
-        stepTimer("ai-observation (success)", tAI);
-      } catch (aiErr) {
-        const isAbort = aiErr instanceof DOMException && aiErr.name === "AbortError";
-        console.warn(`[state-patterns-insights] AI observation ${isAbort ? "timed out" : "failed"}:`, isAbort ? `>${AI_TIMEOUT_MS}ms` : aiErr);
-        stepTimer(`ai-observation (${isAbort ? "timeout" : "error"})`, tAI);
-      }
-    } else {
-      stepTimer("ai-observation (skipped)", tAI);
-    }
-
-    // Fallback observation
-    if (!aiObservation && totalCheckins >= 3) {
+    if (totalCheckins >= 3) {
       aiObservation = generateFallbackObservation(scoreDeltas, trendDirection, frictionLabel, frictionPct, totalCheckins);
     }
 

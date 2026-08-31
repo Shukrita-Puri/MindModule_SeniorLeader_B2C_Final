@@ -3089,17 +3089,11 @@ ${
     userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
   }
 
-  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
-  // Both providers are validated through the identical V8 gate.
-
-  const claudeCopy = await tryAIProvider(
-    "claude",
-    ctx,
-    nudgeType,
-    systemPrompt,
-    userPrompt,
-  );
-  if (claudeCopy) return claudeCopy;
+  // 2026-08-31 — Two-model consolidation (C3, launch revision).
+  // Single attempt on Gemini 3.1 Flash Lite, then the static copy bank.
+  // The Claude leg is removed for launch (zero Anthropic credit balance makes
+  // it a guaranteed failed round-trip); Haiku 4.5 is re-evaluated post-launch.
+  // Output is validated through the identical V8 gate either way.
   const geminiCopy = await tryAIProvider(
     "gemini",
     ctx,
@@ -3226,7 +3220,7 @@ async function tryAIProvider(
       content = await callLovableAIText({
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-3.1-flash-lite",
         max_tokens: 256,
         temperature: 0.7,
         signal: controller.signal,
@@ -6873,7 +6867,7 @@ serve(async (req) => {
           prompt_version: BRIEF_PROMPT_VERSION,
           cta_experiment: "cta-action-verb-v2",
           cta_variant: ctaVariant,
-          ai_fallback_chain: "claude-haiku → gemini-flash → static",
+          ai_fallback_chain: "gemini-3.1-flash-lite → static",
           // Which provider in the fallback chain actually produced the
           // copy that shipped. Defensive default 'static' - every NudgeCopy
           // returned to the send loop should carry this stamp.

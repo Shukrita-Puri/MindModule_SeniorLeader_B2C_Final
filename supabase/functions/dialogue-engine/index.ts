@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { isDormantLlmFrozen, logDormantLlmSkip } from "../_shared/ai/llm-freeze.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1690,6 +1691,10 @@ serve(async (req) => {
       
       const openingPrompt = buildOpeningMessagePrompt(configuration, context);
       
+      if (isDormantLlmFrozen()) {
+        logDormantLlmSkip("dialogue-engine");
+        throw new Error("dormant_llm_frozen");
+      }
       const openingContent = await callClaudeText({
         system: 'You are generating an opening message from a persona in a realistic scenario. Stay fully in character. Never reference this as practice, training, or simulation. Respond with valid JSON only.',
         messages: [{ role: 'user', content: openingPrompt }],
@@ -1765,6 +1770,10 @@ serve(async (req) => {
 
     let content: string;
     try {
+      if (isDormantLlmFrozen()) {
+        logDormantLlmSkip("dialogue-engine");
+        throw new Error("dormant_llm_frozen");
+      }
       content = await callClaudeText({
         system: 'You are a dialogue simulation engine. Always respond with valid JSON only, no markdown formatting or code blocks.',
         messages: [{ role: 'user', content: prompt }],
