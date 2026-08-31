@@ -8,11 +8,36 @@
 4. **No evidence ranking and no valence.** The prompt hands a flat fact list, so the model reaches for the loudest number and can stitch a *positive* signal into a deficit sentence.
 5. **Two competing "why" lines per card.** The stacked why-line AND the italic action frame ("Build resilience for high-demand days") both try to say why. The italic line is the better copy — and it comes from a generic fallback branch, not from the slot's evidence.
 
-## Copy contract: title vs why (no overlap)
+## Copy contract: title vs why (the spec both paths compile against)
 
-- **Title = WHAT this slot is and HOW it helps.** App role verb (**Protect / Prevent / Prepare / Build**) + the executive outcome + the anchor. e.g. `Prevent composure drain before Board Meeting`; light day: `Protect recovery`, `Build recovery from the morning`, `Set your focus for the morning`.
-- **Why = the crisp evidence that earns the slot.** One short sentence, ideally under ~15 words, stating the signal, not a lecture. e.g. `Elevated HR before your last three board meetings.`
-- **The italic sub-line is removed** from the card. Its outcome vocabulary is promoted into the title ladder, so nothing repeats.
+Two lines, two jobs, zero overlap. This contract is written once in `_shared/plan/copy-contract.ts` and consumed by the deterministic builder, the LLM prompt, and the validator, so all three enforce the same thing.
+
+**TITLE — what this slot is and how it helps.**
+- Shape: `{role verb} {executive outcome} {connector} {anchor}` — anchor is the event name, or the day-part on a light day.
+- Role verb comes from the winning evidence valence: **Protect** (positive — hold the edge), **Prevent** (risk — stop the drain), **Prepare** (leader-flagged high-stakes event ahead), **Build** (no event; capacity for what's coming).
+- ≤8 words. Outcome must be an executive state, not a practice mechanic: composure, decision quality, presence, focus, recovery, resilience.
+- Never contains a metric, a number, a percentage, a practice name, or the word "practice".
+
+**WHY — the evidence that earns the slot.**
+- One sentence, ≤15 words, states the *signal*, not an instruction.
+- Exactly one clause. No `Fact. Fact. Verb: instruction.` stacking. No colon-instruction tail.
+- Never repeats the title's verb or outcome, never names the practice, never tells the user what to do — the title already did.
+- Prefers pattern evidence with its count ("three times in a row") over a single raw reading.
+
+**Worked examples**
+
+| Situation | Title | Why |
+| --- | --- | --- |
+| Board tomorrow, HR elevated before last 3 boards | Prevent composure drain before Board Meeting | Elevated heart rate before your last three board meetings. |
+| Board tomorrow, HRV up 60%, RHR at baseline | Protect your edge into the Board Meeting | Recovery is running well above your baseline going in. |
+| Leader flagged investor calls as draining (v8), no pattern yet | Prepare presence for the Investor Call | You flagged investor calls as your biggest drain. |
+| Back-to-back afternoon, clarity low at check-in | Prevent decision drift across the afternoon | Six meetings back-to-back with clarity already reading low. |
+| Light day, short sleep | Protect recovery | Sleep ran short and nothing heavy is on the calendar. |
+| Light day, all signals fine, morning | Set your focus for the morning | Open morning — the one block you control today. |
+| New user, no wearable, no patterns | Build resilience for high-demand days | Early days — this is the base your harder weeks run on. |
+
+**The italic action-frame sub-line is removed** from the card; its vocabulary is promoted into the title ladder so nothing repeats.
+
 
 ## What we build
 
