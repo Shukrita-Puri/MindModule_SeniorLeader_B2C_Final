@@ -3220,7 +3220,7 @@ async function tryAIProvider(
       content = await callLovableAIText({
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-3.1-flash-lite",
         max_tokens: 256,
         temperature: 0.7,
         signal: controller.signal,
@@ -6867,7 +6867,7 @@ serve(async (req) => {
           prompt_version: BRIEF_PROMPT_VERSION,
           cta_experiment: "cta-action-verb-v2",
           cta_variant: ctaVariant,
-          ai_fallback_chain: "claude-haiku → gemini-flash → static",
+          ai_fallback_chain: "gemini-3.1-flash-lite → static",
           // Which provider in the fallback chain actually produced the
           // copy that shipped. Defensive default 'static' - every NudgeCopy
           // returned to the send loop should carry this stamp.
