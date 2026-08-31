@@ -9742,8 +9742,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         timingClauseSpent: prov?.timingClauseSpent ?? null,
         learningStorePresent: briefCausalityPresent,
         anchorEventResolutionSource: prov?.anchorEventResolutionSource ?? null,
-        anchorEventCategoryId: prov?.anchorEventCategoryId ??
-          briefLeadNarrative?.anchor?.categoryId ?? null,
+        anchorEventTitle: prov?.anchorEventTitle ??
+          briefLeadNarrative?.anchor?.title ?? null,
+        anchorEventCategoryId: (() => {
+          const cid = prov?.anchorEventCategoryId ??
+            briefLeadNarrative?.anchor?.categoryId ?? null;
+          return cid;
+        })(),
+        anchorEventCategoryName: (() => {
+          const cid = prov?.anchorEventCategoryId ??
+            briefLeadNarrative?.anchor?.categoryId ?? null;
+          return cid ? (EVENT_CATEGORIES[cid]?.name ?? null) : null;
+        })(),
         anchorEventConfidence: prov?.anchorEventConfidence ?? null,
         causalityMatchFired: prov?.causalityMatchFired ?? false,
         causalityMatchEventType: prov?.causalityMatchEventType ?? null,
