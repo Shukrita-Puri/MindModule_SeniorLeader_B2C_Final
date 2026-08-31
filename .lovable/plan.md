@@ -28,8 +28,13 @@ In `load-jit-context.ts`, load the scope-aware rows (`loadPriorityMemoryRowsForU
 
 `applyEventPriorityMemory`'s soft delta stays for the ranking nuance; the evaluator only adds exclusion.
 
-### 2. Carry a recurring deprioritisation to the next occurrence (backend)
-A weekly series tagged "not this week" today should not silently return next week with no signal. Add a bounded recurrence rule in the evaluator: when a `not_this_week` row matches a candidate by `(category, type_key)` and the series recurred at the same weekday/time, keep a **soft −25 demotion** (not a hard exclude) for 4 weeks after the tagged week. Never becomes permanent; `priority` or `tag_cleared` supersedes it immediately via the existing `isSuperseded` path.
+### 2. Recurrence rule for "not this week" vs "never"
+- **`never`** → permanently excluded everywhere: plan slots and Week Ahead. Never resurfaces.
+- **`not this week`** → hard-excluded from plan slots for its tagged week only. From the following week the event is eligible again, per your rule.
+- **Recurring series only** → for the 4 weeks after the tagged week, keep a **soft −25 demotion** in plan-slot ranking. It can still win a slot if it genuinely outranks everything else; it just stops being the automatic pick.
+- **Week Ahead is unaffected by the demotion**: the event still appears in the picker for those weeks, carrying the existing `historically_low_signal` tag so the reason is visible and the user can re-prioritise it in one tap.
+- `priority` or `tag_cleared` clears the demotion immediately via the existing `isSuperseded` path.
+
 
 ### 3. Travel always earns its own slot or a full arc (backend)
 `slot-allocator.ts` already has `hasTravelDay → travel_day_full_arc` and G in the multi-phase set, but only when G is the top-ranked candidate. Change it so a G candidate inside the horizon **always** claims at least one slot even when A/B/C outranks it — matching the Brief's travel rule. Category weights are untouched; this is a reservation, not a re-score.
@@ -37,10 +42,16 @@ A weekly series tagged "not this week" today should not silently return next wee
 ### 4. Stale slot refills instead of disappearing (frontend)
 Revising Fix 2 per your note. In `TodayThreePriorities.tsx`, when a slot is stale (pre-slot >30 min after start, during-slot after end, post-slot >4h after end, and not completed), do not just hide it — **backfill from the plan's remaining candidates** so the card still shows 3. Order of preference: the next unused horizon module from the snapshot, then the existing `buildFallbackHorizonModules` state-only slot. Completed slots keep their ✓. The empty state only appears when there is genuinely nothing left.
 
-### 5. Title truncation (frontend + backend copy)
-The screenshot confirms the diagnosis: "Steady composed presence for the…" is a generated title too long for two lines, not a CSS bug. Two changes:
-- Backend: tighten the title word cap in `title-prefixes.ts` from 10 words to 6 for the priority title, so titles read as labels ("Steady presence for the board") not sentences.
-- Frontend: allow the title to use 3 lines on mobile (`line-clamp-3`) so a 6-word title never clips.
+### 5. Crisper titles and no duplicated arc word (mobile iOS)
+The truncation is a mobile-width problem plus a title that repeats the badge. Both screenshots show `RECOVER` as a badge and "Steady composed presence…" as the title — two ways of saying the same thing, eating the width that the why-line and practice card need.
+
+- **Drop the arc badge from the card header.** The arc word moves into the title as its first word: `Recover presence for the morning rhythm`. One arc word per card, never two.
+- **Shorten the event reference to 1–2 words.** "Chief AI Thursday connects" → "Chief AI"; "Q2 Board Meeting" → "Board". `title-prefixes.ts` trims the anchor title to its first 1–2 meaningful words (dropping filler and trailing words like "meeting", "call", "connects").
+- **Cap the whole title at 6 words**, down from 10, so it fits two lines at iPhone width without an ellipsis.
+- Keep `line-clamp-2 break-words` as the safety net; with a 6-word title it should never engage.
+
+The arc value still reaches the UI in the slot data, so ordering, debug payloads and the completion tracker are unchanged — only the badge chip stops rendering.
+
 
 ### 6. Selection provenance logging (backend, log-only)
 One structured line per plan listing each candidate: id, title, category, importance, slot assignment, and exclusion reason (`never`, `not_this_week_target_week`, `sovereign_demote`, `memory_hard_demote`, threshold). This is what makes the next report answerable from logs instead of a live query.
