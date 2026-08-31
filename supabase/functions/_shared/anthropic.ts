@@ -165,7 +165,7 @@ export async function callClaude(params: CallClaudeParams): Promise<ClaudeRespon
     messages,
   };
 
-  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt);
+  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt, params.systemUncachedSuffix);
   if (systemPayload) body.system = systemPayload;
   if (params.temperature !== undefined) body.temperature = params.temperature;
   if (anthropicTools) body.tools = anthropicTools;
@@ -257,7 +257,7 @@ export async function streamClaude(params: CallClaudeParams): Promise<Response> 
     stream: true,
   };
 
-  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt);
+  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt, params.systemUncachedSuffix);
   if (systemPayload) body.system = systemPayload;
   if (params.temperature !== undefined) body.temperature = params.temperature;
 
