@@ -6345,50 +6345,6 @@ export type Database = {
           title: string | null
           user_id: string | null
         }
-        Insert: {
-          attendees_count?: number | null
-          category_confidence?: string | null
-          category_resolved_at?: string | null
-          category_resolved_by?: string | null
-          created_at?: string | null
-          end_time?: string | null
-          event_category?: string | null
-          event_metadata?: Json | null
-          event_subcategory?: string | null
-          external_id?: string | null
-          flight_duration_minutes?: number | null
-          id?: string | null
-          identity_key?: string | null
-          is_all_day?: boolean | null
-          is_organizer?: boolean | null
-          is_recurring?: boolean | null
-          provider?: string | null
-          start_time?: string | null
-          title?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          attendees_count?: number | null
-          category_confidence?: string | null
-          category_resolved_at?: string | null
-          category_resolved_by?: string | null
-          created_at?: string | null
-          end_time?: string | null
-          event_category?: string | null
-          event_metadata?: Json | null
-          event_subcategory?: string | null
-          external_id?: string | null
-          flight_duration_minutes?: number | null
-          id?: string | null
-          identity_key?: string | null
-          is_all_day?: boolean | null
-          is_organizer?: boolean | null
-          is_recurring?: boolean | null
-          provider?: string | null
-          start_time?: string | null
-          title?: string | null
-          user_id?: string | null
-        }
         Relationships: []
       }
       web_primary_calendar_events: {
