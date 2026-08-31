@@ -45,25 +45,40 @@ Load stays a whole-day verdict. It is computed once, after the FYI filter, using
 
 Window heaviness stays what it is today: an additive mention layered on the day-level verdict, not a second verdict. `meetings_completed` and `meetings_remaining` remain available to both the deterministic and LLM paths — the change is that all three consumers derive them from the same filtered list, so the narrative and the pill cannot disagree.
 
+### Fix 4 — Removing a holiday from load must not remove it as the day's context
+
+Dropping the bank holidays from the load count is only half the job. Today is a **home-country public holiday**, so it is still the frame for the whole brief — not a working day that happens to be quiet.
+
+The availability SSOT already produces exactly this distinction and the brief does not consume it:
+
+- Home-country holiday → `PUBLIC_HOLIDAY`, off-day. Reduced-touch, weekend-mode framing. No work directive, no "protect your focus block", no performance push.
+- Foreign-country holiday → not an off-day. Ordinary working-day framing.
+- Neither contributes load, in either case.
+
+So the availability state is passed into both the deterministic and LLM brief paths alongside the filtered event list, and the copy selection branches on it before any load-based copy is chosen. A finished meeting on a home holiday does not flip the day back to work mode — it is mentioned as done, not as evidence of a workday. (The SSOT's work-evidence override still applies at its existing threshold: a genuinely full working day of meetings on a holiday is a workday.)
+
 ## Expected result for today
 
-Both bank holidays drop out as FYI (one home, one regional — both non-load). One meeting remains, already finished. Load reads **light**, the pill reads "1 meeting done", and the narrative stops calling the afternoon heavy.
+Both bank holidays drop out of load as FYI, but the home one sets the day's frame. The brief reads as a public holiday / long-weekend day: light day, one meeting already done, nothing left this afternoon, and the directive is returning to weekend mode rather than working the day. No heavy-afternoon claim and no work directive.
 
 ## Verification
 
-- Today's brief: light, 1 meeting done, no heavy-afternoon claim.
-- The `Australian Holidays` entries already in your calendar: zero load contribution, working-day framing.
-- A home bank holiday with an attendee attached: still a holiday, still zero load.
-- A work calendar named "Holiday cover rota": events still count as load.
+- Today's brief: public-holiday framing, light, 1 meeting done, no remaining afternoon load, weekend-mode directive, no work directive.
+- The `Australian Holidays` entries already in your calendar: zero load contribution, ordinary working-day framing.
+- A home bank holiday with an attendee attached: still a holiday, still zero load, still holiday framing.
+- A home holiday with one finished meeting: stays holiday framing (does not flip to workday).
+- A work calendar named "Holiday cover rota": events still count as load, no holiday framing.
 - A Google-only meeting on iOS: appears in the brief and counts toward load.
 - Two overlapping distinct meetings: one load unit.
 - Fixture tests for each of the above, asserting the load verdict, the deterministic count and the LLM-facing count are identical.
 - Same brief checked on web and iOS.
 
 
-## Pre-launch scope — three core fixes only
 
-Ship: the view merge, the SSOT wiring, the predicate unification. Everything else is deferred.
+## Pre-launch scope — four core fixes only
+
+Ship: the view merge, the SSOT wiring, the predicate unification, and the holiday-framing pass-through. Everything else is deferred.
+
 
 **Deferred to immediate post-launch follow-up** (tidying, no correctness or user-visible payoff today):
 
