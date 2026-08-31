@@ -2053,9 +2053,12 @@ const TodayThreePriorities = ({
     const renderedIds = new Set(
       rows.flatMap((r) => (r.hm.practices ?? []).map((p) => p.contentId)),
     );
-    const pool = ((plan as unknown as { stateManagementModules?: HorizonModule[] })
-      ?.stateManagementModules ?? [])
-      .filter((m) => (m.practices ?? []).some((p) => !renderedIds.has(p.contentId)));
+    const pool = buildFallbackHorizonModules(
+      (plan ?? {}) as unknown as Record<string, unknown>,
+    ).filter((m) => {
+      const ps = m.practices?.length ? m.practices : (m.practice ? [m.practice] : []);
+      return ps.length > 0 && ps.every((p) => !renderedIds.has(p.contentId));
+    });
 
     let poolIdx = 0;
     return rows.map((r) => {
