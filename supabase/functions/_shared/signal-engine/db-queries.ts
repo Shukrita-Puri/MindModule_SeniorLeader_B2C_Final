@@ -278,7 +278,9 @@ export async function getServerCalendarMetrics(
   timezoneOffset: number = 0,
   dayOffset: number = 0,
   platform: 'ios' | 'web' | 'unknown' = 'web',
+  userCountry: string | null = null,
 ): Promise<CalendarMetricsResult> {
+
   const now = new Date();
   const userNow = new Date(now.getTime() - timezoneOffset * 60000);
   const targetDay = new Date(userNow);
