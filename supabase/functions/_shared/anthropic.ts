@@ -11,13 +11,13 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // Model mapping for easy reference
 export const CLAUDE_MODELS = {
   // Verified against this workspace's `/v1/models` catalog on 2026-06-20.
-  // The prior id `claude-sonnet-4-20250514` is NOT in this key's catalog and
-  // returned HTTP 404 on every fallback attempt for ≥14 days.
-  // Cost policy: use Haiku as the default Claude tier. Sonnet-quality paths
-  // can opt into a separate constant later once usage/cost is sustainable.
-  SONNET: 'claude-haiku-4-5-20251001',
+  // COST POLICY (2026-08-31, two-model consolidation): Haiku 4.5 is the ONLY
+  // Claude tier this app may use. The former `SONNET` alias was removed so no
+  // call site can request a Sonnet-priced model — the Anthropic bill showed
+  // Sonnet usage even though the alias already pointed at Haiku.
   HAIKU: 'claude-haiku-4-5-20251001',
 } as const;
+
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
