@@ -1,8 +1,27 @@
 # Two-Model LLM Consolidation — Launch-Safe Cost Reduction
 
+## Safety note (we are 2 days from launch) — pre-launch constraints
+
+This build is approved for execution with the following non-negotiable constraints. Any change that cannot be made within these constraints is stopped and reported back rather than worked around.
+
+**Scope boundary.** Only the 7 surfaces listed in section 1 are in scope. No other function, route, schema, RLS policy, validator, copy contract, or frontend call site is touched for any reason — including opportunistic fixes noticed during implementation.
+
+**One change at a time.** Deploy in the exact order given in section 4. C1 through C6 are not batched into a single deploy. Each change is verified working in production before the next begins. If any deploy produces an unexpected error or behaviour change, the sequence stops and is reported before continuing.
+
+**Model swap verification is mandatory, not optional.** C2 (Brief), C3 (Nudges) and C4 (CoS Profile tool call) each require a real live request — not just a typecheck — before being marked done. A model that accepts the call in test can still reject the request body in production. This step is not skippable under time pressure.
+
+**Brief quality is the red line.** `compute-outer-readiness` is the core product surface. If Brief output after C2 produces lower quality copy, more validator rejections, or any change in tone compared to pre-change output, C2 is rolled back immediately. No forward-fixing under launch time pressure — revert and ship the Brief unchanged.
+
+**C6 freeze must degrade gracefully.** The env-gated flag on the dormant cluster must return each function's existing empty/null response shape exactly. If any frozen function turns out to have a non-degradable caller, it is left running and reported — the freeze is not forced at the risk of a silent frontend breakage at launch.
+
+**Nothing from section 3 is implemented.** L2 prompt diet, L4 change-gating, and token telemetry are explicitly deferred. If a section 3 change appears to be required to make a section 2 change work correctly, the work stops and is reported — deferred work is not pulled into this build.
+
+**Rollback is always the right call.** With 48 hours to launch, a rolled-back change that preserves current behaviour beats a forward-fix that introduces new uncertainty. The current $1.67/day spend is known and stable. A launch with that spend is better than a launch with a degraded Brief or broken CoS Profile.
+
+---
+
 Approved direction: **only two models across the whole app** — `google/gemini-3.1-flash-lite` and `claude-haiku-4-5`. No Sonnet, no Gemini Pro, no Gemini 2.5, no model ladders across providers. Excluded from this build (kept for post-launch): telemetry, L2 prompt diet, L4 change-gating.
 
-## 1. Target routing
 
 | Surface | Today | Target | Fallback after one attempt |
 |---|---|---|---|
