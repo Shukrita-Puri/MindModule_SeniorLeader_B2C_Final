@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { callLovableAIText } from "../_shared/anthropic.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -144,11 +144,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
-    }
 
     // Support both v1 (legacy) and v2 payloads
     let baselineScore: number;
@@ -194,51 +190,33 @@ Results:
 
 Write 2-3 sentences that name this leader's specific pattern – what their scores reveal about how they lead under pressure, and what their practice will build. Speak directly to the leader. No generic language. No research citations. No timeline promises. No percentile comparisons.`;
 
-    const models = ['claude-haiku-4-5-20251001', 'claude-3-5-haiku-latest', 'openai/gpt-5-nano'];
-    let response: Response | null = null;
-
-    for (const model of models) {
-      console.log(`[Onboarding] Trying model: ${model}`);
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 200,
-          temperature: 0.7,
-        }),
-      });
-
-      if (res.ok) {
-        response = res;
-        break;
+    // 2026-08-31 — Two-model consolidation (C4). Single attempt on
+    // Gemini 3.1 Flash Lite via the Lovable gateway helper; 200-token cap and
+    // the deterministic fallback below are unchanged.
+    let insight = '';
+    try {
+      insight = (await callLovableAIText({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'google/gemini-3.1-flash-lite',
+        max_tokens: 200,
+        temperature: 0.7,
+      }))?.trim() || '';
+    } catch (aiErr) {
+      const status = (aiErr as any)?.status;
+      if (status === 429 || status === 402) {
+        throw new Error(status === 429 ? 'Rate limit exceeded. Please try again shortly.' : 'AI credits exhausted. Please add credits.');
       }
-
-      const errorText = await res.text();
-      console.error(`AI Gateway Error (${model}):`, res.status, errorText);
-
-      if (res.status === 429 || res.status === 402) {
-        throw new Error(res.status === 429 ? 'Rate limit exceeded. Please try again shortly.' : 'AI credits exhausted. Please add credits.');
-      }
-      // Try next model on 5xx
+      console.error('[Onboarding] AI insight failed:', aiErr instanceof Error ? aiErr.message : aiErr);
     }
 
-    let insight = '';
-    if (!response) {
-      // Graceful fallback: generate a deterministic insight when AI is unavailable
-      console.warn('[Onboarding] All AI models unavailable, using fallback insight');
+    if (!insight) {
+      // Graceful fallback: deterministic insight when AI is unavailable
+      console.warn('[Onboarding] AI unavailable, using fallback insight');
       const lowest = Object.entries(componentScores).sort((a, b) => (a[1] as number) - (b[1] as number))[0];
       const lowestLabel = lowest[0] === 'energyRegulation' ? 'energy regulation' : lowest[0] === 'focusRecovery' ? 'focus recovery' : 'energy renewal';
       insight = `Your pattern shows strong capacity across your leadership dimensions. Your practice will focus on strengthening ${lowestLabel} – the area with the most room for growth given your current profile.`;
-    } else {
-      const data = await response.json();
-      insight = data.content?.[0]?.text?.trim() || '';
     }
+
 
     return new Response(
       JSON.stringify({
