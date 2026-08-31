@@ -101,9 +101,6 @@ type AnySupabase = {
   from: (table: string) => any;
 };
 
-const PUBLIC_HOLIDAY_RX =
-  /\b(public holiday|bank holiday|national holiday|statutory holiday|holiday observed|observed holiday)\b/i;
-
 /** All-day accommodation legs the classifier doesn't tag as travel. */
 const STAY_RX = /\b(hotel|airbnb|check[- ]?in|check[- ]?out|stay at|accommodation)\b/i;
 
@@ -115,26 +112,91 @@ export function isAllDayEvent(e: any): boolean {
   return (endMs - startMs) / 60000 >= 23 * 60;
 }
 
+/** Calendar feed name as stored on `calendar_events.event_metadata`. */
+function calendarFeedName(e: any): string | null {
+  const md = e?.event_metadata ?? e?.eventMetadata ?? null;
+  return (
+    e?.calendarTitle ??
+    e?.calendar_title ??
+    md?.calendarTitle ??
+    md?.calendar_title ??
+    md?.calendarSummary ??
+    md?.calendarName ??
+    null
+  );
+}
+
 /**
- * Category-aware load filter for the user-facing meeting count.
+ * Normalise a raw `calendar_events` row into the shape the availability SSOT
+ * consumes. Single adapter — every caller in this module uses it so the load
+ * verdict, the meeting count and the narrative all see identical inputs.
+ */
+export function toAvailabilityEvent(e: any): AvailabilityEvent {
+  return {
+    title: String(e?.title ?? ''),
+    startTime: String(e?.start_time ?? e?.startTime ?? ''),
+    endTime: String(e?.end_time ?? e?.endTime ?? e?.start_time ?? e?.startTime ?? ''),
+    isAllDay: isAllDayEvent(e),
+    isOrganizer: e?.is_organizer === true || e?.isOrganizer === true,
+    attendeesCount: Number(e?.attendees_count ?? e?.attendeesCount ?? 0) || 0,
+    calendarTitle: calendarFeedName(e),
+  };
+}
+
+/**
+ * FYI marker: an all-day entry that exists to tell you what day it is, not to
+ * take time from you. Public/bank holidays (home OR foreign), PTO markers and
+ * personal holiday blocks.
  *
- * Excluded from the count (but still present in the Brief / Next Up):
+ * Attendee count is deliberately NOT part of this test — a public holiday with
+ * an attendee attached is still a public holiday.
+ *
+ * Delegates to the availability SSOT (`_shared/availability/availability-classifier.ts`)
+ * rather than re-listing holiday keywords here.
+ */
+export function isFyiMarkerEvent(e: any): boolean {
+  const ae = toAvailabilityEvent(e);
+  if (!ae.isAllDay) return false;
+  if (isFyiHolidayCalendar(ae)) return true;
+  return isPtoOrHolidayTitle(ae.title) || isPersonalHolidayTitle(ae.title);
+}
+
+/**
+ * Category-aware load filter. This is the SINGLE predicate that decides
+ * whether an event contributes to the day's load.
+ *
+ * Excluded from load (but still present in the Brief / Next Up):
+ *   - FYI markers — public/bank holidays from any country, PTO, personal
+ *     holiday blocks. Never load, whatever the attendee count.
  *   - Category G — all travel and logistics (flights, transfers, hotel legs).
  *   - Category H all-day blocks — personal rhythm, stays, weigh days.
- *   - Public holidays.
  *
  * A flight is real, but it is not a meeting; counting it inflates the load pill.
  */
 export function isLoadBearingEvent(e: any): boolean {
   const title = String(e?.title ?? '');
   if (!title) return false;
-  if (PUBLIC_HOLIDAY_RX.test(title)) return false;
+  if (isFyiMarkerEvent(e)) return false;
   if (STAY_RX.test(title) && isAllDayEvent(e)) return false;
   const { categoryId } = enrichEvent(e);
   if (categoryId === 'G') return false;
   if (categoryId === 'H' && isAllDayEvent(e)) return false;
   return true;
 }
+
+/**
+ * THE filtered list. Built once per request and passed to every consumer —
+ * load verdict, meeting count, fragmentation, deterministic copy and the
+ * LLM-facing counts — so none of them can re-derive a different answer.
+ */
+export function filterLoadBearing<T>(events: T[]): T[] {
+  return events.filter((e) => {
+    if (isNoiseTitle((e as any)?.title)) return false;
+    if (!isLoadBearingEvent(e)) return false;
+    return survivesAttendeeOrDurationFloor(e as any);
+  });
+}
+
 
 const EMPTY_DISCONNECTED: CalendarMetricsResult = {
   load: 'low', pressure: 'low',
