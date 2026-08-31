@@ -330,17 +330,41 @@ export async function getServerCalendarMetrics(
     console.error('[db-queries] Calendar events query error:', error);
   }
 
-  const eventList = mergeCalendarEvents((events || []) as any[], platform);
+  const eventList = collapseSameSlot(
+    mergeCalendarEvents((events || []) as any[], platform),
+  );
 
   if (eventList.length === 0) {
     return { ...EMPTY_NO_EVENTS };
   }
 
-  const demand = computeCalendarDemand(eventList as any);
+  // ---- THE filtered list. Built ONCE, before anything is scored. ----------
+  const meetingList = filterLoadBearing(eventList as any[]);
+
+  // FYI markers (holidays, PTO) — never load, but they shape framing.
+  const fyiMarkers = (eventList as any[]).filter(isFyiMarkerEvent);
+  const fyiMarkerTitles = fyiMarkers.map((e: any) => String(e.title ?? ''));
+
+  // Canonical availability verdict from the SSOT (drives holiday framing).
+  let availability: AvailabilityResult | null = null;
+  try {
+    availability = classifyAvailability({
+      events: (eventList as any[]).map(toAvailabilityEvent),
+      userCountry: userCountry ?? null,
+      localDate: new Date(userStartOfDay).toISOString().slice(0, 10),
+    } as any);
+  } catch (e) {
+    console.error('[db-queries] availability classify failed:', e);
+  }
+
+  // FILTER-FIRST: the demand scorer only ever sees load-bearing events, so a
+  // day made up of bank holidays can never read "heavy".
+  const demand = computeCalendarDemand(meetingList as any);
   const metrics = { load: demand.load as CalendarLevel, pressure: demand.pressure as CalendarLevel };
 
-  // High-stakes (future only, ranked by canonical stakesScore).
-  const futureEvents = eventList.filter((e: any) => new Date(e.start_time) > now);
+  // High-stakes (future only, ranked by canonical stakesScore) — also from the
+  // filtered list, so a holiday marker can never be surfaced as high-stakes.
+  const futureEvents = (meetingList as any[]).filter((e: any) => new Date(e.start_time) > now);
   const futureRanked = rankByStakes(futureEvents as any, 5);
   const highStakesEvents: string[] = futureRanked
     .filter((s) => s.stakes >= 60 && s.event.title)
@@ -350,13 +374,6 @@ export async function getServerCalendarMetrics(
   const remainingEvents = futureEvents.length;
   const remainingHighStakes: string[] = highStakesEvents.slice(0, 2);
 
-  // Filtered meeting count for user-facing text.
-  const isMeeting = (e: any): boolean => {
-    if (isNoiseTitle(e.title)) return false;
-    if (!isLoadBearingEvent(e)) return false;
-    return survivesAttendeeOrDurationFloor(e);
-  };
-  const meetingList = eventList.filter(isMeeting);
   const meetingCount = countLoadUnits(meetingList.map((e: any) => ({
     id: e.id ?? e.external_id ?? e.title,
     title: e.title,
@@ -373,13 +390,23 @@ export async function getServerCalendarMetrics(
     endTime: e.end_time,
   }))).loadUnits;
 
-  const filteredOut = eventList.filter((e: any) => !isMeeting(e));
+  const filteredOut = (eventList as any[]).filter((e: any) => !meetingList.includes(e));
   if (filteredOut.length > 0) {
-    console.log('[db-queries] Filtered non-meeting events:', filteredOut.map((e: any) => {
+    console.log('[db-queries] Excluded from load:', filteredOut.map((e: any) => {
       const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 60000;
-      return `"${e.title}" (${Math.round(dur)}min, ${e.attendees_count || 0} attendees)`;
+      const why = isFyiMarkerEvent(e) ? 'fyi_marker' : 'not_load_bearing';
+      return `"${e.title}" (${Math.round(dur)}min, ${e.attendees_count || 0} attendees, ${why})`;
     }));
   }
+  console.log('[calendar-load]', {
+    userCountry,
+    rawCount: eventList.length,
+    loadBearingCount: meetingList.length,
+    fyiMarkerCount: fyiMarkers.length,
+    fyiMarkerTitles,
+    load: metrics.load,
+    availability: availability?.state ?? null,
+  });
 
   // Fragmentation computed on filtered meetings only.
   const frag = computeCognitiveFragmentation(meetingList as any);
@@ -398,5 +425,10 @@ export async function getServerCalendarMetrics(
     backToBackHours: frag.back_to_back_hours,
     briefEvents: toBriefEvents(eventList),
     rawEvents: eventList,
+    loadBearingEvents: meetingList,
+    fyiMarkerCount: fyiMarkers.length,
+    fyiMarkerTitles,
+    availability,
+
   };
 }
