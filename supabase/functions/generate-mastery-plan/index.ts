@@ -4973,7 +4973,7 @@ async function buildSharedContext(
     (req as any).weekAheadHydration = _hydration;
     console.log("[week-ahead-hydration][plan]", {
       userId: req.userId,
-      ...(_hydration as Record<string, unknown>),
+      ...(_hydration as unknown as Record<string, unknown>),
     });
   } catch (waErr) {
     console.warn(

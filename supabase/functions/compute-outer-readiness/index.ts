@@ -5055,11 +5055,11 @@ serve(async (req) => {
           localHour: hour,
           homeCountry: localeWeekendHomeCountry,
           manualOverride: req.headers.get("x-week-ahead-override") === "1",
-          ...(_hydration as Record<string, unknown>),
+          ...(_hydration as unknown as Record<string, unknown>),
         } as any);
         console.log("[week-ahead-hydration][brief]", {
           userId,
-          ...(_hydration as Record<string, unknown>),
+          ...(_hydration as unknown as Record<string, unknown>),
           active: _wam.active,
           trigger: (_wam as any).trigger ?? null,
         });
