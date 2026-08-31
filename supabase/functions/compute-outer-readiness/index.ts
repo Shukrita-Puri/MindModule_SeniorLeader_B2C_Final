@@ -4380,6 +4380,11 @@ serve(async (req) => {
     // the single real snapshot write can persist it (write gate only; the
     // render gate stays independent).
     let composedLoadShape: import("../_shared/load-shape/types.ts").LoadShape | null = null;
+    // Renderable Load Shape (render gate) read once for the prompt block and
+    // reused by the atomic validation context so both see the same shape.
+    let renderableLoadShape:
+      | import("../_shared/load-shape/types.ts").LoadShape
+      | null = null;
     let composedPatternSignals: {
       hrv_3day_trend: "improving" | "stable" | "declining" | "unknown";
       consecutive_high_load_days: number;
