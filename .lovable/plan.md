@@ -75,9 +75,10 @@ Both bank holidays drop out of load as FYI, but the home one sets the day's fram
 
 
 
-## Pre-launch scope — three core fixes only
+## Pre-launch scope — four core fixes only
 
-Ship: the view merge, the SSOT wiring, the predicate unification. Everything else is deferred.
+Ship: the view merge, the SSOT wiring, the predicate unification, and the holiday-framing pass-through. Everything else is deferred.
+
 
 **Deferred to immediate post-launch follow-up** (tidying, no correctness or user-visible payoff today):
 
