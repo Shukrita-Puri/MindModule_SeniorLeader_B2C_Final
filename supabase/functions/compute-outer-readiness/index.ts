@@ -9170,7 +9170,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                         });
                       } else {
                         retryContent = await callAIText({
-                          system: systemPromptWithLeader,
+                          // Same cache split as the primary attempt above.
+                          system: systemPrompt,
+                          systemUncachedSuffix: leaderVoiceBlock,
+
                           messages: [{
                             role: "user",
                             content: retryUserPrompt,
