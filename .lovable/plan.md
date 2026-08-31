@@ -107,7 +107,8 @@ Introduce a single `_shared/ai/model-routing.ts` that exports a tier→model map
 2. Sonnet id verification, then Brief → T1 with L1 caching and L3 single-attempt, in one change.
 3. Nudges → T2 Haiku, static-first, single attempt.
 4. CoS Profile → T3 Haiku, token cap, change-gating.
-5. T4 sweep for onboarding/patterns/semantics.
-6. Feature-flag freeze on the whole dormant Coach/Dialogue cluster.
+5. Leadership patterns → deterministic observation (4b); onboarding insight → T4 Gemini.
+6. Feature-flag freeze on the Coach/Dialogue cluster plus `insights-semantic-analysis`. Attendee resolver stays live and untouched.
+
 
 Each step is separately deployable; Brief changes deploy only `compute-outer-readiness`. No user-visible copy contract, validator, prompt version, or deterministic fallback path changes anywhere in this plan.
