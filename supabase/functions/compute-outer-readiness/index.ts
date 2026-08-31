@@ -9103,7 +9103,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 });
               } else {
                 content = await callAIText({
-                  system: systemPromptWithLeader,
+                  // Cache-split: the stable persona/contract prefix is the
+                  // cached block; the per-leader voice calibration rides in
+                  // an uncached trailing block so the prefix stays identical
+                  // across users and the ephemeral cache hits.
+                  system: systemPrompt,
+                  systemUncachedSuffix: leaderVoiceBlock,
+
                   messages: [{ role: "user", content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
