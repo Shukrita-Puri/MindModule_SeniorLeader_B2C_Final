@@ -158,6 +158,7 @@ export function isApplicableHoliday(
     isAllDay?: boolean;
     source?: string | null;
     calendarSummary?: string | null;
+    calendarTitle?: string | null;
   },
   userCountry: string | null | undefined,
 ): { applicable: boolean; region: RegionToken; reason: string } {
@@ -168,16 +169,18 @@ export function isApplicableHoliday(
   const fyi = isFyiHolidayCalendar(event);
 
   if (fyi) {
-    const summary =
-      `${event.source ?? ""} ${event.calendarSummary ?? ""}`.toLowerCase();
+    const summary = `${event.source ?? ""} ${event.calendarSummary ?? ""} ${
+      event.calendarTitle ?? ""
+    }`.toLowerCase();
     const feedRegion: RegionToken =
-      /united kingdom|\buk\b/.test(summary)
+      /united kingdom|\buk\b|\bgb\b|\bbritain\b/.test(summary)
         ? "GB"
-        : /united states|\bus\b/.test(summary)
+        : /united states|\bus\b|\busa\b/.test(summary)
         ? "US"
         : /ireland/.test(summary)
         ? "IE"
         : titleRegion;
+
     const match =
       matchesUserCountry(feedRegion, userCountry) ||
       matchesUserCountry(titleRegion, userCountry);
