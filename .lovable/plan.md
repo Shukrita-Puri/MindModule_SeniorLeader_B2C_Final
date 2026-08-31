@@ -12,20 +12,25 @@ Determined by tracing every `functions.invoke` / `fetch` call site in `src/`, ev
 |---|---|---|---|
 | Readiness Brief | `compute-outer-readiness` | 3 windows/day + manual refresh | Home Brief card |
 | Mastery Plan why-lines | `generate-mastery-plan` (`_shared/plan/why-llm.ts`) | Daily + regeneration | Today's 3 Priorities |
+| Attendee relationship resolver | `resolve-attendee-relationship` | Post calendar-sync batch + lazy in-Plan backstop | Plan — relationship labels on events |
 | Smart Nudges copy | `smart-nudges` | Scheduled, up to 8 call sites/user/day | Push notifications |
 | CoS Profile synthesis | `synthesize-cos-profile` | Onboarding + calendar-sync trigger + admin | Archetype / profile |
 | Onboarding insight | `generate-onboarding-insight` | Stage 8 Results | Onboarding results report |
 | Leadership patterns | `state-patterns-insights` | Insights page load | LeadershipPatternsCard |
-| Insights semantics | `insights-semantic-analysis` | Insights page load | Theme map (confirm keep/kill) |
 
 `cause-effect-engine` is live on Insights but is fully deterministic — no LLM, no cost.
 
-**NOT LIVE — LLM code exists, no live frontend path (zero-cost today, but latent risk)**
+`resolve-attendee-relationship` is confirmed live and part of the Plan feature: fired in batches from `sync-calendar` via `_shared/attendeeResolverQueue.ts` and lazily from `generate-mastery-plan`. It runs `google/gemini-2.5-flash` with a 50/user/day self-imposed cap. **Keep it, freeze it, do not re-route it in this exercise** — Gemini Flash is already an appropriate tier for a per-attendee classification job, and the cached `attendee_relationships` rows plus the generic-domain and freshness filters already suppress most calls. Revisit only if telemetry shows it is a material line item.
+
+**FROZEN — LLM code exists, no live frontend path today**
 
 Coach/Dialogue cluster: `self-mastery-coach`, `dialogue-engine`, `dialogue-session-manage`, `generate-coach-summary`, `extract-coach-insights`, `extract-tool-commitments`, `resolve-session-commitments`, `detect-coach-scenarios`, `detect-recurring-patterns`, `analyze-probing-effectiveness`, `process-orphaned-sessions`.
-Orphans with no caller at all: `generate-debrief-insights`, `generate-dashboard-insight`, `generate-energy-insight`, `infer-current-state`, `resolve-attendee-relationship`.
 
-These are excluded from the cost plan. Recommendation: freeze them, do not spend optimisation effort on them, and gate them behind an explicit feature flag before Coach goes live so they cannot silently start billing.
+`insights-semantic-analysis` joins this group. It is invoked from `Insights.tsx`, but its input sources are coach/dialogue conversation data — with Coach dormant it has nothing meaningful to analyse. Freeze it with the Coach cluster and bring it back, together with its Insights theme-map output, when Coach goes live.
+
+Orphans with no caller at all: `generate-debrief-insights`, `generate-dashboard-insight`, `generate-energy-insight`, `infer-current-state`.
+
+All of the above are excluded from the cost plan. Recommendation: leave the code in place, do not spend optimisation effort on it, and put the whole cluster behind one explicit feature flag before Coach goes live so nothing silently starts billing.
 
 ## 2. Architecture: classify each live call by job type
 
@@ -33,8 +38,10 @@ LLM spend should be governed by what the call is *doing*, not by which team wrot
 
 - **Class A — Voice/Judgement generation.** Reads a large structured context and writes short, contract-bound, user-visible prose. Quality is the product. → Brief.
 - **Class B — Constrained copy generation.** Short output, tight template, high volume, deterministic fallback already exists. → Smart Nudges, Plan why-lines.
-- **Class C — Structured synthesis / extraction.** Large or messy input, structured (tool-call) output, runs rarely per user. → CoS Profile, insights semantic analysis.
-- **Class D — Small labelling / one-line generation.** Tiny input, tiny output, no reasoning depth required. → Onboarding insight, Leadership patterns observation.
+- **Class C — Structured synthesis / extraction.** Large or messy input, structured (tool-call) output, runs rarely per user. → CoS Profile.
+- **Class D — Small labelling / one-line generation.** Tiny input, tiny output, no reasoning depth required. → Onboarding insight, attendee resolver (frozen as-is), Leadership patterns observation.
+- **Class E — Should not be an LLM call at all.** The output is a fixed vocabulary over structured numeric inputs. → Leadership patterns observation (see 4b).
+
 
 ## 3. Current routing (as built today)
 
@@ -43,10 +50,11 @@ LLM spend should be governed by what the call is *doing*, not by which team wrot
 | Brief | A | Lovable gateway → Anthropic direct | `google/gemini-2.5-flash` | `CLAUDE_MODELS.SONNET` (**aliased to `claude-haiku-4-5`**) | 380 |
 | Smart Nudges | B | Anthropic direct → gateway | `claude-haiku-4-5` | `google/gemini-3-flash-preview` | 256 |
 | Plan why-lines | B | Lovable gateway | `google/gemini-3-flash-preview` | deterministic repair | small |
+| Attendee resolver | D | Lovable gateway | `google/gemini-2.5-flash` | none | small |
 | CoS Profile | C | Lovable gateway | `google/gemini-2.5-pro` | `anthropic/claude-3-5-haiku` | 8192 |
-| Insights semantics | C | gateway | `claude-3-5-haiku-latest` | none | — |
 | Onboarding insight | D | Anthropic direct | Claude model ladder | model loop | 200 |
-| Leadership patterns | D | Anthropic direct | `claude-3-5-haiku-latest` | none | — |
+| Leadership patterns | E | Anthropic direct | `claude-3-5-haiku-latest` | none | — |
+| _(frozen)_ Insights semantics | — | gateway | `claude-3-5-haiku-latest` | none | — |
 
 Three problems visible from the table alone:
 
@@ -64,10 +72,18 @@ Aligned with your direction: Brief on Sonnet, Nudges and CoS on Haiku, everythin
 | T2 — Constrained copy | B | `claude-haiku-4-5` | Smart Nudges | Short output, brand voice matters, Haiku is ~1/12 Sonnet cost. |
 | T2 — Constrained copy | B | `google/gemini-3.1-flash-lite` | Plan why-lines | Already deterministic-repaired; cheapest viable tier. |
 | T3 — Structured synthesis | C | `claude-haiku-4-5` | CoS Profile output | Tool-call reliability matters; drop from Gemini 2.5 **Pro**, the single most expensive model in the stack. |
-| T3 — Structured synthesis | C | `google/gemini-3.1-flash-lite` | Insights semantics | Theme clustering does not need a frontier model. |
-| T4 — Labelling | D | `google/gemini-3.1-flash-lite` | Onboarding insight, Leadership patterns | Sub-200-token outputs; frontier models are pure waste here. |
+| T4 — Labelling | D | `google/gemini-3.1-flash-lite` | Onboarding insight | Sub-200-token output; a frontier model here is pure waste. |
+| T4 — Labelling | D | `google/gemini-2.5-flash` (**unchanged, frozen**) | Attendee resolver | Already correctly tiered and rate-capped; leave alone. |
+| T5 — No LLM | E | deterministic TypeScript | Leadership patterns observation | See 4b — the output is a fixed vocabulary over numeric inputs. |
+
+### 4b. Leadership patterns should be deterministic, not an LLM call
+
+Confirmed on the live frontend: `LeadershipPatternsCard` renders a distribution chart, an archetype/state word, dimension deltas and a friction trend. The `observation` string that `state-patterns-insights` pays Claude Haiku to write **is not rendered by the card at all** — no reference to `observation` exists anywhere in `LeadershipPatternsCard.tsx`, and `Insights.tsx` already generates its own algorithmic observation on the DEV_MODE path. The prompt itself even instructs the model to return the literal string `null` whenever data is sparse, which is most users most of the time.
+
+Recommendation: delete the Anthropic call from `state-patterns-insights` and derive the observation in TypeScript from the inputs the prompt already receives — archetype evolution, dimension deltas, friction label and trend direction, recurring themes. This is a small ranked rule set producing one sentence from a fixed vocabulary, which is exactly what the model is being asked to imitate. Benefits: the cost goes to zero, the Insights page loses a network-dependent latency hop, and the copy becomes testable and stable instead of varying per load. If you later want generated phrasing back, it belongs with the Coach unfreeze, not before launch.
 
 **Blocking check before any of this ships:** `CLAUDE_MODELS.SONNET` was previously set to Haiku *because* the prior Sonnet id 404'd against this workspace's Anthropic key for 14+ days. Step 1 of the build is a live `/v1/models` catalog check to get the exact Sonnet id this key can call, plus a single smoke request. If Sonnet is not available on the key, we stop and tell you rather than silently leaving Haiku behind a constant named SONNET. Same check applies to `anthropic/claude-3-5-haiku` via the Lovable gateway (used today as the CoS fallback).
+
 
 ## 5. Cost work beyond model choice
 
@@ -91,7 +107,8 @@ Introduce a single `_shared/ai/model-routing.ts` that exports a tier→model map
 2. Sonnet id verification, then Brief → T1 with L1 caching and L3 single-attempt, in one change.
 3. Nudges → T2 Haiku, static-first, single attempt.
 4. CoS Profile → T3 Haiku, token cap, change-gating.
-5. T4 sweep for onboarding/patterns/semantics.
-6. Feature-flag freeze on the whole dormant Coach/Dialogue cluster.
+5. Leadership patterns → deterministic observation (4b); onboarding insight → T4 Gemini.
+6. Feature-flag freeze on the Coach/Dialogue cluster plus `insights-semantic-analysis`. Attendee resolver stays live and untouched.
+
 
 Each step is separately deployable; Brief changes deploy only `compute-outer-readiness`. No user-visible copy contract, validator, prompt version, or deterministic fallback path changes anywhere in this plan.
