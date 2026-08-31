@@ -43,6 +43,13 @@ interface AnthropicTool {
 
 interface CallClaudeParams {
   system?: string;
+  /**
+   * Per-user / per-request system content that must NOT be part of the cached
+   * prefix. Sent as a second, uncached system block AFTER the cached `system`
+   * block so the stable prefix stays byte-identical across users and the
+   * ephemeral cache actually hits. Ignored when caching is off.
+   */
+  systemUncachedSuffix?: string;
   messages: Array<{ role: string; content: string }>;
   model?: string;
   max_tokens?: number;
@@ -70,15 +77,23 @@ function shouldCacheSystemPrompt(system: string | undefined, explicit?: boolean)
 function buildSystemPayload(
   system: string | undefined,
   cache?: boolean,
+  uncachedSuffix?: string,
 ): string | Array<Record<string, unknown>> | undefined {
-  if (!system) return undefined;
-  if (!shouldCacheSystemPrompt(system, cache)) return system;
-  return [{
+  const suffix = uncachedSuffix?.trim() ? uncachedSuffix : '';
+  if (!system) return suffix || undefined;
+  if (!shouldCacheSystemPrompt(system, cache)) {
+    return suffix ? `${system}${suffix}` : system;
+  }
+  const blocks: Array<Record<string, unknown>> = [{
     type: 'text',
     text: system,
     cache_control: { type: 'ephemeral' },
   }];
+  // Trailing, per-request block stays OUTSIDE the cached prefix.
+  if (suffix) blocks.push({ type: 'text', text: suffix });
+  return blocks;
 }
+
 
 interface ClaudeToolUseResponse {
   content: Array<{ type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }>;
