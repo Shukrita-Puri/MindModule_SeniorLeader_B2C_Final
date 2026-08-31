@@ -33,7 +33,7 @@ Route all three through the availability SSOT rather than the local regex:
 - Personal chores and admin noise route through the existing `isNoiseTitle` list rather than being re-listed.
 - Travel legs and all-day personal-rhythm blocks keep their existing category-based exclusion.
 
-Widen `isFyiHolidayCalendar` to match any holiday-named feed (`UK Holidays`, `Australian Holidays`, `Holidays in United Kingdom`) and map `event_metadata.calendarTitle` into the field it reads, so the helper actually sees your data.
+Widen `isFyiHolidayCalendar` to match any holiday-named feed (`UK Holidays`, `Australian Holidays`, `Holidays in United Kingdom`) and map `event_metadata.calendarTitle` into the field it reads, so the helper actually sees your data. The widening is bounded to *calendar feed names*, never event titles, and is checked against a negative fixture (`Holiday cover rota`, `Holiday planning`) so an ordinary work calendar with "holiday" in its name is not swallowed.
 
 ### Fix 3 — Load is day-level, computed on the filtered list, with same-slot collapse
 
