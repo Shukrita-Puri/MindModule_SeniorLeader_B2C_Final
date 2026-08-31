@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeWithTools, streamClaudeAsOpenAI, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { dedupeCalendarEvents } from "../_shared/events/event-classifier.ts";
+import { isDormantLlmFrozen, logDormantLlmSkip } from "../_shared/ai/llm-freeze.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -3137,6 +3138,10 @@ DO treat these as wins:
 If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
 If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`;
 
+      if (isDormantLlmFrozen()) {
+        logDormantLlmSkip("self-mastery-coach");
+        throw new Error("dormant_llm_frozen");
+      }
     const result = await callClaudeWithTools({
       system: systemPrompt,
       messages,
@@ -3259,6 +3264,10 @@ serve(async (req) => {
     
     // Stream via Claude with OpenAI-compatible SSE transform
     try {
+      if (isDormantLlmFrozen()) {
+        logDormantLlmSkip("self-mastery-coach");
+        throw new Error("dormant_llm_frozen");
+      }
       const streamBody = await streamClaudeAsOpenAI({
         system: systemPrompt,
         messages,
