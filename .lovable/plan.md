@@ -49,6 +49,18 @@ Window heaviness stays what it is today: an additive mention layered on the day-
 
 Both bank holidays drop out as FYI (one home, one regional — both non-load). One meeting remains, already finished. Load reads **light**, the pill reads "1 meeting done", and the narrative stops calling the afternoon heavy.
 
+## Verification
+
+- Today's brief: light, 1 meeting done, no heavy-afternoon claim.
+- The `Australian Holidays` entries already in your calendar: zero load contribution, working-day framing.
+- A home bank holiday with an attendee attached: still a holiday, still zero load.
+- A work calendar named "Holiday cover rota": events still count as load.
+- A Google-only meeting on iOS: appears in the brief and counts toward load.
+- Two overlapping distinct meetings: one load unit.
+- Fixture tests for each of the above, asserting the load verdict, the deterministic count and the LLM-facing count are identical.
+- Same brief checked on web and iOS.
+
+
 ## Pre-launch scope — three core fixes only
 
 Ship: the view merge, the SSOT wiring, the predicate unification. Everything else is deferred.
