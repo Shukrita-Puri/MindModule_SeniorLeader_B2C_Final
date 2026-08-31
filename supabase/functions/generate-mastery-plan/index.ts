@@ -165,6 +165,7 @@ import {
   type StrategicContext,
   type WhyEvidenceBundle,
 } from "../_shared/plan/why-signals.ts";
+import { fallbackWhyLine as bankWhyLine } from "../_shared/plan/why-fallback-bank.ts";
 import {
   buildContractTitle,
   COPY_CONTRACT_BLOCK,
@@ -7905,6 +7906,8 @@ async function applyV51Enrichment(
   const lightDay = !(req.calendarEvents || []).some((e: any) =>
     Boolean(e?.title)
   ) || (req.calendarEvents || []).length <= 1;
+  // Deterministic Why-line bank guard: no two slots may ship the same line.
+  const usedWhyLines = new Set<string>();
 
   modules.forEach((hm, idx) => {
     // Slot purpose tagging
@@ -8004,7 +8007,22 @@ async function applyV51Enrichment(
         ? "During"
         : "Prepare";
     }
+    // Deterministic copy bank — the floor. Runs when the evidence composer
+    // and the legacy composer both come back empty/too short, or when the
+    // line duplicates one an earlier slot already used.
+    if (
+      !fallbackWhyLine || fallbackWhyLine.length < 12 ||
+      usedWhyLines.has(fallbackWhyLine)
+    ) {
+      fallbackWhyLine = bankWhyLine({
+        categoryId: anchorCategoryForEvidence,
+        phase: ((hm as any).jitPhase as Phase) ?? null,
+        role: bundle.role,
+        used: usedWhyLines,
+      });
+    }
     if (fallbackWhyLine && fallbackWhyLine.length >= 12) {
+      usedWhyLines.add(fallbackWhyLine);
       fallbackWhyLineByIndex.set(idx, fallbackWhyLine);
     }
 
