@@ -59,11 +59,20 @@ export interface WhyLLMInput {
 
   growthIntention: string | null;
 
+  // ── Copy-contract inputs (see _shared/plan/copy-contract.ts) ──
+  /** Rendered ranked evidence bundle: pattern > behavioural > strategic > immediate. */
+  evidenceBlock?: string | null;
+  /** Proactive role the title already commits to: Protect | Prevent | Prepare | Build. */
+  slotRoleVerb?: string | null;
+  /** Title-vs-why contract rules block. */
+  copyContractBlock?: string | null;
+
   // Shared-module advisories (Brief↔Plan parity).
   ceoBehaviourBlock?: string | null;
   eventTaxonomyBlock?: string | null;
   briefEcho?: string | null;
   todaysOtherWhyLines?: string[];
+
 
   // Shared state band + slot identity (Plan-only Why-line contract).
   /**
@@ -692,12 +701,21 @@ function buildPrompt(inp: WhyLLMInput): string {
     repetitionGuardBlock,
     signalsAvailable,
     strategic,
+    // Ranked evidence — the ONLY facts allowed in the why-line.
+    (inp.evidenceBlock || "").trim()
+      ? `\n${inp.evidenceBlock!.trim()}\nUse the top-ranked evidence item as the why-line's substance. Do not stack multiple signals; one fact, one sentence.`
+      : ``,
+    inp.slotRoleVerb
+      ? `\nThe title already commits to the role "${inp.slotRoleVerb}". Your line must justify that role, never contradict it (a positive signal is an edge to hold, not a deficit to fix).`
+      : ``,
+    (inp.copyContractBlock || "").trim() ? `\n${inp.copyContractBlock!.trim()}` : ``,
     sharedAdvisory
       ? `\n${sharedAdvisory}\nWhen the active behaviours above name this exact event, prefer aligning the statement to that anchor — do not echo any copyHint verbatim.`
       : ``,
     ``,
     `OUTPUT — plain text, one sentence. No markdown, no asterisks, no preamble. Return only the why-line string.`,
   ].join("\n");
+
 }
 
 export function trimToWords(s: string, max = 25): string {

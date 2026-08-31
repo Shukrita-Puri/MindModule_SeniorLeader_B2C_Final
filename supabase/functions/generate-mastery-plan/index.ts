@@ -153,6 +153,20 @@ import {
   validateWhyLine,
   type WhyLLMInput,
 } from "../_shared/plan/why-llm.ts";
+import {
+  buildWhyEvidence,
+  type CausalitySignalSummary,
+  composeEvidenceWhyLine,
+  renderEvidenceBlock,
+  type StrategicContext,
+  type WhyEvidenceBundle,
+} from "../_shared/plan/why-signals.ts";
+import {
+  buildContractTitle,
+  COPY_CONTRACT_BLOCK,
+  outcomeForRole,
+  validateWhyContract,
+} from "../_shared/plan/copy-contract.ts";
 // JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
 // scorer when JIT_V2 env is "shadow"; writes shadow columns to
 // jit_event_context for week-1 parity testing. Does not affect what the
@@ -4525,7 +4539,15 @@ interface SharedContext {
     selectedPlan: any | null;
     userEdits: any | null;
   } | null;
+  // ── Why-line evidence inputs (see _shared/plan/why-signals.ts) ──
+  /** Canonical proactive-pattern store row (causality_findings.signal_summary). */
+  signalSummary: CausalitySignalSummary | null;
+  /** Onboarding v8 + CoS profile strategic context. */
+  strategicContext: StrategicContext | null;
+  /** 14-day resting-HR baseline — required before any "elevated" claim. */
+  restingHRBaseline: number | null;
 }
+
 
 // ═════════════════════════════════════════════════════════════════════
 // Sprint D — Plan practice window signals.
@@ -4671,7 +4693,67 @@ async function buildSharedContext(
     briefBehaviour: null,
     briefBehaviourSource: "absent",
     weeklyPlanSnapshot: null,
+    signalSummary: null,
+    strategicContext: null,
+    restingHRBaseline: null,
   };
+
+  // ── Why-line evidence sources (never throw; null degrades to cold start) ──
+  try {
+    const [causalityRes, v8Res, rhrRes] = await Promise.all([
+      supabaseClient.from("causality_findings").select("signal_summary")
+        .eq("user_id", req.userId)
+        .eq("pattern_kind", "cause_effect_v2")
+        .order("computed_for_date", { ascending: false })
+        .limit(1).maybeSingle(),
+      supabaseClient.from("onboarding_v8_responses").select(
+        "stakes_chips, load_chips, burden_chips, goals, cos_profile",
+      ).eq("user_id", req.userId).maybeSingle(),
+      supabaseClient.from("wearable_data").select("resting_heart_rate")
+        .eq("user_id", req.userId)
+        .not("resting_heart_rate", "is", null)
+        .gte(
+          "summary_date",
+          new Date(Date.now() - 14 * 86400000).toISOString().split("T")[0],
+        )
+        .order("summary_date", { ascending: false }).limit(14),
+    ]);
+    ctx.signalSummary =
+      ((causalityRes as any)?.data?.signal_summary ?? null) as
+        | CausalitySignalSummary
+        | null;
+    const v8 = (v8Res as any)?.data ?? null;
+    if (v8) {
+      const cos = (v8.cos_profile ?? null) as any;
+      ctx.strategicContext = {
+        stakesChips: Array.isArray(v8.stakes_chips) ? v8.stakes_chips : [],
+        loadChips: Array.isArray(v8.load_chips) ? v8.load_chips : [],
+        burdenChips: Array.isArray(v8.burden_chips) ? v8.burden_chips : [],
+        goals: Array.isArray(v8.goals) ? v8.goals : [],
+        depletionPattern: typeof cos?.primary_depletion_pattern === "string"
+          ? cos.primary_depletion_pattern
+          : null,
+        archetype: typeof cos?.provisional_archetype === "string"
+          ? cos.provisional_archetype
+          : null,
+      };
+    }
+    const rhrRows = ((rhrRes as any)?.data ?? []) as any[];
+    const rhrValues = rhrRows
+      .map((r) => Number(r?.resting_heart_rate))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (rhrValues.length >= 3) {
+      ctx.restingHRBaseline = Math.round(
+        (rhrValues.reduce((a, b) => a + b, 0) / rhrValues.length) * 10,
+      ) / 10;
+    }
+  } catch (evidenceErr: any) {
+    console.warn(
+      "[generate-mastery-plan] why-evidence sources unavailable:",
+      evidenceErr?.message,
+    );
+  }
+
 
   // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
   const [
@@ -7669,6 +7751,34 @@ function detectMorningFusionEvent(
  *   user-visible context line on step cards) when available.
  * Practice titles never change.
  */
+/**
+ * Longest run of today's meetings separated by < 15 minutes. Feeds the
+ * immediate-tier "context switching" risk signal in the why-evidence bundle.
+ * Factual only: derived from the same calendar rows the plan already holds.
+ */
+function deriveBackToBackCount(req: PlanRequest): number | null {
+  const rows = (req.calendarEvents || [])
+    .map((e: any) => ({
+      start: new Date(e?.startTime ?? e?.start_time ?? 0).getTime(),
+      end: new Date(e?.endTime ?? e?.end_time ?? 0).getTime(),
+    }))
+    .filter((r) => Number.isFinite(r.start) && r.start > 0)
+    .sort((a, b) => a.start - b.start);
+  if (rows.length < 2) return null;
+  let best = 1;
+  let run = 1;
+  for (let i = 1; i < rows.length; i++) {
+    const prevEnd = Number.isFinite(rows[i - 1].end) && rows[i - 1].end > 0
+      ? rows[i - 1].end
+      : rows[i - 1].start + 30 * 60_000;
+    const gapMin = (rows[i].start - prevEnd) / 60_000;
+    if (gapMin <= 15) run += 1;
+    else run = 1;
+    if (run > best) best = run;
+  }
+  return best >= 2 ? best : null;
+}
+
 async function applyV51Enrichment(
   modules: HorizonModule[],
   req: PlanRequest,
@@ -7721,10 +7831,17 @@ async function applyV51Enrichment(
     if (t && !eventByTitle.has(t)) eventByTitle.set(t, e);
   }
 
-  // Phase 1 (sync): slot tagging, deterministic title + sub-line, fallback Why.
+  // Phase 1 (sync): slot tagging, deterministic title + fallback Why.
   type JitJob = { idx: number; input: WhyLLMInput };
   const jitJobs: JitJob[] = [];
   const fallbackWhyLineByIndex = new Map<number, string>();
+  // Ranked evidence bundle per slot — one build, consumed by the
+  // deterministic composer, the title role verb and the Why LLM prompt.
+  const evidenceByIndex = new Map<number, WhyEvidenceBundle>();
+  const backToBackCount = deriveBackToBackCount(req);
+  const lightDay = !(req.calendarEvents || []).some((e: any) =>
+    Boolean(e?.title)
+  ) || (req.calendarEvents || []).length <= 1;
 
   modules.forEach((hm, idx) => {
     // Slot purpose tagging
@@ -7739,49 +7856,70 @@ async function applyV51Enrichment(
     const fusion = idx === 0 && fusionEvent && hm.slotKind === "start_of_day"
       ? fusionEvent
       : null;
-    let fallbackWhyLine = composeWhyLine(
-      hm,
-      req,
-      shared,
-      hrvCorrelations,
-      ceo,
-      briefClaim,
-      fusion,
-      {
-        timeOfDay: timeOfDayForWhy,
-        windowSignals: whyWindowSignals,
+
+    // ── Tiered evidence bundle for this slot ──
+    const anchorTitleForEvidence: string | null =
+      (hm.isJit && hm.jitEventTitle)
+        ? hm.jitEventTitle
+        : (((hm as any).anchorEventTitle ?? fusion ?? null) as string | null);
+    const anchorCategoryForEvidence =
+      ((hm as any).anchorCategoryId ?? (hm as any).jitCategoryId ?? null) as
+        | EventCategoryId
+        | null;
+    const w = req.wearableContext;
+    const bundle = buildWhyEvidence({
+      anchor: {
+        eventTitle: anchorTitleForEvidence,
+        categoryId: anchorCategoryForEvidence,
+        patternBucket: anchorTitleForEvidence
+          ? patternBucketFor(anchorTitleForEvidence)
+          : null,
+        phase: ((hm as any).jitPhase as "pre" | "during" | "post") ?? null,
       },
-    );
-    // Sprint E — deterministic valence guard. Reuse the existing
-    // validateWhyLine so the deterministic path cannot violate the same
-    // band discipline as the LLM output. On rejection, recompose without
-    // window-signal clauses (the safer generic deterministic line).
-    const detBand: StateBand | null = tierToStateBand(req.innerReadinessTier);
-    const detSlotAnchor: SlotAnchor = {
-      eventTitle: (hm as any).anchorEventTitle ?? hm.jitEventTitle ?? null,
-      categoryId:
-        ((hm as any).anchorCategoryId ?? (hm as any).jitCategoryId ?? null) as
-          | EventCategoryId
-          | null,
-      phase: ((hm as any).jitPhase as Phase) ?? "pre",
-    };
-    const detVerdict = validateWhyLine({
-      text: fallbackWhyLine,
-      stateBand: detBand,
-      slotAnchor: detSlotAnchor,
-      echoTexts: [
-        hm.timeLabel ?? null,
-        hm.practice?.title ?? null,
-        hm.recommendedAction ?? null,
-      ],
+      timeOfDay: timeOfDayForWhy,
+      signalSummary: shared.signalSummary,
+      immediate: {
+        hrvDeltaPct: (w?.hasData && typeof w.hrvDeviation === "number")
+          ? Math.round(w.hrvDeviation)
+          : null,
+        sleepScore: (w?.hasData && typeof w.sleepScore === "number")
+          ? w.sleepScore
+          : null,
+        restingHR: (w?.hasData && typeof w.restingHR === "number")
+          ? w.restingHR
+          : null,
+        restingHRBaseline: shared.restingHRBaseline,
+        backToBackCount,
+        clarity: typeof req.clarityLevel === "number" && req.clarityLevel > 0
+          ? req.clarityLevel
+          : null,
+        bodyState:
+          typeof req.confidenceLevel === "number" && req.confidenceLevel > 0
+            ? req.confidenceLevel
+            : null,
+        travelDebtActive: ceo.includes("circadian_travel") ? true : null,
+      },
+      strategic: shared.strategicContext,
+      behavioural: {
+        practiceImpact: shared.causeEffect?.practiceImpact ?? [],
+        selectedPracticeId: (hm.practice?.id ?? null) as string | null,
+        completionStreakDays: null,
+      },
     });
-    if (
-      !detVerdict.ok &&
-      (detVerdict.reason === "valence_firing_recovery" ||
-        detVerdict.reason === "valence_depleted_push")
-    ) {
+    evidenceByIndex.set(idx, bundle);
+
+    // Deterministic Why — ONE clause off the top-ranked evidence item.
+    let fallbackWhyLine = composeEvidenceWhyLine(bundle, {
+      anchorTitle: anchorTitleForEvidence,
+      timeOfDay: timeOfDayForWhy,
+      lightDay,
+    });
+    const contractVerdict = validateWhyContract(fallbackWhyLine, {
+      practiceTitle: hm.practice?.title ?? null,
+    });
+    if (!contractVerdict.ok) {
       console.log(
-        `[why-llm.telemetry] idx=${idx} band=${detBand} bandSource=deterministic fallback=deterministic_repair reject=${detVerdict.reason}`,
+        `[why-contract] idx=${idx} deterministic reject=${contractVerdict.reason} → legacy composer`,
       );
       fallbackWhyLine = composeWhyLine(
         hm,
@@ -7791,27 +7929,38 @@ async function applyV51Enrichment(
         ceo,
         briefClaim,
         fusion,
-        {
-          timeOfDay: timeOfDayForWhy,
-          windowSignals: null,
-        },
+        { timeOfDay: timeOfDayForWhy, windowSignals: null },
       );
+    } else {
+      // Keep the arc label the client badge reads — composeWhyLine used to
+      // set it as a side effect.
+      const ph = (hm as any).jitPhase as ("pre" | "during" | "post" | undefined);
+      (hm as any).arcLabel = ph === "post" || hm.slotKind === "end_of_day"
+        ? "Recover"
+        : ph === "during"
+        ? "During"
+        : "Prepare";
     }
     if (fallbackWhyLine && fallbackWhyLine.length >= 12) {
       fallbackWhyLineByIndex.set(idx, fallbackWhyLine);
     }
 
-    // Shared sub-line contract for any anchored slot, not just explicit JIT.
-    // If we persisted anchor metadata on the slot, use the shared event-phase
-    // frame first and only fall back to the older local phrasing when there is
-    // no canonical anchor context available.
-    if (hm.anchorCategoryId) {
-      const anchoredFrame = buildActionFrame(
-        hm.anchorCategoryId,
-        (hm.jitPhase as Phase) || null,
-      );
-      if (anchoredFrame) hm.recommendedAction = anchoredFrame;
-    }
+    // ── Contract title: {role verb} {executive outcome} {connector} {anchor}.
+    const contractTitle = buildContractTitle({
+      role: bundle.role,
+      outcome: outcomeForRole(bundle.role, anchorCategoryForEvidence),
+      anchorTitle: anchorTitleForEvidence,
+      categoryId: anchorCategoryForEvidence,
+      phase: ((hm as any).jitPhase as "pre" | "during" | "post") ?? null,
+      timeOfDay: timeOfDayForWhy,
+      lightDay,
+    });
+    if (contractTitle) hm.timeLabel = contractTitle;
+
+    // The italic action-frame sub-line is retired — the title now carries the
+    // "what + how", so a second frame only repeats it.
+    hm.recommendedAction = "";
+
 
     // ── Today's-3 v2: per-JIT-priority title, sub-line, LLM Why ──
     if (hm.isJit && hm.jitEventTitle) {
@@ -7849,9 +7998,9 @@ async function applyV51Enrichment(
         }
       } catch { /* keep false */ }
 
-      // Title — CEO-behaviour-first via buildPriorityTitle.
-      // Output shape: "<verb> <executive objective> <connector> <event>"
-      // (e.g. "Lead strategic clarity in tomorrow's Board Meeting").
+      // Title — copy contract: {role verb} {executive outcome} {connector}
+      // {event}. The role verb comes from the winning evidence valence, so a
+      // positive-signal slot reads "Protect …" and a risk slot "Prevent …".
       // Build a single SlotAnchor object — same identity handed to the Why
       // LLM below so title + why-line cannot drift to different events.
       const slotAnchor: SlotAnchor = {
@@ -7859,7 +8008,16 @@ async function applyV51Enrichment(
         categoryId: category,
         phase,
       };
-      const newTitle = buildPriorityTitle({
+      const slotRoleForTitle = evidenceByIndex.get(idx)?.role ?? "Prepare";
+      const newTitle = buildContractTitle({
+        role: slotRoleForTitle,
+        outcome: outcomeForRole(slotRoleForTitle, category),
+        anchorTitle: hm.jitEventTitle ?? null,
+        categoryId: category,
+        phase,
+        isTomorrow,
+        timeOfDay: timeOfDayForWhy,
+      }) || buildPriorityTitle({
         slotAnchor,
         isTomorrow,
         practicePriorityTag: req.practicePriorityTag ?? null,
@@ -7868,9 +8026,9 @@ async function applyV51Enrichment(
       // Stash arc verb so the client can render the chip without re-deriving.
       (hm as any).arcVerb = verbForCategoryPhase(category, phase);
 
-      // Sub-line (≤6 words) → rendered as recommendedAction
-      const frame = buildActionFrame(category, phase);
-      if (frame) hm.recommendedAction = frame;
+      // No sub-line — the contract title carries the "what + how".
+      hm.recommendedAction = "";
+
 
       // Queue LLM Why
       if (category) {
@@ -7913,10 +8071,19 @@ async function applyV51Enrichment(
           sleepScore: (w?.hasData && typeof w.sleepScore === "number")
             ? w.sleepScore
             : null,
-          rhrTrend:
-            (w?.hasData && typeof w.restingHR === "number" && w.restingHR > 0)
-              ? "elevated"
-              : null,
+          // RHR is only "elevated" against the leader's OWN 14-day baseline.
+          // (Previously any reading > 0 was reported as elevated.)
+          rhrTrend: (() => {
+            const base = shared.restingHRBaseline;
+            if (
+              !w?.hasData || typeof w.restingHR !== "number" ||
+              w.restingHR <= 0 || typeof base !== "number" || base <= 0
+            ) return null;
+            const delta = w.restingHR - base;
+            if (delta >= 3) return "elevated" as const;
+            if (delta <= -2) return "low" as const;
+            return "normal" as const;
+          })(),
           travelDebtActive: ceo.includes("circadian_travel") ? true : null,
           stressLoad: null,
           burnoutRisk: null,
@@ -7930,6 +8097,14 @@ async function applyV51Enrichment(
               : null,
           patternSummary,
           growthIntention: (req as any).growthIntention || null,
+          // Tiered evidence bundle — the ranked facts the line must use.
+          evidenceBlock: renderEvidenceBlock(
+            evidenceByIndex.get(idx) ??
+              { ranked: [], top: null, proof: null, role: "Prepare", coldStart: true },
+          ),
+          slotRoleVerb: evidenceByIndex.get(idx)?.role ?? "Prepare",
+          copyContractBlock: COPY_CONTRACT_BLOCK,
+
           // Brief↔Plan parity advisories — append the SAME blocks the Brief's
           // LLM saw, so the "Why this matters" line stays anchored to the
           // identical CEO behaviours and pillar focus the Brief already named
