@@ -539,7 +539,11 @@ export function selectJitCandidates(
     const importance = tierWeighted + sovereignBonus + memoryDelta;
 
     if (memEntry?.hardDemote) {
-      excluded.push({ eventId: ev.id, title, reason: 'memory_hard_demote' });
+      excluded.push({
+        eventId: ev.id,
+        title,
+        reason: (memEntry as any)?.exclusionReason || 'memory_hard_demote',
+      });
       continue;
     }
     if (memEntry?.sovereignEscalation === 'low') {
