@@ -8972,21 +8972,31 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // 4s is a budget for a light task, this is moderate-to-heavy.
           // Perceived latency cost of a few extra seconds is far lower than
           // a deterministic-fallback rate.
-          // 2026-08-31 — Two-model consolidation (C2). The ladder is now a
-          // SINGLE attempt: Claude Haiku 4.5 direct, with the stable system
-          // prefix served from Anthropic's ephemeral cache. On rejection or
-          // failure we fall straight through to the deterministic/awaiting
-          // path below. The former Gemini-first leg meant every validator
-          // rejection billed two providers for one brief.
+          // 2026-08-31 — Two-model consolidation (C2), STAGED.
+          // Target state is a SINGLE Claude Haiku 4.5 attempt with the stable
+          // system prefix served from Anthropic's ephemeral cache (the cache
+          // split is already wired below). That switch is HELD BACK because the
+          // Anthropic account currently has zero credit balance: every Claude
+          // call returns HTTP 400 "credit balance is too low", so a Haiku-only
+          // ladder would make each brief burn a doomed Anthropic round-trip
+          // before failing over. Until credits are topped up the ladder stays
+          // Gemini-first -> Claude -> deterministic/awaiting, exactly as it ran
+          // pre-change. Flip to the single Haiku entry once credits are live.
           const llmAttempts: Array<
             { model: string; timeoutMs: number; useGateway: boolean }
           > = [
             {
+              model: "google/gemini-2.5-flash",
+              timeoutMs: 15000,
+              useGateway: true,
+            },
+            {
               model: CLAUDE_MODELS.HAIKU,
-              timeoutMs: 12000,
+              timeoutMs: 10000,
               useGateway: false,
             },
           ];
+
 
 
           // §2.18 stricter retry instruction appended on soft-reject (legacy
