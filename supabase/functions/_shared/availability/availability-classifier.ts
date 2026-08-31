@@ -219,6 +219,8 @@ export interface AvailabilityEvent {
   attendeesCount?: number;
   source?: string | null;
   calendarSummary?: string | null;
+  /** Calendar feed name as persisted on `calendar_events.event_metadata`. */
+  calendarTitle?: string | null;
 }
 
 export interface AvailabilityInput {
