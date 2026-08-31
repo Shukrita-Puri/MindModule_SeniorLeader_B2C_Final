@@ -59,11 +59,20 @@ export interface WhyLLMInput {
 
   growthIntention: string | null;
 
+  // ── Copy-contract inputs (see _shared/plan/copy-contract.ts) ──
+  /** Rendered ranked evidence bundle: pattern > behavioural > strategic > immediate. */
+  evidenceBlock?: string | null;
+  /** Proactive role the title already commits to: Protect | Prevent | Prepare | Build. */
+  slotRoleVerb?: string | null;
+  /** Title-vs-why contract rules block. */
+  copyContractBlock?: string | null;
+
   // Shared-module advisories (Brief↔Plan parity).
   ceoBehaviourBlock?: string | null;
   eventTaxonomyBlock?: string | null;
   briefEcho?: string | null;
   todaysOtherWhyLines?: string[];
+
 
   // Shared state band + slot identity (Plan-only Why-line contract).
   /**
