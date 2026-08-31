@@ -501,7 +501,7 @@ export async function callAIText(params: CallClaudeParams): Promise<string> {
       console.warn('[anthropic] ⚠️ Claude unavailable, falling back to Gemini:', 
         isKeyIssue ? 'API key missing' : `HTTP ${status}`);
       return await callLovableAIText({
-        system: params.system,
+        system: `${params.system ?? ''}${params.systemUncachedSuffix ?? ''}` || undefined,
         messages: params.messages.map(m => ({ role: m.role, content: m.content })),
         max_tokens: params.max_tokens,
         temperature: params.temperature,
