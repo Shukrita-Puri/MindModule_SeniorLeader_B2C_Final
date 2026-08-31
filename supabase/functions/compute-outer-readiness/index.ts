@@ -4957,6 +4957,41 @@ serve(async (req) => {
         }
       } catch (e) { /* ignore holiday lookup failure */ }
 
+      // ── Availability SSOT overlay ──────────────────────────────────────
+      // The static table above only covers a handful of countries and years.
+      // The availability classifier reads the user's OWN subscribed holiday
+      // feed, so it catches holidays the table has never heard of. It can
+      // only ADD a holiday, never remove one the table already found.
+      //
+      // A home-country public holiday must frame the Brief as an off day
+      // (weekend mode) even when the calendar is quiet or carries a single
+      // finished meeting — quietness alone is not what makes it an off day.
+      try {
+        const avail = calendarResult.availability;
+        if (avail?.state === "PUBLIC_HOLIDAY" && avail.holiday?.applicable) {
+          if (!isPublicHoliday) {
+            isPublicHoliday = true;
+            holidayName = avail.holiday.title ?? holidayName ?? "Public holiday";
+          }
+        }
+        if (avail) {
+          console.log("[brief-availability]", {
+            state: avail.state,
+            isRestDay: avail.isRestDay,
+            reason: avail.reason,
+            holidayApplicable: avail.holiday?.applicable ?? false,
+            holidayTitle: avail.holiday?.title ?? null,
+            staticTableHit: holidayName,
+            fyiMarkerCount: calendarResult.fyiMarkerCount,
+            load: calendarResult.load,
+            meetingCount: calendarResult.meetingCount,
+          });
+        }
+      } catch (e) {
+        console.error("[compute-outer-readiness] availability overlay failed:", e);
+      }
+
+
       // Locale-aware "day before rest" for downstream brief framing.
       const localeRecoveryDay = briefRecoveryDay(localeWeekendHomeCountry);
       const localeDayBeforeRest = (localeRecoveryDay + 6) % 7;
