@@ -2552,23 +2552,12 @@ const TodayThreePriorities = ({
                   {slotCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
                 </div>
 
-                {/* Arc badge — Prepare / During / Recover / Steady.
-                    Sprint F rule: Steady is a state-only label and renders
-                    without an event anchor; Prepare / During / Recover only
-                    render when the slot is genuinely anchored to a known
-                    event, so state-only slots never carry a fake event
-                    arc. Muted chip style — no new colour token. */}
-                {shouldRenderArcBadge(hm) && (
-                  <span
-                    className={cn(
-                      "text-[10px] tracking-[0.12em] uppercase font-body px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground/80 flex-shrink-0",
-                      slotCompleted && "opacity-60"
-                    )}
-                    aria-label={`Arc: ${hm.arcLabel}`}
-                  >
-                    {hm.arcLabel}
-                  </span>
-                )}
+                {/* Arc badge intentionally NOT rendered: the server title
+                    already opens with the arc verb (Lead / Steady / Recover),
+                    so a separate chip duplicated the same word and stole
+                    horizontal space from the event name. shouldRenderArcBadge
+                    is retained for the arc contract tests. */}
+
 
                 {/* Header — bold WHEN as Tier 1 anchor */}
                 <div className="flex-1 min-w-0">
