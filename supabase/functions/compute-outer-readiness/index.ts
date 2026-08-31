@@ -126,6 +126,7 @@ import {
   isSaturdayRecoveryDay,
 } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
+import { hydrateWeekAheadInputs } from "../_shared/availability/week-ahead-hydration.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 import {
   computeDivergenceFlag,
@@ -5037,7 +5038,7 @@ serve(async (req) => {
         const _hydration = hydrateWeekAheadInputs({
           localNow: userTime,
           homeCountry: localeWeekendHomeCountry,
-          currentCountry: currentLocationCountry ?? localeWeekendHomeCountry,
+          currentCountry: localeWeekendHomeCountry,
           explicitPto: isPublicHoliday === true,
           todayEvents: _rows.filter((r) =>
             _localKey(String(r.start_time)) === _todayKey
