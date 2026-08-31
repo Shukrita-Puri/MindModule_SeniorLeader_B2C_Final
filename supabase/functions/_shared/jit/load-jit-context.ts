@@ -25,10 +25,16 @@ import {
 import type { RelationshipRole } from "./relationship-taxonomy.ts";
 import {
   applyEventPriorityMemory,
+  loadExclusionMemoryRowsForUser,
   loadPriorityMemoryForUser,
   normalizeEventTitleMemoryKey,
   TITLE_SPECIFIC_MEMORY_CATEGORY,
 } from "../plan/event-priority-memory.ts";
+import {
+  evaluateEventPriorityExclusion,
+  evaluateRecurringDeprioritisation,
+  type MemoryRow,
+} from "../plan/exclusion-evaluator.ts";
 import {
   normalizeEventTypeKey,
 } from "../plan/week-ahead-mode.ts";
@@ -57,6 +63,10 @@ export interface LoadJitContextOptions {
   goals?: SelectContext["goals"];
   /** Override now for tests. */
   nowMs?: number;
+  /** IANA zone used for week-scoped exclusion evaluation. Default "UTC". */
+  timezone?: string;
+  /** Local YYYY-MM-DD the plan is being built for. Default: today in `timezone`. */
+  targetDate?: string;
 }
 
 export interface LoadedJitContext {
@@ -277,6 +287,71 @@ export async function loadJitContextForEvents(
         }
       }
     } catch (_e) { /* optional */ }
+
+    // 4c. Scope-aware exclusion SSOT (`never` / `not_this_week`) + recurring
+    //     soft demotion. This is the ONLY place plan-slot selection honours
+    //     the week scope the Week Ahead picker persists.
+    try {
+      const timezone = opts.timezone || "UTC";
+      const targetDate = opts.targetDate ||
+        new Date(opts.nowMs ?? Date.now()).toLocaleDateString("en-CA", { timeZone: timezone });
+      const exclusionRows = (await loadExclusionMemoryRowsForUser(
+        supabase,
+        userId,
+        memoryLookbackDays,
+      )) as MemoryRow[];
+
+      if (exclusionRows.length > 0) {
+        for (const ev of events) {
+          if (!ev?.id || !ev?.title) continue;
+          const candidate = {
+            eventId: ev.id,
+            title: ev.title,
+            startTimeISO: ev.start_time,
+            category: coarseEventType(ev.title),
+            typeKey: normalizeEventTypeKey(ev.title),
+          };
+
+          const verdict = evaluateEventPriorityExclusion({
+            memoryRows: exclusionRows,
+            candidate,
+            targetDate,
+            timezone,
+          });
+
+          if (verdict.excluded) {
+            const prev = memoryDeltaByEventId![ev.id];
+            memoryDeltaByEventId![ev.id] = {
+              ...(prev ?? { delta: 0 }),
+              hardDemote: true,
+              exclusionReason: verdict.reason,
+              exclusionScope: verdict.scope,
+            } as any;
+            continue;
+          }
+
+          const decay = evaluateRecurringDeprioritisation({
+            memoryRows: exclusionRows,
+            candidate,
+            targetDate,
+            timezone,
+          });
+          if (decay.delta !== 0) {
+            const prev = memoryDeltaByEventId![ev.id];
+            memoryDeltaByEventId![ev.id] = {
+              ...(prev ?? {}),
+              delta: (prev?.delta ?? 0) + decay.delta,
+              recurringDemotionReason: decay.reason,
+            } as any;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(
+        "[load-jit-context] exclusion evaluation skipped:",
+        e instanceof Error ? e.message : String(e),
+      );
+    }
   }
 
   // ── 5. Domain heuristic backstop ────────────────────────────────────

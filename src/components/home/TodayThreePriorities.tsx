@@ -2025,7 +2025,59 @@ const TodayThreePriorities = ({
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
   const dataReady = !loading && horizonModules && horizonModules.length > 0;
-  const visibleHorizonModules = (horizonModules || []).map((hm, index) => ({ hm, index }));
+  // ── Stale-slot backfill ────────────────────────────────────────────
+  // A JIT slot whose anchor event has already ENDED is no longer a
+  // priority. Rather than leaving a dead card (or an empty gap), we swap
+  // it for the next unused state-management module from the same plan, so
+  // the user always has three live priorities. Completed slots are never
+  // swapped — the tick is a record of what was done.
+  const visibleHorizonModules = (() => {
+    const rows = (horizonModules || []).map((hm, index) => ({ hm, index }));
+    const nowMs = Date.now();
+    const isCompleted = (hm: HorizonModule) => {
+      const ps = hm.practices?.length ? hm.practices : (hm.practice ? [hm.practice] : []);
+      return ps.length > 0 && ps.every((p) => completedPracticeIds.includes(p.contentId));
+    };
+    const isStale = (hm: HorizonModule) => {
+      const endIso = (hm as unknown as { anchorEventEndTime?: string | null }).anchorEventEndTime;
+      if (!hm.isJit || !endIso) return false;
+      const endMs = Date.parse(endIso);
+      return Number.isFinite(endMs) && endMs < nowMs && !isCompleted(hm);
+    };
+
+    const staleRows = rows.filter((r) => isStale(r.hm));
+    if (staleRows.length === 0) return rows;
+
+    // Replacement pool: state-management modules already produced for this
+    // plan that are not currently rendered in any slot.
+    const renderedIds = new Set(
+      rows.flatMap((r) => (r.hm.practices ?? []).map((p) => p.contentId)),
+    );
+    const pool = buildFallbackHorizonModules(
+      (plan ?? {}) as unknown as Record<string, unknown>,
+    ).filter((m) => {
+      const ps = m.practices?.length ? m.practices : (m.practice ? [m.practice] : []);
+      return ps.length > 0 && ps.every((p) => !renderedIds.has(p.contentId));
+    });
+
+    let poolIdx = 0;
+    return rows.map((r) => {
+      if (!isStale(r.hm)) return r;
+      const replacement = pool[poolIdx];
+      if (!replacement) return r; // nothing to swap in — keep the slot truthful
+      poolIdx += 1;
+      return {
+        index: r.index,
+        hm: {
+          ...replacement,
+          slotKind: 'state-management' as const,
+          isJit: false,
+          jitEventTitle: null,
+          jitMinutesUntil: null,
+        },
+      };
+    });
+  })();
   // Cached-render-and-silent-verification: if a valid cached plan was
   // present at mount, we never re-show the scripted loader during a
   // background refresh — even if `loading` flips true transiently.
@@ -2552,23 +2604,12 @@ const TodayThreePriorities = ({
                   {slotCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
                 </div>
 
-                {/* Arc badge — Prepare / During / Recover / Steady.
-                    Sprint F rule: Steady is a state-only label and renders
-                    without an event anchor; Prepare / During / Recover only
-                    render when the slot is genuinely anchored to a known
-                    event, so state-only slots never carry a fake event
-                    arc. Muted chip style — no new colour token. */}
-                {shouldRenderArcBadge(hm) && (
-                  <span
-                    className={cn(
-                      "text-[10px] tracking-[0.12em] uppercase font-body px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground/80 flex-shrink-0",
-                      slotCompleted && "opacity-60"
-                    )}
-                    aria-label={`Arc: ${hm.arcLabel}`}
-                  >
-                    {hm.arcLabel}
-                  </span>
-                )}
+                {/* Arc badge intentionally NOT rendered: the server title
+                    already opens with the arc verb (Lead / Steady / Recover),
+                    so a separate chip duplicated the same word and stole
+                    horizontal space from the event name. shouldRenderArcBadge
+                    is retained for the arc contract tests. */}
+
 
                 {/* Header — bold WHEN as Tier 1 anchor */}
                 <div className="flex-1 min-w-0">

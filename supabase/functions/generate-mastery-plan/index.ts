@@ -3536,17 +3536,44 @@ async function buildPreferredJitV2Selection(
         .filter(Boolean),
       protectGoals: [],
     };
+    const planTimezone = (req as any)?.timezone || (req as any)?.userTimezone || "UTC";
     const { input, ctx } = await loadJitContextForEvents(
       supabaseClient,
       userId,
       rows,
-      { nowMs: Date.now(), goals },
+      {
+        nowMs: Date.now(),
+        goals,
+        timezone: planTimezone,
+        targetDate: getLocalDateISO(req.timezoneOffset),
+      },
     );
-    return selectJitCandidates(input, {
+    const selection = selectJitCandidates(input, {
       ...ctx,
       nowMs: Date.now(),
       horizonMs: DAY_OF_HORIZON_MS,
     });
+
+    // Provenance — why each candidate made (or missed) a plan slot.
+    console.log("[plan-provenance]", JSON.stringify({
+      userId,
+      targetDate: getLocalDateISO(req.timezoneOffset),
+      timezone: planTimezone,
+      candidateCount: input.length,
+      ranked: (selection?.ranked ?? []).slice(0, 8).map((c: any) => ({
+        eventId: c.eventId,
+        title: c.title,
+        importance: c.importance,
+        memoryDelta: (ctx.memoryDeltaByEventId ?? {})[c.eventId]?.delta ?? 0,
+      })),
+      excluded: (selection?.excluded ?? []).map((e: any) => ({
+        eventId: e.eventId,
+        title: e.title,
+        reason: e.reason,
+      })),
+    }));
+
+    return selection;
   } catch (err) {
     console.warn(
       "[generate-mastery-plan][jit-v2-live] preferred selection build failed:",
@@ -6403,6 +6430,13 @@ async function generateMasteryPlan(
         showPulse: false,
         showPriorityPill: false,
         anchorEventId: slot.jitEventId,
+        // Anchor END time is what lets the client tell a live slot from a
+        // slot whose event has already finished (stale-slot backfill).
+        anchorEventEndTime: slot.jitEventId
+          ? ((Array.isArray(req.calendarEvents) ? req.calendarEvents : [])
+            .find((e: any) => String(e?.id || "") === String(slot.jitEventId))
+            ?.endTime ?? null)
+          : null,
         anchorCategoryId: slot.jitCategoryId,
         anchorSubtypeId: null,
         anchorScenarioId: null,

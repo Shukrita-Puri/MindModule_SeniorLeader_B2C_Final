@@ -162,10 +162,19 @@ describe('Sprint F — Plan slot rendering contract', () => {
 
   describe('render order contract', () => {
     it('renders horizon modules in server slot order without priority re-sorting', () => {
+      // Slots are mapped positionally (index preserved) — no sort/filter of
+      // the server order anywhere in the visible-slot derivation.
       expect(SRC).toContain(
-        "const visibleHorizonModules = (horizonModules || []).map((hm, index) => ({ hm, index }));",
+        "const rows = (horizonModules || []).map((hm, index) => ({ hm, index }));",
       );
+      expect(SRC).toContain('if (staleRows.length === 0) return rows;');
     });
+
+    it('backfills a slot whose anchor event has already ended', () => {
+      expect(SRC).toContain('return Number.isFinite(endMs) && endMs < nowMs && !isCompleted(hm);');
+      expect(SRC).toContain('if (!replacement) return r;');
+    });
+
 
     it('does not hide low-priority incomplete slots on the client', () => {
       expect(SRC).not.toContain("if (hm.priorityTag === 'low' && hasNonLowIncomplete) return false;");

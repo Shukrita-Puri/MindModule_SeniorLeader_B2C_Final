@@ -235,10 +235,13 @@ export interface BuildPriorityTitleInput {
   fallbackContext?: string;
 }
 
+/** Hard word cap for Today's Performance Priorities titles. */
+export const PRIORITY_TITLE_WORD_CAP = 8;
+
 /**
  * The single source for Today's Performance Priorities titles (JIT + non-JIT).
  * Output shape: `${verb} ${objective} ${connector} ${eventName}` capped at
- * 10 words.
+ * PRIORITY_TITLE_WORD_CAP words (objective is shed first, event name last).
  */
 export function buildPriorityTitle(input: BuildPriorityTitleInput): string {
   // Slot-scoped anchor wins when supplied — eliminates the cross-field
@@ -269,14 +272,27 @@ export function buildPriorityTitle(input: BuildPriorityTitleInput): string {
   }
 
   // Trim event title to ≤4 identifying tokens, drop "Meeting"-style noise tail.
-  const evt = shrinkEventName(eventTitle, 4);
+  const evt = shrinkEventName(eventTitle, 3);
   const tomorrow = input.isTomorrow ? "tomorrow's" : '';
   // For post we say "after the Board Meeting" not "after tomorrow's Board Meeting".
   const article = phase === 'post' && !tomorrow ? 'the' : tomorrow;
 
-  const parts = [verb, objective, connector, article, evt].filter(Boolean);
-  let out = parts.join(' ').replace(/\s+/g, ' ').trim();
-  const words = out.split(' ');
-  if (words.length > 10) out = words.slice(0, 10).join(' ');
+  const assemble = (bits: (string | null | undefined)[]) =>
+    bits.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  const wordCount = (s: string) => s.split(' ').filter(Boolean).length;
+
+  // Cap 6 words. The event name is the identifying part of the title, so we
+  // shed the objective (then shrink the name) instead of slicing the tail —
+  // tail-slicing is what produced "Steady composed presence for the…".
+  let out = assemble([verb, objective, connector, article, evt]);
+  if (wordCount(out) > PRIORITY_TITLE_WORD_CAP) {
+    out = assemble([verb, connector, article, evt]);
+  }
+  if (wordCount(out) > PRIORITY_TITLE_WORD_CAP) {
+    out = assemble([verb, connector, article, shrinkEventName(eventTitle, 2)]);
+  }
+  if (wordCount(out) > PRIORITY_TITLE_WORD_CAP) {
+    out = out.split(' ').slice(0, PRIORITY_TITLE_WORD_CAP).join(' ');
+  }
   return out;
 }

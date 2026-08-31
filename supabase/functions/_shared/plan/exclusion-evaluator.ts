@@ -223,6 +223,114 @@ export function evaluateEventPriorityExclusion(input: EvaluateInput): ExclusionR
   };
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+ * Recurring-series soft demotion.
+ *
+ * Rule (product): "not this week" hard-excludes for its tagged week only —
+ * the user sees the event again the following week. But when the event is a
+ * RECURRING series, the tag is a weak lasting preference: for the 4 weeks
+ * after the tagged week we keep a soft demotion so the series stops being
+ * the automatic plan-slot pick, while still appearing in Week Ahead (where
+ * it carries the existing `historically_low_signal` tag).
+ *
+ * Recurrence is inferred from the memory row's canonical event_id, which
+ * embeds the tagged occurrence's start epoch:
+ *   `canonical:<normalised title>|<startMs>|<durationHours>`
+ * A candidate on the same local weekday as the tagged occurrence is treated
+ * as the same recurring series. When the epoch cannot be read we do NOT
+ * demote (conservative — a one-off must not be punished for 4 weeks).
+ *
+ * `never` is untouched here: it is permanent and handled by
+ * `evaluateEventPriorityExclusion` above.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** Soft penalty applied to a recurring series in its post-tag decay window. */
+export const RECURRING_DEPRIORITISE_PENALTY = -25;
+
+/** Number of weeks after the tagged week that the soft demotion survives. */
+export const RECURRING_DEPRIORITISE_WEEKS = 4;
+
+function startMsFromCanonicalEventId(eventId: string | null | undefined): number | null {
+  if (!eventId || typeof eventId !== "string") return null;
+  const parts = eventId.split("|");
+  if (parts.length < 2) return null;
+  const ms = Number(parts[1]);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+}
+
+function localWeekdayOf(ms: number, timezone: string): number | null {
+  try {
+    return dayOfWeekFromIsoDate(toLocalDateString(new Date(ms), timezone));
+  } catch {
+    return null;
+  }
+}
+
+function addDaysISO(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export interface RecurringDemotionResult {
+  /** Negative score delta to add (0 when the rule does not apply). */
+  delta: number;
+  reason: string | null;
+  matchedSignalId: string | null;
+}
+
+/**
+ * Soft demotion for a recurring series previously tagged "not this week".
+ * Returns `{ delta: 0 }` unless every condition holds:
+ *   - a `not_this_week` row matches the candidate by (category, type_key)
+ *   - its effective week ENDED before `targetDate` (the tagged week itself is
+ *     a hard exclusion handled by `evaluateEventPriorityExclusion`)
+ *   - `targetDate` is within RECURRING_DEPRIORITISE_WEEKS of that week
+ *   - the tagged occurrence falls on the same local weekday as the candidate
+ *   - no later `priority` / `tag_cleared` row supersedes it
+ */
+export function evaluateRecurringDeprioritisation(input: {
+  memoryRows: MemoryRow[];
+  candidate: ExclusionCandidate;
+  targetDate: string;
+  timezone: string;
+}): RecurringDemotionResult {
+  const { memoryRows, candidate, targetDate, timezone } = input;
+  const none: RecurringDemotionResult = { delta: 0, reason: null, matchedSignalId: null };
+
+  const candidateStartMs = Date.parse(candidate.startTimeISO || "");
+  if (!Number.isFinite(candidateStartMs)) return none;
+  const candidateWeekday = localWeekdayOf(candidateStartMs, timezone);
+  if (candidateWeekday === null) return none;
+
+  for (const row of memoryRows) {
+    if (row.signal !== "not_this_week") continue;
+    if (row.event_category !== candidate.category || row.event_type_key !== candidate.typeKey) {
+      continue;
+    }
+    const wk = effectiveWeekOf(row, timezone);
+    // Inside the tagged week → hard exclusion path owns it.
+    if (withinWeek(targetDate, wk.start, wk.end)) continue;
+    // Only forward-looking decay; earlier dates are irrelevant.
+    if (targetDate <= wk.end) continue;
+    if (targetDate > addDaysISO(wk.end, RECURRING_DEPRIORITISE_WEEKS * 7)) continue;
+
+    const taggedMs = startMsFromCanonicalEventId(row.event_id);
+    if (taggedMs === null) continue;
+    if (localWeekdayOf(taggedMs, timezone) !== candidateWeekday) continue;
+
+    if (isSuperseded(row, memoryRows)) continue;
+
+    return {
+      delta: RECURRING_DEPRIORITISE_PENALTY,
+      reason: "recurring_series_deprioritised_recently",
+      matchedSignalId: row.id,
+    };
+  }
+
+  return none;
+}
+
 /**
  * Deterministic per-user revision hash used inside snapshot input signatures.
  * Change → snapshot signature changes → regeneration on next fetch.
