@@ -19,7 +19,7 @@ import type { SlotAnchor, TitleRole } from "./title-prefixes.ts";
 import { relativeEventPhrase } from "../text/sanitise.ts";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = "google/gemini-3.1-flash-lite";
 
 /**
  * Hard request timeout for the Why-line LLM call. Spec-mandated 10s. When

@@ -91,7 +91,7 @@ async function callGemini(prompt: string): Promise<any | null> {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3.1-flash-lite",
       messages: [
         { role: "system", content: "You return only strict JSON. Infer professional relationships from publicly indexed LinkedIn data. If unsure, return role='unknown'. Never fabricate evidence URLs." },
         { role: "user", content: prompt },
