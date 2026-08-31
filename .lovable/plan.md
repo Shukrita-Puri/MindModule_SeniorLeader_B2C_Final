@@ -22,6 +22,8 @@ This build is approved for execution with the following non-negotiable constrain
 
 Approved direction: **only two models across the whole app** — `google/gemini-3.1-flash-lite` and `claude-haiku-4-5`. No Sonnet, no Gemini Pro, no Gemini 2.5, no model ladders across providers. Excluded from this build (kept for post-launch): telemetry, L2 prompt diet, L4 change-gating.
 
+## 1. Target routing
+
 
 | Surface | Today | Target | Fallback after one attempt |
 |---|---|---|---|
