@@ -226,6 +226,29 @@ export function filterLoadBearing<T>(events: T[]): T[] {
 }
 
 
+/**
+ * Collapse duplicate entries occupying the same slot. Two providers (or two
+ * subscribed feeds) syncing the same commitment must count once.
+ *
+ * Key = identical start+end. Among a group we keep the row with the most
+ * attendee information, then the longest title.
+ */
+export function collapseSameSlot<T extends Record<string, any>>(events: T[]): T[] {
+  const groups = new Map<string, T>();
+  for (const e of events) {
+    const key = `${e.start_time ?? e.startTime ?? ''}|${e.end_time ?? e.endTime ?? ''}`;
+    const existing = groups.get(key);
+    if (!existing) { groups.set(key, e); continue; }
+    const a = Number(e.attendees_count ?? e.attendeesCount ?? 0) || 0;
+    const b = Number(existing.attendees_count ?? existing.attendeesCount ?? 0) || 0;
+    if (a > b) { groups.set(key, e); continue; }
+    if (a === b && String(e.title ?? '').length > String(existing.title ?? '').length) {
+      groups.set(key, e);
+    }
+  }
+  return [...groups.values()];
+}
+
 const EMPTY_DISCONNECTED: CalendarMetricsResult = {
   load: 'low', pressure: 'low',
   eventCount: 0, meetingCount: 0, remainingMeetings: 0,
@@ -233,12 +256,15 @@ const EMPTY_DISCONNECTED: CalendarMetricsResult = {
   highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [],
   fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0,
   briefEvents: [], rawEvents: [],
+  loadBearingEvents: [], fyiMarkerCount: 0, fyiMarkerTitles: [],
+  availability: null,
 };
 
 const EMPTY_NO_EVENTS: CalendarMetricsResult = {
   ...EMPTY_DISCONNECTED,
   state: 'connected_no_events',
 };
+
 
 /**
  * Reads the user's active calendar connection + today's events and returns
