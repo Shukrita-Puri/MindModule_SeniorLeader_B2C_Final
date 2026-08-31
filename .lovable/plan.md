@@ -21,6 +21,17 @@ New `supabase/functions/_shared/plan/why-signals.ts` — pure, testable, one ent
 
 Selection rule: one strategic *or* pattern item as the "why now", one immediate item as the proof, never more than two facts in a line. Pattern beats immediate when confident; immediate is the fallback proof, never the whole story.
 
+### 1b. Every signal carries a valence (this is the core copy bug)
+
+Today the evidence is dumped as raw facts with no sign attached, so "your HRV lifts ~60% before board" — a *good* thing — gets stitched into a recovery/deficit sentence. Each evidence item will carry an explicit `valence: positive | neutral | risk` decided at derivation, not by the model:
+
+- **Positive** (HRV lifted vs baseline, RHR at/below baseline, sleep strong, recovery streak, a category where `performance_lift` shows this leader performs best): the leader is at or near cognitive peak. The why-line frames the slot as **protecting and extending the peak** — hold the edge into the event, don't spend it early — never as recovery from a deficit. If the practice selected is a recovery protocol while every signal is positive, that mismatch is logged and the slot falls back to a peak-protection practice/frame.
+- **Risk** (HRV suppressed, RHR elevated vs baseline, short sleep, consecutive-load tail, clarity/pressure low, an event category with a known negative HRV/RHR signature): frame as preventing mental noise, emotional hijack, stress accumulation, or burnout — the app's actual jobs.
+- **Neutral**: frame by the event and what the practice builds.
+
+The valence also feeds the band/valence gate in the validator: a positive-evidence slot rejects deficit language ("recover", "reserves", "running low"), and a risk slot rejects push language, as today — but now driven by the *evidence*, not only the MRS band.
+
+
 ### 2. Rewritten Why-line prompt
 
 - Replace the flat signal dump with an explicit `EVIDENCE (ranked)` block carrying the tier label and confidence of each item.
