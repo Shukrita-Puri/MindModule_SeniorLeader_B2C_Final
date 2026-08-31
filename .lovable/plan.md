@@ -40,34 +40,40 @@ Tests: extend `week-ahead-mode.test.ts` with a UK Mon-bank-holiday fixture (Sat 
 Sun REST, Mon PUBLIC_HOLIDAY, Tue workday) asserting `end_of_public_holiday` precedence and
 `end_of_long_weekend` for the PTO-adjacent variant; add a hydration unit test.
 
-## 2. Deterministic copy bank for titles and why lines
+## 2. Deterministic copy bank from the existing TypeScript (no new engine)
 
-New module `supabase/functions/_shared/plan/copy-bank.ts`:
+The deterministic bank already exists in code — it is just not the guaranteed fallback.
+Reuse it rather than adding a parallel module:
 
-- Keyed by `(eventTypeKey | A–H category, arcPosition/role)` where the type key comes from
-  `normalizeEventTypeKey()` / the A–H resolver and the role from the existing
-  Protect / Prevent / Prepare / Build valence in `why-signals.ts`.
-- Each entry supplies a title template (WHAT + HOW, ≤8 words) and a why template with
-  evidence slots filled from the tiered evidence bundle (Pattern > Behavioural >
-  Immediate > Strategic), ≤15 words, obeying `copy-contract.ts`.
-- A generic-by-role fallback row for unmatched event types, plus a state-only row for
-  no-calendar days, so **every** slot resolves to non-empty copy.
+- `_shared/plan/title-prefixes.ts` — `buildPriorityTitle({ slotAnchor: { eventTitle, categoryId, phase }, isTomorrow, practicePriorityTag })`,
+  plus `verbForCategoryPhase()` (A–H × pre/during/post) and `executiveObjectiveFor()`.
+  This is already a full A–H × arc-position title bank with a window-aware
+  state-management fallback when there is no event.
+- `_shared/plan/why-signals.ts` — tiered evidence bundle + Protect / Prevent /
+  Prepare / Build role, and `composeEvidenceWhyLine()`.
+- `_shared/plan/copy-contract.ts` — `validateWhyContract()` and the Title/Why shape rules.
+- `generate-mastery-plan/index.ts:7589` `composeWhyLine()` — last-resort composer.
 
-Wiring in `generate-mastery-plan/index.ts`:
-- Why LLM stays primary. On rejection/timeout/empty, the repair path resolves the copy bank
-  first, then the existing `composeEvidenceWhyLine` / `composeWhyLine` chain only if the
-  bank has no row (it always will, via the generic row).
-- Remove the three hard-coded string fallbacks at lines 8273–8277 in favour of bank rows.
-- Slot titles use the bank when the LLM title is rejected, so we stop emitting the
-  identical "Land recovery to close the day" across days.
-- De-duplication: if two slots resolve to the same bank row, the second takes that row's
-  alternate variant, so the three cards never repeat verbatim (the screenshot showed the
-  same why line three times).
-- Log `whySource: 'llm' | 'copy_bank' | 'composed'` in the existing selection-provenance
-  log.
+Changes:
+- Extend `title-prefixes.ts` and `why-signals.ts` with the missing rows only (A–H ×
+  pre/during/post × role, each with a second variant string) so every combination
+  resolves without invention. No new file, no new resolution path.
+- Make the resolution order explicit and total in `generate-mastery-plan`:
+  Why LLM → `composeEvidenceWhyLine()` (evidence bundle) → role/category row →
+  `composeWhyLine()`. The chain can no longer end empty; the same order applies to
+  titles via `buildPriorityTitle()` when the LLM title is rejected.
+- Delete the three hard-coded fallback strings at `index.ts:8273–8277` and route those
+  cases through `buildPriorityTitle`/`why-signals` instead.
+- De-duplicate across the day's three slots: if two slots resolve to the same row, the
+  second uses that row's alternate variant, so the cards never repeat verbatim (the
+  screenshot shows the same why line three times).
+- Log `whySource: 'llm' | 'evidence' | 'category_row' | 'composed'` in the existing
+  selection-provenance log.
 
-Tests: bank coverage test (every role × every A–H category resolves), contract-validator
-test (all rows pass `validateWhyContract`), and a no-repeat test across three slots.
+Tests: extend `priority-title.test.ts` for full A–H × phase × role coverage; add a
+why-line coverage test (every combination non-empty and passing `validateWhyContract`)
+and a no-repeat-across-three-slots test.
+
 
 ## 3. Mobile iOS slot layout
 
