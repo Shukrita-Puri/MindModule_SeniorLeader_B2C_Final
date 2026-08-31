@@ -6430,6 +6430,13 @@ async function generateMasteryPlan(
         showPulse: false,
         showPriorityPill: false,
         anchorEventId: slot.jitEventId,
+        // Anchor END time is what lets the client tell a live slot from a
+        // slot whose event has already finished (stale-slot backfill).
+        anchorEventEndTime: slot.jitEventId
+          ? ((Array.isArray(req.calendarEvents) ? req.calendarEvents : [])
+            .find((e: any) => String(e?.id || "") === String(slot.jitEventId))
+            ?.endTime ?? null)
+          : null,
         anchorCategoryId: slot.jitCategoryId,
         anchorSubtypeId: null,
         anchorScenarioId: null,
