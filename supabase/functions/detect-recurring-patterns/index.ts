@@ -10,6 +10,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { frozenAwareFetch } from "../_shared/ai/llm-freeze.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,7 +71,7 @@ serve(async (req) => {
       .map(p => `- [${p.pattern_type}] ${p.pattern_description}`)
       .join('\n');
 
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiResponse = await frozenAwareFetch("detect-recurring-patterns", 'https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': ANTHROPIC_API_KEY,

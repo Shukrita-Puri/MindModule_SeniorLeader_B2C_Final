@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { frozenAwareFetch } from "../_shared/ai/llm-freeze.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,7 +82,7 @@ serve(async (req) => {
       `--- Exchange ${i + 1} ---\nCOACH: ${pair.coachContent}\nUSER: ${pair.userContent}`
     ).join('\n\n');
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await frozenAwareFetch("analyze-probing-effectiveness", "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         'x-api-key': ANTHROPIC_API_KEY,

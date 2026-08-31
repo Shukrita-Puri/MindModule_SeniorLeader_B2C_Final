@@ -35,3 +35,25 @@ export function logDormantLlmSkip(fn: string): void {
     `[llm-freeze] ${fn}: dormant-cluster LLM call skipped (set ${ENABLE_ENV}=true to restore)`,
   );
 }
+
+/**
+ * Drop-in replacement for a direct `fetch(...)` to a model provider inside the
+ * dormant cluster. When frozen it returns a synthetic 503 Response instead of
+ * calling the provider, so the caller's existing `!res.ok` fallback path runs
+ * unchanged and the function's response shape is byte-identical to a provider
+ * outage.
+ */
+export async function frozenAwareFetch(
+  fn: string,
+  input: string | URL | Request,
+  init?: RequestInit,
+): Promise<Response> {
+  if (isDormantLlmFrozen()) {
+    logDormantLlmSkip(fn);
+    return new Response(
+      JSON.stringify({ error: { type: "dormant_llm_frozen" } }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  return await fetch(input, init);
+}

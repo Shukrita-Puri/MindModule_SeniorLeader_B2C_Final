@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { frozenAwareFetch } from "../_shared/ai/llm-freeze.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -204,8 +205,7 @@ serve(async (req) => {
         const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
         if (lovableApiKey && allContent.length > 50) {
           try {
-            const aiResponse = await fetch(
-              'https://api.anthropic.com/v1/messages',
+            const aiResponse = await frozenAwareFetch("insights-semantic-analysis", 'https://api.anthropic.com/v1/messages',
               {
                 method: 'POST',
                 headers: {
@@ -431,8 +431,7 @@ ${allContent.slice(0, 3000)}`
       if (lovableApiKey) {
         try {
           const top5 = unifiedThemes.slice(0, 5).map(t => `${t.theme} (${t.totalCount} mentions)`).join(', ');
-          const observationResponse = await fetch(
-            'https://api.anthropic.com/v1/messages',
+          const observationResponse = await frozenAwareFetch("insights-semantic-analysis", 'https://api.anthropic.com/v1/messages',
             {
               method: 'POST',
               headers: {
@@ -530,8 +529,7 @@ async function getNodeSummary(
   
   if (lovableApiKey && excerpts.length > 20) {
     try {
-      const summaryResponse = await fetch(
-        'https://api.anthropic.com/v1/messages',
+      const summaryResponse = await frozenAwareFetch("insights-semantic-analysis", 'https://api.anthropic.com/v1/messages',
         {
           method: 'POST',
           headers: {
