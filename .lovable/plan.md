@@ -28,8 +28,13 @@ In `load-jit-context.ts`, load the scope-aware rows (`loadPriorityMemoryRowsForU
 
 `applyEventPriorityMemory`'s soft delta stays for the ranking nuance; the evaluator only adds exclusion.
 
-### 2. Carry a recurring deprioritisation to the next occurrence (backend)
-A weekly series tagged "not this week" today should not silently return next week with no signal. Add a bounded recurrence rule in the evaluator: when a `not_this_week` row matches a candidate by `(category, type_key)` and the series recurred at the same weekday/time, keep a **soft −25 demotion** (not a hard exclude) for 4 weeks after the tagged week. Never becomes permanent; `priority` or `tag_cleared` supersedes it immediately via the existing `isSuperseded` path.
+### 2. Recurrence rule for "not this week" vs "never"
+- **`never`** → permanently excluded everywhere: plan slots and Week Ahead. Never resurfaces.
+- **`not this week`** → hard-excluded from plan slots for its tagged week only. From the following week the event is eligible again, per your rule.
+- **Recurring series only** → for the 4 weeks after the tagged week, keep a **soft −25 demotion** in plan-slot ranking. It can still win a slot if it genuinely outranks everything else; it just stops being the automatic pick.
+- **Week Ahead is unaffected by the demotion**: the event still appears in the picker for those weeks, carrying the existing `historically_low_signal` tag so the reason is visible and the user can re-prioritise it in one tap.
+- `priority` or `tag_cleared` clears the demotion immediately via the existing `isSuperseded` path.
+
 
 ### 3. Travel always earns its own slot or a full arc (backend)
 `slot-allocator.ts` already has `hasTravelDay → travel_day_full_arc` and G in the multi-phase set, but only when G is the top-ranked candidate. Change it so a G candidate inside the horizon **always** claims at least one slot even when A/B/C outranks it — matching the Brief's travel rule. Category weights are untouched; this is a reservation, not a re-score.
