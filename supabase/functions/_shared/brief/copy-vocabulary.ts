@@ -283,7 +283,7 @@ Why: this app builds mental performance for C-Suite work. Personal and recovery
 events are never anchors; a working day holding only H events is a light day —
 frame it for recovery.
 Name the cognitive posture it requires: decide / lead / listen / analyse / defer / sequence / protect.
-Use the category-level reference — never the specific meeting title.
+When one event carries the day, name it by its TITLE shortened to the recognisable part (3–5 words, keep the distinguishing word). When several events share a category, or the day is a stack, use category or load language instead. Never write a category letter, "Cat", a bracketed label, or a pillar name.
 If no A/B/C event: anchor beat (c) to the pillar state.
 If weekend / holiday / PTO / travel: beat (c) must not reference meetings, calls, or the room.
 Note: the Brief classifies events by A–H category. If the Plan has prioritised a specific event,
