@@ -8043,10 +8043,19 @@ async function applyV51Enrichment(
           sleepScore: (w?.hasData && typeof w.sleepScore === "number")
             ? w.sleepScore
             : null,
-          rhrTrend:
-            (w?.hasData && typeof w.restingHR === "number" && w.restingHR > 0)
-              ? "elevated"
-              : null,
+          // RHR is only "elevated" against the leader's OWN 14-day baseline.
+          // (Previously any reading > 0 was reported as elevated.)
+          rhrTrend: (() => {
+            const base = shared.restingHRBaseline;
+            if (
+              !w?.hasData || typeof w.restingHR !== "number" ||
+              w.restingHR <= 0 || typeof base !== "number" || base <= 0
+            ) return null;
+            const delta = w.restingHR - base;
+            if (delta >= 3) return "elevated" as const;
+            if (delta <= -2) return "low" as const;
+            return "normal" as const;
+          })(),
           travelDebtActive: ceo.includes("circadian_travel") ? true : null,
           stressLoad: null,
           burnoutRisk: null,
@@ -8060,6 +8069,14 @@ async function applyV51Enrichment(
               : null,
           patternSummary,
           growthIntention: (req as any).growthIntention || null,
+          // Tiered evidence bundle — the ranked facts the line must use.
+          evidenceBlock: renderEvidenceBlock(
+            evidenceByIndex.get(idx) ??
+              { ranked: [], top: null, proof: null, role: "Prepare", coldStart: true },
+          ),
+          slotRoleVerb: evidenceByIndex.get(idx)?.role ?? "Prepare",
+          copyContractBlock: COPY_CONTRACT_BLOCK,
+
           // Brief↔Plan parity advisories — append the SAME blocks the Brief's
           // LLM saw, so the "Why this matters" line stays anchored to the
           // identical CEO behaviours and pillar focus the Brief already named
