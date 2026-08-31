@@ -9752,7 +9752,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         anchorEventCategoryName: (() => {
           const cid = prov?.anchorEventCategoryId ??
             briefLeadNarrative?.anchor?.categoryId ?? null;
-          return cid ? (EVENT_CATEGORIES[cid]?.name ?? null) : null;
+          return cid
+            ? ((EVENT_CATEGORIES as Record<string, { name?: string }>)[cid]?.name ?? null)
+            : null;
         })(),
         anchorEventConfidence: prov?.anchorEventConfidence ?? null,
         causalityMatchFired: prov?.causalityMatchFired ?? false,
