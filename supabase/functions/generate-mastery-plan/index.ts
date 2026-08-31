@@ -7959,7 +7959,7 @@ async function applyV51Enrichment(
 
     // The italic action-frame sub-line is retired — the title now carries the
     // "what + how", so a second frame only repeats it.
-    hm.recommendedAction = undefined;
+    hm.recommendedAction = "";
 
 
     // ── Today's-3 v2: per-JIT-priority title, sub-line, LLM Why ──
@@ -8027,7 +8027,7 @@ async function applyV51Enrichment(
       (hm as any).arcVerb = verbForCategoryPhase(category, phase);
 
       // No sub-line — the contract title carries the "what + how".
-      hm.recommendedAction = undefined;
+      hm.recommendedAction = "";
 
 
       // Queue LLM Why
