@@ -326,7 +326,7 @@ FOUR BEATS — each is a distinct thought. Beats (a), (b), (c) are one sentence 
 
 (c) THE WORK DIRECTIVE — sentence three, up to the semicolon. Name the cognitive posture using one of:
     decide / lead / listen / analyse / defer / execute / sequence / protect.
-    If a [A/B/C] event exists today, name its category-level reference. Never the specific meeting title.
+    If a single [A/B/C] event carries today, name it by its shortened TITLE ("the Acme board review"). If several share a category or the day is a stack, use category or load language ("back-to-back governance calls"). Never a category letter or pillar name.
     If a pattern from Bucket 3 is relevant to today's event type, name it briefly in this beat.
     If weekend / holiday / PTO / personal travel: name an energy orientation, never meetings, calls, or the room.
     CORRECT (workday):   "Lead the board session and set the agenda early"
