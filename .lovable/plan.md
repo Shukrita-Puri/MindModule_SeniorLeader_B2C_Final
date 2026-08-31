@@ -75,20 +75,11 @@ why-line coverage test (every combination non-empty and passing `validateWhyCont
 and a no-repeat-across-three-slots test.
 
 
-## 3. Mobile iOS slot layout
+## 3. Mobile iOS slot layout — DEFERRED
 
-`src/components/home/TodayThreePriorities.tsx` only — presentation change:
+Not part of this change. `src/components/home/TodayThreePriorities.tsx` stays as-is;
+the stacked, unclamped mobile column is a follow-up.
 
-- Title (line 2617): drop `line-clamp-2`, keep `break-words`, bump to
-  `text-[17px] md:text-[16px] leading-snug` on mobile.
-- Why line: full text, no clamp, `text-[15px] leading-relaxed` on mobile.
-- Practice row (line 2940/2953): remove `line-clamp-2` / `line-clamp-3`, stack
-  label → title → meta in a single tight column (`flex-col gap-1`) rather than the
-  current side-by-side row on narrow widths; bump practice title to `text-[15px]` and
-  meta to `text-[13px]`.
-- Tighten vertical rhythm between the three blocks so the taller text does not inflate the
-  card (`space-y-2` inside the block, unchanged outer padding).
-- Desktop sizes unchanged via `md:` prefixes.
 
 ## Deployment
 
