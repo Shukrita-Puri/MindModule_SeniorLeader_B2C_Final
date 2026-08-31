@@ -8184,13 +8184,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // and stored on daily_context_snapshot. Silent when the gate is
             // closed, nothing is stored, or the shape is not launch-ready.
             try {
-              const loadShape = getLoadShapeOrDefault(
-                await fetchRenderableLoadShape(
-                  db,
-                  userId,
-                  userLocalDate,
-                )
+              const fetchedLoadShape = await fetchRenderableLoadShape(
+                db,
+                userId,
+                userLocalDate,
               );
+              // Hoisted: the atomic validation context reads the SAME shape the
+              // prompt was built from. Null when the render gate is closed or
+              // nothing renderable is stored — never a synthesised default.
+              renderableLoadShape = fetchedLoadShape;
+              const loadShape = getLoadShapeOrDefault(fetchedLoadShape);
               const shapeBlock = briefShapePromptBlock(loadShape);
               if (shapeBlock) {
                 userPrompt += shapeBlock;
