@@ -3606,6 +3606,7 @@ serve(async (req) => {
     const wearableConnectionStatus =
       (wearableIntegration?.watch_connection_status ?? null) as
         | "connected"
+        | "connecting"
         | "connected_but_waiting_for_data"
         | "sync_delayed"
         | "permission_revoked"
