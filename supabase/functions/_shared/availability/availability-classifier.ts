@@ -95,15 +95,37 @@ export function parseHolidayRegionFromTitle(
 }
 
 /**
- * Detect an FYI subscription calendar (Google/Apple "Holidays in <Country>").
+ * Feed names that contain the word "holiday" but are ordinary WORK calendars.
+ * Checked before the positive match so a "Holiday cover rota" is never
+ * mistaken for a subscribed public-holiday feed.
+ */
+const NON_FYI_CALENDAR_RX =
+  /\b(cover|rota|rot[a]?s|planner|planning|tracker|request|requests|booking|bookings|approval|approvals|schedule\s+cover|leave\s+tracker)\b/;
+
+/**
+ * Detect an FYI subscription calendar (Google/Apple holiday feeds).
+ *
+ * Matches the CALENDAR FEED NAME only — never the event title. Real feeds in
+ * the wild are named "Holidays in United Kingdom", "UK Holidays",
+ * "Australian Holidays", "Public Holidays", "Holidays (United States)".
+ *
+ * `calendarTitle` is the field the app persists on
+ * `calendar_events.event_metadata`; `source` / `calendarSummary` are the
+ * legacy names. All three are accepted so every caller sees the same answer.
  */
 export function isFyiHolidayCalendar(event: {
   source?: string | null;
   calendarSummary?: string | null;
+  calendarTitle?: string | null;
 }): boolean {
-  const s = `${event.source ?? ""} ${event.calendarSummary ?? ""}`.toLowerCase();
-  return /holidays?\s+in\s+/.test(s) || /\bpublic holidays\b/.test(s);
+  const s = `${event.source ?? ""} ${event.calendarSummary ?? ""} ${
+    event.calendarTitle ?? ""
+  }`.toLowerCase().trim();
+  if (!s) return false;
+  if (NON_FYI_CALENDAR_RX.test(s)) return false;
+  return /\bholidays?\b/.test(s);
 }
+
 
 /**
  * Determine whether a subscription/title region matches the user's country.
