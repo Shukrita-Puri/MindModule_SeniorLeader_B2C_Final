@@ -1,75 +1,71 @@
-# Calendar Load Truth: FYI markers, same-slot dedupe, and completed meetings
+# Calendar Load Truth: all connected calendars, FYI markers, same-slot collapse
 
-## What is actually happening on your calendar today
+## Where the FYI exclusion already lives
 
-Mon 31 Aug holds exactly three rows:
+You were right that this already exists. There are **three** separate FYI lists in the codebase, and the load path uses none of them:
 
-| Title | Calendar it came from | All-day | Attendees |
-|---|---|---|---|
-| Summer Bank Holiday (regional holiday) | `Holidays in United Kingdom` | yes | 0 |
-| Summer Bank Holiday (England, Wales, N Ireland) | `UK Holidays` | yes | 0 |
-| Meeting with Sara | personal | no (10:00–10:20, finished) | 2 |
+| What it covers | Where it lives | Used by the load verdict? |
+|---|---|---|
+| FYI holiday subscription calendars, home vs foreign country | `_shared/availability/availability-classifier.ts` — `isFyiHolidayCalendar`, `isApplicableHoliday`, `looksLikeHolidayMarker` | No |
+| Personal chores and admin noise — pay bills, groceries, dry cleaning, dentist, reminders, subscriptions, commute | `_shared/events/event-classifier.ts` — `NOISE_KEYWORDS` / `isNoiseTitle` | No |
+| Public/bank holiday as a taxonomy subtype (`rhy.holiday`, Category H) | `_shared/events/event-subtypes.ts` | No |
 
-The load verdict is computed **before** the FYI filter runs. It sees three events. Their all-day spans overlap the meeting, which produces negative gaps between events, which trips the "tight gaps" rule and returns HEAVY. The meeting count is computed **after** the filter, which correctly strips both holidays and returns 1. Same card, two different views of the same day.
+Instead, `_shared/signal-engine/db-queries.ts` defines its own private `PUBLIC_HOLIDAY_RX` — a five-word English regex — and applies it *only* to the meeting count, after the load verdict has already been computed. That is the whole defect. The load verdict never sees any FYI rule at all.
 
-So the whole-day load is right in principle — it is being fed the wrong list.
+The availability SSOT already implements exactly the home-vs-foreign behaviour you described: it returns `fyi_matches_user_country` (→ holiday / long-weekend framing) or `fyi_foreign_country` (→ normal working-day framing), and neither state is meant to contribute load. It is simply not wired into the load path.
 
-## The three real defects
+**One gap in the SSOT itself:** `isFyiHolidayCalendar` reads fields named `source` / `calendarSummary` and matches `/holidays? in /`. Your calendar stores the feed name at `event_metadata.calendarTitle`, and today's two entries came from `Holidays in United Kingdom` and `UK Holidays`. The second one does not match the current pattern, and neither field name is being mapped. So even the correct helper would miss one of your two holidays today.
 
-### 1. FYI markers reach the load calculation
+## What changes
 
-Today's two holidays only got excluded from the meeting count because their titles happened to contain "Bank Holiday". That is a fragile test: a holiday named "Diwali", "Thanksgiving", "Feiertag" or "Jour férié" passes straight through.
+### Fix 1 — All connected calendars feed the load (iOS)
 
-Your calendar carries a far better signal that we are currently ignoring: **`calendarTitle`**. Both of today's entries came from subscribed holiday calendars — `Holidays in United Kingdom` and `UK Holidays`. Your calendar also carries `Australian Holidays` and Scottish regional entries. All of these are read-only FYI subscriptions, all-day, zero attendees, you are not the organiser.
+`primary_calendar_events` picks one winning provider and discards every other row. On iOS Apple wins, so a meeting that exists only in your Google calendar never reaches the brief at all.
 
-The rule becomes: **anything sourced from a subscribed holiday calendar is FYI and never counts as load — regardless of country, language, or title.** Your own home country is irrelevant to this decision: a UK bank holiday and an NSW bank holiday are both FYI markers, not work. The same treatment extends to travel legs and all-day personal-rhythm blocks, which the existing category filter already handles.
+Replace provider *exclusion* with provider *precedence*: the view returns events from **every** connected calendar, and where the same event appears in more than one provider, Apple's copy wins on iOS (Google's on web). Apple stays first — it stops being the only one. The existing cross-provider merge helper already knows how to pick the winner; the view stops doing the discarding.
 
-### 2. Same-slot events are not collapsing into one load unit
+### Fix 2 — One FYI filter, used by the load verdict, the deterministic path and the LLM
 
-The rule is: you cannot be in two meetings at once, so two events occupying the same slot count as **one** load unit. That rule exists in the shared helper (`countLoadUnits`) but the brief's load path never calls it — it counts rows. Cross-provider duplicates do collapse (an Apple/Google copy of the same meeting merges correctly), but two *differently titled* events overlapping the same slot each count.
+Route all three through the availability SSOT rather than the local regex:
 
-Today's two holidays are exactly that case, at two levels: they occupy the identical all-day slot, and their titles are near-identical variants of the same holiday. Either rule alone would have collapsed them to one. Both should apply.
+- Any all-day event from a holiday subscription feed is a holiday marker. **No attendee condition** — a public holiday with an attendee on it is still a public holiday, and it must not count as work evidence either.
+- Home-country holiday → holiday / long-weekend framing. Foreign-country holiday → ordinary working-day framing. **Neither adds load.**
+- Personal chores and admin noise route through the existing `isNoiseTitle` list rather than being re-listed.
+- Travel legs and all-day personal-rhythm blocks keep their existing category-based exclusion.
 
-### 3. Completed meetings are not reflected in the window layer
+Widen `isFyiHolidayCalendar` to match any holiday-named feed (`UK Holidays`, `Australian Holidays`, `Holidays in United Kingdom`) and map `event_metadata.calendarTitle` into the field it reads, so the helper actually sees your data.
 
-Whole-day load stays whole-day — that is by design. On top of it sits a window layer that says which part of the day is heavy. Right now that layer never asks what has already finished, so at 15:20 with the day's only meeting done at 10:20 it still says "heavy this afternoon".
+### Fix 3 — Load is day-level, computed on the filtered list, with same-slot collapse
 
-`meetings_completed` and `meetings_remaining` are correct signals and both the LLM and deterministic paths should keep receiving them — the problem is that they are computed three different ways. The deterministic path applies the FYI filter; the LLM path uses a weaker helper that only drops zero-duration rows; the load verdict uses neither. All three need the same filtered list so the window layer and the narrative cannot disagree.
+Load stays a whole-day verdict. It is computed once, after the FYI filter, using the existing shared helpers rather than a row count:
 
-## The fix
+- `countLoadUnits` from `_shared/rules/calendarEvents.ts` — two events in the same slot count as one, because you cannot be in two meetings at once.
+- `mergeCalendarEvents` from `_shared/rules/calendar-merge.ts` — cross-provider copies of the same event collapse (unchanged, already working).
+- Near-identical titles for the same holiday on the same day collapse to one.
 
-**A. One FYI exclusion, applied before anything counts.**
-Add a subscribed-holiday-calendar test to the load-bearing filter: exclude when the event's source calendar is a holiday subscription, or when it is all-day with zero attendees and the user is not the organiser and the description reads as a holiday notice. Keep the existing title regex as a backstop for providers that do not send calendar metadata. Country is never part of the test.
+Window heaviness stays what it is today: an additive mention layered on the day-level verdict, not a second verdict. `meetings_completed` and `meetings_remaining` remain available to both the deterministic and LLM paths — the change is that all three consumers derive them from the same filtered list, so the narrative and the pill cannot disagree.
 
-**B. Filter first, then score.**
-Apply the load-bearing filter once, at the top, and derive the load verdict, pressure, gaps, back-to-back hours, meeting count and remaining count from that single filtered list. Keep the unfiltered list purely as narrative reference, so the brief can still mention a flight or acknowledge the holiday without it counting as work.
+## Expected result for today
 
-**C. Same-slot collapse feeds the load verdict.**
-Route the filtered list through the existing `countLoadUnits` rule before the verdict is computed, so overlapping events count once. Add a same-day near-duplicate title collapse so two variants naming the same holiday resolve to one entry.
-
-**D. One count, three consumers.**
-Point the window-context builders at the same filtered list so `meetings_completed` / `meetings_remaining` match what the deterministic path and the pill show. The window layer then reads "one meeting, done" and stops calling the afternoon heavy.
-
-**E. Remove the drift risk.**
-The "4+ events" threshold is hardcoded in roughly eight copy builders instead of importing the shared constant, and the Mastery Plan derives its own load from a raw event count with no filter at all. Both route through the shared helper.
+Both bank holidays drop out as FYI (one home, one regional — both non-load). One meeting remains, already finished. Load reads **light**, the pill reads "1 meeting done", and the narrative stops calling the afternoon heavy.
 
 ## Verification
 
-- Re-run today's brief: expect load `light`, "1 meeting done, nothing ahead", and no "heavy afternoon".
-- Re-run against the Australian and Scottish holiday entries already in your calendar: expect zero load contribution from all of them.
-- Re-run tomorrow (1 Sep, training event duplicated across Apple and Google): expect one event.
-- Fixture tests for: a holiday from a non-home country, a holiday whose title contains no English holiday word, two overlapping distinct meetings, two near-identical holiday titles, and a completed-only afternoon — asserting the LLM-facing count, the deterministic count and the pill verdict are identical in every case.
-- Confirm the same brief on web and iOS.
-
-## One thing I want your call on
-
-`primary_calendar_events` does not merge providers — it picks one winning provider and discards the rest. On iOS, Apple wins. A meeting that exists **only** in your Google calendar is therefore invisible to the brief entirely. That is a separate risk from the one you reported and I have not included it above. Say the word and I will scope it as a follow-up.
+- Today's brief: light, 1 meeting done, no heavy-afternoon claim.
+- The `Australian Holidays` entries already in your calendar: zero load contribution, working-day framing.
+- A home bank holiday with an attendee attached: still a holiday, still zero load.
+- A Google-only meeting on iOS: appears in the brief and counts toward load.
+- Two overlapping distinct meetings: one load unit.
+- Fixture tests for each of the above, asserting the load verdict, the deterministic count and the LLM-facing count are identical.
+- Same brief checked on web and iOS.
 
 ## Technical notes
 
-- `supabase/functions/_shared/signal-engine/db-queries.ts` — extend `isLoadBearingEvent` with an FYI-calendar test reading `event_metadata.calendarTitle` / `description` plus the all-day + zero-attendee + non-organiser shape; move the filter above the `computeCalendarDemand` call.
-- `supabase/functions/_shared/rules/calendarEvents.ts` (+ `src/utils/rules/calendarEvents.ts` mirror) — `countLoadUnits` becomes the load input; add same-day near-duplicate title collapse. The two files stay byte-parallel.
-- `supabase/functions/_shared/signal-engine/_event-utils.ts` — `meetingCount()` adopts the load-bearing predicate.
-- `supabase/functions/compute-outer-readiness/index.ts` — window layer reads completed vs remaining from the shared filtered counts; replace hardcoded `4` with `LOAD_HIGH_EVENT_COUNT`.
-- `supabase/functions/generate-mastery-plan/index.ts` — replace the local raw-count load derivation with the shared helper.
+- **View change (migration):** rewrite `primary_calendar_events` and `web_primary_calendar_events` to return all providers, ranking duplicates by `identity_key` with platform precedence, instead of filtering to a single provider.
+- `_shared/availability/availability-classifier.ts` — widen `isFyiHolidayCalendar` to any holiday-named feed; accept `event_metadata.calendarTitle` as a calendar-name source; confirm the work-evidence rule cannot promote an all-day holiday marker via `attendeesCount >= 1`.
+- `_shared/signal-engine/db-queries.ts` — delete the local `PUBLIC_HOLIDAY_RX`; `isLoadBearingEvent` delegates to the availability SSOT plus `isNoiseTitle`; apply the filter above `computeCalendarDemand`; feed the verdict through `countLoadUnits`.
+- `_shared/signal-engine/_event-utils.ts` — `meetingCount()` adopts the same predicate.
+- `_shared/rules/calendarEvents.ts` (+ `src/utils/rules/calendarEvents.ts` mirror) — same-day near-duplicate holiday-title collapse. The two files stay byte-parallel.
+- `compute-outer-readiness/index.ts` — replace the ~8 hardcoded `>= 4` copy thresholds with `LOAD_HIGH_EVENT_COUNT`.
+- `generate-mastery-plan/index.ts` — replace its local raw-count load derivation with the shared helper.
 - Redeploy `compute-outer-readiness`, `smart-nudges`, `generate-mastery-plan`.
