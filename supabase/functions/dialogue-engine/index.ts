@@ -1693,7 +1693,7 @@ serve(async (req) => {
       const openingContent = await callClaudeText({
         system: 'You are generating an opening message from a persona in a realistic scenario. Stay fully in character. Never reference this as practice, training, or simulation. Respond with valid JSON only.',
         messages: [{ role: 'user', content: openingPrompt }],
-        model: CLAUDE_MODELS.SONNET,
+        model: CLAUDE_MODELS.HAIKU,
         max_tokens: 500,
       });
 
@@ -1768,7 +1768,7 @@ serve(async (req) => {
       content = await callClaudeText({
         system: 'You are a dialogue simulation engine. Always respond with valid JSON only, no markdown formatting or code blocks.',
         messages: [{ role: 'user', content: prompt }],
-        model: CLAUDE_MODELS.SONNET,
+        model: CLAUDE_MODELS.HAIKU,
         max_tokens: 2000,
       });
     } catch (aiErr: any) {

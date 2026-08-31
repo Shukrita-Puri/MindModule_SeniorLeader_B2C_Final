@@ -145,7 +145,7 @@ export async function callClaude(params: CallClaudeParams): Promise<ClaudeRespon
   const anthropicToolChoice = convertToolChoice(params.tool_choice);
 
   const body: Record<string, unknown> = {
-    model: params.model || CLAUDE_MODELS.SONNET,
+    model: params.model || CLAUDE_MODELS.HAIKU,
     max_tokens: params.max_tokens || 1024,
     messages,
   };
@@ -236,7 +236,7 @@ export async function streamClaude(params: CallClaudeParams): Promise<Response> 
   const { system, messages } = extractSystem(params.messages, params.system);
 
   const body: Record<string, unknown> = {
-    model: params.model || CLAUDE_MODELS.SONNET,
+    model: params.model || CLAUDE_MODELS.HAIKU,
     max_tokens: params.max_tokens || 1024,
     messages,
     stream: true,

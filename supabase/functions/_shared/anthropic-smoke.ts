@@ -1,6 +1,6 @@
 // Deploy-time smoke test for the Anthropic fallback model id.
 //
-// Purpose: catch a stale/incorrect `CLAUDE_MODELS.SONNET` value at boot
+// Purpose: catch a stale/incorrect `CLAUDE_MODELS.HAIKU` value at boot
 // instead of silently 404'ing on every brief fallback for weeks. Runs once
 // per cold start, non-blocking, log-only.
 //
@@ -11,7 +11,7 @@ import { CLAUDE_MODELS } from "./anthropic.ts";
 
 let smokePromise: Promise<void> | null = null;
 
-export function runAnthropicSmokeOnce(model: string = CLAUDE_MODELS.SONNET): Promise<void> {
+export function runAnthropicSmokeOnce(model: string = CLAUDE_MODELS.HAIKU): Promise<void> {
   if (smokePromise) return smokePromise;
   smokePromise = (async () => {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
