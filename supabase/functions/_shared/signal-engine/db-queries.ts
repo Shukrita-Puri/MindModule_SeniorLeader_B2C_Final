@@ -20,6 +20,17 @@ import type { CalendarLevel } from './context-builder.ts';
 import { coarseEventType } from '../events/event-classifier.ts';
 import { enrichEvent } from '../events/enrich-event.ts';
 import { countLoadUnits, mergeCalendarEvents } from '../rules/calendarEvents.ts';
+import {
+  classifyAvailability,
+  isFyiHolidayCalendar,
+  type AvailabilityEvent,
+  type AvailabilityResult,
+} from '../availability/availability-classifier.ts';
+import {
+  isPersonalHolidayTitle,
+  isPtoOrHolidayTitle,
+} from '../ceo-behaviour/pto-holiday.ts';
+
 
 export interface CalendarMetricsResult {
   load: CalendarLevel;
@@ -50,7 +61,24 @@ export interface CalendarMetricsResult {
    * without re-fetching the table.
    */
   rawEvents: any[];
+  /**
+   * THE filtered load-bearing list — FYI markers, travel and noise removed.
+   * Every downstream count (deterministic copy, LLM prompt, pills) must read
+   * this rather than re-filtering `rawEvents`.
+   */
+  loadBearingEvents: any[];
+  /** Number of FYI markers (holidays / PTO) removed from load today. */
+  fyiMarkerCount: number;
+  /** Titles of the FYI markers removed — used for holiday framing + logging. */
+  fyiMarkerTitles: string[];
+  /**
+   * Canonical availability state for the day (availability SSOT). Drives the
+   * Brief's framing: a home-country public holiday is an off-day even though
+   * it contributes zero load.
+   */
+  availability: AvailabilityResult | null;
 }
+
 
 export interface BriefEventLite {
   title: string;
@@ -101,9 +129,6 @@ type AnySupabase = {
   from: (table: string) => any;
 };
 
-const PUBLIC_HOLIDAY_RX =
-  /\b(public holiday|bank holiday|national holiday|statutory holiday|holiday observed|observed holiday)\b/i;
-
 /** All-day accommodation legs the classifier doesn't tag as travel. */
 const STAY_RX = /\b(hotel|airbnb|check[- ]?in|check[- ]?out|stay at|accommodation)\b/i;
 
@@ -115,25 +140,113 @@ export function isAllDayEvent(e: any): boolean {
   return (endMs - startMs) / 60000 >= 23 * 60;
 }
 
+/** Calendar feed name as stored on `calendar_events.event_metadata`. */
+function calendarFeedName(e: any): string | null {
+  const md = e?.event_metadata ?? e?.eventMetadata ?? null;
+  return (
+    e?.calendarTitle ??
+    e?.calendar_title ??
+    md?.calendarTitle ??
+    md?.calendar_title ??
+    md?.calendarSummary ??
+    md?.calendarName ??
+    null
+  );
+}
+
 /**
- * Category-aware load filter for the user-facing meeting count.
+ * Normalise a raw `calendar_events` row into the shape the availability SSOT
+ * consumes. Single adapter — every caller in this module uses it so the load
+ * verdict, the meeting count and the narrative all see identical inputs.
+ */
+export function toAvailabilityEvent(e: any): AvailabilityEvent {
+  return {
+    title: String(e?.title ?? ''),
+    startTime: String(e?.start_time ?? e?.startTime ?? ''),
+    endTime: String(e?.end_time ?? e?.endTime ?? e?.start_time ?? e?.startTime ?? ''),
+    isAllDay: isAllDayEvent(e),
+    isOrganizer: e?.is_organizer === true || e?.isOrganizer === true,
+    attendeesCount: Number(e?.attendees_count ?? e?.attendeesCount ?? 0) || 0,
+    calendarTitle: calendarFeedName(e),
+  };
+}
+
+/**
+ * FYI marker: an all-day entry that exists to tell you what day it is, not to
+ * take time from you. Public/bank holidays (home OR foreign), PTO markers and
+ * personal holiday blocks.
  *
- * Excluded from the count (but still present in the Brief / Next Up):
+ * Attendee count is deliberately NOT part of this test — a public holiday with
+ * an attendee attached is still a public holiday.
+ *
+ * Delegates to the availability SSOT (`_shared/availability/availability-classifier.ts`)
+ * rather than re-listing holiday keywords here.
+ */
+export function isFyiMarkerEvent(e: any): boolean {
+  const ae = toAvailabilityEvent(e);
+  if (!ae.isAllDay) return false;
+  if (isFyiHolidayCalendar(ae)) return true;
+  return isPtoOrHolidayTitle(ae.title) || isPersonalHolidayTitle(ae.title);
+}
+
+/**
+ * Category-aware load filter. This is the SINGLE predicate that decides
+ * whether an event contributes to the day's load.
+ *
+ * Excluded from load (but still present in the Brief / Next Up):
+ *   - FYI markers — public/bank holidays from any country, PTO, personal
+ *     holiday blocks. Never load, whatever the attendee count.
  *   - Category G — all travel and logistics (flights, transfers, hotel legs).
  *   - Category H all-day blocks — personal rhythm, stays, weigh days.
- *   - Public holidays.
  *
  * A flight is real, but it is not a meeting; counting it inflates the load pill.
  */
 export function isLoadBearingEvent(e: any): boolean {
   const title = String(e?.title ?? '');
   if (!title) return false;
-  if (PUBLIC_HOLIDAY_RX.test(title)) return false;
+  if (isFyiMarkerEvent(e)) return false;
   if (STAY_RX.test(title) && isAllDayEvent(e)) return false;
   const { categoryId } = enrichEvent(e);
   if (categoryId === 'G') return false;
   if (categoryId === 'H' && isAllDayEvent(e)) return false;
   return true;
+}
+
+/**
+ * THE filtered list. Built once per request and passed to every consumer —
+ * load verdict, meeting count, fragmentation, deterministic copy and the
+ * LLM-facing counts — so none of them can re-derive a different answer.
+ */
+export function filterLoadBearing<T>(events: T[]): T[] {
+  return events.filter((e) => {
+    if (isNoiseTitle((e as any)?.title)) return false;
+    if (!isLoadBearingEvent(e)) return false;
+    return survivesAttendeeOrDurationFloor(e as any);
+  });
+}
+
+
+/**
+ * Collapse duplicate entries occupying the same slot. Two providers (or two
+ * subscribed feeds) syncing the same commitment must count once.
+ *
+ * Key = identical start+end. Among a group we keep the row with the most
+ * attendee information, then the longest title.
+ */
+export function collapseSameSlot<T extends Record<string, any>>(events: T[]): T[] {
+  const groups = new Map<string, T>();
+  for (const e of events) {
+    const key = `${e.start_time ?? e.startTime ?? ''}|${e.end_time ?? e.endTime ?? ''}`;
+    const existing = groups.get(key);
+    if (!existing) { groups.set(key, e); continue; }
+    const a = Number(e.attendees_count ?? e.attendeesCount ?? 0) || 0;
+    const b = Number(existing.attendees_count ?? existing.attendeesCount ?? 0) || 0;
+    if (a > b) { groups.set(key, e); continue; }
+    if (a === b && String(e.title ?? '').length > String(existing.title ?? '').length) {
+      groups.set(key, e);
+    }
+  }
+  return [...groups.values()];
 }
 
 const EMPTY_DISCONNECTED: CalendarMetricsResult = {
@@ -143,12 +256,15 @@ const EMPTY_DISCONNECTED: CalendarMetricsResult = {
   highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [],
   fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0,
   briefEvents: [], rawEvents: [],
+  loadBearingEvents: [], fyiMarkerCount: 0, fyiMarkerTitles: [],
+  availability: null,
 };
 
 const EMPTY_NO_EVENTS: CalendarMetricsResult = {
   ...EMPTY_DISCONNECTED,
   state: 'connected_no_events',
 };
+
 
 /**
  * Reads the user's active calendar connection + today's events and returns
@@ -162,7 +278,9 @@ export async function getServerCalendarMetrics(
   timezoneOffset: number = 0,
   dayOffset: number = 0,
   platform: 'ios' | 'web' | 'unknown' = 'web',
+  userCountry: string | null = null,
 ): Promise<CalendarMetricsResult> {
+
   const now = new Date();
   const userNow = new Date(now.getTime() - timezoneOffset * 60000);
   const targetDay = new Date(userNow);
@@ -212,17 +330,43 @@ export async function getServerCalendarMetrics(
     console.error('[db-queries] Calendar events query error:', error);
   }
 
-  const eventList = mergeCalendarEvents((events || []) as any[], platform);
+  const eventList = collapseSameSlot(
+    mergeCalendarEvents((events || []) as any[], platform),
+  );
 
   if (eventList.length === 0) {
     return { ...EMPTY_NO_EVENTS };
   }
 
-  const demand = computeCalendarDemand(eventList as any);
+  // ---- THE filtered list. Built ONCE, before anything is scored. ----------
+  const meetingList = filterLoadBearing(eventList as any[]);
+
+  // FYI markers (holidays, PTO) — never load, but they shape framing.
+  const fyiMarkers = (eventList as any[]).filter(isFyiMarkerEvent);
+  const fyiMarkerTitles = fyiMarkers.map((e: any) => String(e.title ?? ''));
+
+  // FILTER-FIRST: the demand scorer only ever sees load-bearing events, so a
+  // day made up of bank holidays can never read "heavy".
+  const demand = computeCalendarDemand(meetingList as any);
   const metrics = { load: demand.load as CalendarLevel, pressure: demand.pressure as CalendarLevel };
 
-  // High-stakes (future only, ranked by canonical stakesScore).
-  const futureEvents = eventList.filter((e: any) => new Date(e.start_time) > now);
+  // Canonical availability verdict from the SSOT (drives holiday framing).
+  let availability: AvailabilityResult | null = null;
+  try {
+    availability = classifyAvailability({
+      now: targetDay,
+      events: (eventList as any[]).map(toAvailabilityEvent),
+      userHomeCountry: userCountry ?? null,
+      calendarLoad: metrics.load,
+    });
+  } catch (e) {
+    console.error('[db-queries] availability classify failed:', e);
+  }
+
+
+  // High-stakes (future only, ranked by canonical stakesScore) — also from the
+  // filtered list, so a holiday marker can never be surfaced as high-stakes.
+  const futureEvents = (meetingList as any[]).filter((e: any) => new Date(e.start_time) > now);
   const futureRanked = rankByStakes(futureEvents as any, 5);
   const highStakesEvents: string[] = futureRanked
     .filter((s) => s.stakes >= 60 && s.event.title)
@@ -232,13 +376,6 @@ export async function getServerCalendarMetrics(
   const remainingEvents = futureEvents.length;
   const remainingHighStakes: string[] = highStakesEvents.slice(0, 2);
 
-  // Filtered meeting count for user-facing text.
-  const isMeeting = (e: any): boolean => {
-    if (isNoiseTitle(e.title)) return false;
-    if (!isLoadBearingEvent(e)) return false;
-    return survivesAttendeeOrDurationFloor(e);
-  };
-  const meetingList = eventList.filter(isMeeting);
   const meetingCount = countLoadUnits(meetingList.map((e: any) => ({
     id: e.id ?? e.external_id ?? e.title,
     title: e.title,
@@ -255,13 +392,23 @@ export async function getServerCalendarMetrics(
     endTime: e.end_time,
   }))).loadUnits;
 
-  const filteredOut = eventList.filter((e: any) => !isMeeting(e));
+  const filteredOut = (eventList as any[]).filter((e: any) => !meetingList.includes(e));
   if (filteredOut.length > 0) {
-    console.log('[db-queries] Filtered non-meeting events:', filteredOut.map((e: any) => {
+    console.log('[db-queries] Excluded from load:', filteredOut.map((e: any) => {
       const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 60000;
-      return `"${e.title}" (${Math.round(dur)}min, ${e.attendees_count || 0} attendees)`;
+      const why = isFyiMarkerEvent(e) ? 'fyi_marker' : 'not_load_bearing';
+      return `"${e.title}" (${Math.round(dur)}min, ${e.attendees_count || 0} attendees, ${why})`;
     }));
   }
+  console.log('[calendar-load]', {
+    userCountry,
+    rawCount: eventList.length,
+    loadBearingCount: meetingList.length,
+    fyiMarkerCount: fyiMarkers.length,
+    fyiMarkerTitles,
+    load: metrics.load,
+    availability: availability?.state ?? null,
+  });
 
   // Fragmentation computed on filtered meetings only.
   const frag = computeCognitiveFragmentation(meetingList as any);
@@ -280,5 +427,10 @@ export async function getServerCalendarMetrics(
     backToBackHours: frag.back_to_back_hours,
     briefEvents: toBriefEvents(eventList),
     rawEvents: eventList,
+    loadBearingEvents: meetingList,
+    fyiMarkerCount: fyiMarkers.length,
+    fyiMarkerTitles,
+    availability,
+
   };
 }

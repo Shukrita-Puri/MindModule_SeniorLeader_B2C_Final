@@ -95,15 +95,37 @@ export function parseHolidayRegionFromTitle(
 }
 
 /**
- * Detect an FYI subscription calendar (Google/Apple "Holidays in <Country>").
+ * Feed names that contain the word "holiday" but are ordinary WORK calendars.
+ * Checked before the positive match so a "Holiday cover rota" is never
+ * mistaken for a subscribed public-holiday feed.
+ */
+const NON_FYI_CALENDAR_RX =
+  /\b(cover|rota|rot[a]?s|planner|planning|tracker|request|requests|booking|bookings|approval|approvals|schedule\s+cover|leave\s+tracker)\b/;
+
+/**
+ * Detect an FYI subscription calendar (Google/Apple holiday feeds).
+ *
+ * Matches the CALENDAR FEED NAME only — never the event title. Real feeds in
+ * the wild are named "Holidays in United Kingdom", "UK Holidays",
+ * "Australian Holidays", "Public Holidays", "Holidays (United States)".
+ *
+ * `calendarTitle` is the field the app persists on
+ * `calendar_events.event_metadata`; `source` / `calendarSummary` are the
+ * legacy names. All three are accepted so every caller sees the same answer.
  */
 export function isFyiHolidayCalendar(event: {
   source?: string | null;
   calendarSummary?: string | null;
+  calendarTitle?: string | null;
 }): boolean {
-  const s = `${event.source ?? ""} ${event.calendarSummary ?? ""}`.toLowerCase();
-  return /holidays?\s+in\s+/.test(s) || /\bpublic holidays\b/.test(s);
+  const s = `${event.source ?? ""} ${event.calendarSummary ?? ""} ${
+    event.calendarTitle ?? ""
+  }`.toLowerCase().trim();
+  if (!s) return false;
+  if (NON_FYI_CALENDAR_RX.test(s)) return false;
+  return /\bholidays?\b/.test(s);
 }
+
 
 /**
  * Determine whether a subscription/title region matches the user's country.
@@ -136,6 +158,7 @@ export function isApplicableHoliday(
     isAllDay?: boolean;
     source?: string | null;
     calendarSummary?: string | null;
+    calendarTitle?: string | null;
   },
   userCountry: string | null | undefined,
 ): { applicable: boolean; region: RegionToken; reason: string } {
@@ -146,16 +169,18 @@ export function isApplicableHoliday(
   const fyi = isFyiHolidayCalendar(event);
 
   if (fyi) {
-    const summary =
-      `${event.source ?? ""} ${event.calendarSummary ?? ""}`.toLowerCase();
+    const summary = `${event.source ?? ""} ${event.calendarSummary ?? ""} ${
+      event.calendarTitle ?? ""
+    }`.toLowerCase();
     const feedRegion: RegionToken =
-      /united kingdom|\buk\b/.test(summary)
+      /united kingdom|\buk\b|\bgb\b|\bbritain\b/.test(summary)
         ? "GB"
-        : /united states|\bus\b/.test(summary)
+        : /united states|\bus\b|\busa\b/.test(summary)
         ? "US"
         : /ireland/.test(summary)
         ? "IE"
         : titleRegion;
+
     const match =
       matchesUserCountry(feedRegion, userCountry) ||
       matchesUserCountry(titleRegion, userCountry);
@@ -194,6 +219,8 @@ export interface AvailabilityEvent {
   attendeesCount?: number;
   source?: string | null;
   calendarSummary?: string | null;
+  /** Calendar feed name as persisted on `calendar_events.event_metadata`. */
+  calendarTitle?: string | null;
 }
 
 export interface AvailabilityInput {
