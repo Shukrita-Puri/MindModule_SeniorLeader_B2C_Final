@@ -152,6 +152,25 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     return buildSingleStateSlotResult("holiday_pto", "holiday_habit_only", ranked.length, input.preferredPracticeWindows);
   }
 
+  // Travel reservation (mirrors the Brief's travel rule): on a travel day a
+  // Category G anchor ALWAYS owns the arc, even when another category
+  // out-ranks it on score. Without this, a flight can be scored below a
+  // meeting and vanish from the plan entirely on the one day it matters most.
+  if (input.hasTravelDay && top && top.categoryId !== "G") {
+    const travelIdx = ranked.findIndex((c) => c.categoryId === "G");
+    if (travelIdx > 0) {
+      const travelEventId = ranked[travelIdx].eventId;
+      const travelFan = ranked.filter((c) => c.eventId === travelEventId);
+      const rest = ranked.filter((c) => c.eventId !== travelEventId);
+      return buildNamedFullArcResult(
+        "travel_day",
+        "travel_day_full_arc",
+        [...travelFan, ...rest],
+        "G",
+      );
+    }
+  }
+
   if (input.hasTravelDay && (!top || top.categoryId === "G")) {
     return buildNamedFullArcResult("travel_day", "travel_day_full_arc", ranked, "G");
   }
