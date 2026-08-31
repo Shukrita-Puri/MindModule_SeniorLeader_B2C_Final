@@ -3089,17 +3089,11 @@ ${
     userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
   }
 
-  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
-  // Both providers are validated through the identical V8 gate.
-
-  const claudeCopy = await tryAIProvider(
-    "claude",
-    ctx,
-    nudgeType,
-    systemPrompt,
-    userPrompt,
-  );
-  if (claudeCopy) return claudeCopy;
+  // 2026-08-31 — Two-model consolidation (C3, launch revision).
+  // Single attempt on Gemini 3.1 Flash Lite, then the static copy bank.
+  // The Claude leg is removed for launch (zero Anthropic credit balance makes
+  // it a guaranteed failed round-trip); Haiku 4.5 is re-evaluated post-launch.
+  // Output is validated through the identical V8 gate either way.
   const geminiCopy = await tryAIProvider(
     "gemini",
     ctx,
