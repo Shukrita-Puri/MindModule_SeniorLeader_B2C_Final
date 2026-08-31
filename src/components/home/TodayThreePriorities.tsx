@@ -2808,9 +2808,9 @@ const TodayThreePriorities = ({
                     );
                   })()}
 
-                  <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
-                    {stripBriefMarkdown(hm.recommendedAction || fallbackRecommendedAction(hm))}
-                  </p>
+                  {/* Sub-line retired: the slot title now carries the
+                      "what + how", so a second frame only repeated it. */}
+
 
                   {/* Sequence reasoning (multi-practice helper, if present) */}
                   {hm.sequenceReasoning && hasMultiple && (
