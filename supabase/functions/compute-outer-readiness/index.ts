@@ -8972,28 +8972,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // 4s is a budget for a light task, this is moderate-to-heavy.
           // Perceived latency cost of a few extra seconds is far lower than
           // a deterministic-fallback rate.
-          // P0 2026-06-21 — bumped Gemini Flash timeout from 7000ms to 8000ms
-          // (top of the spec'd 6-8s range) so transient gateway latency does
-          // not push us into the deterministic-fallback path (now removed
-          // from rendered output — see briefIsAwaiting gate below).
+          // 2026-08-31 — Two-model consolidation (C2). The ladder is now a
+          // SINGLE attempt: Claude Haiku 4.5 direct, with the stable system
+          // prefix served from Anthropic's ephemeral cache. On rejection or
+          // failure we fall straight through to the deterministic/awaiting
+          // path below. The former Gemini-first leg meant every validator
+          // rejection billed two providers for one brief.
           const llmAttempts: Array<
             { model: string; timeoutMs: number; useGateway: boolean }
           > = [
             {
-              model: "google/gemini-2.5-flash",
-              timeoutMs: 15000,
-              useGateway: true,
-            },
-            {
               model: CLAUDE_MODELS.HAIKU,
-              timeoutMs: 10000,
+              timeoutMs: 12000,
               useGateway: false,
             },
-            // 2026-08-07 — Attempt 3 (second Claude Sonnet pass) removed.
-            // Ladder is now exactly one attempt per provider:
-            // Gemini -> Claude -> deterministic/awaiting. A third paid call
-            // repeating the same validator failure is pure cost.
           ];
+
 
           // §2.18 stricter retry instruction appended on soft-reject (legacy
           // generic fallback). Used only if the targeted retry below is
