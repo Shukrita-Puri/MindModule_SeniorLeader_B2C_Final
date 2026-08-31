@@ -7751,6 +7751,34 @@ function detectMorningFusionEvent(
  *   user-visible context line on step cards) when available.
  * Practice titles never change.
  */
+/**
+ * Longest run of today's meetings separated by < 15 minutes. Feeds the
+ * immediate-tier "context switching" risk signal in the why-evidence bundle.
+ * Factual only: derived from the same calendar rows the plan already holds.
+ */
+function deriveBackToBackCount(req: PlanRequest): number | null {
+  const rows = (req.calendarEvents || [])
+    .map((e: any) => ({
+      start: new Date(e?.startTime ?? e?.start_time ?? 0).getTime(),
+      end: new Date(e?.endTime ?? e?.end_time ?? 0).getTime(),
+    }))
+    .filter((r) => Number.isFinite(r.start) && r.start > 0)
+    .sort((a, b) => a.start - b.start);
+  if (rows.length < 2) return null;
+  let best = 1;
+  let run = 1;
+  for (let i = 1; i < rows.length; i++) {
+    const prevEnd = Number.isFinite(rows[i - 1].end) && rows[i - 1].end > 0
+      ? rows[i - 1].end
+      : rows[i - 1].start + 30 * 60_000;
+    const gapMin = (rows[i].start - prevEnd) / 60_000;
+    if (gapMin <= 15) run += 1;
+    else run = 1;
+    if (run > best) best = run;
+  }
+  return best >= 2 ? best : null;
+}
+
 async function applyV51Enrichment(
   modules: HorizonModule[],
   req: PlanRequest,
