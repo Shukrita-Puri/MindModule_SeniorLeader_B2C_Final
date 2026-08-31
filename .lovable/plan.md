@@ -50,10 +50,11 @@ LLM spend should be governed by what the call is *doing*, not by which team wrot
 | Brief | A | Lovable gateway → Anthropic direct | `google/gemini-2.5-flash` | `CLAUDE_MODELS.SONNET` (**aliased to `claude-haiku-4-5`**) | 380 |
 | Smart Nudges | B | Anthropic direct → gateway | `claude-haiku-4-5` | `google/gemini-3-flash-preview` | 256 |
 | Plan why-lines | B | Lovable gateway | `google/gemini-3-flash-preview` | deterministic repair | small |
+| Attendee resolver | D | Lovable gateway | `google/gemini-2.5-flash` | none | small |
 | CoS Profile | C | Lovable gateway | `google/gemini-2.5-pro` | `anthropic/claude-3-5-haiku` | 8192 |
-| Insights semantics | C | gateway | `claude-3-5-haiku-latest` | none | — |
 | Onboarding insight | D | Anthropic direct | Claude model ladder | model loop | 200 |
-| Leadership patterns | D | Anthropic direct | `claude-3-5-haiku-latest` | none | — |
+| Leadership patterns | E | Anthropic direct | `claude-3-5-haiku-latest` | none | — |
+| _(frozen)_ Insights semantics | — | gateway | `claude-3-5-haiku-latest` | none | — |
 
 Three problems visible from the table alone:
 
@@ -71,10 +72,18 @@ Aligned with your direction: Brief on Sonnet, Nudges and CoS on Haiku, everythin
 | T2 — Constrained copy | B | `claude-haiku-4-5` | Smart Nudges | Short output, brand voice matters, Haiku is ~1/12 Sonnet cost. |
 | T2 — Constrained copy | B | `google/gemini-3.1-flash-lite` | Plan why-lines | Already deterministic-repaired; cheapest viable tier. |
 | T3 — Structured synthesis | C | `claude-haiku-4-5` | CoS Profile output | Tool-call reliability matters; drop from Gemini 2.5 **Pro**, the single most expensive model in the stack. |
-| T3 — Structured synthesis | C | `google/gemini-3.1-flash-lite` | Insights semantics | Theme clustering does not need a frontier model. |
-| T4 — Labelling | D | `google/gemini-3.1-flash-lite` | Onboarding insight, Leadership patterns | Sub-200-token outputs; frontier models are pure waste here. |
+| T4 — Labelling | D | `google/gemini-3.1-flash-lite` | Onboarding insight | Sub-200-token output; a frontier model here is pure waste. |
+| T4 — Labelling | D | `google/gemini-2.5-flash` (**unchanged, frozen**) | Attendee resolver | Already correctly tiered and rate-capped; leave alone. |
+| T5 — No LLM | E | deterministic TypeScript | Leadership patterns observation | See 4b — the output is a fixed vocabulary over numeric inputs. |
+
+### 4b. Leadership patterns should be deterministic, not an LLM call
+
+Confirmed on the live frontend: `LeadershipPatternsCard` renders a distribution chart, an archetype/state word, dimension deltas and a friction trend. The `observation` string that `state-patterns-insights` pays Claude Haiku to write **is not rendered by the card at all** — no reference to `observation` exists anywhere in `LeadershipPatternsCard.tsx`, and `Insights.tsx` already generates its own algorithmic observation on the DEV_MODE path. The prompt itself even instructs the model to return the literal string `null` whenever data is sparse, which is most users most of the time.
+
+Recommendation: delete the Anthropic call from `state-patterns-insights` and derive the observation in TypeScript from the inputs the prompt already receives — archetype evolution, dimension deltas, friction label and trend direction, recurring themes. This is a small ranked rule set producing one sentence from a fixed vocabulary, which is exactly what the model is being asked to imitate. Benefits: the cost goes to zero, the Insights page loses a network-dependent latency hop, and the copy becomes testable and stable instead of varying per load. If you later want generated phrasing back, it belongs with the Coach unfreeze, not before launch.
 
 **Blocking check before any of this ships:** `CLAUDE_MODELS.SONNET` was previously set to Haiku *because* the prior Sonnet id 404'd against this workspace's Anthropic key for 14+ days. Step 1 of the build is a live `/v1/models` catalog check to get the exact Sonnet id this key can call, plus a single smoke request. If Sonnet is not available on the key, we stop and tell you rather than silently leaving Haiku behind a constant named SONNET. Same check applies to `anthropic/claude-3-5-haiku` via the Lovable gateway (used today as the CoS fallback).
+
 
 ## 5. Cost work beyond model choice
 
