@@ -12,20 +12,25 @@ Determined by tracing every `functions.invoke` / `fetch` call site in `src/`, ev
 |---|---|---|---|
 | Readiness Brief | `compute-outer-readiness` | 3 windows/day + manual refresh | Home Brief card |
 | Mastery Plan why-lines | `generate-mastery-plan` (`_shared/plan/why-llm.ts`) | Daily + regeneration | Today's 3 Priorities |
+| Attendee relationship resolver | `resolve-attendee-relationship` | Post calendar-sync batch + lazy in-Plan backstop | Plan — relationship labels on events |
 | Smart Nudges copy | `smart-nudges` | Scheduled, up to 8 call sites/user/day | Push notifications |
 | CoS Profile synthesis | `synthesize-cos-profile` | Onboarding + calendar-sync trigger + admin | Archetype / profile |
 | Onboarding insight | `generate-onboarding-insight` | Stage 8 Results | Onboarding results report |
 | Leadership patterns | `state-patterns-insights` | Insights page load | LeadershipPatternsCard |
-| Insights semantics | `insights-semantic-analysis` | Insights page load | Theme map (confirm keep/kill) |
 
 `cause-effect-engine` is live on Insights but is fully deterministic — no LLM, no cost.
 
-**NOT LIVE — LLM code exists, no live frontend path (zero-cost today, but latent risk)**
+`resolve-attendee-relationship` is confirmed live and part of the Plan feature: fired in batches from `sync-calendar` via `_shared/attendeeResolverQueue.ts` and lazily from `generate-mastery-plan`. It runs `google/gemini-2.5-flash` with a 50/user/day self-imposed cap. **Keep it, freeze it, do not re-route it in this exercise** — Gemini Flash is already an appropriate tier for a per-attendee classification job, and the cached `attendee_relationships` rows plus the generic-domain and freshness filters already suppress most calls. Revisit only if telemetry shows it is a material line item.
+
+**FROZEN — LLM code exists, no live frontend path today**
 
 Coach/Dialogue cluster: `self-mastery-coach`, `dialogue-engine`, `dialogue-session-manage`, `generate-coach-summary`, `extract-coach-insights`, `extract-tool-commitments`, `resolve-session-commitments`, `detect-coach-scenarios`, `detect-recurring-patterns`, `analyze-probing-effectiveness`, `process-orphaned-sessions`.
-Orphans with no caller at all: `generate-debrief-insights`, `generate-dashboard-insight`, `generate-energy-insight`, `infer-current-state`, `resolve-attendee-relationship`.
 
-These are excluded from the cost plan. Recommendation: freeze them, do not spend optimisation effort on them, and gate them behind an explicit feature flag before Coach goes live so they cannot silently start billing.
+`insights-semantic-analysis` joins this group. It is invoked from `Insights.tsx`, but its input sources are coach/dialogue conversation data — with Coach dormant it has nothing meaningful to analyse. Freeze it with the Coach cluster and bring it back, together with its Insights theme-map output, when Coach goes live.
+
+Orphans with no caller at all: `generate-debrief-insights`, `generate-dashboard-insight`, `generate-energy-insight`, `infer-current-state`.
+
+All of the above are excluded from the cost plan. Recommendation: leave the code in place, do not spend optimisation effort on it, and put the whole cluster behind one explicit feature flag before Coach goes live so nothing silently starts billing.
 
 ## 2. Architecture: classify each live call by job type
 
@@ -33,8 +38,10 @@ LLM spend should be governed by what the call is *doing*, not by which team wrot
 
 - **Class A — Voice/Judgement generation.** Reads a large structured context and writes short, contract-bound, user-visible prose. Quality is the product. → Brief.
 - **Class B — Constrained copy generation.** Short output, tight template, high volume, deterministic fallback already exists. → Smart Nudges, Plan why-lines.
-- **Class C — Structured synthesis / extraction.** Large or messy input, structured (tool-call) output, runs rarely per user. → CoS Profile, insights semantic analysis.
-- **Class D — Small labelling / one-line generation.** Tiny input, tiny output, no reasoning depth required. → Onboarding insight, Leadership patterns observation.
+- **Class C — Structured synthesis / extraction.** Large or messy input, structured (tool-call) output, runs rarely per user. → CoS Profile.
+- **Class D — Small labelling / one-line generation.** Tiny input, tiny output, no reasoning depth required. → Onboarding insight, attendee resolver (frozen as-is), Leadership patterns observation.
+- **Class E — Should not be an LLM call at all.** The output is a fixed vocabulary over structured numeric inputs. → Leadership patterns observation (see 4b).
+
 
 ## 3. Current routing (as built today)
 
