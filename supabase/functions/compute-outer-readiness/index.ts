@@ -3606,6 +3606,7 @@ serve(async (req) => {
     const wearableConnectionStatus =
       (wearableIntegration?.watch_connection_status ?? null) as
         | "connected"
+        | "connecting"
         | "connected_but_waiting_for_data"
         | "sync_delayed"
         | "permission_revoked"
@@ -4379,6 +4380,11 @@ serve(async (req) => {
     // the single real snapshot write can persist it (write gate only; the
     // render gate stays independent).
     let composedLoadShape: import("../_shared/load-shape/types.ts").LoadShape | null = null;
+    // Renderable Load Shape (render gate) read once for the prompt block and
+    // reused by the atomic validation context so both see the same shape.
+    let renderableLoadShape:
+      | import("../_shared/load-shape/types.ts").LoadShape
+      | null = null;
     let composedPatternSignals: {
       hrv_3day_trend: "improving" | "stable" | "declining" | "unknown";
       consecutive_high_load_days: number;
@@ -8178,13 +8184,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // and stored on daily_context_snapshot. Silent when the gate is
             // closed, nothing is stored, or the shape is not launch-ready.
             try {
-              const loadShape = getLoadShapeOrDefault(
-                await fetchRenderableLoadShape(
-                  db,
-                  userId,
-                  userLocalDate,
-                )
+              const fetchedLoadShape = await fetchRenderableLoadShape(
+                db,
+                userId,
+                userLocalDate,
               );
+              // Hoisted: the atomic validation context reads the SAME shape the
+              // prompt was built from. Null when the render gate is closed or
+              // nothing renderable is stored — never a synthesised default.
+              renderableLoadShape = fetchedLoadShape;
+              const loadShape = getLoadShapeOrDefault(fetchedLoadShape);
               const shapeBlock = briefShapePromptBlock(loadShape);
               if (shapeBlock) {
                 userPrompt += shapeBlock;
@@ -9357,7 +9366,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       todayScore: innerReadinessScore ?? null,
                       postPeakWindow: false,
                       isHighVisibilityToday: false,
-                      loadShape: typeof loadShape !== 'undefined' ? loadShape : null,
+                      loadShape: renderableLoadShape,
                       highStakesEventInNext24h: nextHighStakesEvent
                         ? {
                           title: nextHighStakesEvent.title,
