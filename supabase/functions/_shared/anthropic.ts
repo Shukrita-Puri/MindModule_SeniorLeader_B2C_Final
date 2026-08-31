@@ -11,13 +11,13 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // Model mapping for easy reference
 export const CLAUDE_MODELS = {
   // Verified against this workspace's `/v1/models` catalog on 2026-06-20.
-  // The prior id `claude-sonnet-4-20250514` is NOT in this key's catalog and
-  // returned HTTP 404 on every fallback attempt for ≥14 days.
-  // Cost policy: use Haiku as the default Claude tier. Sonnet-quality paths
-  // can opt into a separate constant later once usage/cost is sustainable.
-  SONNET: 'claude-haiku-4-5-20251001',
+  // COST POLICY (2026-08-31, two-model consolidation): Haiku 4.5 is the ONLY
+  // Claude tier this app may use. The former `SONNET` alias was removed so no
+  // call site can request a Sonnet-priced model — the Anthropic bill showed
+  // Sonnet usage even though the alias already pointed at Haiku.
   HAIKU: 'claude-haiku-4-5-20251001',
 } as const;
+
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
@@ -43,6 +43,13 @@ interface AnthropicTool {
 
 interface CallClaudeParams {
   system?: string;
+  /**
+   * Per-user / per-request system content that must NOT be part of the cached
+   * prefix. Sent as a second, uncached system block AFTER the cached `system`
+   * block so the stable prefix stays byte-identical across users and the
+   * ephemeral cache actually hits. Ignored when caching is off.
+   */
+  systemUncachedSuffix?: string;
   messages: Array<{ role: string; content: string }>;
   model?: string;
   max_tokens?: number;
@@ -70,15 +77,23 @@ function shouldCacheSystemPrompt(system: string | undefined, explicit?: boolean)
 function buildSystemPayload(
   system: string | undefined,
   cache?: boolean,
+  uncachedSuffix?: string,
 ): string | Array<Record<string, unknown>> | undefined {
-  if (!system) return undefined;
-  if (!shouldCacheSystemPrompt(system, cache)) return system;
-  return [{
+  const suffix = uncachedSuffix?.trim() ? uncachedSuffix : '';
+  if (!system) return suffix || undefined;
+  if (!shouldCacheSystemPrompt(system, cache)) {
+    return suffix ? `${system}${suffix}` : system;
+  }
+  const blocks: Array<Record<string, unknown>> = [{
     type: 'text',
     text: system,
     cache_control: { type: 'ephemeral' },
   }];
+  // Trailing, per-request block stays OUTSIDE the cached prefix.
+  if (suffix) blocks.push({ type: 'text', text: suffix });
+  return blocks;
 }
+
 
 interface ClaudeToolUseResponse {
   content: Array<{ type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }>;
@@ -145,12 +160,12 @@ export async function callClaude(params: CallClaudeParams): Promise<ClaudeRespon
   const anthropicToolChoice = convertToolChoice(params.tool_choice);
 
   const body: Record<string, unknown> = {
-    model: params.model || CLAUDE_MODELS.SONNET,
+    model: params.model || CLAUDE_MODELS.HAIKU,
     max_tokens: params.max_tokens || 1024,
     messages,
   };
 
-  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt);
+  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt, params.systemUncachedSuffix);
   if (systemPayload) body.system = systemPayload;
   if (params.temperature !== undefined) body.temperature = params.temperature;
   if (anthropicTools) body.tools = anthropicTools;
@@ -236,13 +251,13 @@ export async function streamClaude(params: CallClaudeParams): Promise<Response> 
   const { system, messages } = extractSystem(params.messages, params.system);
 
   const body: Record<string, unknown> = {
-    model: params.model || CLAUDE_MODELS.SONNET,
+    model: params.model || CLAUDE_MODELS.HAIKU,
     max_tokens: params.max_tokens || 1024,
     messages,
     stream: true,
   };
 
-  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt);
+  const systemPayload = buildSystemPayload(system, params.cacheSystemPrompt, params.systemUncachedSuffix);
   if (systemPayload) body.system = systemPayload;
   if (params.temperature !== undefined) body.temperature = params.temperature;
 
@@ -486,7 +501,7 @@ export async function callAIText(params: CallClaudeParams): Promise<string> {
       console.warn('[anthropic] ⚠️ Claude unavailable, falling back to Gemini:', 
         isKeyIssue ? 'API key missing' : `HTTP ${status}`);
       return await callLovableAIText({
-        system: params.system,
+        system: `${params.system ?? ''}${params.systemUncachedSuffix ?? ''}` || undefined,
         messages: params.messages.map(m => ({ role: m.role, content: m.content })),
         max_tokens: params.max_tokens,
         temperature: params.temperature,

@@ -3026,7 +3026,7 @@ function buildDataSources(
 
 // ==================== MAIN ====================
 // Boot-time smoke test for the Anthropic fallback model id. Non-blocking,
-// log-only. Catches a stale/incorrect CLAUDE_MODELS.SONNET at cold start
+// log-only. Catches a stale/incorrect CLAUDE_MODELS.HAIKU at cold start
 // rather than silently 404'ing on every brief fallback for weeks.
 runAnthropicSmokeOnce();
 
@@ -8972,10 +8972,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // 4s is a budget for a light task, this is moderate-to-heavy.
           // Perceived latency cost of a few extra seconds is far lower than
           // a deterministic-fallback rate.
-          // P0 2026-06-21 — bumped Gemini Flash timeout from 7000ms to 8000ms
-          // (top of the spec'd 6-8s range) so transient gateway latency does
-          // not push us into the deterministic-fallback path (now removed
-          // from rendered output — see briefIsAwaiting gate below).
+          // 2026-08-31 — Two-model consolidation (C2), STAGED.
+          // Target state is a SINGLE Claude Haiku 4.5 attempt with the stable
+          // system prefix served from Anthropic's ephemeral cache (the cache
+          // split is already wired below). That switch is HELD BACK because the
+          // Anthropic account currently has zero credit balance: every Claude
+          // call returns HTTP 400 "credit balance is too low", so a Haiku-only
+          // ladder would make each brief burn a doomed Anthropic round-trip
+          // before failing over. Until credits are topped up the ladder stays
+          // Gemini-first -> Claude -> deterministic/awaiting, exactly as it ran
+          // pre-change. Flip to the single Haiku entry once credits are live.
           const llmAttempts: Array<
             { model: string; timeoutMs: number; useGateway: boolean }
           > = [
@@ -8985,15 +8991,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               useGateway: true,
             },
             {
-              model: CLAUDE_MODELS.SONNET,
+              model: CLAUDE_MODELS.HAIKU,
               timeoutMs: 10000,
               useGateway: false,
             },
-            // 2026-08-07 — Attempt 3 (second Claude Sonnet pass) removed.
-            // Ladder is now exactly one attempt per provider:
-            // Gemini -> Claude -> deterministic/awaiting. A third paid call
-            // repeating the same validator failure is pure cost.
           ];
+
+
 
           // §2.18 stricter retry instruction appended on soft-reject (legacy
           // generic fallback). Used only if the targeted retry below is
@@ -9109,7 +9113,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 });
               } else {
                 content = await callAIText({
-                  system: systemPromptWithLeader,
+                  // Cache-split: the stable persona/contract prefix is the
+                  // cached block; the per-leader voice calibration rides in
+                  // an uncached trailing block so the prefix stays identical
+                  // across users and the ephemeral cache hits.
+                  system: systemPrompt,
+                  systemUncachedSuffix: leaderVoiceBlock,
+
                   messages: [{ role: "user", content: attemptUserPrompt }],
                   model,
                   max_tokens: 380,
@@ -9170,7 +9180,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                         });
                       } else {
                         retryContent = await callAIText({
-                          system: systemPromptWithLeader,
+                          // Same cache split as the primary attempt above.
+                          system: systemPrompt,
+                          systemUncachedSuffix: leaderVoiceBlock,
+
                           messages: [{
                             role: "user",
                             content: retryUserPrompt,

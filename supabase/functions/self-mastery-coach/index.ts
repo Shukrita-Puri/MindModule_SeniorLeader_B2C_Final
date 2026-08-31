@@ -3262,12 +3262,12 @@ serve(async (req) => {
       const streamBody = await streamClaudeAsOpenAI({
         system: systemPrompt,
         messages,
-        model: CLAUDE_MODELS.SONNET,
+        model: CLAUDE_MODELS.HAIKU,
         temperature: 0.7,
         max_tokens: 1024,
       });
 
-      console.log(`[self-mastery-coach] Using model: ${CLAUDE_MODELS.SONNET}`);
+      console.log(`[self-mastery-coach] Using model: ${CLAUDE_MODELS.HAIKU}`);
 
       return new Response(streamBody, {
         headers: {
