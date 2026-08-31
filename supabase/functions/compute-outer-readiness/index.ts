@@ -126,6 +126,7 @@ import {
   isSaturdayRecoveryDay,
 } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
+import { hydrateWeekAheadInputs } from "../_shared/availability/week-ahead-hydration.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 import {
   computeDivergenceFlag,
@@ -5002,6 +5003,75 @@ serve(async (req) => {
       const localeRecoveryDay = briefRecoveryDay(localeWeekendHomeCountry);
       const localeDayBeforeRest = (localeRecoveryDay + 6) % 7;
       if (dayOfWeek === localeDayBeforeRest) isDayBeforeRestDay = true;
+
+      // ── Week-Ahead re-evaluation with Availability-SSOT hydration ──────
+      // The early driver override (above) runs before home country and the
+      // holiday overlay are known, so only the planning-day branch can fire
+      // there. Now that we know the country, PTO and holiday state, hydrate
+      // the full input set: a bank-holiday Monday that closes a long weekend
+      // must render the week-ahead brief, not a weekend one.
+      try {
+        const _waFrom = new Date(userTime.getTime() - 15 * 86400000);
+        const _waTo = new Date(userTime.getTime() + 2 * 86400000);
+        const { data: _waRows } = await db
+          .from("primary_calendar_events")
+          .select(
+            "title, start_time, end_time, is_all_day, is_organizer, attendees_count, source, calendar_name, calendar_summary",
+          )
+          .eq("user_id", userId)
+          .gte(
+            "start_time",
+            new Date(_waFrom.getTime() + timezoneOffset * 60000).toISOString(),
+          )
+          .lte(
+            "start_time",
+            new Date(_waTo.getTime() + timezoneOffset * 60000).toISOString(),
+          )
+          .order("start_time", { ascending: true });
+        const _rows = (_waRows || []) as any[];
+        const _localKey = (iso: string) =>
+          new Date(new Date(iso).getTime() - timezoneOffset * 60000)
+            .toISOString().slice(0, 10);
+        const _todayKey = userTime.toISOString().slice(0, 10);
+        const _tomorrowKey = new Date(userTime.getTime() + 86400000)
+          .toISOString().slice(0, 10);
+        const _hydration = hydrateWeekAheadInputs({
+          localNow: userTime,
+          homeCountry: localeWeekendHomeCountry,
+          currentCountry: localeWeekendHomeCountry,
+          explicitPto: isPublicHoliday === true,
+          todayEvents: _rows.filter((r) =>
+            _localKey(String(r.start_time)) === _todayKey
+          ),
+          tomorrowEvents: _rows.filter((r) =>
+            _localKey(String(r.start_time)) === _tomorrowKey
+          ),
+          lookbackEvents: _rows.filter((r) =>
+            _localKey(String(r.start_time)) < _todayKey
+          ),
+        });
+        const _wam = evaluateWeekAheadMode({
+          dayOfWeek,
+          localHour: hour,
+          homeCountry: localeWeekendHomeCountry,
+          manualOverride: req.headers.get("x-week-ahead-override") === "1",
+          ...(_hydration as unknown as Record<string, unknown>),
+        } as any);
+        console.log("[week-ahead-hydration][brief]", {
+          userId,
+          ...(_hydration as unknown as Record<string, unknown>),
+          active: _wam.active,
+          trigger: (_wam as any).trigger ?? null,
+        });
+        if (_wam.active) {
+          (theme as { driver: ThemeDriver }).driver = "week_recap";
+        }
+      } catch (waErr) {
+        console.warn(
+          "[week-ahead-hydration][brief] skipped:",
+          waErr instanceof Error ? waErr.message : waErr,
+        );
+      }
 
       // Check for personal holiday/OOO in tomorrow's calendar
       if (tomorrowResult && tomorrowResult.state === "active") {

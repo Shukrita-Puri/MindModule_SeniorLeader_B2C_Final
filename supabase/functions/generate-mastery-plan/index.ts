@@ -122,6 +122,10 @@ import {
   normalizeEventTypeKey,
 } from "../_shared/plan/week-ahead-mode.ts";
 import {
+  hydrateWeekAheadInputs,
+  type WeekAheadHydration,
+} from "../_shared/availability/week-ahead-hydration.ts";
+import {
   DAY_OF_HORIZON_MS,
   gateDayOfAnchor,
   isWithinDayOfHorizon,
@@ -161,6 +165,7 @@ import {
   type StrategicContext,
   type WhyEvidenceBundle,
 } from "../_shared/plan/why-signals.ts";
+import { fallbackWhyLine as bankWhyLine } from "../_shared/plan/why-fallback-bank.ts";
 import {
   buildContractTitle,
   COPY_CONTRACT_BLOCK,
@@ -4923,6 +4928,63 @@ async function buildSharedContext(
     req.calendarEvents = [];
   }
 
+  // ── Week-Ahead hydration (Availability SSOT) ─────────────────────────
+  // Without this the Plan could only ever fire `weekly_planning`: the
+  // end_of_pto / end_of_public_holiday / end_of_long_weekend branches need
+  // yesterday-block + tomorrow visibility, which the 48h window above does
+  // not provide. Fail-open — a query error leaves the flags unhydrated and
+  // the evaluator falls back to the planning-day branch.
+  try {
+    const _tzOffset = (req as any).timezoneOffset ?? 0;
+    const _localNow = new Date(Date.now() - _tzOffset * 60000);
+    const _from = new Date(_localNow.getTime() - 15 * 86400000);
+    const _to = new Date(_localNow.getTime() + 2 * 86400000);
+    const { data: _waRows } = await supabaseClient
+      .from("primary_calendar_events")
+      .select(
+        "title, start_time, end_time, is_all_day, is_organizer, attendees_count, source, calendar_name, calendar_summary",
+      )
+      .eq("user_id", req.userId)
+      .gte("start_time", _from.toISOString())
+      .lte("start_time", _to.toISOString())
+      .order("start_time", { ascending: true });
+    const _rows = (_waRows || []) as any[];
+    const _dayKey = (d: Date) => d.toISOString().slice(0, 10);
+    const _todayKey = _dayKey(_localNow);
+    const _tomorrow = new Date(_localNow.getTime());
+    _tomorrow.setDate(_tomorrow.getDate() + 1);
+    const _tomorrowKey = _dayKey(_tomorrow);
+    const _hydration = hydrateWeekAheadInputs({
+      localNow: _localNow,
+      homeCountry: req.userLocale?.homeCountry ?? (req as any).userHomeCountry ??
+        null,
+      currentCountry: (req as any).userCurrentCountry ?? null,
+      weekendDays: req.userLocale?.weekendDays ?? [0, 6],
+      explicitPto: (req as any).explicitPto === true,
+      todayEvents: _rows.filter((r) =>
+        String(r.start_time || "").slice(0, 10) === _todayKey
+      ),
+      tomorrowEvents: _rows.filter((r) =>
+        String(r.start_time || "").slice(0, 10) === _tomorrowKey
+      ),
+      lookbackEvents: _rows.filter((r) =>
+        String(r.start_time || "").slice(0, 10) < _todayKey
+      ),
+    });
+    (req as any).weekAheadHydration = _hydration;
+    console.log("[week-ahead-hydration][plan]", {
+      userId: req.userId,
+      ...(_hydration as unknown as Record<string, unknown>),
+    });
+  } catch (waErr) {
+    console.warn(
+      "[week-ahead-hydration][plan] skipped:",
+      waErr instanceof Error ? waErr.message : waErr,
+    );
+  }
+
+
+
   // ── Calendar load/pressure + gaps ──
   {
     const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
@@ -6378,6 +6440,7 @@ async function generateMasteryPlan(
       userLocale: req.userLocale,
       explicitPto: (req as any).explicitPto === true,
       weekAheadOverride: (req as any).weekAheadOverride === true,
+      weekAheadHydration: (req as any).weekAheadHydration ?? null,
     }),
   });
 
@@ -6580,6 +6643,7 @@ async function generateMasteryPlan(
           userLocale: req.userLocale,
           explicitPto: (req as any).explicitPto === true,
           weekAheadOverride: (req as any).weekAheadOverride === true,
+          weekAheadHydration: (req as any).weekAheadHydration ?? null,
         }),
       },
     );
@@ -7842,6 +7906,8 @@ async function applyV51Enrichment(
   const lightDay = !(req.calendarEvents || []).some((e: any) =>
     Boolean(e?.title)
   ) || (req.calendarEvents || []).length <= 1;
+  // Deterministic Why-line bank guard: no two slots may ship the same line.
+  const usedWhyLines = new Set<string>();
 
   modules.forEach((hm, idx) => {
     // Slot purpose tagging
@@ -7941,7 +8007,22 @@ async function applyV51Enrichment(
         ? "During"
         : "Prepare";
     }
+    // Deterministic copy bank — the floor. Runs when the evidence composer
+    // and the legacy composer both come back empty/too short, or when the
+    // line duplicates one an earlier slot already used.
+    if (
+      !fallbackWhyLine || fallbackWhyLine.length < 12 ||
+      usedWhyLines.has(fallbackWhyLine)
+    ) {
+      fallbackWhyLine = bankWhyLine({
+        categoryId: anchorCategoryForEvidence,
+        phase: ((hm as any).jitPhase as Phase) ?? null,
+        role: bundle.role,
+        used: usedWhyLines,
+      });
+    }
     if (fallbackWhyLine && fallbackWhyLine.length >= 12) {
+      usedWhyLines.add(fallbackWhyLine);
       fallbackWhyLineByIndex.set(idx, fallbackWhyLine);
     }
 
@@ -8476,6 +8557,8 @@ export function deriveStructuralDayFlags(
     userLocale?: UserLocaleContext;
     explicitPto?: boolean;
     weekAheadOverride?: boolean;
+    /** Availability-SSOT hydration (PTO / holiday / long-weekend). */
+    weekAheadHydration?: WeekAheadHydration | null;
   },
 ): {
   hasTravelDay: boolean;
@@ -8536,14 +8619,18 @@ export function deriveStructuralDayFlags(
     localHour: localNow.getUTCHours(),
     travelDay: hasTravelDay,
     fullWorkingWeekend: isFullWorkingWeekend,
-    // This helper does not have tomorrow's full availability block, so keep
-    // last-day PTO/holiday detection conservative here. Dedicated callers can
-    // still force Week-Ahead via `weekAheadOverride`.
-    ptoTodayAllDay: false,
-    ptoTomorrowAllDay: false,
-    holidayAllDayEventToday: false,
-    tomorrowIsWorkday: false,
-    todayIsOffDay: availability.isRestDay || isWeekendRestDay,
+    // Hydrated by the Availability SSOT when the caller has DB access
+    // (`hydrateWeekAheadInputs`). Without it we stay conservative and only
+    // the planning-day / manual-override branches can fire.
+    ptoTodayAllDay: opts?.weekAheadHydration?.ptoTodayAllDay ?? false,
+    ptoTomorrowAllDay: opts?.weekAheadHydration?.ptoTomorrowAllDay ?? false,
+    holidayAllDayEventToday:
+      opts?.weekAheadHydration?.holidayAllDayEventToday ?? false,
+    tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
+    isLastDayOfLongWeekend:
+      opts?.weekAheadHydration?.isLastDayOfLongWeekend ?? false,
+    todayIsOffDay: opts?.weekAheadHydration?.todayIsOffDay ??
+      (availability.isRestDay || isWeekendRestDay),
     manualOverride: opts?.weekAheadOverride === true,
   });
   try {
