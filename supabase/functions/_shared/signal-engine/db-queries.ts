@@ -345,22 +345,24 @@ export async function getServerCalendarMetrics(
   const fyiMarkers = (eventList as any[]).filter(isFyiMarkerEvent);
   const fyiMarkerTitles = fyiMarkers.map((e: any) => String(e.title ?? ''));
 
-  // Canonical availability verdict from the SSOT (drives holiday framing).
-  let availability: AvailabilityResult | null = null;
-  try {
-    availability = classifyAvailability({
-      events: (eventList as any[]).map(toAvailabilityEvent),
-      userCountry: userCountry ?? null,
-      localDate: new Date(userStartOfDay).toISOString().slice(0, 10),
-    } as any);
-  } catch (e) {
-    console.error('[db-queries] availability classify failed:', e);
-  }
-
   // FILTER-FIRST: the demand scorer only ever sees load-bearing events, so a
   // day made up of bank holidays can never read "heavy".
   const demand = computeCalendarDemand(meetingList as any);
   const metrics = { load: demand.load as CalendarLevel, pressure: demand.pressure as CalendarLevel };
+
+  // Canonical availability verdict from the SSOT (drives holiday framing).
+  let availability: AvailabilityResult | null = null;
+  try {
+    availability = classifyAvailability({
+      now: targetDay,
+      events: (eventList as any[]).map(toAvailabilityEvent),
+      userHomeCountry: userCountry ?? null,
+      calendarLoad: metrics.load,
+    });
+  } catch (e) {
+    console.error('[db-queries] availability classify failed:', e);
+  }
+
 
   // High-stakes (future only, ranked by canonical stakesScore) — also from the
   // filtered list, so a holiday marker can never be surfaced as high-stakes.
