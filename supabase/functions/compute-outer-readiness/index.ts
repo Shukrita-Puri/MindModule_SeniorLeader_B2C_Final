@@ -9366,7 +9366,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       todayScore: innerReadinessScore ?? null,
                       postPeakWindow: false,
                       isHighVisibilityToday: false,
-                      loadShape: typeof loadShape !== 'undefined' ? loadShape : null,
+                      loadShape: renderableLoadShape,
                       highStakesEventInNext24h: nextHighStakesEvent
                         ? {
                           title: nextHighStakesEvent.title,
