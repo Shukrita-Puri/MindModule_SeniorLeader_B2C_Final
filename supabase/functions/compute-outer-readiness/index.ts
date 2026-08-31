@@ -3230,15 +3230,57 @@ serve(async (req) => {
     const isEvening = hour >= 18 || lateEvening;
     const needTomorrow = isEvening;
     const isMorning = hour >= 5 && hour < 12;
+
+    // Home country must be resolved BEFORE calendar metrics: the availability
+    // SSOT needs it to decide whether a bank-holiday feed entry is the user's
+    // own public holiday (weekend framing) or a foreign one (normal workday,
+    // still zero load).
+    let calendarUserCountry: string | null = null;
+    try {
+      const { data: countryRow } = await db
+        .from("profiles")
+        .select("country, home_timezone, current_timezone")
+        .eq("id", userId)
+        .maybeSingle();
+      calendarUserCountry = ((countryRow as any)?.country ?? null) ||
+        tzToCountry((countryRow as any)?.home_timezone ?? null) ||
+        tzToCountry((countryRow as any)?.current_timezone ?? null) ||
+        null;
+    } catch (e) {
+      console.error("[compute-outer-readiness] home country lookup failed:", e);
+    }
+
     const [calendarResult, tomorrowResult, yesterdayResult] = await Promise.all([
-      getServerCalendarMetrics(db as any, userId, timezoneOffset, 0, platform),
+      getServerCalendarMetrics(
+        db as any,
+        userId,
+        timezoneOffset,
+        0,
+        platform,
+        calendarUserCountry,
+      ),
       needTomorrow
-        ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1, platform)
+        ? getServerCalendarMetrics(
+          db as any,
+          userId,
+          timezoneOffset,
+          1,
+          platform,
+          calendarUserCountry,
+        )
         : Promise.resolve(null),
       isMorning
-        ? getServerCalendarMetrics(db as any, userId, timezoneOffset, -1, platform)
+        ? getServerCalendarMetrics(
+          db as any,
+          userId,
+          timezoneOffset,
+          -1,
+          platform,
+          calendarUserCountry,
+        )
         : Promise.resolve(null),
     ]);
+
     const calendarLoad: CalendarLevel | null = calendarResult.state === "active"
       ? calendarResult.load
       : null;
