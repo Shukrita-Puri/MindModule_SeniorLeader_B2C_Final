@@ -61,7 +61,24 @@ export interface CalendarMetricsResult {
    * without re-fetching the table.
    */
   rawEvents: any[];
+  /**
+   * THE filtered load-bearing list — FYI markers, travel and noise removed.
+   * Every downstream count (deterministic copy, LLM prompt, pills) must read
+   * this rather than re-filtering `rawEvents`.
+   */
+  loadBearingEvents: any[];
+  /** Number of FYI markers (holidays / PTO) removed from load today. */
+  fyiMarkerCount: number;
+  /** Titles of the FYI markers removed — used for holiday framing + logging. */
+  fyiMarkerTitles: string[];
+  /**
+   * Canonical availability state for the day (availability SSOT). Drives the
+   * Brief's framing: a home-country public holiday is an off-day even though
+   * it contributes zero load.
+   */
+  availability: AvailabilityResult | null;
 }
+
 
 export interface BriefEventLite {
   title: string;
