@@ -1,65 +1,97 @@
-# LLM Token Cost Optimisation — Audit & Recommendation
+# LLM Cost & Model Routing Architecture — Audit and Recommendation
 
-Goal: bring per-active-user-per-day LLM spend down from ~$1.67 without losing quality on the surfaces that carry the product (Brief, Coach). Recommendation only — nothing is implemented until you approve a follow-up build.
+Recommendation only. Nothing is implemented until you approve a follow-up build. Scope limited to features that are **live and produce frontend output**.
 
-## What the audit found
+## 1. Live vs dormant — what actually spends money
 
-There are 26 edge functions calling an LLM. Claude runs on your own Anthropic key (every model constant, including `CLAUDE_MODELS.SONNET`, already points at Haiku 4.5). Gemini runs through the Lovable AI gateway.
+Determined by tracing every `functions.invoke` / `fetch` call site in `src/`, every server-to-server invoke, and every cron schedule.
 
-Three structural cost problems, in order of impact:
+**LIVE — has a frontend output**
 
-1. **No token telemetry anywhere.** `_shared/anthropic.ts` reads the `usage` object off the response and throws it away. Nothing is persisted. Today nobody can say which feature owns the $1.67, so every cut is a guess.
-2. **Enormous input prompts on the highest-frequency surface.** The Brief user prompt in `compute-outer-readiness` is assembled from 155 separate `userPrompt +=` appends across ~8 buckets, plus a system prompt from `copy-vocabulary.ts` (42 KB source) plus a leader-voice block. Output is capped at 380 tokens. So the Brief is ~95% input cost, and it runs up to 3 windows/day/user plus manual refreshes, plus a Claude retry on validator rejection.
-3. **Prompt caching is effectively unused.** Only one `cache_control` marker exists in the whole codebase. The Brief system prompt, the Coach persona/Vault prompt and the nudge system prompt are large, byte-stable across users, and re-billed at full input price on every single call.
+| Feature | Function | Trigger | Frontend surface |
+|---|---|---|---|
+| Readiness Brief | `compute-outer-readiness` | 3 windows/day + manual refresh | Home Brief card |
+| Mastery Plan why-lines | `generate-mastery-plan` (`_shared/plan/why-llm.ts`) | Daily + regeneration | Today's 3 Priorities |
+| Smart Nudges copy | `smart-nudges` | Scheduled, up to 8 call sites/user/day | Push notifications |
+| CoS Profile synthesis | `synthesize-cos-profile` | Onboarding + calendar-sync trigger + admin | Archetype / profile |
+| Onboarding insight | `generate-onboarding-insight` | Stage 8 Results | Onboarding results report |
+| Leadership patterns | `state-patterns-insights` | Insights page load | LeadershipPatternsCard |
+| Insights semantics | `insights-semantic-analysis` | Insights page load | Theme map (confirm keep/kill) |
 
-Secondary drivers: `smart-nudges` runs `generateNudgeCopy` at up to 8 call sites per user per day, each with a Claude attempt then a Gemini attempt; `synthesize-cos-profile` allows 8192 output tokens; the coach and dialogue paths resend full conversation history each turn.
+`cause-effect-engine` is live on Insights but is fully deterministic — no LLM, no cost.
 
-## Priority map — where to keep quality, where to be aggressive
+**NOT LIVE — LLM code exists, no live frontend path (zero-cost today, but latent risk)**
 
-**Keep quality (optimise cost without touching model tier or reasoning depth)**
-- Brief (`compute-outer-readiness`)
-- Self-Mastery Coach (`self-mastery-coach`, `dialogue-engine`)
-- Mastery Plan why-lines (`_shared/plan/why-llm.ts`)
+Coach/Dialogue cluster: `self-mastery-coach`, `dialogue-engine`, `dialogue-session-manage`, `generate-coach-summary`, `extract-coach-insights`, `extract-tool-commitments`, `resolve-session-commitments`, `detect-coach-scenarios`, `detect-recurring-patterns`, `analyze-probing-effectiveness`, `process-orphaned-sessions`.
+Orphans with no caller at all: `generate-debrief-insights`, `generate-dashboard-insight`, `generate-energy-insight`, `infer-current-state`, `resolve-attendee-relationship`.
 
-**Be aggressive (cheapest viable model, tight caps, or drop the LLM entirely)**
-- Smart Nudges copy
-- All extraction/classification jobs: `extract-coach-insights`, `extract-tool-commitments`, `resolve-session-commitments`, `detect-recurring-patterns`, `detect-coach-scenarios`, `infer-current-state`, `resolve-attendee-relationship`, `analyze-probing-effectiveness`
-- All insight generators: `generate-dashboard-insight`, `generate-energy-insight`, `generate-onboarding-insight`, `generate-debrief-insights`, `insights-semantic-analysis`, `state-patterns-insights`, `synthesize-cos-profile`
+These are excluded from the cost plan. Recommendation: freeze them, do not spend optimisation effort on them, and gate them behind an explicit feature flag before Coach goes live so they cannot silently start billing.
 
-## Recommended workstreams
+## 2. Architecture: classify each live call by job type
 
-### W1 — Measure (prerequisite, ~1 day)
-Persist `input_tokens` / `output_tokens` / `cache_read_input_tokens` / model / function / user from every call, in the two shared helpers only (`_shared/anthropic.ts` and the Lovable gateway helper), so no feature code changes. Add a small admin view: cost per feature per day, cost per user per day. Everything below then gets validated against real numbers instead of estimates.
+LLM spend should be governed by what the call is *doing*, not by which team wrote it. Four job classes:
 
-### W2 — Prompt caching on the big stable prompts (largest single saving, quality-neutral)
-Anthropic ephemeral caching bills cached input at ~10% of normal. Apply to the Brief system prompt, the Coach system prompt and the nudge system prompt, and reorder each prompt so the stable block is first and the per-user block last. Expected 40–60% cut on the Brief and Coach input bill with zero output change.
+- **Class A — Voice/Judgement generation.** Reads a large structured context and writes short, contract-bound, user-visible prose. Quality is the product. → Brief.
+- **Class B — Constrained copy generation.** Short output, tight template, high volume, deterministic fallback already exists. → Smart Nudges, Plan why-lines.
+- **Class C — Structured synthesis / extraction.** Large or messy input, structured (tool-call) output, runs rarely per user. → CoS Profile, insights semantic analysis.
+- **Class D — Small labelling / one-line generation.** Tiny input, tiny output, no reasoning depth required. → Onboarding insight, Leadership patterns observation.
 
-### W3 — Brief input diet (quality-neutral)
-- Cut buckets the validator and copy contract never consume, and stop sending signals that are already summarised elsewhere in the same prompt.
-- Send compact key:value lines rather than prose narration of each signal.
-- Cap Bucket 3 (patterns/history) to the top N ranked entries rather than the full ledger.
-- Skip the Claude retry when the validator rejection is deterministic-repairable — that is a second full-price call for a fault we can fix locally.
-- Suppress regeneration when no input signal changed since the last snapshot for the window (cache-hit brief).
+## 3. Current routing (as built today)
 
-### W4 — Nudges: static-first, LLM-last
-Today AI copy is attempted first and static copy is the fallback. Invert for the low-variance nudge types: use the deterministic copy bank by default and call the model only for the one or two nudge types where phrasing genuinely varies. Also drop the Claude-then-Gemini double attempt to a single Gemini Flash Lite attempt with static fallback. Expected 70–85% cut on the nudge line.
+| Feature | Class | Provider path | Primary model | Fallback | Output cap |
+|---|---|---|---|---|---|
+| Brief | A | Lovable gateway → Anthropic direct | `google/gemini-2.5-flash` | `CLAUDE_MODELS.SONNET` (**aliased to `claude-haiku-4-5`**) | 380 |
+| Smart Nudges | B | Anthropic direct → gateway | `claude-haiku-4-5` | `google/gemini-3-flash-preview` | 256 |
+| Plan why-lines | B | Lovable gateway | `google/gemini-3-flash-preview` | deterministic repair | small |
+| CoS Profile | C | Lovable gateway | `google/gemini-2.5-pro` | `anthropic/claude-3-5-haiku` | 8192 |
+| Insights semantics | C | gateway | `claude-3-5-haiku-latest` | none | — |
+| Onboarding insight | D | Anthropic direct | Claude model ladder | model loop | 200 |
+| Leadership patterns | D | Anthropic direct | `claude-3-5-haiku-latest` | none | — |
 
-### W5 — Batch and downgrade the background jobs
-- Move every extraction/classification job to `google/gemini-3.1-flash-lite`, the cheapest viable tier for structured extraction.
-- Batch: several of these jobs run per session/day per user on overlapping data. Merge the coach post-session jobs (insights, commitments, commitment resolution, scenario detection) into one call with one structured-output schema instead of four calls each resending the same transcript.
-- Tighten `max_tokens` to the real output size (`synthesize-cos-profile` at 8192 is far above what it writes).
-- Gate on change: skip the job when the underlying data has not changed since the last run.
+Three problems visible from the table alone:
 
-### W6 — Conversation trimming (Coach/Dialogue)
-Rolling window plus a cached running summary rather than resending the full transcript each turn. Quality-neutral for the tested session lengths, and it removes the quadratic input growth that makes long sessions expensive.
+1. **The Sonnet constant is a lie.** `CLAUDE_MODELS.SONNET` and `HAIKU` both resolve to `claude-haiku-4-5-20251001`. Your intent to run the Brief on Sonnet is currently not happening, and the code reads as if it is.
+2. **Brief tries the cheap model first and the good model second.** On validator rejection you pay twice — a Gemini call plus a Claude call — for one brief. That is the worst possible ordering for a quality-critical surface.
+3. **Model choice is scattered across 7 files** with three different call styles (raw `fetch` to Anthropic, `callClaudeText`, raw `fetch` to the gateway). There is no single place to change routing or read cost.
 
-## Expected outcome
+## 4. Recommended tiered routing
 
-W2 + W3 + W4 alone should take the Brief and Nudge lines — which you identified as the bulk of the $1.67 — down by roughly 60–75%, with no model downgrade on Brief or Coach. W5 handles the long tail. Firm numbers only after W1 is live.
+Aligned with your direction: Brief on Sonnet, Nudges and CoS on Haiku, everything else on Gemini.
 
-## Technical notes
+| Tier | Job class | Model | Applies to | Rationale |
+|---|---|---|---|---|
+| T1 — Judgement | A | `claude-sonnet-4-5` (Anthropic direct) | Brief | Only surface where copy quality is the product. One call, no cheap-first attempt. |
+| T2 — Constrained copy | B | `claude-haiku-4-5` | Smart Nudges | Short output, brand voice matters, Haiku is ~1/12 Sonnet cost. |
+| T2 — Constrained copy | B | `google/gemini-3.1-flash-lite` | Plan why-lines | Already deterministic-repaired; cheapest viable tier. |
+| T3 — Structured synthesis | C | `claude-haiku-4-5` | CoS Profile output | Tool-call reliability matters; drop from Gemini 2.5 **Pro**, the single most expensive model in the stack. |
+| T3 — Structured synthesis | C | `google/gemini-3.1-flash-lite` | Insights semantics | Theme clustering does not need a frontier model. |
+| T4 — Labelling | D | `google/gemini-3.1-flash-lite` | Onboarding insight, Leadership patterns | Sub-200-token outputs; frontier models are pure waste here. |
 
-- Nothing here changes any user-visible copy contract, validator, prompt version, or the deterministic fallback path.
-- Caching changes are confined to the shared helpers plus prompt block ordering.
-- Each workstream is separately deployable; Brief changes deploy only `compute-outer-readiness`.
-- Suggested order: W1 → W2 → W4 → W3 → W5 → W6.
+**Blocking check before any of this ships:** `CLAUDE_MODELS.SONNET` was previously set to Haiku *because* the prior Sonnet id 404'd against this workspace's Anthropic key for 14+ days. Step 1 of the build is a live `/v1/models` catalog check to get the exact Sonnet id this key can call, plus a single smoke request. If Sonnet is not available on the key, we stop and tell you rather than silently leaving Haiku behind a constant named SONNET. Same check applies to `anthropic/claude-3-5-haiku` via the Lovable gateway (used today as the CoS fallback).
+
+## 5. Cost work beyond model choice
+
+Moving Brief up to Sonnet *raises* per-call price, so the savings have to come from tokens and call count. Four levers, in order of value:
+
+**L1 — Prompt caching (largest single saving, quality-neutral).** Anthropic ephemeral caching bills repeated input at ~10% of normal. The Brief system prompt (`copy-vocabulary.ts`, 42 KB source) and the Nudge system prompt are byte-stable across every user and every call, and today only one `cache_control` marker exists in the entire codebase. Mark the stable block and reorder each prompt so stable content leads and per-user content trails. This alone offsets most of the Sonnet upgrade.
+
+**L2 — Brief input diet.** The Brief user prompt is built from 155 separate `userPrompt +=` appends across ~8 buckets, against a 380-token output cap — it is ~95% input cost. Cut buckets the validator never consumes, send compact `key: value` lines instead of prose narration, and cap Bucket 3 (patterns/history) to the top N ranked entries.
+
+**L3 — Stop paying twice.** Brief: single Sonnet attempt, then deterministic fallback — remove the two-provider ladder. Nudges: single Haiku attempt, then the existing static copy bank — remove the Claude-then-Gemini double attempt. Nudges should also flip to static-first for the low-variance nudge types, calling the model only where phrasing genuinely varies.
+
+**L4 — Don't regenerate unchanged output.** Skip the Brief LLM call when no input signal changed since the last snapshot for that window; skip CoS re-synthesis when the underlying profile inputs are unchanged. Also cut `synthesize-cos-profile`'s 8192 `max_tokens` to its real output size.
+
+## 6. Governance — one routing table
+
+Introduce a single `_shared/ai/model-routing.ts` that exports a tier→model map and is the only place a model id appears. Every live function reads from it. Add token telemetry inside the two shared helpers (`_shared/anthropic.ts` already parses `usage` and discards it; same for the gateway helper) so you get cost per feature per day and cost per user per day without touching feature code. After that, every future routing change is one file and one deploy.
+
+## 7. Suggested sequencing
+
+1. Telemetry + routing table (no behaviour change) — proves the $1.67 breakdown.
+2. Sonnet id verification, then Brief → T1 with L1 caching and L3 single-attempt, in one change.
+3. Nudges → T2 Haiku, static-first, single attempt.
+4. CoS Profile → T3 Haiku, token cap, change-gating.
+5. T4 sweep for onboarding/patterns/semantics.
+6. Feature-flag freeze on the whole dormant Coach/Dialogue cluster.
+
+Each step is separately deployable; Brief changes deploy only `compute-outer-readiness`. No user-visible copy contract, validator, prompt version, or deterministic fallback path changes anywhere in this plan.
