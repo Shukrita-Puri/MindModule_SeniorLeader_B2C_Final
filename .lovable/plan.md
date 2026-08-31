@@ -2,58 +2,63 @@
 
 ## What's actually happening today (verified in code)
 
-1. **The line you screenshotted is not the LLM.** "Your HRV lifts ~60% before board. Resting HR is elevated. Recover: Sharpen focus…" is the deterministic `composeWhyLine()` in `generate-mastery-plan/index.ts` — a stacked `Strategic. Tactical. Immediate. → Action.` template. It repeats near-verbatim across all three slots and leaks the word "board" onto slots that have no board anchor.
-2. **"Resting HR is elevated" is a bug.** The Why-LLM input sets `rhrTrend: restingHR > 0 ? "elevated" : null` — any resting-HR value at all reads as elevated.
-3. **The Why-LLM only ever sees immediate signals.** Its input carries HRV deviation, sleep score, that broken RHR flag, self-declared mind/body, and a *single* HRV-vs-event correlation string. It does **not** receive: `causality_findings.signal_summary` (event→HRV, event→RHR, sleep→PRS, consecutive load, `performance_lift`), practice-impact/effectiveness history, check-in pattern aggregator output (day-of-week, streaks), or strategic context (`protection_goals`, `pressure_profile`, archetype). So pattern and strategic evidence structurally cannot appear.
-4. **No evidence ranking.** The prompt hands the model a flat "reference whichever are most relevant" list, so it defaults to the loudest raw number.
-5. **Titles are prose, not reasons.** `buildPriorityTitle` = verb + objective + connector + event. With no event anchor it degrades to "Land recovery to close the day". Meanwhile the ≤6-word italic sub-line ("Set your focus for the morning", "Build resilience for high-demand days") is the only copy that tells the user what the slot *gives them* — and it comes from a generic fallback branch, not from the slot's evidence.
+1. **The line you screenshotted is not the LLM.** "Your HRV lifts ~60% before board. Resting HR is elevated. Recover: Sharpen focus…" is the deterministic `composeWhyLine()` in `generate-mastery-plan/index.ts` — a stacked `Strategic. Tactical. Immediate. → Action.` template. It repeats near-verbatim across all three slots and leaks "board" onto slots with no board anchor.
+2. **"Resting HR is elevated" is a bug.** The Why-LLM input sets `rhrTrend: restingHR > 0 ? "elevated" : null` — any resting-HR reading at all reads as elevated.
+3. **The Why-LLM only ever sees immediate signals.** It receives HRV deviation, sleep score, that broken RHR flag, self-declared mind/body, and one HRV-vs-event correlation string. It never receives `causality_findings.signal_summary` (event→HRV, event→RHR, sleep→PRS, consecutive load, `performance_lift`), practice-impact history, check-in pattern aggregator output, or onboarding v8 / CoS-profile strategic context. Pattern and strategic evidence structurally cannot appear.
+4. **No evidence ranking and no valence.** The prompt hands a flat fact list, so the model reaches for the loudest number and can stitch a *positive* signal into a deficit sentence.
+5. **Two competing "why" lines per card.** The stacked why-line AND the italic action frame ("Build resilience for high-demand days") both try to say why. The italic line is the better copy — and it comes from a generic fallback branch, not from the slot's evidence.
+
+## Copy contract: title vs why (no overlap)
+
+- **Title = WHAT this slot is and HOW it helps.** App role verb (**Protect / Prevent / Prepare / Build**) + the executive outcome + the anchor. e.g. `Prevent composure drain before Board Meeting`; light day: `Protect recovery`, `Build recovery from the morning`, `Set your focus for the morning`.
+- **Why = the crisp evidence that earns the slot.** One short sentence, ideally under ~15 words, stating the signal, not a lecture. e.g. `Elevated HR before your last three board meetings.`
+- **The italic sub-line is removed** from the card. Its outcome vocabulary is promoted into the title ladder, so nothing repeats.
 
 ## What we build
 
 ### 1. A tiered evidence bundle (new shared module)
 
-New `supabase/functions/_shared/plan/why-signals.ts` — pure, testable, one entry point `buildWhyEvidence()` returning at most **three** ranked items:
+New `supabase/functions/_shared/plan/why-signals.ts` — pure and testable, one entry point `buildWhyEvidence()` returning ranked items, each with `tier`, `valence`, `confidence`, `n`, and a short rendered phrase.
 
-- **Pattern evidence (highest value)** — read `causality_findings.signal_summary`: `event_to_hrv`, `event_to_rhr`, `sleep_to_prs`, `consecutive_load`, and `performance_lift` (`hr_event_lift`, `category_lift`, `sleep_to_peak`, `rhr_recovery_window`). Match against the slot's own A–H anchor only. Include confidence + n; drop anything below `emerging`/n<3.
-- **Behavioural evidence** — practice-impact history (what has actually moved this leader's state) plus the check-in pattern aggregator (`_shared/signal-engine/checkin-pattern-aggregator.ts`) for day-of-week and streak qualifiers.
-- **Immediate evidence** — HRV vs baseline, sleep, RHR **vs the user's own baseline** (fixes the always-elevated bug), check-in clarity/pressure.
-- **Strategic evidence** — `resolveStrategicContext()` (`protection_goals`, `pressure_profile`, `user_archetype`) + declared growth intention.
+- **Pattern evidence** — read the cause-effect outputs: `causality_findings.signal_summary` written by the `cause-effect-engine` (`event_to_hrv`, `event_to_rhr`, `sleep_to_prs`, `consecutive_load`, `performance_lift` → `hr_event_lift`, `category_lift`, `sleep_to_peak`, `rhr_recovery_window`), matched to the slot's own A–H anchor. Drop anything below `emerging` / n<3.
+- **Behavioural evidence** — practice-impact history (what has actually moved this leader) and the check-in pattern aggregator (`_shared/signal-engine/checkin-pattern-aggregator.ts`) for day-of-week and streak qualifiers.
+- **Immediate evidence** — HRV vs baseline, sleep, **RHR vs the user's own baseline** (fixes the always-elevated bug), elevated-HR proxy, context-switching / back-to-back load from the day shape, check-in clarity and pressure.
+- **Strategic evidence** — onboarding **v8**: CoS profile (archetype, depletion pattern, communication profile), declared growth goals, and the events the leader themselves flagged as important / stressful / draining (stakes, load and burden chips), plus `protection_goals` / `pressure_profile` on the profile. Designed as an extensible source: coach conversations, evening-reflection notes, mindset-reframe notes and Week Ahead picks plug into the same slot later.
 
-Selection rule: one strategic *or* pattern item as the "why now", one immediate item as the proof, never more than two facts in a line. Pattern beats immediate when confident; immediate is the fallback proof, never the whole story.
+Selection: at most **two** facts per line — one "why now" (pattern > behavioural > strategic) plus one immediate proof. **Cold-start rule:** when there is no pattern or behavioural evidence yet (new user), the line is built from **strategic (v8) + immediate**, and if even that is thin, from the app's role against the high-stakes anchor — never a fabricated pattern.
 
-### 1b. Every signal carries a valence (this is the core copy bug)
+### 1b. Every signal carries a valence, mapped to the app's role
 
-Today the evidence is dumped as raw facts with no sign attached, so "your HRV lifts ~60% before board" — a *good* thing — gets stitched into a recovery/deficit sentence. Each evidence item will carry an explicit `valence: positive | neutral | risk` decided at derivation, not by the model:
+The app exists to keep the leader at cognitive peak by **protecting, preventing and preparing/building — proactively**. Each evidence item is assigned `valence` at derivation, not by the model:
 
-- **Positive** (HRV lifted vs baseline, RHR at/below baseline, sleep strong, recovery streak, a category where `performance_lift` shows this leader performs best): the leader is at or near cognitive peak. The why-line frames the slot as **protecting and extending the peak** — hold the edge into the event, don't spend it early — never as recovery from a deficit. If the practice selected is a recovery protocol while every signal is positive, that mismatch is logged and the slot falls back to a peak-protection practice/frame.
-- **Risk** (HRV suppressed, RHR elevated vs baseline, short sleep, consecutive-load tail, clarity/pressure low, an event category with a known negative HRV/RHR signature): frame as preventing mental noise, emotional hijack, stress accumulation, or burnout — the app's actual jobs.
-- **Neutral**: frame by the event and what the practice builds.
+- **Positive** (HRV lifted vs baseline, RHR at/below baseline, strong sleep, recovery streak, a category where `performance_lift` shows this leader performs best): the leader is at or near peak. Role = **Protect** — hold and extend the edge into the event; never deficit or recovery framing. A 60% HRV lift before a board day is a *reason the leader is ready*, and if the selected practice is a recovery protocol while all signals are positive, the mismatch is logged and the slot falls back to a peak-protection frame.
+- **Risk** (HRV suppressed, RHR elevated vs baseline, **elevated heart rate**, short sleep, consecutive-load tail, **context switching / back-to-back density**, clarity or pressure reading poorly, an event category with a known negative HRV/HR signature): role = **Prevent** — composure drain, mental noise, emotional hijack, stress accumulation, burnout.
+- **Strategic** (leader-declared stress/drain events, goals): role = **Prepare / Build** — even with no adverse signal today, a leader-flagged draining event earns a prepare slot.
+- **Neutral**: frame by the event and what the practice protects, prevents or builds for.
 
-The valence also feeds the band/valence gate in the validator: a positive-evidence slot rejects deficit language ("recover", "reserves", "running low"), and a risk slot rejects push language, as today — but now driven by the *evidence*, not only the MRS band.
-
+The validator's valence gate becomes evidence-driven as well as band-driven: a positive-evidence slot rejects deficit language; a risk slot rejects push language.
 
 ### 2. Rewritten Why-line prompt
 
-- Replace the flat signal dump with an explicit `EVIDENCE (ranked)` block carrying the tier label and confidence of each item.
-- New required output shape: **one sentence, ≤22 words, evidence → outcome** — what the slot *gives* the leader, in the register of "Build resilience for high-demand days", not practice mechanics.
-- Explicitly ban the current stacked shape (`Fact. Fact. Verb: instruction.`), ban restating the practice name, ban naming raw metrics twice.
-- Keep existing persona, band discipline, arc awareness, forbidden vocabulary, pill-consistency rule.
+- Replace the flat signal dump with an `EVIDENCE (ranked)` block carrying tier, valence, confidence and n per item, plus the app-role verb for the slot.
+- Required output: **one sentence stating the evidence** — crisp, specific, ≤~15 words. No stacked facts, no instruction clause, no restating the practice or the title.
+- Keep persona, band discipline, arc awareness, forbidden vocabulary and the pill-consistency rule.
 
-### 3. Deterministic fallback that is genuinely good
+### 3. Deterministic fallback — reuse what exists, don't reinvent
 
-New `buildDeterministicWhyLine()` in the same module, driven by the **same** evidence bundle, with one template per evidence tier (pattern / behavioural / immediate / strategic-only / no-evidence). Slot-scoped anchors only — a slot with no event anchor can never mention another slot's event. This replaces the stacked `composeWhyLine` output for plan slots; the old builder stays only as a last-resort for slots with zero evidence.
+There **is** already a deterministic why path: `composeWhyLine()` plus `buildEventAwareWhyLine()` / `buildModuleEventWhyLine()` and the `strategicAnchorClause` / `tacticalClause` / `immediateClause` builders. The problem is its shape (three stacked clauses + an instruction), not its existence. We keep the plumbing and call sites and replace the composition: one clause, chosen from the highest-ranked evidence item, one template per tier and valence (pattern / behavioural / immediate / strategic-only / cold-start role-only), slot-scoped anchors only so no slot can name another slot's event. Same bundle as the LLM, so LLM and fallback can never disagree on the facts.
 
 ### 4. Slot titles that carry the reason
 
-- Keep the structure (verb + objective + connector + anchor) but change the **objective vocabulary from prose to outcome**, drawn from the same evidence tier that produced the why-line, so title and why-line agree by construction.
-- No-anchor slots stop producing "Land recovery to close the day" and instead use the outcome ladder ("Build resilience for high-demand days", "Set your focus for the morning", "Consolidate what's working") as the crisp title, capped shorter.
-- Because the title now carries the benefit, the ≤6-word italic sub-line (`buildActionFrame`) is derived from the same ladder so the two never duplicate each other.
+- Structure stays verb + objective + connector + anchor, but the verb comes from the **app role** (Protect / Prevent / Prepare / Build) implied by the winning evidence valence, and the objective becomes the executive outcome — `Prevent composure drain before Board Meeting`.
+- No-anchor / light days use the outcome ladder as the title itself: `Protect recovery`, `Build recovery from the morning`, `Set your focus for the morning` — replacing prose like "Land recovery to close the day".
+- The italic action-frame sub-line is dropped from the card since the title now carries it.
 
 ### 5. Verification
 
-- Unit tests for `buildWhyEvidence()` tier selection/ranking and for each deterministic template.
-- Existing validator tests extended: reject the stacked shape, reject metric-only lines.
-- `[plan-provenance]` extended with `whyTier`, `evidenceIds`, `fallback` per slot, then a live plan run for `shukrita@mindmodule.me` to confirm pattern/strategic evidence actually reaches the copy.
+- Unit tests for `buildWhyEvidence()` (tier ranking, valence assignment, cold-start path, positive-signal handling) and for each deterministic template.
+- Validator tests extended: reject stacked shape, metric-only lines, and deficit language on positive evidence.
+- `[plan-provenance]` extended with `whyTier`, `valence`, `evidenceIds`, `fallback`, then a live plan run for `shukrita@mindmodule.me` to confirm pattern and strategic evidence actually reach the copy.
 
 ## Out of scope
 
