@@ -49,23 +49,33 @@ Window heaviness stays what it is today: an additive mention layered on the day-
 
 Both bank holidays drop out as FYI (one home, one regional — both non-load). One meeting remains, already finished. Load reads **light**, the pill reads "1 meeting done", and the narrative stops calling the afternoon heavy.
 
-## Verification
+## Pre-launch scope — three core fixes only
 
-- Today's brief: light, 1 meeting done, no heavy-afternoon claim.
-- The `Australian Holidays` entries already in your calendar: zero load contribution, working-day framing.
-- A home bank holiday with an attendee attached: still a holiday, still zero load.
-- A Google-only meeting on iOS: appears in the brief and counts toward load.
-- Two overlapping distinct meetings: one load unit.
-- Fixture tests for each of the above, asserting the load verdict, the deterministic count and the LLM-facing count are identical.
-- Same brief checked on web and iOS.
+Ship: the view merge, the SSOT wiring, the predicate unification. Everything else is deferred.
+
+**Deferred to immediate post-launch follow-up** (tidying, no correctness or user-visible payoff today):
+
+- Replacing the hardcoded `>= 4` thresholds in `compute-outer-readiness/index.ts` with `LOAD_HIGH_EVENT_COUNT`.
+- Refactoring `generate-mastery-plan`'s local load derivation onto the shared helper.
+
+## Invariants each change is checked against before merge
+
+These are cascade risks, not isolated-correctness risks, and they are verified as merge gates:
+
+1. **One filtered list, constructed once.** The FYI filter runs a single time and the resulting list is passed down to the load verdict, the deterministic count and the LLM-facing count. No consumer re-derives it. A test asserts all three read the same array instance-derived numbers, so call order cannot make the pill and the narrative disagree again.
+2. **Filter runs before counting.** `countLoadUnits` and `mergeCalendarEvents` are only ever called on the post-`isLoadBearingEvent` list, never on raw rows.
+3. **Mirror parity.** `supabase/functions/_shared/rules/calendarEvents.ts` and `src/utils/rules/calendarEvents.ts` stay byte-parallel. The same-day holiday-title collapse lands in both or neither; a parity check compares the two files. Same rule for `calendar-merge.ts`.
+4. **Bounded widening.** `isFyiHolidayCalendar` matching is broadened only over calendar feed names, with negative fixtures for work calendars containing "holiday".
+5. **Clean removal.** Before deleting `PUBLIC_HOLIDAY_RX` from `db-queries.ts`, grep the whole repo for references and imports; the delete only lands if the call site being replaced is the only one.
+
+Rollback is a per-fix revert: the view migration, the SSOT widening and the predicate unification are independently revertable, and none of them depends on the deferred tidying.
 
 ## Technical notes
 
 - **View change (migration):** rewrite `primary_calendar_events` and `web_primary_calendar_events` to return all providers, ranking duplicates by `identity_key` with platform precedence, instead of filtering to a single provider.
 - `_shared/availability/availability-classifier.ts` — widen `isFyiHolidayCalendar` to any holiday-named feed; accept `event_metadata.calendarTitle` as a calendar-name source; confirm the work-evidence rule cannot promote an all-day holiday marker via `attendeesCount >= 1`.
-- `_shared/signal-engine/db-queries.ts` — delete the local `PUBLIC_HOLIDAY_RX`; `isLoadBearingEvent` delegates to the availability SSOT plus `isNoiseTitle`; apply the filter above `computeCalendarDemand`; feed the verdict through `countLoadUnits`.
-- `_shared/signal-engine/_event-utils.ts` — `meetingCount()` adopts the same predicate.
-- `_shared/rules/calendarEvents.ts` (+ `src/utils/rules/calendarEvents.ts` mirror) — same-day near-duplicate holiday-title collapse. The two files stay byte-parallel.
-- `compute-outer-readiness/index.ts` — replace the ~8 hardcoded `>= 4` copy thresholds with `LOAD_HIGH_EVENT_COUNT`.
-- `generate-mastery-plan/index.ts` — replace its local raw-count load derivation with the shared helper.
-- Redeploy `compute-outer-readiness`, `smart-nudges`, `generate-mastery-plan`.
+- `_shared/signal-engine/db-queries.ts` — delete the local `PUBLIC_HOLIDAY_RX` (after the reference grep); `isLoadBearingEvent` delegates to the availability SSOT plus `isNoiseTitle`; apply the filter above `computeCalendarDemand`; feed the verdict through `countLoadUnits`.
+- `_shared/signal-engine/_event-utils.ts` — `meetingCount()` consumes the already-filtered list rather than re-applying a predicate.
+- `_shared/rules/calendarEvents.ts` (+ `src/utils/rules/calendarEvents.ts` mirror) — same-day near-duplicate holiday-title collapse, landed in both files together.
+- Redeploy `compute-outer-readiness` and `smart-nudges`. `generate-mastery-plan` is untouched in this pass.
+
