@@ -122,6 +122,10 @@ import {
   normalizeEventTypeKey,
 } from "../_shared/plan/week-ahead-mode.ts";
 import {
+  hydrateWeekAheadInputs,
+  type WeekAheadHydration,
+} from "../_shared/availability/week-ahead-hydration.ts";
+import {
   DAY_OF_HORIZON_MS,
   gateDayOfAnchor,
   isWithinDayOfHorizon,
@@ -6435,6 +6439,7 @@ async function generateMasteryPlan(
       userLocale: req.userLocale,
       explicitPto: (req as any).explicitPto === true,
       weekAheadOverride: (req as any).weekAheadOverride === true,
+      weekAheadHydration: (req as any).weekAheadHydration ?? null,
     }),
   });
 
@@ -6637,6 +6642,7 @@ async function generateMasteryPlan(
           userLocale: req.userLocale,
           explicitPto: (req as any).explicitPto === true,
           weekAheadOverride: (req as any).weekAheadOverride === true,
+          weekAheadHydration: (req as any).weekAheadHydration ?? null,
         }),
       },
     );
@@ -8533,6 +8539,8 @@ export function deriveStructuralDayFlags(
     userLocale?: UserLocaleContext;
     explicitPto?: boolean;
     weekAheadOverride?: boolean;
+    /** Availability-SSOT hydration (PTO / holiday / long-weekend). */
+    weekAheadHydration?: WeekAheadHydration | null;
   },
 ): {
   hasTravelDay: boolean;
@@ -8593,14 +8601,18 @@ export function deriveStructuralDayFlags(
     localHour: localNow.getUTCHours(),
     travelDay: hasTravelDay,
     fullWorkingWeekend: isFullWorkingWeekend,
-    // This helper does not have tomorrow's full availability block, so keep
-    // last-day PTO/holiday detection conservative here. Dedicated callers can
-    // still force Week-Ahead via `weekAheadOverride`.
-    ptoTodayAllDay: false,
-    ptoTomorrowAllDay: false,
-    holidayAllDayEventToday: false,
-    tomorrowIsWorkday: false,
-    todayIsOffDay: availability.isRestDay || isWeekendRestDay,
+    // Hydrated by the Availability SSOT when the caller has DB access
+    // (`hydrateWeekAheadInputs`). Without it we stay conservative and only
+    // the planning-day / manual-override branches can fire.
+    ptoTodayAllDay: opts?.weekAheadHydration?.ptoTodayAllDay ?? false,
+    ptoTomorrowAllDay: opts?.weekAheadHydration?.ptoTomorrowAllDay ?? false,
+    holidayAllDayEventToday:
+      opts?.weekAheadHydration?.holidayAllDayEventToday ?? false,
+    tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
+    isLastDayOfLongWeekend:
+      opts?.weekAheadHydration?.isLastDayOfLongWeekend ?? false,
+    todayIsOffDay: opts?.weekAheadHydration?.todayIsOffDay ??
+      (availability.isRestDay || isWeekendRestDay),
     manualOverride: opts?.weekAheadOverride === true,
   });
   try {
