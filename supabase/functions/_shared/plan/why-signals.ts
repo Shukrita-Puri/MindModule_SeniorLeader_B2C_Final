@@ -198,6 +198,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
     const conf = normConfidence(row?.confidence);
     if (n < 3 || conf === "weak") continue;
     if (!bucket || lower(row?.event_type || "") !== bucket) continue;
+    const mag = Math.abs(Math.round(delta));
     if (delta <= -10) {
       out.push({
         id: `pattern.event_to_hrv.${row.event_type}`,
@@ -205,7 +206,8 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: conf,
         n,
-        phrase: `Recovery drops after ${noun} — ${countPhrase(n)} times running.`,
+        phrase:
+          `Recovery drops ${mag}% after ${noun} — ${countPhrase(n)} times running.`,
       });
     } else if (delta >= 10) {
       out.push({
@@ -214,7 +216,8 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: conf,
         n,
-        phrase: `You come out of ${noun} recovered, not drained.`,
+        phrase:
+          `You come out of ${noun} ${mag}% recovered, not drained.`,
       });
     }
     if (row?.rhrElevated) {
@@ -241,9 +244,12 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
       valence: "risk",
       confidence: conf,
       n,
-      phrase: `Your heart rate runs high around ${noun}, ${countPhrase(n)} times.`,
+      phrase: `Heart rate runs ${
+        Math.round(delta)
+      }% high around ${noun}, ${countPhrase(n)} times.`,
     });
   }
+
 
   const sleep = ss.sleep_to_prs;
   if (sleep && Number(sleep.n ?? 0) >= 3) {
