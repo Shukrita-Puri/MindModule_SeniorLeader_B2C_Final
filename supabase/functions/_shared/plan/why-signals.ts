@@ -217,7 +217,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         confidence: conf,
         n,
         phrase:
-          `You come out of ${noun} ${mag}% recovered, not drained.`,
+          `Recovery runs ${mag}% higher after ${noun}, not lower.`,
       });
     }
     if (row?.rhrElevated) {
@@ -262,7 +262,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: conf,
         n: Number(sleep.n ?? 0),
-        phrase: `Short sleep reliably costs you performance the next day.`,
+        phrase: `Short sleep costs you ${Math.abs(Math.round(d))}% of next-day performance.`,
       });
     }
   }
@@ -278,7 +278,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: conf,
         n: Number(load.n ?? 0),
-        phrase: `Back-to-back heavy days take a measurable toll on you.`,
+        phrase: `Back-to-back heavy days cost you ${Math.abs(Math.round(d))}% by the tail.`,
       });
     }
   }
@@ -298,7 +298,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: conf,
         n,
-        phrase: `This is the kind of work you consistently perform best in.`,
+        phrase: `You perform ${Math.round(lift)}% better in this kind of work, ${countPhrase(n)} times.`,
       });
     }
   }
@@ -510,7 +510,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
       valence: "risk",
       confidence: "emerging",
       n: 0,
-      phrase: `Clarity is already reading low at check-in.`,
+      phrase: `Clarity came in at ${i.clarity} out of 5 this morning.`,
     });
   }
 
@@ -521,7 +521,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
       valence: "risk",
       confidence: "emerging",
       n: 0,
-      phrase: `Body energy is reading low at check-in.`,
+      phrase: `Body energy came in at ${i.bodyState} out of 5 at check-in.`,
     });
   }
 
