@@ -407,6 +407,8 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
   const i = input.immediate;
 
   if (typeof i.hrvDeltaPct === "number") {
+    // Quantified: the leader sees the size of the move, not just its direction.
+    const mag = Math.abs(Math.round(i.hrvDeltaPct));
     if (i.hrvDeltaPct <= -12) {
       out.push({
         id: "immediate.hrv_down",
@@ -414,7 +416,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: "emerging",
         n: 0,
-        phrase: `Recovery is running below your own baseline this morning.`,
+        phrase: `Recovery is ${mag}% below your own baseline this morning.`,
       });
     } else if (i.hrvDeltaPct >= 15) {
       out.push({
@@ -423,7 +425,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: "emerging",
         n: 0,
-        phrase: `Recovery is running well above your baseline going in.`,
+        phrase: `Recovery is ${mag}% above your baseline going in.`,
       });
     }
   }
@@ -434,6 +436,8 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
     i.restingHRBaseline > 0
   ) {
     const delta = i.restingHR - i.restingHRBaseline;
+    const hr = Math.round(i.restingHR);
+    const base = Math.round(i.restingHRBaseline);
     if (delta >= 3) {
       out.push({
         id: "immediate.rhr_elevated",
@@ -441,7 +445,8 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: "emerging",
         n: 0,
-        phrase: `Resting heart rate is sitting above your baseline.`,
+        phrase:
+          `Resting heart rate is ${hr}bpm against a ${base}bpm baseline.`,
       });
     } else if (delta <= -2) {
       out.push({
@@ -450,10 +455,11 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: "emerging",
         n: 0,
-        phrase: `Resting heart rate has settled back to baseline.`,
+        phrase: `Resting heart rate is back to ${hr}bpm, at your baseline.`,
       });
     }
   }
+
 
   if (typeof i.sleepScore === "number") {
     if (i.sleepScore < 65) {
