@@ -17,7 +17,7 @@ Confirmed from the render logic: with a renderable MRS snapshot the neutral awai
 Scope is strictly this. Awaiting behaviour when data genuinely is missing stays exactly as it is on all three cards.
 
 - In `compute-outer-readiness`: one LLM attempt, then fall straight through to the deterministic brief rather than retrying into an empty result. A brief row is never persisted with empty copy when a score exists — the deterministic output is the hard floor.
-- On the client: when a score is visible, the copy-only branch renders the deterministic read, never the "connect your wearable and calendar" line.
+- On the client: when a score is visible, the copy-only branch renders the read — LLM on first try, deterministic if that fails — and never renders empty, and never the "connect your wearable and calendar" line while signals are present (signal pills have data and MRS has a score).
 - Record the fallback reason in the existing `[brief-provenance]` log.
 
 ## 3. Plan slot titles: real differentiation, not a time-of-day suffix
