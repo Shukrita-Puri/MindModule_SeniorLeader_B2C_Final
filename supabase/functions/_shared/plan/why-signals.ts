@@ -198,6 +198,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
     const conf = normConfidence(row?.confidence);
     if (n < 3 || conf === "weak") continue;
     if (!bucket || lower(row?.event_type || "") !== bucket) continue;
+    const mag = Math.abs(Math.round(delta));
     if (delta <= -10) {
       out.push({
         id: `pattern.event_to_hrv.${row.event_type}`,
@@ -205,7 +206,8 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: conf,
         n,
-        phrase: `Recovery drops after ${noun} — ${countPhrase(n)} times running.`,
+        phrase:
+          `Recovery drops ${mag}% after ${noun} — ${countPhrase(n)} times running.`,
       });
     } else if (delta >= 10) {
       out.push({
@@ -214,7 +216,8 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: conf,
         n,
-        phrase: `You come out of ${noun} recovered, not drained.`,
+        phrase:
+          `Recovery runs ${mag}% higher after ${noun}, not lower.`,
       });
     }
     if (row?.rhrElevated) {
@@ -241,9 +244,12 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
       valence: "risk",
       confidence: conf,
       n,
-      phrase: `Your heart rate runs high around ${noun}, ${countPhrase(n)} times.`,
+      phrase: `Heart rate runs ${
+        Math.round(delta)
+      }% high around ${noun}, ${countPhrase(n)} times.`,
     });
   }
+
 
   const sleep = ss.sleep_to_prs;
   if (sleep && Number(sleep.n ?? 0) >= 3) {
@@ -256,7 +262,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: conf,
         n: Number(sleep.n ?? 0),
-        phrase: `Short sleep reliably costs you performance the next day.`,
+        phrase: `Short sleep costs you ${Math.abs(Math.round(d))}% of next-day performance.`,
       });
     }
   }
@@ -272,7 +278,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: conf,
         n: Number(load.n ?? 0),
-        phrase: `Back-to-back heavy days take a measurable toll on you.`,
+        phrase: `Back-to-back heavy days cost you ${Math.abs(Math.round(d))}% by the tail.`,
       });
     }
   }
@@ -292,7 +298,7 @@ function patternEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: conf,
         n,
-        phrase: `This is the kind of work you consistently perform best in.`,
+        phrase: `You perform ${Math.round(lift)}% better in this kind of work, ${countPhrase(n)} times.`,
       });
     }
   }
@@ -376,6 +382,22 @@ function strategicEvidence(input: WhyEvidenceInput): WhyEvidence[] {
     }
   }
 
+  // Named growth goal — the leader's own words, used verbatim.
+  if (out.length === 0) {
+    for (const goal of s.goals || []) {
+      if (!goal || !matches(goal)) continue;
+      out.push({
+        id: `strategic.goal.${goal}`,
+        tier: "strategic",
+        valence: "strategic",
+        confidence: "strong",
+        n: 0,
+        phrase: `This is where your goal of ${lower(goal)} gets tested.`,
+      });
+      break;
+    }
+  }
+
   if (out.length === 0) {
     const burden = (s.burdenChips || [])[0];
     if (burden) {
@@ -407,6 +429,8 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
   const i = input.immediate;
 
   if (typeof i.hrvDeltaPct === "number") {
+    // Quantified: the leader sees the size of the move, not just its direction.
+    const mag = Math.abs(Math.round(i.hrvDeltaPct));
     if (i.hrvDeltaPct <= -12) {
       out.push({
         id: "immediate.hrv_down",
@@ -414,7 +438,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: "emerging",
         n: 0,
-        phrase: `Recovery is running below your own baseline this morning.`,
+        phrase: `Recovery is ${mag}% below your own baseline this morning.`,
       });
     } else if (i.hrvDeltaPct >= 15) {
       out.push({
@@ -423,7 +447,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: "emerging",
         n: 0,
-        phrase: `Recovery is running well above your baseline going in.`,
+        phrase: `Recovery is ${mag}% above your baseline going in.`,
       });
     }
   }
@@ -434,6 +458,8 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
     i.restingHRBaseline > 0
   ) {
     const delta = i.restingHR - i.restingHRBaseline;
+    const hr = Math.round(i.restingHR);
+    const base = Math.round(i.restingHRBaseline);
     if (delta >= 3) {
       out.push({
         id: "immediate.rhr_elevated",
@@ -441,7 +467,8 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: "emerging",
         n: 0,
-        phrase: `Resting heart rate is sitting above your baseline.`,
+        phrase:
+          `Resting heart rate is ${hr}bpm against a ${base}bpm baseline.`,
       });
     } else if (delta <= -2) {
       out.push({
@@ -450,12 +477,14 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: "emerging",
         n: 0,
-        phrase: `Resting heart rate has settled back to baseline.`,
+        phrase: `Resting heart rate is back to ${hr}bpm, at your baseline.`,
       });
     }
   }
 
+
   if (typeof i.sleepScore === "number") {
+    const s = Math.round(i.sleepScore);
     if (i.sleepScore < 65) {
       out.push({
         id: "immediate.sleep_short",
@@ -463,7 +492,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: "emerging",
         n: 0,
-        phrase: `Sleep ran short last night.`,
+        phrase: `Sleep scored ${s} last night, under your usual mark.`,
       });
     } else if (i.sleepScore >= 85) {
       out.push({
@@ -472,10 +501,11 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: "emerging",
         n: 0,
-        phrase: `Sleep landed well last night.`,
+        phrase: `Sleep scored ${s} last night — you banked the recovery.`,
       });
     }
   }
+
 
   if (typeof i.backToBackCount === "number" && i.backToBackCount >= 4) {
     out.push({
@@ -496,7 +526,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
       valence: "risk",
       confidence: "emerging",
       n: 0,
-      phrase: `Clarity is already reading low at check-in.`,
+      phrase: `Clarity came in at ${i.clarity} out of 5 at check-in.`,
     });
   }
 
@@ -507,7 +537,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
       valence: "risk",
       confidence: "emerging",
       n: 0,
-      phrase: `Body energy is reading low at check-in.`,
+      phrase: `Body energy came in at ${i.bodyState} out of 5 at check-in.`,
     });
   }
 

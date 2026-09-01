@@ -7908,6 +7908,8 @@ async function applyV51Enrichment(
   ) || (req.calendarEvents || []).length <= 1;
   // Deterministic Why-line bank guard: no two slots may ship the same line.
   const usedWhyLines = new Set<string>();
+  // Slot titles already issued today — keeps sibling slots from repeating copy.
+  const usedSlotTitles = new Set<string>();
 
   modules.forEach((hm, idx) => {
     // Slot purpose tagging
@@ -8035,8 +8037,12 @@ async function applyV51Enrichment(
       phase: ((hm as any).jitPhase as "pre" | "during" | "post") ?? null,
       timeOfDay: timeOfDayForWhy,
       lightDay,
+      avoidTitles: [...usedSlotTitles],
     });
-    if (contractTitle) hm.timeLabel = contractTitle;
+    if (contractTitle) {
+      hm.timeLabel = contractTitle;
+      usedSlotTitles.add(contractTitle);
+    }
 
     // The italic action-frame sub-line is retired — the title now carries the
     // "what + how", so a second frame only repeats it.
@@ -8098,12 +8104,16 @@ async function applyV51Enrichment(
         phase,
         isTomorrow,
         timeOfDay: timeOfDayForWhy,
+        avoidTitles: [...usedSlotTitles],
       }) || buildPriorityTitle({
         slotAnchor,
         isTomorrow,
         practicePriorityTag: req.practicePriorityTag ?? null,
       });
-      if (newTitle) hm.timeLabel = newTitle;
+      if (newTitle) {
+        hm.timeLabel = newTitle;
+        usedSlotTitles.add(newTitle);
+      }
       // Stash arc verb so the client can render the chip without re-deriving.
       (hm as any).arcVerb = verbForCategoryPhase(category, phase);
 

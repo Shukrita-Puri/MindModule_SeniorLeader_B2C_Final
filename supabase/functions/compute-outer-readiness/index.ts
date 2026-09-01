@@ -85,6 +85,7 @@ import {
   validatePillBodyConsistency,
 } from "../_shared/brief-validators.ts";
 import {
+  type BriefDayState,
   buildDeterministicBriefFallback,
   type DeterministicBriefBand,
   type DeterministicBriefPillTier,
@@ -4675,6 +4676,10 @@ serve(async (req) => {
     // LLM block where all in-scope variables are visible, read further
     // down by the briefSource / responsePhrase / responseBody logic.
     let deterministicBrief: DeterministicBriefResult | null = null;
+    // Copy-floor telemetry: set when the deterministic brief was served
+    // despite a validator reject because an MRS score is visible.
+    let deterministicFloorApplied = false;
+    let deterministicFloorReason: string | null = null;
     let llmFallbackReason: string | null = null;
     // Per-attempt diagnostic records persisted on every brief_snapshots write.
     // Replaces the prior hard-coded `llm_attempts: null`. Each record:
@@ -4771,6 +4776,8 @@ serve(async (req) => {
     // Day shape derived from the snapshot below (holiday / PTO / travel type /
     // conference). Declared here so the prompt scope can read it.
     let briefDayShape: DayShape | null = null;
+    // Week-Ahead day state (language only) — see week-ahead-hydration block.
+    let briefDayState: BriefDayState = "none";
     let briefTravelPhase: TravelPhase = null;
     // Part 1A — the single resolved narrative (family + anchor + phase +
     // depletion) shared by the LLM prompt, the deterministic renderer, and
@@ -5063,6 +5070,27 @@ serve(async (req) => {
           active: _wam.active,
           trigger: (_wam as any).trigger ?? null,
         });
+        // Day-state SSOT for Brief copy (language only). Derived once here
+        // from the same hydration the Plan uses so both cards agree on
+        // "last day of the weekend / long weekend / holiday block".
+        {
+          const isWeekendToday = isBriefWeekendDay(
+            dayOfWeek,
+            localeWeekendHomeCountry,
+          );
+          briefDayState = _hydration.isLastDayOfLongWeekend
+            ? "last_day_of_long_weekend"
+            : (_hydration.ptoTodayAllDay && _hydration.tomorrowIsWorkday)
+            ? "pto"
+            : _hydration.holidayAllDayEventToday
+            ? "public_holiday"
+            : (isWeekendToday && _hydration.tomorrowIsWorkday)
+            ? "last_day_of_weekend"
+            : _hydration.todayIsOffDay
+            ? "rest_day"
+            : "none";
+          console.log("[week-ahead-hydration][brief] dayState", briefDayState);
+        }
         if (_wam.active) {
           (theme as { driver: ThemeDriver }).driver = "week_recap";
         }
@@ -7302,6 +7330,28 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           userPrompt += `\n\n=== BUCKET 2: CALENDAR & DAY SHAPE ===`;
           userPrompt +=
             `\nWhat today, yesterday, and tomorrow demand — and what kind of day this is.`;
+
+          // === DAY STATE (hard fact, shared with the Plan) ===
+          if (briefDayState && briefDayState !== "none") {
+            userPrompt += `\n\n=== DAY STATE (HARD FACT) ===`;
+            userPrompt += `\nday_state: ${briefDayState}`;
+            if (
+              briefDayState === "last_day_of_long_weekend" ||
+              briefDayState === "last_day_of_weekend"
+            ) {
+              userPrompt += `\nREQUIRED FRAME: name it as the last day of the ${
+                briefDayState === "last_day_of_long_weekend"
+                  ? "long weekend"
+                  : "weekend"
+              }. State the aim: hold the recovery and set up the week. The week ahead is what comes next — the Plan is already showing the week ahead, so your language must hand off to it. Do NOT issue work directives for today.`;
+            } else if (briefDayState === "pto") {
+              userPrompt += `\nREQUIRED FRAME: today is time off that closes into a workday. Hold recovery; a light frame on the week ahead is enough.`;
+            } else if (briefDayState === "public_holiday") {
+              userPrompt += `\nREQUIRED FRAME: today is a public holiday. No work directives; protect the day and set up the return.`;
+            } else if (briefDayState === "rest_day") {
+              userPrompt += `\nREQUIRED FRAME: today is an off day. No work directives.`;
+            }
+          }
 
           // === CALENDAR TODAY ===
           if (calendarLoad) {
@@ -9774,6 +9824,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 // LLM path (travel, conference, off-day) instead of collapsing
                 // a Sunday flight into plain weekend copy.
                 dayShape: briefDayShape ?? null,
+                // Language-only day state shared with the Plan.
+                dayState: briefDayState,
                 travelPhase: briefTravelPhase ?? null,
                 longHaulFlight:
                   !!briefBehaviourSnapshot?.signals?.longHaulFlight,
@@ -9847,6 +9899,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   console.log(
                     `[compute-outer-readiness] [DETERMINISTIC] ACCEPTED (deterministic-brief-a8) | band=${specBuilt.phrase} | validatorOk=true`,
                   );
+                } else if (typeof scoreForBand === "number") {
+                  // COPY FLOOR: when a score is visible to the user, the Brief
+                  // must never render empty. A validator drift on deterministic
+                  // copy is a quality regression, not a reason to downgrade the
+                  // card to "awaiting" while MRS shows a number.
+                  deterministicBrief = specBuilt;
+                  deterministicFloorApplied = true;
+                  deterministicFloorReason = specValidation.reason ?? "unknown";
+                  console.warn(
+                    `[compute-outer-readiness] [DETERMINISTIC] FLOOR-ACCEPTED (validator bypassed, score visible) | reason=${specValidation.reason} | window=${getTimeOfDay(hour)}`,
+                  );
                 } else {
                   deterministicBrief = null;
                   console.warn(
@@ -9854,6 +9917,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   );
                 }
               }
+
 
             } catch (detSpecErr) {
               console.error(
@@ -9891,13 +9955,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         producer: llmBrief
           ? "llm_accepted"
           : deterministicBrief
-          ? "llm_rejected_deterministic"
+          ? (deterministicFloorApplied
+            ? "deterministic_copy_floor"
+            : "llm_rejected_deterministic")
           : "awaiting",
+        copyFloorApplied: deterministicFloorApplied,
+        copyFloorReason: deterministicFloorReason,
         llmAttemptCount: llmAttemptRecords.length,
         llmRejectionCodes: rejectionCodes,
         window: getTimeOfDay(hour),
         band: prov?.band ?? null,
         dayShape: briefDayShape ?? null,
+        dayState: briefDayState,
         branch: prov?.branch ?? null,
         narrativeFamily: prov?.narrativeFamily ?? briefLeadNarrative?.family ?? null,
         windowContextSupplied: briefWindowContext != null,
@@ -10101,14 +10170,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // A valid deterministic brief or an adopted canonical score means the user
       // should always see content — never force awaiting when either exists.
       const hasDeterministicBrief = deterministicBrief !== null;
+      // COPY FLOOR: an MRS score is visible AND we have real copy (LLM or
+      // deterministic). In that state the Brief must render the read — the
+      // three executive cards may not disagree with each other. Awaiting
+      // behaviour when data is genuinely absent is untouched: this only
+      // fires when a score exists and copy was produced.
+      const briefCopyFloorActive = typeof canonicalInnerScore === "number" &&
+        (!!llmBrief || hasDeterministicBrief);
       // The Brief is forced to awaiting when no current personal signal exists,
       // regardless of a cached LLM/deterministic brief or a canonical score.
       // This preserves MRS/Plan/Calendar signals while preventing calendar-only
       // or stale-cache brief prose from reaching the user.
-      const briefMustAwait = briefAwaitingSignals ||
+      const briefMustAwait = !briefCopyFloorActive && (briefAwaitingSignals ||
         ((awaitingSignals || innerStateIsAwaiting) &&
           !hasDeterministicBrief &&
-          typeof canonicalInnerScore !== "number");
+          typeof canonicalInnerScore !== "number"));
 
       const briefIsAwaiting = briefMustAwait ||
         (!cachedSnapshot && !llmBrief && !deterministicBrief);

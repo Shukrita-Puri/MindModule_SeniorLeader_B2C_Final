@@ -71,6 +71,23 @@ function ensureLexiconCluster(
   return body.endsWith(".") ? `${body.slice(0, -1)}, and ${clause}.` : `${body}, and ${clause}.`;
 }
 
+/**
+ * Week-Ahead day state — the shared vocabulary between Brief and Plan for
+ * "what kind of day is this, and is it the last one before the week starts".
+ */
+export type BriefDayState =
+  | "none"
+  | "pto"
+  | "public_holiday"
+  | "last_day_of_long_weekend"
+  | "last_day_of_weekend"
+  | "rest_day";
+
+/** True for the day-states that close into a workday. */
+export function isLastDayState(s: BriefDayState | null | undefined): boolean {
+  return s === "last_day_of_long_weekend" || s === "last_day_of_weekend";
+}
+
 export interface DeterministicBriefFallbackOpts {
   band: DeterministicBriefBand;
   hasWearable: boolean;
@@ -123,6 +140,14 @@ export interface DeterministicBriefFallbackOpts {
    * conference, public_holiday, pto, personal_holiday, weekend, workday.
    */
   dayShape?: DayShape | null;
+  /**
+   * Week-Ahead day state, hydrated once by
+   * `_shared/availability/week-ahead-hydration.ts` and shared with the Plan
+   * so both surfaces speak the same language about the last day of a
+   * weekend / long weekend / holiday / PTO block. Language only — it never
+   * changes scoring, slots or gating.
+   */
+  dayState?: BriefDayState | null;
   /** Travel phase for work_travel / personal_travel shapes. */
   travelPhase?: "pre" | "in_transit" | "post" | null;
   /** True when today's travel event is long-haul (>=6h). */
@@ -1123,6 +1148,20 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
     return `${dayRef}: sustain presence across the sessions that earn it. Let the others pass through you`;
   }
 
+  // ── LAST DAY OF A WEEKEND / LONG WEEKEND / HOLIDAY BLOCK ──
+  // Same language family the Plan uses when it flips to Week Ahead, so the
+  // handoff between the two cards reads as one voice.
+  if (isLastDayState(opts.dayState)) {
+    const longWeekend = opts.dayState === "last_day_of_long_weekend";
+    const frame = longWeekend
+      ? "This is the last day of the long weekend"
+      : "This is the last day of the weekend";
+    if (anyStrained || lowBand) {
+      return `${frame} — the job today is to hold the recovery, not spend it. Set the week up from a settled state, then let the week ahead be tomorrow's work`;
+    }
+    return `${frame} — hold what the break gave you and put a light frame around the week ahead. Nothing today needs to be delivered`;
+  }
+
   // ── PUBLIC HOLIDAY / PTO / PERSONAL HOLIDAY ──
   if (
     shape === "public_holiday" || shape === "pto" ||
@@ -1241,6 +1280,11 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
         ? "and protect what's left for the sessions that matter."
         : "and protect the state for what tomorrow opens with.",
     );
+  }
+
+  // ── Last-day close — hands off to the Week Ahead the Plan is showing ──
+  if (isLastDayState(opts.dayState)) {
+    return ensureCloseLexicon("and start the week from what today protected.");
   }
 
   // ── Non-workday close (holiday / PTO) ──

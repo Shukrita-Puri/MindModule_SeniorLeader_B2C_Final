@@ -146,34 +146,86 @@ export interface ContractTitleInput {
   timeOfDay?: "morning" | "afternoon" | "evening" | null;
   /** True when the day carries no selected high-stakes event. */
   lightDay?: boolean;
+  /**
+   * Titles already used by earlier slots today. Unanchored slots fall down an
+   * alternate ladder rather than repeating a sibling word-for-word.
+   */
+  avoidTitles?: string[];
+}
+
+/** Unanchored ladders, in order of preference, per role + window. */
+function unanchoredLadder(
+  role: SlotRole,
+  outcome: string,
+  win: "morning" | "afternoon" | "evening" | null,
+): string[] {
+  if (role === "Build") {
+    return win === "evening"
+      ? [
+        "Build recovery for tomorrow",
+        "Bank capacity for tomorrow",
+        "Build the base tomorrow runs on",
+      ]
+      : [
+        "Build resilience for high-demand days",
+        "Build capacity before the load returns",
+        "Widen your margin for heavy days",
+      ];
+  }
+  if (role === "Protect") {
+    return win === "evening"
+      ? [
+        "Protect recovery tonight",
+        "Protect the night's recovery",
+        "Hold recovery through the evening",
+      ]
+      : [`Protect ${outcome}`, `Hold ${outcome} where it is`, `Keep ${outcome} intact`];
+  }
+  if (role === "Prevent") {
+    return win === "evening"
+      ? [
+        "Prevent the day carrying over",
+        "Stop the day following you home",
+        "Close the day before it carries",
+      ]
+      : [`Prevent ${outcome}`, `Head off ${outcome}`, `Cut ${outcome} early`];
+  }
+  if (win === "morning") {
+    return [
+      "Set your focus for the morning",
+      "Set the tone before the morning starts",
+      `Prepare ${outcome} for the morning`,
+    ];
+  }
+  if (win === "afternoon") {
+    return [
+      "Hold your focus through the afternoon",
+      "Carry your focus into the afternoon",
+      `Prepare ${outcome} for the afternoon`,
+    ];
+  }
+  return [
+    `Prepare ${outcome} for what's ahead`,
+    `Get ${outcome} ready for what's next`,
+    `Set up ${outcome} before it's needed`,
+  ];
 }
 
 /**
  * Deterministic contract title. Anchored slots name the event; light days use
  * the outcome ladder ("Protect recovery", "Set your focus for the morning").
+ * Sibling slots never repeat a title: `avoidTitles` walks the ladder on.
  */
 export function buildContractTitle(input: ContractTitleInput): string {
   const { role, outcome } = input;
   const anchor = (input.anchorTitle || "").trim();
+  const taken = new Set(
+    (input.avoidTitles || []).map((t) => String(t || "").trim().toLowerCase()),
+  );
 
   if (!anchor) {
-    const win = input.timeOfDay ?? null;
-    if (role === "Build") {
-      return win === "evening"
-        ? "Build recovery for tomorrow"
-        : "Build resilience for high-demand days";
-    }
-    if (role === "Protect") {
-      return win === "evening" ? "Protect recovery tonight" : `Protect ${outcome}`;
-    }
-    if (role === "Prevent") {
-      return win === "evening"
-        ? "Prevent the day carrying over"
-        : `Prevent ${outcome}`;
-    }
-    if (win === "morning") return "Set your focus for the morning";
-    if (win === "afternoon") return "Hold your focus through the afternoon";
-    return `Prepare ${outcome} for what's ahead`;
+    const ladder = unanchoredLadder(role, outcome, input.timeOfDay ?? null);
+    return ladder.find((t) => !taken.has(t.toLowerCase())) ?? ladder[0];
   }
 
   const connector = connectorFor(role, input.phase ?? null);
@@ -251,13 +303,15 @@ export const COPY_CONTRACT_BLOCK = [
   `- One sentence, one clause, ${WHY_WORD_CAP} words or fewer.`,
   `- State the signal. Never give an instruction, never use a colon-instruction tail.`,
   `- Never repeat the title's verb or outcome. Never name the practice. Never tell them what to do.`,
-  `- Prefer a pattern with its count ("before your last three board meetings") over one raw reading.`,
+  `- QUANTIFY. Carry a number from the evidence — a reading ("58bpm against a 54bpm baseline"), a percentage ("recovery 14% below baseline"), a count ("your last three board meetings"), or a score ("clarity at 2 out of 5").`,
+  `- If the evidence carries no number, name the leader's own words instead — the goal, stake or drain they declared. Never write a vague claim with neither.`,
+  `- Never invent a number. Only numbers present in the evidence block may appear.`,
   ``,
   `Worked examples (title → why):`,
   `- "Prevent composure drain before Board Meeting" → "Elevated heart rate before your last three board meetings."`,
-  `- "Protect your edge into the Board Meeting" → "Recovery is running well above your baseline going in."`,
+  `- "Protect your edge into the Board Meeting" → "Recovery is 18% above your baseline going in."`,
   `- "Prepare presence for the Investor Call" → "You flagged investor calls as your biggest drain."`,
-  `- "Prevent decision drift across the afternoon" → "Six meetings back-to-back with clarity already reading low."`,
-  `- "Protect recovery" → "Sleep ran short and nothing heavy is on the calendar."`,
+  `- "Prevent decision drift across the afternoon" → "Six meetings back-to-back with clarity at 2 out of 5."`,
+  `- "Protect recovery" → "Resting heart rate is 58bpm against a 54bpm baseline."`,
   `- "Build resilience for high-demand days" → "Early days — this is the base your harder weeks run on."`,
 ].join("\n");
