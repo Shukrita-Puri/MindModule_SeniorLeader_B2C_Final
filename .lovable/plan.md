@@ -35,11 +35,12 @@ Confirmed: with no anchored event, `buildContractTitle` returns the no-anchor la
 - Why-lines must name the evidence, in both the LLM contract and the deterministic path:
   - Numeric evidence prints its number: "Resting heart rate has settled back to baseline" → "Your RHR is back to your 58bpm baseline."
   - Strategic evidence names the source fact: "You identified <goal> as a growth goal" — sourced today from onboarding v8 (`protection_goals` / growth intention), with the composer written so coach, roleplay and end-of-day / reframe notes can feed the same slot later.
+  - Tactical and behavioural evidence follow the same name-the-fact rule. Which of the four signal types a line uses, and the existing relevance ranking that picks it, are unchanged.
 - Applies to `why-llm.ts` (contract + validator), the evidence composer in `why-signals.ts`, and the rows in `why-fallback-bank.ts`.
-- Tests: when the top evidence item carries a value or a named goal, the rendered line contains it.
+- Tests: when the top evidence item carries a value or a named fact, the rendered line contains it.
 
 ## Technical notes
 
 Files: `_shared/brief/deterministic-brief.ts`, `_shared/brief/copy-vocabulary.ts`, `compute-outer-readiness/index.ts`, `_shared/plan/copy-contract.ts`, `_shared/plan/action-frame.ts`, `_shared/plan/why-signals.ts`, `_shared/plan/why-llm.ts`, `_shared/plan/why-fallback-bank.ts`, `generate-mastery-plan/index.ts`, `src/components/home/DecisionReadinessBrief.tsx`, `src/components/home/TodayThreePriorities.tsx`. Deploys: `compute-outer-readiness`, `generate-mastery-plan`.
 
-No changes to MRS scoring, pill tiering, or awaiting behaviour when signals are genuinely absent.
+Launch-safety: two days from launch, so the blast radius is exactly the four items above. No changes to MRS scoring, pill tiering, evidence ranking, practice selection, awaiting behaviour when signals are genuinely absent, or any other surface or feature.
