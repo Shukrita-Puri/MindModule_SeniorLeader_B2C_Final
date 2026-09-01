@@ -44,7 +44,7 @@ import {
   getReadinessStateLabel,
 } from '@/utils/readinessLabels';
 import { useAwaitingSignalsCopy } from '@/hooks/useAwaitingSignalsCopy';
-import { AwaitingSignalsNotice } from '@/components/home/AwaitingSignalsNotice';
+import { AwaitingSignalsNotice, WRITING_READ_LABEL, WRITING_READ_COPY } from '@/components/home/AwaitingSignalsNotice';
 import { useMrsSnapshot, isMrsVisible } from '@/hooks/useMrsSnapshot';
 
 
@@ -2667,10 +2667,14 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         />
       )}
 
-      {/* 4c. COPY-ONLY AWAITING — score payload present but LLM copy missing. */}
+      {/* 4c. COPY-ONLY AWAITING — score payload present but written copy is
+          missing. Signals exist (the score proves it), so this must never
+          print the "connect your wearable and calendar" line; it says the
+          read is still being written. */}
       {showCopyOnlyAwaiting && (
         <AwaitingSignalsNotice
-          copy={awaitingCopy}
+          label={WRITING_READ_LABEL}
+          copy={WRITING_READ_COPY}
           className={SHOW_BRIEF_SCORE_AND_TIER ? "mt-4" : "mt-5"}
         />
       )}
