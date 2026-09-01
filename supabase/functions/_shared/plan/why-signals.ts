@@ -382,6 +382,22 @@ function strategicEvidence(input: WhyEvidenceInput): WhyEvidence[] {
     }
   }
 
+  // Named growth goal — the leader's own words, used verbatim.
+  if (out.length === 0) {
+    for (const goal of s.goals || []) {
+      if (!goal || !matches(goal)) continue;
+      out.push({
+        id: `strategic.goal.${goal}`,
+        tier: "strategic",
+        valence: "strategic",
+        confidence: "strong",
+        n: 0,
+        phrase: `This is where your goal of ${lower(goal)} gets tested.`,
+      });
+      break;
+    }
+  }
+
   if (out.length === 0) {
     const burden = (s.burdenChips || [])[0];
     if (burden) {
@@ -510,7 +526,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
       valence: "risk",
       confidence: "emerging",
       n: 0,
-      phrase: `Clarity came in at ${i.clarity} out of 5 this morning.`,
+      phrase: `Clarity came in at ${i.clarity} out of 5 at check-in.`,
     });
   }
 
