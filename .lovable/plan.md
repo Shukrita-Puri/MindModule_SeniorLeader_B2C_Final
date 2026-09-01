@@ -4,8 +4,9 @@
 
 The hydration helper (`_shared/availability/week-ahead-hydration.ts`) already runs in both `generate-mastery-plan` and `compute-outer-readiness`, so both know PTO / public-holiday / long-weekend state. This item is language only.
 
-- Pass the hydration verdict into the Brief as an explicit day-state field (`none | pto | public_holiday | last_day_of_long_weekend | rest_day`) instead of re-deriving it.
-- On the last day of a long weekend (or holiday/PTO closing into a workday), the Brief names it and states the aim: it is the last day, today's job is to hold recovery and set up the week, and the week ahead is what's next. Same wording family the Plan uses when it flips to Week Ahead, so the handoff reads seamless.
+- Pass the hydration verdict into the Brief as an explicit day-state field (`none | pto | public_holiday | last_day_of_long_weekend | last_day_of_weekend | rest_day`) instead of re-deriving it.
+- The same language covers the last day of a *regular* weekend: Sunday for most countries, Saturday for the Gulf states and Israel, using the existing `planningDayOfWeek` / `weekendDays` locale logic (no new locale rules).
+- On that last day — long weekend, holiday, PTO closing into a workday, or a normal weekend — the Brief names it and states the aim: it is the last day, today's job is to hold recovery and set up the week, and the week ahead is what's next. Same wording family the Plan uses when it flips to Week Ahead, so the handoff reads seamless.
 - Both paths know it: the LLM prompt gets the day-state as a hard fact with the required frame, and the deterministic brief has the matching frame as its floor.
 - Plan behaviour on that day is unchanged beyond already showing Week Ahead — the three slots are not touched here.
 
