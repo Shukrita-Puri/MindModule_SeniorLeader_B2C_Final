@@ -462,6 +462,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
 
 
   if (typeof i.sleepScore === "number") {
+    const s = Math.round(i.sleepScore);
     if (i.sleepScore < 65) {
       out.push({
         id: "immediate.sleep_short",
@@ -469,7 +470,7 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "risk",
         confidence: "emerging",
         n: 0,
-        phrase: `Sleep ran short last night.`,
+        phrase: `Sleep scored ${s} last night, under your usual mark.`,
       });
     } else if (i.sleepScore >= 85) {
       out.push({
@@ -478,10 +479,11 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         valence: "positive",
         confidence: "emerging",
         n: 0,
-        phrase: `Sleep landed well last night.`,
+        phrase: `Sleep scored ${s} last night — you banked the recovery.`,
       });
     }
   }
+
 
   if (typeof i.backToBackCount === "number" && i.backToBackCount >= 4) {
     out.push({
