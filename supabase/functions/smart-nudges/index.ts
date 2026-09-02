@@ -397,6 +397,23 @@ import {
 import { EVENT_PHASE_MAP } from "../_shared/events/event-phase-map.ts";
 import { PROTOCOL_COMBOS } from "../_shared/protocols/protocol-combos.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
+// Launch contract: metric framing + event-phase wording are shared SSOTs so
+// the deterministic bank and the LLM validator obey identical semantics.
+import {
+  containsGenericCostSuffix,
+  isCausalClaimAllowed,
+  type MetricKind,
+  metricPolarity,
+  patternClaimSentence,
+  validateMetricPolarityInCopy,
+} from "../_shared/nudges/metric-polarity.ts";
+import {
+  type EventPhase,
+  isFullDayArc,
+  phaseClause,
+  resolveEventPhase,
+  validateEventPhaseInCopy,
+} from "../_shared/nudges/event-phase.ts";
 
 // ── Canonical Travel-phase copy adapter ──
 // Mirrors the `copyForPhase` pattern used by `travel-notifications`. Smart-
@@ -1301,6 +1318,64 @@ function buildSharedEventFrameLine(
 ): string {
   const frame = buildActionFrameForEvent(eventTitle, "pre");
   return frame ? `- Shared event frame: ${frame}` : "";
+}
+
+/**
+ * Resolve the send-time phase of the named event against the user's calendar.
+ * Prevents the launch bug where a block already running (e.g. an OHS arc
+ * 10:00–15:00 referenced at noon) was described as "next".
+ */
+function resolveCtxEventPhase(
+  ctx: NudgeContext,
+  eventTitle: string | null | undefined,
+): { phase: EventPhase; clause: string; fullDayArc: boolean } | null {
+  const title = (eventTitle ?? "").trim().toLowerCase();
+  if (!title) return null;
+  const pool = [...ctx.highStakesEvents, ...ctx.nonNoiseEvents];
+  const match = pool.find((e) =>
+    (e.title ?? "").trim().toLowerCase() === title
+  ) ?? pool.find((e) => (e.title ?? "").trim().toLowerCase().includes(title));
+  if (!match?.start_time) return null;
+  const startMs = new Date(match.start_time).getTime();
+  if (!Number.isFinite(startMs)) return null;
+  const endRaw = match.end_time ? new Date(match.end_time).getTime() : NaN;
+  const endMs = Number.isFinite(endRaw) ? endRaw : startMs + 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const phase = resolveEventPhase({ startMs, endMs, nowMs });
+  return {
+    phase,
+    clause: phaseClause(match.title ?? eventTitle ?? "", phase, {
+      startMs,
+      endMs,
+      nowMs,
+    }),
+    fullDayArc: isFullDayArc(startMs, endMs),
+  };
+}
+
+/**
+ * Readiness-state provenance for prompts. Copy may only assert how the user
+ * "started" when a real morning check-in exists. Otherwise the model is told
+ * explicitly not to claim a state.
+ */
+function buildStateProvenanceLines(ctx: NudgeContext): string {
+  const outcome = ctx.morningCheckinOutcome;
+  if (outcome && LOW_TIERS.includes(outcome)) {
+    return [
+      `- Morning check-in (user-reported): ${outcome}`,
+      `- State claim allowed: yes — you may say the morning read was low.`,
+    ].join("\n");
+  }
+  if (outcome) {
+    return [
+      `- Morning check-in (user-reported): ${outcome}`,
+      `- State claim allowed: describe it accurately as ${outcome}. NEVER say it was low.`,
+    ].join("\n");
+  }
+  return [
+    `- Morning check-in: none recorded today`,
+    `- State claim allowed: NO. Do not say the morning "was low", "started low", or assert any felt state. Anchor on the calendar and the plan instead.`,
+  ].join("\n");
 }
 
 function resolveMorningAnchorWindow(
@@ -2549,9 +2624,11 @@ async function generateNudgeCopy(
   specificSignals: Record<string, unknown> = {},
   supabase?: SupabaseLoose,
 ): Promise<NudgeCopy | null> {
-  const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!ANTHROPIC_API_KEY) {
-    console.warn("[smart-nudges] No ANTHROPIC_API_KEY – using static fallback");
+  // Two-model consolidation: copy is generated on Gemini via the Lovable AI
+  // gateway. The legacy ANTHROPIC_API_KEY presence check used to short-circuit
+  // this function to the static bank even though the Claude leg is gone.
+  if (!Deno.env.get("LOVABLE_API_KEY")) {
+    console.warn("[smart-nudges] No LOVABLE_API_KEY – using static fallback");
     return null;
   }
 
@@ -2797,15 +2874,30 @@ Say "practices" not "priorities". Never reference "Priority 1".`;
       const sharedEventFrameLine = buildSharedEventFrameLine(
         specificSignals.eventTitle as string,
       );
+      // Truth rules: state may only be asserted from a real check-in, and the
+      // event must be referenced in its actual phase (a running block is
+      // never "next").
+      const recalPhase = resolveCtxEventPhase(ctx, eventTitle);
+      const recalProvenance = buildStateProvenanceLines(ctx);
+      const recalStateClaimAllowed = ctx.morningCheckinOutcome !== null;
       userPrompt =
-        `State-aware recalibration. User started low; heavy afternoon ahead.
+        `Mid-day recalibration prompt.
 
 Available signals:
-- Morning check-in: ${ctx.morningCheckinOutcome}
-- Next event: "${eventTitle}"
+${recalProvenance}
+- Anchor event: "${eventTitle}"
+- Event phase right now: ${recalPhase?.phase ?? "upcoming"}${
+          recalPhase?.fullDayArc ? " (a multi-hour arc, not a single meeting)" : ""
+        }
+- Phase-correct wording you MUST match: "${
+          recalPhase?.clause ?? `${eventTitle} is next`
+        }"
 ${sharedEventFrameLine}
 
-Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next - this is the recovery window").
+Required: one meaning sentence tying ${
+          recalStateClaimAllowed ? "the check-in read" : "the day's shape"
+        } to the anchor event, using the phase-correct wording above.
+Forbidden: calling the event "next"/"coming up" when the phase is underway or completed. Forbidden: asserting a felt state when the signals above say no state claim is allowed.
 Required CTA verb at end of body: "check in to recalibrate".`;
       break;
     }
@@ -3094,12 +3186,20 @@ ${
   // The Claude leg is removed for launch (zero Anthropic credit balance makes
   // it a guaranteed failed round-trip); Haiku 4.5 is re-evaluated post-launch.
   // Output is validated through the identical V8 gate either way.
+  // Anchor-phase for the tense validator: whichever event this nudge names.
+  const anchorTitle = typeof (specificSignals as Record<string, unknown>)
+      ?.eventTitle === "string"
+    ? (specificSignals as Record<string, string>).eventTitle
+    : null;
+  const anchorPhase = resolveCtxEventPhase(ctx, anchorTitle)?.phase ?? null;
+
   const geminiCopy = await tryAIProvider(
     "gemini",
     ctx,
     nudgeType,
     systemPrompt,
     userPrompt,
+    anchorPhase,
   );
   if (geminiCopy) return geminiCopy;
   return null;
@@ -3163,6 +3263,75 @@ function isNamedContextViolation(violation: string): boolean {
   return violation.includes("no named context token");
 }
 
+/**
+ * Launch truth gate — applied to BOTH AI output and static fallbacks.
+ *
+ * 1. The generic "see what it is costing you" suffix is retired outright.
+ * 2. Cost / benefit framing must match the sign of the underlying metric
+ *    (metric-polarity SSOT). "RHR down 23% ... costing you" is rejected.
+ * 3. Felt-state claims ("started low") require a real morning check-in that
+ *    actually reported a low tier.
+ * 4. When an anchor event is supplied, future-tense wording is rejected for
+ *    events that are already underway or finished.
+ */
+function violatesTruthContract(
+  body: string,
+  ctx: NudgeContext,
+  anchorPhase?: EventPhase | null,
+): string | null {
+  if (containsGenericCostSuffix(body)) {
+    return "retired generic cost suffix";
+  }
+
+  const lower = body.toLowerCase();
+
+  // (3) State provenance.
+  const claimsLowStart =
+    /(started|began|woke up|morning (state|read)[^.]{0,20})\s*(was\s*)?low/
+      .test(lower) ||
+    lower.includes("started low") || lower.includes("you started the day low");
+  if (claimsLowStart) {
+    const outcome = ctx.morningCheckinOutcome;
+    if (!outcome) return "asserts a low morning state with no check-in on file";
+    if (!LOW_TIERS.includes(outcome)) {
+      return `asserts a low morning state but check-in was "${outcome}"`;
+    }
+  }
+
+  // (2) Metric polarity, checked against whichever metric the copy cites.
+  const w = ctx.wearable;
+  // RHR deviation vs the user's own 30-day baseline (signed, % of baseline).
+  const rhrDeltaPct = w.rhr !== null && w.rhrBaseline30d
+    ? ((w.rhr - w.rhrBaseline30d) / w.rhrBaseline30d) * 100
+    : (w.rhrElevated ? 5 : null);
+  // Sleep has no stored baseline here; use the score band as the signed proxy.
+  const sleepDeltaPct = w.sleepScore === null
+    ? null
+    : w.sleepScore >= 70
+    ? 5
+    : w.sleepScore < 60
+    ? -5
+    : 0;
+  const metricChecks: Array<[MetricKind, RegExp, number | null]> = [
+    ["hrv", /hrv|heart rate variability/, w.hrvDeltaPct],
+    ["rhr", /rhr|resting heart rate/, rhrDeltaPct],
+    ["sleep", /sleep score|slept|sleep/, sleepDeltaPct],
+  ];
+  for (const [metric, rx, delta] of metricChecks) {
+    if (!rx.test(lower)) continue;
+    const polarityViolation = validateMetricPolarityInCopy(body, metric, delta);
+    if (polarityViolation) return polarityViolation;
+  }
+
+  // (4) Event phase agreement.
+  if (anchorPhase) {
+    const phaseViolation = validateEventPhaseInCopy(body, anchorPhase);
+    if (phaseViolation) return phaseViolation;
+  }
+
+  return null;
+}
+
 // V8 - validate any static fallback copy through the same contract used for
 // AI output. If the fallback violates V8, we drop it so the cron tick simply
 // sends nothing rather than ship V7 phrasing.
@@ -3190,6 +3359,13 @@ function validateStaticFallbackCopy(
       `[smart-nudges v8] Allowed low-context static fallback ${copy.variantId} for ${nudgeType}: ${violation}`,
     );
   }
+  const truthViolation = violatesTruthContract(copy.body, ctx);
+  if (truthViolation) {
+    console.warn(
+      `[smart-nudges truth] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${truthViolation} | "${copy.body}"`,
+    );
+    return null;
+  }
   // V8 telemetry - stamp the provider so the insert payload can record
   // which path actually produced the shipped copy (claude / gemini / static).
   return { ...copy, aiProvider: "static" };
@@ -3201,6 +3377,7 @@ async function tryAIProvider(
   nudgeType: string,
   systemPrompt: string,
   userPrompt: string,
+  anchorPhase?: EventPhase | null,
 ): Promise<NudgeCopy | null> {
   try {
     const controller = new AbortController();
@@ -3279,6 +3456,18 @@ async function tryAIProvider(
     if (violation) {
       console.warn(
         `[smart-nudges v8 ${provider}] Rejected for ${nudgeType}: ${violation} | "${parsed.body}"`,
+      );
+      return null;
+    }
+
+    const truthViolation = violatesTruthContract(
+      parsed.body,
+      ctx,
+      anchorPhase ?? null,
+    );
+    if (truthViolation) {
+      console.warn(
+        `[smart-nudges truth ${provider}] Rejected for ${nudgeType}: ${truthViolation} | "${parsed.body}"`,
       );
       return null;
     }
@@ -4778,12 +4967,30 @@ async function evaluateStateAwareAfternoon(
     (e) => eventHourInTimezone(e.start_time, ctx.timeZone) >= 12,
   );
   if (afternoonHighStakes.length >= 1) {
-    const eventTitle = afternoonHighStakes[0].title || "your next meeting";
+    const anchor = afternoonHighStakes[0];
+    const eventTitle = anchor.title || "your next meeting";
+    // This branch is gated on a real low morning check-in, so "started low" is
+    // provenance-true here. The event reference must still match the clock:
+    // a block already running is never "before".
+    const startMs = new Date(anchor.start_time).getTime();
+    const endMsRaw = anchor.end_time ? new Date(anchor.end_time).getTime() : NaN;
+    const endMs = Number.isFinite(endMsRaw) ? endMsRaw : startMs + 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const phase = resolveEventPhase({ startMs, endMs, nowMs });
+    const body = phase === "underway"
+      ? `You started low and ${
+        phaseClause(eventTitle, phase, { startMs, endMs, nowMs })
+      }. Recalibrate now.`
+      : phase === "completed"
+      ? `You started low and ${
+        phaseClause(eventTitle, phase, { startMs, endMs, nowMs })
+      }. Recalibrate before the next one.`
+      : `You started low. Recalibrate before ${eventTitle}.`;
     return {
       type: "state_aware_nudge",
       copy: {
         title: "Recalibrate",
-        body: `You started low. Recalibrate before ${eventTitle}.`,
+        body,
         variantId: "FB-STATE-recal",
       },
       deepLinkRoute: "/daily-check-in",
@@ -4830,13 +5037,20 @@ async function evaluatePatternAlert(
 
   if (topEventPattern) {
     const eventLabel = prettifyPatternLabel(topEventPattern.event_type);
-    const magnitude = Math.abs(Math.round(topEventPattern.hrvDeltaPct));
+    // Polarity SSOT: HRV deviation is signed, so the sentence states the
+    // measured direction. Cost framing is only reachable on an unfavourable
+    // direction with strong confidence and enough samples.
     return {
       type: "pattern_alert",
       copy: {
         title: "Your pattern is ready",
-        body:
-          `${eventLabel} is showing up in your data - about ${magnitude}% lower HRV when it hits. See what it is costing you.`,
+        body: patternClaimSentence({
+          label: eventLabel,
+          metric: "hrv",
+          deltaPct: topEventPattern.hrvDeltaPct,
+          n: topEventPattern.n,
+          confidence: topEventPattern.confidence,
+        }),
         variantId: "FB-PATTERN",
       },
       deepLinkRoute: "/insights/performance-causality",
@@ -4852,13 +5066,17 @@ async function evaluatePatternAlert(
     consecutiveLoad && consecutiveLoad.tailDeltaPct < 0 &&
     consecutiveLoad.n >= 3
   ) {
-    const magnitude = Math.abs(Math.round(consecutiveLoad.tailDeltaPct));
     return {
       type: "pattern_alert",
       copy: {
         title: "Your pattern is ready",
-        body:
-          `Consecutive high-load days are showing up in your data - about ${magnitude}% lower recovery at the tail. See what it is costing you.`,
+        body: patternClaimSentence({
+          label: "Consecutive high-load days",
+          metric: "hrv",
+          deltaPct: consecutiveLoad.tailDeltaPct,
+          n: consecutiveLoad.n,
+          confidence: consecutiveLoad.confidence,
+        }),
         variantId: "FB-PATTERN",
       },
       deepLinkRoute: "/insights/performance-causality",
@@ -4885,11 +5103,19 @@ async function evaluatePatternAlert(
 
   const topPattern = extractTopPattern(finding?.signal_summary);
   if (topPattern) {
+    // No generic cost suffix. A strong finding may be stated as a real
+    // association; an emerging one is explicitly an observation.
+    const causal = isCausalClaimAllowed(
+      topPattern.n ?? null,
+      topPattern.confidence,
+    );
     return {
       type: "pattern_alert",
       copy: {
         title: "Your pattern is ready",
-        body: `${topPattern.label} is showing up in your data. See what it is costing you.`,
+        body: causal
+          ? `${topPattern.label} is showing up consistently in your data. Open your insights.`
+          : `${topPattern.label} — an early observation in your data, not a conclusion yet. Open your insights.`,
         variantId: "FB-PATTERN",
       },
       deepLinkRoute: "/insights/performance-causality",
@@ -4908,11 +5134,17 @@ async function evaluatePatternAlert(
 // (strong/emerging) is present.
 function extractTopPattern(
   summary: unknown,
-): { label: string; confidence: "strong" | "emerging" } | null {
+): { label: string; confidence: "strong" | "emerging"; n: number | null } | null {
   if (!summary || typeof summary !== "object") return null;
   const s = summary as Record<string, unknown>;
 
-  type Candidate = { label: string; confidence: "strong" | "emerging"; rank: number };
+  type Candidate = {
+    label: string;
+    confidence: "strong" | "emerging";
+    rank: number;
+    // Sample count behind the association. Drives isCausalClaimAllowed().
+    n: number | null;
+  };
   const candidates: Candidate[] = [];
 
   const eligible = (c: unknown): c is "strong" | "emerging" =>
@@ -4939,6 +5171,7 @@ function extractTopPattern(
           label: `${eventType} → ${metric} ${sign}${Math.round(delta)}%`,
           confidence: it.confidence,
           rank: rankOf(it.confidence),
+          n: typeof it.n === "number" ? it.n : null,
         });
       }
     }
@@ -4950,6 +5183,7 @@ function extractTopPattern(
       label: `Low sleep → next-day readiness ${sleep.lowSleepPrsDeltaPct > 0 ? "+" : ""}${Math.round(sleep.lowSleepPrsDeltaPct as number)}%`,
       confidence: sleep.confidence,
       rank: rankOf(sleep.confidence),
+      n: typeof sleep.n === "number" ? sleep.n : null,
     });
   }
 
@@ -4959,12 +5193,17 @@ function extractTopPattern(
       label: `Consecutive heavy days → tail-of-week ${consec.tailDeltaPct > 0 ? "+" : ""}${Math.round(consec.tailDeltaPct as number)}%`,
       confidence: consec.confidence,
       rank: rankOf(consec.confidence),
+      n: typeof consec.n === "number" ? consec.n : null,
     });
   }
 
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => b.rank - a.rank);
-  return { label: candidates[0].label, confidence: candidates[0].confidence };
+  return {
+    label: candidates[0].label,
+    confidence: candidates[0].confidence,
+    n: candidates[0].n,
+  };
 }
 
 // P7: Daily Fallback
