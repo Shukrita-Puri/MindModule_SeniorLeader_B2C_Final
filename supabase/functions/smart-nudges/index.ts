@@ -3852,8 +3852,21 @@ function getFallbackNudgeTwoPrioritiesCopy(
   };
 }
 
-function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
+function getFallbackNudgeTwoRecalibrateCopy(
+  eventTitle: string,
+  anchor?: { startMs: number; endMs: number; nowMs: number } | null,
+): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
+  // Phase parity with the LLM path: "is next" is a lie once the block is
+  // underway or finished, so the clause is rendered from the event's phase.
+  if (anchor) {
+    const phase = resolveEventPhase(anchor);
+    const clause = phaseClause(ev, phase, anchor);
+    const body = phase === "completed"
+      ? `Your morning state was low and ${clause}. This is the recovery window - check in to recalibrate.`
+      : `Your morning state was low and ${clause}. This is the recovery window - check in to recalibrate.`;
+    return { title: "Mid-day reset window", body, variantId: "FB-N2-recal" };
+  }
   return {
     title: "Mid-day reset window",
     body:
