@@ -20,6 +20,7 @@ import {
   type AvailabilityState,
   classifyAvailability,
   classifyDay,
+  isFyiHolidayCalendar,
   isLastDayOfLongWeekend,
 } from "../_shared/availability/availability-classifier.ts";
 // Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
@@ -503,7 +504,12 @@ function mergeCalendarRows(rows: unknown[]): CalendarEvent[] {
  */
 function isLoadBearingEvent(e: CalendarEvent): boolean {
   if (e.is_all_day) return false;
-  if (isFyiHolidayCalendar(e.source_calendar ?? null)) return false;
+  if (
+    isFyiHolidayCalendar({
+      source: e.source_calendar ?? null,
+      calendarSummary: e.source_calendar ?? null,
+    })
+  ) return false;
   return true;
 }
 
