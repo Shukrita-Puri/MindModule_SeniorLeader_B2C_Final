@@ -6002,11 +6002,36 @@ serve(async (req) => {
         ctx.leaderVoiceRules = leaderProfile?.voice.cos_brief_rules ?? null;
         ctx.leaderResetModality = prefResetModality;
 
-        const inv = await evaluateWeekAheadPickerInvite(
-          ctx,
-          supabase,
-          alreadySentReasonsToday,
+        // Launch cadence: Week Ahead is no longer a 4th send. It RIDES the
+        // evening slot and counts against DAILY_NOTIFICATION_CAP like any
+        // other nudge, so a user can never receive more than 3/day.
+        const weekAheadSlotsSentToday = new Set(
+          (todayLogs || [])
+            .map((l) => slotFromNotificationLogRow(l))
+            .filter((x): x is "morning" | "afternoon" | "evening" => x !== null),
         );
+        const weekAheadSlotFree = !weekAheadSlotsSentToday.has("evening");
+        const weekAheadUnderCap =
+          (todayLogs?.length ?? 0) < DAILY_NOTIFICATION_CAP;
+
+        const inv = (weekAheadSlotFree && weekAheadUnderCap)
+          ? await evaluateWeekAheadPickerInvite(
+            ctx,
+            supabase,
+            alreadySentReasonsToday,
+          )
+          : null;
+        if (!weekAheadSlotFree || !weekAheadUnderCap) {
+          trace(userId, "week_ahead_slot_unavailable", {
+            ...traceBase,
+            notificationType: "week_ahead_picker_invite",
+            metadata: {
+              eveningSlotTaken: !weekAheadSlotFree,
+              sentToday: todayLogs?.length ?? 0,
+              cap: DAILY_NOTIFICATION_CAP,
+            },
+          });
+        }
         if (inv) {
           trace(userId, "week_ahead_selected", {
             ...traceBase,
@@ -6040,8 +6065,11 @@ serve(async (req) => {
           console.log(
             `[smart-nudges] week_ahead_picker_invite dispatched user=${
               redactUserId(userId)
-            } variant=${inv.copy.variantId} prior_reasons=${[...alreadySentReasonsToday].join(",") || "none"} (own bucket - bypassing daily cap)`,
+            } variant=${inv.copy.variantId} prior_reasons=${[...alreadySentReasonsToday].join(",") || "none"} (rides evening slot, counts toward daily cap)`,
           );
+          // The evening slot is now spent for today — do not let the standard
+          // pipeline add a second evening send on top.
+          continue;
         } else {
           trace(userId, "week_ahead_not_selected", {
             ...traceBase,
