@@ -6349,6 +6349,17 @@ serve(async (req) => {
           homeCountry: ctx.homeCountry,
         });
       }
+      // Travel provenance on every downstream trace: without it a "why was
+      // this a travel day" question can't be answered from the logs alone.
+      Object.assign(traceBase.metadata, {
+        travel_day: ctx.travelSignal.travelDay,
+        travel_reason: ctx.travelSignal.reason,
+        travel_distance_from_home_km: ctx.travelSignal.distanceKm,
+        travel_state: ctx.travelSignal.state,
+        travel_location_freshness: ctx.travelSignal.freshness,
+        day_context_kind: ctx.dayContext.kind,
+      });
+
       // Phase 4 — always hydrate leader voice + reset modality on ctx,
       // even when reused from the week-ahead path above (idempotent set).
       ctx.leaderVoiceRules = leaderProfile?.voice.cos_brief_rules ?? null;
