@@ -175,6 +175,11 @@ function install() {
   document.addEventListener('visibilitychange', onVisibilityChange);
 }
 
+// Install eagerly at module evaluation in the browser: a JS update dropped
+// into a shell that has been alive for days must arm the boundary timer and
+// the foreground listener even before the first card subscribes.
+if (isBrowser) install();
+
 function subscribe(listener: Listener): () => void {
   install();
   listeners.add(listener);
