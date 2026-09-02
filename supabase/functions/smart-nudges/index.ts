@@ -1563,10 +1563,11 @@ async function buildNudgeContext(
     { data: jitEventsRaw },
     { data: practiceSessions30d },
     { data: checkins30d },
+    { data: travelStateRow },
   ] = await Promise.all([
     supabase.from("primary_calendar_events")
       .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count",
+        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day, source_calendar",
       )
       .eq("user_id", userId)
       .gte("start_time", todayBounds.startUtc)
@@ -1574,7 +1575,7 @@ async function buildNudgeContext(
       .order("start_time", { ascending: true }),
     supabase.from("primary_calendar_events")
       .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count",
+        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day, source_calendar",
       )
       .eq("user_id", userId)
       .gte("start_time", tomorrowBounds.startUtc)
