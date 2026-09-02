@@ -15,10 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
-import {
-  localISODate,
-  currentPeriod as currentPeriodLocal,
-} from '@/utils/persistentBriefCache';
+import { useHomeClock, registerHomeClockFlush } from '@/hooks/useHomeClock';
 
 export type MrsWindow = 'morning' | 'afternoon' | 'evening';
 export type MrsReadinessState = 'baseline' | 'refined' | 'awaiting';
@@ -107,12 +104,19 @@ export function __resetLastGoodMrsSnapshots(): void {
   lastGoodMrsSnapshots.clear();
 }
 
+// Boundary rollover must drop the last-good map synchronously, before any
+// component re-renders for the new window.
+registerHomeClockFlush(() => { lastGoodMrsSnapshots.clear(); });
+
 export function useMrsSnapshot() {
 
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
-  const localDate = localISODate();
-  const mrsWindow = currentPeriodLocal() as MrsWindow;
+  // Shared home clock: a window rollover in a long-lived native webview
+  // re-keys this query even though iOS never remounts the tree.
+  const clock = useHomeClock();
+  const localDate = clock.dateISO;
+  const mrsWindow = clock.window as MrsWindow;
 
   return useQuery<MrsSnapshot | null>({
     queryKey: ['mrs-snapshot', effectiveUserId, localDate, mrsWindow],

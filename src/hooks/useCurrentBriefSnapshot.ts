@@ -20,10 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
-import {
-  localISODate,
-  currentPeriod as currentPeriodLocal,
-} from '@/utils/persistentBriefCache';
+import { useHomeClock } from '@/hooks/useHomeClock';
 import { BRIEF_PROMPT_VERSION } from '@/constants/briefPromptVersion';
 
 export type BriefWindow = 'morning' | 'afternoon' | 'evening';
@@ -175,8 +172,11 @@ export function sanitizeSignalPillsForCheckInFreshness(
 export function useCurrentBriefSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
-  const localDate = localISODate();
-  const timeWindow = currentPeriodLocal() as BriefWindow;
+  // Clock comes from the shared home clock so a window rollover in a
+  // long-lived native webview re-keys this query (iOS never remounts).
+  const clock = useHomeClock();
+  const localDate = clock.dateISO;
+  const timeWindow = clock.window as BriefWindow;
 
   return useQuery<CurrentBriefSnapshot | null>({
     queryKey: [

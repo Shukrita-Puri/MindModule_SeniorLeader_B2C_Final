@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
-import { localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
+import { useHomeClock } from '@/hooks/useHomeClock';
 
 export type MrsWindow = 'morning' | 'afternoon' | 'evening';
 export type MasteryPlanSnapshotStatus = 'ready' | 'awaiting' | 'error' | 'pending';
@@ -62,8 +62,10 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 export function useMasteryPlanSnapshot() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
-  const planDate = localISODate();
-  const mrsWindow = currentPeriodLocal() as MrsWindow;
+  // Shared home clock — see useHomeClock for the iOS rollover contract.
+  const clock = useHomeClock();
+  const planDate = clock.dateISO;
+  const mrsWindow = clock.window as MrsWindow;
 
   return useQuery<MasteryPlanSnapshot | null>({
     queryKey: ['mastery-plan-snapshot', effectiveUserId, planDate, mrsWindow],
