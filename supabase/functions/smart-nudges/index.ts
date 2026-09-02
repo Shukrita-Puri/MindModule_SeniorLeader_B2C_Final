@@ -3419,32 +3419,52 @@ async function tryAIProvider(
   anchorPhase?: EventPhase | null,
 ): Promise<NudgeCopy | null> {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-
+    // Transient gateway pressure (429 / 5xx) used to drop the nudge entirely
+    // and fall through to static copy. Retry with backoff before giving up.
+    // No client-side abort deadline: an aborted generation still bills and
+    // still completes server-side, it just loses us the copy.
+    const MAX_ATTEMPTS = 3;
     let content = "";
-    if (provider === "claude") {
-      content = await callClaudeText({
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-        model: CLAUDE_MODELS.HAIKU,
-        max_tokens: 256,
-        temperature: 0.7,
-        signal: controller.signal,
-      });
-    } else {
-      content = await callLovableAIText({
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-        model: "google/gemini-3.1-flash-lite",
-        max_tokens: 256,
-        temperature: 0.7,
-        signal: controller.signal,
-      });
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        content = provider === "claude"
+          ? await callClaudeText({
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
+            model: CLAUDE_MODELS.HAIKU,
+            max_tokens: 256,
+            temperature: 0.7,
+          })
+          : await callLovableAIText({
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
+            model: "google/gemini-3.1-flash-lite",
+            max_tokens: 256,
+            temperature: 0.7,
+          });
+        if (content) break;
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        const transient = /\b(429|500|502|503|504)\b|rate.?limit|overload|timeout|temporarily/i
+          .test(msg);
+        if (!transient || attempt === MAX_ATTEMPTS) throw err;
+        const waitMs = 400 * Math.pow(2, attempt - 1);
+        console.warn(
+          `[smart-nudges ${provider}] transient failure (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${waitMs}ms: ${msg}`,
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
     }
-
-    clearTimeout(timeout);
-    if (!content) return null;
+    if (!content) {
+      if (lastError) {
+        console.warn(
+          `[smart-nudges ${provider}] no content after retries for ${nudgeType}`,
+        );
+      }
+      return null;
+    }
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
