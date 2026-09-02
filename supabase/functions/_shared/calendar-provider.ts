@@ -75,39 +75,32 @@ export async function getPrimaryCalendarProvider(
 }
 
 /**
- * Returns the database view name that already enforces calendar primacy
- * for the calling client platform. Edge functions should swap their
- * `.from('primary_calendar_events')` call for `.from(primaryCalendarEventsView(platform))`.
+ * ONE calendar feed for the whole app, on every platform.
  *
- *   ios / unknown → primary_calendar_events     (apple > google > microsoft)
- *   web           → web_primary_calendar_events (google > microsoft > apple)
+ * Google / Microsoft / Apple all exist on iOS as well as on web, so there is
+ * no "primary" and "secondary" calendar: every connected calendar contributes
+ * events. The ONLY collapse rule is duplicate-invite collapse — when the same
+ * slot (same title, same start, same duration → same `identity_key`) appears
+ * under more than one provider, keep a single copy, preferring
+ * apple > google > microsoft.
+ *
+ * `primary_calendar_events` implements exactly that
+ * (DISTINCT ON (user_id, identity_key) ORDER BY apple > google > microsoft).
+ * The old `web_primary_calendar_events` view kept a SINGLE provider and threw
+ * every other calendar away — that model is retired; the view stays in the DB
+ * (unused) for one release as a rollback and is dropped in a follow-up.
  */
-export function primaryCalendarEventsView(platform: ClientPlatform = 'unknown'): string {
-  return platform === 'web' ? 'web_primary_calendar_events' : 'primary_calendar_events';
+export function primaryCalendarEventsView(_platform: ClientPlatform = 'unknown'): string {
+  return 'primary_calendar_events';
 }
 
 /**
- * Wrap a Supabase client so that any `.from('primary_calendar_events')`
- * call is transparently rewritten to the platform-correct view. Lets edge
- * functions thread platform once at the serve() entry without touching
- * every helper that already references the iOS-default view name.
+ * Retained for call-site compatibility: every platform now reads the same
+ * unified view, so this is a passthrough.
  */
 export function wrapDbWithCalendarPrimacy<T extends { from: (table: string) => any }>(
   db: T,
-  platform: ClientPlatform,
+  _platform: ClientPlatform,
 ): T {
-  if (platform !== 'web') return db; // iOS / unknown keep the default view
-  const targetView = primaryCalendarEventsView(platform);
-  const handler: ProxyHandler<any> = {
-    get(target, prop, receiver) {
-      if (prop === 'from') {
-        return (table: string) =>
-          table === 'primary_calendar_events'
-            ? target.from(targetView)
-            : target.from(table);
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-  };
-  return new Proxy(db, handler) as T;
+  return db;
 }

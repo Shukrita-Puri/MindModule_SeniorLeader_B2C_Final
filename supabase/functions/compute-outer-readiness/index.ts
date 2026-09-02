@@ -5020,10 +5020,13 @@ serve(async (req) => {
       try {
         const _waFrom = new Date(userTime.getTime() - 15 * 86400000);
         const _waTo = new Date(userTime.getTime() + 2 * 86400000);
-        const { data: _waRows } = await db
+        // NOTE: `source` / `calendar_name` / `calendar_summary` do NOT exist on
+        // calendar_events (or its views). Selecting them made Postgres reject the
+        // whole query, so week-ahead hydration silently ran on an empty calendar.
+        const { data: _waRows, error: _waErr } = await db
           .from("primary_calendar_events")
           .select(
-            "title, start_time, end_time, is_all_day, is_organizer, attendees_count, source, calendar_name, calendar_summary",
+            "title, start_time, end_time, is_all_day, is_organizer, attendees_count",
           )
           .eq("user_id", userId)
           .gte(
@@ -5035,6 +5038,12 @@ serve(async (req) => {
             new Date(_waTo.getTime() + timezoneOffset * 60000).toISOString(),
           )
           .order("start_time", { ascending: true });
+        if (_waErr) {
+          console.warn(
+            "[week-ahead-hydration][brief] calendar query failed:",
+            _waErr.message,
+          );
+        }
         const _rows = (_waRows || []) as any[];
         const _localKey = (iso: string) =>
           new Date(new Date(iso).getTime() - timezoneOffset * 60000)
