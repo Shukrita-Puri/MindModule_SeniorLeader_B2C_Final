@@ -2274,6 +2274,7 @@ async function buildNudgeContext(
         availability: nudgeAvailability,
       };
     })(),
+    travelSignal,
     weekAheadInputs: (() => {
       const today = detectDayKindFromEvents(todayEvents);
       const tomorrow = detectDayKindFromEvents(tomorrowEvents);
