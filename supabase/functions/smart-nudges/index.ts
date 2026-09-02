@@ -3221,31 +3221,12 @@ ${
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
-      // Part 1 - hydrate travel_state for the fallback path. Fail-open: any
-      // error leaves the field undefined and the rule defaults take over.
-      let _nudgeTravelState:
-        | { state?: string | null; distanceFromHomeKm?: number | null }
-        | null = null;
-      try {
-        if (supabase) {
-          const { data: tsRow } = await supabase
-            .from("travel_state")
-            .select("state, distance_from_home_km")
-            .eq("user_id", ctx.userId)
-            .maybeSingle();
-          if (tsRow) {
-            _nudgeTravelState = {
-              state: (tsRow as any).state ?? null,
-              distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
-            };
-          }
-        }
-      } catch (tsErr) {
-        console.warn(
-          "[smart-nudges] travel_state hydration skipped:",
-          tsErr instanceof Error ? tsErr.message : tsErr,
-        );
-      }
+      // Travel state comes from the single hydration in buildNudgeContext —
+      // no second query, and the same verdict the day-context used.
+      const _nudgeTravelState = {
+        state: ctx.travelSignal.state,
+        distanceFromHomeKm: ctx.travelSignal.distanceKm,
+      };
       const wiring = evaluateForScope(
         {
           wearable: ctx.hasWearableData
