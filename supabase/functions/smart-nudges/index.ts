@@ -1732,13 +1732,51 @@ async function buildNudgeContext(
   );
   const highStakesEvents = nonNoiseEvents.filter((e) => isHighStakes(e.title));
 
-  // Only load-bearing entries drive dayType and "meetings today" copy.
+  // Only load-bearing entries drive dayType and "meetings today" copy, and a
+  // contiguous run collapses into ONE arc: a five-hour offsite split into
+  // five back-to-back blocks is one commitment, not five meetings.
   const loadBearingEvents = nonNoiseEvents.filter(isLoadBearingEvent);
-  const eventCount = loadBearingEvents.length;
+  const eventCount = collapseIntoArcs(loadBearingEvents).length;
   let dayType: "light" | "moderate" | "heavy" | "extreme" = "light";
   if (eventCount >= 8) dayType = "extreme";
   else if (eventCount >= 6) dayType = "heavy";
   else if (eventCount >= 3) dayType = "moderate";
+
+  // ── Travel SSOT verdict ───────────────────────────────────────────────
+  // Distance from the home anchor is primary evidence; a stale fix is never
+  // trusted, in which case the persisted state machine decides.
+  const travelFreshness = decideTravelFreshness({
+    state: (travelStateRow as any)?.state ?? null,
+    lastStateChangeAt: (travelStateRow as any)?.last_state_change_at ?? null,
+    lastLocationAt: (travelStateRow as any)?.last_location_at ?? null,
+    now,
+  });
+  const travelDistanceKm =
+    typeof (travelStateRow as any)?.distance_from_home_km === "number"
+      ? (travelStateRow as any).distance_from_home_km as number
+      : null;
+  const travelTimezoneChanged = (() => {
+    const known = (travelStateRow as any)?.last_known_timezone;
+    if (typeof known !== "string" || known.length === 0) return false;
+    return known !== timeZone;
+  })();
+  const travelDayInput = {
+    distanceKm: travelDistanceKm,
+    state: (travelStateRow as any)?.state ?? null,
+    timezoneChanged: travelTimezoneChanged,
+    locationStale: !travelFreshness.used,
+  };
+  const travelDayFromLocation = isTravelDayFromDistance(travelDayInput);
+  const travelSignal = {
+    travelDay: travelDayFromLocation,
+    reason: travelDayFromLocation
+      ? travelDayReason(travelDayInput)
+      : "none",
+    distanceKm: travelDistanceKm,
+    state: ((travelStateRow as any)?.state ?? null) as string | null,
+    freshness: travelFreshness.reason,
+  };
+
 
   // Calendar gaps (≥20 min between events)
   const calendarGaps: CalendarGap[] = [];
