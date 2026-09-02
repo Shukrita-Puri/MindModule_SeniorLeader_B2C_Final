@@ -3862,10 +3862,12 @@ function getFallbackNudgeTwoRecalibrateCopy(
   if (anchor) {
     const phase = resolveEventPhase(anchor);
     const clause = phaseClause(ev, phase, anchor);
-    const body = phase === "completed"
-      ? `Your morning state was low and ${clause}. This is the recovery window - check in to recalibrate.`
-      : `Your morning state was low and ${clause}. This is the recovery window - check in to recalibrate.`;
-    return { title: "Mid-day reset window", body, variantId: "FB-N2-recal" };
+    return {
+      title: "Mid-day reset window",
+      body:
+        `Your morning state was low and ${clause}. This is the recovery window - check in to recalibrate.`,
+      variantId: "FB-N2-recal",
+    };
   }
   return {
     title: "Mid-day reset window",
@@ -4524,10 +4526,19 @@ async function evaluateNudgeTwo(
       const aiCopy = await generateNudgeCopy(ctx, "nudge_two_recalibrate", {
         eventTitle,
       }, supabase);
+      const anchorEvent = afternoonHighStakes[0];
+      const anchorTimes = {
+        startMs: new Date(anchorEvent.start_time).getTime(),
+        endMs: anchorEvent.end_time
+          ? new Date(anchorEvent.end_time).getTime()
+          : new Date(anchorEvent.start_time).getTime() + 30 * 60_000,
+        nowMs: Date.now(),
+      };
       const copy = aiCopy || validateStaticFallbackCopy(
-        getFallbackNudgeTwoRecalibrateCopy(eventTitle),
+        getFallbackNudgeTwoRecalibrateCopy(eventTitle, anchorTimes),
         ctx,
         "nudge_two_recalibrate",
+        resolveEventPhase(anchorTimes),
       );
       if (!copy) return null;
 
