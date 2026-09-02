@@ -6028,7 +6028,7 @@ serve(async (req) => {
         );
         trace(userId, "outside_global_window", {
           ...traceBase,
-          metadata: {
+          metadata: { ...traceBase.metadata,
             local_time: localTime,
             earliest: GLOBAL_EARLIEST_LOCAL,
             latest: GLOBAL_LATEST_LOCAL,
@@ -6050,7 +6050,7 @@ serve(async (req) => {
       if (dndBlocked) {
         trace(userId, "dnd_window", {
           ...traceBase,
-          metadata: {
+          metadata: { ...traceBase.metadata,
             dnd_start: dndStart,
             dnd_end: dndEnd,
             dnd_crosses_midnight: dndStart != null && dndEnd != null &&
@@ -6132,7 +6132,7 @@ serve(async (req) => {
       if (!weekAheadPreflight) {
         trace(userId, "week_ahead_not_in_window", {
           ...traceBase,
-          metadata: {
+          metadata: { ...traceBase.metadata,
             enabled: WEEK_AHEAD_PICKER_ENABLED,
             evening_close_enabled: prefs?.evening_close_enabled ?? true,
             day_of_week: dayOfWeek,
@@ -6281,7 +6281,7 @@ serve(async (req) => {
         );
         trace(userId, "daily_cap", {
           ...traceBase,
-          metadata: { count: todayLogs.length, cap: DAILY_NOTIFICATION_CAP },
+          metadata: { ...traceBase.metadata, count: todayLogs.length, cap: DAILY_NOTIFICATION_CAP },
         });
         continue;
       }
@@ -6460,7 +6460,7 @@ serve(async (req) => {
       if (suppressedEffective) {
         trace(userId, "two_hour_suppression", {
           ...traceBase,
-          metadata: {
+          metadata: { ...traceBase.metadata,
             last_sent_at: lastSentAt?.toISOString() ?? null,
             escalated: mrsEscalate,
           },
@@ -6506,7 +6506,7 @@ serve(async (req) => {
         });
         trace(userId, "leader_pref_weekend_off", {
           ...traceBase,
-          metadata: { active_slot: activeSlot, weekend_signals: "off" },
+          metadata: { ...traceBase.metadata, active_slot: activeSlot, weekend_signals: "off" },
         });
         continue;
       }
@@ -6527,7 +6527,7 @@ serve(async (req) => {
         });
         trace(userId, "leader_pref_weekend_light_non_morning", {
           ...traceBase,
-          metadata: { active_slot: activeSlot, weekend_signals: "light" },
+          metadata: { ...traceBase.metadata, active_slot: activeSlot, weekend_signals: "light" },
         });
         continue;
       }
@@ -6562,7 +6562,7 @@ serve(async (req) => {
         });
         trace(userId, "plan_snapshot_empty_fallback", {
           ...traceBase,
-          metadata: {
+          metadata: { ...traceBase.metadata,
             reason: "plan_snapshot_empty",
             active_slot: activeSlot,
             plan_slot_count: 0,
@@ -6580,7 +6580,7 @@ serve(async (req) => {
           // run. Just skip the projected slot for this active window.
           trace(userId, "slot_projection_skipped", {
             ...traceBase,
-            metadata: {
+            metadata: { ...traceBase.metadata,
               reason: "slot_preference_disabled",
               active_slot: activeSlot,
               intentionally_skipped: true,
@@ -6620,7 +6620,7 @@ serve(async (req) => {
               qualified.push(fallback);
               trace(userId, "plan_ready_morning_fallback", {
                 ...traceBase,
-                metadata: {
+                metadata: { ...traceBase.metadata,
                   reason: suppressedEffective
                     ? "projection_suppressed_falling_through_to_legacy_nudge_one"
                     : "projection_returned_null_falling_through_to_legacy_nudge_one",
@@ -6653,7 +6653,7 @@ serve(async (req) => {
               qualified.push(fallback);
               trace(userId, "plan_ready_afternoon_fallback", {
                 ...traceBase,
-                metadata: {
+                metadata: { ...traceBase.metadata,
                   reason: suppressedEffective
                     ? "projection_suppressed_falling_through_to_legacy_nudge_two"
                     : "projection_returned_null_falling_through_to_legacy_nudge_two",
@@ -7118,7 +7118,7 @@ serve(async (req) => {
       } else {
         trace(userId, "no_qualified_nudge", {
           ...traceBase,
-          metadata: {
+          metadata: { ...traceBase.metadata,
             qualified_before_filters: qualified.length,
             after_slot_cap: slotCapped.length,
             suppressed_effective: suppressedEffective,
