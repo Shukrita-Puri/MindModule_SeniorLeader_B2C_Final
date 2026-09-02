@@ -259,6 +259,54 @@ export async function requestTravelLocationPermission(): Promise<'granted' | 'de
   }
 }
 
+const RESUME_FIX_KEY = 'mm_travel_last_resume_fix';
+/** Don't spam the OS with one-shot fixes; at most one per 30 minutes. */
+const RESUME_FIX_MIN_INTERVAL_MS = 30 * 60_000;
+
+/**
+ * Ask the OS for a *fresh* location fix when the app comes back to the
+ * foreground. iOS significant-change monitoring can stay silent for a whole
+ * domestic trip (London -> Oxford never crosses a timezone), which left the
+ * backend comparing a day-old cached coordinate against home and reporting
+ * ~0 km. A foreground one-shot closes that gap.
+ */
+export async function refreshLocationOnResume(force = false): Promise<void> {
+  try {
+    const last = Number(safeGet(RESUME_FIX_KEY) ?? '0');
+    if (!force && last > 0 && Date.now() - last < RESUME_FIX_MIN_INTERVAL_MS) return;
+
+    const status = await getTravelPermissionStatus().catch(() => 'unknown');
+    if (status !== 'authorized_always' && status !== 'authorized_when_in_use' && status !== 'granted') {
+      return;
+    }
+    safeSet(RESUME_FIX_KEY, String(Date.now()));
+
+    if (LocationBridgeNative) {
+      await LocationBridgeNative.requestOneShotLocation();
+      return;
+    }
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      await new Promise<void>((resolve) =>
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            void sendForegroundPing(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+            resolve();
+          },
+          () => resolve(),
+          // maximumAge 0: a cached fix is exactly what we are trying to avoid.
+          { enableHighAccuracy: false, timeout: 10_000, maximumAge: 0 },
+        ),
+      );
+    }
+  } catch (e) {
+    emitIntegrationEvent({
+      provider: 'system',
+      event: 'plugin_call_failed',
+      meta: { area: 'travel_resume_fix', message: (e as Error).message },
+    });
+  }
+}
+
 export function startTimezoneWatcher(): () => void {
   let lastTz = safeGet(TZ_LAST_SEEN_KEY) ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   safeSet(TZ_LAST_SEEN_KEY, lastTz);
@@ -287,7 +335,10 @@ export function startTimezoneWatcher(): () => void {
 
   const id = setInterval(check, 60_000);
   const onVisible = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') void check();
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      void check();
+      void refreshLocationOnResume();
+    }
   };
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
   return () => {
@@ -298,6 +349,7 @@ export function startTimezoneWatcher(): () => void {
 
 export async function manualTravelRefresh(userId?: string | null): Promise<TravelStateSnapshot | null> {
   try {
+    safeSet(RESUME_FIX_KEY, String(Date.now()));
     if (LocationBridgeNative) {
       await LocationBridgeNative.requestOneShotLocation();
     } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
@@ -305,7 +357,7 @@ export async function manualTravelRefresh(userId?: string | null): Promise<Trave
         navigator.geolocation.getCurrentPosition(
           (pos) => { void sendForegroundPing(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy); resolve(); },
           () => resolve(),
-          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 },
         ),
       );
     }

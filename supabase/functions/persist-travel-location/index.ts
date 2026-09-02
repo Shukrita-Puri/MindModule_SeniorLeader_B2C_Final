@@ -14,6 +14,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
+import {
+  isTravelDayFromDistance,
+  TRAVEL_DAY_THRESHOLD_KM,
+} from "../_shared/travel/travel-day.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +46,9 @@ function distanceKm(
 // Thresholds chosen to be conservative on iOS where significant-change
 // callbacks fire ~every 500m. "Away" only triggers >50km from home; that
 // way moving across a city is not classed as travel.
-const AWAY_THRESHOLD_KM = 50;
+const AWAY_THRESHOLD_KM = TRAVEL_DAY_THRESHOLD_KM;
+/** A fix older than this is audit-only and may not drive travel state. */
+const STALE_PING_MINUTES = 90;
 const RETURNING_BUFFER_KM = 25;
 
 type TravelState =
@@ -131,17 +137,36 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Staleness guard: iOS can hand back a cached fix captured hours ago
+    // (the Oxford case — a day-old home coordinate reported distance 0.1 km
+    // and suppressed travel). A ping older than this is audited but never
+    // allowed to drive state.
+    const capturedAtMs = Date.parse(captured_at);
+    const pingAgeMinutes = Number.isFinite(capturedAtMs)
+      ? Math.round((Date.now() - capturedAtMs) / 60000)
+      : null;
+    const pingIsStale = pingAgeMinutes !== null &&
+      pingAgeMinutes > STALE_PING_MINUTES;
+
     // 1. Append ping (only if we actually have coordinates).
     if (lat !== null && lng !== null) {
-      await supabase.from("travel_location_pings").insert({
-        user_id: userId,
-        lat,
-        lng,
-        accuracy_m,
-        source,
-        timezone: tz,
-        captured_at,
-      });
+      const { error: pingError } = await supabase
+        .from("travel_location_pings")
+        .insert({
+          user_id: userId,
+          lat,
+          lng,
+          accuracy_m,
+          source,
+          timezone: tz,
+          captured_at,
+        });
+      if (pingError) {
+        // Previously swallowed — a failed insert looked identical to success.
+        console.error(
+          `[persist-travel-location] ping insert failed user=${userId} code=${pingError.code}: ${pingError.message}`,
+        );
+      }
     }
 
     // 2. Load profile home anchor + prior state.
@@ -171,35 +196,66 @@ Deno.serve(async (req) => {
     const prevTz = prevState?.last_known_timezone ?? profile?.current_timezone ?? null;
     const tzChanged = !!(tz && prevTz && tz !== prevTz);
 
-    const newState = deriveState({
-      prev,
-      prevDistanceKm: prevDistance,
-      distanceKm: distance,
-      tzChanged,
-      hasLocation: lat !== null && lng !== null,
-    });
+    const newState = pingIsStale
+      ? prev
+      : deriveState({
+        prev,
+        prevDistanceKm: prevDistance,
+        distanceKm: distance,
+        tzChanged,
+        hasLocation: lat !== null && lng !== null,
+      });
+    if (pingIsStale) {
+      console.warn(
+        `[persist-travel-location] stale ping ignored for state user=${userId} age_min=${pingAgeMinutes} distance_km=${
+          distance === null ? "null" : distance.toFixed(1)
+        } state_held=${prev}`,
+      );
+    }
 
     const stateChanged = newState !== prev;
     const now = new Date().toISOString();
 
-    // 3. Upsert travel_state.
-    await supabase.from("travel_state").upsert({
+    // 3. Upsert travel_state. A stale ping must not overwrite the last
+    // trusted coordinates or refresh the freshness timestamps.
+    const { error: stateError } = await supabase.from("travel_state").upsert({
       user_id: userId,
       state: newState,
       last_known_lat: lat ?? undefined,
       last_known_lng: lng ?? undefined,
       last_known_accuracy_m: accuracy_m ?? undefined,
-      last_location_at: lat !== null && lng !== null ? captured_at : undefined,
+      last_location_at: (!pingIsStale && lat !== null && lng !== null)
+        ? captured_at
+        : undefined,
       last_known_timezone: tz ?? prevTz ?? undefined,
       current_country: (newState === "arrived" || newState === "en_route")
         ? tzToCountry(tz)
         : null,
       last_timezone_change_at: tzChanged ? now : undefined,
       last_state_change_at: stateChanged ? now : undefined,
-      distance_from_home_km: distance ?? undefined,
+      distance_from_home_km: pingIsStale ? undefined : (distance ?? undefined),
       location_permission_status: permission_status ?? undefined,
       updated_at: now,
     }, { onConflict: "user_id" });
+    if (stateError) {
+      console.error(
+        `[persist-travel-location] travel_state upsert failed user=${userId} code=${stateError.code}: ${stateError.message}`,
+      );
+      return new Response(
+        JSON.stringify({ error: "travel_state write failed" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+    console.log(
+      `[persist-travel-location] user=${userId} state=${prev}->${newState} distance_km=${
+        distance === null ? "null" : distance.toFixed(1)
+      } tz_changed=${tzChanged} stale=${pingIsStale} age_min=${
+        pingAgeMinutes ?? "null"
+      } travel_day=${isTravelDayFromDistance({ distanceKm: distance, state: newState })}`,
+    );
 
     // 4. Keep profiles.current_timezone in sync with device TZ.
     if (tz && tz !== profile?.current_timezone) {
