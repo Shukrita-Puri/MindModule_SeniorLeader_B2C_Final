@@ -3478,6 +3478,9 @@ function validateStaticFallbackCopy(
   copy: NudgeCopy | null,
   ctx: NudgeContext,
   nudgeType: string,
+  /** Phase of the anchor event this copy names, when it names one. Parity
+   *  with the LLM path: without it "…is next" survives on a finished event. */
+  anchorPhase?: EventPhase | null,
 ): NudgeCopy | null {
   if (!copy) return null;
   copy = normalizeNotificationCopy(copy);
