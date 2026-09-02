@@ -1630,9 +1630,12 @@ async function buildNudgeContext(
     { data: checkins30d },
     { data: travelStateRow },
   ] = await Promise.all([
+    // NOTE: `source_calendar` / `calendar_name` do NOT exist on
+    // calendar_events or primary_calendar_events. Selecting them makes
+    // Postgres reject the whole query, leaving the day looking empty.
     supabase.from("primary_calendar_events")
       .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day, source_calendar",
+        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
       )
       .eq("user_id", userId)
       .gte("start_time", todayBounds.startUtc)
@@ -1640,7 +1643,7 @@ async function buildNudgeContext(
       .order("start_time", { ascending: true }),
     supabase.from("primary_calendar_events")
       .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day, source_calendar",
+        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
       )
       .eq("user_id", userId)
       .gte("start_time", tomorrowBounds.startUtc)
