@@ -575,7 +575,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             void maybeRefreshTimezone();
           }
         });
-        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+        if (Capacitor.isNativePlatform()) {
           const LocationBridge = registerPlugin<LocationBridgeListenerPlugin>('LocationBridge');
           nativeTimezoneListener = await LocationBridge.addListener('timezoneChanged', () => {
             void maybeRefreshTimezone();

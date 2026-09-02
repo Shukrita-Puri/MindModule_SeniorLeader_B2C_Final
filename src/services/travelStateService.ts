@@ -29,10 +29,11 @@ export type TravelPermissionStatus =
   | 'unsupported'
   | 'unknown';
 
-export type TravelPlatform = 'ios' | 'web';
+export type TravelPlatform = 'ios' | 'android' | 'web';
 
 export function getTravelPlatform(): TravelPlatform {
-  return LocationBridgeNative ? 'ios' : 'web';
+  if (!LocationBridgeNative) return 'web';
+  return Capacitor.getPlatform() as TravelPlatform;
 }
 
 /**
@@ -97,7 +98,7 @@ interface LocationBridgePlugin {
   currentAuthorizationString(): Promise<{ value: string }>;
 }
 const LocationBridgeNative =
-  Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
+  Capacitor.isNativePlatform()
     ? registerPlugin<LocationBridgePlugin>('LocationBridge')
     : null;
 

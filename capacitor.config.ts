@@ -21,6 +21,9 @@ const config: CapacitorConfig = {
       style: 'LIGHT',
     },
   },
+  android: {
+    backgroundColor: '#FAFAF8',
+  },
 };
 
 export default config;

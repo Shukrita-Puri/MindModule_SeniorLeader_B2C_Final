@@ -72,14 +72,14 @@ export function showAppleCalendarPermissionRevokeNotice(): void {
     provider: 'apple-calendar',
     event: 'permission_revoke_notice_shown',
   });
-  toast.info(
-    'Apple Calendar disconnected in Mind Module. To fully revoke device calendar access, also go to iOS Settings → Privacy & Security → Calendars and remove Mind Module.',
-    { duration: 10000 },
-  );
+  const msg = Capacitor.getPlatform() === 'android'
+    ? 'Device Calendar disconnected in Mind Module. To fully revoke device calendar access, go to Android Settings → Apps.'
+    : 'Apple Calendar disconnected in Mind Module. To fully revoke device calendar access, also go to iOS Settings → Privacy & Security → Calendars and remove Mind Module.';
+  toast.info(msg, { duration: 10000 });
 }
 
 export function isAppleCalendarSupported(): boolean {
-  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+  return Capacitor.isNativePlatform();
 }
 
 export async function requestAppleCalendarPermission(): Promise<boolean> {

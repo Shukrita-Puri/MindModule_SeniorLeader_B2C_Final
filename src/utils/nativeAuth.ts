@@ -258,7 +258,7 @@ export function isNativeApp(): boolean {
 }
 
 export function getRedirectUri(): string {
-  if (isNativeiOS()) return AUTH0_NATIVE_REDIRECT_URI;
+  if (isNativeApp()) return AUTH0_NATIVE_REDIRECT_URI;
   return `${window.location.origin}/callback`;
 }
 
@@ -382,7 +382,7 @@ export async function nativeLogin(options?: {
   screenHint?: 'signup' | 'login';
   connection?: string;
 }): Promise<NativeLoginResult> {
-  if (!isNativeiOS()) return { status: 'not_native' };
+  if (!isNativeApp()) return { status: 'not_native' };
 
   if (_loginInProgress || _safariPresented || _callbackInProgress) {
     console.log('[NativeAuth] Login blocked – loginInProgress:', _loginInProgress,
@@ -491,7 +491,7 @@ async function registerBrowserCancelListener(): Promise<void> {
 // ─── Deep-link listener (register once) ─────────────────────────────
 
 export async function initNativeAuthListener(): Promise<void> {
-  if (!isNativeiOS()) return;
+  if (!isNativeApp()) return;
   if (_listenerRegistered) {
     console.log('[NativeAuth] Listener already registered, skipping');
     return;

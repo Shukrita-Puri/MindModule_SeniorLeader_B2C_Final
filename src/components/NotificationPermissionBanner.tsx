@@ -29,9 +29,9 @@ const STALE_TOKEN_DAYS = NOTIFICATION_RECOVERY_CONFIG.staleTokenDays;
 
 type BannerReason = NotificationRecoveryReason;
 
-function isNativeIos(): boolean {
+function isNativeApp(): boolean {
   try {
-    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+    return Capacitor.isNativePlatform();
   } catch {
     return false;
   }
@@ -64,7 +64,7 @@ export function NotificationPermissionBanner() {
   const [loadingAction, setLoadingAction] = useState<'full' | 'refresh' | 'settings' | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.onboarding_completed_at || !isNativeIos()) {
+    if (!isAuthenticated || !user?.onboarding_completed_at || !isNativeApp()) {
       setNativeStatus(null);
       setHealth(null);
       return;
@@ -182,7 +182,7 @@ export function NotificationPermissionBanner() {
     }
   }, [health?.lastPersistSuccessAt, nativeStatus, reason]);
 
-  if (!isAuthenticated || !user?.onboarding_completed_at || !isNativeIos() || !bannerCopy || isDismissed) return null;
+  if (!isAuthenticated || !user?.onboarding_completed_at || !isNativeApp() || !bannerCopy || isDismissed) return null;
 
   const canDismiss = reason !== 'denied';
 

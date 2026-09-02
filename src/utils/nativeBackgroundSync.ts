@@ -44,9 +44,9 @@ interface NativeBackgroundSyncPlugin {
 
 const NativeBackgroundSync = registerPlugin<NativeBackgroundSyncPlugin>('NativeBackgroundSync');
 
-function isNativeIos(): boolean {
+function isNativeApp(): boolean {
   try {
-    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+    return Capacitor.isNativePlatform();
   } catch {
     return false;
   }
@@ -59,7 +59,7 @@ export async function updateNativeBackgroundAuthToken(
   domain?: string, 
   clientId?: string
 ): Promise<void> {
-  if (!isNativeIos() || !token) return;
+  if (!isNativeApp() || !token) return;
   try {
     await NativeBackgroundSync.updateAuthToken({ 
       token, 
@@ -74,7 +74,7 @@ export async function updateNativeBackgroundAuthToken(
 }
 
 export async function clearNativeBackgroundAuthToken(): Promise<void> {
-  if (!isNativeIos()) return;
+  if (!isNativeApp()) return;
   try {
     await NativeBackgroundSync.clearAuthToken();
   } catch (err) {
@@ -83,7 +83,7 @@ export async function clearNativeBackgroundAuthToken(): Promise<void> {
 }
 
 export async function runNativeBackgroundSyncNow(): Promise<void> {
-  if (!isNativeIos()) return;
+  if (!isNativeApp()) return;
   try {
     const result = await NativeBackgroundSync.runNow();
     console.log('[NativeBackgroundSync] Manual native sync result:', result);
@@ -93,7 +93,7 @@ export async function runNativeBackgroundSyncNow(): Promise<void> {
 }
 
 export async function forceNativeHealthSync(): Promise<boolean> {
-  if (!isNativeIos()) return false;
+  if (!isNativeApp()) return false;
   try {
     await NativeBackgroundSync.forceHealthSync();
     return true;
@@ -103,23 +103,13 @@ export async function forceNativeHealthSync(): Promise<boolean> {
   }
 }
 
-/**
- * Force a native Apple Calendar fetch + POST. Used after a permission grant
- * or manual reconnect so the UI reflects the new connection state without
- * waiting for the next background-fetch slot.
- *
- * Rejects when the native bridge itself fails. Callers that want fire-and-
- * forget semantics must attach `.catch(() => {})` explicitly — silently
- * swallowing failures here caused the UI to render `Synced 0 events` after a
- * failed native invocation.
- */
 export async function forceNativeCalendarSync(): Promise<void> {
-  if (!isNativeIos()) return;
+  if (!isNativeApp()) return;
   await NativeBackgroundSync.forceCalendarSync();
 }
 
 export async function getNativeSyncDiagnostics(): Promise<NativeOutboxDiagnostics | null> {
-  if (!isNativeIos()) return null;
+  if (!isNativeApp()) return null;
   try {
     return await NativeBackgroundSync.getDiagnostics();
   } catch (err) {
@@ -129,7 +119,7 @@ export async function getNativeSyncDiagnostics(): Promise<NativeOutboxDiagnostic
 }
 
 export async function getNativeOutboxItems(): Promise<Record<string, NativeOutboxItem[]>> {
-  if (!isNativeIos()) return {};
+  if (!isNativeApp()) return {};
   try {
     const r = await NativeBackgroundSync.getPendingOutboxItems();
     return r?.items ?? {};
@@ -140,7 +130,7 @@ export async function getNativeOutboxItems(): Promise<Record<string, NativeOutbo
 }
 
 export async function flushNativeOutbox(): Promise<void> {
-  if (!isNativeIos()) return;
+  if (!isNativeApp()) return;
   try {
     const r = await NativeBackgroundSync.flushOutbox();
     emitIntegrationEvent({ provider: 'system', event: 'native_outbox_flushed', meta: r as Record<string, unknown> });
@@ -150,7 +140,7 @@ export async function flushNativeOutbox(): Promise<void> {
 }
 
 export async function clearNativeOutbox(provider?: 'apple-health' | 'apple-calendar'): Promise<void> {
-  if (!isNativeIos()) return;
+  if (!isNativeApp()) return;
   try {
     await NativeBackgroundSync.clearOutbox(provider ? { provider } : undefined);
     emitIntegrationEvent({ provider: 'system', event: 'native_outbox_cleared', meta: { provider: provider ?? 'all' } });
