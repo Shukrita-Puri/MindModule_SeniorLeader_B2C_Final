@@ -979,6 +979,19 @@ interface NudgeContext {
      *  ran successfully. When present, `ptoMode` is derived from this. */
     availability?: AvailabilityResult;
   };
+  /**
+   * Travel SSOT verdict (`_shared/travel/travel-day.ts`). Distance from home
+   * is primary evidence, so a domestic trip with no timezone change and no
+   * travel keyword in any calendar title is still a travel day.
+   */
+  travelSignal: {
+    travelDay: boolean;
+    /** Provenance: distance>50km | timezone-change | …-deferred-to-state | none. */
+    reason: string;
+    distanceKm: number | null;
+    state: string | null;
+    freshness: string;
+  };
   // §17 Week-Ahead - hydrated inputs for evaluateWeekAheadMode. Computed once
   // in buildNudgeContext from today/tomorrow/14-day-lookback calendar data so
   // the last_day_pto / last_day_holiday / last_day_long_weekend branches can
