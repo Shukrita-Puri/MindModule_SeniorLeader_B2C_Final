@@ -2247,8 +2247,16 @@ async function buildNudgeContext(
           };
         }
       }
+      // Travel SSOT promotion: the calendar-title detector only sees flights
+      // and trains written into an event title. A >50km GPS displacement (or
+      // a timezone change) is travel evidence in its own right, so it lifts a
+      // 'normal' day to 'travel-day'. It never overrides 'away-day'.
+      const kind: "normal" | "travel-day" | "away-day" =
+        today.kind === "normal" && travelSignal.travelDay
+          ? "travel-day"
+          : today.kind;
       return {
-        kind: today.kind,
+        kind,
         signalToken: today.signalToken,
         postTravel: postTravelToday,
         preFlight,
