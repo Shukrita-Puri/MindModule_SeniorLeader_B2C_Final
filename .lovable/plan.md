@@ -27,12 +27,20 @@ New pure module in the shared nudge layer, consumed identically by the Gemini pr
 
 `buildNudgeContext` populates it once; no evaluator recomputes calendar facts locally.
 
-### 2. Guaranteed morning / afternoon / evening delivery
+### 2. Delivery cadence — working days vs rest days
 
-- Keep one durable send per window and the three-send daily maximum.
-- Always produce a candidate for the active unsent window on working and travel days; truthful JIT / event / state / Plan anchors stay ahead of generic fallbacks.
-- Absent or stale calendar, HealthKit, readiness or Plan data produces a specific "open the app to reconnect today's signals" nudge instead of invented state or silence.
+**Working and travel days:** three windows, one durable send each, three-send daily maximum. Always produce a candidate for the active unsent window; truthful JIT / event / state / Plan anchors stay ahead of generic fallbacks.
+
+**Weekends, public holidays, PTO/OOO:** the three-a-day guarantee does not apply. These are habit-building touches, and the window is chosen by the user's own onboarding answer, which is already captured and already read by the nudge run (`weekend_signals` → `full` / `light` / `off`, alongside `brief_timing` → morning / afternoon / evening). Where the user expressed a preference, respect it; where they chose "let the system decide", the engine picks one window. This preference is mandatory on holidays. Existing rest-day behaviour is otherwise unchanged.
+
+**Last day of a weekend, PTO, OOO or holiday block:** unchanged — that day keeps its evening Week Ahead nudge, per the existing trigger behaviour.
+
+Copy for these days keeps its current rest-day detail and framing; nothing is rewritten to sound like a working-day nudge.
+
+Suppressors and fallbacks:
+
 - DND, disabled preference, invalid token and already-sent-this-window remain valid suppressors. The 2-hour rule defers inside the window rather than consuming it.
+- Absent or stale calendar, HealthKit, readiness or Plan data — including a user who has not opened the app long enough that Apple stops supplying content — routes to the **existing** deterministic reconnect copy already in `smart-nudges`. Both the Gemini path and the deterministic path use that same existing copy; no new reconnect string is authored.
 - Gemini first, deterministic bank mandatory on failure: bounded backoff for 429/5xx; credit, configuration and terminal errors switch the whole run to deterministic immediately.
 
 ### 3. Temporal and readiness truth
