@@ -8,6 +8,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { useHomeClockQueryWiring } from "@/hooks/useHomeClock";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HelmetProvider } from "react-helmet-async";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -522,11 +523,24 @@ const router = createBrowserRouter([
 
 const queryClient = new QueryClient();
 
+/**
+ * Wires the shared home clock (window/day rollover) into react-query.
+ * On a boundary crossing, in-flight executive-home fetches for the leaving
+ * window are cancelled immediately and their keys dropped, so the cards
+ * refetch for the new window instead of serving stale state in a
+ * long-lived native webview.
+ */
+const HomeClockQueryWiring = () => {
+  useHomeClockQueryWiring(useQueryClient());
+  return null;
+};
+
 function App() {
   return (
     <ErrorBoundary>
       <HelmetProvider>
       <QueryClientProvider client={queryClient}>
+        <HomeClockQueryWiring />
         <TooltipProvider>
           <div className="App">
             <RouterProvider router={router} />

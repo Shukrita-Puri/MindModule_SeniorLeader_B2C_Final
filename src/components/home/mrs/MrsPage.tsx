@@ -10,6 +10,7 @@ import MrsGauge, { tierColorVar } from './MrsGauge';
 import WeeklyDeltaDial from './WeeklyDeltaDial';
 import { cn } from '@/lib/utils';
 import { getTimeLabel, getDateLabel } from '@/components/home/timeLabel';
+import { useHomeClock } from '@/hooks/useHomeClock';
 import {
   getReadinessOneLiner,
   getReadinessStateLabel,
@@ -30,6 +31,9 @@ type MrsOuterReadiness = OuterReadinessData & {
 };
 
 const MrsPage = () => {
+  // Re-render on window/day rollover so the eyebrow label can never
+  // disagree with the cards inside a long-lived native webview.
+  useHomeClock();
   const [weekOverWeekOpen, setWeekOverWeekOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();

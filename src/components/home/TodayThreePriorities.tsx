@@ -20,6 +20,7 @@ import {
 import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { useMrsSnapshot, isMrsVisible } from '@/hooks/useMrsSnapshot';
+import { useHomeClock } from '@/hooks/useHomeClock';
 import { useMasteryPlanSnapshot } from '@/hooks/useMasteryPlanSnapshot';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -471,8 +472,11 @@ const TodayThreePriorities = ({
     });
   }, [masteryPlanSnapshot]);
 
-  const todayForPlan = localISODate();
-  const periodForPlan = getCurrentTimeWindow();
+  // Shared home clock — a boundary crossing in a long-lived native webview
+  // re-renders the Plan card with the new window (iOS never remounts).
+  const planClock = useHomeClock();
+  const todayForPlan = planClock.dateISO;
+  const periodForPlan = planClock.window;
   const snapshotAwaiting =
     mrsSnapshot?.readinessState === 'awaiting' ||
     mrsSnapshot?.status === 'awaiting';

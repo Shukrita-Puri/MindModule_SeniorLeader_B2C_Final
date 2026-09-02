@@ -38,6 +38,7 @@ import EventOutcomeFeedbackModal from "@/components/home/EventOutcomeFeedbackMod
 import { useEventOutcomePrompt } from "@/hooks/useEventOutcomePrompt";
 
 import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
+import { useHomeClock } from '@/hooks/useHomeClock';
 import { RefreshCw } from "lucide-react";
 import { useExecutiveHomeCardsRefresh } from "@/hooks/useExecutiveHomeCardsRefresh";
 import { useMrsSnapshot } from "@/hooks/useMrsSnapshot";
@@ -52,6 +53,9 @@ const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
 const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 
 const ExecutiveHome = () => {
+  // Re-render on window/day rollover so the eyebrow label can never
+  // disagree with the cards inside a long-lived native webview.
+  useHomeClock();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();

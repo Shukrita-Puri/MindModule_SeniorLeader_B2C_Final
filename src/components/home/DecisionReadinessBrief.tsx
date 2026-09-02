@@ -29,6 +29,7 @@ import { MOCK_BRIEF } from '@/components/onboarding/tourMockData';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { read as readPersistent, clear as clearPersistent, cacheKeys, localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
+import { useHomeClock, registerHomeClockFlush } from '@/hooks/useHomeClock';
 import { getLocalDataSummary } from '@/services/localDataStore';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -2111,11 +2112,25 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // React Query transition, or snapshot flip doesn't flash the card
   // back to awaiting. Key includes localDate + timeWindow + briefId so
   // a new window/date/brief invalidates the guard.
-  const currentWindowKey = `${localISODate()}|${currentPeriodLocal()}`;
+  // Clock comes from the shared home clock, so a boundary crossing inside a
+  // long-lived native webview re-keys the guard (iOS never remounts).
+  const homeClock = useHomeClock();
+  const currentWindowKey = homeClock.key;
   const currentBriefId =
     (outerBrief as any)?.briefId ?? currentBriefSnapshot?.briefId ?? null;
   const lastGoodBriefRef = useRef<{ key: string; payload: any } | null>(null);
   const { user } = useAuth();
+  // Atomic rollover: drop the last-good brief and the leaving window's
+  // persisted brief entries synchronously, before this component re-renders
+  // for the new window.
+  const flushUserId = DEV_MODE ? DEV_USER.id : user?.id;
+  useEffect(() => registerHomeClockFlush((leaving) => {
+    lastGoodBriefRef.current = null;
+    if (flushUserId) {
+      clearPersistent(cacheKeys.brief(flushUserId, leaving.window, leaving.dateISO));
+      clearPersistent(cacheKeys.briefAwaiting(flushUserId, leaving.window, leaving.dateISO));
+    }
+  }), [flushUserId]);
   const currentIsRenderable =
 
     hasRenderableBriefCopy(outerBrief) || hasRenderableBriefScore(outerBrief);
@@ -2151,7 +2166,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     lastGoodBriefRef.current = null;
     const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
     if (effectiveUserId) {
-      clearPersistent(cacheKeys.brief(effectiveUserId, currentPeriodLocal(), localISODate()));
+      clearPersistent(cacheKeys.brief(effectiveUserId, homeClock.window, homeClock.dateISO));
     }
   }
   const canReuseLastGood =
@@ -2191,7 +2206,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     try {
       const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
       if (!effectiveUserId) return false;
-      const period = currentPeriodLocal();
+      const period = homeClock.window;
       // A cached payload only counts as "valid for the current period" if it
       // is NOT an awaiting payload AND has a real phrase + bodyText. This is
       // what stops a stale cache from skipping the loader and painting an
@@ -2209,7 +2224,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       // 2) Persistent localStorage cache (survives full app reopen within
       //    the current time-of-day window). Use the user's LOCAL date so we
       //    don't read yesterday's payload near midnight in non-UTC zones.
-      const todayISO = localISODate();
+      const todayISO = homeClock.dateISO;
       const persisted = readPersistent<any>(cacheKeys.brief(effectiveUserId, period, todayISO));
       return isRenderable(persisted);
     } catch {
@@ -2354,7 +2369,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // Effect-gated so we only emit when the resolved values actually change.
   // No PII, no prompt text, no tokens.
   const _prbRenderKey = JSON.stringify({
-    period: currentPeriodLocal(),
+    period: homeClock.window,
     snapshotExists: !!currentBriefSnapshot,
     snapshotIsRenderable,
     usingSnapshot: !!briefFromSnapshot && !tourMockBriefActive,
@@ -2513,11 +2528,23 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // load (no cached brief yet). Empty/error states (no loading + no data)
   // fall through to the main render so they aren't gated.
   const [briefScriptDone, setBriefScriptDone] = useState(hadCacheAtMount);
+  // Offline / rollover safety valve. After a boundary crossing the caches are
+  // intentionally gone; if the refetch then fails (no connection, retries
+  // still pending) the card must fall through to the clean awaiting state
+  // rather than sit on a spinner forever.
+  const [loaderTimedOut, setLoaderTimedOut] = useState(false);
+  const fetchingNow = outerBriefLoading || outerBriefFetching;
+  useEffect(() => {
+    if (!fetchingNow) { setLoaderTimedOut(false); return; }
+    const t = setTimeout(() => setLoaderTimedOut(true), 12000);
+    return () => clearTimeout(t);
+  }, [fetchingNow, currentWindowKey]);
   const showLoader =
     !tourMockBriefActive &&
     !noLocalSignalAtMount &&
     !snapshotIsRenderable &&
-    (outerBriefLoading || outerBriefFetching);
+    !loaderTimedOut &&
+    fetchingNow;
 
   const briefId = (outerBrief as any)?.briefId ?? null;
 
