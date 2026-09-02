@@ -3252,7 +3252,9 @@ ${
           timezone: {
             offsetMinutes: null,
             shift48hHours: null,
-            travelDay: false,
+            // Travel SSOT verdict, not a stub: a domestic >50km trip with an
+            // unchanged timezone is a travel day for the CEO travel rules.
+            travelDay: ctx.travelSignal.travelDay,
           },
           travelState: _nudgeTravelState,
           events: eventsForCtx,
