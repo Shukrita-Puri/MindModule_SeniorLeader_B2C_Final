@@ -5312,6 +5312,7 @@ type NotificationTraceOutcome =
   | "week_ahead_not_selected"
   | "week_ahead_selected"
   | "week_ahead_prior_reasons_today"
+  | "week_ahead_slot_unavailable"
   | "leader_pref_weekend_off"
   | "leader_pref_weekend_light_non_morning"
   | "plan_snapshot_empty_fallback"
