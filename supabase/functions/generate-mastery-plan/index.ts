@@ -4939,15 +4939,24 @@ async function buildSharedContext(
     const _localNow = new Date(Date.now() - _tzOffset * 60000);
     const _from = new Date(_localNow.getTime() - 15 * 86400000);
     const _to = new Date(_localNow.getTime() + 2 * 86400000);
-    const { data: _waRows } = await supabaseClient
+    // NOTE: `source` / `calendar_name` / `calendar_summary` do NOT exist on
+    // calendar_events (or its views); selecting them made Postgres reject the
+    // whole query and week-ahead hydration silently ran on an empty calendar.
+    const { data: _waRows, error: _waErr } = await supabaseClient
       .from("primary_calendar_events")
       .select(
-        "title, start_time, end_time, is_all_day, is_organizer, attendees_count, source, calendar_name, calendar_summary",
+        "title, start_time, end_time, is_all_day, is_organizer, attendees_count",
       )
       .eq("user_id", req.userId)
       .gte("start_time", _from.toISOString())
       .lte("start_time", _to.toISOString())
       .order("start_time", { ascending: true });
+    if (_waErr) {
+      console.warn(
+        "[week-ahead-hydration][plan] calendar query failed:",
+        _waErr.message,
+      );
+    }
     const _rows = (_waRows || []) as any[];
     const _dayKey = (d: Date) => d.toISOString().slice(0, 10);
     const _todayKey = _dayKey(_localNow);
