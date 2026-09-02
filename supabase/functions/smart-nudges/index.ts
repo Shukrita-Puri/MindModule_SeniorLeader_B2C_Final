@@ -462,18 +462,49 @@ interface CalendarEvent {
   external_id: string;
   is_organizer?: boolean;
   attendees_count?: number;
+  /** Carried through the merge so load counting can exclude day markers. */
+  is_all_day?: boolean;
+  /** Feed name / provider — used to spot FYI holiday calendars. */
+  source_calendar?: string | null;
 }
 
 function mergeCalendarRows(rows: unknown[]): CalendarEvent[] {
-  return mergeCalendarEvents((rows || []) as any[], "unknown").map((event) => ({
-    id: event.id,
-    title: event.title ?? null,
-    start_time: event.startTime,
-    end_time: event.endTime,
-    external_id: event.canonicalEventId,
-    is_organizer: event.isOrganizer ?? false,
-    attendees_count: event.attendeesCount ?? 0,
-  }));
+  return mergeCalendarEvents((rows || []) as any[], "unknown").map((event) => {
+    const raw = event as unknown as Record<string, unknown>;
+    const startMs = new Date(event.startTime).getTime();
+    const endMs = new Date(event.endTime ?? event.startTime).getTime();
+    const spansFullDay = Number.isFinite(startMs) && Number.isFinite(endMs) &&
+      (endMs - startMs) >= 20 * 3600 * 1000;
+    return {
+      id: event.id,
+      title: event.title ?? null,
+      start_time: event.startTime,
+      end_time: event.endTime,
+      external_id: event.canonicalEventId,
+      is_organizer: event.isOrganizer ?? false,
+      attendees_count: event.attendeesCount ?? 0,
+      is_all_day: raw.is_all_day === true || raw.isAllDay === true ||
+        spansFullDay,
+      source_calendar: (Array.isArray((event as any).sourceCalendars)
+        ? (event as any).sourceCalendars[0] ?? null
+        : null) ?? (typeof raw.calendar_name === "string"
+          ? raw.calendar_name
+          : null),
+    };
+  });
+}
+
+/**
+ * Load-bearing filter (calendar parity SSOT).
+ *
+ * A day marker is not a meeting. All-day entries and FYI holiday feeds
+ * inflate the count that drives dayType and every "N meetings today" line —
+ * that is how one real meeting plus two bank holidays read as HEAVY.
+ */
+function isLoadBearingEvent(e: CalendarEvent): boolean {
+  if (e.is_all_day) return false;
+  if (isFyiHolidayCalendar(e.source_calendar ?? null)) return false;
+  return true;
 }
 
 function slotNameForIndex(index: number): NudgeSlot | null {
@@ -1690,7 +1721,9 @@ async function buildNudgeContext(
   );
   const highStakesEvents = nonNoiseEvents.filter((e) => isHighStakes(e.title));
 
-  const eventCount = nonNoiseEvents.length;
+  // Only load-bearing entries drive dayType and "meetings today" copy.
+  const loadBearingEvents = nonNoiseEvents.filter(isLoadBearingEvent);
+  const eventCount = loadBearingEvents.length;
   let dayType: "light" | "moderate" | "heavy" | "extreme" = "light";
   if (eventCount >= 8) dayType = "extreme";
   else if (eventCount >= 6) dayType = "heavy";
