@@ -5038,6 +5038,12 @@ serve(async (req) => {
             new Date(_waTo.getTime() + timezoneOffset * 60000).toISOString(),
           )
           .order("start_time", { ascending: true });
+        if (_waErr) {
+          console.warn(
+            "[week-ahead-hydration][brief] calendar query failed:",
+            _waErr.message,
+          );
+        }
         const _rows = (_waRows || []) as any[];
         const _localKey = (iso: string) =>
           new Date(new Date(iso).getTime() - timezoneOffset * 60000)
