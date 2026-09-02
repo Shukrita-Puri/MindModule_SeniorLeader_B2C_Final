@@ -1650,6 +1650,14 @@ async function buildNudgeContext(
       .eq("user_id", userId)
       .gte("checkin_date", thirtyDaysAgo.split("T")[0])
       .order("checkin_date", { ascending: true }),
+    // Travel SSOT inputs. Distance-first travel-day detection (a domestic
+    // trip keeps the same timezone and never appears in a calendar title).
+    supabase.from("travel_state")
+      .select(
+        "state, distance_from_home_km, last_state_change_at, last_location_at, last_known_timezone",
+      )
+      .eq("user_id", userId)
+      .maybeSingle(),
   ]);
 
   // §17 Week-Ahead lookback: pull the last 14 days of events (titles + start
