@@ -3501,7 +3501,11 @@ function validateStaticFallbackCopy(
       `[smart-nudges v8] Allowed low-context static fallback ${copy.variantId} for ${nudgeType}: ${violation}`,
     );
   }
-  const truthViolation = violatesTruthContract(copy.body, ctx);
+  const truthViolation = violatesTruthContract(
+    copy.body,
+    ctx,
+    anchorPhase ?? null,
+  );
   if (truthViolation) {
     console.warn(
       `[smart-nudges truth] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${truthViolation} | "${copy.body}"`,
