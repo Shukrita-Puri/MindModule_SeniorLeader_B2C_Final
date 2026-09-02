@@ -5376,7 +5376,17 @@ serve(async (req) => {
   ) => {
     // H-2 Telemetry Throttling: Always record shipped notifications, errors, and APNs failures.
     // Sample routine no-op/suppressed traces at 10% to prevent database trace explosion.
-    const isCriticalTrace = outcome === "shipped" || outcome === "error" ||
+    // Delivery-lifecycle outcomes are the "shipped / error" equivalents in the
+    // current outcome union; the old literals never matched anything, which
+    // silently sampled real sends away at 90%.
+    const CRITICAL_OUTCOMES: NotificationTraceOutcome[] = [
+      "apns_attempted",
+      "apns_accepted",
+      "apns_rejected",
+      "week_ahead_selected",
+      "duplicate_claim",
+    ];
+    const isCriticalTrace = CRITICAL_OUTCOMES.includes(outcome) ||
       details.apnsStatus != null || details.apnsReason != null;
     if (!isCriticalTrace && Math.random() > 0.1) {
       return;

@@ -252,6 +252,7 @@
         "npm:@capacitor-community/in-app-review@8",
         "npm:@capacitor/android@^8.1.0",
         "npm:@capacitor/app@^8.0.1",
+        "npm:@capacitor/assets@^3.0.5",
         "npm:@capacitor/browser@^8.0.1",
         "npm:@capacitor/cli@^8.1.0",
         "npm:@capacitor/core@^8.1.0",
