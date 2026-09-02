@@ -6889,9 +6889,15 @@ serve(async (req) => {
             ctaBucket,
             requiresAppOpen,
             weekendCtaGate,
+            // A nudge must never outlive its own window: an intent TTL of
+            // 6h sent at 17:00 would otherwise surface an "evening" push at
+            // 23:00. Period end is the hard ceiling for every intent.
             ttlSeconds: requiresAppOpen
               ? periodTtlSeconds(bestNudge.slot, localTime)
-              : nudgeTtlSeconds(bestNudge.copy.variantId, bestNudge.type),
+              : Math.min(
+                nudgeTtlSeconds(bestNudge.copy.variantId, bestNudge.type),
+                periodTtlSeconds(bestNudge.slot, localTime),
+              ),
             collapseId: requiresAppOpen
               ? periodCollapseId(bestNudge.slot, todayStr)
               : nudgeCollapseId(
