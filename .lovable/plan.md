@@ -40,12 +40,36 @@ New pure module in the shared nudge layer, consumed identically by the Gemini pr
 - A full-day arc uses arc language and remaining duration; agenda sections inside a description are not separate meetings.
 - A pre-dispatch validator checks both deterministic and Gemini output for event phase, meeting count, named event, state provenance and staleness; a mismatch falls back deterministically.
 
-### 4. Metric polarity and pattern claims
+### 4. Metric polarity and pattern claims (severity: high)
 
-- Metric-specific interpretation for HRV direction, RHR versus personal baseline, sleep and heart-rate load, each with explicit favourable / unfavourable / neutral semantics.
-- Minimum sample and confidence gates before any pattern nudge; emerging associations are described as observations, never causes.
-- Remove "costing you" everywhere; copy states the measured association and direction.
-- Validate model output against metric sign, sample count and confidence.
+An elevated RHR genuinely is a load on the body, so the observed "+23%" line was directionally right by accident — the formatter appends "costing you" to every branch, so the same code would render "RHR down 23% — costing you", which is clinically wrong and would mislead. The fix is a polarity lookup applied before copy selection, not a rewording of one string.
+
+| Metric | Direction | Framing |
+| --- | --- | --- |
+| RHR | above personal baseline | load / cost language permitted |
+| RHR | below personal baseline | recovery / benefit — never cost |
+| HRV | higher | recovery / benefit |
+| HRV | lower | load / depletion |
+| Sleep score | higher | recovery |
+| Sleep score | lower | depletion |
+| Heart-rate load | higher | load |
+
+- Polarity is resolved from the metric and the sign relative to the user's own baseline, then handed to copy as a `favourable` / `unfavourable` / `neutral` token. Copy states the measured association and direction; the generic "costing you" suffix is deleted.
+- Minimum sample and confidence gates before any pattern nudge. Below the gate (n < 3 or confidence under the emerging threshold) the association is worded as an observation, never a cause.
+- Gemini output is validated against the metric sign, sample count and confidence, and a mismatch falls back deterministically.
+
+### 4b. LLM path vs deterministic path parity
+
+Both paths must satisfy the same contract, so each item below is implemented once in the shared projection or validator and consumed by both.
+
+LLM path: remove the hardcoded "User started low"; validate event phase, state provenance, RHR direction and pattern sample count before dispatch; add bounded backoff for 429/5xx. Gemini is currently a **single attempt** with immediate fallback to the static bank, so backoff is new work — credit, configuration and terminal errors keep going straight to deterministic.
+
+Deterministic path: all-window candidate guarantee, event-phase selection, state-provenance check, the polarity table, specific reconnect copy in place of the generic fallback, and the load-bearing / FYI-holiday filter before meeting count.
+
+Shared copy rules: the Chief-of-Staff persona is already imported from `_shared/copy-vocabulary.ts` and used in the system prompt, and the no-fabricated-values validator already exists; still to enforce are the long-em-dash ban, the two-beat context + CTA structure in the deterministic bank, and "any measured signal" rather than HRV-only anchoring.
+
+Delivery windows: APNs already ships a per-intent `apns-expiration`, and the evening path uses a period-scoped TTL, but other intents fall back to a fixed six-hour TTL — so a morning push queued on an offline phone can still display in the afternoon. Make TTL uniformly end-of-window for every window.
+
 
 ### 5. Travel repair (shared, narrow)
 
