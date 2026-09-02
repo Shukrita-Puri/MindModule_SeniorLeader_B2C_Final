@@ -509,6 +509,53 @@ function isLoadBearingEvent(e: CalendarEvent): boolean {
   return true;
 }
 
+/** A contiguous run of commitments the user experiences as one block. */
+export interface CalendarArc {
+  startMs: number;
+  endMs: number;
+  events: CalendarEvent[];
+}
+
+/** Gaps shorter than this never break an arc — there is no re-entry cost. */
+export const ARC_GAP_BREAK_MINUTES = 15;
+
+/**
+ * Collapse back-to-back commitments into arcs.
+ *
+ * A five-hour offsite that the calendar stores as five 45-minute blocks is
+ * ONE thing the user attends, so counting it as five meetings makes a normal
+ * day read as heavy. Events are sorted by start; a new arc begins only when
+ * the gap from the running arc's end exceeds ARC_GAP_BREAK_MINUTES.
+ */
+export function collapseIntoArcs(events: CalendarEvent[]): CalendarArc[] {
+  const parsed = events
+    .map((e) => {
+      const startMs = new Date(e.start_time).getTime();
+      const endRaw = e.end_time ? new Date(e.end_time).getTime() : NaN;
+      const endMs = Number.isFinite(endRaw) ? endRaw : startMs;
+      return { e, startMs, endMs };
+    })
+    .filter((x) => Number.isFinite(x.startMs))
+    .sort((a, b) => a.startMs - b.startMs);
+
+  const arcs: CalendarArc[] = [];
+  for (const item of parsed) {
+    const current = arcs[arcs.length - 1];
+    if (
+      current &&
+      item.startMs - current.endMs <= ARC_GAP_BREAK_MINUTES * 60_000
+    ) {
+      current.endMs = Math.max(current.endMs, item.endMs);
+      current.events.push(item.e);
+      continue;
+    }
+    arcs.push({ startMs: item.startMs, endMs: item.endMs, events: [item.e] });
+  }
+  return arcs;
+}
+
+
+
 function slotNameForIndex(index: number): NudgeSlot | null {
   if (index === 0) return "morning";
   if (index === 1) return "afternoon";
