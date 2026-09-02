@@ -5921,9 +5921,9 @@ serve(async (req) => {
         .order("sent_at", { ascending: false });
 
       // ══════════════════════════════════════════════════════════
-      // §17.7 - Week-Ahead Picker Invite dispatch (own bucket).
-      // Runs BEFORE the daily cap, 2h suppression, and app-open cool-
-      // down. Counts ONLY against its own ISO-weekly cap (max 1 / user).
+      // §17.7 - Week-Ahead Picker Invite dispatch.
+      // Rides the EVENING slot: gated by the daily cap and the evening
+      // slot, plus its own ISO-weekly cap (max 1 / user).
       // Kill switch: WEEK_AHEAD_PICKER_ENABLED=false to disable.
       // ══════════════════════════════════════════════════════════
       // ctx is shared with the standard-nudge pipeline below - build
@@ -6039,9 +6039,9 @@ serve(async (req) => {
             variantId: inv.copy.variantId,
             metadata: { prior_reasons_today: [...alreadySentReasonsToday] },
           });
-          // Direct dispatch - bypasses competitive ranking, daily cap,
-          // 2h suppression, slot cap, post-CTA gates. This is a weekly
-          // digest, not a behavioural nudge.
+          // Direct dispatch - bypasses competitive ranking and post-CTA
+          // gates, but the daily cap and evening-slot checks above have
+          // already been applied, so this consumes the evening send.
           allNotifications.push({
             userId,
             type: inv.type,
