@@ -1,37 +1,68 @@
-# iOS vs Web: why the awaiting state diverges on Executive Home
+# iOS clock/resume fix for Executive Home awaiting parity
 
-Audit finding first, then a scoped iOS-first fix. No changes to MRS scoring, brief generation, plan selection or backend logic.
+Presentation and data-freshness wiring only. No scoring, brief copy, plan selection, edge function or database changes.
 
 ## What the audit found
 
-Web and iOS run the same gating code (`isMrsVisible`, shared awaiting copy). The divergence is not in the gate — it is in **when the iOS shell re-evaluates it**. Web reloads the page on every visit, so every card re-derives today's date, the current window and fresh data. The iOS WKWebView is mounted once at launch and stays alive for days.
+Web and iOS run the same gating code (`isMrsVisible`, shared awaiting copy). The divergence is not in the gate — it is in **when the iOS shell re-evaluates it**. Web reloads on every visit; the iOS WKWebView is mounted once and stays alive for days.
 
-Three confirmed consequences on iOS:
+1. **No window/day rollover.** Date and window are computed during render (`localISODate()`, `currentPeriod()`) and feed the query keys for MRS snapshot, brief and plan. Nothing re-renders when the clock crosses 12:00 / 18:00 / 00:00, so the app keeps serving an earlier window's keys, score and brief.
+2. **Resume does not refresh the cards that matter.** `mrs-snapshot`, the brief snapshot and the mastery-plan snapshot are never invalidated on foreground.
+3. **Sticky last-good state survives forever.** `lastGoodBriefRef`, the in-memory `lastGoodMrsSnapshots` map and the localStorage brief/plan caches assume a page lifecycle the native shell never has.
 
-1. **No window/day rollover.** The date and window are computed during render (`localISODate()`, `currentPeriod()`), and they feed the query keys for MRS snapshot, brief and plan. Nothing re-renders the tree when the clock crosses 12:00 / 18:00 / midnight, so the app keeps serving yesterday-morning's keys — and yesterday's score and brief — indefinitely.
+## The fix
 
-2. **Resume does not refresh the cards that matter.** On foreground resume the app only invalidates `outer-readiness` and `mrs-weekly-delta`, and only when an Apple Calendar sync succeeds. `mrs-snapshot`, the brief snapshot and the mastery-plan snapshot are never invalidated on resume.
+### 1. `useHomeClock` — shared, mid-lifecycle safe
 
-3. **Sticky "last good" state survives forever.** The brief keeps a `lastGoodBriefRef`, MRS keeps an in-memory `lastGoodMrsSnapshots` map, and both brief and plan hydrate from localStorage caches. These are intentional anti-flicker devices, but their expiry assumes a page lifecycle that never happens in the native shell.
+A single source emitting `{ dateISO, window }` for the user's local clock. Every home card reads date/window from it instead of calling `localISODate()` / `currentPeriod()` at render time.
 
-That combination explains exactly what was seen: a stale MRS number and a full brief from an earlier window, then — once one query did refresh — "Writing your read", while the Plan (a different query that did refresh) correctly said signals were missing. The three cards were reading state captured at different moments.
+- Initial state is computed from `new Date()` on first mount, not from a launch-time constant — a JS update delivered into a shell alive for days is correct immediately, with no restart.
+- Initialisation is gated behind `typeof window !== 'undefined'`; SSR/non-browser renders get a safe computed value and no timers.
 
-## The fix (iOS first, web inherits it)
+### 2. Boundary tick via scheduled `setTimeout`
 
-1. **Shared clock context.** One `useHomeClock` source that emits the current local date and window, ticks at the window boundary, and re-emits on foreground resume. Every home card reads date/window from it instead of calling `localISODate()` / `currentPeriod()` at render time, so all three cards always agree on which window they are showing.
+Schedule one `setTimeout` for the exact millis until the next boundary (12:00, 18:00, 00:00 local, reusing the existing `msUntilWindowEnd` shape), fire the transition, then reschedule from the new "now". Never `setInterval`. The resume handler is an additional safety net, not a replacement for this tick.
 
-2. **Rollover invalidation.** When the window or date changes, drop the stale keys in one place: `mrs-snapshot`, `outer-readiness`, brief snapshot, mastery-plan snapshot, plus the in-memory last-good caches and the localStorage brief/plan entries for the window just left.
+### 3. Resume via `visibilitychange`
 
-3. **Resume invalidation, unconditional.** A single foreground-resume handler invalidates the three executive-home queries regardless of whether calendar sync ran or succeeded. Debounced so several resume listeners can't stampede.
+`document.addEventListener('visibilitychange')`, acting only when `document.visibilityState === 'visible'`, debounced at 800ms. This is the only event WKWebView fires reliably on foreground — no `pageshow`, no `focus`, no native bridge.
 
-4. **Scope last-good to the live window.** The last-good brief ref and the MRS last-good map are cleared when the clock context changes window, so anti-flicker can never carry a formed score across a boundary into a window that has no signals.
+### 4. Missed-tick recovery
 
-## Verification
+iOS suspends timers while backgrounded, so the boundary tick usually does not fire when the user was not on screen. On every visible resume the handler compares the current computed `{ dateISO, window }` against the stored clock state. If they differ, it forces the boundary transition immediately rather than waiting for the next scheduled tick, and reschedules the timer.
 
-- Native run: launch on the previous window, cross the boundary with the app foregrounded and again from background, confirm all three cards flip to the same awaiting state together.
-- Web regression check: current behaviour must be unchanged.
-- Existing awaiting-parity and MRS-gate tests must still pass, plus a new test that a window change clears last-good state.
+### 5. Atomic transition
+
+The boundary transition is one synchronous operation: flush the in-memory last-good caches (`lastGoodMrsSnapshots` via the existing reset export, the brief's last-good ref), evict the leaving window's localStorage keys, cancel/invalidate the executive-home queries, and set the new clock state — all inside a single React state update path. There must be no render frame in which components see the new window while still reading an already-cleared old-window cache, and none in which they see the old window after the flush.
+
+### 6. localStorage eviction scope
+
+Evict only keys for the window just left, addressed by `{date}:{window}` through the existing `cacheKeys` builders (brief, briefAwaiting, plan data/loaded/force-refresh). Current-window entries and other cached windows are left untouched.
+
+### 7. In-flight queries
+
+Rollover cancels in-flight fetches for the leaving window immediately; it does not wait for them to settle. Their results are discarded and the cards fall through to the new window's awaiting state.
+
+### 8. Offline behaviour on rollover
+
+Once caches are flushed, a failed refetch (no connection) must resolve to the clean awaiting/offline state, exactly like a cold load with no data. No infinite spinner, no indefinite "Writing your read". The anti-flicker devices prevent flicker; they must never block the UI once their cache is legitimately gone. Each of the three cards gets an explicit terminal error/empty path for this case.
+
+## Technical notes
+
+- New `src/hooks/useHomeClock.ts` (hook + provider or module-level store with subscription) owning state, the scheduled timeout, the visibilitychange listener and the atomic transition routine.
+- Consumers switched off render-time clock calls: `useMrsSnapshot`, the brief snapshot hook, the mastery-plan snapshot hook, `DecisionReadinessBrief`, `TodayThreePriorities`, MRS card.
+- Transition invalidates/cancels `mrs-snapshot`, `outer-readiness`, brief snapshot and mastery-plan snapshot query keys; clears `__resetLastGoodMrsSnapshots()` and the brief last-good ref; evicts leaving-window localStorage keys.
+- Eyebrow labels in `src/components/home/timeLabel.ts` also read from the clock so the header cannot disagree with the cards.
+
+## Verification (all four required)
+
+1. **Update into live shell** — simulate a JS update into a webview alive 24h+: first mount shows the correct date and window with no restart.
+2. **Missed-tick background** — background before a boundary, resume after: the visibilitychange handler catches the missed rollover and all three cards flip together to the new window's awaiting state.
+3. **Offline rollover** — cross a boundary with no network after the flush: UI reaches a clean awaiting/offline state, never a hanging spinner.
+4. **Atomic transition** — no render frame reads the cleared old-window cache before the new-window state is set.
+
+Plus: web behaviour unchanged, and existing awaiting-parity / MRS-gate tests still pass, with new tests for the clock transition, missed-tick recovery and eviction scope.
 
 ## Out of scope
 
-No scoring, brief copy, plan selection, edge function or database changes. Presentation and data-freshness wiring only.
+No scoring, brief copy, plan selection, edge function or database changes.
