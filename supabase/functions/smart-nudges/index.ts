@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { primeLearningContext } from "../_shared/events/learning-store.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  callClaudeText,
-  callLovableAIText,
-  CLAUDE_MODELS,
-} from "../_shared/anthropic.ts";
+import { callLovableAIText } from "../_shared/anthropic.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 import { fetchRenderableLoadShape, getLoadShapeOrDefault } from "../_shared/load-shape/read.ts";
 import {
@@ -3411,7 +3407,7 @@ function validateStaticFallbackCopy(
 }
 
 async function tryAIProvider(
-  provider: "claude" | "gemini",
+  provider: "gemini",
   ctx: NudgeContext,
   nudgeType: string,
   systemPrompt: string,
@@ -3419,24 +3415,16 @@ async function tryAIProvider(
   anchorPhase?: EventPhase | null,
 ): Promise<NudgeCopy | null> {
   try {
-    // Transient gateway pressure (429 / 5xx) used to drop the nudge entirely
-    // and fall through to static copy. Retry with backoff before giving up.
+    // Launch contract: exactly ONE Gemini attempt, then the deterministic
+    // static copy bank. No retries, no second provider.
     // No client-side abort deadline: an aborted generation still bills and
     // still completes server-side, it just loses us the copy.
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 1;
     let content = "";
     let lastError: unknown = null;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        content = provider === "claude"
-          ? await callClaudeText({
-            system: systemPrompt,
-            messages: [{ role: "user", content: userPrompt }],
-            model: CLAUDE_MODELS.HAIKU,
-            max_tokens: 256,
-            temperature: 0.7,
-          })
-          : await callLovableAIText({
+        content = await callLovableAIText({
             system: systemPrompt,
             messages: [{ role: "user", content: userPrompt }],
             model: "google/gemini-3.1-flash-lite",
