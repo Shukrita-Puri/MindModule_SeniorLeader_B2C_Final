@@ -2439,7 +2439,7 @@ async function buildNudgeContext(
         if (isOff) consecutiveOffDaysBefore++;
         else break;
       }
-      const travelDay = today.kind === "travel-day";
+      const travelDay = today.kind === "travel-day" || travelSignal.travelDay;
       // Full working weekend: ≥3 non-noise events on a Sat/Sun. Reuse the
       // existing nonNoiseEvents array.
       const isTodayWeekend = isWeekendDayForHomeCountry(
