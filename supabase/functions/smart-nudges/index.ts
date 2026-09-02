@@ -411,6 +411,11 @@ import {
   resolveEventPhase,
   validateEventPhaseInCopy,
 } from "../_shared/nudges/event-phase.ts";
+import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
+import {
+  isTravelDayFromDistance,
+  travelDayReason,
+} from "../_shared/travel/travel-day.ts";
 
 // ── Canonical Travel-phase copy adapter ──
 // Mirrors the `copyForPhase` pattern used by `travel-notifications`. Smart-
@@ -508,6 +513,53 @@ function isLoadBearingEvent(e: CalendarEvent): boolean {
   ) return false;
   return true;
 }
+
+/** A contiguous run of commitments the user experiences as one block. */
+export interface CalendarArc {
+  startMs: number;
+  endMs: number;
+  events: CalendarEvent[];
+}
+
+/** Gaps shorter than this never break an arc — there is no re-entry cost. */
+export const ARC_GAP_BREAK_MINUTES = 15;
+
+/**
+ * Collapse back-to-back commitments into arcs.
+ *
+ * A five-hour offsite that the calendar stores as five 45-minute blocks is
+ * ONE thing the user attends, so counting it as five meetings makes a normal
+ * day read as heavy. Events are sorted by start; a new arc begins only when
+ * the gap from the running arc's end exceeds ARC_GAP_BREAK_MINUTES.
+ */
+export function collapseIntoArcs(events: CalendarEvent[]): CalendarArc[] {
+  const parsed = events
+    .map((e) => {
+      const startMs = new Date(e.start_time).getTime();
+      const endRaw = e.end_time ? new Date(e.end_time).getTime() : NaN;
+      const endMs = Number.isFinite(endRaw) ? endRaw : startMs;
+      return { e, startMs, endMs };
+    })
+    .filter((x) => Number.isFinite(x.startMs))
+    .sort((a, b) => a.startMs - b.startMs);
+
+  const arcs: CalendarArc[] = [];
+  for (const item of parsed) {
+    const current = arcs[arcs.length - 1];
+    if (
+      current &&
+      item.startMs - current.endMs <= ARC_GAP_BREAK_MINUTES * 60_000
+    ) {
+      current.endMs = Math.max(current.endMs, item.endMs);
+      current.events.push(item.e);
+      continue;
+    }
+    arcs.push({ startMs: item.startMs, endMs: item.endMs, events: [item.e] });
+  }
+  return arcs;
+}
+
+
 
 function slotNameForIndex(index: number): NudgeSlot | null {
   if (index === 0) return "morning";
@@ -926,6 +978,19 @@ interface NudgeContext {
     /** Canonical availability decision (SSOT). Populated when the classifier
      *  ran successfully. When present, `ptoMode` is derived from this. */
     availability?: AvailabilityResult;
+  };
+  /**
+   * Travel SSOT verdict (`_shared/travel/travel-day.ts`). Distance from home
+   * is primary evidence, so a domestic trip with no timezone change and no
+   * travel keyword in any calendar title is still a travel day.
+   */
+  travelSignal: {
+    travelDay: boolean;
+    /** Provenance: distance>50km | timezone-change | …-deferred-to-state | none. */
+    reason: string;
+    distanceKm: number | null;
+    state: string | null;
+    freshness: string;
   };
   // §17 Week-Ahead - hydrated inputs for evaluateWeekAheadMode. Computed once
   // in buildNudgeContext from today/tomorrow/14-day-lookback calendar data so
@@ -1563,10 +1628,11 @@ async function buildNudgeContext(
     { data: jitEventsRaw },
     { data: practiceSessions30d },
     { data: checkins30d },
+    { data: travelStateRow },
   ] = await Promise.all([
     supabase.from("primary_calendar_events")
       .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count",
+        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day, source_calendar",
       )
       .eq("user_id", userId)
       .gte("start_time", todayBounds.startUtc)
@@ -1574,7 +1640,7 @@ async function buildNudgeContext(
       .order("start_time", { ascending: true }),
     supabase.from("primary_calendar_events")
       .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count",
+        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day, source_calendar",
       )
       .eq("user_id", userId)
       .gte("start_time", tomorrowBounds.startUtc)
@@ -1649,6 +1715,14 @@ async function buildNudgeContext(
       .eq("user_id", userId)
       .gte("checkin_date", thirtyDaysAgo.split("T")[0])
       .order("checkin_date", { ascending: true }),
+    // Travel SSOT inputs. Distance-first travel-day detection (a domestic
+    // trip keeps the same timezone and never appears in a calendar title).
+    supabase.from("travel_state")
+      .select(
+        "state, distance_from_home_km, last_state_change_at, last_location_at, last_known_timezone",
+      )
+      .eq("user_id", userId)
+      .maybeSingle(),
   ]);
 
   // §17 Week-Ahead lookback: pull the last 14 days of events (titles + start
@@ -1723,13 +1797,51 @@ async function buildNudgeContext(
   );
   const highStakesEvents = nonNoiseEvents.filter((e) => isHighStakes(e.title));
 
-  // Only load-bearing entries drive dayType and "meetings today" copy.
+  // Only load-bearing entries drive dayType and "meetings today" copy, and a
+  // contiguous run collapses into ONE arc: a five-hour offsite split into
+  // five back-to-back blocks is one commitment, not five meetings.
   const loadBearingEvents = nonNoiseEvents.filter(isLoadBearingEvent);
-  const eventCount = loadBearingEvents.length;
+  const eventCount = collapseIntoArcs(loadBearingEvents).length;
   let dayType: "light" | "moderate" | "heavy" | "extreme" = "light";
   if (eventCount >= 8) dayType = "extreme";
   else if (eventCount >= 6) dayType = "heavy";
   else if (eventCount >= 3) dayType = "moderate";
+
+  // ── Travel SSOT verdict ───────────────────────────────────────────────
+  // Distance from the home anchor is primary evidence; a stale fix is never
+  // trusted, in which case the persisted state machine decides.
+  const travelFreshness = decideTravelFreshness({
+    state: (travelStateRow as any)?.state ?? null,
+    lastStateChangeAt: (travelStateRow as any)?.last_state_change_at ?? null,
+    lastLocationAt: (travelStateRow as any)?.last_location_at ?? null,
+    now,
+  });
+  const travelDistanceKm =
+    typeof (travelStateRow as any)?.distance_from_home_km === "number"
+      ? (travelStateRow as any).distance_from_home_km as number
+      : null;
+  const travelTimezoneChanged = (() => {
+    const known = (travelStateRow as any)?.last_known_timezone;
+    if (typeof known !== "string" || known.length === 0) return false;
+    return known !== timeZone;
+  })();
+  const travelDayInput = {
+    distanceKm: travelDistanceKm,
+    state: (travelStateRow as any)?.state ?? null,
+    timezoneChanged: travelTimezoneChanged,
+    locationStale: !travelFreshness.used,
+  };
+  const travelDayFromLocation = isTravelDayFromDistance(travelDayInput);
+  const travelSignal = {
+    travelDay: travelDayFromLocation,
+    reason: travelDayFromLocation
+      ? travelDayReason(travelDayInput)
+      : "none",
+    distanceKm: travelDistanceKm,
+    state: ((travelStateRow as any)?.state ?? null) as string | null,
+    freshness: travelFreshness.reason,
+  };
+
 
   // Calendar gaps (≥20 min between events)
   const calendarGaps: CalendarGap[] = [];
@@ -2135,8 +2247,16 @@ async function buildNudgeContext(
           };
         }
       }
+      // Travel SSOT promotion: the calendar-title detector only sees flights
+      // and trains written into an event title. A >50km GPS displacement (or
+      // a timezone change) is travel evidence in its own right, so it lifts a
+      // 'normal' day to 'travel-day'. It never overrides 'away-day'.
+      const kind: "normal" | "travel-day" | "away-day" =
+        today.kind === "normal" && travelSignal.travelDay
+          ? "travel-day"
+          : today.kind;
       return {
-        kind: today.kind,
+        kind,
         signalToken: today.signalToken,
         postTravel: postTravelToday,
         preFlight,
@@ -2154,6 +2274,7 @@ async function buildNudgeContext(
         availability: nudgeAvailability,
       };
     })(),
+    travelSignal,
     weekAheadInputs: (() => {
       const today = detectDayKindFromEvents(todayEvents);
       const tomorrow = detectDayKindFromEvents(tomorrowEvents);
@@ -2318,7 +2439,7 @@ async function buildNudgeContext(
         if (isOff) consecutiveOffDaysBefore++;
         else break;
       }
-      const travelDay = today.kind === "travel-day";
+      const travelDay = today.kind === "travel-day" || travelSignal.travelDay;
       // Full working weekend: ≥3 non-noise events on a Sat/Sun. Reuse the
       // existing nonNoiseEvents array.
       const isTodayWeekend = isWeekendDayForHomeCountry(
@@ -3100,31 +3221,12 @@ ${
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
-      // Part 1 - hydrate travel_state for the fallback path. Fail-open: any
-      // error leaves the field undefined and the rule defaults take over.
-      let _nudgeTravelState:
-        | { state?: string | null; distanceFromHomeKm?: number | null }
-        | null = null;
-      try {
-        if (supabase) {
-          const { data: tsRow } = await supabase
-            .from("travel_state")
-            .select("state, distance_from_home_km")
-            .eq("user_id", ctx.userId)
-            .maybeSingle();
-          if (tsRow) {
-            _nudgeTravelState = {
-              state: (tsRow as any).state ?? null,
-              distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
-            };
-          }
-        }
-      } catch (tsErr) {
-        console.warn(
-          "[smart-nudges] travel_state hydration skipped:",
-          tsErr instanceof Error ? tsErr.message : tsErr,
-        );
-      }
+      // Travel state comes from the single hydration in buildNudgeContext —
+      // no second query, and the same verdict the day-context used.
+      const _nudgeTravelState = {
+        state: ctx.travelSignal.state,
+        distanceFromHomeKm: ctx.travelSignal.distanceKm,
+      };
       const wiring = evaluateForScope(
         {
           wearable: ctx.hasWearableData
@@ -3150,7 +3252,9 @@ ${
           timezone: {
             offsetMinutes: null,
             shift48hHours: null,
-            travelDay: false,
+            // Travel SSOT verdict, not a stub: a domestic >50km trip with an
+            // unchanged timezone is a travel day for the CEO travel rules.
+            travelDay: ctx.travelSignal.travelDay,
           },
           travelState: _nudgeTravelState,
           events: eventsForCtx,
@@ -3374,6 +3478,9 @@ function validateStaticFallbackCopy(
   copy: NudgeCopy | null,
   ctx: NudgeContext,
   nudgeType: string,
+  /** Phase of the anchor event this copy names, when it names one. Parity
+   *  with the LLM path: without it "…is next" survives on a finished event. */
+  anchorPhase?: EventPhase | null,
 ): NudgeCopy | null {
   if (!copy) return null;
   copy = normalizeNotificationCopy(copy);
@@ -3394,7 +3501,11 @@ function validateStaticFallbackCopy(
       `[smart-nudges v8] Allowed low-context static fallback ${copy.variantId} for ${nudgeType}: ${violation}`,
     );
   }
-  const truthViolation = violatesTruthContract(copy.body, ctx);
+  const truthViolation = violatesTruthContract(
+    copy.body,
+    ctx,
+    anchorPhase ?? null,
+  );
   if (truthViolation) {
     console.warn(
       `[smart-nudges truth] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${truthViolation} | "${copy.body}"`,
@@ -3741,8 +3852,23 @@ function getFallbackNudgeTwoPrioritiesCopy(
   };
 }
 
-function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
+function getFallbackNudgeTwoRecalibrateCopy(
+  eventTitle: string,
+  anchor?: { startMs: number; endMs: number; nowMs: number } | null,
+): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
+  // Phase parity with the LLM path: "is next" is a lie once the block is
+  // underway or finished, so the clause is rendered from the event's phase.
+  if (anchor) {
+    const phase = resolveEventPhase(anchor);
+    const clause = phaseClause(ev, phase, anchor);
+    return {
+      title: "Mid-day reset window",
+      body:
+        `Your morning state was low and ${clause}. This is the recovery window - check in to recalibrate.`,
+      variantId: "FB-N2-recal",
+    };
+  }
   return {
     title: "Mid-day reset window",
     body:
@@ -4400,10 +4526,19 @@ async function evaluateNudgeTwo(
       const aiCopy = await generateNudgeCopy(ctx, "nudge_two_recalibrate", {
         eventTitle,
       }, supabase);
+      const anchorEvent = afternoonHighStakes[0];
+      const anchorTimes = {
+        startMs: new Date(anchorEvent.start_time).getTime(),
+        endMs: anchorEvent.end_time
+          ? new Date(anchorEvent.end_time).getTime()
+          : new Date(anchorEvent.start_time).getTime() + 30 * 60_000,
+        nowMs: Date.now(),
+      };
       const copy = aiCopy || validateStaticFallbackCopy(
-        getFallbackNudgeTwoRecalibrateCopy(eventTitle),
+        getFallbackNudgeTwoRecalibrateCopy(eventTitle, anchorTimes),
         ctx,
         "nudge_two_recalibrate",
+        resolveEventPhase(anchorTimes),
       );
       if (!copy) return null;
 
@@ -6214,6 +6349,17 @@ serve(async (req) => {
           homeCountry: ctx.homeCountry,
         });
       }
+      // Travel provenance on every downstream trace: without it a "why was
+      // this a travel day" question can't be answered from the logs alone.
+      Object.assign(traceBase.metadata, {
+        travel_day: ctx.travelSignal.travelDay,
+        travel_reason: ctx.travelSignal.reason,
+        travel_distance_from_home_km: ctx.travelSignal.distanceKm,
+        travel_state: ctx.travelSignal.state,
+        travel_location_freshness: ctx.travelSignal.freshness,
+        day_context_kind: ctx.dayContext.kind,
+      });
+
       // Phase 4 — always hydrate leader voice + reset modality on ctx,
       // even when reused from the week-ahead path above (idempotent set).
       ctx.leaderVoiceRules = leaderProfile?.voice.cos_brief_rules ?? null;
