@@ -6435,6 +6435,7 @@ async function generateMasteryPlan(
       explicitPto: (req as any).explicitPto === true,
       weekAheadOverride: (req as any).weekAheadOverride === true,
       weekAheadHydration: (req as any).weekAheadHydration ?? null,
+      travelDaySignal: shared.travelSignal.travelDay,
     }),
   });
 
