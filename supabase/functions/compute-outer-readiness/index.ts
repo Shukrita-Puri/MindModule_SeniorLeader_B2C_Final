@@ -68,7 +68,7 @@ import {
   loadShapeWriteEnabled,
 } from "../_shared/load-shape/read.ts";
 import { briefShapePromptBlock } from "../_shared/load-shape/surfaces.ts";
-import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
+import { hydrateTravelDay } from "../_shared/travel/hydrate-travel-day.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { logMergeStats } from "../_shared/rules/calendar-merge.ts";
 import {
@@ -8074,53 +8074,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               [];
 
             // Part 1 — hydrate travel_state so awayFromHome / travelTier are
-            // populated on the matrix. Fail-open: any error leaves the
-            // travelState field undefined and rules behave exactly as before.
-            //
-            // Sprint 10 / Phase 9B: STALENESS GUARD.
-            //   • We do NOT trust `updated_at` — the travel-state-sync producer
-            //     touches it on skip runs for freshness bookkeeping only.
-            //   • We trust only `last_state_change_at` (real state transition)
-            //     or `last_location_at` (real coord fix). If neither is fresh,
-            //     we ignore the row and let day-type / behaviour rules fall back
-            //     to calendar-title travel detection (see day-type.ts:142).
-            let travelStateForCtx:
-              | { state?: string | null; distanceFromHomeKm?: number | null }
-              | null = null;
-            try {
-              const { data: tsRow } = await (db as any)
-                .from("travel_state")
-                .select(
-                  "state, distance_from_home_km, last_state_change_at, last_location_at",
-                )
-                .eq("user_id", userId)
-                .maybeSingle();
-              const freshness = decideTravelFreshness({
-                state: (tsRow as any)?.state ?? null,
-                lastStateChangeAt: (tsRow as any)?.last_state_change_at ?? null,
-                lastLocationAt: (tsRow as any)?.last_location_at ?? null,
-                now: new Date(),
-              });
-              console.log("[travel-state][consumer]", {
-                fn: "compute-outer-readiness",
-                used: freshness.used,
-                reason: freshness.reason,
-                hasRow: !!tsRow,
-                state: (tsRow as any)?.state ?? null,
-              });
-              if (tsRow && freshness.used) {
-                travelStateForCtx = {
-                  state: (tsRow as any).state ?? null,
-                  distanceFromHomeKm: (tsRow as any).distance_from_home_km ??
-                    null,
-                };
-              }
-            } catch (tsErr) {
-              console.warn(
-                "[compute-outer-readiness] travel_state hydration skipped:",
-                tsErr instanceof Error ? tsErr.message : tsErr,
-              );
-            }
+            // populated on the matrix, AND so `timezone.travelDay` reflects
+            // GPS displacement (>50 km from home) — not only a timezone
+            // delta. A domestic away-day keeps the home timezone and never
+            // appears in a calendar title, so the tz-only test missed it.
+            // Shared with Plan + Nudges via `_shared/travel/hydrate-travel-day`.
+            // Fail-open: any error yields travelDay=false and rules behave
+            // exactly as before.
+            const travelHydration = await hydrateTravelDay(db, userId, {
+              now: new Date(),
+              currentTimezone: effectiveCurrentTz ?? null,
+              fn: "compute-outer-readiness",
+            });
+            const travelStateForCtx = travelHydration.travelState;
 
             briefBehaviourSnapshot = buildBehaviourSnapshot({
               coverage: {
@@ -8138,7 +8104,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   offsetMinutes: -timezoneOffset,
                   shift48hHours: null,
                   travelDay: !!(effectiveCurrentTz && effectiveHomeTz &&
-                    effectiveCurrentTz !== effectiveHomeTz),
+                    effectiveCurrentTz !== effectiveHomeTz) ||
+                    travelHydration.travelDay,
                 },
                 travelState: travelStateForCtx,
                 events: eventsForCtx,

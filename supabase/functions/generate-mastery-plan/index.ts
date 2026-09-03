@@ -72,7 +72,11 @@ import {
 } from "../_shared/protocols/protocol-combos.ts";
 import { type RelationshipRole } from "../_shared/jit/relationship-taxonomy.ts";
 import { isTravelTitle as isTravelTitleCanonical } from "../_shared/ceo-behaviour/travel.ts";
-import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
+import {
+  emptyTravelDayHydration,
+  hydrateTravelDay,
+  type TravelDayHydration,
+} from "../_shared/travel/hydrate-travel-day.ts";
 import {
   isPersonalHolidayTitle,
   isPtoOrHolidayTitle,
@@ -4527,6 +4531,9 @@ interface SharedContext {
   // snapshot locally via buildBehaviourSnapshot so it still gets the shared
   // rule output — this fallback is logged so drift is visible.
   briefBehaviour: PersistedBriefBehaviourSnapshot | null;
+  /** Travel-day SSOT verdict (GPS distance / timezone / state machine),
+   *  shared with Brief and Smart Nudges. */
+  travelSignal: TravelDayHydration;
   briefBehaviourSource:
     | "brief_snapshot"
     | "outer_readiness_cache"
@@ -4697,11 +4704,22 @@ async function buildSharedContext(
     combinedAlreadyUsed: [],
     briefBehaviour: null,
     briefBehaviourSource: "absent",
+    travelSignal: emptyTravelDayHydration("not_hydrated"),
     weeklyPlanSnapshot: null,
     signalSummary: null,
     strategicContext: null,
     restingHRBaseline: null,
   };
+
+  // ── Travel SSOT (shared with Brief + Smart Nudges) ─────────────────────
+  // Distance-first: a domestic away-day keeps the home timezone and has no
+  // flight-titled event, so the calendar/timezone tests alone miss it.
+  ctx.travelSignal = await hydrateTravelDay(supabaseClient, req.userId, {
+    now,
+    currentTimezone: (req as any).effectiveCurrentTimezone ??
+      (req as any).currentTimezone ?? null,
+    fn: "generate-mastery-plan",
+  });
 
   // ── Why-line evidence sources (never throw; null degrades to cold start) ──
   try {
@@ -5488,47 +5506,13 @@ async function buildSharedContext(
             (req as any).currentTimezone ?? null;
           const _fbHomeTz = (req as any).effectiveHomeTimezone ??
             (req as any).homeTimezone ?? null;
-          // Part 1 — hydrate travel_state for the fail-open fallback rebuild.
-          // Sprint 10: apply the shared travel freshness guard so a stale row
-          // (`updated_at` bumped by sync skip only) can't masquerade as real
-          // travel evidence.
-          let _fbTravelState:
-            | { state?: string | null; distanceFromHomeKm?: number | null }
-            | null = null;
-          try {
-            const { data: tsRow } = await (supabaseClient as any)
-              .from("travel_state")
-              .select(
-                "state, distance_from_home_km, last_state_change_at, last_location_at",
-              )
-              .eq("user_id", req.userId)
-              .maybeSingle();
-            const freshness = decideTravelFreshness({
-              state: (tsRow as any)?.state ?? null,
-              lastStateChangeAt: (tsRow as any)?.last_state_change_at ?? null,
-              lastLocationAt: (tsRow as any)?.last_location_at ?? null,
-              now,
-            });
-            console.log("[travel-state][consumer]", {
-              fn: "generate-mastery-plan",
-              used: freshness.used,
-              reason: freshness.reason,
-              hasRow: !!tsRow,
-              state: (tsRow as any)?.state ?? null,
-            });
-            if (tsRow && freshness.used) {
-              _fbTravelState = {
-                state: (tsRow as any).state ?? null,
-                distanceFromHomeKm: (tsRow as any).distance_from_home_km ??
-                  null,
-              };
-            }
-          } catch (tsErr) {
-            console.warn(
-              "[generate-mastery-plan] travel_state hydration skipped:",
-              tsErr instanceof Error ? tsErr.message : tsErr,
-            );
-          }
+          // Travel SSOT already hydrated once for this request (freshness
+          // guard + distance-first travel-day). Reuse it so Brief, Plan and
+          // Smart Nudges agree, and so a domestic away-day (same timezone,
+          // no flight title) still reads as travel.
+          const _fbTravelHydration = ctx.travelSignal;
+          const _fbTravelState = _fbTravelHydration.travelState;
+
           const fallback = buildBehaviourSnapshot({
             coverage: {
               wearable: wearableForCtx,
@@ -5545,7 +5529,8 @@ async function buildSharedContext(
                 offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
                 shift48hHours: null,
                 travelDay:
-                  !!(_fbCurrentTz && _fbHomeTz && _fbCurrentTz !== _fbHomeTz),
+                  !!(_fbCurrentTz && _fbHomeTz && _fbCurrentTz !== _fbHomeTz) ||
+                  _fbTravelHydration.travelDay,
               },
               travelState: _fbTravelState,
               events: _planEventsToday,
@@ -6450,6 +6435,7 @@ async function generateMasteryPlan(
       explicitPto: (req as any).explicitPto === true,
       weekAheadOverride: (req as any).weekAheadOverride === true,
       weekAheadHydration: (req as any).weekAheadHydration ?? null,
+      travelDaySignal: shared.travelSignal.travelDay,
     }),
   });
 
@@ -6653,6 +6639,7 @@ async function generateMasteryPlan(
           explicitPto: (req as any).explicitPto === true,
           weekAheadOverride: (req as any).weekAheadOverride === true,
           weekAheadHydration: (req as any).weekAheadHydration ?? null,
+          travelDaySignal: shared.travelSignal.travelDay,
         }),
       },
     );
@@ -8578,6 +8565,10 @@ export function deriveStructuralDayFlags(
     weekAheadOverride?: boolean;
     /** Availability-SSOT hydration (PTO / holiday / long-weekend). */
     weekAheadHydration?: WeekAheadHydration | null;
+    /** Travel-day SSOT verdict (GPS distance / timezone / state machine).
+     *  ORs on top of calendar-title (category G) detection so an away-day
+     *  with no flight event still counts. Never removes evidence. */
+    travelDaySignal?: boolean;
   },
 ): {
   hasTravelDay: boolean;
@@ -8593,7 +8584,7 @@ export function deriveStructuralDayFlags(
   const events = Array.isArray(calendarEvents) ? calendarEvents : [];
   const localNow = opts?.now ?? new Date();
   const dayOfWeek = opts?.userLocale?.dayOfWeek ?? localNow.getUTCDay();
-  const hasTravelDay = events.some((e: any) => {
+  const hasTravelDay = opts?.travelDaySignal === true || events.some((e: any) => {
     return e?.eventCategory === "G";
   });
   const hasConferenceDay = events.some((e: any) => {
