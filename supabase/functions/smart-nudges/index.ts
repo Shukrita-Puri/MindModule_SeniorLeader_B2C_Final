@@ -1807,38 +1807,19 @@ async function buildNudgeContext(
   else if (eventCount >= 3) dayType = "moderate";
 
   // ── Travel SSOT verdict ───────────────────────────────────────────────
+  // Shared with Brief + Plan via `_shared/travel/hydrate-travel-day`.
   // Distance from the home anchor is primary evidence; a stale fix is never
   // trusted, in which case the persisted state machine decides.
-  const travelFreshness = decideTravelFreshness({
-    state: (travelStateRow as any)?.state ?? null,
-    lastStateChangeAt: (travelStateRow as any)?.last_state_change_at ?? null,
-    lastLocationAt: (travelStateRow as any)?.last_location_at ?? null,
-    now,
-  });
-  const travelDistanceKm =
-    typeof (travelStateRow as any)?.distance_from_home_km === "number"
-      ? (travelStateRow as any).distance_from_home_km as number
-      : null;
-  const travelTimezoneChanged = (() => {
-    const known = (travelStateRow as any)?.last_known_timezone;
-    if (typeof known !== "string" || known.length === 0) return false;
-    return known !== timeZone;
-  })();
-  const travelDayInput = {
-    distanceKm: travelDistanceKm,
-    state: (travelStateRow as any)?.state ?? null,
-    timezoneChanged: travelTimezoneChanged,
-    locationStale: !travelFreshness.used,
-  };
-  const travelDayFromLocation = isTravelDayFromDistance(travelDayInput);
+  const travelHydration = deriveTravelDay(
+    travelStateRow as Record<string, unknown> | null,
+    { now, currentTimezone: timeZone },
+  );
   const travelSignal = {
-    travelDay: travelDayFromLocation,
-    reason: travelDayFromLocation
-      ? travelDayReason(travelDayInput)
-      : "none",
-    distanceKm: travelDistanceKm,
-    state: ((travelStateRow as any)?.state ?? null) as string | null,
-    freshness: travelFreshness.reason,
+    travelDay: travelHydration.travelDay,
+    reason: travelHydration.reason,
+    distanceKm: travelHydration.distanceKm,
+    state: travelHydration.state,
+    freshness: travelHydration.freshness,
   };
 
 
