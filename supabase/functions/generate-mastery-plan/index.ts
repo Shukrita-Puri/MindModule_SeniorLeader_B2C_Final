@@ -72,7 +72,11 @@ import {
 } from "../_shared/protocols/protocol-combos.ts";
 import { type RelationshipRole } from "../_shared/jit/relationship-taxonomy.ts";
 import { isTravelTitle as isTravelTitleCanonical } from "../_shared/ceo-behaviour/travel.ts";
-import { hydrateTravelDay } from "../_shared/travel/hydrate-travel-day.ts";
+import {
+  emptyTravelDayHydration,
+  hydrateTravelDay,
+  type TravelDayHydration,
+} from "../_shared/travel/hydrate-travel-day.ts";
 import {
   isPersonalHolidayTitle,
   isPtoOrHolidayTitle,
