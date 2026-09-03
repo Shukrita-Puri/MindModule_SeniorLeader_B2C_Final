@@ -8565,6 +8565,10 @@ export function deriveStructuralDayFlags(
     weekAheadOverride?: boolean;
     /** Availability-SSOT hydration (PTO / holiday / long-weekend). */
     weekAheadHydration?: WeekAheadHydration | null;
+    /** Travel-day SSOT verdict (GPS distance / timezone / state machine).
+     *  ORs on top of calendar-title (category G) detection so an away-day
+     *  with no flight event still counts. Never removes evidence. */
+    travelDaySignal?: boolean;
   },
 ): {
   hasTravelDay: boolean;
