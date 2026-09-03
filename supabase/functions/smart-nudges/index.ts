@@ -411,11 +411,7 @@ import {
   resolveEventPhase,
   validateEventPhaseInCopy,
 } from "../_shared/nudges/event-phase.ts";
-import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
-import {
-  isTravelDayFromDistance,
-  travelDayReason,
-} from "../_shared/travel/travel-day.ts";
+import { deriveTravelDay } from "../_shared/travel/hydrate-travel-day.ts";
 
 // ── Canonical Travel-phase copy adapter ──
 // Mirrors the `copyForPhase` pattern used by `travel-notifications`. Smart-
