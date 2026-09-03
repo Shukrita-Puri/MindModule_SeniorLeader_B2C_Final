@@ -5506,16 +5506,11 @@ async function buildSharedContext(
             (req as any).currentTimezone ?? null;
           const _fbHomeTz = (req as any).effectiveHomeTimezone ??
             (req as any).homeTimezone ?? null;
-          // Part 1 — hydrate travel_state for the fail-open fallback rebuild.
-          // Shared hydrator (`_shared/travel/hydrate-travel-day`) applies the
-          // freshness guard AND the distance-first travel-day SSOT, so a
-          // domestic away-day (same timezone, no flight title) is recognised
-          // exactly as it is in Brief and Smart Nudges.
-          const _fbTravelHydration = await hydrateTravelDay(
-            supabaseClient,
-            req.userId,
-            { now, currentTimezone: _fbCurrentTz, fn: "generate-mastery-plan" },
-          );
+          // Travel SSOT already hydrated once for this request (freshness
+          // guard + distance-first travel-day). Reuse it so Brief, Plan and
+          // Smart Nudges agree, and so a domestic away-day (same timezone,
+          // no flight title) still reads as travel.
+          const _fbTravelHydration = ctx.travelSignal;
           const _fbTravelState = _fbTravelHydration.travelState;
 
           const fallback = buildBehaviourSnapshot({
