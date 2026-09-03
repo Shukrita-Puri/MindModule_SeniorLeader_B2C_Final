@@ -8584,7 +8584,7 @@ export function deriveStructuralDayFlags(
   const events = Array.isArray(calendarEvents) ? calendarEvents : [];
   const localNow = opts?.now ?? new Date();
   const dayOfWeek = opts?.userLocale?.dayOfWeek ?? localNow.getUTCDay();
-  const hasTravelDay = events.some((e: any) => {
+  const hasTravelDay = opts?.travelDaySignal === true || events.some((e: any) => {
     return e?.eventCategory === "G";
   });
   const hasConferenceDay = events.some((e: any) => {
