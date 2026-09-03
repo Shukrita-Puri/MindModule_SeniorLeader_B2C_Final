@@ -4711,6 +4711,16 @@ async function buildSharedContext(
     restingHRBaseline: null,
   };
 
+  // ── Travel SSOT (shared with Brief + Smart Nudges) ─────────────────────
+  // Distance-first: a domestic away-day keeps the home timezone and has no
+  // flight-titled event, so the calendar/timezone tests alone miss it.
+  ctx.travelSignal = await hydrateTravelDay(supabaseClient, req.userId, {
+    now,
+    currentTimezone: (req as any).effectiveCurrentTimezone ??
+      (req as any).currentTimezone ?? null,
+    fn: "generate-mastery-plan",
+  });
+
   // ── Why-line evidence sources (never throw; null degrades to cold start) ──
   try {
     const [causalityRes, v8Res, rhrRes] = await Promise.all([
