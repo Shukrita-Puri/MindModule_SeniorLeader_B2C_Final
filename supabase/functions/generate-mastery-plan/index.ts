@@ -72,7 +72,7 @@ import {
 } from "../_shared/protocols/protocol-combos.ts";
 import { type RelationshipRole } from "../_shared/jit/relationship-taxonomy.ts";
 import { isTravelTitle as isTravelTitleCanonical } from "../_shared/ceo-behaviour/travel.ts";
-import { decideTravelFreshness } from "../_shared/travel/freshness.ts";
+import { hydrateTravelDay } from "../_shared/travel/hydrate-travel-day.ts";
 import {
   isPersonalHolidayTitle,
   isPtoOrHolidayTitle,
@@ -4527,6 +4527,9 @@ interface SharedContext {
   // snapshot locally via buildBehaviourSnapshot so it still gets the shared
   // rule output — this fallback is logged so drift is visible.
   briefBehaviour: PersistedBriefBehaviourSnapshot | null;
+  /** Travel-day SSOT verdict (GPS distance / timezone / state machine),
+   *  shared with Brief and Smart Nudges. */
+  travelSignal: TravelDayHydration;
   briefBehaviourSource:
     | "brief_snapshot"
     | "outer_readiness_cache"
@@ -4697,6 +4700,7 @@ async function buildSharedContext(
     combinedAlreadyUsed: [],
     briefBehaviour: null,
     briefBehaviourSource: "absent",
+    travelSignal: emptyTravelDayHydration("not_hydrated"),
     weeklyPlanSnapshot: null,
     signalSummary: null,
     strategicContext: null,
@@ -5489,46 +5493,17 @@ async function buildSharedContext(
           const _fbHomeTz = (req as any).effectiveHomeTimezone ??
             (req as any).homeTimezone ?? null;
           // Part 1 — hydrate travel_state for the fail-open fallback rebuild.
-          // Sprint 10: apply the shared travel freshness guard so a stale row
-          // (`updated_at` bumped by sync skip only) can't masquerade as real
-          // travel evidence.
-          let _fbTravelState:
-            | { state?: string | null; distanceFromHomeKm?: number | null }
-            | null = null;
-          try {
-            const { data: tsRow } = await (supabaseClient as any)
-              .from("travel_state")
-              .select(
-                "state, distance_from_home_km, last_state_change_at, last_location_at",
-              )
-              .eq("user_id", req.userId)
-              .maybeSingle();
-            const freshness = decideTravelFreshness({
-              state: (tsRow as any)?.state ?? null,
-              lastStateChangeAt: (tsRow as any)?.last_state_change_at ?? null,
-              lastLocationAt: (tsRow as any)?.last_location_at ?? null,
-              now,
-            });
-            console.log("[travel-state][consumer]", {
-              fn: "generate-mastery-plan",
-              used: freshness.used,
-              reason: freshness.reason,
-              hasRow: !!tsRow,
-              state: (tsRow as any)?.state ?? null,
-            });
-            if (tsRow && freshness.used) {
-              _fbTravelState = {
-                state: (tsRow as any).state ?? null,
-                distanceFromHomeKm: (tsRow as any).distance_from_home_km ??
-                  null,
-              };
-            }
-          } catch (tsErr) {
-            console.warn(
-              "[generate-mastery-plan] travel_state hydration skipped:",
-              tsErr instanceof Error ? tsErr.message : tsErr,
-            );
-          }
+          // Shared hydrator (`_shared/travel/hydrate-travel-day`) applies the
+          // freshness guard AND the distance-first travel-day SSOT, so a
+          // domestic away-day (same timezone, no flight title) is recognised
+          // exactly as it is in Brief and Smart Nudges.
+          const _fbTravelHydration = await hydrateTravelDay(
+            supabaseClient,
+            req.userId,
+            { now, currentTimezone: _fbCurrentTz, fn: "generate-mastery-plan" },
+          );
+          const _fbTravelState = _fbTravelHydration.travelState;
+
           const fallback = buildBehaviourSnapshot({
             coverage: {
               wearable: wearableForCtx,
@@ -5545,7 +5520,8 @@ async function buildSharedContext(
                 offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
                 shift48hHours: null,
                 travelDay:
-                  !!(_fbCurrentTz && _fbHomeTz && _fbCurrentTz !== _fbHomeTz),
+                  !!(_fbCurrentTz && _fbHomeTz && _fbCurrentTz !== _fbHomeTz) ||
+                  _fbTravelHydration.travelDay,
               },
               travelState: _fbTravelState,
               events: _planEventsToday,
