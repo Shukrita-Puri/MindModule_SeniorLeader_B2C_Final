@@ -1,54 +1,37 @@
-# Travel-day: end-to-end tests, deterministic fallback, richer provenance
+# Travel-day: e2e tests, deterministic fallback, provenance logging
 
-The shared hydrator (`_shared/travel/hydrate-travel-day.ts`) already feeds Brief, Mastery Plan and Smart Nudges. Three gaps remain: nothing proves the verdict actually changes Brief/Plan output, the "no GPS, no timezone" path is only implicitly deterministic, and the provenance log records the verdict but not the inputs that produced it.
+Backend only — edge functions, shared modules and tests. No UI, no component or styling changes, no schema changes.
 
-## 1. End-to-end tests that prove the verdict changes output
+The uploaded reference implementation (`derive-travel-day.ts`, `types.ts`, `brief-builders.ts`, `plan-builders.ts`) describes the right *contract*, but it assumes module and table names this project does not have: the real code lives in `_shared/travel/hydrate-travel-day.ts` (which already contains both the pure `deriveTravelDay` and the DB `hydrateTravelDay`), `_shared/travel/travel-day.ts`, `_shared/travel/freshness.ts`, the real table `travel_state`, and real builders `buildBehaviourSnapshot` (`_shared/behaviour-snapshot.ts`), `buildDeterministicBriefFallback` (`_shared/brief/deterministic-brief.ts`), `deriveStructuralDayFlags` / `generatePlanBrief` (`generate-mastery-plan/index.ts`). We adopt the reference's contract into those existing modules rather than adding parallel stub builders — no duplicate SSOT.
 
-Two new test files, driving the real exported builders (no mocks of the decision logic):
+## 1. Deterministic evidence ladder + fallback (`_shared/travel/hydrate-travel-day.ts`)
 
-- `supabase/functions/_shared/travel/travel-day-brief-e2e.test.ts`
-  - Build the same `buildBehaviourSnapshot` coverage input twice — identical wearable/check-in/events, `timezone.travelDay` false vs true (the value the hydrator now ORs in) — and assert the travel-only difference: travel CEO behaviours fire, and `buildDeterministicBriefFallback` emits travel framing in the travel case and none in the control case.
-  - A domestic case: no flight-titled event, same timezone, distance 120 km — `deriveTravelDay` returns true and the resulting Brief still carries travel framing, which is the regression this workstream exists to prevent.
+- Add an additive `evidence: "timezone" | "distance" | "state" | "none"` field to `TravelDayHydration`. No consumer signature changes.
+- Make the ladder explicit and total, in fixed priority: timezone change → fresh distance > 50 km → persisted state machine → false.
+- Sanitise before deciding: non-finite, non-numeric or negative `distance_from_home_km` is normalised to `null` (never read as 0 km); a missing or malformed timezone (validated with `Intl.DateTimeFormat`) can never produce `timezoneChanged: true`.
+- `no_row` and `hydration_failed` both fail open to `{ travelDay: false, evidence: "none" }` with distinct `reason` values so logs stay actionable. Allocation is unaffected: Plan's `hasTravelDay` falls back to its existing calendar-category-G detection.
+- Keep the existing thresholds and `freshness.ts` windows — the reference's 6 h / 24 h numbers do not replace the project's `LOCATION_FRESH_HOURS` / `STATE_CHANGE_FRESH_DAYS`.
 
-- `supabase/functions/generate-mastery-plan/travel-day-plan-e2e.test.ts`
-  - `deriveStructuralDayFlags` with the same event list, `travelDaySignal` false vs true, asserting `hasTravelDay` flips and the week-ahead-mode evaluation follows.
-  - `generatePlanBrief` control vs travel to assert the plan copy differs on the travel path only.
+## 2. Structured provenance log
 
-Both files chain from `deriveTravelDay` output (not hardcoded booleans) so the tests break if the hydrator's semantics drift.
+- Extend the single `[travel-state][consumer]` line to carry inputs *and* verdict:
+  `{ fn, userIdHash, inputs: { distanceKm, state, homeTz, currentTz, timezoneChanged, lastLocationAt, lastStateChangeAt, locationAgeHours, stateAgeHours }, verdict: { travelDay, reason, evidence, freshness, used } }`
+- `userIdHash` uses the project's existing `_shared/identity/redact-user-id.ts` rather than a new djb2 helper. No coordinates are ever logged — distance only.
+- Export `logTravelDayProvenance(result, inputs, { fn, userId })` so Smart Nudges (which calls the pure `deriveTravelDay` on an already-fetched row) emits the identical shape.
 
-## 2. Deterministic fallback when distance or timezone is missing
+## 3. End-to-end tests that prove the verdict changes output
 
-Make the current implicit behaviour explicit and total, in `hydrate-travel-day.ts`:
-
-- Add an `evidence` field to `TravelDayHydration`: `"timezone" | "distance" | "state" | "none"` — one named rung of a fixed ladder: timezone change, then a fresh distance fix, then the persisted state machine, then `false`.
-- Treat a non-finite / non-numeric `distance_from_home_km` exactly like a missing one (defer to state) rather than reading as 0 km.
-- Treat a missing or malformed current timezone as "no timezone evidence" — never as a change.
-- `hydration_failed` and `no_row` keep failing open to `travelDay: false`, `evidence: "none"`, so allocation is unaffected: `hasTravelDay` falls back to the existing calendar-category-G detection and slot allocation runs exactly as it does today.
-
-No consumer signature changes; `evidence` is additive.
-
-## 3. Structured logs recording inputs and verdict
-
-Extend the single `[travel-state][consumer]` line emitted by `hydrateTravelDay` to carry the inputs alongside the verdict:
-
-```text
-[travel-state][consumer] {
-  fn, userIdHash,
-  inputs: { distanceKm, state, homeTz, currentTz, timezoneChanged,
-            lastLocationAt, lastStateChangeAt, locationAgeHours, stateAgeHours },
-  verdict: { travelDay, reason, evidence, freshness, used }
-}
-```
-
-- `userIdHash` is a short non-reversible hash, not the raw id; no coordinates are logged (distance only).
-- Smart Nudges calls the pure `deriveTravelDay`, so it gets a matching `logTravelDayProvenance(result, { fn })` helper exported from the same module — one log shape across all three surfaces.
+- `supabase/functions/_shared/travel/travel-day-brief-e2e.test.ts` — drives the real `buildBehaviourSnapshot` and `buildDeterministicBriefFallback` with identical wearable/check-in/event fixtures, `travelDay` false vs true, asserting travel behaviours and travel framing appear only on the travel path. Includes the domestic regression: no flight-titled event, unchanged timezone, 120 km fresh fix → `evidence: "distance"` → travel framing still fires.
+- `supabase/functions/generate-mastery-plan/travel-day-plan-e2e.test.ts` — drives the real `deriveStructuralDayFlags` (`travelDaySignal`) and `generatePlanBrief`, asserting `hasTravelDay` flips on each evidence rung independently, week-ahead mode follows, and plan copy differs only on the travel path.
+- Both files chain from `deriveTravelDay` output, never hardcoded booleans, so hydrator drift breaks them.
+- Extend `hydrate-travel-day.test.ts` with the sanitisation, fallback and provenance cases (NaN/Infinity/negative distance, malformed tz, missing row, DB throw, one log line per call).
 
 ## Verification
 
-- `deno test` on the travel folder, the two new e2e files, and the existing Smart Nudges suite (73) — all green.
+- `deno test` on `_shared/travel/`, the two new e2e files, and the existing Smart Nudges suite — all green.
 - `deno check` on the hydrator plus `compute-outer-readiness`, `generate-mastery-plan`, `smart-nudges`.
-- Deploy the three functions and confirm one `[travel-state][consumer]` line per surface with matching `verdict.travelDay` and `verdict.evidence` for the same user.
+- Deploy the three functions and confirm one `[travel-state][consumer]` line per surface with matching `verdict.travelDay` / `verdict.evidence` for the same user.
 
 ## Not in scope
 
-No copy changes, no schema changes, no change to the 50 km threshold or the travel state machine.
+No UI or frontend changes. No copy rewrites, no schema or table changes, no change to the 50 km threshold or the travel state machine.
