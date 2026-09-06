@@ -40,6 +40,16 @@ import { decideTravelSync, type TravelState } from "./derive.ts";
 import { decideTravelSyncAuth } from "./auth.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { ADMIN_EMAIL_ALLOWLIST } from "../_shared/admin-guard.ts";
+import {
+  buildTripWindows,
+  confirmWindowByLocation,
+  mergeTripWindows,
+  parseTrips,
+  toIsoDate,
+  type TripEvidenceEvent,
+  type TripWindow,
+} from "./trip-windows.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -131,19 +141,64 @@ async function hasTravelCalendarEvent(
 }
 
 
+/**
+ * Trip windows (`meta.trips`) — per-DAY travel history.
+ *
+ * The state row only answers "away right now?". Each run also rebuilds the
+ * calendar-derived trip windows for a range around today so a finished trip
+ * stays queryable. `mode: "backfill"` widens the range to the whole stored
+ * calendar history.
+ */
+const TRIP_SCAN_BACK_DAYS = 30;
+const TRIP_SCAN_FORWARD_DAYS = 30;
+const TRIP_BACKFILL_BACK_DAYS = 730;
+
+async function rebuildTripWindows(
+  db: ReturnType<typeof svc>,
+  userId: string,
+  now: Date,
+  opts: { backfill: boolean; existingMeta: Record<string, unknown> },
+): Promise<{ trips: TripWindow[]; scanned: number }> {
+  const backDays = opts.backfill ? TRIP_BACKFILL_BACK_DAYS : TRIP_SCAN_BACK_DAYS;
+  const fromMs = now.getTime() - backDays * 24 * 60 * 60 * 1000;
+  const toMs = now.getTime() + TRIP_SCAN_FORWARD_DAYS * 24 * 60 * 60 * 1000;
+
+  const { data, error } = await db
+    .from("calendar_events")
+    .select("title, start_time, end_time, is_all_day")
+    .eq("user_id", userId)
+    .gte("start_time", new Date(fromMs).toISOString())
+    .lte("start_time", new Date(toMs).toISOString())
+    .limit(2000);
+
+  const existing = parseTrips(opts.existingMeta);
+  if (error || !data) return { trips: existing, scanned: 0 };
+
+  const rebuilt = buildTripWindows(data as TripEvidenceEvent[], { now });
+  const merged = mergeTripWindows(existing, rebuilt, {
+    from: toIsoDate(fromMs),
+    to: toIsoDate(toMs),
+  });
+  return { trips: merged, scanned: data.length };
+}
+
 interface UserResult {
   userId: string;
+
   action: "write" | "skip";
   source: string;
   reason: string;
   from?: TravelState | null;
   to?: TravelState;
+  /** Number of persisted trip windows after this run. */
+  trips?: number;
 }
 
 async function syncUser(
   db: ReturnType<typeof svc>,
   profile: ProfileRow,
   now: Date,
+  opts: { backfill: boolean } = { backfill: false },
 ): Promise<UserResult> {
   const { data: stateRow } = await db
     .from("travel_state")
@@ -172,8 +227,32 @@ async function syncUser(
   // Always refresh sync freshness metadata so consumers can tell we ran,
   // even on skip. This is a cheap update — no state churn.
   const metaBase = (stateRow?.meta ?? {}) as Record<string, unknown>;
+
+  // Per-day trip history lives alongside the bookkeeping keys.
+  const { trips: rebuiltTrips, scanned: tripEventsScanned } = await rebuildTripWindows(
+    db,
+    profile.id,
+    now,
+    { backfill: opts.backfill, existingMeta: metaBase },
+  );
+
+  // A fresh away-from-home fix corroborates the window it lands in.
+  // It may confirm, never delete (fail-open contract).
+  const locationAgeMs = stateRow?.last_location_at
+    ? now.getTime() - Date.parse(stateRow.last_location_at)
+    : Number.POSITIVE_INFINITY;
+  const freshAwayFix = Number.isFinite(locationAgeMs) &&
+    locationAgeMs <= 24 * 60 * 60 * 1000 &&
+    (stateRow?.distance_from_home_km ?? 0) > 50;
+  const trips = freshAwayFix
+    ? confirmWindowByLocation(rebuiltTrips, toIsoDate(Date.parse(stateRow!.last_location_at!)))
+    : rebuiltTrips;
+
   const nextMeta = {
     ...metaBase,
+    trips,
+    trips_updated_at: now.toISOString(),
+    trips_scanned_events: tripEventsScanned,
     last_sync_at: now.toISOString(),
     last_sync_source: decision.source,
     last_sync_action: decision.write ? "write" : "skip",
@@ -181,20 +260,29 @@ async function syncUser(
   };
 
   if (!decision.write) {
-    // Meta-only touch when a row exists; do NOT create a row from thin air.
     if (stateRow) {
       await db
         .from("travel_state")
         .update({ meta: nextMeta, updated_at: now.toISOString() })
         .eq("user_id", profile.id);
+    } else if (trips.length > 0) {
+      // No state row yet, but we do have durable trip history worth keeping.
+      // Create the row at the neutral default — never a confident away state.
+      await db.from("travel_state").upsert({
+        user_id: profile.id,
+        state: "not_travelling",
+        meta: nextMeta,
+        updated_at: now.toISOString(),
+      }, { onConflict: "user_id" });
     }
     console.log("[travel-state-sync][skip]", {
       user_id_prefix: profile.id.slice(0, 8),
       source: decision.source,
       reason: decision.reason,
       prev: stateRow?.state ?? null,
+      trips: trips.length,
     });
-    return { userId: profile.id, action: "skip", source: decision.source, reason: decision.reason, from: stateRow?.state ?? null };
+    return { userId: profile.id, action: "skip", source: decision.source, reason: decision.reason, from: stateRow?.state ?? null, trips: trips.length };
   }
 
   await db.from("travel_state").upsert({
@@ -207,12 +295,14 @@ async function syncUser(
     updated_at: now.toISOString(),
   }, { onConflict: "user_id" });
 
+
   console.log("[travel-state-sync][write]", {
     user_id_prefix: profile.id.slice(0, 8),
     source: decision.source,
     reason: decision.reason,
     from: stateRow?.state ?? null,
     to: decision.nextState,
+    trips: trips.length,
   });
   return {
     userId: profile.id,
@@ -221,8 +311,10 @@ async function syncUser(
     reason: decision.reason,
     from: stateRow?.state ?? null,
     to: decision.nextState,
+    trips: trips.length,
   };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -286,7 +378,11 @@ Deno.serve(async (req) => {
   }
   const scopedUserId = authDecision.forceSingleUserId;
 
-  console.log("[travel-state-sync][start]", { mode, singleUser: !!singleUserId, maxUsers });
+  // `backfill` widens the calendar scan to two years of history and drops
+  // the signal pre-filter, so trip windows exist for everyone with a calendar.
+  const backfill = mode === "backfill";
+
+  console.log("[travel-state-sync][start]", { mode, backfill, singleUser: !!singleUserId, maxUsers });
 
   let profilesQuery = db
     .from("profiles")
@@ -295,7 +391,7 @@ Deno.serve(async (req) => {
 
   if (scopedUserId) {
     profilesQuery = profilesQuery.eq("id", scopedUserId);
-  } else {
+  } else if (!backfill) {
     // Only scan users where at least one of the input signals could exist.
     // (home_timezone OR home coordinates OR travel notifications opted in.)
     profilesQuery = profilesQuery.or(
@@ -316,15 +412,17 @@ Deno.serve(async (req) => {
   let writes = 0;
   let skips = 0;
   let errors = 0;
+  let tripWindows = 0;
   const sourceCounts: Record<string, number> = { distance: 0, timezone: 0, calendar: 0, none: 0 };
 
   for (const profile of (profiles ?? []) as ProfileRow[]) {
     console.log("[travel-state-sync][user]", { user_id_prefix: profile.id.slice(0, 8) });
     try {
-      const r = await syncUser(db, profile, now);
+      const r = await syncUser(db, profile, now, { backfill });
       results.push(r);
       if (r.action === "write") writes++;
       else skips++;
+      tripWindows += r.trips ?? 0;
       sourceCounts[r.source] = (sourceCounts[r.source] ?? 0) + 1;
     } catch (e) {
       errors++;
@@ -340,6 +438,7 @@ Deno.serve(async (req) => {
     writes,
     skips,
     errors,
+    tripWindows,
     sourceCounts,
     durationMs: Date.now() - startedAt,
     ranAt: now.toISOString(),
@@ -347,6 +446,7 @@ Deno.serve(async (req) => {
     mode,
   };
   console.log("[travel-state-sync][summary]", summary);
+
 
   return new Response(JSON.stringify({ ok: true, summary, results: scopedUserId ? results : undefined }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },

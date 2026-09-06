@@ -1780,7 +1780,7 @@ async function buildNudgeContext(
     // trip keeps the same timezone and never appears in a calendar title).
     supabase.from("travel_state")
       .select(
-        "state, distance_from_home_km, last_state_change_at, last_location_at, last_known_timezone",
+        "state, distance_from_home_km, last_state_change_at, last_location_at, last_known_timezone, meta",
       )
       .eq("user_id", userId)
       .maybeSingle(),

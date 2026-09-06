@@ -59,3 +59,49 @@ Deno.test("missing row fails open to no travel", () => {
   const r = deriveTravelDay(null, { now: NOW, currentTimezone: "Europe/London" });
   assertEquals(r, emptyTravelDayHydration("no_row"));
 });
+
+// ── Rung 0: persisted trip windows (meta.trips) ──────────────────────────
+
+Deno.test("persisted trip window covering today wins as evidence 'trip'", () => {
+  const out = deriveTravelDay(
+    {
+      state: "not_travelling",
+      distance_from_home_km: 0.1,
+      last_location_at: null,
+      last_state_change_at: null,
+      last_known_timezone: "Europe/London",
+      meta: {
+        trips: [
+          { start: "2026-08-09", end: "2026-08-17", source: "calendar", evidence: ["flight"], confidence: "high" },
+        ],
+      },
+    },
+    { now: new Date("2026-08-12T09:00:00Z"), currentTimezone: "Europe/London" },
+  );
+  if (!out.travelDay) throw new Error("expected travel day inside trip window");
+  if (out.evidence !== "trip") throw new Error(`expected evidence trip, got ${out.evidence}`);
+});
+
+Deno.test("outside every trip window the verdict is unchanged", () => {
+  const out = deriveTravelDay(
+    {
+      state: "not_travelling",
+      distance_from_home_km: 0.1,
+      last_known_timezone: "Europe/London",
+      meta: { trips: [{ start: "2026-08-09", end: "2026-08-17" }] },
+    },
+    { now: new Date("2026-09-06T09:00:00Z"), currentTimezone: "Europe/London" },
+  );
+  if (out.travelDay) throw new Error("must not invent travel outside a window");
+  if (out.evidence !== "none") throw new Error(`expected none, got ${out.evidence}`);
+});
+
+Deno.test("junk meta.trips cannot break hydration", () => {
+  for (const meta of [null, {}, { trips: "nope" }, { trips: [{ start: 1 }] }]) {
+    const out = deriveTravelDay(
+      { state: "not_travelling", distance_from_home_km: 0.1, meta },
+      { now: new Date("2026-09-06T09:00:00Z"), currentTimezone: null },
+    );
+    if (out.travelDay) throw new Error("junk meta must not assert travel");
+  }
+});
