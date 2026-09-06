@@ -36,20 +36,28 @@ Replace the zero-practice behaviour on light days with a purpose-built arc:
 
 Practices come from the existing library only (recovery/restoration-tagged), never invented. On the last day of a weekend, holiday or PTO run the plan keeps its current week-ahead behaviour. The rest-day empty state stays only for that unchanged path; the existing rest-day test is extended to cover both branches.
 
+**When the light day holds one meeting**, that meeting is judged on its real importance using the same A–H scoring the rest of the app uses. If it is genuinely high-stakes — a board meeting, an investor conversation, a conference, travel, an influence moment — the plan names it and builds preparation for it into whichever of the three slots sits before it. The day stays a light day overall: the other two slots stay recovery. A low-stakes single meeting changes nothing; all three slots stay recovery.
+
 ### 4. Notifications
 - One rule: on a light day the allowance is **1 message**, applied identically to weekends, holidays, PTO and near-empty working days — which also fixes the silent Saturday.
 - On the last day of a weekend/holiday/PTO run: the evening week-ahead message only, as today.
-- Send the single light-day message at the time the user chose during sign-up; if they chose "use intelligence", place it in the morning recovery window, respecting quiet hours.
+- Send time follows the sign-up preference:
+
+| Preference | Light working day, no meetings | Weekend / holiday / PTO | Light working day with one meeting |
+| --- | --- | --- | --- |
+| Morning | 08:00 | 09:00 | anchored to the meeting |
+| Evening | 17:00 | 17:00 | anchored to the meeting |
+| Let the system decide | evening / end of day | evening / end of day | anchored to the meeting |
+
+  "Anchored to the meeting" means the usual pre-event timing already used for high-stakes prep, rather than a fixed clock time. Quiet hours and do-not-disturb always win.
 - Copy points at the light-day plan, so the habit is one visit a day.
 
 ## Technical notes
 
 - SSOT: `supabase/functions/_shared/availability/availability-classifier.ts` gains `classifyLightDay()` → `{ isLightDay, kind, isLastDayOfRun, reason }`. Reuses `isLastDayOfLongWeekend` and generalises it to holiday/PTO runs. `classifyDay`'s existing off-day semantics stay untouched. Weekend day identity keeps coming from `planningDayOfWeek()` in `_shared/plan/user-locale.ts` (Fri/Sat for `SATURDAY_WEEKLY_COUNTRIES`).
-- Brief: `_shared/brief/day-shape.ts` gains the light-day kind; copy extended in `_shared/brief/copy-vocabulary.ts` and `deterministic-brief.ts` (LLM directive and deterministic fallback in step).
-- Plan: `_shared/jit/slot-allocator.ts` — the `rest_day → slots: []` branch splits into `light_day` (three slots: `recovery_intention`, `recovery_hold`, `recovery_protect`) and the unchanged last-day/week-ahead branch. `generate-mastery-plan/index.ts` passes the verdict through `deriveStructuralDayFlags`. Frontend `TodayThreePriorities.tsx` keeps `isRestDayPlan` only for the last-day path; `src/__tests__/planRestDayContract.test.ts` extended.
-- Nudges: `smart-nudges/index.ts` — day-shape-aware cap replacing flat `DAILY_NOTIFICATION_CAP = 3`; remove scattered `ptoMode` returns in `nudge_two`/`nudge_three`; add the missing first-weekend-day send (root cause of the silent Saturday to confirm in the evaluator traces before the fix lands); read `onboarding_v8_responses.brief_timing` / `preferred_practice_window` plus `notification_preferences` windows, DND and quiet days to place the send. Sunday/Saturday week-ahead evening path untouched.
-- Verification: replay `smart-nudges` in dry-run for the affected account across a Saturday and a Sunday and read the evaluator traces, plus Deno tests for the new classifier cases and the light-day plan arc; existing Vitest suite must stay green.
+- Brief: `_shared/brief/day-shape.ts` gains the light-day kind; copy extended in `_shared/brief/copy-vocabulary.ts` and `deterministic-brief.ts` (LLM directive and deterministic fallback in step). The single-meeting case names the event via the existing title-first rule.
+- Single-meeting stakes: reuse `resolveEvent()` / `scoreImportance()` (A–H, `_shared/events/resolve-event-category.ts` + `_shared/rules/calendarEvents.ts`) — no new classifier. Categories A–C plus travel/conference promote the meeting to "prep-worthy".
+- Plan: `_shared/jit/slot-allocator.ts` — the `rest_day → slots: []` branch splits into `light_day` (three slots: `recovery_intention`, `recovery_hold`, `recovery_protect`) and the unchanged last-day/week-ahead branch. When a prep-worthy meeting exists, the slot preceding its start time swaps to a `prepare` role using the existing prep selection path. `generate-mastery-plan/index.ts` passes the verdict through `deriveStructuralDayFlags`. Frontend `TodayThreePriorities.tsx` keeps `isRestDayPlan` only for the last-day path; `src/__tests__/planRestDayContract.test.ts` extended.
+- Nudges: `smart-nudges/index.ts` — day-shape-aware cap replacing flat `DAILY_NOTIFICATION_CAP = 3`; remove scattered `ptoMode` returns in `nudge_two`/`nudge_three`; add the missing first-weekend-day send (root cause of the silent Saturday to confirm in the evaluator traces before the fix lands). Map `onboarding_v8_responses.brief_timing` (Morning / Evening / Use intelligence → null) to the send times in the table above, clamped by `notification_preferences` windows, DND and quiet days. Sunday/Saturday week-ahead evening path untouched.
+- Verification: replay `smart-nudges` in dry-run for the affected account across a Saturday and a Sunday and read the evaluator traces, plus Deno tests for the new classifier cases, the light-day plan arc, the single-meeting prep swap, and each timing-preference branch; existing Vitest suite must stay green.
 
-## Open question
-
-The stored preference is a broad morning/evening window, not a clock time, so the single nudge lands inside the chosen window. Say the word if you'd rather add a precise time picker to notification settings.
