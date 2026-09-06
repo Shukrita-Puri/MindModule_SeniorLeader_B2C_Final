@@ -5149,33 +5149,34 @@ async function evaluateWeekAheadPickerInvite(
   const isSaturdayPlanning = planningDayOfWeek(wai.homeCountry) === 6;
   const weeklyPlanningVariant = isSaturdayPlanning
     ? {
-        title: "Week reset",
+        title: "Week ahead priorities",
         body:
           "10 priority choices can shape the week before Sunday starts - log in to prep your mind tonight.",
       }
     : {
-        title: "Sunday reset",
+        title: "Week ahead priorities",
         body:
           "10 priority choices can shape the week before Monday starts - log in to prep your mind tonight.",
       };
   const variantByReason: Record<string, { title: string; body: string }> = {
     weekly_planning: weeklyPlanningVariant,
     end_of_pto: {
-      title: "Last day off",
+      title: "Week ahead priorities",
       body:
         "10 priority choices can shape tomorrow before work restarts - log in to prep your mind.",
     },
     end_of_public_holiday: {
-      title: "Re-engaging",
+      title: "Week ahead priorities",
       body:
         "10 priority choices can shape re-entry before work restarts - log in to prep your mind.",
     },
     end_of_long_weekend: {
-      title: "Frame the week",
+      title: "Week ahead priorities",
       body:
         "10 priority choices can shape the week before Monday lands - log in to prep your mind.",
     },
   };
+
   const v = variantByReason[decision.reason] ?? variantByReason.weekly_planning;
 
   return {
