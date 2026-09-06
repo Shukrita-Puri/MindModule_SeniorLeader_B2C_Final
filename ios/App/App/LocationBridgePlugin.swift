@@ -14,6 +14,8 @@ public class LocationBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "startIfAuthorized", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestAlwaysAuthorization", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestWhenInUseAuthorization", returnType: CAPPluginReturnPromise),
+
         CAPPluginMethod(name: "requestOneShotLocation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "currentAuthorizationString", returnType: CAPPluginReturnPromise),
     ]
@@ -59,6 +61,14 @@ public class LocationBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve()
         }
     }
+
+    @objc func requestWhenInUseAuthorization(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            LocationBridge.shared.requestWhenInUseAuthorization()
+            call.resolve()
+        }
+    }
+
 
     @objc func requestOneShotLocation(_ call: CAPPluginCall) {
         DispatchQueue.main.async {

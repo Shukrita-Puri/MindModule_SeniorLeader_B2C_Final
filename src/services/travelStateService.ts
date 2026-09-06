@@ -67,6 +67,12 @@ export async function getTravelPermissionStatus(): Promise<TravelPermissionStatu
  * Idempotent: if iOS authorization is already granted, ensure the
  * native significant-change + visits monitoring is running. Safe to
  * call on every mount/app-resume. No-op on web.
+ *
+ * When the OS permission has never been decided (`not_determined`), this
+ * silently asks for when-in-use authorization — the low-friction variant.
+ * No UI, no toast, no explanation screen: the Profile screen already
+ * documents location tracking. The 7-day cooldown below prevents repeat
+ * prompting, and an already granted/denied status is left untouched.
  */
 export async function ensureTravelMonitoringIfAuthorized(): Promise<void> {
   try {
@@ -74,9 +80,53 @@ export async function ensureTravelMonitoringIfAuthorized(): Promise<void> {
     const status = await getTravelPermissionStatus();
     if (status === 'authorized_always' || status === 'authorized_when_in_use') {
       await LocationBridgeNative.startIfAuthorized();
+      return;
+    }
+    if (status === 'not_determined') {
+      await requestWhenInUseSilently();
     }
   } catch { /* never throw */ }
 }
+
+/**
+ * Silent when-in-use permission request for native app users only.
+ * Respects the shared 7-day cooldown so a declined prompt is not repeated.
+ */
+async function requestWhenInUseSilently(): Promise<void> {
+  if (!LocationBridgeNative) return;
+  const lastAsked = Number(safeGet(PERMISSION_LAST_ASKED_KEY) ?? '0');
+  if (lastAsked > 0 && Date.now() - lastAsked < PERMISSION_COOLDOWN_MS) return;
+  safeSet(PERMISSION_LAST_ASKED_KEY, String(Date.now()));
+
+  try {
+    if (typeof LocationBridgeNative.requestWhenInUseAuthorization === 'function') {
+      await LocationBridgeNative.requestWhenInUseAuthorization();
+    } else {
+      // Older native build without the when-in-use entry point.
+      await LocationBridgeNative.requestAlwaysAuthorization();
+    }
+    await new Promise((r) => setTimeout(r, 800));
+    const status = (await LocationBridgeNative.currentAuthorizationString())?.value ?? 'unknown';
+    const granted = status === 'authorized_always' || status === 'authorized_when_in_use';
+    emitIntegrationEvent({
+      provider: 'system',
+      event: granted ? 'permission_granted' : 'permission_denied',
+      meta: { area: 'travel_location_silent', status },
+    });
+    if (granted) {
+      try { await LocationBridgeNative.startIfAuthorized(); } catch { /* */ }
+      try { await LocationBridgeNative.requestOneShotLocation(); } catch { /* */ }
+    }
+    void persistPermissionStatus();
+  } catch (e) {
+    emitIntegrationEvent({
+      provider: 'system',
+      event: 'plugin_call_failed',
+      meta: { area: 'travel_location_silent', message: (e as Error).message },
+    });
+  }
+}
+
 
 export interface TravelStateSnapshot {
   state: TravelState;
@@ -94,6 +144,9 @@ const PERMISSION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 interface LocationBridgePlugin {
   startIfAuthorized(): Promise<void>;
   requestAlwaysAuthorization(): Promise<void>;
+  /** Present in native builds that ship the low-friction when-in-use prompt. */
+  requestWhenInUseAuthorization?(): Promise<void>;
+
   requestOneShotLocation(): Promise<void>;
   currentAuthorizationString(): Promise<{ value: string }>;
 }

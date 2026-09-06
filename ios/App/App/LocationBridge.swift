@@ -80,6 +80,12 @@ extension Notification.Name {
         manager.requestAlwaysAuthorization()
     }
 
+    /// Low-friction variant used for the silent first-run request.
+    @objc public func requestWhenInUseAuthorization() {
+        manager.requestWhenInUseAuthorization()
+    }
+
+
     /// Called from JS to immediately request a one-shot fix (foreground use).
     @objc public func requestOneShotLocation() {
         manager.requestLocation()
