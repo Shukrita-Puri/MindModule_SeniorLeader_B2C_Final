@@ -8461,11 +8461,31 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     ? sleepBaseline
                     : null,
                 },
+                // Travel truth reaches EVERY window (morning / afternoon /
+                // evening), not just the morning arc: dayKind comes from the
+                // shared travel SSOT (hydrateTravelDay) plus the day-shape
+                // projection, so the evening `wasTravelDay` gear-shift and the
+                // window prompt lines below fire on location-only trips too.
+                dayKind: (travelHydration.travelDay ||
+                    briefDayShape === "personal_travel" ||
+                    briefTravelPhase != null)
+                  ? "travel"
+                  : ((briefBehaviourSnapshot?.signals?.conferenceDayNumber ?? null) != null
+                    ? "conference"
+                    : (isWeekend ? "weekend" : "weekday")),
                 conferenceDayNumber: null,
               });
               if (briefWindowContext) {
                 const w = briefWindowContext as any;
                 userPrompt += `\n\n=== WINDOW CONTEXT (${w.window}) ===`;
+                // Travel is window-agnostic: state it in every window so the
+                // afternoon and evening briefs read the same travel truth the
+                // morning one does.
+                if (travelHydration.travelDay) {
+                  userPrompt += `\ntravel_day: yes (source ${
+                    travelHydration.evidence ?? "unknown"
+                  })`;
+                }
                 if (w.window === "morning") {
                   userPrompt +=
                     `\nyesterday_load: ${w.yesterdayLoad} (score ${w.yesterdayLoadScore})`;
