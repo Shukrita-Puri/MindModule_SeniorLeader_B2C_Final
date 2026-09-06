@@ -115,8 +115,18 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
     return { active: true, reason: "manual_override", lookbackDays: 7, lookaheadDays: 7 };
   }
 
-  // 2. End of PTO (isolated PTO day with a workday after → return-to-work).
-  if (input.ptoTodayAllDay === true && input.ptoTomorrowAllDay === false) {
+  // LAST-DAY-ONLY GUARD. Week-Ahead belongs to the FINAL day of an off-run
+  // (last weekend day, last PTO day, last holiday day, last day of a long
+  // weekend) and never to a day in the middle of the run — nor to any day
+  // after it. When the caller can see tomorrow and tomorrow is still an
+  // off-day, no branch below may fire.
+  const runContinues = input.tomorrowIsOffDay === true;
+
+  // 2. End of PTO (last PTO day with a workday after → return-to-work).
+  if (
+    input.ptoTodayAllDay === true && input.ptoTomorrowAllDay === false &&
+    !runContinues
+  ) {
     return {
       active: true,
       reason: "end_of_pto",
@@ -125,8 +135,11 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
     };
   }
 
-  // 3. End of public holiday (single-day holiday returning to work).
-  if (input.holidayAllDayEventToday === true && input.tomorrowIsWorkday === true) {
+  // 3. End of public holiday (last holiday day returning to work).
+  if (
+    input.holidayAllDayEventToday === true &&
+    input.tomorrowIsWorkday === true && !runContinues
+  ) {
     return {
       active: true,
       reason: "end_of_public_holiday",
@@ -138,7 +151,7 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
   // 4. End of long weekend — SSOT boolean. A long weekend REQUIRES both a
   // normal weekend day AND at least one adjacent PTO/holiday day; plain
   // weekends never trigger this branch.
-  if (input.isLastDayOfLongWeekend === true) {
+  if (input.isLastDayOfLongWeekend === true && !runContinues) {
     return {
       active: true,
       reason: "end_of_long_weekend",
@@ -149,11 +162,14 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
 
   // 5. Weekly planning day (Home Country dependent). Suppressed if today
   // is itself PTO / public holiday — return-from-break triggers already
-  // covered those cases above.
+  // covered those cases above — and suppressed when the off-run runs past
+  // today (e.g. Sunday followed by a bank-holiday Monday): the last day of
+  // that run owns the Week-Ahead surface instead.
   if (input.dayOfWeek === planningDayOfWeek(input.homeCountry)) {
     if (input.ptoTodayAllDay === true || input.holidayAllDayEventToday === true) {
       return inactive();
     }
+    if (runContinues) return inactive();
     return {
       active: true,
       reason: "weekly_planning",
@@ -161,6 +177,7 @@ export function evaluateWeekAheadMode(input: WeekAheadInput): WeekAheadDecision 
       lookaheadDays: 7,
     };
   }
+
 
   return inactive();
 }
