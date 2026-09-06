@@ -166,7 +166,20 @@ export function decideTravelSync(inp: SyncInput): SyncDecision {
     return { write: false, source: "none", reason: inp.prev == null ? "no_prev_no_signal" : "no_signal" };
   }
 
+  // Promotion only: a planned trip that is now ongoing becomes `arrived`.
+  // This never clears an away state — it deepens it.
+  if (prev === "travel_planned" && calendarTravel && inp.travelCalendarEventOngoing === true) {
+    return {
+      write: true,
+      nextState: "arrived",
+      distanceKm: null,
+      source: "calendar",
+      reason: "calendar_travel_ongoing",
+    };
+  }
+
   // prev is already away and we have no fresh coords → fail open: leave it.
+
   if (hasCoords && !locationFresh) {
     return { write: false, source: "distance", reason: "location_stale" };
   }
