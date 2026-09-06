@@ -595,6 +595,17 @@ function periodCollapseId(slot: NudgeSlot, localDate: string): string {
   return `smart-nudge-${slot}-${localDate}`;
 }
 
+/**
+ * The Week-Ahead invite must NOT share the evening collapse id. On iOS a
+ * later notification with the same collapse id REPLACES the earlier one on
+ * the lock screen, which silently buried the weekly planning invite behind
+ * the evening close-out.
+ */
+export function weekAheadCollapseId(localDate: string): string {
+  return `smart-nudge-week-ahead-${localDate}`;
+}
+
+
 function weekendDaysForHomeCountry(homeCountry?: string | null): number[] {
   return planningDayOfWeek(homeCountry) === 6 ? [5, 6] : [0, 6];
 }
@@ -662,7 +673,7 @@ function resolveLightDayTarget(
   };
 }
 
-function slotFromNotificationLogRow(
+export function slotFromNotificationLogRow(
   row: { notification_type?: string | null; payload?: unknown },
 ): NudgeSlot | null {
   const payload = row?.payload && typeof row.payload === "object"
@@ -684,10 +695,14 @@ function slotFromNotificationLogRow(
   if (type === "nudge_two" || type.startsWith("nudge_two")) return "afternoon";
   if (
     type === "nudge_three" || type === "evening_close" ||
-    type.startsWith("nudge_three")
+    type.startsWith("nudge_three") ||
+    // Week-Ahead invite rides (and therefore SPENDS) the evening slot. Without
+    // this the standard pipeline added a second evening send on a later tick.
+    type === "week_ahead_picker_invite"
   ) return "evening";
   return null;
 }
+
 
 function normalizeNotificationCopy(copy: NudgeCopy): NudgeCopy {
   return {
@@ -5134,33 +5149,34 @@ async function evaluateWeekAheadPickerInvite(
   const isSaturdayPlanning = planningDayOfWeek(wai.homeCountry) === 6;
   const weeklyPlanningVariant = isSaturdayPlanning
     ? {
-        title: "Week reset",
+        title: "Week ahead priorities",
         body:
           "10 priority choices can shape the week before Sunday starts - log in to prep your mind tonight.",
       }
     : {
-        title: "Sunday reset",
+        title: "Week ahead priorities",
         body:
           "10 priority choices can shape the week before Monday starts - log in to prep your mind tonight.",
       };
   const variantByReason: Record<string, { title: string; body: string }> = {
     weekly_planning: weeklyPlanningVariant,
     end_of_pto: {
-      title: "Last day off",
+      title: "Week ahead priorities",
       body:
         "10 priority choices can shape tomorrow before work restarts - log in to prep your mind.",
     },
     end_of_public_holiday: {
-      title: "Re-engaging",
+      title: "Week ahead priorities",
       body:
         "10 priority choices can shape re-entry before work restarts - log in to prep your mind.",
     },
     end_of_long_weekend: {
-      title: "Frame the week",
+      title: "Week ahead priorities",
       body:
         "10 priority choices can shape the week before Monday lands - log in to prep your mind.",
     },
   };
+
   const v = variantByReason[decision.reason] ?? variantByReason.weekly_planning;
 
   return {
@@ -6426,7 +6442,7 @@ serve(async (req) => {
             requiresAppOpen: true,
             weekendCtaGate: null,
             ttlSeconds: periodTtlSeconds("evening", localTime),
-            collapseId: periodCollapseId("evening", todayStr),
+            collapseId: weekAheadCollapseId(todayStr),
           });
           console.log(
             `[smart-nudges] week_ahead_picker_invite dispatched user=${
