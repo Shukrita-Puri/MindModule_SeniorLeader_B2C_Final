@@ -695,10 +695,14 @@ function slotFromNotificationLogRow(
   if (type === "nudge_two" || type.startsWith("nudge_two")) return "afternoon";
   if (
     type === "nudge_three" || type === "evening_close" ||
-    type.startsWith("nudge_three")
+    type.startsWith("nudge_three") ||
+    // Week-Ahead invite rides (and therefore SPENDS) the evening slot. Without
+    // this the standard pipeline added a second evening send on a later tick.
+    type === "week_ahead_picker_invite"
   ) return "evening";
   return null;
 }
+
 
 function normalizeNotificationCopy(copy: NudgeCopy): NudgeCopy {
   return {
