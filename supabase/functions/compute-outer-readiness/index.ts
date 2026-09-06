@@ -8197,6 +8197,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     travelHydration.travelDay,
                 },
                 travelState: travelStateForCtx,
+                // Availability SSOT v2 — durable trip window evidence.
+                tripWindow: travelHydration.tripWindow ?? null,
                 events: eventsForCtx,
                 tomorrowEvents: tomorrowEventsForCtx,
                 now: new Date(),
