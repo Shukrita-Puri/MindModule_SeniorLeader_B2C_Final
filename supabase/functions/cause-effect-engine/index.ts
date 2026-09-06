@@ -24,6 +24,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { primeLearningContext } from "../_shared/events/learning-store.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { parseTrips, tripWindowForDate } from "../_shared/travel/trip-windows.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import {
   EVENT_TYPE_KEYWORDS as SHARED_EVENT_TYPE_KEYWORDS,
@@ -389,6 +390,25 @@ interface DominantDayType {
   secondaryCategory: string | null; // diagnostics only — never rendered
 }
 
+/** Every ISO date covered by a persisted trip window, clipped to [from, to]. */
+function tripDatesWithin(
+  trips: Array<{ start: string; end: string }>,
+  from: string,
+  to: string,
+): string[] {
+  const out: string[] = [];
+  for (const w of trips) {
+    let cursor = w.start < from ? from : w.start;
+    const last = w.end > to ? to : w.end;
+    let guard = 0;
+    while (cursor <= last && guard++ < 400) {
+      out.push(cursor);
+      cursor = ymd(addDays(new Date(cursor + "T00:00:00Z"), 1));
+    }
+  }
+  return out;
+}
+
 function durationMinutesOf(e: any): number {
   const s = e?.start_time ? new Date(e.start_time).getTime() : NaN;
   const en = e?.end_time ? new Date(e.end_time).getTime() : NaN;
@@ -396,7 +416,11 @@ function durationMinutesOf(e: any): number {
   return Math.round((en - s) / 60000);
 }
 
-function classifyDominantDayType(events: any[], loadMinutes: number): DominantDayType {
+function classifyDominantDayType(
+  events: any[],
+  loadMinutes: number,
+  travelDay = false,
+): DominantDayType {
   const resolved = events.map((e) => {
     const en = enrichCalendarEvent(e) as any;
     return {
@@ -419,7 +443,9 @@ function classifyDominantDayType(events: any[], loadMinutes: number): DominantDa
   const totalMins = (c: string) => minutesByCategory.get(c) ?? 0;
   const load = loadMinutes > 0 ? loadMinutes : resolved.reduce((a, r) => a + r.mins, 0);
 
-  // P1 — Travel (hard override)
+  // P1 — Travel (hard override). A persisted trip window from the travel
+  // SSOT counts on its own — intercity travel rarely carries a calendar block.
+  if (travelDay) return out("Travel");
   if (resolved.some((r) => r.cat === "G" && (r.sub?.includes("flight") || r.sub?.includes("travel_day")))) {
     return out("Travel");
   }
@@ -755,7 +781,7 @@ serve(async (req) => {
 
 
     // Parallel reads ---------------------------------------------------
-    const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes, snapshotsRes] = await Promise.all([
+    const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes, snapshotsRes, travelRes] = await Promise.all([
       supabase.from("calendar_events")
         .select("title, start_time, end_time, attendees_count, is_organizer")
         .eq("user_id", userId)
@@ -785,6 +811,13 @@ serve(async (req) => {
         .select("local_date, load_shape")
         .eq("user_id", userId)
         .gte("local_date", startStr),
+      // Travel SSOT: persisted per-day trip windows (`travel_state.meta.trips`).
+      // Same store Brief / Plan / Nudges read, so a location-only trip with no
+      // calendar block still classifies as a Travel day in Insights.
+      supabase.from("travel_state")
+        .select("meta")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
 
     // Cross-provider dedupe (Apple mirrors Google etc.). Must run before any
@@ -795,6 +828,9 @@ serve(async (req) => {
     const checkins = checkinsRes.data || [];
     const briefs = briefsRes.data || [];
     const hasCalendar = !!calConnRes.data?.is_active;
+    const tripWindows = parseTrips((travelRes as any)?.data?.meta ?? null);
+    const isTravelDate = (dateStr: string): boolean =>
+      tripWindowForDate(tripWindows, dateStr) !== null;
 
     const shapeByDate = new Map<string, any>();
     for (const row of snapshotsRes.data || []) {
@@ -1664,12 +1700,15 @@ serve(async (req) => {
       const weekBuckets: DayTypeWeekRow[][] = WEEK_LABELS.map(() => []);
 
 
-      const dates = [...eventsByDay.keys()].sort();
+      // Travel days from the SSOT are included even with an empty calendar —
+      // an intercity trip is a real day-type, not an absence of events.
+      const travelDatesInRange = tripDatesWithin(tripWindows, startStr, ymd(new Date(nowIso)));
+      const dates = [...new Set([...eventsByDay.keys(), ...travelDatesInRange])].sort();
       for (const dateStr of dates) {
         const dayEvents = eventsByDay.get(dateStr) || [];
-        if (dayEvents.length === 0) continue;
+        if (dayEvents.length === 0 && !isTravelDate(dateStr)) continue;
         const loadMinutes = dayEvents.reduce((a: number, e: any) => a + durationMinutesOf(e), 0);
-        const { dayType, secondaryCategory } = classifyDominantDayType(dayEvents as any[], loadMinutes);
+        const { dayType, secondaryCategory } = classifyDominantDayType(dayEvents as any[], loadMinutes, isTravelDate(dateStr));
         dayTypeByDate.set(dateStr, dayType);
 
         const nextDayStr = ymd(addDays(new Date(dateStr + "T00:00:00Z"), 1));

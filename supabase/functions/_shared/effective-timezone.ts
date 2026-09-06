@@ -170,7 +170,7 @@ export async function resolveEffectiveTimezone(
 ): Promise<EffectiveTimezoneResult> {
   const { data: travel } = await db
     .from("travel_state")
-    .select("state,last_known_timezone,meta,updated_at,last_state_change_at,last_location_at")
+    .select("state,last_known_timezone,meta,updated_at,last_state_change_at,last_location_at,distance_from_home_km")
     .eq("user_id", userId)
     .maybeSingle();
 

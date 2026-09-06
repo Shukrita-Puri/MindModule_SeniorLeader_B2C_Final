@@ -631,7 +631,8 @@ async function buildForUser(db: any, args: {
       userCurrentCountry: null,
       todayEvents: slices.todayEvents as any,
       tomorrowEvents: slices.tomorrowEvents as any,
-      travel: travel ?? null,
+      travel: (travel ?? null) as Record<string, unknown> | null,
+      currentTimezone: profile?.current_timezone ?? null,
       consecutiveOffDaysBefore: slices.consecutiveOffDaysBefore,
     });
   } catch (err) {
