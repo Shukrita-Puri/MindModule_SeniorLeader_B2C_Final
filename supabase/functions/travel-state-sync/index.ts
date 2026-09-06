@@ -44,7 +44,8 @@ import { ADMIN_EMAIL_ALLOWLIST } from "../_shared/admin-guard.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-mm-client-platform",
+    "authorization, x-client-info, apikey, content-type, x-mm-client-platform, x-cron-secret",
+
 };
 
 const JOB_KEY = "travel_state_sync";
@@ -262,13 +263,17 @@ Deno.serve(async (req) => {
     }
   }
 
+  const cronSharedSecret = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+  const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
   const authDecision = decideTravelSyncAuth({
     authHeader,
     serviceRoleKey,
     bodyUserId: singleUserId,
     callerSub,
     callerIsAdmin,
+    cronSecretMatch: !!cronSharedSecret && cronSecretHeader === cronSharedSecret,
   });
+
   if (!authDecision.allow) {
     console.warn("[travel-state-sync][auth-reject]", {
       reason: authDecision.reason,
