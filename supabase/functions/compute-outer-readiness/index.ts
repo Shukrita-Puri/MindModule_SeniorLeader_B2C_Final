@@ -144,6 +144,7 @@ import {
   computeSustainedDeficitSeverity,
 } from "../_shared/signal-engine/pattern-engine.ts";
 import {
+  applyDayOverlapFilter,
   type CalendarMetricsResult,
   getServerCalendarMetrics,
 } from "../_shared/signal-engine/db-queries.ts";

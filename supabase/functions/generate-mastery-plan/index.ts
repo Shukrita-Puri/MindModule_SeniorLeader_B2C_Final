@@ -82,6 +82,7 @@ import {
   isPtoOrHolidayTitle,
 } from "../_shared/ceo-behaviour/pto-holiday.ts";
 import { classifyAvailability } from "../_shared/availability/availability-classifier.ts";
+import { applyDayOverlapFilter } from "../_shared/signal-engine/db-queries.ts";
 import {
   classifyLightDay,
   type LightDayKind,
