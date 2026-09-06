@@ -44,7 +44,7 @@ import {
 export type TravelDayEvidence = "trip" | "timezone" | "distance" | "state" | "none";
 
 /** A persisted trip window from `travel_state.meta.trips`. */
-interface PersistedTripWindow {
+export interface PersistedTripWindow {
   start: string;
   end: string;
   source?: string;
