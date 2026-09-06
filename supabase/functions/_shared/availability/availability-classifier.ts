@@ -203,6 +203,12 @@ export function isApplicableHoliday(
   return { applicable: true, region: "UNKNOWN", reason: "unqualified_all_day" };
 }
 
+/**
+ * Availability SSOT version. v2 adds the inferred-vacation rung (untitled
+ * holidays evidenced by a trip window + no real work + leisure/away signals).
+ */
+export const AVAILABILITY_SSOT_VERSION = 2;
+
 export type AvailabilityState =
   | "WORKDAY"
   | "LIGHT_ROUTINE"
@@ -221,6 +227,17 @@ export interface AvailabilityEvent {
   calendarSummary?: string | null;
   /** Calendar feed name as persisted on `calendar_events.event_metadata`. */
   calendarTitle?: string | null;
+  /** Optional stakes hint (event classifier). Used by the v2 rung only. */
+  stakesLevel?: "high" | "medium" | "low" | string | null;
+}
+
+/** Persisted trip window (travel_state.meta.trips) covering the day. */
+export interface AvailabilityTripWindow {
+  start: string;
+  end: string;
+  source?: string | null;
+  confidence?: "high" | "medium" | string | null;
+  evidence?: string[] | null;
 }
 
 export interface AvailabilityInput {
@@ -237,6 +254,14 @@ export interface AvailabilityInput {
   explicitPto?: boolean;
   /** Workload hint from upstream calendar-load classifier. */
   calendarLoad?: "low" | "medium" | "high" | string | null;
+  // ── v2 inferred-vacation inputs (all optional; omitting them keeps v1
+  //    behaviour byte-for-byte identical for existing callers) ────────────
+  /** Persisted trip window covering today, if any. */
+  tripWindow?: AvailabilityTripWindow | null;
+  /** Distance from home for today's most recent location fix, in km. */
+  awayDistanceKm?: number | null;
+  /** Events across the whole trip window (not just today). */
+  windowEvents?: AvailabilityEvent[] | null;
 }
 
 export interface AvailabilityResult {
@@ -250,9 +275,38 @@ export interface AvailabilityResult {
     scope?: RegionToken;
   };
   reason: string;
+  /** Present when the state came from inference rather than an explicit marker. */
+  confidence?: "high" | "medium";
 }
 
 const WORK_MEETING_MIN = 2;
+
+// ── v2 inference helpers ────────────────────────────────────────────────
+
+/** Multi-day accommodation legs (hotel stays) — strong "I am away" evidence. */
+const STAY_TITLE_RX =
+  /\b(stay at|staying at|hotel|motel|hostel|airbnb|accommodation|check[-\s]?in at|marriott|hilton|hyatt|doubletree|sheraton|radisson|holiday inn|four seasons|ritz|novotel|ibis)\b/i;
+
+/** Work-trip evidence — a conference/offsite trip is NOT a holiday. */
+const OFFSITE_TITLE_RX =
+  /\b(off[-\s]?site|onsite visit|conference|summit|retreat|expo|convention|roadshow|board meeting|client visit)\b/i;
+
+/** Leisure / sightseeing evidence inside the window. */
+const LEISURE_TITLE_RX =
+  /\b(museum|tour|sightseeing|sight[-\s]?seeing|beach|zoo|park|gallery|cruise|excursion|statue|island|reserve|dinner reservation|show|theatre|theater|concert|match|safari|spa|resort|ferry|day trip)\b/i;
+
+function isoDateOf(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function tripWindowCoversDay(
+  w: AvailabilityTripWindow | null | undefined,
+  isoDate: string,
+): boolean {
+  if (!w?.start || !w?.end) return false;
+  return String(w.start) <= isoDate && isoDate <= String(w.end);
+}
+
 
 function isTimedWorkMeeting(e: AvailabilityEvent): boolean {
   if (e.isAllDay === true) return false;
