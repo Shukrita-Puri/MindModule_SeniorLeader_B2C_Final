@@ -298,7 +298,7 @@ Deno.serve(async (req) => {
     // opened, extended or confirmed — never removed.
     const metaBase = ((prevState as { meta?: unknown } | null)?.meta ?? {}) as Record<string, unknown>;
     let nextMeta: Record<string, unknown> = metaBase;
-    if (!pingIsStale && distance !== null) {
+    if (!pingIsStale && distance !== null && Number.isFinite(capturedAtMs)) {
       const trips = upsertLocationWindow(
         parseTrips(metaBase),
         toIsoDate(Date.parse(captured_at)),
