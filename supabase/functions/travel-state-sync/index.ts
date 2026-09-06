@@ -150,7 +150,7 @@ async function syncUser(
     .eq("user_id", profile.id)
     .maybeSingle<TravelStateRow>();
 
-  const hasTravelEvent = await hasTravelCalendarEvent(db, profile.id, now);
+  const travelEvent = await hasTravelCalendarEvent(db, profile.id, now);
 
   const decision = decideTravelSync({
     prev: stateRow?.state ?? null,
@@ -162,7 +162,9 @@ async function syncUser(
     lastKnownLng: stateRow?.last_known_lng ?? null,
     homeLat: profile.home_lat,
     homeLng: profile.home_lng,
-    hasTravelCalendarEventToday: hasTravelEvent,
+    hasTravelCalendarEventToday: travelEvent.matched,
+    travelCalendarEventOngoing: travelEvent.ongoing,
+
     now,
   });
 
