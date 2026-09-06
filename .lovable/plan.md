@@ -51,9 +51,13 @@ other counter. It is included in the fix below.)
 ### 1. Multi-day events must be visible on every day they cover
 Change the day fetch from "starts today" to "overlaps today"
 (`start_time < dayEnd AND end_time > dayStart`) at the four call sites above,
-via one shared helper in `_shared/availability/`. This alone restores the hotel
-stay on 13 and 14 August and fixes the same class of bug for any multi-day
-OOO/leave block.
+via one shared helper in `_shared/availability/`. Apply the same overlap rule to
+the day-bucketing in `week-ahead-hydration.ts` so the backward walk over an
+off-run no longer breaks on interior days. This alone restores the hotel stay on
+13 and 14 August and fixes the same class of bug for any multi-day OOO/leave
+block. Also exclude all-day rows from the readiness demand scorer, matching every
+other meeting counter.
+
 
 ### 2. Availability SSOT v2 — an inference rung for untitled holidays
 Add one new precedence rung to `classifyAvailability`, between explicit PTO and
