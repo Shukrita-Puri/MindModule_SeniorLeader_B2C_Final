@@ -78,23 +78,57 @@ function svc() {
   );
 }
 
+/**
+ * A multi-day trip must stay visible for its whole duration, not just the
+ * departure day. We look back 14 days for travel-titled entries and forward
+ * 24h for imminent departures. An entry counts as ONGOING when it started in
+ * the past and has not ended yet (or, with no end_time, started within 24h).
+ */
+const CALENDAR_LOOKBACK_DAYS = 14;
+
 async function hasTravelCalendarEvent(
   db: ReturnType<typeof svc>,
   userId: string,
   now: Date,
-): Promise<boolean> {
-  const from = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
+): Promise<{ matched: boolean; ongoing: boolean }> {
+  const from = new Date(now.getTime() - CALENDAR_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const to = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await db
     .from("calendar_events")
-    .select("title")
+    .select("title, start_time, end_time")
     .eq("user_id", userId)
     .gte("start_time", from)
     .lte("start_time", to)
-    .limit(50);
-  if (error || !data) return false;
-  return data.some((row: { title: string | null }) => detectTravelFromTitle(row.title).matched);
+    .limit(200);
+  if (error || !data) return { matched: false, ongoing: false };
+
+  const nowMs = now.getTime();
+  let matched = false;
+  let ongoing = false;
+  for (const row of data as Array<{ title: string | null; start_time: string | null; end_time: string | null }>) {
+    if (!detectTravelFromTitle(row.title).matched) continue;
+    const startMs = row.start_time ? Date.parse(row.start_time) : NaN;
+    const endMs = row.end_time ? Date.parse(row.end_time) : NaN;
+
+    // Future departure within the next 24h — advisory "planned" signal only.
+    if (Number.isFinite(startMs) && startMs > nowMs) {
+      matched = true;
+      continue;
+    }
+
+    // Started already. Active while the end time is in the future, or — with
+    // no end time — for 24h after the start.
+    const stillActive = Number.isFinite(endMs)
+      ? endMs > nowMs
+      : Number.isFinite(startMs) && nowMs - startMs <= 24 * 60 * 60 * 1000;
+    if (stillActive) {
+      matched = true;
+      ongoing = true;
+    }
+  }
+  return { matched, ongoing };
 }
+
 
 interface UserResult {
   userId: string;
