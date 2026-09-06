@@ -8676,11 +8676,7 @@ export function deriveStructuralDayFlags(
     events: [],
     availability,
     tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
-    // Last-day-only rule: only meaningful when the hydrator ran (it can see
-    // tomorrow); otherwise left undefined so behaviour is unchanged.
-    tomorrowIsOffDay: opts?.weekAheadHydration
-      ? opts.weekAheadHydration.tomorrowIsWorkday === false
-      : undefined,
+
     isPlanningDay: weekAhead.active,
   });
   const meetingCountForLightDay = realMeetingCount;
