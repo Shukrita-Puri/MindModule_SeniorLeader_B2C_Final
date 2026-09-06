@@ -6665,12 +6665,21 @@ serve(async (req) => {
       if (ctx.lightDay?.isLightDay) {
         const target = resolveLightDayTarget(ctx, prefBriefTiming);
         const nowLocal = localHour + localMinute / 60;
-        if ((todayLogs?.length ?? 0) >= LIGHT_DAY_NOTIFICATION_CAP) {
+        // The light-day cap counts USER-VISIBLE pushes only. Silent
+        // background pushes (early-morning sync, content-available) are
+        // logged with delivery_state 'accepted' and would otherwise
+        // consume the single light-day slot before any nudge is
+        // evaluated — which is why light days went silent.
+        const visibleSendsToday = (todayLogs || []).filter((l) =>
+          !String(l.notification_type ?? "").startsWith("early_morning_sync")
+        ).length;
+        if (visibleSendsToday >= LIGHT_DAY_NOTIFICATION_CAP) {
           trace(userId, "light_day_cap", {
             ...traceBase,
             metadata: { ...traceBase.metadata,
               light_day_kind: ctx.lightDay.kind,
-              count: todayLogs?.length ?? 0,
+              count: visibleSendsToday,
+              raw_log_count: todayLogs?.length ?? 0,
               cap: LIGHT_DAY_NOTIFICATION_CAP,
             },
           });
