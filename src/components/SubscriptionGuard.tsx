@@ -8,9 +8,10 @@
  * Does NOT block /profile route (handled by removing guard from that route in App.tsx).
  */
 
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
-import { resolveSubscriptionAccess } from '@/utils/subscriptionHelpers';
+import { resolveSubscriptionAccess, isFirstTimeUser } from '@/utils/subscriptionHelpers';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 
 export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
@@ -42,6 +43,11 @@ export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) =
     return <>{children}</>;
   }
 
+  // First-time users go straight to the payment page instead of the trial popup.
+  if (isFirstTimeUser(user)) {
+    return <Navigate to="/upgrade?source=first-run" replace />;
+  }
+
   console.warn('[SubscriptionGuard] Blocking user with confirmed invalid subscription state', {
     user_id: user.id,
     subscription_status: user.subscription_status,
@@ -51,3 +57,4 @@ export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) =
 
   return <UpgradeModal sessionsRemaining={0} onClose={() => {}} />;
 };
+

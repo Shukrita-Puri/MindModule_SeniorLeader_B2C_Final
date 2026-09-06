@@ -18,7 +18,8 @@ import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 import { useCoachAccess } from '@/hooks/useCoachAccess';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import type { EntryContext } from '@/types/coach';
-import { isValidBeta } from '@/utils/subscriptionHelpers';
+import { isValidBeta, isFirstTimeUser } from '@/utils/subscriptionHelpers';
+
 
 interface PracticeStep {
   title: string;
@@ -100,6 +101,12 @@ const SelfMasteryCoach = () => {
       return;
     }
 
+    // First-time users (no trial/subscription history) go straight to payment.
+    if (user && isFirstTimeUser(user)) {
+      navigate('/upgrade?source=first-run', { replace: true });
+      return;
+    }
+
     checkAccess().then(result => {
       // Beta and unlimited users skip all trial-limit UI
       if (result.unlimited || result.beta) {
@@ -113,7 +120,8 @@ const SelfMasteryCoach = () => {
         toast.info(`You have ${result.sessionsRemaining} coaching session${result.sessionsRemaining === 1 ? '' : 's'} remaining in your trial.`);
       }
     });
-  }, [checkAccess, hasValidBetaAccess]);
+  }, [checkAccess, hasValidBetaAccess, navigate, user]);
+
 
   // Cleanup: finalize session on unmount, tab close, or navigation away.
   // Uses sendBeacon for tab close (pagehide) since async fetch won't complete.

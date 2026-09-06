@@ -598,9 +598,10 @@ export default function Stage6Payment() {
       <div className="flex-grow">
         {/* Toggle + Title row */}
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-[20px] font-headline font-bold">
-            {showUpgradeMode ? 'Upgrade Plan' : 'Pricing'}
+          <h1 className="font-headline font-medium text-foreground leading-tight tracking-tight text-[26px] md:text-[42px]">
+            Choose your Subscription
           </h1>
+
           {availablePlans.length > 1 ? (
             <div className="bg-muted rounded-full p-0.5 flex">
               {availablePlans.includes('annual') && (
