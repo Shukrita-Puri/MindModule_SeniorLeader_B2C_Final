@@ -221,6 +221,67 @@ export function confirmWindowByLocation(
   );
 }
 
+/**
+ * Location-only trip recording — the Oxford case.
+ *
+ * A domestic day trip carries no calendar evidence and no timezone change,
+ * so without this the day leaves no trace once the person is home again.
+ *
+ * `away: true`  → confirm the window covering the date, extend a window that
+ *                 ends the previous day, or open a new one-day window.
+ * `away: false` → close any open location window that would otherwise keep
+ *                 growing. Existing windows are never deleted or shortened,
+ *                 and calendar windows are only ever confirmed (fail-open).
+ */
+export function upsertLocationWindow(
+  trips: TripWindow[],
+  isoDate: string,
+  opts: { away: boolean; now?: Date },
+): TripWindow[] {
+  const updatedAt = (opts.now ?? new Date()).toISOString();
+
+  const covering = trips.find((w) => isoDate >= w.start && isoDate <= w.end);
+  if (covering) {
+    // Only a genuine away fix corroborates a window; a near-home fix inside a
+    // calendar window is left alone (the calendar remains the evidence).
+    if (!opts.away) return trips;
+    return trips.map((w) =>
+      w === covering
+        ? { ...w, location_confirmed: true, confidence: "high" as const, updated_at: updatedAt }
+        : w
+    );
+  }
+
+  if (!opts.away) return trips;
+
+  // Extend a location window that ended yesterday rather than opening a
+  // second one-day window for the same continuous trip.
+  const adjacent = trips.find(
+    (w) => w.source === "location" && dayDiff(w.end, isoDate) === 1,
+  );
+  if (adjacent) {
+    return trips.map((w) =>
+      w === adjacent
+        ? { ...w, end: isoDate, location_confirmed: true, updated_at: updatedAt }
+        : w
+    );
+  }
+
+  const next: TripWindow = {
+    start: isoDate,
+    end: isoDate,
+    source: "location",
+    evidence: ["trip"],
+    confidence: "high",
+    location_confirmed: true,
+    updated_at: updatedAt,
+  };
+  return [...trips, next].sort((a, b) =>
+    a.start < b.start ? -1 : a.start > b.start ? 1 : 0
+  );
+}
+
+
 /** Is the given ISO date inside any persisted trip window? */
 export function tripWindowForDate(
   trips: TripWindow[],
