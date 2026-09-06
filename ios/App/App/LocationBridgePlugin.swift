@@ -62,6 +62,14 @@ public class LocationBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    @objc func requestWhenInUseAuthorization(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            LocationBridge.shared.requestWhenInUseAuthorization()
+            call.resolve()
+        }
+    }
+
+
     @objc func requestOneShotLocation(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             LocationBridge.shared.requestOneShotLocation()
