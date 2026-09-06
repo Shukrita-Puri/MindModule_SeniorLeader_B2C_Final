@@ -595,6 +595,17 @@ function periodCollapseId(slot: NudgeSlot, localDate: string): string {
   return `smart-nudge-${slot}-${localDate}`;
 }
 
+/**
+ * The Week-Ahead invite must NOT share the evening collapse id. On iOS a
+ * later notification with the same collapse id REPLACES the earlier one on
+ * the lock screen, which silently buried the weekly planning invite behind
+ * the evening close-out.
+ */
+function weekAheadCollapseId(localDate: string): string {
+  return `smart-nudge-week-ahead-${localDate}`;
+}
+
+
 function weekendDaysForHomeCountry(homeCountry?: string | null): number[] {
   return planningDayOfWeek(homeCountry) === 6 ? [5, 6] : [0, 6];
 }
