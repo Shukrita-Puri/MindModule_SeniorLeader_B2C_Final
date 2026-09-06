@@ -5090,6 +5090,8 @@ async function evaluateWeekAheadPickerInvite(
     ptoTomorrowAllDay: wai.ptoTomorrowAllDay,
     holidayAllDayEventToday: wai.holidayTodayAllDay,
     tomorrowIsWorkday: wai.tomorrowIsWorkday,
+    // Last-day-only rule: week-ahead never fires mid-run.
+    tomorrowIsOffDay: !wai.tomorrowIsWorkday,
     isLastDayOfLongWeekend: wai.isLastDayOfLongWeekend,
     todayIsOffDay: wai.todayIsOffDay,
     manualOverride: false,

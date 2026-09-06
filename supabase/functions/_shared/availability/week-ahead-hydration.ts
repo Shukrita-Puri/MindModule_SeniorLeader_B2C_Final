@@ -67,6 +67,8 @@ export interface WeekAheadHydration {
   ptoTomorrowAllDay: boolean;
   holidayAllDayEventToday: boolean;
   tomorrowIsWorkday: boolean;
+  /** Tomorrow is itself an off-day → today is NOT the last day of the run. */
+  tomorrowIsOffDay: boolean;
   isLastDayOfLongWeekend: boolean;
   todayIsOffDay: boolean;
   /** Diagnostics — safe to log. */
@@ -176,6 +178,7 @@ export function hydrateWeekAheadInputs(
     ptoTomorrowAllDay: tomorrow.state === "PTO",
     holidayAllDayEventToday: today.state === "PUBLIC_HOLIDAY",
     tomorrowIsWorkday: !tomorrow.isOffDay,
+    tomorrowIsOffDay: tomorrow.isOffDay,
     isLastDayOfLongWeekend: longWeekend,
     todayIsOffDay: today.isOffDay,
     todayState: today.state,
