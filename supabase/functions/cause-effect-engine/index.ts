@@ -390,6 +390,25 @@ interface DominantDayType {
   secondaryCategory: string | null; // diagnostics only — never rendered
 }
 
+/** Every ISO date covered by a persisted trip window, clipped to [from, to]. */
+function tripDatesWithin(
+  trips: Array<{ start: string; end: string }>,
+  from: string,
+  to: string,
+): string[] {
+  const out: string[] = [];
+  for (const w of trips) {
+    let cursor = w.start < from ? from : w.start;
+    const last = w.end > to ? to : w.end;
+    let guard = 0;
+    while (cursor <= last && guard++ < 400) {
+      out.push(cursor);
+      cursor = ymd(addDays(new Date(cursor + "T00:00:00Z"), 1));
+    }
+  }
+  return out;
+}
+
 function durationMinutesOf(e: any): number {
   const s = e?.start_time ? new Date(e.start_time).getTime() : NaN;
   const en = e?.end_time ? new Date(e.end_time).getTime() : NaN;
