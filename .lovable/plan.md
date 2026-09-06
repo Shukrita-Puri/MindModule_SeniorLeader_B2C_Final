@@ -2,43 +2,54 @@
 
 ## What I found
 
-The system already knows what kind of day it is. One shared classifier decides between a working day, a light routine day, a rest day, time off, and a public holiday, and the Brief, the Plan and the notifications all read it. So the foundation is there — but the three surfaces do different things with it.
+The system already knows what kind of day it is. One shared classifier decides between a working day, a light routine day, a rest day, time off, and a public holiday, and the Brief, the Plan and the notifications all read it. The foundation is there — but the three surfaces do different things with it.
 
-- **Brief** — already the strongest. It names the day (weekend, holiday, time off, light day) and turns the copy toward active recovery. Mostly needs a top-up, not a rebuild.
-- **Plan** — today a rest day produces **zero practices** on purpose, and the app shows a calm "nothing scheduled" state. That is the opposite of what you're asking for. Deliberate past decision, so changing it is a real change, not a bug fix.
-- **Notifications** — time off and holidays already collapse to roughly one message a day, but by accident of two separate switches rather than one rule. **Weekends do not collapse** — they still send more than one. And the time-of-day preference captured during sign-up is never read.
+- **Brief** — the strongest already. It names the day (weekend, holiday, time off, light day) and turns the copy toward active recovery. Needs a top-up, not a rebuild.
+- **Plan** — today a rest day produces **zero practices** on purpose, and the app shows a calm "nothing scheduled" state. That is the opposite of what you want on the first weekend day.
+- **Notifications** — time off and holidays collapse to roughly one message a day, but through two separate switches rather than one rule. **Saturday sends nothing at all** — that matches what happened yesterday. And the time-of-day preference captured during sign-up is never read.
+
+## The rule we're setting
+
+A **light day** is: a working day with zero or one meeting, a holiday, PTO/OOO, or a weekend day — **excluding the final day** of any of those runs. The final day (Sunday for most countries, Saturday for Israel and the Gulf; the last day of a holiday, PTO block or long weekend) keeps today's week-ahead behaviour, completely unchanged.
+
+A weekend with several meetings is a working weekend and is treated as a normal working day, as it is today.
+
+| Day | Brief | Plan | Notification |
+| --- | --- | --- | --- |
+| Light day (incl. first weekend day) | names it, recovery frame | 3-slot recovery arc | 1 per day |
+| Last day of weekend / holiday / PTO | unchanged | unchanged (week-ahead) | evening week-ahead only |
+| Working weekend | unchanged | unchanged | unchanged |
 
 ## What I'll change
 
-### 1. One shared "light day" definition
-Extend the existing day classifier with a single exported answer: *is today a light day, and why* (weekend, holiday, time off, last day of a long weekend, or a working day with zero or one meeting). Everything below reads that one answer, so the three surfaces can never disagree.
-
-Note: today a working day with one meeting is treated as a normal working day. Under your definition it becomes a light day. That's the one behavioural widening here.
+### 1. One shared light-day definition
+Extend the existing day classifier with a single exported answer: *is today a light day, and why* — including the "is this the last day of the run" test, which is already available for long weekends and gets reused for holidays, PTO and ordinary weekends. Everything below reads that one answer, so the surfaces can never disagree.
 
 ### 2. Brief
-On a light day the Brief opens by naming the day plainly, then frames the whole read as recovery and paying back the load carried in from the previous days, rather than performance. Extend the existing recovery copy so it also references the recent heavy-day carry-over, and make sure the "one meeting" case gets the same treatment as a fully empty day.
+On a light day the Brief opens by naming the day plainly, then frames the whole read as recovery and paying back the load carried in from previous days rather than performance. Extend the existing recovery copy so it also references recent heavy-day carry-over, and make sure the one-meeting case gets the same treatment as a fully empty day. Last-day framing untouched.
 
 ### 3. Plan — light-day three-slot recovery arc
-Replace the zero-practice rest-day behaviour with a purpose-built three-slot light day:
+Replace the zero-practice behaviour on light days with a purpose-built arc:
 - **Morning** — set the intention for recovery.
 - **Afternoon** — hold it steady.
 - **Evening** — protect what was recovered.
 
-Practices are picked from the existing library only (recovery/restoration-tagged), never invented. The reasons attached to each slot say plainly that this is a light day and what it's protecting. The app's rest-day empty state is retired, and the existing rest-day test is rewritten to lock the new three-slot contract.
+Practices come from the existing library only (recovery/restoration-tagged), never invented. On the last day of a weekend, holiday or PTO run the plan keeps its current week-ahead behaviour. The rest-day empty state stays only for that unchanged path; the existing rest-day test is extended to cover both branches.
 
-### 4. Notifications — exactly one a day, at the user's time
-- Replace the two ad-hoc switches with one rule: on a light day the daily allowance is **1**, applied identically to weekends, holidays, time off and near-empty working days.
-- Send it at the time the user chose during sign-up. If they chose "use intelligence", pick from the same recovery-window logic used elsewhere, respecting their quiet hours.
-- Copy for that single message points at the light-day plan, so the habit is one visit a day.
+### 4. Notifications
+- One rule: on a light day the allowance is **1 message**, applied identically to weekends, holidays, PTO and near-empty working days — which also fixes the silent Saturday.
+- On the last day of a weekend/holiday/PTO run: the evening week-ahead message only, as today.
+- Send the single light-day message at the time the user chose during sign-up; if they chose "use intelligence", place it in the morning recovery window, respecting quiet hours.
+- Copy points at the light-day plan, so the habit is one visit a day.
 
 ## Technical notes
 
-- SSOT: extend `supabase/functions/_shared/availability/availability-classifier.ts` with `classifyLightDay()` returning `{ isLightDay, kind, reason }`; `LIGHT_ROUTINE` and the ≤1-meeting case join `PTO | PUBLIC_HOLIDAY | REST_DAY` for this purpose only. `classifyDay`'s existing off-day meaning stays untouched to avoid regressions elsewhere.
-- Brief: `_shared/brief/day-shape.ts` gains the light-day kind; recovery/carry-over copy extended in `_shared/brief/copy-vocabulary.ts` and `deterministic-brief.ts`. LLM prompt directive plus deterministic fallback both updated so the two paths match.
-- Plan: `_shared/jit/slot-allocator.ts` — replace the `rest_day → slots: []` branch with a `light_day` arc of three slots (`recovery_intention`, `recovery_hold`, `recovery_protect`), sourced through the existing content-surfacing allowlist. `generate-mastery-plan/index.ts` passes the light-day verdict through `deriveStructuralDayFlags`. Frontend: `TodayThreePriorities.tsx` drops `isRestDayPlan`; rewrite `src/__tests__/planRestDayContract.test.ts`.
-- Nudges: `smart-nudges/index.ts` — day-shape-aware cap replacing flat `DAILY_NOTIFICATION_CAP = 3`; remove the scattered `ptoMode` returns in `nudge_two` / `nudge_three`; read `onboarding_v8_responses.brief_timing` / `preferred_practice_window` plus `notification_preferences` windows, DND and quiet days to place the single send.
-- Tests: Deno tests for the new classifier cases (empty weekday, one-meeting weekday, Saturday, holiday, long-weekend last day), light-day plan arc, and single-nudge cadence; existing Vitest suite must stay green.
+- SSOT: `supabase/functions/_shared/availability/availability-classifier.ts` gains `classifyLightDay()` → `{ isLightDay, kind, isLastDayOfRun, reason }`. Reuses `isLastDayOfLongWeekend` and generalises it to holiday/PTO runs. `classifyDay`'s existing off-day semantics stay untouched. Weekend day identity keeps coming from `planningDayOfWeek()` in `_shared/plan/user-locale.ts` (Fri/Sat for `SATURDAY_WEEKLY_COUNTRIES`).
+- Brief: `_shared/brief/day-shape.ts` gains the light-day kind; copy extended in `_shared/brief/copy-vocabulary.ts` and `deterministic-brief.ts` (LLM directive and deterministic fallback in step).
+- Plan: `_shared/jit/slot-allocator.ts` — the `rest_day → slots: []` branch splits into `light_day` (three slots: `recovery_intention`, `recovery_hold`, `recovery_protect`) and the unchanged last-day/week-ahead branch. `generate-mastery-plan/index.ts` passes the verdict through `deriveStructuralDayFlags`. Frontend `TodayThreePriorities.tsx` keeps `isRestDayPlan` only for the last-day path; `src/__tests__/planRestDayContract.test.ts` extended.
+- Nudges: `smart-nudges/index.ts` — day-shape-aware cap replacing flat `DAILY_NOTIFICATION_CAP = 3`; remove scattered `ptoMode` returns in `nudge_two`/`nudge_three`; add the missing first-weekend-day send (root cause of the silent Saturday to confirm in the evaluator traces before the fix lands); read `onboarding_v8_responses.brief_timing` / `preferred_practice_window` plus `notification_preferences` windows, DND and quiet days to place the send. Sunday/Saturday week-ahead evening path untouched.
+- Verification: replay `smart-nudges` in dry-run for the affected account across a Saturday and a Sunday and read the evaluator traces, plus Deno tests for the new classifier cases and the light-day plan arc; existing Vitest suite must stay green.
 
 ## Open question
 
-The stored preference is coarse (a broad morning/evening window, not a clock time). I'll place the single nudge inside the chosen window rather than at an exact time — tell me if you'd rather I add a precise time picker to the notification settings instead.
+The stored preference is a broad morning/evening window, not a clock time, so the single nudge lands inside the chosen window. Say the word if you'd rather add a precise time picker to notification settings.
