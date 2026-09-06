@@ -128,6 +128,10 @@ import {
 } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { hydrateWeekAheadInputs } from "../_shared/availability/week-ahead-hydration.ts";
+import {
+  classifyLightDay,
+  type LightDayKind,
+} from "../_shared/availability/light-day.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 import {
   computeDivergenceFlag,
@@ -4778,6 +4782,11 @@ serve(async (req) => {
     let briefDayShape: DayShape | null = null;
     // Week-Ahead day state (language only) — see week-ahead-hydration block.
     let briefDayState: BriefDayState = "none";
+    // LIGHT DAY SSOT (`_shared/availability/light-day.ts`) — shared verdict
+    // with Plan and Smart Nudges. Never re-derived from event counts here.
+    let briefIsLightWorkday = false;
+    let briefLightDayKind: LightDayKind | null = null;
+    let briefLightDaySingleEventTitle: string | null = null;
     let briefTravelPhase: TravelPhase = null;
     // Part 1A — the single resolved narrative (family + anchor + phase +
     // depletion) shared by the LLM prompt, the deterministic renderer, and
@@ -5099,6 +5108,49 @@ serve(async (req) => {
             ? "rest_day"
             : "none";
           console.log("[week-ahead-hydration][brief] dayState", briefDayState);
+
+          // ── LIGHT DAY ─────────────────────────────────────────────────
+          const _todayEventRows = _rows.filter((r) =>
+            _localKey(String(r.start_time)) === _todayKey
+          );
+          const _lightDay = classifyLightDay({
+            now: userTime,
+            userHomeCountry: localeWeekendHomeCountry,
+            userCurrentCountry: localeWeekendHomeCountry,
+            explicitPto: isPublicHoliday === true,
+            events: _todayEventRows.map((r: any) => ({
+              title: String(r?.title ?? ""),
+              startTime: String(r?.start_time ?? ""),
+              endTime: String(r?.end_time ?? r?.start_time ?? ""),
+              isAllDay: r?.is_all_day === true,
+              isOrganizer: r?.is_organizer === true,
+              attendeesCount: Number(r?.attendees_count ?? 0) || 0,
+            })),
+            tomorrowIsWorkday: _hydration.tomorrowIsWorkday === true,
+            isPlanningDay: _wam.active === true,
+          });
+          briefLightDayKind = _lightDay.isLightDay ? _lightDay.kind : null;
+          // Weekend / holiday / PTO already own their copy branches; this
+          // flag exists for the quiet WORKING day only.
+          briefIsLightWorkday = _lightDay.isLightDay &&
+            _lightDay.kind === "light_workday";
+          if (briefIsLightWorkday && _lightDay.meetingCount === 1) {
+            const _single = _todayEventRows.find((r: any) =>
+              r?.is_all_day !== true
+            );
+            briefLightDaySingleEventTitle = _single?.title
+              ? String(_single.title)
+              : null;
+          }
+          console.log("[brief][light-day]", {
+            userId: redactUserId(userId),
+            isLightDay: _lightDay.isLightDay,
+            kind: _lightDay.kind,
+            isLastDayOfRun: _lightDay.isLastDayOfRun,
+            meetingCount: _lightDay.meetingCount,
+            reason: _lightDay.reason,
+            singleEvent: briefLightDaySingleEventTitle,
+          });
         }
         if (_wam.active) {
           (theme as { driver: ThemeDriver }).driver = "week_recap";
@@ -7359,6 +7411,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt += `\nREQUIRED FRAME: today is a public holiday. No work directives; protect the day and set up the return.`;
             } else if (briefDayState === "rest_day") {
               userPrompt += `\nREQUIRED FRAME: today is an off day. No work directives.`;
+            }
+          }
+
+          // === LIGHT DAY (HARD FACT) ===
+          // Weekend / holiday / PTO are already covered by day_state above.
+          // This block covers the quiet WORKING day, which the model would
+          // otherwise brief as if it were a normal cadence day.
+          if (briefIsLightWorkday) {
+            userPrompt += `\n\n=== LIGHT DAY (HARD FACT) ===`;
+            userPrompt += `\nlight_day: true · kind: light_workday`;
+            if (briefLightDaySingleEventTitle) {
+              userPrompt +=
+                `\nREQUIRED FRAME: this is a light working day with exactly one commitment: "${briefLightDaySingleEventTitle}". Name that commitment verbatim, judge it on its real stakes, and build the day around being ready for it. The rest of the day stays deliberately light — recovery, not backfilled work.`;
+            } else {
+              userPrompt +=
+                `\nREQUIRED FRAME: this is a light working day with no meetings. Treat it as recovery capacity that pays down what the week has taken. Do NOT invent work or pull tomorrow's load forward.`;
             }
           }
 
@@ -9802,6 +9870,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 dayShape: briefDayShape ?? null,
                 // Language-only day state shared with the Plan.
                 dayState: briefDayState,
+                // Light-day SSOT: quiet WORKING day copy branch.
+                isLightWorkday: briefIsLightWorkday,
+                lightDaySingleEventTitle: briefLightDaySingleEventTitle,
                 travelPhase: briefTravelPhase ?? null,
                 longHaulFlight:
                   !!briefBehaviourSnapshot?.signals?.longHaulFlight,
@@ -9943,6 +10014,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         band: prov?.band ?? null,
         dayShape: briefDayShape ?? null,
         dayState: briefDayState,
+        lightDayKind: briefLightDayKind,
         branch: prov?.branch ?? null,
         narrativeFamily: prov?.narrativeFamily ?? briefLeadNarrative?.family ?? null,
         windowContextSupplied: briefWindowContext != null,

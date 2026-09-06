@@ -82,6 +82,10 @@ import {
   isPtoOrHolidayTitle,
 } from "../_shared/ceo-behaviour/pto-holiday.ts";
 import { classifyAvailability } from "../_shared/availability/availability-classifier.ts";
+import {
+  classifyLightDay,
+  type LightDayKind,
+} from "../_shared/availability/light-day.ts";
 import { resolveUserLocaleContext, type UserLocaleContext } from "../_shared/plan/user-locale.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
@@ -8580,6 +8584,9 @@ export function deriveStructuralDayFlags(
   isWeekAhead: boolean;
   isPtoOrHoliday: boolean;
   isFullWorkingWeekend: boolean;
+  /** LIGHT DAY SSOT — three-slot recovery arc instead of the normal cadence. */
+  isLightDay: boolean;
+  lightDayKind: LightDayKind | null;
 } {
   const events = Array.isArray(calendarEvents) ? calendarEvents : [];
   const localNow = opts?.now ?? new Date();
@@ -8652,6 +8659,35 @@ export function deriveStructuralDayFlags(
       holiday: availability.holiday,
     });
   } catch { /* logging is best-effort */ }
+  // ── LIGHT DAY SSOT ──────────────────────────────────────────────────
+  // Shared with Brief and Smart Nudges. Never re-derive from event counts.
+  // A week-ahead day is by definition the LAST day of a run, so it is never
+  // a light day and its existing behaviour is preserved.
+  const lightDay = classifyLightDay({
+    now: localNow,
+    userHomeCountry: opts?.userLocale?.homeCountry ?? null,
+    userCurrentCountry: opts?.userLocale?.currentCountry ?? null,
+    weekendDays: opts?.userLocale?.weekendDays ?? [0, 6],
+    events: [],
+    availability,
+    tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
+    isPlanningDay: weekAhead.active,
+  });
+  const meetingCountForLightDay = realMeetingCount;
+  const isLightDay = !weekAhead.active && !isFullWorkingWeekend &&
+    (lightDay.isLightDay ||
+      (!availability.isRestDay && meetingCountForLightDay <= 1));
+  try {
+    console.info("[generate-mastery-plan][light-day]", {
+      isLightDay,
+      kind: lightDay.kind,
+      isLastDayOfRun: lightDay.isLastDayOfRun,
+      reason: lightDay.reason,
+      meetingCount: meetingCountForLightDay,
+      weekAhead: weekAhead.active,
+    });
+  } catch { /* logging is best-effort */ }
+
   return {
     hasTravelDay,
     hasConferenceDay,
@@ -8662,6 +8698,8 @@ export function deriveStructuralDayFlags(
     isWeekAhead: weekAhead.active,
     isPtoOrHoliday: isPtoOrHoliday && !weekAhead.active,
     isFullWorkingWeekend,
+    isLightDay,
+    lightDayKind: isLightDay ? lightDay.kind : null,
   };
 }
 
@@ -8676,6 +8714,7 @@ export interface LedgerAllocatorContext {
   isWeekAhead?: boolean;
   isPtoOrHoliday?: boolean;
   isFullWorkingWeekend?: boolean;
+  isLightDay?: boolean;
   mrsWindow?: "morning" | "afternoon" | "evening";
   preferredPracticeWindows?: Array<"morning" | "afternoon" | "evening">;
   forceArcCategoryIds?: EventCategoryId[];
@@ -9011,6 +9050,7 @@ export function mergeWithLedger(
     dayOfWeek: allocatorContext.dayOfWeek,
     isWeekAhead: allocatorContext.isWeekAhead,
     isPtoOrHoliday: allocatorContext.isPtoOrHoliday,
+    isLightDay: allocatorContext.isLightDay,
     isFullWorkingWeekend: allocatorContext.isFullWorkingWeekend,
     mrsWindow: allocatorContext.mrsWindow,
     preferredPracticeWindows: allocatorContext.preferredPracticeWindows,

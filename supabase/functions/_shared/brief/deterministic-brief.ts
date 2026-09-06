@@ -148,6 +148,15 @@ export interface DeterministicBriefFallbackOpts {
    * changes scoring, slots or gating.
    */
   dayState?: BriefDayState | null;
+  /**
+   * LIGHT DAY SSOT (`_shared/availability/light-day.ts`). True for a working
+   * day holding zero or one meeting that is NOT a week-ahead / planning day.
+   * Weekend, holiday and PTO already have their own branches; this covers the
+   * quiet WORKING day, which otherwise read like a normal cadence day.
+   */
+  isLightWorkday?: boolean;
+  /** Verbatim title of the single commitment on a light working day. */
+  lightDaySingleEventTitle?: string | null;
   /** Travel phase for work_travel / personal_travel shapes. */
   travelPhase?: "pre" | "in_transit" | "post" | null;
   /** True when today's travel event is long-haul (>=6h). */
@@ -1182,6 +1191,24 @@ function buildDirective(opts: DeterministicBriefFallbackOpts): string {
       return "Keep what you have. A small amount of forward thinking is fine; reactive output is not what today is for";
     }
     return "Keep the pace light. The week ahead will ask for what today protects";
+  }
+
+  // ── LIGHT WORKING DAY (zero or one meeting) ──
+  // A quiet working day is a recovery opportunity, not an empty cadence day.
+  // When the one commitment on the day is worth preparing for, it is named
+  // and the day is built around it — the day is still light overall.
+  if (opts.isLightWorkday) {
+    const single = (opts.lightDaySingleEventTitle || "").trim();
+    if (single) {
+      if (anyStrained || lowBand) {
+        return `A light day with one thing that matters: ${single}. Spend the quiet on being ready for it, and let the rest of the day stay unspent`;
+      }
+      return `One commitment shapes today: ${single}. Prepare for that properly and leave the rest of the day genuinely light`;
+    }
+    if (anyStrained || lowBand) {
+      return "The calendar is giving you the day back, and the system needs it. Recover deliberately rather than filling the space";
+    }
+    return "A light day is a rare asset — use it to pay down what the week took, not to pull work forward";
   }
 
   // ── WORKDAY — pillar-based routing (unchanged from current code) ──

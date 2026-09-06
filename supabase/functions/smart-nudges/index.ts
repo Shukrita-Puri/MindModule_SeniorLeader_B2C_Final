@@ -19,6 +19,10 @@ import {
   isFyiHolidayCalendar,
   isLastDayOfLongWeekend,
 } from "../_shared/availability/availability-classifier.ts";
+import {
+  classifyLightDay,
+  type LightDayResult,
+} from "../_shared/availability/light-day.ts";
 // Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
 // reasoned over instead of re-evaluating rules against a fresh
 // SignalCoverageInput. Falls back to `evaluateForScope` only when no Brief
@@ -285,6 +289,8 @@ const corsHeaders = {
 // ══════════════════════════════════════════════════════════════
 
 const DAILY_NOTIFICATION_CAP = 3;
+/** Light days (weekend / holiday / PTO / 0–1 meeting workday) get ONE send. */
+const LIGHT_DAY_NOTIFICATION_CAP = 1;
 const LOW_TIERS = ["depleted", "managing"];
 const DAYS = [
   "Sunday",
@@ -608,6 +614,54 @@ function lastWeekendDayForHomeCountry(homeCountry?: string | null): number {
   return planningDayOfWeek(homeCountry) === 6 ? 6 : 0;
 }
 
+/**
+ * LIGHT DAY SEND TIME.
+ *
+ * Onboarding v8 `brief_timing` offers Morning / Evening / "Use intelligence"
+ * (persisted as null). Mapping, per product contract:
+ *
+ *   preference   | light workday, no meetings | weekend / holiday / PTO
+ *   -------------|----------------------------|-------------------------
+ *   morning      | 08:00                      | 09:00
+ *   evening      | 17:00                      | 17:00
+ *   system picks | evening / end of day       | evening / end of day
+ *
+ * A light day holding ONE prep-worthy meeting anchors the send to that
+ * meeting instead (≈60 min before it), whatever the stated preference.
+ * Quiet hours / DND are enforced downstream and always win.
+ */
+function resolveLightDayTarget(
+  ctx: NudgeContext,
+  briefTiming: "morning" | "afternoon" | "evening" | null,
+): { slot: NudgeSlot; earliestHour: number; reason: string } {
+  const prep = ctx.lightDay?.prepMeeting ?? null;
+  if (prep) {
+    const earliest = Math.max(6, prep.startHour - 1);
+    return {
+      slot: currentSlotForLocalHour(Math.floor(earliest)),
+      earliestHour: earliest,
+      reason: "anchored_to_single_high_stakes_meeting",
+    };
+  }
+  const offDay = ctx.lightDay?.kind === "weekend" ||
+    ctx.lightDay?.kind === "public_holiday" || ctx.lightDay?.kind === "pto";
+  if (briefTiming === "morning") {
+    return {
+      slot: "morning",
+      earliestHour: offDay ? 9 : 8,
+      reason: offDay ? "pref_morning_off_day" : "pref_morning_workday",
+    };
+  }
+  // Evening preference AND "let the system decide" both land end-of-day.
+  return {
+    slot: "evening",
+    earliestHour: 17,
+    reason: briefTiming === "evening"
+      ? "pref_evening"
+      : "system_default_end_of_day",
+  };
+}
+
 function slotFromNotificationLogRow(
   row: { notification_type?: string | null; payload?: unknown },
 ): NudgeSlot | null {
@@ -897,6 +951,10 @@ interface NudgeContext {
   homeCountry: string | null;
   weekendDays: number[];
   planningDay: 0 | 6;
+  /** LIGHT DAY SSOT verdict + the single-meeting anchor, when one exists. */
+  lightDay: LightDayResult & {
+    prepMeeting: { title: string; startHour: number; categoryId: string | null } | null;
+  };
   briefWindow: BriefTimeWindow;
   /**
    * Batch B follow-up — IANA timezone used for ALL notification
@@ -2131,6 +2189,105 @@ async function buildNudgeContext(
     );
   }
 
+  // ── LIGHT DAY SSOT ────────────────────────────────────────────────────
+  // One verdict shared with Brief and Plan. Light days run a single nudge;
+  // the LAST day of a weekend / holiday / PTO run is deliberately excluded
+  // so the existing week-ahead cadence stays untouched.
+  const lightDayVerdict = (() => {
+    const availEvents = (todayEvents || []).map((e: any) => ({
+      title: String(e?.title ?? ""),
+      startTime: String(e?.start_time ?? ""),
+      endTime: String(e?.end_time ?? e?.start_time ?? ""),
+      isAllDay: e?.is_all_day === true ||
+        ((new Date(e?.end_time ?? e?.start_time ?? 0).getTime() -
+          new Date(e?.start_time ?? 0).getTime()) >= 20 * 3600 * 1000),
+      isOrganizer: e?.is_organizer === true,
+      attendeesCount: Number(e?.attendees_count ?? 0) || 0,
+      source: e?.source ?? null,
+      calendarSummary: e?.calendar_summary ?? null,
+    }));
+    const tomorrowKind = detectDayKindFromEvents(tomorrowEvents);
+    const tomorrowDowForLight = (dayOfWeek + 1) % 7;
+    const tomorrowIsWorkdayForLight =
+      !isWeekendDayForHomeCountry(tomorrowDowForLight, userHomeCountry) &&
+      tomorrowKind.kind !== "away-day";
+    let verdict: LightDayResult;
+    try {
+      verdict = classifyLightDay({
+        now,
+        userHomeCountry,
+        userCurrentCountry: null,
+        weekendDays,
+        events: availEvents,
+        availability: nudgeAvailability,
+        tomorrowIsWorkday: tomorrowIsWorkdayForLight,
+        isPlanningDay: dayOfWeek === planningDay,
+      });
+    } catch (lightErr) {
+      console.warn(
+        "[smart-nudges][light-day] classifier failed:",
+        lightErr instanceof Error ? lightErr.message : lightErr,
+      );
+      verdict = {
+        isLightDay: false,
+        kind: null,
+        isLastDayOfRun: false,
+        state: nudgeAvailability?.state ?? "WORKDAY",
+        meetingCount: nonNoiseEvents.length,
+        reason: "light_day_classifier_failed",
+      };
+    }
+    // Single-meeting stakes: judge the one meeting on the canonical A–H
+    // scale. Only genuinely high-stakes commitments (A–C, travel G,
+    // conference) earn preparation on an otherwise light day.
+    let prepMeeting:
+      | { title: string; startHour: number; categoryId: string | null }
+      | null = null;
+    if (verdict.isLightDay) {
+      const timed = (todayEvents || []).filter((e: any) => {
+        const st = new Date(e?.start_time ?? 0).getTime();
+        const en = new Date(e?.end_time ?? e?.start_time ?? 0).getTime();
+        if (!Number.isFinite(st) || !Number.isFinite(en) || en <= st) return false;
+        return (en - st) < 20 * 3600 * 1000;
+      });
+      if (timed.length === 1) {
+        const e = timed[0];
+        let categoryId: string | null = null;
+        try {
+          categoryId = resolveEvent(e).categoryId ?? null;
+        } catch {
+          categoryId = null;
+        }
+        const prepWorthy = categoryId === "A" || categoryId === "B" ||
+          categoryId === "C" || categoryId === "G" ||
+          isHighStakes(String(e?.title ?? ""));
+        if (prepWorthy) {
+          let startHour = 12;
+          try {
+            const parts = new Intl.DateTimeFormat("en-GB", {
+              timeZone: timeZone || "UTC",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }).formatToParts(new Date(e.start_time));
+            const hh = Number(parts.find((x) => x.type === "hour")?.value ?? 12);
+            const mm = Number(parts.find((x) => x.type === "minute")?.value ?? 0);
+            startHour = hh + mm / 60;
+          } catch { /* keep midday default */ }
+          prepMeeting = {
+            title: String(e?.title ?? "meeting"),
+            startHour,
+            categoryId,
+          };
+        }
+      }
+    }
+    return { ...verdict, prepMeeting };
+  })();
+  console.log(
+    `[smart-nudges][light-day] user=${userId} isLightDay=${lightDayVerdict.isLightDay} kind=${lightDayVerdict.kind} lastDay=${lightDayVerdict.isLastDayOfRun} meetings=${lightDayVerdict.meetingCount} prep=${lightDayVerdict.prepMeeting?.title ?? "none"} reason=${lightDayVerdict.reason}`,
+  );
+
   return {
     userId,
     todayStr,
@@ -2144,6 +2301,7 @@ async function buildNudgeContext(
     homeCountry: userHomeCountry,
     weekendDays,
     planningDay,
+    lightDay: lightDayVerdict,
     // Batch B follow-up: `briefWindow` is used downstream in the
     // plan-empty-fallback warning. Previously it lived only in this
     // function's scope and referencing it at the top-level evaluator
@@ -4356,7 +4514,10 @@ async function evaluateNudgeTwo(
   }
 
   // ── v5.3 - PTO collapse: no mid-day or JIT on PTO days ──
-  if (ctx.dayContext.ptoMode) return null;
+  // Light-day exception: the light-day cadence already limits the day to a
+  // single send, and an afternoon target only happens when it is anchored to
+  // one genuinely high-stakes meeting. Do not swallow that send.
+  if (ctx.dayContext.ptoMode && !ctx.lightDay?.isLightDay) return null;
 
   // ── A) JIT event approaching ──
   for (const evt of ctx.jitEvents) {
@@ -4582,13 +4743,21 @@ async function evaluateNudgeThree(
   }
 
   // ── v5.3 - PTO collapse: no evening close on PTO days ──
-  if (ctx.dayContext.ptoMode) {
+  // Light days are the exception: they are ALLOWED exactly one send, and for
+  // the evening / "let the system decide" timing preference that send is the
+  // evening close. Suppressing it here is why light days went silent.
+  const lightDayEveningAllowed = ctx.lightDay?.isLightDay === true;
+  if (ctx.dayContext.ptoMode && !lightDayEveningAllowed) {
     log("pto_mode");
     return null;
   }
 
-  // First weekend day: NO evening close
-  if (ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)) {
+  // First weekend day: NO evening close (unless it is the day's single
+  // light-day send).
+  if (
+    ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry) &&
+    !lightDayEveningAllowed
+  ) {
     log("saturday_skip");
     return null;
   }
@@ -5441,6 +5610,9 @@ type NotificationTraceOutcome =
   | "outside_global_window"
   | "dnd_window"
   | "daily_cap"
+  | "light_day_cap"
+  | "light_day_not_in_window"
+  | "light_day_window_open"
   | "two_hour_suppression"
   | "no_qualified_nudge"
   | "plan_ready_morning_fallback"
@@ -6484,6 +6656,52 @@ serve(async (req) => {
       );
       const activeSlot = currentSlotForLocalHour(localHour);
 
+      // ══════════════════════════════════════════════════
+      // ── LIGHT DAY CADENCE: exactly one nudge, at the user's time ──
+      // Applies to light working days (0–1 meeting), weekends, holidays
+      // and PTO — but NEVER to the last day of a run, which keeps the
+      // existing week-ahead cadence.
+      // ══════════════════════════════════════════════════
+      if (ctx.lightDay?.isLightDay) {
+        const target = resolveLightDayTarget(ctx, prefBriefTiming);
+        const nowLocal = localHour + localMinute / 60;
+        if ((todayLogs?.length ?? 0) >= LIGHT_DAY_NOTIFICATION_CAP) {
+          trace(userId, "light_day_cap", {
+            ...traceBase,
+            metadata: { ...traceBase.metadata,
+              light_day_kind: ctx.lightDay.kind,
+              count: todayLogs?.length ?? 0,
+              cap: LIGHT_DAY_NOTIFICATION_CAP,
+            },
+          });
+          continue;
+        }
+        if (activeSlot !== target.slot || nowLocal < target.earliestHour) {
+          trace(userId, "light_day_not_in_window", {
+            ...traceBase,
+            metadata: { ...traceBase.metadata,
+              light_day_kind: ctx.lightDay.kind,
+              light_day_reason: ctx.lightDay.reason,
+              target_slot: target.slot,
+              target_earliest_hour: target.earliestHour,
+              target_reason: target.reason,
+              active_slot: activeSlot,
+              local_time: nowLocal,
+            },
+          });
+          continue;
+        }
+        trace(userId, "light_day_window_open", {
+          ...traceBase,
+          metadata: { ...traceBase.metadata,
+            light_day_kind: ctx.lightDay.kind,
+            target_slot: target.slot,
+            target_earliest_hour: target.earliestHour,
+            target_reason: target.reason,
+          },
+        });
+      }
+
       // Phase 4 — Leader `weekend_signals` preference. Soft gate, applied
       // only when the preference is explicitly set. `full` and null both
       // preserve today's behaviour.
@@ -6507,7 +6725,7 @@ serve(async (req) => {
       }
       if (
         isWeekendDay && prefWeekendSignals === "light" &&
-        activeSlot !== "morning"
+        activeSlot !== "morning" && !ctx.lightDay?.isLightDay
       ) {
         console.info(
           `[smart-nudges] weekend_signals=light, skipping non-morning slot user=${
