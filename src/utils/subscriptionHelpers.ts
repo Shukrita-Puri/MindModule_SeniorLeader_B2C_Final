@@ -67,6 +67,35 @@ export function isValidBeta(user: AccessUser | null): boolean {
   return isFutureDate(user.beta_expires_at);
 }
 
+/**
+ * True only for a brand-new user who has never started a trial or subscription.
+ *
+ * This is intentionally conservative: any evidence of a past trial or
+ * subscription (an expired trial_ends_at, a past period end, a canceled/expired
+ * status, or any real tier) means the user is NOT first-time, so the normal
+ * "Trial Reached" popup still applies.
+ *
+ * Must only be checked AFTER resolveSubscriptionAccess returns 'block'; a valid
+ * beta user or active subscriber is never a first-time user for payment routing.
+ */
+export function isFirstTimeUser(user: AccessUser | null): boolean {
+  if (!user) return false;
+  if (isValidBeta(user)) return false;
+
+  const status = user.subscription_status;
+  const tier = user.subscription_tier;
+
+  const hasTrialHistory = !!user.trial_ends_at;
+  const hasSubscriptionHistory =
+    !!user.subscription_current_period_end ||
+    !!user.subscription_canceled_at ||
+    (status !== undefined && status !== null && status !== 'none' && status !== '') ||
+    (tier !== undefined && tier !== null && tier !== 'none' && tier !== '');
+
+  return !hasTrialHistory && !hasSubscriptionHistory;
+}
+
+
 export function resolveSubscriptionAccess(user: AccessUser | null): SubscriptionAccessDecision {
   if (!user) return 'pending';
 
