@@ -408,6 +408,70 @@ export function classifyAvailability(
     };
   }
 
+  // Step 2b (SSOT v2) — inferred vacation. An untitled holiday: a persisted
+  // trip window (or a multi-day stay block) covers today, no real work is
+  // happening, and something in the window says "leisure / away from home".
+  //
+  // Deliberately placed AFTER explicit PTO and the ≥2-meeting work override,
+  // and BEFORE public holiday / weekend so the awareness persists across the
+  // interior days of a run that carries no titled marker at all.
+  {
+    const isoToday = isoDateOf(input.now);
+    const windowEvents = input.windowEvents ?? [];
+    const allEvents = [...events, ...windowEvents];
+
+    const stayCoversToday = events.some(
+      (e) => e.isAllDay === true && STAY_TITLE_RX.test(e.title || ""),
+    );
+    const covered =
+      tripWindowCoversDay(input.tripWindow, isoToday) || stayCoversToday;
+
+    // Work override: 2+ meetings already returned above. One meeting is only
+    // disqualifying when it is high-stakes.
+    const singleHighStakes =
+      meetingCount === 1 &&
+      String(workMeetings[0]?.stakesLevel ?? "").toLowerCase() === "high";
+    const workClear = meetingCount <= 1 && !singleHighStakes;
+
+    // A conference / offsite anywhere in the window means work trip, not holiday.
+    const offsiteEvidence =
+      allEvents.some((e) => OFFSITE_TITLE_RX.test(e.title || "")) ||
+      (input.tripWindow?.evidence ?? []).some((x) => String(x) === "offsite");
+
+    const leisureEvidence = allEvents.some((e) =>
+      LEISURE_TITLE_RX.test(e.title || "")
+    );
+    const awayEvidence =
+      typeof input.awayDistanceKm === "number" && input.awayDistanceKm > 100;
+    const stayEvidence =
+      stayCoversToday ||
+      allEvents.some((e) => STAY_TITLE_RX.test(e.title || "")) ||
+      (input.tripWindow?.evidence ?? []).some((x) => String(x) === "stay");
+    const supporting = leisureEvidence || awayEvidence || stayEvidence;
+
+    if (covered && workClear && !offsiteEvidence && supporting) {
+      const strong =
+        (stayEvidence && leisureEvidence) ||
+        (String(input.tripWindow?.confidence ?? "") === "high" &&
+          (stayEvidence || leisureEvidence || awayEvidence));
+      return {
+        state: "PTO",
+        isRestDay: true,
+        workEvidence: { meetingCount, hasWorkMeetings },
+        holiday: {
+          detected: holidayDetected,
+          applicable: holidayApplicable,
+          title: holidayTitle,
+          scope: holidayScope,
+        },
+        reason: `inferred_vacation:v${AVAILABILITY_SSOT_VERSION}`,
+        confidence: strong ? "high" : "medium",
+      };
+    }
+  }
+
+
+
   // Step 3 — applicable public holiday.
   if (holidayApplicable) {
     return {
