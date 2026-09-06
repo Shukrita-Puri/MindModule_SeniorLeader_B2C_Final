@@ -2187,6 +2187,9 @@ async function buildNudgeContext(
       userHomeCountry,
       userCurrentCountry: null,
       weekendDays,
+      // Availability SSOT v2 — durable trip evidence + away distance.
+      tripWindow: travelHydration.tripWindow ?? null,
+      awayDistanceKm: travelHydration.distanceKm,
       events: (todayEvents || []).map((e: any) => ({
         title: String(e?.title ?? ""),
         startTime: String(e?.start_time ?? ""),
