@@ -22,6 +22,7 @@ import {
   classifyDay,
   isLastDayOfLongWeekend,
 } from "./availability-classifier.ts";
+import { eventOverlapsDay } from "../signal-engine/db-queries.ts";
 
 /** Loose calendar row shape — accepts snake_case DB rows or camelCase. */
 export interface RawCalendarRow {
