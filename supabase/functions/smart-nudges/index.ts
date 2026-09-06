@@ -43,6 +43,7 @@ import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
+import { applyDayOverlapFilter, eventOverlapsDay } from "../_shared/signal-engine/db-queries.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
 import { validateApnsEnvironment } from "../_shared/apns-env.ts";
