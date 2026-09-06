@@ -17,6 +17,9 @@ const ACTION_ROUTES: Record<string, string> = {
   nudge_one: '/daily-check-in',           // Default; JIT variant uses deep_link_route from payload
   nudge_two: '/executive-home',           // Default; recalibrate variant uses deep_link_route
   nudge_three: '/daily-check-in',         // Evening close
+  // Week-Ahead picker invite always opens the Plan page in week-ahead mode.
+  week_ahead_picker_invite: '/plan?mode=week-ahead',
+
   // Legacy types (backward compat)
   morning_prep: '/daily-check-in',
   pre_event_prep: '/executive-home',
