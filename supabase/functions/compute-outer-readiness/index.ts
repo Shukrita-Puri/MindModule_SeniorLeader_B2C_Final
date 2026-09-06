@@ -8478,6 +8478,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               if (briefWindowContext) {
                 const w = briefWindowContext as any;
                 userPrompt += `\n\n=== WINDOW CONTEXT (${w.window}) ===`;
+                // Travel is window-agnostic: state it in every window so the
+                // afternoon and evening briefs read the same travel truth the
+                // morning one does.
+                if (travelHydration.travelDay) {
+                  userPrompt += `\ntravel_day: yes (source ${
+                    travelHydration.evidence ?? "unknown"
+                  })`;
+                }
                 if (w.window === "morning") {
                   userPrompt +=
                     `\nyesterday_load: ${w.yesterdayLoad} (score ${w.yesterdayLoadScore})`;
