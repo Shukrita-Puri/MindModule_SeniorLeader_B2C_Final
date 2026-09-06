@@ -42,13 +42,14 @@ import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { ADMIN_EMAIL_ALLOWLIST } from "../_shared/admin-guard.ts";
 import {
   buildTripWindows,
-  confirmWindowByLocation,
   mergeTripWindows,
   parseTrips,
   toIsoDate,
+  upsertLocationWindow,
   type TripEvidenceEvent,
   type TripWindow,
 } from "./trip-windows.ts";
+
 
 
 const corsHeaders = {
