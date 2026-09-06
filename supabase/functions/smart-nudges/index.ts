@@ -1706,27 +1706,32 @@ async function buildNudgeContext(
     // NOTE: `source_calendar` / `calendar_name` do NOT exist on
     // calendar_events or primary_calendar_events. Selecting them makes
     // Postgres reject the whole query, leaving the day looking empty.
-    supabase.from("primary_calendar_events")
-      .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
-      )
-      .eq("user_id", userId)
-      .gte("start_time", todayBounds.startUtc)
-      .lt("start_time", todayBounds.endUtc)
-      .order("start_time", { ascending: true }),
-    supabase.from("primary_calendar_events")
-      .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
-      )
-      .eq("user_id", userId)
-      .gte("start_time", tomorrowBounds.startUtc)
-      .lt("start_time", tomorrowBounds.endUtc)
-      .order("start_time", { ascending: true }),
-    supabase.from("primary_calendar_events")
-      .select("id, title, start_time")
-      .eq("user_id", userId)
-      .gte("start_time", yesterdayBounds.startUtc)
-      .lt("start_time", yesterdayBounds.endUtc),
+    applyDayOverlapFilter(
+      supabase.from("primary_calendar_events")
+        .select(
+          "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
+        )
+        .eq("user_id", userId),
+      todayBounds.startUtc,
+      todayBounds.endUtc,
+    ).order("start_time", { ascending: true }),
+    applyDayOverlapFilter(
+      supabase.from("primary_calendar_events")
+        .select(
+          "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
+        )
+        .eq("user_id", userId),
+      tomorrowBounds.startUtc,
+      tomorrowBounds.endUtc,
+    ).order("start_time", { ascending: true }),
+    applyDayOverlapFilter(
+      supabase.from("primary_calendar_events")
+        .select("id, title, start_time, end_time")
+        .eq("user_id", userId),
+      yesterdayBounds.startUtc,
+      yesterdayBounds.endUtc,
+    ),
+
     supabase.from("wearable_data")
       .select(
         "hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date",
