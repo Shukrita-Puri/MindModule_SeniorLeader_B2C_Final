@@ -144,6 +144,7 @@ import {
   computeSustainedDeficitSeverity,
 } from "../_shared/signal-engine/pattern-engine.ts";
 import {
+  applyDayOverlapFilter,
   type CalendarMetricsResult,
   getServerCalendarMetrics,
 } from "../_shared/signal-engine/db-queries.ts";
@@ -5208,12 +5209,14 @@ serve(async (req) => {
           );
           const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
           const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
-          const { data: tomorrowEvents } = await db
-            .from("primary_calendar_events")
-            .select("title, start_time, end_time")
-            .eq("user_id", userId)
-            .gte("start_time", tStartUTC.toISOString())
-            .lte("start_time", tEndUTC.toISOString());
+          const { data: tomorrowEvents } = await applyDayOverlapFilter(
+            db
+              .from("primary_calendar_events")
+              .select("title, start_time, end_time")
+              .eq("user_id", userId),
+            tStartUTC.toISOString(),
+            tEndUTC.toISOString(),
+          );
           const mergedTomorrowEvents = mergeCalendarEvents(
             (tomorrowEvents || []) as any[],
             platform,
@@ -8194,6 +8197,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     travelHydration.travelDay,
                 },
                 travelState: travelStateForCtx,
+                // Availability SSOT v2 — durable trip window evidence.
+                tripWindow: travelHydration.tripWindow ?? null,
                 events: eventsForCtx,
                 tomorrowEvents: tomorrowEventsForCtx,
                 now: new Date(),

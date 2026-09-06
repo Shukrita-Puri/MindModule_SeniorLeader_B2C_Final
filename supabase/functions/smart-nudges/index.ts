@@ -43,6 +43,7 @@ import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 import { shouldFireWeekAheadPickerInvite } from "../_shared/plan/week-ahead-nudge.ts";
+import { applyDayOverlapFilter, eventOverlapsDay } from "../_shared/signal-engine/db-queries.ts";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { requireAdmin, writeAdminAudit } from "../_shared/admin-guard.ts";
 import { validateApnsEnvironment } from "../_shared/apns-env.ts";
@@ -1706,27 +1707,32 @@ async function buildNudgeContext(
     // NOTE: `source_calendar` / `calendar_name` do NOT exist on
     // calendar_events or primary_calendar_events. Selecting them makes
     // Postgres reject the whole query, leaving the day looking empty.
-    supabase.from("primary_calendar_events")
-      .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
-      )
-      .eq("user_id", userId)
-      .gte("start_time", todayBounds.startUtc)
-      .lt("start_time", todayBounds.endUtc)
-      .order("start_time", { ascending: true }),
-    supabase.from("primary_calendar_events")
-      .select(
-        "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
-      )
-      .eq("user_id", userId)
-      .gte("start_time", tomorrowBounds.startUtc)
-      .lt("start_time", tomorrowBounds.endUtc)
-      .order("start_time", { ascending: true }),
-    supabase.from("primary_calendar_events")
-      .select("id, title, start_time")
-      .eq("user_id", userId)
-      .gte("start_time", yesterdayBounds.startUtc)
-      .lt("start_time", yesterdayBounds.endUtc),
+    applyDayOverlapFilter(
+      supabase.from("primary_calendar_events")
+        .select(
+          "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
+        )
+        .eq("user_id", userId),
+      todayBounds.startUtc,
+      todayBounds.endUtc,
+    ).order("start_time", { ascending: true }),
+    applyDayOverlapFilter(
+      supabase.from("primary_calendar_events")
+        .select(
+          "id, title, start_time, end_time, external_id, is_organizer, attendees_count, is_all_day",
+        )
+        .eq("user_id", userId),
+      tomorrowBounds.startUtc,
+      tomorrowBounds.endUtc,
+    ).order("start_time", { ascending: true }),
+    applyDayOverlapFilter(
+      supabase.from("primary_calendar_events")
+        .select("id, title, start_time, end_time")
+        .eq("user_id", userId),
+      yesterdayBounds.startUtc,
+      yesterdayBounds.endUtc,
+    ),
+
     supabase.from("wearable_data")
       .select(
         "hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date",
@@ -1809,15 +1815,17 @@ async function buildNudgeContext(
     d.setDate(d.getDate() - 14);
     return d.toISOString().split("T")[0];
   })();
-  const { data: lookbackEventsRaw } = await supabase
-    .from("primary_calendar_events")
-    // calendar_summary column does not exist on calendar_events / views; consumers tolerate null.
-    .select(
-      "title, start_time, end_time, is_organizer, attendees_count, is_all_day",
-    )
-    .eq("user_id", userId)
-    .gte("start_time", `${lookbackStartStr}T00:00:00`)
-    .lte("start_time", `${todayStr}T00:00:00`);
+  const { data: lookbackEventsRaw } = await applyDayOverlapFilter(
+    supabase
+      .from("primary_calendar_events")
+      // calendar_summary column does not exist on calendar_events / views; consumers tolerate null.
+      .select(
+        "title, start_time, end_time, is_organizer, attendees_count, is_all_day",
+      )
+      .eq("user_id", userId),
+    `${lookbackStartStr}T00:00:00`,
+    `${todayStr}T00:00:00`,
+  );
   const lookbackEvents = mergeCalendarRows(lookbackEventsRaw || []);
 
   // Fetch session summaries separately (depends on recentSessions)
@@ -2179,6 +2187,9 @@ async function buildNudgeContext(
       userHomeCountry,
       userCurrentCountry: null,
       weekendDays,
+      // Availability SSOT v2 — durable trip evidence + away distance.
+      tripWindow: travelHydration.tripWindow ?? null,
+      awayDistanceKm: travelHydration.distanceKm,
       events: (todayEvents || []).map((e: any) => ({
         title: String(e?.title ?? ""),
         startTime: String(e?.start_time ?? ""),

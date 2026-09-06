@@ -22,6 +22,7 @@ import {
   classifyDay,
   isLastDayOfLongWeekend,
 } from "./availability-classifier.ts";
+import { eventOverlapsDay } from "../signal-engine/db-queries.ts";
 
 /** Loose calendar row shape — accepts snake_case DB rows or camelCase. */
 export interface RawCalendarRow {
@@ -147,25 +148,24 @@ export function hydrateWeekAheadInputs(
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
   const tomorrow = classify(tomorrowDate, input.tomorrowEvents);
 
-  // Bucket the lookback rows by UTC day, then walk back at most 14 days.
-  const byDate = new Map<string, RawCalendarRow[]>();
-  for (const e of input.lookbackEvents ?? []) {
-    const d = String(e.start_time ?? e.startTime ?? "").slice(0, 10);
-    if (!d) continue;
-    const arr = byDate.get(d) ?? [];
-    arr.push(e);
-    byDate.set(d, arr);
-  }
+  // Bucket the lookback rows by UTC day using OVERLAP, not start date, so a
+  // multi-day stay / OOO block is present on every day it covers (SSOT v2).
+  const lookback = (input.lookbackEvents ?? []) as RawCalendarRow[];
+  const rowsForDay = (iso: string): RawCalendarRow[] =>
+    lookback.filter((e) =>
+      eventOverlapsDay(e as any, `${iso}T00:00:00.000Z`, `${iso}T23:59:59.999Z`)
+    );
 
   const priorDays: Array<{ state: AvailabilityState }> = [];
   const cursor = new Date(now.getTime());
   for (let i = 0; i < 14; i++) {
     cursor.setDate(cursor.getDate() - 1);
-    const rows = byDate.get(dayKey(cursor)) ?? [];
+    const rows = rowsForDay(dayKey(cursor));
     const r = classify(new Date(cursor.getTime()), rows);
     priorDays.push({ state: r.state });
     if (!r.isOffDay) break;
   }
+
 
   const longWeekend = isLastDayOfLongWeekend({
     today: { state: today.state },

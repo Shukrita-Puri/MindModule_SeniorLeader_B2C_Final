@@ -44,7 +44,7 @@ import {
 export type TravelDayEvidence = "trip" | "timezone" | "distance" | "state" | "none";
 
 /** A persisted trip window from `travel_state.meta.trips`. */
-interface PersistedTripWindow {
+export interface PersistedTripWindow {
   start: string;
   end: string;
   source?: string;
@@ -61,7 +61,7 @@ function persistedTrips(meta: unknown): PersistedTripWindow[] {
   });
 }
 
-function tripWindowCovering(
+export function tripWindowCovering(
   meta: unknown,
   now: Date,
 ): PersistedTripWindow | null {
@@ -85,6 +85,8 @@ export interface TravelDayHydration {
   evidence: TravelDayEvidence;
   /** Shape consumed by `SignalCoverageInput.travelState`. */
   travelState: { state: string | null; distanceFromHomeKm: number | null } | null;
+  /** Persisted trip window covering today, when one exists (SSOT v2). */
+  tripWindow?: PersistedTripWindow | null;
 }
 
 /** Inputs actually used by the decision, surfaced for provenance logging. */
@@ -219,6 +221,7 @@ export function deriveTravelDay(
     travelState: freshness.used
       ? { state, distanceFromHomeKm: distanceKm }
       : null,
+    tripWindow,
   };
 }
 

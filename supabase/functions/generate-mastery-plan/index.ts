@@ -82,6 +82,7 @@ import {
   isPtoOrHolidayTitle,
 } from "../_shared/ceo-behaviour/pto-holiday.ts";
 import { classifyAvailability } from "../_shared/availability/availability-classifier.ts";
+import { applyDayOverlapFilter } from "../_shared/signal-engine/db-queries.ts";
 import {
   classifyLightDay,
   type LightDayKind,
@@ -4964,15 +4965,16 @@ async function buildSharedContext(
     // NOTE: `source` / `calendar_name` / `calendar_summary` do NOT exist on
     // calendar_events (or its views); selecting them made Postgres reject the
     // whole query and week-ahead hydration silently ran on an empty calendar.
-    const { data: _waRows, error: _waErr } = await supabaseClient
-      .from("primary_calendar_events")
-      .select(
-        "title, start_time, end_time, is_all_day, is_organizer, attendees_count",
-      )
-      .eq("user_id", req.userId)
-      .gte("start_time", _from.toISOString())
-      .lte("start_time", _to.toISOString())
-      .order("start_time", { ascending: true });
+    const { data: _waRows, error: _waErr } = await applyDayOverlapFilter(
+      supabaseClient
+        .from("primary_calendar_events")
+        .select(
+          "title, start_time, end_time, is_all_day, is_organizer, attendees_count",
+        )
+        .eq("user_id", req.userId),
+      _from.toISOString(),
+      _to.toISOString(),
+    ).order("start_time", { ascending: true });
     if (_waErr) {
       console.warn(
         "[week-ahead-hydration][plan] calendar query failed:",

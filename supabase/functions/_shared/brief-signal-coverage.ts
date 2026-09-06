@@ -79,6 +79,8 @@ export interface SignalCoverageInput {
     state?: string | null;
     distanceFromHomeKm?: number | null;
   } | null;
+  /** Availability SSOT v2 — persisted trip window covering today, if any. */
+  tripWindow?: { start: string; end: string; source?: string | null; confidence?: string | null } | null;
   /** Calendar events in chronological order, all in user's local timezone. */
   events: Array<{
     title: string;
@@ -385,6 +387,8 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     userCurrentCountry: input.userCurrentCountry ?? null,
     explicitPto: input.explicitPto === true,
     calendarLoad: input.calendarLoad ?? null,
+    tripWindow: input.tripWindow ?? null,
+    awayDistanceKm: input.travelState?.distanceFromHomeKm ?? null,
     events: input.events.map((e): AvailabilityEvent => ({
       title: String(e.title || ''),
       startTime: typeof e.startTime === 'string'
@@ -965,6 +969,8 @@ export function buildRuleContext(
     userCurrentCountry: input.userCurrentCountry ?? null,
     explicitPto: input.explicitPto === true,
     calendarLoad: input.calendarLoad ?? null,
+    tripWindow: input.tripWindow ?? null,
+    awayDistanceKm: input.travelState?.distanceFromHomeKm ?? null,
     events: input.events.map((e): AvailabilityEvent => ({
       title: String(e.title || ''),
       startTime: typeof e.startTime === 'string'

@@ -185,12 +185,20 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   const dayOfWeek = dayOfWeekFromIsoDate(local.localDate);
 
   const travelDay = isTravelActive(input, input.todayEvents);
+  // Availability SSOT v2 — hand the persisted trip window + away distance to
+  // the classifier so an untitled holiday is inferred on interior days too.
+  const travelVerdict = deriveTravelDay(
+    (input.travel ?? null) as Record<string, unknown> | null,
+    { now: input.now, currentTimezone: input.currentTimezone ?? null },
+  );
   const todayAvailability = classifyAvailability({
     now: localDayDate,
     userHomeCountry: input.userHomeCountry ?? null,
     userCurrentCountry: input.userCurrentCountry ?? null,
     explicitPto: input.explicitPto === true,
     events: toAvailabilityEvents(input.todayEvents),
+    tripWindow: travelVerdict.tripWindow ?? null,
+    awayDistanceKm: travelVerdict.distanceKm,
   });
   const tomorrowAvailability = classifyDay({
     now: tomorrowLocalDayDate,
