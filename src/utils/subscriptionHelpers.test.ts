@@ -87,3 +87,46 @@ describe('resolveSubscriptionAccess', () => {
     })).toBe('block');
   });
 });
+
+describe('isFirstTimeUser', () => {
+  it('returns true for a clean new profile with no trial or subscription history', () => {
+    expect(isFirstTimeUser({
+      subscription_status: 'none',
+      subscription_tier: 'none',
+    })).toBe(true);
+
+    expect(isFirstTimeUser({})).toBe(true);
+  });
+
+  it('returns false when a trial has ever been started', () => {
+    expect(isFirstTimeUser({
+      trial_ends_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
+      subscription_status: 'none',
+      subscription_tier: 'none',
+    })).toBe(false);
+  });
+
+  it('returns false when a subscription has existed or ended', () => {
+    expect(isFirstTimeUser({
+      subscription_status: 'canceled',
+      subscription_tier: 'none',
+      subscription_canceled_at: new Date().toISOString(),
+    })).toBe(false);
+
+    expect(isFirstTimeUser({
+      subscription_status: 'expired',
+      subscription_tier: 'monthly_pro',
+      subscription_current_period_end: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
+    })).toBe(false);
+  });
+
+  it('returns false for a valid beta user', () => {
+    expect(isFirstTimeUser({
+      beta_user: true,
+      beta_expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+      subscription_status: 'none',
+      subscription_tier: 'none',
+    })).toBe(false);
+  });
+});
+
