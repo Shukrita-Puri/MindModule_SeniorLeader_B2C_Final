@@ -5208,12 +5208,14 @@ serve(async (req) => {
           );
           const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
           const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
-          const { data: tomorrowEvents } = await db
-            .from("primary_calendar_events")
-            .select("title, start_time, end_time")
-            .eq("user_id", userId)
-            .gte("start_time", tStartUTC.toISOString())
-            .lte("start_time", tEndUTC.toISOString());
+          const { data: tomorrowEvents } = await applyDayOverlapFilter(
+            db
+              .from("primary_calendar_events")
+              .select("title, start_time, end_time")
+              .eq("user_id", userId),
+            tStartUTC.toISOString(),
+            tEndUTC.toISOString(),
+          );
           const mergedTomorrowEvents = mergeCalendarEvents(
             (tomorrowEvents || []) as any[],
             platform,

@@ -1815,15 +1815,17 @@ async function buildNudgeContext(
     d.setDate(d.getDate() - 14);
     return d.toISOString().split("T")[0];
   })();
-  const { data: lookbackEventsRaw } = await supabase
-    .from("primary_calendar_events")
-    // calendar_summary column does not exist on calendar_events / views; consumers tolerate null.
-    .select(
-      "title, start_time, end_time, is_organizer, attendees_count, is_all_day",
-    )
-    .eq("user_id", userId)
-    .gte("start_time", `${lookbackStartStr}T00:00:00`)
-    .lte("start_time", `${todayStr}T00:00:00`);
+  const { data: lookbackEventsRaw } = await applyDayOverlapFilter(
+    supabase
+      .from("primary_calendar_events")
+      // calendar_summary column does not exist on calendar_events / views; consumers tolerate null.
+      .select(
+        "title, start_time, end_time, is_organizer, attendees_count, is_all_day",
+      )
+      .eq("user_id", userId),
+    `${lookbackStartStr}T00:00:00`,
+    `${todayStr}T00:00:00`,
+  );
   const lookbackEvents = mergeCalendarRows(lookbackEventsRaw || []);
 
   // Fetch session summaries separately (depends on recentSessions)
