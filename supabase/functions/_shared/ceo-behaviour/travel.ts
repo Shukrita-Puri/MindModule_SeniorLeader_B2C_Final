@@ -173,9 +173,14 @@ export function travelPreFlightMandatory(ctx: RuleContext): BehaviourFlag | null
   // If the field is unset (legacy callers) fall back to firing on travelDay
   // alone so we don't regress before consumers re-route.
   const win = ctx.signals.preFlightWindowMinutes;
-  if (win !== undefined && win === null) return null;
-
   const title = ctx.signals.nextTravelEventTitle ?? undefined;
+  // A GPS/timezone-derived travel day has no calendar travel event at all, so
+  // the window is null for a reason that is NOT "flight is far away". In that
+  // case the day is still a travel day and must carry travel framing. Only
+  // suppress when we know there is a travel event and it sits outside the
+  // pre-flight window.
+  if (win !== undefined && win === null && title != null) return null;
+
   return {
     rule: "travelPreFlightMandatory",
     severity: "medium",
@@ -183,6 +188,7 @@ export function travelPreFlightMandatory(ctx: RuleContext): BehaviourFlag | null
       "travel day",
       win != null ? `T-${win}min to departure` : "pre-flight window",
     ],
+
     anchorEvent: title,
     stake: "Operational Drive",
     copyHint:

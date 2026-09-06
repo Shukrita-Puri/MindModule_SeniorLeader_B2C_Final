@@ -411,7 +411,11 @@ import {
   resolveEventPhase,
   validateEventPhaseInCopy,
 } from "../_shared/nudges/event-phase.ts";
-import { deriveTravelDay } from "../_shared/travel/hydrate-travel-day.ts";
+import {
+  deriveTravelDay,
+  logTravelDayProvenance,
+  travelDayInputsSnapshot,
+} from "../_shared/travel/hydrate-travel-day.ts";
 
 // ── Canonical Travel-phase copy adapter ──
 // Mirrors the `copyForPhase` pattern used by `travel-notifications`. Smart-
@@ -1814,12 +1818,23 @@ async function buildNudgeContext(
     travelStateRow as Record<string, unknown> | null,
     { now, currentTimezone: timeZone },
   );
+  // Same `[travel-state][consumer]` line Brief and Plan emit, so all three
+  // surfaces can be reconciled for one user from a single log grep.
+  logTravelDayProvenance(
+    travelHydration,
+    travelDayInputsSnapshot(
+      travelStateRow as Record<string, unknown> | null,
+      { now, currentTimezone: timeZone },
+    ),
+    { fn: "smart-nudges", userId },
+  );
   const travelSignal = {
     travelDay: travelHydration.travelDay,
     reason: travelHydration.reason,
     distanceKm: travelHydration.distanceKm,
     state: travelHydration.state,
     freshness: travelHydration.freshness,
+    evidence: travelHydration.evidence,
   };
 
 

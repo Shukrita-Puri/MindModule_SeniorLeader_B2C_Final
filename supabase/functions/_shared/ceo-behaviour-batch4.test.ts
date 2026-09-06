@@ -76,15 +76,28 @@ Deno.test("travelPreFlightMandatory: fires inside 60–240 min window", () => {
   assertEquals(flag!.anchorEvent, "LHR → JFK");
 });
 
-Deno.test("travelPreFlightMandatory: suppressed when window explicitly null", () => {
+Deno.test("travelPreFlightMandatory: suppressed when a known flight sits outside the window", () => {
   assertEquals(
     travelPreFlightMandatory(ctx({}, {
       travelDay: true,
       preFlightWindowMinutes: null,
+      nextTravelEventTitle: "LHR → JFK",
     })),
     null,
   );
 });
+
+Deno.test("travelPreFlightMandatory: fires on a GPS-derived travel day with no calendar flight", () => {
+  // Domestic away-day: travel is known from location/timezone, so there is no
+  // travel event and therefore no pre-flight window to test against.
+  const flag = travelPreFlightMandatory(ctx({}, {
+    travelDay: true,
+    preFlightWindowMinutes: null,
+  }));
+  assert(flag);
+  assertEquals(flag!.anchorEvent, undefined);
+});
+
 
 Deno.test("travelPreFlightMandatory: legacy fallback (undefined window) still fires on travelDay", () => {
   // Pre-Batch-4 callers that don't yet set preFlightWindowMinutes.
