@@ -18,7 +18,7 @@
  *    (same fail-open contract as derive.ts).
  */
 
-import { detectTravelFromTitle } from "../_shared/events/travel-patterns.ts";
+import { detectTravelFromTitle } from "../events/travel-patterns.ts";
 
 export type TripEvidenceKind = "flight" | "stay" | "offsite" | "trip";
 export type TripSource = "calendar" | "location" | "manual";
