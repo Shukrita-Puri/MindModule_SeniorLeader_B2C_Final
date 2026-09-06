@@ -215,9 +215,10 @@ Deno.test("brief e2e: stale evidence defers to the persisted state, not distance
     {
       ...DOMESTIC_AWAY_ROW,
       state: "not_travelling",
-      last_location_at: iso(48),
-      last_state_change_at: iso(96),
+      last_location_at: iso(48),          // older than LOCATION_FRESH_HOURS
+      last_state_change_at: iso(24 * 30), // older than STATE_CHANGE_FRESH_DAYS
     },
+
     { now: NOW, currentTimezone: "Europe/London" },
   );
   assertEquals(verdict.travelDay, false);
