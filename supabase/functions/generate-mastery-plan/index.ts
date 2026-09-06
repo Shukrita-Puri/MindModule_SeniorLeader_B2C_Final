@@ -8644,6 +8644,11 @@ export function deriveStructuralDayFlags(
     holidayAllDayEventToday:
       opts?.weekAheadHydration?.holidayAllDayEventToday ?? false,
     tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
+    // Last-day-only rule: only meaningful when the hydrator ran (it can see
+    // tomorrow); otherwise left undefined so behaviour is unchanged.
+    tomorrowIsOffDay: opts?.weekAheadHydration
+      ? opts.weekAheadHydration.tomorrowIsWorkday === false
+      : undefined,
     isLastDayOfLongWeekend:
       opts?.weekAheadHydration?.isLastDayOfLongWeekend ?? false,
     todayIsOffDay: opts?.weekAheadHydration?.todayIsOffDay ??
@@ -8671,6 +8676,7 @@ export function deriveStructuralDayFlags(
     events: [],
     availability,
     tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
+
     isPlanningDay: weekAhead.active,
   });
   const meetingCountForLightDay = realMeetingCount;

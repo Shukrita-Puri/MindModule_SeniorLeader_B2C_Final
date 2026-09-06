@@ -221,6 +221,9 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
     ptoTomorrowAllDay: ptoTomorrow,
     holidayAllDayEventToday: todayAvailability.state === "PUBLIC_HOLIDAY",
     tomorrowIsWorkday: !tomorrowAvailability.isOffDay,
+    // Last-day-only rule: a run that continues into tomorrow keeps the
+    // Week-Ahead surface for its final day.
+    tomorrowIsOffDay: tomorrowAvailability.isOffDay,
     // This orchestrator does not carry a full ≥3-day lookback, so the
     // end_of_long_weekend branch is intentionally left to smart-nudges,
     // which walks the full 14-day calendar via the Availability SSOT.

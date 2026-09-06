@@ -3676,6 +3676,9 @@ serve(async (req) => {
       checkInOutcome || null,
     );
 
+    // Driver captured before the provisional week-ahead stamp, so the
+    // hydrated (last-day-aware) pass can revert it.
+    let preWeekAheadDriver: ThemeDriver | null = null;
     // §17.2 / §17.2a — Driver override based on Week-Ahead Mode and the
     // Saturday recovery predicate. We only flip the `driver` stamp on the
     // brief_snapshots row here; full LLM anchor-block rewrites are tracked
@@ -3689,6 +3692,11 @@ serve(async (req) => {
         manualOverride: manualWeekAheadOverride,
       });
       if (wam.active) {
+        // Provisional only — this pass has no calendar visibility, so it
+        // cannot know whether today is the LAST day of an off-run. The
+        // hydrated re-evaluation below is authoritative and reverts this
+        // stamp when the run continues past today.
+        preWeekAheadDriver = theme.driver as ThemeDriver;
         (theme as { driver: ThemeDriver }).driver = "week_recap";
       } else if (isSaturdayRecoveryDay({ dayOfWeek, localHour: hour })) {
         (theme as { driver: ThemeDriver }).driver = "week_recovery";
@@ -5154,6 +5162,16 @@ serve(async (req) => {
         }
         if (_wam.active) {
           (theme as { driver: ThemeDriver }).driver = "week_recap";
+        } else if (
+          theme.driver === "week_recap" && preWeekAheadDriver !== null
+        ) {
+          // Last-day-only rule: hydration proved the off-run continues past
+          // today (or today is not a last day), so Week-Ahead must not own
+          // the Brief. Restore the pre-override driver.
+          (theme as { driver: ThemeDriver }).driver =
+            isSaturdayRecoveryDay({ dayOfWeek, localHour: hour })
+              ? "week_recovery"
+              : preWeekAheadDriver;
         }
       } catch (waErr) {
         console.warn(
