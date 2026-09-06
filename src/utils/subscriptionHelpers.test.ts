@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveManageSubscriptionTarget, resolveSubscriptionAccess } from './subscriptionHelpers';
+import { resolveManageSubscriptionTarget, resolveSubscriptionAccess, isFirstTimeUser } from './subscriptionHelpers';
+
 
 describe('resolveSubscriptionAccess', () => {
   const now = new Date('2026-07-20T10:00:00.000Z');
