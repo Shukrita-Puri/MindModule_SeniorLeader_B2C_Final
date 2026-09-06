@@ -21,7 +21,10 @@ export interface TravelSyncAuthInput {
   bodyUserId: string | null;
   callerSub: string | null;
   callerIsAdmin: boolean;
+  /** True when the caller presented the pg_cron shared secret header. */
+  cronSecretMatch?: boolean;
 }
+
 
 export type TravelSyncAuthDecision =
   | {
