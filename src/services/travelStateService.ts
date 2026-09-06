@@ -144,6 +144,9 @@ const PERMISSION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 interface LocationBridgePlugin {
   startIfAuthorized(): Promise<void>;
   requestAlwaysAuthorization(): Promise<void>;
+  /** Present in native builds that ship the low-friction when-in-use prompt. */
+  requestWhenInUseAuthorization?(): Promise<void>;
+
   requestOneShotLocation(): Promise<void>;
   currentAuthorizationString(): Promise<{ value: string }>;
 }
