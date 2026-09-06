@@ -116,8 +116,8 @@ Deno.test("plan e2e: timezone change promotes travel day", () => {
 Deno.test("plan e2e: state machine decides when the location fix is stale", () => {
   const { verdict, flags } = flagsFor({
     ...DOMESTIC_AWAY_ROW,
-    last_location_at: iso(48),
-    last_state_change_at: iso(72),
+    last_location_at: iso(48),      // older than LOCATION_FRESH_HOURS
+    last_state_change_at: iso(24 * 30), // older than STATE_CHANGE_FRESH_DAYS
   });
   assertEquals(verdict.evidence, "state");
   assertEquals(verdict.travelDay, true);
@@ -170,7 +170,7 @@ Deno.test("plan e2e: travel day does not turn a Tuesday into a rest day", () => 
 Deno.test("plan e2e: missing travel row leaves the plan untouched", () => {
   const { verdict, flags } = flagsFor(null);
   assertEquals(verdict.travelDay, false);
-  assertEquals(verdict.reason, "none");
+  assertEquals(verdict.reason, "no_row");
   assertEquals(flags.hasTravelDay, false);
 });
 
