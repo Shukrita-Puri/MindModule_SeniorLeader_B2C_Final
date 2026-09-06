@@ -1681,10 +1681,13 @@ serve(async (req) => {
       const weekBuckets: DayTypeWeekRow[][] = WEEK_LABELS.map(() => []);
 
 
-      const dates = [...eventsByDay.keys()].sort();
+      // Travel days from the SSOT are included even with an empty calendar —
+      // an intercity trip is a real day-type, not an absence of events.
+      const travelDatesInRange = tripDatesWithin(tripWindows, startStr, ymd(new Date(nowIso)));
+      const dates = [...new Set([...eventsByDay.keys(), ...travelDatesInRange])].sort();
       for (const dateStr of dates) {
         const dayEvents = eventsByDay.get(dateStr) || [];
-        if (dayEvents.length === 0) continue;
+        if (dayEvents.length === 0 && !isTravelDate(dateStr)) continue;
         const loadMinutes = dayEvents.reduce((a: number, e: any) => a + durationMinutesOf(e), 0);
         const { dayType, secondaryCategory } = classifyDominantDayType(dayEvents as any[], loadMinutes, isTravelDate(dateStr));
         dayTypeByDate.set(dateStr, dayType);
