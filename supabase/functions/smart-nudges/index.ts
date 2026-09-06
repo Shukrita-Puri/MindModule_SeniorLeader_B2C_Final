@@ -4784,6 +4784,12 @@ async function evaluateNudgeThree(
   if (ctx.dayOfWeek === 5) {
     eveningStart = 18.5;
   }
+  // Light day: the evening close IS the day's single send and the product
+  // contract pins it to 17:00. Open the window there so the 17:00 slot the
+  // light-day gate authorises is not lost to an 18:00 floor.
+  if (lightDayEveningAllowed) {
+    eveningStart = Math.min(eveningStart, 17);
+  }
 
   // v5 hard caps
   eveningStart = Math.max(eveningStart, GLOBAL_EARLIEST_LOCAL);
