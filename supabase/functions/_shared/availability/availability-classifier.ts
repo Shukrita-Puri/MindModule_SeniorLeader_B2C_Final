@@ -335,7 +335,10 @@ function looksLikeHolidayMarker(e: AvailabilityEvent): boolean {
  *   1. Calendar work evidence (≥2 timed work meetings) → WORKDAY.
  *      Overrides weekend, PTO marker, holiday.
  *   2. Explicit user intent (explicitPto) → PTO. Travel never overrides PTO.
+ *   2b. Inferred vacation (v2): trip window / multi-day stay covers today,
+ *       no real work, leisure-or-away evidence → PTO (inferred_vacation).
  *   3. Applicable public holiday → PUBLIC_HOLIDAY.
+
  *   4. Weekend day → REST_DAY.
  *   5. Workload split → LIGHT_ROUTINE (low/empty) or WORKDAY.
  */
