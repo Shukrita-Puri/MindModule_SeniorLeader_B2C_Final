@@ -69,6 +69,15 @@ export interface WeekAheadInput {
    * legacy fallback; the new engine does not depend on it.
    */
   todayIsOffDay?: boolean;
+  /**
+   * SSOT-derived: tomorrow is itself an off-day (PTO, applicable public
+   * holiday, or weekend). When TRUE the off-run continues past today, so
+   * today is NOT the last day and Week-Ahead must stay inactive — the
+   * invitation belongs to the final day of the run only. Left `undefined`
+   * by callers without calendar visibility (no behaviour change there).
+   */
+  tomorrowIsOffDay?: boolean;
+
   /** Manual entry via deep link (?mode=week-ahead). Forces active=true. */
   manualOverride?: boolean;
 }
