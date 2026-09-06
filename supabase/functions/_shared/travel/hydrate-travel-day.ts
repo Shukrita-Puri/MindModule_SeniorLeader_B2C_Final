@@ -41,7 +41,37 @@ import {
   travelDayReason,
 } from "./travel-day.ts";
 
-export type TravelDayEvidence = "timezone" | "distance" | "state" | "none";
+export type TravelDayEvidence = "trip" | "timezone" | "distance" | "state" | "none";
+
+/** A persisted trip window from `travel_state.meta.trips`. */
+interface PersistedTripWindow {
+  start: string;
+  end: string;
+  source?: string;
+  confidence?: string;
+}
+
+/** Read the persisted per-day trip windows. Junk meta yields []. */
+function persistedTrips(meta: unknown): PersistedTripWindow[] {
+  const raw = (meta as Record<string, unknown> | null)?.trips;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((t): t is PersistedTripWindow => {
+    const w = t as PersistedTripWindow;
+    return !!w && typeof w.start === "string" && typeof w.end === "string";
+  });
+}
+
+function tripWindowCovering(
+  meta: unknown,
+  now: Date,
+): PersistedTripWindow | null {
+  const today = now.toISOString().slice(0, 10);
+  for (const w of persistedTrips(meta)) {
+    if (today >= w.start && today <= w.end) return w;
+  }
+  return null;
+}
+
 
 export interface TravelDayHydration {
   travelDay: boolean;
@@ -156,20 +186,31 @@ export function deriveTravelDay(
     timezoneChanged,
     locationStale,
   };
-  const travelDay = isTravelDayFromDistance(input);
+  const distanceTravelDay = isTravelDayFromDistance(input);
+
+  // Rung 0 — a persisted trip window covering today. Calendar evidence is
+  // durable and outlives any single location fix, so it decides first. It
+  // can only ever ADD travel; it never clears a positive verdict below.
+  const tripWindow = tripWindowCovering(row.meta, opts.now);
+  const travelDay = distanceTravelDay || tripWindow !== null;
 
   // Which rung decided it — mirrors the priority inside
   // `isTravelDayFromDistance` so the two can never disagree.
   let evidence: TravelDayEvidence = "none";
   if (travelDay) {
-    if (timezoneChanged) evidence = "timezone";
+    if (tripWindow) evidence = "trip";
+    else if (timezoneChanged) evidence = "timezone";
     else if (!locationStale && distanceKm !== null) evidence = "distance";
     else evidence = "state";
   }
 
   return {
     travelDay,
-    reason: travelDay ? travelDayReason(input) : "none",
+    reason: distanceTravelDay
+      ? travelDayReason(input)
+      : tripWindow
+      ? `trip_window:${tripWindow.start}..${tripWindow.end}`
+      : "none",
     distanceKm,
     state,
     freshness: freshness.reason,
@@ -180,6 +221,7 @@ export function deriveTravelDay(
       : null,
   };
 }
+
 
 /** Rebuild the exact inputs the decision saw, for the provenance line. */
 export function travelDayInputsSnapshot(
@@ -257,7 +299,7 @@ export async function hydrateTravelDay(
     const { data } = await db
       .from("travel_state")
       .select(
-        "state, distance_from_home_km, last_state_change_at, last_location_at, last_known_timezone",
+        "state, distance_from_home_km, last_state_change_at, last_location_at, last_known_timezone, meta",
       )
       .eq("user_id", userId)
       .maybeSingle();
