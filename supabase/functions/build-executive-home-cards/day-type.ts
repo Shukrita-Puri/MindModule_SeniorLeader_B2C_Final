@@ -21,6 +21,7 @@
 // -----------------------------------------------------------------------------
 
 import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
+import { deriveTravelDay } from "../_shared/travel/hydrate-travel-day.ts";
 import {
   classifyAvailability,
   classifyDay,
@@ -80,8 +81,12 @@ export interface DayTypeInput {
   todayEvents: DayTypeEventLite[];
   /** Merged tomorrow-events (for last-day-PTO / last-day-holiday). */
   tomorrowEvents: DayTypeEventLite[];
-  /** travel_state row from effective-timezone.ts. `null` = no row. */
-  travel: { state?: string | null } | null;
+  /** travel_state row from effective-timezone.ts. `null` = no row. Passed
+   *  whole to the travel SSOT (`deriveTravelDay`), which reads state,
+   *  distance, freshness timestamps and persisted trip windows. */
+  travel: Record<string, unknown> | null;
+  /** Profile current timezone — the SSOT's timezone-change rung. */
+  currentTimezone?: string | null;
   /** Number of consecutive off-days that just preceded today (weekend day or
    *  all-day PTO/holiday event). The orchestrator hydrates this from a small
    *  2-day lookback so the `last_day_long_weekend` branch of week-ahead can
@@ -179,7 +184,7 @@ export function resolveDayTypeAndCadence(input: DayTypeInput): DayTypeDecision {
   tomorrowLocalDayDate.setUTCDate(tomorrowLocalDayDate.getUTCDate() + 1);
   const dayOfWeek = dayOfWeekFromIsoDate(local.localDate);
 
-  const travelDay = isTravelActive(input.travel, input.todayEvents);
+  const travelDay = isTravelActive(input, input.todayEvents);
   const todayAvailability = classifyAvailability({
     now: localDayDate,
     userHomeCountry: input.userHomeCountry ?? null,
