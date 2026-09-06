@@ -148,3 +148,68 @@ Deno.test("normalizeEventTypeKey buckets", () => {
   assertEquals(normalizeEventTypeKey("Deep Work block"), "deep_work");
   assertEquals(normalizeEventTypeKey(null), "untitled");
 });
+// ── LAST-DAY-ONLY RULE ────────────────────────────────────────────────
+// Week-Ahead belongs to the final day of an off-run only: last weekend
+// day, last PTO day, last holiday day, last day of a long weekend.
+
+Deno.test("planning day mid-run (bank-holiday Monday tomorrow) stays inactive", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 0,
+    localHour: 17,
+    homeCountry: "GB",
+    tomorrowIsWorkday: false,
+    tomorrowIsOffDay: true,
+  });
+  assertEquals(d.active, false);
+  assertEquals(d.reason, null);
+});
+
+Deno.test("planning day that ends the run still fires weekly_planning", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 0,
+    localHour: 17,
+    homeCountry: "GB",
+    tomorrowIsWorkday: true,
+    tomorrowIsOffDay: false,
+  });
+  assertEquals(d.active, true);
+  assertEquals(d.reason, "weekly_planning");
+});
+
+Deno.test("PTO day followed by a weekend day does not fire end_of_pto", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 5,
+    localHour: 17,
+    homeCountry: "GB",
+    ptoTodayAllDay: true,
+    ptoTomorrowAllDay: false,
+    tomorrowIsWorkday: false,
+    tomorrowIsOffDay: true,
+  });
+  assertEquals(d.active, false);
+});
+
+Deno.test("long-weekend flag is ignored when the run continues", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 0,
+    localHour: 17,
+    homeCountry: "GB",
+    isLastDayOfLongWeekend: true,
+    tomorrowIsOffDay: true,
+  });
+  assertEquals(d.active, false);
+});
+
+Deno.test("day AFTER the run (return-to-work Monday) never fires", () => {
+  const d = evaluateWeekAheadMode({
+    dayOfWeek: 1,
+    localHour: 17,
+    homeCountry: "GB",
+    ptoTodayAllDay: false,
+    holidayAllDayEventToday: false,
+    isLastDayOfLongWeekend: false,
+    tomorrowIsWorkday: true,
+    tomorrowIsOffDay: false,
+  });
+  assertEquals(d.active, false);
+});
