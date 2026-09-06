@@ -104,7 +104,10 @@ const VALID_DEEP_LINKS = new Set([
   "/daily-check-in",
   "/executive-home",
   "/insights/performance-causality",
+  // Week-ahead planning invite (Saturday ROW / Sunday Israel+Gulf evening).
+  "/plan?mode=week-ahead",
 ]);
+
 
 function bodyContainsForbidden(body: string): string | null {
   const lower = body.toLowerCase();
