@@ -50,7 +50,9 @@ Deno.test("week-ahead copy names the week ahead and opens the Plan page", () => 
   const block = SRC.slice(
     SRC.indexOf("async function evaluateWeekAheadPickerInvite"),
   ).slice(0, 9000);
-  const variants = block.slice(block.indexOf("const variantByReason"));
+  const varStart = block.indexOf("const variantByReason");
+  const variants = block.slice(varStart, block.indexOf("\n  };", varStart));
+
   const titles = [...variants.matchAll(/title: "([^"]+)"/g)].map((m) => m[1]);
   assert(titles.length >= 3, "expected the per-reason variant titles");
   for (const t of titles) {
