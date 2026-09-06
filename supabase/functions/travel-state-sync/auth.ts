@@ -45,7 +45,12 @@ export type TravelSyncAuthDecision =
 export function decideTravelSyncAuth(
   input: TravelSyncAuthInput,
 ): TravelSyncAuthDecision {
-  const { authHeader, serviceRoleKey, bodyUserId, callerSub, callerIsAdmin } = input;
+  const { authHeader, serviceRoleKey, bodyUserId, callerSub, callerIsAdmin, cronSecretMatch } =
+    input;
+
+  if (cronSecretMatch === true) {
+    return { allow: true, scope: "service", forceSingleUserId: bodyUserId };
+  }
 
   if (
     authHeader &&
@@ -54,6 +59,8 @@ export function decideTravelSyncAuth(
   ) {
     return { allow: true, scope: "service", forceSingleUserId: bodyUserId };
   }
+
+
 
   if (!callerSub) {
     return { allow: false, status: 401, reason: "unauthenticated" };
