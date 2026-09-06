@@ -15,11 +15,13 @@ Her calendar for that week holds exactly this (verified in the database):
 There is **no** "OOO"/"PTO"/"Holiday" event anywhere. So three separate things
 combined to make the system forget she was away:
 
-1. **Multi-day markers vanish after day one.** Every surface fetches "today's
+1. **The 9–17 August hotel block vanished after 9 August.** Every surface fetches "today's
    events" by *start time inside today* (`smart-nudges/index.ts:1714`,
    `compute-outer-readiness/index.ts:5215`, `build-executive-home-cards/index.ts:142`,
    `generate-mastery-plan/index.ts:4863`). The hotel stay starts on 9 August, so
-   on 13 and 14 August the day looked completely empty of it.
+   on every date from 10 through 17 August the day looked completely empty of
+   it. This is why the system missed a block that was visibly present for the
+   full holiday: it queried when the row *started*, not whether it *covered today*.
 2. **Nothing infers a holiday without a titled marker.** The availability
    classifier (`_shared/availability/availability-classifier.ts`) only accepts
    an explicit PTO flag, a PTO/holiday *title*, or a weekend. A hotel stay,
@@ -36,12 +38,13 @@ combined to make the system forget she was away:
    first day it reads as "on" (`:167`), so an off-run with a multi-day marker is
    cut short there too.
 
-Result: 13 August read as an ordinary workday holding one meeting, and 14
-August ran the normal Friday close-out.
+Result: all interior days of the 9–17 August holiday lost the strongest durable
+calendar evidence. 13 August then read as an ordinary workday holding its only
+meeting, and 14 August ran the normal Friday close-out despite having no meeting.
 
-Note: the single meeting on 13 August was a genuine work meeting, not the hotel
-block — the meeting counter already ignores all-day markers. The problem is the
-day was framed as a workday at all. (One separate, smaller gap found while
+Note: the single meeting on 13 August was genuine but low-value, not the hotel
+block — the meeting counter already ignores all-day markers. One low-value
+meeting must not cancel a strongly inferred holiday. (One separate, smaller gap found while
 auditing: the readiness demand scorer counts all-day rows as load, unlike every
 other counter. It is included in the fix below.)
 
@@ -66,8 +69,9 @@ public holiday. It fires only when the evidence triangulates:
 - a persisted trip window covers today (already computed, source of truth is
   `travel_state.meta.trips` via `_shared/travel/hydrate-travel-day.ts`), **or**
   a multi-day accommodation block covers today; **and**
-- no work meetings today (the existing ≥2 timed-work-meeting rule still
-  overrides everything — a genuine working day inside a trip stays a workday); **and**
+- zero meetings, or one meeting whose existing event classification says it is
+  low-value / low-stakes; two or more real meetings or one high-stakes meeting
+  preserve the existing workday override; **and**
 - at least one supporting leisure/away signal: leisure or sightseeing blocks in
   the window, away-from-home distance, or a zero-work-meeting run inside the window.
 
@@ -79,9 +83,11 @@ holiday) — that guard already exists in `trip-windows.ts` and
 
 ### 3. Persistence comes from the window, not from a new store
 Because the rung reads the trip window (a date range), the awareness lasts the
-whole run automatically, including days with nothing on the calendar. A single
-work meeting mid-trip becomes an exception for that day only — the run itself
-does not break. The already-shipped last-day-only week-ahead rule keeps working:
+whole 9–17 August run automatically, including days with nothing else on the
+calendar. The low-value meeting on 13 August remains visible for context but does
+not break recovery framing or the holiday run. A high-stakes meeting (or two or
+more work meetings) can still create a workday exception without erasing the
+surrounding run. The already-shipped last-day-only week-ahead rule keeps working:
 the final day of the run still gets the week-ahead invitation.
 
 ### 4. One decision, read everywhere
@@ -89,7 +95,8 @@ the final day of the run still gets the week-ahead invitation.
   already calls the classifier — the existing `ptoTodayAllDay` /
   `personalHolidayInferred` legacy branches become fall-through only.
 - Plan via `generate-mastery-plan` (`deriveStructuralDayFlags`).
-- Nudges via `smart-nudges` (light-day cadence, one send per day).
+- Nudges via `smart-nudges` (exactly one recovery-oriented invitation per
+  holiday day, preserving the reason to enter the app; no ordinary close-out).
 - Home cards via `build-executive-home-cards/day-type.ts`.
 - Insights already reads the persisted trip windows; it will now also honour the
   inferred off-day when labelling those days.
@@ -110,9 +117,11 @@ rung so there is one inference, not two — the brief keeps its current outputs.
 - `AVAILABILITY_SSOT_VERSION` bumped to 2 and stamped in the classifier reason
   string for observability.
 - Tests: a replay fixture built from the real 9–17 August event set asserting
-  10–16 August classify as `PTO/inferred_vacation`, 13 August stays off despite
-  one meeting, 17 August (return) is the last day of the run, and 18 August is a
-  workday again. Plus the existing 31 availability tests and the cross-surface
+  the full 9–17 span retains holiday/recovery awareness, 13 August stays off
+  despite its one low-value meeting, 14 August cannot emit the Friday work
+  close-out, 17 August is the last day of the run, and 18 August is a workday
+  again. Assert exactly one recovery-oriented notification on every interior
+  holiday day. Plus the existing 31 availability tests and the cross-surface
   suite must stay green.
 - Memory `mem://architecture/availability-ssot.md` updated with the v2 rung.
 
