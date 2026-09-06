@@ -140,6 +140,37 @@ export function isAllDayEvent(e: any): boolean {
   return (endMs - startMs) / 60000 >= 23 * 60;
 }
 
+/**
+ * Availability SSOT v2 — day OVERLAP, not day START.
+ *
+ * A multi-day row (hotel stay, week-long OOO block, multi-day leave) starts
+ * once and then covers every following day of the run. Fetching "events whose
+ * start_time falls inside today" makes that block invisible from day two
+ * onwards, which is exactly how a 9-day holiday read as an ordinary workday.
+ *
+ * Predicate: `start_time < dayEnd AND end_time > dayStart`.
+ * Rows with a null end_time fall back to start-inside-the-day.
+ */
+export function applyDayOverlapFilter(query: any, startUtc: string, endUtc: string): any {
+  return query
+    .lt('start_time', endUtc)
+    .or(`end_time.gt.${startUtc},and(end_time.is.null,start_time.gte.${startUtc})`);
+}
+
+/** Pure counterpart of {@link applyDayOverlapFilter} for in-memory bucketing. */
+export function eventOverlapsDay(e: any, startUtc: string, endUtc: string): boolean {
+  const startMs = new Date(e?.start_time ?? e?.startTime ?? '').getTime();
+  if (!Number.isFinite(startMs)) return false;
+  const dayStart = new Date(startUtc).getTime();
+  const dayEnd = new Date(endUtc).getTime();
+  if (!Number.isFinite(dayStart) || !Number.isFinite(dayEnd)) return false;
+  const rawEnd = e?.end_time ?? e?.endTime ?? null;
+  const endMs = rawEnd ? new Date(rawEnd).getTime() : NaN;
+  if (!Number.isFinite(endMs)) return startMs >= dayStart && startMs < dayEnd;
+  return startMs < dayEnd && endMs > dayStart;
+}
+
+
 /** Calendar feed name as stored on `calendar_events.event_metadata`. */
 function calendarFeedName(e: any): string | null {
   const md = e?.event_metadata ?? e?.eventMetadata ?? null;
