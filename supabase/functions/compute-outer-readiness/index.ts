@@ -8470,7 +8470,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                     briefDayShape === "personal_travel" ||
                     briefTravelPhase != null)
                   ? "travel"
-                  : (briefBehaviourSnapshot?.signals?.conferenceDay
+                  : ((briefBehaviourSnapshot?.signals?.conferenceDayNumber ?? null) != null
                     ? "conference"
                     : (isWeekend ? "weekend" : "weekday")),
                 conferenceDayNumber: null,
