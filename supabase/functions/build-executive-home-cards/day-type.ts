@@ -148,13 +148,23 @@ function realMeetingMinutes(events: DayTypeEventLite[]): number {
   return mins;
 }
 
+/**
+ * Travel comes from the single travel SSOT (`deriveTravelDay`) — the same
+ * verdict Brief, Plan and Nudges consume — so a location-only trip window
+ * (domestic intercity travel with no calendar block) counts here too, and a
+ * stale `state` can no longer assert travel on its own.
+ */
 function isTravelActive(
-  travel: DayTypeInput["travel"],
+  input: DayTypeInput,
   todayEvents: DayTypeEventLite[],
 ): boolean {
-  const state = travel?.state ?? null;
-  if (state && state !== "not_travelling") return true;
-  // Fallback: no travel_state row but a travel-titled event lives on today.
+  const verdict = deriveTravelDay(
+    (input.travel ?? null) as Record<string, unknown> | null,
+    { now: input.now, currentTimezone: input.currentTimezone ?? null },
+  );
+  if (verdict.travelDay) return true;
+  // Fallback: no usable travel_state evidence but a travel-titled event
+  // lives on today.
   return todayEvents.some((e) => isTravelTitle(e.title ?? ""));
 }
 
