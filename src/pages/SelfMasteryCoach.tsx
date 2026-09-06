@@ -18,7 +18,8 @@ import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 import { useCoachAccess } from '@/hooks/useCoachAccess';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import type { EntryContext } from '@/types/coach';
-import { isValidBeta } from '@/utils/subscriptionHelpers';
+import { isValidBeta, isFirstTimeUser } from '@/utils/subscriptionHelpers';
+
 
 interface PracticeStep {
   title: string;
