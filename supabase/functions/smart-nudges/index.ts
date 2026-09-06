@@ -6441,7 +6441,7 @@ serve(async (req) => {
             requiresAppOpen: true,
             weekendCtaGate: null,
             ttlSeconds: periodTtlSeconds("evening", localTime),
-            collapseId: periodCollapseId("evening", todayStr),
+            collapseId: weekAheadCollapseId(todayStr),
           });
           console.log(
             `[smart-nudges] week_ahead_picker_invite dispatched user=${
