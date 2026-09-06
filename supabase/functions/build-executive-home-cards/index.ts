@@ -8,6 +8,7 @@ import {
   type SignalWindow,
 } from "../_shared/signal-engine/signal-freshness.ts";
 import { classifyDay } from "../_shared/availability/availability-classifier.ts";
+import { applyDayOverlapFilter, eventOverlapsDay } from "../_shared/signal-engine/db-queries.ts";
 import { mergeCalendarEvents } from "../_shared/rules/calendarEvents.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
