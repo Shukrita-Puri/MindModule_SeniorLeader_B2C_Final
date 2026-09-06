@@ -8,16 +8,40 @@
  * evidence; a timezone change is sufficient on its own; a stale location
  * fix defers to the state machine.
  *
- * Fail-open: any error returns `travelDay: false` with reason
- * `hydration_failed` so a DB hiccup can never invent travel.
+ * Three launch guarantees:
+ *
+ * 1. EVIDENCE LADDER — `evidence` names the rung that produced the verdict:
+ *      "timezone" | "distance" | "state" | "none"
+ *    Fixed priority: timezone change → fresh distance > threshold →
+ *    persisted state machine → false.
+ *
+ * 2. DETERMINISTIC FALLBACK — inputs are sanitised before the decision:
+ *    a non-finite / negative distance is read as *missing*, never as 0 km
+ *    ("at home"), and a malformed timezone can never assert a change.
+ *    Any error path (`no_row`, `hydration_failed`) fails open to
+ *    `travelDay: false`, `evidence: "none"` so a DB hiccup can never
+ *    invent travel — and never removes calendar-derived travel evidence
+ *    downstream.
+ *
+ * 3. PROVENANCE — exactly one structured `[travel-state][consumer]` line
+ *    per surface per run, carrying both inputs and verdict. Distance only;
+ *    coordinates are never logged, and the user id is redacted.
  */
 
-import { decideTravelFreshness } from "./freshness.ts";
+import { redactUserId } from "../identity/redact-user-id.ts";
+import {
+  decideTravelFreshness,
+  LOCATION_FRESH_HOURS,
+  STATE_CHANGE_FRESH_DAYS,
+} from "./freshness.ts";
 import {
   isTravelDayFromDistance,
-  travelDayReason,
+  TRAVEL_DAY_THRESHOLD_KM,
   type TravelDayInput,
+  travelDayReason,
 } from "./travel-day.ts";
+
+export type TravelDayEvidence = "timezone" | "distance" | "state" | "none";
 
 export interface TravelDayHydration {
   travelDay: boolean;
@@ -27,8 +51,23 @@ export interface TravelDayHydration {
   freshness: string;
   /** True when the persisted row was fresh enough to trust. */
   used: boolean;
+  /** Which rung of the ladder produced the verdict. Additive. */
+  evidence: TravelDayEvidence;
   /** Shape consumed by `SignalCoverageInput.travelState`. */
   travelState: { state: string | null; distanceFromHomeKm: number | null } | null;
+}
+
+/** Inputs actually used by the decision, surfaced for provenance logging. */
+export interface TravelDayInputsSnapshot {
+  distanceKm: number | null;
+  state: string | null;
+  homeTz: string | null;
+  currentTz: string | null;
+  timezoneChanged: boolean;
+  lastLocationAt: string | null;
+  lastStateChangeAt: string | null;
+  locationAgeHours: number | null;
+  stateAgeHours: number | null;
 }
 
 export function emptyTravelDayHydration(
@@ -41,9 +80,44 @@ export function emptyTravelDayHydration(
     state: null,
     freshness: "missing",
     used: false,
+    evidence: "none",
     travelState: null,
   };
 }
+
+// ── Sanitisers ───────────────────────────────────────────────────────────
+
+/** A distance is only usable when it is a finite, non-negative number.
+ *  Anything else (null, NaN, Infinity, "12", -3) is *missing*, not 0 km. */
+export function sanitiseDistanceKm(value: unknown): number | null {
+  const n = typeof value === "number" ? value : NaN;
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
+/** A timezone is only usable when Intl accepts it. */
+export function isSafeTimezone(tz: unknown): tz is string {
+  if (typeof tz !== "string" || tz.length === 0) return false;
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ageHours(iso: unknown, now: Date): number | null {
+  if (typeof iso !== "string" || iso.length === 0) return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  return Math.round(((now.getTime() - t) / 3_600_000) * 10) / 10;
+}
+
+function asIso(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+// ── Pure decision ────────────────────────────────────────────────────────
 
 /** Pure decision step — exported for tests and for callers that already
  *  hold the row (e.g. Smart Nudges fetches it in its parallel batch). */
@@ -53,49 +127,123 @@ export function deriveTravelDay(
 ): TravelDayHydration {
   if (!row) return emptyTravelDayHydration("no_row");
 
+  const state = typeof row.state === "string" ? row.state : null;
+  const lastLocationAt = asIso(row.last_location_at);
+  const lastStateChangeAt = asIso(row.last_state_change_at);
+
   const freshness = decideTravelFreshness({
-    state: (row.state as string | null) ?? null,
-    lastStateChangeAt: (row.last_state_change_at as string | null) ?? null,
-    lastLocationAt: (row.last_location_at as string | null) ?? null,
+    state,
+    lastStateChangeAt,
+    lastLocationAt,
     now: opts.now,
   });
 
-  const distanceKm = typeof row.distance_from_home_km === "number"
-    ? row.distance_from_home_km as number
+  const distanceKm = sanitiseDistanceKm(row.distance_from_home_km);
+
+  const homeTz = isSafeTimezone(row.last_known_timezone)
+    ? row.last_known_timezone as string
     : null;
+  const currentTz = isSafeTimezone(opts.currentTimezone)
+    ? opts.currentTimezone as string
+    : null;
+  const timezoneChanged = homeTz !== null && currentTz !== null &&
+    homeTz !== currentTz;
 
-  const lastKnownTz = row.last_known_timezone;
-  const timezoneChanged = typeof lastKnownTz === "string" &&
-    lastKnownTz.length > 0 && !!opts.currentTimezone &&
-    lastKnownTz !== opts.currentTimezone;
-
+  const locationStale = !freshness.used;
   const input: TravelDayInput = {
     distanceKm,
-    state: (row.state as string | null) ?? null,
+    state,
     timezoneChanged,
-    locationStale: !freshness.used,
+    locationStale,
   };
   const travelDay = isTravelDayFromDistance(input);
+
+  // Which rung decided it — mirrors the priority inside
+  // `isTravelDayFromDistance` so the two can never disagree.
+  let evidence: TravelDayEvidence = "none";
+  if (travelDay) {
+    if (timezoneChanged) evidence = "timezone";
+    else if (!locationStale && distanceKm !== null) evidence = "distance";
+    else evidence = "state";
+  }
 
   return {
     travelDay,
     reason: travelDay ? travelDayReason(input) : "none",
     distanceKm,
-    state: ((row.state as string | null) ?? null),
+    state,
     freshness: freshness.reason,
     used: freshness.used,
+    evidence,
     travelState: freshness.used
-      ? {
-        state: (row.state as string | null) ?? null,
-        distanceFromHomeKm: distanceKm,
-      }
+      ? { state, distanceFromHomeKm: distanceKm }
       : null,
   };
 }
 
+/** Rebuild the exact inputs the decision saw, for the provenance line. */
+export function travelDayInputsSnapshot(
+  row: Record<string, unknown> | null | undefined,
+  opts: { now: Date; currentTimezone?: string | null },
+): TravelDayInputsSnapshot {
+  const homeTz = isSafeTimezone(row?.last_known_timezone)
+    ? row!.last_known_timezone as string
+    : null;
+  const currentTz = isSafeTimezone(opts.currentTimezone)
+    ? opts.currentTimezone as string
+    : null;
+  const lastLocationAt = asIso(row?.last_location_at);
+  const lastStateChangeAt = asIso(row?.last_state_change_at);
+  return {
+    distanceKm: sanitiseDistanceKm(row?.distance_from_home_km),
+    state: typeof row?.state === "string" ? row.state as string : null,
+    homeTz,
+    currentTz,
+    timezoneChanged: homeTz !== null && currentTz !== null &&
+      homeTz !== currentTz,
+    lastLocationAt,
+    lastStateChangeAt,
+    locationAgeHours: ageHours(lastLocationAt, opts.now),
+    stateAgeHours: ageHours(lastStateChangeAt, opts.now),
+  };
+}
+
+// ── Provenance ───────────────────────────────────────────────────────────
+
+/**
+ * Emit the single structured provenance line. Shared by every surface so
+ * one grep of `[travel-state][consumer]` reconciles Brief, Plan and Nudges
+ * for the same user and day. No coordinates — distance only.
+ */
+export function logTravelDayProvenance(
+  result: TravelDayHydration,
+  inputs: TravelDayInputsSnapshot,
+  opts: { fn: string; userId?: string | null },
+): void {
+  console.log(
+    "[travel-state][consumer] " + JSON.stringify({
+      fn: opts.fn,
+      userIdHash: redactUserId(opts.userId ?? null),
+      thresholds: {
+        travelKm: TRAVEL_DAY_THRESHOLD_KM,
+        locationFreshHours: LOCATION_FRESH_HOURS,
+        stateChangeFreshDays: STATE_CHANGE_FRESH_DAYS,
+      },
+      inputs,
+      verdict: {
+        travelDay: result.travelDay,
+        reason: result.reason,
+        evidence: result.evidence,
+        freshness: result.freshness,
+        used: result.used,
+      },
+    }),
+  );
+}
+
 /**
  * Fetch + derive. `db` is any Supabase client. Never throws.
- * Logs a single structured provenance line shared by all consumers.
+ * Logs exactly one structured provenance line.
  */
 export async function hydrateTravelDay(
   // deno-lint-ignore no-explicit-any
@@ -103,16 +251,18 @@ export async function hydrateTravelDay(
   userId: string,
   opts: { now: Date; currentTimezone?: string | null; fn: string },
 ): Promise<TravelDayHydration> {
+  let row: Record<string, unknown> | null = null;
   let result: TravelDayHydration;
   try {
-    const { data: row } = await db
+    const { data } = await db
       .from("travel_state")
       .select(
         "state, distance_from_home_km, last_state_change_at, last_location_at, last_known_timezone",
       )
       .eq("user_id", userId)
       .maybeSingle();
-    result = deriveTravelDay(row as Record<string, unknown> | null, {
+    row = (data ?? null) as Record<string, unknown> | null;
+    result = deriveTravelDay(row, {
       now: opts.now,
       currentTimezone: opts.currentTimezone ?? null,
     });
@@ -121,17 +271,17 @@ export async function hydrateTravelDay(
       `[${opts.fn}] travel_state hydration skipped:`,
       err instanceof Error ? err.message : err,
     );
+    row = null;
     result = emptyTravelDayHydration("hydration_failed");
   }
 
-  console.log("[travel-state][consumer]", {
-    fn: opts.fn,
-    travelDay: result.travelDay,
-    reason: result.reason,
-    distanceKm: result.distanceKm,
-    state: result.state,
-    freshness: result.freshness,
-    used: result.used,
-  });
+  logTravelDayProvenance(
+    result,
+    travelDayInputsSnapshot(row, {
+      now: opts.now,
+      currentTimezone: opts.currentTimezone ?? null,
+    }),
+    { fn: opts.fn, userId },
+  );
   return result;
 }

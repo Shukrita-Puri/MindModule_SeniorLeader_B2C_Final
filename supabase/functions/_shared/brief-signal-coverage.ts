@@ -647,6 +647,22 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     }
   }
 
+  // Branch 5 — GPS / timezone-derived travel day with NO calendar travel event.
+  // A domestic away-day (train, car, short hop booked outside the calendar)
+  // reaches us only through `timezone.travelDay`. Without this branch the day
+  // shape falls through to `personal_travel`, which is marked non-workday and
+  // strips the workday framing from a day that still holds real meetings.
+  if (
+    workTravelInferredDerived !== true &&
+    !firstTravelToday &&
+    input.timezone.travelDay === true &&
+    input.events.some((e) => isMeetingLikeEvt(e))
+  ) {
+    workTravelInferredDerived = true;
+  }
+
+
+
   // ---------------------------------------------------------------------------
   // Conference / Summit cluster (v2) — mechanical signals.
   // All inputs are optional; missing inputs yield null/0 and the rule layer
