@@ -196,6 +196,76 @@ Deno.serve(async (req) => {
     const prevTz = prevState?.last_known_timezone ?? profile?.current_timezone ?? null;
     const tzChanged = !!(tz && prevTz && tz !== prevTz);
 
+    const hasCoordinates = lat !== null && lng !== null;
+    const now = new Date().toISOString();
+
+    // ── Coordinate-less report (permission sync, web session, TZ-only ping) ──
+    // These carry no location evidence, so they must never rewrite travel
+    // state. Only permission/timezone bookkeeping is persisted. A brand new
+    // user gets `not_travelling` so the scheduled backstop can classify them
+    // on its first run — `location_unknown` is reserved for a fresh fix we
+    // genuinely cannot resolve.
+    if (!hasCoordinates) {
+      const patch: Record<string, unknown> = {
+        location_permission_status: permission_status ?? undefined,
+        last_known_timezone: tz ?? undefined,
+        updated_at: now,
+      };
+      if (tzChanged) patch.last_timezone_change_at = now;
+
+      let writeError: { code?: string; message: string } | null = null;
+      if (prevState) {
+        const { error } = await supabase
+          .from("travel_state")
+          .update(patch)
+          .eq("user_id", userId);
+        writeError = error;
+      } else {
+        const { error } = await supabase.from("travel_state").insert({
+          user_id: userId,
+          state: "not_travelling",
+          ...patch,
+        });
+        writeError = error;
+      }
+      if (writeError) {
+        console.error(
+          `[persist-travel-location] travel_state bookkeeping write failed user=${userId} code=${writeError.code}: ${writeError.message}`,
+        );
+        return new Response(
+          JSON.stringify({ error: "travel_state write failed" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const heldState: TravelState = prevState ? prev : "not_travelling";
+      console.log(
+        `[persist-travel-location] user=${userId} no_coordinates source=${source} state_held=${heldState} tz_changed=${tzChanged}`,
+      );
+
+      if (tz && tz !== profile?.current_timezone) {
+        await supabase
+          .from("profiles")
+          .update({ current_timezone: tz, updated_at: now })
+          .eq("id", userId);
+      }
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          state: heldState,
+          prev_state: prev,
+          distance_km: null,
+          tz_changed: tzChanged,
+          coordinates: false,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const newState = pingIsStale
       ? prev
       : deriveState({
@@ -203,7 +273,7 @@ Deno.serve(async (req) => {
         prevDistanceKm: prevDistance,
         distanceKm: distance,
         tzChanged,
-        hasLocation: lat !== null && lng !== null,
+        hasLocation: true,
       });
     if (pingIsStale) {
       console.warn(
@@ -214,7 +284,6 @@ Deno.serve(async (req) => {
     }
 
     const stateChanged = newState !== prev;
-    const now = new Date().toISOString();
 
     // 3. Upsert travel_state. A stale ping must not overwrite the last
     // trusted coordinates or refresh the freshness timestamps.
@@ -224,9 +293,7 @@ Deno.serve(async (req) => {
       last_known_lat: lat ?? undefined,
       last_known_lng: lng ?? undefined,
       last_known_accuracy_m: accuracy_m ?? undefined,
-      last_location_at: (!pingIsStale && lat !== null && lng !== null)
-        ? captured_at
-        : undefined,
+      last_location_at: !pingIsStale ? captured_at : undefined,
       last_known_timezone: tz ?? prevTz ?? undefined,
       current_country: (newState === "arrived" || newState === "en_route")
         ? tzToCountry(tz)
@@ -249,6 +316,7 @@ Deno.serve(async (req) => {
         },
       );
     }
+
     console.log(
       `[persist-travel-location] user=${userId} state=${prev}->${newState} distance_km=${
         distance === null ? "null" : distance.toFixed(1)
