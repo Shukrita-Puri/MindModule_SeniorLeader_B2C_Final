@@ -119,10 +119,12 @@ rung so there is one inference, not two — the brief keeps its current outputs.
 
 ## Technical notes
 
-- New: `_shared/availability/day-overlap.ts` (query helper) and an
-  `offRunInference` block inside `availability-classifier.ts`; the classifier
-  gains optional inputs `tripWindow`, `awayDistanceKm`, `windowEvents` — all
-  optional, so callers that do not pass them behave exactly as today.
+- No new modules. The overlap helper extends the existing
+  `_shared/signal-engine/db-queries.ts`; the inference rung lives inside the
+  existing `availability-classifier.ts`. The classifier gains optional inputs
+  `tripWindow`, `awayDistanceKm`, `windowEvents` — all optional, so callers that
+  do not pass them behave exactly as today.
+
 - `AVAILABILITY_SSOT_VERSION` bumped to 2 and stamped in the classifier reason
   string for observability.
 - Tests: a replay fixture built from the real 9–17 August event set asserting
