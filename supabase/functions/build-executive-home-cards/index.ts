@@ -178,31 +178,29 @@ async function loadDayTypeEventSlices(
   const y1 = dayBack(1);
   const y2 = dayBack(2);
 
+  // Availability SSOT v2: OVERLAP, not start-inside-the-day. A multi-day
+  // hotel stay / OOO block must be visible on every day it covers.
   const [todayRes, tomorrowRes, lookbackRes] = await Promise.all([
-    db
-      .from("calendar_events")
-      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
-      .eq("user_id", userId)
-      .gte("start_time", start)
-      .lte("start_time", end),
-    db
-      .from("calendar_events")
-      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
-      .eq("user_id", userId)
-      .gte("start_time", tStart)
-      .lte("start_time", tEnd),
-    db
-      .from("calendar_events")
-      .select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id")
-      .eq("user_id", userId)
-      .gte("start_time", `${y2}T00:00:00`)
-      .lte("start_time", `${y1}T23:59:59`),
+    applyDayOverlapFilter(
+      db.from("calendar_events").select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id").eq("user_id", userId),
+      start,
+      end,
+    ),
+    applyDayOverlapFilter(
+      db.from("calendar_events").select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id").eq("user_id", userId),
+      tStart,
+      tEnd,
+    ),
+    applyDayOverlapFilter(
+      db.from("calendar_events").select("id,title,start_time,end_time,provider,event_metadata,attendees_count,is_organizer,is_recurring,is_all_day,external_id").eq("user_id", userId),
+      `${y2}T00:00:00`,
+      `${y1}T23:59:59`,
+    ),
   ]);
   const lookbackEvents = mergeCalendarEvents((lookbackRes.data || []) as any[], "unknown") as any[];
   const isOffDay = (isoDate: string) => {
     const rows = lookbackEvents.filter((e: any) =>
-      typeof e.start_time === "string" &&
-      e.start_time.slice(0, 10) === isoDate,
+      eventOverlapsDay(e, `${isoDate}T00:00:00`, `${isoDate}T23:59:59`),
     );
     const localDay = new Date(`${isoDate}T12:00:00Z`);
     const r = classifyDay({
