@@ -118,3 +118,54 @@ Deno.test("parseTrips tolerates junk meta", () => {
   assertEquals(parseTrips({ trips: [{ start: "2026-01-01" }] }), []);
   assertEquals(parseTrips({ trips: [{ start: "2026-01-01", end: "2026-01-02" }] }).length, 1);
 });
+
+// ── Location-only trip recording (the Oxford case) ───────────────────────
+
+import { upsertLocationWindow } from "./trip-windows.ts";
+
+const NOW_LW = new Date("2026-09-26T18:00:00Z");
+
+Deno.test("away fix with no calendar evidence opens a one-day window", () => {
+  const out = upsertLocationWindow([], "2026-09-26", { away: true, now: NOW_LW });
+  assertEquals(out.length, 1);
+  assertEquals(out[0].start, "2026-09-26");
+  assertEquals(out[0].end, "2026-09-26");
+  assertEquals(out[0].source, "location");
+  assertEquals(out[0].location_confirmed, true);
+});
+
+Deno.test("next-day away fix extends the same location window", () => {
+  const day1 = upsertLocationWindow([], "2026-09-26", { away: true, now: NOW_LW });
+  const day2 = upsertLocationWindow(day1, "2026-09-27", { away: true, now: NOW_LW });
+  assertEquals(day2.length, 1);
+  assertEquals(day2[0].end, "2026-09-27");
+});
+
+Deno.test("near-home fix closes the run — no new window, nothing deleted", () => {
+  const day1 = upsertLocationWindow([], "2026-09-26", { away: true, now: NOW_LW });
+  const home = upsertLocationWindow(day1, "2026-09-28", { away: false, now: NOW_LW });
+  assertEquals(home.length, 1);
+  assertEquals(home[0].end, "2026-09-26");
+});
+
+Deno.test("away fix inside a calendar window confirms it, never duplicates", () => {
+  const cal = [{
+    start: "2026-08-09",
+    end: "2026-08-17",
+    source: "calendar" as const,
+    evidence: ["flight" as const],
+    confidence: "medium" as const,
+    updated_at: NOW_LW.toISOString(),
+  }];
+  const out = upsertLocationWindow(cal, "2026-08-12", { away: true, now: NOW_LW });
+  assertEquals(out.length, 1);
+  assertEquals(out[0].source, "calendar");
+  assertEquals(out[0].location_confirmed, true);
+  assertEquals(out[0].confidence, "high");
+});
+
+Deno.test("a gap of two days starts a separate trip", () => {
+  const first = upsertLocationWindow([], "2026-09-26", { away: true, now: NOW_LW });
+  const later = upsertLocationWindow(first, "2026-09-29", { away: true, now: NOW_LW });
+  assertEquals(later.length, 2);
+});

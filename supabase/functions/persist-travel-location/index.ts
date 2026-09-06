@@ -18,6 +18,11 @@ import {
   isTravelDayFromDistance,
   TRAVEL_DAY_THRESHOLD_KM,
 } from "../_shared/travel/travel-day.ts";
+import {
+  parseTrips,
+  toIsoDate,
+  upsertLocationWindow,
+} from "../_shared/travel/trip-windows.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -178,7 +183,7 @@ Deno.serve(async (req) => {
 
     const { data: prevState } = await supabase
       .from("travel_state")
-      .select("state, distance_from_home_km, last_known_timezone")
+      .select("state, distance_from_home_km, last_known_timezone, meta")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -287,9 +292,30 @@ Deno.serve(async (req) => {
 
     // 3. Upsert travel_state. A stale ping must not overwrite the last
     // trusted coordinates or refresh the freshness timestamps.
+    // Per-day trip history: a fresh fix away from home records the day as a
+    // travel day even when the calendar says nothing (domestic intercity
+    // travel). Read-modify-write of the existing meta JSON; windows are only
+    // opened, extended or confirmed — never removed.
+    const metaBase = ((prevState as { meta?: unknown } | null)?.meta ?? {}) as Record<string, unknown>;
+    let nextMeta: Record<string, unknown> = metaBase;
+    if (!pingIsStale && distance !== null && Number.isFinite(capturedAtMs)) {
+      const trips = upsertLocationWindow(
+        parseTrips(metaBase),
+        toIsoDate(Date.parse(captured_at)),
+        { away: distance > AWAY_THRESHOLD_KM, now: new Date(now) },
+      );
+      nextMeta = {
+        ...metaBase,
+        trips,
+        trips_updated_at: now,
+        trips_last_source: "location",
+      };
+    }
+
     const { error: stateError } = await supabase.from("travel_state").upsert({
       user_id: userId,
       state: newState,
+      meta: nextMeta,
       last_known_lat: lat ?? undefined,
       last_known_lng: lng ?? undefined,
       last_known_accuracy_m: accuracy_m ?? undefined,

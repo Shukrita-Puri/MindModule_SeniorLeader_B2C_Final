@@ -80,6 +80,7 @@ export async function ensureTravelMonitoringIfAuthorized(): Promise<void> {
     const status = await getTravelPermissionStatus();
     if (status === 'authorized_always' || status === 'authorized_when_in_use') {
       await LocationBridgeNative.startIfAuthorized();
+      await requestOneShotIfDue();
       return;
     }
     if (status === 'not_determined') {
@@ -87,6 +88,25 @@ export async function ensureTravelMonitoringIfAuthorized(): Promise<void> {
     }
   } catch { /* never throw */ }
 }
+
+/** Minimum gap between silent one-shot position refreshes on app open/resume. */
+const ONE_SHOT_MIN_INTERVAL_MS = 3 * 60 * 60 * 1000;
+const ONE_SHOT_LAST_AT_KEY = 'travel_one_shot_last_at';
+
+/**
+ * Native-only, silent position refresh. Significant-change monitoring can go
+ * quiet for days, which left `travel_state` frozen; taking one fix per app
+ * open (throttled) is what makes distance-based trips actually record.
+ * Never prompts — callers only reach here when permission is already granted.
+ */
+async function requestOneShotIfDue(): Promise<void> {
+  if (!LocationBridgeNative) return;
+  const last = Number(safeGet(ONE_SHOT_LAST_AT_KEY) ?? '0');
+  if (last > 0 && Date.now() - last < ONE_SHOT_MIN_INTERVAL_MS) return;
+  safeSet(ONE_SHOT_LAST_AT_KEY, String(Date.now()));
+  try { await LocationBridgeNative.requestOneShotLocation(); } catch { /* */ }
+}
+
 
 /**
  * Silent when-in-use permission request for native app users only.

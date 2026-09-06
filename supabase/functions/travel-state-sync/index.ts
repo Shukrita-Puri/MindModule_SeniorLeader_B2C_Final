@@ -42,13 +42,14 @@ import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { ADMIN_EMAIL_ALLOWLIST } from "../_shared/admin-guard.ts";
 import {
   buildTripWindows,
-  confirmWindowByLocation,
   mergeTripWindows,
   parseTrips,
   toIsoDate,
+  upsertLocationWindow,
   type TripEvidenceEvent,
   type TripWindow,
 } from "./trip-windows.ts";
+
 
 
 const corsHeaders = {
@@ -236,17 +237,23 @@ async function syncUser(
     { backfill: opts.backfill, existingMeta: metaBase },
   );
 
-  // A fresh away-from-home fix corroborates the window it lands in.
-  // It may confirm, never delete (fail-open contract).
+  // A fresh fix away from home records the day as a travel day even with no
+  // calendar evidence (domestic intercity travel). It may open, extend or
+  // confirm a window — never delete one (fail-open contract).
   const locationAgeMs = stateRow?.last_location_at
     ? now.getTime() - Date.parse(stateRow.last_location_at)
     : Number.POSITIVE_INFINITY;
-  const freshAwayFix = Number.isFinite(locationAgeMs) &&
+  const locationFresh = Number.isFinite(locationAgeMs) &&
     locationAgeMs <= 24 * 60 * 60 * 1000 &&
-    (stateRow?.distance_from_home_km ?? 0) > 50;
-  const trips = freshAwayFix
-    ? confirmWindowByLocation(rebuiltTrips, toIsoDate(Date.parse(stateRow!.last_location_at!)))
+    stateRow?.distance_from_home_km != null;
+  const trips = locationFresh
+    ? upsertLocationWindow(
+      rebuiltTrips,
+      toIsoDate(Date.parse(stateRow!.last_location_at!)),
+      { away: (stateRow!.distance_from_home_km ?? 0) > 50, now },
+    )
     : rebuiltTrips;
+
 
   const nextMeta = {
     ...metaBase,
