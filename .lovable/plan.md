@@ -30,6 +30,14 @@ Any evidence of a past trial or subscription (an expired `trial_ends_at`, a past
 
 The payment page (`Stage6Payment`) already renders prices and the free-trial CTA for a blocked user, and on iOS routes to the Apple paywall — no change needed there.
 
+## Payment page title change
+On `/upgrade` (`Stage6Payment`):
+- Replace the existing title text "Mind Module Executive Edition" with "Choose your Subscription".
+- Render it in black (`text-foreground`, `#1F1F1F`) using the same font class and sizing as the "Mental Performance Insights" title in `src/pages/Insights.tsx`:
+  - `font-headline font-medium leading-tight tracking-tight text-[26px] md:text-[42px]`
+- Keep placement and surrounding layout unchanged; no other copy, colour, code or rule changes.
+
 ## Tests
 - Unit tests for `isFirstTimeUser`: clean new profile → true; expired trial → false; cancelled/expired subscription → false; valid beta → false.
 - Component test: `SubscriptionGuard` renders the popup for an expired-trial user and redirects for a first-time user.
+
