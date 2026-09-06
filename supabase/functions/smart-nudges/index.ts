@@ -601,7 +601,7 @@ function periodCollapseId(slot: NudgeSlot, localDate: string): string {
  * the lock screen, which silently buried the weekly planning invite behind
  * the evening close-out.
  */
-function weekAheadCollapseId(localDate: string): string {
+export function weekAheadCollapseId(localDate: string): string {
   return `smart-nudge-week-ahead-${localDate}`;
 }
 
@@ -673,7 +673,7 @@ function resolveLightDayTarget(
   };
 }
 
-function slotFromNotificationLogRow(
+export function slotFromNotificationLogRow(
   row: { notification_type?: string | null; payload?: unknown },
 ): NudgeSlot | null {
   const payload = row?.payload && typeof row.payload === "object"
