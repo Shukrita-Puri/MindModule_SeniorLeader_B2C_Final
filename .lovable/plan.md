@@ -31,12 +31,20 @@ combined to make the system forget she was away:
    present in the database) — is only ever read to answer "is today a travel
    day?", never "is the user off?".
 
+4. **The multi-day lookback repeats the same mistake.** `week-ahead-hydration.ts`
+   buckets past days by each row's start date only (`:152-158`) and stops at the
+   first day it reads as "on" (`:167`), so an off-run with a multi-day marker is
+   cut short there too.
+
 Result: 13 August read as an ordinary workday holding one meeting, and 14
 August ran the normal Friday close-out.
 
 Note: the single meeting on 13 August was a genuine work meeting, not the hotel
 block — the meeting counter already ignores all-day markers. The problem is the
-day was framed as a workday at all.
+day was framed as a workday at all. (One separate, smaller gap found while
+auditing: the readiness demand scorer counts all-day rows as load, unlike every
+other counter. It is included in the fix below.)
+
 
 ## The fix (no new surfaces, no UI, no new tables)
 
