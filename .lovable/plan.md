@@ -2,7 +2,7 @@
 
 ## Scope
 
-Presentation-only change for the native iOS app. No card content, swipe behaviour, data, scoring, Brief, Plan, MRS, web, or Android behaviour will change.
+Presentation-only change for the native iOS app, limited to exactly two positional values: the greeting height and the white-card starting height. No other UI styling or placement will change. No card content or behaviour, swipe behaviour, logic, data, scoring, Edge Function, database, Brief, Plan, MRS, web, or Android behaviour will change.
 
 ## Current difference confirmed
 
@@ -16,6 +16,12 @@ Presentation-only change for the native iOS app. No card content, swipe behaviou
 2. On native iOS only, move the MRS, Brief, and Plan card row down by the matching 8px so all three white cards begin at the same height as the Performance Readiness Assessment card.
 3. Keep one shared offset around the three-card swipe area, ensuring MRS, Brief, and Plan cannot drift apart.
 4. Leave the assessment screen unchanged as the reference layout.
+
+## Explicitly untouched
+
+- Every other UI property, including card size, spacing within cards, typography, colours, imagery, navigation, controls, and animation.
+- All frontend functionality and business logic.
+- All backend code, Edge Functions, database schema, database data, and queries.
 
 ## Validation
 
