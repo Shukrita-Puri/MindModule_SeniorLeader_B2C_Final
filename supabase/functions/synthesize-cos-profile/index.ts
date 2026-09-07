@@ -1129,6 +1129,9 @@ Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reas
     return json(200, {
       ok: true,
       cached: false,
+      status,
+      quality_gaps: problems,
+      model_used: modelUsed,
       cos_profile: profile,
       cos_profile_html: persisted.displayHtml,
       scrape_summary: {
