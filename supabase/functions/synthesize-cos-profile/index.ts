@@ -1012,125 +1012,118 @@ Deno.serve(async (req) => {
     }
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
-    console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
-    const userMessageContent: any = linkedinPdfBase64
-      ? [
-          { type: "text", text: userPrompt },
-          {
-            type: "image_url",
-            image_url: {
-              url: linkedinPdfBase64.startsWith("data:")
-                ? linkedinPdfBase64
-                : `data:application/pdf;base64,${linkedinPdfBase64}`,
+    const userMessageContent = (prompt: string): any =>
+      linkedinPdfBase64
+        ? [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: linkedinPdfBase64.startsWith("data:")
+                  ? linkedinPdfBase64
+                  : `data:application/pdf;base64,${linkedinPdfBase64}`,
+              },
             },
-          },
-        ]
-      : userPrompt;
+          ]
+        : prompt;
 
-    const aiRes = await fetch(AI_GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        max_tokens: 8192,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessageContent },
-        ],
-        tools: [COS_TOOL],
-        tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
-      }),
-    });
+    const callModel = async (
+      model: string,
+      prompt: string,
+    ): Promise<{ status: number; profile: any | null }> => {
+      const res = await fetch(AI_GATEWAY_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 16384,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userMessageContent(prompt) },
+          ],
+          tools: [COS_TOOL],
+          tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("[synthesize-cos] AI gateway error:", res.status, errText.slice(0, 400));
+        return { status: res.status, profile: null };
+      }
+      const payload = await res.json();
+      const argsRaw = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      try {
+        const parsed = argsRaw ? JSON.parse(argsRaw) : null;
+        return { status: 200, profile: parsed && typeof parsed === "object" ? parsed : null };
+      } catch (e) {
+        console.error("[synthesize-cos] tool args parse failed:", e);
+        return { status: 200, profile: null };
+      }
+    };
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("[synthesize-cos] AI gateway error:", aiRes.status, errText);
-      // Retry with fallback model on 429/402/503
-      if ([429, 402, 503].includes(aiRes.status)) {
-        console.info(`[synthesize-cos] retrying with fallback model=${AI_MODEL_FALLBACK}`);
-        const fallbackAiRes = await fetch(AI_GATEWAY_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${lovableKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: AI_MODEL_FALLBACK,
-            max_tokens: 8192,
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: userMessageContent },
-            ],
-            tools: [COS_TOOL],
-            tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
-          }),
-        });
-        if (fallbackAiRes.ok) {
-          // Use the fallback response — continue to parse below
-          const fallbackPayload = await fallbackAiRes.json();
-          const fallbackToolCall = fallbackPayload?.choices?.[0]?.message?.tool_calls?.[0];
-          const fallbackArgsRaw = fallbackToolCall?.function?.arguments;
-          let fallbackProfile: any = null;
-          try {
-            fallbackProfile = fallbackArgsRaw ? JSON.parse(fallbackArgsRaw) : null;
-          } catch (e) {
-            console.error("[synthesize-cos] fallback tool args parse failed:", e);
-          }
-          if (fallbackProfile && typeof fallbackProfile === "object") {
-            const persisted = await persistReadyProfile(fallbackProfile);
-            if (!persisted.ok) return json(500, { error: "persist_failed" });
-            return json(200, {
-              ok: true,
-              cached: false,
-              cos_profile: fallbackProfile,
-              cos_profile_html: persisted.displayHtml,
-              model_used: AI_MODEL_FALLBACK,
-            });
-          }
+    // v2026-09-07 quality gate: primary attempt, then one stricter retry, then
+    // store as needs_input rather than passing a hollow profile off as ready.
+    console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
+    let modelUsed = AI_MODEL;
+    let attempt = await callModel(AI_MODEL, userPrompt);
+
+    if (!attempt.profile && [429, 402, 503].includes(attempt.status)) {
+      console.info(`[synthesize-cos] retrying with fallback model=${AI_MODEL_FALLBACK}`);
+      modelUsed = AI_MODEL_FALLBACK;
+      attempt = await callModel(AI_MODEL_FALLBACK, userPrompt);
+    }
+
+    if (!attempt.profile) {
+      const reason = attempt.status === 200
+        ? "the AI response did not emit the COS tool payload"
+        : `the AI gateway returned ${attempt.status}`;
+      const fallbackProfile = buildFallbackCosProfile(cosInput, reason);
+      const persistedFallback = await persistProfile(
+        fallbackProfile,
+        'fallback',
+        'needs_input',
+        ["ai_output_unavailable"],
+      );
+      if (!persistedFallback.ok) return json(500, { error: "persist_failed" });
+      return json(200, {
+        ok: true,
+        cached: false,
+        fallback: true,
+        fallback_reason: attempt.status === 200 ? "ai_no_tool_call" : `ai_${attempt.status}`,
+        cos_profile: fallbackProfile,
+        cos_profile_html: persistedFallback.displayHtml,
+      });
+    }
+
+    let profile: any = attempt.profile;
+    let problems = validateCosProfile(profile);
+
+    if (problems.length > 0) {
+      console.warn(`[synthesize-cos] depth gate failed (${problems.join(", ")}) — one stricter retry`);
+      const stricterPrompt = `${userPrompt}
+
+### REVISION REQUIRED
+A previous attempt was rejected for insufficient depth. Failing checks: ${problems.join(", ")}.
+Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reason from the selected chips, goals and any free text — infer the operating pattern they imply and label it as inference. Do not emit placeholders, "unknown", "not specified" or a pending shell. The display_html must contain all eight sections in full prose.`;
+      const retry = await callModel(modelUsed, stricterPrompt);
+      if (retry.profile) {
+        const retryProblems = validateCosProfile(retry.profile);
+        if (retryProblems.length < problems.length) {
+          profile = retry.profile;
+          problems = retryProblems;
         }
       }
-      const profile = buildFallbackCosProfile(cosInput, `the AI gateway returned ${aiRes.status}`);
-      const persisted = await persistReadyProfile(profile, 'fallback');
-      if (!persisted.ok) return json(500, { error: "persist_failed" });
-      return json(200, {
-        ok: true,
-        cached: false,
-        fallback: true,
-        fallback_reason: `ai_${aiRes.status}`,
-        cos_profile: profile,
-        cos_profile_html: persisted.displayHtml,
-      });
     }
 
-    const aiPayload = await aiRes.json();
-    const toolCall = aiPayload?.choices?.[0]?.message?.tool_calls?.[0];
-    const argsRaw = toolCall?.function?.arguments;
-    let profile: any = null;
-    try {
-      profile = argsRaw ? JSON.parse(argsRaw) : null;
-    } catch (e) {
-      console.error("[synthesize-cos] tool args parse failed:", e);
-    }
-
-    if (!profile || typeof profile !== "object") {
-      const fallbackProfile = buildFallbackCosProfile(cosInput, "the AI response did not emit the COS tool payload");
-      const persisted = await persistReadyProfile(fallbackProfile, 'fallback');
-      if (!persisted.ok) return json(500, { error: "persist_failed" });
-      return json(200, {
-        ok: true,
-        cached: false,
-        fallback: true,
-        fallback_reason: "ai_no_tool_call",
-        cos_profile: fallbackProfile,
-        cos_profile_html: persisted.displayHtml,
-      });
-    }
-
-    const persisted = await persistReadyProfile(profile);
+    const status: 'ready' | 'needs_input' = problems.length === 0 ? 'ready' : 'needs_input';
+    const persisted = await persistProfile(profile, 'ai', status, problems);
     if (!persisted.ok) return json(500, { error: "persist_failed" });
+    if (persisted.personalisationError) {
+      console.error("[synthesize-cos] personalisation write failed:", persisted.personalisationError);
+    }
 
     console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
     return json(200, {
