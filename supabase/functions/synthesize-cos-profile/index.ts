@@ -11,10 +11,11 @@ const corsHeaders = {
 
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-3.1-flash-lite";
-// Two-model consolidation: single attempt on the primary model. The retry leg
-// below re-uses the same model (no cross-provider fallback).
-const AI_MODEL_FALLBACK = "google/gemini-3.1-flash-lite";
+// v2026-09-07 — this call runs once per user and the output is the leader's
+// entire personalisation substrate, so quality outranks cost here. The retry
+// leg drops to the fast Flash model only if the primary is rate-limited.
+const AI_MODEL = "google/gemini-3.1-pro-preview";
+const AI_MODEL_FALLBACK = "google/gemini-3.8-flash";
 
 type CosFallbackArgs = {
   userId: string;
