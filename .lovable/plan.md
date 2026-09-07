@@ -1,71 +1,85 @@
-# COS profile: fix generation, storage and quality
+# COS profile: depth, storage and correctness
+
+Target: from whatever the user gives us in v8 onboarding, produce a profile with the depth of the Rishad example — leadership style with tags, how they think and talk, what lands / what won't, external persona, cognitive risk flags, what's missing, provisional archetype — degrading honestly when the inputs are thin. Stored so it can be sent as an email later without regeneration.
 
 ## What the audit found (verified against the live database and code)
 
-The COS profile is created by one function (`synthesize-cos-profile`), fired best-effort from the last onboarding screen. Eleven people have an onboarding row. Five never got a profile at all, six have one. Four real problems:
+Eleven people have an onboarding row. Five never got a profile, six have one. Five real problems.
 
 ### 1. The personalisation write silently fails (root cause confirmed)
 
-After the AI returns a profile, the function copies key fields onto the user's main profile record. That write is wrapped in a warning-only try/catch, and it is currently failing for everyone on a type mismatch: it writes a JSON text blob into `profiles.inferred_priorities`, which is a text array, and a plain sentence into `profiles.leadership_context`, which is JSON. Postgres rejects the whole statement, so *none* of the fields land.
+After the AI returns a profile, the function copies key fields onto the user's main profile record. The write is wrapped in a warning-only catch and is currently failing for everyone on a type mismatch: a JSON text blob is written into `profiles.inferred_priorities`, which is a text array, and a plain sentence into `profiles.leadership_context`, which is JSON. Postgres rejects the whole statement, so none of the fields land.
 
-Evidence: the most recent user has a good stored profile (role "Senior Academic Leader", archetype `clear-thinker`), yet on their profile record `user_archetype`, `archetype_title`, `identity_role` and `biggest_pressure` are all empty. Every downstream surface (Brief, Plan, Coach, Nudges) therefore reads a blank leader.
+Evidence: the newest user has a good stored profile (role "Senior Academic Leader", archetype `clear-thinker`) yet their profile record has `user_archetype`, `archetype_title`, `identity_role` and `biggest_pressure` all empty. Brief, Plan, Coach and Nudges therefore read a blank leader.
 
 ### 2. Completion runs before the profile exists, and writes the wrong shape
 
-The final onboarding screen calls completion first, then fires synthesis. Completion writes `user_archetype` from a profile that does not exist yet — so it writes null — and when it does have one it writes the free-text name ("The Architect-Commander") rather than the canonical slug the rest of the system matches on. Only the newest row carries a `canonical_slug` at all.
+The last onboarding screen calls completion first, then fires synthesis. Completion writes the archetype from a profile that does not exist yet (so it writes nothing), and when it does exist it writes the free-text name ("The Architect-Commander") rather than the canonical slug the rest of the system matches on.
 
-### 3. Anything the AI returns is stored as "ready"
+### 3. Depth and quality are far below the target, and anything is accepted as "ready"
 
-There is no validation. One stored "ready" profile is a 583-character shell reading "Profile Initialization Pending" with placeholder identity values (`[Role]`, `[Sector]`, "Unknown"). Recent profiles are 583–653 characters against 4,000–6,000 for earlier ones — a clear quality drop after the model change to `gemini-3.1-flash-lite`. Confidence values are also inconsistent free text ("medium", "Provisional", "Very Low").
+There is no validation. One stored "ready" profile is a 583-character shell reading "Profile Initialization Pending" with placeholder values (`[Role]`, `[Sector]`, "Unknown"). Recent profiles are 583–653 characters against 4,000–6,000 for older ones, and against roughly 12,000 for the Rishad example. The prompt also does not ask for several sections the example has (style tags, the what-lands / what-won't split as separate lists, severity-coloured risk flags), and it does not tell the model how to infer depth from chips alone.
 
 ### 4. The safety-net retry does not work
 
-The background sweep calls the synthesis function with `{ userId }` in the body, but the function only ever reads the user from the auth token — so a service-role call cannot identify the user. The sweep also only looks at rows that already have a completion date, which excludes all five users who never finished. In practice nothing is ever recovered.
+The background sweep calls synthesis with `{ userId }` in the body, but the function only ever reads the user from the auth token, so a service-role call cannot identify anyone. It also only looks at rows that already have a completion date, excluding all five users who never finished.
 
-### Email
+### 5. Onboarding data capture — checked, mostly sound
 
-There is no email capability anywhere in the project — no provider, key, template or send call. Per your answer, email is out of scope for this piece of work; `no-reply@mindmodule.me` is recorded for when we do it.
+Chips, goals, weekend preference, calendar and wearable selections, and home country all persist correctly. Two things to note:
+
+- `brief_timing`, `preferred_practice_window` and `reset_modality` are null for every user. This is by design ("Use intelligence" is stored as null), but it means "let the system decide" is indistinguishable from "never answered". The step-status record will be used to tell them apart.
+- LinkedIn URL scraping is disabled, and no one has uploaded a LinkedIn PDF, so external-persona depth currently has to come from free text. Only one of eleven users wrote any free text.
 
 ## The plan
 
-### A. Make the profile write actually land
+### A. Make the profile write land
 
-- Write `inferred_priorities` and `leadership_context` in the types the columns expect (array and JSON respectively), and `pressure_profile` as JSON, not as a stringified blob.
-- Verify the write instead of swallowing it: a failed personalisation write is logged as an error and reflected in the row's status, not hidden behind a warning.
-- Write `user_archetype` as the canonical slug in both places (synthesis and completion), never the free-text display name — display name stays in `archetype_title`.
+- Write `inferred_priorities`, `leadership_context` and `pressure_profile` in the types the columns actually expect.
+- Treat a failed personalisation write as an error that is logged and reflected in the row status, not swallowed.
+- Always store the canonical archetype slug in `user_archetype`; the display name stays in `archetype_title`.
 
-### B. Stop completion from blanking the profile
+### B. Stop completion blanking the profile
 
-- Completion no longer writes archetype/identity fields when there is no generated profile yet, so it cannot overwrite good values with nulls.
-- The last onboarding screen keeps its non-blocking behaviour, but synthesis is requested before completion clears out, so the profile is present when completion reads it.
+Completion no longer writes archetype/identity fields when no generated profile exists, so it cannot overwrite good values with nulls. Synthesis is requested before completion so the profile is present when completion reads it.
 
-### C. Quality gate with one retry, then `needs_input`
+### C. Raise the profile to the target depth
 
-- Validate the AI output before storing: required sections present, no placeholder identity values (`[Role]`, "Unknown", "Not specified"), and a display section of real substance.
-- If it fails, retry once with a stricter instruction. If it fails again, store the result but set the status to `needs_input` rather than `ready`, and record which inputs are missing.
-- Normalise `confidence_overall` to a fixed set (high / medium / low / very_low) on the way in.
-- Because most users provide only free text (LinkedIn URL scraping is disabled), the prompt is tightened to say plainly what to do with thin input rather than emitting placeholders.
+- Rewrite the prompt around the example's structure, adding the sections it has and the current one lacks: style tags, separate "what lands" and "what won't land" lists, risk flags with a severity colour, external persona, five-item gap list, and a named provisional archetype with a one-line signature.
+- Give the model explicit instructions for thin input: infer from the chip combinations (high-stakes events, load drivers, operating burdens, goals) and say plainly what is inference versus evidence — never emit placeholders like `[Role]`.
+- Move synthesis onto a stronger model for this one call, since it runs once per user and quality matters more than cost.
+- Emit the display HTML using the same class names as the example so one stylesheet renders it in-app and in email.
 
-### D. Fix the recovery sweep
+### D. Quality gate: retry once, then `needs_input`
 
-- The synthesis function accepts a service-role call that names the user, alongside the normal signed-in path.
-- The sweep also picks up users who have onboarding answers but no completion date, so abandoned sign-ups are recovered.
+- Validate before storing: required sections present, no placeholder identity values, minimum substance in the display section.
+- Fail once → retry with a stricter instruction. Fail twice → store it but mark the status `needs_input` and record which inputs would lift it, rather than calling a hollow profile "ready".
+- Normalise confidence to a fixed set (high / medium / low / very low) — today it varies between "medium", "Provisional" and "Very Low".
 
-### E. Repair and regenerate existing users
+### E. Store it email-ready
 
-- Repair pass: rewrite the personalisation fields on all six users who already have a stored profile, using the corrected types and canonical slug.
-- Regenerate pass: re-run synthesis for the users whose stored profile is thin or placeholder-only, and for the five who never got one but have usable answers.
+- Keep the full profile JSON and the rendered HTML on the onboarding row (both already exist), and additionally store an email-ready HTML version with the styles inlined and the in-app-only button removed, plus a plain-text fallback and a short subject line drawn from the archetype.
+- These are new columns on the existing onboarding table, so a later send is a lookup, not a regeneration. No email provider, key or send is added in this piece of work; when we do it, `no-reply@mindmodule.me` is the from-address.
 
-### F. Checks
+### F. Fix the recovery sweep
 
-Extend the existing onboarding/archetype test files (no new test files): the personalisation write uses column-correct types; completion does not null an existing archetype; a placeholder-heavy AI response is rejected by the gate; a service-role sweep call resolves the right user.
+Synthesis accepts a service-role call that names the user, and the sweep also picks up users who have answers but never completed, so abandoned sign-ups are recovered.
+
+### G. Repair and regenerate existing users
+
+- Repair: rewrite the personalisation fields for all six users who already have a stored profile.
+- Regenerate: re-run synthesis for the thin/placeholder profiles and for the five users who have usable answers but no profile.
+
+### H. Checks
+
+Extend existing test files (no new ones): the personalisation write uses column-correct types; completion does not null an existing archetype; a placeholder-heavy response is rejected; the email-ready HTML is produced whenever a profile is stored; a service-role sweep call resolves the right user.
 
 ## Technical notes
 
-- Files touched: `supabase/functions/synthesize-cos-profile/index.ts`, `supabase/functions/complete-onboarding/index.ts`, `supabase/functions/sync-calendar-scheduled/index.ts`, `src/pages/onboarding/stages/v8/StageDone.tsx`, plus assertions in `src/__tests__/archetypeSourceLabelContract.test.ts`.
-- No schema migration: `cos_profile_status` is free text, so `needs_input` needs no database change. Column types are matched in code rather than altered.
-- Repair and regeneration run as one-off passes; no historical data other than the affected profile fields is rewritten.
+- Files touched: `supabase/functions/synthesize-cos-profile/index.ts`, `complete-onboarding/index.ts`, `sync-calendar-scheduled/index.ts`, `src/pages/onboarding/stages/v8/StageDone.tsx`, plus assertions in `src/__tests__/archetypeSourceLabelContract.test.ts`.
+- One migration: add `cos_profile_email_html`, `cos_profile_email_text`, `cos_profile_email_subject` to `onboarding_v8_responses` (service-role write, owner read — same policy as the existing profile columns). `cos_profile_status` is free text, so `needs_input` needs no schema change.
+- The uploaded example is used as the prompt and HTML reference only; it is not added to the app as an asset.
 
 ## Out of scope
 
-Email delivery, LinkedIn scraping re-enablement, the model choice itself, and every surface that consumes the profile (Brief, Plan, Nudges, Insights) — those read the same fields and simply start receiving real values.
+Sending email, re-enabling LinkedIn scraping, and the surfaces that consume the profile (Brief, Plan, Nudges, Insights) — they read the same fields and simply start receiving real values.
