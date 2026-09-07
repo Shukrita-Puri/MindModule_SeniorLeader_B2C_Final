@@ -9061,6 +9061,27 @@ export function mergeWithLedger(
     slotOrigins.push("refreshed");
   }
 
+  // ── SM-3: day-shape flags must be mutually exclusive ────────────────
+  // Resolution order by specificity: Travel > Conference > Packed > Light.
+  const packedDayFlag = (allocatorContext.realMeetingCount ?? 0) >= 2;
+  let resolvedIsLightDay = allocatorContext.isLightDay === true;
+  const activeShapes = [
+    resolvedIsLightDay,
+    allocatorContext.hasTravelDay === true,
+    allocatorContext.hasConferenceDay === true,
+    packedDayFlag,
+  ].filter(Boolean).length;
+  if (activeShapes > 1 && resolvedIsLightDay) {
+    console.warn("[generate-mastery-plan][day-shape-conflict]", {
+      isLightDay: resolvedIsLightDay,
+      isTravelDay: allocatorContext.hasTravelDay === true,
+      isConferenceDay: allocatorContext.hasConferenceDay === true,
+      isPackedDay: packedDayFlag,
+      realMeetingCount: allocatorContext.realMeetingCount ?? null,
+    });
+    resolvedIsLightDay = false;
+  }
+
   const allocation = allocatePlanSlots({
     nowMs: allocatorContext.nowMs,
     rankedCandidates: allocatorContext.rankedCandidates,
@@ -9071,7 +9092,8 @@ export function mergeWithLedger(
     dayOfWeek: allocatorContext.dayOfWeek,
     isWeekAhead: allocatorContext.isWeekAhead,
     isPtoOrHoliday: allocatorContext.isPtoOrHoliday,
-    isLightDay: allocatorContext.isLightDay,
+    isLightDay: resolvedIsLightDay,
+    realMeetingCount: allocatorContext.realMeetingCount,
     isFullWorkingWeekend: allocatorContext.isFullWorkingWeekend,
     mrsWindow: allocatorContext.mrsWindow,
     preferredPracticeWindows: allocatorContext.preferredPracticeWindows,
