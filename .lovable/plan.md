@@ -57,7 +57,7 @@ Note: this supersedes the earlier "one notification per light day" rule from the
 
 ## Verification
 
-Cases added to the existing `light_day_surfaces_test.ts` and the existing plan/nudge suites — no new test files: zero-meeting workday, one low-stakes meeting, one high-stakes afternoon meeting (3 notifications), one high-stakes evening meeting (2, evening anchored), two-plus meetings (never light), travel day, all-day conference, weekend first day, weekend last day, weekend with meetings. Then a replay of the plan for a packed real account to confirm event-anchored slots return, and `deno check` across the touched functions before deploying plan, nudges and readiness.
+Cases added to the existing `light_day_surfaces_test.ts` and the existing plan/nudge suites — no new test files: zero-meeting workday, one low-stakes meeting, one high-stakes morning meeting (2 notifications, morning anchored), one high-stakes afternoon meeting (3 notifications), one high-stakes evening meeting (2, evening anchored, no duplicate), two-plus meetings (never light), travel day, all-day conference, weekend first day, weekend last day, weekend with meetings, and the Gulf/Israel pair (Friday light, Saturday week-ahead). Then a replay of the plan for a packed real account to confirm event-anchored slots return, and `deno check` across the touched functions before deploying plan, nudges and readiness.
 
 ## Out of scope
 
