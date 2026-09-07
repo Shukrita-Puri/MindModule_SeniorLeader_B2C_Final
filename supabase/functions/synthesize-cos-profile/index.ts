@@ -724,16 +724,31 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const auth = await authenticateRequest(req, corsHeaders);
-    if (auth.errorResponse) {
-      console.warn("[synthesize-cos] auth_missing — returning 401 from authenticateRequest");
-      return auth.errorResponse;
+    // v2026-09-07 — the background recovery sweep invokes this with the service
+    // role key and { userId } in the body. Previously the user was only ever
+    // read from the caller's token, so every sweep call failed silently.
+    const body: any = await req.clone().json().catch(() => ({}));
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const isServiceRoleCall = !!serviceKey &&
+      (bearer === serviceKey || req.headers.get("apikey") === serviceKey);
+    const bodyUserId = typeof body?.userId === "string" ? body.userId.trim() : "";
+
+    let userId: string;
+    if (isServiceRoleCall && bodyUserId) {
+      userId = bodyUserId;
+      console.info(`[synthesize-cos] service-role call for user_id=${redactUserId(userId)}`);
+    } else {
+      const auth = await authenticateRequest(req, corsHeaders);
+      if (auth.errorResponse) {
+        console.warn("[synthesize-cos] auth_missing — returning 401 from authenticateRequest");
+        return auth.errorResponse;
+      }
+      userId = auth.userId!;
     }
-    const userId = auth.userId!;
     console.info(`[synthesize-cos] start user_id=${redactUserId(userId)}`);
 
-    const body = await req.json().catch(() => ({}));
-    const force = !!(body as any)?.force;
+    const force = !!body?.force;
 
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
