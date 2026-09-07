@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { classifyLightDay } from "./light-day.ts";
+import { classifyLightDay, LightDayClassificationError } from "./light-day.ts";
 import { allocatePlanSlots } from "../jit/slot-allocator.ts";
+import { resolveLightDaySends } from "../../smart-nudges/index.ts";
 
 const ev = (title: string, startISO: string, hours = 1, allDay = false) => ({
   title,
