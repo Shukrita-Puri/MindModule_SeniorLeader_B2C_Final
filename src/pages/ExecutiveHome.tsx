@@ -46,6 +46,7 @@ import { useCurrentBriefSnapshot } from "@/hooks/useCurrentBriefSnapshot";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { isIosNativeShell } from "@/config/purchasePlatform";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
@@ -86,6 +87,7 @@ const ExecutiveHome = () => {
     serverWeekAheadDecision,
     planLocale?.userHomeCountry,
   );
+  const isIosApp = isIosNativeShell();
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
@@ -293,40 +295,42 @@ const ExecutiveHome = () => {
           className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-transparent"
         >
           {/* Unified Today header bar + shared hero (header overlays hero) */}
-          <div className="relative">
-            <TodayHero />
-            <TodayGreeting />
-            <header className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
-              <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
-                <SidebarDiscoveryPulse />
-              </div>
-              <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
-                <div data-tour="coach-access"><CoachAccessButton /></div>
-              </div>
-              <div className="flex items-center gap-2">
-                {lastUpdatedLabel && (
-                  <span className="hidden rounded-full bg-white/35 px-2 py-1 text-[10px] font-medium text-foreground/70 backdrop-blur-xl sm:inline">
-                    Updated {lastUpdatedLabel}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => refreshCards.mutate()}
-                  disabled={refreshCards.isPending}
-                  className="inline-flex h-9 items-center gap-2 rounded-full border border-white/35 bg-white/55 px-3 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-xl transition hover:bg-white/75 disabled:opacity-60"
-                  aria-label="Refresh today's cards"
-                >
-                  <RefreshCw className={refreshCards.isPending ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-                  <span className="hidden sm:inline">
-                    {refreshCards.isPending ? "Refreshing" : "Refresh today's cards"}
-                  </span>
-                </button>
-              </div>
-            </header>
+          <div className={isIosApp ? "pt-[env(safe-area-inset-top,0px)]" : undefined}>
+            <div className="relative">
+              <TodayHero />
+              <TodayGreeting />
+              <header className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
+                <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
+                  <SidebarDiscoveryPulse />
+                </div>
+                <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
+                  <div data-tour="coach-access"><CoachAccessButton /></div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {lastUpdatedLabel && (
+                    <span className="hidden rounded-full bg-white/35 px-2 py-1 text-[10px] font-medium text-foreground/70 backdrop-blur-xl sm:inline">
+                      Updated {lastUpdatedLabel}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => refreshCards.mutate()}
+                    disabled={refreshCards.isPending}
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-white/35 bg-white/55 px-3 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-xl transition hover:bg-white/75 disabled:opacity-60"
+                    aria-label="Refresh today's cards"
+                  >
+                    <RefreshCw className={refreshCards.isPending ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                    <span className="hidden sm:inline">
+                      {refreshCards.isPending ? "Refreshing" : "Refresh today's cards"}
+                    </span>
+                  </button>
+                </div>
+              </header>
+            </div>
           </div>
 
           {/* All sections stacked on one page — overlap hero so card floats on shared canvas */}
-          <div className="relative z-20 flex-1 w-full -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
+          <div className={`relative z-20 flex-1 w-full -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] ${isIosApp ? 'pt-2' : ''}`}>
 
             {/* Swipeable 3-page home: MRS · Brief · Plan */}
             <h1 className="sr-only">{getGreeting()}</h1>
