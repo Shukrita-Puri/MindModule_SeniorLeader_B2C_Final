@@ -8589,6 +8589,8 @@ export function deriveStructuralDayFlags(
   /** LIGHT DAY SSOT — three-slot recovery arc instead of the normal cadence. */
   isLightDay: boolean;
   lightDayKind: LightDayKind | null;
+  /** Timed meetings on the day — 2+ is a packed day (never light). */
+  realMeetingCount: number;
 } {
   const events = Array.isArray(calendarEvents) ? calendarEvents : [];
   const localNow = opts?.now ?? new Date();
@@ -8717,6 +8719,7 @@ export function deriveStructuralDayFlags(
     isFullWorkingWeekend,
     isLightDay,
     lightDayKind: isLightDay ? lightDay.kind : null,
+    realMeetingCount,
   };
 }
 
@@ -8732,6 +8735,7 @@ export interface LedgerAllocatorContext {
   isPtoOrHoliday?: boolean;
   isFullWorkingWeekend?: boolean;
   isLightDay?: boolean;
+  realMeetingCount?: number;
   mrsWindow?: "morning" | "afternoon" | "evening";
   preferredPracticeWindows?: Array<"morning" | "afternoon" | "evening">;
   forceArcCategoryIds?: EventCategoryId[];
