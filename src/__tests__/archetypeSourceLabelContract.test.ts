@@ -21,7 +21,8 @@ describe('archetype slug resolver wiring', () => {
   it('synthesize-cos-profile persists a canonical slug, not the free-text name', () => {
     const src = read('supabase/functions/synthesize-cos-profile/index.ts');
     expect(src).toContain('canonical_slug');
-    expect(src).toMatch(/user_archetype: resolveArchetypeSlug\(/);
+    expect(src).toMatch(/const archetypeSlug = resolveArchetypeSlug\(/);
+    expect(src).toContain('profileUpdate.user_archetype = archetypeSlug');
   });
 });
 
@@ -37,5 +38,60 @@ describe('lean on / watch for source labels', () => {
     const src = read('src/components/home/DecisionReadinessBrief.tsx');
     expect(src).toContain("case 'archetype-tier': return 'Archetype';");
     expect(src).toContain("case 'tier-fallback': return 'Tier';");
+  });
+});
+
+// v2026-09-07 — COS profile depth, storage and correctness contract.
+describe('COS profile formation contract', () => {
+  const cos = () => read('supabase/functions/synthesize-cos-profile/index.ts');
+
+  it('writes personalisation fields in the types the profiles columns expect', () => {
+    const src = cos();
+    // inferred_priorities is text[] and leadership_context/pressure_profile are
+    // jsonb — a stringified blob into either rejected the whole statement.
+    expect(src).not.toContain('inferred_priorities = JSON.stringify');
+    expect(src).not.toContain('pressure_profile = JSON.stringify');
+    expect(src).toContain('profileUpdate.inferred_priorities = priorities');
+    expect(src).toMatch(/profileUpdate\.leadership_context = \{/);
+    expect(src).toMatch(/profileUpdate\.pressure_profile = \{/);
+  });
+
+  it('surfaces a failed personalisation write instead of swallowing it', () => {
+    const src = cos();
+    expect(src).toContain('personalisation_write_failed');
+    expect(src).not.toContain("console.warn('[synthesize-cos] profiles update warning:'");
+  });
+
+  it('gates thin output and stores it as needs_input rather than ready', () => {
+    const src = cos();
+    expect(src).toContain('function validateCosProfile');
+    expect(src).toContain("'needs_input'");
+    expect(src).toContain('REVISION REQUIRED');
+    expect(src).toMatch(/PLACEHOLDER_PATTERN/);
+    expect(src).toContain('function normalizeConfidence');
+  });
+
+  it('stores email-ready artefacts whenever a profile is persisted', () => {
+    const src = cos();
+    expect(src).toContain('cos_profile_email_html');
+    expect(src).toContain('cos_profile_email_text');
+    expect(src).toContain('cos_profile_email_subject');
+    expect(src).toContain('function buildEmailArtifacts');
+    // Email HTML must not carry scripts, style blocks or in-app buttons.
+    expect(src).toContain('function stripUnsafeForEmail');
+  });
+
+  it('resolves the user for a service-role or scheduled sweep call', () => {
+    const src = cos();
+    expect(src).toContain('isServiceRoleCall');
+    expect(src).toContain('CRON_SHARED_SECRET');
+    expect(src).toMatch(/userId = bodyUserId/);
+  });
+
+  it('completion never nulls an existing generated archetype', () => {
+    const src = read('supabase/functions/complete-onboarding/index.ts');
+    expect(src).not.toContain('updateData.user_archetype = cosProfile?.provisional_archetype?.name ?? null');
+    expect(src).not.toContain('updateData.identity_role = cosProfile?.identity?.role ?? null');
+    expect(src).toContain('if (archetypeSlug) updateData.user_archetype = archetypeSlug;');
   });
 });
