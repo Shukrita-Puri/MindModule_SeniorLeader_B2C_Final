@@ -100,3 +100,51 @@ Deno.test("two real meetings inside the window override the inference", () => {
   ]);
   assertEquals(r.state, "WORKDAY");
 });
+
+// ── Light Day parity across Brief / Plan / Nudges ───────────────────────
+// All three surfaces feed the SAME availability result (classified with the
+// hydrated trip window) into classifyLightDay. These tests lock that parity:
+// an interior trip day must never read as an ordinary quiet workday.
+import { classifyLightDay } from "./light-day.ts";
+
+function lightDayForSurface(
+  iso: string,
+  events: AvailabilityEvent[],
+  opts: { tomorrowIsWorkday?: boolean; isPlanningDay?: boolean } = {},
+) {
+  const availability = classify(iso, events);
+  return classifyLightDay({
+    now: new Date(`${iso}T12:00:00Z`),
+    userHomeCountry: "GB",
+    userCurrentCountry: "US",
+    events,
+    availability,
+    tomorrowIsWorkday: opts.tomorrowIsWorkday === true,
+    isPlanningDay: opts.isPlanningDay === true,
+  });
+}
+
+Deno.test("interior trip day is the same light day on every surface", () => {
+  const brief = lightDayForSurface("2026-08-12", [STAY]);
+  const plan = lightDayForSurface("2026-08-12", [STAY]);
+  const nudges = lightDayForSurface("2026-08-12", [STAY]);
+  assertEquals(brief.isLightDay, true);
+  assertEquals(brief.kind, "pto");
+  assertEquals(brief.state, "PTO");
+  assertEquals(plan, brief);
+  assertEquals(nudges, brief);
+});
+
+Deno.test("first day of the trip classifies off, not as a quiet workday", () => {
+  const r = lightDayForSurface("2026-08-09", [STAY]);
+  assertEquals(r.state, "PTO");
+  assertEquals(r.isLightDay, true);
+  assertEquals(r.kind, "pto");
+});
+
+Deno.test("last day of the trip keeps week-ahead behaviour", () => {
+  const r = lightDayForSurface("2026-08-17", [STAY], { tomorrowIsWorkday: true });
+  assertEquals(r.state, "PTO");
+  assertEquals(r.isLastDayOfRun, true);
+  assertEquals(r.isLightDay, false);
+});

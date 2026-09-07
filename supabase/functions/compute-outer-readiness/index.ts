@@ -128,6 +128,7 @@ import {
 } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { hydrateWeekAheadInputs } from "../_shared/availability/week-ahead-hydration.ts";
+import { classifyAvailability } from "../_shared/availability/availability-classifier.ts";
 import {
   classifyLightDay,
   type LightDayKind,
@@ -4797,6 +4798,12 @@ serve(async (req) => {
     let briefLightDayKind: LightDayKind | null = null;
     let briefLightDaySingleEventTitle: string | null = null;
     let briefTravelPhase: TravelPhase = null;
+    // Availability SSOT v2 — hydrated once (trip windows + away distance) and
+    // shared by the Light Day classification below and the behaviour snapshot
+    // later in this request, so Brief / Plan / Nudges read the same evidence.
+    let briefTravelHydration:
+      | Awaited<ReturnType<typeof hydrateTravelDay>>
+      | null = null;
     // Part 1A — the single resolved narrative (family + anchor + phase +
     // depletion) shared by the LLM prompt, the deterministic renderer, and
     // the Plan parity check.
@@ -5029,6 +5036,24 @@ serve(async (req) => {
       const localeDayBeforeRest = (localeRecoveryDay + 6) % 7;
       if (dayOfWeek === localeDayBeforeRest) isDayBeforeRestDay = true;
 
+      // Travel SSOT hydration (trip windows from travel_state.meta.trips plus
+      // away distance). Fail-open: on any error the Light Day path behaves
+      // exactly as before.
+      try {
+        briefTravelHydration = await hydrateTravelDay(db, userId, {
+          now: new Date(),
+          currentTimezone: effectiveCurrentTz ?? null,
+          fn: "compute-outer-readiness",
+        });
+      } catch (thErr) {
+        console.warn(
+          "[brief][travel-hydration] skipped:",
+          thErr instanceof Error ? thErr.message : thErr,
+        );
+        briefTravelHydration = null;
+      }
+
+
       // ── Week-Ahead re-evaluation with Availability-SSOT hydration ──────
       // The early driver override (above) runs before home country and the
       // holiday overlay are known, so only the planning-day branch can fire
@@ -5122,22 +5147,38 @@ serve(async (req) => {
           const _todayEventRows = _rows.filter((r) =>
             _localKey(String(r.start_time)) === _todayKey
           );
+          const _lightDayEvents = _todayEventRows.map((r: any) => ({
+            title: String(r?.title ?? ""),
+            startTime: String(r?.start_time ?? ""),
+            endTime: String(r?.end_time ?? r?.start_time ?? ""),
+            isAllDay: r?.is_all_day === true,
+            isOrganizer: r?.is_organizer === true,
+            attendeesCount: Number(r?.attendees_count ?? 0) || 0,
+          }));
+          // Availability SSOT v2 — classify once here WITH the hydrated trip
+          // window and away distance, then hand the result to the Light Day
+          // classifier so an interior day of a confirmed trip reads as PTO
+          // rather than an ordinary quiet workday.
+          const _lightDayAvailability = classifyAvailability({
+            now: userTime,
+            userHomeCountry: localeWeekendHomeCountry,
+            userCurrentCountry: localeWeekendHomeCountry,
+            explicitPto: isPublicHoliday === true,
+            tripWindow: (briefTravelHydration?.tripWindow ?? null) as any,
+            awayDistanceKm: briefTravelHydration?.distanceKm ?? null,
+            events: _lightDayEvents,
+          });
           const _lightDay = classifyLightDay({
             now: userTime,
             userHomeCountry: localeWeekendHomeCountry,
             userCurrentCountry: localeWeekendHomeCountry,
             explicitPto: isPublicHoliday === true,
-            events: _todayEventRows.map((r: any) => ({
-              title: String(r?.title ?? ""),
-              startTime: String(r?.start_time ?? ""),
-              endTime: String(r?.end_time ?? r?.start_time ?? ""),
-              isAllDay: r?.is_all_day === true,
-              isOrganizer: r?.is_organizer === true,
-              attendeesCount: Number(r?.attendees_count ?? 0) || 0,
-            })),
+            events: _lightDayEvents,
+            availability: _lightDayAvailability,
             tomorrowIsWorkday: _hydration.tomorrowIsWorkday === true,
             isPlanningDay: _wam.active === true,
           });
+
           briefLightDayKind = _lightDay.isLightDay ? _lightDay.kind : null;
           // Weekend / holiday / PTO already own their copy branches; this
           // flag exists for the quiet WORKING day only.
@@ -5159,6 +5200,12 @@ serve(async (req) => {
             meetingCount: _lightDay.meetingCount,
             reason: _lightDay.reason,
             singleEvent: briefLightDaySingleEventTitle,
+            availabilityState: _lightDayAvailability.state,
+            availabilityReason: _lightDayAvailability.reason,
+            tripWindow: briefTravelHydration?.tripWindow
+              ? `${briefTravelHydration.tripWindow.start}..${briefTravelHydration.tripWindow.end}`
+              : null,
+            awayDistanceKm: briefTravelHydration?.distanceKm ?? null,
           });
         }
         if (_wam.active) {
@@ -8170,11 +8217,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // Shared with Plan + Nudges via `_shared/travel/hydrate-travel-day`.
             // Fail-open: any error yields travelDay=false and rules behave
             // exactly as before.
-            const travelHydration = await hydrateTravelDay(db, userId, {
-              now: new Date(),
-              currentTimezone: effectiveCurrentTz ?? null,
-              fn: "compute-outer-readiness",
-            });
+            const travelHydration = briefTravelHydration ??
+              await hydrateTravelDay(db, userId, {
+                now: new Date(),
+                currentTimezone: effectiveCurrentTz ?? null,
+                fn: "compute-outer-readiness",
+              });
             const travelStateForCtx = travelHydration.travelState;
 
             briefBehaviourSnapshot = buildBehaviourSnapshot({
