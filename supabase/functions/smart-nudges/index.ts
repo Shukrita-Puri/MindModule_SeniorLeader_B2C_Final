@@ -290,8 +290,14 @@ const corsHeaders = {
 // ══════════════════════════════════════════════════════════════
 
 const DAILY_NOTIFICATION_CAP = 3;
-/** Light days (weekend / holiday / PTO / 0–1 meeting workday) get ONE send. */
-const LIGHT_DAY_NOTIFICATION_CAP = 1;
+/**
+ * Light days (weekend / holiday / PTO / 0–1 meeting workday) get Morning +
+ * Evening. A high-stakes AFTERNOON commitment adds a third, meeting-anchored
+ * send; a high-stakes morning or evening commitment REPLACES that window's
+ * recovery send rather than adding to it. Supersedes the earlier one-send rule.
+ */
+const LIGHT_DAY_NOTIFICATION_CAP = 2;
+const LIGHT_DAY_NOTIFICATION_CAP_WITH_AFTERNOON_ANCHOR = 3;
 const LOW_TIERS = ["depleted", "managing"];
 const DAYS = [
   "Sunday",
@@ -627,51 +633,81 @@ function lastWeekendDayForHomeCountry(homeCountry?: string | null): number {
 }
 
 /**
- * LIGHT DAY SEND TIME.
+ * LIGHT DAY SEND PLAN.
  *
- * Onboarding v8 `brief_timing` offers Morning / Evening / "Use intelligence"
- * (persisted as null). Mapping, per product contract:
+ * Baseline: Morning + Evening (2 sends).
+ *   • high-stakes MORNING commitment  → 2 sends, morning is meeting-anchored
+ *   • high-stakes AFTERNOON commitment → 3 sends (morning, anchored afternoon,
+ *     evening)
+ *   • high-stakes EVENING commitment  → 2 sends, the evening send is
+ *     meeting-anchored and REPLACES the recovery evening (never both)
  *
- *   preference   | light workday, no meetings | weekend / holiday / PTO
- *   -------------|----------------------------|-------------------------
- *   morning      | 08:00                      | 09:00
- *   evening      | 17:00                      | 17:00
- *   system picks | evening / end of day       | evening / end of day
- *
- * A light day holding ONE prep-worthy meeting anchors the send to that
- * meeting instead (≈60 min before it), whatever the stated preference.
+ * Onboarding v8 `brief_timing` (Morning / Evening / "Use intelligence" = null)
+ * only shifts the earliest hour of the un-anchored sends:
+ *   morning pref → 08:00 workday / 09:00 weekend, holiday, PTO
+ *   evening pref and "let the system decide" → 17:00 end of day
  * Quiet hours / DND are enforced downstream and always win.
  */
-function resolveLightDayTarget(
-  ctx: NudgeContext,
-  briefTiming: "morning" | "afternoon" | "evening" | null,
-): { slot: NudgeSlot; earliestHour: number; reason: string } {
-  const prep = ctx.lightDay?.prepMeeting ?? null;
-  if (prep) {
-    const earliest = Math.max(6, prep.startHour - 1);
-    return {
-      slot: currentSlotForLocalHour(Math.floor(earliest)),
-      earliestHour: earliest,
-      reason: "anchored_to_single_high_stakes_meeting",
-    };
-  }
-  const offDay = ctx.lightDay?.kind === "weekend" ||
-    ctx.lightDay?.kind === "public_holiday" || ctx.lightDay?.kind === "pto";
-  if (briefTiming === "morning") {
-    return {
-      slot: "morning",
-      earliestHour: offDay ? 9 : 8,
-      reason: offDay ? "pref_morning_off_day" : "pref_morning_workday",
-    };
-  }
-  // Evening preference AND "let the system decide" both land end-of-day.
-  return {
+interface LightDaySend {
+  slot: NudgeSlot;
+  earliestHour: number;
+  anchored: boolean;
+  reason: string;
+}
+
+export function resolveLightDaySends(
+  opts: {
+    kind: string | null;
+    prepMeeting: { startHour: number } | null;
+    briefTiming: "morning" | "afternoon" | "evening" | null;
+  },
+): { sends: LightDaySend[]; cap: number } {
+  const offDay = opts.kind === "weekend" || opts.kind === "public_holiday" ||
+    opts.kind === "pto";
+  const morningEarliest = opts.briefTiming === "morning"
+    ? (offDay ? 9 : 8)
+    : (offDay ? 9 : 8);
+  const morning: LightDaySend = {
+    slot: "morning",
+    earliestHour: morningEarliest,
+    anchored: false,
+    reason: offDay ? "light_day_morning_off_day" : "light_day_morning_workday",
+  };
+  const evening: LightDaySend = {
     slot: "evening",
     earliestHour: 17,
-    reason: briefTiming === "evening"
-      ? "pref_evening"
-      : "system_default_end_of_day",
+    anchored: false,
+    reason: opts.briefTiming === "evening"
+      ? "light_day_evening_pref"
+      : "light_day_evening_close",
   };
+
+  const prep = opts.prepMeeting;
+  if (!prep) {
+    return { sends: [morning, evening], cap: LIGHT_DAY_NOTIFICATION_CAP };
+  }
+
+  const earliest = Math.max(6, prep.startHour - 1);
+  const anchorSlot = currentSlotForLocalHour(Math.floor(earliest));
+  const anchored: LightDaySend = {
+    slot: anchorSlot,
+    earliestHour: earliest,
+    anchored: true,
+    reason: "anchored_to_single_high_stakes_meeting",
+  };
+
+  if (anchorSlot === "afternoon") {
+    // ADD a third, meeting-anchored send.
+    return {
+      sends: [morning, anchored, evening],
+      cap: LIGHT_DAY_NOTIFICATION_CAP_WITH_AFTERNOON_ANCHOR,
+    };
+  }
+  // REPLACE the recovery send in that window — never duplicate it.
+  const sends = anchorSlot === "morning"
+    ? [anchored, evening]
+    : [morning, anchored];
+  return { sends, cap: LIGHT_DAY_NOTIFICATION_CAP };
 }
 
 export function slotFromNotificationLogRow(
@@ -5648,6 +5684,7 @@ type NotificationTraceOutcome =
   | "light_day_cap"
   | "light_day_not_in_window"
   | "light_day_window_open"
+  | "light_day_slot_already_sent"
   | "two_hour_suppression"
   | "no_qualified_nudge"
   | "plan_ready_morning_fallback"
@@ -6692,45 +6729,63 @@ serve(async (req) => {
       const activeSlot = currentSlotForLocalHour(localHour);
 
       // ══════════════════════════════════════════════════
-      // ── LIGHT DAY CADENCE: exactly one nudge, at the user's time ──
+      // ── LIGHT DAY CADENCE: Morning + Evening, at the user's times ──
       // Applies to light working days (0–1 meeting), weekends, holidays
       // and PTO — but NEVER to the last day of a run, which keeps the
-      // existing week-ahead cadence.
+      // existing week-ahead cadence. A high-stakes afternoon commitment
+      // ADDS an anchored afternoon send; a high-stakes morning / evening
+      // commitment REPLACES that window's recovery send.
       // ══════════════════════════════════════════════════
       if (ctx.lightDay?.isLightDay) {
-        const target = resolveLightDayTarget(ctx, prefBriefTiming);
+        const { sends, cap } = resolveLightDaySends({
+          kind: ctx.lightDay.kind,
+          prepMeeting: ctx.lightDay.prepMeeting,
+          briefTiming: prefBriefTiming,
+        });
         const nowLocal = localHour + localMinute / 60;
         // The light-day cap counts USER-VISIBLE pushes only. Silent
         // background pushes (early-morning sync, content-available) are
         // logged with delivery_state 'accepted' and would otherwise
-        // consume the single light-day slot before any nudge is
-        // evaluated — which is why light days went silent.
+        // consume light-day sends before any nudge is evaluated.
         const visibleSendsToday = (todayLogs || []).filter((l) =>
           !String(l.notification_type ?? "").startsWith("early_morning_sync")
         ).length;
-        if (visibleSendsToday >= LIGHT_DAY_NOTIFICATION_CAP) {
+        if (visibleSendsToday >= cap) {
           trace(userId, "light_day_cap", {
             ...traceBase,
             metadata: { ...traceBase.metadata,
               light_day_kind: ctx.lightDay.kind,
               count: visibleSendsToday,
               raw_log_count: todayLogs?.length ?? 0,
-              cap: LIGHT_DAY_NOTIFICATION_CAP,
+              cap,
             },
           });
           continue;
         }
-        if (activeSlot !== target.slot || nowLocal < target.earliestHour) {
+        const target = sends.find((s) => s.slot === activeSlot) ?? null;
+        if (!target || nowLocal < target.earliestHour) {
           trace(userId, "light_day_not_in_window", {
             ...traceBase,
             metadata: { ...traceBase.metadata,
               light_day_kind: ctx.lightDay.kind,
               light_day_reason: ctx.lightDay.reason,
-              target_slot: target.slot,
-              target_earliest_hour: target.earliestHour,
-              target_reason: target.reason,
+              allowed_slots: sends.map((s) => s.slot),
+              target_earliest_hour: target?.earliestHour ?? null,
+              target_reason: target?.reason ?? "slot_not_allowed",
               active_slot: activeSlot,
               local_time: nowLocal,
+              cap,
+            },
+          });
+          continue;
+        }
+        // One send per window: an already-spent slot must not fire twice.
+        if (sentSlotsToday.has(activeSlot)) {
+          trace(userId, "light_day_slot_already_sent", {
+            ...traceBase,
+            metadata: { ...traceBase.metadata,
+              light_day_kind: ctx.lightDay.kind,
+              active_slot: activeSlot,
             },
           });
           continue;
@@ -6742,6 +6797,8 @@ serve(async (req) => {
             target_slot: target.slot,
             target_earliest_hour: target.earliestHour,
             target_reason: target.reason,
+            anchored: target.anchored,
+            cap,
           },
         });
       }

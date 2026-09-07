@@ -8589,6 +8589,8 @@ export function deriveStructuralDayFlags(
   /** LIGHT DAY SSOT — three-slot recovery arc instead of the normal cadence. */
   isLightDay: boolean;
   lightDayKind: LightDayKind | null;
+  /** Timed meetings on the day — 2+ is a packed day (never light). */
+  realMeetingCount: number;
 } {
   const events = Array.isArray(calendarEvents) ? calendarEvents : [];
   const localNow = opts?.now ?? new Date();
@@ -8605,6 +8607,16 @@ export function deriveStructuralDayFlags(
   // Canonical Rest Day (SSOT): rest is a function of weekend / explicit PTO /
   // applicable public holiday — never of empty calendars alone. Calendar
   // work evidence overrides all three. See _shared/availability/*.
+  const availabilityEvents = events.map((e: any) => ({
+    title: String(e?.title || ""),
+    startTime: String(e?.startTime || e?.start_time || ""),
+    endTime: String(e?.endTime || e?.end_time || e?.startTime || ""),
+    isAllDay: e?.isAllDay === true || e?.is_all_day === true,
+    isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+    attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+    source: e?.source ?? e?.calendarName ?? null,
+    calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+  }));
   const availability = classifyAvailability({
     now: localNow,
     userHomeCountry: opts?.userLocale?.homeCountry ?? null,
@@ -8613,16 +8625,7 @@ export function deriveStructuralDayFlags(
     calendarLoad: (calendarLoad as any) ?? null,
     // F1.2: Thread weekendDays from unified locale context
     weekendDays: opts?.userLocale?.weekendDays ?? [0, 6],
-    events: events.map((e: any) => ({
-      title: String(e?.title || ""),
-      startTime: String(e?.startTime || e?.start_time || ""),
-      endTime: String(e?.endTime || e?.end_time || e?.startTime || ""),
-      isAllDay: e?.isAllDay === true || e?.is_all_day === true,
-      isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
-      attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
-      source: e?.source ?? e?.calendarName ?? null,
-      calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
-    })),
+    events: availabilityEvents,
   });
   const hasRestSignals = availability.isRestDay;
   const isPtoOrHoliday = availability.isRestDay &&
@@ -8670,21 +8673,26 @@ export function deriveStructuralDayFlags(
   // Shared with Brief and Smart Nudges. Never re-derive from event counts.
   // A week-ahead day is by definition the LAST day of a run, so it is never
   // a light day and its existing behaviour is preserved.
+  // SM-1: the REAL mapped events go in — an empty array made every working
+  // day classify as a light day.
   const lightDay = classifyLightDay({
     now: localNow,
     userHomeCountry: opts?.userLocale?.homeCountry ?? null,
     userCurrentCountry: opts?.userLocale?.currentCountry ?? null,
     weekendDays: opts?.userLocale?.weekendDays ?? [0, 6],
-    events: [],
+    events: availabilityEvents,
     availability,
+    travelDaySignal: hasTravelDay,
+    conferenceDaySignal: hasConferenceDay,
     tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
 
     isPlanningDay: weekAhead.active,
   });
   const meetingCountForLightDay = realMeetingCount;
+  // SM-2: hard meeting-count gate — 2+ real meetings is never a light day.
   const isLightDay = !weekAhead.active && !isFullWorkingWeekend &&
-    (lightDay.isLightDay ||
-      (!availability.isRestDay && meetingCountForLightDay <= 1));
+    !hasTravelDay && !hasConferenceDay &&
+    lightDay.isLightDay && meetingCountForLightDay <= 1;
   try {
     console.info("[generate-mastery-plan][light-day]", {
       isLightDay,
@@ -8693,8 +8701,11 @@ export function deriveStructuralDayFlags(
       reason: lightDay.reason,
       meetingCount: meetingCountForLightDay,
       weekAhead: weekAhead.active,
+      hasTravelDay,
+      hasConferenceDay,
     });
   } catch { /* logging is best-effort */ }
+
 
   return {
     hasTravelDay,
@@ -8708,6 +8719,7 @@ export function deriveStructuralDayFlags(
     isFullWorkingWeekend,
     isLightDay,
     lightDayKind: isLightDay ? lightDay.kind : null,
+    realMeetingCount,
   };
 }
 
@@ -8723,6 +8735,7 @@ export interface LedgerAllocatorContext {
   isPtoOrHoliday?: boolean;
   isFullWorkingWeekend?: boolean;
   isLightDay?: boolean;
+  realMeetingCount?: number;
   mrsWindow?: "morning" | "afternoon" | "evening";
   preferredPracticeWindows?: Array<"morning" | "afternoon" | "evening">;
   forceArcCategoryIds?: EventCategoryId[];
@@ -9048,6 +9061,27 @@ export function mergeWithLedger(
     slotOrigins.push("refreshed");
   }
 
+  // ── SM-3: day-shape flags must be mutually exclusive ────────────────
+  // Resolution order by specificity: Travel > Conference > Packed > Light.
+  const packedDayFlag = (allocatorContext.realMeetingCount ?? 0) >= 2;
+  let resolvedIsLightDay = allocatorContext.isLightDay === true;
+  const activeShapes = [
+    resolvedIsLightDay,
+    allocatorContext.hasTravelDay === true,
+    allocatorContext.hasConferenceDay === true,
+    packedDayFlag,
+  ].filter(Boolean).length;
+  if (activeShapes > 1 && resolvedIsLightDay) {
+    console.warn("[generate-mastery-plan][day-shape-conflict]", {
+      isLightDay: resolvedIsLightDay,
+      isTravelDay: allocatorContext.hasTravelDay === true,
+      isConferenceDay: allocatorContext.hasConferenceDay === true,
+      isPackedDay: packedDayFlag,
+      realMeetingCount: allocatorContext.realMeetingCount ?? null,
+    });
+    resolvedIsLightDay = false;
+  }
+
   const allocation = allocatePlanSlots({
     nowMs: allocatorContext.nowMs,
     rankedCandidates: allocatorContext.rankedCandidates,
@@ -9058,7 +9092,8 @@ export function mergeWithLedger(
     dayOfWeek: allocatorContext.dayOfWeek,
     isWeekAhead: allocatorContext.isWeekAhead,
     isPtoOrHoliday: allocatorContext.isPtoOrHoliday,
-    isLightDay: allocatorContext.isLightDay,
+    isLightDay: resolvedIsLightDay,
+    realMeetingCount: allocatorContext.realMeetingCount,
     isFullWorkingWeekend: allocatorContext.isFullWorkingWeekend,
     mrsWindow: allocatorContext.mrsWindow,
     preferredPracticeWindows: allocatorContext.preferredPracticeWindows,

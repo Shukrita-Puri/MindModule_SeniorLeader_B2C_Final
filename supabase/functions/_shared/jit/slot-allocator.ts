@@ -82,6 +82,11 @@ export interface SlotAllocationInput {
    * The last day of a run is never a light day, so week-ahead is unaffected.
    */
   isLightDay?: boolean;
+  /**
+   * Timed meetings on the day (all-day markers excluded). 2+ is a packed day
+   * and can never take the light-day arc, whatever `isLightDay` says.
+   */
+  realMeetingCount?: number;
   /** Weekend work evidence strong enough to use normal workday cadence. */
   isFullWorkingWeekend?: boolean;
   /** F1.3: Country-aware weekend rest day flag (true = Sat/Fri in GCC/IL, or Sat elsewhere). */
@@ -157,18 +162,6 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     return buildSingleStateSlotResult("saturday", "saturday_habit_only", ranked.length, input.preferredPracticeWindows);
   }
 
-  // ── LIGHT DAY ARC ────────────────────────────────────────────────────
-  // Three recovery slots, never zero. Takes precedence over the PTO /
-  // holiday single-slot shape because a light PTO day is still a day we
-  // want the leader to open the app once and build the habit.
-  if (input.isLightDay && !input.isWeekAhead) {
-    return buildLightDayResult(ranked, input);
-  }
-
-  if (input.isPtoOrHoliday) {
-    return buildSingleStateSlotResult("holiday_pto", "holiday_habit_only", ranked.length, input.preferredPracticeWindows);
-  }
-
   // Travel reservation (mirrors the Brief's travel rule): on a travel day a
   // Category G anchor ALWAYS owns the arc, even when another category
   // out-ranks it on score. Without this, a flight can be scored below a
@@ -195,6 +188,29 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
   if (input.hasConferenceDay && (!top || top.categoryId === "F")) {
     return buildNamedFullArcResult("conference_day", "conference_day_full_arc", ranked, "F");
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // EXECUTION ORDER — DO NOT REORDER
+  //   1. Week-Ahead        (checked above)
+  //   2. Weekend rest day  (checked above)
+  //   3. Travel day        (checked above)
+  //   4. Conference day    (checked above)
+  //   5. Packed day (realMeetingCount >= 2) — gate below
+  //   6. LIGHT DAY  ← this branch, only reached when all of the above are false
+  // Hoisting this block above the travel / conference / packed checks is the
+  // defect this ordering exists to prevent: it replaced event-anchored plans
+  // with three generic recovery slots.
+  // ══════════════════════════════════════════════════════════════════════
+  const packedDay = (input.realMeetingCount ?? 0) >= 2;
+  if (input.isLightDay && !input.isWeekAhead && !packedDay) {
+    return buildLightDayResult(ranked, input);
+  }
+
+  if (input.isPtoOrHoliday) {
+    return buildSingleStateSlotResult("holiday_pto", "holiday_habit_only", ranked.length, input.preferredPracticeWindows);
+  }
+
+
 
   // Same-event fan detection (Sprint 1 fix): if the top candidate has no
   // sibling from a *different* event, it still qualifies as a dominant
@@ -345,66 +361,89 @@ function makeBoardProtectSlot(index: 1): SlotAllocation["slots"][number] {
 }
 
 /**
- * LIGHT DAY three-slot recovery arc.
+ * LIGHT DAY three-slot arc.
  *
+ * Zero meetings, or one LOW-stakes meeting:
  *   slot 0 — set the recovery intention
  *   slot 1 — hold it steady through the day
  *   slot 2 — protect what was recovered
  *
- * When the day holds exactly ONE prep-worthy commitment (board, high-stakes
- * external, travel — judged upstream on the canonical A–H scale), the slot
- * that precedes it becomes a preparation slot anchored to that event. The
- * day is still a light day; the preparation just rides one of the three
- * existing slots and never adds a fourth.
+ * Exactly ONE high-stakes commitment (board / investor / high-influence /
+ * travel — judged upstream on the canonical A–H scale) turns the day into a
+ * meeting-anchored arc built around that single event:
+ *   slot 0 — prepare for it
+ *   slot 1 — hold state through it
+ *   slot 2 — debrief it and protect the recovery the day was for
+ * The day stays a light day; the arc still never exceeds three slots.
  */
 function buildLightDayResult(
   ranked: RankedJitCandidate[],
-  input: SlotAllocationInput,
+  _input: SlotAllocationInput,
 ): SlotAllocation {
-  const prep = ranked.find((c) =>
-    c.phase === "pre" &&
-    (c.categoryId === "A" || c.categoryId === "B" || c.categoryId === "C" ||
-      c.categoryId === "G")
-  ) ?? null;
+  const isHighStakesCategory = (c: RankedJitCandidate) =>
+    c.categoryId === "A" || c.categoryId === "B" || c.categoryId === "C" ||
+    c.categoryId === "G";
+  const anchor = ranked.find(isHighStakesCategory) ?? null;
 
-  const slots: SlotAllocation["slots"] = [
-    makeLightDaySlot(0, "start_of_day", "Prepare", "light_day_recovery_intention"),
-    makeLightDaySlot(1, "state_anchor", "Steady", "light_day_recovery_hold"),
-    makeLightDaySlot(2, "protect_tonight", "Recover", "light_day_recovery_protect"),
-  ];
-
-  if (prep) {
-    // Preparation rides the slot BEFORE the commitment: morning meetings are
-    // prepared in slot 0, everything later in slot 1. Slot 2 always stays
-    // with protection so the day still closes on recovery.
-    const idx: 0 | 1 = (input.mrsWindow === "afternoon" ||
-        input.mrsWindow === "evening")
-      ? 1
-      : 0;
-    slots[idx] = {
-      index: idx,
-      slotRole: "pre",
-      arcLabel: "Prepare",
-      jitPhase: "pre",
-      jitEventTitle: prep.title ?? null,
-      jitEventId: prep.eventId ?? null,
-      jitCategoryId: prep.categoryId,
-      allocationReason: "light_day_single_commitment_prep",
-    };
+  if (!anchor) {
+    return finishLightDayResult(
+      [
+        makeLightDaySlot(0, "start_of_day", "Prepare", "light_day_recovery_intention"),
+        makeLightDaySlot(1, "state_anchor", "Steady", "light_day_recovery_hold"),
+        makeLightDaySlot(2, "protect_tonight", "Recover", "light_day_recovery_protect"),
+      ],
+      false,
+      ranked.length,
+    );
   }
 
+  const anchorTitle = anchor.title ?? null;
+  const anchorEventId = anchor.eventId ?? null;
+  const anchorCategory = anchor.categoryId;
+  const anchored = (
+    index: 0 | 1 | 2,
+    slotRole: SlotRole,
+    arcLabel: "Prepare" | "During" | "Recover" | "Steady",
+    jitPhase: "pre" | "during" | "post",
+    allocationReason: string,
+  ): SlotAllocation["slots"][number] => ({
+    index,
+    slotRole,
+    arcLabel,
+    jitPhase,
+    jitEventTitle: anchorTitle,
+    jitEventId: anchorEventId,
+    jitCategoryId: anchorCategory,
+    allocationReason,
+  });
+
+  const slots: SlotAllocation["slots"] = [
+    anchored(0, "pre", "Prepare", "pre", "light_day_single_commitment_prep"),
+    anchored(1, "during", "During", "during", "light_day_single_commitment_hold"),
+    anchored(2, "post", "Recover", "post", "light_day_single_commitment_debrief"),
+  ];
+
+  return finishLightDayResult(slots, true, ranked.length);
+}
+
+function finishLightDayResult(
+  slots: SlotAllocation["slots"],
+  anchored: boolean,
+  candidateCount: number,
+): SlotAllocation {
+  const mode: SlotMode = anchored ? "full_arc" : "state";
   return {
     dayShape: "light_day",
-    mode: prep ? "jit+state" : "state",
-    allocationReason: prep
-      ? "light_day_recovery_arc_with_prep"
+    mode,
+    allocationReason: anchored
+      ? "light_day_single_commitment_arc"
       : "light_day_recovery_arc",
     slots,
     debug: {
       dayShape: "light_day",
-      mode: prep ? "jit+state" : "state",
-      candidateCount: ranked.length,
-      multiPhaseEligible: false,
+      mode,
+      candidateCount,
+      multiPhaseEligible: anchored,
       sameEventFan: false,
     },
   };
