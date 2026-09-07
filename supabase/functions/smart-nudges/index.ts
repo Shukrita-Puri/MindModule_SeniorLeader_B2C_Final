@@ -6728,45 +6728,63 @@ serve(async (req) => {
       const activeSlot = currentSlotForLocalHour(localHour);
 
       // ══════════════════════════════════════════════════
-      // ── LIGHT DAY CADENCE: exactly one nudge, at the user's time ──
+      // ── LIGHT DAY CADENCE: Morning + Evening, at the user's times ──
       // Applies to light working days (0–1 meeting), weekends, holidays
       // and PTO — but NEVER to the last day of a run, which keeps the
-      // existing week-ahead cadence.
+      // existing week-ahead cadence. A high-stakes afternoon commitment
+      // ADDS an anchored afternoon send; a high-stakes morning / evening
+      // commitment REPLACES that window's recovery send.
       // ══════════════════════════════════════════════════
       if (ctx.lightDay?.isLightDay) {
-        const target = resolveLightDayTarget(ctx, prefBriefTiming);
+        const { sends, cap } = resolveLightDaySends({
+          kind: ctx.lightDay.kind,
+          prepMeeting: ctx.lightDay.prepMeeting,
+          briefTiming: prefBriefTiming,
+        });
         const nowLocal = localHour + localMinute / 60;
         // The light-day cap counts USER-VISIBLE pushes only. Silent
         // background pushes (early-morning sync, content-available) are
         // logged with delivery_state 'accepted' and would otherwise
-        // consume the single light-day slot before any nudge is
-        // evaluated — which is why light days went silent.
+        // consume light-day sends before any nudge is evaluated.
         const visibleSendsToday = (todayLogs || []).filter((l) =>
           !String(l.notification_type ?? "").startsWith("early_morning_sync")
         ).length;
-        if (visibleSendsToday >= LIGHT_DAY_NOTIFICATION_CAP) {
+        if (visibleSendsToday >= cap) {
           trace(userId, "light_day_cap", {
             ...traceBase,
             metadata: { ...traceBase.metadata,
               light_day_kind: ctx.lightDay.kind,
               count: visibleSendsToday,
               raw_log_count: todayLogs?.length ?? 0,
-              cap: LIGHT_DAY_NOTIFICATION_CAP,
+              cap,
             },
           });
           continue;
         }
-        if (activeSlot !== target.slot || nowLocal < target.earliestHour) {
+        const target = sends.find((s) => s.slot === activeSlot) ?? null;
+        if (!target || nowLocal < target.earliestHour) {
           trace(userId, "light_day_not_in_window", {
             ...traceBase,
             metadata: { ...traceBase.metadata,
               light_day_kind: ctx.lightDay.kind,
               light_day_reason: ctx.lightDay.reason,
-              target_slot: target.slot,
-              target_earliest_hour: target.earliestHour,
-              target_reason: target.reason,
+              allowed_slots: sends.map((s) => s.slot),
+              target_earliest_hour: target?.earliestHour ?? null,
+              target_reason: target?.reason ?? "slot_not_allowed",
               active_slot: activeSlot,
               local_time: nowLocal,
+              cap,
+            },
+          });
+          continue;
+        }
+        // One send per window: an already-spent slot must not fire twice.
+        if (sentSlotsToday.has(activeSlot)) {
+          trace(userId, "light_day_slot_already_sent", {
+            ...traceBase,
+            metadata: { ...traceBase.metadata,
+              light_day_kind: ctx.lightDay.kind,
+              active_slot: activeSlot,
             },
           });
           continue;
@@ -6778,6 +6796,8 @@ serve(async (req) => {
             target_slot: target.slot,
             target_earliest_hour: target.earliestHour,
             target_reason: target.reason,
+            anchored: target.anchored,
+            cap,
           },
         });
       }
