@@ -730,8 +730,11 @@ Deno.serve(async (req) => {
     const body: any = await req.clone().json().catch(() => ({}));
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-    const isServiceRoleCall = !!serviceKey &&
-      (bearer === serviceKey || req.headers.get("apikey") === serviceKey);
+    const cronSharedSecret = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+    const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
+    const isServiceRoleCall = (!!serviceKey &&
+      (bearer === serviceKey || req.headers.get("apikey") === serviceKey)) ||
+      (!!cronSharedSecret && cronSecretHeader === cronSharedSecret);
     const bodyUserId = typeof body?.userId === "string" ? body.userId.trim() : "";
 
     let userId: string;
