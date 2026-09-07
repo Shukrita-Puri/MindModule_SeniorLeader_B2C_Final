@@ -1111,7 +1111,9 @@ Deno.serve(async (req) => {
 ### REVISION REQUIRED
 A previous attempt was rejected for insufficient depth. Failing checks: ${problems.join(", ")}.
 Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reason from the selected chips, goals and any free text — infer the operating pattern they imply and label it as inference. Do not emit placeholders, "unknown", "not specified" or a pending shell. The display_html must contain all eight sections in full prose.`;
-      const retry = await callModel(modelUsed, stricterPrompt);
+      // Retry on the fast model: the primary already spent most of the wall
+      // clock, and the retry only needs to fill the flagged gaps.
+      const retry = await callModel(AI_MODEL_FALLBACK, stricterPrompt);
       if (retry.profile) {
         const retryProblems = validateCosProfile(retry.profile);
         if (retryProblems.length < problems.length) {
