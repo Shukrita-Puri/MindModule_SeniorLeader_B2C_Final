@@ -147,3 +147,27 @@ Deno.test("slot-cap reconstruction prefers persisted delivery slot over family-n
     "notification payload metadata must also persist the actual delivery slot",
   );
 });
+
+// v2026-09-07 (R5): nudge anchors respect event priority — a "never"-marked
+// event type can never be selected as an anchor, and learned-important types
+// sort first. Source-level assertion (index.ts calls serve() at module scope).
+Deno.test("nudge anchors drop never-marked events and prefer important ones", () => {
+  assert(
+    /const highStakesEvents = applyEventPriorityToAnchors\(/.test(SRC),
+    "high-stakes anchor pool must pass through applyEventPriorityToAnchors",
+  );
+  assert(
+    /kept\.filter\(\(e\) => !view\.neverKeys\.has\(keyOf\(e\)\)\)|const kept = events\.filter\(\(e\) => !view\.neverKeys\.has\(keyOf\(e\)\)\)/
+      .test(SRC),
+    "never-marked event types must be filtered out of the anchor pool",
+  );
+  assert(
+    /const important = kept\.filter\(\(e\) => view\.importantKeys\.has\(keyOf\(e\)\)\)/
+      .test(SRC),
+    "learned-important event types must sort ahead of the rest",
+  );
+  assert(
+    /from\("event_priority_derived"\)/.test(SRC),
+    "nudges must read the durable derived priority verdict",
+  );
+});
