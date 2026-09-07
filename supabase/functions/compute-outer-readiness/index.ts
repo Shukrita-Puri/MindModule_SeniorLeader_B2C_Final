@@ -26,6 +26,82 @@ import {
 import { type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import { primeLearningContext } from "../_shared/events/learning-store.ts";
+// v2026-09-07 — user-taught event importance. Same two sources the Plan and
+// Smart Nudges read, so "never mention this" / "this matters" is one truth.
+import {
+  loadPriorityMemoryForUser,
+  normalizeEventTitleMemoryKey,
+} from "../_shared/plan/event-priority-memory.ts";
+
+/** Titles the user has told us to ignore, and titles they marked important. */
+interface BriefEventPriorityView {
+  neverKeys: Set<string>;
+  importantKeys: Set<string>;
+}
+const EMPTY_BRIEF_PRIORITY_VIEW: BriefEventPriorityView = {
+  neverKeys: new Set<string>(),
+  importantKeys: new Set<string>(),
+};
+
+/**
+ * Load the user's taught event importance for the Brief. Reads the same two
+ * stores the Plan uses: `event_priority_memory` (explicit taps) and
+ * `event_priority_derived` (the durable rolled-up verdict). Fails open — a
+ * read error must never block a brief.
+ */
+async function loadEventPriorityViewForBrief(
+  db: any,
+  userId: string,
+): Promise<BriefEventPriorityView> {
+  const neverKeys = new Set<string>();
+  const importantKeys = new Set<string>();
+  try {
+    const index = await loadPriorityMemoryForUser(db, userId);
+    for (const rows of index.rowsByKey.values()) {
+      for (const r of rows) {
+        const key = String(r.event_type_key || "").toLowerCase();
+        if (!key) continue;
+        if (r.signal === "never") neverKeys.add(key);
+        else if (r.signal === "priority") importantKeys.add(key);
+      }
+    }
+    const { data: derivedRows } = await db
+      .from("event_priority_derived")
+      .select("event_type_key, net_importance, permanent_flag")
+      .eq("user_id", userId);
+    for (const r of derivedRows ?? []) {
+      const key = String(r?.event_type_key || "").toLowerCase();
+      if (!key) continue;
+      if (r?.permanent_flag === true) neverKeys.add(key);
+      else if (Number(r?.net_importance ?? 0) > 0) importantKeys.add(key);
+    }
+  } catch (e) {
+    console.warn(
+      "[compute-outer-readiness] event priority view load skipped:",
+      (e as Error)?.message,
+    );
+    return EMPTY_BRIEF_PRIORITY_VIEW;
+  }
+  return { neverKeys, importantKeys };
+}
+
+/**
+ * Apply taught importance to the titles the Brief is allowed to name:
+ * "never" titles are dropped outright, titles marked important sort first.
+ * Order is otherwise preserved (canonical stakes ranking stays intact).
+ */
+export function applyEventPriorityToBriefTitles(
+  titles: string[],
+  view: BriefEventPriorityView,
+): string[] {
+  if (!titles.length) return titles;
+  const keyOf = (t: string) =>
+    normalizeEventTitleMemoryKey(t || "").toLowerCase();
+  const kept = titles.filter((t) => !view.neverKeys.has(keyOf(t)));
+  const important = kept.filter((t) => view.importantKeys.has(keyOf(t)));
+  const rest = kept.filter((t) => !view.importantKeys.has(keyOf(t)));
+  return [...important, ...rest];
+}
 /** All A–H reads come off the EnrichedEvent returned by enrichEvent(). */
 const enrichOf = (input: ResolveEventInput) =>
   enrichEvent(typeof input === "string" ? { title: input } : (input ?? { title: "" }));
