@@ -423,19 +423,27 @@ function buildLightDayResult(
     anchored(2, "post", "Recover", "post", "light_day_single_commitment_debrief"),
   ];
 
+  return finishLightDayResult(slots, true, ranked.length);
+}
 
+function finishLightDayResult(
+  slots: SlotAllocation["slots"],
+  anchored: boolean,
+  candidateCount: number,
+): SlotAllocation {
+  const mode: SlotMode = anchored ? "full_arc" : "state";
   return {
     dayShape: "light_day",
-    mode: prep ? "jit+state" : "state",
-    allocationReason: prep
-      ? "light_day_recovery_arc_with_prep"
+    mode,
+    allocationReason: anchored
+      ? "light_day_single_commitment_arc"
       : "light_day_recovery_arc",
     slots,
     debug: {
       dayShape: "light_day",
-      mode: prep ? "jit+state" : "state",
-      candidateCount: ranked.length,
-      multiPhaseEligible: false,
+      mode,
+      candidateCount,
+      multiPhaseEligible: anchored,
       sameEventFan: false,
     },
   };
