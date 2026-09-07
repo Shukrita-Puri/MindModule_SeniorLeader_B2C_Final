@@ -6014,6 +6014,13 @@ async function generateMasteryPlan(
     }
   );
 
+  // v2026-09-07 (R6): persist the JIT v2 prioritisation so the ranking that
+  // drives the plan is auditable outside the engine. One row set per user per
+  // run — the previous run's rows are replaced, so the table shows current
+  // truth. Non-fatal: a write failure never blocks plan generation.
+  await persistJitV2Selection(supabaseClient, req.userId, preferredSelectResult);
+
+
   // 4. Score calendar events from the shared selector only. Legacy scoring is
   // retained in-source for historical compatibility but is not part of the
   // live plan runtime anymore.
