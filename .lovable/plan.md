@@ -2,6 +2,16 @@
 
 Target: from whatever the user gives us in v8 onboarding, produce a profile with the depth of the Rishad example — leadership style with tags, how they think and talk, what lands / what won't, external persona, cognitive risk flags, what's missing, provisional archetype — degrading honestly when the inputs are thin. Stored so it can be sent as an email later without regeneration.
 
+## Safety constraints (two days from launch)
+
+- Scope is v8 onboarding data hygiene and COS profile formation/storage only. Nothing else changes.
+- No UI, copy or screen changes anywhere, including the onboarding screens. The onboarding flow, its order, its validation and its guards stay exactly as they are.
+- Only two server functions are edited — the COS synthesis itself and the completion step's COS-derived field writes. Every other function is untouched, including the background sweep: instead of changing the sweep, the synthesis function is made able to accept the call it already receives.
+- No change to any surface that reads the profile (Brief, Plan, Nudges, Insights, Coach) — they keep reading the same fields and simply start receiving correct values instead of blanks.
+- One additive migration (three new columns on the onboarding table). No column is altered, renamed or dropped, and no existing table other than that one is touched.
+- Anything that would reach outside this list is stopped and flagged rather than done.
+
+
 ## What the audit found (verified against the live database and code)
 
 Eleven people have an onboarding row. Five never got a profile, six have one. Five real problems.
@@ -41,7 +51,7 @@ Chips, goals, weekend preference, calendar and wearable selections, and home cou
 
 ### B. Stop completion blanking the profile
 
-Completion no longer writes archetype/identity fields when no generated profile exists, so it cannot overwrite good values with nulls. Synthesis is requested before completion so the profile is present when completion reads it.
+Completion no longer writes archetype/identity fields when no generated profile exists, so it cannot overwrite good values with nulls. The onboarding screens and their order are not touched; the profile lands correctly because the synthesis write is fixed and completion no longer overwrites it.
 
 ### C. Raise the profile to the target depth
 
@@ -61,9 +71,9 @@ Completion no longer writes archetype/identity fields when no generated profile 
 - Keep the full profile JSON and the rendered HTML on the onboarding row (both already exist), and additionally store an email-ready HTML version with the styles inlined and the in-app-only button removed, plus a plain-text fallback and a short subject line drawn from the archetype.
 - These are new columns on the existing onboarding table, so a later send is a lookup, not a regeneration. No email provider, key or send is added in this piece of work; when we do it, `no-reply@mindmodule.me` is the from-address.
 
-### F. Fix the recovery sweep
+### F. Make the existing recovery sweep work
 
-Synthesis accepts a service-role call that names the user, and the sweep also picks up users who have answers but never completed, so abandoned sign-ups are recovered.
+The sweep function itself is not edited. The synthesis function is made able to resolve the user from the service-role call the sweep already sends, so the existing safety net starts recovering people instead of silently failing.
 
 ### G. Repair and regenerate existing users
 
@@ -72,12 +82,12 @@ Synthesis accepts a service-role call that names the user, and the sweep also pi
 
 ### H. Checks
 
-Extend existing test files (no new ones): the personalisation write uses column-correct types; completion does not null an existing archetype; a placeholder-heavy response is rejected; the email-ready HTML is produced whenever a profile is stored; a service-role sweep call resolves the right user.
+Extend existing test files (no new ones): the personalisation write uses column-correct types; completion does not null an existing archetype; a placeholder-heavy response is rejected; the email-ready HTML is produced whenever a profile is stored; a service-role call resolves the right user. The existing onboarding validation and archetype suites must stay green.
 
 ## Technical notes
 
-- Files touched: `supabase/functions/synthesize-cos-profile/index.ts`, `complete-onboarding/index.ts`, `sync-calendar-scheduled/index.ts`, `src/pages/onboarding/stages/v8/StageDone.tsx`, plus assertions in `src/__tests__/archetypeSourceLabelContract.test.ts`.
-- One migration: add `cos_profile_email_html`, `cos_profile_email_text`, `cos_profile_email_subject` to `onboarding_v8_responses` (service-role write, owner read — same policy as the existing profile columns). `cos_profile_status` is free text, so `needs_input` needs no schema change.
+- Files edited: `supabase/functions/synthesize-cos-profile/index.ts` and `supabase/functions/complete-onboarding/index.ts` only, plus assertions in `src/__tests__/archetypeSourceLabelContract.test.ts`. No frontend file changes.
+- One additive migration: add `cos_profile_email_html`, `cos_profile_email_text`, `cos_profile_email_subject` to `onboarding_v8_responses` (service-role write, owner read — matching the existing profile columns). `cos_profile_status` is free text, so `needs_input` needs no schema change.
 - The uploaded example is used as the prompt and HTML reference only; it is not added to the app as an asset.
 
 ## Out of scope
