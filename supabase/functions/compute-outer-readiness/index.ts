@@ -4761,7 +4761,21 @@ serve(async (req) => {
             }).leadTimeMin ?? 90;
             return minsUntil >= 0 && minsUntil <= leadTimeMin;
           });
-          const lead = selectLeadEvent(candidates as any);
+          // v2026-09-07 — when the user has explicitly marked an upcoming
+          // event type as important, the Brief anchors on that rather than on
+          // the generic stakes winner. "Never" titles were already dropped
+          // upstream with todayHighStakes.
+          const importantCandidates = (candidates as any[]).filter((ev: any) =>
+            briefEventPriorityView.importantKeys.has(
+              normalizeEventTitleMemoryKey(String(ev?.title ?? ""))
+                .toLowerCase(),
+            )
+          );
+          const lead = selectLeadEvent(
+            (importantCandidates.length > 0
+              ? importantCandidates
+              : candidates) as any,
+          );
           if (lead) {
             const mins = Math.round(
               (new Date(lead.event.start_time).getTime() - now.getTime()) /
