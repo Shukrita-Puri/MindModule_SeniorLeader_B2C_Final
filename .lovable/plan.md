@@ -74,13 +74,14 @@ It does not. The brief reads `relationship_pattern` from `user_coach_insights`, 
 
 ### Fix
 
-1. `_shared/attendeeResolverQueue.ts` — read both shapes: use `signals.attendees` when `attendeeSignals` is an object, keep array support for older rows. Add a unit test with a real Google-shaped metadata row.
-2. `generate-mastery-plan` — collect attendee emails from `event_metadata.attendeeSignals.attendees` (reuse the existing extractor in `load-jit-context.ts` rather than a second copy), so the lazy backstop has candidates.
+1. `_shared/attendeeResolverQueue.ts` — replace the `Array.isArray` guard with a dual-shape reader: object with an `attendees` array → use it; plain array (legacy rows) → use as-is; anything else → skip. Add a unit test with a real Google-shaped metadata row.
+2. `generate-mastery-plan` — fix the lazy backstop to collect emails from `event_metadata.attendeeSignals.attendees`, reusing the existing extractor in `load-jit-context.ts` rather than a second copy.
 3. Trigger one calendar sync afterwards and confirm rows appear in both tables, and that at least one role resolves above the domain heuristic.
-4. Leave caps, TTL, sovereignty of `user_tag`, and the resolver's own chain untouched.
+4. Untouched: resolver chain internals, the Firecrawl step (left in place exactly as-is pending a separate decision), caps, 90-day TTL, `user_tag` sovereignty, `record-event-priority-signal`.
 
 ## Technical notes
 
-- Files touched: `supabase/functions/_shared/attendeeResolverQueue.ts`, `supabase/functions/generate-mastery-plan/index.ts`, `supabase/functions/compute-outer-readiness/index.ts`, plus tests.
-- No migration, no new table, no new shared module.
-- Deploy: `sync-calendar`, `sync-apple-calendar`, `generate-mastery-plan`, `compute-outer-readiness`. Behaviour is identical on iOS and web — all of it is server-side.
+- Files touched: `supabase/functions/_shared/attendeeResolverQueue.ts`, `supabase/functions/generate-mastery-plan/index.ts`, `supabase/functions/compute-outer-readiness/index.ts`, plus existing test suites.
+- No migration, no new table, no new module, no UI.
+- Deploy order: `sync-calendar`, `sync-apple-calendar`, `generate-mastery-plan`, `compute-outer-readiness`. All server-side — identical on iOS and web.
+
