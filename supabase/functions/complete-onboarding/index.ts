@@ -11,6 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { sanitizePayload, validateForCompletion } from "../_shared/onboardingV8Validation.ts";
+import { resolveArchetypeSlug } from "../_shared/archetype-slug.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -174,12 +175,29 @@ Deno.serve(async (req) => {
       if (goals.length > 0) {
         updateData.protection_goals = goals;
       }
-      updateData.user_archetype = cosProfile?.provisional_archetype?.name ?? null;
-      updateData.archetype_title = cosProfile?.provisional_archetype?.subtitle ?? null;
-      updateData.archetype_description = cosProfile?.provisional_archetype?.description ?? null;
-      updateData.identity_role = cosProfile?.identity?.role ?? null;
-      updateData.biggest_pressure = cosProfile?.cognitive_load_map?.primary_depletion_pattern ?? null;
-      updateData.onboarding_insight = cosProfile?.communication_profile?.cos_brief_rules ?? null;
+      // v2026-09-07 — completion runs before the COS profile exists for most
+      // users. Writing these fields unconditionally overwrote a good generated
+      // profile with nulls, and stored the free-text archetype name where the
+      // rest of the system matches on the canonical slug. Only write when the
+      // generated profile actually carries the value.
+      const archetypeSlug = resolveArchetypeSlug(
+        cosProfile?.provisional_archetype?.canonical_slug ??
+          cosProfile?.provisional_archetype?.name ?? null,
+      );
+      if (archetypeSlug) updateData.user_archetype = archetypeSlug;
+      const archetypeTitle = cosProfile?.provisional_archetype?.name ??
+        cosProfile?.provisional_archetype?.subtitle ?? null;
+      if (archetypeTitle) updateData.archetype_title = archetypeTitle;
+      if (cosProfile?.provisional_archetype?.description) {
+        updateData.archetype_description = cosProfile.provisional_archetype.description;
+      }
+      if (cosProfile?.identity?.role) updateData.identity_role = cosProfile.identity.role;
+      if (cosProfile?.cognitive_load_map?.primary_depletion_pattern) {
+        updateData.biggest_pressure = cosProfile.cognitive_load_map.primary_depletion_pattern;
+      }
+      if (cosProfile?.communication_profile?.cos_brief_rules) {
+        updateData.onboarding_insight = cosProfile.communication_profile.cos_brief_rules;
+      }
 
       // Write preferred_practice_window
       const prefWindow = typeof v8Row.preferred_practice_window === 'string'

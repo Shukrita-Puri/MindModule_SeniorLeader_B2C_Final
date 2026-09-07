@@ -4276,8 +4276,11 @@ export type Database = {
           calendar_selections: string[]
           completed_at: string | null
           cos_profile: Json | null
+          cos_profile_email_html: string | null
           cos_profile_email_scheduled_at: string | null
           cos_profile_email_sent_at: string | null
+          cos_profile_email_subject: string | null
+          cos_profile_email_text: string | null
           cos_profile_error: string | null
           cos_profile_generated_at: string | null
           cos_profile_html: string | null
@@ -4308,8 +4311,11 @@ export type Database = {
           calendar_selections?: string[]
           completed_at?: string | null
           cos_profile?: Json | null
+          cos_profile_email_html?: string | null
           cos_profile_email_scheduled_at?: string | null
           cos_profile_email_sent_at?: string | null
+          cos_profile_email_subject?: string | null
+          cos_profile_email_text?: string | null
           cos_profile_error?: string | null
           cos_profile_generated_at?: string | null
           cos_profile_html?: string | null
@@ -4340,8 +4346,11 @@ export type Database = {
           calendar_selections?: string[]
           completed_at?: string | null
           cos_profile?: Json | null
+          cos_profile_email_html?: string | null
           cos_profile_email_scheduled_at?: string | null
           cos_profile_email_sent_at?: string | null
+          cos_profile_email_subject?: string | null
+          cos_profile_email_text?: string | null
           cos_profile_error?: string | null
           cos_profile_generated_at?: string | null
           cos_profile_html?: string | null

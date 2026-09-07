@@ -6,15 +6,16 @@ import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-mm-client-platform",
+    "authorization, x-client-info, apikey, content-type, x-cron-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-mm-client-platform",
 };
 
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-3.1-flash-lite";
-// Two-model consolidation: single attempt on the primary model. The retry leg
-// below re-uses the same model (no cross-provider fallback).
-const AI_MODEL_FALLBACK = "google/gemini-3.1-flash-lite";
+// v2026-09-07 — this call runs once per user and the output is the leader's
+// entire personalisation substrate, so quality outranks cost here. The retry
+// leg drops to the fast Flash model only if the primary is rate-limited.
+const AI_MODEL = "google/gemini-3.1-pro-preview";
+const AI_MODEL_FALLBACK = "google/gemini-3.8-flash";
 
 type CosFallbackArgs = {
   userId: string;
@@ -300,23 +301,38 @@ async function firecrawlScrape(apiKey: string, url: string): Promise<{ ok: boole
   }
 }
 
-const SYSTEM_PROMPT = `You are an expert analyst building a Chief of Staff for the Mind (COS) intelligence profile for a senior executive. Your role is to synthesise onboarding inputs into a structured, actionable profile that the app uses to personalise daily briefs, Readiness Assessments, Prepare protocols, and Recalibrate recommendations.
+// v2026-09-07 — depth contract. The reference profile (Rishad) is ~12k of HTML
+// with eight sections; earlier output collapsed to ~600 chars of placeholders.
+// The prompt now states the required sections, the minimum substance per
+// section, and how to reason from chips alone when free text is absent.
+const SYSTEM_PROMPT = `You are an expert analyst building a Chief of Staff for the Mind (COS) intelligence profile for a senior executive. Your role is to synthesise onboarding inputs into a structured, actionable profile that the app uses to personalise daily briefs, Readiness Assessments, Prepare protocols, and Recalibrate recommendations. The same profile is also sent to the leader as a written document, so it must read as a considered, complete piece of analysis — not a form.
 
 Output must be:
 - Operational and precise, never generic
 - Performance-coded, never wellness-coded (say "cognitive load" not "stress", "recovery deficit" not "burnout", "regulation gap" not "anxiety")
-- Honest about what is known vs provisional vs missing
-- Structured for both app consumption (JSON fields) and in-app display (HTML)
+- Honest about what is known vs inferred vs missing
+- Structured for both app consumption (JSON fields) and display (HTML)
 
 You are writing for a CEO-level user. Tone: highly intelligent, discreet chief of staff. Direct. Economical. High signal. Never sounds like coaching, therapy, or personality assessment.
 
+DEPTH CONTRACT — every profile must contain all of the following, with real content:
+1. Identity — role, sector, organisation stage, leadership stage. When these are not evidenced, describe the operating position that the declared high-stakes events and burdens imply (e.g. "operates at board and investor interface; capital-raising cycle"). NEVER emit placeholders such as "[Role]", "[Sector]", "Unknown", "Not specified", "N/A", "User", "Executive".
+2. Leadership style — 3-5 short style tags plus at least two substantial paragraphs of analysis.
+3. Communication profile — how they think, how they communicate, and a register note. At least 4 distinct "what lands" items and 4 distinct "what won't land" items, each a full sentence with a reason.
+4. Cognitive risk profile — 3-4 risk flags, each with a severity of exactly one of: teal (strength), amber (watch), red (material risk); each with a description and the conditions that trigger it.
+5. External persona — how they are positioned externally. When there is no external source, say so plainly and describe the positioning their declared context implies.
+6. High-stakes map and cognitive load map — declared items verbatim, plus inferred items reasoned from the combination.
+7. What is missing — 3-5 numbered gaps, each naming the specific signal that would lift confidence.
+8. Provisional archetype — a memorable name, a one-line signature (e.g. "High output · high self-awareness · delayed fatigue signal"), a paragraph of description, and the canonical_slug that best matches.
+
+REASONING FROM THIN INPUT: most users provide chips and goals only. That is enough for a real profile. Reason from the COMBINATION — the pairing of high-stakes event types, load drivers, operating burdens and protection goals describes an operating pattern. State clearly which conclusions are inference from selections rather than evidence, using the confidence fields and what_is_missing. Never pad, never fabricate specifics (no invented employers, numbers, quotes or biography), and never return a "profile pending" shell.
+
 Critical rules:
-- If freetext contains DISC / Enneagram / archetype / self-assessment, treat as PRIMARY SOURCE — overrides inferred traits. Flag where LinkedIn/writing confirms or diverges.
+- If freetext contains DISC / Enneagram / archetype / self-assessment, treat as PRIMARY SOURCE — overrides inferred traits.
 - LinkedIn: extract role, sector, trajectory, board exposure, positioning, communication signals. Do not infer emotional states from job titles.
 - Writing/interviews: richest source for cognitive style and how the COS should speak to them.
-- Be honest about confidence. Avoid false certainty.
-- If LinkedIn or writing missing, explicitly list gaps in what_is_missing. Never fabricate.
-- display_html must follow the Rishad COS profile format with classes: .hero, .section, .sec-label, .card, .card-body, .tag, .two-col, .lean-item, .flag, .flag-amber, .flag-red, .flag-teal, .quote, .missing-item.
+- confidence_overall must be exactly one of: high, medium, low, very_low.
+- display_html must render all eight sections above using these classes only: .hero, .hero-tag, .hero-name, .hero-sub, .conf-row, .conf-pill, .conf-dot, .section, .sec-label, .card, .card-title, .card-body, .tag, .tag-p, .tag-t, .tag-a, .tag-r, .tag-g, .two-col, .lean-label, .lean-label.green, .lean-label.red, .lean-item, .lean-dot, .ld-g, .ld-a, .ld-r, .lean-text, .flag, .flag-amber, .flag-red, .flag-teal, .flag-body, .quote, .missing-item. No <style> block, no <script>, no buttons, no inline event handlers.
 
 You MUST call the tool "emit_cos_profile" exactly once with the structured profile. Do not return prose.`;
 
@@ -523,8 +539,13 @@ const COS_TOOL = {
         "leadership_style",
         "communication_profile",
         "cognitive_risk_profile",
+        "external_persona",
+        "high_stakes_map",
+        "cognitive_load_map",
         "goals",
         "brief_personalisation",
+        "provisional_archetype",
+        "what_is_missing",
         "display_html",
       ],
       additionalProperties: false,
@@ -532,22 +553,205 @@ const COS_TOOL = {
   },
 };
 
+// ── v2026-09-07 quality gate + email-ready rendering ───────────────
+// Nothing hollow is allowed to be stored as "ready". A failing profile gets one
+// stricter retry; if it still fails it is stored as "needs_input" with the
+// reasons, so the surfaces can tell "thin" apart from "good".
+
+const PLACEHOLDER_PATTERN =
+  /(\[[a-z_ -]{2,}\]|profile initialization pending|not specified|not provided|unknown|n\/a|to be determined|tbd|lorem ipsum)/i;
+
+const CONFIDENCE_VALUES = ["high", "medium", "low", "very_low"] as const;
+type ConfidenceValue = (typeof CONFIDENCE_VALUES)[number];
+
+function normalizeConfidence(raw: unknown): ConfidenceValue {
+  const v = String(raw ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (v.includes("very") && v.includes("low")) return "very_low";
+  if (v.startsWith("high") || v.includes("strong")) return "high";
+  if (v.startsWith("med") || v.includes("moderate") || v.includes("provisional")) return "medium";
+  if (v.startsWith("low") || v.includes("limited") || v.includes("thin")) return "low";
+  return "medium";
+}
+
+function textLen(v: unknown): number {
+  return typeof v === "string" ? v.trim().length : 0;
+}
+
+function arrLen(v: unknown): number {
+  return Array.isArray(v) ? v.filter((x) => x != null && String(x).trim().length > 0).length : 0;
+}
+
+/** Returns the list of unmet depth requirements. Empty array = passes. */
+function validateCosProfile(profile: any): string[] {
+  const problems: string[] = [];
+  if (!profile || typeof profile !== "object") return ["no_profile_object"];
+
+  const identity = profile.identity ?? {};
+  for (const field of ["role", "sector"]) {
+    const value = String(identity[field] ?? "").trim();
+    if (value.length < 3) problems.push(`identity.${field}_missing`);
+    else if (PLACEHOLDER_PATTERN.test(value)) problems.push(`identity.${field}_placeholder`);
+  }
+
+  const style = profile.leadership_style ?? {};
+  if (arrLen(style.style_tags) < 3) problems.push("leadership_style.style_tags_thin");
+  if (textLen(style.style_description) < 300) problems.push("leadership_style.style_description_thin");
+
+  const comms = profile.communication_profile ?? {};
+  if (textLen(comms.how_they_think) < 120) problems.push("communication_profile.how_they_think_thin");
+  if (arrLen(comms.what_lands) < 4) problems.push("communication_profile.what_lands_thin");
+  if (arrLen(comms.what_wont_land) < 4) problems.push("communication_profile.what_wont_land_thin");
+
+  const risk = profile.cognitive_risk_profile ?? {};
+  const flags = Array.isArray(risk.risk_flags) ? risk.risk_flags : [];
+  if (flags.length < 3) problems.push("cognitive_risk_profile.risk_flags_thin");
+  if (flags.some((f: any) => !["teal", "amber", "red"].includes(String(f?.severity ?? "").toLowerCase()))) {
+    problems.push("cognitive_risk_profile.severity_invalid");
+  }
+
+  if (textLen(profile.external_persona?.summary) < 100) problems.push("external_persona_thin");
+  if (arrLen(profile.high_stakes_map?.declared_events) + arrLen(profile.high_stakes_map?.inferred_events) < 3) {
+    problems.push("high_stakes_map_thin");
+  }
+  if (arrLen(profile.what_is_missing) < 3) problems.push("what_is_missing_thin");
+
+  const arch = profile.provisional_archetype ?? {};
+  if (textLen(arch.name) < 3) problems.push("provisional_archetype.name_missing");
+  if (textLen(arch.description) < 150) problems.push("provisional_archetype.description_thin");
+
+  const html = typeof profile.display_html === "string" ? profile.display_html : "";
+  if (html.length < 3000) problems.push("display_html_thin");
+  if (PLACEHOLDER_PATTERN.test(html.replace(/not provided by the user/gi, ""))) {
+    problems.push("display_html_placeholder");
+  }
+
+  return problems;
+}
+
+const EMAIL_CLASS_STYLES: Record<string, string> = {
+  hero: "background:#12100E;color:#F4F1EC;padding:28px;border-radius:12px;margin-bottom:24px;",
+  "hero-tag": "font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;",
+  "hero-name": "font-size:26px;font-weight:600;margin:8px 0 4px;",
+  "hero-sub": "font-size:14px;opacity:.8;",
+  "conf-row": "margin-top:14px;font-size:12px;opacity:.85;",
+  "conf-pill": "display:inline-block;padding:3px 10px;border:1px solid rgba(244,241,236,.35);border-radius:999px;margin-right:8px;font-size:11px;",
+  "conf-dot": "display:inline-block;width:7px;height:7px;border-radius:50%;background:#C98B3B;margin-right:6px;",
+  section: "margin:0 0 26px;",
+  "sec-label": "font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A8175;margin-bottom:10px;",
+  card: "border:1px solid #E4DFD6;border-radius:10px;padding:18px;background:#FBFAF7;margin-bottom:12px;",
+  "card-title": "font-size:15px;font-weight:600;color:#201E1B;margin-bottom:8px;",
+  "card-body": "font-size:14px;line-height:1.65;color:#3B3630;",
+  tag: "display:inline-block;padding:3px 10px;border-radius:999px;background:#EEE9DF;color:#4A443B;font-size:11px;margin:0 6px 6px 0;",
+  "tag-p": "display:inline-block;padding:3px 10px;border-radius:999px;background:#E7EDEA;color:#2F4A41;font-size:11px;margin:0 6px 6px 0;",
+  "tag-t": "display:inline-block;padding:3px 10px;border-radius:999px;background:#E4EEEC;color:#27544C;font-size:11px;margin:0 6px 6px 0;",
+  "tag-a": "display:inline-block;padding:3px 10px;border-radius:999px;background:#F6EAD6;color:#7A5620;font-size:11px;margin:0 6px 6px 0;",
+  "tag-r": "display:inline-block;padding:3px 10px;border-radius:999px;background:#F5E1DC;color:#7A3226;font-size:11px;margin:0 6px 6px 0;",
+  "tag-g": "display:inline-block;padding:3px 10px;border-radius:999px;background:#E6EDE3;color:#3A5230;font-size:11px;margin:0 6px 6px 0;",
+  "two-col": "margin:0;",
+  "lean-label": "font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#3A5230;margin:12px 0 6px;",
+  "lean-item": "font-size:14px;line-height:1.6;color:#3B3630;margin-bottom:6px;",
+  "lean-dot": "display:inline-block;width:6px;height:6px;border-radius:50%;background:#8A8175;margin-right:8px;",
+  "ld-g": "background:#4F7A3F;",
+  "ld-a": "background:#C98B3B;",
+  "ld-r": "background:#A8452F;",
+  "lean-text": "font-size:14px;line-height:1.6;color:#3B3630;",
+  flag: "border-left:3px solid #8A8175;padding:10px 14px;margin-bottom:10px;background:#FBFAF7;",
+  "flag-amber": "border-left:3px solid #C98B3B;padding:10px 14px;margin-bottom:10px;background:#FDF7EE;",
+  "flag-red": "border-left:3px solid #A8452F;padding:10px 14px;margin-bottom:10px;background:#FBF1EE;",
+  "flag-teal": "border-left:3px solid #2F6F63;padding:10px 14px;margin-bottom:10px;background:#EFF6F4;",
+  "flag-body": "font-size:14px;line-height:1.6;color:#3B3630;",
+  quote: "border-left:2px solid #C9C2B6;padding-left:14px;font-style:italic;color:#5A544B;margin:12px 0;",
+  "missing-item": "font-size:14px;line-height:1.6;color:#3B3630;margin-bottom:8px;",
+};
+
+function stripUnsafeForEmail(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<button[\s\S]*?<\/button>/gi, "")
+    .replace(/\son[a-z]+="[^"]*"/gi, "");
+}
+
+function inlineEmailStyles(html: string): string {
+  return html.replace(
+    /<([a-z0-9]+)([^>]*?)\sclass="([^"]*)"([^>]*?)>/gi,
+    (_m, tag: string, pre: string, cls: string, post: string) => {
+      const style = cls
+        .split(/\s+/)
+        .map((c) => EMAIL_CLASS_STYLES[c])
+        .filter(Boolean)
+        .join("");
+      const attrs = `${pre}${post}`.replace(/\s+/g, " ").trimEnd();
+      return style ? `<${tag}${attrs ? " " + attrs.trim() : ""} style="${style}">` : `<${tag}${attrs ? " " + attrs.trim() : ""}>`;
+    },
+  );
+}
+
+function htmlToPlainText(html: string): string {
+  return stripUnsafeForEmail(html)
+    .replace(/<\/(p|div|section|li|h1|h2|h3|h4|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;|&rsquo;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Email-ready artefacts stored alongside the profile so a later send is a lookup. */
+function buildEmailArtifacts(profile: any, displayHtml: string): {
+  html: string;
+  text: string;
+  subject: string;
+} {
+  const body = inlineEmailStyles(stripUnsafeForEmail(displayHtml || ""));
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your Chief of Staff profile</title></head><body style="margin:0;padding:24px;background:#F4F1EC;font-family:Georgia,'Times New Roman',serif;color:#201E1B;"><div style="max-width:640px;margin:0 auto;">${body}<p style="font-size:12px;color:#8A8175;margin-top:28px;line-height:1.6;">This profile is provisional. It sharpens as Mind Module observes your calendar, readiness and check-ins.</p></div></body></html>`;
+  const archetypeName = String(profile?.provisional_archetype?.name ?? "").trim();
+  const subject = archetypeName
+    ? `Your Chief of Staff profile: ${archetypeName}`
+    : "Your Chief of Staff profile";
+  return { html, text: htmlToPlainText(displayHtml || ""), subject };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const auth = await authenticateRequest(req, corsHeaders);
-    if (auth.errorResponse) {
-      console.warn("[synthesize-cos] auth_missing — returning 401 from authenticateRequest");
-      return auth.errorResponse;
+    // v2026-09-07 — the background recovery sweep invokes this with the service
+    // role key and { userId } in the body. Previously the user was only ever
+    // read from the caller's token, so every sweep call failed silently.
+    const body: any = await req.clone().json().catch(() => ({}));
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const cronSharedSecret = Deno.env.get("CRON_SHARED_SECRET") ?? "";
+    const cronSecretHeader = req.headers.get("x-cron-secret") ?? "";
+    const isServiceRoleCall = (!!serviceKey &&
+      (bearer === serviceKey || req.headers.get("apikey") === serviceKey)) ||
+      (!!cronSharedSecret && cronSecretHeader === cronSharedSecret);
+    const bodyUserId = typeof body?.userId === "string" ? body.userId.trim() : "";
+
+    let userId: string;
+    if (isServiceRoleCall && bodyUserId) {
+      userId = bodyUserId;
+      console.info(`[synthesize-cos] service-role call for user_id=${redactUserId(userId)}`);
+    } else {
+      const auth = await authenticateRequest(req, corsHeaders);
+      if (auth.errorResponse) {
+        console.warn("[synthesize-cos] auth_missing — returning 401 from authenticateRequest");
+        return auth.errorResponse;
+      }
+      userId = auth.userId!;
     }
-    const userId = auth.userId!;
     console.info(`[synthesize-cos] start user_id=${redactUserId(userId)}`);
 
-    const body = await req.json().catch(() => ({}));
-    const force = !!(body as any)?.force;
+    const force = !!body?.force;
 
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
@@ -654,17 +858,33 @@ Deno.serve(async (req) => {
       userPrompt += `\n\n**PDF DOCUMENT ATTACHED:** A LinkedIn profile PDF document is attached below. Use its full career history, accomplishments, and bio as primary leadership context for synthesizing the COS profile.`;
     }
 
-    const persistReadyProfile = async (profile: any, source: 'ai' | 'fallback' = 'ai') => {
+    // v2026-09-07 — persistence now (a) writes profiles.* in the types the
+    // columns actually expect (this was silently failing for every user),
+    // (b) stores email-ready artefacts, (c) reports a failed personalisation
+    // write instead of swallowing it, (d) can store a thin profile as
+    // "needs_input" rather than calling it ready.
+    const persistProfile = async (
+      profile: any,
+      source: 'ai' | 'fallback' = 'ai',
+      status: 'ready' | 'needs_input' = 'ready',
+      problems: string[] = [],
+    ) => {
       const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
+      profile.confidence_overall = normalizeConfidence(profile.confidence_overall);
+      const email = buildEmailArtifacts(profile, displayHtml);
+
       const { error: persistErr } = await db
         .from("onboarding_v8_responses")
         .update({
           cos_profile: profile,
           cos_profile_html: displayHtml,
-          cos_profile_status: "ready",
-          cos_profile_error: null,
+          cos_profile_status: status,
+          cos_profile_error: problems.length ? `insufficient_depth: ${problems.join(", ")}` : null,
           cos_profile_generated_at: new Date().toISOString(),
           cos_profile_source: source,
+          cos_profile_email_html: email.html,
+          cos_profile_email_text: email.text,
+          cos_profile_email_subject: email.subject,
         })
         .eq("user_id", userId);
 
@@ -673,28 +893,74 @@ Deno.serve(async (req) => {
         return { ok: false as const, error: persistErr };
       }
 
-      // Write AI-derived personality fields to profiles (richer overwrite of chip-derived values)
+      // Personalisation write — column-correct types.
+      // profiles.inferred_priorities is text[]; leadership_context and
+      // pressure_profile are jsonb. Previously a JSON string went into the
+      // text[] column and a sentence into jsonb, so Postgres rejected the whole
+      // statement and NONE of these fields ever landed.
+      let personalisationError: string | null = null;
       try {
+        const archetypeSlug = resolveArchetypeSlug(
+          profile.provisional_archetype?.canonical_slug ??
+            profile.provisional_archetype?.name ?? null,
+        );
+        const priorities: string[] = [
+          ...(Array.isArray(profile.high_stakes_map?.declared_events)
+            ? profile.high_stakes_map.declared_events
+            : []),
+          ...(Array.isArray(profile.high_stakes_map?.inferred_events)
+            ? profile.high_stakes_map.inferred_events
+            : []),
+        ]
+          .map((v: unknown) => String(v ?? "").trim())
+          .filter((v) => v.length > 0)
+          .slice(0, 12);
+
         const profileUpdate: Record<string, unknown> = {
-          user_archetype: resolveArchetypeSlug(
-            profile.provisional_archetype?.canonical_slug ??
-              profile.provisional_archetype?.name ?? null,
-          ),
-          archetype_title: profile.provisional_archetype?.subtitle ?? null,
+          archetype_title: profile.provisional_archetype?.name ??
+            profile.provisional_archetype?.subtitle ?? null,
           archetype_description: profile.provisional_archetype?.description ?? null,
           identity_role: profile.identity?.role ?? null,
           biggest_pressure: profile.cognitive_load_map?.primary_depletion_pattern ?? null,
-          leadership_context: profile.leadership_style?.style_description ?? null,
           onboarding_insight: profile.communication_profile?.cos_brief_rules ?? null,
           growth_priority: profile.goals?.declared?.[0] ?? null,
           updated_at: new Date().toISOString(),
         };
-        // Only write structured fields if they contain data
-        if (profile.high_stakes_map) {
-          profileUpdate.inferred_priorities = JSON.stringify(profile.high_stakes_map);
+        // Canonical slug only — the display name lives in archetype_title.
+        if (archetypeSlug) profileUpdate.user_archetype = archetypeSlug;
+        if (priorities.length) profileUpdate.inferred_priorities = priorities;
+        if (profile.leadership_style) {
+          profileUpdate.leadership_context = {
+            primary_style: profile.leadership_style.primary_style ?? null,
+            style_tags: Array.isArray(profile.leadership_style.style_tags)
+              ? profile.leadership_style.style_tags
+              : [],
+            style_description: profile.leadership_style.style_description ?? null,
+            sector: profile.identity?.sector ?? null,
+            organisation_stage: profile.identity?.organisation_stage ?? null,
+            leadership_stage: profile.identity?.leadership_stage ?? null,
+            confidence: normalizeConfidence(profile.leadership_style.confidence),
+          };
         }
-        if (profile.cognitive_risk_profile) {
-          profileUpdate.pressure_profile = JSON.stringify(profile.cognitive_risk_profile);
+        if (profile.cognitive_risk_profile || profile.cognitive_load_map) {
+          profileUpdate.pressure_profile = {
+            primary_risk: profile.cognitive_risk_profile?.primary_risk ?? null,
+            risk_flags: Array.isArray(profile.cognitive_risk_profile?.risk_flags)
+              ? profile.cognitive_risk_profile.risk_flags
+              : [],
+            regulation_strengths: Array.isArray(profile.cognitive_risk_profile?.regulation_strengths)
+              ? profile.cognitive_risk_profile.regulation_strengths
+              : [],
+            declared_loads: Array.isArray(profile.cognitive_load_map?.declared_loads)
+              ? profile.cognitive_load_map.declared_loads
+              : [],
+            inferred_loads: Array.isArray(profile.cognitive_load_map?.inferred_loads)
+              ? profile.cognitive_load_map.inferred_loads
+              : [],
+            operating_burdens: Array.isArray(profile.cognitive_load_map?.operating_burdens)
+              ? profile.cognitive_load_map.operating_burdens
+              : [],
+          };
         }
         const linkedinMd = linkedinScrape?.ok ? (linkedinScrape.markdown ?? null) : null;
         if (linkedinMd) {
@@ -706,16 +972,32 @@ Deno.serve(async (req) => {
           .update(profileUpdate)
           .eq('id', userId);
         if (profileErr) {
-          console.warn('[synthesize-cos] profiles update warning:', profileErr.message);
+          personalisationError = profileErr.message;
+          console.error('[synthesize-cos] profiles update FAILED:', profileErr.message);
         } else {
-          console.log('[synthesize-cos] ✅ profiles.* updated from COS:', redactUserId(userId));
+          console.log('[synthesize-cos] profiles.* updated from COS:', redactUserId(userId));
         }
       } catch (e) {
-        console.warn('[synthesize-cos] profiles update error:', e instanceof Error ? e.message : String(e));
+        personalisationError = e instanceof Error ? e.message : String(e);
+        console.error('[synthesize-cos] profiles update error:', personalisationError);
       }
 
-      return { ok: true as const, displayHtml };
+      if (personalisationError) {
+        // Surface it on the row instead of losing it in logs.
+        await db
+          .from("onboarding_v8_responses")
+          .update({
+            cos_profile_error:
+              `personalisation_write_failed: ${personalisationError}` +
+              (problems.length ? ` | insufficient_depth: ${problems.join(", ")}` : ""),
+          })
+          .eq("user_id", userId);
+      }
+
+      return { ok: true as const, displayHtml, personalisationError };
     };
+    const persistReadyProfile = (profile: any, source: 'ai' | 'fallback' = 'ai') =>
+      persistProfile(profile, source, 'ready', []);
 
     if (!lovableKey) {
       console.warn("[synthesize-cos] LOVABLE_API_KEY missing — generating fallback COS profile");
@@ -733,130 +1015,128 @@ Deno.serve(async (req) => {
     }
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
-    console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
-    const userMessageContent: any = linkedinPdfBase64
-      ? [
-          { type: "text", text: userPrompt },
-          {
-            type: "image_url",
-            image_url: {
-              url: linkedinPdfBase64.startsWith("data:")
-                ? linkedinPdfBase64
-                : `data:application/pdf;base64,${linkedinPdfBase64}`,
+    const userMessageContent = (prompt: string): any =>
+      linkedinPdfBase64
+        ? [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: linkedinPdfBase64.startsWith("data:")
+                  ? linkedinPdfBase64
+                  : `data:application/pdf;base64,${linkedinPdfBase64}`,
+              },
             },
-          },
-        ]
-      : userPrompt;
+          ]
+        : prompt;
 
-    const aiRes = await fetch(AI_GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        max_tokens: 8192,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessageContent },
-        ],
-        tools: [COS_TOOL],
-        tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
-      }),
-    });
+    const callModel = async (
+      model: string,
+      prompt: string,
+    ): Promise<{ status: number; profile: any | null }> => {
+      const res = await fetch(AI_GATEWAY_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 16384,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userMessageContent(prompt) },
+          ],
+          tools: [COS_TOOL],
+          tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("[synthesize-cos] AI gateway error:", res.status, errText.slice(0, 400));
+        return { status: res.status, profile: null };
+      }
+      const payload = await res.json();
+      const argsRaw = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      try {
+        const parsed = argsRaw ? JSON.parse(argsRaw) : null;
+        return { status: 200, profile: parsed && typeof parsed === "object" ? parsed : null };
+      } catch (e) {
+        console.error("[synthesize-cos] tool args parse failed:", e);
+        return { status: 200, profile: null };
+      }
+    };
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("[synthesize-cos] AI gateway error:", aiRes.status, errText);
-      // Retry with fallback model on 429/402/503
-      if ([429, 402, 503].includes(aiRes.status)) {
-        console.info(`[synthesize-cos] retrying with fallback model=${AI_MODEL_FALLBACK}`);
-        const fallbackAiRes = await fetch(AI_GATEWAY_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${lovableKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: AI_MODEL_FALLBACK,
-            max_tokens: 8192,
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: userMessageContent },
-            ],
-            tools: [COS_TOOL],
-            tool_choice: { type: "function", function: { name: "emit_cos_profile" } },
-          }),
-        });
-        if (fallbackAiRes.ok) {
-          // Use the fallback response — continue to parse below
-          const fallbackPayload = await fallbackAiRes.json();
-          const fallbackToolCall = fallbackPayload?.choices?.[0]?.message?.tool_calls?.[0];
-          const fallbackArgsRaw = fallbackToolCall?.function?.arguments;
-          let fallbackProfile: any = null;
-          try {
-            fallbackProfile = fallbackArgsRaw ? JSON.parse(fallbackArgsRaw) : null;
-          } catch (e) {
-            console.error("[synthesize-cos] fallback tool args parse failed:", e);
-          }
-          if (fallbackProfile && typeof fallbackProfile === "object") {
-            const persisted = await persistReadyProfile(fallbackProfile);
-            if (!persisted.ok) return json(500, { error: "persist_failed" });
-            return json(200, {
-              ok: true,
-              cached: false,
-              cos_profile: fallbackProfile,
-              cos_profile_html: persisted.displayHtml,
-              model_used: AI_MODEL_FALLBACK,
-            });
-          }
+    // v2026-09-07 quality gate: primary attempt, then one stricter retry, then
+    // store as needs_input rather than passing a hollow profile off as ready.
+    console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
+    let modelUsed = AI_MODEL;
+    let attempt = await callModel(AI_MODEL, userPrompt);
+
+    if (!attempt.profile && [429, 402, 503].includes(attempt.status)) {
+      console.info(`[synthesize-cos] retrying with fallback model=${AI_MODEL_FALLBACK}`);
+      modelUsed = AI_MODEL_FALLBACK;
+      attempt = await callModel(AI_MODEL_FALLBACK, userPrompt);
+    }
+
+    if (!attempt.profile) {
+      const reason = attempt.status === 200
+        ? "the AI response did not emit the COS tool payload"
+        : `the AI gateway returned ${attempt.status}`;
+      const fallbackProfile = buildFallbackCosProfile(cosInput, reason);
+      const persistedFallback = await persistProfile(
+        fallbackProfile,
+        'fallback',
+        'needs_input',
+        ["ai_output_unavailable"],
+      );
+      if (!persistedFallback.ok) return json(500, { error: "persist_failed" });
+      return json(200, {
+        ok: true,
+        cached: false,
+        fallback: true,
+        fallback_reason: attempt.status === 200 ? "ai_no_tool_call" : `ai_${attempt.status}`,
+        cos_profile: fallbackProfile,
+        cos_profile_html: persistedFallback.displayHtml,
+      });
+    }
+
+    let profile: any = attempt.profile;
+    let problems = validateCosProfile(profile);
+
+    if (problems.length > 0) {
+      console.warn(`[synthesize-cos] depth gate failed (${problems.join(", ")}) — one stricter retry`);
+      const stricterPrompt = `${userPrompt}
+
+### REVISION REQUIRED
+A previous attempt was rejected for insufficient depth. Failing checks: ${problems.join(", ")}.
+Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reason from the selected chips, goals and any free text — infer the operating pattern they imply and label it as inference. Do not emit placeholders, "unknown", "not specified" or a pending shell. The display_html must contain all eight sections in full prose.`;
+      // Retry on the fast model: the primary already spent most of the wall
+      // clock, and the retry only needs to fill the flagged gaps.
+      const retry = await callModel(AI_MODEL_FALLBACK, stricterPrompt);
+      if (retry.profile) {
+        const retryProblems = validateCosProfile(retry.profile);
+        if (retryProblems.length < problems.length) {
+          profile = retry.profile;
+          problems = retryProblems;
         }
       }
-      const profile = buildFallbackCosProfile(cosInput, `the AI gateway returned ${aiRes.status}`);
-      const persisted = await persistReadyProfile(profile, 'fallback');
-      if (!persisted.ok) return json(500, { error: "persist_failed" });
-      return json(200, {
-        ok: true,
-        cached: false,
-        fallback: true,
-        fallback_reason: `ai_${aiRes.status}`,
-        cos_profile: profile,
-        cos_profile_html: persisted.displayHtml,
-      });
     }
 
-    const aiPayload = await aiRes.json();
-    const toolCall = aiPayload?.choices?.[0]?.message?.tool_calls?.[0];
-    const argsRaw = toolCall?.function?.arguments;
-    let profile: any = null;
-    try {
-      profile = argsRaw ? JSON.parse(argsRaw) : null;
-    } catch (e) {
-      console.error("[synthesize-cos] tool args parse failed:", e);
-    }
-
-    if (!profile || typeof profile !== "object") {
-      const fallbackProfile = buildFallbackCosProfile(cosInput, "the AI response did not emit the COS tool payload");
-      const persisted = await persistReadyProfile(fallbackProfile, 'fallback');
-      if (!persisted.ok) return json(500, { error: "persist_failed" });
-      return json(200, {
-        ok: true,
-        cached: false,
-        fallback: true,
-        fallback_reason: "ai_no_tool_call",
-        cos_profile: fallbackProfile,
-        cos_profile_html: persisted.displayHtml,
-      });
-    }
-
-    const persisted = await persistReadyProfile(profile);
+    const status: 'ready' | 'needs_input' = problems.length === 0 ? 'ready' : 'needs_input';
+    const persisted = await persistProfile(profile, 'ai', status, problems);
     if (!persisted.ok) return json(500, { error: "persist_failed" });
+    if (persisted.personalisationError) {
+      console.error("[synthesize-cos] personalisation write failed:", persisted.personalisationError);
+    }
 
     console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
     return json(200, {
       ok: true,
       cached: false,
+      status,
+      quality_gaps: problems,
+      model_used: modelUsed,
       cos_profile: profile,
       cos_profile_html: persisted.displayHtml,
       scrape_summary: {
