@@ -3374,8 +3374,28 @@ serve(async (req) => {
       tomorrowResult?.state === "active" ? tomorrowResult.load : null;
     const tomorrowPressure: CalendarLevel | null =
       tomorrowResult?.state === "active" ? tomorrowResult.pressure : null;
-    const tomorrowHighStakes: string[] = tomorrowResult?.highStakesEvents || [];
-    const todayHighStakes: string[] = calendarResult.highStakesEvents || [];
+    // v2026-09-07 — taught importance shapes which events the Brief may name.
+    // Stakes ranking still decides ordering inside each group; the user's own
+    // "never" verdict removes a title from naming entirely.
+    const briefEventPriorityView = await loadEventPriorityViewForBrief(
+      db,
+      userId,
+    );
+    const tomorrowHighStakes: string[] = applyEventPriorityToBriefTitles(
+      tomorrowResult?.highStakesEvents || [],
+      briefEventPriorityView,
+    );
+    const todayHighStakes: string[] = applyEventPriorityToBriefTitles(
+      calendarResult.highStakesEvents || [],
+      briefEventPriorityView,
+    );
+    console.log("[brief][event-priority]", {
+      userId: redactUserId(userId),
+      never: briefEventPriorityView.neverKeys.size,
+      important: briefEventPriorityView.importantKeys.size,
+      todayNamed: todayHighStakes.length,
+      tomorrowNamed: tomorrowHighStakes.length,
+    });
 
     if (body.contextOnly === true) {
       const calendarUsable = calendarResult.state === "active" ||
