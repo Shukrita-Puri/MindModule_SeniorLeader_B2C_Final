@@ -855,17 +855,33 @@ Deno.serve(async (req) => {
       userPrompt += `\n\n**PDF DOCUMENT ATTACHED:** A LinkedIn profile PDF document is attached below. Use its full career history, accomplishments, and bio as primary leadership context for synthesizing the COS profile.`;
     }
 
-    const persistReadyProfile = async (profile: any, source: 'ai' | 'fallback' = 'ai') => {
+    // v2026-09-07 — persistence now (a) writes profiles.* in the types the
+    // columns actually expect (this was silently failing for every user),
+    // (b) stores email-ready artefacts, (c) reports a failed personalisation
+    // write instead of swallowing it, (d) can store a thin profile as
+    // "needs_input" rather than calling it ready.
+    const persistProfile = async (
+      profile: any,
+      source: 'ai' | 'fallback' = 'ai',
+      status: 'ready' | 'needs_input' = 'ready',
+      problems: string[] = [],
+    ) => {
       const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
+      profile.confidence_overall = normalizeConfidence(profile.confidence_overall);
+      const email = buildEmailArtifacts(profile, displayHtml);
+
       const { error: persistErr } = await db
         .from("onboarding_v8_responses")
         .update({
           cos_profile: profile,
           cos_profile_html: displayHtml,
-          cos_profile_status: "ready",
-          cos_profile_error: null,
+          cos_profile_status: status,
+          cos_profile_error: problems.length ? `insufficient_depth: ${problems.join(", ")}` : null,
           cos_profile_generated_at: new Date().toISOString(),
           cos_profile_source: source,
+          cos_profile_email_html: email.html,
+          cos_profile_email_text: email.text,
+          cos_profile_email_subject: email.subject,
         })
         .eq("user_id", userId);
 
@@ -874,28 +890,74 @@ Deno.serve(async (req) => {
         return { ok: false as const, error: persistErr };
       }
 
-      // Write AI-derived personality fields to profiles (richer overwrite of chip-derived values)
+      // Personalisation write — column-correct types.
+      // profiles.inferred_priorities is text[]; leadership_context and
+      // pressure_profile are jsonb. Previously a JSON string went into the
+      // text[] column and a sentence into jsonb, so Postgres rejected the whole
+      // statement and NONE of these fields ever landed.
+      let personalisationError: string | null = null;
       try {
+        const archetypeSlug = resolveArchetypeSlug(
+          profile.provisional_archetype?.canonical_slug ??
+            profile.provisional_archetype?.name ?? null,
+        );
+        const priorities: string[] = [
+          ...(Array.isArray(profile.high_stakes_map?.declared_events)
+            ? profile.high_stakes_map.declared_events
+            : []),
+          ...(Array.isArray(profile.high_stakes_map?.inferred_events)
+            ? profile.high_stakes_map.inferred_events
+            : []),
+        ]
+          .map((v: unknown) => String(v ?? "").trim())
+          .filter((v) => v.length > 0)
+          .slice(0, 12);
+
         const profileUpdate: Record<string, unknown> = {
-          user_archetype: resolveArchetypeSlug(
-            profile.provisional_archetype?.canonical_slug ??
-              profile.provisional_archetype?.name ?? null,
-          ),
-          archetype_title: profile.provisional_archetype?.subtitle ?? null,
+          archetype_title: profile.provisional_archetype?.name ??
+            profile.provisional_archetype?.subtitle ?? null,
           archetype_description: profile.provisional_archetype?.description ?? null,
           identity_role: profile.identity?.role ?? null,
           biggest_pressure: profile.cognitive_load_map?.primary_depletion_pattern ?? null,
-          leadership_context: profile.leadership_style?.style_description ?? null,
           onboarding_insight: profile.communication_profile?.cos_brief_rules ?? null,
           growth_priority: profile.goals?.declared?.[0] ?? null,
           updated_at: new Date().toISOString(),
         };
-        // Only write structured fields if they contain data
-        if (profile.high_stakes_map) {
-          profileUpdate.inferred_priorities = JSON.stringify(profile.high_stakes_map);
+        // Canonical slug only — the display name lives in archetype_title.
+        if (archetypeSlug) profileUpdate.user_archetype = archetypeSlug;
+        if (priorities.length) profileUpdate.inferred_priorities = priorities;
+        if (profile.leadership_style) {
+          profileUpdate.leadership_context = {
+            primary_style: profile.leadership_style.primary_style ?? null,
+            style_tags: Array.isArray(profile.leadership_style.style_tags)
+              ? profile.leadership_style.style_tags
+              : [],
+            style_description: profile.leadership_style.style_description ?? null,
+            sector: profile.identity?.sector ?? null,
+            organisation_stage: profile.identity?.organisation_stage ?? null,
+            leadership_stage: profile.identity?.leadership_stage ?? null,
+            confidence: normalizeConfidence(profile.leadership_style.confidence),
+          };
         }
-        if (profile.cognitive_risk_profile) {
-          profileUpdate.pressure_profile = JSON.stringify(profile.cognitive_risk_profile);
+        if (profile.cognitive_risk_profile || profile.cognitive_load_map) {
+          profileUpdate.pressure_profile = {
+            primary_risk: profile.cognitive_risk_profile?.primary_risk ?? null,
+            risk_flags: Array.isArray(profile.cognitive_risk_profile?.risk_flags)
+              ? profile.cognitive_risk_profile.risk_flags
+              : [],
+            regulation_strengths: Array.isArray(profile.cognitive_risk_profile?.regulation_strengths)
+              ? profile.cognitive_risk_profile.regulation_strengths
+              : [],
+            declared_loads: Array.isArray(profile.cognitive_load_map?.declared_loads)
+              ? profile.cognitive_load_map.declared_loads
+              : [],
+            inferred_loads: Array.isArray(profile.cognitive_load_map?.inferred_loads)
+              ? profile.cognitive_load_map.inferred_loads
+              : [],
+            operating_burdens: Array.isArray(profile.cognitive_load_map?.operating_burdens)
+              ? profile.cognitive_load_map.operating_burdens
+              : [],
+          };
         }
         const linkedinMd = linkedinScrape?.ok ? (linkedinScrape.markdown ?? null) : null;
         if (linkedinMd) {
@@ -907,16 +969,32 @@ Deno.serve(async (req) => {
           .update(profileUpdate)
           .eq('id', userId);
         if (profileErr) {
-          console.warn('[synthesize-cos] profiles update warning:', profileErr.message);
+          personalisationError = profileErr.message;
+          console.error('[synthesize-cos] profiles update FAILED:', profileErr.message);
         } else {
-          console.log('[synthesize-cos] ✅ profiles.* updated from COS:', redactUserId(userId));
+          console.log('[synthesize-cos] profiles.* updated from COS:', redactUserId(userId));
         }
       } catch (e) {
-        console.warn('[synthesize-cos] profiles update error:', e instanceof Error ? e.message : String(e));
+        personalisationError = e instanceof Error ? e.message : String(e);
+        console.error('[synthesize-cos] profiles update error:', personalisationError);
       }
 
-      return { ok: true as const, displayHtml };
+      if (personalisationError) {
+        // Surface it on the row instead of losing it in logs.
+        await db
+          .from("onboarding_v8_responses")
+          .update({
+            cos_profile_error:
+              `personalisation_write_failed: ${personalisationError}` +
+              (problems.length ? ` | insufficient_depth: ${problems.join(", ")}` : ""),
+          })
+          .eq("user_id", userId);
+      }
+
+      return { ok: true as const, displayHtml, personalisationError };
     };
+    const persistReadyProfile = (profile: any, source: 'ai' | 'fallback' = 'ai') =>
+      persistProfile(profile, source, 'ready', []);
 
     if (!lovableKey) {
       console.warn("[synthesize-cos] LOVABLE_API_KEY missing — generating fallback COS profile");
