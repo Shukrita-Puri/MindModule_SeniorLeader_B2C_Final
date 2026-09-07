@@ -8605,6 +8605,16 @@ export function deriveStructuralDayFlags(
   // Canonical Rest Day (SSOT): rest is a function of weekend / explicit PTO /
   // applicable public holiday — never of empty calendars alone. Calendar
   // work evidence overrides all three. See _shared/availability/*.
+  const availabilityEvents = events.map((e: any) => ({
+    title: String(e?.title || ""),
+    startTime: String(e?.startTime || e?.start_time || ""),
+    endTime: String(e?.endTime || e?.end_time || e?.startTime || ""),
+    isAllDay: e?.isAllDay === true || e?.is_all_day === true,
+    isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
+    attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
+    source: e?.source ?? e?.calendarName ?? null,
+    calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
+  }));
   const availability = classifyAvailability({
     now: localNow,
     userHomeCountry: opts?.userLocale?.homeCountry ?? null,
@@ -8613,16 +8623,7 @@ export function deriveStructuralDayFlags(
     calendarLoad: (calendarLoad as any) ?? null,
     // F1.2: Thread weekendDays from unified locale context
     weekendDays: opts?.userLocale?.weekendDays ?? [0, 6],
-    events: events.map((e: any) => ({
-      title: String(e?.title || ""),
-      startTime: String(e?.startTime || e?.start_time || ""),
-      endTime: String(e?.endTime || e?.end_time || e?.startTime || ""),
-      isAllDay: e?.isAllDay === true || e?.is_all_day === true,
-      isOrganizer: e?.isOrganizer === true || e?.is_organizer === true,
-      attendeesCount: Number(e?.attendeesCount ?? e?.attendees_count ?? 0) || 0,
-      source: e?.source ?? e?.calendarName ?? null,
-      calendarSummary: e?.calendarSummary ?? e?.calendar_summary ?? null,
-    })),
+    events: availabilityEvents,
   });
   const hasRestSignals = availability.isRestDay;
   const isPtoOrHoliday = availability.isRestDay &&
