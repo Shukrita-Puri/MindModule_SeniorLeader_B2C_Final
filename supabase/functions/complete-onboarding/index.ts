@@ -11,6 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { sanitizePayload, validateForCompletion } from "../_shared/onboardingV8Validation.ts";
+import { resolveArchetypeSlug } from "../_shared/archetype-slug.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
