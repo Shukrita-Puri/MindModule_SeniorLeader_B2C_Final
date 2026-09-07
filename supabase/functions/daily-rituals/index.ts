@@ -663,6 +663,16 @@ serve(async (req) => {
           });
         }
 
+        // v2026-09-07 (R2): additional per-slot projection. Non-fatal.
+        await projectMasteryPlanCompletion(
+          supabase,
+          userId,
+          today,
+          period,
+          newCompletedIds,
+          finishedAt,
+        );
+
         console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, period=${period}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}, timing=${startedAtIso ? 'precise' : 'completed-only'}`);
 
         return new Response(JSON.stringify({ data }), {
