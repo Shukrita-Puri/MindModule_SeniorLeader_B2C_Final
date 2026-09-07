@@ -5684,6 +5684,7 @@ type NotificationTraceOutcome =
   | "light_day_cap"
   | "light_day_not_in_window"
   | "light_day_window_open"
+  | "light_day_slot_already_sent"
   | "two_hour_suppression"
   | "no_qualified_nudge"
   | "plan_ready_morning_fallback"
