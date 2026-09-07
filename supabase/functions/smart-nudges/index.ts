@@ -39,6 +39,11 @@ import {
 } from "../_shared/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
+// v2026-09-07 (R5): reuse the Plan's priority-memory loader — no duplicate.
+import {
+  loadPriorityMemoryForUser,
+  normalizeEventTitleMemoryKey,
+} from "../_shared/plan/event-priority-memory.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
