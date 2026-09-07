@@ -1915,7 +1915,18 @@ async function buildNudgeContext(
   const nonNoiseEvents = todayEvents.filter((e) =>
     !isNoiseEvent(e.title || "")
   );
-  const highStakesEvents = nonNoiseEvents.filter((e) => isHighStakes(e.title));
+  // v2026-09-07 (R5): anchors now respect the same event-priority truth the
+  // Plan uses. "Never"-marked event types can never anchor a nudge, and
+  // types the user has marked important sort first. Send times, volume,
+  // Light Day and week-ahead rules are untouched.
+  const eventPriorityView = await loadEventPriorityViewForNudges(
+    supabase,
+    userId,
+  );
+  const highStakesEvents = applyEventPriorityToAnchors(
+    nonNoiseEvents.filter((e) => isHighStakes(e.title)),
+    eventPriorityView,
+  );
 
   // Only load-bearing entries drive dayType and "meetings today" copy, and a
   // contiguous run collapses into ONE arc: a five-hour offsite split into
