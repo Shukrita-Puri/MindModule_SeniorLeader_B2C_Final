@@ -8670,21 +8670,26 @@ export function deriveStructuralDayFlags(
   // Shared with Brief and Smart Nudges. Never re-derive from event counts.
   // A week-ahead day is by definition the LAST day of a run, so it is never
   // a light day and its existing behaviour is preserved.
+  // SM-1: the REAL mapped events go in — an empty array made every working
+  // day classify as a light day.
   const lightDay = classifyLightDay({
     now: localNow,
     userHomeCountry: opts?.userLocale?.homeCountry ?? null,
     userCurrentCountry: opts?.userLocale?.currentCountry ?? null,
     weekendDays: opts?.userLocale?.weekendDays ?? [0, 6],
-    events: [],
+    events: availabilityEvents,
     availability,
+    travelDaySignal: hasTravelDay,
+    conferenceDaySignal: hasConferenceDay,
     tomorrowIsWorkday: opts?.weekAheadHydration?.tomorrowIsWorkday ?? false,
 
     isPlanningDay: weekAhead.active,
   });
   const meetingCountForLightDay = realMeetingCount;
+  // SM-2: hard meeting-count gate — 2+ real meetings is never a light day.
   const isLightDay = !weekAhead.active && !isFullWorkingWeekend &&
-    (lightDay.isLightDay ||
-      (!availability.isRestDay && meetingCountForLightDay <= 1));
+    !hasTravelDay && !hasConferenceDay &&
+    lightDay.isLightDay && meetingCountForLightDay <= 1;
   try {
     console.info("[generate-mastery-plan][light-day]", {
       isLightDay,
@@ -8693,8 +8698,11 @@ export function deriveStructuralDayFlags(
       reason: lightDay.reason,
       meetingCount: meetingCountForLightDay,
       weekAhead: weekAhead.active,
+      hasTravelDay,
+      hasConferenceDay,
     });
   } catch { /* logging is best-effort */ }
+
 
   return {
     hasTravelDay,
