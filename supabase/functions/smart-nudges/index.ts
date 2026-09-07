@@ -39,6 +39,11 @@ import {
 } from "../_shared/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
+// v2026-09-07 (R5): reuse the Plan's priority-memory loader — no duplicate.
+import {
+  loadPriorityMemoryForUser,
+  normalizeEventTitleMemoryKey,
+} from "../_shared/plan/event-priority-memory.ts";
 import { evaluateWeekAheadMode } from "../_shared/plan/week-ahead-mode.ts";
 import { planningDayOfWeek } from "../_shared/plan/user-locale.ts";
 import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
@@ -1686,6 +1691,80 @@ async function shouldAllowProjectedMorningJit(
 }
 
 // ══════════════════════════════════════════════════════════════
+// ── Event priority view for nudge anchors (v2026-09-07, R5) ──
+// ══════════════════════════════════════════════════════════════
+
+export interface NudgeEventPriorityView {
+  /** Normalised event type keys the user marked "never". */
+  neverKeys: Set<string>;
+  /** Normalised event type keys with positive learned importance. */
+  importantKeys: Set<string>;
+}
+
+export const EMPTY_NUDGE_PRIORITY_VIEW: NudgeEventPriorityView = {
+  neverKeys: new Set<string>(),
+  importantKeys: new Set<string>(),
+};
+
+/**
+ * Load the same priority truth the Plan uses:
+ *   - `event_priority_memory` (via the Plan's loader) for explicit signals
+ *   - `event_priority_derived` for the durable per-type verdict
+ * Fail-open: on any error the anchor selection behaves exactly as before.
+ */
+async function loadEventPriorityViewForNudges(
+  supabase: SupabaseLoose,
+  userId: string,
+): Promise<NudgeEventPriorityView> {
+  const neverKeys = new Set<string>();
+  const importantKeys = new Set<string>();
+  try {
+    const index = await loadPriorityMemoryForUser(supabase, userId);
+    for (const rows of index.rowsByKey.values()) {
+      for (const r of rows) {
+        const key = String(r.event_type_key || "").toLowerCase();
+        if (!key) continue;
+        if (r.signal === "never") neverKeys.add(key);
+        else if (r.signal === "priority") importantKeys.add(key);
+      }
+    }
+    const { data: derivedRows } = await (supabase as any)
+      .from("event_priority_derived")
+      .select("event_type_key, net_importance, permanent_flag")
+      .eq("user_id", userId);
+    for (const r of derivedRows ?? []) {
+      const key = String(r?.event_type_key || "").toLowerCase();
+      if (!key) continue;
+      if (r?.permanent_flag === true) neverKeys.add(key);
+      else if (Number(r?.net_importance ?? 0) > 0) importantKeys.add(key);
+    }
+  } catch (e) {
+    console.warn(
+      "[smart-nudges] event priority view load skipped:",
+      (e as Error)?.message,
+    );
+    return EMPTY_NUDGE_PRIORITY_VIEW;
+  }
+  return { neverKeys, importantKeys };
+}
+
+/**
+ * Drop "never"-marked events from the anchor pool and float learned-important
+ * ones to the front. Order is otherwise preserved (stable).
+ */
+export function applyEventPriorityToAnchors<
+  T extends { title?: string | null },
+>(events: T[], view: NudgeEventPriorityView): T[] {
+  if (!events.length) return events;
+  const keyOf = (e: T) =>
+    normalizeEventTitleMemoryKey(e.title || "").toLowerCase();
+  const kept = events.filter((e) => !view.neverKeys.has(keyOf(e)));
+  const important = kept.filter((e) => view.importantKeys.has(keyOf(e)));
+  const rest = kept.filter((e) => !view.importantKeys.has(keyOf(e)));
+  return [...important, ...rest];
+}
+
+// ══════════════════════════════════════════════════════════════
 // ── buildNudgeContext() – Central Signal Assembly ──
 // ══════════════════════════════════════════════════════════════
 
@@ -1915,7 +1994,18 @@ async function buildNudgeContext(
   const nonNoiseEvents = todayEvents.filter((e) =>
     !isNoiseEvent(e.title || "")
   );
-  const highStakesEvents = nonNoiseEvents.filter((e) => isHighStakes(e.title));
+  // v2026-09-07 (R5): anchors now respect the same event-priority truth the
+  // Plan uses. "Never"-marked event types can never anchor a nudge, and
+  // types the user has marked important sort first. Send times, volume,
+  // Light Day and week-ahead rules are untouched.
+  const eventPriorityView = await loadEventPriorityViewForNudges(
+    supabase,
+    userId,
+  );
+  const highStakesEvents = applyEventPriorityToAnchors(
+    nonNoiseEvents.filter((e) => isHighStakes(e.title)),
+    eventPriorityView,
+  );
 
   // Only load-bearing entries drive dayType and "meetings today" copy, and a
   // contiguous run collapses into ONE arc: a five-hour offsite split into

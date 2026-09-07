@@ -105,6 +105,86 @@ function normalisePlanContext(value: unknown): string {
 
 type ServiceClient = ReturnType<typeof createClient>;
 
+/**
+ * v2026-09-07 (R2) — per-slot plan adherence projection.
+ *
+ * `daily_ritual_completions` stays the primary ledger and is untouched. This
+ * writes an additional companion row to `mastery_plan_completions` so we can
+ * answer "which generated plan slot did the user actually do".
+ *
+ * Idempotent without a schema change: the row is keyed on
+ * (user_id, plan_date, plan_type=session period) — looked up first, then
+ * updated in place, so repeating a completion never duplicates.
+ * Non-fatal: any failure is logged and swallowed.
+ */
+async function projectMasteryPlanCompletion(
+  supabase: any,
+  userId: string,
+  planDate: string,
+  sessionPeriod: string,
+  completedPracticeIds: string[],
+  completedAtIso: string,
+): Promise<void> {
+  try {
+    const { data: snapshot } = await supabase
+      .from('mastery_plan_snapshots')
+      .select('id, mrs_window, recommended_practice_ids, priorities')
+      .eq('user_id', userId)
+      .eq('plan_date', planDate)
+      .eq('mrs_window', sessionPeriod)
+      .maybeSingle();
+
+    const assigned: string[] = Array.isArray(snapshot?.recommended_practice_ids)
+      ? (snapshot!.recommended_practice_ids as string[])
+      : [];
+    const totalPractices = assigned.length > 0
+      ? assigned.length
+      : Math.max(completedPracticeIds.length, 1);
+    const completed = completedPracticeIds.filter((id) =>
+      assigned.length === 0 || assigned.includes(id)
+    );
+    const pct = totalPractices > 0
+      ? Math.min(100, Math.round((completed.length / totalPractices) * 100))
+      : 0;
+
+    const row: Record<string, unknown> = {
+      user_id: userId,
+      plan_date: planDate,
+      plan_type: sessionPeriod,
+      based_on_window: snapshot?.mrs_window ?? sessionPeriod,
+      practices_assigned: assigned,
+      total_practices: totalPractices,
+      practices_completed: completed,
+      completion_percentage: pct,
+      completed_at: completedAtIso,
+      is_complete: assigned.length > 0 && completed.length >= assigned.length,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: existing } = await supabase
+      .from('mastery_plan_completions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('plan_date', planDate)
+      .eq('plan_type', sessionPeriod)
+      .maybeSingle();
+
+    if (existing?.id) {
+      await supabase
+        .from('mastery_plan_completions')
+        .update(row)
+        .eq('id', existing.id);
+    } else {
+      await supabase.from('mastery_plan_completions').insert(row);
+    }
+  } catch (e) {
+    console.warn(
+      '[daily-rituals] mastery_plan_completions projection skipped:',
+      e instanceof Error ? e.message : e,
+    );
+  }
+}
+
 interface CleanupResult {
   scanned: number;
   repaired_via_session: number;
@@ -582,6 +662,16 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
+
+        // v2026-09-07 (R2): additional per-slot projection. Non-fatal.
+        await projectMasteryPlanCompletion(
+          supabase,
+          userId,
+          today,
+          period,
+          newCompletedIds,
+          finishedAt,
+        );
 
         console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, period=${period}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}, timing=${startedAtIso ? 'precise' : 'completed-only'}`);
 

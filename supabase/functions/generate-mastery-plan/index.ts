@@ -3532,6 +3532,98 @@ function buildSharedContextDescription(
   };
 }
 
+/**
+ * v2026-09-07 (R6) — persist the JIT v2 selection.
+ *
+ * A–H categorisation is stored elsewhere; the *prioritisation* the engine
+ * produces used to be discarded after each run. This writes the ranked
+ * events (final score, tier, score components, chosen slot) and the
+ * exclusion reasons into `jit_carousel_cards`, replacing the user's rows
+ * from the previous run so the table stays current-truth sized.
+ *
+ * Non-fatal by design: any failure is logged and swallowed.
+ */
+async function persistJitV2Selection(
+  supabaseClient: any,
+  userId: string,
+  selection: SelectResult | null,
+): Promise<void> {
+  if (!selection) return;
+  try {
+    const runId = crypto.randomUUID();
+    const runAt = new Date().toISOString();
+    const dominantSlot = (c: any): string => {
+      const comp = c?.components ?? {};
+      const pairs: Array<[string, number]> = [
+        ["immediate", Number(comp.immediate ?? 0)],
+        ["tactical", Number(comp.tactical ?? 0)],
+        ["strategic", Number(comp.strategic ?? 0)],
+      ];
+      pairs.sort((a, b) => b[1] - a[1]);
+      return pairs[0][0];
+    };
+
+    const rows: Record<string, unknown>[] = [];
+    (selection.ranked ?? []).forEach((c: any, i: number) => {
+      rows.push({
+        user_id: userId,
+        card_type: "jit_v2_selection",
+        card_position: i + 1,
+        run_id: runId,
+        run_at: runAt,
+        calendar_event_id: c?.eventId ?? null,
+        event_title: c?.title ?? null,
+        event_start: Number.isFinite(c?.startMs)
+          ? new Date(c.startMs).toISOString()
+          : null,
+        event_category: c?.categoryId ?? null,
+        event_subcategory: c?.bucket ?? null,
+        final_score: Number(c?.importance ?? 0),
+        rank_position: i + 1,
+        selection_slot: dominantSlot(c),
+        score_breakdown: c?.components ?? null,
+        tier: c?.tier ?? selection.tier ?? null,
+        excluded_reason: null,
+      });
+    });
+    (selection.excluded ?? []).forEach((e: any, i: number) => {
+      rows.push({
+        user_id: userId,
+        card_type: "jit_v2_excluded",
+        card_position: rows.length + i + 1,
+        run_id: runId,
+        run_at: runAt,
+        calendar_event_id: e?.eventId ?? null,
+        event_title: e?.title ?? null,
+        tier: selection.tier ?? null,
+        excluded_reason: e?.reason ?? null,
+      });
+    });
+
+    // Replace the previous run for this user.
+    await supabaseClient
+      .from("jit_carousel_cards")
+      .delete()
+      .eq("user_id", userId)
+      .in("card_type", ["jit_v2_selection", "jit_v2_excluded"]);
+
+    if (rows.length > 0) {
+      const { error } = await supabaseClient
+        .from("jit_carousel_cards")
+        .insert(rows);
+      if (error) throw new Error(error.message);
+    }
+    console.log("[jit-v2][persist]", {
+      userId: redactUserId(userId),
+      runId,
+      ranked: selection.ranked?.length ?? 0,
+      excluded: selection.excluded?.length ?? 0,
+    });
+  } catch (e: any) {
+    console.warn("[jit-v2][persist] skipped:", e?.message ?? e);
+  }
+}
+
 async function buildPreferredJitV2Selection(
   userId: string,
   calendarEvents: CalendarEvent[],
@@ -6013,6 +6105,13 @@ async function generateMasteryPlan(
       crisis_events: preferredSelectResult?.crisisEvents?.length ?? 0,
     }
   );
+
+  // v2026-09-07 (R6): persist the JIT v2 prioritisation so the ranking that
+  // drives the plan is auditable outside the engine. One row set per user per
+  // run — the previous run's rows are replaced, so the table shows current
+  // truth. Non-fatal: a write failure never blocks plan generation.
+  await persistJitV2Selection(supabaseClient, req.userId, preferredSelectResult);
+
 
   // 4. Score calendar events from the shared selector only. Legacy scoring is
   // retained in-source for historical compatibility but is not part of the
@@ -9657,7 +9756,12 @@ if (import.meta.main) {
               user_id: userId!,
               plan_date: planDate,
               mrs_window: currentPeriod,
-              day_kind: planObj?.meta?.dayKind ?? planObj?.dayKind ?? null,
+              // v2026-09-07 (R1): the plan object only ever writes
+              // meta.dayShape — meta.dayKind never existed, so this column
+              // was always null. Source dayShape first, keep the legacy
+              // keys as fallbacks.
+              day_kind: planObj?.meta?.dayShape ?? planObj?.meta?.dayKind ??
+                planObj?.dayKind ?? null,
               horizon_iso: horizonIsoValue,
               plan_json: planObj,
               horizon_modules: horizonMods,
