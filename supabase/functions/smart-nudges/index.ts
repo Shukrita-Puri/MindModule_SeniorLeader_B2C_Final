@@ -290,8 +290,14 @@ const corsHeaders = {
 // ══════════════════════════════════════════════════════════════
 
 const DAILY_NOTIFICATION_CAP = 3;
-/** Light days (weekend / holiday / PTO / 0–1 meeting workday) get ONE send. */
-const LIGHT_DAY_NOTIFICATION_CAP = 1;
+/**
+ * Light days (weekend / holiday / PTO / 0–1 meeting workday) get Morning +
+ * Evening. A high-stakes AFTERNOON commitment adds a third, meeting-anchored
+ * send; a high-stakes morning or evening commitment REPLACES that window's
+ * recovery send rather than adding to it. Supersedes the earlier one-send rule.
+ */
+const LIGHT_DAY_NOTIFICATION_CAP = 2;
+const LIGHT_DAY_NOTIFICATION_CAP_WITH_AFTERNOON_ANCHOR = 3;
 const LOW_TIERS = ["depleted", "managing"];
 const DAYS = [
   "Sunday",
