@@ -553,6 +553,171 @@ const COS_TOOL = {
   },
 };
 
+// ── v2026-09-07 quality gate + email-ready rendering ───────────────
+// Nothing hollow is allowed to be stored as "ready". A failing profile gets one
+// stricter retry; if it still fails it is stored as "needs_input" with the
+// reasons, so the surfaces can tell "thin" apart from "good".
+
+const PLACEHOLDER_PATTERN =
+  /(\[[a-z_ -]{2,}\]|profile initialization pending|not specified|not provided|unknown|n\/a|to be determined|tbd|lorem ipsum)/i;
+
+const CONFIDENCE_VALUES = ["high", "medium", "low", "very_low"] as const;
+type ConfidenceValue = (typeof CONFIDENCE_VALUES)[number];
+
+function normalizeConfidence(raw: unknown): ConfidenceValue {
+  const v = String(raw ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (v.includes("very") && v.includes("low")) return "very_low";
+  if (v.startsWith("high") || v.includes("strong")) return "high";
+  if (v.startsWith("med") || v.includes("moderate") || v.includes("provisional")) return "medium";
+  if (v.startsWith("low") || v.includes("limited") || v.includes("thin")) return "low";
+  return "medium";
+}
+
+function textLen(v: unknown): number {
+  return typeof v === "string" ? v.trim().length : 0;
+}
+
+function arrLen(v: unknown): number {
+  return Array.isArray(v) ? v.filter((x) => x != null && String(x).trim().length > 0).length : 0;
+}
+
+/** Returns the list of unmet depth requirements. Empty array = passes. */
+function validateCosProfile(profile: any): string[] {
+  const problems: string[] = [];
+  if (!profile || typeof profile !== "object") return ["no_profile_object"];
+
+  const identity = profile.identity ?? {};
+  for (const field of ["role", "sector"]) {
+    const value = String(identity[field] ?? "").trim();
+    if (value.length < 3) problems.push(`identity.${field}_missing`);
+    else if (PLACEHOLDER_PATTERN.test(value)) problems.push(`identity.${field}_placeholder`);
+  }
+
+  const style = profile.leadership_style ?? {};
+  if (arrLen(style.style_tags) < 3) problems.push("leadership_style.style_tags_thin");
+  if (textLen(style.style_description) < 300) problems.push("leadership_style.style_description_thin");
+
+  const comms = profile.communication_profile ?? {};
+  if (textLen(comms.how_they_think) < 120) problems.push("communication_profile.how_they_think_thin");
+  if (arrLen(comms.what_lands) < 4) problems.push("communication_profile.what_lands_thin");
+  if (arrLen(comms.what_wont_land) < 4) problems.push("communication_profile.what_wont_land_thin");
+
+  const risk = profile.cognitive_risk_profile ?? {};
+  const flags = Array.isArray(risk.risk_flags) ? risk.risk_flags : [];
+  if (flags.length < 3) problems.push("cognitive_risk_profile.risk_flags_thin");
+  if (flags.some((f: any) => !["teal", "amber", "red"].includes(String(f?.severity ?? "").toLowerCase()))) {
+    problems.push("cognitive_risk_profile.severity_invalid");
+  }
+
+  if (textLen(profile.external_persona?.summary) < 100) problems.push("external_persona_thin");
+  if (arrLen(profile.high_stakes_map?.declared_events) + arrLen(profile.high_stakes_map?.inferred_events) < 3) {
+    problems.push("high_stakes_map_thin");
+  }
+  if (arrLen(profile.what_is_missing) < 3) problems.push("what_is_missing_thin");
+
+  const arch = profile.provisional_archetype ?? {};
+  if (textLen(arch.name) < 3) problems.push("provisional_archetype.name_missing");
+  if (textLen(arch.description) < 150) problems.push("provisional_archetype.description_thin");
+
+  const html = typeof profile.display_html === "string" ? profile.display_html : "";
+  if (html.length < 3000) problems.push("display_html_thin");
+  if (PLACEHOLDER_PATTERN.test(html.replace(/not provided by the user/gi, ""))) {
+    problems.push("display_html_placeholder");
+  }
+
+  return problems;
+}
+
+const EMAIL_CLASS_STYLES: Record<string, string> = {
+  hero: "background:#12100E;color:#F4F1EC;padding:28px;border-radius:12px;margin-bottom:24px;",
+  "hero-tag": "font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;",
+  "hero-name": "font-size:26px;font-weight:600;margin:8px 0 4px;",
+  "hero-sub": "font-size:14px;opacity:.8;",
+  "conf-row": "margin-top:14px;font-size:12px;opacity:.85;",
+  "conf-pill": "display:inline-block;padding:3px 10px;border:1px solid rgba(244,241,236,.35);border-radius:999px;margin-right:8px;font-size:11px;",
+  "conf-dot": "display:inline-block;width:7px;height:7px;border-radius:50%;background:#C98B3B;margin-right:6px;",
+  section: "margin:0 0 26px;",
+  "sec-label": "font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A8175;margin-bottom:10px;",
+  card: "border:1px solid #E4DFD6;border-radius:10px;padding:18px;background:#FBFAF7;margin-bottom:12px;",
+  "card-title": "font-size:15px;font-weight:600;color:#201E1B;margin-bottom:8px;",
+  "card-body": "font-size:14px;line-height:1.65;color:#3B3630;",
+  tag: "display:inline-block;padding:3px 10px;border-radius:999px;background:#EEE9DF;color:#4A443B;font-size:11px;margin:0 6px 6px 0;",
+  "tag-p": "display:inline-block;padding:3px 10px;border-radius:999px;background:#E7EDEA;color:#2F4A41;font-size:11px;margin:0 6px 6px 0;",
+  "tag-t": "display:inline-block;padding:3px 10px;border-radius:999px;background:#E4EEEC;color:#27544C;font-size:11px;margin:0 6px 6px 0;",
+  "tag-a": "display:inline-block;padding:3px 10px;border-radius:999px;background:#F6EAD6;color:#7A5620;font-size:11px;margin:0 6px 6px 0;",
+  "tag-r": "display:inline-block;padding:3px 10px;border-radius:999px;background:#F5E1DC;color:#7A3226;font-size:11px;margin:0 6px 6px 0;",
+  "tag-g": "display:inline-block;padding:3px 10px;border-radius:999px;background:#E6EDE3;color:#3A5230;font-size:11px;margin:0 6px 6px 0;",
+  "two-col": "margin:0;",
+  "lean-label": "font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#3A5230;margin:12px 0 6px;",
+  "lean-item": "font-size:14px;line-height:1.6;color:#3B3630;margin-bottom:6px;",
+  "lean-dot": "display:inline-block;width:6px;height:6px;border-radius:50%;background:#8A8175;margin-right:8px;",
+  "ld-g": "background:#4F7A3F;",
+  "ld-a": "background:#C98B3B;",
+  "ld-r": "background:#A8452F;",
+  "lean-text": "font-size:14px;line-height:1.6;color:#3B3630;",
+  flag: "border-left:3px solid #8A8175;padding:10px 14px;margin-bottom:10px;background:#FBFAF7;",
+  "flag-amber": "border-left:3px solid #C98B3B;padding:10px 14px;margin-bottom:10px;background:#FDF7EE;",
+  "flag-red": "border-left:3px solid #A8452F;padding:10px 14px;margin-bottom:10px;background:#FBF1EE;",
+  "flag-teal": "border-left:3px solid #2F6F63;padding:10px 14px;margin-bottom:10px;background:#EFF6F4;",
+  "flag-body": "font-size:14px;line-height:1.6;color:#3B3630;",
+  quote: "border-left:2px solid #C9C2B6;padding-left:14px;font-style:italic;color:#5A544B;margin:12px 0;",
+  "missing-item": "font-size:14px;line-height:1.6;color:#3B3630;margin-bottom:8px;",
+};
+
+function stripUnsafeForEmail(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<button[\s\S]*?<\/button>/gi, "")
+    .replace(/\son[a-z]+="[^"]*"/gi, "");
+}
+
+function inlineEmailStyles(html: string): string {
+  return html.replace(
+    /<([a-z0-9]+)([^>]*?)\sclass="([^"]*)"([^>]*?)>/gi,
+    (_m, tag: string, pre: string, cls: string, post: string) => {
+      const style = cls
+        .split(/\s+/)
+        .map((c) => EMAIL_CLASS_STYLES[c])
+        .filter(Boolean)
+        .join("");
+      const attrs = `${pre}${post}`.replace(/\s+/g, " ").trimEnd();
+      return style ? `<${tag}${attrs ? " " + attrs.trim() : ""} style="${style}">` : `<${tag}${attrs ? " " + attrs.trim() : ""}>`;
+    },
+  );
+}
+
+function htmlToPlainText(html: string): string {
+  return stripUnsafeForEmail(html)
+    .replace(/<\/(p|div|section|li|h1|h2|h3|h4|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;|&rsquo;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Email-ready artefacts stored alongside the profile so a later send is a lookup. */
+function buildEmailArtifacts(profile: any, displayHtml: string): {
+  html: string;
+  text: string;
+  subject: string;
+} {
+  const body = inlineEmailStyles(stripUnsafeForEmail(displayHtml || ""));
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your Chief of Staff profile</title></head><body style="margin:0;padding:24px;background:#F4F1EC;font-family:Georgia,'Times New Roman',serif;color:#201E1B;"><div style="max-width:640px;margin:0 auto;">${body}<p style="font-size:12px;color:#8A8175;margin-top:28px;line-height:1.6;">This profile is provisional. It sharpens as Mind Module observes your calendar, readiness and check-ins.</p></div></body></html>`;
+  const archetypeName = String(profile?.provisional_archetype?.name ?? "").trim();
+  const subject = archetypeName
+    ? `Your Chief of Staff profile: ${archetypeName}`
+    : "Your Chief of Staff profile";
+  return { html, text: htmlToPlainText(displayHtml || ""), subject };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
