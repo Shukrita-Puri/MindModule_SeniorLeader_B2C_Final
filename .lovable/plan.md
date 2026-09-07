@@ -2,6 +2,16 @@
 
 Target: from whatever the user gives us in v8 onboarding, produce a profile with the depth of the Rishad example — leadership style with tags, how they think and talk, what lands / what won't, external persona, cognitive risk flags, what's missing, provisional archetype — degrading honestly when the inputs are thin. Stored so it can be sent as an email later without regeneration.
 
+## Safety constraints (two days from launch)
+
+- Scope is v8 onboarding data hygiene and COS profile formation/storage only. Nothing else changes.
+- No UI, copy or screen changes anywhere, including the onboarding screens. The onboarding flow, its order, its validation and its guards stay exactly as they are.
+- Only two server functions are edited — the COS synthesis itself and the completion step's COS-derived field writes. Every other function is untouched, including the background sweep: instead of changing the sweep, the synthesis function is made able to accept the call it already receives.
+- No change to any surface that reads the profile (Brief, Plan, Nudges, Insights, Coach) — they keep reading the same fields and simply start receiving correct values instead of blanks.
+- One additive migration (three new columns on the onboarding table). No column is altered, renamed or dropped, and no existing table other than that one is touched.
+- Anything that would reach outside this list is stopped and flagged rather than done.
+
+
 ## What the audit found (verified against the live database and code)
 
 Eleven people have an onboarding row. Five never got a profile, six have one. Five real problems.
