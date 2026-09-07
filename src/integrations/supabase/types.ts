@@ -3106,51 +3106,90 @@ export type Database = {
       }
       jit_carousel_cards: {
         Row: {
+          calendar_event_id: string | null
           card_position: number | null
           card_type: string
           coach_context_statement: string | null
           coach_tool_name: string | null
           completed: boolean | null
           completed_at: string | null
+          event_category: string | null
           event_id: string | null
+          event_start: string | null
+          event_subcategory: string | null
+          event_title: string | null
+          excluded_reason: string | null
+          final_score: number | null
           id: string
           practice_category: string | null
           practice_id: string | null
+          rank_position: number | null
+          run_at: string | null
+          run_id: string | null
+          score_breakdown: Json | null
+          selection_slot: string | null
           shown_at: string | null
           tapped: boolean | null
           tapped_at: string | null
+          tier: Json | null
           user_id: string
         }
         Insert: {
+          calendar_event_id?: string | null
           card_position?: number | null
           card_type: string
           coach_context_statement?: string | null
           coach_tool_name?: string | null
           completed?: boolean | null
           completed_at?: string | null
+          event_category?: string | null
           event_id?: string | null
+          event_start?: string | null
+          event_subcategory?: string | null
+          event_title?: string | null
+          excluded_reason?: string | null
+          final_score?: number | null
           id?: string
           practice_category?: string | null
           practice_id?: string | null
+          rank_position?: number | null
+          run_at?: string | null
+          run_id?: string | null
+          score_breakdown?: Json | null
+          selection_slot?: string | null
           shown_at?: string | null
           tapped?: boolean | null
           tapped_at?: string | null
+          tier?: Json | null
           user_id: string
         }
         Update: {
+          calendar_event_id?: string | null
           card_position?: number | null
           card_type?: string
           coach_context_statement?: string | null
           coach_tool_name?: string | null
           completed?: boolean | null
           completed_at?: string | null
+          event_category?: string | null
           event_id?: string | null
+          event_start?: string | null
+          event_subcategory?: string | null
+          event_title?: string | null
+          excluded_reason?: string | null
+          final_score?: number | null
           id?: string
           practice_category?: string | null
           practice_id?: string | null
+          rank_position?: number | null
+          run_at?: string | null
+          run_id?: string | null
+          score_breakdown?: Json | null
+          selection_slot?: string | null
           shown_at?: string | null
           tapped?: boolean | null
           tapped_at?: string | null
+          tier?: Json | null
           user_id?: string
         }
         Relationships: [
