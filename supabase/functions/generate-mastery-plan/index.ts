@@ -6402,6 +6402,9 @@ async function generateMasteryPlan(
       explicitPto: (req as any).explicitPto === true,
       calendarLoad: ((req as any).calendarLoad as any) ?? null,
       weekendDays: userLocale.weekendDays,
+      // Availability SSOT v2 — durable trip evidence + away distance.
+      tripWindow: (shared.travelSignal as any)?.tripWindow ?? null,
+      awayDistanceKm: (shared.travelSignal as any)?.distanceKm ?? null,
       events: _events.map((e: any) => ({
         title: String(e?.title || ""),
         startTime: String(e?.startTime || e?.start_time || ""),
@@ -6442,6 +6445,8 @@ async function generateMasteryPlan(
       weekAheadOverride: (req as any).weekAheadOverride === true,
       weekAheadHydration: (req as any).weekAheadHydration ?? null,
       travelDaySignal: shared.travelSignal.travelDay,
+      tripWindow: (shared.travelSignal as any).tripWindow ?? null,
+      awayDistanceKm: (shared.travelSignal as any).distanceKm ?? null,
     }),
   });
 
@@ -6646,6 +6651,8 @@ async function generateMasteryPlan(
           weekAheadOverride: (req as any).weekAheadOverride === true,
           weekAheadHydration: (req as any).weekAheadHydration ?? null,
           travelDaySignal: shared.travelSignal.travelDay,
+          tripWindow: (shared.travelSignal as any).tripWindow ?? null,
+          awayDistanceKm: (shared.travelSignal as any).distanceKm ?? null,
         }),
       },
     );
@@ -8575,6 +8582,17 @@ export function deriveStructuralDayFlags(
      *  ORs on top of calendar-title (category G) detection so an away-day
      *  with no flight event still counts. Never removes evidence. */
     travelDaySignal?: boolean;
+    /** Availability SSOT v2 — durable trip window + away distance. */
+    tripWindow?:
+      | {
+        start: string;
+        end: string;
+        source?: string | null;
+        confidence?: string | null;
+        evidence?: string[] | null;
+      }
+      | null;
+    awayDistanceKm?: number | null;
   },
 ): {
   hasTravelDay: boolean;
@@ -8625,6 +8643,9 @@ export function deriveStructuralDayFlags(
     calendarLoad: (calendarLoad as any) ?? null,
     // F1.2: Thread weekendDays from unified locale context
     weekendDays: opts?.userLocale?.weekendDays ?? [0, 6],
+    // Availability SSOT v2 — durable trip evidence + away distance.
+    tripWindow: (opts?.tripWindow ?? null) as any,
+    awayDistanceKm: opts?.awayDistanceKm ?? null,
     events: availabilityEvents,
   });
   const hasRestSignals = availability.isRestDay;
