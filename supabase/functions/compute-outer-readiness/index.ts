@@ -5200,6 +5200,12 @@ serve(async (req) => {
             meetingCount: _lightDay.meetingCount,
             reason: _lightDay.reason,
             singleEvent: briefLightDaySingleEventTitle,
+            availabilityState: _lightDayAvailability.state,
+            availabilityReason: _lightDayAvailability.reason,
+            tripWindow: briefTravelHydration?.tripWindow
+              ? `${briefTravelHydration.tripWindow.start}..${briefTravelHydration.tripWindow.end}`
+              : null,
+            awayDistanceKm: briefTravelHydration?.distanceKm ?? null,
           });
         }
         if (_wam.active) {
@@ -8211,11 +8217,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // Shared with Plan + Nudges via `_shared/travel/hydrate-travel-day`.
             // Fail-open: any error yields travelDay=false and rules behave
             // exactly as before.
-            const travelHydration = await hydrateTravelDay(db, userId, {
-              now: new Date(),
-              currentTimezone: effectiveCurrentTz ?? null,
-              fn: "compute-outer-readiness",
-            });
+            const travelHydration = briefTravelHydration ??
+              await hydrateTravelDay(db, userId, {
+                now: new Date(),
+                currentTimezone: effectiveCurrentTz ?? null,
+                fn: "compute-outer-readiness",
+              });
             const travelStateForCtx = travelHydration.travelState;
 
             briefBehaviourSnapshot = buildBehaviourSnapshot({
