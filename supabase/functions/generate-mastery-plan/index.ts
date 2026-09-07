@@ -9657,7 +9657,12 @@ if (import.meta.main) {
               user_id: userId!,
               plan_date: planDate,
               mrs_window: currentPeriod,
-              day_kind: planObj?.meta?.dayKind ?? planObj?.dayKind ?? null,
+              // v2026-09-07 (R1): the plan object only ever writes
+              // meta.dayShape — meta.dayKind never existed, so this column
+              // was always null. Source dayShape first, keep the legacy
+              // keys as fallbacks.
+              day_kind: planObj?.meta?.dayShape ?? planObj?.meta?.dayKind ??
+                planObj?.dayKind ?? null,
               horizon_iso: horizonIsoValue,
               plan_json: planObj,
               horizon_modules: horizonMods,
