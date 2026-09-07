@@ -46,6 +46,7 @@ import { useCurrentBriefSnapshot } from "@/hooks/useCurrentBriefSnapshot";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { isIosNativeShell } from "@/config/purchasePlatform";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
@@ -86,6 +87,7 @@ const ExecutiveHome = () => {
     serverWeekAheadDecision,
     planLocale?.userHomeCountry,
   );
+  const isIosApp = isIosNativeShell();
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
@@ -293,7 +295,7 @@ const ExecutiveHome = () => {
           className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-transparent"
         >
           {/* Unified Today header bar + shared hero (header overlays hero) */}
-          <div className="relative">
+          <div className={isIosApp ? "relative pt-[env(safe-area-inset-top,0px)]" : "relative"}>
             <TodayHero />
             <TodayGreeting />
             <header className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
@@ -326,7 +328,7 @@ const ExecutiveHome = () => {
           </div>
 
           {/* All sections stacked on one page — overlap hero so card floats on shared canvas */}
-          <div className="relative z-20 flex-1 w-full -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
+          <div className={`relative z-20 flex-1 w-full -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] ${isIosApp ? 'pt-2' : ''}`}>
 
             {/* Swipeable 3-page home: MRS · Brief · Plan */}
             <h1 className="sr-only">{getGreeting()}</h1>
