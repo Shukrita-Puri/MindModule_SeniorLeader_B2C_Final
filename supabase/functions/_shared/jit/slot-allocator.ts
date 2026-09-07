@@ -157,18 +157,6 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     return buildSingleStateSlotResult("saturday", "saturday_habit_only", ranked.length, input.preferredPracticeWindows);
   }
 
-  // ── LIGHT DAY ARC ────────────────────────────────────────────────────
-  // Three recovery slots, never zero. Takes precedence over the PTO /
-  // holiday single-slot shape because a light PTO day is still a day we
-  // want the leader to open the app once and build the habit.
-  if (input.isLightDay && !input.isWeekAhead) {
-    return buildLightDayResult(ranked, input);
-  }
-
-  if (input.isPtoOrHoliday) {
-    return buildSingleStateSlotResult("holiday_pto", "holiday_habit_only", ranked.length, input.preferredPracticeWindows);
-  }
-
   // Travel reservation (mirrors the Brief's travel rule): on a travel day a
   // Category G anchor ALWAYS owns the arc, even when another category
   // out-ranks it on score. Without this, a flight can be scored below a
@@ -195,6 +183,29 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
   if (input.hasConferenceDay && (!top || top.categoryId === "F")) {
     return buildNamedFullArcResult("conference_day", "conference_day_full_arc", ranked, "F");
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // EXECUTION ORDER — DO NOT REORDER
+  //   1. Week-Ahead        (checked above)
+  //   2. Weekend rest day  (checked above)
+  //   3. Travel day        (checked above)
+  //   4. Conference day    (checked above)
+  //   5. Packed day (realMeetingCount >= 2) — gate below
+  //   6. LIGHT DAY  ← this branch, only reached when all of the above are false
+  // Hoisting this block above the travel / conference / packed checks is the
+  // defect this ordering exists to prevent: it replaced event-anchored plans
+  // with three generic recovery slots.
+  // ══════════════════════════════════════════════════════════════════════
+  const packedDay = (input.realMeetingCount ?? 0) >= 2;
+  if (input.isLightDay && !input.isWeekAhead && !packedDay) {
+    return buildLightDayResult(ranked, input);
+  }
+
+  if (input.isPtoOrHoliday) {
+    return buildSingleStateSlotResult("holiday_pto", "holiday_habit_only", ranked.length, input.preferredPracticeWindows);
+  }
+
+
 
   // Same-event fan detection (Sprint 1 fix): if the top candidate has no
   // sibling from a *different* event, it still qualifies as a dominant

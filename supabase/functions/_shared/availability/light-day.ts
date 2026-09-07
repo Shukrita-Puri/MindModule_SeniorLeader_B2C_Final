@@ -30,6 +30,14 @@ export type LightDayKind =
   | "public_holiday"
   | "pto";
 
+/** SM-1: raised when a caller hands the classifier no real events array. */
+export class LightDayClassificationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LightDayClassificationError";
+  }
+}
+
 export interface LightDayResult {
   /** True only when the day should run the light-day cadence. */
   isLightDay: boolean;
@@ -50,6 +58,10 @@ export interface LightDayInput extends AvailabilityInput {
   isPlanningDay?: boolean;
   /** Pre-computed availability, to avoid classifying twice. */
   availability?: AvailabilityResult;
+  /** Travel-day SSOT verdict — a travel day is NEVER a light day. */
+  travelDaySignal?: boolean;
+  /** All-day conference verdict — a conference day is NEVER a light day. */
+  conferenceDaySignal?: boolean;
 }
 
 /** Timed events only — all-day holiday / PTO markers never count as meetings. */
@@ -79,9 +91,45 @@ const KIND_BY_STATE: Partial<Record<AvailabilityState, LightDayKind>> = {
  * from event counts, weekend arithmetic or calendar load.
  */
 export function classifyLightDay(input: LightDayInput): LightDayResult {
+  // SM-1: events must be the real calendar array, never a default empty one.
+  // A silent `[]` made every working day look like a light day.
+  if (!input || !Array.isArray(input.events)) {
+    throw new LightDayClassificationError(
+      "classifyLightDay called without real events array",
+    );
+  }
+
   const availability = input.availability ?? classifyAvailability(input);
   const state = availability.state;
   const meetingCount = countTimedMeetings(input);
+
+  // ── OVERRIDES: travel day and all-day conference exit first ──────────
+  // These days own their own arcs; they are never light days regardless of
+  // how few meetings they hold.
+  if (input.travelDaySignal === true || input.conferenceDaySignal === true) {
+    return {
+      isLightDay: false,
+      kind: null,
+      isLastDayOfRun: false,
+      state,
+      meetingCount,
+      reason: input.travelDaySignal === true
+        ? "override_travel_day"
+        : "override_conference_day",
+    };
+  }
+
+  // SM-2: hard gate — 2+ timed meetings is never a light day.
+  if (meetingCount >= 2) {
+    return {
+      isLightDay: false,
+      kind: null,
+      isLastDayOfRun: false,
+      state,
+      meetingCount,
+      reason: "packed_day_meeting_count_gate",
+    };
+  }
 
   // Off-day run (weekend / holiday / PTO).
   if (OFF_STATES.has(state)) {
