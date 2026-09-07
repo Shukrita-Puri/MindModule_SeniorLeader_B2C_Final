@@ -82,6 +82,11 @@ export interface SlotAllocationInput {
    * The last day of a run is never a light day, so week-ahead is unaffected.
    */
   isLightDay?: boolean;
+  /**
+   * Timed meetings on the day (all-day markers excluded). 2+ is a packed day
+   * and can never take the light-day arc, whatever `isLightDay` says.
+   */
+  realMeetingCount?: number;
   /** Weekend work evidence strong enough to use normal workday cadence. */
   isFullWorkingWeekend?: boolean;
   /** F1.3: Country-aware weekend rest day flag (true = Sat/Fri in GCC/IL, or Sat elsewhere). */
