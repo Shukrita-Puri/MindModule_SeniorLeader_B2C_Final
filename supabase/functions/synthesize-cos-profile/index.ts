@@ -1425,6 +1425,7 @@ Deno.serve(async (req) => {
       burdenChips: row.burden_chips ?? [],
       goals: row.goals ?? [],
       briefTiming: row.brief_timing,
+      preferredPracticeWindow: row.preferred_practice_window ?? null,
       resetModality: row.reset_modality,
       weekendSignals: row.weekend_signals,
       calendarSelections: Array.isArray(row.calendar_selections) ? row.calendar_selections : [],
