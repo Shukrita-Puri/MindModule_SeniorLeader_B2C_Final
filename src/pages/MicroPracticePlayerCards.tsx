@@ -2853,6 +2853,24 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return COMPETITIVE_HUNGER_CARDS;
     case "possibility-mindset-open":
       return POSSIBILITY_MINDSET_CARDS;
+    case "people-pleasing-boundary-reset":
+      return BOUNDARY_RESET_CARDS;
+    case "decision-paralysis-unlock":
+      return DECISION_PARALYSIS_CARDS;
+    case "mental-block-dissolve":
+      return MENTAL_BLOCK_CARDS;
+    case "creativity-unlock-protocol":
+      return CREATIVITY_UNLOCK_CARDS;
+    case "feedback-receive-openly":
+      return FEEDBACK_RECEIVE_CARDS;
+    case "high-stakes-judgment-clarity":
+      return JUDGMENT_CLARITY_CARDS;
+    case "courage-activation-threshold":
+      return COURAGE_THRESHOLD_CARDS;
+    case "momentum-generator-stuck":
+      return MOMENTUM_GENERATOR_CARDS;
+    case "performance-state-activation":
+      return PEAK_STATE_CARDS;
     default:
       return [];
   }
@@ -2942,6 +2960,24 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return competitiveHungerHero;
     case "possibility-mindset-open":
       return possibilityMindsetHero;
+    case "people-pleasing-boundary-reset":
+      return boundaryResetHero;
+    case "decision-paralysis-unlock":
+      return decisionParalysisHero;
+    case "mental-block-dissolve":
+      return mentalBlockDissolveHero;
+    case "creativity-unlock-protocol":
+      return creativityUnlockHero;
+    case "feedback-receive-openly":
+      return feedbackReceiveHero;
+    case "high-stakes-judgment-clarity":
+      return judgmentClarityHero;
+    case "courage-activation-threshold":
+      return courageThresholdHero;
+    case "momentum-generator-stuck":
+      return momentumGeneratorHero;
+    case "performance-state-activation":
+      return peakStateHero;
     default:
       return phoenixResilienceHero;
   }
