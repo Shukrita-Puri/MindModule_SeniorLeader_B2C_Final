@@ -24,13 +24,21 @@ A first, careful slice: one new mindset micro-practice added to Pause, Flow (pre
 4. **Artwork**: one new illustration per practice, generated in the existing Recalibrate engraving style and held to each pillar's palette — Pause steel blue, Flow deep teal, Recharge warm charcoal/ochre — stored alongside the existing pillar images.
 5. **Surfacing**: they appear in the Mindset Protocols list on their pillar page automatically; they become plan-eligible because they now have a frontend home.
 
+## Safety — additive only
+
+- Purely additive: three new entries follow the exact pattern already used for the existing mindset protocols. No existing practice, title, tag, image, list order, button, route or player behaviour is edited.
+- Only additions to the catalogue array, the card-deck id list, the server surfaced-id list, and three new image files.
+- No change to scoring, JIT, Brief, Plan, recommendation, or navigation logic.
+- Database work is inserts only — no updates or deletes to existing rows.
+- Existing tests (catalogue/deck/surfacing consistency, plan contracts) plus a build/typecheck run before hand-off, and the three Recalibrate lists checked visually to confirm everything already there is unchanged.
+
 ## Technical notes
 
-- Frontend: `src/data/practicesAndSoundscapes.ts` (catalogue), `src/pages/MicroPracticePlayerCards.tsx` + `src/data/cardDeckIds.ts` (deck), assets under `src/assets/recalibrate/<pillar>/`.
+- Frontend: `src/data/practicesAndSoundscapes.ts` (catalogue), `src/pages/MicroPracticePlayerCards.tsx` + `src/data/cardDeckIds.ts` (deck), `supabase/functions/_shared/content/surfaced-content.ts` (server allowlist parity), assets under `src/assets/recalibrate/<pillar>/`.
 - Data: one migration inserting three content rows plus metadata and step rows, ids matching the catalogue ids; `is_active = true`.
 - Structured tags mapped to the app's `StructuredTags` shape (`pillar` values pause / flow / renewal), with context tags split into discrete tokens.
-- Existing tests that check catalogue/deck/surfacing consistency will be run; no changes to scoring, JIT, Brief, Plan logic, routes or layout.
 
 ## Out of scope
 
 Somatic protocols, the other 27 mindset protocols, audio, and any change to existing practices, pages, navigation or scoring.
+
