@@ -51,6 +51,15 @@ import softnessReleaseHero from "@/assets/recalibrate/pause/softness-release.jpg
 import difficultConversationPrepHero from "@/assets/recalibrate/pause/difficult-conversation-prep.jpg";
 import deepWorkInitiationHero from "@/assets/recalibrate/presence/deep-work-initiation.jpg";
 import rapidRechargeMiddayHero from "@/assets/recalibrate/power-up/rapid-recharge-midday.jpg";
+import ruminationExitHero from "@/assets/recalibrate/pause/rumination-exit-protocol.jpg";
+import failureReframeHero from "@/assets/recalibrate/pause/failure-reframe-pivot.jpg";
+import politicalNavigationHero from "@/assets/recalibrate/pause/political-navigation-clarity.jpg";
+import preBoardMasteryHero from "@/assets/recalibrate/presence/pre-board-mastery-frame.jpg";
+import stakeholderListeningHero from "@/assets/recalibrate/presence/stakeholder-listening-presence.jpg";
+import visionReconnectHero from "@/assets/recalibrate/presence/vision-reconnect-protocol.jpg";
+import identityShiftPrimeHero from "@/assets/recalibrate/power-up/identity-shift-prime.jpg";
+import competitiveHungerHero from "@/assets/recalibrate/power-up/competitive-hunger-awaken.jpg";
+import possibilityMindsetHero from "@/assets/recalibrate/power-up/possibility-mindset-open.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -2307,6 +2316,24 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return DEEP_WORK_INITIATION_CARDS;
     case "rapid-recharge-midday":
       return RAPID_RECHARGE_MIDDAY_CARDS;
+    case "rumination-exit-protocol":
+      return RUMINATION_EXIT_CARDS;
+    case "failure-reframe-pivot":
+      return FAILURE_REFRAME_CARDS;
+    case "political-navigation-clarity":
+      return POLITICAL_NAVIGATION_CARDS;
+    case "pre-board-mastery-frame":
+      return PRE_BOARD_MASTERY_CARDS;
+    case "stakeholder-listening-presence":
+      return STAKEHOLDER_LISTENING_CARDS;
+    case "vision-reconnect-protocol":
+      return VISION_RECONNECT_CARDS;
+    case "identity-shift-prime":
+      return IDENTITY_SHIFT_PRIME_CARDS;
+    case "competitive-hunger-awaken":
+      return COMPETITIVE_HUNGER_CARDS;
+    case "possibility-mindset-open":
+      return POSSIBILITY_MINDSET_CARDS;
     default:
       return [];
   }
@@ -2378,6 +2405,24 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return deepWorkInitiationHero;
     case "rapid-recharge-midday":
       return rapidRechargeMiddayHero;
+    case "rumination-exit-protocol":
+      return ruminationExitHero;
+    case "failure-reframe-pivot":
+      return failureReframeHero;
+    case "political-navigation-clarity":
+      return politicalNavigationHero;
+    case "pre-board-mastery-frame":
+      return preBoardMasteryHero;
+    case "stakeholder-listening-presence":
+      return stakeholderListeningHero;
+    case "vision-reconnect-protocol":
+      return visionReconnectHero;
+    case "identity-shift-prime":
+      return identityShiftPrimeHero;
+    case "competitive-hunger-awaken":
+      return competitiveHungerHero;
+    case "possibility-mindset-open":
+      return possibilityMindsetHero;
     default:
       return phoenixResilienceHero;
   }
