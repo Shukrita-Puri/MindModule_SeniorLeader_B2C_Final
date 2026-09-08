@@ -951,6 +951,12 @@ Also populate the JSON field what_is_missing with 3–5 numbered gaps, each
 naming the specific signal that would lift confidence. This field is for the
 system only — it must NOT be rendered as a section in display_html.
 
+PLAIN TEXT IN ALL JSON STRING FIELDS:
+Write paragraph breaks as natural sentence endings followed by two spaces.
+Do NOT emit the character sequence \n or \\n inside any string field value.
+Not in style_description. Not in how_they_think. Not in descriptions.
+Not anywhere. The HTML handles visual breaks via CSS.
+
 ───────────────────────────────────────────────
 STEP 5 · PRODUCE THE DISPLAY HTML
 ───────────────────────────────────────────────
