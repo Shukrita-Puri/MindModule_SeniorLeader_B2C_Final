@@ -36,7 +36,7 @@ const PowerUpOutcomePage = () => {
   );
 
   // Combined items for Somatic Protocol (soundscapes + somatic practices)
-  const somaticItems = [...soundscapes, ...somaticPractices];
+  const somaticItems = [...soundscapes, ...somaticPractices, ...somaticMicroPractices];
 
   // Load real audio durations for all items with audioSrc
   const allItems = useMemo(() => [...allMicroPractices, ...somaticItems], [allMicroPractices.length, somaticItems.length]);
