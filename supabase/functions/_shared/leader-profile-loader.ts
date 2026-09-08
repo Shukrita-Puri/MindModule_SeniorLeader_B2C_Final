@@ -104,6 +104,7 @@ export async function loadLeaderProfile(
     | {
         cos_profile: any | null;
         cos_profile_status: string | null;
+        cos_profile_quality: string | null;
         brief_timing: string | null;
         reset_modality: string | null;
         weekend_signals: string | null;
@@ -115,7 +116,7 @@ export async function loadLeaderProfile(
   try {
     const { data, error } = await db
       .from('onboarding_v8_responses')
-      .select('cos_profile, cos_profile_status, brief_timing, reset_modality, weekend_signals, goals, home_country')
+      .select('cos_profile, cos_profile_status, cos_profile_quality, brief_timing, reset_modality, weekend_signals, goals, home_country')
       .eq('user_id', userId)
       .maybeSingle();
     if (error) {
@@ -126,7 +127,11 @@ export async function loadLeaderProfile(
     console.warn('[leader-profile-loader] unexpected error:', e instanceof Error ? e.message : String(e));
   }
 
-  if (!row || row.cos_profile_status !== 'ready' || !row.cos_profile) {
+  // v2026-09-08 — onboarding is mostly optional, so depth is advisory: ANY
+  // stored profile object is used, thin or rich. Only a missing profile falls
+  // through to the null shell, and every field below already degrades to null
+  // on its own when absent.
+  if (!row || !row.cos_profile) {
     return {
       voice: {
         cos_brief_rules: null,
