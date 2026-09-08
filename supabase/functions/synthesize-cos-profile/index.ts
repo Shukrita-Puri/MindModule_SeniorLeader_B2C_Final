@@ -1089,16 +1089,18 @@ Deno.serve(async (req) => {
       }
     };
 
-    // v2026-09-07 quality gate: primary attempt, then one stricter retry, then
-    // store as needs_input rather than passing a hollow profile off as ready.
+    // v2026-09-08 — three model attempts before we ever fall back locally:
+    // pro → flash → flash-lite. Depth is advisory, so whatever comes back is
+    // stored as usable with a quality label.
     console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
     let modelUsed = AI_MODEL;
     let attempt = await callModel(AI_MODEL, userPrompt);
 
-    if (!attempt.profile && [429, 402, 503].includes(attempt.status)) {
-      console.info(`[synthesize-cos] retrying with fallback model=${AI_MODEL_FALLBACK}`);
-      modelUsed = AI_MODEL_FALLBACK;
-      attempt = await callModel(AI_MODEL_FALLBACK, userPrompt);
+    for (const nextModel of [AI_MODEL_FALLBACK, AI_MODEL_FALLBACK_LITE]) {
+      if (attempt.profile) break;
+      console.info(`[synthesize-cos] retrying with fallback model=${nextModel} (prev status=${attempt.status})`);
+      modelUsed = nextModel;
+      attempt = await callModel(nextModel, userPrompt);
     }
 
     if (!attempt.profile) {
@@ -1106,10 +1108,12 @@ Deno.serve(async (req) => {
         ? "the AI response did not emit the COS tool payload"
         : `the AI gateway returned ${attempt.status}`;
       const fallbackProfile = buildFallbackCosProfile(cosInput, reason);
+      // Still usable: the raw onboarding answers are the source of truth and a
+      // thin profile must never switch personalisation off.
       const persistedFallback = await persistProfile(
         fallbackProfile,
         'fallback',
-        'needs_input',
+        'ready',
         ["ai_output_unavailable"],
       );
       if (!persistedFallback.ok) return json(500, { error: "persist_failed" });
@@ -1117,11 +1121,13 @@ Deno.serve(async (req) => {
         ok: true,
         cached: false,
         fallback: true,
+        quality: 'thin',
         fallback_reason: attempt.status === 200 ? "ai_no_tool_call" : `ai_${attempt.status}`,
         cos_profile: fallbackProfile,
         cos_profile_html: persistedFallback.displayHtml,
       });
     }
+
 
     let profile: any = attempt.profile;
     let problems = validateCosProfile(profile);
