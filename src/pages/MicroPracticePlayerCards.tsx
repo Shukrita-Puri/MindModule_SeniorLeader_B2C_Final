@@ -48,6 +48,9 @@ import clarityEyeStormHero from "@/assets/recalibrate/pause/eye-of-storm.jpg";
 import stillnessGapHero from "@/assets/recalibrate/pause/stillness-gap.jpg";
 import detachmentObserverHero from "@/assets/recalibrate/pause/detachment-observer.jpg";
 import softnessReleaseHero from "@/assets/recalibrate/pause/softness-release.jpg";
+import difficultConversationPrepHero from "@/assets/recalibrate/pause/difficult-conversation-prep.jpg";
+import deepWorkInitiationHero from "@/assets/recalibrate/presence/deep-work-initiation.jpg";
+import rapidRechargeMiddayHero from "@/assets/recalibrate/power-up/rapid-recharge-midday.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -1508,6 +1511,192 @@ const SOFTNESS_RELEASE_CARDS = [
   },
 ];
 
+// Prepare for a High-Stakes Conversation card content
+const DIFFICULT_CONVERSATION_PREP_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Prepare for a High-Stakes Conversation",
+    subtitle: "Activate tactical calm, not emotional reaction",
+    source: "The Art of War (Sun Tzu) + Marcus Aurelius Meditations + FBI Negotiation Protocol",
+    duration: "3 min",
+    steps: "4 Steps",
+    trigger: "A high-stakes conversation in the next 10 minutes \u2013 board confrontation, letting someone go, investor crisis, co-founder conflict",
+    whenToUse: "Ten minutes before a difficult conversation where the outcome matters and emotions are running high.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the threat",
+    duration: "60 sec",
+    instruction: "In your mind or on paper, complete this sentence: 'I'm walking into this conversation feeling ___.' Name it precisely \u2013 nervous, afraid of their reaction, guilty, angry. Don't judge it. Just name it.",
+    guidance: "FBI negotiators call this 'labeling'. Naming the emotion cuts its power over you.",
+    insight: {
+      text: "Name it and it loses power over you. The unnamed is what controls you.",
+      source: "FBI Behavioral Analysis Unit",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Separate person from position",
+    duration: "60 sec",
+    instruction: "Ask yourself: what do THEY need from this conversation? Not what you think they should accept \u2013 what do they actually need to feel heard and fairly treated? Write two things.",
+    guidance: "This is the Stoic practice of seeing from the other's perspective before speaking.",
+    insight: {
+      text: "Marcus Aurelius prepared for every difficult day by imagining the minds of others. Empathy is not weakness \u2013 it's intelligence.",
+      source: "Meditations",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Choose your one intention",
+    duration: "45 sec",
+    instruction: "What is the ONE outcome that would make this conversation a success? Not winning, not being right \u2013 the real outcome you need. Write it in one sentence.",
+    guidance: "This becomes your anchor if the conversation goes sideways.",
+    insight: {
+      text: "A great negotiator knows their walk-away position before sitting down. Know yours.",
+      source: "Negotiation Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Ground and regulate",
+    duration: "45 sec",
+    instruction: "Three slow breaths: 4 counts in, 6 counts out. Feel your feet on the floor. Say internally: 'I'm safe. I'm prepared. I can handle whatever comes.'",
+    guidance: "Breathe at this ratio until the exhale feels longer than the inhale without effort.",
+    insight: {
+      text: "Composure is not the absence of feeling. It's feeling everything and choosing your response.",
+      source: "Stoic Practice",
+    },
+  },
+];
+
+// Deep Work Initiation card content
+const DEEP_WORK_INITIATION_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Deep Work Initiation",
+    subtitle: "Enter the state where real work happens",
+    source: "Deep Work (Newport) + Zen beginner's mind + The Principles of Psychology (James)",
+    duration: "3 min",
+    steps: "4 Steps",
+    trigger: "About to start important cognitive work \u2013 strategy, writing, complex analysis, creative problem-solving",
+    whenToUse: "Before any block of work that requires your full cognitive capacity and will be compromised by distraction.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Clear the environment",
+    duration: "45 sec",
+    instruction: "Phone away \u2013 not just silent, away. One window open. One task visible. Nothing else.",
+    guidance: "Every visible distraction reduces cognitive bandwidth even if you're not using it.",
+    insight: {
+      text: "Your physical environment is your mental environment. Architect it intentionally.",
+      source: "Cal Newport",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "State your single objective",
+    duration: "30 sec",
+    instruction: "Write in one sentence: 'In this session I am doing only ___.' Not a list. One thing.",
+    guidance: "The brain enters deep work through a single doorway.",
+    insight: {
+      text: "The mind narrows to go deep. Width is the enemy of depth.",
+      source: "Zen Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "The entry breath",
+    duration: "45 sec",
+    instruction: "Close your eyes. Three slow breaths, 4 counts in and 6 counts out. With each exhale, release the previous 24 hours. With your final inhale, arrive only here.",
+    guidance: "This moment. This task. Nothing else has a claim on you for now.",
+    insight: {
+      text: "The warrior entering battle is not thinking about yesterday's battle.",
+      source: "Zen Philosophy",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Start the work",
+    duration: "30 sec",
+    instruction: "The first five minutes are the hardest. Begin without judgment.",
+    guidance: "The act of starting activates the reward system, which makes continuation progressively easier.",
+    insight: {
+      text: "You cannot think your way into deep work. You work your way into deep thought.",
+      source: "William James",
+    },
+  },
+];
+
+// Rapid Midday Recharge card content
+const RAPID_RECHARGE_MIDDAY_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Rapid Midday Recharge",
+    subtitle: "Strategic rest is performance engineering",
+    source: "NASA sleep research + Churchill's wartime recovery rituals + Mediterranean power rest tradition",
+    duration: "5 min",
+    steps: "4 Steps",
+    trigger: "Cognitive fatigue mid-day, diminishing returns on thinking, slower decisions from depletion",
+    whenToUse: "When the afternoon still matters and pushing through would cost you more than stopping.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Create the conditions",
+    duration: "60 sec",
+    instruction: "Close your door or find a quiet space. Phone away. Set an alarm for 15 minutes. Recline or sit back. Lower the lights if possible.",
+    guidance: "Churchill was doing exactly this in the Cabinet War Rooms.",
+    insight: {
+      text: "The environment for rest is itself a leadership choice. Design it deliberately.",
+      source: "Recovery Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Release the day",
+    duration: "60 sec",
+    instruction: "Eyes closed. Three slow deliberate exhales, releasing the morning's decisions and conversations. They'll be there when you return.",
+    guidance: "For the next twelve minutes, your only job is to not have a job.",
+    insight: {
+      text: "The most productive thing you can do right now is stop being productive.",
+      source: "Performance Science",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Rest or sleep",
+    duration: "9 min",
+    instruction: "You may fall into light sleep, or simply rest with eyes closed. Both deliver benefit. Don't force sleep. Allow your mind to drift.",
+    guidance: "The body knows what it needs. Your only task is to permit it.",
+    insight: {
+      text: "Nature has not intended man to work from eight in the morning to midnight without refreshment.",
+      source: "Winston Churchill",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Return deliberately",
+    duration: "60 sec",
+    instruction: "When the alarm sounds, don't spring up. Take one minute. Breathe deliberately. Drink water. Notice the shift in cognitive clarity, then return fully.",
+    guidance: "Name one thing you're returning to before you move.",
+    insight: {
+      text: "You are now functioning on a cleared system.",
+      source: "NASA Sleep Research",
+    },
+  },
+];
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -1564,6 +1753,12 @@ const getCardsForPractice = (practiceId: string | undefined) => {
     case "softness-release":
     case "softness-release-new":
       return SOFTNESS_RELEASE_CARDS;
+    case "difficult-conversation-prep":
+      return DIFFICULT_CONVERSATION_PREP_CARDS;
+    case "deep-work-initiation":
+      return DEEP_WORK_INITIATION_CARDS;
+    case "rapid-recharge-midday":
+      return RAPID_RECHARGE_MIDDAY_CARDS;
     default:
       return [];
   }
@@ -1629,6 +1824,12 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
     case "softness-release":
     case "softness-release-new":
       return softnessReleaseHero;
+    case "difficult-conversation-prep":
+      return difficultConversationPrepHero;
+    case "deep-work-initiation":
+      return deepWorkInitiationHero;
+    case "rapid-recharge-midday":
+      return rapidRechargeMiddayHero;
     default:
       return phoenixResilienceHero;
   }

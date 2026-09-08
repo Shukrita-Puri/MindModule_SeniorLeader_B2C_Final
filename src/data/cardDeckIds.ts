@@ -34,6 +34,9 @@ export const CARD_DECK_IDS: readonly string[] = [
   'detachment-observer-new',
   'softness-release',
   'softness-release-new',
+  'difficult-conversation-prep',
+  'deep-work-initiation',
+  'rapid-recharge-midday',
 ];
 
 export const hasCardDeckId = (id: string | undefined | null): boolean =>

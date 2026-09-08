@@ -35,6 +35,10 @@ export const REFLECTION_CAPTURE_IDS: readonly string[] = [
   'mastery-constraint',
   // Reframe deck previously mis-tagged as a tool — every step is a writing prompt
   'jobs-simplicity',
+  // New mindset protocols (one per pillar)
+  'difficult-conversation-prep',
+  'deep-work-initiation',
+  'rapid-recharge-midday',
 ];
 
 /** Decks treated as somatic / breath: never show a writing box. */
