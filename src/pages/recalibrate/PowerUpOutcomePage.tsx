@@ -19,7 +19,14 @@ const PowerUpOutcomePage = () => {
   const content = getContentByCategory('power-up');
   const soundscapes = content.filter(item => item.contentType === 'soundbath');
   const practices = content.filter(item => item.contentType === 'guided-practice');
-  const allMicroPractices = content.filter(item => item.contentType === 'micro-practice');
+  // Somatic micro-practices belong in the Somatic Protocol section (nervous-system recovery, no writing prompts).
+  const somaticMicroPracticeIds = ['rapid-recharge-midday'];
+  const allMicroPractices = content.filter(
+    item => item.contentType === 'micro-practice' && !somaticMicroPracticeIds.includes(item.id)
+  );
+  const somaticMicroPractices = content.filter(
+    item => item.contentType === 'micro-practice' && somaticMicroPracticeIds.includes(item.id)
+  );
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
   const { toggleFavorite, isFavorite } = useFavorites();
 
@@ -29,7 +36,7 @@ const PowerUpOutcomePage = () => {
   );
 
   // Combined items for Somatic Protocol (soundscapes + somatic practices)
-  const somaticItems = [...soundscapes, ...somaticPractices];
+  const somaticItems = [...soundscapes, ...somaticPractices, ...somaticMicroPractices];
 
   // Load real audio durations for all items with audioSrc
   const allItems = useMemo(() => [...allMicroPractices, ...somaticItems], [allMicroPractices.length, somaticItems.length]);

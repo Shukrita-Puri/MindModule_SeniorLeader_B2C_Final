@@ -1859,13 +1859,13 @@ export const sanctuaryContent: SanctuaryContent[] = [
     cue: "Rest is preparation. I am refueling.",
     usedBy: "CEOs and C-Suite Leaders experiencing genuine midday cognitive depletion",
     thumbnail: rapidRechargeMiddayHero,
-    subType: "mindset",
+    subType: "tool",
     steps: 4,
     instructions: [
       "Create the conditions (60 sec): Close your door or find a quiet space. Phone away. Set an alarm for 15 minutes. Recline or sit back. Lower the lights if you can.",
       "Release the day (60 sec): Eyes closed. Three slow deliberate exhales, releasing the morning's decisions and conversations. For the next twelve minutes, your only job is to not have a job.",
       "Rest or sleep (9 min): You may fall into light sleep, or simply rest with eyes closed. Both deliver benefit. Don't force sleep. Let the mind drift.",
-      "Return deliberately (60 sec): When the alarm sounds, don't spring up. Take one minute. Breathe. Drink water. Notice the shift in clarity. Write one thought about what you're returning to, then return fully."
+      "Return deliberately (60 sec): When the alarm sounds, don't spring up. Take one minute. Breathe. Drink water. Notice the shift in clarity, then return fully to what's next."
     ]
   }
 ];
