@@ -4284,6 +4284,7 @@ export type Database = {
           cos_profile_error: string | null
           cos_profile_generated_at: string | null
           cos_profile_html: string | null
+          cos_profile_quality: string | null
           cos_profile_source: string | null
           cos_profile_status: string
           created_at: string
@@ -4319,6 +4320,7 @@ export type Database = {
           cos_profile_error?: string | null
           cos_profile_generated_at?: string | null
           cos_profile_html?: string | null
+          cos_profile_quality?: string | null
           cos_profile_source?: string | null
           cos_profile_status?: string
           created_at?: string
@@ -4354,6 +4356,7 @@ export type Database = {
           cos_profile_error?: string | null
           cos_profile_generated_at?: string | null
           cos_profile_html?: string | null
+          cos_profile_quality?: string | null
           cos_profile_source?: string | null
           cos_profile_status?: string
           created_at?: string
