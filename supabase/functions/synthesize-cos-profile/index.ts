@@ -915,6 +915,11 @@ legacy_signals: what they appear to be building toward — institutional standin
 Archetype block:
   name: memorable 2–3 word name (e.g. "The Grounded Navigator")
   canonical_slug: closest match from the canonical slug list
+  canonical_slug MUST match the archetype name you chose.
+  If the name is "The Grounded Navigator", the slug is "grounded-leader".
+  If the name is "The Adaptive Navigator", the slug is "adaptive-navigator".
+  Do not mix names and slugs from different archetypes. Check the match
+  before emitting.
   subtitle: one-line signature capturing the mechanism — specific, not generic
     (e.g. "High institutional stamina · purpose-driven · open-loop decision
     debt under commercial acceleration")
