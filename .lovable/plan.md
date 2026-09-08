@@ -20,6 +20,9 @@ generic "Could not save" message. The typed text is then lost.
 
 - Before saving, ask for a fresh sign-in token; if the first attempt times out,
   try once more instead of sending an unsigned request.
+- On the iPhone app the same save must work: use the native sign-in token
+  (with its refresh path) exactly as the other in-app writing does, so a save
+  from the installed app behaves identically to the browser.
 - If the token still cannot be obtained, tell the user plainly that their
   session needs refreshing (reload / sign in again) rather than a generic
   failure, and keep their typed text in the box.
@@ -29,11 +32,13 @@ generic "Could not save" message. The typed text is then lost.
   reload never loses what they wrote; clear it on a successful save.
 - No visual change: same card, same button, same copy, same success state.
 
-Technical: `src/components/home/ReflectionCorner.tsx` only — swap the plain
-`functions.invoke` for the shared authed transport with the one-shot auth retry
-(`src/lib/authRetryInterceptor.ts` / `getEdgeFunctionHeaders`), add the draft
-mirror, and branch the error toast on missing-token vs server error. No change
-to `store-tiny-win`, the table, RLS, or any other surface.
+Technical: `src/components/home/ReflectionCorner.tsx` only — keep
+`getEdgeFunctionHeaders()` (native token fallback included), add a one-shot
+token re-fetch before invoke, rely on the existing 401 auto-retry
+(`src/lib/authRetryInterceptor.ts`), add the draft mirror, and branch the error
+toast on missing-token vs server error. Verified on both web and the Capacitor
+iOS shell. No change to `store-tiny-win`, the table, RLS, or any other surface.
+
 
 ## 3. One model only for the Chief of Staff profile
 
