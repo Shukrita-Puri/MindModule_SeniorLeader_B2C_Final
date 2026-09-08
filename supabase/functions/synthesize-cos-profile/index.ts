@@ -763,6 +763,20 @@ thought carefully, and speaks to the leader's intelligence. Corporate English,
 crisp sentences, no jargon, no coaching language, no therapy register.
 Not a form. Not an assessment report. A considered, human briefing document.
 
+PLAIN TEXT FIELDS — NO ESCAPED NEWLINES:
+
+When writing any text field that will be stored in JSON (style_description,
+how_they_think, how_they_communicate, cos_brief_rules, primary_risk,
+descriptions, summaries — any string field), write paragraph breaks as
+a single space or as natural sentence endings. Do NOT emit the character
+sequence \\n or \\\\n anywhere in a text field value. The JSON serialiser
+handles line breaks — your job is to write flowing prose with paragraph
+breaks indicated only by starting a new natural sentence or using a
+double-space. If you need to separate two paragraphs within a single
+string field, end the first paragraph's last sentence with a full stop
+and begin the next paragraph's sentence on the same line separated by
+two spaces. The rendered HTML handles visual paragraph separation via CSS.
+
 You MUST call the tool "emit_cos_profile" exactly once. Do not return prose.`;
 
 function buildUserPrompt(args: {
