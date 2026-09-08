@@ -51,6 +51,15 @@ export const SURFACED_CONTENT_IDS: readonly string[] = [
   "difficult-conversation-prep",
   "deep-work-initiation",
   "rapid-recharge-midday",
+  "rumination-exit-protocol",
+  "failure-reframe-pivot",
+  "political-navigation-clarity",
+  "pre-board-mastery-frame",
+  "stakeholder-listening-presence",
+  "vision-reconnect-protocol",
+  "identity-shift-prime",
+  "competitive-hunger-awaken",
+  "possibility-mindset-open",
 ];
 
 const SURFACED = new Set(SURFACED_CONTENT_IDS);
@@ -95,6 +104,15 @@ export const MINDSET_CONTENT_IDS: readonly string[] = [
   "jobs-simplicity",
   "difficult-conversation-prep",
   "deep-work-initiation",
+  "rumination-exit-protocol",
+  "failure-reframe-pivot",
+  "political-navigation-clarity",
+  "pre-board-mastery-frame",
+  "stakeholder-listening-presence",
+  "vision-reconnect-protocol",
+  "identity-shift-prime",
+  "competitive-hunger-awaken",
+  "possibility-mindset-open",
 ];
 
 export const SOMATIC_CONTENT_IDS: readonly string[] = [

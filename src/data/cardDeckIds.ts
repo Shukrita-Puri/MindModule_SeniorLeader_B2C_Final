@@ -37,6 +37,15 @@ export const CARD_DECK_IDS: readonly string[] = [
   'difficult-conversation-prep',
   'deep-work-initiation',
   'rapid-recharge-midday',
+  'rumination-exit-protocol',
+  'failure-reframe-pivot',
+  'political-navigation-clarity',
+  'pre-board-mastery-frame',
+  'stakeholder-listening-presence',
+  'vision-reconnect-protocol',
+  'identity-shift-prime',
+  'competitive-hunger-awaken',
+  'possibility-mindset-open',
 ];
 
 export const hasCardDeckId = (id: string | undefined | null): boolean =>
