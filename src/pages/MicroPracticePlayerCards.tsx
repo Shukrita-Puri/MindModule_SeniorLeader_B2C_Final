@@ -51,6 +51,15 @@ import softnessReleaseHero from "@/assets/recalibrate/pause/softness-release.jpg
 import difficultConversationPrepHero from "@/assets/recalibrate/pause/difficult-conversation-prep.jpg";
 import deepWorkInitiationHero from "@/assets/recalibrate/presence/deep-work-initiation.jpg";
 import rapidRechargeMiddayHero from "@/assets/recalibrate/power-up/rapid-recharge-midday.jpg";
+import ruminationExitHero from "@/assets/recalibrate/pause/rumination-exit-protocol.jpg";
+import failureReframeHero from "@/assets/recalibrate/pause/failure-reframe-pivot.jpg";
+import politicalNavigationHero from "@/assets/recalibrate/pause/political-navigation-clarity.jpg";
+import preBoardMasteryHero from "@/assets/recalibrate/presence/pre-board-mastery-frame.jpg";
+import stakeholderListeningHero from "@/assets/recalibrate/presence/stakeholder-listening-presence.jpg";
+import visionReconnectHero from "@/assets/recalibrate/presence/vision-reconnect-protocol.jpg";
+import identityShiftPrimeHero from "@/assets/recalibrate/power-up/identity-shift-prime.jpg";
+import competitiveHungerHero from "@/assets/recalibrate/power-up/competitive-hunger-awaken.jpg";
+import possibilityMindsetHero from "@/assets/recalibrate/power-up/possibility-mindset-open.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -1697,6 +1706,554 @@ const RAPID_RECHARGE_MIDDAY_CARDS = [
   },
 ];
 
+// Exit the Overthinking Loop card content
+const RUMINATION_EXIT_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Exit the Overthinking Loop",
+    subtitle: "Break the loop deliberately",
+    source: "Stoic Philosophy + Cognitive Behavioural Therapy + Amazon Regret Minimization Framework",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "Cycling on a decision, replaying a conversation, or overthinking at the expense of sleep and presence",
+    whenToUse: "When you've thought about something more than three times without resolution \u2013 the mind is looping, not solving.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Empty the loop",
+    duration: "90 sec",
+    instruction: "Take a blank page or open note. Write every thought circling in your head about this topic without editing. Not sentences \u2013 fragments are fine.",
+    guidance: "Get it out of your head and onto the page. Ninety seconds, no editing.",
+    insight: {
+      text: "The mind is a terrible storage device for unresolved problems. Paper is better.",
+      source: "Cognitive Behavioural Therapy",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Apply the Bezos test",
+    duration: "60 sec",
+    instruction: "Ask yourself: 'In 10 years, will this decision matter?' Most decisions are reversible doors \u2013 you walk through and can return. Identify which kind this is.",
+    guidance: "Only irreversible decisions deserve this level of energy.",
+    insight: {
+      text: "Most of what we agonise over is a two-way door. You can walk back through.",
+      source: "Jeff Bezos",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Identify what you can't control",
+    duration: "45 sec",
+    instruction: "Draw a line. Left side: what is in my control. Right side: what is not. Everything on the right, intentionally let go of.",
+    guidance: "The Stoics called this the dichotomy of control.",
+    insight: {
+      text: "You suffer more in imagination than in reality.",
+      source: "Seneca",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Make one small decision",
+    duration: "45 sec",
+    instruction: "Don't try to solve everything. Just name the next single action: 'The one thing I'll do tomorrow on this is ___.'",
+    guidance: "The act of deciding \u2013 even a tiny decision \u2013 breaks the loop.",
+    insight: {
+      text: "Done is better than perfect, but starting is better than both.",
+      source: "Executive Practice",
+    },
+  },
+];
+
+// Turn Failure Into a Forward Move card content
+const FAILURE_REFRAME_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Turn Failure Into a Forward Move",
+    subtitle: "Extract the learning before it hardens into shame",
+    source: "Edison's experimental method + Bridgewater Radical Transparency + Logotherapy (Frankl)",
+    duration: "5 min",
+    steps: "4 Steps",
+    trigger: "After a significant failure, loss, missed milestone or public setback",
+    whenToUse: "Within 24 hours of a significant failure \u2013 before it hardens into identity or shame.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name what happened, facts only",
+    duration: "60 sec",
+    instruction: "Write one sentence: what factually happened? No interpretation. No story. Just the observable facts.",
+    guidance: "Strip the narrative. 'The launch did not hit target' is enough.",
+    insight: {
+      text: "You cannot process what you haven't accurately named. Start with facts.",
+      source: "Ray Dalio",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Separate outcome from identity",
+    duration: "60 sec",
+    instruction: "Ask: 'Did I fail, or did this attempt fail?' Complete this sentence: 'I made a decision to ___. Given what I knew then, it was ___.'",
+    guidance: "You are not the result.",
+    insight: {
+      text: "You are the explorer, not the map. The territory revealed something new.",
+      source: "Growth Mindset Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Extract the data",
+    duration: "90 sec",
+    instruction: "What three things did this failure reveal? What assumptions proved wrong? Label each insight: 'What this showed me is ___.'",
+    guidance: "Treat it as a post-mortem, not a verdict.",
+    insight: {
+      text: "Edison had 10,000 data points before the lightbulb. How many do you have?",
+      source: "Thomas Edison",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Choose the meaning",
+    duration: "60 sec",
+    instruction: "In one sentence: what meaning do you choose to give this failure? Make it generative, not punishing.",
+    guidance: "We cannot control what happens, only the meaning we assign it.",
+    insight: {
+      text: "Between stimulus and response there is a space. In that space is our freedom.",
+      source: "Viktor Frankl",
+    },
+  },
+];
+
+// Navigate Politics Without Being Pulled In card content
+const POLITICAL_NAVIGATION_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Navigate Politics Without Being Pulled In",
+    subtitle: "Map the interests before you make a move",
+    source: "Realpolitik diplomacy + The Art of War + Influence (Cialdini)",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "Sensing political undercurrents, a complex stakeholder landscape, or a politically charged meeting ahead",
+    whenToUse: "Before a politically charged meeting, or when the landscape is shifting around you.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Map the players",
+    duration: "60 sec",
+    instruction: "List the key people involved. Next to each, write one thing: what do they most want from this situation? Not what they say \u2013 what they actually want.",
+    guidance: "Power, credit, safety, influence. Be honest about it.",
+    insight: {
+      text: "Know your enemy and know yourself \u2013 in a hundred battles you will never be defeated.",
+      source: "Sun Tzu",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Identify the real constraint",
+    duration: "60 sec",
+    instruction: "What is the one thing that, if it shifted, would change everything? Usually one relationship, one fear, or one misaligned incentive.",
+    guidance: "Diplomats call this the blocking faction.",
+    insight: {
+      text: "Kissinger always found the one door. He didn't push on walls.",
+      source: "Realpolitik",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Find the common ground",
+    duration: "45 sec",
+    instruction: "Where do your interests and their interests overlap? Name it specifically. This becomes your leverage \u2013 not power over them, but alignment with them.",
+    guidance: "Write the overlap in one line.",
+    insight: {
+      text: "People move toward those who understand them, not those who overpower them.",
+      source: "Robert Cialdini",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Choose your first move",
+    duration: "45 sec",
+    instruction: "What is the one action, conversation or signal that creates forward momentum without triggering resistance?",
+    guidance: "Small moves change large landscapes.",
+    insight: {
+      text: "The highest form of leadership is to win without fighting.",
+      source: "Tao Te Ching",
+    },
+  },
+];
+
+// Own the Room Before You Enter card content
+const PRE_BOARD_MASTERY_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Own the Room Before You Enter",
+    subtitle: "Walk in as the most grounded person there",
+    source: "Presence (Cuddy, Harvard) + The Power of Full Engagement + Meditations",
+    duration: "3 min",
+    steps: "4 Steps",
+    trigger: "About to walk into a high-stakes room \u2013 board meeting, investor presentation, all-hands, performance review",
+    whenToUse: "In the minutes before a meeting where your presence and authority matter from the first moment.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Recall your evidence",
+    duration: "45 sec",
+    instruction: "Name three times you performed brilliantly under pressure. Specific moments. Feel them \u2013 don't just remember them intellectually.",
+    guidance: "This primes your system with the state of mastery.",
+    insight: {
+      text: "Confidence is earned through memory, not manufactured by affirmation.",
+      source: "Performance Psychology",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Visualise your best version",
+    duration: "45 sec",
+    instruction: "Close your eyes. See yourself walking into that room. Your posture, your eye contact, your calm. Hear yourself speaking with authority and warmth.",
+    guidance: "Hold the image for the full 45 seconds.",
+    insight: {
+      text: "The mind cannot distinguish between a vividly imagined event and a real one. Choose what it rehearses.",
+      source: "Mental Rehearsal Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Set your anchor",
+    duration: "45 sec",
+    instruction: "Choose one physical anchor \u2013 a breath, a hand position. Take a slow breath, connect to your best-self state, and press the anchor.",
+    guidance: "You can activate this state instantly in the room by repeating the anchor.",
+    insight: {
+      text: "Elite performers don't hope to feel ready. They create the state on demand.",
+      source: "Sport Psychology",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Walk in",
+    duration: "30 sec",
+    instruction: "Enter the room as if you already belong there \u2013 because you do. Before you say a word, be still for two full seconds.",
+    guidance: "Stillness signals authority. The room will adjust to your state.",
+    insight: {
+      text: "The most powerful person in any room is the calmest one.",
+      source: "Marcus Aurelius",
+    },
+  },
+];
+
+// Full Presence in a Conversation That Matters card content
+const STAKEHOLDER_LISTENING_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Full Presence in a Conversation That Matters",
+    subtitle: "Stop performing listening \u2013 actually be there",
+    source: "Person-centred therapy (Rogers) + The 7 Habits + Tao Te Ching",
+    duration: "2 min",
+    steps: "3 Steps",
+    trigger: "About to enter a conversation that matters \u2013 a key report, board member, investor or partner who needs to feel heard",
+    whenToUse: "Any conversation where the relationship matters as much as the content.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Clear your internal screen",
+    duration: "45 sec",
+    instruction: "Notice what's running on your internal screen \u2013 the next meeting, the unanswered email. Acknowledge each and set it aside: 'That is there. I'll return to it. Right now: this person.'",
+    guidance: "Name them one at a time until the screen is clear.",
+    insight: {
+      text: "You cannot give what you haven't first chosen to give. Choose presence.",
+      source: "Carl Rogers",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Set your listening intention",
+    duration: "30 sec",
+    instruction: "Ask yourself: 'What does this person most need me to understand from this conversation?' Not what you plan to say.",
+    guidance: "This shifts you from evaluation mode to understanding mode.",
+    insight: {
+      text: "Seek first to understand.",
+      source: "Stephen Covey",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Listen to the gap",
+    duration: "30 sec",
+    instruction: "In the conversation, listen not just to words but to what's underneath them. Reflect back: 'It sounds like the real concern here is ___.'",
+    guidance: "What are they not saying directly?",
+    insight: {
+      text: "The most important things are never said directly. Listen for what's underneath.",
+      source: "Deep Listening",
+    },
+  },
+];
+
+// Reconnect to Why This Matters card content
+const VISION_RECONNECT_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Reconnect to Why This Matters",
+    subtitle: "Return to the vision driving the work",
+    source: "Connecting the dots (Jobs) + Logotherapy + Working backwards (Bezos)",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "Lost in operational detail, motivation dipping, or questioning whether the work matters",
+    whenToUse: "When you've spent too long in the weeds and need to recalibrate to what actually matters.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Step back to the origin",
+    duration: "60 sec",
+    instruction: "In one sentence, write: 'The reason I started this \u2013 or took this role \u2013 was ___.' Don't write the polished version. Write the real one.",
+    guidance: "What did you believe was possible then?",
+    insight: {
+      text: "The why is always true even when the what is hard.",
+      source: "Simon Sinek",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Name the dent",
+    duration: "60 sec",
+    instruction: "What is the dent your work is making? Not the revenue \u2013 the actual difference. Name it specifically.",
+    guidance: "Specific beats noble. One concrete difference.",
+    insight: {
+      text: "A leader without a vision is a manager. The difference is the dent.",
+      source: "Steve Jobs",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Write the future press release",
+    duration: "60 sec",
+    instruction: "What does success look like in three years, written as a news story? One paragraph.",
+    guidance: "This converts abstract vision into concrete reality.",
+    insight: {
+      text: "The future is already written in your choices. Which story are you choosing?",
+      source: "Jeff Bezos",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Choose one thing today",
+    duration: "30 sec",
+    instruction: "What is one action today that is a direct expression of that vision? Not the operationally urgent thing \u2013 the strategically meaningful one.",
+    guidance: "Write it and put it in today's calendar.",
+    insight: {
+      text: "Vision without action is a daydream. Action without vision is a nightmare.",
+      source: "Japanese proverb",
+    },
+  },
+];
+
+// Step Into Your Best Self card content
+const IDENTITY_SHIFT_PRIME_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Step Into Your Best Self",
+    subtitle: "Act from the identity you need \u2013 feeling follows action",
+    source: "Presence (Cuddy) + Principles of Psychology (James) + Identity-based behaviour change",
+    duration: "3 min",
+    steps: "4 Steps",
+    trigger: "Need to show up at your best but not currently feeling it \u2013 pre-keynote, pre-negotiation, after a setback",
+    whenToUse: "Any moment where you need to be your best self before you feel like your best self.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name your best self",
+    duration: "45 sec",
+    instruction: "Describe in one sentence the version of yourself at your absolute best: 'At my best, I am ___.' Be specific.",
+    guidance: "'Decisive, calm under pressure, genuinely curious' beats 'a good leader'.",
+    insight: {
+      text: "You are not trying to become someone new. You are remembering someone you already are.",
+      source: "William James",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Adopt the posture",
+    duration: "60 sec",
+    instruction: "Stand tall. Shoulders back and down. Feet shoulder-width. Take up space for a full minute.",
+    guidance: "Open posture measurably shifts your physiology before you begin.",
+    insight: {
+      text: "The body leads and the mind follows. Posture is a signal to yourself.",
+      source: "Amy Cuddy",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Speak it into existence",
+    duration: "45 sec",
+    instruction: "Say aloud: 'I am ___', using the identity you named in step one. Three times.",
+    guidance: "Not affirmation \u2013 declaration. The difference is ownership.",
+    insight: {
+      text: "The words 'I am' are the most powerful creative force you possess. Use them precisely.",
+      source: "Identity-Based Change",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Begin from that identity",
+    duration: "30 sec",
+    instruction: "Whatever comes next, walk into it as that person. Don't wait for the feeling to confirm the identity.",
+    guidance: "The feeling follows the action.",
+    insight: {
+      text: "You don't have to feel it first. Act it first. Then feel it.",
+      source: "Behavioural Activation",
+    },
+  },
+];
+
+// Reignite Your Competitive Edge card content
+const COMPETITIVE_HUNGER_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Reignite Your Competitive Edge",
+    subtitle: "Remember what you're playing for",
+    source: "Jordan's competitive philosophy + Mamba Mentality + Stoic excellence",
+    duration: "3 min",
+    steps: "4 Steps",
+    trigger: "Losing competitive edge, feeling complacent, or facing a serious competitor",
+    whenToUse: "When you need to remember you're in competition \u2013 for market, talent, ideas \u2013 and urgency has faded.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the competition",
+    duration: "45 sec",
+    instruction: "Who or what are you competing with? Be specific \u2013 name the competitor, the challenge, the position you want.",
+    guidance: "Healthy competition requires knowing what you're running toward.",
+    insight: {
+      text: "You cannot compete with a ghost. Name what you're actually playing for.",
+      source: "Michael Jordan",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Remember your reason",
+    duration: "45 sec",
+    instruction: "Why does winning here matter? Not to the company \u2013 to you. What would it prove? What would it build?",
+    guidance: "This is Kobe at 4am: not obligation, but love of the game.",
+    insight: {
+      text: "Obligation fatigues. Love of the game sustains.",
+      source: "Kobe Bryant",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Feel the fire",
+    duration: "45 sec",
+    instruction: "Close your eyes. Imagine the moment of effort \u2013 fully in it, giving everything. Feel your body's response and let that energy through.",
+    guidance: "You don't manufacture competitive fire. You remember it.",
+    insight: {
+      text: "Fire doesn't need to be created. It needs to be uncaged.",
+      source: "Competitive Psychology",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Channel it precisely",
+    duration: "30 sec",
+    instruction: "Take that energy and direct it toward one specific action in the next hour. Not general effort \u2013 one precise high-leverage action.",
+    guidance: "Great competitors burn hot and focus.",
+    insight: {
+      text: "Undirected fire burns everything. Directed fire wins everything.",
+      source: "Stoic Practice",
+    },
+  },
+];
+
+// Break Through Your Ceiling card content
+const POSSIBILITY_MINDSET_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Break Through Your Ceiling",
+    subtitle: "Expand what you believe is achievable",
+    source: "Growth Mindset (Dweck) + Peak Experiences (Maslow) + First Principles Thinking",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "Thinking too small, or accepting constraints that shouldn't be accepted",
+    whenToUse: "When you find yourself saying 'we can't' more often than 'how might we'.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the ceiling",
+    duration: "60 sec",
+    instruction: "What are you treating as an immovable constraint? Write it: 'We can't ___ because ___.' Then ask: is this a physical law or a belief?",
+    guidance: "Most ceilings are beliefs wearing the clothes of facts.",
+    insight: {
+      text: "The limits you accept become the limits you live within.",
+      source: "Abraham Maslow",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "The 10x question",
+    duration: "60 sec",
+    instruction: "Ask: 'What would we do if we had ten times the ambition on this?' Don't answer it practically \u2013 just open the horizon.",
+    guidance: "10x thinking creates genuinely different solutions than 10% thinking.",
+    insight: {
+      text: "10x thinking is categorical, not incremental. Different scale, different strategy.",
+      source: "First Principles Thinking",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Find one person who did it",
+    duration: "60 sec",
+    instruction: "Name someone who achieved something you believe is impossible in your context. How did they see through their version of your ceiling?",
+    guidance: "Exposure to those who achieved the impossible expands perceived possibility.",
+    insight: {
+      text: "Impossible is what was achieved by people who refused the consensus.",
+      source: "Carol Dweck",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Name your expanded move",
+    duration: "30 sec",
+    instruction: "With the horizon expanded: what's one action you would take that you currently aren't? Not theoretical \u2013 practical. Write it.",
+    guidance: "Then do it today.",
+    insight: {
+      text: "Possibility is a practice, not a feeling. Act from the expanded version.",
+      source: "Growth Mindset Research",
+    },
+  },
+];
+
+
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -1759,6 +2316,24 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return DEEP_WORK_INITIATION_CARDS;
     case "rapid-recharge-midday":
       return RAPID_RECHARGE_MIDDAY_CARDS;
+    case "rumination-exit-protocol":
+      return RUMINATION_EXIT_CARDS;
+    case "failure-reframe-pivot":
+      return FAILURE_REFRAME_CARDS;
+    case "political-navigation-clarity":
+      return POLITICAL_NAVIGATION_CARDS;
+    case "pre-board-mastery-frame":
+      return PRE_BOARD_MASTERY_CARDS;
+    case "stakeholder-listening-presence":
+      return STAKEHOLDER_LISTENING_CARDS;
+    case "vision-reconnect-protocol":
+      return VISION_RECONNECT_CARDS;
+    case "identity-shift-prime":
+      return IDENTITY_SHIFT_PRIME_CARDS;
+    case "competitive-hunger-awaken":
+      return COMPETITIVE_HUNGER_CARDS;
+    case "possibility-mindset-open":
+      return POSSIBILITY_MINDSET_CARDS;
     default:
       return [];
   }
@@ -1830,6 +2405,24 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return deepWorkInitiationHero;
     case "rapid-recharge-midday":
       return rapidRechargeMiddayHero;
+    case "rumination-exit-protocol":
+      return ruminationExitHero;
+    case "failure-reframe-pivot":
+      return failureReframeHero;
+    case "political-navigation-clarity":
+      return politicalNavigationHero;
+    case "pre-board-mastery-frame":
+      return preBoardMasteryHero;
+    case "stakeholder-listening-presence":
+      return stakeholderListeningHero;
+    case "vision-reconnect-protocol":
+      return visionReconnectHero;
+    case "identity-shift-prime":
+      return identityShiftPrimeHero;
+    case "competitive-hunger-awaken":
+      return competitiveHungerHero;
+    case "possibility-mindset-open":
+      return possibilityMindsetHero;
     default:
       return phoenixResilienceHero;
   }

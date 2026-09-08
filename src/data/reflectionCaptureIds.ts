@@ -38,6 +38,16 @@ export const REFLECTION_CAPTURE_IDS: readonly string[] = [
   // New mindset protocols (one per pillar)
   'difficult-conversation-prep',
   'deep-work-initiation',
+  // Batch 2 mindset protocols (three per pillar)
+  'rumination-exit-protocol',
+  'failure-reframe-pivot',
+  'political-navigation-clarity',
+  'pre-board-mastery-frame',
+  'stakeholder-listening-presence',
+  'vision-reconnect-protocol',
+  'identity-shift-prime',
+  'competitive-hunger-awaken',
+  'possibility-mindset-open',
 ];
 
 /** Decks treated as somatic / breath: never show a writing box. */

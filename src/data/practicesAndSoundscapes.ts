@@ -55,6 +55,15 @@ import stoicReflectionHero from "@/assets/recalibrate/presence/stoic-reflection.
 import difficultConversationPrepHero from "@/assets/recalibrate/pause/difficult-conversation-prep.jpg";
 import deepWorkInitiationHero from "@/assets/recalibrate/presence/deep-work-initiation.jpg";
 import rapidRechargeMiddayHero from "@/assets/recalibrate/power-up/rapid-recharge-midday.jpg";
+import ruminationExitHero from "@/assets/recalibrate/pause/rumination-exit-protocol.jpg";
+import failureReframeHero from "@/assets/recalibrate/pause/failure-reframe-pivot.jpg";
+import politicalNavigationHero from "@/assets/recalibrate/pause/political-navigation-clarity.jpg";
+import preBoardMasteryHero from "@/assets/recalibrate/presence/pre-board-mastery-frame.jpg";
+import stakeholderListeningHero from "@/assets/recalibrate/presence/stakeholder-listening-presence.jpg";
+import visionReconnectHero from "@/assets/recalibrate/presence/vision-reconnect-protocol.jpg";
+import identityShiftPrimeHero from "@/assets/recalibrate/power-up/identity-shift-prime.jpg";
+import competitiveHungerHero from "@/assets/recalibrate/power-up/competitive-hunger-awaken.jpg";
+import possibilityMindsetHero from "@/assets/recalibrate/power-up/possibility-mindset-open.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1866,6 +1875,349 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "Release the day (60 sec): Eyes closed. Three slow deliberate exhales, releasing the morning's decisions and conversations. For the next twelve minutes, your only job is to not have a job.",
       "Rest or sleep (9 min): You may fall into light sleep, or simply rest with eyes closed. Both deliver benefit. Don't force sleep. Let the mind drift.",
       "Return deliberately (60 sec): When the alarm sounds, don't spring up. Take one minute. Breathe. Drink water. Notice the shift in clarity, then return fully to what's next."
+    ]
+  },
+
+  // === Batch 2: Mindset Protocols (three per pillar) ===
+  {
+    id: "rumination-exit-protocol",
+    title: "Exit the Overthinking Loop",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['rumination', 'overthinking', 'decision', 'mental-loop', 'sleep'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['stabilise'],
+      goalTags: ['mental_clarity', 'emotional_regulation', 'decision_quality', 'grounding'],
+      physioTarget: ['cortisol_reduce', 'prefrontal_activation', 'parasympathetic_activation'],
+      contextTags: ['cycling_on_a_decision', 'replaying_a_conversation', 'evening_winddown', 'sleep_disruption'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['lowers_cognitive_load', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'downshift'
+    },
+    duration: 4,
+    difficulty: "beginner",
+    creator: "Marcus Aurelius + Aaron Beck + Jeff Bezos",
+    origin: "Stoic Philosophy + Cognitive Behavioural Therapy + Amazon Regret Minimization Framework",
+    storyHook: "Every leader has been there: 3am, cycling through the same decision for the fortieth time. The Stoics had a protocol for it, Bezos built a decision framework to escape it, and Beck proved the loop can be interrupted.",
+    essence: "Rumination is not thinking. It's the rehearsal of suffering. Exit the loop deliberately.",
+    parallel: "Cognitive defusion (ACT); Negative visualization (Stoic); 10/10/10 rule (Welch); Regret Minimization (Bezos)",
+    cue: "I've gathered what I need. I release the rest.",
+    usedBy: "CEOs, Founders, C-Suite Leaders, High-Performers under pressure",
+    thumbnail: ruminationExitHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Empty the loop (90 sec): Take a blank page. Write every thought circling in your head about this topic without editing. Fragments are fine. Get it out of your head and onto the page.",
+      "Apply the Bezos test (60 sec): Ask, 'In 10 years, will this decision matter?' Most decisions are two-way doors you can walk back through. Identify which kind this is.",
+      "Identify what you can't control (45 sec): Draw a line. Left: what is in your control. Right: what is not. Everything on the right, let go of deliberately.",
+      "Make one small decision (45 sec): Don't solve everything. Name the next single action: 'The one thing I'll do tomorrow on this is ___.' Deciding breaks the loop."
+    ]
+  },
+  {
+    id: "failure-reframe-pivot",
+    title: "Turn Failure Into a Forward Move",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['failure', 'resilience', 'reframe', 'setback', 'growth'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['stabilise'],
+      goalTags: ['resilience', 'self_awareness', 'clarity', 'wisdom'],
+      physioTarget: ['cortisol_reduce', 'prefrontal_activation'],
+      contextTags: ['after_a_setback', 'missed_target', 'failed_launch', 'public_setback'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['emotional_processing', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 5,
+    difficulty: "intermediate",
+    creator: "Thomas Edison + Ray Dalio + Viktor Frankl",
+    origin: "Edison's experimental method + Bridgewater Radical Transparency + Logotherapy (Frankl)",
+    storyHook: "Edison called his ten thousand failures 'discoveries of what didn't work'. Dalio built an empire on radical transparency with failure. The most durable leaders share one trait: they process failure faster than others.",
+    essence: "The failure is data. You are the architect. Architects study the collapse to build better.",
+    parallel: "Growth mindset (Dweck); Antifragility (Taleb); Post-mortem analysis; Amor fati (Nietzsche)",
+    cue: "This happened. I choose what it means.",
+    usedBy: "Founders, CEOs, C-Suite Leaders after setbacks, failed launches, missed targets",
+    thumbnail: failureReframeHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name what happened, facts only (60 sec): Write one sentence describing what factually happened. No interpretation, no story. Strip the narrative.",
+      "Separate outcome from identity (60 sec): Ask, 'Did I fail, or did this attempt fail?' Complete: 'I made a decision to ___. Given what I knew then, it was ___.'",
+      "Extract the data (90 sec): What three things did this reveal? Which assumptions proved wrong? Label each: 'What this showed me is ___.'",
+      "Choose the meaning (60 sec): In one sentence, what meaning do you choose to give this? Make it generative, not punishing."
+    ]
+  },
+  {
+    id: "political-navigation-clarity",
+    title: "Navigate Politics Without Being Pulled In",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['politics', 'strategy', 'stakeholders', 'influence', 'leadership'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['stabilise'],
+      goalTags: ['clarity', 'strategic_thinking', 'composure', 'influence'],
+      physioTarget: ['prefrontal_activation', 'cortisol_reduce'],
+      contextTags: ['political_undercurrents', 'stakeholder_landscape', 'board_dynamics', 'pre-meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 4,
+    difficulty: "intermediate",
+    creator: "Henry Kissinger + Sun Tzu + Robert Cialdini",
+    origin: "Realpolitik diplomacy + The Art of War + Influence: The Psychology of Persuasion",
+    storyHook: "Kissinger moved between superpowers not by force but by reading rooms others couldn't. Sun Tzu mapped the terrain before moving. Great leaders don't navigate politics emotionally, they map it like terrain.",
+    essence: "You cannot navigate terrain you haven't mapped. See the board, not just the pieces.",
+    parallel: "Systems thinking; stakeholder mapping; chess versus checkers",
+    cue: "I see clearly who wants what. I move with strategy, not reaction.",
+    usedBy: "CEOs, C-Suite Leaders navigating board dynamics, stakeholder politics, internal power struggles",
+    thumbnail: politicalNavigationHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Map the players (60 sec): List the key people. Next to each, write one thing: what do they most want here? Not what they say, what they actually want.",
+      "Identify the real constraint (60 sec): What one thing, if it shifted, would change everything? Usually one relationship, one fear, or one misaligned incentive.",
+      "Find the common ground (45 sec): Where do your interests and theirs overlap? Name it specifically. That is your leverage.",
+      "Choose your first move (45 sec): What single action, conversation or signal creates momentum without triggering resistance?"
+    ]
+  },
+  {
+    id: "pre-board-mastery-frame",
+    title: "Own the Room Before You Enter",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['performance', 'presence', 'leadership', 'board', 'confidence'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['optimize'],
+      goalTags: ['confidence', 'composure', 'focus', 'presence'],
+      physioTarget: ['cortisol_reduce', 'prefrontal_activation'],
+      contextTags: ['pre-meeting', 'board_meeting', 'investor_presentation', 'keynote'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['improves_concentration', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Amy Cuddy + Tony Schwartz + Marcus Aurelius",
+    origin: "Presence (Cuddy, Harvard) + The Power of Full Engagement + Meditations (Aurelius)",
+    storyHook: "Before every speech, Demosthenes prepared alone. Before every board meeting, the most effective leaders run a version of this: enter the room already inside your best self.",
+    essence: "You don't find your best self in the room. You bring it in.",
+    parallel: "Pre-performance ritual (sport psychology); Mental rehearsal; Power posing (Cuddy)",
+    cue: "I have done the work. I am ready. This is mine.",
+    usedBy: "CEOs, C-Suite Leaders before board meetings, investor presentations, major keynotes",
+    thumbnail: preBoardMasteryHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Recall your evidence (45 sec): Name three times you performed brilliantly under pressure. Specific moments. Feel them, don't just recall them.",
+      "Visualise your best version (45 sec): See yourself walking into that room. Your posture, your eye contact, your calm. Hold it for 45 seconds.",
+      "Set your anchor (45 sec): Choose one physical anchor, a breath or a hand position. Breathe slowly, connect to the state, press the anchor.",
+      "Walk in (30 sec): Enter as if you already belong there. Before you say a word, be still for two full seconds. Stillness signals authority."
+    ]
+  },
+  {
+    id: "stakeholder-listening-presence",
+    title: "Full Presence in a Conversation That Matters",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['listening', 'presence', 'leadership', 'relationship', 'communication'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['optimize'],
+      goalTags: ['focus', 'composure', 'communication', 'presence'],
+      physioTarget: ['cortisol_reduce', 'coherence'],
+      contextTags: ['pre-meeting', 'one_to_one', 'trust_building', 'difficult_feedback'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['improves_concentration', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Carl Rogers + Stephen Covey + Taoism",
+    origin: "Person-centred therapy (Rogers) + The 7 Habits of Highly Effective People + Tao Te Ching",
+    storyHook: "When Mandela walked into a room, people said he made you feel like the only person in the world. It wasn't technique, it was a choice about where to put his attention.",
+    essence: "You cannot lead people you haven't heard. Full presence is the most active thing you can do.",
+    parallel: "Active listening (Rogers); I-Thou presence (Buber); Deep listening (Scharmer)",
+    cue: "I am here. Fully. Only here.",
+    usedBy: "CEOs, C-Suite Leaders before 1:1s and conversations where trust matters",
+    thumbnail: stakeholderListeningHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Clear your internal screen (45 sec): Notice what's running on your internal screen. Acknowledge each item and set it aside: 'That is there. I'll return to it. Right now: this person.'",
+      "Set your listening intention (30 sec): Ask, 'What does this person most need me to understand?' Not what you plan to say. This shifts you from evaluation to understanding.",
+      "Listen to the gap (30 sec): In the conversation, listen for what's underneath the words. Reflect back: 'It sounds like the real concern here is ___.'"
+    ]
+  },
+  {
+    id: "vision-reconnect-protocol",
+    title: "Reconnect to Why This Matters",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['vision', 'purpose', 'leadership', 'motivation', 'direction'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['optimize'],
+      goalTags: ['motivation', 'clarity', 'resilience', 'wisdom'],
+      physioTarget: ['dopamine_regulation', 'prefrontal_activation'],
+      contextTags: ['lost_in_detail', 'motivation_dip', 'strategy_work', 'evening_winddown'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 4,
+    difficulty: "beginner",
+    creator: "Steve Jobs + Viktor Frankl + Jeff Bezos",
+    origin: "Jobs's 'connecting the dots' + Logotherapy + Bezos's 'working backwards'",
+    storyHook: "Building Apple's comeback, Jobs would regularly step back and ask: 'Is this what we're for?' Not the quarterly metrics, the fundamental question of purpose.",
+    essence: "The fire is always there. Sometimes you've just been too close to the smoke.",
+    parallel: "Start with Why (Sinek); North Star principle; Transcendent purpose (Damon)",
+    cue: "I remember why. That is enough.",
+    usedBy: "CEOs, Founders, C-Suite Leaders who've lost connection to the larger purpose driving the work",
+    thumbnail: visionReconnectHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Step back to the origin (60 sec): Write, 'The reason I started this, or took this role, was ___.' Not the polished version. The real one.",
+      "Name the dent (60 sec): What is the dent your work is making? Not the revenue, the actual difference. Name it specifically.",
+      "Write the future press release (60 sec): What does success look like in three years, written as a news story? One paragraph.",
+      "Choose one thing today (30 sec): What one action today is a direct expression of that vision? Not the urgent thing, the meaningful one."
+    ]
+  },
+  {
+    id: "identity-shift-prime",
+    title: "Step Into Your Best Self",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['identity', 'confidence', 'performance', 'prime', 'energy'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge'],
+      goalTags: ['confidence', 'composure', 'energy', 'performance'],
+      physioTarget: ['cortisol_reduce', 'hrv_increase'],
+      contextTags: ['pre-keynote', 'pre-negotiation', 'after_a_setback', 'pre-meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'uplift'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Amy Cuddy + William James + Cognitive Behavioural Therapy",
+    origin: "Presence (Cuddy) + Principles of Psychology (James) + Identity-based behaviour change",
+    storyHook: "William James put it in 1890: 'Act as if what you do makes a difference. It does.' The most effective leaders don't wait to feel confident, they adopt the identity and the feeling follows.",
+    essence: "Don't wait to feel ready. Act from the identity of who you are becoming, and become it.",
+    parallel: "Act as if (Adlerian psychology); Behavioural activation (CBT); Future-self psychology (Hershfield)",
+    cue: "I am already who I need to be.",
+    usedBy: "CEOs, C-Suite Leaders before high-performance moments, when confidence is needed before it's felt",
+    thumbnail: identityShiftPrimeHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name your best self (45 sec): Describe in one sentence the version of you at your absolute best: 'At my best, I am ___.' Be specific.",
+      "Adopt the posture (60 sec): Stand tall. Shoulders back and down. Feet shoulder-width. Take up space for a full minute.",
+      "Speak it into existence (45 sec): Say aloud, 'I am ___', using the identity you named. Three times. Not affirmation, declaration.",
+      "Begin from that identity (30 sec): Whatever comes next, walk into it as that person. The feeling follows the action."
+    ]
+  },
+  {
+    id: "competitive-hunger-awaken",
+    title: "Reignite Your Competitive Edge",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['competition', 'drive', 'motivation', 'hunger', 'performance'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge'],
+      goalTags: ['motivation', 'energy', 'performance', 'resilience'],
+      physioTarget: ['dopamine_regulation', 'hrv_increase'],
+      contextTags: ['complacency', 'competitive_pressure', 'motivation_dip', 'raise_the_game'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['sustainable_performance', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'high',
+      energyDirection: 'uplift'
+    },
+    duration: 3,
+    difficulty: "intermediate",
+    creator: "Michael Jordan + Kobe Bryant + Stoic Competition Philosophy",
+    origin: "Jordan's competitive philosophy + Mamba Mentality (Bryant) + Stoic fuelling of excellence",
+    storyHook: "Kobe woke at 4am not because he had to, but because he loved being first to start. The greatest competitors didn't manufacture motivation. They remembered what they were playing for.",
+    essence: "Complacency is a choice. So is hunger. Choose.",
+    parallel: "Optimal challenge (flow research); Warrior's mindset; Self-determination theory",
+    cue: "I love this game. I play to win.",
+    usedBy: "CEOs, Founders, C-Suite Leaders who need to reignite drive or face a formidable competitor",
+    thumbnail: competitiveHungerHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name the competition (45 sec): Who or what are you competing with? Be specific. Name the competitor, the challenge, the position you want.",
+      "Remember your reason (45 sec): Why does winning here matter, not to the company but to you? What would it prove? What would it build?",
+      "Feel the fire (45 sec): Close your eyes. Imagine the moment of full effort. Feel your body's response and let that energy through.",
+      "Channel it precisely (30 sec): Direct that energy at one specific high-leverage action in the next hour. Not general effort, one precise move."
+    ]
+  },
+  {
+    id: "possibility-mindset-open",
+    title: "Break Through Your Ceiling",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['possibility', 'growth-mindset', 'expansion', 'ambition', 'mindset'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge'],
+      goalTags: ['motivation', 'creativity', 'confidence', 'strategic_thinking'],
+      physioTarget: ['dopamine_regulation', 'prefrontal_activation'],
+      contextTags: ['thinking_too_small', 'strategy_work', 'self_imposed_limits', 'planning'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'focused_learning'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'uplift'
+    },
+    duration: 4,
+    difficulty: "beginner",
+    creator: "Carol Dweck + Abraham Maslow + Elon Musk",
+    origin: "Growth Mindset (Dweck) + Peak Experiences (Maslow) + First Principles Thinking",
+    storyHook: "Dweck's research is among the most replicated in psychology: people who believe abilities can be developed achieve dramatically more than those who believe they're fixed.",
+    essence: "The ceiling you see is almost always a belief, not a fact.",
+    parallel: "Growth mindset (Dweck); Abundance mindset (Covey); Moonshot thinking",
+    cue: "What would I attempt if I knew I couldn't fail?",
+    usedBy: "CEOs, Founders, C-Suite Leaders who need to break through self-imposed ceilings",
+    thumbnail: possibilityMindsetHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name the ceiling (60 sec): Write, 'We can't ___ because ___.' Then ask: is this a physical law or a belief? Most ceilings are beliefs wearing the clothes of facts.",
+      "The 10x question (60 sec): Ask, 'What would we do with ten times the ambition here?' Don't answer practically. Open the horizon.",
+      "Find one person who did it (60 sec): Name someone who achieved what you believe is impossible in your context. How did they see through their version of your ceiling?",
+      "Name your expanded move (30 sec): With the horizon expanded, what's one action you'd take that you currently aren't? Write it. Do it."
     ]
   }
 ];
