@@ -74,5 +74,8 @@ already what most features read.
 
 ## Out of scope
 
-No changes to onboarding questions, UI, copy, the prompt, or any other feature.
-No email sending is added.
+No changes to the onboarding questions, their order, wording, or which are
+optional versus required. No UI or UX change of any kind — from the leader's
+side v8 behaves exactly as it does today. No other feature touched, and no
+email sending is added.
+
