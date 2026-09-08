@@ -64,6 +64,15 @@ import visionReconnectHero from "@/assets/recalibrate/presence/vision-reconnect-
 import identityShiftPrimeHero from "@/assets/recalibrate/power-up/identity-shift-prime.jpg";
 import competitiveHungerHero from "@/assets/recalibrate/power-up/competitive-hunger-awaken.jpg";
 import possibilityMindsetHero from "@/assets/recalibrate/power-up/possibility-mindset-open.jpg";
+import boundaryResetHero from "@/assets/recalibrate/pause/people-pleasing-boundary-reset.jpg";
+import decisionParalysisHero from "@/assets/recalibrate/pause/decision-paralysis-unlock.jpg";
+import mentalBlockDissolveHero from "@/assets/recalibrate/pause/mental-block-dissolve.jpg";
+import creativityUnlockHero from "@/assets/recalibrate/presence/creativity-unlock-protocol.jpg";
+import feedbackReceiveHero from "@/assets/recalibrate/presence/feedback-receive-openly.jpg";
+import judgmentClarityHero from "@/assets/recalibrate/presence/high-stakes-judgment-clarity.jpg";
+import courageThresholdHero from "@/assets/recalibrate/power-up/courage-activation-threshold.jpg";
+import momentumGeneratorHero from "@/assets/recalibrate/power-up/momentum-generator-stuck.jpg";
+import peakStateHero from "@/assets/recalibrate/power-up/performance-state-activation.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -2218,6 +2227,344 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "The 10x question (60 sec): Ask, 'What would we do with ten times the ambition here?' Don't answer practically. Open the horizon.",
       "Find one person who did it (60 sec): Name someone who achieved what you believe is impossible in your context. How did they see through their version of your ceiling?",
       "Name your expanded move (30 sec): With the horizon expanded, what's one action you'd take that you currently aren't? Write it. Do it."
+    ]
+  },
+  {
+    id: "people-pleasing-boundary-reset",
+    title: "Reset Your Boundaries",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['boundaries', 'people-pleasing', 'values', 'self-respect', 'leadership'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['reset'],
+      goalTags: ['self_awareness', 'resilience', 'clarity', 'emotional_regulation'],
+      physioTarget: ['cortisol_reduce', 'prefrontal_activation'],
+      contextTags: ['over_commitment', 'resentment', 'saying_yes_when_you_mean_no', 'post_meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 4,
+    difficulty: "intermediate",
+    creator: "Brené Brown + Stoic Philosophy + Anna Freud",
+    origin: "Vulnerability research + Stoic virtue ethics + Ego psychology",
+    storyHook: "The most exhausted leaders are often the most agreeable. Brown's research shows people with the clearest boundaries are the most compassionate. The Stoics had a word for people-pleasing: living for others' approval.",
+    essence: "A boundary is not a wall. It's a statement of what you can genuinely give.",
+    parallel: "Differentiation of self (Bowen); Stoic freedom from opinion (Epictetus); Values-based decision making (ACT)",
+    cue: "My 'no' protects the value of my 'yes'.",
+    usedBy: "CEOs and C-suite leaders who notice a pattern of over-committing and absorbing others' problems",
+    thumbnail: boundaryResetHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name the pattern (60 sec): What are you about to agree to that part of you wants to decline? Name the feared consequence specifically.",
+      "Check your values (60 sec): Does saying yes align with your actual priorities right now, or does it serve your need to be liked?",
+      "Craft the honest response (60 sec): Practise saying it: 'I can't give this the attention it deserves right now.' No apology, no over-explaining.",
+      "Tolerate the discomfort (30 sec): Sit with the feeling that follows a genuine no for thirty seconds. It's discomfort, not danger."
+    ]
+  },
+  {
+    id: "decision-paralysis-unlock",
+    title: "Break Decision Paralysis",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['decision', 'paralysis', 'clarity', 'leadership', 'action'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['reset'],
+      goalTags: ['decision_quality', 'mental_clarity', 'composure', 'action'],
+      physioTarget: ['prefrontal_activation', 'cortisol_reduce'],
+      contextTags: ['decision_stuck', 'option_overload', 'over_analysis', 'pre_decision'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'reduces_overwhelm'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Dwight Eisenhower + Jeff Bezos + Nassim Taleb",
+    origin: "Eisenhower's decision doctrine + Amazon's one-way / two-way door + Antifragile",
+    storyHook: "Eisenhower commanded operations affecting millions. He said urgency and importance are not the same thing, and confusing them causes most bad decisions. Bezos and Taleb agreed: most decisions matter less than they feel.",
+    essence: "A decision made is almost always better than a decision deferred. The cost of not deciding is a decision.",
+    parallel: "Satisficing (Simon); Regret minimisation (Bezos); the 70% rule",
+    cue: "I decide now with what I have. Imperfect action beats perfect inaction.",
+    usedBy: "CEOs and C-suite leaders in decision paralysis or option overload",
+    thumbnail: decisionParalysisHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Classify the decision (45 sec): Is this a one-way door or a two-way door? Be honest. Most are two-way doors and should be made fast.",
+      "Name your best option now (60 sec): With what you currently know, what is the best available option? Write it in one sentence.",
+      "Decide and record (45 sec): State the decision. Add: 'I'm making this based on ___. If it proves wrong, I'll know by ___.'"
+    ]
+  },
+  {
+    id: "mental-block-dissolve",
+    title: "Dissolve the Block",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['mental-block', 'procrastination', 'resistance', 'creativity', 'start'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['reset'],
+      goalTags: ['mental_clarity', 'action', 'resilience', 'focus'],
+      physioTarget: ['prefrontal_activation', 'dopamine_regulation'],
+      contextTags: ['procrastination', 'creative_block', 'avoidance', 'deep_work'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['reduces_overwhelm', 'focused_learning'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 4,
+    difficulty: "beginner",
+    creator: "Steven Pressfield + Carl Jung + Mihaly Csikszentmihalyi",
+    origin: "The War of Art + Jungian shadow work + Flow theory",
+    storyHook: "Pressfield called it the Resistance: the invisible force that keeps talented people from the work that matters. Jung called it the Shadow. Both agreed the block is never about the task.",
+    essence: "The block is information. What it's guarding is more interesting than the block itself.",
+    parallel: "Resistance (Pressfield); activation energy; imposter syndrome (Clance & Imes); shadow integration (Jung)",
+    cue: "The block points to what matters. I move through it.",
+    usedBy: "CEOs, executives and founders procrastinating on high-stakes work",
+    thumbnail: mentalBlockDissolveHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name the specific block (60 sec): Complete this: 'I keep avoiding ___ because if I do it and it goes badly, ___.'",
+      "Separate the real from the catastrophic (60 sec): Is the consequence you're imagining likely? Map the realistic worst case.",
+      "Make the minimum move (60 sec): What is the smallest action that counts as starting? Write the first sentence. Open the document.",
+      "Start now (30 sec): Without doing anything else, begin the minimum move. Now."
+    ]
+  },
+  {
+    id: "creativity-unlock-protocol",
+    title: "Break Out of Linear Thinking",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['creativity', 'innovation', 'thinking', 'problem-solving', 'breakthrough'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['focus'],
+      goalTags: ['creativity', 'strategic_thinking', 'mental_clarity', 'innovation'],
+      physioTarget: ['prefrontal_activation', 'dopamine_regulation'],
+      contextTags: ['stuck_problem', 'strategy_work', 'linear_thinking', 'deep_work'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'focused_learning'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 4,
+    difficulty: "intermediate",
+    creator: "Steven Johnson + Edward de Bono + Albert Einstein",
+    origin: "Where Good Ideas Come From + Lateral Thinking + Einstein's thought experiments",
+    storyHook: "Einstein solved relativity by imagining himself riding a beam of light. Johnson's research showed most breakthroughs come from unexpected collisions of adjacent ideas, not solitary genius.",
+    essence: "The answer is rarely where you're looking. It's usually one step to the side.",
+    parallel: "Lateral thinking (de Bono); adjacent possible (Johnson); first principles (Musk); beginner's mind",
+    cue: "What if everything I know about this is wrong?",
+    usedBy: "CEOs, founders and C-suite leaders who need breakthrough thinking, not incremental improvement",
+    thumbnail: creativityUnlockHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "State the problem as a question (45 sec): Not 'we need more revenue' but 'what would have to be true for us to grow tenfold without adding headcount?'",
+      "Apply the first principles strip (75 sec): What do you know is true? What do you assume? Strip the assumptions and see what remains.",
+      "The perspective shift (60 sec): How would a ten-year-old describe this? A Zen monk? A different industry? Pick one and think from inside it.",
+      "Name the adjacent idea (45 sec): What's one idea from a completely different domain that connects here unexpectedly? Write it without evaluating."
+    ]
+  },
+  {
+    id: "feedback-receive-openly",
+    title: "Receive Feedback Without Shutting Down",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['feedback', 'growth', 'leadership', 'self-awareness', 'transparency'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['focus'],
+      goalTags: ['self_awareness', 'resilience', 'growth', 'composure'],
+      physioTarget: ['cortisol_reduce', 'prefrontal_activation'],
+      contextTags: ['performance_review', 'difficult_feedback', 'board_assessment', 'pre_meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['sustainable_performance', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 3,
+    difficulty: "intermediate",
+    creator: "Ray Dalio + Sheila Heen + Zen Buddhism",
+    origin: "Principles (radical transparency) + Thanks for the Feedback + Zen non-attachment",
+    storyHook: "Dalio built Bridgewater on one insight: the biggest threat to a leader is their inability to receive accurate information about themselves. Heen's research shows the higher people rise, the less honest feedback they get.",
+    essence: "The leader who cannot be told anything cannot grow.",
+    parallel: "Radical transparency (Dalio); non-defensive receiving (Heen); mushin; growth mindset (Dweck)",
+    cue: "This is data. I am not the data.",
+    usedBy: "CEOs and C-suite leaders before or after reviews, board assessments and hard conversations",
+    thumbnail: feedbackReceiveHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Separate identity from information (45 sec): Say internally, 'I am not my performance. I am the person who can learn from it.'",
+      "Set the learner's frame (45 sec): Ask, 'What is the most useful thing I could discover today?' That shifts you from defence to discovery.",
+      "Listen for the grain of truth (45 sec): Your one job is to find what's accurate, even in a clumsily delivered message. Don't debate. Don't explain."
+    ]
+  },
+  {
+    id: "high-stakes-judgment-clarity",
+    title: "Debias a Major Judgment Call",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['judgment', 'decision', 'bias', 'leadership', 'clarity'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['focus'],
+      goalTags: ['decision_quality', 'clarity', 'strategic_thinking', 'wisdom'],
+      physioTarget: ['prefrontal_activation'],
+      contextTags: ['high_stakes_decision', 'hiring_decision', 'strategy_work', 'pre_meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'focused_learning'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 4,
+    difficulty: "intermediate",
+    creator: "Charlie Munger + Daniel Kahneman + Stoic Philosophy",
+    origin: "Poor Charlie's Almanack + Thinking, Fast and Slow + Stoic rationality",
+    storyHook: "Munger keeps a mental checklist of cognitive biases and reviews it before every significant decision. Kahneman proved humans are systematically irrational under pressure. Better decisions come from cleaner processes, not smarter people.",
+    essence: "The best decisions come from clean lenses, not superior intelligence.",
+    parallel: "Bias checklist (Munger); debiasing (Kahneman/Lovallo); prospective hindsight; adversarial collaboration",
+    cue: "What do I not want to be true? That's what I need to examine.",
+    usedBy: "CEOs and C-suite leaders before hiring, firing, acquisitions and strategic pivots",
+    thumbnail: judgmentClarityHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name the decision precisely (45 sec): Write, 'The judgment I'm making is ___.' One sentence. Fuzzy decisions produce fuzzy thinking.",
+      "Run the bias scan (75 sec): Am I seeking evidence to confirm what I believe? Am I influenced by who is presenting this? Am I avoiding a socially painful conclusion?",
+      "Steel the opposite case (60 sec): Spend a minute making the best possible argument against your current conclusion.",
+      "Name your confidence level (45 sec): One to ten, and what is that confidence based on? Above eight, ask what you're missing."
+    ]
+  },
+  {
+    id: "courage-activation-threshold",
+    title: "Take the Courageous Action",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['courage', 'bold', 'action', 'leadership', 'fear'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge'],
+      goalTags: ['courage', 'confidence', 'resilience', 'action'],
+      physioTarget: ['cortisol_reduce', 'hrv_increase', 'prefrontal_activation'],
+      contextTags: ['difficult_conversation', 'bold_move', 'hesitation', 'pre_meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'uplift'
+    },
+    duration: 3,
+    difficulty: "intermediate",
+    creator: "Brené Brown + Winston Churchill + Navy SEAL Training",
+    origin: "Daring Greatly + Churchill's wartime speeches + SEAL psychology",
+    storyHook: "Churchill said courage is what it takes to stand up and speak. The most courageous acts in leadership are rarely dramatic: they're saying the uncomfortable truth or taking the unpopular position.",
+    essence: "Courage is not the absence of fear. It's moving forward with it.",
+    parallel: "Vulnerability research (Brown); courage training (SEALs); memento mori; regret minimisation (Bezos)",
+    cue: "I feel it. I move anyway.",
+    usedBy: "CEOs and C-suite leaders at the edge of a hard truth or a bold strategic bet",
+    thumbnail: courageThresholdHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Name the fear precisely (45 sec): What exactly are you afraid will happen? 'They'll think less of me' is more workable than 'I'm just afraid.'",
+      "Apply the regret test (45 sec): At eighty, will you regret not doing this? Name what you'd regret.",
+      "Breathe and step (45 sec): Three power breaths — sharp in for four, hold two, sharp out. Then take the action."
+    ]
+  },
+  {
+    id: "momentum-generator-stuck",
+    title: "Break the Inertia",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['momentum', 'inertia', 'start', 'action', 'motivation'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge'],
+      goalTags: ['action', 'motivation', 'energy', 'focus'],
+      physioTarget: ['dopamine_regulation', 'hrv_increase'],
+      contextTags: ['stuck', 'procrastination', 'low_motivation', 'deep_work'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['reduces_overwhelm', 'focused_learning'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'uplift'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Isaac Newton + Tony Robbins + James Clear",
+    origin: "Physics of inertia + motivational science + Atomic Habits / behaviour design",
+    storyHook: "Newton's first law applies to people as much as objects. The most powerful thing a leader can do when stuck is create motion — any motion. Direction can be corrected; stillness cannot.",
+    essence: "The first move doesn't have to be right. It has to be a move.",
+    parallel: "Tiny habits (Fogg); the two-minute rule (Clear); activation energy reduction",
+    cue: "Motion before perfection. Forward before ready.",
+    usedBy: "CEOs, founders and C-suite leaders stuck in inertia on important work",
+    thumbnail: momentumGeneratorHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Name the object in inertia (45 sec): What specifically is stuck? 'Start the strategy deck', not 'do more strategic thinking.'",
+      "Find the atomic start (45 sec): What's the smallest version of starting? Open the document. Write the title.",
+      "Start right now (45 sec): Set a timer for ten minutes and begin. Commit only to the ten minutes."
+    ]
+  },
+  {
+    id: "performance-state-activation",
+    title: "Create Your Peak State",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['performance', 'state', 'peak', 'energy', 'activation'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge'],
+      goalTags: ['energy', 'confidence', 'focus', 'performance'],
+      physioTarget: ['hrv_increase', 'dopamine_regulation', 'cortisol_reduce'],
+      contextTags: ['pre_meeting', 'presentation', 'negotiation', 'low_energy'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['sustainable_performance', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'high',
+      energyDirection: 'uplift'
+    },
+    duration: 4,
+    difficulty: "intermediate",
+    creator: "Tony Robbins + Psychophysiology Research + Olympic Sport Psychology",
+    origin: "State management methodology + HRV research + pre-competition priming",
+    storyHook: "Olympians don't wait to feel their best on competition day. They have protocols to create their best state on command, because the moment doesn't wait for optimal feelings.",
+    essence: "Peak performance is a state you can learn to enter, not one that visits you randomly.",
+    parallel: "Peak performance protocols (sport psychology); flow induction; state-dependent performance",
+    cue: "I create the state. The state creates the performance.",
+    usedBy: "CEOs and C-suite leaders before critical performance moments",
+    thumbnail: peakStateHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Diagnose your current state (45 sec): One to ten — energy, focus, confidence. You can't calibrate without an honest reading.",
+      "Shift the physiology (60 sec): Choose one — ten power breaths standing, twenty seconds of vigorous movement, or a cold water splash.",
+      "Install the peak reference (60 sec): Recall the most capable and alive you've ever felt. Stay with it for thirty seconds and feel it, don't just think it.",
+      "Lock it in and go (30 sec): One decisive breath. Say your name and the task: '___, you are ready for ___.' Then walk in."
     ]
   }
 ];

@@ -60,6 +60,15 @@ import visionReconnectHero from "@/assets/recalibrate/presence/vision-reconnect-
 import identityShiftPrimeHero from "@/assets/recalibrate/power-up/identity-shift-prime.jpg";
 import competitiveHungerHero from "@/assets/recalibrate/power-up/competitive-hunger-awaken.jpg";
 import possibilityMindsetHero from "@/assets/recalibrate/power-up/possibility-mindset-open.jpg";
+import boundaryResetHero from "@/assets/recalibrate/pause/people-pleasing-boundary-reset.jpg";
+import decisionParalysisHero from "@/assets/recalibrate/pause/decision-paralysis-unlock.jpg";
+import mentalBlockDissolveHero from "@/assets/recalibrate/pause/mental-block-dissolve.jpg";
+import creativityUnlockHero from "@/assets/recalibrate/presence/creativity-unlock-protocol.jpg";
+import feedbackReceiveHero from "@/assets/recalibrate/presence/feedback-receive-openly.jpg";
+import judgmentClarityHero from "@/assets/recalibrate/presence/high-stakes-judgment-clarity.jpg";
+import courageThresholdHero from "@/assets/recalibrate/power-up/courage-activation-threshold.jpg";
+import momentumGeneratorHero from "@/assets/recalibrate/power-up/momentum-generator-stuck.jpg";
+import peakStateHero from "@/assets/recalibrate/power-up/performance-state-activation.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -2252,6 +2261,516 @@ const POSSIBILITY_MINDSET_CARDS = [
   },
 ];
 
+// Reset Your Boundaries card content
+const BOUNDARY_RESET_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Reset Your Boundaries",
+    subtitle: "Choose integrity over approval",
+    source: "Brené Brown + Stoic Philosophy + Anna Freud",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "A pattern of saying yes when you mean no, feeling resentful or over-extended",
+    whenToUse: "When you feel that familiar pull to agree or absorb, and your gut says something different.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the pattern",
+    duration: "60 sec",
+    instruction: "What are you about to agree to that part of you wants to decline? Write it. Then name the feared consequence exactly: 'They'll think I'm not a team player.'",
+    guidance: "Vague fear is the strongest kind. Name it specifically.",
+    insight: {
+      text: "If it concerns another's opinion, it is not yours to control.",
+      source: "Epictetus",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Check your values",
+    duration: "60 sec",
+    instruction: "Ask: does saying yes to this align with my actual priorities right now? Is this a yes that serves the work, or a yes that serves being liked?",
+    guidance: "Write which one it is. Be honest.",
+    insight: {
+      text: "A leader's highest obligation is not approval. It is effectiveness.",
+      source: "Stoic Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Craft the honest response",
+    duration: "60 sec",
+    instruction: "Write the sentence you'll actually say: 'I can't give this the attention it deserves right now.' No apology, no over-explanation.",
+    guidance: "Over-explaining is the tell that you still seek approval.",
+    insight: {
+      text: "The cleaner the boundary, the greater the respect it earns.",
+      source: "Brené Brown",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Tolerate the discomfort",
+    duration: "30 sec",
+    instruction: "Sit with the feeling that follows a genuine no for thirty seconds. Breathe in for four, out for six. Notice that it is discomfort, not danger.",
+    guidance: "Your system has been trained to read disapproval as threat. This retrains it.",
+    insight: {
+      text: "Each time you choose integrity over approval, you become more of who you are.",
+      source: "Vulnerability Research",
+    },
+  },
+];
+
+// Break Decision Paralysis card content
+const DECISION_PARALYSIS_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Break Decision Paralysis",
+    subtitle: "Classify, decide, move",
+    source: "Dwight Eisenhower + Jeff Bezos + Nassim Taleb",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "Stuck on a decision, options feel equally weighted, over-analysing the call",
+    whenToUse: "When you've been holding a decision for longer than it deserves.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Classify the decision",
+    duration: "45 sec",
+    instruction: "Is this a one-way door (irreversible) or a two-way door (reversible)? Write which. Most decisions are two-way doors and should be made fast.",
+    guidance: "Most anguish comes from misclassification.",
+    insight: {
+      text: "Two-way doors should be made quickly, with about seventy per cent of the information you'd like.",
+      source: "Jeff Bezos",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Name your best option now",
+    duration: "60 sec",
+    instruction: "With what you currently know, what is the best available option? Not the perfect one — the best of what exists. Write it in one sentence.",
+    guidance: "One sentence only.",
+    insight: {
+      text: "The enemy of a good plan is the dream of a perfect plan.",
+      source: "Carl von Clausewitz",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Decide and record",
+    duration: "45 sec",
+    instruction: "Write your decision. Add: 'I'm making this based on ___. If it proves wrong, I'll know by ___.' That closes the loop.",
+    guidance: "A recorded decision stops re-litigating itself.",
+    insight: {
+      text: "Urgency and importance are not the same thing.",
+      source: "Dwight Eisenhower",
+    },
+  },
+];
+
+// Dissolve the Block card content
+const MENTAL_BLOCK_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Dissolve the Block",
+    subtitle: "Move through the resistance",
+    source: "Steven Pressfield + Carl Jung + Mihaly Csikszentmihalyi",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "Procrastinating on work you know matters, unable to begin",
+    whenToUse: "When you know what needs doing but something invisible is stopping you from starting.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the specific block",
+    duration: "60 sec",
+    instruction: "Complete this in writing: 'I keep avoiding ___ because if I do it and it goes badly, ___.'",
+    guidance: "The Resistance always points toward your most important work.",
+    insight: {
+      text: "The more important the work, the more Resistance you feel.",
+      source: "Steven Pressfield",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Separate the real from the catastrophic",
+    duration: "60 sec",
+    instruction: "Is the consequence you're imagining actually likely? Write the realistic worst case, and what you'd do about it.",
+    guidance: "In most cases it is recoverable.",
+    insight: {
+      text: "Most of what you fear never arrives. And when it does, you handle it.",
+      source: "Stoic Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Make the minimum move",
+    duration: "60 sec",
+    instruction: "What is the smallest possible action that counts as starting? Not completing — starting. Write it down.",
+    guidance: "Commit to two minutes only.",
+    insight: {
+      text: "You don't have to see the whole staircase. Just take the first step.",
+      source: "Martin Luther King Jr.",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Start now",
+    duration: "30 sec",
+    instruction: "Without doing anything else, begin the minimum move you named. Now.",
+    guidance: "The entire purpose of this protocol is the next two minutes.",
+    insight: {
+      text: "Action dissolves fear. Preparation feeds it.",
+      source: "The War of Art",
+    },
+  },
+];
+
+// Break Out of Linear Thinking card content
+const CREATIVITY_UNLOCK_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Break Out of Linear Thinking",
+    subtitle: "Find the angle you haven't seen",
+    source: "Steven Johnson + Edward de Bono + Albert Einstein",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "Stuck in linear thinking on a problem that needs a fundamentally different solution",
+    whenToUse: "When you've analysed the same problem the same way and need a new angle.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "State the problem as a question",
+    duration: "45 sec",
+    instruction: "Write your challenge as a question. Not 'we need more revenue' but 'what would have to be true for us to grow tenfold without adding headcount?'",
+    guidance: "Better questions generate better thinking.",
+    insight: {
+      text: "The quality of your answers is set by the quality of your questions.",
+      source: "Edward de Bono",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Apply the first principles strip",
+    duration: "75 sec",
+    instruction: "Write two lists: what you know is true, and what you assume is true. Strip the assumptions. What remains is bedrock.",
+    guidance: "Reason from the ground up, not from analogy.",
+    insight: {
+      text: "Boil things down to the most fundamental truths and reason up from there.",
+      source: "First Principles Thinking",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "The perspective shift",
+    duration: "60 sec",
+    instruction: "Pick one: how would a ten-year-old describe this problem? A Zen monk? Someone in a different industry? Think from inside that view for a minute.",
+    guidance: "Write what that perspective notices that you didn't.",
+    insight: {
+      text: "Creative thinking is the temporary adoption of a foreign mind.",
+      source: "Lateral Thinking",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Name the adjacent idea",
+    duration: "45 sec",
+    instruction: "What's one idea from a completely different domain that connects to this problem unexpectedly? Write it. Don't evaluate yet.",
+    guidance: "Naming comes first. Judgement later.",
+    insight: {
+      text: "The most creative act is not invention. It is connection.",
+      source: "Steven Johnson",
+    },
+  },
+];
+
+// Receive Feedback Without Shutting Down card content
+const FEEDBACK_RECEIVE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Receive Feedback Without Shutting Down",
+    subtitle: "Separate the information from the identity",
+    source: "Ray Dalio + Sheila Heen + Zen Buddhism",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "About to receive significant feedback, or processing criticism just received",
+    whenToUse: "Before a review, board assessment, or any conversation where someone will tell you something difficult.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Separate identity from information",
+    duration: "45 sec",
+    instruction: "Write it, then say it internally: 'I am not my performance. I am the person who can learn from it.'",
+    guidance: "Draw the line before the conversation starts.",
+    insight: {
+      text: "Your identity is not an outcome. It is who chooses the response.",
+      source: "Zen Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Set the learner's frame",
+    duration: "45 sec",
+    instruction: "Answer in writing: what is the most useful thing I could discover today?",
+    guidance: "This single question shifts you from defence to discovery.",
+    insight: {
+      text: "The best leaders are the best learners.",
+      source: "Sheila Heen",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Listen for the grain of truth",
+    duration: "45 sec",
+    instruction: "Your one job is to find what's accurate, even in a clumsily delivered message. Note the grain of truth you expect to hear — or heard.",
+    guidance: "Don't debate. Don't explain. Just listen.",
+    insight: {
+      text: "You don't have to agree with everything to learn from everything.",
+      source: "Ray Dalio",
+    },
+  },
+];
+
+// Debias a Major Judgment Call card content
+const JUDGMENT_CLARITY_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Debias a Major Judgment Call",
+    subtitle: "Clean the lens before you decide",
+    source: "Charlie Munger + Daniel Kahneman + Stoic Philosophy",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "About to make a consequential judgment and wanting the thinking clean",
+    whenToUse: "Before any significant call where bias, emotion or social pressure might be steering you.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the decision precisely",
+    duration: "45 sec",
+    instruction: "Write: 'The judgment I'm making is ___.' One sentence. Fuzzy decisions produce fuzzy thinking.",
+    guidance: "State the question before attempting the answer.",
+    insight: {
+      text: "A well-defined problem is half-solved.",
+      source: "Charlie Munger",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Run the bias scan",
+    duration: "75 sec",
+    instruction: "Answer each: am I seeking evidence to confirm what I already believe? Am I influenced by who is presenting this? Am I avoiding a socially painful conclusion? Name any that apply.",
+    guidance: "Write the ones that land.",
+    insight: {
+      text: "Know your biases by name and they lose half their power.",
+      source: "Charlie Munger",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Steel the opposite case",
+    duration: "60 sec",
+    instruction: "Write the best possible argument against your current conclusion. Genuinely try to find what's right about the opposing view.",
+    guidance: "Kahneman called this adversarial collaboration.",
+    insight: {
+      text: "The most dangerous words in a boardroom: I already know the answer.",
+      source: "Daniel Kahneman",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Name your confidence level",
+    duration: "45 sec",
+    instruction: "One to ten: how confident are you, and what is that confidence based on? If it's above eight, write what you might be missing.",
+    guidance: "High confidence under uncertainty is a bias flag.",
+    insight: {
+      text: "The goal is calibrated certainty, not comfortable certainty.",
+      source: "Decision Science",
+    },
+  },
+];
+
+// Take the Courageous Action card content
+const COURAGE_THRESHOLD_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Take the Courageous Action",
+    subtitle: "Feel it and move anyway",
+    source: "Brené Brown + Winston Churchill + Navy SEAL Training",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "Standing at the threshold of a courageous action and feeling the pull to retreat",
+    whenToUse: "When you know what needs to be said or done, and fear is making you hesitate.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the fear precisely",
+    duration: "45 sec",
+    instruction: "Write exactly what you're afraid will happen. 'They'll think less of me' is more workable than 'I'm just afraid.'",
+    guidance: "Vague fear is the most dangerous kind.",
+    insight: {
+      text: "Fear unnamed is fear at full power.",
+      source: "Brené Brown",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Apply the regret test",
+    duration: "45 sec",
+    instruction: "At eighty, will you regret not doing this? Write what you would regret.",
+    guidance: "In genuine courage, regret usually outweighs discomfort.",
+    insight: {
+      text: "The cost of courage is discomfort. The cost of cowardice is regret.",
+      source: "Regret Minimisation",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Breathe and step",
+    duration: "45 sec",
+    instruction: "Three power breaths: sharp in through the nose for four, hold for two, sharp out through the mouth. Then take the action.",
+    guidance: "The moment of hesitation is the moment courage is required.",
+    insight: {
+      text: "Courage is what it takes to stand up and speak.",
+      source: "Winston Churchill",
+    },
+  },
+];
+
+// Break the Inertia card content
+const MOMENTUM_GENERATOR_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Break the Inertia",
+    subtitle: "One small move breaks the standstill",
+    source: "Isaac Newton + Tony Robbins + James Clear",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "Stuck, unable to begin the work that matters",
+    whenToUse: "When you know exactly what to do but can't make yourself start.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the object in inertia",
+    duration: "45 sec",
+    instruction: "Write the specific thing that is stuck. 'Start the strategy deck', not 'do more strategic thinking.'",
+    guidance: "You cannot move a vague thing.",
+    insight: {
+      text: "A body at rest stays at rest. A body in motion stays in motion.",
+      source: "Isaac Newton",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Find the atomic start",
+    duration: "45 sec",
+    instruction: "Write the smallest possible version of starting. Open the document. Write the title. Under two minutes.",
+    guidance: "Minimise the threshold and crossing it becomes near-automatic.",
+    insight: {
+      text: "The hardest part is not the work. It's crossing the threshold.",
+      source: "James Clear",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Start right now",
+    duration: "45 sec",
+    instruction: "Set a timer for ten minutes and begin the atomic start immediately. Commit only to the ten minutes.",
+    guidance: "Once in motion, you'll likely continue past it.",
+    insight: {
+      text: "Movement generates momentum. Momentum generates movement.",
+      source: "Behaviour Design",
+    },
+  },
+];
+
+// Create Your Peak State card content
+const PEAK_STATE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Create Your Peak State",
+    subtitle: "Activate the state deliberately",
+    source: "Tony Robbins + Psychophysiology Research + Olympic Sport Psychology",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "An important meeting, presentation or negotiation in the next fifteen minutes",
+    whenToUse: "When you need to perform imminently and your current state won't get you there.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Diagnose your current state",
+    duration: "45 sec",
+    instruction: "Write three numbers, one to ten: energy, focus, confidence. Then write the number you need to be at.",
+    guidance: "You cannot navigate without knowing where you are.",
+    insight: {
+      text: "Honest diagnosis precedes any state change.",
+      source: "Sport Psychology",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Shift the physiology",
+    duration: "60 sec",
+    instruction: "Choose one: stand and take ten power breaths, twenty seconds of vigorous movement, or a thirty-second cold water splash.",
+    guidance: "These change your chemistry before your psychology catches up.",
+    insight: {
+      text: "The body leads. The mind follows.",
+      source: "Psychophysiology Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Install the peak reference",
+    duration: "60 sec",
+    instruction: "Close your eyes and recall the most capable and alive you have ever felt. What were you doing? Stay with it for thirty seconds and feel it.",
+    guidance: "Then write one word that captures that state.",
+    insight: {
+      text: "The mind can access past peak states and use them to prime future ones.",
+      source: "Olympic Priming Protocols",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Lock it in and go",
+    duration: "30 sec",
+    instruction: "Open your eyes. One decisive breath. Say your name and the task: '___, you are ready for ___.' Then walk in.",
+    guidance: "You're already in state. Now perform.",
+    insight: {
+      text: "Decide you are ready, and be right.",
+      source: "Pre-Competition Practice",
+    },
+  },
+];
+
 
 
 // Helper to get cards for practice
@@ -2334,6 +2853,24 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return COMPETITIVE_HUNGER_CARDS;
     case "possibility-mindset-open":
       return POSSIBILITY_MINDSET_CARDS;
+    case "people-pleasing-boundary-reset":
+      return BOUNDARY_RESET_CARDS;
+    case "decision-paralysis-unlock":
+      return DECISION_PARALYSIS_CARDS;
+    case "mental-block-dissolve":
+      return MENTAL_BLOCK_CARDS;
+    case "creativity-unlock-protocol":
+      return CREATIVITY_UNLOCK_CARDS;
+    case "feedback-receive-openly":
+      return FEEDBACK_RECEIVE_CARDS;
+    case "high-stakes-judgment-clarity":
+      return JUDGMENT_CLARITY_CARDS;
+    case "courage-activation-threshold":
+      return COURAGE_THRESHOLD_CARDS;
+    case "momentum-generator-stuck":
+      return MOMENTUM_GENERATOR_CARDS;
+    case "performance-state-activation":
+      return PEAK_STATE_CARDS;
     default:
       return [];
   }
@@ -2423,6 +2960,24 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return competitiveHungerHero;
     case "possibility-mindset-open":
       return possibilityMindsetHero;
+    case "people-pleasing-boundary-reset":
+      return boundaryResetHero;
+    case "decision-paralysis-unlock":
+      return decisionParalysisHero;
+    case "mental-block-dissolve":
+      return mentalBlockDissolveHero;
+    case "creativity-unlock-protocol":
+      return creativityUnlockHero;
+    case "feedback-receive-openly":
+      return feedbackReceiveHero;
+    case "high-stakes-judgment-clarity":
+      return judgmentClarityHero;
+    case "courage-activation-threshold":
+      return courageThresholdHero;
+    case "momentum-generator-stuck":
+      return momentumGeneratorHero;
+    case "performance-state-activation":
+      return peakStateHero;
     default:
       return phoenixResilienceHero;
   }

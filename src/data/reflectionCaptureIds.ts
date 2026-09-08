@@ -48,6 +48,16 @@ export const REFLECTION_CAPTURE_IDS: readonly string[] = [
   'identity-shift-prime',
   'competitive-hunger-awaken',
   'possibility-mindset-open',
+  // Batch 3 mindset protocols (three per pillar)
+  'people-pleasing-boundary-reset',
+  'decision-paralysis-unlock',
+  'mental-block-dissolve',
+  'creativity-unlock-protocol',
+  'feedback-receive-openly',
+  'high-stakes-judgment-clarity',
+  'courage-activation-threshold',
+  'momentum-generator-stuck',
+  'performance-state-activation',
 ];
 
 /** Decks treated as somatic / breath: never show a writing box. */

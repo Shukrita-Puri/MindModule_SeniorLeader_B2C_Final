@@ -1,0 +1,1 @@
+-- see supabase/migrations/20260908231500_add_batch3_mindset_protocols.sql
