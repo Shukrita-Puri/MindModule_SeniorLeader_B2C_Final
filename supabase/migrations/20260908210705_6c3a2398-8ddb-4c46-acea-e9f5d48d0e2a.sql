@@ -1,0 +1,2 @@
+UPDATE public.sanctuary_content SET sub_type='tool', protocol_type='somatic' WHERE id='rapid-recharge-midday';
+UPDATE public.sanctuary_content_steps SET instruction = 'When the alarm sounds, do not spring up. Take one minute. Breathe deliberately. Drink water. Notice the shift in cognitive clarity, then return fully.' WHERE content_id='rapid-recharge-midday' AND step_order=4;
