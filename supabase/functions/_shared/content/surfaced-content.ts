@@ -113,6 +113,15 @@ export const MINDSET_CONTENT_IDS: readonly string[] = [
   "identity-shift-prime",
   "competitive-hunger-awaken",
   "possibility-mindset-open",
+  "people-pleasing-boundary-reset",
+  "decision-paralysis-unlock",
+  "mental-block-dissolve",
+  "creativity-unlock-protocol",
+  "feedback-receive-openly",
+  "high-stakes-judgment-clarity",
+  "courage-activation-threshold",
+  "momentum-generator-stuck",
+  "performance-state-activation",
 ];
 
 export const SOMATIC_CONTENT_IDS: readonly string[] = [
