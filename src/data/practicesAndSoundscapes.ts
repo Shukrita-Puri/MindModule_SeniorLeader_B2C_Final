@@ -2123,7 +2123,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       cognitiveLoadHelp: ['supports_decision', 'sustainable_performance'],
       socialTag: 'solo',
       intensityLevel: 'medium',
-      energyDirection: 'upshift'
+      energyDirection: 'uplift'
     },
     duration: 3,
     difficulty: "beginner",
@@ -2161,7 +2161,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       cognitiveLoadHelp: ['sustainable_performance', 'supports_decision'],
       socialTag: 'solo',
       intensityLevel: 'high',
-      energyDirection: 'upshift'
+      energyDirection: 'uplift'
     },
     duration: 3,
     difficulty: "intermediate",
@@ -2199,7 +2199,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       cognitiveLoadHelp: ['supports_decision', 'focused_learning'],
       socialTag: 'solo',
       intensityLevel: 'medium',
-      energyDirection: 'upshift'
+      energyDirection: 'uplift'
     },
     duration: 4,
     difficulty: "beginner",
