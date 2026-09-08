@@ -69,6 +69,15 @@ import judgmentClarityHero from "@/assets/recalibrate/presence/high-stakes-judgm
 import courageThresholdHero from "@/assets/recalibrate/power-up/courage-activation-threshold.jpg";
 import momentumGeneratorHero from "@/assets/recalibrate/power-up/momentum-generator-stuck.jpg";
 import peakStateHero from "@/assets/recalibrate/power-up/performance-state-activation.jpg";
+import influenceReframeHero from "@/assets/recalibrate/pause/influence-reframe-protocol.jpg";
+import ramificationThinkHero from "@/assets/recalibrate/pause/avoiding-ramification-think.jpg";
+import crisisComposureHero from "@/assets/recalibrate/pause/crisis-composure-anchor.jpg";
+import purposeReconnectHero from "@/assets/recalibrate/presence/purpose-meaning-reconnect.jpg";
+import narrativeControlHero from "@/assets/recalibrate/presence/narrative-control-reframe.jpg";
+import lonelinessGroundingHero from "@/assets/recalibrate/presence/loneliness-leader-grounding.jpg";
+import boardAuthorityHero from "@/assets/recalibrate/power-up/board-authority-prime.jpg";
+import resilienceRestoreHero from "@/assets/recalibrate/power-up/resilience-restore-fast.jpg";
+import decisiveEnergyHero from "@/assets/recalibrate/power-up/decisive-energy-activation.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
