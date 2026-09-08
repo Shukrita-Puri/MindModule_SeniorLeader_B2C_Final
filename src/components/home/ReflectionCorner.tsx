@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getContentById } from '@/data/practicesAndSoundscapes';
-import { getEdgeFunctionHeaders } from '@/services/authTokenService';
+import { clearTokenCache, getEdgeFunctionHeaders } from '@/services/authTokenService';
 
 interface ReflectionCornerProps {
   /** When provided, switches the prompt to a post-event framing. */
@@ -23,6 +23,10 @@ interface ReflectionCornerProps {
   /** Fired after a successful save so the parent can mark the slot complete. */
   onSaved?: () => void;
 }
+
+/** Unsent text survives a failed save, a reload, or an app backgrounding. */
+const draftKey = (userId: string | undefined, postEventTitle?: string | null) =>
+  `tinyWinDraft:${userId ?? 'anon'}:${new Date().toLocaleDateString('en-CA')}:${postEventTitle ? 'event' : 'daily'}`;
 
 const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) => {
   const navigate = useNavigate();
@@ -35,6 +39,27 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
   const [hydrating, setHydrating] = useState(true);
 
   const stoic = getContentById('stoic-reflection');
+
+  const clearDraft = () => {
+    try { localStorage.removeItem(draftKey(userId, postEventTitle)); } catch { /* ignore */ }
+  };
+
+  // Restore any unsent text for today.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(draftKey(userId, postEventTitle));
+      if (saved) setWinContent(saved);
+    } catch { /* ignore */ }
+  }, [userId, postEventTitle]);
+
+  const updateWinContent = (value: string) => {
+    setWinContent(value);
+    try {
+      if (value.trim()) localStorage.setItem(draftKey(userId, postEventTitle), value);
+      else localStorage.removeItem(draftKey(userId, postEventTitle));
+    } catch { /* ignore */ }
+  };
+
 
   // Check if a reflection_corner / post_event_reflection win already exists for today.
   useEffect(() => {
