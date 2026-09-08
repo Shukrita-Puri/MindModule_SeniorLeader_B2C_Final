@@ -3480,6 +3480,24 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return momentumGeneratorHero;
     case "performance-state-activation":
       return peakStateHero;
+    case "influence-reframe-protocol":
+      return influenceReframeHero;
+    case "avoiding-ramification-think":
+      return ramificationThinkHero;
+    case "crisis-composure-anchor":
+      return crisisComposureHero;
+    case "purpose-meaning-reconnect":
+      return purposeReconnectHero;
+    case "narrative-control-reframe":
+      return narrativeControlHero;
+    case "loneliness-leader-grounding":
+      return lonelinessGroundingHero;
+    case "board-authority-prime":
+      return boardAuthorityHero;
+    case "resilience-restore-fast":
+      return resilienceRestoreHero;
+    case "decisive-energy-activation":
+      return decisiveEnergyHero;
     default:
       return phoenixResilienceHero;
   }
