@@ -58,6 +58,15 @@ export const REFLECTION_CAPTURE_IDS: readonly string[] = [
   'courage-activation-threshold',
   'momentum-generator-stuck',
   'performance-state-activation',
+  'influence-reframe-protocol',
+  'avoiding-ramification-think',
+  'crisis-composure-anchor',
+  'purpose-meaning-reconnect',
+  'narrative-control-reframe',
+  'loneliness-leader-grounding',
+  'board-authority-prime',
+  'resilience-restore-fast',
+  'decisive-energy-activation',
 ];
 
 /** Decks treated as somatic / breath: never show a writing box. */

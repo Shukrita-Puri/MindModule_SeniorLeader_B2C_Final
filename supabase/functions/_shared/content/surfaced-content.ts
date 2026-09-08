@@ -69,6 +69,15 @@ export const SURFACED_CONTENT_IDS: readonly string[] = [
   "courage-activation-threshold",
   "momentum-generator-stuck",
   "performance-state-activation",
+  "influence-reframe-protocol",
+  "avoiding-ramification-think",
+  "crisis-composure-anchor",
+  "purpose-meaning-reconnect",
+  "narrative-control-reframe",
+  "loneliness-leader-grounding",
+  "board-authority-prime",
+  "resilience-restore-fast",
+  "decisive-energy-activation",
 ];
 
 const SURFACED = new Set(SURFACED_CONTENT_IDS);
@@ -131,6 +140,15 @@ export const MINDSET_CONTENT_IDS: readonly string[] = [
   "courage-activation-threshold",
   "momentum-generator-stuck",
   "performance-state-activation",
+  "influence-reframe-protocol",
+  "avoiding-ramification-think",
+  "crisis-composure-anchor",
+  "purpose-meaning-reconnect",
+  "narrative-control-reframe",
+  "loneliness-leader-grounding",
+  "board-authority-prime",
+  "resilience-restore-fast",
+  "decisive-energy-activation",
 ];
 
 export const SOMATIC_CONTENT_IDS: readonly string[] = [
