@@ -11,12 +11,10 @@ const corsHeaders = {
 
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-// v2026-09-08 — evaluating flash-lite as primary for cost/quality balance.
-// Pro-preview is retained as the first fallback so quality is one swap away.
+// v2026-09-08 — single model for COS synthesis. Quality matched pro-preview,
+// so there is no second model and no cross-model fallback chain.
 const AI_MODEL = "google/gemini-3.1-flash-lite";
-const AI_MODEL_FALLBACK = "google/gemini-3.1-pro-preview";
-// Brief's own light model remains the final fallback before local shell.
-const AI_MODEL_FALLBACK_LITE = "google/gemini-3.1-flash-lite";
+
 
 type CosFallbackArgs = {
   userId: string;
