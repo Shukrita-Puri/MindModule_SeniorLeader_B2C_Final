@@ -25,11 +25,17 @@ already what most features read.
    email-ready.
 3. One stricter retry still runs when gaps are found, because a better profile
    is worth one extra call — but its outcome never changes usability.
-4. The AI-unavailable path keeps its locally built fallback profile and stores
-   it as usable too, still tagged `source = fallback` and `quality = thin` so it
-   is distinguishable and re-runnable.
-5. Emails (when built) gate on quality, not on usability: only `rich`/`partial`
+4. "AI unavailable" today only means the model call failed (rate limit, credit
+   limit, outage) or returned no usable answer. It tries the strong Gemini model
+   then the fast one. A third, lighter attempt on `google/gemini-3.1-flash-lite`
+   (the same model family the Brief uses) is added before giving up, so a real
+   profile is written in nearly every case.
+5. If all three attempts fail, the locally built fallback profile is still
+   stored as usable, tagged `source = fallback` and `quality = thin` so it is
+   distinguishable and can be re-run later.
+6. Emails (when built) gate on quality, not on usability: only `rich`/`partial`
    get sent.
+
 
 ## Technical changes
 
