@@ -50,7 +50,6 @@ export const SURFACED_CONTENT_IDS: readonly string[] = [
   "mastery-constraint",
   "difficult-conversation-prep",
   "deep-work-initiation",
-  "rapid-recharge-midday",
 ];
 
 const SURFACED = new Set(SURFACED_CONTENT_IDS);
@@ -95,7 +94,6 @@ export const MINDSET_CONTENT_IDS: readonly string[] = [
   "jobs-simplicity",
   "difficult-conversation-prep",
   "deep-work-initiation",
-  "rapid-recharge-midday",
 ];
 
 export const SOMATIC_CONTENT_IDS: readonly string[] = [
@@ -107,6 +105,7 @@ export const SOMATIC_CONTENT_IDS: readonly string[] = [
   "box-breathing",
   "bhramari-pranayama",
   "trataka-flame-gaze",
+  "rapid-recharge-midday",
 ];
 
 export const isMindsetContent = (id: string | null | undefined): boolean =>

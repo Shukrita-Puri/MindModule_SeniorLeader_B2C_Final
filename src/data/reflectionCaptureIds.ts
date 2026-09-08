@@ -38,7 +38,6 @@ export const REFLECTION_CAPTURE_IDS: readonly string[] = [
   // New mindset protocols (one per pillar)
   'difficult-conversation-prep',
   'deep-work-initiation',
-  'rapid-recharge-midday',
 ];
 
 /** Decks treated as somatic / breath: never show a writing box. */
@@ -49,6 +48,8 @@ export const SOMATIC_NO_CAPTURE_IDS: readonly string[] = [
   'release-exhale',
   'release-exhale-new',
   'djokovic-reset',
+  // Rest / recovery tool — nothing to write
+  'rapid-recharge-midday',
 ];
 
 export const capturesReflection = (id: string | undefined | null): boolean =>
