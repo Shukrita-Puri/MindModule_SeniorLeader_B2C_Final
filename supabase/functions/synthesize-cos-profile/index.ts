@@ -1011,6 +1011,10 @@ const COS_TOOL = {
                   severity: { type: "string" },
                   description: { type: "string" },
                   trigger_conditions: { type: "string" },
+                  leading_indicator: {
+                    type: "string",
+                    description: "One sentence on what the CoS should watch for as the early signal before this flag fully fires — observable in check-in responses, calendar density, or wearable data.",
+                  },
                 },
               },
             },
