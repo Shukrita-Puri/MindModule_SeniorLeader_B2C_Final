@@ -215,6 +215,7 @@ export async function loadLeaderProfile(
     },
     meta: {
       status: 'ready',
+      quality: (row.cos_profile_quality as any) ?? null,
       confidence: p.confidence_overall ?? null,
       what_is_missing: Array.isArray(p.what_is_missing) ? p.what_is_missing : null,
     },
