@@ -55,6 +55,15 @@ import stoicReflectionHero from "@/assets/recalibrate/presence/stoic-reflection.
 import difficultConversationPrepHero from "@/assets/recalibrate/pause/difficult-conversation-prep.jpg";
 import deepWorkInitiationHero from "@/assets/recalibrate/presence/deep-work-initiation.jpg";
 import rapidRechargeMiddayHero from "@/assets/recalibrate/power-up/rapid-recharge-midday.jpg";
+import ruminationExitHero from "@/assets/recalibrate/pause/rumination-exit-protocol.jpg";
+import failureReframeHero from "@/assets/recalibrate/pause/failure-reframe-pivot.jpg";
+import politicalNavigationHero from "@/assets/recalibrate/pause/political-navigation-clarity.jpg";
+import preBoardMasteryHero from "@/assets/recalibrate/presence/pre-board-mastery-frame.jpg";
+import stakeholderListeningHero from "@/assets/recalibrate/presence/stakeholder-listening-presence.jpg";
+import visionReconnectHero from "@/assets/recalibrate/presence/vision-reconnect-protocol.jpg";
+import identityShiftPrimeHero from "@/assets/recalibrate/power-up/identity-shift-prime.jpg";
+import competitiveHungerHero from "@/assets/recalibrate/power-up/competitive-hunger-awaken.jpg";
+import possibilityMindsetHero from "@/assets/recalibrate/power-up/possibility-mindset-open.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
