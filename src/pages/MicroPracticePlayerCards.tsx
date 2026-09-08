@@ -3373,6 +3373,24 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return MOMENTUM_GENERATOR_CARDS;
     case "performance-state-activation":
       return PEAK_STATE_CARDS;
+    case "influence-reframe-protocol":
+      return INFLUENCE_REFRAME_CARDS;
+    case "avoiding-ramification-think":
+      return RAMIFICATION_THINK_CARDS;
+    case "crisis-composure-anchor":
+      return CRISIS_COMPOSURE_CARDS;
+    case "purpose-meaning-reconnect":
+      return PURPOSE_RECONNECT_CARDS;
+    case "narrative-control-reframe":
+      return NARRATIVE_CONTROL_CARDS;
+    case "loneliness-leader-grounding":
+      return LONELINESS_GROUNDING_CARDS;
+    case "board-authority-prime":
+      return BOARD_AUTHORITY_CARDS;
+    case "resilience-restore-fast":
+      return RESILIENCE_RESTORE_CARDS;
+    case "decisive-energy-activation":
+      return DECISIVE_ENERGY_CARDS;
     default:
       return [];
   }
