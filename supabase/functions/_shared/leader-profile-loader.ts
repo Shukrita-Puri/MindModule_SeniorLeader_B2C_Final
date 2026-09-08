@@ -164,6 +164,7 @@ export async function loadLeaderProfile(
       },
       meta: {
         status: (row?.cos_profile_status as any) ?? 'missing',
+        quality: null,
         confidence: null,
         what_is_missing: null,
       },
