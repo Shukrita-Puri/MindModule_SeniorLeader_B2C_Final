@@ -60,6 +60,15 @@ import visionReconnectHero from "@/assets/recalibrate/presence/vision-reconnect-
 import identityShiftPrimeHero from "@/assets/recalibrate/power-up/identity-shift-prime.jpg";
 import competitiveHungerHero from "@/assets/recalibrate/power-up/competitive-hunger-awaken.jpg";
 import possibilityMindsetHero from "@/assets/recalibrate/power-up/possibility-mindset-open.jpg";
+import boundaryResetHero from "@/assets/recalibrate/pause/people-pleasing-boundary-reset.jpg";
+import decisionParalysisHero from "@/assets/recalibrate/pause/decision-paralysis-unlock.jpg";
+import mentalBlockDissolveHero from "@/assets/recalibrate/pause/mental-block-dissolve.jpg";
+import creativityUnlockHero from "@/assets/recalibrate/presence/creativity-unlock-protocol.jpg";
+import feedbackReceiveHero from "@/assets/recalibrate/presence/feedback-receive-openly.jpg";
+import judgmentClarityHero from "@/assets/recalibrate/presence/high-stakes-judgment-clarity.jpg";
+import courageThresholdHero from "@/assets/recalibrate/power-up/courage-activation-threshold.jpg";
+import momentumGeneratorHero from "@/assets/recalibrate/power-up/momentum-generator-stuck.jpg";
+import peakStateHero from "@/assets/recalibrate/power-up/performance-state-activation.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
