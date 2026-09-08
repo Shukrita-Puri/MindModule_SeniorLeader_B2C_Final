@@ -58,7 +58,10 @@ const STEP_ROUTE: Record<OnboardingV8StepId, string> = {
 };
 
 function toSynthesisStatus(raw: string | null | undefined): OnboardingSynthesisStatus {
-  if (raw === "ready") return "ready";
+  // 'needs_input' is a legacy row written by the old strict depth gate. Those
+  // profiles exist and are usable, so they must never send a finished leader
+  // back into onboarding.
+  if (raw === "ready" || raw === "needs_input") return "ready";
   if (raw === "failed") return "failed";
   if (raw === "in_progress" || raw === "pending") return "pending";
   return "not_started";
