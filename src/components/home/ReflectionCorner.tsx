@@ -219,7 +219,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
             <div className="isolate [transform:translateZ(0)] [contain:layout_paint]">
               <Textarea
                 value={winContent}
-                onChange={(e) => setWinContent(e.target.value)}
+                onChange={(e) => updateWinContent(e.target.value)}
                 placeholder="A small moment, a clean decision, a held boundary…"
                 className={cn(
                   "min-h-[80px] resize-none text-sm bg-background border-[#cfc7b8]",
