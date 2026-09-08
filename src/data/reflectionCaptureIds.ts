@@ -38,6 +38,7 @@ export const REFLECTION_CAPTURE_IDS: readonly string[] = [
   // New mindset protocols (one per pillar)
   'difficult-conversation-prep',
   'deep-work-initiation',
+  'rapid-recharge-midday',
 ];
 
 /** Decks treated as somatic / breath: never show a writing box. */
