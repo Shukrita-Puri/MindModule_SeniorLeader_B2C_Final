@@ -25,11 +25,17 @@ already what most features read.
    email-ready.
 3. One stricter retry still runs when gaps are found, because a better profile
    is worth one extra call — but its outcome never changes usability.
-4. The AI-unavailable path keeps its locally built fallback profile and stores
-   it as usable too, still tagged `source = fallback` and `quality = thin` so it
-   is distinguishable and re-runnable.
-5. Emails (when built) gate on quality, not on usability: only `rich`/`partial`
+4. "AI unavailable" today only means the model call failed (rate limit, credit
+   limit, outage) or returned no usable answer. It tries the strong Gemini model
+   then the fast one. A third, lighter attempt on `google/gemini-3.1-flash-lite`
+   (the same model family the Brief uses) is added before giving up, so a real
+   profile is written in nearly every case.
+5. If all three attempts fail, the locally built fallback profile is still
+   stored as usable, tagged `source = fallback` and `quality = thin` so it is
+   distinguishable and can be re-run later.
+6. Emails (when built) gate on quality, not on usability: only `rich`/`partial`
    get sent.
+
 
 ## Technical changes
 
@@ -44,8 +50,10 @@ already what most features read.
     `cos_profile_error` gap field — see migration below) instead of using them
     to downgrade status.
   - The AI-unavailable branch persists the fallback with `'ready'` +
-    `quality: 'thin'`.
+    `quality: 'thin'`, and only after a third model attempt on
+    `google/gemini-3.1-flash-lite` also fails.
   - Response payload keeps returning `quality_gaps` and adds `quality`.
+
 - `supabase/functions/_shared/leader-profile-loader.ts`
   - Accepts any row that has a `cos_profile` object, regardless of status; only
     a missing/empty profile falls through to the null shell. Each field already
@@ -66,5 +74,8 @@ already what most features read.
 
 ## Out of scope
 
-No changes to onboarding questions, UI, copy, the prompt, or any other feature.
-No email sending is added.
+No changes to the onboarding questions, their order, wording, or which are
+optional versus required. No UI or UX change of any kind — from the leader's
+side v8 behaves exactly as it does today. No other feature touched, and no
+email sending is added.
+
