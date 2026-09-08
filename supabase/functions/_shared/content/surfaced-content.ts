@@ -93,6 +93,9 @@ export const MINDSET_CONTENT_IDS: readonly string[] = [
   "rhythm-pulse",
   "mastery-constraint",
   "jobs-simplicity",
+  "difficult-conversation-prep",
+  "deep-work-initiation",
+  "rapid-recharge-midday",
 ];
 
 export const SOMATIC_CONTENT_IDS: readonly string[] = [
