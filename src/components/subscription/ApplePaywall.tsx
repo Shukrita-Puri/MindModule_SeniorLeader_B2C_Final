@@ -264,8 +264,8 @@ export function ApplePaywall({
     <div className="max-w-md mx-auto px-4 py-6 space-y-5" data-testid="apple-paywall">
       {/* Header Section (Headline 2 sizes bigger) */}
       <div className="space-y-2">
-        <h1 className="text-lg font-headline font-bold tracking-wider uppercase text-saffron">
-          MIND MODULE EXECUTIVE EDITION
+        <h1 className="font-headline font-medium leading-tight tracking-tight text-[26px] md:text-[42px] text-foreground">
+          Choose your Subscription
         </h1>
         <p className="text-base font-medium text-foreground/95 leading-snug">
           Your mind runs everything. Now it has a chief of staff.
