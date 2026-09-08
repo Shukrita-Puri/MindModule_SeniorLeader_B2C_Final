@@ -16,6 +16,7 @@ import { toast } from '@/hooks/use-toast';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { clearTokenCache, getEdgeFunctionHeaders } from '@/services/authTokenService';
+import { getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
 
 interface ReflectionCornerProps {
   /** When provided, switches the prompt to a post-event framing. */
@@ -36,6 +37,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
   const [winContent, setWinContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  const [saveConfirmed, setSaveConfirmed] = useState(false);
   const [hydrating, setHydrating] = useState(true);
 
   const stoic = getContentById('stoic-reflection');
@@ -53,6 +55,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
   }, [userId, postEventTitle]);
 
   const updateWinContent = (value: string) => {
+    setSaveConfirmed(false);
     setWinContent(value);
     try {
       if (value.trim()) localStorage.setItem(draftKey(userId, postEventTitle), value);
@@ -88,7 +91,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
     ? `What did you take from "${postEventTitle}"?`
     : 'Capture one thing — however small — you did right today.';
 
-  const canSave = winContent.trim().length >= 10 && !saving;
+  const canSave = winContent.trim().length >= 10 && !saving && !alreadySaved;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -102,9 +105,12 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       // out on a cold session, so try once more before sending an unsigned
       // request that the server would reject with a generic failure.
       let headers = await getEdgeFunctionHeaders();
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (anonKey) headers.apikey = anonKey;
       if (!DEV_MODE && !headers.Authorization) {
         clearTokenCache();
         headers = await getEdgeFunctionHeaders();
+        if (anonKey) headers.apikey = anonKey;
       }
       if (!DEV_MODE && !headers.Authorization) {
         toast({
@@ -115,18 +121,32 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
         return;
       }
 
-      // A 401 here is auto-retried once with a fresh token by the global
-      // auth retry interceptor (src/lib/authRetryInterceptor.ts).
-      const { error } = await supabase.functions.invoke('store-tiny-win', {
-        headers,
-        body: {
+      const body = JSON.stringify({
           winContent: winContent.trim(),
           source,
           ...(postEventTitle ? { eventTitle: postEventTitle } : {}),
-        },
       });
-      if (error) throw error;
+
+      // Use fetch directly so the JSON body is serialized identically in the
+      // browser and Capacitor. The functions SDK was sending an empty body
+      // when custom auth/content headers were present.
+      const send = (requestHeaders: Record<string, string>) => fetch(
+        getSupabaseFunctionUrl('store-tiny-win'),
+        { method: 'POST', headers: requestHeaders, body },
+      );
+      let response = await send(headers);
+      if (response.status === 401 && !DEV_MODE) {
+        clearTokenCache();
+        const refreshedHeaders = await getEdgeFunctionHeaders();
+        if (anonKey) refreshedHeaders.apikey = anonKey;
+        if (refreshedHeaders.Authorization) response = await send(refreshedHeaders);
+      }
+      if (!response.ok) {
+        const responseBody = await response.text().catch(() => '');
+        throw new Error(`store-tiny-win failed (${response.status})${responseBody ? `: ${responseBody}` : ''}`);
+      }
       setAlreadySaved(true);
+      setSaveConfirmed(true);
       clearDraft();
       toast({ title: 'Win captured', description: 'Saved to your Insights.' });
       onSaved?.();
@@ -203,7 +223,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
           )}
         </div>
 
-        {alreadySaved ? (
+        {alreadySaved && !saveConfirmed ? (
           <button
             onClick={() => navigate('/insights')}
             className="w-full flex items-center justify-between text-left text-sm text-foreground/80 hover:text-foreground transition-colors"
@@ -243,13 +263,21 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
                   ? `${10 - winContent.trim().length} more characters`
                   : `${winContent.trim().length} characters`}
               </span>
-              <Button
-                onClick={handleSave}
-                disabled={!canSave}
-                className="h-9 px-4 text-[13px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-lg disabled:opacity-40"
-              >
-                {saving ? 'Saving…' : 'Save win'}
-              </Button>
+              <div className="flex items-center gap-2">
+                {saveConfirmed && (
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-taupe" role="status">
+                    <Check size={12} className="stroke-[3]" />
+                    Saved
+                  </span>
+                )}
+                <Button
+                  onClick={handleSave}
+                  disabled={!canSave}
+                  className="h-9 px-4 text-[13px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-lg disabled:opacity-40"
+                >
+                  {saving ? 'Saving…' : 'Save win'}
+                </Button>
+              </div>
             </div>
           </>
         )}
