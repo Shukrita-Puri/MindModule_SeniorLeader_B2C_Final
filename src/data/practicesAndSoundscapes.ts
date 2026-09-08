@@ -73,6 +73,15 @@ import judgmentClarityHero from "@/assets/recalibrate/presence/high-stakes-judgm
 import courageThresholdHero from "@/assets/recalibrate/power-up/courage-activation-threshold.jpg";
 import momentumGeneratorHero from "@/assets/recalibrate/power-up/momentum-generator-stuck.jpg";
 import peakStateHero from "@/assets/recalibrate/power-up/performance-state-activation.jpg";
+import influenceReframeHero from "@/assets/recalibrate/pause/influence-reframe-protocol.jpg";
+import ramificationThinkHero from "@/assets/recalibrate/pause/avoiding-ramification-think.jpg";
+import crisisComposureHero from "@/assets/recalibrate/pause/crisis-composure-anchor.jpg";
+import purposeReconnectHero from "@/assets/recalibrate/presence/purpose-meaning-reconnect.jpg";
+import narrativeControlHero from "@/assets/recalibrate/presence/narrative-control-reframe.jpg";
+import lonelinessGroundingHero from "@/assets/recalibrate/presence/loneliness-leader-grounding.jpg";
+import boardAuthorityHero from "@/assets/recalibrate/power-up/board-authority-prime.jpg";
+import resilienceRestoreHero from "@/assets/recalibrate/power-up/resilience-restore-fast.jpg";
+import decisiveEnergyHero from "@/assets/recalibrate/power-up/decisive-energy-activation.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -2565,6 +2574,343 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "Shift the physiology (60 sec): Choose one — ten power breaths standing, twenty seconds of vigorous movement, or a cold water splash.",
       "Install the peak reference (60 sec): Recall the most capable and alive you've ever felt. Stay with it for thirty seconds and feel it, don't just think it.",
       "Lock it in and go (30 sec): One decisive breath. Say your name and the task: '___, you are ready for ___.' Then walk in."
+    ]
+  },
+  {
+    id: "influence-reframe-protocol",
+    title: "Enter Their Frame",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['influence', 'persuasion', 'stakeholder', 'communication', 'mindset'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['reset'],
+      goalTags: ['influence', 'clarity', 'strategic_thinking', 'composure'],
+      physioTarget: ['prefrontal_activation'],
+      contextTags: ['pre_meeting', 'stakeholder_conversation', 'board_presentation', 'investor_meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'improves_concentration'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Robert Cialdini + Dale Carnegie + Aristotle",
+    origin: "Influence: The Psychology of Persuasion + How to Win Friends and Influence People + Rhetoric (Aristotle)",
+    storyHook: "When Steve Jobs needed to hire John Sculley from Pepsi, he didn't list Apple's benefits. He asked: do you want to sell sugar water for the rest of your life, or change the world? He had mapped Sculley's deepest motivation and invited him into it.",
+    essence: "Influence isn't about you. It's about making them the protagonist of the story.",
+    parallel: "Aristotle's ethos/pathos/logos; FBI tactical empathy; Transformational leadership",
+    cue: "I lead with their world, not mine.",
+    usedBy: "CEOs and C-suite leaders before key stakeholder conversations, board presentations and investor meetings",
+    thumbnail: influenceReframeHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Enter their world (60 sec): What is this person most concerned about right now — specifically today? What risk are they trying to avoid, and what does success look like in their language?",
+      "Find the connecting thread (60 sec): Where does what you need intersect with what they care about? Write one sentence: 'What I'm proposing helps you achieve ___.'",
+      "Lead with their language (45 sec): In your opening, use their words and their priorities first, then connect them to what you need."
+    ]
+  },
+  {
+    id: "avoiding-ramification-think",
+    title: "Think Two Moves Ahead",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['second-order', 'decision', 'consequences', 'strategy', 'mindset'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['reset'],
+      goalTags: ['decision_quality', 'strategic_thinking', 'mental_clarity', 'wisdom'],
+      physioTarget: ['prefrontal_activation'],
+      contextTags: ['major_decision', 'pre_announcement', 'strategy_work', 'board_prep'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 5,
+    difficulty: "intermediate",
+    creator: "Howard Marks + Ray Dalio + Charlie Munger",
+    origin: "The Most Important Thing (Marks) + Principles (Dalio) + Poor Charlie's Almanack",
+    storyHook: "Charlie Munger asks 'and then what?' three times before he acts. Howard Marks built one of history's most successful funds on a single principle: first-level thinking is easy and everyone does it. Second-level thinking is what separates great leaders.",
+    essence: "The obvious solution often creates the next crisis. Think past the first move.",
+    parallel: "Systems thinking; second-order effects; pre-mortem (Klein); Inversion (Munger)",
+    cue: "What are the consequences of the consequences?",
+    usedBy: "CEOs, board directors and C-suite leaders before major decisions with downstream consequences",
+    thumbnail: ramificationThinkHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "State the proposed action (45 sec): Write one sentence — 'I am considering doing ___.' Be precise. Vague decisions create vague thinking.",
+      "First order (60 sec): If you take this action, what is the most likely immediate outcome? Write it. Most leaders stop here.",
+      "Second order (90 sec): What does that outcome trigger in 30, 90 and 180 days? Who else is affected, and what precedent does it set?",
+      "Pre-mortem (60 sec): Imagine it's twelve months later and this decision made things worse. What happened? Name two scenarios."
+    ]
+  },
+  {
+    id: "crisis-composure-anchor",
+    title: "Stay Composed in a Crisis",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['crisis', 'composure', 'leadership', 'pressure', 'mindset'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['composure'],
+      goalTags: ['composure', 'emotional_regulation', 'clarity', 'decision_quality'],
+      physioTarget: ['cortisol_reduce', 'parasympathetic_activation', 'prefrontal_activation'],
+      contextTags: ['acute_crisis', 'market_shock', 'reputational_threat', 'operational_failure'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['lowers_cognitive_load', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'stabilize'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Viktor Frankl + Navy SEAL Doctrine + Stoic Philosophy",
+    origin: "Logotherapy (Frankl) + SEAL debrief protocol + Stoic Handbook (Epictetus)",
+    storyHook: "In SEAL training they learn that in crisis the leader who pauses creates space, and the one who reacts collapses it. Frankl survived Auschwitz by locating the one thing no one could take: his response to what happened.",
+    essence: "In crisis, whoever pauses first leads. Reaction belongs to everyone; response belongs to the leader.",
+    parallel: "Combat stress inoculation; OODA loop (Boyd); Stoic equanimity; Crisis leadership",
+    cue: "Slow is smooth. Smooth is fast.",
+    usedBy: "CEOs and C-suite leaders in acute crisis — market shock, reputational threat, operational failure",
+    thumbnail: crisisComposureHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Take the pause (60 sec): Before you say or do anything, breathe in for four, hold for four, out through the mouth for six. Repeat twice. This is tactical regulation, not delay.",
+      "Name what is certain (60 sec): What do you know for certain right now? Write three facts, not interpretations.",
+      "Identify your one move (45 sec): What is the one thing you can do in the next ten minutes that improves the situation? Not solves it — improves it. State it and move."
+    ]
+  },
+  {
+    id: "purpose-meaning-reconnect",
+    title: "Why This Still Matters",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['purpose', 'meaning', 'burnout', 'motivation', 'mindset'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['grounding'],
+      goalTags: ['motivation', 'meaning', 'resilience', 'self_awareness'],
+      physioTarget: ['dopamine_regulation', 'cortisol_reduce'],
+      contextTags: ['burnout_precursor', 'meaning_crisis', 'sustained_pressure', 'evening_winddown'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'downshift'
+    },
+    duration: 4,
+    difficulty: "beginner",
+    creator: "Viktor Frankl + Martin Seligman + Nelson Mandela",
+    origin: "Man's Search for Meaning + Authentic Happiness (Seligman) + Mandela's 27 years of imprisonment",
+    storyHook: "Mandela spent 27 years in prison and emerged more certain of purpose than when he entered. Frankl survived Auschwitz through one conviction: those with a why can endure almost any how.",
+    essence: "Meaning is not found. It's chosen, repeatedly, especially when it's hardest to choose.",
+    parallel: "Eudaimonic wellbeing (Aristotle); Calling vs career (Bellah); Post-traumatic growth",
+    cue: "This matters because I say it does.",
+    usedBy: "CEOs, founders and C-suite leaders in burnout precursors, meaning crisis or sustained high-pressure periods",
+    thumbnail: purposeReconnectHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name what's gone quiet (60 sec): What part of the work used to excite you and has gone quiet? Don't judge it — name it. Depletion is information.",
+      "Find one person affected (60 sec): Name one specific person whose life or work is genuinely better because of what you do, and describe exactly how.",
+      "Recall your original yes (60 sec): Why did you take this on — before the title, before the money? Write your version in one honest paragraph.",
+      "Choose today's meaning (30 sec): Name one thing in today's work that connects to what matters most to you. Make it concrete."
+    ]
+  },
+  {
+    id: "narrative-control-reframe",
+    title: "Rewrite the Story",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['narrative', 'reframe', 'mindset', 'self-talk', 'clarity'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['grounding'],
+      goalTags: ['self_awareness', 'emotional_regulation', 'clarity', 'resilience'],
+      physioTarget: ['prefrontal_activation', 'cortisol_reduce'],
+      contextTags: ['disempowering_story', 'post_setback', 'self_doubt', 'post_meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Cognitive Behavioral Therapy + Narrative Therapy (White) + Epictetus",
+    origin: "CBT (Aaron Beck) + Narrative Therapy (Michael White) + Enchiridion (Epictetus)",
+    storyHook: "Epictetus said people are disturbed not by things but by their opinions about things. Two leaders can face the same board defeat and live in entirely different psychological realities. The only difference is the story they tell themselves.",
+    essence: "You are always the author of your story. Choose the one worth living.",
+    parallel: "Reframing (CBT); Narrative identity (McAdams); Cognitive defusion (ACT); Amor Fati",
+    cue: "I author this story. Let me choose the version that serves.",
+    usedBy: "CEOs and C-suite leaders stuck in a disempowering narrative about themselves or what's possible",
+    thumbnail: narrativeControlHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Name the current story (45 sec): Complete the sentence — 'The story I'm telling myself right now is ___.' Say it fully, don't soften it.",
+      "Test it as a hypothesis (60 sec): Is this definitely true? What evidence contradicts it? What would the most respected person in your field say about it?",
+      "Write the alternative (45 sec): What is an equally or more accurate story that serves you better? 'I am behind' becomes 'I am recalibrating.'"
+    ]
+  },
+  {
+    id: "loneliness-leader-grounding",
+    title: "Turn Loneliness Into Clarity",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['loneliness', 'solitude', 'leadership', 'grounding', 'mindset'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['grounding'],
+      goalTags: ['self_awareness', 'resilience', 'grounding', 'emotional_regulation'],
+      physioTarget: ['cortisol_reduce', 'parasympathetic_activation'],
+      contextTags: ['isolation', 'weight_of_decisions', 'evening_winddown', 'sustained_pressure'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'downshift'
+    },
+    duration: 4,
+    difficulty: "beginner",
+    creator: "Rainer Maria Rilke + Blaise Pascal + Marcus Aurelius",
+    origin: "Letters to a Young Poet (Rilke) + Pensées (Pascal) + Meditations (Aurelius)",
+    storyHook: "Pascal wrote that all of humanity's problems stem from our inability to sit quietly in a room alone. Leadership at the top is a specific kind of loneliness: you cannot always share your doubts, and the weight of decisions that affect others is yours to carry.",
+    essence: "The loneliness of leadership is not a flaw. It's the territory. Learn to inhabit it with grace.",
+    parallel: "Solitude and leadership (Deresiewicz); Differentiation of self (Bowen); Stillness (Holiday)",
+    cue: "This weight is mine to carry. I carry it with dignity.",
+    usedBy: "CEOs, founders and senior leaders experiencing the particular loneliness of leadership",
+    thumbnail: lonelinessGroundingHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Allow the weight to land (60 sec): Sit quietly and let the feeling be there. Acknowledge it: 'I'm carrying something significant right now.' Name what it is.",
+      "Recognise the choice (60 sec): This weight exists because you chose something that mattered. What did you choose? What responsibility did you take on?",
+      "Find the resource in the solitude (60 sec): What can you see from this position that you couldn't see from inside the crowd? Name one thing you see clearly that others can't.",
+      "Choose dignity (30 sec): Say it — 'I carry this because it's mine to carry, and I am equal to it.' Breathe slowly, four in and six out."
+    ]
+  },
+  {
+    id: "board-authority-prime",
+    title: "Command the Room",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['authority', 'presence', 'board', 'command', 'mindset'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['activate'],
+      goalTags: ['confidence', 'composure', 'performance', 'influence'],
+      physioTarget: ['hrv_increase', 'cortisol_reduce', 'prefrontal_activation'],
+      contextTags: ['pre_board', 'investor_presentation', 'all_hands', 'pre_meeting'],
+      environmentSuitability: ['office', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'uplift'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Sun Tzu + Aristotle + Daniel Goleman",
+    origin: "The Art of War (command presence) + Rhetoric (Aristotle) + Primal Leadership (Goleman)",
+    storyHook: "Before battle, Sun Tzu's generals reviewed three things: the terrain, the troops, and themselves. Goleman's research confirmed what commanders already knew — leaders set the emotional temperature of every room they enter.",
+    essence: "You are not just delivering information. You are creating a reality in that room.",
+    parallel: "Executive presence (Hewlett); Charismatic leadership (Bass); Emotional contagion (Hatfield)",
+    cue: "I set the temperature. The room follows.",
+    usedBy: "CEOs and C-suite leaders before board meetings, investor presentations and all-hands addresses",
+    thumbnail: boardAuthorityHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Own the space (45 sec): Thirty seconds before entering, stand still. Feet shoulder-width, weight even, shoulders back and down. Breathe into your belly and feel grounded.",
+      "Set your internal frame (45 sec): Ask who you are in this room — not title, identity. 'I am responsible for this organisation's direction. I have done the work.'",
+      "Control the silence (45 sec): Before speaking, pause for two full seconds. Look deliberately around the room. Breathe once. Then speak."
+    ]
+  },
+  {
+    id: "resilience-restore-fast",
+    title: "Recover After a Blow",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['resilience', 'setback', 'recovery', 'bounce-back', 'mindset'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['restore'],
+      goalTags: ['resilience', 'emotional_regulation', 'confidence', 'action'],
+      physioTarget: ['cortisol_reduce', 'hrv_increase', 'prefrontal_activation'],
+      contextTags: ['post_setback', 'after_criticism', 'bad_news', 'post_meeting'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'uplift'
+    },
+    duration: 4,
+    difficulty: "beginner",
+    creator: "Viktor Frankl + Martin Seligman + Navy SEAL Resilience Protocol",
+    origin: "Logotherapy + Positive Psychology + Military resilience training",
+    storyHook: "The US military studied its most resilient operators to see what separated them from equally talented people who broke. The answer wasn't toughness — it was processing speed. They moved through adversity faster, with deliberate rituals for returning to readiness.",
+    essence: "Resilience is not never falling. It's the time it takes to get back up.",
+    parallel: "Post-traumatic growth (Tedeschi); Bounce-back ability (Reivich/Shatté); Stoic recovery",
+    cue: "I am down. I am not out. I return.",
+    usedBy: "CEOs, founders and C-suite leaders who need to recover from setbacks, criticism or bad news quickly",
+    thumbnail: resilienceRestoreHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Complete the cycle (60 sec): Don't push the feeling down. Breathe into it and name it — 'I feel disappointed / hurt / blindsided.' Let it be exactly what it is.",
+      "Ground in what is still true (60 sec): Name three things that remain solid. Not optimism — factual ground. Your skills, your team, the vision.",
+      "Extract and move (45 sec): What is the one useful thing this is teaching you? Naming the learning measurably accelerates recovery.",
+      "Choose return (30 sec): One power breath. Say: 'That happened. I learned ___. I return to ___.' Then stand and walk forward."
+    ]
+  },
+  {
+    id: "decisive-energy-activation",
+    title: "Restore Decision Energy",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['decision-fatigue', 'energy', 'decisiveness', 'triage', 'mindset'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge'],
+      goalTags: ['decision_quality', 'energy', 'action', 'focus'],
+      physioTarget: ['alertness_increase', 'prefrontal_activation'],
+      contextTags: ['decision_fatigue', 'afternoon_slump', 'analysis_paralysis', 'heavy_day'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['lowers_cognitive_load', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'uplift'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "General Patton + Colin Powell + Roy Baumeister",
+    origin: "Patton's command doctrine + Powell's 40/70 rule + Decision fatigue research (Baumeister)",
+    storyHook: "Colin Powell's rule: with less than 40% of the information you need, wait; with more than 70%, you've waited too long. Baumeister proved decision fatigue is real — by the end of the day leaders make measurably worse decisions.",
+    essence: "Decisive energy is renewable. Restore it deliberately.",
+    parallel: "Decision fatigue (Baumeister); 40/70 rule (Powell); Commander's intent; Satisficing (Simon)",
+    cue: "I decide with what I have. I move.",
+    usedBy: "CEOs and C-suite leaders in decision fatigue or analysis paralysis who need to decide well again",
+    thumbnail: decisiveEnergyHero,
+    subType: "mindset",
+    steps: 3,
+    instructions: [
+      "Restore the physiology (60 sec): Stand up. Walk thirty steps. Drink water. Step outside or open a window. Decision quality tracks your physiological state.",
+      "Triage the decision stack (60 sec): List the decisions pending and sort each into decide now, delegate, or defer deliberately. Sixty seconds only.",
+      "Make one A-decision (45 sec): Pick the most important 'decide now' item. If you have 40–70% of what you need, decide. Say it out loud, write it, communicate it."
     ]
   }
 ];

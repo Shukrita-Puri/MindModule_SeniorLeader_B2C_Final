@@ -55,6 +55,15 @@ export const CARD_DECK_IDS: readonly string[] = [
   'courage-activation-threshold',
   'momentum-generator-stuck',
   'performance-state-activation',
+  'influence-reframe-protocol',
+  'avoiding-ramification-think',
+  'crisis-composure-anchor',
+  'purpose-meaning-reconnect',
+  'narrative-control-reframe',
+  'loneliness-leader-grounding',
+  'board-authority-prime',
+  'resilience-restore-fast',
+  'decisive-energy-activation',
 ];
 
 export const hasCardDeckId = (id: string | undefined | null): boolean =>
