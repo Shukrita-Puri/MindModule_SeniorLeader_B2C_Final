@@ -11,12 +11,10 @@ const corsHeaders = {
 
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-// v2026-09-08 — evaluating flash-lite as primary for cost/quality balance.
-// Pro-preview is retained as the first fallback so quality is one swap away.
+// v2026-09-08 — single model for COS synthesis. Quality matched pro-preview,
+// so there is no second model and no cross-model fallback chain.
 const AI_MODEL = "google/gemini-3.1-flash-lite";
-const AI_MODEL_FALLBACK = "google/gemini-3.1-pro-preview";
-// Brief's own light model remains the final fallback before local shell.
-const AI_MODEL_FALLBACK_LITE = "google/gemini-3.1-flash-lite";
+
 
 type CosFallbackArgs = {
   userId: string;
@@ -2040,19 +2038,12 @@ Deno.serve(async (req) => {
       }
     };
 
-    // v2026-09-08 — three model attempts before we ever fall back locally:
-    // pro → flash → flash-lite. Depth is advisory, so whatever comes back is
-    // stored as usable with a quality label.
+    // v2026-09-08 — one model only. If it fails we go straight to the local
+    // shell; depth stays advisory, so whatever comes back is stored as usable.
     console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
-    let modelUsed = AI_MODEL;
-    let attempt = await callModel(AI_MODEL, userPrompt);
+    const modelUsed = AI_MODEL;
+    const attempt = await callModel(AI_MODEL, userPrompt);
 
-    for (const nextModel of [AI_MODEL_FALLBACK, AI_MODEL_FALLBACK_LITE]) {
-      if (attempt.profile) break;
-      console.info(`[synthesize-cos] retrying with fallback model=${nextModel} (prev status=${attempt.status})`);
-      modelUsed = nextModel;
-      attempt = await callModel(nextModel, userPrompt);
-    }
 
     if (!attempt.profile) {
       const reason = attempt.status === 200
@@ -2090,9 +2081,9 @@ Deno.serve(async (req) => {
 ### REVISION REQUIRED
 A previous attempt came back thinner than the DEPTH CONTRACT asks for. Gaps: ${problems.join(", ")}.
 Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reason from the selected chips, goals and any free text — infer the operating pattern they imply and label it as inference. Do not emit placeholders, "unknown", "not specified" or a pending shell. The display_html must contain all eight sections in full prose.`;
-      // Retry on the fast model: the primary already spent most of the wall
-      // clock, and the retry only needs to fill the flagged gaps.
-      const retry = await callModel(AI_MODEL_FALLBACK, stricterPrompt);
+      // Retry on the same model: it only needs to fill the flagged gaps.
+      const retry = await callModel(AI_MODEL, stricterPrompt);
+
       if (retry.profile) {
         const retryProblems = validateCosProfile(retry.profile);
         if (retryProblems.length < problems.length) {

@@ -74,10 +74,11 @@ describe('COS profile formation contract', () => {
     expect(src).not.toContain("'needs_input'");
   });
 
-  it('tries the light Gemini model before falling back locally', () => {
+  it('uses one Gemini model only, with no cross-model fallback chain', () => {
     const src = cos();
-    expect(src).toContain('const AI_MODEL_FALLBACK_LITE = "google/gemini-3.1-flash-lite"');
-    expect(src).toContain('AI_MODEL_FALLBACK_LITE]');
+    expect(src).toContain('const AI_MODEL = "google/gemini-3.1-flash-lite"');
+    expect(src).not.toContain('AI_MODEL_FALLBACK');
+    expect(src).not.toContain('gemini-3.1-pro-preview');
   });
 
   it('loader uses a thin profile instead of blanking personalisation', () => {
