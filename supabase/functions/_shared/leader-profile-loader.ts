@@ -90,6 +90,8 @@ export interface LeaderProfileContext {
   };
   meta: {
     status: 'ready' | 'failed' | 'in_progress' | 'missing';
+    /** Advisory depth label. Never a gate — a 'thin' profile is still used. */
+    quality: 'rich' | 'partial' | 'thin' | null;
     confidence: string | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     what_is_missing: any[] | null;
