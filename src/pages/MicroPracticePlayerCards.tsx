@@ -2780,6 +2780,499 @@ const PEAK_STATE_CARDS = [
   },
 ];
 
+const INFLUENCE_REFRAME_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Enter Their Frame",
+    subtitle: "Influence starts in their world",
+    source: "Robert Cialdini + Dale Carnegie + Aristotle",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "A conversation where you need to move someone — a stakeholder, a board member, an investor",
+    whenToUse: "Before a conversation where the outcome depends on someone else saying yes.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Enter their world",
+    duration: "60 sec",
+    instruction: "What is this person most concerned about right now — specifically today? What risk are they trying to avoid, and what does success look like in their language?",
+    guidance: "Not what they should care about. What they actually care about.",
+    insight: {
+      text: "Seek first to understand, then to be understood.",
+      source: "Covey / Aristotle",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Find the connecting thread",
+    duration: "60 sec",
+    instruction: "Where does what you need intersect with what they care about? Write one sentence: 'What I'm proposing helps you achieve ___.'",
+    guidance: "This is the version of your ask that serves their story too.",
+    insight: {
+      text: "The most influential frame is: I'm here to help you win.",
+      source: "Influence Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Lead with their language",
+    duration: "45 sec",
+    instruction: "In your opening, use their words and their priorities first, then connect them to what you need.",
+    guidance: "Credibility through resonance, not authority.",
+    insight: {
+      text: "Using someone's perspective back to them earns the right to be heard.",
+      source: "Carnegie",
+    },
+  },
+];
+
+const RAMIFICATION_THINK_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Think Two Moves Ahead",
+    subtitle: "Map the consequences of the consequences",
+    source: "Howard Marks + Ray Dalio + Charlie Munger",
+    duration: "5 min",
+    steps: "4 Steps",
+    trigger: "A major decision or announcement with downstream consequences",
+    whenToUse: "Before you commit to something that will set precedents you'll live with.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "State the proposed action",
+    duration: "45 sec",
+    instruction: "Write one sentence: 'I am considering doing ___.' Be precise.",
+    guidance: "Vague decisions create vague thinking.",
+    insight: {
+      text: "Clarity before movement. A blurred decision creates a blurred result.",
+      source: "Decision Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "First order: what happens immediately?",
+    duration: "60 sec",
+    instruction: "If you take this action, what is the most likely immediate outcome? Write it.",
+    guidance: "Most leaders stop here. You're not done.",
+    insight: {
+      text: "First-level thinking says: this solves the problem. Second-level asks: is that all it does?",
+      source: "Howard Marks",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Second order: and then what?",
+    duration: "90 sec",
+    instruction: "What does that outcome trigger in 30, 90 and 180 days? Who else is affected? What precedent does it set? What could go wrong precisely because this succeeded?",
+    guidance: "Follow the chain two links further than feels necessary.",
+    insight: {
+      text: "All I want to know is where I'm going to die, so I'll never go there.",
+      source: "Charlie Munger",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Pre-mortem",
+    duration: "60 sec",
+    instruction: "Imagine it's twelve months later and this decision made things worse. What happened? What did you not see? Name two scenarios.",
+    guidance: "The pre-mortem surfaces failure modes nothing else finds.",
+    insight: {
+      text: "The best leaders ask what am I missing, not why am I right.",
+      source: "Gary Klein",
+    },
+  },
+];
+
+const CRISIS_COMPOSURE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Stay Composed in a Crisis",
+    subtitle: "Find the still centre while everything accelerates",
+    source: "Viktor Frankl + Navy SEAL Doctrine + Stoic Philosophy",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "An acute crisis — market shock, reputational threat, operational failure",
+    whenToUse: "In the middle of it, before you say or decide anything.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Take the pause",
+    duration: "60 sec",
+    instruction: "Breathe in for four, hold for four, out through the mouth for six. Repeat twice.",
+    guidance: "This is not delay. It's tactical regulation.",
+    breathingPattern: "4 in, 4 hold, 6 out",
+    insight: {
+      text: "Slow is smooth. Smooth is fast.",
+      source: "Navy SEAL Doctrine",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Name what is certain",
+    duration: "60 sec",
+    instruction: "What do you know for certain right now? Write three facts — not interpretations.",
+    guidance: "This separates what's real from what's feared.",
+    insight: {
+      text: "In crisis, facts are your ground. Everything else is weather.",
+      source: "Stoic Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Identify your one move",
+    duration: "45 sec",
+    instruction: "What is the one thing you can do in the next ten minutes that improves the situation? Not solves it — improves it. State it and move.",
+    guidance: "You don't need to see the summit. Only the next ridge.",
+    insight: {
+      text: "You don't need to see the whole staircase. Move toward higher ground.",
+      source: "SEAL Doctrine",
+    },
+  },
+];
+
+const PURPOSE_RECONNECT_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Why This Still Matters",
+    subtitle: "Reconnect to meaning before burnout takes hold",
+    source: "Viktor Frankl + Martin Seligman + Nelson Mandela",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "The work feels mechanical or hollow",
+    whenToUse: "In a sustained high-pressure period, when the why has gone quiet.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name what's gone quiet",
+    duration: "60 sec",
+    instruction: "What part of the work used to excite you and has gone quiet? Don't judge it. Just name it.",
+    guidance: "This is not failure. It's depletion, and depletion is information.",
+    insight: {
+      text: "Burnout is misalignment between your energy and your meaning.",
+      source: "Positive Psychology",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Find one person affected",
+    duration: "60 sec",
+    instruction: "Think of one specific person whose life or work is genuinely better because of what you do. Name them. Describe exactly how.",
+    guidance: "Specific, not abstract. A name, not a metric.",
+    insight: {
+      text: "Brief contact with the people you help measurably increases motivation.",
+      source: "Adam Grant",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Recall your original yes",
+    duration: "60 sec",
+    instruction: "Why did you take this on — before the title, before the money? Write your version in one honest paragraph.",
+    guidance: "Not nostalgia. A compass recalibration.",
+    insight: {
+      text: "The why is still true, even when the how is hard.",
+      source: "Viktor Frankl",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Choose today's meaning",
+    duration: "30 sec",
+    instruction: "Name one thing in today's work that connects to what matters most to you. Make it concrete.",
+    guidance: "Purpose isn't a feeling waiting to arrive.",
+    insight: {
+      text: "Meaning isn't found. It's chosen.",
+      source: "Logotherapy",
+    },
+  },
+];
+
+const NARRATIVE_CONTROL_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Rewrite the Story",
+    subtitle: "Surface the narrative, test it, replace it",
+    source: "CBT + Narrative Therapy (White) + Epictetus",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "A disempowering story about yourself, your situation or what's possible",
+    whenToUse: "When the same limiting sentence keeps repeating in your head.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the current story",
+    duration: "45 sec",
+    instruction: "Complete this: 'The story I'm telling myself right now is ___.' Say it fully. Don't soften it.",
+    guidance: "An unnamed story has full power. A named one is just a hypothesis.",
+    insight: {
+      text: "You cannot edit a story you can't see.",
+      source: "Narrative Therapy",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Test it as a hypothesis",
+    duration: "60 sec",
+    instruction: "Is this definitely true? What evidence contradicts it? What would the most respected person in your field say about it?",
+    guidance: "Is this impression accurate, or is it what I fear?",
+    insight: {
+      text: "A story that limits you is not a fact. It's a conclusion drawn under pressure.",
+      source: "CBT",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Write the alternative",
+    duration: "45 sec",
+    instruction: "What is an equally or more accurate story that serves you better? 'I am behind' becomes 'I am recalibrating.'",
+    guidance: "Both can't be certainly true. Choose the one that creates movement.",
+    insight: {
+      text: "Men are disturbed not by things but by their opinions about things.",
+      source: "Epictetus",
+    },
+  },
+];
+
+const LONELINESS_GROUNDING_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Turn Loneliness Into Clarity",
+    subtitle: "Find the resource inside the solitude",
+    source: "Rilke + Pascal + Marcus Aurelius",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "The silence at the top feels like isolation",
+    whenToUse: "When you're carrying something you can't share with anyone around you.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Allow the weight to land",
+    duration: "60 sec",
+    instruction: "Sit quietly. Don't push the feeling away. Acknowledge: 'I'm carrying something significant right now.' Name what it is.",
+    guidance: "You cannot move through what you refuse to acknowledge.",
+    insight: {
+      text: "What is denied grows. What is met settles.",
+      source: "Rilke",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Recognise the choice",
+    duration: "60 sec",
+    instruction: "This weight exists because you chose something that mattered. What did you choose? What responsibility did you take on?",
+    guidance: "The burden is the proof of the choice.",
+    insight: {
+      text: "The price of significance is the weight of it.",
+      source: "Leadership Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Find the resource in the solitude",
+    duration: "60 sec",
+    instruction: "What can you see from this position that you couldn't see from inside the crowd? Name one thing you see clearly that others can't.",
+    guidance: "Solitude is a vantage point before it's a burden.",
+    insight: {
+      text: "The view from the mountain is clear precisely because of the altitude.",
+      source: "Deresiewicz",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Choose dignity",
+    duration: "30 sec",
+    instruction: "Say: 'I carry this because it's mine to carry. And I am equal to it.' Breathe slowly.",
+    guidance: "Four counts in, six counts out.",
+    breathingPattern: "4 in, 6 out",
+    insight: {
+      text: "Courage is not the absence of weight. It's the choice to carry it well.",
+      source: "Marcus Aurelius",
+    },
+  },
+];
+
+const BOARD_AUTHORITY_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Command the Room",
+    subtitle: "Set the temperature before you speak",
+    source: "Sun Tzu + Aristotle + Daniel Goleman",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "A board meeting, investor presentation or all-hands in the next few minutes",
+    whenToUse: "Right before you walk in, when presence matters as much as content.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Own the space",
+    duration: "45 sec",
+    instruction: "Thirty seconds before entering: stand still. Feet shoulder-width, weight even, shoulders back and down. Breathe into your belly.",
+    guidance: "Posture is not performance. It's physiology.",
+    insight: {
+      text: "Before you lead others, anchor yourself. You cannot lead from drift.",
+      source: "Command Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Set your internal frame",
+    duration: "45 sec",
+    instruction: "Ask: who am I in this room? Not title — identity. 'I am responsible for this organisation's direction. I have done the work. I am prepared to lead.'",
+    guidance: "Without this clarity you perform. With it, you lead.",
+    insight: {
+      text: "The leader's emotional reality becomes the team's emotional reality.",
+      source: "Daniel Goleman",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Control the silence",
+    duration: "45 sec",
+    instruction: "Before speaking, pause for two full seconds. Look deliberately around the room. Breathe once. Then speak.",
+    guidance: "The pause signals certainty. The room leans forward.",
+    insight: {
+      text: "Power speaks from stillness. Anxiety fills silence.",
+      source: "Executive Presence",
+    },
+  },
+];
+
+const RESILIENCE_RESTORE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Recover After a Blow",
+    subtitle: "Return to function before it calcifies",
+    source: "Viktor Frankl + Martin Seligman + Navy SEAL Resilience Protocol",
+    duration: "4 min",
+    steps: "4 Steps",
+    trigger: "A setback, harsh criticism or blindsiding news",
+    whenToUse: "Soon after the blow, when there's still a day to lead.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Complete the cycle",
+    duration: "60 sec",
+    instruction: "Don't push the feeling down — complete it. Breathe into it for sixty seconds and name it: 'I feel disappointed / hurt / blindsided.'",
+    guidance: "Let it be exactly what it is.",
+    breathingPattern: "4 in, hold 4, 8 out",
+    insight: {
+      text: "Emotions suppressed are emotions delayed.",
+      source: "Resilience Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Ground in what is still true",
+    duration: "60 sec",
+    instruction: "Name three things that remain solid. Not optimism — factual ground. Your skills, the core team, the vision.",
+    guidance: "Find what didn't move.",
+    insight: {
+      text: "Even in the storm, some things don't move. Find them.",
+      source: "Stoic Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Extract and move",
+    duration: "45 sec",
+    instruction: "What is the one useful thing this experience is teaching you? Even one thing.",
+    guidance: "Naming the learning measurably accelerates recovery.",
+    insight: {
+      text: "Every setback is a briefing. What is this briefing you on?",
+      source: "Martin Seligman",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Choose return",
+    duration: "30 sec",
+    instruction: "One power breath. Say: 'That happened. I learned ___. I return to ___.' Then stand, adjust your posture and walk forward.",
+    guidance: "The return is chosen, not felt into.",
+    breathingPattern: "Power breath: sharp in, sharp out",
+    insight: {
+      text: "You don't wait until you feel ready. You choose to return, and then you feel ready.",
+      source: "Military Resilience Training",
+    },
+  },
+];
+
+const DECISIVE_ENERGY_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Restore Decision Energy",
+    subtitle: "Clear the stack, make the one call",
+    source: "General Patton + Colin Powell + Roy Baumeister",
+    duration: "3 min",
+    steps: "3 Steps",
+    trigger: "Decision fatigue — too many calls pending and none of them moving",
+    whenToUse: "Late in a heavy day, when deciding has started to feel impossible.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Restore the physiology",
+    duration: "60 sec",
+    instruction: "Stand up. Walk thirty steps. Drink water. Step outside or open a window for sixty seconds.",
+    guidance: "You're refreshing your decision-making hardware.",
+    insight: {
+      text: "Decision quality tracks directly with physiological state.",
+      source: "Roy Baumeister",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Triage the decision stack",
+    duration: "60 sec",
+    instruction: "List the decisions pending. Sort each into: decide now, delegate, or defer deliberately. Sixty seconds only.",
+    guidance: "Most of the weight is in carrying them undecided.",
+    insight: {
+      text: "Act at 40 to 70 per cent information. Less than 40, wait. More than 70, too late.",
+      source: "Colin Powell",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Make one A-decision",
+    duration: "45 sec",
+    instruction: "Pick the most important 'decide now' item. If you have 40 to 70 per cent of what you need, decide. Say it out loud. Write it. Communicate it.",
+    guidance: "One committed decision releases the energy ten pending ones consume.",
+    insight: {
+      text: "The cost of one decision is far less than the cost of carrying ten.",
+      source: "Command Doctrine",
+    },
+  },
+];
+
 
 
 // Helper to get cards for practice
