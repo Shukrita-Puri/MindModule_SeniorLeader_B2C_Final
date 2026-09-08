@@ -666,9 +666,30 @@ system only — it must NOT be rendered as a section in display_html.
 STEP 5 · PRODUCE THE DISPLAY HTML
 ───────────────────────────────────────────────
 
+SECTION ORDER — THE HTML MUST RENDER IN EXACTLY THIS SEQUENCE:
+
+  Section 1: Identity and operating context
+  Section 2: Leadership style
+  Section 3: Communication style
+    (how they think · how they communicate · register note)
+  Section 4: What works · What doesn't · CoS communication rules
+    THIS IS A SEPARATE NAMED SECTION — not a card inside Section 3.
+    It must have its own .sec-label reading "What works · What doesn't · CoS communication rules"
+    and render as two named lean-label blocks (green for What lands,
+    red for What won't land) followed by the CoS brief rules paragraph.
+  Section 5: Cognitive risk profile
+  Section 6: External persona
+  Section 7: Provisional archetype · High-stakes load map
+
+Do not merge Section 3 and Section 4 into one section.
+Do not place External Persona before Communication Style.
+Do not place Communication Style after Cognitive Risk.
+If you produce the sections in any other order, the profile is wrong.
+
 The display_html renders the profile as a document — in-app and by email.
 It must cover all seven sections using only these CSS classes. No <style>
 blocks, no <script> tags, no onclick handlers, no buttons.
+
 
 Classes available:
   .hero .hero-tag .hero-name .hero-sub .conf-row .conf-pill .conf-dot
