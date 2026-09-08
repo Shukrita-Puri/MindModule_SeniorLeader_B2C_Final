@@ -11,14 +11,11 @@ const corsHeaders = {
 
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-// v2026-09-07 — this call runs once per user and the output is the leader's
-// entire personalisation substrate, so quality outranks cost here. The retry
-// leg drops to the fast Flash model only if the primary is rate-limited.
-const AI_MODEL = "google/gemini-3.1-pro-preview";
-const AI_MODEL_FALLBACK = "google/gemini-3.8-flash";
-// Last resort before the locally built profile: the light Gemini model the
-// Brief already runs on, so an outage on the bigger models still yields a real
-// profile rather than a shell.
+// v2026-09-08 — evaluating flash-lite as primary for cost/quality balance.
+// Pro-preview is retained as the first fallback so quality is one swap away.
+const AI_MODEL = "google/gemini-3.1-flash-lite";
+const AI_MODEL_FALLBACK = "google/gemini-3.1-pro-preview";
+// Brief's own light model remains the final fallback before local shell.
 const AI_MODEL_FALLBACK_LITE = "google/gemini-3.1-flash-lite";
 
 type CosFallbackArgs = {
