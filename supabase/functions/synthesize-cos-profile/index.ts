@@ -11,14 +11,11 @@ const corsHeaders = {
 
 const FIRECRAWL_V2 = "https://api.firecrawl.dev/v2";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-// v2026-09-07 — this call runs once per user and the output is the leader's
-// entire personalisation substrate, so quality outranks cost here. The retry
-// leg drops to the fast Flash model only if the primary is rate-limited.
-const AI_MODEL = "google/gemini-3.1-pro-preview";
-const AI_MODEL_FALLBACK = "google/gemini-3.8-flash";
-// Last resort before the locally built profile: the light Gemini model the
-// Brief already runs on, so an outage on the bigger models still yields a real
-// profile rather than a shell.
+// v2026-09-08 — evaluating flash-lite as primary for cost/quality balance.
+// Pro-preview is retained as the first fallback so quality is one swap away.
+const AI_MODEL = "google/gemini-3.1-flash-lite";
+const AI_MODEL_FALLBACK = "google/gemini-3.1-pro-preview";
+// Brief's own light model remains the final fallback before local shell.
 const AI_MODEL_FALLBACK_LITE = "google/gemini-3.1-flash-lite";
 
 type CosFallbackArgs = {
@@ -811,6 +808,23 @@ confidence: high (rich freetext) · medium (thin freetext or chips only) ·
 
 ─ SECTION 3 · COMMUNICATION STYLE
 
+SECTION 3 DEPTH REQUIREMENT:
+how_they_think must be at least two sentences that explain the specific
+cognitive pattern — not a category label. Describe the actual process:
+how they take in information, what they do with it before acting, and what
+this means for how the Brief should structure its content.
+
+how_they_communicate must be at least two sentences that describe the
+observable register — vocabulary level, structure, what they expect in
+return. Draw from freetext structure as evidence (e.g. "her freetext
+breaks itself into headed sections — scope, leadership experience,
+institutional perspective — before making any claims. That is cognitive
+style made visible: she categorises before she reasons, and expects the
+Brief to do the same.")
+
+These two fields must not duplicate what_lands. They describe how the
+person processes and speaks, not what content they prefer.
+
 how_they_think: how they process information — inferred from freetext structure,
   writing samples if available, declared interests, role history, and sector.
 
@@ -898,6 +912,11 @@ legacy_signals: what they appear to be building toward — institutional standin
 Archetype block:
   name: memorable 2–3 word name (e.g. "The Grounded Navigator")
   canonical_slug: closest match from the canonical slug list
+  canonical_slug MUST match the archetype name you chose.
+  If the name is "The Grounded Navigator", the slug is "grounded-leader".
+  If the name is "The Adaptive Navigator", the slug is "adaptive-navigator".
+  Do not mix names and slugs from different archetypes. Check the match
+  before emitting.
   subtitle: one-line signature capturing the mechanism — specific, not generic
     (e.g. "High institutional stamina · purpose-driven · open-loop decision
     debt under commercial acceleration")
@@ -928,6 +947,12 @@ STRUCTURED-DATA ONLY FIELD
 Also populate the JSON field what_is_missing with 3–5 numbered gaps, each
 naming the specific signal that would lift confidence. This field is for the
 system only — it must NOT be rendered as a section in display_html.
+
+PLAIN TEXT IN ALL JSON STRING FIELDS:
+Write paragraph breaks as natural sentence endings followed by two spaces.
+Do NOT emit the character sequence \n or \\n inside any string field value.
+Not in style_description. Not in how_they_think. Not in descriptions.
+Not anywhere. The HTML handles visual breaks via CSS.
 
 ───────────────────────────────────────────────
 STEP 5 · PRODUCE THE DISPLAY HTML
