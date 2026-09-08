@@ -908,7 +908,7 @@ Deno.serve(async (req) => {
         })
         .eq("user_id", userId);
 
-        .eq("user_id", userId);
+
 
       if (persistErr) {
         console.error("[synthesize-cos] persist error:", persistErr);
