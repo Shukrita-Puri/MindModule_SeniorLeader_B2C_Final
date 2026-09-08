@@ -811,6 +811,23 @@ confidence: high (rich freetext) · medium (thin freetext or chips only) ·
 
 ─ SECTION 3 · COMMUNICATION STYLE
 
+SECTION 3 DEPTH REQUIREMENT:
+how_they_think must be at least two sentences that explain the specific
+cognitive pattern — not a category label. Describe the actual process:
+how they take in information, what they do with it before acting, and what
+this means for how the Brief should structure its content.
+
+how_they_communicate must be at least two sentences that describe the
+observable register — vocabulary level, structure, what they expect in
+return. Draw from freetext structure as evidence (e.g. "her freetext
+breaks itself into headed sections — scope, leadership experience,
+institutional perspective — before making any claims. That is cognitive
+style made visible: she categorises before she reasons, and expects the
+Brief to do the same.")
+
+These two fields must not duplicate what_lands. They describe how the
+person processes and speaks, not what content they prefer.
+
 how_they_think: how they process information — inferred from freetext structure,
   writing samples if available, declared interests, role history, and sector.
 
