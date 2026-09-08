@@ -62,14 +62,35 @@ describe('COS profile formation contract', () => {
     expect(src).not.toContain("console.warn('[synthesize-cos] profiles update warning:'");
   });
 
-  it('gates thin output and stores it as needs_input rather than ready', () => {
+  it('treats depth as advisory: any profile is stored usable with a quality label', () => {
     const src = cos();
     expect(src).toContain('function validateCosProfile');
-    expect(src).toContain("'needs_input'");
+    expect(src).toContain('function scoreProfileQuality');
+    expect(src).toContain('cos_profile_quality: quality');
     expect(src).toContain('REVISION REQUIRED');
     expect(src).toMatch(/PLACEHOLDER_PATTERN/);
     expect(src).toContain('function normalizeConfidence');
+    // The strict gate must never write needs_input again.
+    expect(src).not.toContain("'needs_input'");
   });
+
+  it('tries the light Gemini model before falling back locally', () => {
+    const src = cos();
+    expect(src).toContain('const AI_MODEL_FALLBACK_LITE = "google/gemini-3.1-flash-lite"');
+    expect(src).toContain('AI_MODEL_FALLBACK_LITE]');
+  });
+
+  it('loader uses a thin profile instead of blanking personalisation', () => {
+    const src = read('supabase/functions/_shared/leader-profile-loader.ts');
+    expect(src).not.toContain("row.cos_profile_status !== 'ready'");
+    expect(src).toContain('if (!row || !row.cos_profile) {');
+  });
+
+  it('resume never sends a legacy needs_input user backwards', () => {
+    const src = read('src/utils/onboardingV8Resume.ts');
+    expect(src).toContain('raw === "ready" || raw === "needs_input"');
+  });
+
 
   it('stores email-ready artefacts whenever a profile is persisted', () => {
     const src = cos();

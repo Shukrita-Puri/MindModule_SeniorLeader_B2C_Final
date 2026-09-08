@@ -16,6 +16,10 @@ const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // leg drops to the fast Flash model only if the primary is rate-limited.
 const AI_MODEL = "google/gemini-3.1-pro-preview";
 const AI_MODEL_FALLBACK = "google/gemini-3.8-flash";
+// Last resort before the locally built profile: the light Gemini model the
+// Brief already runs on, so an outage on the bigger models still yields a real
+// profile rather than a shell.
+const AI_MODEL_FALLBACK_LITE = "google/gemini-3.1-flash-lite";
 
 type CosFallbackArgs = {
   userId: string;
@@ -628,6 +632,25 @@ function validateCosProfile(profile: any): string[] {
   return problems;
 }
 
+export type CosProfileQuality = "rich" | "partial" | "thin";
+
+/**
+ * v2026-09-08 — the depth checks are ADVISORY, not a gate. Onboarding is mostly
+ * optional, so a thin profile is still worth using everywhere; the gaps are
+ * recorded as a quality label so we can improve over time and decide who is
+ * email-ready later.
+ */
+export function scoreProfileQuality(profile: any, gaps: string[]): CosProfileQuality {
+  if (!profile || typeof profile !== "object") return "thin";
+  if (gaps.length === 0) return "rich";
+  const html = typeof profile.display_html === "string" ? profile.display_html : "";
+  const hasSpine = textLen(profile.provisional_archetype?.name) >= 3 &&
+    textLen(profile.leadership_style?.style_description) >= 120 &&
+    html.length >= 1200;
+  return gaps.length <= 4 && hasSpine ? "partial" : "thin";
+}
+
+
 const EMAIL_CLASS_STYLES: Record<string, string> = {
   hero: "background:#12100E;color:#F4F1EC;padding:28px;border-radius:12px;margin-bottom:24px;",
   "hero-tag": "font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;",
@@ -858,20 +881,20 @@ Deno.serve(async (req) => {
       userPrompt += `\n\n**PDF DOCUMENT ATTACHED:** A LinkedIn profile PDF document is attached below. Use its full career history, accomplishments, and bio as primary leadership context for synthesizing the COS profile.`;
     }
 
-    // v2026-09-07 — persistence now (a) writes profiles.* in the types the
-    // columns actually expect (this was silently failing for every user),
-    // (b) stores email-ready artefacts, (c) reports a failed personalisation
-    // write instead of swallowing it, (d) can store a thin profile as
-    // "needs_input" rather than calling it ready.
+    // v2026-09-07 — persistence writes profiles.* in the types the columns
+    // actually expect and stores email-ready artefacts.
+    // v2026-09-08 — depth is advisory: any profile object we hold is stored as
+    // 'ready' (usable everywhere) with a quality label + recorded gaps.
     const persistProfile = async (
       profile: any,
       source: 'ai' | 'fallback' = 'ai',
-      status: 'ready' | 'needs_input' = 'ready',
+      status: 'ready' | 'failed' = 'ready',
       problems: string[] = [],
     ) => {
       const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
       profile.confidence_overall = normalizeConfidence(profile.confidence_overall);
       const email = buildEmailArtifacts(profile, displayHtml);
+      const quality = scoreProfileQuality(profile, problems);
 
       const { error: persistErr } = await db
         .from("onboarding_v8_responses")
@@ -879,7 +902,8 @@ Deno.serve(async (req) => {
           cos_profile: profile,
           cos_profile_html: displayHtml,
           cos_profile_status: status,
-          cos_profile_error: problems.length ? `insufficient_depth: ${problems.join(", ")}` : null,
+          cos_profile_quality: quality,
+          cos_profile_error: problems.length ? `quality_gaps: ${problems.join(", ")}` : null,
           cos_profile_generated_at: new Date().toISOString(),
           cos_profile_source: source,
           cos_profile_email_html: email.html,
@@ -887,6 +911,8 @@ Deno.serve(async (req) => {
           cos_profile_email_subject: email.subject,
         })
         .eq("user_id", userId);
+
+
 
       if (persistErr) {
         console.error("[synthesize-cos] persist error:", persistErr);
@@ -1067,16 +1093,18 @@ Deno.serve(async (req) => {
       }
     };
 
-    // v2026-09-07 quality gate: primary attempt, then one stricter retry, then
-    // store as needs_input rather than passing a hollow profile off as ready.
+    // v2026-09-08 — three model attempts before we ever fall back locally:
+    // pro → flash → flash-lite. Depth is advisory, so whatever comes back is
+    // stored as usable with a quality label.
     console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
     let modelUsed = AI_MODEL;
     let attempt = await callModel(AI_MODEL, userPrompt);
 
-    if (!attempt.profile && [429, 402, 503].includes(attempt.status)) {
-      console.info(`[synthesize-cos] retrying with fallback model=${AI_MODEL_FALLBACK}`);
-      modelUsed = AI_MODEL_FALLBACK;
-      attempt = await callModel(AI_MODEL_FALLBACK, userPrompt);
+    for (const nextModel of [AI_MODEL_FALLBACK, AI_MODEL_FALLBACK_LITE]) {
+      if (attempt.profile) break;
+      console.info(`[synthesize-cos] retrying with fallback model=${nextModel} (prev status=${attempt.status})`);
+      modelUsed = nextModel;
+      attempt = await callModel(nextModel, userPrompt);
     }
 
     if (!attempt.profile) {
@@ -1084,10 +1112,12 @@ Deno.serve(async (req) => {
         ? "the AI response did not emit the COS tool payload"
         : `the AI gateway returned ${attempt.status}`;
       const fallbackProfile = buildFallbackCosProfile(cosInput, reason);
+      // Still usable: the raw onboarding answers are the source of truth and a
+      // thin profile must never switch personalisation off.
       const persistedFallback = await persistProfile(
         fallbackProfile,
         'fallback',
-        'needs_input',
+        'ready',
         ["ai_output_unavailable"],
       );
       if (!persistedFallback.ok) return json(500, { error: "persist_failed" });
@@ -1095,21 +1125,23 @@ Deno.serve(async (req) => {
         ok: true,
         cached: false,
         fallback: true,
+        quality: 'thin',
         fallback_reason: attempt.status === 200 ? "ai_no_tool_call" : `ai_${attempt.status}`,
         cos_profile: fallbackProfile,
         cos_profile_html: persistedFallback.displayHtml,
       });
     }
 
+
     let profile: any = attempt.profile;
     let problems = validateCosProfile(profile);
 
     if (problems.length > 0) {
-      console.warn(`[synthesize-cos] depth gate failed (${problems.join(", ")}) — one stricter retry`);
+      console.warn(`[synthesize-cos] quality gaps (${problems.join(", ")}) — one stricter retry (advisory only)`);
       const stricterPrompt = `${userPrompt}
 
 ### REVISION REQUIRED
-A previous attempt was rejected for insufficient depth. Failing checks: ${problems.join(", ")}.
+A previous attempt came back thinner than the DEPTH CONTRACT asks for. Gaps: ${problems.join(", ")}.
 Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reason from the selected chips, goals and any free text — infer the operating pattern they imply and label it as inference. Do not emit placeholders, "unknown", "not specified" or a pending shell. The display_html must contain all eight sections in full prose.`;
       // Retry on the fast model: the primary already spent most of the wall
       // clock, and the retry only needs to fill the flagged gaps.
@@ -1123,19 +1155,23 @@ Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reas
       }
     }
 
-    const status: 'ready' | 'needs_input' = problems.length === 0 ? 'ready' : 'needs_input';
+    // Advisory: any profile object we hold is usable. Gaps travel with it.
+    const status: 'ready' = 'ready';
+    const quality = scoreProfileQuality(profile, problems);
     const persisted = await persistProfile(profile, 'ai', status, problems);
     if (!persisted.ok) return json(500, { error: "persist_failed" });
     if (persisted.personalisationError) {
       console.error("[synthesize-cos] personalisation write failed:", persisted.personalisationError);
     }
 
-    console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
+    console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} quality=${quality} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
     return json(200, {
       ok: true,
       cached: false,
       status,
+      quality,
       quality_gaps: problems,
+
       model_used: modelUsed,
       cos_profile: profile,
       cos_profile_html: persisted.displayHtml,
