@@ -877,20 +877,20 @@ Deno.serve(async (req) => {
       userPrompt += `\n\n**PDF DOCUMENT ATTACHED:** A LinkedIn profile PDF document is attached below. Use its full career history, accomplishments, and bio as primary leadership context for synthesizing the COS profile.`;
     }
 
-    // v2026-09-07 — persistence now (a) writes profiles.* in the types the
-    // columns actually expect (this was silently failing for every user),
-    // (b) stores email-ready artefacts, (c) reports a failed personalisation
-    // write instead of swallowing it, (d) can store a thin profile as
-    // "needs_input" rather than calling it ready.
+    // v2026-09-07 — persistence writes profiles.* in the types the columns
+    // actually expect and stores email-ready artefacts.
+    // v2026-09-08 — depth is advisory: any profile object we hold is stored as
+    // 'ready' (usable everywhere) with a quality label + recorded gaps.
     const persistProfile = async (
       profile: any,
       source: 'ai' | 'fallback' = 'ai',
-      status: 'ready' | 'needs_input' = 'ready',
+      status: 'ready' | 'failed' = 'ready',
       problems: string[] = [],
     ) => {
       const displayHtml = typeof profile.display_html === "string" ? profile.display_html : "";
       profile.confidence_overall = normalizeConfidence(profile.confidence_overall);
       const email = buildEmailArtifacts(profile, displayHtml);
+      const quality = scoreProfileQuality(profile, problems);
 
       const { error: persistErr } = await db
         .from("onboarding_v8_responses")
@@ -898,13 +898,16 @@ Deno.serve(async (req) => {
           cos_profile: profile,
           cos_profile_html: displayHtml,
           cos_profile_status: status,
-          cos_profile_error: problems.length ? `insufficient_depth: ${problems.join(", ")}` : null,
+          cos_profile_quality: quality,
+          cos_profile_error: problems.length ? `quality_gaps: ${problems.join(", ")}` : null,
           cos_profile_generated_at: new Date().toISOString(),
           cos_profile_source: source,
           cos_profile_email_html: email.html,
           cos_profile_email_text: email.text,
           cos_profile_email_subject: email.subject,
         })
+        .eq("user_id", userId);
+
         .eq("user_id", userId);
 
       if (persistErr) {
