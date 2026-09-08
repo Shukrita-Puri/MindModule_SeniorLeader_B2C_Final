@@ -33,6 +33,7 @@ type CosFallbackArgs = {
   burdenChips: string[];
   goals: string[];
   briefTiming: string | null;
+  preferredPracticeWindow: string | null;
   resetModality: string | null;
   weekendSignals: string | null;
   calendarSelections: string[];
