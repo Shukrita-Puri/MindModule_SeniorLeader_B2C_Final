@@ -295,7 +295,7 @@ const ExecutiveHome = () => {
           className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-transparent"
         >
           {/* Unified Today header bar + shared hero (header overlays hero) */}
-          <div className={isIosApp ? "pt-[env(safe-area-inset-top,0px)]" : undefined}>
+          <div className="pt-[env(safe-area-inset-top,0px)]">
             <div className="relative">
               <TodayHero />
               <TodayGreeting />
@@ -330,7 +330,7 @@ const ExecutiveHome = () => {
           </div>
 
           {/* All sections stacked on one page — overlap hero so card floats on shared canvas */}
-          <div className={`relative z-20 flex-1 w-full -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] ${isIosApp ? 'pt-2' : ''}`}>
+          <div className="relative z-20 flex-1 w-full -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] pt-2">
 
             {/* Swipeable 3-page home: MRS · Brief · Plan */}
             <h1 className="sr-only">{getGreeting()}</h1>
