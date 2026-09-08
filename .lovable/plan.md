@@ -50,8 +50,10 @@ already what most features read.
     `cos_profile_error` gap field — see migration below) instead of using them
     to downgrade status.
   - The AI-unavailable branch persists the fallback with `'ready'` +
-    `quality: 'thin'`.
+    `quality: 'thin'`, and only after a third model attempt on
+    `google/gemini-3.1-flash-lite` also fails.
   - Response payload keeps returning `quality_gaps` and adds `quality`.
+
 - `supabase/functions/_shared/leader-profile-loader.ts`
   - Accepts any row that has a `cos_profile` object, regardless of status; only
     a missing/empty profile falls through to the null shell. Each field already
