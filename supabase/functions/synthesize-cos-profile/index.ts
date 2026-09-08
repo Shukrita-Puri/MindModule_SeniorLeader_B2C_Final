@@ -486,6 +486,10 @@ STEP 3 · PORTRAY, DON'T CLASSIFY
 
 This is the most important distinction between a useful profile and a generic one.
 
+Before writing any section, read the draft sentence aloud in your head.
+If it sounds like a system output, rewrite it until it sounds like a
+person who knows this leader well.
+
 Classification: "Senior academic leader with governance experience operating
 in a commercial transition."
 
