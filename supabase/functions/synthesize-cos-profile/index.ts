@@ -2038,19 +2038,12 @@ Deno.serve(async (req) => {
       }
     };
 
-    // v2026-09-08 — three model attempts before we ever fall back locally:
-    // pro → flash → flash-lite. Depth is advisory, so whatever comes back is
-    // stored as usable with a quality label.
+    // v2026-09-08 — one model only. If it fails we go straight to the local
+    // shell; depth stays advisory, so whatever comes back is stored as usable.
     console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${redactUserId(userId)}`);
-    let modelUsed = AI_MODEL;
-    let attempt = await callModel(AI_MODEL, userPrompt);
+    const modelUsed = AI_MODEL;
+    const attempt = await callModel(AI_MODEL, userPrompt);
 
-    for (const nextModel of [AI_MODEL_FALLBACK, AI_MODEL_FALLBACK_LITE]) {
-      if (attempt.profile) break;
-      console.info(`[synthesize-cos] retrying with fallback model=${nextModel} (prev status=${attempt.status})`);
-      modelUsed = nextModel;
-      attempt = await callModel(nextModel, userPrompt);
-    }
 
     if (!attempt.profile) {
       const reason = attempt.status === 200
