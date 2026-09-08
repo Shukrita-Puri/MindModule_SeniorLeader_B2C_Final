@@ -70,10 +70,30 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
     setSaving(true);
     try {
       const source = postEventTitle ? 'post_event_reflection' : 'reflection_corner';
-      // Edge function uses authenticateRequest → needs Auth0 bearer in prod,
-      // x-dev-user-id in DEV. supabase-js does NOT inject Auth0 tokens for us.
+
+      // Edge function uses authenticateRequest → needs an Auth0 bearer in prod
+      // (web) or the native token (iOS shell); x-dev-user-id in DEV.
+      // getEdgeFunctionHeaders() covers both shells. Token retrieval can time
+      // out on a cold session, so try once more before sending an unsigned
+      // request that the server would reject with a generic failure.
+      let headers = await getEdgeFunctionHeaders();
+      if (!DEV_MODE && !headers.Authorization) {
+        clearTokenCache();
+        headers = await getEdgeFunctionHeaders();
+      }
+      if (!DEV_MODE && !headers.Authorization) {
+        toast({
+          title: 'Session needs refreshing',
+          description: 'Reopen the app or sign in again, then save — your text is kept.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // A 401 here is auto-retried once with a fresh token by the global
+      // auth retry interceptor (src/lib/authRetryInterceptor.ts).
       const { error } = await supabase.functions.invoke('store-tiny-win', {
-        headers: await getEdgeFunctionHeaders(),
+        headers,
         body: {
           winContent: winContent.trim(),
           source,
@@ -82,6 +102,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       });
       if (error) throw error;
       setAlreadySaved(true);
+      clearDraft();
       toast({ title: 'Win captured', description: 'Saved to your Insights.' });
       onSaved?.();
     } catch (err) {
@@ -91,6 +112,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       setSaving(false);
     }
   };
+
 
   const openStoic = () => {
     // Mirror the per-priority queue contract used by Plan: write the
