@@ -105,9 +105,12 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       // out on a cold session, so try once more before sending an unsigned
       // request that the server would reject with a generic failure.
       let headers = await getEdgeFunctionHeaders();
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (anonKey) headers.apikey = anonKey;
       if (!DEV_MODE && !headers.Authorization) {
         clearTokenCache();
         headers = await getEdgeFunctionHeaders();
+        if (anonKey) headers.apikey = anonKey;
       }
       if (!DEV_MODE && !headers.Authorization) {
         toast({
@@ -135,6 +138,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       if (response.status === 401 && !DEV_MODE) {
         clearTokenCache();
         const refreshedHeaders = await getEdgeFunctionHeaders();
+        if (anonKey) refreshedHeaders.apikey = anonKey;
         if (refreshedHeaders.Authorization) response = await send(refreshedHeaders);
       }
       if (!response.ok) {
