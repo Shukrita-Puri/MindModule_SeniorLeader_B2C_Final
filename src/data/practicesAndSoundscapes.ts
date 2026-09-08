@@ -2575,7 +2575,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "Install the peak reference (60 sec): Recall the most capable and alive you've ever felt. Stay with it for thirty seconds and feel it, don't just think it.",
       "Lock it in and go (30 sec): One decisive breath. Say your name and the task: '___, you are ready for ___.' Then walk in."
     ]
-  }
+  },
   {
     id: "influence-reframe-protocol",
     title: "Enter Their Frame",
