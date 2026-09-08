@@ -46,7 +46,7 @@ import { useCurrentBriefSnapshot } from "@/hooks/useCurrentBriefSnapshot";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
-import { isIosNativeShell } from "@/config/purchasePlatform";
+
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
@@ -87,7 +87,7 @@ const ExecutiveHome = () => {
     serverWeekAheadDecision,
     planLocale?.userHomeCountry,
   );
-  const isIosApp = isIosNativeShell();
+  
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
