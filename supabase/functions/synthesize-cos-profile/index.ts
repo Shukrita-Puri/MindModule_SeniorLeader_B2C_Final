@@ -666,9 +666,30 @@ system only — it must NOT be rendered as a section in display_html.
 STEP 5 · PRODUCE THE DISPLAY HTML
 ───────────────────────────────────────────────
 
+SECTION ORDER — THE HTML MUST RENDER IN EXACTLY THIS SEQUENCE:
+
+  Section 1: Identity and operating context
+  Section 2: Leadership style
+  Section 3: Communication style
+    (how they think · how they communicate · register note)
+  Section 4: What works · What doesn't · CoS communication rules
+    THIS IS A SEPARATE NAMED SECTION — not a card inside Section 3.
+    It must have its own .sec-label reading "What works · What doesn't · CoS communication rules"
+    and render as two named lean-label blocks (green for What lands,
+    red for What won't land) followed by the CoS brief rules paragraph.
+  Section 5: Cognitive risk profile
+  Section 6: External persona
+  Section 7: Provisional archetype · High-stakes load map
+
+Do not merge Section 3 and Section 4 into one section.
+Do not place External Persona before Communication Style.
+Do not place Communication Style after Cognitive Risk.
+If you produce the sections in any other order, the profile is wrong.
+
 The display_html renders the profile as a document — in-app and by email.
 It must cover all seven sections using only these CSS classes. No <style>
 blocks, no <script> tags, no onclick handlers, no buttons.
+
 
 Classes available:
   .hero .hero-tag .hero-name .hero-sub .conf-row .conf-pill .conf-dot
@@ -741,6 +762,20 @@ Write as a trusted, senior chief of staff — someone who has read everything,
 thought carefully, and speaks to the leader's intelligence. Corporate English,
 crisp sentences, no jargon, no coaching language, no therapy register.
 Not a form. Not an assessment report. A considered, human briefing document.
+
+PLAIN TEXT FIELDS — NO ESCAPED NEWLINES:
+
+When writing any text field that will be stored in JSON (style_description,
+how_they_think, how_they_communicate, cos_brief_rules, primary_risk,
+descriptions, summaries — any string field), write paragraph breaks as
+a single space or as natural sentence endings. Do NOT emit the character
+sequence \\n or \\\\n anywhere in a text field value. The JSON serialiser
+handles line breaks — your job is to write flowing prose with paragraph
+breaks indicated only by starting a new natural sentence or using a
+double-space. If you need to separate two paragraphs within a single
+string field, end the first paragraph's last sentence with a full stop
+and begin the next paragraph's sentence on the same line separated by
+two spaces. The rendered HTML handles visual paragraph separation via CSS.
 
 You MUST call the tool "emit_cos_profile" exactly once. Do not return prose.`;
 
