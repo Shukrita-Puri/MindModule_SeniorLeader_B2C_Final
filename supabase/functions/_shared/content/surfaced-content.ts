@@ -48,6 +48,9 @@ export const SURFACED_CONTENT_IDS: readonly string[] = [
   "eternal-now-presence",
   "rhythm-pulse",
   "mastery-constraint",
+  "difficult-conversation-prep",
+  "deep-work-initiation",
+  "rapid-recharge-midday",
 ];
 
 const SURFACED = new Set(SURFACED_CONTENT_IDS);

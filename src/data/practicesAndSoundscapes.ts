@@ -52,6 +52,9 @@ import mushinFlowHero from "@/assets/recalibrate/presence/mushin-no-mind.jpg";
 import jobsSimplicityHero from "@/assets/recalibrate/presence/jobs-simplicity.jpg";
 import ikigaiPurposeHero from "@/assets/recalibrate/presence/ikigai-purpose.jpg";
 import stoicReflectionHero from "@/assets/recalibrate/presence/stoic-reflection.jpg";
+import difficultConversationPrepHero from "@/assets/recalibrate/pause/difficult-conversation-prep.jpg";
+import deepWorkInitiationHero from "@/assets/recalibrate/presence/deep-work-initiation.jpg";
+import rapidRechargeMiddayHero from "@/assets/recalibrate/power-up/rapid-recharge-midday.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1748,6 +1751,122 @@ export const sanctuaryContent: SanctuaryContent[] = [
     subType: "mindset",
     thumbnail: masteryConstraintHero,
     steps: 4
+  },
+
+  // === NEW: Mindset Protocols (one per pillar) ===
+  {
+    id: "difficult-conversation-prep",
+    title: "Prepare for a High-Stakes Conversation",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['difficult-conversation', 'composure', 'preparation', 'high-stakes'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['stabilise'],
+      goalTags: ['composure', 'emotional_regulation', 'clarity', 'performance'],
+      physioTarget: ['cortisol_reduce', 'prefrontal_activation'],
+      contextTags: ['high_stakes_conversation', 'board_confrontation', 'difficult_feedback', 'conflict'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['emotional_processing', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'stabilize'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Sun Tzu + Stoic Philosophy + FBI Behavioral Analysis Unit",
+    origin: "The Art of War + Marcus Aurelius Meditations + FBI Negotiation Protocol",
+    storyHook: "Before every battle Sun Tzu said: know yourself first. Before every high-stakes conversation, the most dangerous thing is walking in emotionally activated.",
+    essence: "You cannot negotiate from inside the fire. Step outside it first.",
+    parallel: "Tactical empathy (FBI); Stoic preparation (Meditations VIII); Sun Tzu self-knowledge before battle",
+    cue: "I see clearly. I'm anchored. I'm ready.",
+    usedBy: "CEOs, C-Suite Leaders, Diplomats, Crisis Negotiators",
+    thumbnail: difficultConversationPrepHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Name the threat (60 sec): Complete this sentence in your mind or on paper: 'I'm walking into this conversation feeling ___.' Name it precisely — nervous, afraid of their reaction, guilty, angry. Don't judge it. FBI negotiators call this labeling: naming the emotion cuts its power over you.",
+      "Separate person from position (60 sec): Ask what THEY need from this conversation — not what you think they should accept, but what they need to feel heard and fairly treated. Write two things.",
+      "Choose your one intention (45 sec): What is the ONE outcome that would make this a success? Not winning, not being right. Write it in one sentence. This becomes your anchor if the conversation goes sideways.",
+      "Ground and regulate (45 sec): Three slow breaths, 4 counts in, 6 counts out. Feel your feet on the floor. Say internally: 'I'm safe. I'm prepared. I can handle whatever comes.'"
+    ]
+  },
+  {
+    id: "deep-work-initiation",
+    title: "Deep Work Initiation",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['deep-work', 'focus', 'flow', 'productivity', 'concentration'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['optimize'],
+      goalTags: ['focus', 'mental_clarity', 'sustained_attention', 'flow'],
+      physioTarget: ['prefrontal_activation', 'focus_enhancement'],
+      contextTags: ['deep_work', 'strategy_work', 'writing', 'complex_analysis'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['focused_learning', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Cal Newport + Zen Philosophy + William James",
+    origin: "Deep Work (Newport) + Zen beginner's mind + The Principles of Psychology (James)",
+    storyHook: "William James called attention 'the rarest and purest exertion of will.' Newport's research showed leaders who access 3-4 hours of genuine deep work produce more strategic value than those working 12 hours at surface level.",
+    essence: "Deep work is not longer work. It's different work. Enter it deliberately.",
+    parallel: "Flow state induction (Csikszentmihalyi); Attention training (James); Ultradian rhythm; Monk mode (Newport)",
+    cue: "For this time, I am only here. Everything else waits.",
+    usedBy: "CEOs, Executives, Founders entering deep strategic, creative or analytical work",
+    thumbnail: deepWorkInitiationHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Clear the environment (45 sec): Phone away — not just silent, away. One window open. One task visible. Nothing else. Every visible distraction reduces cognitive bandwidth even when unused.",
+      "State your single objective (30 sec): Write one sentence: 'In this session I am doing only ___.' Not a list. One thing. The mind enters deep work through a single doorway.",
+      "The entry breath (45 sec): Close your eyes. Three slow breaths, 4 in and 6 out. With each exhale, release the previous 24 hours. With the final inhale, arrive only here.",
+      "Start the work (30 sec): The first five minutes are the hardest. Begin without judgment. Starting activates the reward system, which makes continuation progressively easier."
+    ]
+  },
+  {
+    id: "rapid-recharge-midday",
+    title: "Rapid Midday Recharge",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['recovery', 'recharge', 'rest', 'energy', 'performance'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['restore', 'recharge'],
+      goalTags: ['energy', 'mental_clarity', 'focus', 'performance'],
+      physioTarget: ['parasympathetic_activation', 'hrv_increase', 'cortisol_reduce'],
+      contextTags: ['energy_crash', 'diminishing_returns', 'cognitive_fatigue', 'long_session'],
+      environmentSuitability: ['office', 'home', 'private'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_recovery', 'sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'downshift'
+    },
+    duration: 5,
+    difficulty: "beginner",
+    creator: "NASA Sleep Research + Winston Churchill + Aristotle Onassis",
+    origin: "NASA study on napping + Churchill's wartime recovery rituals + Mediterranean power rest tradition",
+    storyHook: "Churchill ran a war partly on naps. NASA research confirmed a 26-minute rest improved pilot performance by 34%. The most effective executives didn't push through depletion — they recovered from it strategically.",
+    essence: "Strategic rest is not laziness. It's performance engineering.",
+    parallel: "Ultradian rhythm (90-minute cycles); Stage N1 nap benefits; napping research (Mednick)",
+    cue: "Rest is preparation. I am refueling.",
+    usedBy: "CEOs and C-Suite Leaders experiencing genuine midday cognitive depletion",
+    thumbnail: rapidRechargeMiddayHero,
+    subType: "mindset",
+    steps: 4,
+    instructions: [
+      "Create the conditions (60 sec): Close your door or find a quiet space. Phone away. Set an alarm for 15 minutes. Recline or sit back. Lower the lights if you can.",
+      "Release the day (60 sec): Eyes closed. Three slow deliberate exhales, releasing the morning's decisions and conversations. For the next twelve minutes, your only job is to not have a job.",
+      "Rest or sleep (9 min): You may fall into light sleep, or simply rest with eyes closed. Both deliver benefit. Don't force sleep. Let the mind drift.",
+      "Return deliberately (60 sec): When the alarm sounds, don't spring up. Take one minute. Breathe. Drink water. Notice the shift in clarity. Write one thought about what you're returning to, then return fully."
+    ]
   }
 ];
 
