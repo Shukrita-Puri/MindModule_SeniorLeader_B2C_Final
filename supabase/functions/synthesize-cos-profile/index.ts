@@ -522,6 +522,239 @@ The portrait uses the person's own language and framing. Rules:
    specific — the combination of chips describes a recognisable operating
    pattern even without a name attached.
 
+QUALITY STANDARD — WHAT GOOD LOOKS LIKE IN PRACTICE
+
+The following shows the difference between an accurate profile and a useful
+one, using this specific user's data as the example. Study each pair.
+Apply the same reasoning to every profile.
+
+─ IDENTITY ─
+
+ACCURATE (current level):
+"This is a leader who has spent three decades inside elite international and
+private schools — not at the margins, but at the very core of how these
+institutions function."
+
+USEFUL (target level):
+"Thirty years inside elite international and private schools — not observing
+from a distance, but holding the roles that keep a school's academic credibility
+intact: Head of Examinations, IGCSE Coordinator, Head of Department. Their
+entire career has sat at the point where academic standards, parent expectations,
+and board accountability meet, and they describe that as genuinely inspiring —
+still, in the present tense.
+
+What is new is the commercial layer. Investor meetings, capital raises, major
+negotiations — not as a pivot away from education, but as the means of doing
+something larger within it. They are passionate about connecting schools,
+universities, and districts at scale. The commercial activity is in service
+of that ambition. Understanding this matters: they are not trying to become a
+different kind of leader. They are trying to expand what they can do as this
+kind of leader."
+
+WHY: The accurate version summarises what was provided. The useful version
+makes the observation the person has not articulated — that the commercial
+layer is mission expansion, not role conflict. That distinction changes how
+the Brief should frame every investor meeting and capital raise decision.
+
+─ LEADERSHIP STYLE ─
+
+ACCURATE (current level):
+"This is a leader who operates at the system level. They do not view problems
+in isolation; everything is evaluated against its impact on whole-school
+outcomes, parent trust, and institutional credibility."
+
+USEFUL (target level):
+"She leads through systems, not decisions. Three decades of running examination
+boards and IGCSE programmes teaches a specific discipline: you cannot rush the
+feedback loop. Academic quality is built over years, not quarters, and the
+consequences of cutting corners are visible to parents, inspectors, and the
+next cohort of students. That discipline — evaluating every action against
+its long-term institutional effect — is not a management style she chose.
+It is a reflex built through thirty years of repetition.
+
+The strain in her current environment comes directly from that strength. Capital
+raises and investor negotiations demand the opposite: move with incomplete
+information, make a call, iterate. For someone whose professional instinct is
+to wait for the full picture before acting, the commercial calendar creates a
+constant low-grade conflict. The decisions pile up not because she cannot make
+them, but because making them before they feel fully resolved goes against thirty
+years of trained judgment."
+
+WHY: The accurate version names the trait. The useful version explains where it
+came from and why that specific origin makes the current strain so acute. The
+examination board training is the key that unlocks the mechanism.
+
+─ COMMUNICATION — WHAT LANDS ─
+
+ACCURATE (current level):
+"Systemic framing that connects immediate decisions to long-term institutional outcomes."
+"Discussions about how institutions build credibility, trust, and consistent outcomes over time."
+
+USEFUL (target level):
+"Connect today's decision to what it means for the institution in five years.
+She evaluates everything on that timescale — it is how she was trained, and
+it is how she still thinks. A Brief that treats a capital raise as a standalone
+financial event will feel incomplete to her. One that shows what it enables
+institutionally will land.
+
+She has specifically said she is interested in 'how institutions build credibility,
+trust, and consistent outcomes over time.' Use that exact frame. If there is
+relevant thinking on curriculum evolution, school system design, or how
+educational institutions build lasting standing, she will read it. These are
+not background interests — they are the lens through which she evaluates
+everything, including commercial decisions.
+
+Give her structured preparation 48 hours before any investor meeting or major
+negotiation. Not a reminder — a proper structured brief with the key decisions
+mapped, the outstanding loops named, and the objectives clear. Her instinct is
+to resolve before she acts. The Brief's job is to make that possible in time.
+
+She chose 'Keep' for weekend signals — she does not switch off. Weekend content
+should be lighter and more reflective: developments in curriculum, sector news,
+or institutional thinking she finds genuinely interesting. Not operational tasks."
+
+WHY: The accurate version describes a category. The useful version uses her
+exact words from freetext and treats her declared interests as direct evidence
+for what content she will engage with. The Rishad benchmark does the same:
+"His own writing averages a 5-minute read — he respects compressed density."
+That is evidence, not inference.
+
+─ WHAT WON'T LAND ─
+
+ACCURATE (current level):
+"Purely transactional or adversarial framing that ignores their purpose-driven identity."
+"Pressure to make snap decisions without a clear operational framework."
+
+USEFUL (target level):
+"Do not frame commercial decisions as purely transactional. She is raising capital
+to build something — a network connecting schools, universities, and districts.
+The Brief that treats the capital raise as a financial exercise misses what she
+is actually trying to do, and she will feel that immediately.
+
+Do not rush her. Pressure to move before she has had time to think things through
+does not make her decisive — it creates tension and makes her slower. If a decision
+needs to be made quickly, the Brief's job is to pre-close as many open questions
+as possible, not to demand speed.
+
+Do not be casual. Her freetext is formal, structured, and broken into headed
+sections. She expects the same discipline in the communications she receives.
+A Brief that is breezy or conversational will not get her full engagement.
+
+Generic leadership advice will not land. She has thirty years of specific,
+demanding experience in high-accountability environments. Advice that does not
+acknowledge the depth of what she already knows will feel condescending."
+
+─ TEAL RISK FLAG ─
+
+ACCURATE (current level):
+"Institutional Stamina (teal): Thirty years of institutional governance builds
+deep endurance, which acts as a powerful composure anchor when commercial
+pressures escalate."
+
+USEFUL (target level):
+"Purpose as a pressure buffer (teal): She describes her career as 'a real purpose
+driven career — which has inspired and excited me about being an educator' — and
+that is present tense. She still means it. This matters for the Brief because a
+leader who genuinely finds meaning in their work has a natural shock absorber that
+purely achievement-driven leaders do not have. When commercial pressure is at its
+highest, that underlying purpose provides a stable reference point. It does not
+prevent depletion, but it slows the spiral and maintains perspective.
+Watch for this: when that purpose language starts to disappear from check-in
+responses — when her framing shifts from the educational mission to pure commercial
+problem-solving — the buffer is depleting and the Brief should adjust."
+
+WHY: The accurate version names the asset. The useful version explains the
+mechanism and gives the CoS something to actually watch for. The Rishad
+equivalent: "Declared vulnerability at scale signals high self-awareness and
+low defensive ego" — that is an inference from evidence, with a mechanism.
+
+─ AMBER RISK FLAG — DECISION SATIATION ─
+
+ACCURATE (current level):
+"An ingrained preference for thorough, systemic resolution clashes with
+environments requiring rapid, imperfect choices, leading to cognitive fatigue
+from keeping too many loops open."
+
+USEFUL (target level):
+"Examination board discipline meeting capital raise velocity (amber): Running
+IGCSE examinations and managing academic board processes trains a specific
+relationship with incomplete information — you do not act until the evidence
+is sufficient, because in education the consequences of acting prematurely are
+visible, lasting, and affect real students. That discipline is an asset in her
+core domain. In a capital raise or major negotiation, it creates a particular
+friction: she will want more information than the situation can give her, and
+the gap between what she has and what she needs accumulates as unresolved
+decisions. Watch for this: check-in responses become shorter and more
+operational in the 48 hours before a major investor meeting — fewer reflective
+sentences, more task-focused language. That compression is the early signal
+that the open loops are starting to pile up."
+
+WHY: The accurate version names the pattern. The useful version explains why
+this specific person — with this specific professional background — is more
+susceptible to it than a typical executive would be. The origin explains the
+severity.
+
+─ AMBER RISK FLAG — CONTEXT TRANSITION ─
+
+ACCURATE (current level):
+"Context Transition Strain: The friction of shifting from a deeply purpose-driven
+educational context to an adversarial commercial or fundraising context multiple
+times a day."
+
+USEFUL (target level):
+"Two registers, one day (amber): She runs two fundamentally different operating
+modes — the long-horizon, trust-building world of institutional education and
+the fast, adversarial world of commercial negotiation. Most leaders develop one
+and visit the other occasionally. She is running both seriously, at the same time.
+The cognitive cost of shifting between them multiple times in a day is real but
+largely invisible — it does not look like stress, it looks like slight disengagement
+or reduced precision in whichever mode comes second. Watch for this: Apple Watch
+shows a higher-than-normal resting heart rate on days with mixed academic-governance
+and investor-facing calendar entries, without any physical exertion to explain it.
+That is the body recording the gear-change cost."
+
+─ EXTERNAL PERSONA ─
+
+ACCURATE (current level):
+"Externally positioned as a highly credible, purpose-driven academic leader with
+deep expertise in curriculum design, examination systems, and institutional
+accountability."
+
+USEFUL (target level):
+"She is not trying to become a commercial leader — she is trying to become the
+person who connects the educational world at a larger scale. She has said she
+is 'passionate about connecting and partnering with schools, universities and
+districts.' That is a specific public positioning: the institutional connector
+and sector-builder, not the executive who left education for business.
+
+This distinction matters in investor conversations. She is raising capital to
+build a network, not to grow a company in the conventional sense. The Brief
+should always frame commercial activity through that lens — because that is
+how she sees it, and because that is where she is most credible to the
+people she needs to convince."
+
+─ ARCHETYPE ─
+
+CURRENT (already good — one refinement):
+"Someone who runs steadily over long distances and rarely shows strain — until
+the pace changes."
+
+ADD ONE SENTENCE AT THE END:
+"The risk is not that she breaks under pressure — it is that she carries the
+weight of unresolved commercial decisions quietly, without acknowledging the
+toll it takes, until the very quality of thinking that makes her exceptional
+in both worlds starts to slip."
+
+─
+
+GENERAL RULE FOR ALL SECTIONS:
+Before finalising any sentence, ask: "Could this sentence have been written
+without reading the freetext?" If yes, it is not doing its job.
+Every sentence in the profile should be traceable to something specific
+in what the person provided — or clearly labelled as inference from the
+combination of inputs. Generic insight belongs in a textbook. This profile
+belongs to this person.
+
 ───────────────────────────────────────────────
 STEP 4 · PRODUCE EACH SECTION
 ───────────────────────────────────────────────
@@ -615,6 +848,36 @@ risk_flags (3–4 flags):
 
 Include at least one teal flag. A person with long tenure, declared purpose,
 or self-monitoring signals (wearable connected) always has a strength to name.
+
+RISK FLAG QUALITY STANDARD:
+
+For each risk flag, answer these two questions before writing:
+
+1. WHY IS THIS PERSON MORE SUSCEPTIBLE TO THIS PATTERN THAN A TYPICAL
+   EXECUTIVE WOULD BE?
+   The answer is always in the combination of their background, their
+   training, and their current context. "Decision overload" as a chip
+   is a label. The mechanism — examination board training conditioning
+   a specific relationship with incomplete information — is the insight.
+   Name the origin. Explain the susceptibility. Then name the pattern.
+
+2. WHAT WOULD THE CoS ACTUALLY SEE BEFORE THE FLAG FULLY FIRES?
+   Not an internal state. Not a psychological construct. Something
+   observable: in check-in language (shorter responses, more operational
+   framing, fewer reflective sentences), in Apple Watch data (elevated
+   resting heart rate, lower HRV without physical exertion), or in
+   calendar patterns (back-to-back high-stakes events without recovery
+   gaps). The leading_indicator must name something a CoS can look for
+   in the data the app already collects.
+
+FLAG NAME STANDARD:
+Flag names should be plain and memorable, not jargon.
+  Good: "Two registers, one day" · "Examination board discipline
+        meeting capital raise velocity" · "Purpose as a pressure buffer"
+  Bad:  "Context Transition Strain" · "Register Friction" · "Systemic
+        View Collapse" · "Domain Transition Strain"
+
+If the flag name requires explanation to understand, it is not a good name.
 
 regulation_strengths: 2–3 genuine strengths — evidence-based, not reassuring
   filler. Derive from career tenure, purpose language, goals that signal
@@ -761,155 +1024,88 @@ operating at capacity · high-stakes interface · composure anchor
 CONFIDENCE
 confidence_overall must be exactly one of: high, medium, low, very_low.
 
-HOW TO WRITE — TONE AND LANGUAGE RULES
+HOW TO WRITE — THE STANDARD TO MATCH
 
-The person reading this profile is a senior leader, not a data scientist.
-Write every sentence so that a smart, busy executive can read it on a phone
-and understand it immediately. If a sentence needs to be read twice, rewrite it.
+The reference for this profile's writing quality is the Rishad Tobaccowala
+COS profile. Read these sentences from that profile and study what makes
+them work:
 
-Study these examples carefully. This is the standard to match:
-
-GOOD — from the reference profile:
   "He leads through ideas, not authority."
-  "Burnout for this type doesn't announce itself — it accumulates silently and
-  shows up as flat affect or reduced quality of thinking before he notices."
-  "He is deeply anti-hierarchical — prefers influence over control."
-  "Confidence and composure are authentic — but can also mask load. The risk
-  is not emotional hijack but quiet depletion that degrades the quality of
-  thinking before it degrades the external presentation."
+  "Burnout for this type doesn't announce itself — it accumulates silently
+  and shows up as flat affect or reduced quality of thinking before he notices."
   "Not a consultant selling engagements — a gift-giver."
-  "He thinks in frameworks and makes them public — a sign of a leader who
-  processes externally and believes clarity is a gift to others."
+  "High cortisol in this type reads as confidence — the brief must
+  cross-reference carry load and pressure even when emotional state
+  appears composed."
+  "He admitted publicly he used to hate change but that the world changed him.
+  That kind of declared vulnerability at scale signals high self-awareness
+  and low defensive ego."
 
-BAD — do not write like this:
-  "every decision a node in a wider network of outcomes" → say instead:
-  "she thinks about decisions in terms of their effect on the wider system,
-  not just the immediate outcome"
+What these sentences have in common:
+  — They say something specific, not categorical
+  — They explain a mechanism, not just a trait
+  — They could not have been written without reading the source material
+  — A senior executive reading them would nod and understand immediately
+  — None of them contain jargon
 
-  "HRV suppression without physical exertion" → say instead:
-  "watch for low heart rate variability on days that were mentally intense
-  but not physically active — the body showing strain the person doesn't
-  acknowledge"
+RULES:
 
-  "domain transition strain, context-switching fatigue" → say instead:
-  "moving between an institutional governance mindset and a commercial
-  negotiation one — several times a day — is genuinely tiring, and the
-  cost is rarely visible until performance starts to slip"
+Write complete thoughts, not compressed labels.
+  BAD:  "Formal, comprehensive, outcome-oriented, precise."
+  GOOD: "She communicates formally and precisely — structured arguments,
+        clear conclusions, no rambling. She expects the same discipline
+        from others."
 
-  "contextualise commercial tasks in systemic outcomes" → say instead:
-  "link commercial decisions back to what they mean for the institution
-  long-term — that is how this person evaluates everything"
+Use plain words. If the word would not appear in a quality newspaper
+article, replace it.
+  "HRV suppression" → "low recovery scores on the watch"
+  "somatic signals" → "physical signs of stress"
+  "depletion substrate" → remove entirely
+  "operationalise" → "put into practice"
+  "contextualise" → "connect" or "place in context"
+  "domain transition" → "switching between two very different kinds of work"
+  "cognitive load" is acceptable — it is widely understood
 
-  "Register Friction" as a risk flag name → say instead:
-  "Pace mismatch" or "Two speeds at once"
+Risk flag leading indicators must be observable, not internal.
+  BAD:  "indicators of cognitive fatigue"
+  GOOD: "check-in responses get shorter and more task-focused — fewer
+        reflective sentences — in the 48 hours before a major negotiation"
 
-  "nodes," "vectors," "substrate," "calibrate," "optimise," "leverage" (as
-  a verb), "operationalise," "synthesise" → replace with plain English
+  BAD:  "HRV suppression without physical exertion"
+  GOOD: "Apple Watch shows lower-than-usual recovery scores on days that
+        were mentally intense but not physically demanding — the body
+        registering strain the person is not acknowledging"
 
-RULES FOR EVERY SENTENCE:
+What lands / What won't land — write as if briefing a new colleague.
+  BAD:  "Tactics linked to long-term credibility"
+  GOOD: "Connect today's decision to what it means for the institution
+        in five years. She evaluates everything on that timescale."
 
-1. Write complete thoughts, not compressed labels.
-   BAD:  "Formal, comprehensive, outcome-oriented, precise."
-   GOOD: "She communicates formally and precisely — structured arguments,
-         clear conclusions, no rambling. In writing, she is comprehensive.
-         In conversation, she expects the same discipline from others."
+  BAD:  "Disregard for their partnership legacy"
+  GOOD: "Do not frame anything as purely transactional. She is building
+        a network, not closing deals."
 
-2. Use plain words. If a word would not appear in a quality newspaper
-   article, find a simpler one. "Cognitive load" is fine — it is widely
-   understood. "HRV suppression," "somatic signals," "depletion substrate"
-   are not — translate them.
-   "HRV suppression" → "low recovery scores on the watch"
-   "somatic signals" → "physical signals of stress"
-   "depletion pattern" → "how they run out of energy"
-   "operating at capacity" → "running close to their limit"
-   "high-stakes interface" → "a major meeting or negotiation"
+The identity section is a paragraph, not a CV summary.
+Read it back. If it sounds like a LinkedIn bio, rewrite it as a human
+observation about what this person is actually doing and why.
 
-3. Risk flags must explain what to watch for in plain terms.
-   BAD:  "indicator: HRV suppression without physical exertion"
-   GOOD: "Watch for this: Apple Watch shows low recovery scores on days
-         that were not physically demanding — the body registering strain
-         the person is not acknowledging."
+Before finalising any sentence, ask: would a non-technical senior executive
+read this once and understand it immediately? If they would need to read it
+twice, rewrite it.
 
-   BAD:  "indicator: check-ins become operational and abbreviated"
-   GOOD: "Watch for this: her check-in responses get shorter and more
-         task-focused in the two days before a big meeting or negotiation.
-         That is the early signal."
+PLAIN TEXT IN JSON FIELDS:
+When writing any string field value, write paragraph breaks as natural
+sentence endings followed by two spaces — not as the character sequence
+\n or \\n. Do not emit escaped newline characters in any text field.
 
-4. What lands / What won't — write as if talking to a colleague.
-   BAD:  "tactics linked to long-term credibility"
-   GOOD: "Connect today's decision to what it means for the institution
-         five years from now — she thinks that way and responds to it."
+THIS PROFILE IS:
+A well-briefed colleague's honest read of who this person is, how they
+work, what to watch for, and how to speak to them — written so they
+would recognise themselves in it and find it useful.
 
-   BAD:  "disregard for their partnership legacy"
-   GOOD: "Do not frame anything as purely transactional — she thinks in
-         partnerships and long-term relationships, not deals."
-
-5. The identity section is a paragraph, not a CV extract. Read it back
-   aloud. If it sounds like a LinkedIn summary, rewrite it as a human
-   observation.
-   BAD:  "A definitive three-decade career in elite international and
-         private schools, holding Head of Department, IGCSE Coordinator,
-         and Head of Examinations."
-   GOOD: "Thirty years inside elite international schools — not at the
-         margins, but at the point where academic standards, parent
-         expectations, and board accountability actually collide. Head of
-         Examinations, IGCSE Coordinator, Head of Department — the roles
-         that keep a school's academic credibility intact."
-
-6. The leadership style section must say something true and specific
-   about this person, not a generic description of a leadership type.
-   BAD:  "Synthesises multiple rigorous demands into one coherent
-         operating reality."
-   GOOD: "She does not compartmentalise — everything she manages has to
-         cohere as a system. That makes her exceptionally steady in complex
-         institutional environments and slower than the room would like in
-         fast-moving commercial ones."
-
-7. Use a dash (—) to add a sharp second thought. Use it sparingly —
-   once or twice per section, not in every sentence.
-
-8. Do not end sentences with management words like "outcomes," "delivery,"
-   "execution," "framework," "alignment." End with the actual thing that
-   matters. "Outcomes" → what actually happens to students, investors,
-   the institution. Name it.
-
-9. The archetype description should sound like a knowledgeable friend
-   describing someone you are about to meet.
-   BAD:  "High institutional stamina, carrying open decisions under
-         commercial acceleration."
-   GOOD: "Someone who runs steadily over long distances and rarely shows
-         strain — until the pace changes. The shift from institutional
-         governance to commercial pressure is that change of pace, and
-         the risk is that she carries it without saying so."
-
-10. If you are unsure whether a sentence is clear, imagine reading it
-    to a non-technical CEO in a 30-second conversation. If they would
-    nod and understand, keep it. If they would frown, rewrite it.
-
-WHAT THE PROFILE IS NOT:
-  Not a psychology assessment report.
-  Not a systems architecture document.
-  Not a medical readiness summary.
-  Not a business case.
-
-WHAT THE PROFILE IS:
-  A well-briefed colleague's honest read of who this person is, how they
-  work, what to watch for, and how to speak to them — written so they
-  would recognise themselves in it and find it useful.
-
-PLAIN TEXT FIELDS — NO ESCAPED NEWLINES:
-
-When writing any text field that will be stored in JSON (style_description,
-how_they_think, how_they_communicate, cos_brief_rules, primary_risk,
-descriptions, summaries — any string field), write paragraph breaks as
-a single space or as natural sentence endings. Do NOT emit the character
-sequence \\n or \\\\n anywhere in a text field value. The JSON serialiser
-handles line breaks — your job is to write flowing prose with paragraph
-breaks indicated only by starting a new natural sentence or using a
-double-space. If you need to separate two paragraphs within a single
-string field, end the first paragraph's last sentence with a full stop
-and begin the next paragraph's sentence on the same line separated by
-two spaces. The rendered HTML handles visual paragraph separation via CSS.
+THIS PROFILE IS NOT:
+A psychology assessment. A systems architecture document. A business case.
+A LinkedIn summary with extra words.
 
 You MUST call the tool "emit_cos_profile" exactly once. Do not return prose.`;
 
