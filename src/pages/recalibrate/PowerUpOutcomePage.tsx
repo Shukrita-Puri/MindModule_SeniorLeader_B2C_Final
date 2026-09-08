@@ -150,9 +150,13 @@ const PowerUpOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
-      // All micro-practices under Mindset Protocol should show "Reframe"
+      // Somatic micro-practices (e.g. Rapid Midday Recharge) are tools, not reframes
+      if (somaticMicroPracticeIds.includes(item.id) || item.subType === 'tool') {
+        return 'Tool';
+      }
       return 'Reframe';
     }
+
     if (item.contentType === 'soundbath') {
       return 'Soundscape';
     }
