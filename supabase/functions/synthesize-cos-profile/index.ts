@@ -761,11 +761,141 @@ operating at capacity · high-stakes interface · composure anchor
 CONFIDENCE
 confidence_overall must be exactly one of: high, medium, low, very_low.
 
-TONE
-Write as a trusted, senior chief of staff — someone who has read everything,
-thought carefully, and speaks to the leader's intelligence. Corporate English,
-crisp sentences, no jargon, no coaching language, no therapy register.
-Not a form. Not an assessment report. A considered, human briefing document.
+HOW TO WRITE — TONE AND LANGUAGE RULES
+
+The person reading this profile is a senior leader, not a data scientist.
+Write every sentence so that a smart, busy executive can read it on a phone
+and understand it immediately. If a sentence needs to be read twice, rewrite it.
+
+Study these examples carefully. This is the standard to match:
+
+GOOD — from the reference profile:
+  "He leads through ideas, not authority."
+  "Burnout for this type doesn't announce itself — it accumulates silently and
+  shows up as flat affect or reduced quality of thinking before he notices."
+  "He is deeply anti-hierarchical — prefers influence over control."
+  "Confidence and composure are authentic — but can also mask load. The risk
+  is not emotional hijack but quiet depletion that degrades the quality of
+  thinking before it degrades the external presentation."
+  "Not a consultant selling engagements — a gift-giver."
+  "He thinks in frameworks and makes them public — a sign of a leader who
+  processes externally and believes clarity is a gift to others."
+
+BAD — do not write like this:
+  "every decision a node in a wider network of outcomes" → say instead:
+  "she thinks about decisions in terms of their effect on the wider system,
+  not just the immediate outcome"
+
+  "HRV suppression without physical exertion" → say instead:
+  "watch for low heart rate variability on days that were mentally intense
+  but not physically active — the body showing strain the person doesn't
+  acknowledge"
+
+  "domain transition strain, context-switching fatigue" → say instead:
+  "moving between an institutional governance mindset and a commercial
+  negotiation one — several times a day — is genuinely tiring, and the
+  cost is rarely visible until performance starts to slip"
+
+  "contextualise commercial tasks in systemic outcomes" → say instead:
+  "link commercial decisions back to what they mean for the institution
+  long-term — that is how this person evaluates everything"
+
+  "Register Friction" as a risk flag name → say instead:
+  "Pace mismatch" or "Two speeds at once"
+
+  "nodes," "vectors," "substrate," "calibrate," "optimise," "leverage" (as
+  a verb), "operationalise," "synthesise" → replace with plain English
+
+RULES FOR EVERY SENTENCE:
+
+1. Write complete thoughts, not compressed labels.
+   BAD:  "Formal, comprehensive, outcome-oriented, precise."
+   GOOD: "She communicates formally and precisely — structured arguments,
+         clear conclusions, no rambling. In writing, she is comprehensive.
+         In conversation, she expects the same discipline from others."
+
+2. Use plain words. If a word would not appear in a quality newspaper
+   article, find a simpler one. "Cognitive load" is fine — it is widely
+   understood. "HRV suppression," "somatic signals," "depletion substrate"
+   are not — translate them.
+   "HRV suppression" → "low recovery scores on the watch"
+   "somatic signals" → "physical signals of stress"
+   "depletion pattern" → "how they run out of energy"
+   "operating at capacity" → "running close to their limit"
+   "high-stakes interface" → "a major meeting or negotiation"
+
+3. Risk flags must explain what to watch for in plain terms.
+   BAD:  "indicator: HRV suppression without physical exertion"
+   GOOD: "Watch for this: Apple Watch shows low recovery scores on days
+         that were not physically demanding — the body registering strain
+         the person is not acknowledging."
+
+   BAD:  "indicator: check-ins become operational and abbreviated"
+   GOOD: "Watch for this: her check-in responses get shorter and more
+         task-focused in the two days before a big meeting or negotiation.
+         That is the early signal."
+
+4. What lands / What won't — write as if talking to a colleague.
+   BAD:  "tactics linked to long-term credibility"
+   GOOD: "Connect today's decision to what it means for the institution
+         five years from now — she thinks that way and responds to it."
+
+   BAD:  "disregard for their partnership legacy"
+   GOOD: "Do not frame anything as purely transactional — she thinks in
+         partnerships and long-term relationships, not deals."
+
+5. The identity section is a paragraph, not a CV extract. Read it back
+   aloud. If it sounds like a LinkedIn summary, rewrite it as a human
+   observation.
+   BAD:  "A definitive three-decade career in elite international and
+         private schools, holding Head of Department, IGCSE Coordinator,
+         and Head of Examinations."
+   GOOD: "Thirty years inside elite international schools — not at the
+         margins, but at the point where academic standards, parent
+         expectations, and board accountability actually collide. Head of
+         Examinations, IGCSE Coordinator, Head of Department — the roles
+         that keep a school's academic credibility intact."
+
+6. The leadership style section must say something true and specific
+   about this person, not a generic description of a leadership type.
+   BAD:  "Synthesises multiple rigorous demands into one coherent
+         operating reality."
+   GOOD: "She does not compartmentalise — everything she manages has to
+         cohere as a system. That makes her exceptionally steady in complex
+         institutional environments and slower than the room would like in
+         fast-moving commercial ones."
+
+7. Use a dash (—) to add a sharp second thought. Use it sparingly —
+   once or twice per section, not in every sentence.
+
+8. Do not end sentences with management words like "outcomes," "delivery,"
+   "execution," "framework," "alignment." End with the actual thing that
+   matters. "Outcomes" → what actually happens to students, investors,
+   the institution. Name it.
+
+9. The archetype description should sound like a knowledgeable friend
+   describing someone you are about to meet.
+   BAD:  "High institutional stamina, carrying open decisions under
+         commercial acceleration."
+   GOOD: "Someone who runs steadily over long distances and rarely shows
+         strain — until the pace changes. The shift from institutional
+         governance to commercial pressure is that change of pace, and
+         the risk is that she carries it without saying so."
+
+10. If you are unsure whether a sentence is clear, imagine reading it
+    to a non-technical CEO in a 30-second conversation. If they would
+    nod and understand, keep it. If they would frown, rewrite it.
+
+WHAT THE PROFILE IS NOT:
+  Not a psychology assessment report.
+  Not a systems architecture document.
+  Not a medical readiness summary.
+  Not a business case.
+
+WHAT THE PROFILE IS:
+  A well-briefed colleague's honest read of who this person is, how they
+  work, what to watch for, and how to speak to them — written so they
+  would recognise themselves in it and find it useful.
 
 PLAIN TEXT FIELDS — NO ESCAPED NEWLINES:
 
