@@ -1133,11 +1133,11 @@ Deno.serve(async (req) => {
     let problems = validateCosProfile(profile);
 
     if (problems.length > 0) {
-      console.warn(`[synthesize-cos] depth gate failed (${problems.join(", ")}) — one stricter retry`);
+      console.warn(`[synthesize-cos] quality gaps (${problems.join(", ")}) — one stricter retry (advisory only)`);
       const stricterPrompt = `${userPrompt}
 
 ### REVISION REQUIRED
-A previous attempt was rejected for insufficient depth. Failing checks: ${problems.join(", ")}.
+A previous attempt came back thinner than the DEPTH CONTRACT asks for. Gaps: ${problems.join(", ")}.
 Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reason from the selected chips, goals and any free text — infer the operating pattern they imply and label it as inference. Do not emit placeholders, "unknown", "not specified" or a pending shell. The display_html must contain all eight sections in full prose.`;
       // Retry on the fast model: the primary already spent most of the wall
       // clock, and the retry only needs to fill the flagged gaps.
@@ -1151,19 +1151,23 @@ Produce a complete profile that satisfies every item of the DEPTH CONTRACT. Reas
       }
     }
 
-    const status: 'ready' | 'needs_input' = problems.length === 0 ? 'ready' : 'needs_input';
+    // Advisory: any profile object we hold is usable. Gaps travel with it.
+    const status: 'ready' = 'ready';
+    const quality = scoreProfileQuality(profile, problems);
     const persisted = await persistProfile(profile, 'ai', status, problems);
     if (!persisted.ok) return json(500, { error: "persist_failed" });
     if (persisted.personalisationError) {
       console.error("[synthesize-cos] personalisation write failed:", persisted.personalisationError);
     }
 
-    console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
+    console.info(`[synthesize-cos] success user_id=${redactUserId(userId)} quality=${quality} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
     return json(200, {
       ok: true,
       cached: false,
       status,
+      quality,
       quality_gaps: problems,
+
       model_used: modelUsed,
       cos_profile: profile,
       cos_profile_html: persisted.displayHtml,
