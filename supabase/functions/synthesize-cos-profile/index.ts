@@ -628,6 +628,25 @@ function validateCosProfile(profile: any): string[] {
   return problems;
 }
 
+export type CosProfileQuality = "rich" | "partial" | "thin";
+
+/**
+ * v2026-09-08 — the depth checks are ADVISORY, not a gate. Onboarding is mostly
+ * optional, so a thin profile is still worth using everywhere; the gaps are
+ * recorded as a quality label so we can improve over time and decide who is
+ * email-ready later.
+ */
+export function scoreProfileQuality(profile: any, gaps: string[]): CosProfileQuality {
+  if (!profile || typeof profile !== "object") return "thin";
+  if (gaps.length === 0) return "rich";
+  const html = typeof profile.display_html === "string" ? profile.display_html : "";
+  const hasSpine = textLen(profile.provisional_archetype?.name) >= 3 &&
+    textLen(profile.leadership_style?.style_description) >= 120 &&
+    html.length >= 1200;
+  return gaps.length <= 4 && hasSpine ? "partial" : "thin";
+}
+
+
 const EMAIL_CLASS_STYLES: Record<string, string> = {
   hero: "background:#12100E;color:#F4F1EC;padding:28px;border-radius:12px;margin-bottom:24px;",
   "hero-tag": "font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;",
