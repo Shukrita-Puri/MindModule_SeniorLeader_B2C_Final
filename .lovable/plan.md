@@ -34,6 +34,8 @@ Plus a "last refreshed" time and a Refresh button.
 
 - New edge function `admin-recalibrate-analytics`, guarded by the existing `_shared/admin-guard.ts` (same pattern as `admin-dashboard-summary`), accepting `?days=90` (default 90). Read-only queries only.
 - Data sources: `sanctuary_events` joined to `sanctuary_content` (title, category, sub_type, content_type); `profiles` joined on `user_id` for `email` and `full_name`. Sections A–H computed server-side exactly as specified in the brief, with `userId` returned in full and an added `email` (and `name`) field on every per-user row (Sections F and G) — no last-8-chars truncation.
+- Plan exposure section reads `mastery_plan_snapshots.recommended_practice_ids` (with `user_id`, `plan_date`) for what the plan surfaced, and `mastery_plan_completions.practices_assigned` / `practices_completed` for follow-through. Plan-versus-direct routing is derived by matching a `sanctuary_events` row's `content_id` and local date against that user's recommended IDs for the same date; unmatched sessions count as direct. Reads only.
+
 - Function writes an admin audit entry via `writeAdminAudit` on load, consistent with other admin functions, since it exposes identified user data.
 - Frontend fetches with bearer token from `getAuthToken()` against `https://${projectId}.supabase.co/functions/v1/admin-recalibrate-analytics`, same as `AdminDashboard.tsx`. Cards, badges and tables from shadcn/ui; bar charts are plain div widths, no charting library.
 - Route registered in `src/App.tsx` behind the existing admin route guard; nav item added in `src/components/admin/AdminLayout.tsx`.
