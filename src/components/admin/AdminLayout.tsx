@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, ChevronLeft, Activity, AlertTriangle, Bell, Gauge, Stethoscope } from 'lucide-react';
+import { LayoutDashboard, Users, ChevronLeft, Activity, AlertTriangle, Bell, Gauge, Stethoscope, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { to: '/admin/error-logs', label: 'Error Logs', icon: AlertTriangle, end: false },
   { to: '/admin/notifications', label: 'Notifications', icon: Bell, end: false },
   { to: '/admin/diagnostics', label: 'User Diagnostics', icon: Stethoscope, end: false },
+  { to: '/admin/recalibrate', label: 'Recalibrate', icon: BarChart3, end: false },
 ];
 
 const AdminLayout = () => {
