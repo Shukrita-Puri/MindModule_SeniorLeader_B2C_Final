@@ -73,6 +73,7 @@ const AdminExecutiveHomeAudit = lazy(() => import("./pages/admin/AdminExecutiveH
 const AdminErrorLogs = lazy(() => import("./pages/admin/AdminErrorLogs"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 const AdminUserDiagnostics = lazy(() => import("./pages/admin/AdminUserDiagnostics"));
+const AdminRecalibrateAnalytics = lazy(() => import("./pages/admin/AdminRecalibrateAnalytics"));
 
 // Force a full remount of player components when the :id param changes so per-practice
 // state (carousel position, audio progress, view stage, etc.) NEVER leaks between
@@ -517,6 +518,7 @@ const router = createBrowserRouter([
           { path: "error-logs", element: <Suspense fallback={<LoadingFallback />}><AdminErrorLogs /></Suspense> },
           { path: "notifications", element: <Suspense fallback={<LoadingFallback />}><AdminNotifications /></Suspense> },
           { path: "diagnostics", element: <Suspense fallback={<LoadingFallback />}><AdminUserDiagnostics /></Suspense> },
+          { path: "recalibrate", element: <Suspense fallback={<LoadingFallback />}><AdminRecalibrateAnalytics /></Suspense> },
         ],
       },
     ],
