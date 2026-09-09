@@ -30,3 +30,12 @@ Plus a "last refreshed" time and a Refresh button.
 - Frontend fetches with bearer token from `getAuthToken()` against `https://${projectId}.supabase.co/functions/v1/admin-recalibrate-analytics`, same as `AdminDashboard.tsx`. Cards, badges and tables from shadcn/ui; bar charts are plain div widths, no charting library.
 - Route registered in `src/App.tsx` behind the existing admin route guard; nav item added in `src/components/admin/AdminLayout.tsx`.
 - No changes to `sanctuary_events`, `sanctuary_content`, any existing edge function, or any user-facing route or component. No schema changes.
+
+## Safety and isolation
+
+- Only new files are added (one page, one edge function), plus two small additive lines: the route in `src/App.tsx` and the sidebar item in `AdminLayout.tsx`.
+- No existing component, hook, service, shared module, edge function or database object is modified. No migrations, no data writes.
+- The new edge function is deployed on its own; existing functions are left untouched and not redeployed.
+- Every request is rejected unless `requireAdmin` passes, so non-admin accounts get nothing even if they guess the URL.
+- Verification before finishing: typecheck, the existing test suite, and a check that the diff touches only the new files plus those two additive lines.
+
