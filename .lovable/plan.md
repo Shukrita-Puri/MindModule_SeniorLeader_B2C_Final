@@ -18,9 +18,17 @@ Per your note: usage is **not** anonymised. Every per-user row shows the real ac
 5. **Timing** — bars for time of day and day of week, plus a highlighted "peak usage window" callout.
 6. **Power users** — accounts with 10+ sessions: **email and account ID**, sessions, unique protocols, per-category counts, active days, most-used protocol, loop days (amber when above zero), average daily intensity.
 7. **Loop / crisis signals** — collapsed by default: same protocol used 3+ times in one day, showing date, **email and account ID**, protocol, count, category. Max 50 rows, with a short explanation that repeats suggest an unmet need.
-8. **Content gaps** — an insight card with plain-language bullets and suggested actions (under-used mornings, category imbalance, looped protocols with no alternative, high Friday load).
+8. **Plan exposure and variety** — what the daily plan is actually putting in front of people:
+   - How many distinct practices the plan has recommended in the period, out of the full catalogue (a coverage percentage).
+   - The most-recommended practices, with how many plans and how many people each appeared in, and how concentrated the rotation is (share held by the top 10).
+   - Practices the plan has never recommended, as a pill list, so blind spots are visible.
+   - Repetition: average number of times the same practice is recommended to the same person, and a flagged list where that count is high.
+   - Route to practice: how many sessions came from a practice the plan recommended that same day versus practices found directly in Recalibrate, shown as a split with a per-practice breakdown for the top rows.
+   - Plan follow-through: recommended versus actually completed, from the plan completion records.
+9. **Content gaps** — an insight card with plain-language bullets and suggested actions (under-used mornings, category imbalance, looped protocols with no alternative, high Friday load, plan rotation too narrow).
 
 Plus a "last refreshed" time and a Refresh button.
+
 
 ## Technical notes
 
