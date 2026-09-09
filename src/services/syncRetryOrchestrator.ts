@@ -11,8 +11,7 @@
  * a singleton — `startSyncOrchestrator()` is safe to call multiple times.
  */
 
-import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+
 import {
   dueItems,
   markFailed,
@@ -118,15 +117,19 @@ export function startSyncOrchestrator(): void {
   }
 
   // Capacitor app-resume.
-  try {
-    if (Capacitor.isNativePlatform()) {
-      App.addListener('appStateChange', (state) => {
-        if (state.isActive) void drainQueueNow('app_resume');
-      });
+  (async () => {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        const { App } = await import('@capacitor/app');
+        App.addListener('appStateChange', (state) => {
+          if (state.isActive) void drainQueueNow('app_resume');
+        });
+      }
+    } catch (err) {
+      console.warn('[syncRetryOrchestrator] App listener setup failed:', err);
     }
-  } catch (err) {
-    console.warn('[syncRetryOrchestrator] App listener setup failed:', err);
-  }
+  })();
 
   // Periodic poll (web + native, every 60s) — handles the per-item backoff
   // schedule so items become "due" without external triggers.
