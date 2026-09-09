@@ -70,7 +70,7 @@ const connectionTone = (status: string | null): 'green' | 'gray' | 'red' => {
   }
 };
 
-const syncTone = (status: string | null): 'green' | 'yellow' | 'red' => {
+const syncTone = (status: string | null): 'green' | 'yellow' | 'red' | 'gray' => {
   switch (status?.toLowerCase()) {
     case 'synced':
       return 'green';
