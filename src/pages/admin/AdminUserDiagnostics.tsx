@@ -1,140 +1,87 @@
 import { useState } from 'react';
-import { Activity, Bell, Search, AlertCircle } from 'lucide-react';
+import { Activity, Bell, Search, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getAuthToken } from '@/services/authTokenService';
 
 /**
  * Read-only admin diagnostic view: HealthKit sync + push token status.
- * Currently backed by mock fixtures so the UI can be reviewed end-to-end.
- * No mutations are exposed anywhere in this page.
+ * Queries real backend data for a single user_id. No mutations are exposed.
  */
 
-type HealthConnection = 'connected' | 'disconnected' | 'permission_revoked';
-type HealthSync = 'synced' | 'waiting_for_data' | 'sync_delayed' | 'error';
-type PushPermission = 'granted' | 'denied' | 'provisional' | 'not_determined';
-
-interface DiagnosticRecord {
-  userId: string;
-  email: string;
-  displayName: string;
-  healthkit: {
-    connectionStatus: HealthConnection;
-    syncStatus: HealthSync;
-    lastSyncAt: string | null;
-    lastSampleAt: string | null;
-    lastError: string | null;
-  };
-  push: {
-    hasActiveToken: boolean;
-    platform: 'iOS' | 'Android' | 'Web' | null;
-    lastRegisteredAt: string | null;
-    permissionState: PushPermission;
-    recentErrors: string[];
-  };
+interface HealthKitRecord {
+  watch_connection_status: string | null;
+  watch_sync_status: string | null;
+  watch_last_sync_at: string | null;
+  watch_last_sample_at: string | null;
+  watch_last_error: string | null;
 }
 
-const MOCK_RECORDS: DiagnosticRecord[] = [
-  {
-    userId: 'google-oauth2|100000000000000000001',
-    email: 'healthy.exec@mindmodule.me',
-    displayName: 'Priya Raman',
-    healthkit: {
-      connectionStatus: 'connected',
-      syncStatus: 'synced',
-      lastSyncAt: '2026-09-09T05:12:00Z',
-      lastSampleAt: '2026-09-09T04:58:00Z',
-      lastError: null,
-    },
-    push: {
-      hasActiveToken: true,
-      platform: 'iOS',
-      lastRegisteredAt: '2026-09-08T19:44:00Z',
-      permissionState: 'granted',
-      recentErrors: [],
-    },
-  },
-  {
-    userId: 'google-oauth2|100000000000000000002',
-    email: 'delayed.exec@mindmodule.me',
-    displayName: 'Daniel Okoye',
-    healthkit: {
-      connectionStatus: 'connected',
-      syncStatus: 'sync_delayed',
-      lastSyncAt: '2026-09-06T23:03:00Z',
-      lastSampleAt: '2026-09-06T21:40:00Z',
-      lastError: 'Background delivery skipped: background refresh disabled for 62h',
-    },
-    push: {
-      hasActiveToken: false,
-      platform: 'iOS',
-      lastRegisteredAt: '2026-08-21T07:12:00Z',
-      permissionState: 'denied',
-      recentErrors: [
-        'APNs 410 Unregistered — token deactivated 2026-09-05',
-        'Dispatch skipped: no active device token (2026-09-08)',
-      ],
-    },
-  },
-  {
-    userId: 'google-oauth2|100000000000000000003',
-    email: 'revoked.exec@mindmodule.me',
-    displayName: 'Marta Feldt',
-    healthkit: {
-      connectionStatus: 'permission_revoked',
-      syncStatus: 'error',
-      lastSyncAt: '2026-08-30T06:01:00Z',
-      lastSampleAt: null,
-      lastError: 'HealthKit authorization revoked in iOS Settings',
-    },
-    push: {
-      hasActiveToken: true,
-      platform: 'Web',
-      lastRegisteredAt: '2026-09-07T11:20:00Z',
-      permissionState: 'provisional',
-      recentErrors: ['Quiet delivery only — provisional authorization'],
-    },
-  },
-];
+interface PushTokenRecord {
+  id: string;
+  platform: string;
+  isActive: boolean;
+  updatedAt: string;
+  deviceTokenMasked: string | null;
+}
 
-function formatDateTime(iso: string | null): string {
+interface DiagnosticResult {
+  userId: string;
+  healthkit: HealthKitRecord | null;
+  tokens: PushTokenRecord[];
+}
+
+function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 const badgeTone = (tone: 'green' | 'yellow' | 'red' | 'gray') => {
   switch (tone) {
-    case 'green': return 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100';
-    case 'yellow': return 'bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-100';
-    case 'red': return 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100';
-    default: return 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100';
+    case 'green':
+      return 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100';
+    case 'yellow':
+      return 'bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-100';
+    case 'red':
+      return 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100';
+    default:
+      return 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100';
   }
 };
 
-const connectionTone: Record<HealthConnection, 'green' | 'gray' | 'red'> = {
-  connected: 'green',
-  disconnected: 'gray',
-  permission_revoked: 'red',
+const connectionTone = (status: string | null): 'green' | 'gray' | 'red' => {
+  switch (status?.toLowerCase()) {
+    case 'connected':
+      return 'green';
+    case 'permission_revoked':
+      return 'red';
+    default:
+      return 'gray';
+  }
 };
 
-const syncTone: Record<HealthSync, 'green' | 'yellow' | 'red'> = {
-  synced: 'green',
-  waiting_for_data: 'yellow',
-  sync_delayed: 'yellow',
-  error: 'red',
-};
-
-const permissionTone: Record<PushPermission, 'green' | 'yellow' | 'red' | 'gray'> = {
-  granted: 'green',
-  provisional: 'yellow',
-  denied: 'red',
-  not_determined: 'gray',
+const syncTone = (status: string | null): 'green' | 'yellow' | 'red' | 'gray' => {
+  switch (status?.toLowerCase()) {
+    case 'synced':
+      return 'green';
+    case 'waiting_for_data':
+    case 'sync_delayed':
+      return 'yellow';
+    case 'error':
+      return 'red';
+    default:
+      return 'gray';
+  }
 };
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -145,19 +92,44 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 );
 
 const AdminUserDiagnostics = () => {
-  const [query, setQuery] = useState('');
+  const [userId, setUserId] = useState('');
+  const [result, setResult] = useState<DiagnosticResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
-  const [record, setRecord] = useState<DiagnosticRecord | null>(null);
 
-  const runSearch = () => {
-    const q = query.trim().toLowerCase();
+  const fetchDiagnostics = async () => {
+    const id = userId.trim();
+    if (!id) return;
+
+    setLoading(true);
+    setError(null);
+    setResult(null);
     setSearched(true);
-    if (!q) { setRecord(null); return; }
-    const found = MOCK_RECORDS.find(
-      (r) => r.email.toLowerCase() === q || r.userId.toLowerCase() === q
-        || r.email.toLowerCase().includes(q),
-    );
-    setRecord(found ?? null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const params = new URLSearchParams({ userId: id });
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/admin-user-diagnostics?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? `HTTP ${res.status}`);
+      }
+
+      const body = await res.json();
+      setResult(body as DiagnosticResult);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -175,62 +147,90 @@ const AdminUserDiagnostics = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
               <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') runSearch(); }}
-                placeholder="Search by email or user ID"
-                aria-label="Search by email or user ID"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') fetchDiagnostics();
+                }}
+                placeholder="Enter user_id"
+                aria-label="Enter user_id"
                 className="pl-9"
               />
             </div>
-            <Button onClick={runSearch}>Search</Button>
+            <Button onClick={fetchDiagnostics} disabled={loading || !userId.trim()}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  Loading…
+                </>
+              ) : (
+                'Fetch Diagnostics'
+              )}
+            </Button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Sample accounts: healthy.exec@mindmodule.me · delayed.exec@mindmodule.me · revoked.exec@mindmodule.me
-          </p>
         </CardContent>
       </Card>
 
-      {searched && !record && (
-        <Card className="bg-white">
-          <CardContent className="p-6 flex items-center gap-3 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" aria-hidden />
-            No user found for that email or ID.
+      {error && (
+        <Card className="mb-6 bg-white border-red-200">
+          <CardContent className="p-6 flex items-center gap-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden />
+            {error}
           </CardContent>
         </Card>
       )}
 
-      {record && (
+      {searched && !loading && !error && result && (
         <>
           <div className="mb-4 text-sm text-slate-700">
-            <span className="font-medium">{record.displayName}</span>
-            <span className="text-muted-foreground"> · {record.email} · {record.userId}</span>
+            <span className="font-medium">User ID:</span>{' '}
+            <span className="text-muted-foreground font-mono">{result.userId}</span>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="bg-white">
               <CardHeader className="flex flex-row items-center gap-2 space-y-0">
                 <Activity className="h-5 w-5 text-emerald-600" aria-hidden />
-                <CardTitle className="text-base">HealthKit Integration</CardTitle>
+                <CardTitle className="text-base">HealthKit Sync</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <Field label="Connection Status">
-                  <Badge variant="outline" className={badgeTone(connectionTone[record.healthkit.connectionStatus])}>
-                    {record.healthkit.connectionStatus}
-                  </Badge>
-                </Field>
-                <Field label="Sync Status">
-                  <Badge variant="outline" className={badgeTone(syncTone[record.healthkit.syncStatus])}>
-                    {record.healthkit.syncStatus}
-                  </Badge>
-                </Field>
-                <Field label="Last Sync Date">{formatDateTime(record.healthkit.lastSyncAt)}</Field>
-                <Field label="Last Sample Date">{formatDateTime(record.healthkit.lastSampleAt)}</Field>
-                <Field label="Last Error">
-                  {record.healthkit.lastError
-                    ? <span className="text-red-600">{record.healthkit.lastError}</span>
-                    : <span className="text-muted-foreground">None</span>}
-                </Field>
+                {!result.healthkit ? (
+                  <p className="text-sm text-muted-foreground py-4">
+                    No HealthKit integration record found for this user.
+                  </p>
+                ) : (
+                  <>
+                    <Field label="Connection Status">
+                      <Badge
+                        variant="outline"
+                        className={badgeTone(connectionTone(result.healthkit.watch_connection_status))}
+                      >
+                        {result.healthkit.watch_connection_status ?? 'unknown'}
+                      </Badge>
+                    </Field>
+                    <Field label="Sync Status">
+                      <Badge
+                        variant="outline"
+                        className={badgeTone(syncTone(result.healthkit.watch_sync_status))}
+                      >
+                        {result.healthkit.watch_sync_status ?? 'unknown'}
+                      </Badge>
+                    </Field>
+                    <Field label="Last Sync Date">
+                      {formatDateTime(result.healthkit.watch_last_sync_at)}
+                    </Field>
+                    <Field label="Last Sample Date">
+                      {formatDateTime(result.healthkit.watch_last_sample_at)}
+                    </Field>
+                    <Field label="Last Error">
+                      {result.healthkit.watch_last_error ? (
+                        <span className="text-red-600">{result.healthkit.watch_last_error}</span>
+                      ) : (
+                        <span className="text-muted-foreground">None</span>
+                      )}
+                    </Field>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -240,29 +240,43 @@ const AdminUserDiagnostics = () => {
                 <CardTitle className="text-base">Push Notifications</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <Field label="Active Token">
-                  <Badge variant="outline" className={badgeTone(record.push.hasActiveToken ? 'green' : 'red')}>
-                    {record.push.hasActiveToken ? 'Yes' : 'No'}
-                  </Badge>
-                </Field>
-                <Field label="Platform">{record.push.platform ?? '—'}</Field>
-                <Field label="Last Registered">{formatDateTime(record.push.lastRegisteredAt)}</Field>
-                <Field label="Push Permission State">
-                  <Badge variant="outline" className={badgeTone(permissionTone[record.push.permissionState])}>
-                    {record.push.permissionState}
-                  </Badge>
-                </Field>
-                <Field label="Recent Errors">
-                  {record.push.recentErrors.length === 0
-                    ? <span className="text-muted-foreground">None</span>
-                    : (
-                      <ul className="space-y-1">
-                        {record.push.recentErrors.map((e) => (
-                          <li key={e} className="text-red-600">{e}</li>
+                {result.tokens.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">
+                    No device tokens registered for this user.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground border-b border-slate-100">
+                        <tr>
+                          <th className="py-2 pr-3">Platform</th>
+                          <th className="py-2 pr-3">Active</th>
+                          <th className="py-2 pr-3">Last Registered</th>
+                          <th className="py-2">Token</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.tokens.map((token) => (
+                          <tr key={token.id} className="border-b border-slate-50 last:border-b-0">
+                            <td className="py-2 pr-3 capitalize">{token.platform}</td>
+                            <td className="py-2 pr-3">
+                              <Badge
+                                variant="outline"
+                                className={badgeTone(token.isActive ? 'green' : 'red')}
+                              >
+                                {token.isActive ? 'Yes' : 'No'}
+                              </Badge>
+                            </td>
+                            <td className="py-2 pr-3">{formatDateTime(token.updatedAt)}</td>
+                            <td className="py-2 font-mono text-xs text-muted-foreground">
+                              {token.deviceTokenMasked ?? '—'}
+                            </td>
+                          </tr>
                         ))}
-                      </ul>
-                    )}
-                </Field>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
