@@ -18,14 +18,24 @@ Per your note: usage is **not** anonymised. Every per-user row shows the real ac
 5. **Timing** — bars for time of day and day of week, plus a highlighted "peak usage window" callout.
 6. **Power users** — accounts with 10+ sessions: **email and account ID**, sessions, unique protocols, per-category counts, active days, most-used protocol, loop days (amber when above zero), average daily intensity.
 7. **Loop / crisis signals** — collapsed by default: same protocol used 3+ times in one day, showing date, **email and account ID**, protocol, count, category. Max 50 rows, with a short explanation that repeats suggest an unmet need.
-8. **Content gaps** — an insight card with plain-language bullets and suggested actions (under-used mornings, category imbalance, looped protocols with no alternative, high Friday load).
+8. **Plan exposure and variety** — what the daily plan is actually putting in front of people:
+   - How many distinct practices the plan has recommended in the period, out of the full catalogue (a coverage percentage).
+   - The most-recommended practices, with how many plans and how many people each appeared in, and how concentrated the rotation is (share held by the top 10).
+   - Practices the plan has never recommended, as a pill list, so blind spots are visible.
+   - Repetition: average number of times the same practice is recommended to the same person, and a flagged list where that count is high.
+   - Route to practice: how many sessions came from a practice the plan recommended that same day versus practices found directly in Recalibrate, shown as a split with a per-practice breakdown for the top rows.
+   - Plan follow-through: recommended versus actually completed, from the plan completion records.
+9. **Content gaps** — an insight card with plain-language bullets and suggested actions (under-used mornings, category imbalance, looped protocols with no alternative, high Friday load, plan rotation too narrow).
 
 Plus a "last refreshed" time and a Refresh button.
+
 
 ## Technical notes
 
 - New edge function `admin-recalibrate-analytics`, guarded by the existing `_shared/admin-guard.ts` (same pattern as `admin-dashboard-summary`), accepting `?days=90` (default 90). Read-only queries only.
 - Data sources: `sanctuary_events` joined to `sanctuary_content` (title, category, sub_type, content_type); `profiles` joined on `user_id` for `email` and `full_name`. Sections A–H computed server-side exactly as specified in the brief, with `userId` returned in full and an added `email` (and `name`) field on every per-user row (Sections F and G) — no last-8-chars truncation.
+- Plan exposure section reads `mastery_plan_snapshots.recommended_practice_ids` (with `user_id`, `plan_date`) for what the plan surfaced, and `mastery_plan_completions.practices_assigned` / `practices_completed` for follow-through. Plan-versus-direct routing is derived by matching a `sanctuary_events` row's `content_id` and local date against that user's recommended IDs for the same date; unmatched sessions count as direct. Reads only.
+
 - Function writes an admin audit entry via `writeAdminAudit` on load, consistent with other admin functions, since it exposes identified user data.
 - Frontend fetches with bearer token from `getAuthToken()` against `https://${projectId}.supabase.co/functions/v1/admin-recalibrate-analytics`, same as `AdminDashboard.tsx`. Cards, badges and tables from shadcn/ui; bar charts are plain div widths, no charting library.
 - Route registered in `src/App.tsx` behind the existing admin route guard; nav item added in `src/components/admin/AdminLayout.tsx`.
