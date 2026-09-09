@@ -1,15 +1,10 @@
-import { useState } from 'react';
-import { Activity, Bell, Search, Loader2, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Activity, Bell, Search, Loader2, AlertCircle, User as UserIcon, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getAuthToken } from '@/services/authTokenService';
-
-/**
- * Read-only admin diagnostic view: HealthKit sync + push token status.
- * Queries real backend data for a single user_id. No mutations are exposed.
- */
 
 interface HealthKitRecord {
   watch_connection_status: string | null;
@@ -31,6 +26,12 @@ interface DiagnosticResult {
   userId: string;
   healthkit: HealthKitRecord | null;
   tokens: PushTokenRecord[];
+}
+
+interface ListedUser {
+  id: string;
+  email: string | null;
+  name: string | null;
 }
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -92,27 +93,58 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 );
 
 const AdminUserDiagnostics = () => {
-  const [userId, setUserId] = useState('');
+  const [users, setUsers] = useState<ListedUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  
+  const [selectedUser, setSelectedUser] = useState<ListedUser | null>(null);
   const [result, setResult] = useState<DiagnosticResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searched, setSearched] = useState(false);
+  const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
 
-  const fetchDiagnostics = async () => {
-    const id = userId.trim();
-    if (!id) return;
+  // Fetch list of users on mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) throw new Error('Not authenticated');
 
-    setLoading(true);
-    setError(null);
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        // Fetch up to 100 users for the list
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/admin-list-users?limit=100`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error ?? `HTTP ${res.status}`);
+        }
+
+        const body = await res.json();
+        setUsers(body.users || []);
+      } catch (err) {
+        setUsersError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const fetchDiagnostics = async (user: ListedUser) => {
+    setSelectedUser(user);
+    setLoadingDiagnostics(true);
+    setDiagnosticsError(null);
     setResult(null);
-    setSearched(true);
 
     try {
       const token = await getAuthToken();
       if (!token) throw new Error('Not authenticated');
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const params = new URLSearchParams({ userId: id });
+      const params = new URLSearchParams({ userId: user.id });
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/admin-user-diagnostics?${params.toString()}`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -126,9 +158,9 @@ const AdminUserDiagnostics = () => {
       const body = await res.json();
       setResult(body as DiagnosticResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setDiagnosticsError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      setLoadingDiagnostics(false);
     }
   };
 
@@ -137,151 +169,188 @@ const AdminUserDiagnostics = () => {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-900">User Diagnostics</h1>
         <p className="text-sm text-muted-foreground">
-          Read-only check of HealthKit sync and push notification health for a single user.
+          Select a user from the list to view their HealthKit sync and push notification health.
         </p>
       </header>
 
-      <Card className="mb-6 bg-white">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
-              <Input
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') fetchDiagnostics();
-                }}
-                placeholder="Enter user_id"
-                aria-label="Enter user_id"
-                className="pl-9"
-              />
-            </div>
-            <Button onClick={fetchDiagnostics} disabled={loading || !userId.trim()}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  Loading…
-                </>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* LEFT COLUMN: User List */}
+        <div className="lg:col-span-1">
+          <Card className="bg-white h-[600px] flex flex-col">
+            <CardHeader className="py-4 border-b border-slate-100 flex-shrink-0">
+              <CardTitle className="text-base flex items-center gap-2">
+                <UserIcon className="h-5 w-5 text-slate-500" />
+                Select User
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 overflow-y-auto flex-1">
+              {loadingUsers ? (
+                <div className="flex items-center justify-center h-32 text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading...
+                </div>
+              ) : usersError ? (
+                <div className="p-4 text-sm text-red-600">{usersError}</div>
+              ) : users.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">No users found.</div>
               ) : (
-                'Fetch Diagnostics'
+                <ul className="divide-y divide-slate-100">
+                  {users.map((user) => (
+                    <li key={user.id}>
+                      <button
+                        onClick={() => fetchDiagnostics(user)}
+                        className={`w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center justify-between transition-colors ${
+                          selectedUser?.id === user.id ? 'bg-slate-50 border-l-2 border-blue-500' : ''
+                        }`}
+                      >
+                        <div className="truncate pr-4">
+                          <div className="text-sm font-medium text-slate-900 truncate">
+                            {user.name || 'Unnamed User'}
+                          </div>
+                          <div className="text-xs text-slate-500 truncate">
+                            {user.email || 'No email'}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
 
-      {error && (
-        <Card className="mb-6 bg-white border-red-200">
-          <CardContent className="p-6 flex items-center gap-3 text-sm text-red-700">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden />
-            {error}
-          </CardContent>
-        </Card>
-      )}
-
-      {searched && !loading && !error && result && (
-        <>
-          <div className="mb-4 text-sm text-slate-700">
-            <span className="font-medium">User ID:</span>{' '}
-            <span className="text-muted-foreground font-mono">{result.userId}</span>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="bg-white">
-              <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-                <Activity className="h-5 w-5 text-emerald-600" aria-hidden />
-                <CardTitle className="text-base">HealthKit Sync</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {!result.healthkit ? (
-                  <p className="text-sm text-muted-foreground py-4">
-                    No HealthKit integration record found for this user.
-                  </p>
-                ) : (
-                  <>
-                    <Field label="Connection Status">
-                      <Badge
-                        variant="outline"
-                        className={badgeTone(connectionTone(result.healthkit.watch_connection_status))}
-                      >
-                        {result.healthkit.watch_connection_status ?? 'unknown'}
-                      </Badge>
-                    </Field>
-                    <Field label="Sync Status">
-                      <Badge
-                        variant="outline"
-                        className={badgeTone(syncTone(result.healthkit.watch_sync_status))}
-                      >
-                        {result.healthkit.watch_sync_status ?? 'unknown'}
-                      </Badge>
-                    </Field>
-                    <Field label="Last Sync Date">
-                      {formatDateTime(result.healthkit.watch_last_sync_at)}
-                    </Field>
-                    <Field label="Last Sample Date">
-                      {formatDateTime(result.healthkit.watch_last_sample_at)}
-                    </Field>
-                    <Field label="Last Error">
-                      {result.healthkit.watch_last_error ? (
-                        <span className="text-red-600">{result.healthkit.watch_last_error}</span>
-                      ) : (
-                        <span className="text-muted-foreground">None</span>
-                      )}
-                    </Field>
-                  </>
-                )}
-              </CardContent>
+        {/* RIGHT COLUMN: Diagnostics Results */}
+        <div className="lg:col-span-2">
+          {!selectedUser ? (
+            <Card className="bg-white border-dashed shadow-sm flex items-center justify-center h-full min-h-[300px]">
+              <div className="text-center text-slate-500">
+                <UserIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                <p>Select a user from the list to view diagnostics.</p>
+              </div>
             </Card>
+          ) : (
+            <>
+              {diagnosticsError && (
+                <Card className="mb-6 bg-white border-red-200">
+                  <CardContent className="p-6 flex items-center gap-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden />
+                    {diagnosticsError}
+                  </CardContent>
+                </Card>
+              )}
 
-            <Card className="bg-white">
-              <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-                <Bell className="h-5 w-5 text-sky-600" aria-hidden />
-                <CardTitle className="text-base">Push Notifications</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {result.tokens.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4">
-                    No device tokens registered for this user.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground border-b border-slate-100">
-                        <tr>
-                          <th className="py-2 pr-3">Platform</th>
-                          <th className="py-2 pr-3">Active</th>
-                          <th className="py-2 pr-3">Last Registered</th>
-                          <th className="py-2">Token</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {result.tokens.map((token) => (
-                          <tr key={token.id} className="border-b border-slate-50 last:border-b-0">
-                            <td className="py-2 pr-3 capitalize">{token.platform}</td>
-                            <td className="py-2 pr-3">
-                              <Badge
-                                variant="outline"
-                                className={badgeTone(token.isActive ? 'green' : 'red')}
-                              >
-                                {token.isActive ? 'Yes' : 'No'}
-                              </Badge>
-                            </td>
-                            <td className="py-2 pr-3">{formatDateTime(token.updatedAt)}</td>
-                            <td className="py-2 font-mono text-xs text-muted-foreground">
-                              {token.deviceTokenMasked ?? '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {loadingDiagnostics ? (
+                <Card className="bg-white shadow-sm flex items-center justify-center h-full min-h-[300px]">
+                  <div className="text-center text-slate-500">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />
+                    <p>Fetching diagnostics for {selectedUser.name || selectedUser.email}...</p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </>
-      )}
+                </Card>
+              ) : result ? (
+                <div className="grid gap-6">
+                  <div className="text-sm text-slate-700 bg-white p-4 rounded-lg border shadow-sm flex flex-col gap-1">
+                     <div><span className="font-medium">User:</span> {selectedUser.name || 'Unnamed'} ({selectedUser.email || 'No email'})</div>
+                     <div><span className="font-medium text-muted-foreground">ID:</span> <span className="font-mono text-xs">{result.userId}</span></div>
+                  </div>
+
+                  <Card className="bg-white shadow-sm">
+                    <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
+                      <Activity className="h-5 w-5 text-emerald-600" aria-hidden />
+                      <CardTitle className="text-base">HealthKit Sync</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {!result.healthkit ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          No HealthKit integration record found for this user.
+                        </p>
+                      ) : (
+                        <div className="grid sm:grid-cols-2 gap-x-4">
+                          <Field label="Connection Status">
+                            <Badge
+                              variant="outline"
+                              className={badgeTone(connectionTone(result.healthkit.watch_connection_status))}
+                            >
+                              {result.healthkit.watch_connection_status ?? 'unknown'}
+                            </Badge>
+                          </Field>
+                          <Field label="Sync Status">
+                            <Badge
+                              variant="outline"
+                              className={badgeTone(syncTone(result.healthkit.watch_sync_status))}
+                            >
+                              {result.healthkit.watch_sync_status ?? 'unknown'}
+                            </Badge>
+                          </Field>
+                          <Field label="Last Sync Date">
+                            {formatDateTime(result.healthkit.watch_last_sync_at)}
+                          </Field>
+                          <Field label="Last Sample Date">
+                            {formatDateTime(result.healthkit.watch_last_sample_at)}
+                          </Field>
+                          <Field label="Last Error">
+                            {result.healthkit.watch_last_error ? (
+                              <span className="text-red-600">{result.healthkit.watch_last_error}</span>
+                            ) : (
+                              <span className="text-muted-foreground">None</span>
+                            )}
+                          </Field>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white shadow-sm">
+                    <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
+                      <Bell className="h-5 w-5 text-sky-600" aria-hidden />
+                      <CardTitle className="text-base">Push Notifications</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {result.tokens.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          No device tokens registered for this user.
+                        </p>
+                      ) : (
+                        <div className="overflow-x-auto rounded-md border border-slate-100">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-muted-foreground border-b border-slate-100">
+                              <tr>
+                                <th className="px-4 py-3 font-medium">Platform</th>
+                                <th className="px-4 py-3 font-medium">Active</th>
+                                <th className="px-4 py-3 font-medium">Last Registered</th>
+                                <th className="px-4 py-3 font-medium">Token</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {result.tokens.map((token) => (
+                                <tr key={token.id} className="bg-white">
+                                  <td className="px-4 py-3 capitalize whitespace-nowrap">{token.platform}</td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <Badge
+                                      variant="outline"
+                                      className={badgeTone(token.isActive ? 'green' : 'red')}
+                                    >
+                                      {token.isActive ? 'Yes' : 'No'}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(token.updatedAt)}</td>
+                                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground min-w-[120px]">
+                                    {token.deviceTokenMasked ?? '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
