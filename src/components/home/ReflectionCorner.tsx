@@ -29,7 +29,6 @@ const draftKey = (userId: string | undefined, postEventTitle?: string | null) =>
   `tinyWinDraft:${userId ?? 'anon'}:${new Date().toLocaleDateString('en-CA')}:${postEventTitle ? 'event' : 'daily'}`;
 
 const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const userId = DEV_MODE ? DEV_USER.id : user?.id;
 
