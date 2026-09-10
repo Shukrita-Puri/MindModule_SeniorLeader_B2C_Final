@@ -96,23 +96,30 @@ const AdminUserDiagnostics = () => {
   const [users, setUsers] = useState<ListedUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [totalUsers, setTotalUsers] = useState<number | null>(null);
   
   const [selectedUser, setSelectedUser] = useState<ListedUser | null>(null);
   const [result, setResult] = useState<DiagnosticResult | null>(null);
   const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
 
-  // Fetch list of users on mount
+  // Fetch list of users (search-aware, debounced)
   useEffect(() => {
-    const fetchUsers = async () => {
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      setLoadingUsers(true);
+      setUsersError(null);
       try {
         const token = await getAuthToken();
         if (!token) throw new Error('Not authenticated');
 
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        // Fetch up to 100 users for the list
+        const params = new URLSearchParams({ limit: '100' });
+        const q = search.trim();
+        if (q) params.set('q', q);
         const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/admin-list-users?limit=100`,
+          `https://${projectId}.supabase.co/functions/v1/admin-list-users?${params.toString()}`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
 
@@ -122,16 +129,21 @@ const AdminUserDiagnostics = () => {
         }
 
         const body = await res.json();
+        if (cancelled) return;
         setUsers(body.users || []);
+        setTotalUsers(typeof body.total === 'number' ? body.total : null);
       } catch (err) {
-        setUsersError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setUsersError(err instanceof Error ? err.message : String(err));
       } finally {
-        setLoadingUsers(false);
+        if (!cancelled) setLoadingUsers(false);
       }
-    };
+    }, search.trim() ? 300 : 0);
 
-    fetchUsers();
-  }, []);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [search]);
 
   const fetchDiagnostics = async (user: ListedUser) => {
     setSelectedUser(user);
@@ -182,6 +194,21 @@ const AdminUserDiagnostics = () => {
                 <UserIcon className="h-5 w-5 text-slate-500" />
                 Select User
               </CardTitle>
+              <div className="relative mt-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, email or user ID"
+                  className="pl-9"
+                  aria-label="Search users"
+                />
+              </div>
+              {totalUsers !== null && totalUsers > users.length && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Showing {users.length} of {totalUsers} matches — refine your search to narrow results.
+                </p>
+              )}
             </CardHeader>
             <CardContent className="p-0 overflow-y-auto flex-1">
               {loadingUsers ? (
