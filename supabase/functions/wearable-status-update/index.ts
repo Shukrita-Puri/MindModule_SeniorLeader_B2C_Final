@@ -25,6 +25,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { decideWrite } from "./decide-write.ts";
+import { resolveRecoveryIssue } from "../_shared/connection-recovery.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -192,6 +193,11 @@ Deno.serve(async (req) => {
     if (writeErr) {
       console.error("[wearable-status-update] write failed", writeErr);
       return bad("write failed", 500);
+    }
+
+    // A healthy sync closes any open reconnect request for this user.
+    if (body.status === "synced") {
+      await resolveRecoveryIssue(db, userId, "wearable");
     }
 
     return new Response(
