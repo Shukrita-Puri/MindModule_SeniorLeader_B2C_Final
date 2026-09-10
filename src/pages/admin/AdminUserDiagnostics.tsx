@@ -96,6 +96,8 @@ const AdminUserDiagnostics = () => {
   const [users, setUsers] = useState<ListedUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [totalUsers, setTotalUsers] = useState<number | null>(null);
   
   const [selectedUser, setSelectedUser] = useState<ListedUser | null>(null);
   const [result, setResult] = useState<DiagnosticResult | null>(null);
