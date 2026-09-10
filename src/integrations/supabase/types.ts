@@ -1740,6 +1740,54 @@ export type Database = {
           },
         ]
       }
+      connection_recovery_requests: {
+        Row: {
+          attempts: number
+          created_at: string
+          first_prompt_shown_at: string | null
+          id: string
+          issue: string
+          last_prompt_shown_at: string | null
+          last_requested_at: string | null
+          prompt_dismiss_count: number
+          push_sent_at: string | null
+          requested_by: string | null
+          resolved_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          first_prompt_shown_at?: string | null
+          id?: string
+          issue: string
+          last_prompt_shown_at?: string | null
+          last_requested_at?: string | null
+          prompt_dismiss_count?: number
+          push_sent_at?: string | null
+          requested_by?: string | null
+          resolved_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          first_prompt_shown_at?: string | null
+          id?: string
+          issue?: string
+          last_prompt_shown_at?: string | null
+          last_requested_at?: string | null
+          prompt_dismiss_count?: number
+          push_sent_at?: string | null
+          requested_by?: string | null
+          resolved_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       content_relevance_feedback: {
         Row: {
           content_id: string

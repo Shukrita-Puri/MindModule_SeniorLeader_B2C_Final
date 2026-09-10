@@ -36,6 +36,8 @@ import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import EventOutcomeFeedbackModal from "@/components/home/EventOutcomeFeedbackModal";
 import { useEventOutcomePrompt } from "@/hooks/useEventOutcomePrompt";
+import ConnectionRecoveryPrompt from "@/components/home/ConnectionRecoveryPrompt";
+import { useConnectionRecoveryPrompt } from "@/hooks/useConnectionRecoveryPrompt";
 
 import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
 import { useHomeClock } from '@/hooks/useHomeClock';
@@ -77,6 +79,7 @@ const ExecutiveHome = () => {
   // settle delay, ignores already-answered events, and never writes feedback.
   const dryPostEvent = searchParams.get('dryPostEvent') === '1';
   const eventOutcome = useEventOutcomePrompt(true, dryPostEvent);
+  const connectionRecovery = useConnectionRecoveryPrompt(true);
 
   const refreshCards = useExecutiveHomeCardsRefresh();
   const { data: mrsSnapshot } = useMrsSnapshot();
@@ -424,6 +427,15 @@ const ExecutiveHome = () => {
                 setPlanFeedback(null);
               }}
               onSkip={() => setPlanFeedback(null)}
+            />
+          )}
+
+          {/* Reconnect prompt — only when nothing else is on screen */}
+          {!planFeedback && !showGuide && !eventOutcome.candidate && connectionRecovery.prompt && (
+            <ConnectionRecoveryPrompt
+              prompt={connectionRecovery.prompt}
+              onDismiss={connectionRecovery.dismiss}
+              onAct={connectionRecovery.acknowledge}
             />
           )}
 
