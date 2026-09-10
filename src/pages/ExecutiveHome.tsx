@@ -79,6 +79,7 @@ const ExecutiveHome = () => {
   // settle delay, ignores already-answered events, and never writes feedback.
   const dryPostEvent = searchParams.get('dryPostEvent') === '1';
   const eventOutcome = useEventOutcomePrompt(true, dryPostEvent);
+  const connectionRecovery = useConnectionRecoveryPrompt(true);
 
   const refreshCards = useExecutiveHomeCardsRefresh();
   const { data: mrsSnapshot } = useMrsSnapshot();
