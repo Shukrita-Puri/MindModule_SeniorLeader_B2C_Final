@@ -91,7 +91,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
     ? `What did you take from "${postEventTitle}"?`
     : 'Capture one thing — however small — you did right today.';
 
-  const canSave = winContent.trim().length >= 10 && !saving && !alreadySaved;
+  const canSave = winContent.trim().length >= 10 && !saving;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -223,63 +223,60 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
           )}
         </div>
 
-        {alreadySaved && !saveConfirmed ? (
+        <p className="text-sm text-foreground/80 font-body leading-snug">
+          {promptCopy}
+        </p>
+        <div className="isolate [transform:translateZ(0)] [contain:layout_paint]">
+          <Textarea
+            value={winContent}
+            onChange={(e) => updateWinContent(e.target.value)}
+            placeholder="A small moment, a clean decision, a held boundary…"
+            className={cn(
+              "min-h-[80px] resize-none text-sm bg-background border-[#cfc7b8]",
+              "focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-0"
+            )}
+            maxLength={500}
+            autoCapitalize="sentences"
+            autoCorrect="on"
+            spellCheck
+            enterKeyHint="done"
+          />
+        </div>
+        {/*
+          Counter is isolated into its own compositing/paint-contained block
+          so per-keystroke text changes don't dirty the surrounding blurred
+          card subtree on iOS Safari/WKWebView.
+        */}
+        <div className="flex items-center justify-between isolate [transform:translateZ(0)] [contain:layout_paint]">
+          <span className="text-[11px] text-muted-foreground/60 font-body tabular-nums">
+            {winContent.trim().length < 10
+              ? `${10 - winContent.trim().length} more characters`
+              : `${winContent.trim().length} characters`}
+          </span>
+          <div className="flex items-center gap-2">
+            {saveConfirmed && (
+              <span className="flex items-center gap-1 text-[11px] font-medium text-taupe" role="status">
+                <Check size={12} className="stroke-[3]" />
+                Saved
+              </span>
+            )}
+            <Button
+              onClick={handleSave}
+              disabled={!canSave}
+              className="h-9 px-4 text-[13px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-lg disabled:opacity-40"
+            >
+              {saving ? 'Saving…' : 'Save win'}
+            </Button>
+          </div>
+        </div>
+        {alreadySaved && (
           <button
             onClick={() => navigate('/insights')}
-            className="w-full flex items-center justify-between text-left text-sm text-foreground/80 hover:text-foreground transition-colors"
+            className="w-full flex items-center justify-between text-left text-sm text-foreground/80 hover:text-foreground transition-colors pt-1"
           >
             <span className="font-body">✓ Win captured — see it in Insights</span>
             <ArrowRight size={14} className="text-muted-foreground/60" />
           </button>
-        ) : (
-          <>
-            <p className="text-sm text-foreground/80 font-body leading-snug">
-              {promptCopy}
-            </p>
-            <div className="isolate [transform:translateZ(0)] [contain:layout_paint]">
-              <Textarea
-                value={winContent}
-                onChange={(e) => updateWinContent(e.target.value)}
-                placeholder="A small moment, a clean decision, a held boundary…"
-                className={cn(
-                  "min-h-[80px] resize-none text-sm bg-background border-[#cfc7b8]",
-                  "focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-0"
-                )}
-                maxLength={500}
-                autoCapitalize="sentences"
-                autoCorrect="on"
-                spellCheck
-                enterKeyHint="done"
-              />
-            </div>
-            {/*
-              Counter is isolated into its own compositing/paint-contained block
-              so per-keystroke text changes don't dirty the surrounding blurred
-              card subtree on iOS Safari/WKWebView.
-            */}
-            <div className="flex items-center justify-between isolate [transform:translateZ(0)] [contain:layout_paint]">
-              <span className="text-[11px] text-muted-foreground/60 font-body tabular-nums">
-                {winContent.trim().length < 10
-                  ? `${10 - winContent.trim().length} more characters`
-                  : `${winContent.trim().length} characters`}
-              </span>
-              <div className="flex items-center gap-2">
-                {saveConfirmed && (
-                  <span className="flex items-center gap-1 text-[11px] font-medium text-taupe" role="status">
-                    <Check size={12} className="stroke-[3]" />
-                    Saved
-                  </span>
-                )}
-                <Button
-                  onClick={handleSave}
-                  disabled={!canSave}
-                  className="h-9 px-4 text-[13px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-lg disabled:opacity-40"
-                >
-                  {saving ? 'Saving…' : 'Save win'}
-                </Button>
-              </div>
-            </div>
-          </>
         )}
       </div>
 
