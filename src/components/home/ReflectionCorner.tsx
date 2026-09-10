@@ -148,7 +148,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       setAlreadySaved(true);
       setSaveConfirmed(true);
       clearDraft();
-      toast({ title: 'Win captured', description: 'Saved to your Insights.' });
+      toast({ title: 'Win captured', description: 'Saved.' });
       onSaved?.();
     } catch (err) {
       console.error('[ReflectionCorner] save failed', err);
@@ -269,15 +269,6 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
             </Button>
           </div>
         </div>
-        {alreadySaved && (
-          <button
-            onClick={() => navigate('/insights')}
-            className="w-full flex items-center justify-between text-left text-sm text-foreground/80 hover:text-foreground transition-colors pt-1"
-          >
-            <span className="font-body">✓ Win captured — see it in Insights</span>
-            <ArrowRight size={14} className="text-muted-foreground/60" />
-          </button>
-        )}
       </div>
 
       {/* Stoic companion */}
