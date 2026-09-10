@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Bell, Search, Loader2, AlertCircle, User as UserIcon, ChevronRight } from 'lucide-react';
+import { Activity, Bell, Search, Loader2, AlertCircle, AlertTriangle, RefreshCw, User as UserIcon, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,10 +22,38 @@ interface PushTokenRecord {
   deviceTokenMasked: string | null;
 }
 
+interface ConnectionIssue {
+  issue: 'wearable' | 'calendar' | 'push';
+  reason: string;
+  detail: string;
+  since: string | null;
+}
+
+interface RecoveryRequest {
+  id?: string;
+  issue: 'wearable' | 'calendar' | 'push';
+  attempts: number;
+  requested_by?: string | null;
+  last_requested_at: string | null;
+  last_prompt_shown_at?: string | null;
+  push_sent_at: string | null;
+  resolved_at?: string | null;
+}
+
 interface DiagnosticResult {
   userId: string;
   healthkit: HealthKitRecord | null;
   tokens: PushTokenRecord[];
+  issues?: ConnectionIssue[];
+  recovery?: RecoveryRequest[];
+}
+
+interface AlertRow {
+  userId: string;
+  email: string | null;
+  name: string | null;
+  issues: ConnectionIssue[];
+  recovery: RecoveryRequest[];
 }
 
 interface ListedUser {
@@ -104,6 +132,42 @@ const AdminUserDiagnostics = () => {
   const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
 
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+
+  const [requesting, setRequesting] = useState(false);
+  const [requestNotice, setRequestNotice] = useState<string | null>(null);
+
+  // Connection health alerts across all users (read-only).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingAlerts(true);
+      setAlertsError(null);
+      try {
+        const token = await getAuthToken();
+        if (!token) throw new Error('Not authenticated');
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/admin-user-diagnostics?mode=alerts`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error ?? `HTTP ${res.status}`);
+        }
+        const body = await res.json();
+        if (!cancelled) setAlerts(body.alerts ?? []);
+      } catch (err) {
+        if (!cancelled) setAlertsError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setLoadingAlerts(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Fetch list of users (search-aware, debounced)
   useEffect(() => {
     let cancelled = false;
@@ -150,6 +214,7 @@ const AdminUserDiagnostics = () => {
     setLoadingDiagnostics(true);
     setDiagnosticsError(null);
     setResult(null);
+    setRequestNotice(null);
 
     try {
       const token = await getAuthToken();
@@ -176,6 +241,53 @@ const AdminUserDiagnostics = () => {
     }
   };
 
+  const requestRecovery = async (issue: 'wearable' | 'calendar' | 'push') => {
+    if (!selectedUser) return;
+    setRequesting(true);
+    setRequestNotice(null);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/admin-connection-recovery`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: selectedUser.id, issue }),
+        },
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`);
+      }
+      setRequestNotice(
+        `Reconnect requested — attempt ${body?.request?.attempts ?? '?'}. The user will be prompted on next app open.`,
+      );
+      setResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              recovery: [
+                body.request as RecoveryRequest,
+                ...(prev.recovery ?? []).filter((r) => r.issue !== issue),
+              ],
+            }
+          : prev,
+      );
+    } catch (err) {
+      setRequestNotice(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const wearableRecovery = (result?.recovery ?? []).find((r) => r.issue === 'wearable');
+  const wearableUnhealthy = (result?.issues ?? []).some((i) => i.issue === 'wearable');
+
   return (
     <div className="min-h-full bg-slate-50 -m-8 p-8">
       <header className="mb-6">
@@ -184,6 +296,87 @@ const AdminUserDiagnostics = () => {
           Select a user from the list to view their HealthKit sync and push notification health.
         </p>
       </header>
+
+      <Card className="bg-white shadow-sm mb-6">
+        <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
+          <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden />
+          <CardTitle className="text-base">Connection health alerts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingAlerts ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500 py-3">
+              <Loader2 className="h-4 w-4 animate-spin" /> Checking all users...
+            </div>
+          ) : alertsError ? (
+            <p className="text-sm text-red-600 py-2">{alertsError}</p>
+          ) : alerts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-3">
+              No watch or notification problems detected right now.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border border-slate-100">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-muted-foreground border-b border-slate-100">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">User</th>
+                    <th className="px-4 py-3 font-medium">Problem</th>
+                    <th className="px-4 py-3 font-medium">Detail</th>
+                    <th className="px-4 py-3 font-medium">Retries</th>
+                    <th className="px-4 py-3 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {alerts.map((row) => (
+                    <tr key={row.userId} className="bg-white align-top">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-900">{row.name || 'Unnamed User'}</div>
+                        <div className="text-xs text-slate-500">{row.email || 'No email'}</div>
+                        <div className="font-mono text-[11px] text-slate-400 break-all">{row.userId}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {row.issues.map((i) => (
+                          <Badge
+                            key={i.issue + i.reason}
+                            variant="outline"
+                            className={`${badgeTone(i.issue === 'push' ? 'red' : 'yellow')} mr-1 mb-1 capitalize`}
+                          >
+                            {i.issue}
+                          </Badge>
+                        ))}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {row.issues.map((i) => (
+                          <div key={i.issue + i.reason}>{i.detail}</div>
+                        ))}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {row.recovery.length === 0
+                          ? '—'
+                          : row.recovery.map((r) => (
+                              <div key={r.issue} className="text-xs text-slate-600">
+                                {r.issue}: {r.attempts} · last {formatDateTime(r.last_requested_at)}
+                              </div>
+                            ))}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            fetchDiagnostics({ id: row.userId, email: row.email, name: row.name })
+                          }
+                        >
+                          Open
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* LEFT COLUMN: User List */}
@@ -323,6 +516,33 @@ const AdminUserDiagnostics = () => {
                             )}
                           </Field>
                         </div>
+                      )}
+
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-3">
+                        <Button
+                          size="sm"
+                          onClick={() => requestRecovery('wearable')}
+                          disabled={requesting || !wearableUnhealthy}
+                        >
+                          {requesting ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Re-request HealthKit sync
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          {wearableUnhealthy
+                            ? `Retries: ${wearableRecovery?.attempts ?? 0}${
+                                wearableRecovery?.last_requested_at
+                                  ? ` · last ${formatDateTime(wearableRecovery.last_requested_at)}`
+                                  : ''
+                              }`
+                            : 'Watch sync looks healthy — nothing to re-request.'}
+                        </span>
+                      </div>
+                      {requestNotice && (
+                        <p className="mt-2 text-xs text-slate-600">{requestNotice}</p>
                       )}
                     </CardContent>
                   </Card>
