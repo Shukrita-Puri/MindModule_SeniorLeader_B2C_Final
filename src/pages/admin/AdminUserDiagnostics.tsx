@@ -194,6 +194,21 @@ const AdminUserDiagnostics = () => {
                 <UserIcon className="h-5 w-5 text-slate-500" />
                 Select User
               </CardTitle>
+              <div className="relative mt-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, email or user ID"
+                  className="pl-9"
+                  aria-label="Search users"
+                />
+              </div>
+              {totalUsers !== null && totalUsers > users.length && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Showing {users.length} of {totalUsers} matches — refine your search to narrow results.
+                </p>
+              )}
             </CardHeader>
             <CardContent className="p-0 overflow-y-auto flex-1">
               {loadingUsers ? (
