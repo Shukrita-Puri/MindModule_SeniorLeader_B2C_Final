@@ -1335,13 +1335,12 @@ function closeFor(opts: DeterministicBriefFallbackOpts): string {
   // CEO behaviour flag close — workday only, when no off-day branch fired.
   {
     const flag = topCeoFlag(opts);
-    if (flag) {
-      const entry = BEHAVIOUR_COPY[flag.rule];
-      if (!entry) {
-        throw new Error(
-          `[deterministic-brief] CEO flag=${flag.rule} has no BEHAVIOUR_COPY entry`,
-        );
-      }
+    // A day-shape-owned rule can reach here when its day shape did not fire
+    // (e.g. a single speaking slot on a normal workday). Missing copy is never
+    // fatal — fall through to the generic band/window close below, exactly as
+    // the other three beats already do.
+    const entry = flag ? BEHAVIOUR_COPY[flag.rule] : undefined;
+    if (flag && entry) {
       const close = entry.close(buildBriefCopyContext(opts, flag));
       // Copy pack closes are standalone clauses; prefix with "and" so the
       // final body sentence flows: "... directive, and close."
