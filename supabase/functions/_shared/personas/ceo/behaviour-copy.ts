@@ -620,7 +620,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
 export const DAY_SHAPE_OWNED_RULES: readonly string[] = [
   'conferenceNightBeforeSummit',
   'conferenceDayWithSpeaking',
-  'dropInSpeakingHighStakes',
+  
   'conferenceCarryFatigue',
   'postConferenceReentry',
   'fullWorkingWeekend',
