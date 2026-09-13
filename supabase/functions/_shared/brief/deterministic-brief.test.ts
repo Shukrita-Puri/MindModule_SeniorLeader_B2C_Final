@@ -703,3 +703,34 @@ Deno.test("event naming — no A–H vocabulary can reach deterministic copy", (
     assertEquals(body.includes(banned), false, `leaked: ${banned}`);
   }
 });
+
+Deno.test("deterministic brief — day-shape-owned flag on a normal workday does not throw", () => {
+  // A single speaking slot (not a full conference day). The conference
+  // day-shape branch never fires, so the copy-pack lookup is reached.
+  const built = build(base({
+    band: "stretched",
+    todayHighStakes: ["Panel: Future of Assessment"],
+    calendarLoad: "medium",
+    meetingCount: 4,
+    ceoFlags: [{
+      rule: "dropInSpeakingHighStakes",
+      severity: "medium",
+      anchorEvent: "Panel: Future of Assessment",
+      evidence: ["drop-in panel"],
+    }],
+  } as Partial<DeterministicBriefFallbackOpts>));
+
+  assertEquals(typeof built.body, "string");
+  if (built.body.trim().length === 0) throw new Error("empty body");
+
+  // Any remaining day-shape-owned rule with no copy must degrade, not throw.
+  const degraded = build(base({
+    band: "steady",
+    ceoFlags: [{
+      rule: "conferenceCarryFatigue",
+      severity: "high",
+      evidence: ["carry fatigue"],
+    }],
+  } as Partial<DeterministicBriefFallbackOpts>));
+  if (degraded.body.trim().length === 0) throw new Error("empty degraded body");
+});

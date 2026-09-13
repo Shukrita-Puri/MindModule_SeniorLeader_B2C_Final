@@ -573,6 +573,30 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
     close: () => `re-entry before full load`,
   },
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // DROP-IN SPEAKING / SINGLE-SLOT CONFERENCE
+  // A speaking or stage commitment sitting inside an otherwise normal workday.
+  // The conference day-shape branch owns this when the WHOLE day is a
+  // conference; a single slot is not a full-day arc, so the brief still needs
+  // its own copy here. Body only names the commitment and its cost — never a
+  // practice, never a full-day sequence.
+  // ───────────────────────────────────────────────────────────────────────────
+  dropInSpeakingHighStakes: {
+    evidence: (ctx) => {
+      const when = anchorWhen(ctx);
+      return when
+        ? `${anchor(ctx)} sits inside an ordinary working day, ${when}.`
+        : `${anchor(ctx)} sits inside an ordinary working day.`;
+    },
+    read: () =>
+      `One slot carries a different kind of load than the rest of the day — ` +
+      `visible, unrepeatable, and it draws on presence rather than throughput.`,
+    directive: (ctx) =>
+      `Keep the hour before ${anchor(ctx)} thin and hold the rest of the day ` +
+      `at its normal weight — the slot is what needs the sharper version of you.`,
+    close: () => `arrive present, not primed`,
+  },
+
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -596,7 +620,7 @@ export const BEHAVIOUR_COPY: Record<string, BehaviourCopyEntry> = {
 export const DAY_SHAPE_OWNED_RULES: readonly string[] = [
   'conferenceNightBeforeSummit',
   'conferenceDayWithSpeaking',
-  'dropInSpeakingHighStakes',
+  
   'conferenceCarryFatigue',
   'postConferenceReentry',
   'fullWorkingWeekend',
