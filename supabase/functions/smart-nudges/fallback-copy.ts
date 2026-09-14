@@ -22,6 +22,7 @@ import {
 } from "../_shared/nudges/event-phase.ts";
 import {
   buildV8CtxForCheck,
+  isNamedContextViolation,
   violatesCopyContractV8,
   violatesTruthContract,
   type CopyContractCheckCtx,
