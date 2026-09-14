@@ -4226,10 +4226,10 @@ async function projectPlanSlotToNudge(
   if (!copy) {
     // Guaranteed floor: a plan-slot reminder must never be cancelled purely
     // because both the AI text and the deterministic fallback were rejected.
-    log("plan_slot_copy_paths_failed_used_floor", {
-      activeSlot,
-      anchorKind,
-    });
+    console.log(
+      "[smart-nudges] plan_slot_copy_paths_failed_used_floor",
+      JSON.stringify({ activeSlot, anchorKind }),
+    );
     copy = activeSlot === "morning"
       ? guaranteedFloorNudgeOneCopy()
       : activeSlot === "afternoon"
