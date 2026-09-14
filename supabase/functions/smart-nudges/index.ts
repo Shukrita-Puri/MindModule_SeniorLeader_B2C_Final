@@ -4223,7 +4223,19 @@ async function projectPlanSlotToNudge(
     eventReference = undefined;
   }
 
-  if (!copy) return null;
+  if (!copy) {
+    // Guaranteed floor: a plan-slot reminder must never be cancelled purely
+    // because both the AI text and the deterministic fallback were rejected.
+    log("plan_slot_copy_paths_failed_used_floor", {
+      activeSlot,
+      anchorKind,
+    });
+    copy = activeSlot === "morning"
+      ? guaranteedFloorNudgeOneCopy()
+      : activeSlot === "afternoon"
+      ? guaranteedFloorNudgeTwoCopy()
+      : guaranteedFloorNudgeThreeCopy();
+  }
 
   return {
     type: nudgeType,
