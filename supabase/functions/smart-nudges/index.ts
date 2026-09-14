@@ -2933,6 +2933,7 @@ async function generateNudgeCopy(
   ctx: NudgeContext,
   nudgeType: string,
   specificSignals: Record<string, unknown> = {},
+  supabase?: SupabaseClient<any, "public", any>,
   anchorPhase?: EventPhase | null,
 ): Promise<NudgeCopy | null> {
   const systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
