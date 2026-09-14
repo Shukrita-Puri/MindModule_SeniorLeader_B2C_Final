@@ -735,13 +735,7 @@ export function slotFromNotificationLogRow(
 }
 
 
-function normalizeNotificationCopy(copy: NudgeCopy): NudgeCopy {
-  return {
-    ...copy,
-    title: copy.title.replace(/\u2014/g, "-").trim(),
-    body: copy.body.replace(/\u2014/g, "-").trim(),
-  };
-}
+
 
 async function loadPlanNudgeSlots(
   supabase: SupabaseLoose,
