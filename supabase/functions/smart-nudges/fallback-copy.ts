@@ -116,11 +116,11 @@ export interface FallbackNudgeContext {
   eventCount: number;
   highStakesEvents: CalendarEvent[];
   calendarGaps: Array<{
-    startMs: number;
-    endMs: number;
+    startMs?: number;
+    endMs?: number;
     durationMinutes: number;
-    hasHighStakesPre: boolean;
-    hasHighStakesPost: boolean;
+    hasHighStakesPre?: boolean;
+    hasHighStakesPost?: boolean;
   }>;
   dayType: "light" | "moderate" | "heavy" | "extreme";
   wearable: WearableSignals;
