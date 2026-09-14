@@ -3268,12 +3268,17 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
     userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
   }
 
-  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
-  // Both providers are validated through the identical V8 gate.
+  // Launch contract: exactly ONE Gemini attempt, then the deterministic
+  // static copy bank. No retries, no second provider.
 
-  const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);
-  if (claudeCopy) return claudeCopy;
-  const geminiCopy = await tryAIProvider('gemini', ctx, nudgeType, systemPrompt, userPrompt);
+  const geminiCopy = await tryAIProvider(
+    "gemini",
+    ctx,
+    nudgeType,
+    systemPrompt,
+    userPrompt,
+    anchorPhase ?? null,
+  );
   if (geminiCopy) return geminiCopy;
   return null;
 }
