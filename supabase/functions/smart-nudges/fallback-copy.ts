@@ -157,10 +157,8 @@ export interface FallbackNudgeContext {
     inFlight?: { eventTitle: string; minutesUntil: number } | null;
     ptoMode?: boolean;
     landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
-    availability?: {
-      kind: "normal" | "travel-day" | "away-day" | "pto";
-      reason: string;
-    };
+    // Availability shape is owned by the shared classifier; unused here.
+    availability?: unknown;
   };
 }
 
