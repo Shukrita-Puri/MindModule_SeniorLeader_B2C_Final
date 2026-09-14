@@ -34,7 +34,7 @@ export interface NudgeCopy {
   title: string;
   body: string;
   variantId: string;
-  aiProvider?: string;
+  aiProvider?: "static" | "claude" | "gemini" | null;
 }
 
 export interface CalendarEvent {
