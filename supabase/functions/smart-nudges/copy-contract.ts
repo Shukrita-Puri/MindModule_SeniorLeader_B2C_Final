@@ -18,10 +18,10 @@ import {
 } from "../_shared/nudges/event-phase.ts";
 
 export interface CopyContractCheckCtx {
-  todayEvents: Array<{ title?: string }>;
-  tomorrowEvents: Array<{ title?: string }>;
-  highStakesEvents: Array<{ title?: string }>;
-  firstNonNoiseEvent?: { title?: string } | null;
+  todayEvents: Array<{ title?: string | null }>;
+  tomorrowEvents: Array<{ title?: string | null }>;
+  highStakesEvents: Array<{ title?: string | null }>;
+  firstNonNoiseEvent?: { title?: string | null } | null;
   morningCheckinOutcome?: string | null;
 }
 
