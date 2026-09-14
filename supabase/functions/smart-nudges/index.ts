@@ -32,6 +32,10 @@ import {
   snapshotToWiring,
   type TimeWindow as BriefTimeWindow,
 } from "../_shared/load-brief-behaviour-snapshot.ts";
+import {
+  CHIEF_OF_STAFF_PERSONA,
+  FORBIDDEN_NOTIFICATION_WORDS,
+} from "../_shared/copy-vocabulary.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
