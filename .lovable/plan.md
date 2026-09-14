@@ -29,9 +29,6 @@ If both the AI text and the deterministic fallback are rejected, fall back to on
 ### 5. Keep the diagnosis visible
 Keep logging the rejection reason when a built-in text is waived or replaced by the floor text, so copy quality problems remain diagnosable rather than hidden.
 
-### 4. Keep the diagnosis visible
-Keep logging the rejection reason when a built-in text is waived or replaced by the floor text, so copy quality problems remain diagnosable rather than hidden.
-
 ## Verification
 
 - New contract test enumerating every `FB-*` built-in text: each must pass the quality gate with an empty context (no calendar events, no check-in on file) — the exact condition that broke the weekend path.
