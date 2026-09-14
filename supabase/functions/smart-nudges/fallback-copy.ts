@@ -22,12 +22,12 @@ import {
 } from "../_shared/nudges/event-phase.ts";
 import {
   buildV8CtxForCheck,
-  isNamedContextViolation,
   violatesCopyContractV8,
   violatesTruthContract,
   type CopyContractCheckCtx,
   type TruthContractCheckCtx,
 } from "./copy-contract.ts";
+export { isNamedContextViolation } from "./copy-contract.ts";
 
 export interface NudgeCopy {
   title: string;
