@@ -170,7 +170,7 @@ function deterministicCopies(): Array<
   out.push({
     nudgeType: "nudge_two_recalibrate",
     ctx: base,
-    copy: getFallbackNudgeTwoRecalibrateCopy(base),
+    copy: getFallbackNudgeTwoRecalibrateCopy("Board review"),
   });
   out.push({
     nudgeType: "nudge_two_reserves",
