@@ -2904,14 +2904,9 @@ function containsFabricatedWearableData(
 async function generateNudgeCopy(
   ctx: NudgeContext,
   nudgeType: string,
-  specificSignals: Record<string, unknown> = {}
+  specificSignals: Record<string, unknown> = {},
+  anchorPhase?: EventPhase | null,
 ): Promise<NudgeCopy | null> {
-  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!ANTHROPIC_API_KEY) {
-    console.warn('[smart-nudges] No ANTHROPIC_API_KEY – using static fallback');
-    return null;
-  }
-
   const systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
 
 You write push notifications for a MENTAL-PERFORMANCE app. The user's job, every habit-building nudge, is to check in and do mental prep - never strategic prep, never deck prep.
