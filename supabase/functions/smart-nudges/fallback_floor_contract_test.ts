@@ -142,24 +142,53 @@ function deterministicCopies(): Array<
   }
 
   const base = emptyCtx();
+  // Event-anchored variants: the named event is on the calendar, as it always
+  // is on the code paths that reach them.
+  const evt = {
+    id: "e1",
+    title: "Board review",
+    start_time: new Date().toISOString(),
+    end_time: new Date().toISOString(),
+    external_id: "x1",
+  };
+  const withEvent = emptyCtx({
+    todayEvents: [evt],
+    nonNoiseEvents: [evt],
+    firstNonNoiseEvent: evt,
+    eventCount: 1,
+    highStakesEvents: [evt],
+  });
+  // Reserves copy only fires with wearable data and a completed morning check-in.
+  const withWearable = emptyCtx({
+    todayEvents: [evt],
+    nonNoiseEvents: [evt],
+    firstNonNoiseEvent: evt,
+    eventCount: 1,
+    hasWearableData: true,
+    wearableFreshness: "fresh",
+    morningCheckinOutcome: "managing",
+    wearable: { ...base.wearable, hrv: 42, rhr: 61, rhrElevated: true },
+  });
+  const withTomorrow = emptyCtx({ tomorrowEvents: [evt] });
+
   out.push({
     nudgeType: "nudge_one_jit",
-    ctx: base,
+    ctx: withEvent,
     copy: getFallbackNudgeOneJitCopy("Board review", 45),
   });
   out.push({
     nudgeType: "nudge_one_jit",
-    ctx: base,
+    ctx: withEvent,
     copy: getFallbackNudgeOneJitPostTravelCopy("Board review", 45),
   });
   out.push({
     nudgeType: "nudge_two_jit",
-    ctx: base,
+    ctx: withEvent,
     copy: getFallbackNudgeTwoJitCopy("Board review", 20),
   });
   out.push({
     nudgeType: "nudge_two_jit",
-    ctx: base,
+    ctx: withEvent,
     copy: getFallbackNudgeTwoJitCopy("Board review", 120),
   });
   out.push({
@@ -169,17 +198,17 @@ function deterministicCopies(): Array<
   });
   out.push({
     nudgeType: "nudge_two_recalibrate",
-    ctx: base,
+    ctx: withWearable,
     copy: getFallbackNudgeTwoRecalibrateCopy("Board review"),
   });
   out.push({
     nudgeType: "nudge_two_reserves",
-    ctx: base,
+    ctx: withWearable,
     copy: getFallbackNudgeTwoReservesCopy("Board review", "rhr"),
   });
   out.push({
     nudgeType: "nudge_two_reserves",
-    ctx: base,
+    ctx: withWearable,
     copy: getFallbackNudgeTwoReservesCopy("Board review", "hrv"),
   });
   out.push({
@@ -189,7 +218,7 @@ function deterministicCopies(): Array<
   });
   out.push({
     nudgeType: "nudge_three",
-    ctx: base,
+    ctx: withTomorrow,
     copy: getFallbackNudgeThreeLookaheadCopy("Board review"),
   });
 
