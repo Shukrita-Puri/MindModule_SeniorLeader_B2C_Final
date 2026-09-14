@@ -146,19 +146,9 @@ export interface FallbackNudgeContext {
     confidenceBand: string;
   }>;
   hrvDeltaPctFromSnapshot: number | null;
-  pattern: {
-    observations: Array<{ description: string; observationCount: number }>;
-    correlations: Array<{
-      description: string;
-      evidence: string;
-      confidence: number;
-    }>;
-    recommendations: Array<{
-      description: string;
-      rationale: string;
-    }>;
-    topPatternArea: string | null;
-  } | null;
+  // Pattern summary shape is owned by the caller (index.ts PatternSummary).
+  // Fallback copy never reads it, so it stays opaque here to avoid drift.
+  pattern?: unknown;
   dayContext: {
     kind: "normal" | "travel-day" | "away-day";
     signalToken?: string;
