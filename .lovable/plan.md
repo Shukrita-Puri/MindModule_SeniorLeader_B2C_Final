@@ -14,16 +14,19 @@ So the deterministic copy is not "not utilised" — it is built and then discard
 
 ## Fix
 
-### 1. Make the low-context waiver explicit
+### 1. Establish the fallback hierarchy explicitly
+The intended chain is: **AI copy → deterministic fallback → guaranteed floor**. When the AI path fails (provider error, timeout, or quality rejection), the deterministic fallback is what should be used. Only if the deterministic fallback itself is rejected by the quality gate do we drop to the guaranteed floor. The current code already tries this order, but it has no floor and the deterministic texts are being rejected, so the chain collapses to `null`.
+
+### 2. Make the low-context waiver explicit
 Replace the `-light` name-suffix guess with an explicit list of built-in texts that are legitimately low-context (quiet day, day off, weekend, travel, post-travel). Those keep being waived on the named-context rule only — every other quality rule (forbidden words, CTA ending, length, truth/polarity checks) still applies unchanged.
 
-### 2. Rewrite the low-context bodies so they stand on their own
+### 3. Rewrite the low-context bodies so they stand on their own
 Give each of them a real, factual anchor instead of relying on the waiver — e.g. naming the actual meeting count for the day, or the day-off framing with a concrete count. The waiver then becomes a safety net rather than the normal path. Tone, length and the closing check-in phrasing stay within the existing contract.
 
-### 3. Guarantee a floor for all three reminders
-If both the AI text and the built-in text are rejected, fall back to one guaranteed-valid text per reminder type (morning / midday / evening) instead of returning `null`. These floor texts are asserted valid by tests, so a reminder can never again be silently cancelled by the quality gate. The existing suppression reasons (quiet hours, daily cap, do-not-disturb, dry-run) are untouched — this only removes the "no copy" dead end.
+### 4. Guarantee a floor for all three reminders
+If both the AI text and the deterministic fallback are rejected, fall back to one guaranteed-valid text per reminder type (morning / midday / evening) instead of returning `null`. These floor texts are asserted valid by tests, so a reminder can never again be silently cancelled by the quality gate. The existing suppression reasons (quiet hours, daily cap, do-not-disturb, dry-run) are untouched — this only removes the "no copy" dead end.
 
-### 4. Keep the diagnosis visible
+### 5. Keep the diagnosis visible
 Keep logging the rejection reason when a built-in text is waived or replaced by the floor text, so copy quality problems remain diagnosable rather than hidden.
 
 ## Verification
