@@ -108,11 +108,13 @@ import {
   isLowContextStaticFallbackVariant,
   isNamedContextViolation,
   isNoiseEvent,
+  isWeekendDayForHomeCountry,
   lastWeekendDayForHomeCountry,
   normalizeNotificationCopy,
   travelPhaseFraming,
   truncateEventTitle,
   validateStaticFallbackCopy,
+  weekendDaysForHomeCountry,
 } from "./fallback-copy.ts";
 
 type SupabaseLoose = ReturnType<typeof createClient<any, "public", any>>;
