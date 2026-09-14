@@ -3234,7 +3234,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
         | { state?: string | null; distanceFromHomeKm?: number | null }
         | null = null;
       try {
-        const { data: tsRow } = await supabase
+        const { data: tsRow } = await supabase!
           .from('travel_state')
           .select('state, distance_from_home_km')
           .eq('user_id', ctx.userId)
