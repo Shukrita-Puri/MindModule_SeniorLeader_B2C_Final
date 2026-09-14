@@ -33,10 +33,6 @@ import {
   type TimeWindow as BriefTimeWindow,
 } from "../_shared/load-brief-behaviour-snapshot.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
-import {
-  CHIEF_OF_STAFF_PERSONA,
-  FORBIDDEN_NOTIFICATION_WORDS,
-} from "../_shared/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 // v2026-09-07 (R5): reuse the Plan's priority-memory loader — no duplicate.
@@ -79,6 +75,41 @@ import { recordDeliveryAttempt } from "../_shared/delivery-attempts.ts";
 // Direct import from calendar-merge.ts (not the calendarEvents.ts re-export)
 // to harden against re-export regressions that previously caused BootFailure.
 import { mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
+// Extracted copy contract + fallback bank so tests can import them without
+// pulling in the edge-function entrypoint.
+import {
+  buildV8CtxForCheck,
+  violatesCopyContractV8,
+  violatesTruthContract,
+} from "./copy-contract.ts";
+import {
+  firstWeekendDayForHomeCountry,
+  getFallbackNudgeOneJitCopy,
+  getFallbackNudgeOneJitPostTravelCopy,
+  getFallbackNudgeOneMorningCopy,
+  getFallbackNudgeOnePostArrivalCopy,
+  getFallbackNudgeOnePreFlightCopy,
+  getFallbackNudgeThreeCopy,
+  getFallbackNudgeThreeLookaheadCopy,
+  getFallbackNudgeTwoConsecutiveLowCopy,
+  getFallbackNudgeTwoInFlightCopy,
+  getFallbackNudgeTwoJitCopy,
+  getFallbackNudgeTwoPrioritiesCopy,
+  getFallbackNudgeTwoRecalibrateCopy,
+  getFallbackNudgeTwoReservesCopy,
+  guaranteedFloorNudgeOneCopy,
+  guaranteedFloorNudgeTwoCopy,
+  guaranteedFloorNudgeThreeCopy,
+  isHighStakes,
+  isLowContextStaticFallbackVariant,
+  isNamedContextViolation,
+  isNoiseEvent,
+  lastWeekendDayForHomeCountry,
+  normalizeNotificationCopy,
+  travelPhaseFraming,
+  truncateEventTitle,
+  validateStaticFallbackCopy,
+} from "./fallback-copy.ts";
 
 type SupabaseLoose = ReturnType<typeof createClient<any, "public", any>>;
 
@@ -435,33 +466,6 @@ import {
   travelDayInputsSnapshot,
 } from "../_shared/travel/hydrate-travel-day.ts";
 
-// ── Canonical Travel-phase copy adapter ──
-// Mirrors the `copyForPhase` pattern used by `travel-notifications`. Smart-
-// nudges layers a CTA-ready body on top of the canonical §4 Travel (G) phase
-// contract so Brief / Plan / Notifications / Nudges all narrate Pre / During /
-// Post travel from one source of truth. Variant IDs and titles are kept
-// intact because they carry telemetry meaning; only the body framing is
-// derived from EVENT_PHASE_MAP.G + PROTOCOL_COMBOS.
-type TravelPhaseKey = "pre" | "during" | "post";
-function travelPhaseFraming(
-  phase: TravelPhaseKey,
-): { goal: string; outcome: string } {
-  const ph = EVENT_PHASE_MAP.G[phase];
-  const goal = ph?.goal ?? "";
-  const combo = ph ? PROTOCOL_COMBOS[ph.combo] : null;
-  return { goal, outcome: combo?.outcome ?? "" };
-}
-
-function isNoiseEvent(title: string): boolean {
-  return isNoiseTitle(title);
-}
-function scoreEvent(title: string | null): number {
-  return highStakesScore(title);
-}
-function isHighStakes(title: string | null): boolean {
-  return isHighStakesTitle(title);
-}
-
 // Travel-event detection for the v5.3 pre-flight / in-flight sub-arc is
 // sourced from the canonical ceo-behaviour module (`isTravelTitle`) so
 // Brief/Plan/Nudges stay in sync.
@@ -617,25 +621,6 @@ export function weekAheadCollapseId(localDate: string): string {
   return `smart-nudge-week-ahead-${localDate}`;
 }
 
-
-function weekendDaysForHomeCountry(homeCountry?: string | null): number[] {
-  return planningDayOfWeek(homeCountry) === 6 ? [5, 6] : [0, 6];
-}
-
-function isWeekendDayForHomeCountry(
-  dayOfWeek: number,
-  homeCountry?: string | null,
-): boolean {
-  return weekendDaysForHomeCountry(homeCountry).includes(dayOfWeek);
-}
-
-function firstWeekendDayForHomeCountry(homeCountry?: string | null): number {
-  return planningDayOfWeek(homeCountry) === 6 ? 5 : 6;
-}
-
-function lastWeekendDayForHomeCountry(homeCountry?: string | null): number {
-  return planningDayOfWeek(homeCountry) === 6 ? 6 : 0;
-}
 
 /**
  * LIGHT DAY SEND PLAN.
@@ -2912,188 +2897,18 @@ function containsFabricatedWearableData(
   return FABRICATION_PATTERNS.some((pattern) => pattern.test(body));
 }
 
-// v6 - title-case word truncation for long event titles to keep CTAs scannable
-function truncateEventTitle(title: string | null | undefined): string {
-  const t = (title || "").trim();
-  if (!t) return "your meeting";
-  if (t.length <= 20) return t;
-  return t.split(/\s+/).slice(0, 3).join(" ");
-}
-
-// v6 - copy-contract lint shared by AI output and any future fallback editor.
-// Returns null if body passes; returns a string reason if it must be rejected.
-const FORBIDDEN_WORDS_V6 = [...FORBIDDEN_NOTIFICATION_WORDS];
-const ALLOWED_CTA_VERBS_V6 = [
-  "open your brief",
-  "open your plan",
-  "open your prep plan",
-  "open your readiness",
-  "build your prep plan",
-  "build your plan",
-  "recalibrate now",
-  "close the day",
-  "close the week",
-  "close the loop",
-  "lock in your prep",
-  "tap to prep",
-  "see your prep",
-  "see your plan",
-  "see your readiness",
-  // v6.1 - short, human CTAs
-  "check in now",
-  "open the app",
-  "prep now",
-  "take 2 minutes",
-];
-function violatesCopyContractV6(body: string): string | null {
-  const lower = body.toLowerCase();
-  for (const w of FORBIDDEN_WORDS_V6) {
-    const rx = new RegExp(
-      `\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-      "i",
-    );
-    if (rx.test(lower)) return `forbidden word: "${w}"`;
-  }
-  if (!ALLOWED_CTA_VERBS_V6.some((v) => lower.includes(v))) {
-    return "no allowed CTA verb";
-  }
-  // No placeholder tokens
-  if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return "placeholder token detected";
-  // v6.1 - hard length ceiling (CEO feedback: notifications too long)
-  const wordCount = body.trim().split(/\s+/).length;
-  if (wordCount > 14) return `body too long (${wordCount} words, max 14)`;
-  if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
-  return null;
-}
-
-// ── v8 - Meaning-Forward + Mind-Prep CTA contract ──────────────────────
-// Three principles, enforced verbatim:
-//   1. Lead with meaning, not the data point.  (the metric, if used, sits
-//      INSIDE a meaning sentence - never as the whole first sentence).
-//   2. Title = state or moment.  Body = context + one clear action.
-//   3. CTA always ends at a specific app screen via a "log in / check in /
-//      open" verb that QUALIFIES the prep as mental (mind / state /
-//      recalibrate / close / set / land).  Unqualified "prep" is banned.
-const ALLOWED_CTA_VERBS_V8 = [
-  "log in to prep your mind tonight",
-  "log in to prep your mind",
-  "log in to prep your state",
-  "log in to recalibrate your mind",
-  "check in to recalibrate",
-  "check in to set your intention",
-  "check in to set tomorrow",
-  "check in to close the day",
-  "check in to close the week",
-  "check in to land the weekend",
-  "open your insights",
-  // v1.1 - Weekend / post-holiday CTA (routes to /plan).
-  // Only fires when Brief snapshot + Plan ledger BOTH exist for today.
-  "let's prioritise the week ahead",
-  // v1.1 - Reminder variant (no-app-open CTA, back-to-back gap downgrade,
-  // post-landing window). Body is self-sufficient; tap is optional.
-  "take 60 seconds",
-];
-
-// V8 - body must reference at least one real, named context token.
-// Sources: a calendar event title, a numeric physiological signal with
-// unit, a countable today-state, a check-in outcome word, or a
-// minutes-until / clock-time for a real event.
-const NAMED_CONTEXT_RX_DEFAULT = [
-  /\b(HRV|RHR|HR|sleep)\b\s*[-+]?\d/i, // HRV -22%, Sleep 62
-  /\b\d+\s*\/\s*100\b/, // 62/100
-  /\b\d+\s*(meeting|meetings|priority|priorities|min|minutes|day|days)\b/i,
-  /\b(in|at)\s+\d{1,2}(?::\d{2})?\s*(min|minutes|am|pm|h)?\b/i, // in 25 min, at 10am
-  /\b(started low|managing|depleted|heavy|low|peak|strong|focused|overloaded)\b/i,
-];
-function requiresNamedContextToken(
-  body: string,
-  ctx?: { eventTitles?: string[]; checkinWord?: string | null },
-): boolean {
-  if (NAMED_CONTEXT_RX_DEFAULT.some((rx) => rx.test(body))) return true;
-  const titles = ctx?.eventTitles ?? [];
-  for (const t of titles) {
-    if (!t || t.length < 3) continue;
-    if (body.toLowerCase().includes(t.toLowerCase())) return true;
-    // Title-cased words from a real event title (3+ chars) also count.
-    const head = t.split(/\s+/).slice(0, 3).join(" ");
-    if (head.length >= 3 && body.toLowerCase().includes(head.toLowerCase())) {
-      return true;
-    }
-  }
-  if (
-    ctx?.checkinWord &&
-    body.toLowerCase().includes(ctx.checkinWord.toLowerCase())
-  ) return true;
-  return false;
-}
-
-// V8 - first sentence must NOT be a bare metric statement. The metric, if
-// used, must be embedded INSIDE a meaning sentence (parenthetical or clause).
-function violatesMeaningSentence(body: string): string | null {
-  const first = body.split(/(?<=[.!?])\s+/)[0]?.trim() ?? body.trim();
-  // Bare metric leads (HRV -22% today, RHR +9 bpm, Sleep 62/100, etc.)
-  if (/^(HRV|RHR|HR|Sleep|Sleep score)\s*[-+]?\d[^.]*$/i.test(first)) {
-    return `first sentence is a bare metric: "${first}"`;
-  }
-  // First sentence is purely a number+unit clause with no human meaning verb.
-  if (/^[-+]?\d+\s*(%|bpm|\/100)\b[^.]*$/i.test(first)) {
-    return `first sentence is a bare number+unit: "${first}"`;
-  }
-  return null;
-}
-
-function violatesCopyContractV8(
-  body: string,
-  ctx?: { eventTitles?: string[]; checkinWord?: string | null },
-): string | null {
-  const lower = body.toLowerCase().trim();
-  for (const w of FORBIDDEN_WORDS_V6) {
-    const rx = new RegExp(
-      `\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-      "i",
-    );
-    if (rx.test(lower)) return `forbidden word: "${w}"`;
-  }
-  // Must end with a V8 qualified mind-prep verb (allow trailing punctuation).
-  const trailing = lower.replace(/[.!?\s]+$/, "");
-  if (!ALLOWED_CTA_VERBS_V8.some((v) => trailing.endsWith(v))) {
-    return "must end with a V8 qualified mind-prep CTA verb";
-  }
-  if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return "placeholder token detected";
-  // Meaning-first lint
-  const meaningViolation = violatesMeaningSentence(body);
-  if (meaningViolation) return meaningViolation;
-  // Named-context lint
-  if (!requiresNamedContextToken(body, ctx)) {
-    return "body cites no named context token (event title, metric+unit, count, time, or check-in word)";
-  }
-  const wordCount = body.trim().split(/\s+/).length;
-  // v8 - meaning-forward bodies are longer than V7 metric-led bodies.
-  // Gold-standard examples run 18–22 words.
-  if (wordCount > 22) return `body too long (${wordCount} words, max 22)`;
-  if (body.length > 140) return `body too long (${body.length} chars, max 140)`;
-  return null;
-}
-
-// ══════════════════════════════════════════════════════════════
-// ── AI Copy Generation ──
-// ══════════════════════════════════════════════════════════════
-
 async function generateNudgeCopy(
   ctx: NudgeContext,
   nudgeType: string,
-  specificSignals: Record<string, unknown> = {},
-  supabase?: SupabaseLoose,
+  specificSignals: Record<string, unknown> = {}
 ): Promise<NudgeCopy | null> {
-  // Two-model consolidation: copy is generated on Gemini via the Lovable AI
-  // gateway. The legacy ANTHROPIC_API_KEY presence check used to short-circuit
-  // this function to the static bank even though the Claude leg is gone.
-  if (!Deno.env.get("LOVABLE_API_KEY")) {
-    console.warn("[smart-nudges] No LOVABLE_API_KEY – using static fallback");
+  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+  if (!ANTHROPIC_API_KEY) {
+    console.warn('[smart-nudges] No ANTHROPIC_API_KEY – using static fallback');
     return null;
   }
 
-  let systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
+  const systemPrompt = `${CHIEF_OF_STAFF_PERSONA}
 
 You write push notifications for a MENTAL-PERFORMANCE app. The user's job, every habit-building nudge, is to check in and do mental prep - never strategic prep, never deck prep.
 
@@ -3185,97 +3000,47 @@ Hard rules:
 - Truncate any event title longer than 20 characters to its first 3 words.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
-  // Phase 4 — append leader voice rules + reset-modality preference to
-  // the system prompt when the CoS Leader Profile is available. Both
-  // blocks are strictly additive; the LLM prompt is unchanged for users
-  // without a synthesised profile.
-  if (ctx.leaderVoiceRules && ctx.leaderVoiceRules.trim().length > 0) {
-    systemPrompt += `\n\n=== LEADER VOICE ===\n${ctx.leaderVoiceRules.trim()}`;
-  }
-  if (ctx.leaderResetModality) {
-    systemPrompt +=
-      `\n\nThe leader prefers ${ctx.leaderResetModality}-based reset protocols. When the CTA references a reset, prefer language consistent with that modality (but never invent a new CTA verb — stay within the allowed list above).`;
-  }
-
-  let userPrompt = "";
+  let userPrompt = '';
   const wearableLines = buildWearableLines(ctx);
   const wearablePriorityLines = buildWearablePriorityLines(ctx);
 
   switch (nudgeType) {
-    case "nudge_one_morning": {
-      const firstEventRaw =
-        (specificSignals.firstEventTitle as string | undefined) ||
-        ctx.firstNonNoiseEvent?.title;
-      const firstEvent = firstEventRaw
-        ? truncateEventTitle(firstEventRaw)
-        : null;
-      const firstEventTime = specificSignals.firstEventTime ||
-        (ctx.firstNonNoiseEvent
-          ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString(
-            "en-US",
-            { hour: "numeric", minute: "2-digit" },
-          )
-          : null);
-      const stakes = ctx.highStakesEvents.map((e) =>
-        truncateEventTitle(e.title)
-      ).filter(Boolean);
+    case 'nudge_one_morning': {
+      const firstEventRaw = (specificSignals.firstEventTitle as string | undefined) || ctx.firstNonNoiseEvent?.title;
+      const firstEvent = firstEventRaw ? truncateEventTitle(firstEventRaw) : null;
+      const firstEventTime = specificSignals.firstEventTime || (ctx.firstNonNoiseEvent ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null);
+      const stakes = ctx.highStakesEvents.map(e => truncateEventTitle(e.title)).filter(Boolean);
       const dayShapeLine = buildDayShapeLine(ctx);
-      const sharedEventFrameLine = buildSharedEventFrameLine(
-        firstEventRaw || null,
-      );
-      userPrompt =
-        `Morning nudge (06:30–09:00 local). Prepare the leader for today.
+      const sharedEventFrameLine = buildSharedEventFrameLine(firstEventRaw || null);
+      userPrompt = `Morning nudge (06:30–09:00 local). Prepare the leader for today.
 
 Available signals (use ONLY these):
-${
-          firstEvent
-            ? `- First event: ${firstEvent}${
-              firstEventTime ? ` at ${firstEventTime}` : ""
-            }`
-            : "- First event: none scheduled"
-        }
+${firstEvent ? `- First event: ${firstEvent}${firstEventTime ? ` at ${firstEventTime}` : ''}` : '- First event: none scheduled'}
 - Meetings today: ${ctx.eventCount}
-${
-          stakes.length > 0
-            ? `- High-stakes today: ${stakes.join(", ")}`
-            : "- High-stakes today: none"
-        }
-${
-          wearableLines
-            ? wearableLines
-            : "- Wearable: not available, DO NOT mention HRV, RHR, sleep, baselines"
-        }
+${stakes.length > 0 ? `- High-stakes today: ${stakes.join(', ')}` : '- High-stakes today: none'}
+${wearableLines ? wearableLines : '- Wearable: not available, DO NOT mention HRV, RHR, sleep, baselines'}
 - Day: ${ctx.dayName}
 ${dayShapeLine}
 ${sharedEventFrameLine}
-${wearablePriorityLines ? wearablePriorityLines : ""}
+${wearablePriorityLines ? wearablePriorityLines : ''}
 
 Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence - never a bare metric.`;
       break;
     }
 
-    case "nudge_one_jit": {
-      const evt = specificSignals as {
-        eventTitle: string;
-        minutesUntil: number;
-      };
+    case 'nudge_one_jit': {
+      const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
-        ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline`
-        : "";
+        ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
       const dayShapeLine = buildDayShapeLine(ctx);
       const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
-      userPrompt =
-        `JIT first-touch. This event is from the user's MORNING PLAN - the prep plan is already queued.
+      userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN - the prep plan is already queued.
 The proactive job is to pull them back into the app to use that prep before the event starts.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes${hrvLine}
-${
-          ctx.morningCheckinOutcome
-            ? `- Morning state: ${ctx.morningCheckinOutcome}`
-            : ""
-        }
+${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 ${dayShapeLine}
 ${sharedEventFrameLine}
@@ -3285,24 +3050,16 @@ Required CTA verb at end of body: "log in to prep your mind" (default) or "log i
       break;
     }
 
-    case "nudge_two_jit": {
-      const evt = specificSignals as {
-        eventTitle: string;
-        minutesUntil: number;
-      };
+    case 'nudge_two_jit': {
+      const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
-      userPrompt =
-        `Mid-day JIT. This event is from the user's MORNING PLAN - the prep plan is already queued.
+      userPrompt = `Mid-day JIT. This event is from the user's MORNING PLAN - the prep plan is already queued.
 Pull them back into the app. Their context may have shifted since morning, but the event hasn't.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes
-${
-          ctx.morningCheckinOutcome
-            ? `- Morning state: ${ctx.morningCheckinOutcome}`
-            : ""
-        }
+${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 ${sharedEventFrameLine}
 
@@ -3311,7 +3068,7 @@ Required CTA verb at end of body: "log in to prep your mind" (default) or "log i
       break;
     }
 
-    case "nudge_two_priorities": {
+    case 'nudge_two_priorities': {
       const remaining = specificSignals.remainingCount as number;
       userPrompt = `Mid-day. User has practices remaining on today's plan.
 
@@ -3319,75 +3076,43 @@ Available signals:
 - Practices remaining: ${remaining}
 - Meetings today: ${ctx.eventCount}
 
-Required: name the count "${remaining} practice${
-        remaining === 1 ? "" : "s"
-      } left".
+Required: name the count "${remaining} practice${remaining === 1 ? '' : 's'} left".
 The first sentence translates what that means for the day, not the raw count alone.
 Required CTA verb at end of body: "check in to recalibrate".
 Say "practices" not "priorities". Never reference "Priority 1".`;
       break;
     }
 
-    case "nudge_two_recalibrate": {
-      const eventTitle = truncateEventTitle(
-        specificSignals.eventTitle as string,
-      );
-      const sharedEventFrameLine = buildSharedEventFrameLine(
-        specificSignals.eventTitle as string,
-      );
-      // Truth rules: state may only be asserted from a real check-in, and the
-      // event must be referenced in its actual phase (a running block is
-      // never "next").
-      const recalPhase = resolveCtxEventPhase(ctx, eventTitle);
-      const recalProvenance = buildStateProvenanceLines(ctx);
-      const recalStateClaimAllowed = ctx.morningCheckinOutcome !== null;
-      userPrompt =
-        `Mid-day recalibration prompt.
+    case 'nudge_two_recalibrate': {
+      const eventTitle = truncateEventTitle(specificSignals.eventTitle as string);
+      const sharedEventFrameLine = buildSharedEventFrameLine(specificSignals.eventTitle as string);
+      userPrompt = `State-aware recalibration. User started low; heavy afternoon ahead.
 
 Available signals:
-${recalProvenance}
-- Anchor event: "${eventTitle}"
-- Event phase right now: ${recalPhase?.phase ?? "upcoming"}${
-          recalPhase?.fullDayArc ? " (a multi-hour arc, not a single meeting)" : ""
-        }
-- Phase-correct wording you MUST match: "${
-          recalPhase?.clause ?? `${eventTitle} is next`
-        }"
+- Morning check-in: ${ctx.morningCheckinOutcome}
+- Next event: "${eventTitle}"
 ${sharedEventFrameLine}
 
-Required: one meaning sentence tying ${
-          recalStateClaimAllowed ? "the check-in read" : "the day's shape"
-        } to the anchor event, using the phase-correct wording above.
-Forbidden: calling the event "next"/"coming up" when the phase is underway or completed. Forbidden: asserting a felt state when the signals above say no state claim is allowed.
+Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next - this is the recovery window").
 Required CTA verb at end of body: "check in to recalibrate".`;
       break;
     }
 
-    case "nudge_two_reserves": {
-      const evt = specificSignals as {
-        eventTitle: string;
-        signal: "rhr" | "hrv";
-      };
+    case 'nudge_two_reserves': {
+      const evt = specificSignals as { eventTitle: string; signal: 'rhr' | 'hrv' };
       const evtTitle = truncateEventTitle(evt.eventTitle);
-      const signalLine = evt.signal === "rhr"
+      const signalLine = evt.signal === 'rhr'
         ? `RHR elevated above baseline`
-        : (ctx.wearable.hrvDeltaPct !== null
-          ? `HRV ${ctx.wearable.hrvDeltaPct}% vs baseline`
-          : null);
+        : (ctx.wearable.hrvDeltaPct !== null ? `HRV ${ctx.wearable.hrvDeltaPct}% vs baseline` : null);
       // If we cannot cite a real number, hand off to fallback
       if (!signalLine) return null;
       const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
-      userPrompt =
-        `Reserves-down lure. Physiology is depleted with a high-stakes event ahead.
+      userPrompt = `Reserves-down lure. Physiology is depleted with a high-stakes event ahead.
 
 Available signals:
 - Wearable: ${signalLine}
 - Next high-stakes: "${evtTitle}"
-${
-          ctx.morningCheckinOutcome
-            ? `- Morning check-in: ${ctx.morningCheckinOutcome}`
-            : ""
-        }
+${ctx.morningCheckinOutcome ? `- Morning check-in: ${ctx.morningCheckinOutcome}` : ''}
 ${sharedEventFrameLine}
 
 Required: cite the wearable signal INSIDE a meaning sentence (e.g. "You're running low (${signalLine}) and ${evtTitle} is next") - never lead with the bare metric.
@@ -3395,101 +3120,50 @@ Required CTA verb at end of body: "log in to prep your state" or "check in to re
       break;
     }
 
-    case "nudge_three": {
+    case 'nudge_three': {
       const isWeekendEvening = ctx.isWeekend || ctx.dayOfWeek === 5;
-      const isLastWeekendEvening =
-        ctx.dayOfWeek === lastWeekendDayForHomeCountry(ctx.homeCountry);
-      const tomorrowHighStakes = ctx.tomorrowEvents.filter((e) =>
-        isHighStakes(e.title)
-      ).map((e) => ({ ...e, title: truncateEventTitle(e.title) }));
-      const tomorrowEventCount =
-        ctx.tomorrowEvents.filter((e) => !isNoiseEvent(e.title || "")).length;
-      const sharedTomorrowFrameLine = buildSharedEventFrameLine(
-        tomorrowHighStakes[0]?.title || null,
-      );
+      const isSundayEvening = ctx.dayOfWeek === 0;
+      const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title)).map(e => ({ ...e, title: truncateEventTitle(e.title) }));
+      const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
+      const sharedTomorrowFrameLine = buildSharedEventFrameLine(tomorrowHighStakes[0]?.title || null);
 
       const eveningWearableLines: string[] = [];
       if (ctx.hasWearableData) {
-        if (ctx.wearable.hrvDeltaPct !== null) {
-          eveningWearableLines.push(
-            `- HRV end of day vs baseline: ${ctx.wearable.hrvDeltaPct}%`,
-          );
-        }
-        if (ctx.wearable.rhrElevated) {
-          eveningWearableLines.push(`- RHR: elevated through the day`);
-        }
+        if (ctx.wearable.hrvDeltaPct !== null) eveningWearableLines.push(`- HRV end of day vs baseline: ${ctx.wearable.hrvDeltaPct}%`);
+        if (ctx.wearable.rhrElevated) eveningWearableLines.push(`- RHR: elevated through the day`);
       }
 
       const prioritiesCompleted = ctx.completedPracticeIds.length;
-      const prioritiesTotal = ctx.completedPracticeIds.length +
-        ctx.pendingPracticeIds.length;
+      const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
       const prioritiesRemaining = ctx.pendingPracticeIds.length;
-      const todayStakes = ctx.highStakesEvents.map((e) =>
-        truncateEventTitle(e.title)
-      );
+      const todayStakes = ctx.highStakesEvents.map(e => truncateEventTitle(e.title));
 
-      userPrompt =
-        `Evening nudge (18:00–21:00 local). Close today and set up tomorrow.
+      userPrompt = `Evening nudge (18:00–21:00 local). Close today and set up tomorrow.
 
 Available signals (use ONLY these):
 - Meetings today: ${ctx.eventCount}
-${
-          todayStakes.length > 0
-            ? `- High-stakes today: ${todayStakes.join(", ")}`
-            : ""
-        }
-- Practices: ${prioritiesCompleted}/${prioritiesTotal} done${
-          prioritiesRemaining > 0 ? `, ${prioritiesRemaining} still open` : ""
-        }
-${
-          eveningWearableLines.length > 0
-            ? eveningWearableLines.join("\n")
-            : "- Wearable: not available, DO NOT mention HRV, RHR, sleep"
-        }
-${
-          isLastWeekendEvening
-            ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${
-              tomorrowHighStakes.length > 0
-                ? `, incl. "${tomorrowHighStakes[0].title}"`
-                : ""
-            }`
-            : ""
-        }
+${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''}
+- Practices: ${prioritiesCompleted}/${prioritiesTotal} done${prioritiesRemaining > 0 ? `, ${prioritiesRemaining} still open` : ''}
+${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available, DO NOT mention HRV, RHR, sleep'}
+${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
 ${sharedTomorrowFrameLine}
 
-${
-          isLastWeekendEvening
-            ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).`
-            : ""
-        }
-${
-          ctx.dayOfWeek === 5
-            ? `FRIDAY framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".`
-            : ""
-        }
-${
-          !isLastWeekendEvening && ctx.dayOfWeek !== 5 &&
-            ctx.dayOfWeek !== firstWeekendDayForHomeCountry(ctx.homeCountry)
-            ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).`
-            : ""
-        }
-${
-          ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)
-            ? `SATURDAY framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".`
-            : ""
-        }`;
+${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).` : ''}
+${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
+${!isSundayEvening && ctx.dayOfWeek !== 5 && ctx.dayOfWeek !== 6 ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).` : ''}
+${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".` : ''}`;
       break;
     }
 
     // Legacy types for backward compat
-    case "morning_prep":
-    case "jit_pre_event":
-    case "calendar_gap":
-    case "coach_meeting_match":
-    case "performance_state":
-    case "evening_close":
-    case "pattern_alert":
-    case "daily_fallback":
+    case 'morning_prep':
+    case 'jit_pre_event':
+    case 'calendar_gap':
+    case 'coach_meeting_match':
+    case 'performance_state':
+    case 'evening_close':
+    case 'pattern_alert':
+    case 'daily_fallback':
       return null; // Post-MVP types should use fallback
 
     default:
@@ -3503,7 +3177,7 @@ ${
   // `evaluateForScope("nudge", …)` - only when no Brief row exists yet for
   // this window, AND we still need `notificationIsProduct` (the nudge-only
   // rule) which the Brief's snapshot does not carry.
-  let behaviourPromptBlock = "";
+  let behaviourPromptBlock = '';
   try {
     if (ctx.briefBehaviour?.taxonomyBlock) {
       behaviourPromptBlock += ctx.briefBehaviour.taxonomyBlock;
@@ -3526,41 +3200,51 @@ ${
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
-      // Travel state comes from the single hydration in buildNudgeContext —
-      // no second query, and the same verdict the day-context used.
-      const _nudgeTravelState = {
-        state: ctx.travelSignal.state,
-        distanceFromHomeKm: ctx.travelSignal.distanceKm,
-      };
+      // Part 1 - hydrate travel_state for the fallback path. Fail-open: any
+      // error leaves the field undefined and the rule defaults take over.
+      let _nudgeTravelState:
+        | { state?: string | null; distanceFromHomeKm?: number | null }
+        | null = null;
+      try {
+        const { data: tsRow } = await supabase
+          .from('travel_state')
+          .select('state, distance_from_home_km')
+          .eq('user_id', ctx.userId)
+          .maybeSingle();
+        if (tsRow) {
+          _nudgeTravelState = {
+            state: (tsRow as any).state ?? null,
+            distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
+          };
+        }
+      } catch (tsErr) {
+        console.warn('[smart-nudges] travel_state hydration skipped:',
+          tsErr instanceof Error ? tsErr.message : tsErr);
+      }
       const wiring = evaluateForScope(
         {
           wearable: ctx.hasWearableData
             ? {
-              hrvDeviationPct: ctx.wearable.hrvDeltaPct ?? null,
-              sleepHours: ctx.wearable.totalSleepMinutes != null
-                ? ctx.wearable.totalSleepMinutes / 60
-                : null,
-              sleepDeviationPct: null,
-              rhrDeviationPct: ctx.wearable.rhrElevated ? 10 : null,
-              hrElevatedProxy: ctx.wearable.rhrElevated,
-            }
+                hrvDeviationPct: ctx.wearable.hrvDeltaPct ?? null,
+                sleepHours:
+                  ctx.wearable.totalSleepMinutes != null
+                    ? ctx.wearable.totalSleepMinutes / 60
+                    : null,
+                sleepDeviationPct: null,
+                rhrDeviationPct: ctx.wearable.rhrElevated ? 10 : null,
+                hrElevatedProxy: ctx.wearable.rhrElevated,
+              }
             : null,
           checkIn: {
-            emotionalSelfDeclared: ctx.afternoonCheckinOutcome ??
-              ctx.morningCheckinOutcome ?? null,
+            emotionalSelfDeclared:
+              ctx.afternoonCheckinOutcome ?? ctx.morningCheckinOutcome ?? null,
             mentalSharpness: null,
             confidence: null,
             clarity: null,
           },
           scoreToday: null,
           scoreYesterday: null,
-          timezone: {
-            offsetMinutes: null,
-            shift48hHours: null,
-            // Travel SSOT verdict, not a stub: a domestic >50km trip with an
-            // unchanged timezone is a travel day for the CEO travel rules.
-            travelDay: ctx.travelSignal.travelDay,
-          },
+          timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
           travelState: _nudgeTravelState,
           events: eventsForCtx,
           now: new Date(),
@@ -3570,257 +3254,31 @@ ${
           dayOfWeek: ctx.dayOfWeek,
           backToBackHoursToday,
           historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
-          // Canonical Availability SSOT — feed the classifier result into
-          // the RuleContext so PTO/holiday and weekend rules read from the
-          // same authoritative decision the planner and Brief use.
-          availability: ctx.dayContext.availability,
         },
       );
       if (wiring?.promptBlock) {
         behaviourPromptBlock += wiring.promptBlock;
-        console.log(
-          "[smart-nudges] applied evaluateForScope fallback (no brief snapshot)",
-        );
+        console.log("[smart-nudges] applied evaluateForScope fallback (no brief snapshot)");
       }
     }
   } catch (e) {
     console.warn("[smart-nudges] behaviour wiring skipped:", e);
   }
 
-  // ── LOAD SHAPE (reader; gated by LOAD_SHAPE_RENDER_ENABLED) ──
-  // Read-only. `meetingPrepCliff` stacks on a mode-switching day: the copy
-  // contract gains the transition-residue beat, nothing else changes.
-  try {
-    if (supabase) {
-      const nudgeLocalDate = localParts(ctx.timeZone, new Date()).localDate;
-      const nudgeShape = getLoadShapeOrDefault(
-        await fetchRenderableLoadShape(
-          supabase,
-          ctx.userId,
-          nudgeLocalDate,
-        )
-      );
-      const cliffActive = behaviourPromptBlock.includes("meetingPrepCliff");
-      const shapeBlock = nudgeShapePromptBlock(nudgeShape, {
-        cliffActive: cliffActive &&
-          nudgeShapeStacksOnCliff(nudgeShape?.shapeId),
-      });
-      if (shapeBlock) {
-        behaviourPromptBlock += shapeBlock;
-        console.log(
-          `[smart-nudges] load-shape=${nudgeShape?.shapeId} cliffStack=${
-            cliffActive && nudgeShapeStacksOnCliff(nudgeShape?.shapeId)
-          }`,
-        );
-      }
-    }
-  } catch (shapeErr) {
-    console.warn(
-      "[smart-nudges] load-shape read skipped:",
-      shapeErr instanceof Error ? shapeErr.message : shapeErr,
-    );
-  }
-
   if (behaviourPromptBlock) {
     userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
   }
 
-  // 2026-08-31 — Two-model consolidation (C3, launch revision).
-  // Single attempt on Gemini 3.1 Flash Lite, then the static copy bank.
-  // The Claude leg is removed for launch (zero Anthropic credit balance makes
-  // it a guaranteed failed round-trip); Haiku 4.5 is re-evaluated post-launch.
-  // Output is validated through the identical V8 gate either way.
-  // Anchor-phase for the tense validator: whichever event this nudge names.
-  const anchorTitle = typeof (specificSignals as Record<string, unknown>)
-      ?.eventTitle === "string"
-    ? (specificSignals as Record<string, string>).eventTitle
-    : null;
-  const anchorPhase = resolveCtxEventPhase(ctx, anchorTitle)?.phase ?? null;
+  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
+  // Both providers are validated through the identical V8 gate.
 
-  const geminiCopy = await tryAIProvider(
-    "gemini",
-    ctx,
-    nudgeType,
-    systemPrompt,
-    userPrompt,
-    anchorPhase,
-  );
+  const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);
+  if (claudeCopy) return claudeCopy;
+  const geminiCopy = await tryAIProvider('gemini', ctx, nudgeType, systemPrompt, userPrompt);
   if (geminiCopy) return geminiCopy;
   return null;
 }
 
-// Estimate today's back-to-back meeting hours from ctx events (≤15 min gaps).
-function computeBackToBackHours(ctx: NudgeContext): number {
-  const events = [...ctx.todayEvents]
-    .filter((e) => e.start_time && (e as any).end_time)
-    .sort(
-      (a, b) =>
-        new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
-    );
-  if (events.length < 2) return 0;
-  let totalMs = 0;
-  let runStart = new Date(events[0].start_time).getTime();
-  let runEnd = new Date((events[0] as any).end_time).getTime();
-  for (let i = 1; i < events.length; i++) {
-    const s = new Date(events[i].start_time).getTime();
-    const e = new Date((events[i] as any).end_time).getTime();
-    if (s - runEnd <= 15 * 60_000) {
-      runEnd = Math.max(runEnd, e);
-    } else {
-      totalMs += runEnd - runStart;
-      runStart = s;
-      runEnd = e;
-    }
-  }
-  totalMs += runEnd - runStart;
-  return Math.round((totalMs / 3_600_000) * 10) / 10;
-}
-
-// Crude 7-day open-rate proxy: if last app open > 72h ago (or null), treat as low.
-function isAppOpenRateLow(lastAppOpen: Date | null): boolean {
-  if (!lastAppOpen) return true;
-  return Date.now() - lastAppOpen.getTime() > 72 * 3_600_000;
-}
-
-// V8 - shared real-context tokens for requiresNamedContextToken().
-function buildV8CtxForCheck(
-  ctx: NudgeContext,
-): { eventTitles: string[]; checkinWord: string | null } {
-  return {
-    eventTitles: [
-      ...ctx.todayEvents.map((e) => e.title || ""),
-      ...ctx.tomorrowEvents.map((e) => e.title || ""),
-      ...ctx.highStakesEvents.map((e) => e.title || ""),
-      ctx.firstNonNoiseEvent?.title || "",
-    ].filter(Boolean),
-    checkinWord: ctx.morningCheckinOutcome ?? null,
-  };
-}
-
-function isLowContextStaticFallbackVariant(variantId: string): boolean {
-  // Strip A/B CTA arm suffix (e.g. "FB-N3-light::D") before checking,
-  // because applyCtaVariant mutates variantId after the pre-AB validator runs.
-  return variantId.replace(/::[ABCD]$/, "").endsWith("-light");
-}
-
-function isNamedContextViolation(violation: string): boolean {
-  return violation.includes("no named context token");
-}
-
-/**
- * Launch truth gate — applied to BOTH AI output and static fallbacks.
- *
- * 1. The generic "see what it is costing you" suffix is retired outright.
- * 2. Cost / benefit framing must match the sign of the underlying metric
- *    (metric-polarity SSOT). "RHR down 23% ... costing you" is rejected.
- * 3. Felt-state claims ("started low") require a real morning check-in that
- *    actually reported a low tier.
- * 4. When an anchor event is supplied, future-tense wording is rejected for
- *    events that are already underway or finished.
- */
-function violatesTruthContract(
-  body: string,
-  ctx: NudgeContext,
-  anchorPhase?: EventPhase | null,
-): string | null {
-  if (containsGenericCostSuffix(body)) {
-    return "retired generic cost suffix";
-  }
-
-  const lower = body.toLowerCase();
-
-  // (3) State provenance.
-  const claimsLowStart =
-    /(started|began|woke up|morning (state|read)[^.]{0,20})\s*(was\s*)?low/
-      .test(lower) ||
-    lower.includes("started low") || lower.includes("you started the day low");
-  if (claimsLowStart) {
-    const outcome = ctx.morningCheckinOutcome;
-    if (!outcome) return "asserts a low morning state with no check-in on file";
-    if (!LOW_TIERS.includes(outcome)) {
-      return `asserts a low morning state but check-in was "${outcome}"`;
-    }
-  }
-
-  // (2) Metric polarity, checked against whichever metric the copy cites.
-  const w = ctx.wearable;
-  // RHR deviation vs the user's own 30-day baseline (signed, % of baseline).
-  const rhrDeltaPct = w.rhr !== null && w.rhrBaseline30d
-    ? ((w.rhr - w.rhrBaseline30d) / w.rhrBaseline30d) * 100
-    : (w.rhrElevated ? 5 : null);
-  // Sleep has no stored baseline here; use the score band as the signed proxy.
-  const sleepDeltaPct = w.sleepScore === null
-    ? null
-    : w.sleepScore >= 70
-    ? 5
-    : w.sleepScore < 60
-    ? -5
-    : 0;
-  const metricChecks: Array<[MetricKind, RegExp, number | null]> = [
-    ["hrv", /hrv|heart rate variability/, w.hrvDeltaPct],
-    ["rhr", /rhr|resting heart rate/, rhrDeltaPct],
-    ["sleep", /sleep score|slept|sleep/, sleepDeltaPct],
-  ];
-  for (const [metric, rx, delta] of metricChecks) {
-    if (!rx.test(lower)) continue;
-    const polarityViolation = validateMetricPolarityInCopy(body, metric, delta);
-    if (polarityViolation) return polarityViolation;
-  }
-
-  // (4) Event phase agreement.
-  if (anchorPhase) {
-    const phaseViolation = validateEventPhaseInCopy(body, anchorPhase);
-    if (phaseViolation) return phaseViolation;
-  }
-
-  return null;
-}
-
-// V8 - validate any static fallback copy through the same contract used for
-// AI output. If the fallback violates V8, we drop it so the cron tick simply
-// sends nothing rather than ship V7 phrasing.
-function validateStaticFallbackCopy(
-  copy: NudgeCopy | null,
-  ctx: NudgeContext,
-  nudgeType: string,
-  /** Phase of the anchor event this copy names, when it names one. Parity
-   *  with the LLM path: without it "…is next" survives on a finished event. */
-  anchorPhase?: EventPhase | null,
-): NudgeCopy | null {
-  if (!copy) return null;
-  copy = normalizeNotificationCopy(copy);
-  const v8Ctx = buildV8CtxForCheck(ctx);
-  const violation = violatesCopyContractV8(copy.body, v8Ctx);
-  if (
-    violation &&
-    !(isLowContextStaticFallbackVariant(copy.variantId) &&
-      isNamedContextViolation(violation))
-  ) {
-    console.warn(
-      `[smart-nudges v8] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${violation} | "${copy.body}"`,
-    );
-    return null;
-  }
-  if (violation) {
-    console.log(
-      `[smart-nudges v8] Allowed low-context static fallback ${copy.variantId} for ${nudgeType}: ${violation}`,
-    );
-  }
-  const truthViolation = violatesTruthContract(
-    copy.body,
-    ctx,
-    anchorPhase ?? null,
-  );
-  if (truthViolation) {
-    console.warn(
-      `[smart-nudges truth] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${truthViolation} | "${copy.body}"`,
-    );
-    return null;
-  }
-  // V8 telemetry - stamp the provider so the insert payload can record
-  // which path actually produced the shipped copy (claude / gemini / static).
-  return { ...copy, aiProvider: "static" };
-}
 
 async function tryAIProvider(
   provider: "gemini",
@@ -3953,432 +3411,6 @@ async function tryAIProvider(
 // ══════════════════════════════════════════════════════════════
 // ── Static Fallback Copy - MVP Nudge System ──
 // ══════════════════════════════════════════════════════════════
-
-function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // v8 - Meaning-first sentence + named context + qualified mind-prep CTA.
-  const dc = ctx.dayContext;
-
-  // V8 - Away-day morning (weekday or weekend, no meeting needed). C2 (Path B):
-  // legacy 'ooo' kind folded into 'away-day' — canonical PTO regex already
-  // matches OOO titles.
-  if (dc.kind === "away-day") {
-    return {
-      title: "Day away",
-      body:
-        `On your day away - a short reset before you switch off. Check in to set your intention.`,
-      variantId: "FB-N1-away",
-    };
-  }
-
-  // V8 - Travel today (state-anchored, no meeting required)
-  if (dc.kind === "travel-day") {
-    return {
-      title: "Travel today",
-      body:
-        `Travel on today's calendar. Ground yourself before the day moves - check in to set your intention.`,
-      variantId: "FB-N1-travel",
-    };
-  }
-
-  // V8 - Post-travel morning (yesterday included travel), STATE-only, no JIT
-  if (dc.postTravel) {
-    return {
-      title: "Recovery context",
-      body:
-        `Yesterday included travel - body may still be carrying load. Log in to prep your state.`,
-      variantId: "FB-N1-post-travel",
-    };
-  }
-
-  if (
-    ctx.hasWearableData && ctx.wearable.sleepScore !== null &&
-    ctx.wearable.sleepScore < 60
-  ) {
-    return {
-      title: "Short sleep last night",
-      body:
-        `Last night was light on recovery (Sleep ${ctx.wearable.sleepScore}/100). Today still needs you sharp - log in to prep your state.`,
-      variantId: "FB-N1-recovery",
-    };
-  }
-  if (
-    ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null &&
-    ctx.wearable.hrvDeltaPct < -15
-  ) {
-    return {
-      title: "Starting from where you are",
-      body:
-        `Your body is running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%) and ${ctx.eventCount} meeting${
-          ctx.eventCount === 1 ? "" : "s"
-        } sit ahead. Manage the day rather than react to it - check in to set your intention.`,
-      variantId: "FB-N1-hrv",
-    };
-  }
-  if (ctx.highStakesEvents.length > 0) {
-    const ev = truncateEventTitle(
-      ctx.highStakesEvents[0].title || "high-stakes meeting",
-    );
-    return {
-      title: "Preparing mental performance",
-      body:
-        `${ev} on the calendar today. Walk in with the edge, not the anxiety - log in to prep your mind.`,
-      variantId: "FB-N1-stakes",
-    };
-  }
-  if (ctx.dayType === "heavy" || ctx.dayType === "extreme") {
-    return {
-      title: "Starting from where you are",
-      body:
-        `${ctx.eventCount} meetings ahead today. Manage your energy instead of reacting to it - check in to set your intention.`,
-      variantId: "FB-N1-heavy",
-    };
-  }
-  if (ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)) {
-    // V8 - First weekend day AM with a meeting: anchored recovery tone.
-    if (ctx.firstNonNoiseEvent) {
-      const ev = truncateEventTitle(
-        ctx.firstNonNoiseEvent.title || "today's meeting",
-      );
-      return {
-        title: "Weekend with one to land",
-        body:
-          `${ev} on the calendar today. Land your mind before it arrives - check in to set your intention.`,
-        variantId: "FB-N1-sat-anchored",
-      };
-    }
-    // V8 - First weekend day AM no meeting: recovery/reset.
-    return {
-      title: "Weekend recovery",
-      body:
-        `No meetings today - a short reset shapes the kind of weekend you actually need. Check in to set your intention.`,
-      variantId: "FB-N1-sat-recovery",
-    };
-  }
-
-  // V8 - Last weekend day AM habit: recovery/reset before the week forms.
-  if (ctx.dayOfWeek === lastWeekendDayForHomeCountry(ctx.homeCountry)) {
-    if (ctx.firstNonNoiseEvent) {
-      const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title);
-      return {
-        title: "Weekend reset",
-        body:
-          `${ev} on the calendar today. A short reset before the day forms - check in to set your intention.`,
-        variantId: "FB-N1-sun-anchored",
-      };
-    }
-    return {
-      title: "Sunday reset",
-      body:
-        `Quiet Sunday on the calendar - a short reset lands you before the week forms. Check in to set your intention.`,
-      variantId: "FB-N1-sun-reset",
-    };
-  }
-  if (ctx.eventCount > 0) {
-    const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? "s" : ""}`;
-    return {
-      title: "Setting the day",
-      body:
-        `${m} ahead today. Three minutes of clarity now beats reacting to the calendar - check in to set your intention.`,
-      variantId: "FB-N1-calendar",
-    };
-  }
-  return {
-    title: "Room to breathe today",
-    body: `Only ${ctx.eventCount} meeting${
-      ctx.eventCount === 1 ? "" : "s"
-    } on the calendar today gives you the rare chance to choose what your mind owns. Use the space - check in to set your intention.`,
-    variantId: "FB-N1-light",
-  };
-}
-
-function getFallbackNudgeOneJitCopy(
-  eventTitle: string,
-  minutesUntil: number,
-): NudgeCopy {
-  const ev = truncateEventTitle(eventTitle);
-  return {
-    title: "Preparing mental performance",
-    body:
-      `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety - log in to prep your mind.`,
-    variantId: "FB-N1-JIT",
-  };
-}
-
-// V8 - Post-travel JIT variant: lead with travel-recovery awareness, then JIT, then CTA.
-function getFallbackNudgeOneJitPostTravelCopy(
-  eventTitle: string,
-  minutesUntil: number,
-): NudgeCopy {
-  const ev = truncateEventTitle(eventTitle);
-  return {
-    title: "Preparing mental performance",
-    body:
-      `From your morning Plan: ${ev} in ${minutesUntil} min. Yesterday included travel - log in to prep your mind.`,
-    variantId: "FB-N1-JIT-post-travel",
-  };
-}
-
-function getFallbackNudgeTwoJitCopy(
-  eventTitle: string,
-  minutesUntil: number,
-): NudgeCopy {
-  const ev = truncateEventTitle(eventTitle);
-  if (minutesUntil <= 120) {
-    return {
-      title: "Preparing mental performance",
-      body:
-        `From your plan: ${ev} in ${minutesUntil} min. Walk in sharp - log in to prep your mind.`,
-      variantId: "FB-N2-JIT-soon",
-    };
-  }
-  const eventTime = new Date(Date.now() + minutesUntil * 60000);
-  const timeStr = eventTime.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return {
-    title: "Preparing mental performance",
-    body:
-      `From your plan: ${ev} at ${timeStr}. Front-load the prep instead of scrambling later - log in to prep your mind.`,
-    variantId: "FB-N2-JIT-later",
-  };
-}
-
-function getFallbackNudgeTwoPrioritiesCopy(
-  remaining: number,
-  _priorityTitle: string,
-): NudgeCopy {
-  const p = `${remaining} practice${remaining > 1 ? "s" : ""}`;
-  return {
-    title: "Recalibrating mid-day",
-    body:
-      `${p} still open on today's plan. Stay sharp instead of running on fumes - check in to recalibrate.`,
-    variantId: "FB-N2-priorities",
-  };
-}
-
-function getFallbackNudgeTwoRecalibrateCopy(
-  eventTitle: string,
-  anchor?: { startMs: number; endMs: number; nowMs: number } | null,
-): NudgeCopy {
-  const ev = truncateEventTitle(eventTitle);
-  // Phase parity with the LLM path: "is next" is a lie once the block is
-  // underway or finished, so the clause is rendered from the event's phase.
-  if (anchor) {
-    const phase = resolveEventPhase(anchor);
-    const clause = phaseClause(ev, phase, anchor);
-    return {
-      title: "Mid-day reset window",
-      body:
-        `Your morning state was low and ${clause}. This is the recovery window - check in to recalibrate.`,
-      variantId: "FB-N2-recal",
-    };
-  }
-  return {
-    title: "Mid-day reset window",
-    body:
-      `Your morning state was low and ${ev} is next. This is the recovery window - check in to recalibrate.`,
-    variantId: "FB-N2-recal",
-  };
-}
-
-function getFallbackNudgeTwoReservesCopy(
-  nextEventTitle: string,
-  signal: "rhr" | "hrv",
-): NudgeCopy {
-  const ev = truncateEventTitle(nextEventTitle);
-  if (signal === "rhr") {
-    return {
-      title: "Managing the moment",
-      body:
-        `You're running warm (RHR elevated) and ${ev} is next. Short, sharp, built for right now - log in to prep your state.`,
-      variantId: "FB-N2-reserves-rhr",
-    };
-  }
-  return {
-    title: "Managing the moment",
-    body:
-      `You're running low (HRV below baseline) and ${ev} is next. Short, sharp, built for right now - log in to prep your state.`,
-    variantId: "FB-N2-reserves-hrv",
-  };
-}
-
-function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return {
-    title: "Recovery deficit detected",
-    body:
-      `Your body's been under-recovering for ${daysLow} days. That's a load signal, not a weakness - log in to recalibrate your mind.`,
-    variantId: "FB-N2-consec-low",
-  };
-}
-
-// ── v5.3 - Travel arc + look-ahead fallback copy ──
-// Self-sufficient bodies (the in-flight one names the protocol so the user
-// can still act if they have no Wi-Fi). All comply with the V8 qualified
-// mind-prep CTA contract.
-function getFallbackNudgeOnePreFlightCopy(
-  eventTitle: string,
-  minutesUntil: number,
-): NudgeCopy {
-  const ev = truncateEventTitle(eventTitle);
-  const { goal } = travelPhaseFraming("pre");
-  return {
-    title: "Travel ahead",
-    body: `${ev} in ~${minutesUntil} min. ${goal} - log in to prep your state.`,
-    variantId: "nudge_one_pre_flight",
-  };
-}
-
-function getFallbackNudgeTwoInFlightCopy(eventTitle: string): NudgeCopy {
-  const ev = truncateEventTitle(eventTitle);
-  const { goal, outcome } = travelPhaseFraming("during");
-  return {
-    title: "Mid-air reset",
-    body:
-      `You're in the air on ${ev}. ${goal}. ${outcome} - open in the app, or run it yourself: 4-in / 6-out for 2 minutes.`,
-    variantId: "nudge_two_in_flight",
-  };
-}
-
-function getFallbackNudgeOnePostArrivalCopy(): NudgeCopy {
-  const { goal } = travelPhaseFraming("post");
-  return {
-    title: "Recovery context",
-    body:
-      `Yesterday included travel - body may still be carrying load. ${goal} - check in to recalibrate.`,
-    variantId: "nudge_one_post_arrival",
-  };
-}
-
-function getFallbackNudgeThreeLookaheadCopy(
-  tomorrowEventTitle: string,
-): NudgeCopy {
-  const ev = truncateEventTitle(tomorrowEventTitle);
-  return {
-    title: "Tomorrow forms tonight",
-    body:
-      `${ev} on tomorrow's calendar. A clean close tonight is half the prep - log in to prep your mind tonight.`,
-    variantId: "nudge_three_lookahead",
-  };
-}
-
-function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
-  const prioritiesRemaining = ctx.pendingPracticeIds.length;
-  const prioritiesTotal = ctx.completedPracticeIds.length +
-    ctx.pendingPracticeIds.length;
-
-  if (ctx.dayOfWeek === lastWeekendDayForHomeCountry(ctx.homeCountry)) {
-    const tomorrowCount = ctx.tomorrowEvents.filter((e) =>
-      !isNoiseEvent(e.title || "")
-    ).length;
-    const tomorrowStakes = ctx.tomorrowEvents.filter((e) =>
-      isHighStakes(e.title)
-    );
-    if (tomorrowStakes.length > 0) {
-      const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return {
-        title: "Big Monday - pre-loading now",
-        body:
-          `Tomorrow opens with ${ev}. Wake up ahead instead of behind - log in to prep your mind tonight.`,
-        variantId: "FB-N3-sun-stakes",
-      };
-    }
-    if (tomorrowCount >= 4) {
-      return {
-        title: "Monday is already mapped",
-        body:
-          `Tomorrow opens with ${tomorrowCount} meetings. Three minutes of clarity tonight beats two hours of catch-up - check in to set tomorrow.`,
-        variantId: "FB-N3-sun-heavy",
-      };
-    }
-    return {
-      title: "Carrying the right things into Monday",
-      body: `Light Monday ahead - ${tomorrowCount} meeting${
-        tomorrowCount === 1 ? "" : "s"
-      } on the calendar. Decide what you're bringing in - check in to set tomorrow.`,
-      variantId: "FB-N3-sun-default",
-    };
-  }
-
-  if (ctx.dayOfWeek === 5) {
-    if (ctx.eventCount > 0) {
-      return {
-        title: "Week complete",
-        body:
-          `${ctx.eventCount} meetings behind you this week. Close the week before it bleeds into the weekend - check in to close the week.`,
-        variantId: "FB-N3-fri",
-      };
-    }
-    return {
-      title: "Week complete",
-      body:
-        `Five days of leadership behind you this week. Close the week cleanly so it doesn't bleed into the weekend - check in to close the week.`,
-      variantId: "FB-N3-fri-light",
-    };
-  }
-
-  if (ctx.dayOfWeek === firstWeekendDayForHomeCountry(ctx.homeCountry)) {
-    return {
-      title: "The body's still catching up",
-      body:
-        `Recovery from the week isn't instant - even on the first day off. A short check-in tells you what kind of weekend you actually need - check in to land the weekend.`,
-      variantId: "FB-N3-sat",
-    };
-  }
-
-  if (prioritiesRemaining > 0) {
-    const p = `${prioritiesRemaining} practice${
-      prioritiesRemaining > 1 ? "s" : ""
-    }`;
-    return {
-      title: "Closing strong",
-      body:
-        `${p} still open on today's plan and the day is winding down. Land the close before tomorrow loads up - check in to close the day.`,
-      variantId: "FB-N3-priorities",
-    };
-  }
-  if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return {
-      title: "Closing strong",
-      body: `${prioritiesTotal} practice${
-        prioritiesTotal === 1 ? "" : "s"
-      } done today. Land it cleanly so tomorrow opens fresh - check in to close the day.`,
-      variantId: "FB-N3-done",
-    };
-  }
-
-  if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return {
-      title: "Recovery in progress",
-      body:
-        `Your body ran warm today (RHR elevated). Close the day with a short reset before tomorrow loads up - log in to recalibrate your mind.`,
-      variantId: "FB-N3-rhr",
-    };
-  }
-  if (ctx.eventCount >= 6) {
-    return {
-      title: "Evening cool-down",
-      body:
-        `${ctx.eventCount} meetings, no real break for your mind today. Close the day before it carries into tomorrow - log in to recalibrate your mind.`,
-      variantId: "FB-N3-heavy",
-    };
-  }
-  if (ctx.eventCount > 0) {
-    const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? "s" : ""}`;
-    return {
-      title: "Closing the day",
-      body:
-        `${m} behind you today. Close cleanly so tomorrow opens fresh - check in to close the day.`,
-      variantId: "FB-N3-default",
-    };
-  }
-  return {
-    title: "Closing the day",
-    body:
-      `Quiet day on the calendar today, but tomorrow still benefits from a clean close tonight - check in to close the day.`,
-    variantId: "FB-N3-light",
-  };
-}
 
 // ══════════════════════════════════════════════════════════════
 // ── MVP Nudge Evaluators (Nudge 1, 2, 3) ──
@@ -4603,13 +3635,18 @@ async function evaluateNudgeOne(
     {},
     supabase,
   );
-  const copy = aiCopy ||
-    validateStaticFallbackCopy(
-      getFallbackNudgeOneMorningCopy(ctx),
-      ctx,
-      "nudge_one_morning",
+  const fallbackCopy = validateStaticFallbackCopy(
+    getFallbackNudgeOneMorningCopy(ctx),
+    ctx,
+    "nudge_one_morning",
+  );
+  const copy = aiCopy || fallbackCopy || guaranteedFloorNudgeOneCopy();
+  if (!copy) return null; // unreachable: floor always returns a copy
+  if (!aiCopy && !fallbackCopy) {
+    console.warn(
+      `[smart-nudges floor] nudge_one_morning using guaranteed floor for user=${ctx.userId}: AI and deterministic fallback both rejected`,
     );
-  if (!copy) return null;
+  }
 
   return {
     type: "nudge_one",
@@ -4800,12 +3837,18 @@ async function evaluateNudgeTwo(
       remainingCount: remaining,
       priorityTitle,
     }, supabase);
-    const copy = aiCopy || validateStaticFallbackCopy(
+    const fallbackCopy = validateStaticFallbackCopy(
       getFallbackNudgeTwoPrioritiesCopy(remaining, priorityTitle),
       ctx,
       "nudge_two_priorities",
     );
-    if (!copy) return null;
+    const copy = aiCopy || fallbackCopy || guaranteedFloorNudgeTwoCopy();
+    if (!copy) return null; // unreachable
+    if (!aiCopy && !fallbackCopy) {
+      console.warn(
+        `[smart-nudges floor] nudge_two_priorities using guaranteed floor for user=${ctx.userId}`,
+      );
+    }
 
     return {
       type: "nudge_two",
@@ -4842,13 +3885,19 @@ async function evaluateNudgeTwo(
           : new Date(anchorEvent.start_time).getTime() + 30 * 60_000,
         nowMs: Date.now(),
       };
-      const copy = aiCopy || validateStaticFallbackCopy(
+      const fallbackCopy = validateStaticFallbackCopy(
         getFallbackNudgeTwoRecalibrateCopy(eventTitle, anchorTimes),
         ctx,
         "nudge_two_recalibrate",
         resolveEventPhase(anchorTimes),
       );
-      if (!copy) return null;
+      const copy = aiCopy || fallbackCopy || guaranteedFloorNudgeTwoCopy();
+      if (!copy) return null; // unreachable
+      if (!aiCopy && !fallbackCopy) {
+        console.warn(
+          `[smart-nudges floor] nudge_two_recalibrate using guaranteed floor for user=${ctx.userId}`,
+        );
+      }
 
       return {
         type: "nudge_two",
@@ -5000,16 +4049,16 @@ async function evaluateNudgeThree(
     ctx,
     "nudge_three",
   );
-  const copy = aiCopy || validatedFallback;
-  if (!copy) {
-    log("all_copy_paths_failed", {
+  const copy = aiCopy || validatedFallback || guaranteedFloorNudgeThreeCopy();
+  if (!aiCopy && !validatedFallback) {
+    log("all_copy_paths_failed_used_floor", {
       aiCopyOk: !!aiCopy,
       fallbackOk: !!validatedFallback,
       rawFallback,
     });
-    return null;
+  } else {
+    log("emitted", { source: aiCopy ? "ai" : "fallback" });
   }
-  log("emitted", { source: aiCopy ? "ai" : "fallback" });
 
   // v7 - evening anchors to JIT when tomorrow has a non-noise first meeting,
   // otherwise to STATE (today's load / wearable / Sunday week prep).
