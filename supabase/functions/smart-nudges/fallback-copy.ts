@@ -343,7 +343,7 @@ export function getFallbackNudgeOneMorningCopy(
     return {
       title: "Day away",
       body:
-        `Day away today - ${m} on the calendar. Take 5 minutes before you switch off - check in to set your intention.`,
+        `Day away - ${m} on the calendar. Take 5 minutes before you switch off - check in to set your intention.`,
       variantId: "FB-N1-away",
     };
   }
@@ -354,7 +354,7 @@ export function getFallbackNudgeOneMorningCopy(
     return {
       title: "Travel today",
       body:
-        `Travel today - ${m} on the calendar. Ground yourself in 5 minutes before the day moves - check in to set your intention.`,
+        `Travel day - ${m} on the calendar. Ground yourself in 5 minutes - check in to set your intention.`,
       variantId: "FB-N1-travel",
     };
   }
@@ -365,7 +365,7 @@ export function getFallbackNudgeOneMorningCopy(
     return {
       title: "Recovery context",
       body:
-        `Yesterday included travel - ${m} today. Take 5 minutes to log in and prep your state.`,
+        `Yesterday included travel - ${m} today. Take 5 minutes - check in to set your intention.`,
       variantId: "FB-N1-post-travel",
     };
   }
@@ -463,9 +463,9 @@ export function getFallbackNudgeOneMorningCopy(
   }
   return {
     title: "Room to breathe today",
-    body: `Only ${ctx.eventCount} meeting${
+    body: `${ctx.eventCount} meeting${
       ctx.eventCount === 1 ? "" : "s"
-    } on the calendar today gives you the rare chance to choose what your mind owns. Use the space - check in to set your intention.`,
+    } on the calendar today. Choose what your mind owns - check in to set your intention.`,
     variantId: "FB-N1-light",
   };
 }
@@ -478,7 +478,7 @@ export function getFallbackNudgeOneJitCopy(
   return {
     title: "Preparing mental performance",
     body:
-      `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety - log in to prep your mind.`,
+      `From your plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety - log in to prep your mind.`,
     variantId: "FB-N1-JIT",
   };
 }
@@ -528,7 +528,7 @@ export function getFallbackNudgeTwoPrioritiesCopy(
   remaining: number,
   _priorityTitle: string,
 ): NudgeCopy {
-  const p = `${remaining} practice${remaining > 1 ? "s" : ""}`;
+  const p = `${remaining} priorit${remaining > 1 ? "ies" : "y"}`;
   return {
     title: "Recalibrating mid-day",
     body:
@@ -576,7 +576,7 @@ export function getFallbackNudgeTwoReservesCopy(
   return {
     title: "Managing the moment",
     body:
-      `You're running low (HRV below baseline) and ${ev} is next. Short, sharp, built for right now - log in to prep your state.`,
+      `You're running low (HRV under your normal range) and ${ev} is next. Short and sharp - log in to prep your state.`,
     variantId: "FB-N2-reserves-hrv",
   };
 }
@@ -702,7 +702,7 @@ export function getFallbackNudgeThreeCopy(
     return {
       title: "The body's still catching up",
       body:
-        `First day off - ${m} today. A 5-minute check-in tells you what kind of weekend you need - check in to land the weekend.`,
+        `First day off - ${m} today. 5 minutes shows what this weekend needs - check in to land the weekend.`,
       variantId: "FB-N3-sat",
     };
   }
