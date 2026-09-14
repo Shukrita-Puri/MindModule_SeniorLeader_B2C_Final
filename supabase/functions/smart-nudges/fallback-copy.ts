@@ -232,12 +232,18 @@ export function normalizeNotificationCopy(copy: NudgeCopy): NudgeCopy {
  * named-context rule ONLY; every other quality gate still applies.
  */
 export const LOW_CONTEXT_STATIC_VARIANTS = new Set([
-  "FB-N1-away",
-  "FB-N1-travel",
-  "FB-N1-post-travel",
+  // Day off / weekend
   "FB-N1-sat-recovery",
   "FB-N1-sun-reset",
   "FB-N3-sat",
+  // Travel
+  "FB-N1-away",
+  "FB-N1-travel",
+  "FB-N1-post-travel",
+  // Quiet day (previously waived via the "-light" suffix heuristic)
+  "FB-N1-light",
+  "FB-N3-light",
+  "FB-N3-fri-light",
 ]);
 
 export function isLowContextStaticFallbackVariant(variantId: string): boolean {
