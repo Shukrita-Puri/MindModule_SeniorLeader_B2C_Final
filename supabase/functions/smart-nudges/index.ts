@@ -134,6 +134,38 @@ import {
 
 // ── APNs Helper Functions ──
 
+function computeBackToBackHours(ctx: NudgeContext): number {
+  const events = [...ctx.todayEvents]
+    .filter((e) => e.start_time && (e as any).end_time)
+    .sort(
+      (a, b) =>
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+    );
+  if (events.length < 2) return 0;
+  let totalMs = 0;
+  let runStart = new Date(events[0].start_time).getTime();
+  let runEnd = new Date((events[0] as any).end_time).getTime();
+  for (let i = 1; i < events.length; i++) {
+    const s = new Date(events[i].start_time).getTime();
+    const e = new Date((events[i] as any).end_time).getTime();
+    if (s - runEnd <= 15 * 60_000) {
+      runEnd = Math.max(runEnd, e);
+    } else {
+      totalMs += runEnd - runStart;
+      runStart = s;
+      runEnd = e;
+    }
+  }
+  totalMs += runEnd - runStart;
+  return Math.round((totalMs / 3_600_000) * 10) / 10;
+}
+
+function isAppOpenRateLow(lastAppOpen: Date | null): boolean {
+  if (!lastAppOpen) return true;
+  return Date.now() - lastAppOpen.getTime() > 72 * 3_600_000;
+}
+
+
 /**
  * Normalize a .p8 private key from env storage into clean base64 DER.
  * Handles: raw PEM, literal \\n escapes, URL-safe base64, extra whitespace.
