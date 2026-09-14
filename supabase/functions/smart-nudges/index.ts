@@ -3234,7 +3234,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
         | { state?: string | null; distanceFromHomeKm?: number | null }
         | null = null;
       try {
-        const { data: tsRow } = await supabase
+        const { data: tsRow } = await supabase!
           .from('travel_state')
           .select('state, distance_from_home_km')
           .eq('user_id', ctx.userId)
@@ -4223,7 +4223,19 @@ async function projectPlanSlotToNudge(
     eventReference = undefined;
   }
 
-  if (!copy) return null;
+  if (!copy) {
+    // Guaranteed floor: a plan-slot reminder must never be cancelled purely
+    // because both the AI text and the deterministic fallback were rejected.
+    console.log(
+      "[smart-nudges] plan_slot_copy_paths_failed_used_floor",
+      JSON.stringify({ activeSlot, anchorKind }),
+    );
+    copy = activeSlot === "morning"
+      ? guaranteedFloorNudgeOneCopy()
+      : activeSlot === "afternoon"
+      ? guaranteedFloorNudgeTwoCopy()
+      : guaranteedFloorNudgeThreeCopy();
+  }
 
   return {
     type: nudgeType,

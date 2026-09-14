@@ -122,21 +122,12 @@ function bodyContainsForbidden(body: string): string | null {
 
 // ─── Test 1: Source-code static audit ────────────────────────────────────────
 Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async () => {
-  const src = await Deno.readTextFile(SOURCE_PATH);
-  // Scope the audit to the active MVP fallback region only. Post-MVP
-  // evaluators (calendar_gap, pattern_alert, …) are dormant under
-  // MVP_POST_LAUNCH=false and may carry legacy strings that the v5
-  // contract does not yet apply to.
-  // Batch B follow-up — anchor comment now uses an ASCII hyphen, not an
-  // em-dash. Current production contract (index.ts):
-  //   // ── Static Fallback Copy - MVP Nudge System ──
-  //   // ── MVP Nudge Evaluators (Nudge 1, 2, 3) ──
-  const startMarker = "// ── Static Fallback Copy - MVP Nudge System ──";
-  const endMarker   = "// ── MVP Nudge Evaluators";
-  const startIdx = src.indexOf(startMarker);
-  const endIdx   = src.indexOf(endMarker, startIdx);
-  assert(startIdx > 0 && endIdx > startIdx, "Could not locate MVP fallback region in source");
-  const region = src.slice(startIdx, endIdx);
+  // The deterministic (FB-*) fallback bank now lives in fallback-copy.ts.
+  // The whole module is the audit region — it contains nothing else.
+  const region = await Deno.readTextFile(
+    new URL("./fallback-copy.ts", import.meta.url),
+  );
+  assert(region.includes("FB-N3-sat"), "Could not locate the FB-* fallback bank");
 
   // Match multi-line fallback objects: capture body literal between `body:`
   // and the following `variantId: 'FB-...'`. Bodies may span multiple lines.
