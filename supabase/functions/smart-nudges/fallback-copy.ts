@@ -478,7 +478,7 @@ export function getFallbackNudgeOneJitCopy(
   return {
     title: "Preparing mental performance",
     body:
-      `From your plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety - log in to prep your mind.`,
+      `From your plan: ${ev} in ${minutesUntil} min. Walk in with edge, not anxiety - log in to prep your mind.`,
     variantId: "FB-N1-JIT",
   };
 }
@@ -569,14 +569,14 @@ export function getFallbackNudgeTwoReservesCopy(
     return {
       title: "Managing the moment",
       body:
-        `You're running warm (RHR elevated) and ${ev} is next. Short, sharp, built for right now - log in to prep your state.`,
+        `RHR running elevated and ${ev} is next. Short and sharp - log in to prep your state.`,
       variantId: "FB-N2-reserves-rhr",
     };
   }
   return {
     title: "Managing the moment",
     body:
-      `You're running low (HRV under your normal range) and ${ev} is next. Short and sharp - log in to prep your state.`,
+      `HRV under your normal range and ${ev} is next. Short and sharp - log in to prep your state.`,
     variantId: "FB-N2-reserves-hrv",
   };
 }
