@@ -3326,6 +3326,35 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
     userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
   }
 
+  // Optional "immediate context" block: wearable signals, readiness state and
+  // the strongest matching pattern fact. Purely additive — when nothing is
+  // known the block is empty and the prompt is unchanged.
+  try {
+    const immediate = buildImmediateContextBlock(
+      ctx,
+      typeof specificSignals.eventTitle === "string"
+        ? specificSignals.eventTitle
+        : null,
+    );
+    if (immediate) userPrompt = `${userPrompt}${immediate}`;
+  } catch (icErr) {
+    console.warn("[smart-nudges] immediate context block skipped:", icErr);
+  }
+
+  // Event phase for the truth contract: derived from the anchor event on the
+  // context. `anchorPhase` stays supported as an explicit override.
+  let resolvedPhase: EventPhase | null = anchorPhase ?? null;
+  if (!resolvedPhase) {
+    try {
+      const anchorTitle = typeof specificSignals.eventTitle === "string"
+        ? specificSignals.eventTitle
+        : null;
+      resolvedPhase = resolveCtxEventPhase(ctx, anchorTitle)?.phase ?? null;
+    } catch {
+      resolvedPhase = null;
+    }
+  }
+
   // Launch contract: exactly ONE Gemini attempt, then the deterministic
   // static copy bank. No retries, no second provider.
 
@@ -3335,7 +3364,7 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
     nudgeType,
     systemPrompt,
     userPrompt,
-    anchorPhase ?? null,
+    resolvedPhase,
   );
   if (geminiCopy) return geminiCopy;
   return null;
